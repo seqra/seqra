@@ -7,10 +7,8 @@ on:
     branches: [ "main" ]
 
 env:
-  AUTOBUILDER_VERSION: 2025.12.15.9b13bf4
   RULES_VERSION: v1.4.0
   EXPECTED_TRACES: 8783
-  ANALYZER_DEPENDENCIES_VERSION: 2025.12.09.ac4f86b
 
 jobs:
   ci-basic:
@@ -41,3 +39,91 @@ jobs:
           name: gradle-reports-ci-basic
           path: '**/build/reports/'
           retention-days: 1
+
+  ci-owasp:
+    runs-on: [ self-hosted, ex44 ]
+    container: cruizba/ubuntu-dind:focal-25.0.3
+    permissions:
+      contents: read
+      packages: read
+
+    steps:
+      - name: Setup Git
+        run: apt update && apt install -y git
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
+          settings-path: ${{ github.workspace }} # location for the settings.xml file
+
+      - name: Build analyzer jar
+        run: ./gradlew :projectAnalyzerJar
+
+      - name: Checkout owasp
+        uses: actions/checkout@v4
+        with:
+          repository: 'OWASP-Benchmark/BenchmarkJava'
+          path: ./test-dir/OWASP
+
+      - uses: robinraju/release-downloader@v1.12
+        with:
+          repository: seqra/seqra
+          latest: true
+          fileName: seqra_linux_amd64.tar.gz
+          out-file-path: seqra-cli
+
+      - run: |
+          cd seqra-cli
+          tar -xzf seqra_linux_amd64.tar.gz
+
+      - name: Set up Maven
+        uses: stCarolas/setup-maven@v5
+        with:
+          maven-version: '3.9.11'
+
+      - name: Build owasp
+        run: |
+          seqra-cli/seqra compile test-dir/OWASP --owner ${{ github.repository_owner }} --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output test-dir/opentaint-project --verbosity debug
+
+      - name: Checkout rules
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.SEQRA_GITHUB_TOKEN }}
+          repository: '${{ github.repository_owner }}/seqra-rules'
+          ref: ${{ env.RULES_VERSION }}
+          path: ./test-dir/seqra-rules
+
+      - name: Analyze owasp
+        run: |
+          java \
+            -Dorg.opentaint.ir.impl.storage.defaultBatchSize=2000 \
+            -Djdk.util.jar.enableMultiRelease=false \
+            -Xmx8g \
+            -jar build/libs/opentaint-project-analyzer.jar \
+            --project test-dir/opentaint-project/project.yaml \
+            --semgrep-rule-set test-dir/seqra-rules \
+            --output-dir test-dir/reports \
+            --ifds-analysis-timeout=1000 \
+            --logs-file test-dir/analyzer.log \
+            --verbosity debug
+
+      - name: Check report exists
+        run: |
+          if [ -e "test-dir/reports/report-ifds.sarif" ]; then
+            echo "Report exists"
+          else
+            echo "Report does not exist"
+            exit 1
+          fi
+
+      - name: Check stats
+        run: |
+          STATS="$(cat test-dir/analyzer.log | grep "TraceGenerationStats")"
+          echo $STATS
+          echo $STATS | grep -q "total=${{ env.EXPECTED_TRACES }}"

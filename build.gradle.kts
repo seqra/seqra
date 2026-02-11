@@ -78,47 +78,6 @@ fun JavaExec.configureAnalyzer(analyzerRunnerClassName: String) {
     jvmArgs = listOf("-Xmx8g")
 }
 
-tasks.register("buildProjectAnalyzerDocker") {
-    dependsOn(projectAnalyzerJar)
-    analyzerDockerImage(nameSuffix = "private") {
-        projectAnalyzerJar.get().outputs.files.singleFile
-    }
-}
-
-fun Task.analyzerDockerImage(
-    nameSuffix: String,
-    analyzerJarProvider: () -> File,
-) = this
-    .apply { ensureSeEnvInitialized() }
-    .doLast {
-        val analyzerJar = analyzerJarProvider()
-
-        val contentFiles = mutableListOf(analyzerJar)
-        val epVars = mapOf("ANALYZER_JAR_NAME" to analyzerJar.name)
-
-        val rawEnvVars = analyzerEnvironment()
-        val envVars = rawEnvVars.mapValues { (_, value) ->
-            when (value) {
-                is String -> value
-
-                is File -> {
-                    contentFiles.add(value)
-                    value.name
-                }
-
-                else -> error("Unexpected env value: $value")
-            }
-        }
-
-        buildDockerImage(
-            imageName = "analyzer",
-            nameSuffix = nameSuffix,
-            imageContentFiles = contentFiles,
-            entryPointVars = epVars,
-            entryPointEnv = envVars,
-        )
-    }
-
 fun JavaExec.addEnvIfExists(envName: String, path: String) {
     val file = File(path)
     if (!file.exists()) {

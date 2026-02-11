@@ -9,9 +9,6 @@ on:
     types:
       - completed
 
-env:
-  ANALYZER_DEPENDENCIES_VERSION: 2025.12.09.ac4f86b
-
 jobs:
   publish:
     runs-on: [ self-hosted, ex44 ]
@@ -46,34 +43,6 @@ jobs:
 
       - name: Build analyzer jar
         run: ./gradlew :projectAnalyzerJar -PanalyzerVersion=${{ steps.version.outputs.version }}
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Dependencies version
-        run: |
-          echo "DEPENDENCY_CONTEXT=sast-analyzer-dependencies:latest=docker-image://ghcr.io/${{ github.repository_owner }}/opentaint-infra-analyzer-dependencies/sast-analyzer-dependencies:${{ env.ANALYZER_DEPENDENCIES_VERSION }}" >> $GITHUB_ENV
-
-      - name: Build analyzer docker amd64 image
-        run: ./gradlew :buildProjectAnalyzerDocker -PanalyzerVersion=${{ steps.version.outputs.version }} -PdockerPlatform=linux/amd64 -PdockerBuildContext="${{ env.DEPENDENCY_CONTEXT }}"
-
-      - name: Build analyzer docker arm64 image
-        run: ./gradlew :buildProjectAnalyzerDocker -PanalyzerVersion=${{ steps.version.outputs.version }} -PdockerPlatform=linux/arm64 -PdockerBuildContext="${{ env.DEPENDENCY_CONTEXT }}"
-
-      - name: Create image names
-        run: |
-          echo "ANALYZER_IMAGE_AMD=ghcr.io/${{ github.repository_owner }}/opentaint-jvm-sast/sast-analyzer-amd64:${{ steps.version.outputs.version }}" >> $GITHUB_ENV
-          echo "ANALYZER_IMAGE_ARM=ghcr.io/${{ github.repository_owner }}/opentaint-jvm-sast/sast-analyzer-arm64:${{ steps.version.outputs.version }}" >> $GITHUB_ENV
-
-      - name: Tag images
-        run: |
-          docker tag analyzer-private-linux-amd64:${{ steps.version.outputs.version }} ${{ env.ANALYZER_IMAGE_AMD }}
-          docker tag analyzer-private-linux-arm64:${{ steps.version.outputs.version }} ${{ env.ANALYZER_IMAGE_ARM }}
-
-      - name: Push images
-        run: |
-          docker push ${{ env.ANALYZER_IMAGE_AMD }}
-          docker push ${{ env.ANALYZER_IMAGE_ARM }}
 
       - name: Upload analyzer jar
         uses: softprops/action-gh-release@v2
