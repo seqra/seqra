@@ -161,13 +161,46 @@ func BuildCompileCommandWithDocker(projectPath, outputPath string) string {
 
 // BuildScanCommandWithDocker builds a docker run command string for scanning a project
 // using the seqra Docker image.
-func BuildScanCommandWithDocker(projectPath, sarifReportPath string) string {
+func BuildScanCommandWithDocker(projectPath, sarifReportPath string, rulesetPaths []string,
+	timeout time.Duration, semgrepCompatibility bool) string {
 	absProjectPath, _ := filepath.Abs(projectPath)
 	absSarifReportPath, _ := filepath.Abs(sarifReportPath)
 	outputDir := filepath.Dir(absSarifReportPath)
 	sarifName := filepath.Base(absSarifReportPath)
-	return fmt.Sprintf("docker run --rm -v %s:/project -v %s:/output ghcr.io/seqra/seqra:latest seqra scan --output /output/%s /project",
-		absProjectPath, outputDir, sarifName)
+
+	volumes := fmt.Sprintf("-v %s:/project -v %s:/output", absProjectPath, outputDir)
+
+	// Map rulesets to container paths; "builtin" is kept as-is, custom paths get volume mounts.
+	// Skip rulesets entirely when only "builtin" is specified (it is the default).
+	var containerRulesets []string
+	hasCustomRuleset := false
+	for _, ruleset := range rulesetPaths {
+		if ruleset != "builtin" {
+			hasCustomRuleset = true
+			break
+		}
+	}
+	if hasCustomRuleset {
+		for i, ruleset := range rulesetPaths {
+			if ruleset == "builtin" {
+				containerRulesets = append(containerRulesets, "builtin")
+			} else {
+				absRuleset, _ := filepath.Abs(ruleset)
+				containerPath := fmt.Sprintf("/rules/ruleset%d", i)
+				volumes += fmt.Sprintf(" -v %s:%s", absRuleset, containerPath)
+				containerRulesets = append(containerRulesets, containerPath)
+			}
+		}
+	}
+
+	scanCmd := NewScanCommand("/project").
+		WithOutput("/output/" + sarifName).
+		WithTimeout(timeout).
+		WithRuleset(containerRulesets).
+		WithSemgrepCompatibility(semgrepCompatibility).
+		Build()
+
+	return fmt.Sprintf("docker run --rm %s ghcr.io/seqra/seqra:latest %s", volumes, scanCmd)
 }
 
 // BuildScanCommandFromCompile builds a scan command string for use after compile,

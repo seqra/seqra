@@ -145,10 +145,51 @@ func TestBuildCompileCommandWithDocker(t *testing.T) {
 }
 
 func TestBuildScanCommandWithDocker(t *testing.T) {
-	cmd := BuildScanCommandWithDocker("/path/to/project", "/path/to/output/results.sarif")
-	expected := "docker run --rm -v /path/to/project:/project -v /path/to/output:/output ghcr.io/seqra/seqra:latest seqra scan --output /output/results.sarif /project"
-	if cmd != expected {
-		t.Errorf("BuildScanCommandWithDocker() = %q, want %q", cmd, expected)
+	tests := []struct {
+		name                 string
+		projectPath          string
+		sarifReportPath      string
+		rulesetPaths         []string
+		timeout              time.Duration
+		semgrepCompatibility bool
+		expected             string
+	}{
+		{
+			name:                 "default options",
+			projectPath:          "/path/to/project",
+			sarifReportPath:      "/path/to/output/results.sarif",
+			rulesetPaths:         []string{"builtin"},
+			timeout:              defaultTimeout,
+			semgrepCompatibility: true,
+			expected:             "docker run --rm -v /path/to/project:/project -v /path/to/output:/output ghcr.io/seqra/seqra:latest seqra scan /project --output /output/results.sarif",
+		},
+		{
+			name:                 "custom timeout and semgrep compatibility disabled",
+			projectPath:          "/path/to/project",
+			sarifReportPath:      "/path/to/output/results.sarif",
+			rulesetPaths:         []string{"builtin"},
+			timeout:              1200 * time.Second,
+			semgrepCompatibility: false,
+			expected:             "docker run --rm -v /path/to/project:/project -v /path/to/output:/output ghcr.io/seqra/seqra:latest seqra scan /project --output /output/results.sarif --timeout 20m0s --semgrep-compatibility-sarif=false",
+		},
+		{
+			name:                 "custom ruleset with volume mount",
+			projectPath:          "/path/to/project",
+			sarifReportPath:      "/path/to/output/results.sarif",
+			rulesetPaths:         []string{"builtin", "/path/to/custom-rules.yaml"},
+			timeout:              defaultTimeout,
+			semgrepCompatibility: true,
+			expected:             "docker run --rm -v /path/to/project:/project -v /path/to/output:/output -v /path/to/custom-rules.yaml:/rules/ruleset1 ghcr.io/seqra/seqra:latest seqra scan /project --output /output/results.sarif --ruleset builtin --ruleset /rules/ruleset1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cmd := BuildScanCommandWithDocker(tt.projectPath, tt.sarifReportPath, tt.rulesetPaths, tt.timeout, tt.semgrepCompatibility)
+			if cmd != tt.expected {
+				t.Errorf("BuildScanCommandWithDocker() = %q, want %q", cmd, tt.expected)
+			}
+		})
 	}
 }
 
