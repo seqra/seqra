@@ -1,3 +1,20 @@
+## v2.4.0
+### feat: Add inter-procedural alias analysis
+- ci: Add Windows CI
+- feat: Bump versions, rename thread-flow option into code-flow, and set default to unlimited
+- fix: Update Docker suggestions to use docker run commands instead of removed --compile-type docker flag
+#### seqra-jvm-sast
+- Resolved an edge-case cause affecting the non-user cleaner
+- Corrected Spring component initialization order
+- Added a Spring test example
+- Renamed `thread-flow-limit` to `code-flow-limit`
+- Improved config rule matching for inner classes containing .
+- Fixed configuration loading on Windows
+- Disabled aliases for method summaries with no memory impact
+- Enabled inter-procedural AA
+#### seqra-rules
+- fix: Require insecure cookie to flow in response and add tests
+- fix: Add ProcessBuilder creation with tainted List sink
 ## v2.3.0
 ### feat: Support servlet controllers annotation (@WebServlet)
 #### seqra-jvm-sast
@@ -8,6 +25,8 @@
 - Fix tree summary storage with Any accessor
 #### seqra-rules
 - fix: Add a sanitizer for `unvalidated-redirect` and clean sources
+## v2.2.0
+### feat: Bump versions and refactor repo owner option
 ## v2.1.3
 ### fix: Set Java 21 as a default version for the analyzer
 ## v2.1.2
@@ -75,7 +94,7 @@
 - Dependencies image
 - Fix tree any accessor
 - Fix rule ids
-- More on annotations & is-null 
+- More on annotations & is-null
 - Spring annotation inheritance & minor fixes
 - Update core
 - Remove absolute paths from rule ids
