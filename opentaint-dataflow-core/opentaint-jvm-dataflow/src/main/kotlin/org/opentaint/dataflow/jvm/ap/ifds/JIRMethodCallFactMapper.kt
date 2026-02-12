@@ -143,6 +143,7 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
 
         val callExpr = callStatement.callExpr
             ?: error("Non call statement")
+
         val returnValue: JIRImmediate? = (callStatement as? JIRAssignInst)?.lhv?.let {
             it as? JIRImmediate ?: error("Non simple return value: $callStatement")
         }
@@ -154,7 +155,7 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
             }
 
             is AccessPathBase.Argument -> {
-                val argExpr = callExpr.args.getOrNull(base.idx) ?: error("Call $callExpr has no arg $factAp")
+                val argExpr = callExpr.args.getOrNull(base.idx) ?: return null
                 val newBase = MethodFlowFunctionUtils.accessPathBase(argExpr) ?: return null
                 if (newBase is AccessPathBase.Constant) return null
 
