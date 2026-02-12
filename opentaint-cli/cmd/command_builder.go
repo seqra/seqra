@@ -56,7 +56,7 @@ type AnalyzerBuilder struct {
 	outputDir                string
 	logsFile                 string
 	sarifFileName            string
-	sarifThreadFlowLimit     string
+	sarifCodeFlowLimit       int64
 	sarifToolVersion         string
 	sarifToolSemanticVersion string
 	sarifUriBase             string
@@ -90,8 +90,8 @@ func (a *AnalyzerBuilder) SetSarifFileName(fileName string) *AnalyzerBuilder {
 	return a
 }
 
-func (a *AnalyzerBuilder) SetSarifThreadFlowLimit(limit string) *AnalyzerBuilder {
-	a.sarifThreadFlowLimit = limit
+func (a *AnalyzerBuilder) SetSarifCodeFlowLimit(limit int64) *AnalyzerBuilder {
+	a.sarifCodeFlowLimit = limit
 	return a
 }
 
@@ -182,8 +182,8 @@ func (a *AnalyzerBuilder) BuildNativeCommand() []string {
 		"--sarif-file-name", a.sarifFileName,
 	}
 
-	if a.sarifThreadFlowLimit != "" {
-		flags = append(flags, "--sarif-thread-flow-limit="+a.sarifThreadFlowLimit)
+	if a.sarifCodeFlowLimit != 0 {
+		flags = append(flags, fmt.Sprintf("--sarif-code-flow-limit=%d", a.sarifCodeFlowLimit))
 	}
 
 	if a.sarifToolVersion != "" {

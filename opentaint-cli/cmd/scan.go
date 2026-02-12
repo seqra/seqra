@@ -91,6 +91,9 @@ func init() {
 	scanCmd.Flags().StringArrayVar(&Severity, "severity", []string{"warning", "error"}, "Report findings only from rules matching the supplied severity level. By default only warning and error rules are run (note, warning, error)")
 	scanCmd.Flags().StringVar(&globals.Config.Scan.MaxMemory, "max-memory", "8G", "Maximum memory for the analyzer (e.g., 1024m, 8G, 81920k, 83886080)")
 	_ = viper.BindPFlag("scan.max_memory", scanCmd.Flags().Lookup("max-memory"))
+	scanCmd.Flags().Int64Var(&globals.Config.Scan.CodeFlowLimit, "code-flow-limit", 0, "Maximum number of code flows to include in the report (0 = unlimited)")
+	_ = scanCmd.PersistentFlags().MarkHidden("code-flow-limit")
+	_ = viper.BindPFlag("scan.code_flow_limit", scanCmd.Flags().Lookup("code-flow-limit"))
 }
 
 func scan(cmd *cobra.Command) {
@@ -210,7 +213,7 @@ func scan(cmd *cobra.Command) {
 		SetProject(nativeProjectPath).
 		SetOutputDir(nativeOutputDir).
 		SetSarifFileName(sarifReportName).
-		SetSarifThreadFlowLimit("1").
+		SetSarifCodeFlowLimit(globals.Config.Scan.CodeFlowLimit).
 		SetSarifToolVersion(localVersion).
 		SetSarifToolSemanticVersion(localSemanticVersion).
 		SetSarifUriBase(uriBase).
