@@ -6,9 +6,10 @@ import io.github.detekt.sarif4k.Message
 import io.github.detekt.sarif4k.PropertyBag
 import io.github.detekt.sarif4k.Result
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.FieldAccessor
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
-import org.opentaint.dataflow.util.forEach
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRField
@@ -21,7 +22,6 @@ import org.opentaint.jvm.sast.dataflow.matchedAnnotations
 import org.opentaint.jvm.sast.sarif.TracePathNode
 import org.opentaint.jvm.sast.sarif.getMethod
 import org.opentaint.jvm.sast.sarif.isPureEntryPoint
-import java.util.BitSet
 import kotlin.io.path.Path
 import kotlin.io.path.absolutePathString
 
@@ -33,13 +33,13 @@ private data class SpringControllerPath(
 private sealed interface SpringParamType {
     data object Other : SpringParamType
 
-    data object ModelAttribute : SpringParamType
-
     data object RequestBody : SpringParamType
 
     data class RequestParam(val name : String) : SpringParamType
 
     data class PathVariable(val name : String) : SpringParamType
+
+    data class ModelAttribute(val name: String) : SpringParamType
 }
 
 class SpringAnnotator(
@@ -67,8 +67,8 @@ class SpringAnnotator(
             val firstInst = controller.instList.firstOrNull() ?: continue
             val paths = controller.extractSpringPath()
 
-            val taints = tainted.getOrDefault(controller, BitSet())
-            val propertyBag = createProperties(controller, taints)
+            val taints = tainted[controller]
+            val propertyBag = taints?.let { createProperties(controller, it) }
 
             val logicalLoc = paths.mapIndexed { i, path ->
                 LogicalLocation(
@@ -90,33 +90,34 @@ class SpringAnnotator(
         return result.copy(relatedLocations = relatedLocations)
     }
 
-    private fun SpringParamType.makeProperty(): String =
+    private fun SpringParamType.makeProperty(): String? =
         when (this) {
             is SpringParamType.RequestParam -> "query: $name"
             is SpringParamType.PathVariable -> "path: $name"
+            is SpringParamType.ModelAttribute -> "query: $name"
             is SpringParamType.RequestBody -> "body"
-            else -> error("can't make property string from $this")
+            else -> null
         }
 
-    private fun createProperties(method: JIRMethod, params: BitSet): PropertyBag? {
-        val springParams = mutableListOf<SpringParamType>()
-        params.forEach { springParams.add(getSpringParamType(method, it)) }
-        if (springParams.isEmpty() || springParams.any { it is SpringParamType.Other || it is SpringParamType.ModelAttribute })
-            return null
-        val properties = springParams.map { it.makeProperty() }
+    private fun createProperties(method: JIRMethod, params: Map<Int, InitialFactAp>): PropertyBag? {
+        val springParams = params.map { (idx, fact) -> getSpringParamType(method, idx, fact) }
+        val properties = springParams.mapNotNull { it.makeProperty() }
+            .takeIf { it.isNotEmpty() }
+            ?: return null
         return PropertyBag(tags = properties)
     }
 
-    private fun collectTaintedArguments(nodes: List<TracePathNode>): Map<JIRMethod, BitSet> {
-        val result = hashMapOf<JIRMethod, BitSet>()
+    private fun collectTaintedArguments(nodes: List<TracePathNode>): Map<JIRMethod, Map<Int, InitialFactAp>> {
+        val result = hashMapOf<JIRMethod, MutableMap<Int, InitialFactAp>>()
 
         for (node in nodes) {
             if (node.entry.isPureEntryPoint() && node.entry != null) {
                 node.entry.edges.forEach {
                     val method = node.getMethod()
                     val base = it.fact.base
-                    if (base is AccessPathBase.Argument)
-                        result.getOrPut(method as JIRMethod, ::BitSet).set(base.idx)
+                    if (base is AccessPathBase.Argument) {
+                        result.getOrPut(method as JIRMethod, ::hashMapOf)[base.idx] = it.fact
+                    }
                 }
             }
         }
@@ -154,30 +155,38 @@ class SpringAnnotator(
             SpringParamType.RequestParam(it)
         }
 
-    private fun getModelAttribute(param: JIRParameter): SpringParamType? =
-        param.matchedAnnotations(String::isSpringModelAttribute)
-            .singleOrNull()?.let { SpringParamType.ModelAttribute }
+    private fun getModelAttribute(param: JIRParameter, fact: InitialFactAp): SpringParamType? {
+        // todo: handle non-primitive params without annotation
+        val modelAttribute = param.matchedAnnotations(String::isSpringModelAttribute)
+            .singleOrNull()
+            ?: return null
+
+        // todo: check if model is provided by another controller method
+        val fields = extractFieldNames(fact)
+            .takeIf { it.isNotEmpty() }
+            ?: return null
+
+        val paramName = fields.joinToString(".")
+        return SpringParamType.ModelAttribute(paramName)
+    }
 
     private fun getRequestBody(param: JIRParameter): SpringParamType? =
         param.matchedAnnotations(String::isSpringRequestBody)
             .singleOrNull()?.let { SpringParamType.RequestBody }
 
     private val paramGetters: List<(JIRParameter) -> SpringParamType?> = listOf(
-        ::getModelAttribute,
         ::getRequestParam,
         ::getPathVariable,
         ::getRequestBody,
     )
 
-    private fun getSpringParamType(method: JIRMethod, paramIdx: Int): SpringParamType {
-        val params = method.parameters
-        if (params.size <= paramIdx) return SpringParamType.Other
-        val param = params[paramIdx]
-        var springParam: SpringParamType?
-        for (getter in paramGetters) {
-            springParam = getter(param)
-            if (springParam != null) return springParam
-        }
+    private fun getSpringParamType(method: JIRMethod, paramIdx: Int, fact: InitialFactAp): SpringParamType {
+        val param = method.parameters.getOrNull(paramIdx)
+            ?: return SpringParamType.Other
+
+        paramGetters.firstNotNullOfOrNull { getter -> getter(param) }?.let { return it }
+        getModelAttribute(param, fact)?.let { return it }
+
         return SpringParamType.Other
     }
 
@@ -278,5 +287,15 @@ class SpringAnnotator(
             is TraceResolver.EntryPointTraceNode -> node.method
             is TraceResolver.SourceToSinkTraceNode -> node.methodEntryPoint.method
         }
+    }
+
+    private fun extractFieldNames(fact: InitialFactAp): List<String> {
+        val field = fact.getStartAccessors()
+            .filterIsInstance<FieldAccessor>()
+            .singleOrNull()
+            ?: return emptyList()
+
+        val tail = fact.readAccessor(field)?.let { extractFieldNames(it) }.orEmpty()
+        return listOf(field.fieldName) + tail
     }
 }
