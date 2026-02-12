@@ -9,7 +9,7 @@ const GithubDockerHost = "ghcr.io"
 const RepoOwner = "seqra"
 
 const AnalyzerDocker = GithubDockerHost + "/" + RepoOwner + "/seqra-jvm-sast/sast-analyzer"
-const AnalyzerBindVersion = "2026.02.06.19fa830"
+const AnalyzerBindVersion = "2026.02.12.9f0061d"
 
 const AutobuilderRepoName = "seqra-jvm-autobuilder"
 const AutobuilderDocker = GithubDockerHost + "/" + RepoOwner + "/" + AutobuilderRepoName + "/sast-autobuilder"
@@ -21,11 +21,12 @@ const AnalyzerAssetName = "seqra-project-analyzer.jar"
 
 const RulesRepoName = "seqra-rules"
 const RulesAssetName = "seqra-rules.tar.gz"
-const RulesBindVersion = "v2.1.2"
+const RulesBindVersion = "v2.1.3"
 
 type Scan struct {
-	Timeout   time.Duration `mapstructure:"timeout"`
-	MaxMemory string        `mapstructure:"max_memory"`
+	Timeout       time.Duration `mapstructure:"timeout"`
+	MaxMemory     string        `mapstructure:"max_memory"`
+	CodeFlowLimit int64         `mapstructure:"code_flow_limit"`
 }
 
 type Log struct {
@@ -53,8 +54,9 @@ type Java struct {
 }
 
 type ConfigType struct {
-	Scan        Scan        `mapstructure:"scan"`
-	Log         Log         `mapstructure:"log"`
+	Scan Scan `mapstructure:"scan"`
+	Log  Log  `mapstructure:"log"`
+
 	Github      Github      `mapstructure:"github"`
 	Analyzer    Analyzer    `mapstructure:"analyzer"`
 	Autobuilder Autobuilder `mapstructure:"autobuilder"`
