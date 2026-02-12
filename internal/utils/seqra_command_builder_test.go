@@ -138,7 +138,7 @@ func TestNewScanCommand(t *testing.T) {
 
 func TestBuildCompileCommandWithDocker(t *testing.T) {
 	cmd := BuildCompileCommandWithDocker("/path/to/project", "/path/to/output")
-	expected := "docker run --rm -v /path/to/project:/project -v /path/to:/database ghcr.io/seqra/seqra:latest seqra compile --output /database/output /project"
+	expected := "docker run --rm -v /path/to/project:/project -v /path/to:/database ghcr.io/seqra/seqra:latest seqra compile /project --output /database/output"
 	if cmd != expected {
 		t.Errorf("BuildCompileCommandWithDocker() = %q, want %q", cmd, expected)
 	}

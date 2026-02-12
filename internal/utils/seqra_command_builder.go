@@ -155,8 +155,13 @@ func BuildCompileCommandWithDocker(projectPath, outputPath string) string {
 	absOutputPath, _ := filepath.Abs(outputPath)
 	outputDir := filepath.Dir(absOutputPath)
 	outputName := filepath.Base(absOutputPath)
-	return fmt.Sprintf("docker run --rm -v %s:/project -v %s:/database ghcr.io/seqra/seqra:latest seqra compile --output /database/%s /project",
-		absProjectPath, outputDir, outputName)
+
+	compileCmd := NewCompileCommand("/project").
+		WithOutput("/database/" + outputName).
+		Build()
+
+	return fmt.Sprintf("docker run --rm -v %s:/project -v %s:/database ghcr.io/seqra/seqra:latest %s",
+		absProjectPath, outputDir, compileCmd)
 }
 
 // BuildScanCommandWithDocker builds a docker run command string for scanning a project
