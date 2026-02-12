@@ -213,7 +213,7 @@ func scan(cmd *cobra.Command) {
 		SetProject(nativeProjectPath).
 		SetOutputDir(nativeOutputDir).
 		SetSarifFileName(sarifReportName).
-		SetSarifCodeFlowLimit(1).
+		SetSarifCodeFlowLimit(globals.Config.Scan.CodeFlowLimit).
 		SetSarifToolVersion(localVersion).
 		SetSarifToolSemanticVersion(localSemanticVersion).
 		SetSarifUriBase(uriBase).
