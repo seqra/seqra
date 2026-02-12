@@ -1,10 +1,10 @@
 package org.opentaint.ir.impl.features.classpaths
 
 import org.opentaint.ir.api.jvm.*
-import org.opentaint.ir.api.jvm.ext.objectType
 import org.opentaint.ir.impl.cfg.util.OBJECT_CLASS
 import org.opentaint.ir.impl.cfg.util.typeNameFromJvmName
 import org.objectweb.asm.Opcodes
+import org.opentaint.ir.api.jvm.ext.toType
 
 class JIRUnknownType(
     override var classpath: JIRClasspath,
@@ -26,9 +26,10 @@ class JIRUnknownType(
     override val fields: List<JIRTypedField> = emptyList()
     override val typeParameters: List<JIRTypeVariableDeclaration> = emptyList()
     override val typeArguments: List<JIRRefType> = emptyList()
-    override val superType: JIRClassType get() = classpath.objectType
     override val interfaces: List<JIRClassType> = emptyList()
     override val innerTypes: List<JIRClassType> = emptyList()
+
+    override val superType: JIRClassType? get() = jIRClass.superClass?.toType()
 
     override val typeName: String
         get() = name
