@@ -276,20 +276,30 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
 
     // todo: fix config
     private val badElementAccessor = FieldAccessor("java.lang.Object", "Element", "java.lang.Object")
-    private val elementAccessors = listOf(
-        FieldAccessor("java.lang.Iterable", "Element", "java.lang.Object"),
-        FieldAccessor("java.util.Iterator", "Element", "java.lang.Object"),
+
+    private val elementBases = listOf(
+        "java.lang.Iterable",
+        "java.util.Iterator",
+        "java.util.Optional",
+    )
+
+    private val elementAccessors = elementBases.map {
+        FieldAccessor(it, "Element", "java.lang.Object")
+    }
+
+    private val mapBases = listOf(
+        "java.util.Map",
+        "java.util.Map\$Entry",
+        "org.springframework.http.ResponseEntity"
     )
 
     private val badMapKeyAccessor = FieldAccessor("java.lang.Object", "MapKey", "java.lang.Object")
-    private val mapKeyAccessors = listOf(
-        FieldAccessor("java.util.Map", "MapKey", "java.lang.Object"),
-        FieldAccessor("java.util.Map\$Entry", "MapKey", "java.lang.Object"),
-    )
+    private val mapKeyAccessors = mapBases.map {
+        FieldAccessor(it, "MapKey", "java.lang.Object")
+    }
 
     private val badMapValueAccessor = FieldAccessor("java.lang.Object", "MapValue", "java.lang.Object")
-    private val mapValueAccessors = listOf(
-        FieldAccessor("java.util.Map", "MapValue", "java.lang.Object"),
-        FieldAccessor("java.util.Map\$Entry", "MapValue", "java.lang.Object"),
-    )
+    private val mapValueAccessors = mapBases.map {
+        FieldAccessor(it, "MapValue", "java.lang.Object")
+    }
 }
