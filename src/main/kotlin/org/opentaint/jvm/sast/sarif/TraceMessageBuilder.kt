@@ -207,10 +207,11 @@ class TraceMessageBuilder(
         "<#[$reason]#>"
 
     private fun getMethodCalleeNameInPrint(method: String, className: String): String {
+        val classNameFix = className.replace("$", ".")
         if (method == "<init>")
-            return "\"$className\" $initializerSuffix"
+            return "\"$classNameFix\" $initializerSuffix"
         if (method == "<clinit>")
-            return "\"$className\" $classInitializerSuffix"
+            return "\"$classNameFix\" $classInitializerSuffix"
         if (className == "StringBuilder" && method == "append")
             return stringBuilderAppendName
         if (method.startsWith(lambdaMark))
