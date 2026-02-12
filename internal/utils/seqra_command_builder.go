@@ -148,27 +148,64 @@ func (cb *SeqraCommandBuilder) Build() string {
 	return strings.Join(parts, " ")
 }
 
-// BuildCompileCommandWithDocker builds a compile command string with --compile-type docker
-// preserving all other options from the original command.
+// BuildCompileCommandWithDocker builds a docker run command string for compiling a project
+// using the seqra Docker image.
 func BuildCompileCommandWithDocker(projectPath, outputPath string) string {
-	return NewCompileCommand(projectPath).
-		WithOutput(outputPath).
-		WithCompileType("docker").
+	absProjectPath, _ := filepath.Abs(projectPath)
+	absOutputPath, _ := filepath.Abs(outputPath)
+	outputDir := filepath.Dir(absOutputPath)
+	outputName := filepath.Base(absOutputPath)
+
+	compileCmd := NewCompileCommand("/project").
+		WithOutput("/database/" + outputName).
 		Build()
+
+	return fmt.Sprintf("docker run --rm -v %s:/project -v %s:/database ghcr.io/seqra/seqra:latest %s",
+		absProjectPath, outputDir, compileCmd)
 }
 
-// BuildScanCommandWithDocker builds a scan command string with --compile-type docker
-// preserving all other options from the original command.
-func BuildScanCommandWithDocker(projectPath, sarifReportPath string, rulesetPath []string,
-	timeout time.Duration, semgrepCompatibility bool, scanType string) string {
-	return NewScanCommand(projectPath).
-		WithOutput(sarifReportPath).
+// BuildScanCommandWithDocker builds a docker run command string for scanning a project
+// using the seqra Docker image.
+func BuildScanCommandWithDocker(projectPath, sarifReportPath string, rulesetPaths []string,
+	timeout time.Duration, semgrepCompatibility bool) string {
+	absProjectPath, _ := filepath.Abs(projectPath)
+	absSarifReportPath, _ := filepath.Abs(sarifReportPath)
+	outputDir := filepath.Dir(absSarifReportPath)
+	sarifName := filepath.Base(absSarifReportPath)
+
+	volumes := fmt.Sprintf("-v %s:/project -v %s:/output", absProjectPath, outputDir)
+
+	// Map rulesets to container paths; "builtin" is kept as-is, custom paths get volume mounts.
+	// Skip rulesets entirely when only "builtin" is specified (it is the default).
+	var containerRulesets []string
+	hasCustomRuleset := false
+	for _, ruleset := range rulesetPaths {
+		if ruleset != "builtin" {
+			hasCustomRuleset = true
+			break
+		}
+	}
+	if hasCustomRuleset {
+		for i, ruleset := range rulesetPaths {
+			if ruleset == "builtin" {
+				containerRulesets = append(containerRulesets, "builtin")
+			} else {
+				absRuleset, _ := filepath.Abs(ruleset)
+				containerPath := fmt.Sprintf("/rules/ruleset%d", i)
+				volumes += fmt.Sprintf(" -v %s:%s", absRuleset, containerPath)
+				containerRulesets = append(containerRulesets, containerPath)
+			}
+		}
+	}
+
+	scanCmd := NewScanCommand("/project").
+		WithOutput("/output/" + sarifName).
 		WithTimeout(timeout).
-		WithRuleset(rulesetPath).
+		WithRuleset(containerRulesets).
 		WithSemgrepCompatibility(semgrepCompatibility).
-		WithScanType(scanType).
-		WithCompileType("docker").
 		Build()
+
+	return fmt.Sprintf("docker run --rm %s ghcr.io/seqra/seqra:latest %s", volumes, scanCmd)
 }
 
 // BuildScanCommandFromCompile builds a scan command string for use after compile,
