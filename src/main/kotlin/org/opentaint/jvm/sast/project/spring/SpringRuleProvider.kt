@@ -33,6 +33,7 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.impl.cfg.util.isClass
 
 class SpringRuleProvider(
@@ -43,7 +44,7 @@ class SpringRuleProvider(
         if (method is SpringGeneratedMethod) return emptyList()
 
         val baseRules =  base.entryPointRulesForMethod(method, fact, allRelevant)
-        if (method !is JIRMethod || !method.isSpringControllerMethod()) {
+        if (method !is JIRMethod || method.isStatic || method.isPrivate || !method.isSpringControllerMethod()) {
             return baseRules
         }
 
@@ -63,6 +64,9 @@ class SpringRuleProvider(
             ?: return emptyList()
 
         if (!paramTypeName.isClass) return listOf(assign)
+
+        // todo: better handling of suspend functions
+        if (paramTypeName.isKotlinContinuation()) return emptyList()
 
         val allFieldsPosition = PositionWithAccess(assign.position, PositionAccessor.AnyFieldAccessor)
         val allFieldsAssign = AssignMark(assign.mark, allFieldsPosition)
@@ -251,8 +255,11 @@ class SpringRuleProvider(
         }
     }
 
+    private fun TypeName.isKotlinContinuation(): Boolean = typeName == kotlinContinuation
+
     companion object {
         private const val javaObject = "java.lang.Object"
+        private const val kotlinContinuation = "kotlin.coroutines.Continuation"
 
         private val iterableElement = PositionAccessor.FieldAccessor(
             className = javaObject,
