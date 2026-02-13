@@ -13,6 +13,8 @@ class ProjectClasses(
     val cp: JIRClasspath,
     private val projectModulesFiles: Map<File, ProjectModuleClasses>
 ) {
+    private val projectModulePaths = projectModulesFiles.mapKeys { it.key.absolutePath }
+
     val locationProjectModules = hashMapOf<RegisteredLocation, ProjectModuleClasses>()
     val projectClasses = hashMapOf<RegisteredLocation, MutableSet<String>>()
 
@@ -29,8 +31,10 @@ class ProjectClasses(
     }
 
     private fun loadProjectClassesFromLocation(location: RegisteredLocation) {
+        if (location.isRuntime) return
         val jIRLocation = location.jIRLocation ?: return
-        val projectModule = projectModulesFiles[jIRLocation.jarOrFolder] ?: return
+
+        val projectModule = projectModulePaths[jIRLocation.path] ?: return
         locationProjectModules[location] = projectModule
 
         val classes = projectClasses.computeIfAbsent(location) { hashSetOf() }
