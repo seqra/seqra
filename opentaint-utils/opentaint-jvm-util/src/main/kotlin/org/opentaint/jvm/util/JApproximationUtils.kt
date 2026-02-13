@@ -55,7 +55,9 @@ suspend fun JIRDatabase.classpathWithApproximations(
 
     val cp = classpath(cpWithApproximations, featuresWithApproximations.distinct())
 
-    val approximationsLocations = cp.locations.filter { it.jarOrFolder in approximationsPath }
+    val approximationLocationPath = approximationsPath.mapTo(hashSetOf()) { it.absolutePath }
+    val approximationsLocations = cp.locations.filter { it.path in approximationLocationPath }
+
     val approximationsClasses = approximationsLocations.flatMapTo(hashSetOf()) { it.classNames ?: emptySet() }
     classpathApproximations[cp] = approximationsClasses
 
