@@ -41,7 +41,7 @@ class JIRMethodCallRuleBasedSummaryRewriter(
 
     private data class UserRuleDefinedAction(
         val rule: TaintConfigurationItem,
-        val positions: List<Position>,
+        val positions: Set<Position>,
         val controlledMarks: Set<String>
     )
 
@@ -55,7 +55,7 @@ class JIRMethodCallRuleBasedSummaryRewriter(
             val simplifiedCondition = conditionRewriter.rewrite(sourceRule.condition)
             if (simplifiedCondition.isFalse) continue
 
-            val positions = sourceRule.actionsAfter.map { it.position }
+            val positions = sourceRule.actionsAfter.mapTo(hashSetOf()) { it.position }
             result += UserRuleDefinedAction(sourceRule, positions, ruleInfo.relevantTaintMarks)
         }
 
@@ -65,7 +65,7 @@ class JIRMethodCallRuleBasedSummaryRewriter(
             val simplifiedCondition = conditionRewriter.rewrite(cleanRule.condition)
             if (simplifiedCondition.isFalse) continue
 
-            val positions = cleanRule.actionsAfter.filterIsInstance<RemoveMark>().map { it.position }
+            val positions = cleanRule.actionsAfter.filterIsInstance<RemoveMark>().mapTo(hashSetOf()) { it.position }
             result += UserRuleDefinedAction(cleanRule, positions, ruleInfo.relevantTaintMarks)
         }
 
