@@ -13,7 +13,6 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
-import org.opentaint.ir.api.jvm.JavaVersion
 import org.opentaint.ir.api.jvm.JIRByteCodeLocation
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRClasspathFeature
@@ -21,6 +20,7 @@ import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.JIRDatabasePersistence
 import org.opentaint.ir.api.jvm.JIRFeature
 import org.opentaint.ir.api.jvm.JIRSettings
+import org.opentaint.ir.api.jvm.JavaVersion
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.impl.features.classpaths.ClasspathCache
 import org.opentaint.ir.impl.features.classpaths.KotlinMetadata
@@ -28,8 +28,7 @@ import org.opentaint.ir.impl.features.classpaths.MethodInstructionsFeature
 import org.opentaint.ir.impl.features.classpaths.UnknownClassMethodsAndFields
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.fs.JavaRuntime
-import org.opentaint.ir.impl.fs.asByteCodeLocation
-import org.opentaint.ir.impl.fs.filterExisting
+import org.opentaint.ir.impl.fs.createNonRuntimeByteCodeLocations
 import org.opentaint.ir.impl.fs.lazySources
 import org.opentaint.ir.impl.fs.sources
 import org.opentaint.ir.impl.storage.ers.ERS_DATABASE_PERSISTENCE_SPI
@@ -89,8 +88,7 @@ class JIRDatabaseImpl(
         val runtime = JavaRuntime(settings.jre).allLocations.takeIf { settings.buildModelForJRE }
         val runtimeNew = runtime?.let { locationsRegistry.setup(it).new }
         val registeredNew = locationsRegistry.registerIfNeeded(
-            settings.predefinedDirOrJars.filter { it.exists() }
-                .flatMap { it.asByteCodeLocation(javaRuntime.version, isRuntime = false) }.distinct()
+            settings.predefinedDirOrJars.createNonRuntimeByteCodeLocations(javaRuntime.version)
         ).new
         if (canBeDumped() && persistence.tryLoad(id)) {
             isImmutable = true
@@ -118,8 +116,7 @@ class JIRDatabaseImpl(
 
     override suspend fun classpath(dirOrJars: List<File>, features: List<JIRClasspathFeature>?): JIRClasspath {
         assertNotClosed()
-        val existingLocations =
-            dirOrJars.filterExisting().flatMap { it.asByteCodeLocation(javaRuntime.version) }.distinct()
+        val existingLocations = dirOrJars.createNonRuntimeByteCodeLocations(javaRuntime.version)
         val processed = locationsRegistry.registerIfNeeded(existingLocations)
             .also { it.new.process(true) }.registered + locationsRegistry.runtimeLocations
         return JIRClasspathImpl(
@@ -150,7 +147,7 @@ class JIRDatabaseImpl(
 
     override suspend fun load(dirOrJars: List<File>) = apply {
         assertNotClosed()
-        loadLocations(dirOrJars.filterExisting().flatMap { it.asByteCodeLocation(javaRuntime.version) }.distinct())
+        loadLocations(dirOrJars.createNonRuntimeByteCodeLocations(javaRuntime.version))
     }
 
     override suspend fun loadLocations(locations: List<JIRByteCodeLocation>) = apply {

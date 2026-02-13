@@ -4,7 +4,6 @@ import org.opentaint.ir.api.jvm.JIRByteCodeLocation
 import org.opentaint.ir.api.jvm.LocationType
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.impl.storage.longHash
-import java.io.File
 import java.math.BigInteger
 
 open class DummyCodeLocation(private val name: String) : JIRByteCodeLocation, RegisteredLocation {
@@ -30,8 +29,6 @@ open class DummyCodeLocation(private val name: String) : JIRByteCodeLocation, Re
     override val classes: Map<String, ByteArray>
         get() = emptyMap()
 
-    override val jarOrFolder: File
-        get() = TODO("Not yet implemented")
     override val path: String
         get() = TODO("")
 

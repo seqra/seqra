@@ -14,8 +14,6 @@ import java.math.BigInteger
  *
  */
 interface JIRByteCodeLocation {
-    val jarOrFolder: File
-
     /**
      * Is being calculated each time when it is invoked.
      */

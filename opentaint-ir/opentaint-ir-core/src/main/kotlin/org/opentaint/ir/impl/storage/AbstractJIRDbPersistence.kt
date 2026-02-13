@@ -8,7 +8,8 @@ import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.storage.ers.getEntityOrNull
 import org.opentaint.ir.impl.caches.xodus.XODUS_CACHE_PROVIDER_ID
 import org.opentaint.ir.impl.fs.JavaRuntime
-import org.opentaint.ir.impl.fs.asByteCodeLocation
+import org.opentaint.ir.impl.fs.JavaRuntimeModuleLocation
+import org.opentaint.ir.impl.fs.dirOrJarAsBytecodeLocation
 import org.opentaint.ir.impl.storage.ers.bytecode
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
 import org.opentaint.ir.impl.storage.jooq.tables.references.CLASSES
@@ -56,7 +57,14 @@ abstract class AbstractJIRDbPersistence(
                     }
                 ).mapNotNull {
                     try {
-                        File(it.path).asByteCodeLocation(javaRuntime.version, isRuntime = it.runtime)
+                        if (it.runtime && JavaRuntimeModuleLocation.isModuleLocation(it.path)) {
+                            return@mapNotNull listOf(JavaRuntimeModuleLocation.fromPath(it.path))
+                        }
+
+                        val file = File(it.path)
+                        if (!file.exists()) return@mapNotNull null
+
+                        file.dirOrJarAsBytecodeLocation(javaRuntime.version, it.runtime)
                     } catch (_: Exception) {
                         null
                     }

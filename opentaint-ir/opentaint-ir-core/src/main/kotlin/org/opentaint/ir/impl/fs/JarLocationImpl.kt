@@ -11,20 +11,22 @@ import java.util.jar.JarFile
 import kotlin.text.Charsets.UTF_8
 
 open class JarLocation(
-    file: File,
+    val jarOrFolder: File,
     private val isRuntime: Boolean,
     private val runtimeVersion: JavaVersion
-) : AbstractByteCodeLocation(file) {
+) : AbstractByteCodeLocation() {
 
     companion object : KLogging()
+
+    override val path: String get() = jarOrFolder.absolutePath
 
     @Suppress("UnstableApiUsage")
     override val currentHash: BigInteger
         get() {
             val jarFile = jarFile() ?: return BigInteger.ZERO
             return Hashing.sha256().newHasher().let { h ->
-                jarFile.use {
-                    it.entries().asSequence().filter { !it.isDirectory }.sortedBy { it.name }.forEach { entry ->
+                jarFile.use { jf ->
+                    jf.entries().asSequence().filter { !it.isDirectory }.sortedBy { it.name }.forEach { entry ->
                         h.putString(entry.name, UTF_8)
                         h.putLong(entry.crc)
                         h.putLong(entry.size)

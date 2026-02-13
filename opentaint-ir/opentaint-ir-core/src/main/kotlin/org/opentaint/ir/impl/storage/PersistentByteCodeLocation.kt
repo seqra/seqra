@@ -1,14 +1,15 @@
 package org.opentaint.ir.impl.storage
 
-import org.opentaint.ir.api.jvm.JavaVersion
 import org.opentaint.ir.api.jvm.JIRByteCodeLocation
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.JIRDatabasePersistence
+import org.opentaint.ir.api.jvm.JavaVersion
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.storage.ers.Entity
 import org.opentaint.ir.api.storage.ers.getEntityOrNull
 import org.opentaint.ir.impl.fs.BuildFolderLocation
 import org.opentaint.ir.impl.fs.JarLocation
+import org.opentaint.ir.impl.fs.JavaRuntimeModuleLocation
 import org.opentaint.ir.impl.fs.isJar
 import org.opentaint.ir.impl.storage.jooq.tables.records.BytecodelocationsRecord
 import org.opentaint.ir.impl.storage.jooq.tables.references.BYTECODELOCATIONS
@@ -97,25 +98,34 @@ class PersistentByteCodeLocation(
 
     private fun PersistentByteCodeLocationData.toJIRLocation(): JIRByteCodeLocation? {
         return try {
-            with(File(path)) {
-                if (!exists()) {
-                    null
-                } else if (isJar()) {
-                    // NB! This JarLocation inheritor is necessary for hacking PersistentLocationsRegistry
-                    // so that isChanged() would work properly in PersistentLocationsRegistry.refresh()
-                    val fsId = fileSystemId
-                    object : JarLocation(this@with, isRuntime, runtimeVersion) {
-                        override val fileSystemIdHash: BigInteger
-                            get() {
-                                return BigInteger(fsId, Character.MAX_RADIX)
-                            }
-                    }
-                } else if (isDirectory) {
-                    BuildFolderLocation(this)
-                } else {
-                    error("$absolutePath is nether a jar file nor a build directory")
+            if (isRuntime && JavaRuntimeModuleLocation.isModuleLocation(path)) {
+                val location = JavaRuntimeModuleLocation.fromPath(path)
+
+                val fsId = fileSystemId
+                return object : JavaRuntimeModuleLocation(location.javaHome, location.module) {
+                    override val fileSystemIdHash: BigInteger
+                        get() = BigInteger(fsId, Character.MAX_RADIX)
                 }
             }
+
+            val file = File(path)
+            if (!file.exists()) return null
+
+            if (file.isJar()) {
+                // NB! This JarLocation inheritor is necessary for hacking PersistentLocationsRegistry
+                // so that isChanged() would work properly in PersistentLocationsRegistry.refresh()
+                val fsId = fileSystemId
+                return object : JarLocation(file, isRuntime, runtimeVersion) {
+                    override val fileSystemIdHash: BigInteger
+                        get() = BigInteger(fsId, Character.MAX_RADIX)
+                }
+            }
+
+            if (file.isDirectory) {
+                return BuildFolderLocation(file)
+            }
+
+            return null
         } catch (e: Exception) {
             null
         }

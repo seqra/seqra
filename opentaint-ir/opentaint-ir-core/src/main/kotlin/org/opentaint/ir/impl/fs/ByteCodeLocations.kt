@@ -1,8 +1,8 @@
 package org.opentaint.ir.impl.fs
 
 import mu.KLogging
-import org.opentaint.ir.api.jvm.JavaVersion
 import org.opentaint.ir.api.jvm.JIRByteCodeLocation
+import org.opentaint.ir.api.jvm.JavaVersion
 import java.io.File
 import java.nio.file.Paths
 import java.util.jar.JarFile
@@ -15,18 +15,22 @@ val logger = object : KLogging() {}.logger
  * The method called of different files can have same locations in the result, so use `distinct()` to
  * filter duplicates out.
  */
-fun File.asByteCodeLocation(runtimeVersion: JavaVersion, isRuntime: Boolean = false): Collection<JIRByteCodeLocation> {
-    if (!exists()) {
-        throw IllegalArgumentException("file $absolutePath doesn't exist")
+fun File.dirOrJarAsBytecodeLocation(runtimeVersion: JavaVersion, isRuntime: Boolean): Collection<JIRByteCodeLocation> {
+    if (isJar()) {
+        return mutableSetOf<File>().also { classPath(it) }.map { JarLocation(it, isRuntime, runtimeVersion) }
     }
-    return if (isJar()) {
-        mutableSetOf<File>().also { classPath(it) }.map { JarLocation(it, isRuntime, runtimeVersion) }
-    } else if (isDirectory) {
-        listOf(BuildFolderLocation(this))
-    } else {
-        error("$absolutePath is nether a jar file nor a build directory")
+
+    if (isDirectory) {
+        return listOf(BuildFolderLocation(this))
     }
+
+    error("$absolutePath is invalid bytecode location")
 }
+
+fun Collection<File>.createNonRuntimeByteCodeLocations(runtimeVersion: JavaVersion): List<JIRByteCodeLocation> =
+    filterExisting()
+        .flatMap { it.dirOrJarAsBytecodeLocation(runtimeVersion, isRuntime = false) }
+        .distinct()
 
 fun Collection<File>.filterExisting(): List<File> = filter { file ->
     file.exists().also {

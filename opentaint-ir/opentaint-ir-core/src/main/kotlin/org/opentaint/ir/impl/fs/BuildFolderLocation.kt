@@ -11,9 +11,12 @@ import java.nio.file.Paths
 import kotlin.streams.asSequence
 import kotlin.text.Charsets.UTF_8
 
-class BuildFolderLocation(folder: File) : AbstractByteCodeLocation(folder) {
+class BuildFolderLocation(val jarOrFolder: File) : AbstractByteCodeLocation() {
 
     companion object : KLogging()
+
+    override val path: String
+        get() = jarOrFolder.absolutePath
 
     @Suppress("UnstableApiUsage")
     override val currentHash: BigInteger

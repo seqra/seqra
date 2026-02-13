@@ -1,7 +1,7 @@
 package org.opentaint.ir.impl.fs
 
-import org.opentaint.ir.api.jvm.JavaVersion
 import org.opentaint.ir.api.jvm.JIRByteCodeLocation
+import org.opentaint.ir.api.jvm.JavaVersion
 import java.io.File
 import java.nio.file.Paths
 
@@ -21,7 +21,24 @@ class JavaRuntime(private val javaHome: File) {
         parseRuntimeVersion("1.8.0")
     }
 
-    val allLocations: List<JIRByteCodeLocation> = modules.takeIf { it.isNotEmpty() } ?: (bootstrapJars + extJars)
+    val allLocations: List<JIRByteCodeLocation> = findRuntimeLocations()
+
+    private fun findRuntimeLocations(): List<JIRByteCodeLocation> {
+        val modulesPath = javaHome.resolve("lib/modules")
+        if (modulesPath.exists()) {
+            val modulesLocation = JavaRuntimeModuleLocation.loadModules(javaHome)
+            if (modulesLocation.isNotEmpty()) return modulesLocation
+
+            val modules = locations("jmods")
+            if (modules.isEmpty()) {
+                logger.warn("Can't load JDK modules")
+            }
+        }
+
+        modules.takeIf { it.isNotEmpty() }?.let { return it }
+
+        return bootstrapJars + extJars
+    }
 
     private val modules: List<JIRByteCodeLocation> get() = locations("jmods")
 
@@ -48,7 +65,7 @@ class JavaRuntime(private val javaHome: File) {
             .listFiles { file -> file.name.endsWith(".jar") || file.name.endsWith(".jmod") }
             .orEmpty()
             .toList()
-            .flatMap { it.asByteCodeLocation(version, true) }
+            .flatMap { it.dirOrJarAsBytecodeLocation(version, true) }
             .distinct()
     }
 }
