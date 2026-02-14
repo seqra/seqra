@@ -15,7 +15,7 @@ import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
 class JIRInstListBuilder(
-    private val mutableInstructions: MutableList<JIRInst> = mutableListOf()
+    val mutableInstructions: MutableList<JIRInst> = mutableListOf()
 ) : JIRInstList<JIRInst> {
     private var localVarIdx: Int
 
