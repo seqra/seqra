@@ -7,17 +7,20 @@ import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionExpr.Literal
+import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
 import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicAtomEvaluator
+import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.util.Maybe
 
 class JIRMarkAwareConditionRewriter(
     positionResolver: PositionResolver<Maybe<JIRValue>>,
-    typeChecker: JIRFactTypeChecker,
+    analysisContext: JIRMethodAnalysisContext,
+    statement: CommonInst,
 ) {
-    private val positiveAtomEvaluator = JIRBasicAtomEvaluator(negated = false, positionResolver, typeChecker)
-    private val negativeAtomEvaluator = JIRBasicAtomEvaluator(negated = true, positionResolver, typeChecker)
+    private val positiveAtomEvaluator = JIRBasicAtomEvaluator(negated = false, positionResolver, analysisContext, statement)
+    private val negativeAtomEvaluator = JIRBasicAtomEvaluator(negated = true, positionResolver, analysisContext, statement)
 
     fun rewrite(condition: Condition): ExprOrConstant =
         rewriteCondition(condition)

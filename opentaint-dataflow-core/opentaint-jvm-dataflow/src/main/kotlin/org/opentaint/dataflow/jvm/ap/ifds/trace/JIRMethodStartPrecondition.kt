@@ -26,7 +26,7 @@ class JIRMethodStartPrecondition(
         val valueResolver = CalleePositionToJIRValueResolver(method)
         val conditionRewriter = JIRMarkAwareConditionRewriter(
             valueResolver,
-            context.factTypeChecker
+            context, context.methodEntryPoint.statement
         )
         val conditionEvaluator = JIRSimpleFactAwareConditionEvaluator(conditionRewriter, evaluator = null)
 

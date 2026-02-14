@@ -33,7 +33,7 @@ class JIRMethodStartFlowFunction(
         val method = context.methodEntryPoint.method as JIRMethod
         val valueResolver = CalleePositionToJIRValueResolver(method)
         val conditionRewriter = JIRMarkAwareConditionRewriter(
-            valueResolver, context.factTypeChecker
+            valueResolver, context, context.methodEntryPoint.statement
         )
 
         val conditionEvaluator = JIRSimpleFactAwareConditionEvaluator(conditionRewriter, evaluator = null)
@@ -93,7 +93,7 @@ class JIRMethodStartFlowFunction(
         val valueResolver = CalleePositionToJIRValueResolver(method as JIRMethod)
         val conditionRewriter = JIRMarkAwareConditionRewriter(
             valueResolver,
-            context.factTypeChecker
+            context, context.methodEntryPoint.statement
         )
 
         val conditionEvaluator = JIRSimpleFactAwareConditionEvaluator(conditionRewriter, evaluator = null)

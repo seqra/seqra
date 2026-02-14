@@ -35,7 +35,7 @@ class JIRMethodCallRuleBasedSummaryRewriter(
 
         JIRMarkAwareConditionRewriter(
             CallPositionToJIRValueResolver(callExpr, returnValue),
-            analysisContext.factTypeChecker
+            analysisContext, statement
         )
     }
 

@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.jvm.ap.ifds.taint
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.configuration.jvm.And
 import org.opentaint.dataflow.configuration.jvm.ConditionNameMatcher
 import org.opentaint.dataflow.configuration.jvm.ConditionVisitor
@@ -20,12 +21,14 @@ import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
 import org.opentaint.dataflow.configuration.jvm.TypeMatches
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
-import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
+import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
+import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.cfg.JIRBool
 import org.opentaint.ir.api.jvm.cfg.JIRConstant
 import org.opentaint.ir.api.jvm.cfg.JIRInt
+import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRNullConstant
 import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRValue
@@ -36,8 +39,11 @@ import org.opentaint.util.onSome
 class JIRBasicAtomEvaluator(
     private val negated: Boolean,
     private val positionResolver: PositionResolver<Maybe<JIRValue>>,
-    private val typeChecker: JIRFactTypeChecker
+    private val analysisContext: JIRMethodAnalysisContext,
+    private val statement: CommonInst,
 ) : ConditionVisitor<Boolean> {
+    private val typeChecker get() = analysisContext.factTypeChecker
+
     override fun visit(condition: Not): Boolean = error("Non-atomic condition")
     override fun visit(condition: And): Boolean = error("Non-atomic condition")
     override fun visit(condition: Or): Boolean = error("Non-atomic condition")
@@ -159,8 +165,24 @@ class JIRBasicAtomEvaluator(
     }
 
     private fun matches(value: JIRValue, pattern: Regex): Boolean {
-        if (value !is JIRStringConstant) return false
-        return pattern.matches(value.value)
+        if (value is JIRStringConstant) {
+            return pattern.matches(value.value)
+        }
+
+        if (value is JIRLocalVar) {
+            val base = AccessPathBase.LocalVar(value.index)
+            val aliasInfo = analysisContext.aliasAnalysis?.findAlias(base, statement)
+            val constants = aliasInfo
+                ?.mapNotNull { ai -> ai.base.takeIf { ai.accessors.isEmpty() } }
+                ?.filterIsInstance<AccessPathBase.Constant>()
+                .orEmpty()
+
+            if (constants.isNotEmpty()) {
+                return constants.any { pattern.matches(it.value) }
+            }
+        }
+
+        return false
     }
 
     private fun typeMatches(value: CommonValue, condition: TypeMatches): Boolean {

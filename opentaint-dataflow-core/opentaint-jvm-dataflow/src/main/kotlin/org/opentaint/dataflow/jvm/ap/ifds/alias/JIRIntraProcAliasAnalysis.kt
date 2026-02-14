@@ -19,6 +19,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.alias.RefValue.Local
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.jvm.graph.JApplicationGraph
 import org.opentaint.util.analysis.ApplicationGraph
 
@@ -110,8 +111,13 @@ class JIRIntraProcAliasAnalysis(
                 is RefValue.This -> AccessPathBase.This
                 is RefValue.Static -> AccessPathBase.ClassStatic(loc.type)
             }
+            is LocalAlias.Alloc -> {
+                val assign = cur.stmt as? Stmt.Assign
+                val const = assign?.expr as? SimpleValue.RefConst
+                val stringConst = const?.expr as? JIRStringConstant
+                stringConst?.let { AccessPathBase.Constant("java.lang.String", it.value) }
+            }
             is CallReturn,
-            is LocalAlias.Alloc,
             is Unknown -> null
             is HeapAlias -> error("unreachable")
         }

@@ -511,7 +511,7 @@ class JIRMethodSequentFlowFunction(
         val valueResolver = CalleePositionToJIRValueResolver(currentInst.location.method)
         val conditionRewriter = JIRMarkAwareConditionRewriter(
             valueResolver,
-            analysisContext.factTypeChecker
+            analysisContext, currentInst
         )
 
         val sourceEvaluator = TaintSourceActionEvaluator(
@@ -604,7 +604,7 @@ class JIRMethodSequentFlowFunction(
         val valueResolver = CalleePositionToJIRValueResolver(currentInst.location.method)
         val conditionRewriter = JIRMarkAwareConditionRewriter(
             valueResolver,
-            analysisContext.factTypeChecker
+            analysisContext, currentInst
         )
 
         val exclusion = fact?.exclusions ?: ExclusionSet.Universe

@@ -108,7 +108,7 @@ class JIRMethodCallPrecondition(
 
         val conditionRewriter = JIRMarkAwareConditionRewriter(
             jIRValueResolver,
-            analysisContext.factTypeChecker
+            analysisContext, statement
         )
 
         for (rule in taintConfig.sourceRulesForMethod(method, statement, fact = null)) {
@@ -144,7 +144,7 @@ class JIRMethodCallPrecondition(
 
         val conditionRewriter = JIRMarkAwareConditionRewriter(
             jIRValueResolver,
-            analysisContext.factTypeChecker
+            analysisContext, statement
         )
 
         for (rule in passRules) {

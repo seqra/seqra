@@ -256,7 +256,7 @@ class JIRMethodSequentPrecondition(
 
         val valueResolver = CalleePositionToJIRValueResolver(currentInst.location.method)
         val conditionRewriter = JIRMarkAwareConditionRewriter(
-            valueResolver, analysisContext.factTypeChecker
+            valueResolver, analysisContext, currentInst
         )
 
         for (rule in sourceRules) {
