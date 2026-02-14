@@ -1,22 +1,35 @@
 package org.opentaint.ir.impl.features.classpaths
 
+import mu.KLogging
+import org.opentaint.ir.api.jvm.JIRClassExtFeature
+import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.ext.annotation
 import kotlin.metadata.KmConstructor
 import kotlin.metadata.KmFunction
 import kotlin.metadata.KmProperty
 import kotlin.metadata.KmTypeParameter
 import kotlin.metadata.jvm.KotlinClassMetadata
-import org.opentaint.ir.api.jvm.JIRClassExtFeature
-import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.ext.annotation
 
 object KotlinMetadata : JIRClassExtFeature {
 
     const val METADATA_KEY = "kotlinClassMetadata"
 
+    private val logger = object : KLogging() {}.logger
+
+    // avoid multiple reports of the same issue
+    private var failureReported = false
+
     override fun extensionValuesOf(clazz: JIRClassOrInterface): Map<String, Any>? {
-        val kMetadata = clazz.kMetadata
-        if (kMetadata != null) {
-            return mapOf(METADATA_KEY to KotlinMetadataHolder(kMetadata))
+        runCatching {
+            val kMetadata = clazz.kMetadata
+            if (kMetadata != null) {
+                return mapOf(METADATA_KEY to KotlinMetadataHolder(kMetadata))
+            }
+        }.onFailure { ex ->
+            if (!failureReported) {
+                failureReported = true
+                logger.error(ex) { "Failed to load kotlin class metadata" }
+            }
         }
 
         return null

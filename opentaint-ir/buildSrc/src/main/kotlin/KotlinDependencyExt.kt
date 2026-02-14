@@ -5,10 +5,17 @@ import org.opentaint.common.id
 
 object KotlinDependencyExt {
     object Libs {
-        val kotlin_metadata_jvm = dep(
+        val kotlin_metadata_jvm_compile = dep(
             group = "org.jetbrains.kotlin",
             name = "kotlin-metadata-jvm",
             version = KotlinDependency.Versions.kotlin
+        )
+
+        // note: binary compatibility required
+        val kotlin_metadata_jvm_runtime = dep(
+            group = "org.jetbrains.kotlin",
+            name = "kotlin-metadata-jvm",
+            version = "2.3.0"
         )
     }
 }

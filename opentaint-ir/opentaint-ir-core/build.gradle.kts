@@ -39,7 +39,10 @@ dependencies {
     compileOnly(Libs.hikaricp)
 
     implementation(KotlinDependency.Libs.kotlin_logging)
-    implementation(KotlinDependencyExt.Libs.kotlin_metadata_jvm)
+    compileOnly(KotlinDependencyExt.Libs.kotlin_metadata_jvm_compile)
+    runtimeOnly(KotlinDependencyExt.Libs.kotlin_metadata_jvm_runtime) {
+        exclude(group = "org.jetbrains.kotlin")
+    }
     implementation(KotlinDependency.Libs.kotlinx_serialization_core)
     implementation(Libs.jdot)
     implementation(Libs.guava)

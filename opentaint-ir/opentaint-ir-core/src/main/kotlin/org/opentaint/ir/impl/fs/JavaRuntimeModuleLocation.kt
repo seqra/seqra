@@ -30,6 +30,7 @@ open class JavaRuntimeModuleLocation(
     override val currentHash: BigInteger
         get() {
             val hasher = Hashing.sha256().newHasher()
+            hasher.putString(module, UTF_8)
             useModule { moduleBase, moduleBasePath ->
                 moduleBase.walk()
                     .filter { it.isValidClassFile() }
@@ -85,14 +86,13 @@ open class JavaRuntimeModuleLocation(
         return result
     }
 
-    private inline fun <T> useModule(body: (Path, String) -> T): T {
-        val fs = newFs(javaHome)
-            ?: error("JRT file system not available")
+    private val fs by lazy {
+        newFs(javaHome) ?: error("JRT file system not available")
+    }
 
-        return fs.use {
-            val module = fs.getPath(MODULES, module)
-            body(module, "$module/")
-        }
+    private inline fun <T> useModule(body: (Path, String) -> T): T {
+        val module = fs.getPath(MODULES, module)
+        return body(module, "$module/")
     }
 
     companion object {
