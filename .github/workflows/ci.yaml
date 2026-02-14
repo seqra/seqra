@@ -8,7 +8,7 @@ on:
 
 env:
   RULES_VERSION: v1.4.0
-  EXPECTED_TRACES: 8783
+  EXPECTED_TRACES: 8785
 
 jobs:
   ci-basic:
