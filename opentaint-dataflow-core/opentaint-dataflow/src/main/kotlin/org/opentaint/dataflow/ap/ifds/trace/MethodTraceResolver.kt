@@ -1245,6 +1245,9 @@ class MethodTraceResolver(
                 }
 
                 val currentInitialFacts = object2IntMap<InitialFactAp?>()
+
+                // note: we always have zero fact
+                val zeroFactIdx = addEdgeInitialFact(currentInitialFacts, fact = null)
                 currentEdges.forEach { addEdgeInitialFacts(currentInitialFacts, it) }
 
                 val currentInitialFactsSet = BitSet(currentInitialFacts.size)
@@ -1257,6 +1260,8 @@ class MethodTraceResolver(
                             ?: return@cartesianProductMapTo
                     }
 
+                    // note: add zero fact since currentFactSet always contains it
+                    matchedInitials.set(zeroFactIdx)
                     if (matchedInitials != currentInitialFactsSet) {
                         return@cartesianProductMapTo
                     }
@@ -1281,8 +1286,8 @@ class MethodTraceResolver(
     private fun addEdgeInitialFact(
         initialFactIndex: ConcurrentReadSafeObject2IntMap<InitialFactAp?>,
         fact: InitialFactAp?,
-    ) {
-        initialFactIndex.getOrCreateIndex(fact?.replaceExclusions(ExclusionSet.Universe)) { return }
+    ): Int {
+        return initialFactIndex.getOrCreateIndex(fact?.replaceExclusions(ExclusionSet.Universe)) { return it }
     }
 
     private fun addEdgeInitialFactsIfRegistered(
