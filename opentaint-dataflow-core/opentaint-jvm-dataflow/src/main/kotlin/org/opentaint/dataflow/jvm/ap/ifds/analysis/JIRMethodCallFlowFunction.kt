@@ -270,7 +270,8 @@ class JIRMethodCallFlowFunction(
 
         val simpleConditionEvaluator = JIRSimpleFactAwareConditionEvaluator(conditionRewriter, conditionEvaluator)
 
-        val cleaner = TaintCleanActionEvaluator()
+        val typeResolver = JIRMethodPositionBaseTypeResolver(method)
+        val cleaner = TaintCleanActionEvaluator(typeResolver)
 
         val factReaderBeforeCleaner = FinalFactReader(callerFact, apManager)
         val cleanerResults = applyCleaner(

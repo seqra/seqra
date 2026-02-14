@@ -8,6 +8,7 @@ import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
 import org.opentaint.dataflow.configuration.jvm.TaintMark
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionRewriter
+import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodPositionBaseTypeResolver
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyCleanerActions
 import org.opentaint.dataflow.jvm.ap.ifds.taint.EvaluatedCleanAction
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReader
@@ -75,7 +76,8 @@ class JIRMethodCallRuleBasedSummaryRewriter(
     fun rewriteSummaryFact(fact: FinalFactAp): List<Pair<FinalFactAp, FinalFactReader>> {
         val startFactReader = FinalFactReader(fact, apManager)
 
-        val cleanEvaluator = TaintCleanActionEvaluator()
+        val typeResolver = JIRMethodPositionBaseTypeResolver(callExpr.method.method)
+        val cleanEvaluator = TaintCleanActionEvaluator(typeResolver)
 
         val cleanedFact = userRuleDefinedActions.applyCleanerActions(
             evaluator = cleanEvaluator,

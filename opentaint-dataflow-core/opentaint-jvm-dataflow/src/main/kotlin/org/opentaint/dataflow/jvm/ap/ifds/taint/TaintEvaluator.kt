@@ -143,7 +143,9 @@ data class EvaluatedCleanAction(
     }
 }
 
-class TaintCleanActionEvaluator {
+class TaintCleanActionEvaluator(
+    private val positionTypeResolver: PositionResolver<JIRType?>,
+) {
     fun evaluate(
         initialFact: EvaluatedCleanAction,
         rule: TaintConfigurationItem,
@@ -159,7 +161,17 @@ class TaintCleanActionEvaluator {
         action: RemoveMark,
     ): List<EvaluatedCleanAction> {
         val variable = action.position.resolveAp()
-        return removeFinalFact(initialFact, variable, action.mark, rule, action)
+        val cleaned = removeFinalFact(initialFact, variable, action.mark, rule, action)
+
+        val positionType = positionTypeResolver.resolve(action.position)
+        if (positionType?.typeName != STRING) {
+            return cleaned
+        }
+
+        val stringBytesVar = PositionWithAccess(action.position, stringBytes).resolveAp()
+        return cleaned.flatMap { f ->
+            removeFinalFact(f, stringBytesVar, action.mark, rule, action)
+        }
     }
 
     private fun removeAllFacts(
@@ -255,6 +267,13 @@ class TaintCleanActionEvaluator {
 
     companion object {
         private val logger = KotlinLogging.logger {}
+
+        private const val STRING = "java.lang.String"
+
+        // todo: fix in config?
+        // string bytes virtual field fully reflects the string content.
+        // So, if we clean string, we should clean its byte content
+        private val stringBytes = PositionAccessor.FieldAccessor(STRING, "<string-bytes>", "byte[]")
     }
 }
 
