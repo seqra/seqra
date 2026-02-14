@@ -6,4 +6,5 @@ data class DebugOptions(
     val factReachabilitySarif: Boolean,
     val enableVulnSummary: Boolean,
     val runRuleTests: Boolean,
+    val debugRunAnalysisOnSelectedEntryPoints: String?
 )

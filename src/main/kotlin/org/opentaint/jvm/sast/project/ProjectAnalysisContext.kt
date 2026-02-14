@@ -47,7 +47,7 @@ fun initializeProjectAnalysisContext(
 
     var db: JIRDatabase
     var cp: JIRClasspath
-    var projectClasses: ProjectClasses
+    val projectClasses = ProjectClasses(projectModulesFiles)
     val classPathExtensionFeature = ProjectClassPathExtensionFeature()
 
     runBlocking {
@@ -92,7 +92,8 @@ fun initializeProjectAnalysisContext(
             KotlinInlineFunctionScopeTransformer,
             UnknownClasses, lambdaAnonymousClass, lambdaTransformer, /*methodNormalizer,*/
             JStringConcatTransformer, JMultiDimArrayAllocationTransformer,
-            classPathExtensionFeature
+            classPathExtensionFeature,
+            JavaPropertiesResolveTransformer(projectClasses)
         )
 
 //        note: reactor operators special handling has no reasons for now
@@ -109,7 +110,7 @@ fun initializeProjectAnalysisContext(
 
         cp.validate(settings)
 
-        projectClasses = ProjectClasses(cp, projectModulesFiles)
+        projectClasses.initCp(cp)
         projectClasses.loadProjectClasses()
 
         val missedModules = project.modules.toSet() - projectClasses.locationProjectModules.values.toSet()

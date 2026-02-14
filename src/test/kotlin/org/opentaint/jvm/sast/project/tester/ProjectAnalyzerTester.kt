@@ -73,7 +73,7 @@ fun testProjectAnalyzerOnTraces(
     val stats = analysisContext.use {
         val testData = it.loadTestData(testDataTaintConfig)
         val config = createTestConfig(testData, mainConfig, visitedAtSourceMarks)
-        val entryPoints = it.selectProjectEntryPoints()
+        val entryPoints = it.selectProjectEntryPoints(options)
 
         logger.info { "Start running tests" }
         val traces = it.analyze(config, entryPoints, ifdsAnalysisTimeout, ifdsApMode, debugOptions)

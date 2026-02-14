@@ -40,6 +40,14 @@ abstract class AbstractAnalyzerRunner : CliWithLogger() {
     private val debugFactReachabilitySarif: Boolean by option(help = "Generate SARIF with fact reachability info")
         .flag(default = false)
 
+    private val debugRunAnalysisOnSelectedEntryPoints: String? by option(
+        help = """
+            Run analysis on selected entry points.
+            Use '*' to run on all methods
+            Use method fqn (e.g.  com.example.Class#method) to run on specific method
+            """.trimIndent()
+    )
+
     private val debugRunRuleTests: Boolean by option(help = "Run rule tests instead of project analysis")
         .flag(default = false)
 
@@ -62,6 +70,7 @@ abstract class AbstractAnalyzerRunner : CliWithLogger() {
             factReachabilitySarif = debugFactReachabilitySarif,
             enableVulnSummary = false,
             runRuleTests = debugRunRuleTests,
+            debugRunAnalysisOnSelectedEntryPoints = debugRunAnalysisOnSelectedEntryPoints
         )
     }
 

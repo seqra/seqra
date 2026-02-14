@@ -9,10 +9,7 @@ import org.opentaint.ir.impl.features.classpaths.JIRUnknownClass
 import org.opentaint.project.ProjectModuleClasses
 import java.io.File
 
-class ProjectClasses(
-    val cp: JIRClasspath,
-    private val projectModulesFiles: Map<File, ProjectModuleClasses>
-) {
+class ProjectClasses(projectModulesFiles: Map<File, ProjectModuleClasses>) {
     private val projectModulePaths = projectModulesFiles.mapKeys { it.key.absolutePath }
 
     val locationProjectModules = hashMapOf<RegisteredLocation, ProjectModuleClasses>()
@@ -20,6 +17,15 @@ class ProjectClasses(
 
     val projectLocationsUnsafe: Set<RegisteredLocation>
         get() = projectClasses.keys
+
+    private var _cp: JIRClasspath? = null
+
+    fun initCp(cp: JIRClasspath) {
+        _cp = cp
+    }
+
+    val cp: JIRClasspath
+        get() = _cp ?: error("Class path not initialized")
 
     fun isProjectClass(cls: JIRClassOrInterface): Boolean {
         val module = locationProjectModules[cls.declaration.location] ?: return false
@@ -67,6 +73,10 @@ fun ProjectClasses.projectPublicClasses(): Sequence<JIRClassOrInterface> =
         .filterNot { it.isAbstract || it.isInterface || it.isAnonymous }
         .filter { it.outerClass == null }
 
+fun ProjectClasses.projectAllAnalyzableClasses(): Sequence<JIRClassOrInterface> =
+    allProjectClasses()
+        .filterNot { it.isInterface || it.isAnonymous }
+
 fun JIRClassOrInterface.publicAndProtectedMethods(): Sequence<JIRMethod> =
     declaredMethods
         .asSequence()
@@ -75,6 +85,11 @@ fun JIRClassOrInterface.publicAndProtectedMethods(): Sequence<JIRMethod> =
 
         // todo: hack to avoid problems with Juliet benchmark
         .filterNot { it.isJulietGeneratedRunner() }
+
+fun JIRClassOrInterface.allAnalyzableMethods(): Sequence<JIRMethod> =
+    declaredMethods
+        .asSequence()
+        .filterNot { it.isNative || it.isClassInitializer }
 
 fun JIRClassOrInterface.getMethodFromLineNumber(lineNumber: Int): JIRMethod? =
     declaredMethods.firstOrNull { md ->

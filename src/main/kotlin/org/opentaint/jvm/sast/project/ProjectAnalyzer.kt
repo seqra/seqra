@@ -44,7 +44,7 @@ class ProjectAnalyzer(
         val projectAnalysisContext = initializeProjectAnalysisContext(project, options)
 
         projectAnalysisContext.use {
-            val entryPoints = it.selectProjectEntryPoints()
+            val entryPoints = it.selectProjectEntryPoints(options)
             it.runAnalyzer(entryPoints)
         }
     }
