@@ -12558,6 +12558,10 @@ passThrough:
   copy:
   - from: this
     to: result
+- function: java.nio.file.Path#of
+  copy:
+    - from: arg(*)
+      to: result
 - function: java.nio.file.Paths#get
   signature: (java.net.URI) java.nio.file.Path
   copy:
