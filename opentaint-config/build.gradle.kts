@@ -1,3 +1,7 @@
+plugins {
+    `kotlin-conventions`
+}
+
 tasks.withType<ProcessResources> {
     val configFile = layout.projectDirectory.file("config/config.yaml")
 
