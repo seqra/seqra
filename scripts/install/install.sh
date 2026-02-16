@@ -85,7 +85,7 @@ get_install_dir() {
 }
 
 main() {
-    local platform archive_name url install_dir tmp_dir
+    local platform archive_name url install_dir
 
     echo "Detecting platform..."
     platform="$(detect_platform)"
