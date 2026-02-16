@@ -31,21 +31,20 @@ checksum:
 release:
   prerelease: auto
 
-brews:
-  - repository:
+homebrew_casks:
+  - name: seqra
+    binaries:
+      - seqra
+    repository:
       owner: seqra
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
-    directory: Formula
     homepage: "https://github.com/seqra/seqra"
     description: "CLI security analysis tool for Java and Kotlin projects"
-    license: "Proprietary"
-    install: |
-      bin.install "seqra"
-      (lib/"seqra").install Dir["lib/*"] if File.directory?("lib")
-      (lib/"seqra/jre").install Dir["jre/*"] if File.directory?("jre")
-    test: |
-      system "#{bin}/seqra", "--version"
+    hooks:
+      post:
+        install: |
+          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/seqra"]
 
 scoops:
   - repository:
