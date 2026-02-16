@@ -229,17 +229,14 @@ jobs:
           Compress-Archive -Path seqra.exe -DestinationPath seqra_windows_amd64.zip
           $hash = (Get-FileHash -Path seqra_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
           "$hash  seqra_windows_amd64.zip" | Out-File -FilePath checksums.txt -Encoding utf8NoBOM
-      - name: Start file server
-        shell: pwsh
-        run: Start-Process -NoNewWindow python -ArgumentList "-m", "http.server", "8080"
-      - name: Wait for server
-        shell: pwsh
-        run: Start-Sleep -Seconds 2
       - name: Run install.ps1
         shell: pwsh
         env:
           SEQRA_DOWNLOAD_BASE_URL: http://127.0.0.1:8080
-        run: pwsh -File scripts/install/install.ps1
+        run: |
+          Start-Process -NoNewWindow python -ArgumentList "-m", "http.server", "8080"
+          Start-Sleep -Seconds 2
+          pwsh -File scripts/install/install.ps1
       - name: Verify installation
         shell: pwsh
         run: |
