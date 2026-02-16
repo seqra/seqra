@@ -172,3 +172,74 @@ jobs:
       - name: Run seqra scan
         run: |
           ./seqra scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif project-root
+
+  test-install-sh-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Build test archive
+        run: |
+          go build -o seqra .
+          tar -czf seqra_linux_amd64.tar.gz seqra
+          sha256sum seqra_linux_amd64.tar.gz > checksums.txt
+      - name: Start file server
+        run: python3 -m http.server 8080 &
+      - name: Run install.sh
+        env:
+          SEQRA_DOWNLOAD_BASE_URL: http://localhost:8080
+        run: bash scripts/install/install.sh
+      - name: Verify installation
+        run: ~/.seqra/bin/seqra --version
+
+  test-install-sh-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Build test archive
+        run: |
+          go build -o seqra .
+          tar -czf seqra_darwin_arm64.tar.gz seqra
+          shasum -a 256 seqra_darwin_arm64.tar.gz > checksums.txt
+      - name: Start file server
+        run: python3 -m http.server 8080 &
+      - name: Run install.sh
+        env:
+          SEQRA_DOWNLOAD_BASE_URL: http://localhost:8080
+        run: bash scripts/install/install.sh
+      - name: Verify installation
+        run: ~/.seqra/bin/seqra --version
+
+  test-install-ps1:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      - name: Build test archive
+        shell: pwsh
+        run: |
+          go build -o seqra.exe .
+          Compress-Archive -Path seqra.exe -DestinationPath seqra_windows_amd64.zip
+          $hash = (Get-FileHash -Path seqra_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  seqra_windows_amd64.zip" | Out-File -FilePath checksums.txt -Encoding utf8NoBOM
+      - name: Start file server
+        shell: pwsh
+        run: Start-Process -NoNewWindow python -ArgumentList "-m", "http.server", "8080"
+      - name: Wait for server
+        shell: pwsh
+        run: Start-Sleep -Seconds 2
+      - name: Run install.ps1
+        shell: pwsh
+        env:
+          SEQRA_DOWNLOAD_BASE_URL: http://localhost:8080
+        run: pwsh -File scripts/install/install.ps1
+      - name: Verify installation
+        shell: pwsh
+        run: & "$env:LOCALAPPDATA\seqra\bin\seqra.exe" --version

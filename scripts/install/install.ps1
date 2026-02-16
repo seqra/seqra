@@ -4,6 +4,7 @@
 $ErrorActionPreference = 'Stop'
 
 $Repo = "seqra/seqra"
+$BaseUrl = if ($env:SEQRA_DOWNLOAD_BASE_URL) { $env:SEQRA_DOWNLOAD_BASE_URL } else { "https://github.com/$Repo/releases/latest/download" }
 
 function Get-Architecture {
     $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
@@ -23,7 +24,7 @@ function Verify-Checksum {
         [string]$ArchiveName
     )
 
-    $checksumsUrl = "https://github.com/$Repo/releases/latest/download/checksums.txt"
+    $checksumsUrl = "$BaseUrl/checksums.txt"
     $checksumsFile = Join-Path ([System.IO.Path]::GetDirectoryName($ArchivePath)) "checksums.txt"
 
     Write-Host "Verifying checksum..."
@@ -62,7 +63,7 @@ function Main {
     Write-Host "Architecture: $arch"
 
     $archiveName = "seqra_windows_${arch}.zip"
-    $url = "https://github.com/$Repo/releases/latest/download/$archiveName"
+    $url = "$BaseUrl/$archiveName"
     $installDir = Get-InstallDir
     Write-Host "Install directory: $installDir"
 

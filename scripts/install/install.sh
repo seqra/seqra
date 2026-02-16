@@ -6,6 +6,7 @@ set -euo pipefail
 
 REPO="seqra/seqra"
 INSTALL_DIR="${SEQRA_INSTALL_DIR:-}"
+DOWNLOAD_BASE_URL="${SEQRA_DOWNLOAD_BASE_URL:-https://github.com/${REPO}/releases/latest/download}"
 
 detect_platform() {
     local os arch
@@ -36,7 +37,7 @@ detect_platform() {
 verify_checksum() {
     local archive_path="$1"
     local archive_name="$2"
-    local checksums_url="https://github.com/${REPO}/releases/latest/download/checksums.txt"
+    local checksums_url="${DOWNLOAD_BASE_URL}/checksums.txt"
 
     echo "Verifying checksum..."
     if ! curl -fsSL -o "$tmp_dir/checksums.txt" "$checksums_url" 2>/dev/null; then
@@ -91,7 +92,7 @@ main() {
     echo "Platform: $platform"
 
     archive_name="seqra_${platform}.tar.gz"
-    url="https://github.com/${REPO}/releases/latest/download/${archive_name}"
+    url="${DOWNLOAD_BASE_URL}/${archive_name}"
 
     install_dir="$(get_install_dir)"
     echo "Install directory: $install_dir"
