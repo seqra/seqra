@@ -184,7 +184,7 @@ func ensureDownloaded(url, dest string) error {
 	if err == nil {
 		logrus.Infof("Successfully downloaded Temurin Java to %s", dest)
 	}
-	return downloadFile(url, dest)
+	return err
 }
 
 func unpack(archivePath, targetDir string) error {

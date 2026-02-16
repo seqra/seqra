@@ -314,8 +314,9 @@ func TestJavaRunner_GetJavaResolutions_SpecificStrategy(t *testing.T) {
 	runner := NewJavaRunner().TrySpecificVersion(11)
 	resolutions := runner.GetJavaResolutions()
 
-	if len(resolutions) != 1 {
-		t.Errorf("Expected 1 resolution for specific strategy, got %d", len(resolutions))
+	// 2 resolutions: bundled JRE (first) + specific version download (fallback)
+	if len(resolutions) != 2 {
+		t.Errorf("Expected 2 resolutions for specific strategy (bundled + download), got %d", len(resolutions))
 	}
 }
 

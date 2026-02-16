@@ -20,9 +20,10 @@ var pullCmd = &cobra.Command{
 - Seqra autobuilder JAR
 - Seqra analyzer JAR
 - Seqra rules archive
-- Java runtime (Temurin JDK)
+- Java runtime (Temurin JRE)
 
-This prepares the environment with all required dependencies for offline analysis.`,
+This prepares the environment with all required dependencies for offline analysis.
+When bundled artifacts are present (from a release archive), they will be used directly.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		logrus.Info(formatters.FormatTreeHeader("Seqra Pull"))
 		printer := formatters.NewTreePrinter()
@@ -62,6 +63,12 @@ func downloadAutobuilder(printer *formatters.TreePrinter) error {
 	}
 
 	printer.AddNode(fmt.Sprintf("Autobuilder %s", globals.Config.Autobuilder.Version))
+
+	if utils.IsBundledPath(autobuilderJarPath) {
+		printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
+		return nil
+	}
+
 	if _, err = os.Stat(autobuilderJarPath); err == nil {
 		printer.AddNodeAtLevelDefault("Already downloaded", 1)
 		return nil
@@ -82,6 +89,12 @@ func downloadAnalyzer(printer *formatters.TreePrinter) error {
 	}
 
 	printer.AddNode(fmt.Sprintf("Analyzer %s", globals.Config.Analyzer.Version))
+
+	if utils.IsBundledPath(analyzerJarPath) {
+		printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
+		return nil
+	}
+
 	if _, err = os.Stat(analyzerJarPath); err == nil {
 		printer.AddNodeAtLevelDefault("Already downloaded", 1)
 		return nil
@@ -102,6 +115,12 @@ func downloadRules(printer *formatters.TreePrinter) error {
 	}
 
 	printer.AddNode(fmt.Sprintf("Rules %s", globals.Config.Rules.Version))
+
+	if utils.IsBundledPath(rulesPath) {
+		printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
+		return nil
+	}
+
 	if _, err := os.Stat(rulesPath); err == nil {
 		printer.AddNodeAtLevelDefault("Already downloaded", 1)
 		return nil
@@ -121,6 +140,20 @@ func downloadJava(printer *formatters.TreePrinter) error {
 		return fmt.Errorf("unsupported Java version: %d (supported range: 8-25)", globals.Config.Java.Version)
 	}
 
+	// Check for bundled JRE first
+	if jrePath := utils.GetBundledJREPath(); jrePath != "" {
+		javaBinary := "java"
+		if runtime.GOOS == "windows" {
+			javaBinary = "java.exe"
+		}
+		bundledJava := fmt.Sprintf("%s/bin/%s", jrePath, javaBinary)
+		if _, err := os.Stat(bundledJava); err == nil {
+			printer.AddNode(fmt.Sprintf("Java %d", globals.Config.Java.Version))
+			printer.AddNodeAtLevelDefault("Using bundled JRE", 1)
+			return nil
+		}
+	}
+
 	seqraHome, err := utils.GetSeqraHome()
 	if err != nil {
 		return err
@@ -131,7 +164,7 @@ func downloadJava(printer *formatters.TreePrinter) error {
 		return err
 	}
 
-	artefactRoot := fmt.Sprintf("%s/jdk/temurin-%d-jdk-%s-%s", seqraHome, globals.Config.Java.Version, adoptiumOS, adoptiumArch)
+	artefactRoot := fmt.Sprintf("%s/jre/temurin-%d-jre-%s-%s", seqraHome, globals.Config.Java.Version, adoptiumOS, adoptiumArch)
 	javaPath := fmt.Sprintf("%s/bin/java", artefactRoot)
 
 	printer.AddNode(fmt.Sprintf("Java %d", globals.Config.Java.Version))
@@ -141,7 +174,7 @@ func downloadJava(printer *formatters.TreePrinter) error {
 	}
 
 	logrus.Infof("Downloading Java %d...", globals.Config.Java.Version)
-	javaPath, err = java.EnsureLocalRuntime(globals.Config.Java.Version, java.AdoptiumImageJDK, runtime.GOOS, runtime.GOARCH)
+	javaPath, err = java.EnsureLocalRuntime(globals.Config.Java.Version, java.AdoptiumImageJRE, runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		return err
 	}

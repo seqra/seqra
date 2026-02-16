@@ -23,6 +23,40 @@ jobs:
         with:
           go-version: '>=1.25.0'
       -
+        name: Download bundled artifacts
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ANALYZER_VERSION=$(grep '^analyzer:' internal/globals/versions.yaml | awk '{print $2}' | tr -d '"')
+          AUTOBUILDER_VERSION=$(grep '^autobuilder:' internal/globals/versions.yaml | awk '{print $2}' | tr -d '"')
+          RULES_VERSION=$(grep '^rules:' internal/globals/versions.yaml | awk '{print $2}' | tr -d '"')
+
+          mkdir -p lib
+
+          echo "Downloading analyzer ${ANALYZER_VERSION}..."
+          gh release download "${ANALYZER_VERSION}" \
+            --repo seqra/seqra-jvm-sast \
+            --pattern "seqra-project-analyzer.jar" \
+            --dir lib
+
+          echo "Downloading autobuilder ${AUTOBUILDER_VERSION}..."
+          gh release download "${AUTOBUILDER_VERSION}" \
+            --repo seqra/seqra-jvm-autobuilder \
+            --pattern "seqra-project-auto-builder.jar" \
+            --dir lib
+
+          echo "Downloading rules ${RULES_VERSION}..."
+          gh release download "${RULES_VERSION}" \
+            --repo seqra/seqra-rules \
+            --pattern "seqra-rules.tar.gz" \
+            --dir /tmp
+
+          mkdir -p lib/rules
+          tar -xzf /tmp/seqra-rules.tar.gz -C lib/rules
+
+          echo "Bundled artifacts:"
+          ls -la lib/
+      -
         name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
@@ -31,3 +65,20 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      -
+        name: Bundle JREs into release archives
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash scripts/bundle-jre.sh dist
+          RELEASE_TAG="${{ github.event.release.tag_name }}"
+          for archive in dist/seqra_*.tar.gz dist/seqra_*.zip; do
+            [ -f "$archive" ] || continue
+            echo "Re-uploading $archive..."
+            gh release upload "$RELEASE_TAG" "$archive" --clobber
+          done
+          # Regenerate checksums
+          cd dist
+          sha256sum seqra_*.tar.gz seqra_*.zip 2>/dev/null > checksums.txt
+          cd ..
+          gh release upload "$RELEASE_TAG" dist/checksums.txt --clobber

@@ -2,11 +2,14 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/seqra/seqra/v2/internal/globals"
+	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/seqra/seqra/v2/internal/utils/formatters"
-	"github.com/seqra/seqra/v2/internal/utils/java"
 	"github.com/seqra/seqra/v2/internal/utils/log"
 	"github.com/seqra/seqra/v2/internal/version"
 	"github.com/sirupsen/logrus"
@@ -15,6 +18,9 @@ import (
 )
 
 var toolVersion bool
+
+// updateHintCh receives an update hint message if a new version is available.
+var updateHintCh = make(chan string, 1)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -32,7 +38,21 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("failed to set up logging: %w", err)
 		}
 
+		// Start async update check (non-blocking, at most once per day)
+		if !globals.Config.Quiet {
+			go checkForUpdateAsync()
+		}
+
 		return nil
+	},
+	PersistentPostRun: func(cmd *cobra.Command, args []string) {
+		// Print update hint if available
+		select {
+		case hint := <-updateHintCh:
+			logrus.Info("")
+			logrus.Info(hint)
+		default:
+		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		if toolVersion {
@@ -81,7 +101,7 @@ func init() {
 	_ = rootCmd.PersistentFlags().MarkHidden("rules-version")
 	_ = viper.BindPFlag("rules.version", rootCmd.PersistentFlags().Lookup("rules-version"))
 
-	rootCmd.PersistentFlags().IntVar(&globals.Config.Java.Version, "java-version", java.DefaultJavaVersion, "Java version to use for running analyzer")
+	rootCmd.PersistentFlags().IntVar(&globals.Config.Java.Version, "java-version", globals.DefaultJavaVersion, "Java version to use for running analyzer")
 	_ = viper.BindPFlag("java.version", rootCmd.PersistentFlags().Lookup("java-version"))
 
 	rootCmd.PersistentFlags().StringVar(&globals.Config.Github.Token, "github-token", "", "Token for docker image pull from ghcr.io")
@@ -123,5 +143,52 @@ func printConfig(cmd *cobra.Command, printer *formatters.TreePrinter) {
 			printer.AddNode("Using config file: " + viper.ConfigFileUsed())
 		}
 		printer.AddNode("Log file: " + globals.LogPath)
+	}
+}
+
+// checkForUpdateAsync checks for a newer version in the background, throttled to once per day.
+func checkForUpdateAsync() {
+	currentVersion := version.GetVersion()
+	if currentVersion == "dev" || strings.HasPrefix(currentVersion, "dev-") {
+		return
+	}
+
+	seqraHome, err := utils.GetSeqraHome()
+	if err != nil {
+		return
+	}
+
+	cacheFile := filepath.Join(seqraHome, ".last-update-check")
+
+	// Check if we've already checked today
+	if info, err := os.Stat(cacheFile); err == nil {
+		if time.Since(info.ModTime()) < 24*time.Hour {
+			// Read cached version
+			data, err := os.ReadFile(cacheFile)
+			if err == nil {
+				latestVersion := strings.TrimSpace(string(data))
+				if latestVersion != "" {
+					cmp, err := version.CompareVersions(currentVersion, latestVersion)
+					if err == nil && cmp < 0 {
+						updateHintCh <- fmt.Sprintf("A new version is available: v%s. Run \"seqra update\" to update.", latestVersion)
+					}
+				}
+			}
+			return
+		}
+	}
+
+	// Fetch latest release
+	latestVersion, _, err := utils.GetLatestRelease(globals.RepoOwner, "seqra", globals.Config.Github.Token)
+	if err != nil {
+		return
+	}
+
+	// Cache the result
+	_ = os.WriteFile(cacheFile, []byte(latestVersion), 0o644)
+
+	cmp, err := version.CompareVersions(currentVersion, latestVersion)
+	if err == nil && cmp < 0 {
+		updateHintCh <- fmt.Sprintf("A new version is available: v%s. Run \"seqra update\" to update.", latestVersion)
 	}
 }

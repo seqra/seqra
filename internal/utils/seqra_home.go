@@ -3,6 +3,8 @@ package utils
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/seqra/seqra/v2/internal/globals"
 )
 
 func GetSeqraHome() (string, error) {
@@ -22,7 +24,57 @@ func GetSeqraHome() (string, error) {
 	return path, nil
 }
 
+// GetBundledLibPath returns the path to the bundled lib directory next to the binary.
+// Returns empty string if the path cannot be determined.
+func GetBundledLibPath() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	exe, err = filepath.EvalSymlinks(exe)
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(exe), "lib")
+}
+
+// GetBundledJREPath returns the path to the bundled JRE directory next to the binary.
+// Returns empty string if the path cannot be determined.
+func GetBundledJREPath() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	exe, err = filepath.EvalSymlinks(exe)
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(exe), "jre")
+}
+
+// IsBundledPath returns true if the given path is under the bundled lib directory.
+func IsBundledPath(path string) bool {
+	bundledLib := GetBundledLibPath()
+	if bundledLib == "" {
+		return false
+	}
+	rel, err := filepath.Rel(bundledLib, path)
+	if err != nil {
+		return false
+	}
+	return len(rel) > 0 && rel[0] != '.'
+}
+
 func GetAutobuilderJarPath(version string) (string, error) {
+	if version == globals.AutobuilderBindVersion {
+		if libPath := GetBundledLibPath(); libPath != "" {
+			bundledPath := filepath.Join(libPath, globals.AutobuilderAssetName)
+			if _, err := os.Stat(bundledPath); err == nil {
+				return bundledPath, nil
+			}
+		}
+	}
+
 	seqraHomePath, err := GetSeqraHome()
 	if err != nil {
 		return "", err
@@ -32,6 +84,15 @@ func GetAutobuilderJarPath(version string) (string, error) {
 }
 
 func GetAnalyzerJarPath(version string) (string, error) {
+	if version == globals.AnalyzerBindVersion {
+		if libPath := GetBundledLibPath(); libPath != "" {
+			bundledPath := filepath.Join(libPath, globals.AnalyzerAssetName)
+			if _, err := os.Stat(bundledPath); err == nil {
+				return bundledPath, nil
+			}
+		}
+	}
+
 	seqraHomePath, err := GetSeqraHome()
 	if err != nil {
 		return "", err
@@ -41,6 +102,15 @@ func GetAnalyzerJarPath(version string) (string, error) {
 }
 
 func GetRulesPath(version string) (string, error) {
+	if version == globals.RulesBindVersion {
+		if libPath := GetBundledLibPath(); libPath != "" {
+			bundledPath := filepath.Join(libPath, "rules")
+			if _, err := os.Stat(bundledPath); err == nil {
+				return bundledPath, nil
+			}
+		}
+	}
+
 	seqraHomePath, err := GetSeqraHome()
 	if err != nil {
 		return "", err

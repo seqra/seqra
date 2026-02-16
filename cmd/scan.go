@@ -355,7 +355,7 @@ func scanProject(analyzerBuilder *AnalyzerBuilder) {
 	// Set the jar path on the builder and build the command
 	analyzerCommand := analyzerBuilder.SetJarPath(analyzerJarPath).BuildNativeCommand()
 
-	javaRunner := java.NewJavaRunner().TrySpecificVersion(java.DefaultJavaVersion)
+	javaRunner := java.NewJavaRunner().WithImageType(java.AdoptiumImageJRE).TrySpecificVersion(globals.DefaultJavaVersion)
 
 	commandSucceeded := func(err error) bool {
 		if err != nil {

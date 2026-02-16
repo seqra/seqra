@@ -15,7 +15,14 @@ builds:
 
 archives:
   - formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
     name_template: "{{ .Binary }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: lib/**/*
+        dst: lib/
+        strip_parent: true
 
 checksum:
   name_template: 'checksums.txt'
@@ -23,3 +30,28 @@ checksum:
 
 release:
   prerelease: auto
+
+brews:
+  - repository:
+      owner: seqra
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/seqra/seqra"
+    description: "CLI security analysis tool for Java and Kotlin projects"
+    license: "Proprietary"
+    install: |
+      bin.install "seqra"
+      (lib/"seqra").install Dir["lib/*"] if File.directory?("lib")
+      (lib/"seqra/jre").install Dir["jre/*"] if File.directory?("jre")
+    test: |
+      system "#{bin}/seqra", "--version"
+
+scoops:
+  - repository:
+      owner: seqra
+      name: scoop-seqra
+      token: "{{ .Env.SCOOP_BUCKET_TOKEN }}"
+    homepage: "https://github.com/seqra/seqra"
+    description: "CLI security analysis tool for Java and Kotlin projects"
+    license: "Proprietary"

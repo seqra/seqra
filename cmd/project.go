@@ -153,7 +153,7 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 
 	autobuilderCommand := builder.BuildNativeCommand()
 
-	javaRunner := java.NewJavaRunner().TrySpecificVersion(java.DefaultJavaVersion)
+	javaRunner := java.NewJavaRunner().WithImageType(java.AdoptiumImageJRE).TrySpecificVersion(globals.DefaultJavaVersion)
 
 	commandSucceeded := func(_ error) bool {
 		if _, err = os.Stat(c.outputDir); err != nil {
