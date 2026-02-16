@@ -111,6 +111,9 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&globals.Config.Owner, "owner", globals.RepoOwner, "Organization owner for GitHub repositories")
 	_ = rootCmd.PersistentFlags().MarkHidden("owner")
 	_ = viper.BindPFlag("owner", rootCmd.PersistentFlags().Lookup("owner"))
+
+	rootCmd.PersistentFlags().BoolVar(&globals.Config.SkipVerify, "skip-verify", false, "Skip SHA256 checksum verification of downloaded artifacts")
+	_ = viper.BindPFlag("skip-verify", rootCmd.PersistentFlags().Lookup("skip-verify"))
 }
 
 // initConfig reads in config file and ENV variables if set.

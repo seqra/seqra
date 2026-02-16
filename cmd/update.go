@@ -126,7 +126,7 @@ Only upgrades are supported — downgrading to an older version is refused.`,
 		defer func() { _ = os.RemoveAll(tmpDir) }()
 
 		logrus.Info("Downloading...")
-		archivePath, err := utils.DownloadReleaseArchive(globals.RepoOwner, "seqra", targetTag, globals.Config.Github.Token, tmpDir)
+		archivePath, err := utils.DownloadReleaseArchive(globals.RepoOwner, "seqra", targetTag, globals.Config.Github.Token, tmpDir, globals.Config.SkipVerify)
 		if err != nil {
 			logrus.Fatalf("Failed to download release: %s", err)
 		}

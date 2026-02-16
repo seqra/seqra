@@ -75,7 +75,7 @@ func downloadAutobuilder(printer *formatters.TreePrinter) error {
 	}
 
 	logrus.Infof("Downloading autobuilder %s...", globals.Config.Autobuilder.Version)
-	if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token); err != nil {
+	if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
 		return err
 	}
 	printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", autobuilderJarPath), 1)
@@ -101,7 +101,7 @@ func downloadAnalyzer(printer *formatters.TreePrinter) error {
 	}
 
 	logrus.Infof("Downloading analyzer %s...", globals.Config.Analyzer.Version)
-	if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token); err != nil {
+	if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
 		return err
 	}
 	printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", analyzerJarPath), 1)
@@ -127,7 +127,7 @@ func downloadRules(printer *formatters.TreePrinter) error {
 	}
 
 	logrus.Infof("Downloading rules %s...", globals.Config.Rules.Version)
-	err = utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, rulesPath, globals.Config.Github.Token)
+	err = utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, rulesPath, globals.Config.Github.Token, globals.Config.SkipVerify)
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func downloadJava(printer *formatters.TreePrinter) error {
 	}
 
 	logrus.Infof("Downloading Java %d...", globals.Config.Java.Version)
-	javaPath, err = java.EnsureLocalRuntime(globals.Config.Java.Version, java.AdoptiumImageJRE, runtime.GOOS, runtime.GOARCH)
+	javaPath, err = java.EnsureLocalRuntime(globals.Config.Java.Version, java.AdoptiumImageJRE, runtime.GOOS, runtime.GOARCH, globals.Config.SkipVerify)
 	if err != nil {
 		return err
 	}

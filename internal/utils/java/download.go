@@ -55,12 +55,12 @@ const (
 )
 
 // EnsureLocalRuntime downloads and unpacks Temurin runtime if not present and returns bin/java path
-func EnsureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, aoArch string) (string, error) {
-	return ensureLocalRuntime(requiredJavaVersion, imageType, goOs, aoArch)
+func EnsureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, aoArch string, skipVerify bool) (string, error) {
+	return ensureLocalRuntime(requiredJavaVersion, imageType, goOs, aoArch, skipVerify)
 }
 
 // ensureLocalRuntime downloads and unpacks Temurin runtime if not present and returns bin/java path
-func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, aoArch string) (string, error) {
+func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, aoArch string, skipVerify bool) (string, error) {
 	seqraHome, err := utils.GetSeqraHome()
 	if err != nil {
 		return "", err
@@ -98,6 +98,19 @@ func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, go
 		if err := ensureDownloaded(url, tmpArchive); err != nil {
 			return "", err
 		}
+
+		if !skipVerify {
+			expected, err := FetchAdoptiumChecksum(requiredJavaVersion, adoptiumOS, adoptiumArch, imageType)
+			if err != nil {
+				logrus.Warnf("Could not fetch Adoptium checksum: %v", err)
+			} else if expected != "" {
+				if err := utils.VerifyFileChecksum(tmpArchive, expected); err != nil {
+					return "", fmt.Errorf("JRE integrity check failed: %w", err)
+				}
+				logrus.Debugf("SHA256 verified: Temurin Java %d", requiredJavaVersion)
+			}
+		}
+
 		if err := unpack(tmpArchive, tmpDir); err != nil {
 			return "", err
 		}

@@ -31,6 +31,7 @@ type JavaRunner interface {
 	TrySystem() JavaRunner
 	TrySpecificVersion(version int) JavaRunner
 	WithImageType(imageType AdoptiumImageType) JavaRunner
+	WithSkipVerify(skipVerify bool) JavaRunner
 	GetJavaResolutions() []JavaResolution
 	ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) error
 }
@@ -39,6 +40,7 @@ type javaRunner struct {
 	trySystemStrategy bool
 	specificStrategy  *int
 	imageType         AdoptiumImageType
+	skipVerify        bool
 }
 
 type JavaResolution func() (string, ResolutionStrategy, error)
@@ -217,6 +219,11 @@ func (j *javaRunner) WithImageType(imageType AdoptiumImageType) JavaRunner {
 	return j
 }
 
+func (j *javaRunner) WithSkipVerify(skipVerify bool) JavaRunner {
+	j.skipVerify = skipVerify
+	return j
+}
+
 // unsetJavaEnvironmentVariables unsets Java-related environment variables
 // to ensure a clean environment when using specific Java versions
 func unsetJavaEnvironmentVariables() {
@@ -316,5 +323,5 @@ func (j *javaRunner) ensureSpecificVersion(version int) (string, error) {
 	// Unset Java environment variables for clean environment when using specific version
 	unsetJavaEnvironmentVariables()
 
-	return ensureLocalRuntime(version, j.imageType, runtime.GOOS, runtime.GOARCH)
+	return ensureLocalRuntime(version, j.imageType, runtime.GOOS, runtime.GOARCH, j.skipVerify)
 }

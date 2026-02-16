@@ -17,6 +17,39 @@ function Get-Architecture {
     }
 }
 
+function Verify-Checksum {
+    param(
+        [string]$ArchivePath,
+        [string]$ArchiveName
+    )
+
+    $checksumsUrl = "https://github.com/$Repo/releases/latest/download/checksums.txt"
+    $checksumsFile = Join-Path ([System.IO.Path]::GetDirectoryName($ArchivePath)) "checksums.txt"
+
+    Write-Host "Verifying checksum..."
+    try {
+        Invoke-WebRequest -Uri $checksumsUrl -OutFile $checksumsFile -UseBasicParsing
+    } catch {
+        Write-Warning "Could not download checksums.txt, skipping verification."
+        return
+    }
+
+    $line = Get-Content $checksumsFile | Where-Object { $_ -match "  $([regex]::Escape($ArchiveName))$" } | Select-Object -First 1
+    if (-not $line) {
+        Write-Warning "No checksum found for $ArchiveName, skipping verification."
+        return
+    }
+
+    $expected = ($line -split "  ")[0].ToLower()
+    $actual = (Get-FileHash -Path $ArchivePath -Algorithm SHA256).Hash.ToLower()
+
+    if ($expected -ne $actual) {
+        Write-Error "Checksum verification failed!`n  Expected: $expected`n  Actual:   $actual"
+        exit 1
+    }
+    Write-Host "Checksum verified."
+}
+
 function Get-InstallDir {
     if ($env:SEQRA_INSTALL_DIR) {
         return $env:SEQRA_INSTALL_DIR
@@ -40,6 +73,8 @@ function Main {
         $archivePath = Join-Path $tmpDir $archiveName
         Write-Host "Downloading $archiveName..."
         Invoke-WebRequest -Uri $url -OutFile $archivePath -UseBasicParsing
+
+        Verify-Checksum -ArchivePath $archivePath -ArchiveName $archiveName
 
         Write-Host "Extracting..."
         Expand-Archive -Path $archivePath -DestinationPath $tmpDir -Force

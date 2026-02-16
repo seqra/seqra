@@ -33,6 +33,43 @@ detect_platform() {
     echo "${os}_${arch}"
 }
 
+verify_checksum() {
+    local archive_path="$1"
+    local archive_name="$2"
+    local checksums_url="https://github.com/${REPO}/releases/latest/download/checksums.txt"
+
+    echo "Verifying checksum..."
+    if ! curl -fsSL -o "$tmp_dir/checksums.txt" "$checksums_url" 2>/dev/null; then
+        echo "Warning: Could not download checksums.txt, skipping verification." >&2
+        return 0
+    fi
+
+    local expected
+    expected="$(grep "  ${archive_name}$" "$tmp_dir/checksums.txt" | awk '{print $1}')"
+    if [ -z "$expected" ]; then
+        echo "Warning: No checksum found for ${archive_name}, skipping verification." >&2
+        return 0
+    fi
+
+    local actual
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual="$(sha256sum "$archive_path" | awk '{print $1}')"
+    elif command -v shasum >/dev/null 2>&1; then
+        actual="$(shasum -a 256 "$archive_path" | awk '{print $1}')"
+    else
+        echo "Warning: No SHA256 tool found, skipping verification." >&2
+        return 0
+    fi
+
+    if [ "$expected" != "$actual" ]; then
+        echo "Error: Checksum verification failed!" >&2
+        echo "  Expected: $expected" >&2
+        echo "  Actual:   $actual" >&2
+        exit 1
+    fi
+    echo "Checksum verified."
+}
+
 get_install_dir() {
     if [ -n "$INSTALL_DIR" ]; then
         echo "$INSTALL_DIR"
@@ -64,6 +101,8 @@ main() {
 
     echo "Downloading ${archive_name}..."
     curl -fsSL -o "$tmp_dir/$archive_name" "$url"
+
+    verify_checksum "$tmp_dir/$archive_name" "$archive_name"
 
     echo "Extracting..."
     tar -xzf "$tmp_dir/$archive_name" -C "$tmp_dir"

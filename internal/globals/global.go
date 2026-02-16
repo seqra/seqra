@@ -90,6 +90,7 @@ type ConfigType struct {
 	Java        Java        `mapstructure:"java"`
 	Owner       string      `mapstructure:"owner"`
 	Quiet       bool        `mapstructure:"quiet"`
+	SkipVerify  bool        `mapstructure:"skip-verify"`
 }
 
 var Config ConfigType
