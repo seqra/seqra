@@ -184,7 +184,7 @@ func TestFetchReleaseChecksums(t *testing.T) {
 			accept := r.Header.Get("Accept")
 			if accept == "application/octet-stream" {
 				w.Header().Set("Content-Type", "application/octet-stream")
-				fmt.Fprint(w, checksumContent)
+				_, _ = fmt.Fprint(w, checksumContent)
 			} else {
 				w.Header().Set("Content-Type", "application/json")
 				_ = json.NewEncoder(w).Encode(&github.ReleaseAsset{

@@ -38,7 +38,7 @@ func FetchAdoptiumChecksum(javaVersion int, adoptiumOS AdoptiumOS, adoptiumArch 
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Adoptium API returned status %d", resp.StatusCode)
+		return "", fmt.Errorf("unexpected Adoptium API status %d", resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
