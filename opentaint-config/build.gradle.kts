@@ -1,7 +1,3 @@
-plugins {
-    id("java")
-}
-
 tasks.withType<ProcessResources> {
     val configFile = layout.projectDirectory.file("config/config.yaml")
 
