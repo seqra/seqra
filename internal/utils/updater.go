@@ -34,30 +34,28 @@ func DetectInstallMethod() (InstallMethod, string) {
 		return InstallMethodUnknown, ""
 	}
 
-	exePath := strings.ToLower(exe)
-
-	// Homebrew
-	if strings.Contains(exePath, "/cellar/") || strings.Contains(exePath, "/homebrew/") {
-		return InstallMethodHomebrew, exe
-	}
-
-	// Scoop
-	if strings.Contains(exePath, "/scoop/apps/") || strings.Contains(exePath, "\\scoop\\apps\\") {
-		return InstallMethodScoop, exe
-	}
-
-	// Go install
 	goPath := os.Getenv("GOPATH")
 	if goPath == "" {
 		home, _ := os.UserHomeDir()
 		goPath = filepath.Join(home, "go")
 	}
-	goBin := filepath.Join(goPath, "bin")
-	if strings.HasPrefix(exe, goBin) {
-		return InstallMethodGoInstall, exe
-	}
 
-	return InstallMethodBinary, exe
+	return classifyExePath(exe, goPath), exe
+}
+
+func classifyExePath(exePath, goPath string) InstallMethod {
+	lowerPath := strings.ToLower(exePath)
+	if strings.Contains(lowerPath, "/cellar/") || strings.Contains(lowerPath, "/homebrew/") {
+		return InstallMethodHomebrew
+	}
+	if strings.Contains(lowerPath, "/scoop/apps/") || strings.Contains(lowerPath, "\\scoop\\apps\\") {
+		return InstallMethodScoop
+	}
+	goBin := filepath.Join(goPath, "bin")
+	if strings.HasPrefix(exePath, goBin) {
+		return InstallMethodGoInstall
+	}
+	return InstallMethodBinary
 }
 
 // GetLatestRelease fetches the latest release version from GitHub.

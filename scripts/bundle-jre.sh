@@ -40,7 +40,7 @@ inject_jre_tar_gz() {
     local tmp_dir
 
     tmp_dir=$(mktemp -d)
-    trap "rm -rf '$tmp_dir'" RETURN
+    trap 'rm -rf "$tmp_dir"' RETURN
 
     echo "  Extracting archive..."
     tar -xzf "$archive" -C "$tmp_dir"
@@ -73,7 +73,7 @@ inject_jre_zip() {
     local tmp_dir
 
     tmp_dir=$(mktemp -d)
-    trap "rm -rf '$tmp_dir'" RETURN
+    trap 'rm -rf "$tmp_dir"' RETURN
 
     echo "  Extracting archive..."
     unzip -q "$archive" -d "$tmp_dir"
@@ -108,10 +108,8 @@ for platform in "${!PLATFORM_MAP[@]}"; do
     # Determine archive format
     if [[ "$platform" == windows_* ]]; then
         archive_ext="zip"
-        jre_ext="zip"
     else
         archive_ext="tar.gz"
-        jre_ext="tar.gz"
     fi
 
     archive_file="$DIST_DIR/seqra_${platform}.${archive_ext}"

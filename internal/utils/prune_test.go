@@ -1,0 +1,307 @@
+package utils
+
+import (
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/seqra/seqra/v2/internal/globals"
+)
+
+func TestFormatSize(t *testing.T) {
+	tests := []struct {
+		bytes    int64
+		expected string
+	}{
+		{0, "0 B"},
+		{512, "512 B"},
+		{1024, "1.0 KB"},
+		{1536, "1.5 KB"},
+		{1048576, "1.0 MB"},
+		{1073741824, "1.0 GB"},
+	}
+	for _, tt := range tests {
+		got := FormatSize(tt.bytes)
+		if got != tt.expected {
+			t.Errorf("FormatSize(%d) = %q, want %q", tt.bytes, got, tt.expected)
+		}
+	}
+}
+
+func TestDeleteArtifacts(t *testing.T) {
+	t.Run("removes files and dirs", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		f1 := filepath.Join(tmpDir, "file1.jar")
+		createTestFile(t, f1, 10)
+
+		d1 := filepath.Join(tmpDir, "dir1")
+		if err := os.MkdirAll(d1, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		createTestFile(t, filepath.Join(d1, "inner.txt"), 5)
+
+		artifacts := []StaleArtifact{
+			{Path: f1, Size: 10, Kind: "analyzer"},
+			{Path: d1, Size: 5, Kind: "rules"},
+		}
+
+		if err := DeleteArtifacts(artifacts); err != nil {
+			t.Fatalf("DeleteArtifacts() error = %v", err)
+		}
+
+		for _, a := range artifacts {
+			if _, err := os.Stat(a.Path); !os.IsNotExist(err) {
+				t.Errorf("expected %s to be removed", a.Path)
+			}
+		}
+	})
+
+	t.Run("empty slice is no-op", func(t *testing.T) {
+		if err := DeleteArtifacts(nil); err != nil {
+			t.Fatalf("DeleteArtifacts(nil) error = %v", err)
+		}
+	})
+}
+
+func TestScanForStaleArtifacts(t *testing.T) {
+	// Save and restore globals
+	origAnalyzer := globals.AnalyzerBindVersion
+	origAutobuilder := globals.AutobuilderBindVersion
+	origRules := globals.RulesBindVersion
+	origJava := globals.DefaultJavaVersion
+	t.Cleanup(func() {
+		globals.AnalyzerBindVersion = origAnalyzer
+		globals.AutobuilderBindVersion = origAutobuilder
+		globals.RulesBindVersion = origRules
+		globals.DefaultJavaVersion = origJava
+	})
+
+	globals.AnalyzerBindVersion = "1.0.0"
+	globals.AutobuilderBindVersion = "1.0.0"
+	globals.RulesBindVersion = "v1.0.0"
+	globals.DefaultJavaVersion = 21
+
+	t.Run("empty home", func(t *testing.T) {
+		t.Setenv("HOME", t.TempDir())
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result.Stale) != 0 {
+			t.Errorf("expected 0 stale, got %d", len(result.Stale))
+		}
+	})
+
+	t.Run("stale analyzer", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seqraHome := filepath.Join(home, ".seqra")
+		createTestFile(t, filepath.Join(seqraHome, "analyzer_0.9.0.jar"), 100)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result.Stale) != 1 {
+			t.Fatalf("expected 1 stale, got %d", len(result.Stale))
+		}
+		if result.Stale[0].Kind != "analyzer" {
+			t.Errorf("expected kind=analyzer, got %q", result.Stale[0].Kind)
+		}
+	})
+
+	t.Run("current analyzer", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seqraHome := filepath.Join(home, ".seqra")
+		createTestFile(t, filepath.Join(seqraHome, "analyzer_1.0.0.jar"), 100)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result.Stale) != 0 {
+			t.Errorf("expected 0 stale, got %d", len(result.Stale))
+		}
+	})
+
+	t.Run("stale autobuilder", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seqraHome := filepath.Join(home, ".seqra")
+		createTestFile(t, filepath.Join(seqraHome, "autobuilder_0.9.0.jar"), 100)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result.Stale) != 1 {
+			t.Fatalf("expected 1 stale, got %d", len(result.Stale))
+		}
+		if result.Stale[0].Kind != "autobuilder" {
+			t.Errorf("expected kind=autobuilder, got %q", result.Stale[0].Kind)
+		}
+	})
+
+	t.Run("stale rules", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seqraHome := filepath.Join(home, ".seqra")
+		rulesDir := filepath.Join(seqraHome, "rules_v0.9.0")
+		createTestFile(t, filepath.Join(rulesDir, "rule.yaml"), 50)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result.Stale) != 1 {
+			t.Fatalf("expected 1 stale, got %d", len(result.Stale))
+		}
+		if result.Stale[0].Kind != "rules" {
+			t.Errorf("expected kind=rules, got %q", result.Stale[0].Kind)
+		}
+	})
+
+	t.Run("stale JDK", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seqraHome := filepath.Join(home, ".seqra")
+		jdkDir := filepath.Join(seqraHome, "jdk", "temurin-17-jdk+35")
+		createTestFile(t, filepath.Join(jdkDir, "bin", "java"), 50)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result.Stale) != 1 {
+			t.Fatalf("expected 1 stale, got %d", len(result.Stale))
+		}
+		if result.Stale[0].Kind != "jdk" {
+			t.Errorf("expected kind=jdk, got %q", result.Stale[0].Kind)
+		}
+	})
+
+	t.Run("stale JRE", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seqraHome := filepath.Join(home, ".seqra")
+		jreDir := filepath.Join(seqraHome, "jre", "temurin-17-jre+35")
+		createTestFile(t, filepath.Join(jreDir, "bin", "java"), 50)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result.Stale) != 1 {
+			t.Fatalf("expected 1 stale, got %d", len(result.Stale))
+		}
+		if result.Stale[0].Kind != "jre" {
+			t.Errorf("expected kind=jre, got %q", result.Stale[0].Kind)
+		}
+	})
+
+	t.Run("current JRE", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seqraHome := filepath.Join(home, ".seqra")
+		jreDir := filepath.Join(seqraHome, "jre", "temurin-21-jre+35")
+		createTestFile(t, filepath.Join(jreDir, "bin", "java"), 50)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result.Stale) != 0 {
+			t.Errorf("expected 0 stale, got %d", len(result.Stale))
+		}
+	})
+
+	t.Run("logs includeLogs=true", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seqraHome := filepath.Join(home, ".seqra")
+		createTestFile(t, filepath.Join(seqraHome, "logs", "app.log"), 200)
+
+		result, err := ScanForStaleArtifacts(true)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result.Stale) != 1 {
+			t.Fatalf("expected 1 stale, got %d", len(result.Stale))
+		}
+		if result.Stale[0].Kind != "log" {
+			t.Errorf("expected kind=log, got %q", result.Stale[0].Kind)
+		}
+	})
+
+	t.Run("logs includeLogs=false", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seqraHome := filepath.Join(home, ".seqra")
+		createTestFile(t, filepath.Join(seqraHome, "logs", "app.log"), 200)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result.Stale) != 0 {
+			t.Errorf("expected 0 stale, got %d", len(result.Stale))
+		}
+	})
+
+	t.Run("hidden files skipped", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seqraHome := filepath.Join(home, ".seqra")
+		createTestFile(t, filepath.Join(seqraHome, ".config"), 10)
+		createTestFile(t, filepath.Join(seqraHome, ".last-update-check"), 10)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result.Stale) != 0 {
+			t.Errorf("expected 0 stale, got %d", len(result.Stale))
+		}
+	})
+
+	t.Run("mixed old and current", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		seqraHome := filepath.Join(home, ".seqra")
+
+		// Current (should not be stale)
+		createTestFile(t, filepath.Join(seqraHome, "analyzer_1.0.0.jar"), 100)
+		createTestFile(t, filepath.Join(seqraHome, "autobuilder_1.0.0.jar"), 100)
+
+		// Old (should be stale)
+		createTestFile(t, filepath.Join(seqraHome, "analyzer_0.8.0.jar"), 100)
+		createTestFile(t, filepath.Join(seqraHome, "autobuilder_0.8.0.jar"), 100)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if len(result.Stale) != 2 {
+			t.Fatalf("expected 2 stale, got %d", len(result.Stale))
+		}
+		for _, s := range result.Stale {
+			if s.Kind != "analyzer" && s.Kind != "autobuilder" {
+				t.Errorf("unexpected kind %q", s.Kind)
+			}
+		}
+	})
+}
+
+func createTestFile(t *testing.T, path string, size int) {
+	t.Helper()
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	data := make([]byte, size)
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}

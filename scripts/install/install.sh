@@ -60,7 +60,7 @@ main() {
     echo "Install directory: $install_dir"
 
     tmp_dir="$(mktemp -d)"
-    trap "rm -rf '$tmp_dir'" EXIT
+    trap 'rm -rf "$tmp_dir"' EXIT
 
     echo "Downloading ${archive_name}..."
     curl -fsSL -o "$tmp_dir/$archive_name" "$url"
