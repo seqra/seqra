@@ -39,8 +39,16 @@ abstract class AccessBasedStorage<S : AccessBasedStorage<S>> {
         }
 
         pattern.forEachAccessor { accessor, accessorPattern ->
-            children[accessor]?.collectNodesContains(accessorPattern, nodes)
+            collectNodesContainsAccessor(accessorPattern, accessor, nodes)
         }
+    }
+
+    open fun collectNodesContainsAccessor(
+        pattern: AccessTree.AccessNode,
+        accessor: Accessor,
+        nodes: MutableList<S>
+    ) {
+        children[accessor]?.collectNodesContains(pattern, nodes)
     }
 
     fun allNodes(): Sequence<S> {

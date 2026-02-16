@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
+import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.access.common.CommonF2FSummary
 import org.opentaint.dataflow.ap.ifds.access.common.CommonF2FSummary.F2FBBuilder
@@ -29,6 +31,19 @@ private class MethodTaintedSummariesInitialApStorage(
         filterContains(containsPattern).forEach { node ->
             node.current?.summaries()?.let { dst.add(it) }
         }
+    }
+
+    override fun collectNodesContainsAccessor(
+        pattern: AccessTreeNode,
+        accessor: Accessor,
+        nodes: MutableList<MethodTaintedSummariesInitialApStorage>
+    ) {
+        if (accessor is AnyAccessor) {
+            nodes += allNodes()
+            return
+        }
+
+        super.collectNodesContainsAccessor(pattern, accessor, nodes)
     }
 
     fun collectAllSummariesTo(dst: MutableList<F2FBBuilder<AccessPath.AccessNode?, AccessTree.AccessNode>>) {
