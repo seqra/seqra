@@ -10,5 +10,6 @@ repositories {
 }
 
 dependencies {
+    implementation("org.opentaint:opentaint-common-build")
     implementation("org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion")
 }
