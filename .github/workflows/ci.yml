@@ -242,4 +242,5 @@ jobs:
         run: pwsh -File scripts/install/install.ps1
       - name: Verify installation
         shell: pwsh
-        run: & "$env:LOCALAPPDATA\seqra\bin\seqra.exe" --version
+        run: |
+          & "$env:LOCALAPPDATA\seqra\bin\seqra.exe" --version
