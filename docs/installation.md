@@ -27,6 +27,11 @@ curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/in
 irm https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.ps1 | iex
 ```
 
+**Windows (CMD):**
+```cmd
+curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.cmd -o install.cmd && install.cmd && del install.cmd
+```
+
 ## Docker
 
 No local installation required:

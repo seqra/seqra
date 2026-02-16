@@ -127,6 +127,8 @@ Each finding includes the HTTP endpoint, making it easy to understand your appli
 | **Homebrew** (macOS/Linux) | `brew install seqra/tap/seqra` |
 | **Scoop** (Windows) | `scoop install seqra` |
 | **Install script** (Linux/macOS) | `curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.sh \| bash` |
+| **Install script** (Windows PowerShell) | `irm https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.ps1 \| iex` |
+| **Install script** (Windows CMD) | `curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.cmd -o install.cmd && install.cmd && del install.cmd` |
 | **Docker** | See [Quick Start](#quick-start) or [Docker docs](docs/docker.md) |
 | **Binary** | [Download from releases](https://github.com/seqra/seqra/releases/latest) |
 | **Go** | `go install github.com/seqra/seqra/v2@latest` |
