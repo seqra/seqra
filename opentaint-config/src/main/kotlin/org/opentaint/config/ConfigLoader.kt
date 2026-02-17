@@ -11,8 +11,9 @@ import kotlin.streams.asSequence
 
 object ConfigLoader {
     private const val CONFIG_ROOT = "/config"
+    private val config = lazy { loadConfig() }
 
-    val config = loadConfig()
+    fun getConfig() = config.value
 
     private fun loadConfig(): SerializedTaintConfig? {
         val resources = javaClass.getResource(CONFIG_ROOT) ?: return null
