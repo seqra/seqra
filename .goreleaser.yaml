@@ -46,14 +46,14 @@ archives:
         strip_parent: true
 
 checksum:
-  name_template: 'checksums.txt'
-  algorithm: sha256
+  disable: true
 
 release:
   prerelease: auto
 
 homebrew_casks:
   - ids: [full]
+    skip_upload: true
     name: seqra
     binaries:
       - seqra
@@ -70,6 +70,7 @@ homebrew_casks:
 
 scoops:
   - ids: [full]
+    skip_upload: true
     repository:
       owner: seqra
       name: scoop-seqra
