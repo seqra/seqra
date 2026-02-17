@@ -79,11 +79,12 @@ object KotlinInlineFunctionScopeTransformer : JIRInstExtFeature {
 
     private fun findInlinedFunctionsScopes(method: JIRMethod): List<InlineScope> {
         val scopes = method.withAsmNode { md ->
-            val insts = md.instructions
+            val insts = md.instructions ?: return@withAsmNode emptyList()
             insts.accept(mVisitor)
             // filtering local variables responsible for inlined method's ranges
-            md.localVariables
-                .filter { isInlineOrLambda(it.name) }
+            val locals = md.localVariables ?: return@withAsmNode emptyList()
+
+            locals.filter { isInlineOrLambda(it.name) }
                 .mapIndexed { idx, it ->
                     InlineScope(insts.indexOf(it.start), insts.indexOf(it.end), idx, it.name)
                 }
