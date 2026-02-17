@@ -185,6 +185,7 @@ jobs:
 
           # Push updated cask to Homebrew tap
           git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/seqra/homebrew-tap.git" /tmp/homebrew-tap
+          mkdir -p /tmp/homebrew-tap/Casks
           cp "$CASK_FILE" /tmp/homebrew-tap/Casks/seqra.rb
           cd /tmp/homebrew-tap
           git config user.name "seqradev"
@@ -200,7 +201,7 @@ jobs:
 
           # Push updated manifest to Scoop bucket
           git clone "https://x-access-token:${SCOOP_BUCKET_TOKEN}@github.com/seqra/scoop-seqra.git" /tmp/scoop-seqra
-          cp "$SCOOP_FILE" /tmp/scoop-seqra/bucket/seqra.json
+          cp "$SCOOP_FILE" /tmp/scoop-seqra/seqra.json
           cd /tmp/scoop-seqra
           git config user.name "seqradev"
           git config user.email "seqradev@gmail.com"
