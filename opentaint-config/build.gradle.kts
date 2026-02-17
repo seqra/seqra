@@ -1,13 +1,21 @@
+import OpentaintConfigurationDependency.opentaintRulesJvm
+
 plugins {
     `kotlin-conventions`
 }
 
+dependencies {
+    implementation(opentaintRulesJvm)
+}
+
+//sourceSets {
+//    main {
+//        resources.srcDirs += files("config")
+//    }
+//}
+
 tasks.withType<ProcessResources> {
-    val configFile = layout.projectDirectory.file("config/config.yaml")
+    val configDir = layout.projectDirectory.dir("config")
 
-    doLast {
-        check(configFile.asFile.exists()) { "Configuration file not found" }
-    }
-
-    from(configFile)
+    from(configDir)
 }
