@@ -30,9 +30,8 @@ archives:
         formats: [zip]
     name_template: "{{ .Binary }}_{{ .Os }}_{{ .Arch }}"
     files:
-      - src: lib/**/*
-        dst: lib/
-        strip_parent: true
+      - src: lib/**
+        dst: lib
 
   - id: full
     formats: [tar.gz]
@@ -41,9 +40,8 @@ archives:
         formats: [zip]
     name_template: "{{ .Binary }}-full_{{ .Os }}_{{ .Arch }}"
     files:
-      - src: lib/**/*
-        dst: lib/
-        strip_parent: true
+      - src: lib/**
+        dst: lib
 
 checksum:
   disable: true
