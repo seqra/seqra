@@ -54,17 +54,9 @@ abstract class SampleBasedTest(
         data.positiveClasses.mapTo(allSamples) { it.className }
         data.negativeClasses.mapTo(allSamples) { it.className }
 
-        val configPath = if (configurationRequired) {
-            System.getenv("TAINT_CONFIGURATION")
-                ?.let { Path(it) }
-                ?: error("Configuration file required")
-        } else {
-            null
-        }
-
         val configWithExtraRules = provideAdditionalRules(taintConfig)
 
-        val results = runner.run(configWithExtraRules, configPath, allSamples)
+        val results = runner.run(configWithExtraRules, configurationRequired, allSamples)
 
         val missedPositive = hashSetOf<PositiveCase>()
         for (sample in data.positiveClasses) {

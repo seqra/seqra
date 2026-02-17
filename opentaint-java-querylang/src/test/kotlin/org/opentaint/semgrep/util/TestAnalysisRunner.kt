@@ -1,13 +1,13 @@
 package org.opentaint.semgrep.util
 
 import kotlinx.coroutines.runBlocking
+import org.opentaint.config.ConfigLoader
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
-import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
 import org.opentaint.dataflow.ifds.SingletonUnit
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnknownUnit
@@ -24,7 +24,6 @@ import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.features.usagesExt
-import org.opentaint.ir.util.io.inputStream
 import org.opentaint.jvm.graph.JApplicationGraphImpl
 import org.opentaint.jvm.sast.dataflow.DummySerializationContext
 import org.opentaint.jvm.sast.dataflow.JIRMethodExitRuleProvider
@@ -33,7 +32,6 @@ import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
 import org.opentaint.jvm.transformer.JMultiDimArrayAllocationTransformer
 import org.opentaint.jvm.transformer.JStringConcatTransformer
 import org.opentaint.util.analysis.ApplicationGraph
-import java.nio.file.Path
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -87,7 +85,7 @@ class TestAnalysisRunner(
 
     fun run(
         config: SerializedTaintConfig,
-        configurationPath: Path?,
+        useDefaultConfig: Boolean,
         samples: Set<String>
     ): Map<String, List<VulnerabilityWithTrace>> =
         samples.associate { sample ->
@@ -95,7 +93,7 @@ class TestAnalysisRunner(
             val ep = cls.declaredMethods.singleOrNull { it.name == "entrypoint" }
                 ?: error("No entrypoint in $sample")
 
-            val rulesProvider = rulesProvider(config, configurationPath, hashSetOf(ep))
+            val rulesProvider = rulesProvider(config, useDefaultConfig, hashSetOf(ep))
             setupEngine(rulesProvider).use { engine ->
                 engine.runAnalysis(listOf(ep), timeout = 1.minutes, cancellationTimeout = 10.seconds)
 
@@ -118,16 +116,14 @@ class TestAnalysisRunner(
 
     private fun rulesProvider(
         config: SerializedTaintConfig,
-        configurationPath: Path?,
+        useDefaultConfig: Boolean,
         ep: Set<JIRMethod>
     ): TaintRulesProvider {
         val taintConfig = TaintConfiguration(cp)
         taintConfig.loadConfig(config)
 
-        if (configurationPath != null) {
-            val defaultConfig = configurationPath.inputStream().use {
-                loadSerializedTaintConfig(it)
-            }
+        if (useDefaultConfig) {
+            val defaultConfig = ConfigLoader.getConfig() ?: error("Error while loading default config")
 
             val defaultPassRules = SerializedTaintConfig(passThrough = defaultConfig.passThrough)
             taintConfig.loadConfig(defaultPassRules)

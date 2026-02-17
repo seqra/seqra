@@ -1,3 +1,4 @@
+import OpentaintConfigDependency.opentaintConfig
 import OpentaintIrDependency.opentaint_ir_api_jvm
 import OpentaintIrDependency.opentaint_ir_api_storage
 import OpentaintIrDependency.opentaint_ir_approximations
@@ -21,6 +22,7 @@ dependencies {
     implementation(opentaintUtilCli)
     implementation(opentaintProject)
     implementation("org.opentaint.opentaint-configuration-rules:configuration-rules-jvm")
+    implementation(opentaintConfig)
 
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-jvm-dataflow")
     implementation("org.opentaint.sast.se:api")
@@ -100,16 +102,6 @@ fun ShadowJar.jarWithDependencies(name: String, mainClass: String) {
     mergeServiceFiles()
 
     with(tasks.jar.get() as CopySpec)
-}
-
-tasks.withType<ProcessResources> {
-    val configFile = layout.projectDirectory.file("config/config.yaml")
-
-    doLast {
-        check(configFile.asFile.exists()) { "Configuration file not found" }
-    }
-
-    from(configFile)
 }
 
 fun analyzerEnvironment(): Map<String, Any> {

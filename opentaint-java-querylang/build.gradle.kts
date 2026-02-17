@@ -1,3 +1,4 @@
+import OpentaintConfigDependency.opentaintConfig
 import OpentaintUtilDependency.opentaintUtilJvm
 import org.opentaint.common.KotlinDependency
 import OpentaintIrDependency.opentaint_ir_core
@@ -22,6 +23,7 @@ dependencies {
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-jvm-dataflow")
     implementation("org.opentaint.opentaint-configuration-rules:configuration-rules-jvm")
     implementation(opentaintUtilJvm)
+    implementation(opentaintConfig)
 
     implementation(KotlinDependency.Libs.kaml)
 
@@ -55,11 +57,6 @@ tasks.withType<Test> {
 
     val testSamplesJar = testSamples.resolve().single()
     environment("TEST_SAMPLES_JAR", testSamplesJar.absolutePath)
-
-    val configFile = rootProject.layout.projectDirectory.file("config/config.yaml")
-    if (configFile.asFile.exists()) {
-        environment("TAINT_CONFIGURATION", configFile.asFile.absolutePath)
-    }
 
     jvmArgs = listOf("-Xmx4g")
 }
