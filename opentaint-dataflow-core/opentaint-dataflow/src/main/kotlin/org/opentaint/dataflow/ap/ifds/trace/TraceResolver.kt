@@ -359,6 +359,12 @@ class TraceResolver(
                 }
 
                 addInnerTraces(fullTrace, innerDepth)
+
+                if (kind == CallKind.CallInnerTrace) {
+                    resultNodes += InterProceduralFullTraceNode(fullTrace)
+                    continue
+                }
+
                 when (val start = fullTrace.startEntry) {
                     is SourceStartEntry -> {
                         resultNodes += resolveNode(fullTrace, kind, depth)
