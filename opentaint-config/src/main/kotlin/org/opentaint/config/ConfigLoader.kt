@@ -4,21 +4,43 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
 import java.io.File
+import java.nio.file.FileSystems
+import java.nio.file.Files
+import java.util.Collections
+import kotlin.streams.asSequence
 
-private object ConfigLoader
+object ConfigLoader {
+    private const val CONFIG_ROOT = "/config"
 
-fun loadConfig(): SerializedTaintConfig? {
-    val resources = ConfigLoader.javaClass.getResource("/config") ?: return null
-    val path = resources.path
-    val files = File(path).listFiles()?.filter { it.extension == "yaml" } ?: return null
+    private val loader = lazy { loadConfig() }
+    val config = loader.value
 
-    val passThrough = mutableListOf<SerializedRule.PassThrough>()
-    files.forEach { file ->
-        file.inputStream().use {
-            val config = loadSerializedTaintConfig(it)
-            passThrough.addAll(config.passThrough.orEmpty())
+    private fun loadConfig(): SerializedTaintConfig? {
+        val resources = javaClass.getResource(CONFIG_ROOT) ?: return null
+        val uri = resources.toURI()
+        val allFiles = if (uri.scheme == "jar") {
+            FileSystems.newFileSystem(uri, Collections.emptyMap<String, String>()).use { fs ->
+                val path = fs.getPath(CONFIG_ROOT)
+                Files.walk(path).asSequence().map { path.relativize(it).toString() }.toList()
+            }
+        } else {
+            val root = File(uri)
+            root.listFiles().orEmpty().map { it.relativeTo(root).toString() }
         }
-    }
+        if (allFiles.isEmpty()) return null
+        val files = allFiles.filter { it.endsWith(".yaml") }
 
-    return SerializedTaintConfig(passThrough = passThrough)
+        val passThrough = mutableListOf<SerializedRule.PassThrough>()
+        files.forEach { file ->
+            javaClass.getResourceAsStream("$CONFIG_ROOT${File.separator}$file").use {
+                if (it == null) return null
+                else {
+                    val config = loadSerializedTaintConfig(it)
+                    passThrough.addAll(config.passThrough.orEmpty())
+                }
+            }
+        }
+
+        return SerializedTaintConfig(passThrough = passThrough)
+    }
 }
