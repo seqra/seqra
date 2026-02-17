@@ -8,13 +8,6 @@
 brew install seqra/tap/seqra
 ```
 
-## Scoop (Windows)
-
-```powershell
-scoop bucket add seqra https://github.com/seqra/scoop-seqra
-scoop install seqra
-```
-
 ## Install Scripts
 
 **Linux/macOS:**

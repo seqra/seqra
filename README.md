@@ -55,12 +55,6 @@ https://github.com/user-attachments/assets/aba3733b-2959-4470-be0c-605d259e97b6
 brew install seqra/tap/seqra
 ```
 
-**Install via Scoop (Windows):**
-```powershell
-scoop bucket add seqra https://github.com/seqra/scoop-seqra
-scoop install seqra
-```
-
 **Scan your project:**
 ```bash
 seqra scan --output results.sarif /path/to/your/spring/project
@@ -125,7 +119,6 @@ Each finding includes the HTTP endpoint, making it easy to understand your appli
 | Method | Command |
 |--------|---------|
 | **Homebrew** (macOS/Linux) | `brew install seqra/tap/seqra` |
-| **Scoop** (Windows) | `scoop install seqra` |
 | **Install script** (Linux/macOS) | `curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.sh \| bash` |
 | **Install script** (Windows PowerShell) | `irm https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.ps1 \| iex` |
 | **Install script** (Windows CMD) | `curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.cmd -o install.cmd && install.cmd && del install.cmd` |
@@ -133,7 +126,7 @@ Each finding includes the HTTP endpoint, making it easy to understand your appli
 | **Binary** | [Download from releases](https://github.com/seqra/seqra/releases/latest) |
 | **Go** | `go install github.com/seqra/seqra/v2@latest` |
 
-Release archives come in three variants: **`seqra-full`** (binary + JARs + rules + JRE), **`seqra`** (binary + JARs + rules), and **`seqra-cli`** (binary only). Homebrew, Scoop, and install scripts default to `full`. For `go install`, run `seqra pull` to download analyzer components.
+Release archives come in three variants: **`seqra-full`** (binary + JARs + rules + JRE), **`seqra`** (binary + JARs + rules), and **`seqra-cli`** (binary only). Homebrew and install scripts default to `full`. For `go install`, run `seqra pull` to download analyzer components.
 
 For detailed instructions, see [Installation Guide](docs/installation.md).
 

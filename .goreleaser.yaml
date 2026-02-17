@@ -65,14 +65,3 @@ homebrew_casks:
       post:
         install: |
           system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/seqra"]
-
-scoops:
-  - ids: [full]
-    skip_upload: true
-    repository:
-      owner: seqra
-      name: scoop-seqra
-      token: "{{ .Env.SCOOP_BUCKET_TOKEN }}"
-    homepage: "https://github.com/seqra/seqra"
-    description: "CLI security analysis tool for Java and Kotlin projects"
-    license: "Proprietary"
