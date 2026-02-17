@@ -45,7 +45,7 @@ class JIRMethodCallSummaryHandler(
             }
 
             analysisContext.aliasAnalysis?.forEachAliasAfterStatement(statement, summaryFactAp) { aliased ->
-                handleSummaryEdge(initialFactRefinement, aliased)
+                result += handleSummaryEdge(initialFactRefinement, aliased)
             }
 
             handleSummaryEdge(initialFactRefinement, summaryFactAp)
