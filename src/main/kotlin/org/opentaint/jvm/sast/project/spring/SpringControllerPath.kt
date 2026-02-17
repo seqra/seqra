@@ -22,8 +22,6 @@ import org.opentaint.jvm.sast.dataflow.matchedAnnotations
 import org.opentaint.jvm.sast.sarif.TracePathNode
 import org.opentaint.jvm.sast.sarif.getMethod
 import org.opentaint.jvm.sast.sarif.isPureEntryPoint
-import kotlin.io.path.Path
-import kotlin.io.path.absolutePathString
 
 private data class SpringControllerPath(
     val path: String,
@@ -242,10 +240,9 @@ class SpringAnnotator(
     }
 
     private fun concatSpringPath(base: String, other: String): String =
-        Path(base.ensurePrefix("/")).resolve(other.removePrefix("/")).absolutePathString()
+        "/${base.removePathSeparator()}/${other.removePathSeparator()}"
 
-    private fun String.ensurePrefix(prefix: String): String =
-        if (startsWith(prefix)) this else "$prefix$this"
+    private fun String.removePathSeparator() = trim().trim('/')
 
     private fun vulnRelevantMethods(
         vulnerability: TaintSinkTracker.TaintVulnerability,
