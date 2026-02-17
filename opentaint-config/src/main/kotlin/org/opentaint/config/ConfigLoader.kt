@@ -12,21 +12,20 @@ import kotlin.streams.asSequence
 object ConfigLoader {
     private const val CONFIG_ROOT = "/config"
 
-    private val loader = lazy { loadConfig() }
-    val config = loader.value
+    val config = loadConfig()
 
     private fun loadConfig(): SerializedTaintConfig? {
         val resources = javaClass.getResource(CONFIG_ROOT) ?: return null
         val uri = resources.toURI()
-        val allFiles = if (uri.scheme == "jar") {
+
+        // it is expected to be used as a .jar-dependency
+        if (uri.scheme != "jar") return null
+
+        val allFiles =
             FileSystems.newFileSystem(uri, Collections.emptyMap<String, String>()).use { fs ->
                 val path = fs.getPath(CONFIG_ROOT)
                 Files.walk(path).asSequence().map { path.relativize(it).toString() }.toList()
             }
-        } else {
-            val root = File(uri)
-            root.listFiles().orEmpty().map { it.relativeTo(root).toString() }
-        }
         if (allFiles.isEmpty()) return null
         val files = allFiles.filter { it.endsWith(".yaml") }
 
