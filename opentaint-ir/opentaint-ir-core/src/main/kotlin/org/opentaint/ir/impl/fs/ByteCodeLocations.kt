@@ -7,7 +7,7 @@ import java.io.File
 import java.nio.file.Paths
 import java.util.jar.JarFile
 
-val logger = object : KLogging() {}.logger
+private val logger = object : KLogging() {}.logger
 
 /**
  * Returns collection of `JIRByteCodeLocation` of a file or directory.
@@ -15,7 +15,10 @@ val logger = object : KLogging() {}.logger
  * The method called of different files can have same locations in the result, so use `distinct()` to
  * filter duplicates out.
  */
-fun File.dirOrJarAsBytecodeLocation(runtimeVersion: JavaVersion, isRuntime: Boolean): Collection<JIRByteCodeLocation> {
+fun File.dirOrJarAsBytecodeLocation(
+    runtimeVersion: JavaVersion,
+    isRuntime: Boolean
+): Collection<JIRByteCodeLocation> = runCatching {
     if (isJar()) {
         return mutableSetOf<File>().also { classPath(it) }.map { JarLocation(it, isRuntime, runtimeVersion) }
     }
@@ -24,8 +27,11 @@ fun File.dirOrJarAsBytecodeLocation(runtimeVersion: JavaVersion, isRuntime: Bool
         return listOf(BuildFolderLocation(this))
     }
 
-    error("$absolutePath is invalid bytecode location")
-}
+    logger.error("Invalid bytecode location: $absolutePath")
+    return emptyList()
+}.onFailure {
+    logger.error(it) { "Failed to read bytecode location" }
+}.getOrNull() ?: emptyList()
 
 fun Collection<File>.createNonRuntimeByteCodeLocations(runtimeVersion: JavaVersion): List<JIRByteCodeLocation> =
     filterExisting()
