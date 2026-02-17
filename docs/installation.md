@@ -2,7 +2,7 @@
 
 **Prerequisites:** Same build requirements as your Java/Kotlin project (Maven or Gradle, project dependencies). Java runtime is bundled with release archives.
 
-## Homebrew (macOS/Linux)
+## Homebrew (Linux/macOS)
 
 ```bash
 brew install seqra/tap/seqra
