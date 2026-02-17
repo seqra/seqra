@@ -183,8 +183,8 @@ jobs:
       - name: Build test archive
         run: |
           go build -o seqra .
-          tar -czf seqra_linux_amd64.tar.gz seqra
-          sha256sum seqra_linux_amd64.tar.gz > checksums.txt
+          tar -czf seqra-full_linux_amd64.tar.gz seqra
+          sha256sum seqra-full_linux_amd64.tar.gz > checksums.txt
       - name: Start file server
         run: python3 -m http.server 8080 &
       - name: Run install.sh
@@ -204,8 +204,8 @@ jobs:
       - name: Build test archive
         run: |
           go build -o seqra .
-          tar -czf seqra_darwin_arm64.tar.gz seqra
-          shasum -a 256 seqra_darwin_arm64.tar.gz > checksums.txt
+          tar -czf seqra-full_darwin_arm64.tar.gz seqra
+          shasum -a 256 seqra-full_darwin_arm64.tar.gz > checksums.txt
       - name: Start file server
         run: python3 -m http.server 8080 &
       - name: Run install.sh
@@ -226,9 +226,9 @@ jobs:
         shell: pwsh
         run: |
           go build -o seqra.exe .
-          Compress-Archive -Path seqra.exe -DestinationPath seqra_windows_amd64.zip
-          $hash = (Get-FileHash -Path seqra_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
-          "$hash  seqra_windows_amd64.zip" | Out-File -FilePath checksums.txt -Encoding utf8NoBOM
+          Compress-Archive -Path seqra.exe -DestinationPath seqra-full_windows_amd64.zip
+          $hash = (Get-FileHash -Path seqra-full_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
+          "$hash  seqra-full_windows_amd64.zip" | Out-File -FilePath checksums.txt -Encoding utf8NoBOM
       - name: Run install.ps1
         shell: pwsh
         env:

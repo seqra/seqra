@@ -91,7 +91,7 @@ main() {
     platform="$(detect_platform)"
     echo "Platform: $platform"
 
-    archive_name="seqra_${platform}.tar.gz"
+    archive_name="seqra-full_${platform}.tar.gz"
     url="${DOWNLOAD_BASE_URL}/${archive_name}"
 
     install_dir="$(get_install_dir)"

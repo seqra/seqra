@@ -133,7 +133,7 @@ Each finding includes the HTTP endpoint, making it easy to understand your appli
 | **Binary** | [Download from releases](https://github.com/seqra/seqra/releases/latest) |
 | **Go** | `go install github.com/seqra/seqra/v2@latest` |
 
-Release archives include bundled JARs, rules, and JRE — no additional downloads needed. For `go install`, run `seqra pull` to download analyzer components.
+Release archives come in three variants: **`seqra-full`** (binary + JARs + rules + JRE), **`seqra`** (binary + JARs + rules), and **`seqra-cli`** (binary only). Homebrew, Scoop, and install scripts default to `full`. For `go install`, run `seqra pull` to download analyzer components.
 
 For detailed instructions, see [Installation Guide](docs/installation.md).
 

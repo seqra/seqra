@@ -62,7 +62,7 @@ function Main {
     $arch = Get-Architecture
     Write-Host "Architecture: $arch"
 
-    $archiveName = "seqra_windows_${arch}.zip"
+    $archiveName = "seqra-full_windows_${arch}.zip"
     $url = "$BaseUrl/$archiveName"
     $installDir = Get-InstallDir
     Write-Host "Install directory: $installDir"

@@ -130,16 +130,84 @@ jobs:
         run: |
           bash scripts/bundle-jre.sh dist
           RELEASE_TAG="v${{ steps.release_version.outputs.RELEASE_VERSION }}"
-          for archive in dist/seqra_*.tar.gz dist/seqra_*.zip; do
+          for archive in dist/seqra-full_*.tar.gz dist/seqra-full_*.zip; do
             [ -f "$archive" ] || continue
             echo "Re-uploading $archive..."
             gh release upload "$RELEASE_TAG" "$archive" --clobber
           done
-          # Regenerate checksums
+          # Regenerate checksums covering all three variants
           cd dist
-          sha256sum seqra_*.tar.gz seqra_*.zip 2>/dev/null > checksums.txt
+          sha256sum seqra-cli_*.{tar.gz,zip} seqra_*.{tar.gz,zip} seqra-full_*.{tar.gz,zip} 2>/dev/null > checksums.txt
           cd ..
           gh release upload "$RELEASE_TAG" dist/checksums.txt --clobber
+      -
+        name: Update package manager manifests
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          SCOOP_BUCKET_TOKEN: ${{ secrets.SCOOP_BUCKET_TOKEN }}
+        run: |
+          RELEASE_TAG="v${{ steps.release_version.outputs.RELEASE_VERSION }}"
+          VERSION="${{ steps.release_version.outputs.RELEASE_VERSION }}"
+
+          # Compute SHA256 for each full archive
+          declare -A SHAS
+          for f in dist/seqra-full_*.tar.gz dist/seqra-full_*.zip; do
+            [ -f "$f" ] || continue
+            name="$(basename "$f")"
+            SHAS["$name"]="$(sha256sum "$f" | awk '{print $1}')"
+          done
+
+          # --- Update Homebrew tap ---
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/seqra/homebrew-tap.git" /tmp/homebrew-tap
+          CASK_FILE="$(find /tmp/homebrew-tap -name 'seqra.rb' | head -1)"
+          if [ -n "$CASK_FILE" ]; then
+            for key in "${!SHAS[@]}"; do
+              sha="${SHAS[$key]}"
+              # Match the sha256 line following the url that contains this archive name
+              sed -i "s|sha256 \"[a-f0-9]\{64\}\" # ${key}|sha256 \"${sha}\" # ${key}|g" "$CASK_FILE"
+              # Also handle inline sha256 on the line after a url containing the archive name
+              sed -i "/${key//\./\\.}/{ n; s/sha256 \"[a-f0-9]\{64\}\"/sha256 \"${sha}\"/; }" "$CASK_FILE"
+            done
+            cd /tmp/homebrew-tap
+            git add -A
+            if ! git diff --cached --quiet; then
+              git commit -m "fix: update SHA256 checksums for ${RELEASE_TAG}"
+              git push
+            fi
+            cd -
+          fi
+
+          # --- Update Scoop bucket ---
+          git clone "https://x-access-token:${SCOOP_BUCKET_TOKEN}@github.com/seqra/scoop-seqra.git" /tmp/scoop-seqra
+          SCOOP_FILE="$(find /tmp/scoop-seqra -name 'seqra.json' | head -1)"
+          if [ -n "$SCOOP_FILE" ]; then
+            for key in "${!SHAS[@]}"; do
+              sha="${SHAS[$key]}"
+              # Update hash values in the JSON that correspond to the archive URL
+              python3 -c "
+          import json, sys
+          with open('$SCOOP_FILE') as f:
+              data = json.load(f)
+          if 'architecture' in data:
+              for arch_key, arch_val in data['architecture'].items():
+                  url = arch_val.get('url', '')
+                  if '${key}' in url:
+                      arch_val['hash'] = 'sha256:${sha}'
+          with open('$SCOOP_FILE', 'w') as f:
+              json.dump(data, f, indent=4)
+              f.write('\n')
+          "
+            done
+            cd /tmp/scoop-seqra
+            git add -A
+            if ! git diff --cached --quiet; then
+              git commit -m "fix: update SHA256 checksums for ${RELEASE_TAG}"
+              git push
+            fi
+            cd -
+          fi
       -
         name: Build and push
         if: ${{ steps.release_version.outputs.status == 'succeeded' }}

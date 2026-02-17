@@ -14,11 +14,32 @@ builds:
       - -s -w -X github.com/seqra/seqra/v2/internal/version.Version={{.Version}}
 
 archives:
-  - formats: [tar.gz]
+  - id: cli
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .Binary }}-cli_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: "nonexistent-glob-*"
+
+  - id: default
+    formats: [tar.gz]
     format_overrides:
       - goos: windows
         formats: [zip]
     name_template: "{{ .Binary }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: lib/**/*
+        dst: lib/
+        strip_parent: true
+
+  - id: full
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .Binary }}-full_{{ .Os }}_{{ .Arch }}"
     files:
       - src: lib/**/*
         dst: lib/
@@ -32,7 +53,8 @@ release:
   prerelease: auto
 
 homebrew_casks:
-  - name: seqra
+  - ids: [full]
+    name: seqra
     binaries:
       - seqra
     repository:
@@ -47,7 +69,8 @@ homebrew_casks:
           system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/seqra"]
 
 scoops:
-  - repository:
+  - ids: [full]
+    repository:
       owner: seqra
       name: scoop-seqra
       token: "{{ .Env.SCOOP_BUCKET_TOKEN }}"

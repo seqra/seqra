@@ -48,23 +48,31 @@ See [Docker documentation](docker.md) for advanced usage.
 
 ## Precompiled Binaries
 
-Download for your platform:
+Each release provides three archive variants:
+
+| Variant | Contents | Use case |
+|---------|----------|----------|
+| **`seqra-full`** | Binary + JARs + rules + JRE | Recommended — everything included, no additional downloads |
+| **`seqra`** | Binary + JARs + rules | Use your own JRE (Java 17+) |
+| **`seqra-cli`** | Binary only | Minimal install; run `seqra pull` to download components |
+
+Download `seqra-full` for your platform (recommended):
 
 | Platform | Download |
 |----------|----------|
-| Linux x64 | [seqra_linux_amd64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra_linux_amd64.tar.gz) |
-| Linux ARM64 | [seqra_linux_arm64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra_linux_arm64.tar.gz) |
-| macOS x64 | [seqra_darwin_amd64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra_darwin_amd64.tar.gz) |
-| macOS ARM64 (Apple Silicon) | [seqra_darwin_arm64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra_darwin_arm64.tar.gz) |
-| Windows x64 | [seqra_windows_amd64.zip](https://github.com/seqra/seqra/releases/latest/download/seqra_windows_amd64.zip) |
-| Windows ARM64 | [seqra_windows_arm64.zip](https://github.com/seqra/seqra/releases/latest/download/seqra_windows_arm64.zip) |
+| Linux x64 | [seqra-full_linux_amd64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra-full_linux_amd64.tar.gz) |
+| Linux ARM64 | [seqra-full_linux_arm64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra-full_linux_arm64.tar.gz) |
+| macOS x64 | [seqra-full_darwin_amd64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra-full_darwin_amd64.tar.gz) |
+| macOS ARM64 (Apple Silicon) | [seqra-full_darwin_arm64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra-full_darwin_arm64.tar.gz) |
+| Windows x64 | [seqra-full_windows_amd64.zip](https://github.com/seqra/seqra/releases/latest/download/seqra-full_windows_amd64.zip) |
+| Windows ARM64 | [seqra-full_windows_arm64.zip](https://github.com/seqra/seqra/releases/latest/download/seqra-full_windows_arm64.zip) |
 
-Release archives include bundled JARs, rules, and JRE — no additional downloads needed.
+The `seqra-full` archives include bundled JARs, rules, and JRE — no additional downloads needed. Replace `seqra-full` with `seqra` or `seqra-cli` in the URLs above for other variants.
 
 ### Linux/macOS Installation
 
 ```bash
-curl -L https://github.com/seqra/seqra/releases/latest/download/seqra_linux_amd64.tar.gz | tar xz
+curl -L https://github.com/seqra/seqra/releases/latest/download/seqra-full_linux_amd64.tar.gz | tar xz
 sudo mv seqra /usr/local/bin/
 ```
 

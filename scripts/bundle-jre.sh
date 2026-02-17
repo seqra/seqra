@@ -68,7 +68,8 @@ inject_jre_tar_gz() {
 }
 
 inject_jre_zip() {
-    local archive="$1"
+    local archive
+    archive="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
     local jre_archive="$2"
     local tmp_dir
 
@@ -112,7 +113,7 @@ for platform in "${!PLATFORM_MAP[@]}"; do
         archive_ext="tar.gz"
     fi
 
-    archive_file="$DIST_DIR/seqra_${platform}.${archive_ext}"
+    archive_file="$DIST_DIR/seqra-full_${platform}.${archive_ext}"
     if [ ! -f "$archive_file" ]; then
         echo "  Archive not found: $archive_file, skipping"
         continue
