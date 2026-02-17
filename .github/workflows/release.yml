@@ -140,7 +140,7 @@ jobs:
           gh release upload "$RELEASE_TAG" dist/checksums.txt --clobber
       -
         name: Update package manager manifests
-        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        if: ${{ steps.release_version.outputs.status == 'succeeded' && github.ref_name == 'main' }}
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
@@ -176,8 +176,8 @@ jobs:
           fi
           cd -
       -
-        name: Build and push
-        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        name: Build and push Docker image
+        if: ${{ steps.release_version.outputs.status == 'succeeded' && github.ref_name == 'main' }}
         uses: docker/build-push-action@v6
         with:
           context: .
