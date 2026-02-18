@@ -23,25 +23,16 @@ type PruneResult struct {
 	TotalCount int
 }
 
-// staleCheckSpec describes a cached artifact pattern to check for staleness.
-type staleCheckSpec struct {
-	prefix      string // filename prefix (e.g. "analyzer_")
-	suffix      string // filename suffix (e.g. ".jar", "" for directories)
-	bindVersion string // current bind version
-	kind        string // artifact kind for reporting
-	isDir       bool   // true if artifact is a directory (use dirSize)
-}
-
-// checkStale tests whether a filename matches this spec and is stale or redundant.
+// checkStale tests whether a filename matches the given artifact definition and is stale or redundant.
 // Returns a StaleArtifact if it should be pruned, nil otherwise.
-func (s staleCheckSpec) checkStale(name, fullPath string, bundledLibExists bool) *StaleArtifact {
-	if !strings.HasPrefix(name, s.prefix) || !strings.HasSuffix(name, s.suffix) {
+func checkStale(def globals.ArtifactDef, name, fullPath string, bundledLibExists bool) *StaleArtifact {
+	if !strings.HasPrefix(name, def.CachePrefix) || !strings.HasSuffix(name, def.CacheSuffix) {
 		return nil
 	}
-	version := strings.TrimPrefix(name, s.prefix)
-	version = strings.TrimSuffix(version, s.suffix)
+	version := strings.TrimPrefix(name, def.CachePrefix)
+	version = strings.TrimSuffix(version, def.CacheSuffix)
 
-	isStale := version != s.bindVersion
+	isStale := version != def.BindVersion
 	isRedundant := !isStale && bundledLibExists
 
 	if !isStale && !isRedundant {
@@ -49,12 +40,12 @@ func (s staleCheckSpec) checkStale(name, fullPath string, bundledLibExists bool)
 	}
 
 	var size int64
-	if s.isDir {
+	if def.Unpack {
 		size, _ = dirSize(fullPath)
 	} else {
 		size = fileSize(fullPath)
 	}
-	return &StaleArtifact{Path: fullPath, Size: size, Kind: s.kind}
+	return &StaleArtifact{Path: fullPath, Size: size, Kind: def.Kind()}
 }
 
 // ScanForStaleArtifacts scans ~/.seqra/ for artifacts that are not current and returns them.
@@ -85,11 +76,7 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 		}
 	}
 
-	artifactSpecs := []staleCheckSpec{
-		{prefix: "analyzer_", suffix: ".jar", bindVersion: globals.AnalyzerBindVersion, kind: "analyzer"},
-		{prefix: "autobuilder_", suffix: ".jar", bindVersion: globals.AutobuilderBindVersion, kind: "autobuilder"},
-		{prefix: "rules_", suffix: "", bindVersion: globals.RulesBindVersion, kind: "rules", isDir: true},
-	}
+	artifacts := globals.Artifacts()
 
 	for _, entry := range entries {
 		name := entry.Name()
@@ -100,17 +87,17 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 			continue
 		}
 
-		// Check against artifact specs
+		// Check against artifact definitions
 		matched := false
-		for _, spec := range artifactSpecs {
-			if artifact := spec.checkStale(name, fullPath, bundledLibExists); artifact != nil {
+		for _, def := range artifacts {
+			if artifact := checkStale(def, name, fullPath, bundledLibExists); artifact != nil {
 				result.Stale = append(result.Stale, *artifact)
 				result.TotalSize += artifact.Size
 				result.TotalCount++
 				matched = true
 				break
 			}
-			if strings.HasPrefix(name, spec.prefix) {
+			if strings.HasPrefix(name, def.CachePrefix) {
 				matched = true // matches pattern but is current — skip
 				break
 			}

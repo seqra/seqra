@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/utils"
@@ -14,18 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
-
-// artifactSpec declaratively describes a downloadable artifact for the pull command.
-type artifactSpec struct {
-	name        string // human-readable name ("Autobuilder", "Analyzer", "Rules")
-	version     string // configured version
-	bindVersion string // compile-time bind version
-	repoName    string // GitHub repository name
-	assetName   string // GitHub release asset filename
-	libSubpath  string // path relative to lib/ directory
-	cacheName   string // filename/dirname in ~/.seqra/ cache
-	unpack      bool   // unpack archive (tar.gz) instead of raw download
-}
 
 var pullCmd = &cobra.Command{
 	Use:   "pull",
@@ -52,41 +39,12 @@ When bundled artifacts are present (from a release archive), they will be used d
 		method, _ := utils.DetectInstallMethod()
 		installNextToBinary := method != utils.InstallMethodGoInstall
 
-		artifacts := []artifactSpec{
-			{
-				name:        "Autobuilder",
-				version:     globals.Config.Autobuilder.Version,
-				bindVersion: globals.AutobuilderBindVersion,
-				repoName:    globals.AutobuilderRepoName,
-				assetName:   globals.AutobuilderAssetName,
-				libSubpath:  globals.AutobuilderAssetName,
-				cacheName:   "autobuilder_" + globals.Config.Autobuilder.Version + ".jar",
-			},
-			{
-				name:        "Analyzer",
-				version:     globals.Config.Analyzer.Version,
-				bindVersion: globals.AnalyzerBindVersion,
-				repoName:    globals.AnalyzerRepoName,
-				assetName:   globals.AnalyzerAssetName,
-				libSubpath:  globals.AnalyzerAssetName,
-				cacheName:   "analyzer_" + globals.Config.Analyzer.Version + ".jar",
-			},
-			{
-				name:        "Rules",
-				version:     globals.Config.Rules.Version,
-				bindVersion: globals.RulesBindVersion,
-				repoName:    globals.RulesRepoName,
-				assetName:   globals.RulesAssetName,
-				libSubpath:  "rules",
-				cacheName:   "rules_" + globals.Config.Rules.Version,
-				unpack:      true,
-			},
-		}
+		artifacts := globals.Artifacts()
 
 		printer = formatters.NewTreePrinter()
 		for _, spec := range artifacts {
 			if err := downloadArtifact(spec, printer, installNextToBinary); err != nil {
-				logrus.Fatalf("Failed to download %s: %s", strings.ToLower(spec.name), err)
+				logrus.Fatalf("Failed to download %s: %s", spec.Kind(), err)
 			}
 		}
 
@@ -101,20 +59,19 @@ When bundled artifacts are present (from a release archive), they will be used d
 
 // downloadArtifact downloads a GitHub release artifact using the bundled → install → cache
 // fallback chain. It skips the download if the artifact already exists at any tier.
-func downloadArtifact(spec artifactSpec, printer *formatters.TreePrinter, installNextToBinary bool) error {
-	isBindVersion := spec.version == spec.bindVersion
-	printer.AddNode(fmt.Sprintf("%s %s", spec.name, spec.version))
+func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter, installNextToBinary bool) error {
+	printer.AddNode(fmt.Sprintf("%s %s", spec.Name, spec.Version))
 
 	// Check if already available at any tier
-	if isBindVersion {
+	if spec.IsBindVersion() {
 		if libPath := utils.GetBundledLibPath(); libPath != "" {
-			if _, err := os.Stat(filepath.Join(libPath, spec.libSubpath)); err == nil {
+			if _, err := os.Stat(filepath.Join(libPath, spec.LibSubpath)); err == nil {
 				printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
 				return nil
 			}
 		}
 		if libPath := utils.GetInstallLibPath(); libPath != "" {
-			if _, err := os.Stat(filepath.Join(libPath, spec.libSubpath)); err == nil {
+			if _, err := os.Stat(filepath.Join(libPath, spec.LibSubpath)); err == nil {
 				printer.AddNodeAtLevelDefault("Already downloaded", 1)
 				return nil
 			}
@@ -125,26 +82,26 @@ func downloadArtifact(spec artifactSpec, printer *formatters.TreePrinter, instal
 	if err != nil {
 		return err
 	}
-	cachePath := filepath.Join(seqraHome, spec.cacheName)
+	cachePath := filepath.Join(seqraHome, spec.CacheName())
 	if _, err := os.Stat(cachePath); err == nil {
 		printer.AddNodeAtLevelDefault("Already downloaded", 1)
 		return nil
 	}
 
-	logrus.Infof("Downloading %s %s...", strings.ToLower(spec.name), spec.version)
+	logrus.Infof("Downloading %s %s...", spec.Kind(), spec.Version)
 
 	download := func(targetPath string) error {
-		if spec.unpack {
-			return utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, spec.repoName, spec.version, spec.assetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify)
+		if spec.Unpack {
+			return utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, spec.RepoName, spec.Version, spec.AssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify)
 		}
-		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, spec.repoName, spec.version, spec.assetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify)
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, spec.RepoName, spec.Version, spec.AssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify)
 	}
 
 	// For bind version, try to install next to binary
-	if isBindVersion && installNextToBinary {
+	if spec.IsBindVersion() && installNextToBinary {
 		if libPath := utils.GetBundledLibPath(); libPath != "" {
 			if err := os.MkdirAll(libPath, 0o755); err == nil {
-				targetPath := filepath.Join(libPath, spec.libSubpath)
+				targetPath := filepath.Join(libPath, spec.LibSubpath)
 				if err := download(targetPath); err != nil {
 					return err
 				}
@@ -156,10 +113,10 @@ func downloadArtifact(spec artifactSpec, printer *formatters.TreePrinter, instal
 	}
 
 	// For bind version, try install path (~/.seqra/install/lib/)
-	if isBindVersion {
+	if spec.IsBindVersion() {
 		if libPath := utils.GetInstallLibPath(); libPath != "" {
 			if err := os.MkdirAll(libPath, 0o755); err == nil {
-				targetPath := filepath.Join(libPath, spec.libSubpath)
+				targetPath := filepath.Join(libPath, spec.LibSubpath)
 				if err := download(targetPath); err != nil {
 					return err
 				}

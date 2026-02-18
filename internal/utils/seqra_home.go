@@ -89,16 +89,16 @@ func IsBundledPath(path string) bool {
 //  1. Bundled path (next to binary) — only if version matches bindVersion
 //  2. Install path (~/.seqra/install/lib/) — only if version matches bindVersion
 //  3. Cache path (~/.seqra/<cacheName>)
-func resolveArtifactPath(version, bindVersion, libSubpath, cacheName string) (string, error) {
-	if version == bindVersion {
+func resolveArtifactPath(def globals.ArtifactDef) (string, error) {
+	if def.IsBindVersion() {
 		if libPath := GetBundledLibPath(); libPath != "" {
-			bundledPath := filepath.Join(libPath, libSubpath)
+			bundledPath := filepath.Join(libPath, def.LibSubpath)
 			if _, err := os.Stat(bundledPath); err == nil {
 				return bundledPath, nil
 			}
 		}
 		if libPath := GetInstallLibPath(); libPath != "" {
-			installPath := filepath.Join(libPath, libSubpath)
+			installPath := filepath.Join(libPath, def.LibSubpath)
 			if _, err := os.Stat(installPath); err == nil {
 				return installPath, nil
 			}
@@ -109,17 +109,17 @@ func resolveArtifactPath(version, bindVersion, libSubpath, cacheName string) (st
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(seqraHomePath, cacheName), nil
+	return filepath.Join(seqraHomePath, def.CacheName()), nil
 }
 
 func GetAutobuilderJarPath(version string) (string, error) {
-	return resolveArtifactPath(version, globals.AutobuilderBindVersion, globals.AutobuilderAssetName, "autobuilder_"+version+".jar")
+	return resolveArtifactPath(globals.ArtifactByKind("autobuilder").WithVersion(version))
 }
 
 func GetAnalyzerJarPath(version string) (string, error) {
-	return resolveArtifactPath(version, globals.AnalyzerBindVersion, globals.AnalyzerAssetName, "analyzer_"+version+".jar")
+	return resolveArtifactPath(globals.ArtifactByKind("analyzer").WithVersion(version))
 }
 
 func GetRulesPath(version string) (string, error) {
-	return resolveArtifactPath(version, globals.RulesBindVersion, "rules", "rules_"+version)
+	return resolveArtifactPath(globals.ArtifactByKind("rules").WithVersion(version))
 }
