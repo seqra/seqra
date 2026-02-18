@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/go-github/v72/github"
+	"github.com/google/go-github/v74/github"
 )
 
 func newTestClient(serverURL string) *github.Client {
@@ -69,6 +69,64 @@ func TestComputeFileSHA256(t *testing.T) {
 			t.Error("expected error for nonexistent file")
 		}
 	})
+}
+
+func TestParseAssetDigest(t *testing.T) {
+	tests := []struct {
+		name    string
+		digest  string
+		wantHex string
+		wantOk  bool
+	}{
+		{
+			name:    "valid digest",
+			digest:  "sha256:abc123def456",
+			wantHex: "abc123def456",
+			wantOk:  true,
+		},
+		{
+			name:    "empty string",
+			digest:  "",
+			wantHex: "",
+			wantOk:  false,
+		},
+		{
+			name:    "unknown prefix",
+			digest:  "md5:abc123",
+			wantHex: "",
+			wantOk:  false,
+		},
+		{
+			name:    "prefix only",
+			digest:  "sha256:",
+			wantHex: "",
+			wantOk:  false,
+		},
+		{
+			name:    "bare hash without prefix",
+			digest:  "abc123def456",
+			wantHex: "",
+			wantOk:  false,
+		},
+		{
+			name:    "uppercase normalization",
+			digest:  "sha256:ABC123DEF456",
+			wantHex: "abc123def456",
+			wantOk:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotHex, gotOk := ParseAssetDigest(tt.digest)
+			if gotOk != tt.wantOk {
+				t.Errorf("ok = %v, want %v", gotOk, tt.wantOk)
+			}
+			if gotHex != tt.wantHex {
+				t.Errorf("hex = %q, want %q", gotHex, tt.wantHex)
+			}
+		})
+	}
 }
 
 func TestParseChecksumFile(t *testing.T) {

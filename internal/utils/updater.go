@@ -106,7 +106,7 @@ func DownloadReleaseArchive(owner, repo, tag, token, destDir string, skipVerify 
 			}
 
 			if !skipVerify {
-				if err := verifyAssetChecksum(client, owner, repo, release, archiveName, destPath); err != nil {
+				if err := verifyAssetChecksum(client, owner, repo, release, asset, destPath); err != nil {
 					_ = os.Remove(destPath)
 					return "", err
 				}
