@@ -58,26 +58,6 @@ func GetBundledJREPath() string {
 	return ""
 }
 
-// GetInstallLibPath returns the path to the lib directory in ~/.seqra/install/.
-// Returns empty string if the home directory cannot be determined.
-func GetInstallLibPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".seqra", "install", "lib")
-}
-
-// GetInstallJREPath returns the path to the jre directory in ~/.seqra/install/.
-// Returns empty string if the home directory cannot be determined.
-func GetInstallJREPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(home, ".seqra", "install", "jre")
-}
-
 // GetInstallDir returns the path to ~/.seqra/install/.
 // Returns empty string if the home directory cannot be determined.
 func GetInstallDir() string {
@@ -86,6 +66,24 @@ func GetInstallDir() string {
 		return ""
 	}
 	return filepath.Join(home, ".seqra", "install")
+}
+
+// GetInstallLibPath returns the path to the lib directory in ~/.seqra/install/.
+// Returns empty string if the home directory cannot be determined.
+func GetInstallLibPath() string {
+	if dir := GetInstallDir(); dir != "" {
+		return filepath.Join(dir, "lib")
+	}
+	return ""
+}
+
+// GetInstallJREPath returns the path to the jre directory in ~/.seqra/install/.
+// Returns empty string if the home directory cannot be determined.
+func GetInstallJREPath() string {
+	if dir := GetInstallDir(); dir != "" {
+		return filepath.Join(dir, "jre")
+	}
+	return ""
 }
 
 // IsInstallCurrent reports whether the install-tier version marker matches
@@ -152,7 +150,7 @@ func resolveArtifactPath(def globals.ArtifactDef) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if found := FindExistingCurrent(tiers); found != nil {
+	if found := FindExisting(CurrentTiers(tiers, IsInstallCurrent())); found != nil {
 		return found.Path, nil
 	}
 	// Return last tier as default download target (even if artifact not yet downloaded)

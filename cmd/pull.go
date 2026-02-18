@@ -40,7 +40,8 @@ When bundled artifacts are present (from a release archive), they will be used d
 		installNextToBinary := method != utils.InstallMethodGoInstall
 
 		// Clean stale install-tier artifacts before downloading
-		if !utils.IsInstallCurrent() {
+		installCurrent := utils.IsInstallCurrent()
+		if !installCurrent {
 			if err := utils.CleanInstallDir(); err != nil {
 				logrus.Fatalf("Failed to clean install directory: %s", err)
 			}
@@ -50,12 +51,12 @@ When bundled artifacts are present (from a release archive), they will be used d
 
 		printer = formatters.NewTreePrinter()
 		for _, spec := range artifacts {
-			if err := downloadArtifact(spec, printer, installNextToBinary); err != nil {
+			if err := downloadArtifact(spec, printer, installNextToBinary, installCurrent); err != nil {
 				logrus.Fatalf("Failed to download %s: %s", spec.Kind(), err)
 			}
 		}
 
-		if err := downloadJava(printer, installNextToBinary); err != nil {
+		if err := downloadJava(printer, installNextToBinary, installCurrent); err != nil {
 			logrus.Fatalf("Failed to download Java: %s", err)
 		}
 
@@ -72,7 +73,7 @@ When bundled artifacts are present (from a release archive), they will be used d
 
 // downloadArtifact downloads a GitHub release artifact using the bundled → install → cache
 // fallback chain. It skips the download if the artifact already exists at any tier.
-func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter, installNextToBinary bool) error {
+func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter, installNextToBinary, installCurrent bool) error {
 	printer.AddNode(fmt.Sprintf("%s %s", spec.Name, spec.Version))
 
 	tiers, err := utils.ArtifactTiers(spec)
@@ -80,9 +81,9 @@ func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter,
 		return err
 	}
 
-	// Check if already available at any tier (skip stale install)
-	if found := utils.FindExistingCurrent(tiers); found != nil {
-		if found.Name == "bundled" {
+	// Check if already available at any current tier
+	if found := utils.FindExisting(utils.CurrentTiers(tiers, installCurrent)); found != nil {
+		if found.Name == utils.TierBundled {
 			printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
 		} else {
 			printer.AddNodeAtLevelDefault("Already downloaded", 1)
@@ -101,10 +102,10 @@ func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter,
 
 	// Download to the first writable tier
 	for _, t := range tiers {
-		if t.Name == "bundled" && !installNextToBinary {
+		if t.Name == utils.TierBundled && !installNextToBinary {
 			continue
 		}
-		if t.Name != "cache" {
+		if t.Name != utils.TierCache {
 			if err := os.MkdirAll(filepath.Dir(t.Path), 0o755); err != nil {
 				logrus.Debugf("Cannot write to %s tier, trying next", t.Name)
 				continue
@@ -121,7 +122,7 @@ func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter,
 }
 
 // downloadJava downloads a JRE using the bundled → install → cache fallback chain.
-func downloadJava(printer *formatters.TreePrinter, installNextToBinary bool) error {
+func downloadJava(printer *formatters.TreePrinter, installNextToBinary, installCurrent bool) error {
 	javaVersion := globals.Config.Java.Version
 	if javaVersion < 8 || javaVersion > 25 {
 		return fmt.Errorf("unsupported Java version: %d (supported range: 8-25)", javaVersion)
@@ -142,9 +143,9 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary bool) err
 
 	tiers := utils.JRETiers(javaVersion, cacheDir)
 
-	// Check if already available at any tier (skip stale install)
-	if found := utils.FindExistingJRECurrent(tiers); found != nil {
-		if found.Name == "bundled" {
+	// Check if already available at any current tier
+	if found := utils.FindExistingJRE(utils.CurrentTiers(tiers, installCurrent)); found != nil {
+		if found.Name == utils.TierBundled {
 			printer.AddNodeAtLevelDefault("Using bundled JRE", 1)
 		} else {
 			printer.AddNodeAtLevelDefault("Already downloaded", 1)
@@ -156,10 +157,10 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary bool) err
 
 	// Download to the first writable tier
 	for _, t := range tiers {
-		if t.Name == "bundled" && !installNextToBinary {
+		if t.Name == utils.TierBundled && !installNextToBinary {
 			continue
 		}
-		if t.Name != "cache" {
+		if t.Name != utils.TierCache {
 			// Test writability by creating and removing the target dir
 			if err := os.MkdirAll(t.Path, 0o755); err != nil {
 				logrus.Debugf("Cannot write to %s tier, trying next", t.Name)

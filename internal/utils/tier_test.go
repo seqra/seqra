@@ -20,14 +20,13 @@ func TestArtifactTiers_BindVersion(t *testing.T) {
 	}
 
 	for _, tier := range tiers {
-		if tier.Name == "cache" {
+		if tier.Name == TierCache {
 			t.Error("bind version should not have a cache tier")
 		}
 	}
-	// Should have at least install tier
 	hasInstall := false
 	for _, tier := range tiers {
-		if tier.Name == "install" {
+		if tier.Name == TierInstall {
 			hasInstall = true
 		}
 	}
@@ -52,7 +51,7 @@ func TestArtifactTiers_NonBindVersion(t *testing.T) {
 	if len(tiers) != 1 {
 		t.Fatalf("expected 1 tier, got %d", len(tiers))
 	}
-	if tiers[0].Name != "cache" {
+	if tiers[0].Name != TierCache {
 		t.Errorf("expected cache tier, got %q", tiers[0].Name)
 	}
 }
@@ -65,13 +64,13 @@ func TestJRETiers_DefaultVersion(t *testing.T) {
 	tiers := JRETiers(21, "/tmp/cache/jre")
 
 	for _, tier := range tiers {
-		if tier.Name == "cache" {
+		if tier.Name == TierCache {
 			t.Error("default java version should not have a cache tier")
 		}
 	}
 	hasInstall := false
 	for _, tier := range tiers {
-		if tier.Name == "install" {
+		if tier.Name == TierInstall {
 			hasInstall = true
 		}
 	}
@@ -90,7 +89,38 @@ func TestJRETiers_NonDefaultVersion(t *testing.T) {
 	if len(tiers) != 1 {
 		t.Fatalf("expected 1 tier, got %d", len(tiers))
 	}
-	if tiers[0].Name != "cache" {
+	if tiers[0].Name != TierCache {
 		t.Errorf("expected cache tier, got %q", tiers[0].Name)
+	}
+}
+
+func TestCurrentTiers_FiltersStaleInstall(t *testing.T) {
+	tiers := []Tier{
+		{TierBundled, "/bundled"},
+		{TierInstall, "/install"},
+		{TierCache, "/cache"},
+	}
+
+	filtered := CurrentTiers(tiers, false)
+	for _, tier := range filtered {
+		if tier.Name == TierInstall {
+			t.Error("stale install tier should be filtered out")
+		}
+	}
+	if len(filtered) != 2 {
+		t.Errorf("expected 2 tiers, got %d", len(filtered))
+	}
+}
+
+func TestCurrentTiers_KeepsCurrentInstall(t *testing.T) {
+	tiers := []Tier{
+		{TierBundled, "/bundled"},
+		{TierInstall, "/install"},
+		{TierCache, "/cache"},
+	}
+
+	filtered := CurrentTiers(tiers, true)
+	if len(filtered) != 3 {
+		t.Errorf("expected 3 tiers (all kept), got %d", len(filtered))
 	}
 }

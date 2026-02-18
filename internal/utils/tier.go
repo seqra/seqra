@@ -8,13 +8,16 @@ import (
 	"github.com/seqra/seqra/v2/internal/globals"
 )
 
+// Tier name constants.
+const (
+	TierBundled = "bundled" // next to the binary (e.g., <exe-dir>/lib/ or <exe-dir>/jre/)
+	TierInstall = "install" // user-local install path (~/.seqra/install/)
+	TierCache   = "cache"   // shared download cache (~/.seqra/)
+)
+
 // Tier represents a storage location for artifacts, ordered by priority.
-// The three tiers are:
-//   - "bundled": next to the binary (e.g., <exe-dir>/lib/ or <exe-dir>/jre/)
-//   - "install": user-local install path (~/.seqra/install/)
-//   - "cache":   shared download cache (~/.seqra/)
 type Tier struct {
-	Name string // "bundled", "install", "cache"
+	Name string // TierBundled, TierInstall, or TierCache
 	Path string // full path to the artifact at this tier
 }
 
@@ -22,6 +25,22 @@ type Tier struct {
 func (t Tier) Exists() bool {
 	_, err := os.Stat(t.Path)
 	return err == nil
+}
+
+// CurrentTiers returns a filtered copy of tiers that excludes stale install-tier
+// entries. When installCurrent is false, install tiers are omitted so that
+// stale artifacts from a previous seqra version are not picked up.
+func CurrentTiers(tiers []Tier, installCurrent bool) []Tier {
+	if installCurrent {
+		return tiers
+	}
+	filtered := make([]Tier, 0, len(tiers))
+	for _, t := range tiers {
+		if t.Name != TierInstall {
+			filtered = append(filtered, t)
+		}
+	}
+	return filtered
 }
 
 // FindExisting returns the first tier where the path exists, or nil.
@@ -38,38 +57,6 @@ func FindExisting(tiers []Tier) *Tier {
 func FindExistingJRE(tiers []Tier) *Tier {
 	binary := javaBinaryName()
 	for i := range tiers {
-		javaPath := filepath.Join(tiers[i].Path, "bin", binary)
-		if _, err := os.Stat(javaPath); err == nil {
-			return &tiers[i]
-		}
-	}
-	return nil
-}
-
-// FindExistingCurrent is like FindExisting but skips install-tier entries
-// when the install directory is not current (version marker mismatch).
-func FindExistingCurrent(tiers []Tier) *Tier {
-	installCurrent := IsInstallCurrent()
-	for i := range tiers {
-		if tiers[i].Name == "install" && !installCurrent {
-			continue
-		}
-		if tiers[i].Exists() {
-			return &tiers[i]
-		}
-	}
-	return nil
-}
-
-// FindExistingJRECurrent is like FindExistingJRE but skips install-tier entries
-// when the install directory is not current (version marker mismatch).
-func FindExistingJRECurrent(tiers []Tier) *Tier {
-	installCurrent := IsInstallCurrent()
-	binary := javaBinaryName()
-	for i := range tiers {
-		if tiers[i].Name == "install" && !installCurrent {
-			continue
-		}
 		javaPath := filepath.Join(tiers[i].Path, "bin", binary)
 		if _, err := os.Stat(javaPath); err == nil {
 			return &tiers[i]
@@ -96,17 +83,17 @@ func ArtifactTiers(def globals.ArtifactDef) ([]Tier, error) {
 	var tiers []Tier
 	if def.IsBindVersion() {
 		if libPath := GetBundledLibPath(); libPath != "" {
-			tiers = append(tiers, Tier{"bundled", filepath.Join(libPath, def.LibSubpath)})
+			tiers = append(tiers, Tier{TierBundled, filepath.Join(libPath, def.LibSubpath)})
 		}
 		if libPath := GetInstallLibPath(); libPath != "" {
-			tiers = append(tiers, Tier{"install", filepath.Join(libPath, def.LibSubpath)})
+			tiers = append(tiers, Tier{TierInstall, filepath.Join(libPath, def.LibSubpath)})
 		}
 	} else {
 		seqraHome, err := GetSeqraHome()
 		if err != nil {
 			return nil, err
 		}
-		tiers = append(tiers, Tier{"cache", filepath.Join(seqraHome, def.CacheName())})
+		tiers = append(tiers, Tier{TierCache, filepath.Join(seqraHome, def.CacheName())})
 	}
 	return tiers, nil
 }
@@ -118,13 +105,13 @@ func JRETiers(javaVersion int, cacheDir string) []Tier {
 	var tiers []Tier
 	if javaVersion == globals.DefaultJavaVersion {
 		if jrePath := GetBundledJREPath(); jrePath != "" {
-			tiers = append(tiers, Tier{"bundled", jrePath})
+			tiers = append(tiers, Tier{TierBundled, jrePath})
 		}
 		if jrePath := GetInstallJREPath(); jrePath != "" {
-			tiers = append(tiers, Tier{"install", jrePath})
+			tiers = append(tiers, Tier{TierInstall, jrePath})
 		}
 	} else {
-		tiers = append(tiers, Tier{"cache", cacheDir})
+		tiers = append(tiers, Tier{TierCache, cacheDir})
 	}
 	return tiers
 }
@@ -134,10 +121,10 @@ func JRETiers(javaVersion int, cacheDir string) []Tier {
 func ManagedJRETiers() []Tier {
 	var tiers []Tier
 	if jrePath := GetBundledJREPath(); jrePath != "" {
-		tiers = append(tiers, Tier{"bundled", jrePath})
+		tiers = append(tiers, Tier{TierBundled, jrePath})
 	}
 	if jrePath := GetInstallJREPath(); jrePath != "" {
-		tiers = append(tiers, Tier{"install", jrePath})
+		tiers = append(tiers, Tier{TierInstall, jrePath})
 	}
 	return tiers
 }

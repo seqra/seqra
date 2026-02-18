@@ -139,32 +139,29 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 
 	// Scan install-tier directories for stale artifacts
 	installCurrent := IsInstallCurrent()
-	if installLibPath := GetInstallLibPath(); installLibPath != "" {
-		if _, err := os.Stat(installLibPath); err == nil {
-			if !installCurrent || bundledLibExists {
-				size, _ := dirSize(installLibPath)
-				result.Stale = append(result.Stale, StaleArtifact{
-					Path: installLibPath,
-					Size: size,
-					Kind: "install-lib",
-				})
-				result.TotalSize += size
-				result.TotalCount++
-			}
+	for _, check := range []struct {
+		path          string
+		kind          string
+		bundledExists bool
+	}{
+		{GetInstallLibPath(), "install-lib", bundledLibExists},
+		{GetInstallJREPath(), "install-jre", bundledJREExists},
+	} {
+		if check.path == "" {
+			continue
 		}
-	}
-	if installJREPath := GetInstallJREPath(); installJREPath != "" {
-		if _, err := os.Stat(installJREPath); err == nil {
-			if !installCurrent || bundledJREExists {
-				size, _ := dirSize(installJREPath)
-				result.Stale = append(result.Stale, StaleArtifact{
-					Path: installJREPath,
-					Size: size,
-					Kind: "install-jre",
-				})
-				result.TotalSize += size
-				result.TotalCount++
-			}
+		if _, err := os.Stat(check.path); err != nil {
+			continue
+		}
+		if !installCurrent || check.bundledExists {
+			size, _ := dirSize(check.path)
+			result.Stale = append(result.Stale, StaleArtifact{
+				Path: check.path,
+				Size: size,
+				Kind: check.kind,
+			})
+			result.TotalSize += size
+			result.TotalCount++
 		}
 	}
 
