@@ -78,14 +78,14 @@ get_install_dir() {
     fi
 
     if [ "$(id -u)" = "0" ]; then
-        echo "/usr/local/bin"
+        echo "/usr/local/lib/seqra"
     else
         echo "$HOME/.seqra/install"
     fi
 }
 
 main() {
-    local platform archive_name url install_dir
+    local platform archive_name url install_dir bin_dir
 
     echo "Detecting platform..."
     platform="$(detect_platform)"
@@ -124,19 +124,27 @@ main() {
         cp -r "$tmp_dir/jre/"* "$install_dir/jre/"
     fi
 
+    # For root installs, symlink into /usr/local/bin so the binary is in PATH
+    # while keeping lib/jre next to the actual binary for bundled path resolution
+    bin_dir="$install_dir"
+    if [ "$(id -u)" = "0" ] && [ -z "$INSTALL_DIR" ]; then
+        ln -sf "$install_dir/seqra" /usr/local/bin/seqra
+        bin_dir="/usr/local/bin"
+    fi
+
     echo ""
     echo "seqra installed successfully!"
     echo ""
 
-    # Check if install_dir is in PATH
+    # Check if bin_dir is in PATH
     case ":$PATH:" in
-        *":$install_dir:"*)
+        *":$bin_dir:"*)
             echo "Run 'seqra --version' to verify the installation."
             ;;
         *)
             echo "Add the following to your shell profile to use seqra:"
             echo ""
-            echo "  export PATH=\"$install_dir:\$PATH\""
+            echo "  export PATH=\"$bin_dir:\$PATH\""
             echo ""
             echo "Then restart your shell or run the export command above."
             ;;

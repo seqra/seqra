@@ -35,20 +35,24 @@ When bundled artifacts are present (from a release archive), they will be used d
 		printer.AddNode(fmt.Sprintf("Java %d", globals.Config.Java.Version))
 		printer.Print()
 
+		// Skip installing next to binary for go install (shared ~/go/bin/ directory)
+		method, _ := utils.DetectInstallMethod()
+		installNextToBinary := method != utils.InstallMethodGoInstall
+
 		printer = formatters.NewTreePrinter()
-		if err := downloadAutobuilder(printer); err != nil {
+		if err := downloadAutobuilder(printer, installNextToBinary); err != nil {
 			logrus.Fatalf("Failed to download autobuilder: %s", err)
 		}
 
-		if err := downloadAnalyzer(printer); err != nil {
+		if err := downloadAnalyzer(printer, installNextToBinary); err != nil {
 			logrus.Fatalf("Failed to download analyzer: %s", err)
 		}
 
-		if err := downloadRules(printer); err != nil {
+		if err := downloadRules(printer, installNextToBinary); err != nil {
 			logrus.Fatalf("Failed to download rules: %s", err)
 		}
 
-		if err := downloadJava(printer); err != nil {
+		if err := downloadJava(printer, installNextToBinary); err != nil {
 			logrus.Fatalf("Failed to download Java: %s", err)
 		}
 		logrus.Info()
@@ -57,7 +61,7 @@ When bundled artifacts are present (from a release archive), they will be used d
 	},
 }
 
-func downloadAutobuilder(printer *formatters.TreePrinter) error {
+func downloadAutobuilder(printer *formatters.TreePrinter, installNextToBinary bool) error {
 	version := globals.Config.Autobuilder.Version
 	isBindVersion := version == globals.AutobuilderBindVersion
 
@@ -69,6 +73,17 @@ func downloadAutobuilder(printer *formatters.TreePrinter) error {
 			bundledPath := filepath.Join(libPath, globals.AutobuilderAssetName)
 			if _, err := os.Stat(bundledPath); err == nil {
 				printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
+				return nil
+			}
+		}
+	}
+
+	// Check install path (~/.seqra/install/lib/)
+	if isBindVersion {
+		if libPath := utils.GetInstallLibPath(); libPath != "" {
+			installPath := filepath.Join(libPath, globals.AutobuilderAssetName)
+			if _, err := os.Stat(installPath); err == nil {
+				printer.AddNodeAtLevelDefault("Already downloaded", 1)
 				return nil
 			}
 		}
@@ -88,7 +103,7 @@ func downloadAutobuilder(printer *formatters.TreePrinter) error {
 	logrus.Infof("Downloading autobuilder %s...", version)
 
 	// For bind version, try to install next to binary
-	if isBindVersion {
+	if isBindVersion && installNextToBinary {
 		if libPath := utils.GetBundledLibPath(); libPath != "" {
 			if err := os.MkdirAll(libPath, 0o755); err == nil {
 				targetPath := filepath.Join(libPath, globals.AutobuilderAssetName)
@@ -98,7 +113,22 @@ func downloadAutobuilder(printer *formatters.TreePrinter) error {
 				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", targetPath), 1)
 				return nil
 			}
-			logrus.Debugf("Cannot write next to binary, falling back to cache")
+			logrus.Debugf("Cannot write next to binary, falling back to install path")
+		}
+	}
+
+	// For bind version, try install path (~/.seqra/install/lib/)
+	if isBindVersion {
+		if libPath := utils.GetInstallLibPath(); libPath != "" {
+			if err := os.MkdirAll(libPath, 0o755); err == nil {
+				targetPath := filepath.Join(libPath, globals.AutobuilderAssetName)
+				if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, version, globals.AutobuilderAssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
+					return err
+				}
+				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", targetPath), 1)
+				return nil
+			}
+			logrus.Debugf("Cannot write to install path, falling back to cache")
 		}
 	}
 
@@ -110,7 +140,7 @@ func downloadAutobuilder(printer *formatters.TreePrinter) error {
 	return nil
 }
 
-func downloadAnalyzer(printer *formatters.TreePrinter) error {
+func downloadAnalyzer(printer *formatters.TreePrinter, installNextToBinary bool) error {
 	version := globals.Config.Analyzer.Version
 	isBindVersion := version == globals.AnalyzerBindVersion
 
@@ -122,6 +152,17 @@ func downloadAnalyzer(printer *formatters.TreePrinter) error {
 			bundledPath := filepath.Join(libPath, globals.AnalyzerAssetName)
 			if _, err := os.Stat(bundledPath); err == nil {
 				printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
+				return nil
+			}
+		}
+	}
+
+	// Check install path (~/.seqra/install/lib/)
+	if isBindVersion {
+		if libPath := utils.GetInstallLibPath(); libPath != "" {
+			installPath := filepath.Join(libPath, globals.AnalyzerAssetName)
+			if _, err := os.Stat(installPath); err == nil {
+				printer.AddNodeAtLevelDefault("Already downloaded", 1)
 				return nil
 			}
 		}
@@ -141,7 +182,7 @@ func downloadAnalyzer(printer *formatters.TreePrinter) error {
 	logrus.Infof("Downloading analyzer %s...", version)
 
 	// For bind version, try to install next to binary
-	if isBindVersion {
+	if isBindVersion && installNextToBinary {
 		if libPath := utils.GetBundledLibPath(); libPath != "" {
 			if err := os.MkdirAll(libPath, 0o755); err == nil {
 				targetPath := filepath.Join(libPath, globals.AnalyzerAssetName)
@@ -151,7 +192,22 @@ func downloadAnalyzer(printer *formatters.TreePrinter) error {
 				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", targetPath), 1)
 				return nil
 			}
-			logrus.Debugf("Cannot write next to binary, falling back to cache")
+			logrus.Debugf("Cannot write next to binary, falling back to install path")
+		}
+	}
+
+	// For bind version, try install path (~/.seqra/install/lib/)
+	if isBindVersion {
+		if libPath := utils.GetInstallLibPath(); libPath != "" {
+			if err := os.MkdirAll(libPath, 0o755); err == nil {
+				targetPath := filepath.Join(libPath, globals.AnalyzerAssetName)
+				if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, version, globals.AnalyzerAssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
+					return err
+				}
+				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", targetPath), 1)
+				return nil
+			}
+			logrus.Debugf("Cannot write to install path, falling back to cache")
 		}
 	}
 
@@ -163,7 +219,7 @@ func downloadAnalyzer(printer *formatters.TreePrinter) error {
 	return nil
 }
 
-func downloadRules(printer *formatters.TreePrinter) error {
+func downloadRules(printer *formatters.TreePrinter, installNextToBinary bool) error {
 	version := globals.Config.Rules.Version
 	isBindVersion := version == globals.RulesBindVersion
 
@@ -175,6 +231,17 @@ func downloadRules(printer *formatters.TreePrinter) error {
 			bundledPath := filepath.Join(libPath, "rules")
 			if _, err := os.Stat(bundledPath); err == nil {
 				printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
+				return nil
+			}
+		}
+	}
+
+	// Check install path (~/.seqra/install/lib/)
+	if isBindVersion {
+		if libPath := utils.GetInstallLibPath(); libPath != "" {
+			installPath := filepath.Join(libPath, "rules")
+			if _, err := os.Stat(installPath); err == nil {
+				printer.AddNodeAtLevelDefault("Already downloaded", 1)
 				return nil
 			}
 		}
@@ -194,7 +261,7 @@ func downloadRules(printer *formatters.TreePrinter) error {
 	logrus.Infof("Downloading rules %s...", version)
 
 	// For bind version, try to install next to binary
-	if isBindVersion {
+	if isBindVersion && installNextToBinary {
 		if libPath := utils.GetBundledLibPath(); libPath != "" {
 			if err := os.MkdirAll(libPath, 0o755); err == nil {
 				targetPath := filepath.Join(libPath, "rules")
@@ -204,7 +271,22 @@ func downloadRules(printer *formatters.TreePrinter) error {
 				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", targetPath), 1)
 				return nil
 			}
-			logrus.Debugf("Cannot write next to binary, falling back to cache")
+			logrus.Debugf("Cannot write next to binary, falling back to install path")
+		}
+	}
+
+	// For bind version, try install path (~/.seqra/install/lib/)
+	if isBindVersion {
+		if libPath := utils.GetInstallLibPath(); libPath != "" {
+			if err := os.MkdirAll(libPath, 0o755); err == nil {
+				targetPath := filepath.Join(libPath, "rules")
+				if err := utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, version, globals.RulesAssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
+					return err
+				}
+				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", targetPath), 1)
+				return nil
+			}
+			logrus.Debugf("Cannot write to install path, falling back to cache")
 		}
 	}
 
@@ -216,7 +298,7 @@ func downloadRules(printer *formatters.TreePrinter) error {
 	return nil
 }
 
-func downloadJava(printer *formatters.TreePrinter) error {
+func downloadJava(printer *formatters.TreePrinter, installNextToBinary bool) error {
 	javaVersion := globals.Config.Java.Version
 	if javaVersion < 8 || javaVersion > 25 {
 		return fmt.Errorf("unsupported Java version: %d (supported range: 8-25)", javaVersion)
@@ -241,6 +323,17 @@ func downloadJava(printer *formatters.TreePrinter) error {
 		}
 	}
 
+	// Check install path (~/.seqra/install/jre/)
+	if isBindVersion {
+		if jrePath := utils.GetInstallJREPath(); jrePath != "" {
+			installJava := filepath.Join(jrePath, "bin", javaBinary)
+			if _, err := os.Stat(installJava); err == nil {
+				printer.AddNodeAtLevelDefault("Already downloaded", 1)
+				return nil
+			}
+		}
+	}
+
 	// Check ~/.seqra/ cache
 	seqraHome, err := utils.GetSeqraHome()
 	if err != nil {
@@ -260,7 +353,7 @@ func downloadJava(printer *formatters.TreePrinter) error {
 	logrus.Infof("Downloading Java %d...", javaVersion)
 
 	// For bind version, try to install next to binary
-	if isBindVersion {
+	if isBindVersion && installNextToBinary {
 		if jrePath := utils.GetBundledJREPath(); jrePath != "" {
 			if err := os.MkdirAll(jrePath, 0o755); err == nil {
 				// Clean up since EnsureLocalRuntimeAt will manage this directory
@@ -272,7 +365,22 @@ func downloadJava(printer *formatters.TreePrinter) error {
 				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", javaPath), 1)
 				return nil
 			}
-			logrus.Debugf("Cannot write next to binary, falling back to cache")
+			logrus.Debugf("Cannot write next to binary, falling back to install path")
+		}
+	}
+
+	// For bind version, try install path (~/.seqra/install/jre/)
+	if isBindVersion {
+		if jrePath := utils.GetInstallJREPath(); jrePath != "" {
+			if err := os.MkdirAll(filepath.Dir(jrePath), 0o755); err == nil {
+				javaPath, err := java.EnsureLocalRuntimeAt(javaVersion, java.AdoptiumImageJRE, jrePath, runtime.GOOS, runtime.GOARCH, globals.Config.SkipVerify)
+				if err != nil {
+					return err
+				}
+				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", javaPath), 1)
+				return nil
+			}
+			logrus.Debugf("Cannot write to install path, falling back to cache")
 		}
 	}
 

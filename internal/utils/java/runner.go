@@ -287,20 +287,27 @@ func NewJavaRunner() JavaRunner {
 }
 
 func (j *javaRunner) findBundledJRE() string {
-	jrePath := utils.GetBundledJREPath()
-	if jrePath == "" {
-		return ""
-	}
-
 	javaBinary := "java"
 	if runtime.GOOS == "windows" {
 		javaBinary = "java.exe"
 	}
 
-	bundledJava := filepath.Join(jrePath, "bin", javaBinary)
-	if _, err := os.Stat(bundledJava); err == nil {
-		return bundledJava
+	// Check next to binary
+	if jrePath := utils.GetBundledJREPath(); jrePath != "" {
+		bundledJava := filepath.Join(jrePath, "bin", javaBinary)
+		if _, err := os.Stat(bundledJava); err == nil {
+			return bundledJava
+		}
 	}
+
+	// Check install path (~/.seqra/install/jre/)
+	if jrePath := utils.GetInstallJREPath(); jrePath != "" {
+		installJava := filepath.Join(jrePath, "bin", javaBinary)
+		if _, err := os.Stat(installJava); err == nil {
+			return installJava
+		}
+	}
+
 	return ""
 }
 

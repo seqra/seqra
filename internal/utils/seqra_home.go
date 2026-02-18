@@ -52,6 +52,26 @@ func GetBundledJREPath() string {
 	return filepath.Join(filepath.Dir(exe), "jre")
 }
 
+// GetInstallLibPath returns the path to the lib directory in ~/.seqra/install/.
+// Returns empty string if the home directory cannot be determined.
+func GetInstallLibPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".seqra", "install", "lib")
+}
+
+// GetInstallJREPath returns the path to the jre directory in ~/.seqra/install/.
+// Returns empty string if the home directory cannot be determined.
+func GetInstallJREPath() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".seqra", "install", "jre")
+}
+
 // IsBundledPath returns true if the given path is under the bundled lib directory.
 func IsBundledPath(path string) bool {
 	bundledLib := GetBundledLibPath()
@@ -73,6 +93,12 @@ func GetAutobuilderJarPath(version string) (string, error) {
 				return bundledPath, nil
 			}
 		}
+		if libPath := GetInstallLibPath(); libPath != "" {
+			installPath := filepath.Join(libPath, globals.AutobuilderAssetName)
+			if _, err := os.Stat(installPath); err == nil {
+				return installPath, nil
+			}
+		}
 	}
 
 	seqraHomePath, err := GetSeqraHome()
@@ -91,6 +117,12 @@ func GetAnalyzerJarPath(version string) (string, error) {
 				return bundledPath, nil
 			}
 		}
+		if libPath := GetInstallLibPath(); libPath != "" {
+			installPath := filepath.Join(libPath, globals.AnalyzerAssetName)
+			if _, err := os.Stat(installPath); err == nil {
+				return installPath, nil
+			}
+		}
 	}
 
 	seqraHomePath, err := GetSeqraHome()
@@ -107,6 +139,12 @@ func GetRulesPath(version string) (string, error) {
 			bundledPath := filepath.Join(libPath, "rules")
 			if _, err := os.Stat(bundledPath); err == nil {
 				return bundledPath, nil
+			}
+		}
+		if libPath := GetInstallLibPath(); libPath != "" {
+			installPath := filepath.Join(libPath, "rules")
+			if _, err := os.Stat(installPath); err == nil {
+				return installPath, nil
 			}
 		}
 	}
