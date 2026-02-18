@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"runtime"
 
 	"github.com/seqra/seqra/v2/internal/globals"
@@ -20,9 +21,10 @@ var pullCmd = &cobra.Command{
 - Seqra autobuilder JAR
 - Seqra analyzer JAR
 - Seqra rules archive
-- Java runtime (Temurin JDK)
+- Java runtime (Temurin JRE)
 
-This prepares the environment with all required dependencies for offline analysis.`,
+This prepares the environment with all required dependencies for offline analysis.
+When bundled artifacts are present (from a release archive), they will be used directly.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		logrus.Info(formatters.FormatTreeHeader("Seqra Pull"))
 		printer := formatters.NewTreePrinter()
@@ -33,120 +35,148 @@ This prepares the environment with all required dependencies for offline analysi
 		printer.AddNode(fmt.Sprintf("Java %d", globals.Config.Java.Version))
 		printer.Print()
 
+		// Skip installing next to binary for go install (shared ~/go/bin/ directory)
+		method, _ := utils.DetectInstallMethod()
+		installNextToBinary := method != utils.InstallMethodGoInstall
+
+		// Clean stale install-tier artifacts before downloading
+		installCurrent := utils.IsInstallCurrent()
+		if !installCurrent {
+			if err := utils.CleanInstallDir(); err != nil {
+				logrus.Fatalf("Failed to clean install directory: %s", err)
+			}
+		}
+
+		artifacts := globals.Artifacts()
+
 		printer = formatters.NewTreePrinter()
-		if err := downloadAutobuilder(printer); err != nil {
-			logrus.Fatalf("Failed to download autobuilder: %s", err)
+		for _, spec := range artifacts {
+			if err := downloadArtifact(spec, printer, installNextToBinary, installCurrent); err != nil {
+				logrus.Fatalf("Failed to download %s: %s", spec.Kind(), err)
+			}
 		}
 
-		if err := downloadAnalyzer(printer); err != nil {
-			logrus.Fatalf("Failed to download analyzer: %s", err)
-		}
-
-		if err := downloadRules(printer); err != nil {
-			logrus.Fatalf("Failed to download rules: %s", err)
-		}
-
-		if err := downloadJava(printer); err != nil {
+		if err := downloadJava(printer, installNextToBinary, installCurrent); err != nil {
 			logrus.Fatalf("Failed to download Java: %s", err)
 		}
+
+		// Write version marker after all downloads succeed
+		if err := utils.WriteInstallVersionMarker(); err != nil {
+			logrus.Fatalf("Failed to write install version marker: %s", err)
+		}
+
 		logrus.Info()
 		logrus.Info(formatters.FormatTreeHeader("Pull Summary"))
 		printer.Print()
 	},
 }
 
-func downloadAutobuilder(printer *formatters.TreePrinter) error {
-	autobuilderJarPath, err := utils.GetAutobuilderJarPath(globals.Config.Autobuilder.Version)
+// downloadArtifact downloads a GitHub release artifact using the bundled → install → cache
+// fallback chain. It skips the download if the artifact already exists at any tier.
+func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter, installNextToBinary, installCurrent bool) error {
+	printer.AddNode(fmt.Sprintf("%s %s", spec.Name, spec.Version))
+
+	tiers, err := utils.ArtifactTiers(spec)
 	if err != nil {
 		return err
 	}
 
-	printer.AddNode(fmt.Sprintf("Autobuilder %s", globals.Config.Autobuilder.Version))
-	if _, err = os.Stat(autobuilderJarPath); err == nil {
-		printer.AddNodeAtLevelDefault("Already downloaded", 1)
+	// Check if already available at any current tier
+	if found := utils.FindExisting(utils.CurrentTiers(tiers, installCurrent)); found != nil {
+		if found.Name == utils.TierBundled {
+			printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
+		} else {
+			printer.AddNodeAtLevelDefault("Already downloaded", 1)
+		}
 		return nil
 	}
 
-	logrus.Infof("Downloading autobuilder %s...", globals.Config.Autobuilder.Version)
-	if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token); err != nil {
-		return err
-	}
-	printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", autobuilderJarPath), 1)
-	return nil
-}
+	logrus.Infof("Downloading %s %s...", spec.Kind(), spec.Version)
 
-func downloadAnalyzer(printer *formatters.TreePrinter) error {
-	analyzerJarPath, err := utils.GetAnalyzerJarPath(globals.Config.Analyzer.Version)
-	if err != nil {
-		return err
+	download := func(targetPath string) error {
+		if spec.Unpack {
+			return utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, spec.RepoName, spec.Version, spec.AssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify)
+		}
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, spec.RepoName, spec.Version, spec.AssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify)
 	}
 
-	printer.AddNode(fmt.Sprintf("Analyzer %s", globals.Config.Analyzer.Version))
-	if _, err = os.Stat(analyzerJarPath); err == nil {
-		printer.AddNodeAtLevelDefault("Already downloaded", 1)
+	// Download to the first writable tier
+	for _, t := range tiers {
+		if t.Name == utils.TierBundled && !installNextToBinary {
+			continue
+		}
+		if t.Name != utils.TierCache {
+			if err := os.MkdirAll(filepath.Dir(t.Path), 0o755); err != nil {
+				logrus.Debugf("Cannot write to %s tier, trying next", t.Name)
+				continue
+			}
+		}
+		if err := download(t.Path); err != nil {
+			return err
+		}
+		printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", t.Path), 1)
 		return nil
 	}
 
-	logrus.Infof("Downloading analyzer %s...", globals.Config.Analyzer.Version)
-	if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token); err != nil {
-		return err
-	}
-	printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", analyzerJarPath), 1)
-	return nil
+	return fmt.Errorf("no writable location found for %s", spec.Kind())
 }
 
-func downloadRules(printer *formatters.TreePrinter) error {
-	rulesPath, err := utils.GetRulesPath(globals.Config.Rules.Version)
-	if err != nil {
-		return err
+// downloadJava downloads a JRE using the bundled → install → cache fallback chain.
+func downloadJava(printer *formatters.TreePrinter, installNextToBinary, installCurrent bool) error {
+	javaVersion := globals.Config.Java.Version
+	if javaVersion < 8 || javaVersion > 25 {
+		return fmt.Errorf("unsupported Java version: %d (supported range: 8-25)", javaVersion)
 	}
 
-	printer.AddNode(fmt.Sprintf("Rules %s", globals.Config.Rules.Version))
-	if _, err := os.Stat(rulesPath); err == nil {
-		printer.AddNodeAtLevelDefault("Already downloaded", 1)
-		return nil
-	}
+	printer.AddNode(fmt.Sprintf("Java %d", javaVersion))
 
-	logrus.Infof("Downloading rules %s...", globals.Config.Rules.Version)
-	err = utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, rulesPath, globals.Config.Github.Token)
-	if err != nil {
-		return err
-	}
-	printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", rulesPath), 1)
-	return nil
-}
-
-func downloadJava(printer *formatters.TreePrinter) error {
-	if globals.Config.Java.Version < 8 || globals.Config.Java.Version > 25 {
-		return fmt.Errorf("unsupported Java version: %d (supported range: 8-25)", globals.Config.Java.Version)
-	}
-
+	// Compute platform-specific cache path
 	seqraHome, err := utils.GetSeqraHome()
 	if err != nil {
 		return err
 	}
-
 	adoptiumOS, adoptiumArch, err := java.MapPlatformToAdoptium(runtime.GOOS, runtime.GOARCH)
 	if err != nil {
 		return err
 	}
+	cacheDir := filepath.Join(seqraHome, "jre", fmt.Sprintf("temurin-%d-jre-%s-%s", javaVersion, adoptiumOS, adoptiumArch))
 
-	artefactRoot := fmt.Sprintf("%s/jdk/temurin-%d-jdk-%s-%s", seqraHome, globals.Config.Java.Version, adoptiumOS, adoptiumArch)
-	javaPath := fmt.Sprintf("%s/bin/java", artefactRoot)
+	tiers := utils.JRETiers(javaVersion, cacheDir)
 
-	printer.AddNode(fmt.Sprintf("Java %d", globals.Config.Java.Version))
-	if _, err := os.Stat(javaPath); err == nil {
-		printer.AddNodeAtLevelDefault("Already downloaded", 1)
+	// Check if already available at any current tier
+	if found := utils.FindExistingJRE(utils.CurrentTiers(tiers, installCurrent)); found != nil {
+		if found.Name == utils.TierBundled {
+			printer.AddNodeAtLevelDefault("Using bundled JRE", 1)
+		} else {
+			printer.AddNodeAtLevelDefault("Already downloaded", 1)
+		}
 		return nil
 	}
 
-	logrus.Infof("Downloading Java %d...", globals.Config.Java.Version)
-	javaPath, err = java.EnsureLocalRuntime(globals.Config.Java.Version, java.AdoptiumImageJDK, runtime.GOOS, runtime.GOARCH)
-	if err != nil {
-		return err
+	logrus.Infof("Downloading Java %d...", javaVersion)
+
+	// Download to the first writable tier
+	for _, t := range tiers {
+		if t.Name == utils.TierBundled && !installNextToBinary {
+			continue
+		}
+		if t.Name != utils.TierCache {
+			// Test writability by creating and removing the target dir
+			if err := os.MkdirAll(t.Path, 0o755); err != nil {
+				logrus.Debugf("Cannot write to %s tier, trying next", t.Name)
+				continue
+			}
+			_ = os.Remove(t.Path)
+		}
+		javaPath, err := java.EnsureLocalRuntimeAt(javaVersion, java.AdoptiumImageJRE, t.Path, runtime.GOOS, runtime.GOARCH, globals.Config.SkipVerify)
+		if err != nil {
+			return err
+		}
+		printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", javaPath), 1)
+		return nil
 	}
-	printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", javaPath), 1)
-	return nil
+
+	return fmt.Errorf("no writable location found for Java %d", javaVersion)
 }
 
 func init() {

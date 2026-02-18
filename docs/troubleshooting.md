@@ -30,17 +30,19 @@ seqra scan --output results.sarif ./project-model
 To force re-download of dependencies while keeping your configuration:
 
 ```bash
-rm -rf ~/.seqra/autobuilder ~/.seqra/analyzer ~/.seqra/rules ~/.seqra/jdk
+seqra prune --yes
 seqra pull
 ```
 
 ### Download Location
 
-All dependencies are stored in `~/.seqra/`:
-- `~/.seqra/autobuilder/` — Project compilation tools
-- `~/.seqra/analyzer/` — Security analyzer
-- `~/.seqra/rules/` — Security rules
-- `~/.seqra/jdk/` — Java runtime
+Downloaded dependencies are stored in `~/.seqra/install/`:
+- `~/.seqra/install/lib/seqra-project-analyzer.jar` — Security analyzer
+- `~/.seqra/install/lib/seqra-project-auto-builder.jar` — Project compilation tools
+- `~/.seqra/install/lib/rules/` — Security rules
+- `~/.seqra/install/jre/` — Java runtime
+
+For bundled installations (Homebrew, `seqra-full` archives), artifacts are stored next to the binary. The `~/.seqra/` root directory is used as a fallback cache with versioned filenames (e.g. `~/.seqra/analyzer_<version>.jar`).
 
 ## Java Runtime Issues
 

@@ -112,7 +112,7 @@ func compileProject(absOutputProjectModelPath, absProjectRoot string) {
 	if _, err = os.Stat(autobuilderJarPath); errors.Is(err, os.ErrNotExist) {
 		logrus.Info()
 		logrus.Infof("Downloading autobuilder version %s", globals.Config.Autobuilder.Version)
-		if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token); err != nil {
+		if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
 			logrus.Fatalf("Failed to download autobuilder: %s", err)
 		}
 		logrus.Infof("Successfully downloaded autobuilder to %s", autobuilderJarPath)
@@ -133,7 +133,7 @@ func compileProject(absOutputProjectModelPath, absProjectRoot string) {
 
 	autobuilderCommand := builder.BuildNativeCommand()
 
-	javaRunner := java.NewJavaRunner().TrySystem().TrySpecificVersion(globals.Config.Java.Version)
+	javaRunner := java.NewJavaRunner().WithSkipVerify(globals.Config.SkipVerify).TrySystem().TrySpecificVersion(globals.Config.Java.Version)
 
 	commandSucceeded := func(_ error) bool {
 		if _, err = os.Stat(absOutputProjectModelPath); err != nil {

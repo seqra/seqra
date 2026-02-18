@@ -123,7 +123,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "echo v${nextRelease.version} > release_version.txt"
+        "prepareCmd": "echo ${nextRelease.version} > release_version.txt"
       }
     ]
   ]

@@ -14,12 +14,54 @@ builds:
       - -s -w -X github.com/seqra/seqra/v2/internal/version.Version={{.Version}}
 
 archives:
-  - formats: [tar.gz]
+  - id: cli
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .Binary }}-cli_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: "nonexistent-glob-*"
+
+  - id: default
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
     name_template: "{{ .Binary }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: lib/**
+        dst: lib
+
+  - id: full
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .Binary }}-full_{{ .Os }}_{{ .Arch }}"
+    files:
+      - src: lib/**
+        dst: lib
 
 checksum:
-  name_template: 'checksums.txt'
-  algorithm: sha256
+  disable: true
 
 release:
   prerelease: auto
+
+homebrew_casks:
+  - ids: [full]
+    skip_upload: true
+    name: seqra
+    binaries:
+      - seqra
+    repository:
+      owner: seqra
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    homepage: "https://github.com/seqra/seqra"
+    description: "Security-focused static analyzer for Java and Kotlin web applications"
+    hooks:
+      post:
+        install: |
+          system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/seqra"]

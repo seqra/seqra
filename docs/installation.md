@@ -1,27 +1,78 @@
 # Installation
 
-**Prerequisites:** Same build requirements as your Java/Kotlin project (Maven or Gradle, Java runtime, project dependencies).
+**Prerequisites:** Same build requirements as your Java/Kotlin project (Maven or Gradle, project dependencies). Java runtime is bundled with release archives.
+
+## Homebrew (Linux/macOS)
+
+```bash
+brew install --cask seqra/tap/seqra
+```
+
+## Install Scripts
+
+**Linux/macOS:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.sh | bash
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.ps1 | iex
+```
+
+**Windows (CMD):**
+```cmd
+curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.cmd -o install.cmd && install.cmd && del install.cmd
+```
+
+## Docker
+
+No local installation required:
+
+```bash
+docker run --rm \
+  -v /path/to/project:/project \
+  -v $(pwd):/output \
+  ghcr.io/seqra/seqra:latest \
+  seqra scan --output /output/results.sarif /project
+```
+
+See [Docker documentation](docker.md) for advanced usage.
 
 ## Precompiled Binaries
 
-Download for your platform:
+Each release provides three archive variants:
+
+| Variant | Contents | Use case |
+|---------|----------|----------|
+| **`seqra-full`** | Binary + JARs + rules + JRE | Recommended — everything included, no additional downloads |
+| **`seqra`** | Binary + JARs + rules | Use your own JRE (Java 17+) |
+| **`seqra-cli`** | Binary only | Minimal install; run `seqra pull` to download components |
+
+Download `seqra-full` for your platform (recommended):
 
 | Platform | Download |
 |----------|----------|
-| Linux x64 | [seqra_linux_amd64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra_linux_amd64.tar.gz) |
-| Linux ARM64 | [seqra_linux_arm64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra_linux_arm64.tar.gz) |
-| macOS x64 | [seqra_darwin_amd64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra_darwin_amd64.tar.gz) |
-| macOS ARM64 (Apple Silicon) | [seqra_darwin_arm64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra_darwin_arm64.tar.gz) |
-| Windows x64 | [seqra_windows_amd64.zip](https://github.com/seqra/seqra/releases/latest/download/seqra_windows_amd64.zip) |
-| Windows ARM64 | [seqra_windows_arm64.zip](https://github.com/seqra/seqra/releases/latest/download/seqra_windows_arm64.zip) |
+| Linux x64 | [seqra-full_linux_amd64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra-full_linux_amd64.tar.gz) |
+| Linux ARM64 | [seqra-full_linux_arm64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra-full_linux_arm64.tar.gz) |
+| macOS x64 | [seqra-full_darwin_amd64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra-full_darwin_amd64.tar.gz) |
+| macOS ARM64 (Apple Silicon) | [seqra-full_darwin_arm64.tar.gz](https://github.com/seqra/seqra/releases/latest/download/seqra-full_darwin_arm64.tar.gz) |
+| Windows x64 | [seqra-full_windows_amd64.zip](https://github.com/seqra/seqra/releases/latest/download/seqra-full_windows_amd64.zip) |
+| Windows ARM64 | [seqra-full_windows_arm64.zip](https://github.com/seqra/seqra/releases/latest/download/seqra-full_windows_arm64.zip) |
+
+The `seqra-full` archives include bundled JARs, rules, and JRE — no additional downloads needed. Replace `seqra-full` with `seqra` or `seqra-cli` in the URLs above for other variants.
 
 ### Linux/macOS Installation
 
+Use the install script (recommended) or download and extract manually:
+
 ```bash
-mkdir seqra && cd seqra
-curl -L https://github.com/seqra/seqra/releases/latest/download/seqra_linux_amd64.tar.gz -o seqra.tar.gz
-tar -xzf seqra.tar.gz seqra && rm seqra.tar.gz
-sudo ln -s $(pwd)/seqra /usr/local/bin/seqra
+# Install script (recommended — handles placement automatically)
+curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.sh | bash
+
+# Or for seqra-cli variant (binary only):
+curl -L https://github.com/seqra/seqra/releases/latest/download/seqra-cli_linux_amd64.tar.gz | tar xz
+sudo mv seqra /usr/local/bin/
 ```
 
 Replace the URL with your platform's download link from the table above.
@@ -38,40 +89,30 @@ Requires Go 1.25+:
 go install github.com/seqra/seqra/v2@latest
 ```
 
+Note: `go install` builds only the binary without bundled artifacts. Run `seqra pull` after installation to download the analyzer components.
+
 Add Go binaries to your PATH if needed:
 - **bash (Linux):** `echo 'export PATH=$PATH:$(go env GOPATH)/bin' >> ~/.bashrc && source ~/.bashrc`
 - **zsh (macOS):** `echo 'export PATH=$PATH:$(go env GOPATH)/bin' >> ~/.zshrc && source ~/.zshrc`
 - **Windows:** Add `%USERPROFILE%\go\bin` to your system PATH
 
-## Download Dependencies
-
-After installation, download the analyzer components:
+## Updating
 
 ```bash
-seqra pull
+seqra update
 ```
 
-This downloads:
-- Seqra autobuilder JAR
-- Seqra analyzer JAR
-- Security rules
-- Java runtime (Temurin JDK)
+For package manager installations, `seqra update` will show the appropriate command (e.g., `brew upgrade --cask seqra`).
 
-First-time `seqra scan` will also download these automatically.
+## Cleaning Up
 
-## Docker
-
-No local installation required:
+Remove stale downloaded artifacts:
 
 ```bash
-docker run --rm \
-  -v /path/to/project:/project \
-  -v $(pwd):/output \
-  ghcr.io/seqra/seqra:latest \
-  seqra scan --output /output/results.sarif /project
+seqra prune              # Interactive confirmation
+seqra prune --dry-run    # See what would be deleted
+seqra prune --yes        # Skip confirmation
 ```
-
-See [Docker documentation](docker.md) for advanced usage.
 
 ## Build from Source
 

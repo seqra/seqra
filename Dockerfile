@@ -16,7 +16,8 @@ RUN useradd -ms /bin/bash seqra
 
 WORKDIR /home/seqra
 
-COPY --from=builder /app/seqra /usr/local/bin/seqra
+COPY --from=builder /app/seqra /usr/local/lib/seqra/seqra
+RUN ln -sf /usr/local/lib/seqra/seqra /usr/local/bin/seqra
 
 RUN --mount=type=secret,id=github_token \
     seqra pull --github-token=$(cat /run/secrets/github_token) --verbosity debug

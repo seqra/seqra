@@ -1,6 +1,7 @@
 # Build outputs and binaries
 bin/
 dist/
+lib/
 
 # Operating system files
 **/.DS_Store

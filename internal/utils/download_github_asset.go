@@ -9,19 +9,47 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/google/go-github/v72/github"
 	"github.com/sirupsen/logrus"
 )
 
-func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetPath, token string) error {
-	var client *github.Client
+func newGithubClient(token string) *github.Client {
 	if token == "" {
-		client = github.NewClient(nil)
-	} else {
-		client = github.NewClient(nil).WithAuthToken(token)
+		return github.NewClient(nil)
 	}
+	return github.NewClient(nil).WithAuthToken(token)
+}
+
+// verifyAssetChecksum checks the SHA256 of filePath against the checksums.txt in the release.
+// Returns nil if verified or if checksums are unavailable (with appropriate logging).
+// Returns error only on checksum mismatch.
+func verifyAssetChecksum(client *github.Client, owner, repo string, release *github.RepositoryRelease, assetName, filePath string) error {
+	checksums, err := FetchReleaseChecksums(client, owner, repo, release)
+	if err != nil {
+		logrus.Warnf("Could not fetch checksums for %s/%s: %v", owner, repo, err)
+		return nil
+	}
+	if checksums == nil {
+		logrus.Debugf("No checksums.txt in release, skipping verification")
+		return nil
+	}
+	expected, ok := checksums[assetName]
+	if !ok {
+		logrus.Warnf("No checksum entry for %s in checksums.txt", assetName)
+		return nil
+	}
+	if err := VerifyFileChecksum(filePath, expected); err != nil {
+		return fmt.Errorf("integrity check failed for %s: %w", assetName, err)
+	}
+	logrus.Debugf("SHA256 verified: %s", assetName)
+	return nil
+}
+
+func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetPath, token string, skipVerify bool) error {
+	client := newGithubClient(token)
 
 	ctx := context.Background()
 	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, releaseTag)
@@ -45,6 +73,10 @@ func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetP
 
 			tmpPath := assetPath + ".temp"
 
+			if err := os.MkdirAll(filepath.Dir(assetPath), 0o755); err != nil {
+				return err
+			}
+
 			logrus.Debugf("Download asset to: %s", tmpPath)
 			tmpFile, err := os.Create(tmpPath)
 			if err != nil {
@@ -67,6 +99,13 @@ func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetP
 				return err
 			}
 
+			if !skipVerify {
+				if err := verifyAssetChecksum(client, owner, repository, release, assetName, tmpPath); err != nil {
+					_ = os.Remove(tmpPath)
+					return err
+				}
+			}
+
 			logrus.Debugf("Move asset to: %s", assetPath)
 			if err := os.Rename(tmpFile.Name(), assetPath); err != nil {
 				_ = os.Remove(tmpFile.Name())
@@ -80,12 +119,7 @@ func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetP
 }
 
 func DownloadAndUnpackGithubReleaseArchive(owner, repository, releaseTag, assetPath, token string) error {
-	var client *github.Client
-	if token == "" {
-		client = github.NewClient(nil)
-	} else {
-		client = github.NewClient(nil).WithAuthToken(token)
-	}
+	client := newGithubClient(token)
 
 	ctx := context.Background()
 	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, releaseTag)
@@ -183,13 +217,8 @@ func DownloadAndUnpackGithubReleaseArchive(owner, repository, releaseTag, assetP
 	return nil
 }
 
-func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetName, destPath, token string) error {
-	var client *github.Client
-	if token == "" {
-		client = github.NewClient(nil)
-	} else {
-		client = github.NewClient(nil).WithAuthToken(token)
-	}
+func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetName, destPath, token string, skipVerify bool) error {
+	client := newGithubClient(token)
 
 	ctx := context.Background()
 	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, releaseTag)
@@ -213,6 +242,10 @@ func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetNam
 
 			tmpPath := destPath + ".temp"
 
+			if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+				return err
+			}
+
 			logrus.Debugf("Download asset to: %s", tmpPath)
 			tmpFile, err := os.Create(tmpPath)
 			if err != nil {
@@ -234,6 +267,12 @@ func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetNam
 
 			if err := tmpFile.Close(); err != nil {
 				return err
+			}
+
+			if !skipVerify {
+				if err := verifyAssetChecksum(client, owner, repository, release, assetName, tmpPath); err != nil {
+					return err
+				}
 			}
 
 			return extractAsset(tmpPath, assetName, destPath)

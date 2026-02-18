@@ -144,7 +144,7 @@ func scan(cmd *cobra.Command) {
 
 			if _, err := os.Stat(rulesPath); errors.Is(err, os.ErrNotExist) {
 				logrus.Info("Downloading seqra-rules")
-				err := utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, rulesPath, globals.Config.Github.Token)
+				err := utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, rulesPath, globals.Config.Github.Token, globals.Config.SkipVerify)
 				if err != nil {
 					logrus.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
 				}
@@ -346,7 +346,7 @@ func scanProject(analyzerBuilder *AnalyzerBuilder) {
 	if _, err := os.Stat(analyzerJarPath); errors.Is(err, os.ErrNotExist) {
 		logrus.Info()
 		logrus.Infof("Downloading analyzer version %s", globals.Config.Analyzer.Version)
-		if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token); err != nil {
+		if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
 			logrus.Fatalf("Failed to download analyzer: %s", err)
 		}
 		logrus.Infof("Successfully downloaded analyzer to %s", analyzerJarPath)
@@ -355,7 +355,7 @@ func scanProject(analyzerBuilder *AnalyzerBuilder) {
 	// Set the jar path on the builder and build the command
 	analyzerCommand := analyzerBuilder.SetJarPath(analyzerJarPath).BuildNativeCommand()
 
-	javaRunner := java.NewJavaRunner().TrySpecificVersion(java.DefaultJavaVersion)
+	javaRunner := java.NewJavaRunner().WithSkipVerify(globals.Config.SkipVerify).WithImageType(java.AdoptiumImageJRE).TrySpecificVersion(globals.DefaultJavaVersion)
 
 	commandSucceeded := func(err error) bool {
 		if err != nil {

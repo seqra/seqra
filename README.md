@@ -50,9 +50,9 @@ https://github.com/user-attachments/assets/aba3733b-2959-4470-be0c-605d259e97b6
 
 ## Quick Start
 
-**Install via Go:**
+**Install via Homebrew (Linux/macOS):**
 ```bash
-go install github.com/seqra/seqra/v2@latest
+brew install --cask seqra/tap/seqra
 ```
 
 **Scan your project:**
@@ -118,11 +118,15 @@ Each finding includes the HTTP endpoint, making it easy to understand your appli
 
 | Method | Command |
 |--------|---------|
-| **Go** (recommended) | `go install github.com/seqra/seqra/v2@latest` |
+| **Homebrew** (Linux/macOS) | `brew install --cask seqra/tap/seqra` |
+| **Install script** (Linux/macOS) | `curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.sh \| bash` |
+| **Install script** (Windows PowerShell) | `irm https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.ps1 \| iex` |
+| **Install script** (Windows CMD) | `curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.cmd -o install.cmd && install.cmd && del install.cmd` |
 | **Docker** | See [Quick Start](#quick-start) or [Docker docs](docs/docker.md) |
 | **Binary** | [Download from releases](https://github.com/seqra/seqra/releases/latest) |
+| **Go** | `go install github.com/seqra/seqra/v2@latest` |
 
-After installation, run `seqra pull` to download analyzer components (or let `seqra scan` download them automatically).
+Release archives come in three variants: **`seqra-full`** (binary + JARs + rules + JRE), **`seqra`** (binary + JARs + rules), and **`seqra-cli`** (binary only). Homebrew and install scripts default to `full`. For `go install`, run `seqra pull` to download analyzer components.
 
 For detailed instructions, see [Installation Guide](docs/installation.md).
 
@@ -141,6 +145,8 @@ seqra summary --show-findings results.sarif           # View results
 | `seqra project` | Create model from precompiled JARs |
 | `seqra summary` | View SARIF results |
 | `seqra pull` | Download dependencies |
+| `seqra update` | Update to latest version |
+| `seqra prune` | Remove stale downloaded artifacts |
 
 **Options:** `--max-memory 16G`, `--timeout 5m`, `--severity error`, `--config config.yaml`
 
@@ -177,7 +183,7 @@ For detailed configuration, see [Configuration Guide](docs/configuration.md).
 | Build fails | Ensure `mvn compile` or `gradle build` works; set `JAVA_HOME` |
 | Out of memory | Use `--max-memory 16G` |
 | Timeout | Use `--timeout 20m` |
-| Re-download deps | `rm -rf ~/.seqra/autobuilder ~/.seqra/analyzer ~/.seqra/rules ~/.seqra/jdk && seqra pull` |
+| Re-download deps | `seqra prune --yes && seqra pull` |
 | Debug | Use `--verbosity debug` |
 
 For detailed troubleshooting, see [Troubleshooting Guide](docs/troubleshooting.md).
