@@ -55,18 +55,16 @@ const (
 )
 
 // EnsureLocalRuntime downloads and unpacks Temurin runtime if not present and returns bin/java path
-func EnsureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, aoArch string) (string, error) {
-	return ensureLocalRuntime(requiredJavaVersion, imageType, goOs, aoArch)
+func EnsureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, aoArch string, skipVerify bool) (string, error) {
+	return ensureLocalRuntime(requiredJavaVersion, imageType, goOs, aoArch, skipVerify)
 }
 
-// ensureLocalRuntime downloads and unpacks Temurin runtime if not present and returns bin/java path
-func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, aoArch string) (string, error) {
-	opentaintHome, err := utils.GetOpentaintHome()
-	if err != nil {
-		return "", err
-	}
+// EnsureLocalRuntimeAt downloads and installs Temurin runtime directly into targetDir
+// (flat layout: targetDir/bin/java) and returns the path to the java binary.
+func EnsureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
+	targetDir string, goOs, goArch string, skipVerify bool) (string, error) {
 
-	adoptiumOS, adoptiumArch, err := MapPlatformToAdoptium(goOs, aoArch)
+	adoptiumOS, adoptiumArch, err := MapPlatformToAdoptium(goOs, goArch)
 	if err != nil {
 		return "", err
 	}
@@ -76,16 +74,12 @@ func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, go
 		return "", err
 	}
 
-	artefactRoot := filepath.Join(opentaintHome, string(imageType), fmt.Sprintf("temurin-%d-%s-%s-%s", requiredJavaVersion, imageType, adoptiumOS, adoptiumArch))
-	javaPath := filepath.Join(artefactRoot, "bin", javaBinary)
-
+	javaPath := filepath.Join(targetDir, "bin", javaBinary)
 	if fileExists(javaPath) {
 		logrus.Debugf("Using installed Java: %s", javaPath)
 		return javaPath, nil
 	}
 
-	// Download and install
-	// swagger docs: https://api.adoptium.net/q/swagger-ui/#/
 	url := fmt.Sprintf(
 		"https://api.adoptium.net/v3/binary/latest/%d/ga/%s/%s/%s/hotspot/normal/eclipse",
 		requiredJavaVersion, adoptiumOS, adoptiumArch, imageType,
@@ -93,21 +87,50 @@ func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, go
 
 	artefactTar := string(imageType)
 
-	return withTmpDir(artefactRoot+"-tmp", func(tmpDir string) (string, error) {
+	return withTmpDir(targetDir+"-tmp", func(tmpDir string) (string, error) {
 		tmpArchive := filepath.Join(tmpDir, artefactTar)
 		if err := ensureDownloaded(url, tmpArchive); err != nil {
 			return "", err
 		}
+
+		if !skipVerify {
+			expected, err := FetchAdoptiumChecksum(requiredJavaVersion, adoptiumOS, adoptiumArch, imageType)
+			if err != nil {
+				logrus.Warnf("Could not fetch Adoptium checksum: %v", err)
+			} else if expected != "" {
+				if err := utils.VerifyFileChecksum(tmpArchive, expected); err != nil {
+					return "", fmt.Errorf("JRE integrity check failed: %w", err)
+				}
+				logrus.Debugf("SHA256 verified: Temurin Java %d", requiredJavaVersion)
+			}
+		}
+
 		if err := unpack(tmpArchive, tmpDir); err != nil {
 			return "", err
 		}
-		javaPath, err := finalizeJavaInstall(tmpDir, artefactRoot, javaBinary, requiredJavaVersion)
+		javaPath, err := finalizeJavaInstall(tmpDir, targetDir, javaBinary, requiredJavaVersion)
 		if err != nil {
 			return "", err
 		}
 		logrus.Debugf("Java installed at: %s", javaPath)
 		return javaPath, nil
 	})
+}
+
+// ensureLocalRuntime downloads and unpacks Temurin runtime into ~/.opentaint/ if not present.
+func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, goArch string, skipVerify bool) (string, error) {
+	opentaintHome, err := utils.GetOpentaintHome()
+	if err != nil {
+		return "", err
+	}
+
+	adoptiumOS, adoptiumArch, err := MapPlatformToAdoptium(goOs, goArch)
+	if err != nil {
+		return "", err
+	}
+
+	artefactRoot := filepath.Join(opentaintHome, string(imageType), fmt.Sprintf("temurin-%d-%s-%s-%s", requiredJavaVersion, imageType, adoptiumOS, adoptiumArch))
+	return EnsureLocalRuntimeAt(requiredJavaVersion, imageType, artefactRoot, goOs, goArch, skipVerify)
 }
 
 // MapPlatformToAdoptium converts Go OS/arch to Adoptium naming.
@@ -184,7 +207,7 @@ func ensureDownloaded(url, dest string) error {
 	if err == nil {
 		logrus.Infof("Successfully downloaded Temurin Java to %s", dest)
 	}
-	return downloadFile(url, dest)
+	return err
 }
 
 func unpack(archivePath, targetDir string) error {

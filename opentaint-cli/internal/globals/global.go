@@ -1,7 +1,36 @@
 package globals
 
 import (
+	_ "embed"
 	"time"
+
+	"github.com/sirupsen/logrus"
+	"gopkg.in/yaml.v2"
+)
+
+//go:embed versions.yaml
+var versionsYAML []byte
+
+type versions struct {
+	Analyzer    string `yaml:"analyzer"`
+	Autobuilder string `yaml:"autobuilder"`
+	Rules       string `yaml:"rules"`
+	Java        int    `yaml:"java"`
+}
+
+var BindVersions = func() versions {
+	var v versions
+	if err := yaml.Unmarshal(versionsYAML, &v); err != nil {
+		logrus.Fatalf("Failed to parse embedded versions.yaml: %v", err)
+	}
+	return v
+}()
+
+var (
+	AnalyzerBindVersion    = BindVersions.Analyzer
+	AutobuilderBindVersion = BindVersions.Autobuilder
+	RulesBindVersion       = BindVersions.Rules
+	DefaultJavaVersion     = BindVersions.Java
 )
 
 const GithubDockerHost = "ghcr.io"
@@ -9,11 +38,9 @@ const GithubDockerHost = "ghcr.io"
 const RepoOwner = "seqra"
 
 const AnalyzerDocker = GithubDockerHost + "/" + RepoOwner + "/seqra-jvm-sast/sast-analyzer"
-const AnalyzerBindVersion = "2026.02.12.9f0061d"
 
 const AutobuilderRepoName = "opentaint"
 const AutobuilderDocker = GithubDockerHost + "/" + RepoOwner + "/" + AutobuilderRepoName + "/sast-autobuilder"
-const AutobuilderBindVersion = "2026.02.01.88f8c5e"
 const AutobuilderAssetName = "opentaint-project-auto-builder.jar"
 
 const AnalyzerRepoName = "opentaint"
@@ -21,7 +48,6 @@ const AnalyzerAssetName = "opentaint-project-analyzer.jar"
 
 const RulesRepoName = "seqra-rules"
 const RulesAssetName = "seqra-rules.tar.gz"
-const RulesBindVersion = "v2.1.3"
 
 type Scan struct {
 	Timeout       time.Duration `mapstructure:"timeout"`
@@ -64,6 +90,7 @@ type ConfigType struct {
 	Java        Java        `mapstructure:"java"`
 	Owner       string      `mapstructure:"owner"`
 	Quiet       bool        `mapstructure:"quiet"`
+	SkipVerify  bool        `mapstructure:"skip-verify"`
 }
 
 var Config ConfigType
@@ -71,3 +98,8 @@ var Config ConfigType
 var LogPath string
 
 var ConfigFile string
+
+// GetVersionsYAML returns the raw embedded versions.yaml content.
+func GetVersionsYAML() []byte {
+	return versionsYAML
+}

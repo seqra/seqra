@@ -9,18 +9,19 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/seqra/opentaint/v2/internal/utils"
 	"github.com/sirupsen/logrus"
 )
 
 const (
-	DefaultJavaVersion = 21
-	LegacyJavaVersion  = 8
+	LegacyJavaVersion = 8
 )
 
 type ResolutionStrategy int
 
 const (
 	System ResolutionStrategy = iota
+	Bundled
 	Specific
 	None
 )
@@ -28,6 +29,8 @@ const (
 type JavaRunner interface {
 	TrySystem() JavaRunner
 	TrySpecificVersion(version int) JavaRunner
+	WithImageType(imageType AdoptiumImageType) JavaRunner
+	WithSkipVerify(skipVerify bool) JavaRunner
 	GetJavaResolutions() []JavaResolution
 	ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) error
 }
@@ -35,6 +38,8 @@ type JavaRunner interface {
 type javaRunner struct {
 	trySystemStrategy bool
 	specificStrategy  *int
+	imageType         AdoptiumImageType
+	skipVerify        bool
 }
 
 type JavaResolution func() (string, ResolutionStrategy, error)
@@ -91,6 +96,19 @@ func (j *javaRunner) GetJavaResolutions() []JavaResolution {
 	if j.specificStrategy != nil {
 		version := *j.specificStrategy
 		logrus.Debugf("Starting Java resolution with specific version strategy only: Java %d", version)
+
+		// Try bundled JRE first (only when not using system strategy)
+		if !j.trySystemStrategy {
+			resolutionStrategies = append(resolutionStrategies, func() (string, ResolutionStrategy, error) {
+				logrus.Debugf("Trying bundled JRE resolution")
+				if javaPath := j.findBundledJRE(); javaPath != "" {
+					logrus.Debugf("Found bundled JRE (%s)", javaPath)
+					return javaPath, Bundled, nil
+				}
+				return "", None, fmt.Errorf("no bundled JRE found")
+			})
+		}
+
 		resolutionStrategies = append(resolutionStrategies, func() (string, ResolutionStrategy, error) {
 			logrus.Debugf("Trying specific Java version resolution: Java %d", version)
 			javaPath, err := j.ensureSpecificVersion(version)
@@ -122,10 +140,10 @@ func (j *javaRunner) ExecuteJavaCommand(args []string, commandSucceeded func(err
 		cmdArgs := append([]string{javaPath}, args...)
 		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 
-		// Set clean environment for specific version strategy
-		if resolutionStrategy == Specific {
+		// Set clean environment for bundled or specific version strategy
+		if resolutionStrategy == Bundled || resolutionStrategy == Specific {
 			cmd.Env = j.getCleanEnvironment()
-			logrus.Debug("Using clean environment for specific Java version strategy")
+			logrus.Debug("Using clean environment for managed Java version strategy")
 		}
 
 		logrus.Debugf("Executing Java command (attempt %d): %s %v (full: %s)", i+1, javaPath, args, strings.Join(cmdArgs, " "))
@@ -195,6 +213,16 @@ func (j *javaRunner) TrySystem() JavaRunner {
 	return j
 }
 
+func (j *javaRunner) WithImageType(imageType AdoptiumImageType) JavaRunner {
+	j.imageType = imageType
+	return j
+}
+
+func (j *javaRunner) WithSkipVerify(skipVerify bool) JavaRunner {
+	j.skipVerify = skipVerify
+	return j
+}
+
 // unsetJavaEnvironmentVariables unsets Java-related environment variables
 // to ensure a clean environment when using specific Java versions
 func unsetJavaEnvironmentVariables() {
@@ -253,7 +281,16 @@ func NewJavaRunner() JavaRunner {
 	return &javaRunner{
 		trySystemStrategy: false,
 		specificStrategy:  nil,
+		imageType:         AdoptiumImageJDK,
 	}
+}
+
+func (j *javaRunner) findBundledJRE() string {
+	tiers := utils.CurrentTiers(utils.ManagedJRETiers(), utils.IsInstallCurrent())
+	if tier := utils.FindExistingJRE(tiers); tier != nil {
+		return utils.JavaBinaryPath(tier.Path)
+	}
+	return ""
 }
 
 func (j *javaRunner) findSystemJava() string {
@@ -275,5 +312,5 @@ func (j *javaRunner) ensureSpecificVersion(version int) (string, error) {
 	// Unset Java environment variables for clean environment when using specific version
 	unsetJavaEnvironmentVariables()
 
-	return ensureLocalRuntime(version, AdoptiumImageJDK, runtime.GOOS, runtime.GOARCH)
+	return ensureLocalRuntime(version, j.imageType, runtime.GOOS, runtime.GOARCH, j.skipVerify)
 }

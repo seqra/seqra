@@ -1,0 +1,208 @@
+name: Release CLI
+
+on:
+  workflow_dispatch:
+
+  push:
+    paths:
+      - 'opentaint-cli/**'
+    branches:
+      - main
+env:
+  OPENTAINT_DEPENDENCIES_VERSION: 2026.03.12.95b57fa
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      -
+        name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      -
+        name: 'Release'
+        id: semantic_release
+        uses: cycjimmy/semantic-release-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          semantic_version: 23.0.0
+          working_directory: opentaint-cli
+          extra_plugins: |
+            @semantic-release/commit-analyzer@11.1.0
+            @semantic-release/exec@6.0.3
+            conventional-changelog-conventionalcommits@7.0.2
+      -
+        name: 'Get release_version and pass to next job'
+        id: release_version
+        working-directory: opentaint-cli
+        # see .releaserc.json to obtain certain file name
+        run: |
+          if [ -f release_version.txt ]; then
+            echo "status=succeeded" >>"$GITHUB_OUTPUT"
+            echo "RELEASE_VERSION=$(cat release_version.txt)" >> $GITHUB_OUTPUT
+          else
+            echo "status=skipped" >>"$GITHUB_OUTPUT"
+          fi
+          rm -f release_version.txt
+      -
+        name: Login to GitHub Container Registry
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.SEQRA_GITHUB_ACTOR }}
+          password: ${{ secrets.SEQRA_GITHUB_TOKEN }}
+      -
+        name: Set up QEMU
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        uses: docker/setup-qemu-action@v3
+      -
+        name: Set up Docker Buildx
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        uses: docker/setup-buildx-action@v3
+      -
+        name: Set up Go
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        uses: actions/setup-go@v5
+        with:
+          go-version: '>=1.25.0'
+      -
+        name: Docker meta
+        id: meta
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ghcr.io/${{ github.repository }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ steps.release_version.outputs.RELEASE_VERSION }}
+      -
+        name: Download bundled artifacts
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        working-directory: opentaint-cli
+        env:
+          GH_TOKEN: ${{ secrets.SEQRA_GITHUB_TOKEN }}
+        run: |
+          ANALYZER_VERSION=$(grep '^analyzer:' internal/globals/versions.yaml | awk '{print $2}' | tr -d '"')
+          AUTOBUILDER_VERSION=$(grep '^autobuilder:' internal/globals/versions.yaml | awk '{print $2}' | tr -d '"')
+          RULES_VERSION=$(grep '^rules:' internal/globals/versions.yaml | awk '{print $2}' | tr -d '"')
+
+          mkdir -p lib
+
+          echo "Downloading analyzer ${ANALYZER_VERSION}..."
+          gh release download "${ANALYZER_VERSION}" \
+            --repo ${{ github.repository_owner }}/opentaint \
+            --pattern "opentaint-project-analyzer.jar" \
+            --dir lib
+
+          echo "Downloading autobuilder ${AUTOBUILDER_VERSION}..."
+          gh release download "${AUTOBUILDER_VERSION}" \
+            --repo ${{ github.repository_owner }}/opentaint \
+            --pattern "opentaint-project-auto-builder.jar" \
+            --dir lib
+
+          echo "Downloading rules ${RULES_VERSION}..."
+          gh release download "${RULES_VERSION}" \
+            --repo seqra/seqra-rules \
+            --pattern "seqra-rules.tar.gz" \
+            --dir /tmp
+
+          mkdir -p lib/rules
+          tar -xzf /tmp/seqra-rules.tar.gz -C lib/rules
+
+          echo "Bundled artifacts:"
+          ls -la lib/
+      -
+        name: Run GoReleaser
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: '~> v2'
+          args: release --clean
+          workdir: opentaint-cli
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      -
+        name: Bundle JREs into release archives
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        working-directory: opentaint-cli
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash scripts/bundle-jre.sh dist
+          RELEASE_TAG="v${{ steps.release_version.outputs.RELEASE_VERSION }}"
+          for archive in dist/opentaint-full_*.tar.gz dist/opentaint-full_*.zip; do
+            [ -f "$archive" ] || continue
+            echo "Re-uploading $archive..."
+            gh release upload "$RELEASE_TAG" "$archive" --clobber
+          done
+          # Regenerate checksums covering all three variants
+          cd dist
+          sha256sum opentaint-cli_*.{tar.gz,zip} opentaint_*.{tar.gz,zip} opentaint-full_*.{tar.gz,zip} 2>/dev/null > checksums.txt
+          cd ..
+          gh release upload "$RELEASE_TAG" dist/checksums.txt --clobber
+      -
+        name: Update package manager manifests
+        if: ${{ steps.release_version.outputs.status == 'succeeded' && steps.semantic_release.outputs.new_release_channel == '' }}
+        working-directory: opentaint-cli
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          RELEASE_TAG="v${{ steps.release_version.outputs.RELEASE_VERSION }}"
+
+          # Import GPG key for signed commits
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+
+          # Fix SHA256 values in GoReleaser-generated cask file
+          CASK_FILE="dist/homebrew/Casks/opentaint.rb"
+          for f in dist/opentaint-full_*.tar.gz dist/opentaint-full_*.zip; do
+            [ -f "$f" ] || continue
+            name="$(basename "$f")"
+            sha="$(sha256sum "$f" | awk '{print $1}')"
+            escaped_name="${name//./\\.}"
+            sed -i "/${escaped_name}/{ n; s/sha256 \"[a-f0-9]\{64\}\"/sha256 \"${sha}\"/; }" "$CASK_FILE"
+          done
+
+          # Push updated cask to Homebrew tap
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/seqra/homebrew-tap.git" /tmp/homebrew-tap
+          mkdir -p /tmp/homebrew-tap/Casks
+          cp "$CASK_FILE" /tmp/homebrew-tap/Casks/opentaint.rb
+          cd /tmp/homebrew-tap
+          git config user.name "seqradev"
+          git config user.email "seqradev@gmail.com"
+          git config user.signingkey "6000887370B8C08E"
+          git config commit.gpgsign true
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "Update opentaint to ${RELEASE_TAG}"
+            git push
+          fi
+          cd -
+      -
+        name: Build and push Docker image
+        if: ${{ steps.release_version.outputs.status == 'succeeded' && steps.semantic_release.outputs.new_release_channel == '' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: opentaint-cli
+          build-contexts: |
+            opentaint-dependencies:latest=docker-image://ghcr.io/${{ github.repository_owner }}/opentaint-infra-dependencies/opentaint-dependencies:${{ env.OPENTAINT_DEPENDENCIES_VERSION }}
+          platforms: linux/amd64, linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          secrets: |
+            github_token=${{ secrets.SEQRA_GITHUB_TOKEN }}
+          build-args: |
+            SEQRA_BUILD_FLAGS=-s -w -X github.com/${{ github.repository_owner }}/opentaint/v2/internal/version.Version=${{ steps.release_version.outputs.RELEASE_VERSION }}
+
+    outputs:
+      release_version: ${{ steps.release_version.outputs.RELEASE_VERSION }}

@@ -16,7 +16,8 @@ RUN useradd -ms /bin/bash opentaint
 
 WORKDIR /home/opentaint
 
-COPY --from=builder /app/opentaint /usr/local/bin/opentaint
+COPY --from=builder /app/opentaint /usr/local/lib/opentaint/opentaint
+RUN ln -sf /usr/local/lib/opentaint/opentaint /usr/local/bin/opentaint
 
 RUN --mount=type=secret,id=github_token \
     opentaint pull --github-token=$(cat /run/secrets/github_token) --verbosity debug

@@ -2,7 +2,9 @@
 package version
 
 import (
+	"fmt"
 	"runtime/debug"
+	"strconv"
 	"strings"
 )
 
@@ -44,4 +46,49 @@ func GetVersion() string {
 
 	// Fallback to "dev" if nothing else works
 	return "dev"
+}
+
+// CompareVersions compares two semver strings.
+// Returns -1 if a < b, 0 if a == b, 1 if a > b.
+// Versions may optionally start with "v".
+func CompareVersions(a, b string) (int, error) {
+	aParts, err := parseSemver(a)
+	if err != nil {
+		return 0, fmt.Errorf("invalid version %q: %w", a, err)
+	}
+	bParts, err := parseSemver(b)
+	if err != nil {
+		return 0, fmt.Errorf("invalid version %q: %w", b, err)
+	}
+
+	for i := 0; i < 3; i++ {
+		if aParts[i] < bParts[i] {
+			return -1, nil
+		}
+		if aParts[i] > bParts[i] {
+			return 1, nil
+		}
+	}
+	return 0, nil
+}
+
+func parseSemver(v string) ([3]int, error) {
+	v = strings.TrimPrefix(v, "v")
+	// Strip pre-release/build metadata
+	if idx := strings.IndexAny(v, "-+"); idx != -1 {
+		v = v[:idx]
+	}
+	parts := strings.Split(v, ".")
+	if len(parts) != 3 {
+		return [3]int{}, fmt.Errorf("expected 3 parts, got %d", len(parts))
+	}
+	var result [3]int
+	for i, part := range parts {
+		n, err := strconv.Atoi(part)
+		if err != nil {
+			return [3]int{}, fmt.Errorf("invalid number %q: %w", part, err)
+		}
+		result[i] = n
+	}
+	return result, nil
 }
