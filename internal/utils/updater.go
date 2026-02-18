@@ -41,6 +41,18 @@ func DetectInstallMethod() (InstallMethod, string) {
 	return classifyExePath(exe, goPath), exe
 }
 
+func UpdateHint(latestVersion string) string {
+	method, _ := DetectInstallMethod()
+	switch method {
+	case InstallMethodHomebrew:
+		return fmt.Sprintf("A new version is available: v%s. Run \"brew upgrade --cask seqra\" to update.", latestVersion)
+	case InstallMethodGoInstall:
+		return fmt.Sprintf("A new version is available: v%s. Run \"go install github.com/seqra/seqra/v2@latest\" to update.", latestVersion)
+	default:
+		return fmt.Sprintf("A new version is available: v%s. Run \"seqra update\" to update.", latestVersion)
+	}
+}
+
 func classifyExePath(exePath, goPath string) InstallMethod {
 	lowerPath := strings.ToLower(exePath)
 	if strings.Contains(lowerPath, "/cellar/") || strings.Contains(lowerPath, "/caskroom/") || strings.Contains(lowerPath, "/homebrew/") {
