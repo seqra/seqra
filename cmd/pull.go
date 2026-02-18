@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/utils"
@@ -13,6 +14,18 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
+
+// artifactSpec declaratively describes a downloadable artifact for the pull command.
+type artifactSpec struct {
+	name        string // human-readable name ("Autobuilder", "Analyzer", "Rules")
+	version     string // configured version
+	bindVersion string // compile-time bind version
+	repoName    string // GitHub repository name
+	assetName   string // GitHub release asset filename
+	libSubpath  string // path relative to lib/ directory
+	cacheName   string // filename/dirname in ~/.seqra/ cache
+	unpack      bool   // unpack archive (tar.gz) instead of raw download
+}
 
 var pullCmd = &cobra.Command{
 	Use:   "pull",
@@ -39,17 +52,42 @@ When bundled artifacts are present (from a release archive), they will be used d
 		method, _ := utils.DetectInstallMethod()
 		installNextToBinary := method != utils.InstallMethodGoInstall
 
+		artifacts := []artifactSpec{
+			{
+				name:        "Autobuilder",
+				version:     globals.Config.Autobuilder.Version,
+				bindVersion: globals.AutobuilderBindVersion,
+				repoName:    globals.AutobuilderRepoName,
+				assetName:   globals.AutobuilderAssetName,
+				libSubpath:  globals.AutobuilderAssetName,
+				cacheName:   "autobuilder_" + globals.Config.Autobuilder.Version + ".jar",
+			},
+			{
+				name:        "Analyzer",
+				version:     globals.Config.Analyzer.Version,
+				bindVersion: globals.AnalyzerBindVersion,
+				repoName:    globals.AnalyzerRepoName,
+				assetName:   globals.AnalyzerAssetName,
+				libSubpath:  globals.AnalyzerAssetName,
+				cacheName:   "analyzer_" + globals.Config.Analyzer.Version + ".jar",
+			},
+			{
+				name:        "Rules",
+				version:     globals.Config.Rules.Version,
+				bindVersion: globals.RulesBindVersion,
+				repoName:    globals.RulesRepoName,
+				assetName:   globals.RulesAssetName,
+				libSubpath:  "rules",
+				cacheName:   "rules_" + globals.Config.Rules.Version,
+				unpack:      true,
+			},
+		}
+
 		printer = formatters.NewTreePrinter()
-		if err := downloadAutobuilder(printer, installNextToBinary); err != nil {
-			logrus.Fatalf("Failed to download autobuilder: %s", err)
-		}
-
-		if err := downloadAnalyzer(printer, installNextToBinary); err != nil {
-			logrus.Fatalf("Failed to download analyzer: %s", err)
-		}
-
-		if err := downloadRules(printer, installNextToBinary); err != nil {
-			logrus.Fatalf("Failed to download rules: %s", err)
+		for _, spec := range artifacts {
+			if err := downloadArtifact(spec, printer, installNextToBinary); err != nil {
+				logrus.Fatalf("Failed to download %s: %s", strings.ToLower(spec.name), err)
+			}
 		}
 
 		if err := downloadJava(printer, installNextToBinary); err != nil {
@@ -61,53 +99,53 @@ When bundled artifacts are present (from a release archive), they will be used d
 	},
 }
 
-func downloadAutobuilder(printer *formatters.TreePrinter, installNextToBinary bool) error {
-	version := globals.Config.Autobuilder.Version
-	isBindVersion := version == globals.AutobuilderBindVersion
+// downloadArtifact downloads a GitHub release artifact using the bundled → install → cache
+// fallback chain. It skips the download if the artifact already exists at any tier.
+func downloadArtifact(spec artifactSpec, printer *formatters.TreePrinter, installNextToBinary bool) error {
+	isBindVersion := spec.version == spec.bindVersion
+	printer.AddNode(fmt.Sprintf("%s %s", spec.name, spec.version))
 
-	printer.AddNode(fmt.Sprintf("Autobuilder %s", version))
-
-	// Check bundled path (next to binary)
+	// Check if already available at any tier
 	if isBindVersion {
 		if libPath := utils.GetBundledLibPath(); libPath != "" {
-			bundledPath := filepath.Join(libPath, globals.AutobuilderAssetName)
-			if _, err := os.Stat(bundledPath); err == nil {
+			if _, err := os.Stat(filepath.Join(libPath, spec.libSubpath)); err == nil {
 				printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
 				return nil
 			}
 		}
-	}
-
-	// Check install path (~/.seqra/install/lib/)
-	if isBindVersion {
 		if libPath := utils.GetInstallLibPath(); libPath != "" {
-			installPath := filepath.Join(libPath, globals.AutobuilderAssetName)
-			if _, err := os.Stat(installPath); err == nil {
+			if _, err := os.Stat(filepath.Join(libPath, spec.libSubpath)); err == nil {
 				printer.AddNodeAtLevelDefault("Already downloaded", 1)
 				return nil
 			}
 		}
 	}
 
-	// Check ~/.seqra/ cache
 	seqraHome, err := utils.GetSeqraHome()
 	if err != nil {
 		return err
 	}
-	cachePath := filepath.Join(seqraHome, "autobuilder_"+version+".jar")
+	cachePath := filepath.Join(seqraHome, spec.cacheName)
 	if _, err := os.Stat(cachePath); err == nil {
 		printer.AddNodeAtLevelDefault("Already downloaded", 1)
 		return nil
 	}
 
-	logrus.Infof("Downloading autobuilder %s...", version)
+	logrus.Infof("Downloading %s %s...", strings.ToLower(spec.name), spec.version)
+
+	download := func(targetPath string) error {
+		if spec.unpack {
+			return utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, spec.repoName, spec.version, spec.assetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify)
+		}
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, spec.repoName, spec.version, spec.assetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify)
+	}
 
 	// For bind version, try to install next to binary
 	if isBindVersion && installNextToBinary {
 		if libPath := utils.GetBundledLibPath(); libPath != "" {
 			if err := os.MkdirAll(libPath, 0o755); err == nil {
-				targetPath := filepath.Join(libPath, globals.AutobuilderAssetName)
-				if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, version, globals.AutobuilderAssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
+				targetPath := filepath.Join(libPath, spec.libSubpath)
+				if err := download(targetPath); err != nil {
 					return err
 				}
 				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", targetPath), 1)
@@ -121,8 +159,8 @@ func downloadAutobuilder(printer *formatters.TreePrinter, installNextToBinary bo
 	if isBindVersion {
 		if libPath := utils.GetInstallLibPath(); libPath != "" {
 			if err := os.MkdirAll(libPath, 0o755); err == nil {
-				targetPath := filepath.Join(libPath, globals.AutobuilderAssetName)
-				if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, version, globals.AutobuilderAssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
+				targetPath := filepath.Join(libPath, spec.libSubpath)
+				if err := download(targetPath); err != nil {
 					return err
 				}
 				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", targetPath), 1)
@@ -133,165 +171,7 @@ func downloadAutobuilder(printer *formatters.TreePrinter, installNextToBinary bo
 	}
 
 	// Fall back to ~/.seqra/
-	if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, version, globals.AutobuilderAssetName, cachePath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-		return err
-	}
-	printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", cachePath), 1)
-	return nil
-}
-
-func downloadAnalyzer(printer *formatters.TreePrinter, installNextToBinary bool) error {
-	version := globals.Config.Analyzer.Version
-	isBindVersion := version == globals.AnalyzerBindVersion
-
-	printer.AddNode(fmt.Sprintf("Analyzer %s", version))
-
-	// Check bundled path (next to binary)
-	if isBindVersion {
-		if libPath := utils.GetBundledLibPath(); libPath != "" {
-			bundledPath := filepath.Join(libPath, globals.AnalyzerAssetName)
-			if _, err := os.Stat(bundledPath); err == nil {
-				printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
-				return nil
-			}
-		}
-	}
-
-	// Check install path (~/.seqra/install/lib/)
-	if isBindVersion {
-		if libPath := utils.GetInstallLibPath(); libPath != "" {
-			installPath := filepath.Join(libPath, globals.AnalyzerAssetName)
-			if _, err := os.Stat(installPath); err == nil {
-				printer.AddNodeAtLevelDefault("Already downloaded", 1)
-				return nil
-			}
-		}
-	}
-
-	// Check ~/.seqra/ cache
-	seqraHome, err := utils.GetSeqraHome()
-	if err != nil {
-		return err
-	}
-	cachePath := filepath.Join(seqraHome, "analyzer_"+version+".jar")
-	if _, err := os.Stat(cachePath); err == nil {
-		printer.AddNodeAtLevelDefault("Already downloaded", 1)
-		return nil
-	}
-
-	logrus.Infof("Downloading analyzer %s...", version)
-
-	// For bind version, try to install next to binary
-	if isBindVersion && installNextToBinary {
-		if libPath := utils.GetBundledLibPath(); libPath != "" {
-			if err := os.MkdirAll(libPath, 0o755); err == nil {
-				targetPath := filepath.Join(libPath, globals.AnalyzerAssetName)
-				if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, version, globals.AnalyzerAssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-					return err
-				}
-				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", targetPath), 1)
-				return nil
-			}
-			logrus.Debugf("Cannot write next to binary, falling back to install path")
-		}
-	}
-
-	// For bind version, try install path (~/.seqra/install/lib/)
-	if isBindVersion {
-		if libPath := utils.GetInstallLibPath(); libPath != "" {
-			if err := os.MkdirAll(libPath, 0o755); err == nil {
-				targetPath := filepath.Join(libPath, globals.AnalyzerAssetName)
-				if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, version, globals.AnalyzerAssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-					return err
-				}
-				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", targetPath), 1)
-				return nil
-			}
-			logrus.Debugf("Cannot write to install path, falling back to cache")
-		}
-	}
-
-	// Fall back to ~/.seqra/
-	if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, version, globals.AnalyzerAssetName, cachePath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-		return err
-	}
-	printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", cachePath), 1)
-	return nil
-}
-
-func downloadRules(printer *formatters.TreePrinter, installNextToBinary bool) error {
-	version := globals.Config.Rules.Version
-	isBindVersion := version == globals.RulesBindVersion
-
-	printer.AddNode(fmt.Sprintf("Rules %s", version))
-
-	// Check bundled path (next to binary)
-	if isBindVersion {
-		if libPath := utils.GetBundledLibPath(); libPath != "" {
-			bundledPath := filepath.Join(libPath, "rules")
-			if _, err := os.Stat(bundledPath); err == nil {
-				printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
-				return nil
-			}
-		}
-	}
-
-	// Check install path (~/.seqra/install/lib/)
-	if isBindVersion {
-		if libPath := utils.GetInstallLibPath(); libPath != "" {
-			installPath := filepath.Join(libPath, "rules")
-			if _, err := os.Stat(installPath); err == nil {
-				printer.AddNodeAtLevelDefault("Already downloaded", 1)
-				return nil
-			}
-		}
-	}
-
-	// Check ~/.seqra/ cache
-	seqraHome, err := utils.GetSeqraHome()
-	if err != nil {
-		return err
-	}
-	cachePath := filepath.Join(seqraHome, "rules_"+version)
-	if _, err := os.Stat(cachePath); err == nil {
-		printer.AddNodeAtLevelDefault("Already downloaded", 1)
-		return nil
-	}
-
-	logrus.Infof("Downloading rules %s...", version)
-
-	// For bind version, try to install next to binary
-	if isBindVersion && installNextToBinary {
-		if libPath := utils.GetBundledLibPath(); libPath != "" {
-			if err := os.MkdirAll(libPath, 0o755); err == nil {
-				targetPath := filepath.Join(libPath, "rules")
-				if err := utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, version, globals.RulesAssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-					return err
-				}
-				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", targetPath), 1)
-				return nil
-			}
-			logrus.Debugf("Cannot write next to binary, falling back to install path")
-		}
-	}
-
-	// For bind version, try install path (~/.seqra/install/lib/)
-	if isBindVersion {
-		if libPath := utils.GetInstallLibPath(); libPath != "" {
-			if err := os.MkdirAll(libPath, 0o755); err == nil {
-				targetPath := filepath.Join(libPath, "rules")
-				if err := utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, version, globals.RulesAssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-					return err
-				}
-				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", targetPath), 1)
-				return nil
-			}
-			logrus.Debugf("Cannot write to install path, falling back to cache")
-		}
-	}
-
-	// Fall back to ~/.seqra/
-	if err := utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, version, globals.RulesAssetName, cachePath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
+	if err := download(cachePath); err != nil {
 		return err
 	}
 	printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", cachePath), 1)
@@ -357,7 +237,7 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary bool) err
 		if jrePath := utils.GetBundledJREPath(); jrePath != "" {
 			if err := os.MkdirAll(jrePath, 0o755); err == nil {
 				// Clean up since EnsureLocalRuntimeAt will manage this directory
-				os.Remove(jrePath)
+				_ = os.Remove(jrePath)
 				javaPath, err := java.EnsureLocalRuntimeAt(javaVersion, java.AdoptiumImageJRE, jrePath, runtime.GOOS, runtime.GOARCH, globals.Config.SkipVerify)
 				if err != nil {
 					return err

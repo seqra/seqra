@@ -23,6 +23,40 @@ type PruneResult struct {
 	TotalCount int
 }
 
+// staleCheckSpec describes a cached artifact pattern to check for staleness.
+type staleCheckSpec struct {
+	prefix      string // filename prefix (e.g. "analyzer_")
+	suffix      string // filename suffix (e.g. ".jar", "" for directories)
+	bindVersion string // current bind version
+	kind        string // artifact kind for reporting
+	isDir       bool   // true if artifact is a directory (use dirSize)
+}
+
+// checkStale tests whether a filename matches this spec and is stale or redundant.
+// Returns a StaleArtifact if it should be pruned, nil otherwise.
+func (s staleCheckSpec) checkStale(name, fullPath string, bundledLibExists bool) *StaleArtifact {
+	if !strings.HasPrefix(name, s.prefix) || !strings.HasSuffix(name, s.suffix) {
+		return nil
+	}
+	version := strings.TrimPrefix(name, s.prefix)
+	version = strings.TrimSuffix(version, s.suffix)
+
+	isStale := version != s.bindVersion
+	isRedundant := !isStale && bundledLibExists
+
+	if !isStale && !isRedundant {
+		return nil
+	}
+
+	var size int64
+	if s.isDir {
+		size, _ = dirSize(fullPath)
+	} else {
+		size = fileSize(fullPath)
+	}
+	return &StaleArtifact{Path: fullPath, Size: size, Kind: s.kind}
+}
+
 // ScanForStaleArtifacts scans ~/.seqra/ for artifacts that are not current and returns them.
 func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 	seqraHome, err := GetSeqraHome()
@@ -51,89 +85,37 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 		}
 	}
 
+	artifactSpecs := []staleCheckSpec{
+		{prefix: "analyzer_", suffix: ".jar", bindVersion: globals.AnalyzerBindVersion, kind: "analyzer"},
+		{prefix: "autobuilder_", suffix: ".jar", bindVersion: globals.AutobuilderBindVersion, kind: "autobuilder"},
+		{prefix: "rules_", suffix: "", bindVersion: globals.RulesBindVersion, kind: "rules", isDir: true},
+	}
+
 	for _, entry := range entries {
 		name := entry.Name()
 		fullPath := filepath.Join(seqraHome, name)
 
-		// Skip config files and special files
-		if name == "logs" || name == ".last-update-check" || strings.HasPrefix(name, ".") {
+		// Skip special files, hidden files, and log directory
+		if name == "logs" || strings.HasPrefix(name, ".") {
 			continue
 		}
 
-		// Handle log directory separately
-		if name == "logs" && includeLogs {
-			size, err := dirSize(fullPath)
-			if err == nil && size > 0 {
-				result.Stale = append(result.Stale, StaleArtifact{
-					Path: fullPath,
-					Size: size,
-					Kind: "log",
-				})
-				result.TotalSize += size
+		// Check against artifact specs
+		matched := false
+		for _, spec := range artifactSpecs {
+			if artifact := spec.checkStale(name, fullPath, bundledLibExists); artifact != nil {
+				result.Stale = append(result.Stale, *artifact)
+				result.TotalSize += artifact.Size
 				result.TotalCount++
+				matched = true
+				break
 			}
-			continue
+			if strings.HasPrefix(name, spec.prefix) {
+				matched = true // matches pattern but is current — skip
+				break
+			}
 		}
-
-		// Check analyzer JARs
-		if strings.HasPrefix(name, "analyzer_") && strings.HasSuffix(name, ".jar") {
-			version := strings.TrimPrefix(name, "analyzer_")
-			version = strings.TrimSuffix(version, ".jar")
-
-			isStale := version != globals.AnalyzerBindVersion
-			isRedundant := !isStale && bundledLibExists
-
-			if isStale || isRedundant {
-				size := fileSize(fullPath)
-				result.Stale = append(result.Stale, StaleArtifact{
-					Path: fullPath,
-					Size: size,
-					Kind: "analyzer",
-				})
-				result.TotalSize += size
-				result.TotalCount++
-			}
-			continue
-		}
-
-		// Check autobuilder JARs
-		if strings.HasPrefix(name, "autobuilder_") && strings.HasSuffix(name, ".jar") {
-			version := strings.TrimPrefix(name, "autobuilder_")
-			version = strings.TrimSuffix(version, ".jar")
-
-			isStale := version != globals.AutobuilderBindVersion
-			isRedundant := !isStale && bundledLibExists
-
-			if isStale || isRedundant {
-				size := fileSize(fullPath)
-				result.Stale = append(result.Stale, StaleArtifact{
-					Path: fullPath,
-					Size: size,
-					Kind: "autobuilder",
-				})
-				result.TotalSize += size
-				result.TotalCount++
-			}
-			continue
-		}
-
-		// Check rules directories
-		if strings.HasPrefix(name, "rules_") {
-			version := strings.TrimPrefix(name, "rules_")
-
-			isStale := version != globals.RulesBindVersion
-			isRedundant := !isStale && bundledLibExists
-
-			if isStale || isRedundant {
-				size, _ := dirSize(fullPath)
-				result.Stale = append(result.Stale, StaleArtifact{
-					Path: fullPath,
-					Size: size,
-					Kind: "rules",
-				})
-				result.TotalSize += size
-				result.TotalCount++
-			}
+		if matched {
 			continue
 		}
 
@@ -168,7 +150,7 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 		}
 	}
 
-	// Also scan for logs if requested
+	// Scan for logs if requested
 	if includeLogs {
 		logsDir := filepath.Join(seqraHome, "logs")
 		if info, err := os.Stat(logsDir); err == nil && info.IsDir() {

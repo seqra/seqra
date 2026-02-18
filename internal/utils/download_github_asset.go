@@ -15,13 +15,40 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetPath, token string, skipVerify bool) error {
-	var client *github.Client
+func newGithubClient(token string) *github.Client {
 	if token == "" {
-		client = github.NewClient(nil)
-	} else {
-		client = github.NewClient(nil).WithAuthToken(token)
+		return github.NewClient(nil)
 	}
+	return github.NewClient(nil).WithAuthToken(token)
+}
+
+// verifyAssetChecksum checks the SHA256 of filePath against the checksums.txt in the release.
+// Returns nil if verified or if checksums are unavailable (with appropriate logging).
+// Returns error only on checksum mismatch.
+func verifyAssetChecksum(client *github.Client, owner, repo string, release *github.RepositoryRelease, assetName, filePath string) error {
+	checksums, err := FetchReleaseChecksums(client, owner, repo, release)
+	if err != nil {
+		logrus.Warnf("Could not fetch checksums for %s/%s: %v", owner, repo, err)
+		return nil
+	}
+	if checksums == nil {
+		logrus.Debugf("No checksums.txt in release, skipping verification")
+		return nil
+	}
+	expected, ok := checksums[assetName]
+	if !ok {
+		logrus.Warnf("No checksum entry for %s in checksums.txt", assetName)
+		return nil
+	}
+	if err := VerifyFileChecksum(filePath, expected); err != nil {
+		return fmt.Errorf("integrity check failed for %s: %w", assetName, err)
+	}
+	logrus.Debugf("SHA256 verified: %s", assetName)
+	return nil
+}
+
+func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetPath, token string, skipVerify bool) error {
+	client := newGithubClient(token)
 
 	ctx := context.Background()
 	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, releaseTag)
@@ -68,21 +95,9 @@ func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetP
 			}
 
 			if !skipVerify {
-				checksums, err := FetchReleaseChecksums(client, owner, repository, release)
-				if err != nil {
-					logrus.Warnf("Could not fetch checksums for %s/%s@%s: %v", owner, repository, releaseTag, err)
-				} else if checksums != nil {
-					if expected, ok := checksums[assetName]; ok {
-						if err := VerifyFileChecksum(tmpPath, expected); err != nil {
-							_ = os.Remove(tmpPath)
-							return fmt.Errorf("integrity check failed for %s: %w", assetName, err)
-						}
-						logrus.Debugf("SHA256 verified: %s", assetName)
-					} else {
-						logrus.Warnf("No checksum entry for %s in checksums.txt", assetName)
-					}
-				} else {
-					logrus.Debugf("No checksums.txt in %s/%s@%s, skipping verification", owner, repository, releaseTag)
+				if err := verifyAssetChecksum(client, owner, repository, release, assetName, tmpPath); err != nil {
+					_ = os.Remove(tmpPath)
+					return err
 				}
 			}
 
@@ -99,12 +114,7 @@ func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetP
 }
 
 func DownloadAndUnpackGithubReleaseArchive(owner, repository, releaseTag, assetPath, token string) error {
-	var client *github.Client
-	if token == "" {
-		client = github.NewClient(nil)
-	} else {
-		client = github.NewClient(nil).WithAuthToken(token)
-	}
+	client := newGithubClient(token)
 
 	ctx := context.Background()
 	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, releaseTag)
@@ -203,12 +213,7 @@ func DownloadAndUnpackGithubReleaseArchive(owner, repository, releaseTag, assetP
 }
 
 func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetName, destPath, token string, skipVerify bool) error {
-	var client *github.Client
-	if token == "" {
-		client = github.NewClient(nil)
-	} else {
-		client = github.NewClient(nil).WithAuthToken(token)
-	}
+	client := newGithubClient(token)
 
 	ctx := context.Background()
 	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, releaseTag)
@@ -256,20 +261,8 @@ func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetNam
 			}
 
 			if !skipVerify {
-				checksums, err := FetchReleaseChecksums(client, owner, repository, release)
-				if err != nil {
-					logrus.Warnf("Could not fetch checksums for %s/%s@%s: %v", owner, repository, releaseTag, err)
-				} else if checksums != nil {
-					if expected, ok := checksums[assetName]; ok {
-						if err := VerifyFileChecksum(tmpPath, expected); err != nil {
-							return fmt.Errorf("integrity check failed for %s: %w", assetName, err)
-						}
-						logrus.Debugf("SHA256 verified: %s", assetName)
-					} else {
-						logrus.Warnf("No checksum entry for %s in checksums.txt", assetName)
-					}
-				} else {
-					logrus.Debugf("No checksums.txt in %s/%s@%s, skipping verification", owner, repository, releaseTag)
+				if err := verifyAssetChecksum(client, owner, repository, release, assetName, tmpPath); err != nil {
+					return err
 				}
 			}
 

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/utils"
@@ -60,7 +61,7 @@ Only upgrades are supported — downgrading to an older version is refused.`,
 
 		if len(args) > 0 {
 			targetVersion = args[0]
-			if targetVersion[0] == 'v' {
+			if strings.HasPrefix(targetVersion, "v") {
 				targetTag = targetVersion
 				targetVersion = targetVersion[1:]
 			} else {

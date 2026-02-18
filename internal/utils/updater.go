@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/google/go-github/v72/github"
 	"github.com/sirupsen/logrus"
 )
 
@@ -60,12 +59,7 @@ func classifyExePath(exePath, goPath string) InstallMethod {
 
 // GetLatestRelease fetches the latest release version from GitHub.
 func GetLatestRelease(owner, repo, token string) (string, string, error) {
-	var client *github.Client
-	if token == "" {
-		client = github.NewClient(nil)
-	} else {
-		client = github.NewClient(nil).WithAuthToken(token)
-	}
+	client := newGithubClient(token)
 
 	ctx := context.Background()
 	release, _, err := client.Repositories.GetLatestRelease(ctx, owner, repo)
@@ -82,12 +76,7 @@ func GetLatestRelease(owner, repo, token string) (string, string, error) {
 
 // DownloadReleaseArchive downloads the appropriate release archive for the current platform.
 func DownloadReleaseArchive(owner, repo, tag, token, destDir string, skipVerify bool) (string, error) {
-	var client *github.Client
-	if token == "" {
-		client = github.NewClient(nil)
-	} else {
-		client = github.NewClient(nil).WithAuthToken(token)
-	}
+	client := newGithubClient(token)
 
 	archiveName := getArchiveName()
 	ctx := context.Background()
@@ -121,21 +110,9 @@ func DownloadReleaseArchive(owner, repo, tag, token, destDir string, skipVerify 
 			}
 
 			if !skipVerify {
-				checksums, err := FetchReleaseChecksums(client, owner, repo, release)
-				if err != nil {
-					logrus.Warnf("Could not fetch checksums for %s/%s@%s: %v", owner, repo, tag, err)
-				} else if checksums != nil {
-					if expected, ok := checksums[archiveName]; ok {
-						if err := VerifyFileChecksum(destPath, expected); err != nil {
-							_ = os.Remove(destPath)
-							return "", fmt.Errorf("integrity check failed for %s: %w", archiveName, err)
-						}
-						logrus.Debugf("SHA256 verified: %s", archiveName)
-					} else {
-						logrus.Warnf("No checksum entry for %s in checksums.txt", archiveName)
-					}
-				} else {
-					logrus.Debugf("No checksums.txt in %s/%s@%s, skipping verification", owner, repo, tag)
+				if err := verifyAssetChecksum(client, owner, repo, release, archiveName, destPath); err != nil {
+					_ = os.Remove(destPath)
+					return "", err
 				}
 			}
 

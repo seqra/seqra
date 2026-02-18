@@ -117,68 +117,20 @@ func EnsureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
 	})
 }
 
-// ensureLocalRuntime downloads and unpacks Temurin runtime if not present and returns bin/java path
-func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, aoArch string, skipVerify bool) (string, error) {
+// ensureLocalRuntime downloads and unpacks Temurin runtime into ~/.seqra/ if not present.
+func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, goArch string, skipVerify bool) (string, error) {
 	seqraHome, err := utils.GetSeqraHome()
 	if err != nil {
 		return "", err
 	}
 
-	adoptiumOS, adoptiumArch, err := MapPlatformToAdoptium(goOs, aoArch)
-	if err != nil {
-		return "", err
-	}
-
-	javaBinary, err := mapOSToJavaBinary(goOs)
+	adoptiumOS, adoptiumArch, err := MapPlatformToAdoptium(goOs, goArch)
 	if err != nil {
 		return "", err
 	}
 
 	artefactRoot := filepath.Join(seqraHome, string(imageType), fmt.Sprintf("temurin-%d-%s-%s-%s", requiredJavaVersion, imageType, adoptiumOS, adoptiumArch))
-	javaPath := filepath.Join(artefactRoot, "bin", javaBinary)
-
-	if fileExists(javaPath) {
-		logrus.Debugf("Using installed Java: %s", javaPath)
-		return javaPath, nil
-	}
-
-	// Download and install
-	// swagger docs: https://api.adoptium.net/q/swagger-ui/#/
-	url := fmt.Sprintf(
-		"https://api.adoptium.net/v3/binary/latest/%d/ga/%s/%s/%s/hotspot/normal/eclipse",
-		requiredJavaVersion, adoptiumOS, adoptiumArch, imageType,
-	)
-
-	artefactTar := string(imageType)
-
-	return withTmpDir(artefactRoot+"-tmp", func(tmpDir string) (string, error) {
-		tmpArchive := filepath.Join(tmpDir, artefactTar)
-		if err := ensureDownloaded(url, tmpArchive); err != nil {
-			return "", err
-		}
-
-		if !skipVerify {
-			expected, err := FetchAdoptiumChecksum(requiredJavaVersion, adoptiumOS, adoptiumArch, imageType)
-			if err != nil {
-				logrus.Warnf("Could not fetch Adoptium checksum: %v", err)
-			} else if expected != "" {
-				if err := utils.VerifyFileChecksum(tmpArchive, expected); err != nil {
-					return "", fmt.Errorf("JRE integrity check failed: %w", err)
-				}
-				logrus.Debugf("SHA256 verified: Temurin Java %d", requiredJavaVersion)
-			}
-		}
-
-		if err := unpack(tmpArchive, tmpDir); err != nil {
-			return "", err
-		}
-		javaPath, err := finalizeJavaInstall(tmpDir, artefactRoot, javaBinary, requiredJavaVersion)
-		if err != nil {
-			return "", err
-		}
-		logrus.Debugf("Java installed at: %s", javaPath)
-		return javaPath, nil
-	})
+	return EnsureLocalRuntimeAt(requiredJavaVersion, imageType, artefactRoot, goOs, goArch, skipVerify)
 }
 
 // MapPlatformToAdoptium converts Go OS/arch to Adoptium naming.
