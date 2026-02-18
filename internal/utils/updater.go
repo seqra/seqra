@@ -43,7 +43,7 @@ func DetectInstallMethod() (InstallMethod, string) {
 
 func classifyExePath(exePath, goPath string) InstallMethod {
 	lowerPath := strings.ToLower(exePath)
-	if strings.Contains(lowerPath, "/cellar/") || strings.Contains(lowerPath, "/homebrew/") {
+	if strings.Contains(lowerPath, "/cellar/") || strings.Contains(lowerPath, "/caskroom/") || strings.Contains(lowerPath, "/homebrew/") {
 		return InstallMethodHomebrew
 	}
 	goBin := filepath.Join(goPath, "bin")

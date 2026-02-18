@@ -5,7 +5,7 @@
 ## Homebrew (Linux/macOS)
 
 ```bash
-brew install seqra/tap/seqra
+brew install --cask seqra/tap/seqra
 ```
 
 ## Install Scripts
@@ -102,7 +102,7 @@ Add Go binaries to your PATH if needed:
 seqra update
 ```
 
-For package manager installations, `seqra update` will show the appropriate command (e.g., `brew upgrade seqra`).
+For package manager installations, `seqra update` will show the appropriate command (e.g., `brew upgrade --cask seqra`).
 
 ## Cleaning Up
 

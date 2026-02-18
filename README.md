@@ -52,7 +52,7 @@ https://github.com/user-attachments/assets/aba3733b-2959-4470-be0c-605d259e97b6
 
 **Install via Homebrew (Linux/macOS):**
 ```bash
-brew install seqra/tap/seqra
+brew install --cask seqra/tap/seqra
 ```
 
 **Scan your project:**
@@ -118,7 +118,7 @@ Each finding includes the HTTP endpoint, making it easy to understand your appli
 
 | Method | Command |
 |--------|---------|
-| **Homebrew** (Linux/macOS) | `brew install seqra/tap/seqra` |
+| **Homebrew** (Linux/macOS) | `brew install --cask seqra/tap/seqra` |
 | **Install script** (Linux/macOS) | `curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.sh \| bash` |
 | **Install script** (Windows PowerShell) | `irm https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.ps1 \| iex` |
 | **Install script** (Windows CMD) | `curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.cmd -o install.cmd && install.cmd && del install.cmd` |

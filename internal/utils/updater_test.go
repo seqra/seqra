@@ -31,6 +31,12 @@ func TestClassifyExePath(t *testing.T) {
 			InstallMethodHomebrew,
 		},
 		{
+			"homebrew cask",
+			"/opt/homebrew/Caskroom/seqra/1.0/seqra",
+			"/home/user/go",
+			InstallMethodHomebrew,
+		},
+		{
 			"go install",
 			"/home/user/go/bin/seqra",
 			"/home/user/go",

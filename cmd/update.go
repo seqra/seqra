@@ -37,7 +37,7 @@ Only upgrades are supported — downgrading to an older version is refused.`,
 		switch method {
 		case utils.InstallMethodHomebrew:
 			logrus.Info("seqra was installed via Homebrew.")
-			logrus.Info("Run: brew upgrade seqra")
+			logrus.Info("Run: brew upgrade --cask seqra")
 			return
 		case utils.InstallMethodGoInstall:
 			logrus.Info("seqra was installed via go install.")
