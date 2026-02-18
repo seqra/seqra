@@ -9,11 +9,23 @@ import (
 	"github.com/seqra/seqra/v2/internal/globals"
 )
 
+// Stale artifact kind constants.
+const (
+	StaleKindAnalyzer    = "analyzer"
+	StaleKindAutobuilder = "autobuilder"
+	StaleKindRules       = "rules"
+	StaleKindJDK         = "jdk"
+	StaleKindJRE         = "jre"
+	StaleKindInstallLib  = "install-lib"
+	StaleKindInstallJRE  = "install-jre"
+	StaleKindLog         = "log"
+)
+
 // StaleArtifact represents an artifact that can be pruned.
 type StaleArtifact struct {
 	Path string
 	Size int64
-	Kind string // "analyzer", "autobuilder", "rules", "jdk", "jre", "install-lib", "install-jre", "log"
+	Kind string
 }
 
 // PruneResult contains the results of scanning for stale artifacts.
@@ -107,7 +119,7 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 		}
 
 		// Check JDK/JRE directories
-		if name == "jdk" || name == "jre" {
+		if name == StaleKindJDK || name == StaleKindJRE {
 			subEntries, err := os.ReadDir(fullPath)
 			if err != nil {
 				continue
@@ -116,7 +128,7 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 				subPath := filepath.Join(fullPath, subEntry.Name())
 
 				// If bundled JRE exists, all downloaded JREs for current version are redundant
-				isRedundant := bundledJREExists && name == "jre"
+				isRedundant := bundledJREExists && name == StaleKindJRE
 
 				// All JDK/JRE directories that aren't the current version are stale
 				currentPrefix := fmt.Sprintf("temurin-%d-", globals.DefaultJavaVersion)
@@ -144,8 +156,8 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 		kind          string
 		bundledExists bool
 	}{
-		{GetInstallLibPath(), "install-lib", bundledLibExists},
-		{GetInstallJREPath(), "install-jre", bundledJREExists},
+		{GetInstallLibPath(), StaleKindInstallLib, bundledLibExists},
+		{GetInstallJREPath(), StaleKindInstallJRE, bundledJREExists},
 	} {
 		if check.path == "" {
 			continue
@@ -174,7 +186,7 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 				result.Stale = append(result.Stale, StaleArtifact{
 					Path: logsDir,
 					Size: size,
-					Kind: "log",
+					Kind: StaleKindLog,
 				})
 				result.TotalSize += size
 				result.TotalCount++

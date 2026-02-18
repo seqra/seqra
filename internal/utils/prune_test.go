@@ -42,8 +42,8 @@ func TestDeleteArtifacts(t *testing.T) {
 		createTestFile(t, filepath.Join(d1, "inner.txt"), 5)
 
 		artifacts := []StaleArtifact{
-			{Path: f1, Size: 10, Kind: "analyzer"},
-			{Path: d1, Size: 5, Kind: "rules"},
+			{Path: f1, Size: 10, Kind: StaleKindAnalyzer},
+			{Path: d1, Size: 5, Kind: StaleKindRules},
 		}
 
 		if err := DeleteArtifacts(artifacts); err != nil {
@@ -106,8 +106,8 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if len(result.Stale) != 1 {
 			t.Fatalf("expected 1 stale, got %d", len(result.Stale))
 		}
-		if result.Stale[0].Kind != "analyzer" {
-			t.Errorf("expected kind=analyzer, got %q", result.Stale[0].Kind)
+		if result.Stale[0].Kind != StaleKindAnalyzer {
+			t.Errorf("expected kind=%s, got %q", StaleKindAnalyzer, result.Stale[0].Kind)
 		}
 	})
 
@@ -139,8 +139,8 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if len(result.Stale) != 1 {
 			t.Fatalf("expected 1 stale, got %d", len(result.Stale))
 		}
-		if result.Stale[0].Kind != "autobuilder" {
-			t.Errorf("expected kind=autobuilder, got %q", result.Stale[0].Kind)
+		if result.Stale[0].Kind != StaleKindAutobuilder {
+			t.Errorf("expected kind=%s, got %q", StaleKindAutobuilder, result.Stale[0].Kind)
 		}
 	})
 
@@ -158,8 +158,8 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if len(result.Stale) != 1 {
 			t.Fatalf("expected 1 stale, got %d", len(result.Stale))
 		}
-		if result.Stale[0].Kind != "rules" {
-			t.Errorf("expected kind=rules, got %q", result.Stale[0].Kind)
+		if result.Stale[0].Kind != StaleKindRules {
+			t.Errorf("expected kind=%s, got %q", StaleKindRules, result.Stale[0].Kind)
 		}
 	})
 
@@ -177,8 +177,8 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if len(result.Stale) != 1 {
 			t.Fatalf("expected 1 stale, got %d", len(result.Stale))
 		}
-		if result.Stale[0].Kind != "jdk" {
-			t.Errorf("expected kind=jdk, got %q", result.Stale[0].Kind)
+		if result.Stale[0].Kind != StaleKindJDK {
+			t.Errorf("expected kind=%s, got %q", StaleKindJDK, result.Stale[0].Kind)
 		}
 	})
 
@@ -196,8 +196,8 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if len(result.Stale) != 1 {
 			t.Fatalf("expected 1 stale, got %d", len(result.Stale))
 		}
-		if result.Stale[0].Kind != "jre" {
-			t.Errorf("expected kind=jre, got %q", result.Stale[0].Kind)
+		if result.Stale[0].Kind != StaleKindJRE {
+			t.Errorf("expected kind=%s, got %q", StaleKindJRE, result.Stale[0].Kind)
 		}
 	})
 
@@ -230,8 +230,8 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if len(result.Stale) != 1 {
 			t.Fatalf("expected 1 stale, got %d", len(result.Stale))
 		}
-		if result.Stale[0].Kind != "log" {
-			t.Errorf("expected kind=log, got %q", result.Stale[0].Kind)
+		if result.Stale[0].Kind != StaleKindLog {
+			t.Errorf("expected kind=%s, got %q", StaleKindLog, result.Stale[0].Kind)
 		}
 	})
 
@@ -287,7 +287,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 			t.Fatalf("expected 2 stale, got %d", len(result.Stale))
 		}
 		for _, s := range result.Stale {
-			if s.Kind != "analyzer" && s.Kind != "autobuilder" {
+			if s.Kind != StaleKindAnalyzer && s.Kind != StaleKindAutobuilder {
 				t.Errorf("unexpected kind %q", s.Kind)
 			}
 		}
@@ -305,7 +305,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		}
 		found := false
 		for _, s := range result.Stale {
-			if s.Kind == "install-lib" {
+			if s.Kind == StaleKindInstallLib {
 				found = true
 			}
 		}
@@ -330,7 +330,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		for _, s := range result.Stale {
-			if s.Kind == "install-lib" {
+			if s.Kind == StaleKindInstallLib {
 				t.Error("expected install-lib not to be flagged when version marker is current")
 			}
 		}
@@ -348,7 +348,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		}
 		found := false
 		for _, s := range result.Stale {
-			if s.Kind == "install-jre" {
+			if s.Kind == StaleKindInstallJRE {
 				found = true
 			}
 		}
