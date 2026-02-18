@@ -83,21 +83,21 @@ function Main {
         Write-Host "Installing to $installDir..."
         New-Item -ItemType Directory -Path $installDir -Force | Out-Null
 
-        $binDir = Join-Path $installDir "bin"
+        $binDir = Join-Path $installDir "install"
         New-Item -ItemType Directory -Path $binDir -Force | Out-Null
         Copy-Item -Path (Join-Path $tmpDir "seqra.exe") -Destination (Join-Path $binDir "seqra.exe") -Force
 
-        # Install bundled lib and jre if present
+        # Install bundled lib and jre if present (next to the binary)
         $libSrc = Join-Path $tmpDir "lib"
         if (Test-Path $libSrc) {
-            $libDst = Join-Path $installDir "lib"
+            $libDst = Join-Path $binDir "lib"
             if (Test-Path $libDst) { Remove-Item -Recurse -Force $libDst }
             Copy-Item -Recurse -Path $libSrc -Destination $libDst
         }
 
         $jreSrc = Join-Path $tmpDir "jre"
         if (Test-Path $jreSrc) {
-            $jreDst = Join-Path $installDir "jre"
+            $jreDst = Join-Path $binDir "jre"
             if (Test-Path $jreDst) { Remove-Item -Recurse -Force $jreDst }
             Copy-Item -Recurse -Path $jreSrc -Destination $jreDst
         }

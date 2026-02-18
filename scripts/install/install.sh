@@ -80,7 +80,7 @@ get_install_dir() {
     if [ "$(id -u)" = "0" ]; then
         echo "/usr/local/bin"
     else
-        echo "$HOME/.seqra/bin"
+        echo "$HOME/.seqra/install"
     fi
 }
 
@@ -113,21 +113,15 @@ main() {
     cp "$tmp_dir/seqra" "$install_dir/seqra"
     chmod +x "$install_dir/seqra"
 
-    # Install bundled lib and jre if present
+    # Install bundled lib and jre if present (next to the binary)
     if [ -d "$tmp_dir/lib" ]; then
-        local lib_dir
-        lib_dir="$(dirname "$install_dir")"
-        [ "$install_dir" = "/usr/local/bin" ] && lib_dir="/usr/local"
-        mkdir -p "$lib_dir/lib"
-        cp -r "$tmp_dir/lib/"* "$lib_dir/lib/"
+        mkdir -p "$install_dir/lib"
+        cp -r "$tmp_dir/lib/"* "$install_dir/lib/"
     fi
 
     if [ -d "$tmp_dir/jre" ]; then
-        local jre_dir
-        jre_dir="$(dirname "$install_dir")"
-        [ "$install_dir" = "/usr/local/bin" ] && jre_dir="/usr/local"
-        mkdir -p "$jre_dir/jre"
-        cp -r "$tmp_dir/jre/"* "$jre_dir/jre/"
+        mkdir -p "$install_dir/jre"
+        cp -r "$tmp_dir/jre/"* "$install_dir/jre/"
     fi
 
     echo ""

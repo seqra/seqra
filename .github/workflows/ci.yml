@@ -192,7 +192,7 @@ jobs:
           SEQRA_DOWNLOAD_BASE_URL: http://localhost:8080
         run: bash scripts/install/install.sh
       - name: Verify installation
-        run: ~/.seqra/bin/seqra --version
+        run: ~/.seqra/install/seqra --version
 
   test-install-sh-macos:
     runs-on: macos-latest
@@ -213,7 +213,7 @@ jobs:
           SEQRA_DOWNLOAD_BASE_URL: http://localhost:8080
         run: bash scripts/install/install.sh
       - name: Verify installation
-        run: ~/.seqra/bin/seqra --version
+        run: ~/.seqra/install/seqra --version
 
   test-install-ps1:
     runs-on: windows-latest
@@ -240,4 +240,4 @@ jobs:
       - name: Verify installation
         shell: pwsh
         run: |
-          & "$env:LOCALAPPDATA\seqra\bin\seqra.exe" --version
+          & "$env:LOCALAPPDATA\seqra\install\seqra.exe" --version
