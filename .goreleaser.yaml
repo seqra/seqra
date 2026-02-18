@@ -60,7 +60,7 @@ homebrew_casks:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: "https://github.com/seqra/seqra"
-    description: "CLI security analysis tool for Java and Kotlin projects"
+    description: "Security-focused static analyzer for Java and Kotlin web applications"
     hooks:
       post:
         install: |
