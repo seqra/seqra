@@ -55,6 +55,16 @@ https://github.com/user-attachments/assets/aba3733b-2959-4470-be0c-605d259e97b6
 brew install --cask seqra/tap/seqra
 ```
 
+**Install script (Windows PowerShell)**
+```
+irm https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.ps1 \| iex
+```
+
+**Install script (Linux/macOS)**
+```
+curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.sh \| bash
+```
+
 **Scan your project:**
 ```bash
 seqra scan --output results.sarif /path/to/your/spring/project
