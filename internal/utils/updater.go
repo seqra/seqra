@@ -17,7 +17,6 @@ type InstallMethod int
 const (
 	InstallMethodUnknown InstallMethod = iota
 	InstallMethodHomebrew
-	InstallMethodScoop
 	InstallMethodGoInstall
 	InstallMethodBinary
 )
@@ -46,9 +45,6 @@ func classifyExePath(exePath, goPath string) InstallMethod {
 	lowerPath := strings.ToLower(exePath)
 	if strings.Contains(lowerPath, "/cellar/") || strings.Contains(lowerPath, "/homebrew/") {
 		return InstallMethodHomebrew
-	}
-	if strings.Contains(lowerPath, "/scoop/apps/") || strings.Contains(lowerPath, "\\scoop\\apps\\") {
-		return InstallMethodScoop
 	}
 	goBin := filepath.Join(goPath, "bin")
 	if strings.HasPrefix(exePath, goBin) {

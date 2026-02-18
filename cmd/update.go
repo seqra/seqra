@@ -39,10 +39,6 @@ Only upgrades are supported — downgrading to an older version is refused.`,
 			logrus.Info("seqra was installed via Homebrew.")
 			logrus.Info("Run: brew upgrade seqra")
 			return
-		case utils.InstallMethodScoop:
-			logrus.Info("seqra was installed via Scoop.")
-			logrus.Info("Run: scoop update seqra")
-			return
 		case utils.InstallMethodGoInstall:
 			logrus.Info("seqra was installed via go install.")
 			logrus.Info("Run: go install github.com/seqra/seqra/v2@latest")

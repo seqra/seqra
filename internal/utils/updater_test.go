@@ -31,18 +31,6 @@ func TestClassifyExePath(t *testing.T) {
 			InstallMethodHomebrew,
 		},
 		{
-			"scoop unix-style path",
-			"/c/users/dev/scoop/apps/seqra/current/seqra.exe",
-			"/home/user/go",
-			InstallMethodScoop,
-		},
-		{
-			"scoop windows backslash",
-			`C:\Users\dev\scoop\apps\seqra\current\seqra.exe`,
-			`C:\Users\dev\go`,
-			InstallMethodScoop,
-		},
-		{
 			"go install",
 			"/home/user/go/bin/seqra",
 			"/home/user/go",
