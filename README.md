@@ -50,9 +50,9 @@ https://github.com/user-attachments/assets/aba3733b-2959-4470-be0c-605d259e97b6
 
 ## Quick Start
 
-**Install via Go:**
+**Install via Homebrew (Linux/macOS):**
 ```bash
-go install github.com/seqra/opentaint/v2@latest
+brew install --cask seqra/tap/opentaint
 ```
 
 **Scan your project:**
@@ -118,11 +118,15 @@ Each finding includes the HTTP endpoint, making it easy to understand your appli
 
 | Method | Command |
 |--------|---------|
-| **Go** (recommended) | `go install github.com/seqra/opentaint/v2@latest` |
+| **Homebrew** (Linux/macOS) | `brew install --cask seqra/tap/opentaint` |
+| **Install script** (Linux/macOS) | `curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/opentaint-cli/scripts/install/install.sh \| bash` |
+| **Install script** (Windows PowerShell) | `irm https://raw.githubusercontent.com/seqra/opentaint/main/opentaint-cli/scripts/install/install.ps1 \| iex` |
+| **Install script** (Windows CMD) | `curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/opentaint-cli/scripts/install/install.cmd -o install.cmd && install.cmd && del install.cmd` |
 | **Docker** | See [Quick Start](#quick-start) or [Docker docs](docs/docker.md) |
 | **Binary** | [Download from releases](https://github.com/seqra/opentaint/releases/latest) |
+| **Go** | `go install github.com/seqra/opentaint/v2@latest` |
 
-After installation, run `opentaint pull` to download analyzer components (or let `opentaint scan` download them automatically).
+Release archives come in three variants: **`opentaint-full`** (binary + JARs + rules + JRE), **`opentaint`** (binary + JARs + rules), and **`opentaint-cli`** (binary only). Homebrew and install scripts default to `full`. For `go install`, run `opentaint pull` to download analyzer components.
 
 For detailed instructions, see [Installation Guide](docs/installation.md).
 
@@ -141,6 +145,8 @@ opentaint summary --show-findings results.sarif           # View results
 | `opentaint project` | Create model from precompiled JARs |
 | `opentaint summary` | View SARIF results |
 | `opentaint pull` | Download dependencies |
+| `opentaint update` | Update to latest version |
+| `opentaint prune` | Remove stale downloaded artifacts |
 
 **Options:** `--max-memory 16G`, `--timeout 5m`, `--severity error`, `--config config.yaml`
 
@@ -177,7 +183,7 @@ For detailed configuration, see [Configuration Guide](docs/configuration.md).
 | Build fails | Ensure `mvn compile` or `gradle build` works; set `JAVA_HOME` |
 | Out of memory | Use `--max-memory 16G` |
 | Timeout | Use `--timeout 20m` |
-| Re-download deps | `rm -rf ~/.opentaint/autobuilder ~/.opentaint/analyzer ~/.opentaint/rules ~/.opentaint/jdk && opentaint pull` |
+| Re-download deps | `opentaint prune --yes && opentaint pull` |
 | Debug | Use `--verbosity debug` |
 
 For detailed troubleshooting, see [Troubleshooting Guide](docs/troubleshooting.md).

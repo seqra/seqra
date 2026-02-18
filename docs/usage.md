@@ -56,6 +56,8 @@ Use [CodeChecker](https://github.com/Ericsson/codechecker) for advanced result m
 | `opentaint project` | Create project model from precompiled JARs/classes |
 | `opentaint summary` | View SARIF analysis results |
 | `opentaint pull` | Download analyzer dependencies |
+| `opentaint update` | Update to latest version |
+| `opentaint prune` | Remove stale downloaded artifacts |
 
 ### opentaint scan
 
@@ -86,7 +88,7 @@ opentaint scan --output results.sarif ./project-model
 These options apply to all commands:
 
 - `--config string` — Path to configuration file
-- `--java-version int` — Java version for analyzer (default: 23)
+- `--java-version int` — Java version for analyzer (default: 21)
 - `--quiet` — Suppress interactive output
 - `--verbosity string` — Log level (debug, info, warn, error, fatal, panic)
 

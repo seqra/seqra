@@ -30,17 +30,19 @@ opentaint scan --output results.sarif ./project-model
 To force re-download of dependencies while keeping your configuration:
 
 ```bash
-rm -rf ~/.opentaint/autobuilder ~/.opentaint/analyzer ~/.opentaint/rules ~/.opentaint/jdk
+opentaint prune --yes
 opentaint pull
 ```
 
 ### Download Location
 
-All dependencies are stored in `~/.opentaint/`:
-- `~/.opentaint/autobuilder/` — Project compilation tools
-- `~/.opentaint/analyzer/` — Security analyzer
-- `~/.opentaint/rules/` — Security rules
-- `~/.opentaint/jdk/` — Java runtime
+Downloaded dependencies are stored in `~/.opentaint/install/`:
+- `~/.opentaint/install/lib/opentaint-project-analyzer.jar` — Security analyzer
+- `~/.opentaint/install/lib/opentaint-project-auto-builder.jar` — Project compilation tools
+- `~/.opentaint/install/lib/rules/` — Security rules
+- `~/.opentaint/install/jre/` — Java runtime
+
+For bundled installations (Homebrew, `opentaint-full` archives), artifacts are stored next to the binary. The `~/.opentaint/` root directory is used as a fallback cache with versioned filenames (e.g. `~/.opentaint/analyzer_<version>.jar`).
 
 ## Java Runtime Issues
 
