@@ -39,6 +39,13 @@ When bundled artifacts are present (from a release archive), they will be used d
 		method, _ := utils.DetectInstallMethod()
 		installNextToBinary := method != utils.InstallMethodGoInstall
 
+		// Clean stale install-tier artifacts before downloading
+		if !utils.IsInstallCurrent() {
+			if err := utils.CleanInstallDir(); err != nil {
+				logrus.Fatalf("Failed to clean install directory: %s", err)
+			}
+		}
+
 		artifacts := globals.Artifacts()
 
 		printer = formatters.NewTreePrinter()
@@ -51,6 +58,12 @@ When bundled artifacts are present (from a release archive), they will be used d
 		if err := downloadJava(printer, installNextToBinary); err != nil {
 			logrus.Fatalf("Failed to download Java: %s", err)
 		}
+
+		// Write version marker after all downloads succeed
+		if err := utils.WriteInstallVersionMarker(); err != nil {
+			logrus.Fatalf("Failed to write install version marker: %s", err)
+		}
+
 		logrus.Info()
 		logrus.Info(formatters.FormatTreeHeader("Pull Summary"))
 		printer.Print()
@@ -67,8 +80,8 @@ func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter,
 		return err
 	}
 
-	// Check if already available at any tier
-	if found := utils.FindExisting(tiers); found != nil {
+	// Check if already available at any tier (skip stale install)
+	if found := utils.FindExistingCurrent(tiers); found != nil {
 		if found.Name == "bundled" {
 			printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
 		} else {
@@ -129,8 +142,8 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary bool) err
 
 	tiers := utils.JRETiers(javaVersion, cacheDir)
 
-	// Check if already available at any tier
-	if found := utils.FindExistingJRE(tiers); found != nil {
+	// Check if already available at any tier (skip stale install)
+	if found := utils.FindExistingJRECurrent(tiers); found != nil {
 		if found.Name == "bundled" {
 			printer.AddNodeAtLevelDefault("Using bundled JRE", 1)
 		} else {

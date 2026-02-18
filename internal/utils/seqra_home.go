@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,6 +78,58 @@ func GetInstallJREPath() string {
 	return filepath.Join(home, ".seqra", "install", "jre")
 }
 
+// GetInstallDir returns the path to ~/.seqra/install/.
+// Returns empty string if the home directory cannot be determined.
+func GetInstallDir() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".seqra", "install")
+}
+
+// IsInstallCurrent reports whether the install-tier version marker matches
+// the embedded versions.yaml. Returns false if the marker is missing or differs.
+func IsInstallCurrent() bool {
+	installDir := GetInstallDir()
+	if installDir == "" {
+		return false
+	}
+	data, err := os.ReadFile(filepath.Join(installDir, ".versions"))
+	if err != nil {
+		return false
+	}
+	return bytes.Equal(data, globals.GetVersionsYAML())
+}
+
+// WriteInstallVersionMarker writes the embedded versions.yaml content to
+// ~/.seqra/install/.versions so that future runs can detect stale installs.
+func WriteInstallVersionMarker() error {
+	installDir := GetInstallDir()
+	if installDir == "" {
+		return nil
+	}
+	if err := os.MkdirAll(installDir, 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(installDir, ".versions"), globals.GetVersionsYAML(), 0o644)
+}
+
+// CleanInstallDir removes the install-tier lib and jre directories along with
+// the stale .versions marker. This is called before re-downloading after an upgrade.
+func CleanInstallDir() error {
+	installDir := GetInstallDir()
+	if installDir == "" {
+		return nil
+	}
+	for _, sub := range []string{"lib", "jre", ".versions"} {
+		if err := os.RemoveAll(filepath.Join(installDir, sub)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // IsBundledPath returns true if the given path is under the bundled lib directory.
 func IsBundledPath(path string) bool {
 	bundledLib := GetBundledLibPath()
@@ -99,10 +152,10 @@ func resolveArtifactPath(def globals.ArtifactDef) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if found := FindExisting(tiers); found != nil {
+	if found := FindExistingCurrent(tiers); found != nil {
 		return found.Path, nil
 	}
-	// Return cache tier as default (even if artifact not yet downloaded)
+	// Return last tier as default download target (even if artifact not yet downloaded)
 	return tiers[len(tiers)-1].Path, nil
 }
 

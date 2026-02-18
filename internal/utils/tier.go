@@ -46,6 +46,38 @@ func FindExistingJRE(tiers []Tier) *Tier {
 	return nil
 }
 
+// FindExistingCurrent is like FindExisting but skips install-tier entries
+// when the install directory is not current (version marker mismatch).
+func FindExistingCurrent(tiers []Tier) *Tier {
+	installCurrent := IsInstallCurrent()
+	for i := range tiers {
+		if tiers[i].Name == "install" && !installCurrent {
+			continue
+		}
+		if tiers[i].Exists() {
+			return &tiers[i]
+		}
+	}
+	return nil
+}
+
+// FindExistingJRECurrent is like FindExistingJRE but skips install-tier entries
+// when the install directory is not current (version marker mismatch).
+func FindExistingJRECurrent(tiers []Tier) *Tier {
+	installCurrent := IsInstallCurrent()
+	binary := javaBinaryName()
+	for i := range tiers {
+		if tiers[i].Name == "install" && !installCurrent {
+			continue
+		}
+		javaPath := filepath.Join(tiers[i].Path, "bin", binary)
+		if _, err := os.Stat(javaPath); err == nil {
+			return &tiers[i]
+		}
+	}
+	return nil
+}
+
 // JavaBinaryPath returns the path to the java binary within a JRE directory.
 func JavaBinaryPath(jreDir string) string {
 	return filepath.Join(jreDir, "bin", javaBinaryName())
@@ -69,12 +101,13 @@ func ArtifactTiers(def globals.ArtifactDef) ([]Tier, error) {
 		if libPath := GetInstallLibPath(); libPath != "" {
 			tiers = append(tiers, Tier{"install", filepath.Join(libPath, def.LibSubpath)})
 		}
+	} else {
+		seqraHome, err := GetSeqraHome()
+		if err != nil {
+			return nil, err
+		}
+		tiers = append(tiers, Tier{"cache", filepath.Join(seqraHome, def.CacheName())})
 	}
-	seqraHome, err := GetSeqraHome()
-	if err != nil {
-		return nil, err
-	}
-	tiers = append(tiers, Tier{"cache", filepath.Join(seqraHome, def.CacheName())})
 	return tiers, nil
 }
 
@@ -90,8 +123,9 @@ func JRETiers(javaVersion int, cacheDir string) []Tier {
 		if jrePath := GetInstallJREPath(); jrePath != "" {
 			tiers = append(tiers, Tier{"install", jrePath})
 		}
+	} else {
+		tiers = append(tiers, Tier{"cache", cacheDir})
 	}
-	tiers = append(tiers, Tier{"cache", cacheDir})
 	return tiers
 }
 

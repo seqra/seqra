@@ -9,6 +9,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/google/go-github/v72/github"
@@ -71,6 +72,10 @@ func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetP
 			}()
 
 			tmpPath := assetPath + ".temp"
+
+			if err := os.MkdirAll(filepath.Dir(assetPath), 0o755); err != nil {
+				return err
+			}
 
 			logrus.Debugf("Download asset to: %s", tmpPath)
 			tmpFile, err := os.Create(tmpPath)
@@ -236,6 +241,10 @@ func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetNam
 			}()
 
 			tmpPath := destPath + ".temp"
+
+			if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+				return err
+			}
 
 			logrus.Debugf("Download asset to: %s", tmpPath)
 			tmpFile, err := os.Create(tmpPath)

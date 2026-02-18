@@ -13,7 +13,7 @@ import (
 type StaleArtifact struct {
 	Path string
 	Size int64
-	Kind string // "analyzer", "autobuilder", "rules", "jdk", "jre", "log"
+	Kind string // "analyzer", "autobuilder", "rules", "jdk", "jre", "install-lib", "install-jre", "log"
 }
 
 // PruneResult contains the results of scanning for stale artifacts.
@@ -134,6 +134,37 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 				}
 			}
 			continue
+		}
+	}
+
+	// Scan install-tier directories for stale artifacts
+	installCurrent := IsInstallCurrent()
+	if installLibPath := GetInstallLibPath(); installLibPath != "" {
+		if _, err := os.Stat(installLibPath); err == nil {
+			if !installCurrent || bundledLibExists {
+				size, _ := dirSize(installLibPath)
+				result.Stale = append(result.Stale, StaleArtifact{
+					Path: installLibPath,
+					Size: size,
+					Kind: "install-lib",
+				})
+				result.TotalSize += size
+				result.TotalCount++
+			}
+		}
+	}
+	if installJREPath := GetInstallJREPath(); installJREPath != "" {
+		if _, err := os.Stat(installJREPath); err == nil {
+			if !installCurrent || bundledJREExists {
+				size, _ := dirSize(installJREPath)
+				result.Stale = append(result.Stale, StaleArtifact{
+					Path: installJREPath,
+					Size: size,
+					Kind: "install-jre",
+				})
+				result.TotalSize += size
+				result.TotalCount++
+			}
 		}
 	}
 

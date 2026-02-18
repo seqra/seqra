@@ -98,3 +98,8 @@ var Config ConfigType
 var LogPath string
 
 var ConfigFile string
+
+// GetVersionsYAML returns the raw embedded versions.yaml content.
+func GetVersionsYAML() []byte {
+	return versionsYAML
+}

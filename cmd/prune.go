@@ -27,6 +27,7 @@ Identifies artifacts that are no longer needed:
 - Old versions of analyzer JARs, autobuilder JARs, and rules
 - Downloaded JDK/JRE versions that don't match the current version
 - Redundant downloads when bundled artifacts are available
+- Stale install-tier artifacts (~/.seqra/install/) after a seqra upgrade
 
 By default, log files are kept. Use --include-logs to also prune them.`,
 	Run: func(cmd *cobra.Command, args []string) {

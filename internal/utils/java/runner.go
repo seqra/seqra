@@ -286,7 +286,7 @@ func NewJavaRunner() JavaRunner {
 }
 
 func (j *javaRunner) findBundledJRE() string {
-	if tier := utils.FindExistingJRE(utils.ManagedJRETiers()); tier != nil {
+	if tier := utils.FindExistingJRECurrent(utils.ManagedJRETiers()); tier != nil {
 		return utils.JavaBinaryPath(tier.Path)
 	}
 	return ""
