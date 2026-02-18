@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -287,27 +286,9 @@ func NewJavaRunner() JavaRunner {
 }
 
 func (j *javaRunner) findBundledJRE() string {
-	javaBinary := "java"
-	if runtime.GOOS == "windows" {
-		javaBinary = "java.exe"
+	if tier := utils.FindExistingJRE(utils.ManagedJRETiers()); tier != nil {
+		return utils.JavaBinaryPath(tier.Path)
 	}
-
-	// Check next to binary
-	if jrePath := utils.GetBundledJREPath(); jrePath != "" {
-		bundledJava := filepath.Join(jrePath, "bin", javaBinary)
-		if _, err := os.Stat(bundledJava); err == nil {
-			return bundledJava
-		}
-	}
-
-	// Check install path (~/.seqra/install/jre/)
-	if jrePath := utils.GetInstallJREPath(); jrePath != "" {
-		installJava := filepath.Join(jrePath, "bin", javaBinary)
-		if _, err := os.Stat(installJava); err == nil {
-			return installJava
-		}
-	}
-
 	return ""
 }
 

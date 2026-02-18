@@ -62,29 +62,18 @@ When bundled artifacts are present (from a release archive), they will be used d
 func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter, installNextToBinary bool) error {
 	printer.AddNode(fmt.Sprintf("%s %s", spec.Name, spec.Version))
 
-	// Check if already available at any tier
-	if spec.IsBindVersion() {
-		if libPath := utils.GetBundledLibPath(); libPath != "" {
-			if _, err := os.Stat(filepath.Join(libPath, spec.LibSubpath)); err == nil {
-				printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
-				return nil
-			}
-		}
-		if libPath := utils.GetInstallLibPath(); libPath != "" {
-			if _, err := os.Stat(filepath.Join(libPath, spec.LibSubpath)); err == nil {
-				printer.AddNodeAtLevelDefault("Already downloaded", 1)
-				return nil
-			}
-		}
-	}
-
-	seqraHome, err := utils.GetSeqraHome()
+	tiers, err := utils.ArtifactTiers(spec)
 	if err != nil {
 		return err
 	}
-	cachePath := filepath.Join(seqraHome, spec.CacheName())
-	if _, err := os.Stat(cachePath); err == nil {
-		printer.AddNodeAtLevelDefault("Already downloaded", 1)
+
+	// Check if already available at any tier
+	if found := utils.FindExisting(tiers); found != nil {
+		if found.Name == "bundled" {
+			printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
+		} else {
+			printer.AddNodeAtLevelDefault("Already downloaded", 1)
+		}
 		return nil
 	}
 
@@ -97,81 +86,37 @@ func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter,
 		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, spec.RepoName, spec.Version, spec.AssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify)
 	}
 
-	// For bind version, try to install next to binary
-	if spec.IsBindVersion() && installNextToBinary {
-		if libPath := utils.GetBundledLibPath(); libPath != "" {
-			if err := os.MkdirAll(libPath, 0o755); err == nil {
-				targetPath := filepath.Join(libPath, spec.LibSubpath)
-				if err := download(targetPath); err != nil {
-					return err
-				}
-				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", targetPath), 1)
-				return nil
-			}
-			logrus.Debugf("Cannot write next to binary, falling back to install path")
+	// Download to the first writable tier
+	for _, t := range tiers {
+		if t.Name == "bundled" && !installNextToBinary {
+			continue
 		}
+		if t.Name != "cache" {
+			if err := os.MkdirAll(filepath.Dir(t.Path), 0o755); err != nil {
+				logrus.Debugf("Cannot write to %s tier, trying next", t.Name)
+				continue
+			}
+		}
+		if err := download(t.Path); err != nil {
+			return err
+		}
+		printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", t.Path), 1)
+		return nil
 	}
 
-	// For bind version, try install path (~/.seqra/install/lib/)
-	if spec.IsBindVersion() {
-		if libPath := utils.GetInstallLibPath(); libPath != "" {
-			if err := os.MkdirAll(libPath, 0o755); err == nil {
-				targetPath := filepath.Join(libPath, spec.LibSubpath)
-				if err := download(targetPath); err != nil {
-					return err
-				}
-				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", targetPath), 1)
-				return nil
-			}
-			logrus.Debugf("Cannot write to install path, falling back to cache")
-		}
-	}
-
-	// Fall back to ~/.seqra/
-	if err := download(cachePath); err != nil {
-		return err
-	}
-	printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", cachePath), 1)
-	return nil
+	return fmt.Errorf("no writable location found for %s", spec.Kind())
 }
 
+// downloadJava downloads a JRE using the bundled → install → cache fallback chain.
 func downloadJava(printer *formatters.TreePrinter, installNextToBinary bool) error {
 	javaVersion := globals.Config.Java.Version
 	if javaVersion < 8 || javaVersion > 25 {
 		return fmt.Errorf("unsupported Java version: %d (supported range: 8-25)", javaVersion)
 	}
 
-	isBindVersion := javaVersion == globals.DefaultJavaVersion
-	javaBinary := "java"
-	if runtime.GOOS == "windows" {
-		javaBinary = "java.exe"
-	}
-
 	printer.AddNode(fmt.Sprintf("Java %d", javaVersion))
 
-	// Check bundled JRE (next to binary)
-	if isBindVersion {
-		if jrePath := utils.GetBundledJREPath(); jrePath != "" {
-			bundledJava := filepath.Join(jrePath, "bin", javaBinary)
-			if _, err := os.Stat(bundledJava); err == nil {
-				printer.AddNodeAtLevelDefault("Using bundled JRE", 1)
-				return nil
-			}
-		}
-	}
-
-	// Check install path (~/.seqra/install/jre/)
-	if isBindVersion {
-		if jrePath := utils.GetInstallJREPath(); jrePath != "" {
-			installJava := filepath.Join(jrePath, "bin", javaBinary)
-			if _, err := os.Stat(installJava); err == nil {
-				printer.AddNodeAtLevelDefault("Already downloaded", 1)
-				return nil
-			}
-		}
-	}
-
-	// Check ~/.seqra/ cache
+	// Compute platform-specific cache path
 	seqraHome, err := utils.GetSeqraHome()
 	if err != nil {
 		return err
@@ -180,54 +125,44 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary bool) err
 	if err != nil {
 		return err
 	}
-	cacheRoot := filepath.Join(seqraHome, "jre", fmt.Sprintf("temurin-%d-jre-%s-%s", javaVersion, adoptiumOS, adoptiumArch))
-	cacheJavaPath := filepath.Join(cacheRoot, "bin", javaBinary)
-	if _, err := os.Stat(cacheJavaPath); err == nil {
-		printer.AddNodeAtLevelDefault("Already downloaded", 1)
+	cacheDir := filepath.Join(seqraHome, "jre", fmt.Sprintf("temurin-%d-jre-%s-%s", javaVersion, adoptiumOS, adoptiumArch))
+
+	tiers := utils.JRETiers(javaVersion, cacheDir)
+
+	// Check if already available at any tier
+	if found := utils.FindExistingJRE(tiers); found != nil {
+		if found.Name == "bundled" {
+			printer.AddNodeAtLevelDefault("Using bundled JRE", 1)
+		} else {
+			printer.AddNodeAtLevelDefault("Already downloaded", 1)
+		}
 		return nil
 	}
 
 	logrus.Infof("Downloading Java %d...", javaVersion)
 
-	// For bind version, try to install next to binary
-	if isBindVersion && installNextToBinary {
-		if jrePath := utils.GetBundledJREPath(); jrePath != "" {
-			if err := os.MkdirAll(jrePath, 0o755); err == nil {
-				// Clean up since EnsureLocalRuntimeAt will manage this directory
-				_ = os.Remove(jrePath)
-				javaPath, err := java.EnsureLocalRuntimeAt(javaVersion, java.AdoptiumImageJRE, jrePath, runtime.GOOS, runtime.GOARCH, globals.Config.SkipVerify)
-				if err != nil {
-					return err
-				}
-				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", javaPath), 1)
-				return nil
-			}
-			logrus.Debugf("Cannot write next to binary, falling back to install path")
+	// Download to the first writable tier
+	for _, t := range tiers {
+		if t.Name == "bundled" && !installNextToBinary {
+			continue
 		}
+		if t.Name != "cache" {
+			// Test writability by creating and removing the target dir
+			if err := os.MkdirAll(t.Path, 0o755); err != nil {
+				logrus.Debugf("Cannot write to %s tier, trying next", t.Name)
+				continue
+			}
+			_ = os.Remove(t.Path)
+		}
+		javaPath, err := java.EnsureLocalRuntimeAt(javaVersion, java.AdoptiumImageJRE, t.Path, runtime.GOOS, runtime.GOARCH, globals.Config.SkipVerify)
+		if err != nil {
+			return err
+		}
+		printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", javaPath), 1)
+		return nil
 	}
 
-	// For bind version, try install path (~/.seqra/install/jre/)
-	if isBindVersion {
-		if jrePath := utils.GetInstallJREPath(); jrePath != "" {
-			if err := os.MkdirAll(filepath.Dir(jrePath), 0o755); err == nil {
-				javaPath, err := java.EnsureLocalRuntimeAt(javaVersion, java.AdoptiumImageJRE, jrePath, runtime.GOOS, runtime.GOARCH, globals.Config.SkipVerify)
-				if err != nil {
-					return err
-				}
-				printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", javaPath), 1)
-				return nil
-			}
-			logrus.Debugf("Cannot write to install path, falling back to cache")
-		}
-	}
-
-	// Fall back to ~/.seqra/
-	javaPath, err := java.EnsureLocalRuntime(javaVersion, java.AdoptiumImageJRE, runtime.GOOS, runtime.GOARCH, globals.Config.SkipVerify)
-	if err != nil {
-		return err
-	}
-	printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", javaPath), 1)
-	return nil
+	return fmt.Errorf("no writable location found for Java %d", javaVersion)
 }
 
 func init() {

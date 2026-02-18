@@ -3,6 +3,7 @@ package utils
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/seqra/seqra/v2/internal/globals"
 )
@@ -24,9 +25,9 @@ func GetSeqraHome() (string, error) {
 	return path, nil
 }
 
-// GetBundledLibPath returns the path to the bundled lib directory next to the binary.
+// exeDir returns the directory containing the current executable, resolved through symlinks.
 // Returns empty string if the path cannot be determined.
-func GetBundledLibPath() string {
+func exeDir() string {
 	exe, err := os.Executable()
 	if err != nil {
 		return ""
@@ -35,21 +36,25 @@ func GetBundledLibPath() string {
 	if err != nil {
 		return ""
 	}
-	return filepath.Join(filepath.Dir(exe), "lib")
+	return filepath.Dir(exe)
+}
+
+// GetBundledLibPath returns the path to the bundled lib directory next to the binary.
+// Returns empty string if the path cannot be determined.
+func GetBundledLibPath() string {
+	if dir := exeDir(); dir != "" {
+		return filepath.Join(dir, "lib")
+	}
+	return ""
 }
 
 // GetBundledJREPath returns the path to the bundled JRE directory next to the binary.
 // Returns empty string if the path cannot be determined.
 func GetBundledJREPath() string {
-	exe, err := os.Executable()
-	if err != nil {
-		return ""
+	if dir := exeDir(); dir != "" {
+		return filepath.Join(dir, "jre")
 	}
-	exe, err = filepath.EvalSymlinks(exe)
-	if err != nil {
-		return ""
-	}
-	return filepath.Join(filepath.Dir(exe), "jre")
+	return ""
 }
 
 // GetInstallLibPath returns the path to the lib directory in ~/.seqra/install/.
@@ -82,34 +87,23 @@ func IsBundledPath(path string) bool {
 	if err != nil {
 		return false
 	}
-	return len(rel) > 0 && rel[0] != '.'
+	return len(rel) > 0 && !strings.HasPrefix(rel, "..")
 }
 
-// resolveArtifactPath resolves the path for an artifact by checking:
+// resolveArtifactPath resolves the path for an artifact by checking tiers in order:
 //  1. Bundled path (next to binary) — only if version matches bindVersion
 //  2. Install path (~/.seqra/install/lib/) — only if version matches bindVersion
 //  3. Cache path (~/.seqra/<cacheName>)
 func resolveArtifactPath(def globals.ArtifactDef) (string, error) {
-	if def.IsBindVersion() {
-		if libPath := GetBundledLibPath(); libPath != "" {
-			bundledPath := filepath.Join(libPath, def.LibSubpath)
-			if _, err := os.Stat(bundledPath); err == nil {
-				return bundledPath, nil
-			}
-		}
-		if libPath := GetInstallLibPath(); libPath != "" {
-			installPath := filepath.Join(libPath, def.LibSubpath)
-			if _, err := os.Stat(installPath); err == nil {
-				return installPath, nil
-			}
-		}
-	}
-
-	seqraHomePath, err := GetSeqraHome()
+	tiers, err := ArtifactTiers(def)
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(seqraHomePath, def.CacheName()), nil
+	if found := FindExisting(tiers); found != nil {
+		return found.Path, nil
+	}
+	// Return cache tier as default (even if artifact not yet downloaded)
+	return tiers[len(tiers)-1].Path, nil
 }
 
 func GetAutobuilderJarPath(version string) (string, error) {
