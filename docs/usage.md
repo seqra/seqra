@@ -56,6 +56,8 @@ Use [CodeChecker](https://github.com/Ericsson/codechecker) for advanced result m
 | `seqra project` | Create project model from precompiled JARs/classes |
 | `seqra summary` | View SARIF analysis results |
 | `seqra pull` | Download analyzer dependencies |
+| `seqra update` | Update to latest version |
+| `seqra prune` | Remove stale downloaded artifacts |
 
 ### seqra scan
 
@@ -86,7 +88,7 @@ seqra scan --output results.sarif ./project-model
 These options apply to all commands:
 
 - `--config string` — Path to configuration file
-- `--java-version int` — Java version for analyzer (default: 23)
+- `--java-version int` — Java version for analyzer (default: 21)
 - `--quiet` — Suppress interactive output
 - `--verbosity string` — Log level (debug, info, warn, error, fatal, panic)
 

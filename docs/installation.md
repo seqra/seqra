@@ -64,8 +64,14 @@ The `seqra-full` archives include bundled JARs, rules, and JRE — no additional
 
 ### Linux/macOS Installation
 
+Use the install script (recommended) or download and extract manually:
+
 ```bash
-curl -L https://github.com/seqra/seqra/releases/latest/download/seqra-full_linux_amd64.tar.gz | tar xz
+# Install script (recommended — handles placement automatically)
+curl -fsSL https://raw.githubusercontent.com/seqra/seqra/main/scripts/install/install.sh | bash
+
+# Or for seqra-cli variant (binary only):
+curl -L https://github.com/seqra/seqra/releases/latest/download/seqra-cli_linux_amd64.tar.gz | tar xz
 sudo mv seqra /usr/local/bin/
 ```
 
