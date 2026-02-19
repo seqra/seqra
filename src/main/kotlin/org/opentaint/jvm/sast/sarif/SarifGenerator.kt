@@ -68,7 +68,7 @@ class SarifGenerator(
         traces: Sequence<VulnerabilityWithTrace>,
         metadatas: List<RuleMetadata>
     ) {
-        val sarifResults = traces.map { generateSarifResult(it.vulnerability, it.trace) }
+        val sarifResults = traces.mapNotNull { generateSarifResult(it.vulnerability, it.trace) }
 
         val uriBase = options.uriBase ?: sourceRoot?.absolutePathString()
         val sourceUri = uriBase?.let {
@@ -88,7 +88,7 @@ class SarifGenerator(
     private fun generateSarifResult(
         vulnerability: TaintSinkTracker.TaintVulnerability,
         trace: TraceResolver.Trace?
-    ): Result {
+    ): Result? {
         val vulnerabilityRule = vulnerability.rule
         val ruleId = vulnerabilityRule.id
         val ruleMessage = Message(text = vulnerabilityRule.meta.message)
@@ -100,6 +100,10 @@ class SarifGenerator(
 
         val sinkType = if (vulnerabilityRule is TaintMethodEntrySink) LocationType.RuleMethodEntry else LocationType.Simple
         val sinkLocation = statementLocation(vulnerability.statement, sinkType)
+            ?: run {
+                logger.error("Invalid vulnerability location: $vulnerability")
+                return null
+            }
 
         val tracePaths = generateTracePaths(trace)
         val threadFlows = tracePaths?.map { generateThreadFlow(it, vulnerabilityRule.meta.message) }
@@ -128,6 +132,8 @@ class SarifGenerator(
         )
         result = springAnnotator.annotateSarifWithSpringRelatedInformation(result, vulnerability, trace, tracePaths.orEmpty()) { s ->
             val loc = statementLocation(s, LocationType.SpringRelated)
+                ?: return@annotateSarifWithSpringRelatedInformation null
+
             locationResolver.generateSarifLocation(loc)
         }
         return result
@@ -319,14 +325,21 @@ class SarifGenerator(
         )
     }
 
-    private fun statementLocation(statement: CommonInst, type: LocationType): IntermediateLocation =
-        IntermediateLocation(
+    private fun statementLocation(statement: CommonInst, type: LocationType): IntermediateLocation? {
+        if (TraceMessageBuilder.isGeneratedLocation(statement)) {
+            val normalLocation = TraceMessageBuilder.tryResolveNormalLocation(statement)
+                ?: return null
+            return statementLocation(normalLocation, type)
+        }
+
+        return IntermediateLocation(
             inst = statement,
             info = getInstructionInfo(statement),
             kind = "",
             message = null,
             type = type,
         )
+    }
 
     companion object {
         val logger = object : KLogging() {}.logger

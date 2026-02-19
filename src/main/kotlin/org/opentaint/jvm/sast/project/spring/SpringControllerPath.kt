@@ -49,7 +49,7 @@ class SpringAnnotator(
         vulnerability: TaintSinkTracker.TaintVulnerability,
         trace: TraceResolver.Trace?,
         tracePaths: List<List<TracePathNode>>,
-        generateStatementLocation: (JIRInst) -> Location,
+        generateStatementLocation: (JIRInst) -> Location?,
     ): Result {
         val relevantMethods = vulnRelevantMethods(vulnerability, trace)
         val relevantControllers = relevantMethods
@@ -79,6 +79,8 @@ class SpringAnnotator(
             }
 
             val loc = generateStatementLocation(firstInst)
+                ?: continue
+
             relatedLocations += Location(
                 logicalLocations = logicalLoc,
                 physicalLocation = loc.physicalLocation,
