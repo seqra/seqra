@@ -30,6 +30,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.jvm.sast.JIRSourceFileResolver
 import org.opentaint.jvm.sast.ast.JavaAstSpanResolver
 import org.opentaint.jvm.sast.project.SarifGenerationOptions
+import org.opentaint.jvm.sast.project.servlet.ServletAnnotator
 import org.opentaint.jvm.sast.project.spring.SpringAnnotator
 import org.opentaint.semgrep.pattern.RuleMetadata
 import java.io.OutputStream
@@ -47,7 +48,10 @@ class SarifGenerator(
 ) {
     private val spanResolver = JavaAstSpanResolver(traits as JIRSarifTraits)
     private val locationResolver = LocationResolver(sourceFileResolver, traits, spanResolver)
-    private val springAnnotator = SpringAnnotator(sourceFileResolver as JIRSourceFileResolver, spanResolver)
+    private val annotators = listOf(
+        SpringAnnotator(sourceFileResolver as JIRSourceFileResolver, spanResolver),
+        ServletAnnotator(sourceFileResolver, spanResolver),
+    )
 
     private val json = Json {
         prettyPrint = true
@@ -130,12 +134,16 @@ class SarifGenerator(
             locations = listOf(resolvedSinkLocation),
             codeFlows = listOfNotNull(resolvedThreadFlows?.let { CodeFlow(threadFlows = it) })
         )
-        result = springAnnotator.annotateSarifWithSpringRelatedInformation(result, vulnerability, trace, tracePaths.orEmpty()) { s ->
-            val loc = statementLocation(s, LocationType.SpringRelated)
-                ?: return@annotateSarifWithSpringRelatedInformation null
 
-            locationResolver.generateSarifLocation(loc)
+        for (annotator in annotators) {
+            result = annotator.annotateSarif(result, vulnerability, trace, tracePaths.orEmpty()) { s ->
+                val loc = statementLocation(s, LocationType.WebInfoRelated)
+                    ?: return@annotateSarif null
+
+                locationResolver.generateSarifLocation(loc)
+            }
         }
+
         return result
     }
 

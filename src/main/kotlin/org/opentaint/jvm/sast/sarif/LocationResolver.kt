@@ -45,7 +45,7 @@ data class InstructionInfo(
 )
 
 enum class LocationType {
-    Simple, Multiple, RuleMethodEntry, SpringRelated,
+    Simple, Multiple, RuleMethodEntry, WebInfoRelated,
 }
 
 data class IntermediateLocation(
@@ -235,7 +235,7 @@ class LocationResolver(
             ?: "<#[unresolved]#>"
 
     private fun computeSpan(location: IntermediateLocation, sourceFile: Path): LocationSpan? {
-        if (location.inst !is JIRInst || location.type == LocationType.SpringRelated) return null
+        if (location.inst !is JIRInst || location.type == LocationType.WebInfoRelated) return null
         return spanResolver.computeSpan(sourceFile, location)
     }
 

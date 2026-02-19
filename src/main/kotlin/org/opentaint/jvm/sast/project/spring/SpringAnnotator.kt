@@ -1,93 +1,66 @@
 package org.opentaint.jvm.sast.project.spring
 
-import io.github.detekt.sarif4k.Location
-import io.github.detekt.sarif4k.LogicalLocation
-import io.github.detekt.sarif4k.Message
 import io.github.detekt.sarif4k.PropertyBag
-import io.github.detekt.sarif4k.Result
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
-import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRParameter
-import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.jvm.sast.JIRSourceFileResolver
 import org.opentaint.jvm.sast.ast.JavaAstSpanResolver
 import org.opentaint.jvm.sast.dataflow.matchedAnnotations
+import org.opentaint.jvm.sast.project.SarifWebInfoAnnotator
 import org.opentaint.jvm.sast.sarif.TracePathNode
 import org.opentaint.jvm.sast.sarif.getMethod
 import org.opentaint.jvm.sast.sarif.isPureEntryPoint
 
-private data class SpringControllerPath(
-    val path: String,
-    val method: String?
-)
-
-private sealed interface SpringParamType {
-    data object Other : SpringParamType
-
-    data object RequestBody : SpringParamType
-
-    data class RequestParam(val name : String) : SpringParamType
-
-    data class PathVariable(val name : String) : SpringParamType
-
-    data class ModelAttribute(val name: String) : SpringParamType
-}
-
 class SpringAnnotator(
-    private val sourceFileResolver: JIRSourceFileResolver,
-    private val spanResolver: JavaAstSpanResolver,
-) {
-    fun annotateSarifWithSpringRelatedInformation(
-        result: Result,
+    sourceFileResolver: JIRSourceFileResolver,
+    spanResolver: JavaAstSpanResolver,
+) : SarifWebInfoAnnotator(sourceFileResolver, spanResolver) {
+    private sealed interface SpringParamType {
+        data object Other : SpringParamType
+
+        data object RequestBody : SpringParamType
+
+        data class RequestParam(val name: String) : SpringParamType
+
+        data class PathVariable(val name: String) : SpringParamType
+
+        data class ModelAttribute(val name: String) : SpringParamType
+    }
+
+    private data class SpringControllerParams(
+        val params: List<String>
+    ) : ControllerParams
+
+    override fun JIRMethod.isController(): Boolean =
+        isSpringControllerMethod()
+
+    override fun createControllerInfo(
+        controllers: List<JIRMethod>,
         vulnerability: TaintSinkTracker.TaintVulnerability,
         trace: TraceResolver.Trace?,
-        tracePaths: List<List<TracePathNode>>,
-        generateStatementLocation: (JIRInst) -> Location?,
-    ): Result {
-        val relevantMethods = vulnRelevantMethods(vulnerability, trace)
-        val relevantControllers = relevantMethods
-            .filterIsInstance<JIRMethod>()
-            .filter { it.isSpringControllerMethod() }
-
+        tracePaths: List<List<TracePathNode>>
+    ): List<ControllerInfo> {
         val tainted = collectTaintedArguments(tracePaths.flatten())
-
-        if (relevantControllers.isEmpty()) return result
-
-        val relatedLocations = result.relatedLocations.orEmpty().toMutableList()
-        for (controller in relevantControllers) {
-            val firstInst = controller.instList.firstOrNull() ?: continue
+        return controllers.map { controller ->
             val paths = controller.extractSpringPath()
 
             val taints = tainted[controller]
-            val propertyBag = taints?.let { createProperties(controller, it) }
+            val params = taints?.let { createControllerParams(controller, it) }
 
-            val logicalLoc = paths.mapIndexed { i, path ->
-                LogicalLocation(
-                    fullyQualifiedName = "${path.method?.let { "$it " } ?: ""}${path.path}",
-                    index = i.toLong(),
-                    name = "${controller.enclosingClass.name}#${controller.name}",
-                    kind = "function",
-                    properties = propertyBag
-                )
-            }
-
-            val loc = generateStatementLocation(firstInst)
-                ?: continue
-
-            relatedLocations += Location(
-                logicalLocations = logicalLoc,
-                physicalLocation = loc.physicalLocation,
-                message = Message(text = "Related Spring controller")
-            )
+            ControllerInfo(controller, paths, params)
         }
-        return result.copy(relatedLocations = relatedLocations)
+    }
+
+    override fun ControllerInfo.paramsToProperties(): PropertyBag? {
+        val springParams = params as? SpringControllerParams ?: return null
+        return PropertyBag(tags = springParams.params)
     }
 
     private fun SpringParamType.makeProperty(): String? =
@@ -99,12 +72,12 @@ class SpringAnnotator(
             else -> null
         }
 
-    private fun createProperties(method: JIRMethod, params: Map<Int, InitialFactAp>): PropertyBag? {
+    private fun createControllerParams(method: JIRMethod, params: Map<Int, InitialFactAp>): SpringControllerParams? {
         val springParams = params.map { (idx, fact) -> getSpringParamType(method, idx, fact) }
         val properties = springParams.mapNotNull { it.makeProperty() }
             .takeIf { it.isNotEmpty() }
             ?: return null
-        return PropertyBag(tags = properties)
+        return SpringControllerParams(properties)
     }
 
     private fun collectTaintedArguments(nodes: List<TracePathNode>): Map<JIRMethod, Map<Int, InitialFactAp>> {
@@ -190,7 +163,7 @@ class SpringAnnotator(
         return SpringParamType.Other
     }
 
-    private fun JIRMethod.extractSpringPath(): List<SpringControllerPath> {
+    private fun JIRMethod.extractSpringPath(): List<ControllerPathInfo> {
         val classRequestMapping = enclosingClass.collectSpringRequestMappingAnnotation()?.firstOrNull()
 
         val methodAnnotations = collectSpringControllerAnnotations()
@@ -215,7 +188,7 @@ class SpringAnnotator(
             }
         }
 
-        return paths.flatMap { p -> methods.map { m -> SpringControllerPath(p, m) } }
+        return paths.flatMap { p -> methods.map { m -> ControllerPathInfo(p, m) } }
     }
 
     @Suppress("UNCHECKED_CAST")
@@ -245,48 +218,6 @@ class SpringAnnotator(
         "/${base.removePathSeparator()}/${other.removePathSeparator()}"
 
     private fun String.removePathSeparator() = trim().trim('/')
-
-    private fun vulnRelevantMethods(
-        vulnerability: TaintSinkTracker.TaintVulnerability,
-        trace: TraceResolver.Trace?
-    ): Set<CommonMethod> {
-        val methods = hashSetOf<CommonMethod>()
-        methods.add(vulnerability.statement.location.method)
-        methods.add(vulnerability.methodEntryPoint.method)
-
-        trace?.sourceToSinkTrace?.let { collectRelevantMethods(it, methods) }
-        trace?.entryPointToStart?.let { collectRelevantMethods(it, methods) }
-
-        return methods
-    }
-
-    private fun collectRelevantMethods(
-        e2sTrace: TraceResolver.EntryPointToStartTrace,
-        methods: MutableSet<CommonMethod>
-    ) {
-        e2sTrace.entryPoints.forEach { collectRelevantMethod(it, methods) }
-        e2sTrace.successors.forEach { (k, v) ->
-            collectRelevantMethod(k, methods)
-            v.forEach { collectRelevantMethod(it, methods) }
-        }
-    }
-
-    private fun collectRelevantMethods(s2sTrace: TraceResolver.SourceToSinkTrace, methods: MutableSet<CommonMethod>) {
-        s2sTrace.startNodes.forEach { collectRelevantMethod(it, methods) }
-        s2sTrace.sinkNodes.forEach { collectRelevantMethod(it, methods) }
-        for ((node, successors) in s2sTrace.successors) {
-            collectRelevantMethod(node, methods)
-            successors.forEach { collectRelevantMethod(it.node, methods) }
-        }
-    }
-
-    private fun collectRelevantMethod(node: TraceResolver.TraceNode, methods: MutableSet<CommonMethod>) {
-        methods += when (node) {
-            is TraceResolver.CallTraceNode -> node.methodEntryPoint.method
-            is TraceResolver.EntryPointTraceNode -> node.method
-            is TraceResolver.SourceToSinkTraceNode -> node.methodEntryPoint.method
-        }
-    }
 
     private fun extractFieldNames(fact: InitialFactAp): List<String> {
         val field = fact.getStartAccessors()
