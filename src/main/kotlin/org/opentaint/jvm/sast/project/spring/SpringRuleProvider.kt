@@ -262,12 +262,16 @@ class SpringRuleProvider(
         private const val kotlinContinuation = "kotlin.coroutines.Continuation"
 
         private val iterableElement = PositionAccessor.FieldAccessor(
-            className = javaObject,
+            className = "java.lang.Iterable",
             fieldName = "Element",
             fieldType = javaObject,
         )
 
-        private val optionalElement = iterableElement
+        private val optionalElement = PositionAccessor.FieldAccessor(
+            className = "java.util.Optional",
+            fieldName = "Element",
+            fieldType = javaObject,
+        )
 
         private val repositoryContent = PositionAccessor.FieldAccessor(
             className = javaObject,
