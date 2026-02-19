@@ -12545,8 +12545,8 @@ passThrough:
     to: result
 - function: java.nio.file.Path#of
   copy:
-    - from: arg(*)
-      to: result
+  - from: arg(*)
+    to: result
 - function: java.nio.file.Paths#get
   signature: (java.net.URI) java.nio.file.Path
   copy:
@@ -63273,34 +63273,26 @@ passThrough:
     to: result
 - function: org.springframework.http.HttpEntity#getBody
   copy:
-  - from: this
-    to: result
   - from:
     - this
-    - .org.springframework.http.HttpEntity#<rule-storage>#java.lang.Object
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
     to: result
 - function: org.springframework.http.HttpEntity#getHeaders
   copy:
-  - from: this
-    to: result
   - from:
     - this
-    - .org.springframework.http.HttpEntity#<rule-storage>#java.lang.Object
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
     to: result
 - function: org.springframework.http.HttpEntity#<init>
   copy:
-  - from: arg(0)
-    to:
-    - this
-    - .org.springframework.http.HttpEntity#<rule-storage>#java.lang.Object
   - from: arg(1)
     to:
     - this
-    - .org.springframework.http.HttpEntity#<rule-storage>#java.lang.Object
-  - from: arg(1)
-    to: this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
   - from: arg(0)
-    to: this
+    to:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
 - function:
     package: org.springframework.http
     class: HttpHeaders
@@ -63561,30 +63553,28 @@ passThrough:
     to: result
 - function: org.springframework.http.ResponseEntity#getBody
   copy:
-  - from: this
-    to: result
   - from:
     - this
-    - .org.springframework.http.ResponseEntity#<rule-storage>#java.lang.Object
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
     to: result
 - function: org.springframework.http.ResponseEntity#<init>
   copy:
   - from: arg(1)
-    to: this
-  - from: arg(1)
     to:
     - this
-    - .org.springframework.http.ResponseEntity#<rule-storage>#java.lang.Object
-  - from: arg(0)
-    to: this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .org.springframework.http.ResponseEntity#<rule-storage>#java.lang.Object
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
 - function: org.springframework.http.ResponseEntity#ok
   copy:
   - from: arg(0)
     to: result
+  - from: arg(0)
+    to:
+    - result
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
 - function: org.springframework.http.ResponseEntity#status
   copy:
   - from: arg(0)
