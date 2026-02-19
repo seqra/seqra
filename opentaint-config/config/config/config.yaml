@@ -63127,32 +63127,32 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
-- function: org.springframework.boot.actuate.health.Status#getCode
+- function: org.springframework.boot.health.contributor.Status#getCode
   copy:
   - from:
     - this
-    - .org.springframework.boot.actuate.health.Status#<rule-storage>#java.lang.Object
+    - .org.springframework.boot.health.contributor.Status#<rule-storage>#java.lang.Object
     to: result
   - from: this
     to: result
-- function: org.springframework.boot.actuate.health.Status#getDescription
+- function: org.springframework.boot.health.contributor.Status#getDescription
   copy:
   - from:
     - this
-    - .org.springframework.boot.actuate.health.Status#<rule-storage>#java.lang.Object
+    - .org.springframework.boot.health.contributor.Status#<rule-storage>#java.lang.Object
     to: result
   - from: this
     to: result
-- function: org.springframework.boot.actuate.health.Status#<init>
+- function: org.springframework.boot.health.contributor.Status#<init>
   copy:
   - from: arg(1)
     to:
     - this
-    - .org.springframework.boot.actuate.health.Status#<rule-storage>#java.lang.Object
+    - .org.springframework.boot.health.contributor.Status#<rule-storage>#java.lang.Object
   - from: arg(0)
     to:
     - this
-    - .org.springframework.boot.actuate.health.Status#<rule-storage>#java.lang.Object
+    - .org.springframework.boot.health.contributor.Status#<rule-storage>#java.lang.Object
   - from: arg(1)
     to: this
   - from: arg(0)
