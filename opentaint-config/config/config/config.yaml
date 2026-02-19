@@ -63559,14 +63559,6 @@ passThrough:
   copy:
   - from: arg(0)
     to: result
-- function: org.springframework.http.ResponseEntity#accepted
-  copy:
-  - from: arg(0)
-    to: result
-- function: org.springframework.http.ResponseEntity#badRequest
-  copy:
-  - from: arg(0)
-    to: result
 - function: org.springframework.http.ResponseEntity#getBody
   copy:
   - from: this
@@ -63589,19 +63581,11 @@ passThrough:
     to:
     - this
     - .org.springframework.http.ResponseEntity#<rule-storage>#java.lang.Object
-- function: org.springframework.http.ResponseEntity#notFound
-  copy:
-  - from: arg(0)
-    to: result
 - function: org.springframework.http.ResponseEntity#ok
   copy:
   - from: arg(0)
     to: result
 - function: org.springframework.http.ResponseEntity#status
-  copy:
-  - from: arg(0)
-    to: result
-- function: org.springframework.http.ResponseEntity#unprocessableEntity
   copy:
   - from: arg(0)
     to: result
