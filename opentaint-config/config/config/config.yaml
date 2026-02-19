@@ -63297,18 +63297,6 @@ passThrough:
     package: org.springframework.http
     class: HttpHeaders
     name:
-      pattern: get[^F].*
-  copy:
-  - from:
-    - this
-    - .org.springframework.http.HttpHeaders#<rule-storage>#java.lang.Object
-    to: result
-  - from: this
-    to: result
-- function:
-    package: org.springframework.http
-    class: HttpHeaders
-    name:
       pattern: set.+
   copy:
   - from: arg(0)
@@ -63569,8 +63557,6 @@ passThrough:
     - .org.springframework.http.HttpEntity#Body#java.lang.Object
 - function: org.springframework.http.ResponseEntity#ok
   copy:
-  - from: arg(0)
-    to: result
   - from: arg(0)
     to:
     - result
