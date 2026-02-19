@@ -55,6 +55,16 @@ https://github.com/user-attachments/assets/aba3733b-2959-4470-be0c-605d259e97b6
 brew install --cask seqra/tap/opentaint
 ```
 
+**Install script (Windows PowerShell)**
+```
+irm https://raw.githubusercontent.com/seqra/opentaint/main/opentaint-cli/scripts/install/install.ps1 \| iex
+```
+
+**Install script (Linux/macOS)**
+```
+curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/opentaint-cli/scripts/install/install.sh \| bash
+```
+
 **Scan your project:**
 ```bash
 opentaint scan --output results.sarif /path/to/your/spring/project
