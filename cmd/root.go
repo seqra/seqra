@@ -173,7 +173,7 @@ func checkForUpdateAsync() {
 				if latestVersion != "" {
 					cmp, err := version.CompareVersions(currentVersion, latestVersion)
 					if err == nil && cmp < 0 {
-						updateHintCh <- fmt.Sprintf("A new version is available: v%s. Run \"seqra update\" to update.", latestVersion)
+						updateHintCh <- utils.UpdateHint(latestVersion)
 					}
 				}
 			}
@@ -192,6 +192,6 @@ func checkForUpdateAsync() {
 
 	cmp, err := version.CompareVersions(currentVersion, latestVersion)
 	if err == nil && cmp < 0 {
-		updateHintCh <- fmt.Sprintf("A new version is available: v%s. Run \"seqra update\" to update.", latestVersion)
+		updateHintCh <- utils.UpdateHint(latestVersion)
 	}
 }
