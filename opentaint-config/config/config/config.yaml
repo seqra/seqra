@@ -15297,38 +15297,6 @@ passThrough:
     to:
     - this
     - .java.util.Calendar#<rule-storage>#java.lang.Object
-- function:
-    package: java.util
-    class: Collection
-    name:
-      pattern: add.*
-  signature:
-    params:
-    - index: 0
-      type: java.util.Collection
-  copy:
-  - from: arg(0)
-    to: this
-- function:
-    package: java.util
-    class: Collection
-    name:
-      pattern: add.*
-  signature:
-    params:
-    - index: 0
-      type: java.lang.Object
-  copy:
-  - from: arg(0)
-    to:
-    - this
-    - .java.util.Collection#<rule-storage>#java.lang.Object
-  - from: arg(0)
-    to:
-    - this
-    - .java.lang.Iterable#<rule-storage>#java.lang.Object
-  - from: arg(0)
-    to: this
 - function: java.util.Collection#add
   signature: (java.lang.Object) boolean
   copy:
