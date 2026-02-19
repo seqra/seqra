@@ -1,6 +1,5 @@
 package org.opentaint.dataflow.ap.ifds.trace
 
-import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
@@ -21,8 +20,22 @@ class TraceResolver(
         val resolveEntryPointToStartTrace: Boolean = true,
         val startToSourceTraceResolutionLimit: Int? = null,
         val startToSinkTraceResolutionLimit: Int? = null,
-        val sourceToSinkInnerTraceResolutionLimit: Int? = null
+        val sourceToSinkInnerTraceResolutionLimit: Int? = null,
+        val innerCallTraceResolveStrategy: InnerCallTraceResolveStrategy = InnerCallTraceResolveStrategy.Default,
     )
+
+    interface InnerCallTraceResolveStrategy {
+        fun innerCallTraceIsRelevant(callSummary: TraceEntryAction.CallSummary): Boolean =
+            callSummary.summaryEdges.any { innerCallSummaryEdgeIsRelevant(it) }
+
+        fun innerCallSummaryEdgeIsRelevant(summaryEdge: TraceEntryAction.TraceSummaryEdge): Boolean =
+            when (summaryEdge) {
+                is TraceEntryAction.TraceSummaryEdge.SourceSummary -> true
+                is TraceEntryAction.TraceSummaryEdge.MethodSummary -> summaryEdge.edge.fact != summaryEdge.edgeAfter.fact
+            }
+
+        object Default: InnerCallTraceResolveStrategy
+    }
 
     data class Trace(
         val entryPointToStart: EntryPointToStartTrace?,
@@ -450,15 +463,6 @@ class TraceResolver(
             }
         }
 
-        private fun TraceEntryAction.CallSummary.isRelevantCall(): Boolean = summaryEdges.any {
-            if (it.edge.fact.base is AccessPathBase.ClassStatic) return@any false
-
-            when (it) {
-                is TraceEntryAction.TraceSummaryEdge.SourceSummary -> true
-                is TraceEntryAction.TraceSummaryEdge.MethodSummary -> it.edge.fact != it.edgeAfter.fact
-            }
-        }
-
         private fun addInnerTraces(trace: MethodTraceResolver.FullTrace, depth: Int) {
             if (params.sourceToSinkInnerTraceResolutionLimit != null) {
                 if (depth > params.sourceToSinkInnerTraceResolutionLimit) {
@@ -475,7 +479,7 @@ class TraceResolver(
 
                 val action = entry.primaryAction
                 if (action !is TraceEntryAction.CallSummary) continue
-                if (!action.isRelevantCall()) continue
+                if (!params.innerCallTraceResolveStrategy.innerCallTraceIsRelevant(action)) continue
 
                 val summary = action.summaryTrace
                 addUnprocessedEvent(
