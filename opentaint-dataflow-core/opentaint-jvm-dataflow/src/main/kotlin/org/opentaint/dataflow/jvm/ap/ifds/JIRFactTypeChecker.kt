@@ -70,27 +70,6 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
                 is FieldAccessor -> {
                     if (actualType !is JIRRefType) return FilterResult.Reject
 
-                    if (accessor == badElementAccessor) {
-                        if (elementAccessors.any { checkAccessor(it) is FilterResult.Accept }) {
-                            return FilterResult.Accept
-                        }
-                        return FilterResult.Reject
-                    }
-
-                    if (accessor == badMapKeyAccessor) {
-                        if (mapKeyAccessors.any { checkAccessor(it) is FilterResult.Accept }) {
-                            return FilterResult.Accept
-                        }
-                        return FilterResult.Reject
-                    }
-
-                    if (accessor == badMapValueAccessor) {
-                        if (mapValueAccessors.any { checkAccessor(it) is FilterResult.Accept }) {
-                            return FilterResult.Accept
-                        }
-                        return FilterResult.Reject
-                    }
-
                     val factType = fieldClassType(accessor) ?: return FilterResult.Accept
                     if (!typeMayHaveSubtypeOf(actualType, factType)) return FilterResult.Reject
                     return FilterResult.Accept
@@ -272,34 +251,5 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
             uncheckedClasses.addAll(cls.interfaces)
         }
         return false
-    }
-
-    // todo: fix config
-    private val badElementAccessor = FieldAccessor("java.lang.Object", "Element", "java.lang.Object")
-
-    private val elementBases = listOf(
-        "java.lang.Iterable",
-        "java.util.Iterator",
-        "java.util.Optional",
-    )
-
-    private val elementAccessors = elementBases.map {
-        FieldAccessor(it, "Element", "java.lang.Object")
-    }
-
-    private val mapBases = listOf(
-        "java.util.Map",
-        "java.util.Map\$Entry",
-        "org.springframework.http.ResponseEntity"
-    )
-
-    private val badMapKeyAccessor = FieldAccessor("java.lang.Object", "MapKey", "java.lang.Object")
-    private val mapKeyAccessors = mapBases.map {
-        FieldAccessor(it, "MapKey", "java.lang.Object")
-    }
-
-    private val badMapValueAccessor = FieldAccessor("java.lang.Object", "MapValue", "java.lang.Object")
-    private val mapValueAccessors = mapBases.map {
-        FieldAccessor(it, "MapValue", "java.lang.Object")
     }
 }
