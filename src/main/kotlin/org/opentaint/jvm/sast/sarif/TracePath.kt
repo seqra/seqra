@@ -97,9 +97,7 @@ private fun generateSourceToSinkPath(
             callPath = callPath.drop(1)
         }
 
-        for (node in callPath) {
-            path += TracePathNode(node.statement, TracePathNodeKind.OTHER, node)
-        }
+        path += resolveCallPath(trace, call.node, callPath)
 
         path += TracePathNode(call.callStatement, TracePathNodeKind.RETURN, entry = null)
     }
