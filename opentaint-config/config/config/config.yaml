@@ -63591,11 +63591,7 @@ passThrough:
   copy:
   - from: this
     to: result
-- function:
-    package: org.springframework.http
-    class: ResponseEntity
-    name:
-      pattern: created.noContent
+- function: org.springframework.http.ResponseEntity#created
   copy:
   - from: arg(0)
     to: result
