@@ -63437,8 +63437,10 @@ passThrough:
     to: result
 - function: org.springframework.http.ResponseEntity$BodyBuilder#body
   copy:
-  - from: arg(0)
-    to: result
+    - from: arg(0)
+      to:
+        - result
+        - .org.springframework.http.HttpEntity#Body#java.lang.Object
 - function: org.springframework.http.ResponseEntity$BodyBuilder#body
   copy:
   - from: this
