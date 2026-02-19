@@ -81,7 +81,7 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
 
             val lambdaClass = JIRLambdaClass(
                 lambdaClassName, declaredFields, declaredMethods,
-                lambdaMethod.method, lambdaMethod.method.enclosingClass
+                lambdaMethod.method, lambdaMethod.method.enclosingClass, location
             ).also {
                 val locationClass = location.method.enclosingClass
                 it.bindWithLocation(locationClass.classpath, locationClass.declaration.location)
@@ -304,7 +304,8 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
         fields: List<JIRVirtualField>,
         methods: List<JIRVirtualMethod>,
         val lambdaMethod: JIRMethod,
-        private val lambdaInterfaceType: JIRClassOrInterface
+        val lambdaInterfaceType: JIRClassOrInterface,
+        val lambdaLocation: JIRInstLocation
     ) : JIRVirtualClassImpl(name, initialFields = fields, initialMethods = methods) {
 
         private lateinit var declarationLocation: RegisteredLocation
