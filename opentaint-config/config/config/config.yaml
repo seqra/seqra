@@ -63168,7 +63168,7 @@ passThrough:
     - .org.springframework.cache.Cache#MapValue#java.lang.Object
     to:
     - result
-    - .org.springframework.cache.Cache$ValueWrapper#Value#java.lang.Object
+    - .java.util.Map#MapValue#java.lang.Object
 - function: org.springframework.cache.Cache#put
   copy:
   - from: arg(1)
