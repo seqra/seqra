@@ -41,6 +41,18 @@ func DetectInstallMethod() (InstallMethod, string) {
 	return classifyExePath(exe, goPath), exe
 }
 
+func UpdateHint(latestVersion string) string {
+	method, _ := DetectInstallMethod()
+	switch method {
+	case InstallMethodHomebrew:
+		return fmt.Sprintf("A new version is available: v%s. Run \"brew upgrade --cask opentaint\" to update.", latestVersion)
+	case InstallMethodGoInstall:
+		return fmt.Sprintf("A new version is available: v%s. Run \"go install github.com/seqra/opentaint/v2@latest\" to update.", latestVersion)
+	default:
+		return fmt.Sprintf("A new version is available: v%s. Run \"opentaint update\" to update.", latestVersion)
+	}
+}
+
 func classifyExePath(exePath, goPath string) InstallMethod {
 	lowerPath := strings.ToLower(exePath)
 	if strings.Contains(lowerPath, "/cellar/") || strings.Contains(lowerPath, "/caskroom/") || strings.Contains(lowerPath, "/homebrew/") {
@@ -106,7 +118,7 @@ func DownloadReleaseArchive(owner, repo, tag, token, destDir string, skipVerify 
 			}
 
 			if !skipVerify {
-				if err := verifyAssetChecksum(client, owner, repo, release, archiveName, destPath); err != nil {
+				if err := verifyAssetChecksum(client, owner, repo, release, asset, destPath); err != nil {
 					_ = os.Remove(destPath)
 					return "", err
 				}

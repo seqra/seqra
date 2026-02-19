@@ -11,7 +11,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/google/go-github/v72/github"
+	"github.com/google/go-github/v74/github"
 )
 
 // ComputeFileSHA256 returns the lowercase hex SHA256 hash of a file.
@@ -27,6 +27,19 @@ func ComputeFileSHA256(filePath string) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// ParseAssetDigest extracts a hex SHA256 hash from GitHub's asset digest format ("sha256:<hex>").
+// Returns ("", false) for empty or unrecognized input.
+func ParseAssetDigest(digest string) (string, bool) {
+	if digest == "" {
+		return "", false
+	}
+	after, found := strings.CutPrefix(digest, "sha256:")
+	if !found || after == "" {
+		return "", false
+	}
+	return strings.ToLower(after), true
 }
 
 // ParseChecksumFile parses GoReleaser's checksums.txt format (<sha256>  <filename>).

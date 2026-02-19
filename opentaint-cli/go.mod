@@ -3,7 +3,7 @@ module github.com/seqra/opentaint/v2
 go 1.25.0
 
 require (
-	github.com/google/go-github/v72 v72.0.0
+	github.com/google/go-github/v74 v74.0.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.9.1
 	github.com/spf13/viper v1.1.1

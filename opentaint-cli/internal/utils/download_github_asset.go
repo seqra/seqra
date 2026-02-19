@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/google/go-github/v72/github"
+	"github.com/google/go-github/v74/github"
 	"github.com/sirupsen/logrus"
 )
 
@@ -23,10 +23,22 @@ func newGithubClient(token string) *github.Client {
 	return github.NewClient(nil).WithAuthToken(token)
 }
 
-// verifyAssetChecksum checks the SHA256 of filePath against the checksums.txt in the release.
-// Returns nil if verified or if checksums are unavailable (with appropriate logging).
+// verifyAssetChecksum checks the SHA256 of filePath using the asset's native digest (preferred)
+// or checksums.txt as fallback. Returns nil if verified or if checksums are unavailable.
 // Returns error only on checksum mismatch.
-func verifyAssetChecksum(client *github.Client, owner, repo string, release *github.RepositoryRelease, assetName, filePath string) error {
+func verifyAssetChecksum(client *github.Client, owner, repo string, release *github.RepositoryRelease, asset *github.ReleaseAsset, filePath string) error {
+	assetName := asset.GetName()
+
+	// Try native GitHub asset digest first (available since June 2025).
+	if expected, ok := ParseAssetDigest(asset.GetDigest()); ok {
+		if err := VerifyFileChecksum(filePath, expected); err != nil {
+			return fmt.Errorf("integrity check failed for %s: %w", assetName, err)
+		}
+		logrus.Debugf("SHA256 verified (asset digest): %s", assetName)
+		return nil
+	}
+
+	// Fall back to checksums.txt for older releases.
 	checksums, err := FetchReleaseChecksums(client, owner, repo, release)
 	if err != nil {
 		logrus.Warnf("Could not fetch checksums for %s/%s: %v", owner, repo, err)
@@ -100,7 +112,7 @@ func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetP
 			}
 
 			if !skipVerify {
-				if err := verifyAssetChecksum(client, owner, repository, release, assetName, tmpPath); err != nil {
+				if err := verifyAssetChecksum(client, owner, repository, release, asset, tmpPath); err != nil {
 					_ = os.Remove(tmpPath)
 					return err
 				}
@@ -270,7 +282,7 @@ func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetNam
 			}
 
 			if !skipVerify {
-				if err := verifyAssetChecksum(client, owner, repository, release, assetName, tmpPath); err != nil {
+				if err := verifyAssetChecksum(client, owner, repository, release, asset, tmpPath); err != nil {
 					return err
 				}
 			}

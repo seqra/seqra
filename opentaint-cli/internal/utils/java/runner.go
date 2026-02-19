@@ -13,10 +13,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-const (
-	LegacyJavaVersion = 8
-)
-
 type ResolutionStrategy int
 
 const (

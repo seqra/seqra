@@ -7,10 +7,10 @@ $Repo = "seqra/opentaint"
 $BaseUrl = if ($env:OPENTAINT_DOWNLOAD_BASE_URL) { $env:OPENTAINT_DOWNLOAD_BASE_URL } else { "https://github.com/$Repo/releases/latest/download" }
 
 function Get-Architecture {
-    $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+    $arch = $env:PROCESSOR_ARCHITECTURE
     switch ($arch) {
-        "X64"   { return "amd64" }
-        "Arm64" { return "arm64" }
+        "AMD64" { return "amd64" }
+        "ARM64" { return "arm64" }
         default {
             Write-Error "Unsupported architecture: $arch"
             exit 1
