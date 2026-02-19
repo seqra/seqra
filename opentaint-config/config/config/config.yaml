@@ -63064,10 +63064,6 @@ passThrough:
   overrides: false
   copy:
   - from: arg(0)
-    to:
-    - this
-    - .org.springframework.beans.PropertyValue#<rule-storage>#java.lang.Object
-  - from: arg(0)
     to: this
 - function: org.springframework.beans.PropertyValue#<init>
   signature: (*, java.lang.Object) *
