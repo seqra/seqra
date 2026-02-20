@@ -132,7 +132,7 @@ class SarifGenerator(
             level = level,
             partialFingerprints = partialFingerPrints,
             locations = listOf(resolvedSinkLocation),
-            codeFlows = listOfNotNull(resolvedThreadFlows?.let { CodeFlow(threadFlows = it) })
+            codeFlows = resolvedThreadFlows.orEmpty().map { tf -> CodeFlow(threadFlows = listOf(tf)) }
         )
 
         for (annotator in annotators) {
