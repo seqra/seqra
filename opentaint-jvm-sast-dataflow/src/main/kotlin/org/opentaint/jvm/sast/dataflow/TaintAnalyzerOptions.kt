@@ -9,5 +9,6 @@ data class TaintAnalyzerOptions(
     val symbolicExecutionEnabled: Boolean,
     val analysisCwe: Set<Int>?,
     val storeSummaries: Boolean,
+    val experimentalAAInterProcCallDepth: Int = 0,
     val debugOptions: DebugOptions?
 )

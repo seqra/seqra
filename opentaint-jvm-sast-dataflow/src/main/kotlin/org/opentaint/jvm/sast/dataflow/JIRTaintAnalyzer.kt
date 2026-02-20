@@ -26,6 +26,7 @@ import org.opentaint.dataflow.configuration.jvm.TaintSinkMeta
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSafeApplicationGraph
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRAnalysisManager
@@ -84,9 +85,13 @@ class JIRTaintAnalyzer(
         }
     }
 
+    private val aaParams get() = JIRLocalAliasAnalysis.Params(
+        aliasAnalysisInterProcCallDepth = 3
+    )
+
     @Suppress("UNCHECKED_CAST")
     private fun createIfdsEngine() = TaintAnalysisUnitRunnerManager(
-        JIRAnalysisManager(cp),
+        JIRAnalysisManager(cp, aaParams),
         ifdsAnalysisGraph as ApplicationGraph<CommonMethod, CommonInst>,
         analysisUnit as UnitResolver<CommonMethod>,
         taintConfig,

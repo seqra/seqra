@@ -62,6 +62,9 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
 
     private val sarifUriBase: String? by option(help = "Sarif sources root uri")
 
+    private val experimentalAAInterProcCallDepth: Int by option(help = "Experimental options: inter-proc alias analysis call depth")
+        .int().default(1)
+
     override fun analyzeProject(project: Project, analyzerOutputDir: Path, debugOptions: DebugOptions) {
         if (project.modules.isEmpty()) {
             return
@@ -89,6 +92,7 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
             ifdsApMode = ifdsApMode,
             projectKind = projectKind,
             storeSummaries = true,
+            experimentalAAInterProcCallDepth = experimentalAAInterProcCallDepth,
             debugOptions = debugOptions,
             sarifGenerationOptions = sarifOptions,
         )

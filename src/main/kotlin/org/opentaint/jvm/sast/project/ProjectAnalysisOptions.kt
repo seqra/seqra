@@ -20,6 +20,7 @@ data class ProjectAnalysisOptions(
     val projectKind: ProjectKind = ProjectKind.UNKNOWN,
     val storeSummaries: Boolean = false,
     val debugOptions: DebugOptions? = null,
+    val experimentalAAInterProcCallDepth: Int = 1,
     val sarifGenerationOptions: SarifGenerationOptions
 ) {
     val summariesApMode get() = ifdsApMode.takeIf { storeSummaries }
@@ -30,6 +31,7 @@ data class ProjectAnalysisOptions(
         symbolicExecutionEnabled = useSymbolicExecution,
         analysisCwe = cwe.takeIf { it.isNotEmpty() }?.toSet(),
         storeSummaries = storeSummaries,
+        experimentalAAInterProcCallDepth = experimentalAAInterProcCallDepth,
         debugOptions = debugOptions
     )
 }
