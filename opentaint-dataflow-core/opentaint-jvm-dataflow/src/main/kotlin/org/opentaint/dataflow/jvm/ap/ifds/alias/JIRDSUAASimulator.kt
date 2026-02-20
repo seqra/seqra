@@ -8,9 +8,11 @@ inline fun <reified State : Any> simulateJIG(
     jig: JIRIntraProcAliasAnalysis.JIRInstGraph,
     initialState: State,
     statesBefore: Array<State?>,
+    statesAfter: Array<State?>,
     eval: (JIRInst, State) -> State,
     merge: (Int2ObjectMap<State?>) -> State,
 ) = simulateGraph(
+    statesAfter = statesAfter,
     graph = jig.graph,
     initialStmtIdx = jig.initialIdx,
     initialState = initialState,

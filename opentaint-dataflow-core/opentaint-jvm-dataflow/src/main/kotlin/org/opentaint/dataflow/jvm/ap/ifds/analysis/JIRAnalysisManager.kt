@@ -10,6 +10,7 @@ import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallSummaryHandler
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSideEffectSummaryHandler
@@ -46,7 +47,7 @@ import org.opentaint.util.analysis.ApplicationGraph
 
 class JIRAnalysisManager(
     cp: JIRClasspath,
-    private val applyAliasInfo: Boolean = true,
+    private val aliasAnalysisParams: JIRLocalAliasAnalysis.Params = JIRLocalAliasAnalysis.Params(),
 ) : JIRLanguageManager(cp), TaintAnalysisManager {
     private val lambdaTracker = JIRLambdaTracker()
     override val factTypeChecker = JIRFactTypeChecker(cp)
@@ -66,14 +67,16 @@ class JIRAnalysisManager(
     override fun getMethodAnalysisContext(
         methodEntryPoint: MethodEntryPoint,
         graph: ApplicationGraph<CommonMethod, CommonInst>,
+        callResolver: MethodCallResolver,
         taintAnalysisContext: TaintAnalysisContext
     ): MethodAnalysisContext {
         val entryPointStatement = methodEntryPoint.statement
         jIRDowncast<JIRInst>(entryPointStatement)
         jIRDowncast<JApplicationGraph>(graph)
+        callResolver as JIRMethodCallResolver
 
-        val aliasAnalysis = if (applyAliasInfo) {
-            JIRLocalAliasAnalysis(entryPointStatement, graph, this)
+        val aliasAnalysis = if (aliasAnalysisParams.useAliasAnalysis) {
+            JIRLocalAliasAnalysis(entryPointStatement, graph, callResolver, this, aliasAnalysisParams)
         } else {
             null
         }

@@ -24,7 +24,8 @@ interface AnalysisManager: LanguageManager {
 
     fun getMethodAnalysisContext(
         methodEntryPoint: MethodEntryPoint,
-        graph: ApplicationGraph<CommonMethod, CommonInst>
+        graph: ApplicationGraph<CommonMethod, CommonInst>,
+        callResolver: MethodCallResolver,
     ): MethodAnalysisContext
 
     fun getMethodCallResolver(

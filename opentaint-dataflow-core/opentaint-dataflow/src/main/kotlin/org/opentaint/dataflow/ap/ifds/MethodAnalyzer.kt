@@ -173,7 +173,9 @@ class NormalMethodAnalyzer(
     private var pendingSideEffectRequirements = arrayListOf<InitialFactAp>()
     private var pendingSideEffectSummaries = arrayListOf<SideEffectSummary>()
 
-    private val analysisContext = analysisManager.getMethodAnalysisContext(methodEntryPoint, runner.graph)
+    private val analysisContext = analysisManager.getMethodAnalysisContext(
+        methodEntryPoint, runner.graph, runner.methodCallResolver
+    )
 
     private var analyzerEnqueued = false
     private var unprocessedEdges = arrayListOf<Edge>()

@@ -2,6 +2,12 @@ package org.opentaint.dataflow.jvm.ap.ifds
 
 import kotlinx.coroutines.runBlocking
 import mu.KLogging
+import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
+import org.opentaint.dataflow.ap.ifds.MethodContext
+import org.opentaint.dataflow.ap.ifds.MethodWithContext
+import org.opentaint.dataflow.ifds.UnknownUnit
+import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature.JIRLambdaClass
+import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -20,12 +26,6 @@ import org.opentaint.ir.api.jvm.cfg.JIRVirtualCallExpr
 import org.opentaint.ir.api.jvm.ext.isSubClassOf
 import org.opentaint.ir.impl.features.hierarchyExt
 import org.opentaint.jvm.graph.JApplicationGraph
-import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
-import org.opentaint.dataflow.ap.ifds.MethodContext
-import org.opentaint.dataflow.ap.ifds.MethodWithContext
-import org.opentaint.dataflow.ifds.UnknownUnit
-import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature.JIRLambdaClass
-import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import java.util.Optional
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.jvm.optionals.getOrNull
@@ -52,6 +52,20 @@ class JIRCallResolver(
         data object MethodResolutionFailed : MethodResolutionResult
         data class ConcreteMethod(val method: MethodWithContext) : MethodResolutionResult
         data class Lambda(val instance: JIRVirtualCallExpr, val method: JIRMethod) : MethodResolutionResult
+    }
+
+    fun allKnownOverridesOrNull(method: JIRMethod): List<JIRMethod>? {
+        if (unitResolver.resolve(method) == UnknownUnit) return null
+
+        val methods = mutableListOf<JIRMethod>()
+        if (!method.isAbstract) {
+            methods.add(method)
+        }
+
+        hierarchy.findOverrides(method, includeAbstract = false)
+            .filterTo(methods) { unitResolver.resolve(it) != UnknownUnit }
+
+        return methods
     }
 
     fun resolve(call: JIRCallExpr, location: JIRInst, context: MethodContext): List<MethodResolutionResult> {

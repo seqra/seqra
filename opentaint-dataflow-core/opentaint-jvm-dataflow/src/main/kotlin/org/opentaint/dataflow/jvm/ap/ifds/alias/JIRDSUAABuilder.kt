@@ -15,6 +15,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
+import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRNewArrayExpr
 import org.opentaint.ir.api.jvm.cfg.JIRNewExpr
@@ -29,10 +30,10 @@ sealed interface ExprOrValue
 sealed interface Value: ExprOrValue
 
 sealed interface RefValue: Value {
-    data class Local(val idx: Int) : RefValue
+    data class Local(val idx: Int, val level: Int, val ctx: Int) : RefValue
     data class Arg(val idx: Int) : RefValue
-    data class Static(val type: String) : RefValue
     data object This : RefValue
+    data class Static(val type: String) : RefValue
 }
 
 sealed interface Expr: ExprOrValue {
@@ -52,7 +53,7 @@ sealed interface Stmt {
 
     sealed interface NoCall: Stmt
 
-    data class Call(val method: JIRMethod, val lValue: RefValue.Local?, val args: List<Value>, override val originalIdx: Int) : Stmt
+    data class Call(val method: JIRMethod, val lValue: RefValue.Local?, val instance: Value?, val args: List<Value>, override val originalIdx: Int) : Stmt
 
     data class Copy(val lValue: RefValue.Local, val rValue: RefValue, override val originalIdx: Int): NoCall
     data class Assign(val lValue: RefValue.Local, val expr: Expr, override val originalIdx: Int) : NoCall
@@ -63,7 +64,13 @@ sealed interface Stmt {
     data class Throw(val value: RefValue, override val originalIdx: Int) : NoCall
 }
 
-fun evalInst(inst: JIRInst): Stmt? {
+interface InstEvalContext {
+    fun createThis(): Value
+    fun createArg(idx: Int): Value
+    fun createLocal(idx: Int): RefValue.Local
+}
+
+fun InstEvalContext.evalInst(inst: JIRInst): Stmt? {
     return when (inst) {
         is JIRAssignInst -> {
             evalAssign(inst.lhv, inst.rhv, inst)
@@ -77,28 +84,25 @@ fun evalInst(inst: JIRInst): Stmt? {
             val local = inst.throwable as? JIRLocalVar ?: return null
             val expr = Expr.Alloc(inst)
 
-            val lValue = RefValue.Local(local.index)
-            val stmt = Stmt.Assign(lValue, expr, inst.location.index)
-            return stmt
+            val lValue = createLocal(local.index)
+            Stmt.Assign(lValue, expr, inst.location.index)
         }
 
         is JIRReturnInst -> {
             val value = inst.returnValue?.let { evalSimpleValue(it as JIRImmediate) } as? RefValue
-            val stmt = Stmt.Return(value, inst.location.index)
-            return stmt
+            Stmt.Return(value, inst.location.index)
         }
 
         is JIRThrowInst -> {
-            val value = getLocalRefValue(inst.throwable)
-            val stmt = Stmt.Throw(value, inst.location.index)
-            return stmt
+            val value = getLocalRefValue(inst.throwable) as? RefValue ?: return null
+            Stmt.Throw(value, inst.location.index)
         }
 
         else -> null
     }
 }
 
-private fun evalAssign(lhv: JIRValue, rhv: JIRExpr, inst: JIRInst): Stmt? {
+private fun InstEvalContext.evalAssign(lhv: JIRValue, rhv: JIRExpr, inst: JIRInst): Stmt? {
     val loc = inst.location
     val isPrimitive = lhv.type is JIRPrimitiveType
     if (rhv is JIRCallExpr) {
@@ -112,7 +116,7 @@ private fun evalAssign(lhv: JIRValue, rhv: JIRExpr, inst: JIRInst): Stmt? {
 
     when (lhv) {
         is JIRLocalVar -> {
-            val lValue = RefValue.Local(lhv.index)
+            val lValue = createLocal(lhv.index)
             val stmt = when (expr) {
                 is Expr -> Stmt.Assign(lValue, expr, loc.index)
                 is RefValue -> Stmt.Copy(lValue, expr, loc.index)
@@ -124,12 +128,12 @@ private fun evalAssign(lhv: JIRValue, rhv: JIRExpr, inst: JIRInst): Stmt? {
             when (lhv) {
                 is JIRFieldRef -> {
                     val instance = lhv.instance ?: return Stmt.WriteStatic(lhv.field.field, expr, loc.index)
-                    val iv = getLocalRefValue(instance)
+                    val iv = getLocalRefValue(instance) as? RefValue ?: return null
                     return Stmt.FieldStore(iv, lhv.field.field, expr, loc.index)
                 }
 
                 is JIRArrayAccess -> {
-                    val iv = getLocalRefValue(lhv.array)
+                    val iv = getLocalRefValue(lhv.array) as? RefValue ?: return null
                     return Stmt.ArrayStore(iv, SimpleValue.Primitive, expr, loc.index)
                 }
 
@@ -141,18 +145,19 @@ private fun evalAssign(lhv: JIRValue, rhv: JIRExpr, inst: JIRInst): Stmt? {
     }
 }
 
-private fun evalCall(
+private fun InstEvalContext.evalCall(
     expr: JIRCallExpr,
     loc: JIRInst,
     lValue: JIRValue?,
 ): Stmt {
     val args = expr.args.map { evalSimpleValue(it as JIRImmediate) }
-    val lhs = (lValue as? JIRLocalVar)?.let { RefValue.Local(it.index) }
-    val stmt = Stmt.Call(expr.method.method, lhs, args, loc.location.index)
+    val lhs = (lValue as? JIRLocalVar)?.let { createLocal(it.index) }
+    val instance = (expr as? JIRInstanceCallExpr)?.instance?.let { evalSimpleValue(it as JIRImmediate) }
+    val stmt = Stmt.Call(expr.method.method, lhs, instance, args, loc.location.index)
     return stmt
 }
 
-private fun evalExpr(expr: JIRExpr, inst: JIRInst): ExprOrValue = when (expr) {
+private fun InstEvalContext.evalExpr(expr: JIRExpr, inst: JIRInst): ExprOrValue = when (expr) {
     is JIRNewExpr,
     is JIRNewArrayExpr -> Expr.Alloc(inst)
     is JIRCastExpr -> evalExpr(expr.operand, inst)
@@ -160,13 +165,13 @@ private fun evalExpr(expr: JIRExpr, inst: JIRInst): ExprOrValue = when (expr) {
     else -> Expr.Unknown
 }
 
-private fun evalValue(value: JIRValue, loc: JIRInst): ExprOrValue = when (value) {
+private fun InstEvalContext.evalValue(value: JIRValue, loc: JIRInst): ExprOrValue = when (value) {
     is JIRImmediate -> evalSimpleValue(value)
     is JIRRef -> evalRefValue(value, loc)
     else -> Expr.Unknown
 }
 
-private fun evalSimpleValue(value: JIRImmediate): Value {
+private fun InstEvalContext.evalSimpleValue(value: JIRImmediate): Value {
     if (value.type is JIRPrimitiveType) return SimpleValue.Primitive
     return when (value) {
         is JIRConstant -> SimpleValue.RefConst(value)
@@ -178,7 +183,7 @@ private fun evalSimpleValue(value: JIRImmediate): Value {
     }
 }
 
-private fun evalRefValue(value: JIRRef, loc: JIRInst): ExprOrValue {
+private fun InstEvalContext.evalRefValue(value: JIRRef, loc: JIRInst): ExprOrValue {
     return when (value) {
         is JIRFieldRef -> {
             if (value.field.isStatic) {
@@ -187,14 +192,14 @@ private fun evalRefValue(value: JIRRef, loc: JIRInst): ExprOrValue {
             }
             else {
                 val instance = value.instance ?: return Expr.Alloc(loc)
-                val iv = getLocalRefValue(instance)
+                val iv = getLocalRefValue(instance) as? RefValue ?: return Expr.Unknown
                 Expr.FieldLoad(iv, value.field.field)
             }
         }
 
         is JIRArrayAccess -> {
             val instance = value.array
-            val iv = getLocalRefValue(instance)
+            val iv = getLocalRefValue(instance) as? RefValue ?: return Expr.Unknown
             Expr.ArrayLoad(iv, SimpleValue.Primitive)
         }
 
@@ -202,9 +207,9 @@ private fun evalRefValue(value: JIRRef, loc: JIRInst): ExprOrValue {
     }
 }
 
-private fun getLocalRefValue(local: JIRValue): RefValue = when (local) {
-    is JIRThis -> RefValue.This
-    is JIRArgument -> RefValue.Arg(local.index)
-    is JIRLocalVar -> RefValue.Local(local.index)
+private fun InstEvalContext.getLocalRefValue(local: JIRValue): Value = when (local) {
+    is JIRThis -> createThis()
+    is JIRArgument -> createArg(local.index)
+    is JIRLocalVar -> createLocal(local.index)
     else -> error("Unexpected local: $local")
 }

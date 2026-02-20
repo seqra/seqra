@@ -14,9 +14,19 @@ inline fun <reified State : Any> simulateGraph(
     eval: (Int, State) -> State,
 ): Array<State?> {
     if (graph.size == 0) return emptyArray<State?>()
-
     val statesAfter = arrayOfNulls<State>(graph.size)
+    simulateGraph(statesAfter, graph, initialStmtIdx, initialState, merge, eval)
+    return statesAfter
+}
 
+inline fun <reified State : Any> simulateGraph(
+    statesAfter: Array<State?>,
+    graph: CompactGraph,
+    initialStmtIdx: Int,
+    initialState: State,
+    merge: (Int, Int2ObjectMap<State?>) -> State,
+    eval: (Int, State) -> State,
+) {
     val topOrderComparator = CompactGraphTopSort(graph).graphTopOrderNodeComparator(initialStmtIdx)
 
     val enqueuedStmts = BitSet()
@@ -61,6 +71,4 @@ inline fun <reified State : Any> simulateGraph(
             }
         }
     }
-
-    return statesAfter
 }

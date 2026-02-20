@@ -20,7 +20,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.jIRDowncast
 
 class JIRMethodCallResolver(
     private val lambdaTracker: JIRLambdaTracker,
-    private val callResolver: JIRCallResolver,
+    val callResolver: JIRCallResolver,
     private val runner: TaintAnalysisUnitRunner
 ) : MethodCallResolver {
     override fun resolveMethodCall(

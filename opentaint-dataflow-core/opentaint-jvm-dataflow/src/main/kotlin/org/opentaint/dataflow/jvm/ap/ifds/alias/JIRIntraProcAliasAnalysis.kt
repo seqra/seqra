@@ -8,14 +8,15 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRLanguageManager
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasInfo
 import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.AAInfo
-import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.ConnectedAliases
-import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.CallReturn
-import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.FieldAlias
 import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.ArrayAlias
+import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.CallReturn
+import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.ConnectedAliases
+import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.FieldAlias
+import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.HeapAlias
 import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.LocalAlias
 import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.Unknown
-import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.HeapAlias
 import org.opentaint.dataflow.jvm.ap.ifds.alias.RefValue.Local
+import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodCallResolver
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -26,7 +27,9 @@ import org.opentaint.util.analysis.ApplicationGraph
 class JIRIntraProcAliasAnalysis(
     private val entryPoint: JIRInst,
     private val graph: JApplicationGraph,
-    private val languageManager: JIRLanguageManager
+    private val callResolver: JIRMethodCallResolver,
+    private val languageManager: JIRLanguageManager,
+    private val params: JIRLocalAliasAnalysis.Params,
 ) {
     data class JIRInstGraph(
         val statements: List<JIRInst>,
@@ -34,13 +37,14 @@ class JIRIntraProcAliasAnalysis(
         val initialIdx: Int,
     )
 
-    private fun getJIG(): JIRInstGraph {
+    private fun getJIG(entryPoint: JIRInst): JIRInstGraph {
         @Suppress("UNCHECKED_CAST")
         val instGraph = MethodInstGraph.build(
             languageManager,
             graph as ApplicationGraph<CommonMethod, CommonInst>,
             entryPoint.location.method
         )
+
         return JIRInstGraph(
             statements = instGraph.instructions.map { it as JIRInst },
             graph = instGraph.graph,
@@ -48,9 +52,13 @@ class JIRIntraProcAliasAnalysis(
         )
     }
 
+    private inner class CallResolver: JirCallResolver(callResolver, graph, params) {
+        override fun buildMethodJig(entryPoint: JIRInst): JIRInstGraph = getJIG(entryPoint)
+    }
+
     fun compute(): JIRLocalAliasAnalysis.MethodAliasInfo {
-        val jig = getJIG()
-        val daa = DSUAliasAnalysis().analyze(jig)
+        val jig = getJIG(entryPoint)
+        val daa = DSUAliasAnalysis(CallResolver()).analyze(jig)
 
         val aliasBeforeStatement =
             Array(jig.statements.size) { i -> resolveLocalVar(daa.statesBeforeStmt[i]) }.also { squash(it) }
