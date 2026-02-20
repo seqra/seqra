@@ -3,11 +3,11 @@ package java
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 
+	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,7 +21,7 @@ func DetectSystemJava() *JavaInstallation {
 	logrus.Debug("Starting system Java detection")
 
 	if javaHome := os.Getenv("JAVA_HOME"); javaHome != "" {
-		javaPath := filepath.Join(javaHome, "bin", "java")
+		javaPath := utils.JavaBinaryPath(javaHome)
 		logrus.Debugf("Checking JAVA_HOME: %s (java path: %s)", javaHome, javaPath)
 
 		if installation := validateJavaInstallation(javaPath); installation != nil {
