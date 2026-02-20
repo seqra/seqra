@@ -62844,50 +62844,22 @@ passThrough:
     - this
     - .java.lang.Iterable#Element#java.lang.Object
     - .org.springframework.beans.PropertyValue#Value#java.lang.Object
-  - from: this
-    to: result
-  - from:
-    - this
-    - .org.springframework.beans.MutablePropertyValues#<rule-storage>#java.lang.Object
-    to: result
   - from: arg(0)
     to:
     - this
     - .java.lang.Iterable#Element#java.lang.Object
     - .org.springframework.beans.PropertyValue#Key#java.lang.Object
-- function: org.springframework.beans.MutablePropertyValues#addPropertyValue
-  signature:
-    params:
-    - index: 0
-      type: org.springframework.beans.PropertyValue
-  copy:
-  - from: arg(0)
-    to: result
-- function: org.springframework.beans.MutablePropertyValues#addPropertyValue
-  signature:
-    params:
-    - index: 0
-      type: org.springframework.beans.PropertyValue
-  copy:
-  - from: arg(0)
-    to:
-    - this
-    - .org.springframework.beans.MutablePropertyValues#<rule-storage>#java.lang.Object
-  - from: arg(0)
-    to: this
-- function: org.springframework.beans.MutablePropertyValues#addPropertyValue
-  signature: (*) *
-  copy:
   - from: this
     to: result
-  - from:
-    - this
-    - .org.springframework.beans.MutablePropertyValues#<rule-storage>#java.lang.Object
-    to: result
+- function: org.springframework.beans.MutablePropertyValues#addPropertyValue
+  signature: (org.springframework.beans.PropertyValue) *
+  copy:
   - from: arg(0)
     to:
     - this
     - .java.lang.Iterable#Element#java.lang.Object
+  - from: this
+    to: result
 - function: org.springframework.beans.MutablePropertyValues#addPropertyValue
   signature: (java.lang.String, java.lang.Object) *
   copy:
@@ -62901,60 +62873,6 @@ passThrough:
     - this
     - .java.lang.Iterable#Element#java.lang.Object
     - .org.springframework.beans.PropertyValue#Key#java.lang.Object
-- function: org.springframework.beans.MutablePropertyValues#addPropertyValue
-  signature:
-    params:
-    - index: 0
-      type: java.lang.String
-    - index: 1
-      type: java.lang.Object
-  copy:
-  - from: arg(1)
-    to:
-    - this
-    - .org.springframework.beans.MutablePropertyValues#<rule-storage>#java.lang.Object
-  - from: arg(1)
-    to: this
-- function: org.springframework.beans.MutablePropertyValues#addPropertyValues
-  signature:
-    params:
-    - index: 0
-      type: java.util.Map
-  copy:
-  - from: arg(0)
-    to: result
-- function: org.springframework.beans.MutablePropertyValues#addPropertyValues
-  signature:
-    params:
-    - index: 0
-      type: java.util.Map
-  copy:
-  - from: arg(0)
-    to:
-    - this
-    - .org.springframework.beans.MutablePropertyValues#<rule-storage>#java.lang.Object
-  - from: arg(0)
-    to: this
-- function: org.springframework.beans.MutablePropertyValues#addPropertyValues
-  signature:
-    params:
-    - index: 0
-      type: org.springframework.beans.PropertyValues
-  copy:
-  - from: arg(0)
-    to: result
-- function: org.springframework.beans.MutablePropertyValues#addPropertyValues
-  signature:
-    params:
-    - index: 0
-      type: org.springframework.beans.PropertyValues
-  copy:
-  - from: arg(0)
-    to:
-    - this
-    - .org.springframework.beans.MutablePropertyValues#<rule-storage>#java.lang.Object
-  - from: arg(0)
-    to: this
 - function: org.springframework.beans.MutablePropertyValues#addPropertyValues
   signature: (*) *
   copy:
@@ -62965,12 +62883,6 @@ passThrough:
     - this
     - .java.lang.Iterable#Element#java.lang.Object
     - .org.springframework.beans.PropertyValue#Value#java.lang.Object
-  - from: this
-    to: result
-  - from:
-    - this
-    - .org.springframework.beans.MutablePropertyValues#<rule-storage>#java.lang.Object
-    to: result
   - from:
     - arg(0)
     - .java.util.Map#MapKey#java.lang.Object
@@ -62984,6 +62896,8 @@ passThrough:
     to:
     - this
     - .java.lang.Iterable#Element#java.lang.Object
+  - from: this
+    to: result
 - function: org.springframework.beans.MutablePropertyValues#get
   copy:
   - from:
