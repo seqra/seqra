@@ -47,7 +47,7 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
     private val sarifFileName: String by option(help = "Sarif file name")
         .default(SarifGenerationOptions.DEFAULT_FILE_NAME)
 
-    private val sarifThreadFlowLimit: Int? by option(help = "Sarif thread flow limit").int()
+    private val sarifCodeFlowLimit: Int? by option(help = "Sarif code flow limit").int()
 
     private val sarifSemgrepStyleId: Boolean by option(help = "Use semgrep style ids").flag()
 
@@ -72,7 +72,7 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
 
         val sarifOptions = SarifGenerationOptions(
             sarifFileName = sarifFileName,
-            sarifThreadFlowLimit = sarifThreadFlowLimit,
+            sarifCodeFlowLimit = sarifCodeFlowLimit,
             useSemgrepStyleId = sarifSemgrepStyleId,
             toolVersion = sarifToolVersion,
             toolSemanticVersion = sarifToolSemanticVersion,

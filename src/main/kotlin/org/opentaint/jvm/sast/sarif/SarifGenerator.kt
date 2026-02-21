@@ -197,8 +197,8 @@ class SarifGenerator(
         }
 
         var limitedTracePaths = paths
-        if (options.sarifThreadFlowLimit != null) {
-            limitedTracePaths = paths.take(options.sarifThreadFlowLimit)
+        if (options.sarifCodeFlowLimit != null) {
+            limitedTracePaths = paths.take(options.sarifCodeFlowLimit)
         }
 
         return limitedTracePaths
