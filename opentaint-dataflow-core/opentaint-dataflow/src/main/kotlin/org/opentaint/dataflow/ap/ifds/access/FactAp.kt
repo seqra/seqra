@@ -63,6 +63,7 @@ interface FinalFactAp : FactAp, ReadableAccessorList<FinalFactAp> {
     fun filterFact(filter: FactTypeChecker.FactApFilter): FinalFactAp?
 
     fun contains(factAp: InitialFactAp): Boolean
+    fun equalTo(factAp: InitialFactAp): Boolean
 
     fun hasEmptyDelta(other: InitialFactAp): Boolean =
         delta(other).any { it.isEmpty }

@@ -73,6 +73,10 @@ class AccessCactus(
     override fun contains(factAp: InitialFactAp): Boolean =
         this.delta(factAp).any { it.isEmpty }
 
+    override fun equalTo(factAp: InitialFactAp): Boolean {
+        TODO("Not yet implemented")
+    }
+
     override fun getStartAccessors(): Set<Accessor> =
         access.allEdges.mapTo(hashSetOf()) { it.accessor }
 

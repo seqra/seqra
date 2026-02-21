@@ -107,4 +107,11 @@ data class AccessGraphFinalFactAp(
         if (base != factAp.base) return false
         return access.containsAll(factAp.access)
     }
+
+    override fun equalTo(factAp: InitialFactAp): Boolean {
+        factAp as AccessGraphInitialFactAp
+
+        if (base != factAp.base) return false
+        return access == factAp.access
+    }
 }

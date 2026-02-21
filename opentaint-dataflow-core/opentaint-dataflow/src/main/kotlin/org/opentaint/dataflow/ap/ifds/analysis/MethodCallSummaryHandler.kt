@@ -14,6 +14,13 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.TraceIn
 interface MethodCallSummaryHandler {
     val factTypeChecker: FactTypeChecker
 
+    sealed interface SummaryEdge {
+        val final: FinalFactAp
+
+        data class F2F(val initial: InitialFactAp, override val final: FinalFactAp) : SummaryEdge
+        data class NdF2F(val initial: Set<InitialFactAp>, override val final: FinalFactAp) : SummaryEdge
+    }
+
     fun mapMethodExitToReturnFlowFact(fact: FinalFactAp): List<FinalFactAp>
 
     fun handleZeroToZero(summaryFact: FinalFactAp?): Set<Sequent> {
@@ -28,11 +35,11 @@ interface MethodCallSummaryHandler {
     fun handleZeroToFact(
         currentFactAp: FinalFactAp,
         summaryEffect: SummaryEdgeApplication,
-        summaryFact: FinalFactAp
+        summaryEdge: SummaryEdge,
     ): Set<Sequent> = handleSummary(
         currentFactAp,
         summaryEffect,
-        summaryFact,
+        summaryEdge,
         createSideEffectRequirement = {
             check(it is ExclusionSet.Universe) { "Incorrect refinement" }
             null
@@ -49,11 +56,11 @@ interface MethodCallSummaryHandler {
         initialFactAp: InitialFactAp,
         currentFactAp: FinalFactAp,
         summaryEffect: SummaryEdgeApplication,
-        summaryFact: FinalFactAp
+        summaryEdge: SummaryEdge,
     ): Set<Sequent> = handleSummary(
         currentFactAp,
         summaryEffect,
-        summaryFact,
+        summaryEdge,
         createSideEffectRequirement = { refinement ->
             Sequent.SideEffectRequirement(initialFactAp.refine(refinement))
         }
@@ -67,11 +74,11 @@ interface MethodCallSummaryHandler {
         initialFacts: Set<InitialFactAp>,
         currentFactAp: FinalFactAp,
         summaryEffect: SummaryEdgeApplication,
-        summaryFact: FinalFactAp
+        summaryEdge: SummaryEdge,
     ): Set<Sequent> = handleSummary(
         currentFactAp,
         summaryEffect,
-        summaryFact,
+        summaryEdge,
         createSideEffectRequirement = {
             check(it is ExclusionSet.Universe) { "Incorrect refinement" }
             null
@@ -96,11 +103,11 @@ interface MethodCallSummaryHandler {
     fun handleSummary(
         currentFactAp: FinalFactAp,
         summaryEffect: SummaryEdgeApplication,
-        summaryFact: FinalFactAp,
+        summaryEdge: SummaryEdge,
         createSideEffectRequirement: (refinement: ExclusionSet) -> Sequent?,
         handleSummaryEdge: (initialFactRefinement: ExclusionSet?, summaryFactAp: FinalFactAp) -> Sequent
     ): Set<Sequent> {
-        val mappedSummaryFacts = mapMethodExitToReturnFlowFact(summaryFact)
+        val mappedSummaryFacts = mapMethodExitToReturnFlowFact(summaryEdge.final)
 
         return when (summaryEffect) {
             is SummaryApRefinement -> mappedSummaryFacts.mapNotNullTo(hashSetOf()) { mappedSummaryFact ->

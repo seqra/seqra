@@ -7,6 +7,7 @@ import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallSummaryHandler
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallSummaryHandler.SummaryEdge
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -28,7 +29,7 @@ class JIRMethodCallSummaryHandler(
     override fun handleSummary(
         currentFactAp: FinalFactAp,
         summaryEffect: MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication,
-        summaryFact: FinalFactAp,
+        summaryEdge: SummaryEdge,
         createSideEffectRequirement: (refinement: ExclusionSet) -> Sequent?,
         handleSummaryEdge: (initialFactRefinement: ExclusionSet?, summaryFactAp: FinalFactAp) -> Sequent
     ): Set<Sequent> {
@@ -37,15 +38,17 @@ class JIRMethodCallSummaryHandler(
         result += super.handleSummary(
             currentFactAp,
             summaryEffect,
-            summaryFact,
+            summaryEdge,
             createSideEffectRequirement,
         ) { initialFactRefinement: ExclusionSet?, summaryFactAp: FinalFactAp ->
             if (initialFactRefinement != null) {
                 createSideEffectRequirement(initialFactRefinement)?.also { result.add(it) }
             }
 
-            analysisContext.aliasAnalysis?.forEachAliasAfterStatement(statement, summaryFactAp) { aliased ->
-                result += handleSummaryEdge(initialFactRefinement, aliased)
+            if (summaryEdge.hasMemoryEffect()) {
+                analysisContext.aliasAnalysis?.forEachAliasAfterStatement(statement, summaryFactAp) { aliased ->
+                    result += handleSummaryEdge(initialFactRefinement, aliased)
+                }
             }
 
             handleSummaryEdge(initialFactRefinement, summaryFactAp)
@@ -74,4 +77,9 @@ class JIRMethodCallSummaryHandler(
                 resultFact,
             )
         }
+
+    private fun SummaryEdge.hasMemoryEffect(): Boolean {
+        if (this !is SummaryEdge.F2F) return true
+        return !final.equalTo(initial)
+    }
 }

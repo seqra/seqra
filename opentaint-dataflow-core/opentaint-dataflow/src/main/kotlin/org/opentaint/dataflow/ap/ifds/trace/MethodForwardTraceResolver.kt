@@ -16,6 +16,7 @@ import org.opentaint.dataflow.ap.ifds.analysis.AnalysisManager
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.ZeroCallFact
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallSummaryHandler.SummaryEdge
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
 import org.opentaint.dataflow.graph.MethodInstGraph
@@ -289,7 +290,7 @@ class MethodForwardTraceResolver(
         callerFact: FinalFactAp,
         methodInitialFactBase: AccessPathBase,
         methodSummaries: List<FactToFact>,
-        handleSummaryEdge: (currentFactAp: FinalFactAp, summaryEffect: SummaryEdgeApplication, summaryFact: FinalFactAp) -> Set<Sequent>,
+        handleSummaryEdge: (currentFactAp: FinalFactAp, summaryEffect: SummaryEdgeApplication, summaryEdge: SummaryEdge) -> Set<Sequent>,
     ): Boolean {
         var summaryApplied = false
         val methodInitialFact = callerFact.rebase(methodInitialFactBase)
@@ -302,7 +303,8 @@ class MethodForwardTraceResolver(
 
             for (summaryEdgeEffect in summaryEdgeEffects) {
                 for (methodSummary in summaryEdges) {
-                    val sf = handleSummaryEdge(callerFact, summaryEdgeEffect, methodSummary.factAp)
+                    val summaryEdge = SummaryEdge.F2F(methodSummary.initialFactAp, methodSummary.factAp)
+                    val sf = handleSummaryEdge(callerFact, summaryEdgeEffect, summaryEdge)
                     handleSequentFact(currentEdge, sf)
                     summaryApplied = true
                 }

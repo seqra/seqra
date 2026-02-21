@@ -84,6 +84,29 @@ class AccessTree(
         return node.isAbstract
     }
 
+    override fun equalTo(factAp: InitialFactAp): Boolean {
+        factAp as AccessPath
+
+        if (base != factAp.base) return false
+
+        val otherAccess = factAp.access
+        if (otherAccess == null) {
+            return access.isEmptyAbstract
+        }
+
+        var node = access
+        for (accessor in otherAccess) {
+            if (accessor == FinalAccessor) {
+                return node.isFinal && node.accessors == null
+            }
+
+            if (node.accessors?.size != 1) return false
+            node = node.getChild(apManager, accessor) ?: return false
+        }
+
+        return node.isEmptyAbstract
+    }
+
     private sealed interface AccessTreeDelta : FinalFactAp.Delta
 
     data object EmptyAccessTreeDelta : AccessTreeDelta {
@@ -272,6 +295,9 @@ class AccessTree(
 
         val isEmpty: Boolean
             get() = !isAbstract && !isFinal && accessors == null
+
+        val isEmptyAbstract: Boolean
+            get() = isAbstract && !isFinal && accessors == null
 
         private fun accessorIndex(accessor: Accessor): Int {
             if (accessors == null) return -1
