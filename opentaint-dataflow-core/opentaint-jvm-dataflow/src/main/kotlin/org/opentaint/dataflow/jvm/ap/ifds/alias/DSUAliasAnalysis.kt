@@ -428,11 +428,11 @@ class DSUAliasAnalysis(
         }
 
     private fun ImmutableState.createStateAfterCall(stmt: Stmt.Call, retVal: RefValue?, level: Int): ImmutableState {
-        val state = mutableCopy()
+        var state = mutableCopy()
         stmt.lValue?.let { v ->
             val retVal = retVal?.aliasInfo() ?: return@let
             val outerRetVal = v.aliasInfo()
-            state.removeOldAndMergeWith(outerRetVal, retVal)
+            state = state.removeOldAndMergeWith(outerRetVal, retVal)
         }
 
         val result = state.removeCallLocals(level)
