@@ -86,7 +86,7 @@ class JIRTaintAnalyzer(
     }
 
     private val aaParams get() = JIRLocalAliasAnalysis.Params(
-        aliasAnalysisInterProcCallDepth = 3
+        aliasAnalysisInterProcCallDepth = options.experimentalAAInterProcCallDepth
     )
 
     @Suppress("UNCHECKED_CAST")
