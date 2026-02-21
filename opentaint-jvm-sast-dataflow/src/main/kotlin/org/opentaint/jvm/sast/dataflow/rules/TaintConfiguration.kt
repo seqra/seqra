@@ -219,19 +219,28 @@ class TaintConfiguration(cp: JIRClasspath) {
         }
     }
 
-    private fun SerializedNameMatcher.match(name: String): Boolean = when (this) {
+    private fun SerializedNameMatcher.match(name: String): Boolean {
+        if (matchNormalizedTypeName(name)) return true
+
+        val nameWithDots = name.innerClassNameWithDots()
+            ?: return false
+
+        return matchNormalizedTypeName(nameWithDots)
+    }
+
+    private fun SerializedNameMatcher.matchNormalizedTypeName(name: String): Boolean = when (this) {
         is Simple -> if (value == "*") true else value == name
         is Pattern -> {
             isAny() || patternManager.matchPattern(pattern, name)
         }
         is ClassPattern -> {
             val (pkgName, clsName) = splitClassName(name)
-            `package`.match(pkgName) && `class`.match(clsName)
+            `package`.matchNormalizedTypeName(pkgName) && `class`.matchNormalizedTypeName(clsName)
         }
 
         is SerializedNameMatcher.Array -> {
             val nameWithoutArrayModifier = name.removeSuffix("[]")
-            name != nameWithoutArrayModifier && element.match(nameWithoutArrayModifier)
+            name != nameWithoutArrayModifier && element.matchNormalizedTypeName(nameWithoutArrayModifier)
         }
     }
 

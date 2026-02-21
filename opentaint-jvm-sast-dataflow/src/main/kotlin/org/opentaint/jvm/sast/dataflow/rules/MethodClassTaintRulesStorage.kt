@@ -202,12 +202,25 @@ private class MethodClassTaintRulesStorage<S : SerializedRule> private construct
             return
         }
 
+        val innerClassNameWithDots = className.innerClassNameWithDots()
+        if (innerClassNameWithDots != null) {
+            val concreteRules = concreteClassRules[innerClassNameWithDots]
+            if (concreteRules != null) {
+                dst.addAll(concreteRules)
+                return
+            }
+        }
+
         if (!patternResolvedClasses.add(className)) {
             return
         }
 
         val newRules = hashSetOf<S>()
         resolveClassNamePattern(patterns, className, newRules)
+
+        if (innerClassNameWithDots != null) {
+            resolveClassNamePattern(patterns, innerClassNameWithDots, newRules)
+        }
 
         if (newRules.isEmpty()) return
 

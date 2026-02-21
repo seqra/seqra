@@ -31,9 +31,31 @@ private val logger = object : KLogging() {}.logger
 fun initializeProjectAnalysisContext(
     project: Project,
     options: ProjectAnalysisOptions
-): ProjectAnalysisContext {
-    val dependencyFiles by lazy { project.dependencies.map { it.toFile() } }
-    val projectModulesFiles by lazy {
+): ProjectAnalysisContext = initializeProjectAnalysisContextUtil(project, options) {
+    val cpFiles = dependencyFiles + projectModulesFiles.keys
+    createAnalysisContextWithCp(project, cpFiles)
+}
+
+fun initializeProjectModulesAnalysisContexts(
+    project: Project,
+    options: ProjectAnalysisOptions
+): List<Pair<ProjectModuleClasses, ProjectAnalysisContext>> =
+    initializeProjectAnalysisContextUtil(project, options) {
+        projectModulesFiles.map { (file, module) ->
+            val cpFiles = dependencyFiles + file
+            val moduleProject = project.copy(modules = listOf(module))
+            val analysisCtx = createAnalysisContextWithCp(moduleProject, cpFiles)
+            module to analysisCtx
+        }
+    }
+
+private fun <T> initializeProjectAnalysisContextUtil(
+    project: Project,
+    options: ProjectAnalysisOptions,
+    createAnalysisContext: AnalysisContextBuilder.() -> T
+): T {
+    val dependencyFiles = project.dependencies.map { it.toFile() }
+    val projectModulesFiles = run {
         val moduleFiles = mutableMapOf<File, ProjectModuleClasses>()
         for (module in project.modules) {
             for (cls in module.moduleClasses) {
@@ -45,79 +67,69 @@ fun initializeProjectAnalysisContext(
         moduleFiles
     }
 
-    var db: JIRDatabase
-    var cp: JIRClasspath
-    val projectClasses = ProjectClasses(projectModulesFiles)
-    val classPathExtensionFeature = ProjectClassPathExtensionFeature()
-
-    runBlocking {
-        val allCpFiles = mutableListOf<File>()
-        allCpFiles.addAll(projectModulesFiles.keys)
-        allCpFiles.addAll(dependencyFiles)
-
-        val settings = JIRSettings().apply {
-            val toolchain = project.javaToolchain
-            if (toolchain != null) {
-                useJavaRuntime(toolchain.toFile())
-            } else {
-                useProcessJavaRuntime()
-            }
-
-            persistenceImpl(JIRRamErsSettings)
-
-            installFeatures(InMemoryHierarchy())
-            installFeatures(Usages)
-            keepLocalVariableNames()
-
-            installFeatures(Approximations(emptyList()))
-
-            installClassScorer()
-
-            options.summariesApMode?.let {
-                installFeatures(JIRSummariesFeature(it))
-            }
-
-            loadByteCode(allCpFiles)
+    val settings = JIRSettings().apply {
+        val toolchain = project.javaToolchain
+        if (toolchain != null) {
+            useJavaRuntime(toolchain.toFile())
+        } else {
+            useProcessJavaRuntime()
         }
 
+        persistenceImpl(JIRRamErsSettings)
+
+        installFeatures(InMemoryHierarchy())
+        installFeatures(Usages)
+        keepLocalVariableNames()
+
+        installFeatures(Approximations(emptyList()))
+
+        installClassScorer()
+
+        options.summariesApMode?.let {
+            installFeatures(JIRSummariesFeature(it))
+        }
+
+        loadByteCode(dependencyFiles)
+        loadByteCode(projectModulesFiles.keys.toList())
+    }
+
+    val db: JIRDatabase
+    runBlocking {
         db = opentaintIrDb(settings)
-
         db.awaitBackgroundJobs()
+    }
 
-        val lambdaAnonymousClass = LambdaAnonymousClassFeature()
-        val lambdaTransformer = LambdaExpressionToAnonymousClassTransformerFeature(lambdaAnonymousClass)
-//        val methodNormalizer = MethodReturnInstNormalizerFeature
+    val builder = AnalysisContextBuilder(db, settings, dependencyFiles, projectModulesFiles, options)
+    return builder.createAnalysisContext()
+}
 
-        val features = mutableListOf(
-            KotlinInlineFunctionScopeTransformer,
-            UnknownClasses, lambdaAnonymousClass, lambdaTransformer, /*methodNormalizer,*/
-            JStringConcatTransformer, JMultiDimArrayAllocationTransformer,
-            classPathExtensionFeature,
-            JavaPropertiesResolveTransformer(projectClasses)
-        )
+private data class AnalysisContextBuilder(
+    val db: JIRDatabase,
+    val settings: JIRSettings,
+    val dependencyFiles: List<File>,
+    val projectModulesFiles: Map<File, ProjectModuleClasses>,
+    val options: ProjectAnalysisOptions,
+)
 
-//        note: reactor operators special handling has no reasons for now
-//        features.add(SpringReactorOperatorsTransformer)
+private fun AnalysisContextBuilder.createAnalysisContextWithCp(
+    project: Project,
+    cpFiles: List<File>
+): ProjectAnalysisContext {
+    val (cp, projectClasses) = initializeCp(db, settings, projectModulesFiles, cpFiles)
+    return createAnalysisContext(project, db, cp, projectClasses, options)
+}
 
-        cp = db.classpathWithApproximations(allCpFiles, features)
-            ?: run {
-                logger.warn {
-                    "Classpath with approximations is requested, but some jar paths are missing"
-                }
-                db.classpath(allCpFiles, features)
-            }
-//        cp = db.classpath(allCpFiles, features)
-
-        cp.validate(settings)
-
-        projectClasses.initCp(cp)
-        projectClasses.loadProjectClasses()
-
-        val missedModules = project.modules.toSet() - projectClasses.locationProjectModules.values.toSet()
-        if (missedModules.isNotEmpty()) {
-            logger.warn {
-                "Modules missed for project  ${project.sourceRoot}: ${missedModules.map { it.moduleSourceRoot }}"
-            }
+private fun createAnalysisContext(
+    project: Project,
+    db: JIRDatabase,
+    cp: JIRClasspath,
+    projectClasses: ProjectClasses,
+    options: ProjectAnalysisOptions
+): ProjectAnalysisContext {
+    val missedModules = project.modules.toSet() - projectClasses.locationProjectModules.values.toSet()
+    if (missedModules.isNotEmpty()) {
+        logger.warn {
+            "Modules missed for project  ${project.sourceRoot}: ${missedModules.map { it.moduleSourceRoot }}"
         }
     }
 
@@ -127,6 +139,51 @@ fun initializeProjectAnalysisContext(
         project, options.projectKind, db,
         cp, projectClasses, springContext
     )
+}
+
+private fun initializeCp(
+    db: JIRDatabase,
+    settings: JIRSettings,
+    projectModulesFiles: Map<File, ProjectModuleClasses>,
+    allCpFiles: List<File>
+): Pair<JIRClasspath, ProjectClasses> {
+    val projectClasses = ProjectClasses(projectModulesFiles)
+    val classPathExtensionFeature = ProjectClassPathExtensionFeature()
+
+    val lambdaAnonymousClass = LambdaAnonymousClassFeature()
+    val lambdaTransformer = LambdaExpressionToAnonymousClassTransformerFeature(lambdaAnonymousClass)
+//        val methodNormalizer = MethodReturnInstNormalizerFeature
+
+    val features = mutableListOf(
+        KotlinInlineFunctionScopeTransformer,
+        UnknownClasses, lambdaAnonymousClass, lambdaTransformer, /*methodNormalizer,*/
+        JStringConcatTransformer, JMultiDimArrayAllocationTransformer,
+        classPathExtensionFeature,
+        JavaPropertiesResolveTransformer(projectClasses)
+    )
+
+//        note: reactor operators special handling has no reasons for now
+//        features.add(SpringReactorOperatorsTransformer)
+
+
+    val cp: JIRClasspath
+    runBlocking {
+        cp = db.classpathWithApproximations(allCpFiles, features)
+            ?: run {
+                logger.warn {
+                    "Classpath with approximations is requested, but some jar paths are missing"
+                }
+                db.classpath(allCpFiles, features)
+            }
+//        cp = db.classpath(allCpFiles, features)
+    }
+
+    cp.validate(settings)
+
+    projectClasses.initCp(cp)
+    projectClasses.loadProjectClasses()
+
+    return cp to projectClasses
 }
 
 private fun JIRClasspath.validate(settings: JIRSettings) {

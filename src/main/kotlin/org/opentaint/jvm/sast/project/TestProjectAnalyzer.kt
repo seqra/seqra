@@ -23,6 +23,7 @@ import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import java.nio.file.Path
 import kotlin.io.path.div
 import kotlin.io.path.outputStream
+import kotlin.io.path.relativeTo
 
 class TestProjectAnalyzer(
     project: Project,
@@ -30,7 +31,7 @@ class TestProjectAnalyzer(
     providedOptions: ProjectAnalysisOptions,
 ) {
     private val options = providedOptions.copy(storeSummaries = false)
-    private val projectAnalysisContext = initializeProjectAnalysisContext(project, options)
+    private val projectAnalysisContexts = initializeProjectModulesAnalysisContexts(project, options)
     private val loadedRules = options.loadSemgrepRules()
 
     @Serializable
@@ -53,10 +54,16 @@ class TestProjectAnalyzer(
     )
 
     fun analyze() {
-        projectAnalysisContext.use {
-            val testSamples = it.allProjectTestSamples()
-            it.analyzeTestSamples(testSamples)
+        val results = projectAnalysisContexts.map { (module, ctx) ->
+            val testSetName = ctx.project.sourceRoot?.let { srcRoot ->
+                module.moduleSourceRoot?.relativeTo(srcRoot)?.toString()
+            }.orEmpty().replace('/', '-')
+
+            val testSamples = ctx.allProjectTestSamples()
+            ctx.analyzeTestSamples(testSamples, testSetName)
         }
+
+        writeTestResult(results.joinResults())
     }
 
     private fun ProjectAnalysisContext.allProjectTestSamples(): List<TestSample> {
@@ -79,7 +86,7 @@ class TestProjectAnalyzer(
         return samples
     }
 
-    private fun ProjectAnalysisContext.analyzeTestSamples(testSamples: List<TestSample>) {
+    private fun ProjectAnalysisContext.analyzeTestSamples(testSamples: List<TestSample>, testSetName: String): TestResult {
         val skipped = mutableListOf<TestSample>()
         val disabled = mutableListOf<TestSample>()
 
@@ -112,10 +119,9 @@ class TestProjectAnalyzer(
             results += sample to analysisResult
         }
 
-        generateSarif(results.flatMap { it.second })
+        generateSarif(results.flatMap { it.second }, testSetName)
 
-        val testResult = generateTestResult(skipped, disabled, results)
-        writeTestResult(testResult)
+        return generateTestResult(skipped, disabled, results)
     }
 
     private sealed interface RuleSelectResult {
@@ -211,16 +217,24 @@ class TestProjectAnalyzer(
         )
     }
 
-    private fun ProjectAnalysisContext.generateSarif(traces: List<VulnerabilityWithTrace>) {
+    private fun ProjectAnalysisContext.generateSarif(traces: List<VulnerabilityWithTrace>, testSetName: String) {
         val sourcesResolver = project.sourceResolver(projectClasses)
         val generator = SarifGenerator(
             options.sarifGenerationOptions, project.sourceRoot,
             sourcesResolver, JIRSarifTraits(cp)
         )
-        (resultDir / options.sarifGenerationOptions.sarifFileName).outputStream().use { out ->
+        (resultDir / (testSetName + options.sarifGenerationOptions.sarifFileName)).outputStream().use { out ->
             generator.generateSarif(out, traces.asSequence(), loadedRules.rulesWithMeta.map { it.second })
         }
     }
+
+    private fun List<TestResult>.joinResults(): TestResult = TestResult(
+        success = flatMap { it.success },
+        falseNegative = flatMap { it.falseNegative },
+        falsePositive = flatMap { it.falsePositive },
+        skipped = flatMap { it.skipped },
+        disabled = flatMap { it.disabled },
+    )
 
     @OptIn(ExperimentalSerializationApi::class)
     private fun writeTestResult(testResult: TestResult) {

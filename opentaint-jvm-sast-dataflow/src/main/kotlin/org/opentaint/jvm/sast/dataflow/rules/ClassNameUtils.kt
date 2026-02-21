@@ -7,6 +7,8 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
 
 private const val DOT_DELIMITER = "."
 
+private const val INNER_CLASS_DELIMITER = "$"
+
 fun Pattern.isAny(): Boolean = pattern == ".*"
 
 fun SerializedNameMatcher.normalizeAnyName(): SerializedNameMatcher = when (this) {
@@ -20,6 +22,11 @@ fun SerializedNameMatcher.normalizeAnyName(): SerializedNameMatcher = when (this
 }
 
 fun nameToPattern(name: String): String = name.replace(DOT_DELIMITER, "\\.")
+
+fun String.innerClassNameWithDots(): String? {
+    val nameWithDots = replace(INNER_CLASS_DELIMITER, DOT_DELIMITER)
+    return nameWithDots.takeIf { it != this }
+}
 
 // todo: check pattern for line start/end markers
 fun classNamePattern(pkgPattern: String, clsPattern: String): String =
