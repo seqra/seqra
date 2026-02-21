@@ -16,6 +16,7 @@ import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.jvm.sast.project.rules.analysisConfig
 import org.opentaint.jvm.sast.project.rules.loadSemgrepRules
 import org.opentaint.jvm.sast.project.rules.semgrepRulesWithDefaultConfig
+import org.opentaint.jvm.sast.project.spring.springWebProjectEntryPoints
 import org.opentaint.jvm.sast.sarif.SarifGenerator
 import org.opentaint.project.Project
 import org.opentaint.semgrep.pattern.SemgrepRuleUtils
@@ -59,14 +60,14 @@ class TestProjectAnalyzer(
                 module.moduleSourceRoot?.relativeTo(srcRoot)?.toString()
             }.orEmpty().replace('/', '-')
 
-            val testSamples = ctx.allProjectTestSamples()
+            val testSamples = ctx.allProjectTestSamples(testSetName)
             ctx.analyzeTestSamples(testSamples, testSetName)
         }
 
         writeTestResult(results.joinResults())
     }
 
-    private fun ProjectAnalysisContext.allProjectTestSamples(): List<TestSample> {
+    private fun ProjectAnalysisContext.allProjectTestSamples(testSetName: String): List<TestSample> {
         val samples = mutableListOf<TestSample>()
 
         val classes = projectClasses.allProjectClasses()
@@ -83,7 +84,17 @@ class TestProjectAnalyzer(
                 MethodTestSample(it, sample)
             }
 
-        return samples
+        if (!testSetName.isSpringAppTestSet()) return samples
+
+        logger.info { "Detect spring test set: $testSetName" }
+
+        val springEp = springWebProjectContext?.springWebProjectEntryPoints()?.takeIf { it.isNotEmpty() }
+        if (springEp == null) {
+            logger.error { "No spring entry point found: $testSetName" }
+            return samples
+        }
+
+        return samples.map { SpringTestSample(springEp, it) }
     }
 
     private fun ProjectAnalysisContext.analyzeTestSamples(testSamples: List<TestSample>, testSetName: String): TestResult {
@@ -275,6 +286,14 @@ class TestProjectAnalyzer(
         )
     }
 
+    private data class SpringTestSample(
+        override val methods: List<JIRMethod>,
+        val original: TestSample,
+    ) : TestSample {
+        override val info: SampleInfo get() = original.info
+        override fun toTestInfo(): TestSampleInfo = original.toTestInfo()
+    }
+
     private fun JIRAnnotated.findSampleAnnotation(): SampleInfo? {
         val positive = annotations.filter { it.name == POSITIVE_SAMPLE_ANNOTATION_NAME }
         val negative = annotations.filter { it.name == NEGATIVE_SAMPLE_ANNOTATION_NAME }
@@ -310,5 +329,7 @@ class TestProjectAnalyzer(
 
         private const val POSITIVE_SAMPLE_ANNOTATION_NAME = "org.opentaint.sast.test.util.PositiveRuleSample"
         private const val NEGATIVE_SAMPLE_ANNOTATION_NAME = "org.opentaint.sast.test.util.NegativeRuleSample"
+
+        private fun String.isSpringAppTestSet(): Boolean = startsWith("spring-app-tests")
     }
 }
