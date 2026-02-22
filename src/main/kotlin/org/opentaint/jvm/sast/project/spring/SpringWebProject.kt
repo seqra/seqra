@@ -160,7 +160,7 @@ class SpringWebProjectContext(
         val dependencies = componentDependencies[component]
         if (dependencies != null) return false
 
-        componentDependencies[component] = hashSetOf()
+        componentDependencies[component] = mutableSetOf()
 
         val field = SpringGeneratedField(component.name, component.typename)
         field.bind(componentRegistry)
