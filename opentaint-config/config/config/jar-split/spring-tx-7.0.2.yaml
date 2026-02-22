@@ -1,0 +1,29 @@
+passThrough:
+- function: org.springframework.dao.support.DataAccessUtils#intResult
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.dao.support.DataAccessUtils#longResult
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.dao.support.DataAccessUtils#objectResult
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.dao.support.DataAccessUtils#requiredSingleResult
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.dao.support.DataAccessUtils#requiredUniqueResult
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.dao.support.DataAccessUtils#singleResult
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.dao.support.DataAccessUtils#uniqueResult
+  copy:
+  - from: arg(0)
+    to: result

@@ -1,0 +1,674 @@
+passThrough:
+- function: org.springframework.core.io.InputStreamSource#getInputStream
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.core.io.Resource#getFile
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.core.io.Resource#getFilename
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.core.io.Resource#getURI
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.core.io.Resource#getURL
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.util.AutoPopulatingList#<init>
+  signature: (java.util.List, java.lang.Class) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.util.AutoPopulatingList#<init>
+  signature: (java.util.List, org.springframework.util.AutoPopulatingList$ElementFactory)
+    *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.util.ClassUtils#convertClassNameToResourcePath
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ClassUtils#convertResourcePathToClassName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ClassUtils#getPackageName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ClassUtils#getQualifiedMethodName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ClassUtils#getQualifiedName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ClassUtils#getShortName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ClassUtils#getShortNameAsProperty
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.CollectionUtils#arrayToList
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.util.CollectionUtils#arrayToList
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.CollectionUtils#findFirstMatch
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.springframework.util.CollectionUtils#findFirstMatch
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.util.CollectionUtils#findValueOfType
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.springframework.util.CollectionUtils#findValueOfType
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.CollectionUtils#firstElement
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.springframework.util.CollectionUtils#lastElement
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.springframework.util.CollectionUtils#mergeArrayIntoCollection
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.util.CollectionUtils#mergeArrayIntoCollection
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: org.springframework.util.CollectionUtils#mergePropertiesIntoMap
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - arg(1)
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Dictionary#MapValue#java.lang.Object
+    to:
+    - arg(1)
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - arg(1)
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Dictionary#MapKey#java.lang.Object
+    to:
+    - arg(1)
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.util.CollectionUtils#mergePropertiesIntoMap
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: org.springframework.util.CollectionUtils#toArray
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.CollectionUtils#toIterator
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.springframework.util.CollectionUtils#toMultiValueMap
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.util.CollectionUtils#unmodifiableMultiValueMap
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.util.CompositeIterator#add
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.springframework.util.LinkedMultiValueMap#<init>
+  signature: (java.util.Map) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.util.LinkedMultiValueMap#deepCopy
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.springframework.util.MultiValueMap#add
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.util.MultiValueMap#addAll
+  signature: (org.springframework.util.MultiValueMap) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.util.MultiValueMap#addAll
+  signature: (java.lang.Object, java.util.List) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.util.MultiValueMap#addIfAbsent
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.util.MultiValueMap#getFirst
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.springframework.util.MultiValueMap#set
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.util.MultiValueMap#setAll
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.util.MultiValueMap#toSingleValueMap
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.springframework.util.MultiValueMapAdapter#<init>
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.util.ObjectUtils#addObjectToArray
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.ObjectUtils#addObjectToArray
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.util.ObjectUtils#getDisplayString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ObjectUtils#getIdentityHexString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ObjectUtils#identityToString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ObjectUtils#nullSafeToString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ObjectUtils#toObjectArray
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.ObjectUtils#toObjectArray
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ObjectUtils#unwrapOptional
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Optional#Element#java.lang.Object
+    to: result
+- function: org.springframework.util.PathMatcher#extractPathWithinPattern
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.springframework.util.ReflectionUtils#setField
+  copy:
+  - from: arg(2)
+    to: arg(1)
+- function: org.springframework.util.ReflectionUtils#shallowCopyFieldState
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: org.springframework.util.ResourceUtils#extractJarFileURL
+  signature:
+    params:
+    - index: 0
+      type: java.net.URL
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ResourceUtils#toURI
+  signature:
+    params:
+    - index: 0
+      type: java.net.URL
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#addStringToArray
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.StringUtils#addStringToArray
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.util.StringUtils#applyRelativePath
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.util.StringUtils#arrayToCommaDelimitedString
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.util.StringUtils#arrayToDelimitedString
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.util.StringUtils#capitalize
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.util.StringUtils#cleanPath
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.util.StringUtils#collectionToCommaDelimitedString
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.util.StringUtils#collectionToDelimitedString
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.util.StringUtils#commaDelimitedListToSet
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.util.StringUtils#commaDelimitedListToStringArray
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.util.StringUtils#concatenateStringArrays
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.util.StringUtils#delete
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#deleteAny
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#delimitedListToStringArray
+  copy:
+  - from: arg(*)
+    to: result
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.util.StringUtils#getFilename
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#getFilenameExtension
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#parseLocaleString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#quote
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#quoteIfString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#removeDuplicateStrings
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.StringUtils#removeDuplicateStrings
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#replace
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#sortStringArray
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.StringUtils#sortStringArray
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#split
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#splitArrayElementsIntoProperties
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#stripFilenameExtension
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#toStringArray
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(0)
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.StringUtils#toStringArray
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#tokenizeToStringArray
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#trimAllWhitespace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#trimArrayElements
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#trimLeadingCharacter
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#trimLeadingWhitespace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#trimTrailingCharacter
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#trimTrailingWhitespace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#trimWhitespace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#uncapitalize
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#unqualify
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringValueResolver#resolveStringValue
+  copy:
+  - from: arg(0)
+    to: result

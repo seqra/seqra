@@ -1,0 +1,317 @@
+passThrough:
+- function: com.google.gson.Gson#fromJson
+  condition:
+    typeIs: java.io.StringReader
+    pos: arg(0)
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.gson.Gson#fromJson
+  condition:
+    not:
+      typeIs:
+        package: java.io
+        class:
+          pattern: .*Reader
+      pos: arg(0)
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.gson.Gson#toJson
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+    - index: 1
+      type: java.lang.reflect.Type
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.gson.Gson#toJson
+  copy:
+  - from: arg(0)
+    to: arg(2)
+  - from: arg(0)
+    to: result
+- function: com.google.gson.Gson#toJsonTree
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.gson.JsonArray#add
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.gson.JsonArray#add
+  signature: (*) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.gson.JsonArray#addAll
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.gson.JsonArray#addAll
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.gson.JsonArray#asList
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.gson.JsonArray#get
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: com.google.gson.JsonArray#set
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.gson.JsonElement#getAsCharacter
+  copy:
+  - from: this
+    to: result
+- function: com.google.gson.JsonElement#getAsJsonArray
+  copy:
+  - from: this
+    to: result
+- function: com.google.gson.JsonElement#getAsJsonObject
+  copy:
+  - from: this
+    to: result
+- function: com.google.gson.JsonElement#getAsJsonPrimitive
+  copy:
+  - from: this
+    to: result
+- function: com.google.gson.JsonElement#getAsString
+  copy:
+  - from: this
+    to: result
+- function: com.google.gson.JsonObject#add
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .com.google.gson.JsonObject#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.gson.JsonObject#MapKey#java.lang.Object
+- function: com.google.gson.JsonObject#addProperty
+  signature: (java.lang.String, java.lang.String) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.gson.JsonObject#MapKey#java.lang.Object
+- function: com.google.gson.JsonObject#asMap
+  copy:
+  - from:
+    - this
+    - .com.google.gson.JsonObject#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.gson.JsonObject#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: com.google.gson.JsonObject#entrySet
+  copy:
+  - from:
+    - this
+    - .com.google.gson.JsonObject#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .com.google.gson.JsonObject#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: com.google.gson.JsonObject#get
+  copy:
+  - from:
+    - this
+    - .com.google.gson.JsonObject#MapValue#java.lang.Object
+    to: result
+- function: com.google.gson.JsonObject#keySet
+  copy:
+  - from:
+    - this
+    - .com.google.gson.JsonObject#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.gson.JsonParser#parse
+  signature:
+    params:
+    - index: 0
+      type: com.google.gson.stream.JsonReader
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.gson.JsonParser#parse
+  signature:
+    params:
+    - index: 0
+      type: java.io.Reader
+  condition:
+    typeIs: java.io.StringReader
+    pos: arg(0)
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.gson.JsonParser#parse
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.gson.JsonStreamParser#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.io.Reader
+  condition:
+    typeIs: java.io.StringReader
+    pos: arg(0)
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.gson.JsonStreamParser#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: com.google.gson.JsonStreamParser#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.gson.JsonStreamParser#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: com.google.gson.stream.JsonReader#<init>
+  condition:
+    typeIs: java.io.StringReader
+    pos: arg(0)
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.gson.stream.JsonReader#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: com.google.gson.stream.JsonReader#nextName
+  copy:
+  - from:
+    - this
+    - .com.google.gson.stream.JsonReader#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.google.gson.stream.JsonReader#nextString
+  copy:
+  - from:
+    - this
+    - .com.google.gson.stream.JsonReader#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.google.gson.stream.JsonReader#peek
+  copy:
+  - from:
+    - this
+    - .com.google.gson.stream.JsonReader#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.google.gson.stream.JsonWriter#beginArray
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    to: result
+- function: com.google.gson.stream.JsonWriter#beginObject
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    to: result
+- function: com.google.gson.stream.JsonWriter#endArray
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    to: result
+- function: com.google.gson.stream.JsonWriter#endObject
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    to: result
+- function: com.google.gson.stream.JsonWriter#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: com.google.gson.stream.JsonWriter#name
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    to: result
+- function: com.google.gson.stream.JsonWriter#nullValue
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    to: result
+- function: com.google.gson.stream.JsonWriter#value
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.google.gson.stream.JsonWriter#<rule-storage>#java.lang.Object
+    to: result

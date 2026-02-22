@@ -1,0 +1,29 @@
+passThrough:
+- function: com.alibaba.fastjson.JSON#parse
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - arg(0)
+    - .java.lang.String#<serialized-value>#java.lang.Object
+    to: result
+- function: com.alibaba.fastjson.JSON#parseObject
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - arg(0)
+    - .java.lang.String#<serialized-value>#java.lang.Object
+    to: result
+- function: com.alibaba.fastjson.JSON#parseArray
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.String#<serialized-value>#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object

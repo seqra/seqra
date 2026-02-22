@@ -1,0 +1,9 @@
+passThrough:
+- function: io.netty.util.ReferenceCounted#retain
+  copy:
+  - from: this
+    to: result
+- function: io.netty.util.ReferenceCounted#touch
+  copy:
+  - from: this
+    to: result

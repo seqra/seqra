@@ -1,0 +1,5 @@
+passThrough:
+- function: org.springframework.data.repository.CrudRepository#save
+  copy:
+  - from: arg(0)
+    to: result

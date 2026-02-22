@@ -1,0 +1,286 @@
+passThrough:
+- function: org.springframework.cache.Cache$ValueRetrievalException#<init>
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.cache.Cache$ValueRetrievalException#Key#java.lang.Object
+- function: org.springframework.cache.Cache$ValueRetrievalException#getKey
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.springframework.cache.Cache$ValueRetrievalException#Key#java.lang.Object
+    to: result
+- function: org.springframework.cache.Cache$ValueWrapper#get
+  copy:
+  - from:
+    - this
+    - .org.springframework.cache.Cache$ValueWrapper#Value#java.lang.Object
+    to: result
+- function: org.springframework.cache.Cache#get
+  signature: (java.lang.Object) *
+  copy:
+  - from:
+    - this
+    - .org.springframework.cache.Cache#MapValue#java.lang.Object
+    to:
+    - result
+    - .org.springframework.cache.Cache$ValueWrapper#Value#java.lang.Object
+- function: org.springframework.cache.Cache#get
+  signature: (java.lang.Object, *) *
+  copy:
+  - from:
+    - this
+    - .org.springframework.cache.Cache#MapValue#java.lang.Object
+    to: result
+- function: org.springframework.cache.Cache#getNativeCache
+  copy:
+  - from:
+    - this
+    - .org.springframework.cache.Cache#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.springframework.cache.Cache#put
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.cache.Cache#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.cache.Cache#MapKey#java.lang.Object
+- function: org.springframework.cache.Cache#putIfAbsent
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.cache.Cache#MapValue#java.lang.Object
+  - from:
+    - this
+    - .org.springframework.cache.Cache#MapValue#java.lang.Object
+    to:
+    - result
+    - .org.springframework.cache.Cache$ValueWrapper#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.cache.Cache#MapKey#java.lang.Object
+- function: org.springframework.jndi.JndiLocatorSupport#convertJndiName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.ui.ConcurrentModel#<init>
+  signature: (java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.ui.Model#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.springframework.ui.ConcurrentModel#<init>
+  signature: (java.lang.String, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.ui.Model#MapValue#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.ui.Model#MapKey#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.ui.Model#addAllAttributes
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .org.springframework.ui.Model#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .org.springframework.ui.Model#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .org.springframework.ui.Model#MapValue#java.lang.Object
+- function: org.springframework.ui.Model#addAllAttributes
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.ui.Model#addAttribute
+  signature: (java.lang.Object) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.ui.Model#MapValue#java.lang.Object
+- function: org.springframework.ui.Model#addAttribute
+  signature: (java.lang.String, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.ui.Model#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.ui.Model#MapKey#java.lang.Object
+- function: org.springframework.ui.Model#addAttribute
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.ui.Model#asMap
+  copy:
+  - from:
+    - this
+    - .org.springframework.ui.Model#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .org.springframework.ui.Model#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.springframework.ui.Model#getAttribute
+  copy:
+  - from:
+    - this
+    - .org.springframework.ui.Model#MapValue#java.lang.Object
+    to: result
+- function: org.springframework.ui.Model#mergeAttributes
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .org.springframework.ui.Model#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .org.springframework.ui.Model#MapValue#java.lang.Object
+  - from: this
+    to: result
+- function: org.springframework.ui.ModelMap#<init>
+  signature: (java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.springframework.ui.ModelMap#<init>
+  signature: (java.lang.String, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.ui.ModelMap#addAllAttributes
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.springframework.ui.ModelMap#addAllAttributes
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.ui.ModelMap#addAttribute
+  signature: (java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.springframework.ui.ModelMap#addAttribute
+  signature: (java.lang.String, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.ui.ModelMap#addAttribute
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.ui.ModelMap#getAttribute
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: org.springframework.ui.ModelMap#mergeAttributes
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: this
+    to: result

@@ -1,0 +1,539 @@
+passThrough:
+- function: org.springframework.web.util.HtmlUtils#htmlEscape
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.util.HtmlUtils#htmlEscapeDecimal
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.util.HtmlUtils#htmlEscapeHex
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.http.HttpEntity#getBody
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+    to: result
+- function: org.springframework.http.HttpEntity#getHeaders
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+    to: result
+- function: org.springframework.http.HttpEntity#<init>
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+- function:
+    package: org.springframework.http
+    class: HttpHeaders
+    name:
+      pattern: set.+
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpHeaders#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.springframework.http.RequestEntity$BodyBuilder#body
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.http.RequestEntity$BodyBuilder#body
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$BodyBuilder#contentLength
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$BodyBuilder#contentType
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#accept
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#acceptCharset
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#build
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#header
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#header
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#headers
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#ifModifiedSince
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#ifNoneMatch
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#delete
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#get
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#head
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#<init>
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+- function: org.springframework.http.RequestEntity#method
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#options
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#patch
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#post
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#put
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$BodyBuilder#body
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+- function: org.springframework.http.ResponseEntity$BodyBuilder#body
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$BodyBuilder#contentLength
+  signature: (long) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$BodyBuilder#contentLength
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$BodyBuilder#contentType
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$BodyBuilder#contentType
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#allow
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#allow
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#build
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#cacheControl
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#eTag
+  signature: (java.lang.String) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#eTag
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#header
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#header
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#header
+  signature: (java.lang.String, *) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#headers
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#headers
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#headers
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#lastModified
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#location
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#location
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#varyBy
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity#created
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.http.ResponseEntity#getBody
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+    to: result
+- function: org.springframework.http.ResponseEntity#<init>
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+- function: org.springframework.http.ResponseEntity#ok
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+- function: org.springframework.http.ResponseEntity#status
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.multipart.MultipartFile#getBytes
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.multipart.MultipartFile#getContentType
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.multipart.MultipartFile#getInputStream
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.multipart.MultipartFile#getName
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.multipart.MultipartFile#getOriginalFilename
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getAttribute
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getAttribute
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getAttributes
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getAttributes
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getFormData
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getFormData
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getMultipartData
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getMultipartData
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getRequest
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getRequest
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getRequiredAttribute
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getRequiredAttribute
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getResponse
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getResponse
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#mutate
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#mutate
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.JavaScriptUtils#javaScriptEscape
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.util.UriBuilder#fragment
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#host
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#path
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#pathSegment
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#port
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#query
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#queryParam
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#queryParamIfPresent
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#queryParams
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#replacePath
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#replaceQuery
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#replaceQueryParam
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#replaceQueryParams
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#scheme
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#userInfo
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriComponents$UriTemplateVariables#getValue
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.util.UriComponents$UriTemplateVariables#MapValue#java.lang.Object
+    to: result
+- function: org.springframework.web.util.UriComponentsBuilder#cloneBuilder
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriComponentsBuilder#encode
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriComponentsBuilder#schemeSpecificPart
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriComponentsBuilder#uri
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriComponentsBuilder#uriComponents
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriComponentsBuilder#uriVariables
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriTemplate#expand
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.web.util.UriTemplate#expand
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriTemplate#<init>
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.util.UriTemplate#match
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.web.util.UriTemplate#match
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UrlPathHelper#decodeMatrixVariables
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.web.util.UrlPathHelper#decodePathVariables
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.web.util.WebUtils#findParameterValue
+  signature: (*, java.lang.String) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result

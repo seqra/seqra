@@ -1,0 +1,594 @@
+passThrough:
+- function: javax.ws.rs.core.AbstractMultivaluedMap#<init>
+  signature: (java.util.Map) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: javax.ws.rs.core.Form#param
+  signature: (java.lang.String, java.lang.String) javax.ws.rs.core.Form
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.GenericEntity#<init>
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.ws.rs.core.GenericEntity#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.ws.rs.core.GenericEntity#<init>
+  signature: (java.lang.Object, java.lang.reflect.Type) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.ws.rs.core.GenericEntity#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.ws.rs.core.MultivaluedHashMap#<init>
+  signature: (java.util.Map) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: javax.ws.rs.core.MultivaluedHashMap#<init>
+  signature: (javax.ws.rs.core.MultivaluedMap) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: javax.ws.rs.core.MultivaluedMap#add
+  signature: (java.lang.Object, java.lang.Object) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: javax.ws.rs.core.MultivaluedMap#addAll
+  signature: (java.lang.Object, java.lang.Object[]) void
+  copy:
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: javax.ws.rs.core.MultivaluedMap#addAll
+  signature: (java.lang.Object, java.util.List) void
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: javax.ws.rs.core.MultivaluedMap#addFirst
+  signature: (java.lang.Object, java.lang.Object) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: javax.ws.rs.core.MultivaluedMap#getFirst
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.MultivaluedMap#putSingle
+  signature: (java.lang.Object, java.lang.Object) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: javax.ws.rs.core.Response$ResponseBuilder#allow
+  signature: (java.lang.String[]) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#allow
+  signature: (java.util.Set) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#cacheControl
+  signature: (javax.ws.rs.core.CacheControl) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#contentLocation
+  signature: (java.net.URI) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#cookie
+  signature: (javax.ws.rs.core.NewCookie[]) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#encoding
+  signature: (java.lang.String) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#entity
+  signature: (java.lang.Object) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#entity
+  signature: (java.lang.Object, java.lang.annotation.Annotation[]) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#expires
+  signature: (java.util.Date) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#header
+  signature: (java.lang.String, java.lang.Object) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#language
+  signature: (java.lang.String) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#language
+  signature: (java.util.Locale) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#lastModified
+  signature: (java.util.Date) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#link
+  signature: (java.lang.String, java.lang.String) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#link
+  signature: (java.net.URI, java.lang.String) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#links
+  signature: (javax.ws.rs.core.Link[]) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#location
+  signature: (java.net.URI) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#replaceAll
+  signature: (javax.ws.rs.core.MultivaluedMap) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#status
+  signature: (int) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#status
+  signature: (javax.ws.rs.core.Response$Status) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#status
+  signature: (javax.ws.rs.core.Response$StatusType) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#status
+  signature: (int, java.lang.String) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#tag
+  signature: (java.lang.String) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#tag
+  signature: (javax.ws.rs.core.EntityTag) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#type
+  signature: (java.lang.String) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#type
+  signature: (javax.ws.rs.core.MediaType) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#variant
+  signature: (javax.ws.rs.core.Variant) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#variants
+  signature: (java.util.List) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.Response$ResponseBuilder#variants
+  signature: (javax.ws.rs.core.Variant[]) javax.ws.rs.core.Response$ResponseBuilder
+  copy:
+  - from: this
+    to: result
+- function: javax.ws.rs.core.UriBuilder#build
+  signature: (java.lang.Object[]) java.net.URI
+  copy:
+  - from: arg(*)
+    to: result
+- function: javax.ws.rs.core.UriBuilder#build
+  signature: (java.lang.Object[], boolean) java.net.URI
+  copy:
+  - from: arg(*)
+    to: result
+- function: javax.ws.rs.core.UriBuilder#buildFromEncoded
+  signature: (java.lang.Object[]) java.net.URI
+  copy:
+  - from: arg(*)
+    to: result
+- function: javax.ws.rs.core.UriBuilder#buildFromEncodedMap
+  signature: (java.util.Map) java.net.URI
+  copy:
+  - from: arg(*)
+    to: result
+- function: javax.ws.rs.core.UriBuilder#buildFromMap
+  signature: (java.util.Map) java.net.URI
+  copy:
+  - from: arg(*)
+    to: result
+- function: javax.ws.rs.core.UriBuilder#buildFromMap
+  signature: (java.util.Map, boolean) java.net.URI
+  copy:
+  - from: arg(*)
+    to: result
+- function: javax.ws.rs.core.UriBuilder#fragment
+  signature: (java.lang.String) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#fromPath
+  signature: (java.lang.String) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+- function: javax.ws.rs.core.UriBuilder#fromUri
+  signature: (java.lang.String) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.ws.rs.core.UriBuilder#fromUri
+  signature: (java.net.URI) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.ws.rs.core.UriBuilder#host
+  signature: (java.lang.String) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#matrixParam
+  signature: (java.lang.String, java.lang.Object[]) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#path
+  signature: (java.lang.Class) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#path
+  signature: (java.lang.String) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#path
+  signature: (java.lang.reflect.Method) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#path
+  signature: (java.lang.Class, java.lang.String) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#port
+  signature: (int) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+- function: javax.ws.rs.core.UriBuilder#queryParam
+  signature: (java.lang.String, java.lang.Object[]) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#replaceMatrix
+  signature: (java.lang.String) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#replaceMatrixParam
+  signature: (java.lang.String, java.lang.Object[]) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#replacePath
+  signature: (java.lang.String) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#replaceQuery
+  signature: (java.lang.String) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#replaceQueryParam
+  signature: (java.lang.String, java.lang.Object[]) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#resolveTemplate
+  signature: (java.lang.String, java.lang.Object) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#resolveTemplate
+  signature: (java.lang.String, java.lang.Object, boolean) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#resolveTemplateFromEncoded
+  signature: (java.lang.String, java.lang.Object) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#resolveTemplates
+  signature: (java.util.Map) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#resolveTemplates
+  signature: (java.util.Map, boolean) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#resolveTemplatesFromEncoded
+  signature: (java.util.Map) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#scheme
+  signature: (java.lang.String) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#schemeSpecificPart
+  signature: (java.lang.String) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#segment
+  signature: (java.lang.String[]) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#uri
+  signature: (java.lang.String) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#uri
+  signature: (java.net.URI) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.ws.rs.core.UriBuilder#userInfo
+  signature: (java.lang.String) javax.ws.rs.core.UriBuilder
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.ws.rs.core.UriBuilder#<rule-storage>#java.lang.Object
+    to: result

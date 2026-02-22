@@ -1,0 +1,8 @@
+passThrough:
+- function: org.apache.hc.client5.http.protocol.RedirectLocations#add
+  signature: (*) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hc.client5.http.protocol.RedirectLocations#Element#java.lang.Object

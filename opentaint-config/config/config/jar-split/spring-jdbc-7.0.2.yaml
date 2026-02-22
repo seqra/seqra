@@ -1,0 +1,37 @@
+passThrough:
+- function: org.springframework.jdbc.core.support.SqlLobValue#<init>
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.jdbc.support.rowset.SqlRowSet#getObject
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.jdbc.support.rowset.SqlRowSet#getString
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.jdbc.support.xml.SqlXmlHandler#getXmlAsSource
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.jdbc.support.xml.SqlXmlHandler#getXmlAsString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.jdbc.support.xml.SqlXmlHandler#newSqlXmlValue
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.jdbc.support.xml.SqlXmlHandler#newSqlXmlValue
+  signature:
+    params:
+    - index: 0
+      type: org.w3c.dom.Document
+  copy:
+  - from: arg(0)
+    to: result

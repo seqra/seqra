@@ -1,0 +1,1132 @@
+passThrough:
+- function: javax.naming.NameClassPair#getObject
+  copy:
+  - from:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.NameClassPair#setObject
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.naming.ldap.UnsolicitiedNotification#getReferrals
+  copy:
+  - from: this
+    to: result
+- function: org.xml.sax.InputSource#setCharactedStream
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.stream.DOMSource#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.stream.DOMSource#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.stream.SAXSource#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.stream.SAXSource#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.stream.StAXSource#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.stream.StAXSource#<rule-storage>#java.lang.Object
+- function: com.fasterxml.jackson.core.ObjectMapper#convertValue
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.core.ObjectMapper#treeAsTokens
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.core.ObjectMapper#treeToValue
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.core.ObjectMapper#valueToTree
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.core.ObjectMapper#writeTree
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: com.fasterxml.jackson.core.ObjectMapper#writeValue
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: com.fasterxml.jackson.core.ObjectReader#convertValue
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.core.ObjectReader#treeAsTokens
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.core.ObjectReader#treeToValue
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.core.ObjectReader#valueToTree
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.core.ObjectReader#writeTree
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: com.fasterxml.jackson.core.ObjectReader#writeValue
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: com.fasterxml.jackson.core.ObjectWriter#writeTree
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: com.fasterxml.jackson.core.ObjectWriter#writeValue
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: com.fasterxml.jackson.core.ParserBase#getBinaryValue
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#getCurrentName
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#getCurrentToken
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#getEmbeddedObject
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#getInputSource
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#getLastClearedToken
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#getObjectId
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#getParsingContext
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#getText
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#getTextCharacters
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#getValueAsString
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#nextFieldName
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#nextTextValue
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#nextToken
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#nextValue
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#overrideCurrentName
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: com.fasterxml.jackson.core.ParserBase#readBinaryValue
+  signature:
+    params:
+    - index: 0
+      type: com.fasterxml.jackson.core.Base64Variant
+    - index: 1
+      type: java.io.OutputStream
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: arg(1)
+  - from: this
+    to: arg(1)
+- function: com.fasterxml.jackson.core.ParserBase#readBinaryValue
+  signature:
+    params:
+    - index: 0
+      type: java.io.OutputStream
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: arg(0)
+  - from: this
+    to: arg(0)
+- function: com.fasterxml.jackson.core.ParserBase#readValueAs
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#readValueAsTree
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#readValuesAs
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserBase#releaseBuffered
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserBase#<rule-storage>#java.lang.Object
+    to: arg(1)
+  - from: this
+    to: arg(1)
+- function: com.fasterxml.jackson.core.ParserMinimalBase#getBinaryValue
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#getCurrentName
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#getCurrentToken
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#getEmbeddedObject
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#getInputSource
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#getLastClearedToken
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#getObjectId
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#getParsingContext
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#getText
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#getTextCharacters
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#getValueAsString
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#nextFieldName
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#nextTextValue
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#nextToken
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#nextValue
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#overrideCurrentName
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: com.fasterxml.jackson.core.ParserMinimalBase#readBinaryValue
+  signature:
+    params:
+    - index: 0
+      type: com.fasterxml.jackson.core.Base64Variant
+    - index: 1
+      type: java.io.OutputStream
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: arg(1)
+  - from: this
+    to: arg(1)
+- function: com.fasterxml.jackson.core.ParserMinimalBase#readBinaryValue
+  signature:
+    params:
+    - index: 0
+      type: java.io.OutputStream
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: arg(0)
+  - from: this
+    to: arg(0)
+- function: com.fasterxml.jackson.core.ParserMinimalBase#readValueAs
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#readValueAsTree
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#readValuesAs
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.core.ParserMinimalBase#releaseBuffered
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.ParserMinimalBase#<rule-storage>#java.lang.Object
+    to: arg(1)
+  - from: this
+    to: arg(1)
+- function:
+    package: com.fasterxml.jackson.core
+    class: SerializableString
+    name:
+      pattern: <init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.fasterxml.jackson.core.SerializableString#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: com.fasterxml.jackson.core.TreeCodec#convertValue
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.core.TreeCodec#treeToValue
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.core.TreeCodec#valueToTree
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.core.TreeCodec#writeValue
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: com.fasterxml.jackson.core.base.JsonParser#getBinaryValue
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#getCurrentName
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#getCurrentToken
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#getEmbeddedObject
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#getInputSource
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#getLastClearedToken
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#getObjectId
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#getParsingContext
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#getText
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#getTextCharacters
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#getValueAsString
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#nextFieldName
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#nextTextValue
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#nextToken
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#nextValue
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#overrideCurrentName
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: com.fasterxml.jackson.core.base.JsonParser#readBinaryValue
+  signature:
+    params:
+    - index: 0
+      type: com.fasterxml.jackson.core.Base64Variant
+    - index: 1
+      type: java.io.OutputStream
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: arg(1)
+  - from: this
+    to: arg(1)
+- function: com.fasterxml.jackson.core.base.JsonParser#readBinaryValue
+  signature:
+    params:
+    - index: 0
+      type: java.io.OutputStream
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: arg(0)
+  - from: this
+    to: arg(0)
+- function: com.fasterxml.jackson.core.base.JsonParser#readValueAs
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#readValueAsTree
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#readValuesAs
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.core.base.JsonParser#releaseBuffered
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.core.base.JsonParser#<rule-storage>#java.lang.Object
+    to: arg(1)
+  - from: this
+    to: arg(1)
+- function: com.fasterxml.jackson.databind.JsonNode#asToken
+  copy:
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.databind.JsonNode#getElementValue
+  copy:
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.databind.JsonNode#getElements
+  copy:
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.databind.JsonNode#getFieldNames
+  copy:
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.databind.JsonNode#getPath
+  copy:
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.databind.JsonNode#getTextValue
+  copy:
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.databind.JsonNode#getValueAsText
+  copy:
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.databind.ObjectCodec#writeTree
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: com.fasterxml.jackson.databind.ObjectCodec#writeValue
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: com.fasterxml.jackson.databind.ObjectReader#convertValue
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.databind.ObjectReader#valueToTree
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.databind.ObjectWriter#writeTree
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: com.fasterxml.jackson.databind.TreeCodec#convertValue
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.databind.TreeCodec#treeAsTokens
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.databind.TreeCodec#treeToValue
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.databind.TreeCodec#valueToTree
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.databind.TreeCodec#writeTree
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: com.fasterxml.jackson.databind.TreeCodec#writeValue
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: com.fasterxml.jackson.databind.node.BinaryNode#getBinaryValue
+  copy:
+  - from:
+    - this
+    - .com.fasterxml.jackson.databind.node.BinaryNode#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.databind.node.ContainerNode#POJONode
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.databind.node.JsonNodeFactory#POJONode
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.databind.node.MissingNode#valueOf
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.databind.node.NullNode#valueOf
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.databind.node.POJONode#valueOf
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.databind.node.TextNode#getTextValue
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.databind.node.TextNode#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.databind.util.ArrayBuilders#addToList
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ArrayBuilders#arrayToList
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ArrayBuilders#insertInList
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ArrayBuilders#setAndArray
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ContainerBuilder#add
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ContainerBuilder#put
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ContainerBuilder#startList
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ContainerBuilder#startMap
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Parser#getCurrentNamenextToken
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Parser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Parser#getEmbeddedValue
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Parser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Parser#getObjectIdnextToken
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Parser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Parser#getTextCharactersnextToken
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Parser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Parser#getTextnextToken
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Parser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Segment#appendRaw
+  copy:
+  - from: arg(2)
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Segment#appendRaw
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Segment#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+- function: com.google.gson.Gson#toJson
+  signature:
+    params:
+    - index: 0
+      type: com.google.gson.stream.JsonWriter
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: com.google.gson.Gson#toJson
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Appendable
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: org.apache.commons.collections.CollectionUtils#emptyIfNull
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.collections.IterableUtils#emptyIfNull
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.collections.ListUtils#defaultIfNull
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.collections.ListUtils#emptyIfNull
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.collections.MapUtils#emptyIfNull
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.collections.MultiMapUtils#emptyIfNull
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.collections.SetUtils#emptyIfNull
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.collections.map.EntrySetToMapIteratorAdapter#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: org.apache.commons.collections4.IteratorUtils#getIterator
+  signature: (java.util.Iterator) java.util.Iterator
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.Resource#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.Resource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.springframework.jdbc.support.xml.SqlXmlObjectMappingHandler#getXmlAsObject
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.jdbc.support.xml.SqlXmlObjectMappingHandler#newMarshallingSqlXmlValue
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.DefaultPropertiesPersister#escape
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.DefaultPropertiesPersister#unescape
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#mergeStringArrays
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.StringUtils#mergeStringArrays
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function:
+    package: org.springframework.web.server
+    class: ServerWebExchange
+    name:
+      pattern: "\n                        getAttributeOrDefault"
+  copy:
+  - from: arg(1)
+    to: result
+- function:
+    package: org.springframework.web.server
+    class: ServerWebExchange
+    name:
+      pattern: "\n                        getAttributeOrDefault"
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.CookieGenerator#getCookieDomain
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.CookieGenerator#getCookieName
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.CookieGenerator#getCookiePath
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.WebUtils#extractFilenameFromUrlPath
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.w3c.dom.Node#getDocumentElement
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getremoveChild
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getreplaceChild
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: reactor.core.publisher.Flux#firstEmitting
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Flux#firstEmittingWith
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#firstEmittingWith
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#subscriberContext
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#doOnComplete
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#publishNext
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#range
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#subscriberContext
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#toProcessor
+  copy:
+  - from: this
+    to: result
+- function:
+    package: org.apache.axis.types
+    class:
+      pattern: .*
+    name:
+      pattern: get.*
+  copy:
+    - from: this
+      to: result
+- function:
+    package: org.apache.axis.types
+    class:
+      pattern: .*
+    name:
+      pattern: <init>
+  copy:
+    - from: arg(*)
+      to: this
+- function:
+    package: org.apache.axis.types
+    class:
+      pattern: .*
+    name:
+      pattern: set.*
+  copy:
+    - from: arg(*)
+      to: this

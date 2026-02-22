@@ -1,0 +1,5 @@
+passThrough:
+- function: com.sun.mail.pop3.POP3Folder#getUID
+  copy:
+  - from: this
+    to: result

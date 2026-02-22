@@ -1,0 +1,2512 @@
+passThrough:
+- function: org.apache.commons.collections.ArrayStack#peek
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.ArrayStack#pop
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.ArrayStack#push
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.collections.ArrayStack#push
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.Bag#add
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.Bag#uniqueSet
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.BagUtils#predicatedBag
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.BagUtils#predicatedSortedBag
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.BagUtils#synchronizedBag
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.BagUtils#synchronizedSortedBag
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.BagUtils#unmodifiableBag
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.BagUtils#unmodifiableSortedBag
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.BidiMap#getKey
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.BidiMap#inverseBidiMap
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.BidiMap#removeValue
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.CollectionUtils#addAll
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.CollectionUtils#addIgnoreNull
+  copy:
+  - from: arg(1)
+    to:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.CollectionUtils#disjunction
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.CollectionUtils#find
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.CollectionUtils#getCardinalityMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.CollectionUtils#intersection
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.CollectionUtils#predicatedCollection
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.CollectionUtils#removeAll
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.CollectionUtils#retainAll
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.CollectionUtils#select
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.CollectionUtils#select
+  signature: (*, *, *) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - arg(2)
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(2)
+    to: result
+- function: org.apache.commons.collections.CollectionUtils#selectRejected
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.CollectionUtils#selectRejected
+  signature: (*, *, *) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - arg(2)
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(2)
+    to: result
+- function: org.apache.commons.collections.CollectionUtils#subtract
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.CollectionUtils#synchronizedCollection
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.CollectionUtils#union
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.CollectionUtils#unmodifiableCollection
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.EnumerationUtils#toList
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#arrayIterator
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#arrayListIterator
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#asEnumeration
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Enumeration#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#asIterator
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#chainedIterator
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#chainedIterator
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#collatedIterator
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(1)
+    - '[*]'
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#collatedIterator
+  signature: (*, *, *) *
+  copy:
+  - from:
+    - arg(2)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#filteredIterator
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#filteredListIterator
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#loopingIterator
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#loopingListIterator
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#singletonIterator
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#singletonListIterator
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#toArray
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.collections.IteratorUtils#toList
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#toListIterator
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#unmodifiableIterator
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.IteratorUtils#unmodifiableListIterator
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.LRUMap#get
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.collections.LRUMap#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.collections.LRUMap#put
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.collections.LRUMap#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.collections.LRUMap#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.commons.collections.LRUMap#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.collections.LRUMap#readExternal
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.collections.LRUMap#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.collections.LRUMap#writeExternal
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.collections.LRUMap#<rule-storage>#java.lang.Object
+    to: arg(0)
+  - from: this
+    to: arg(0)
+- function: org.apache.commons.collections.ListUtils#fixedSizeList
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.ListUtils#intersection
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.ListUtils#lazyList
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.ListUtils#predicatedList
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.ListUtils#removeAll
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.ListUtils#retainAll
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.ListUtils#subtract
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.ListUtils#sum
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.ListUtils#synchronizedList
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.ListUtils#transformedList
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.ListUtils#union
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.ListUtils#unmodifiableList
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.MapIterator#getKey
+  copy:
+  - from:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.MapIterator#hasNext
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.collections.MapIterator#next
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.collections.MapIterator#remove
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.collections.MapUtils#fixedSizeMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#fixedSizeSortedMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#getMap
+  copy:
+  - from: arg(2)
+    to: result
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.MapUtils#getObject
+  copy:
+  - from: arg(2)
+    to: result
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.MapUtils#getString
+  copy:
+  - from: arg(2)
+    to: result
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.MapUtils#invertMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#lazyMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#lazySortedMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#multiValueMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#orderedMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#predicatedMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#predicatedSortedMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#safeAddToMap
+  copy:
+  - from: arg(2)
+    to:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(1)
+    to:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#synchronizedMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#synchronizedSortedMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#toMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.ResourceBundle#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.ResourceBundle#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#transformedMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#transformedSortedMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#unmodifiableMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MapUtils#unmodifiableSortedMap
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MultiMap#get
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.MultiMap#put
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.MultiMap#values
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.OrderedIterator#previous
+  copy:
+  - from:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.OrderedMap#firstKey
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.OrderedMap#lastKey
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.OrderedMap#nextKey
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.OrderedMap#previousKey
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.SetUtils#orderedSet
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.SetUtils#predicatedSet
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.SetUtils#predicatedSortedSet
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.SetUtils#synchronizedSet
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.SetUtils#synchronizedSortedSet
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.SetUtils#transformedSet
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.SetUtils#transformedSortedSet
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.SetUtils#unmodifiableSet
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.SetUtils#unmodifiableSortedSet
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.SortedBag#first
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.SortedBag#last
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.bag.AbstractBagDecorator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.bag.AbstractMapBag#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.bag.AbstractMapBag#getMap
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.bag.AbstractSortedBagDecorator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.bag.HashBag#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.bag.TreeBag#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.bidimap.AbstractBidiMapDecorator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.bidimap.AbstractDualBidiMap#<init>
+  copy:
+  - from:
+    - arg(2)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(2)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.bidimap.AbstractOrderedBidiMapDecorator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.bidimap.AbstractSortedBidiMapDecorator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.bidimap.DualHashBidiMap#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.bidimap.DualTreeBidiMap#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.bidimap.DualTreeBidiMap#inverseOrderedBidiMap
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.bidimap.DualTreeBidiMap#inverseSortedBidiMap
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.bidimap.TreeBidiMap#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.bidimap.UnmodifiableOrderedBidiMap#inverseOrderedBidiMap
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.collection.AbstractCollectionDecorator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.collection.CompositeCollection#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.collection.CompositeCollection#addComposited
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.collection.CompositeCollection#addComposited
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.collection.CompositeCollection#toCollection
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.AbstractIteratorDecorator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.AbstractListIteratorDecorator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.AbstractListIteratorDecorator#getListIterator
+  copy:
+  - from:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.ArrayIterator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.ArrayIterator#getArray
+  copy:
+  - from:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.collections.iterators.ArrayListIterator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.CollatingIterator#<init>
+  signature: (*, *, *) *
+  copy:
+  - from:
+    - arg(2)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.CollatingIterator#addIterator
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.CollatingIterator#setIterator
+  copy:
+  - from:
+    - arg(1)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.EnumerationIterator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.EnumerationIterator#getEnumeration
+  copy:
+  - from:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Enumeration#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.EnumerationIterator#setEnumeration
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.FilterIterator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.FilterIterator#getIterator
+  copy:
+  - from:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.FilterIterator#setIterator
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.FilterListIterator#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.FilterListIterator#<init>
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.FilterListIterator#getListIterator
+  copy:
+  - from:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.FilterListIterator#setListIterator
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.IteratorChain#<init>
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.IteratorChain#addIterator
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.IteratorEnumeration#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Enumeration#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.IteratorEnumeration#getIterator
+  copy:
+  - from:
+    - this
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.IteratorEnumeration#setIterator
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Enumeration#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.ListIteratorWrapper#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.LoopingIterator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.LoopingListIterator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.ObjectArrayIterator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.ObjectArrayIterator#getArray
+  copy:
+  - from:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.collections.iterators.ObjectArrayListIterator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.ReverseListIterator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.SingletonIterator#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.SingletonListIterator#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.iterators.UniqueFilterIterator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.keyvalue.AbstractMapEntry#<init>
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: org.apache.commons.collections.keyvalue.AbstractMapEntryDecorator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: org.apache.commons.collections.keyvalue.AbstractMapEntryDecorator#getMapEntry
+  copy:
+  - from:
+    - this
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: org.apache.commons.collections.keyvalue.DefaultMapEntry#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: org.apache.commons.collections.keyvalue.DefaultMapEntry#<init>
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: org.apache.commons.collections.keyvalue.TiedMapEntry#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: org.apache.commons.collections.keyvalue.UnmodifiableMapEntry#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: org.apache.commons.collections.keyvalue.UnmodifiableMapEntry#<init>
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: org.apache.commons.collections.list.AbstractLinkedList#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.list.AbstractLinkedList#addFirst
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.list.AbstractLinkedList#addLast
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.list.AbstractLinkedList#getFirst
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.list.AbstractLinkedList#getLast
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.list.AbstractLinkedList#removeFirst
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.list.AbstractLinkedList#removeLast
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.list.AbstractListDecorator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.list.AbstractSerializableListDecorator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.list.CursorableLinkedList#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.list.CursorableLinkedList#cursor
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.list.NodeCachingLinkedList#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.list.SetUniqueList#asSet
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.list.TreeList#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.list.UnmodifiableList#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.map.AbstractHashedMap#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.AbstractHashedMap#keySet
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.collections.map.AbstractHashedMap#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.map.AbstractHashedMap#putAll
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.collections.map.AbstractHashedMap#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.collections.map.AbstractLinkedMap#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.AbstractMapDecorator#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.AbstractOrderedMapDecorator#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.AbstractSortedMapDecorator#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.CaseInsensitiveMap#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.CompositeMap#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.CompositeMap#<init>
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.CompositeMap#<init>
+  signature: (*, *, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.CompositeMap#addComposited
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.CompositeMap#removeComposited
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.collections.map.CompositeMap#removeComposited
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.DefaultedMap#<init>
+  signature: (java.lang.Object) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.Flat3Map#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.HashedMap#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.LRUMap#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.LRUMap#<init>
+  signature: (*, boolean) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.LinkedMap#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.LinkedMap#asList
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.map.LinkedMap#get
+  signature: (int) *
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.map.LinkedMap#getValue
+  signature: (int) *
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.map.LinkedMap#remove
+  signature: (int) *
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.map.ListOrderedMap#asList
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.map.ListOrderedMap#get
+  signature: (int) *
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.map.ListOrderedMap#getValue
+  signature: (int) *
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.map.ListOrderedMap#keyList
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.map.ListOrderedMap#put
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.map.ListOrderedMap#remove
+  signature: (int) *
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.map.ListOrderedMap#setValue
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.ListOrderedMap#valueList
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.map.MultiKeyMap#get
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.map.MultiKeyMap#put
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.map.MultiKeyMap#put
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object)
+    *
+  copy:
+  - from: arg(3)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.map.MultiKeyMap#put
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object) *
+  copy:
+  - from: arg(4)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(3)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.map.MultiKeyMap#put
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(5)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(4)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.map.MultiKeyMap#put
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: org.apache.commons.collections.map.MultiValueMap#getCollection
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.map.MultiValueMap#iterator
+  signature: (java.lang.Object) *
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.apache.commons.collections.map.MultiValueMap#putAll
+  signature: (java.lang.Object, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.map.MultiValueMap#values
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.map.SingletonMap#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.map.SingletonMap#<init>
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.collections.map.SingletonMap#setValue
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.apache.commons.collections.set.AbstractSetDecorator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.set.AbstractSortedSetDecorator#<init>
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.set.CompositeSet#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.set.CompositeSet#addComposited
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.set.CompositeSet#addComposited
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.set.ListOrderedSet#add
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.set.ListOrderedSet#addAll
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.set.ListOrderedSet#asList
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.apache.commons.collections.set.ListOrderedSet#get
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result

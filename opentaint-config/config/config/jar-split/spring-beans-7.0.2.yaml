@@ -1,0 +1,197 @@
+passThrough:
+- function: org.springframework.beans.MutablePropertyValues#<init>
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .org.springframework.beans.PropertyValue#Value#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .org.springframework.beans.PropertyValue#Key#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.beans.MutablePropertyValues#add
+  signature: (java.lang.String, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .org.springframework.beans.PropertyValue#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .org.springframework.beans.PropertyValue#Key#java.lang.Object
+  - from: this
+    to: result
+- function: org.springframework.beans.MutablePropertyValues#addPropertyValue
+  signature: (org.springframework.beans.PropertyValue) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: this
+    to: result
+- function: org.springframework.beans.MutablePropertyValues#addPropertyValue
+  signature: (java.lang.String, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .org.springframework.beans.PropertyValue#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .org.springframework.beans.PropertyValue#Key#java.lang.Object
+- function: org.springframework.beans.MutablePropertyValues#addPropertyValues
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .org.springframework.beans.PropertyValue#Value#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .org.springframework.beans.PropertyValue#Key#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: this
+    to: result
+- function: org.springframework.beans.MutablePropertyValues#get
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .org.springframework.beans.PropertyValue#Value#java.lang.Object
+    to: result
+- function: org.springframework.beans.MutablePropertyValues#getPropertyValue
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.springframework.beans.MutablePropertyValues#getPropertyValueList
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.beans.MutablePropertyValues#getPropertyValues
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.beans.MutablePropertyValues#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.beans.MutablePropertyValues#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.springframework.beans.MutablePropertyValues#setPropertyValueAt
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.beans.PropertyValue#<init>
+  signature: (*) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.springframework.beans.PropertyValue#<init>
+  signature: (*, java.lang.Object) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .org.springframework.beans.PropertyValue#Key#java.lang.Object
+    to:
+    - this
+    - .org.springframework.beans.PropertyValue#Key#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.beans.PropertyValue#Value#java.lang.Object
+- function: org.springframework.beans.PropertyValue#<init>
+  signature: (java.lang.String, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.beans.PropertyValue#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.beans.PropertyValue#Key#java.lang.Object
+- function: org.springframework.beans.PropertyValue#getName
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.springframework.beans.PropertyValue#Key#java.lang.Object
+    to: result
+- function: org.springframework.beans.PropertyValue#getValue
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.springframework.beans.PropertyValue#Value#java.lang.Object
+    to: result
+- function: org.springframework.beans.PropertyValues#changesSince
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.beans.PropertyValues#getPropertyValue
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.springframework.beans.PropertyValues#getPropertyValues
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.beans.TypeConverter#convertIfNecessary
+  copy:
+  - from: arg(0)
+    to: result

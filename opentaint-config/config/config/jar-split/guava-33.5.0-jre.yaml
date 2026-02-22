@@ -1,0 +1,4285 @@
+passThrough:
+- function: com.google.common.base.Joiner$MapJoiner#appendTo
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.common.base.Joiner#appendTo
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.common.base.MoreObjects$ToStringHelper#add
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: com.google.common.base.MoreObjects$ToStringHelper#addValue
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: com.google.common.base.MoreObjects$ToStringHelper#omitNullValues
+  signature: () *
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: com.google.common.base.MoreObjects#firstNonNull
+  signature: (java.lang.Object, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.google.common.base.Optional#asSet
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.base.Optional#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.base.Optional#fromJavaUtil
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Optional#Element#java.lang.Object
+    to:
+    - result
+    - .com.google.common.base.Optional#Element#java.lang.Object
+- function: com.google.common.base.Optional#fromNullable
+  signature: (java.lang.Object) *
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .com.google.common.base.Optional#Element#java.lang.Object
+- function: com.google.common.base.Optional#get
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.base.Optional#Element#java.lang.Object
+    to: result
+- function: com.google.common.base.Optional#of
+  signature: (java.lang.Object) *
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .com.google.common.base.Optional#Element#java.lang.Object
+- function: com.google.common.base.Optional#or
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.base.Optional#Element#java.lang.Object
+    to:
+    - result
+    - .com.google.common.base.Optional#Element#java.lang.Object
+- function: com.google.common.base.Optional#or
+  signature: (*) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.base.Optional#Element#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .com.google.common.base.Optional#Element#java.lang.Object
+    to:
+    - result
+    - .com.google.common.base.Optional#Element#java.lang.Object
+- function: com.google.common.base.Optional#or
+  signature: (java.lang.Object) *
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.common.base.Optional#or
+  signature: (java.lang.Object) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.base.Optional#Element#java.lang.Object
+    to: result
+- function: com.google.common.base.Optional#orNull
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.base.Optional#Element#java.lang.Object
+    to: result
+- function: com.google.common.base.Optional#presentInstances
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .com.google.common.base.Optional#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.base.Optional#toJavaUtil
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.base.Optional#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Optional#Element#java.lang.Object
+- function: com.google.common.base.Optional#toJavaUtil
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.base.Optional#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Optional#Element#java.lang.Object
+- function: com.google.common.base.Preconditions#checkNotNull
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.common.base.Strings#emptyToNull
+  signature: (java.lang.String) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.common.base.Strings#nullToEmpty
+  signature: (java.lang.String) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.common.base.Verify#verifyNotNull
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.google.common.cache.Cache#asMap
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.cache.Cache#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.cache.Cache#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: com.google.common.cache.Cache#get
+  signature: (java.lang.Object, *) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.cache.Cache#MapValue#java.lang.Object
+    to: result
+- function: com.google.common.cache.Cache#getAllPresent
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.cache.Cache#getAllPresent
+  signature: (*) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.cache.Cache#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.cache.Cache#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: com.google.common.cache.Cache#getIfPresent
+  signature: (java.lang.Object) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.cache.Cache#MapValue#java.lang.Object
+    to: result
+- function: com.google.common.cache.Cache#put
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .com.google.common.cache.Cache#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.common.cache.Cache#MapKey#java.lang.Object
+- function: com.google.common.cache.Cache#putAll
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .com.google.common.cache.Cache#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .com.google.common.cache.Cache#MapValue#java.lang.Object
+- function: com.google.common.cache.LoadingCache#apply
+  signature: (java.lang.Object) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.cache.Cache#MapValue#java.lang.Object
+    to: result
+- function: com.google.common.cache.LoadingCache#get
+  signature: (java.lang.Object) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.cache.Cache#MapValue#java.lang.Object
+    to: result
+- function: com.google.common.cache.LoadingCache#getAll
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.cache.LoadingCache#getAll
+  signature: (*) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.cache.Cache#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.cache.Cache#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.cache.LoadingCache#getUnchecked
+  signature: (java.lang.Object) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.cache.Cache#MapValue#java.lang.Object
+    to: result
+- function: com.google.common.collect.ArrayListMultimap#create
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.ArrayTable#create
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+- function: com.google.common.collect.ArrayTable#create
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+- function: com.google.common.collect.BiMap#forcePut
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.BiMap#inverse
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.ClassToInstanceMap#getInstance
+  signature: (*) *
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: com.google.common.collect.ClassToInstanceMap#putInstance
+  signature: (*, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: com.google.common.collect.Collections2#filter
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Collections2#orderedPermutations
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Collections2#orderedPermutations
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Collections2#permutations
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ConcurrentHashMultiset#create
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.HashBasedTable#create
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+- function: com.google.common.collect.HashBiMap#create
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.HashMultimap#create
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.HashMultiset#create
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableBiMap#of
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(8)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableClassToInstanceMap#copyOf
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableClassToInstanceMap#of
+  signature: (*, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableCollection$Builder#add
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableCollection$Builder#add
+  signature: (java.lang.Object) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableCollection$Builder#add
+  copy:
+  - from: this
+    to: result
+- function: com.google.common.collect.ImmutableCollection$Builder#addAll
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableCollection$Builder#addAll
+  copy:
+  - from: this
+    to: result
+- function: com.google.common.collect.ImmutableCollection$Builder#build
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableCollection#asList
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableList#copyOf
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableList#of
+  copy:
+  - from:
+    - arg(12)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(10)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(11)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(8)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableList#reverse
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableList#sortedCopyOf
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableList#sortedCopyOf
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableListMultimap#of
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from: arg(8)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableMap$Builder#build
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: com.google.common.collect.ImmutableMap$Builder#orderEntriesByValue
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: com.google.common.collect.ImmutableMap$Builder#put
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: com.google.common.collect.ImmutableMap$Builder#put
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableMap$Builder#put
+  copy:
+  - from: this
+    to: result
+- function: com.google.common.collect.ImmutableMap$Builder#putAll
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableMap$Builder#putAll
+  copy:
+  - from: this
+    to: result
+- function: com.google.common.collect.ImmutableMap#copyOf
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableMap#of
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(8)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableMultimap$Builder#build
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+- function: com.google.common.collect.ImmutableMultimap$Builder#orderKeysBy
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: com.google.common.collect.ImmutableMultimap$Builder#orderValuesBy
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: com.google.common.collect.ImmutableMultimap$Builder#put
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+- function: com.google.common.collect.ImmutableMultimap$Builder#put
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableMultimap$Builder#put
+  copy:
+  - from: this
+    to: result
+- function: com.google.common.collect.ImmutableMultimap$Builder#putAll
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableMultimap$Builder#putAll
+  signature: (java.lang.Object, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+- function: com.google.common.collect.ImmutableMultimap$Builder#putAll
+  copy:
+  - from: this
+    to: result
+- function: com.google.common.collect.ImmutableMultimap#copyOf
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableMultimap#inverse
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableMultimap#of
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from: arg(8)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableMultiset$Builder#addCopies
+  signature: (java.lang.Object, int) *
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableMultiset$Builder#setCount
+  signature: (java.lang.Object, int) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableMultiset$Builder#build
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableMultiset#copyOf
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableMultiset#of
+  copy:
+  - from:
+    - arg(6)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableSet#copyOf
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableSet#of
+  copy:
+  - from:
+    - arg(6)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableSetMultimap#of
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from: arg(8)
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableSortedMap#copyOf
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableSortedMap#copyOf
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableSortedMap#copyOfSorted
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableSortedMap#of
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(8)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.ImmutableSortedMultiset#copyOf
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableSortedMultiset#copyOf
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableSortedMultiset#copyOfSorted
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableSortedMultiset#of
+  copy:
+  - from:
+    - arg(6)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableSortedSet#copyOf
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableSortedSet#copyOf
+  signature: (*, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableSortedSet#copyOfSorted
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableSortedSet#of
+  copy:
+  - from:
+    - arg(6)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.ImmutableTable$Builder#build
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+- function: com.google.common.collect.ImmutableTable$Builder#orderColumnsBy
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: com.google.common.collect.ImmutableTable$Builder#orderRowsBy
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: com.google.common.collect.ImmutableTable$Builder#put
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table$Cell#Value#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from: this
+    to: result
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+- function: com.google.common.collect.ImmutableTable$Builder#put
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from: this
+    to: result
+  - from: arg(1)
+    to:
+    - this
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+- function: com.google.common.collect.ImmutableTable$Builder#putAll
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from: this
+    to: result
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+- function: com.google.common.collect.ImmutableTable#copyOf
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+- function: com.google.common.collect.ImmutableTable#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+- function: com.google.common.collect.Iterables#addAll
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterables#concat
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterables#concat
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterables#concat
+  signature: (*, *, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(2)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterables#concat
+  signature: (*, *, *, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(3)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(2)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterables#consumingIterable
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterables#cycle
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterables#filter
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterables#find
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: com.google.common.collect.Iterables#find
+  signature: (*, *, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(2)
+    to: result
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: com.google.common.collect.Iterables#get
+  signature: (*, int) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: com.google.common.collect.Iterables#get
+  signature: (*, int, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(2)
+    to: result
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: com.google.common.collect.Iterables#getLast
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: com.google.common.collect.Iterables#getLast
+  signature: (*, java.lang.Object) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.google.common.collect.Iterables#getOnlyElement
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: com.google.common.collect.Iterables#getOnlyElement
+  signature: (*, java.lang.Object) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.google.common.collect.Iterables#limit
+  signature: (*, int) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterables#mergeSorted
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterables#paddedPartition
+  signature: (*, int) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterables#partition
+  signature: (*, int) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterables#skip
+  signature: (*, int) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterables#toArray
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+- function: com.google.common.collect.Iterables#tryFind
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Optional#Element#java.lang.Object
+- function: com.google.common.collect.Iterables#unmodifiableIterable
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#addAll
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#asEnumeration
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Enumeration#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#concat
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#concat
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#concat
+  signature: (*, *, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(2)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#concat
+  signature: (*, *, *, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(3)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+  - from:
+    - arg(2)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#consumingIterator
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#cycle
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#filter
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#find
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to: result
+- function: com.google.common.collect.Iterators#find
+  signature: (*, *, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(2)
+    to: result
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to: result
+- function: com.google.common.collect.Iterators#forArray
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#forEnumeration
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#get
+  signature: (*, int) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to: result
+- function: com.google.common.collect.Iterators#get
+  signature: (*, int, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(2)
+    to: result
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to: result
+- function: com.google.common.collect.Iterators#getLast
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to: result
+- function: com.google.common.collect.Iterators#getLast
+  signature: (*, java.lang.Object) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.google.common.collect.Iterators#getNext
+  signature: (*, java.lang.Object) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.google.common.collect.Iterators#getOnlyElement
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to: result
+- function: com.google.common.collect.Iterators#getOnlyElement
+  signature: (*, java.lang.Object) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.google.common.collect.Iterators#limit
+  signature: (*, int) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#mergeSorted
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#paddedPartition
+  signature: (*, int) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#partition
+  signature: (*, int) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#peekingIterator
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#singletonIterator
+  signature: (java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#toArray
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+- function: com.google.common.collect.Iterators#tryFind
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Optional#Element#java.lang.Object
+- function: com.google.common.collect.Iterators#unmodifiableIterator
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: com.google.common.collect.LinkedHashMultimap#create
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.LinkedHashMultiset#create
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.LinkedListMultimap#create
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Lists#asList
+  signature: (java.lang.Object, *) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Lists#asList
+  signature: (java.lang.Object, java.lang.Object, *) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(2)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Lists#cartesianProduct
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Lists#newArrayList
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Lists#newCopyOnWriteArrayList
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Lists#newLinkedList
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Lists#partition
+  signature: (*, int) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Lists#reverse
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.MapDifference$ValueDifference#leftValue
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.MapDifference#left#java.lang.Object
+    to: result
+- function: com.google.common.collect.MapDifference$ValueDifference#rightValue
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.MapDifference#right#java.lang.Object
+    to: result
+- function: com.google.common.collect.MapDifference#entriesDiffering
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.MapDifference#right#java.lang.Object
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+    - .com.google.common.collect.MapDifference#right#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.MapDifference#left#java.lang.Object
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.MapDifference#right#java.lang.Object
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.MapDifference#left#java.lang.Object
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+    - .com.google.common.collect.MapDifference#left#java.lang.Object
+- function: com.google.common.collect.MapDifference#entriesInCommon
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.MapDifference#right#java.lang.Object
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.MapDifference#left#java.lang.Object
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.MapDifference#right#java.lang.Object
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.MapDifference#left#java.lang.Object
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: com.google.common.collect.MapDifference#entriesOnlyOnLeft
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.MapDifference#left#java.lang.Object
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.MapDifference#left#java.lang.Object
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: com.google.common.collect.MapDifference#entriesOnlyOnRight
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.MapDifference#right#java.lang.Object
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.MapDifference#right#java.lang.Object
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#asMap
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#difference
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.MapDifference#left#java.lang.Object
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.MapDifference#right#java.lang.Object
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.MapDifference#left#java.lang.Object
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.MapDifference#right#java.lang.Object
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#difference
+  signature: (*, *, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.MapDifference#left#java.lang.Object
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.MapDifference#right#java.lang.Object
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.MapDifference#left#java.lang.Object
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.MapDifference#right#java.lang.Object
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#filterEntries
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#filterKeys
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#filterValues
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#fromProperties
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Dictionary#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Dictionary#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#immutableEntry
+  signature: (java.lang.Object, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: com.google.common.collect.Maps#immutableEnumMap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: com.google.common.collect.Maps#newEnumMap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: com.google.common.collect.Maps#newHashMap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#newLinkedHashMap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#newTreeMap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#subMap
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#synchronizedBiMap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#synchronizedNavigableMap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#toMap
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#transformValues
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#uniqueIndex
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: com.google.common.collect.Maps#unmodifiableBiMap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Maps#unmodifiableNavigableMap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimap#asMap
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multimap#entries
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: com.google.common.collect.Multimap#get
+  signature: (java.lang.Object) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multimap#keySet
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multimap#keys
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multimap#put
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimap#putAll
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+- function: com.google.common.collect.Multimap#putAll
+  signature: (java.lang.Object, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimap#removeAll
+  signature: (java.lang.Object) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multimap#replaceValues
+  signature: (java.lang.Object, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multimap#values
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multimaps#asMap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multimaps#filterEntries
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimaps#filterKeys
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimaps#filterValues
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimaps#forMap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimaps#index
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+- function: com.google.common.collect.Multimaps#invertFrom
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - arg(1)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from: arg(1)
+    to: result
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - arg(1)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimaps#newListMultimap
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+- function: com.google.common.collect.Multimaps#newMultimap
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+- function: com.google.common.collect.Multimaps#newSetMultimap
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+- function: com.google.common.collect.Multimaps#newSortedSetMultimap
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+- function: com.google.common.collect.Multimaps#synchronizedListMultimap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimaps#synchronizedMultimap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimaps#synchronizedSetMultimap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimaps#synchronizedSortedSetMultimap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimaps#transformValues
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimaps#unmodifiableListMultimap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimaps#unmodifiableMultimap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimaps#unmodifiableSetMultimap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multimaps#unmodifiableSortedSetMultimap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.Multiset$Entry#getElement
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Multiset$Entry#Element#java.lang.Object
+    to: result
+- function: com.google.common.collect.Multiset#add
+  signature: (java.lang.Object, int) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multiset#elementSet
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multiset#entrySet
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .com.google.common.collect.Multiset$Entry#Element#java.lang.Object
+- function: com.google.common.collect.Multiset#setCount
+  signature: (java.lang.Object, int) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multiset#setCount
+  signature: (java.lang.Object, int, int) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multisets#copyHighestCountFirst
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multisets#difference
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multisets#filter
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multisets#immutableEntry
+  signature: (java.lang.Object, int) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .com.google.common.collect.Multiset$Entry#Element#java.lang.Object
+- function: com.google.common.collect.Multisets#intersection
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multisets#sum
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multisets#union
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multisets#unmodifiableMultiset
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Multisets#unmodifiableSortedMultiset
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.MutableClassToInstanceMap#create
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.ObjectArrays#concat
+  signature: (*, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: com.google.common.collect.ObjectArrays#concat
+  signature: (java.lang.Object, *) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: com.google.common.collect.ObjectArrays#concat
+  signature: (*, *, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: com.google.common.collect.Queues#drain
+  signature: (*, *, int, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Queues#drain
+  signature: (*, *, int, long, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Queues#newArrayDeque
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Queues#newConcurrentLinkedQueue
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Queues#newLinkedBlockingDeque
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Queues#newLinkedBlockingQueue
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Queues#newPriorityBlockingQueue
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Queues#newPriorityQueue
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Queues#synchronizedDeque
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Queues#synchronizedQueue
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets$SetView#copyInto
+  signature: (*) *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets$SetView#immutableCopy
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#cartesianProduct
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#combinations
+  signature: (*, int) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#difference
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#filter
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#intersection
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#newConcurrentHashSet
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#newCopyOnWriteArraySet
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#newHashSet
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#newLinkedHashSet
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#newSetFromMap
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#newTreeSet
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#powerSet
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#subSet
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#symmetricDifference
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#synchronizedNavigableSet
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#union
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Sets#unmodifiableNavigableSet
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Table$Cell#getColumnKey
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to: result
+- function: com.google.common.collect.Table$Cell#getRowKey
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to: result
+- function: com.google.common.collect.Table$Cell#getValue
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to: result
+- function: com.google.common.collect.Table#cellSet
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: com.google.common.collect.Table#column
+  signature: (java.lang.Object) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: com.google.common.collect.Table#columnKeySet
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Table#columnMap
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.util.Map#MapValue#java.lang.Object
+- function: com.google.common.collect.Table#get
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to: result
+- function: com.google.common.collect.Table#put
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+- function: com.google.common.collect.Table#putAll
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - this
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+- function: com.google.common.collect.Table#remove
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to: result
+- function: com.google.common.collect.Table#row
+  signature: (java.lang.Object) *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: com.google.common.collect.Table#rowKeySet
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Table#rowMap
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.util.Map#MapValue#java.lang.Object
+- function: com.google.common.collect.Table#values
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.collect.Tables#immutableCell
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .com.google.common.collect.Table$Cell#Value#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+- function: com.google.common.collect.Tables#newCustomTable
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+- function: com.google.common.collect.Tables#synchronizedTable
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+- function: com.google.common.collect.Tables#transformValues
+  signature: (*, *) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+- function: com.google.common.collect.Tables#transpose
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+- function: com.google.common.collect.Tables#unmodifiableRowSortedTable
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+- function: com.google.common.collect.Tables#unmodifiableTable
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+- function: com.google.common.collect.TreeBasedTable#create
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#rowKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Table#columnKey#java.lang.Object
+- function: com.google.common.collect.TreeMultimap#create
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+    to:
+    - result
+    - .com.google.common.collect.Multimap#MapKey#java.lang.Object
+- function: com.google.common.collect.TreeMultiset#create
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: com.google.common.io.Closer#register
+  copy:
+  - from: arg(0)
+    to: result

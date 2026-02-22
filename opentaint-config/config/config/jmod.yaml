@@ -1,0 +1,3366 @@
+passThrough:
+- function: javax.naming.Binding#getObject
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.Binding#setObject
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.naming.CompositeName#<init>
+  signature: () void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.naming.CompositeName#<init>
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.naming.CompositeName#<init>
+  signature: (java.util.Enumeration) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.naming.CompositeName#add
+  signature: (java.lang.String) javax.naming.Name
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.naming.CompositeName#add
+  signature: (java.lang.String) javax.naming.Name
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.naming.CompositeName#add
+  signature: (int, java.lang.String) javax.naming.Name
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+- function: javax.naming.CompositeName#addAll
+  signature: (javax.naming.Name) javax.naming.Name
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.naming.CompositeName#addAll
+  signature: (javax.naming.Name) javax.naming.Name
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.naming.CompositeName#addAll
+  signature: (int, javax.naming.Name) javax.naming.Name
+  copy:
+  - from: arg(1)
+    to: result
+- function: javax.naming.CompositeName#addAll
+  signature: (int, javax.naming.Name) javax.naming.Name
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+- function: javax.naming.CompositeName#get
+  signature: (int) java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.CompositeName#getPrefix
+  signature: (int) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.CompositeName#getSuffix
+  signature: (int) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.CompoundName#<init>
+  signature: (java.lang.String, java.util.Properties) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompoundName#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.CompoundName#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.naming.CompoundName#<init>
+  signature: (java.util.Enumeration, java.util.Properties) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompoundName#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.CompoundName#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.naming.Context#composeName
+  signature: (java.lang.String, java.lang.String) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: javax.naming.Context#composeName
+  signature: (javax.naming.Name, javax.naming.Name) javax.naming.Name
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: javax.naming.Context#getNameParser
+  signature: (java.lang.String) javax.naming.NameParser
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.naming.Context#getNameParser
+  signature: (javax.naming.Name) javax.naming.NameParser
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.naming.LinkRef#getLinkName
+  signature: () java.lang.String
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.Name#add
+  signature: (java.lang.String) javax.naming.Name
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: javax.naming.Name#add
+  signature: (java.lang.String) javax.naming.Name
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: javax.naming.Name#add
+  signature: (int, java.lang.String) javax.naming.Name
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(1)
+    to: result
+- function: javax.naming.Name#add
+  signature: (int, java.lang.String) javax.naming.Name
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.naming.Name#addAll
+  signature: (javax.naming.Name) javax.naming.Name
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: javax.naming.Name#addAll
+  signature: (javax.naming.Name) javax.naming.Name
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: javax.naming.Name#addAll
+  signature: (int, javax.naming.Name) javax.naming.Name
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(1)
+    to: result
+- function: javax.naming.Name#addAll
+  signature: (int, javax.naming.Name) javax.naming.Name
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(1)
+    to: this
+- function: javax.naming.Name#get
+  signature: (int) java.lang.String
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.Name#getAll
+  signature: () java.util.Enumeration
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.Name#getPrefix
+  signature: (int) javax.naming.Name
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.Name#getSuffix
+  signature: (int) javax.naming.Name
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.Name#remove
+  signature: (int) java.lang.Object
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.NameClassPair#getClassName
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.NameClassPair#getName
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.NameClassPair#getNameInNamespace
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.NameClassPair#setClassName
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.naming.NameClassPair#setName
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.naming.NameClassPair#setNameInNamespace
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.naming.NameParser#parse
+  signature: (java.lang.String) javax.naming.Name
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.naming.NamingEnumeration#next
+  signature: () java.lang.Object
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.RefAddr#getContent
+  signature: () java.lang.Object
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.RefAddr#getType
+  signature: () java.lang.String
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.Reference#add
+  signature: (javax.naming.RefAddr) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+- function: javax.naming.Reference#add
+  signature: (int, javax.naming.RefAddr) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.naming.Reference#get
+  signature: (int) javax.naming.RefAddr
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.Reference#get
+  signature: (java.lang.String) javax.naming.RefAddr
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.Reference#getAll
+  signature: () java.util.Enumeration
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.Reference#getClassName
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.Reference#getFactoryClassLocation
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.Reference#getFactoryClassName
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.Reference#remove
+  signature: (int) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.Referenceable#getReference
+  signature: () javax.naming.Reference
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.naming.directory
+    class: Attribute
+    name:
+      pattern: get.*
+  copy:
+  - from:
+    - this
+    - .javax.naming.directory.Attribute#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.directory.Attribute#set
+  signature: (int, java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.directory.Attribute#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.naming.directory.Attributes#getAll
+  signature: () javax.naming.NamingEnumeration
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.directory.Attributes#getIDs
+  signature: () javax.naming.NamingEnumeration
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.directory.BasicAttribute#remove
+  signature: (int) java.lang.Object
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.directory.ModificationItem#<init>
+  signature: (int, javax.naming.directory.Attribute) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.directory.ModificationItem#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.naming.directory.ModificationItem#getAttribute
+  signature: () javax.naming.directory.Attribute
+  copy:
+  - from:
+    - this
+    - .javax.naming.directory.ModificationItem#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.directory.SearchControls#<init>
+  signature: () void
+  copy:
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.directory.SearchControls#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to: this
+- function: javax.naming.directory.SearchControls#<init>
+  signature: (int, long, int, java.lang.String[], boolean, boolean) void
+  copy:
+  - from:
+    - arg(3)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.directory.SearchControls#<rule-storage>#java.lang.Object
+  - from:
+    - arg(3)
+    - '[*]'
+    to: this
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.directory.SearchControls#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to: this
+- function: javax.naming.directory.SearchControls#getReturningAttributes
+  signature: () java.lang.String[]
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.directory.SearchControls#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.directory.SearchControls#setReturningAttributes
+  signature: (java.lang.String[]) void
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.directory.SearchControls#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.directory.SearchControls#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to: this
+  - from: arg(0)
+    to: this
+- function: javax.naming.directory.SearchResult#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.Object, javax.naming.directory.Attributes)
+    void
+  copy:
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+- function: javax.naming.directory.SearchResult#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.Object, javax.naming.directory.Attributes,
+    boolean) void
+  copy:
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+- function: javax.naming.directory.SearchResult#getAttributes
+  signature: () javax.naming.directory.Attributes
+  copy:
+  - from:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.directory.SearchResult#setAttributes
+  signature: (javax.naming.directory.Attributes) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.naming.ldap.BasicControl#<init>
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+- function: javax.naming.ldap.BasicControl#<init>
+  signature: (java.lang.String, boolean, byte[]) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from:
+    - arg(2)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from:
+    - arg(2)
+    - '[*]'
+    to: this
+  - from:
+    - arg(2)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+- function: javax.naming.ldap.Control#getID
+  signature: () java.lang.String
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.ldap.ControlFactory#getControlInstance
+  signature: (javax.naming.ldap.Control) javax.naming.ldap.Control
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.naming.ldap.ControlFactory#getControlInstance
+  signature: (javax.naming.ldap.Control, javax.naming.Context, java.util.Hashtable)
+    javax.naming.ldap.Control
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.naming.ldap.ExtendedRequest#createExtendedResponse
+  signature: (java.lang.String, byte[], int, int) javax.naming.ldap.ExtendedResponse
+  copy:
+  - from:
+    - arg(1)
+    - '[*]'
+    to: this
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.ExtendedRequest#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.ExtendedRequest#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.ldap.ExtendedRequest#<rule-storage>#java.lang.Object
+- function: javax.naming.ldap.ExtendedRequest#getID
+  signature: () java.lang.String
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.ldap.ExtendedRequest#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.ldap.ExtendedResponse#getID
+  signature: () java.lang.String
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.ldap.HasControls#getControls
+  signature: () javax.naming.ldap.Control[]
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.ldap.LdapName#getRdn
+  signature: (int) javax.naming.ldap.Rdn
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.ldap.LdapName#getRdns
+  signature: () java.util.List
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.ldap.PagedResultsResponseControl#<init>
+  signature: (java.lang.String, boolean, byte[]) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.PagedResultsResponseControl#<rule-storage>#java.lang.Object
+  - from:
+    - arg(2)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from:
+    - arg(2)
+    - '[*]'
+    to: this
+  - from:
+    - arg(2)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.PagedResultsResponseControl#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.PagedResultsResponseControl#<rule-storage>#java.lang.Object
+  - from:
+    - arg(2)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+- function: javax.naming.ldap.Rdn#<init>
+  signature: () void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.naming.ldap.Rdn#<rule-storage>#java.lang.Object
+- function: javax.naming.ldap.Rdn#<init>
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.naming.ldap.Rdn#<rule-storage>#java.lang.Object
+- function: javax.naming.ldap.Rdn#<init>
+  signature: (javax.naming.directory.Attributes) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.naming.ldap.Rdn#<rule-storage>#java.lang.Object
+- function: javax.naming.ldap.Rdn#<init>
+  signature: (javax.naming.ldap.Rdn) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.naming.ldap.Rdn#<rule-storage>#java.lang.Object
+- function: javax.naming.ldap.Rdn#<init>
+  signature: (java.lang.String, java.lang.Object) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.naming.ldap.Rdn#<rule-storage>#java.lang.Object
+- function: javax.naming.ldap.Rdn#escapeValue
+  signature: (java.lang.Object) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.naming.ldap.Rdn#getValue
+  signature: () java.lang.Object
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.ldap.Rdn#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.ldap.Rdn#toAttributes
+  signature: () javax.naming.directory.Attributes
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.ldap.Rdn#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.ldap.Rdn#unescapeValue
+  signature: (java.lang.String) java.lang.Object
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.naming.ldap.SortControl#<init>
+  signature: (java.lang.String, boolean) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.SortControl#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.SortControl#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+- function: javax.naming.ldap.SortControl#<init>
+  signature: (java.lang.String[], boolean) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.SortControl#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.SortControl#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.SortControl#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+- function: javax.naming.ldap.SortControl#<init>
+  signature: (javax.naming.ldap.SortKey[], boolean) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.SortControl#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.SortControl#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.SortControl#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+- function: javax.naming.ldap.SortKey#<init>
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.SortKey#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.SortKey#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to: this
+- function: javax.naming.ldap.SortKey#<init>
+  signature: (java.lang.String, boolean, java.lang.String) void
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.SortKey#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.SortKey#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to: this
+- function: javax.naming.ldap.SortKey#getAttributeID
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.ldap.SortKey#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.ldap.SortKey#getMatchingRuleID
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.ldap.SortKey#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.naming.ldap.SortResponseControl#<init>
+  signature: (java.lang.String, boolean, byte[]) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from:
+    - arg(2)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+  - from:
+    - arg(2)
+    - '[*]'
+    to: this
+  - from:
+    - arg(2)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.SortResponseControl#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.SortResponseControl#<rule-storage>#java.lang.Object
+  - from:
+    - arg(2)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.SortResponseControl#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+- function: javax.naming.ldap.SortResponseControl#getAttributeID
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.ldap.SortResponseControl#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.naming.ldap.Control#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.ldap.BasicControl#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.spi.DirStateFactory$Result#getAttributes
+  signature: () javax.naming.directory.Attributes
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.spi.DirStateFactory$Result#getObject
+  signature: () java.lang.Object
+  copy:
+  - from: this
+    to: result
+- function: javax.script.AbstractScriptEngine#<init>
+  signature: () void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.ScriptEngine#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.AbstractScriptEngine#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.script.AbstractScriptEngine#<init>
+  signature: (javax.script.Bindings) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.ScriptEngine#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.AbstractScriptEngine#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.script.AbstractScriptEngine#getContext
+  signature: () javax.script.ScriptContext
+  copy:
+  - from:
+    - this
+    - .javax.script.AbstractScriptEngine#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.script.ScriptEngine#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.script.AbstractScriptEngine#getScriptContext
+  signature: (javax.script.Bindings) javax.script.ScriptContext
+  copy:
+  - from:
+    - this
+    - .javax.script.AbstractScriptEngine#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.script.ScriptEngine#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.script.AbstractScriptEngine#setContext
+  signature: (javax.script.ScriptContext) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.ScriptEngine#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.AbstractScriptEngine#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.script.Bindings#get
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Map#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.script.Bindings#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.script.Bindings#put
+  signature: (java.lang.Object, java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.script.Bindings#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.script.Bindings#put
+  signature: (java.lang.String, java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.script.Bindings#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.script.Bindings#putAll
+  signature: (java.util.Map) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.Bindings#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.script.Bindings#remove
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Map#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.script.Bindings#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.script.ScriptContext#getAttribute
+  signature: (java.lang.String) java.lang.Object
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.script.ScriptContext#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.script.ScriptContext#getAttribute
+  signature: (java.lang.String, int) java.lang.Object
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.script.ScriptContext#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.script.ScriptContext#getBindings
+  signature: (int) javax.script.Bindings
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.script.ScriptContext#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.script.ScriptContext#removeAttribute
+  signature: (java.lang.String, int) java.lang.Object
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.script.ScriptContext#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.script.ScriptContext#setAttribute
+  signature: (java.lang.String, java.lang.Object, int) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.ScriptContext#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.script.ScriptContext#setBindings
+  signature: (javax.script.Bindings, int) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.ScriptContext#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.script.ScriptEngine#getBindings
+  signature: (int) javax.script.Bindings
+  copy:
+  - from:
+    - this
+    - .javax.script.ScriptEngine#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.script.ScriptEngine#setBindings
+  signature: (javax.script.Bindings, int) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.ScriptEngine#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.script.ScriptEngineFactory#getMethodCallSyntax
+  signature: (java.lang.String, java.lang.String, java.lang.String[]) java.lang.String
+  copy:
+  - from: arg(*)
+    to: result
+- function: javax.script.ScriptEngineFactory#getOutputStatement
+  signature: (java.lang.String) java.lang.String
+  copy:
+  - from: arg(*)
+    to: result
+- function: javax.script.ScriptEngineFactory#getProgram
+  signature: (java.lang.String[]) java.lang.String
+  copy:
+  - from: arg(*)
+    to: result
+- function: javax.script.ScriptEngineManager#getBindings
+  signature: () javax.script.Bindings
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.script.ScriptEngineManager#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.script.ScriptEngineManager#setBindings
+  signature: (javax.script.Bindings) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.ScriptEngineManager#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.script.SimpleBindings#<init>
+  signature: () void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.Bindings#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.SimpleBindings#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.script.SimpleBindings#<init>
+  signature: (java.util.Map) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.Bindings#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.script.SimpleBindings#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.sql.RowSetInternal#getOriginal
+  signature: () java.sql.ResultSet
+  copy:
+  - from: this
+    to: result
+- function: javax.sql.RowSetInternal#getOriginalRow
+  signature: () java.sql.ResultSet
+  copy:
+  - from: this
+    to: result
+- function: javax.sql.RowSetInternal#getParams
+  signature: () java.lang.Object[]
+  copy:
+  - from: this
+    to: result
+- function: javax.sql.rowset.CachedRowSet#createCopy
+  signature: () javax.sql.rowset.CachedRowSet
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.sql.rowset.CachedRowSet#createCopyNoConstraints
+  signature: () javax.sql.rowset.CachedRowSet
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.sql.rowset.CachedRowSet#createShared
+  signature: () javax.sql.RowSet
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.sql.rowset.CachedRowSet#getOriginal
+  signature: () java.sql.ResultSet
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.sql.rowset.CachedRowSet#getOriginalRow
+  signature: () java.sql.ResultSet
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.sql.rowset.CachedRowSet#populate
+  signature: (java.sql.ResultSet) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+- function: javax.sql.rowset.CachedRowSet#populate
+  signature: (java.sql.ResultSet, int) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+- function: javax.sql.rowset.CachedRowSet#toCollection
+  signature: () java.util.Collection
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.sql.rowset.CachedRowSet#toCollection
+  signature: (int) java.util.Collection
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.sql.rowset.CachedRowSet#toCollection
+  signature: (java.lang.String) java.util.Collection
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.sql.rowset.JoinRowSet#addRowSet
+  signature: (javax.sql.rowset.Joinable) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.JoinRowSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.WebRowSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+- function: javax.sql.rowset.JoinRowSet#addRowSet
+  signature: (javax.sql.RowSet, int) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.JoinRowSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.WebRowSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+- function: javax.sql.rowset.JoinRowSet#addRowSet
+  signature: (javax.sql.RowSet, java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.JoinRowSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.WebRowSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+- function: javax.sql.rowset.JoinRowSet#addRowSet
+  signature: (javax.sql.RowSet[], int[]) void
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to: this
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.sql.rowset.JoinRowSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.JoinRowSet#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.sql.rowset.WebRowSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.WebRowSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+- function: javax.sql.rowset.JoinRowSet#addRowSet
+  signature: (javax.sql.RowSet[], java.lang.String[]) void
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to: this
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.sql.rowset.JoinRowSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.JoinRowSet#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.sql.rowset.WebRowSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.WebRowSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+- function: javax.sql.rowset.JoinRowSet#getRowSets
+  signature: () java.util.Collection
+  copy:
+  - from:
+    - this
+    - .javax.sql.rowset.WebRowSet#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.sql.rowset.JoinRowSet#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.sql.rowset.JoinRowSet#toCachedRowSet
+  signature: () javax.sql.rowset.CachedRowSet
+  copy:
+  - from:
+    - this
+    - .javax.sql.rowset.WebRowSet#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.sql.rowset.JoinRowSet#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.sql.rowset.WebRowSet#writeXml
+  signature: (java.sql.ResultSet, java.io.OutputStream) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.WebRowSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+- function: javax.sql.rowset.WebRowSet#writeXml
+  signature: (java.sql.ResultSet, java.io.Writer) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.WebRowSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.CachedRowSet#<rule-storage>#java.lang.Object
+- function: javax.sql.rowset.serial.SerialDatalink#<init>
+  signature: (java.net.URL) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.serial.SerialDatalink#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.sql.rowset.serial.SerialDatalink#getDatalink
+  signature: () java.net.URL
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.sql.rowset.serial.SerialDatalink#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.sql.rowset.serial.SerialJavaObject#<init>
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.sql.rowset.serial.SerialJavaObject#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.sql.rowset.serial.SerialJavaObject#getFields
+  signature: () java.lang.reflect.Field[]
+  copy:
+  - from:
+    - this
+    - .javax.sql.rowset.serial.SerialJavaObject#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.sql.rowset.serial.SerialJavaObject#getObject
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.sql.rowset.serial.SerialJavaObject#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.xml.namespace.QName#<init>
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.namespace.QName#<rule-storage>#java.lang.Object
+- function: javax.xml.namespace.QName#<init>
+  signature: (java.lang.String, java.lang.String) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.namespace.QName#<rule-storage>#java.lang.Object
+- function: javax.xml.namespace.QName#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.String) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.namespace.QName#<rule-storage>#java.lang.Object
+- function: javax.xml.namespace.QName#getLocalPart
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.xml.namespace.QName#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.xml.namespace.QName#getNamespaceURI
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.xml.namespace.QName#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.xml.namespace.QName#getPrefix
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.xml.namespace.QName#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.xml.namespace.QName#valueOf
+  signature: (java.lang.String) javax.xml.namespace.QName
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: DocumentBuilder
+    name:
+      pattern: get(.)*
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: DocumentBuilder
+    name:
+      pattern: get(.)*
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: DocumentBuilder
+    name:
+      pattern: new(.)*
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (java.io.File) org.w3c.dom.Document
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (java.io.File) org.w3c.dom.Document
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (java.io.InputStream) org.w3c.dom.Document
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (java.io.InputStream) org.w3c.dom.Document
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (java.lang.String) org.w3c.dom.Document
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (java.lang.String) org.w3c.dom.Document
+  copy:
+  - from: this
+    to: result
+- function: org.xml.sax.InputSource#<init>
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.xml.sax.InputSource#setByteStream
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (org.xml.sax.InputSource) org.w3c.dom.Document
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (org.xml.sax.InputSource) org.w3c.dom.Document
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (java.io.InputStream, java.lang.String) org.w3c.dom.Document
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (java.io.InputStream, java.lang.String) org.w3c.dom.Document
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: DocumentBuilderFactory
+    name:
+      pattern: get(.)*
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: DocumentBuilderFactory
+    name:
+      pattern: get(.)*
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: DocumentBuilderFactory
+    name:
+      pattern: new(.)*
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.parsers.DocumentBuilderFactory#getAttribute
+  signature: (java.lang.String) java.lang.Object
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.xml.parsers.DocumentBuilderFactory#getAttribute
+  signature: (java.lang.String) java.lang.Object
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: SAXParser
+    name:
+      pattern: get(.)*
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: SAXParser
+    name:
+      pattern: get(.)*
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: SAXParserFactory
+    name:
+      pattern: get(.)*
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: SAXParserFactory
+    name:
+      pattern: get(.)*
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: SAXParserFactory
+    name:
+      pattern: new(.)*
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Result
+    name:
+      pattern: get(.)*
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Result
+    name:
+      pattern: get(.)*
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Result
+    name:
+      pattern: set(.)*
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function:
+    package: javax.xml.transform
+    class: Source
+    name:
+      pattern: get(.)*
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Source
+    name:
+      pattern: get(.)*
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Source
+    name:
+      pattern: set(.)*
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function:
+    package: javax.xml.transform
+    class: SourceLocator
+    name:
+      pattern: get(.)*
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: javax.xml.transform
+    class: SourceLocator
+    name:
+      pattern: get(.)*
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Templates
+    name:
+      pattern: get(.)*
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Templates
+    name:
+      pattern: get(.)*
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Templates
+    name:
+      pattern: new(.)*
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Transformer
+    name:
+      pattern: get(.)*
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Transformer
+    name:
+      pattern: get(.)*
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.transform.Transformer#transform
+  signature: (javax.xml.transform.Source, javax.xml.transform.Result) void
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: javax.xml.transform.Transformer#transform
+  signature: (javax.xml.transform.Source, javax.xml.transform.Result) void
+  copy:
+  - from: this
+    to: arg(1)
+- function:
+    package: javax.xml.transform
+    class: TransformerFactory
+    name:
+      pattern: get(.)*
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: javax.xml.transform
+    class: TransformerFactory
+    name:
+      pattern: get(.)*
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.transform
+    class: TransformerFactory
+    name:
+      pattern: new(.)*
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: javax.xml.transform
+    class: TransformerFactory
+    name:
+      pattern: new(.)*
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.transform.URIResolver#resolve
+  signature: (java.lang.String, java.lang.String) javax.xml.transform.Source
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: javax.xml.transform.URIResolver#resolve
+  signature: (java.lang.String, java.lang.String) javax.xml.transform.Source
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.transform.dom
+    class: DOMResult
+    name:
+      pattern: <init>
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.dom.DOMResult#getNextSibling
+  signature: () org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.dom.DOMResult#getNode
+  signature: () org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.dom.DOMResult#setNextSibling
+  signature: (org.w3c.dom.Node) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.dom.DOMResult#setNode
+  signature: (org.w3c.dom.Node) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.dom.DOMSource#<init>
+  signature: () void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.dom.DOMSource#<init>
+  signature: (org.w3c.dom.Node) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.dom.DOMSource#<init>
+  signature: (org.w3c.dom.Node, java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.dom.DOMSource#getNode
+  signature: () org.w3c.dom.Node
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.dom.DOMSource#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.dom.DOMSource#setNode
+  signature: (org.w3c.dom.Node) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function:
+    package: javax.xml.transform.sax
+    class: SAXResult
+    name:
+      pattern: <init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.sax.SAXResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.sax.SAXResult#getHandler
+  signature: () org.xml.sax.ContentHandler
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.sax.SAXResult#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.sax.SAXResult#getLexicalHandler
+  signature: () org.xml.sax.ext.LexicalHandler
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.sax.SAXResult#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.sax.SAXResult#setHandler
+  signature: (org.xml.sax.ContentHandler) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.sax.SAXResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.sax.SAXResult#setLexicalHandler
+  signature: (org.xml.sax.ext.LexicalHandler) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.sax.SAXResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.sax.SAXSource#<init>
+  signature: () void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.sax.SAXSource#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.sax.SAXSource#<init>
+  signature: (org.xml.sax.InputSource) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.sax.SAXSource#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.sax.SAXSource#<init>
+  signature: (org.xml.sax.XMLReader, org.xml.sax.InputSource) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.sax.SAXSource#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.sax.SAXSource#getInputSource
+  signature: () org.xml.sax.InputSource
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.sax.SAXSource#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.sax.SAXSource#getXMLReader
+  signature: () org.xml.sax.XMLReader
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.sax.SAXSource#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.sax.SAXSource#setInputSource
+  signature: (org.xml.sax.InputSource) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.sax.SAXSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.sax.SAXSource#setXMLReader
+  signature: (org.xml.sax.XMLReader) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.sax.SAXSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.sax.SAXSource#sourceToInputSource
+  signature: (javax.xml.transform.Source) org.xml.sax.InputSource
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.xml.transform.stax.StAXResult#<init>
+  signature: (javax.xml.stream.XMLEventWriter) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stax.StAXResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.stax.StAXResult#<init>
+  signature: (javax.xml.stream.XMLStreamWriter) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stax.StAXResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.stax.StAXResult#getXMLEventWriter
+  signature: () javax.xml.stream.XMLEventWriter
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.stax.StAXResult#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.stax.StAXResult#getXMLStreamWriter
+  signature: () javax.xml.stream.XMLStreamWriter
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.stax.StAXResult#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.stax.StAXSource#<init>
+  signature: (javax.xml.stream.XMLEventReader) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.stax.StAXSource#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.stax.StAXSource#<init>
+  signature: (javax.xml.stream.XMLStreamReader) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.stax.StAXSource#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.stax.StAXSource#getXMLEventReader
+  signature: () javax.xml.stream.XMLEventReader
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.stax.StAXSource#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.stax.StAXSource#getXMLStreamReader
+  signature: () javax.xml.stream.XMLStreamReader
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.stax.StAXSource#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.stream.StreamResult#getOutputStream
+  signature: () java.io.OutputStream
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.transform.stream.StreamResult#getWriter
+  signature: () java.io.Writer
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.transform.stream.StreamSource#<init>
+  signature: () void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.stream.StreamSource#<init>
+  signature: (java.io.File) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.stream.StreamSource#<init>
+  signature: (java.io.InputStream) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.stream.StreamSource#<init>
+  signature: (java.io.Reader) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.stream.StreamSource#<init>
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.stream.StreamSource#<init>
+  signature: (java.io.InputStream, java.lang.String) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.stream.StreamSource#<init>
+  signature: (java.io.Reader, java.lang.String) void
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.stream.StreamSource#getInputStream
+  signature: () java.io.InputStream
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.stream.StreamSource#getReader
+  signature: () java.io.Reader
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.stream.StreamSource#setInputStream
+  signature: (java.io.InputStream) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.stream.StreamSource#setReader
+  signature: (java.io.Reader) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stream.StreamSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.w3c.dom.Document#createAttribute
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Document#createAttributeNS
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Document#createCDATASection
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Document#createComment
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Document#createElement
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Document#createElementNS
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Document#createEntityReference
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Document#createProcessingInstruction
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Document#createTextNode
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Document#getDocumentElement
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Document#getElementById
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Document#getElementsByTagName
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Document#getElementsByTagNameNS
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Document#importNode
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.w3c.dom.NamedNodeMap#getNamedItem
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.NamedNodeMap#getNamedItemNS
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.NamedNodeMap#item
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.NamedNodeMap#removeNamedItem
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.NamedNodeMap#removeNamedItemNS
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.NamedNodeMap#setNamedItem
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.NamedNodeMap#setNamedItemNS
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Node#appendChild
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.w3c.dom.Node#cloneNode
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getAttributes
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getChildNodes
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getFirstChild
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getLastChild
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getNextSibling
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getNodeName
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getNodeValue
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getOwnerDocument
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getParentNode
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getPrefix
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getPreviousSibling
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getTextContent
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#setNodeValue
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.w3c.dom.NodeList#item
+  copy:
+  - from: this
+    to: result

@@ -1,0 +1,351 @@
+passThrough:
+- function: io.netty.handler.codec.Headers#add
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: io.netty.handler.codec.Headers#add
+  signature: (java.lang.Object, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#add
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#add
+  copy:
+  - from: this
+    to: result
+- function: io.netty.handler.codec.Headers#addBoolean
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#addByte
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#addChar
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#addDouble
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#addFloat
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#addInt
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#addLong
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#addObject
+  signature: (java.lang.Object, *) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#addObject
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#addShort
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#addTimeMillis
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#get
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to: result
+- function: io.netty.handler.codec.Headers#getAndRemove
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to: result
+- function: io.netty.handler.codec.Headers#set
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: io.netty.handler.codec.Headers#set
+  signature: (java.lang.Object, *) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#set
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#set
+  copy:
+  - from: this
+    to: result
+- function: io.netty.handler.codec.Headers#setAll
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: io.netty.handler.codec.Headers#setBoolean
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#setByte
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#setChar
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#setDouble
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#setFloat
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#setInt
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#setLong
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#setObject
+  signature: (java.lang.Object, *) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#setObject
+  signature: (java.lang.Object, java.lang.Object) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#setShort
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.Headers#setTimeMillis
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.HeadersUtils#namesAsString
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object

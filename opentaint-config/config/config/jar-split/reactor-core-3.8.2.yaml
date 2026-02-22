@@ -1,0 +1,926 @@
+passThrough:
+- function: reactor.core.publisher.Flux#as
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#blockFirst
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#blockLast
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#buffer
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#bufferTimeout
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#bufferUntil
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#bufferWhen
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#bufferWhile
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#cache
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#cancelOn
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#cast
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#checkpoint
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#collect
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#collectList
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#collectSortedList
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#concat
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Flux#concatDelayError
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Flux#concatWith
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#concatWith
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#defaultIfEmpty
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#defaultIfEmpty
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#delayElements
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#delaySubscription
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#delayUntil
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#distinct
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#distinctUntilChanged
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#doAfterTerminate
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#doFinally
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#doOnCancel
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#doOnComplete
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#doOnEach
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#doOnError
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#doOnNext
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#doOnRequest
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#doOnSubscribe
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#doOnTerminate
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#elapsed
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#filter
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#filterWhen
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#from
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#fromArray
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Flux#fromIterable
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Flux#fromStream
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Flux#groupJoin
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#groupJoin
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#handle
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#join
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#join
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#just
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Flux#last
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#last
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#limitRate
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#log
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#merge
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Flux#mergeDelayError
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Flux#mergeSequential
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Flux#mergeSequentialDelayError
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Flux#mergeWith
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#mergeWith
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#next
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#ofType
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#onBackpressureBuffer
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#onBackpressureDrop
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#onBackpressureError
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#onBackpressureLatest
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#onErrorResume
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#onErrorReturn
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Class
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: arg(1)
+    to: result
+- function: reactor.core.publisher.Flux#onErrorReturn
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Class
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#onErrorReturn
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#onErrorReturn
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#onErrorReturn
+  signature:
+    params:
+    - index: 0
+      type: java.util.function.Predicate
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: arg(1)
+    to: result
+- function: reactor.core.publisher.Flux#onErrorReturn
+  signature:
+    params:
+    - index: 0
+      type: java.util.function.Predicate
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#onTerminateDetach
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#parallel
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#publish
+  signature:
+    params:
+    - index: 0
+      type: int
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#publish
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#publishOn
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#range
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#repeat
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#repeatWhen
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#replay
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#retry
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#retryWhen
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#sample
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#sampleFirst
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#sampleTimeout
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#share
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#single
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#singleOrEmpty
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#skip
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#skipLast
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#skipUntilOther
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#skipWhile
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#sort
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#startWith
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Flux#startWith
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#subscribe
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#subscribeOn
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#switchIfEmpty
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#switchIfEmpty
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#switchOnNext
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#take
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#takeLast
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#takeUntil
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#takeUntilOther
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#takeUntilOther
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#takeWhile
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#then
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#then
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#thenEmpty
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#thenEmpty
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#thenMany
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#thenMany
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#timeout
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Flux#timeout
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#timestamp
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#toIterable
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#toStream
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#window
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#windowTimeout
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#windowUntil
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#windowWhen
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#windowWhile
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#withLatestFrom
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#zipWith
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#zipWith
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Flux#zipWithIterable
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Flux#zipWithIterable
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#and
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#and
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#as
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#block
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#cache
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#cancelOn
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#cast
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#checkpoint
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#concatWith
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#concatWith
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#defaultIfEmpty
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#defaultIfEmpty
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#delay
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#delayElement
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#delaySubscription
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#delayUntil
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#doAfterTerminate
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#doFinally
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#doOnCancel
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#doOnEach
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#doOnError
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#doOnNext
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#doOnRequest
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#doOnSubscribe
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#doOnSuccess
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#doOnTerminate
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#elapsed
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#filter
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#filterWhen
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#first
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#flux
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#from
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#fromCompletionStage
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#fromDirect
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#fromFuture
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#handle
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#just
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Mono#justOrEmpty
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#mergeWith
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#mergeWith
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#onErrorResume
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#onErrorReturn
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Class
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: arg(1)
+    to: result
+- function: reactor.core.publisher.Mono#onErrorReturn
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Class
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#onErrorReturn
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#onErrorReturn
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#onErrorReturn
+  signature:
+    params:
+    - index: 0
+      type: java.util.function.Predicate
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: arg(1)
+    to: result
+- function: reactor.core.publisher.Mono#onErrorReturn
+  signature:
+    params:
+    - index: 0
+      type: java.util.function.Predicate
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#onTerminateDetach
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#or
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#or
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#repeat
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#repeatWhen
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#repeatWhenEmpty
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#retry
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#retryWhen
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#subscribe
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#subscribeOn
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#switchIfEmpty
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#switchIfEmpty
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#take
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#takeUntilOther
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#takeUntilOther
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#then
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#then
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#thenEmpty
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#thenEmpty
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#thenMany
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#thenMany
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#timeout
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Mono#timeout
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#timestamp
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#toFuture
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#zipWith
+  copy:
+  - from: arg(0)
+    to: result
+- function: reactor.core.publisher.Mono#zipWith
+  copy:
+  - from: this
+    to: result
+- function: reactor.util.function.Tuples#fromArray
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.util.function.Tuples#of
+  copy:
+  - from: arg(*)
+    to: result
+- function:
+    package: reactor.util.function
+    class:
+      pattern: Tuple\d+
+    name:
+      pattern: get(T.*)
+  copy:
+    - from: arg(0)
+      to: result
+- function:
+    package: reactor.util.function
+    class:
+      pattern: Tuple\d+
+    name: get
+  copy:
+    - from: arg(0)
+      to: result
+- function:
+    package: reactor.util.function
+    class:
+      pattern: Tuple\d+
+    name: iterator
+  copy:
+    - from: arg(0)
+      to: result
+- function:
+    package: reactor.util.function
+    class:
+      pattern: Tuple\d+
+    name: toArray
+  copy:
+    - from: arg(0)
+      to: result
+- function:
+    package: reactor.util.function
+    class:
+      pattern: Tuple\d+
+    name: toList
+  copy:
+    - from: arg(0)
+      to: result

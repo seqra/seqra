@@ -1,0 +1,284 @@
+passThrough:
+- function: io.netty.buffer.ByteBuf#capacity
+  signature: (int) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#discardReadBytes
+  signature: () *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#discardSomeReadBytes
+  signature: () *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#ensureWritable
+  signature: (int) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#getBytes
+  signature: (int, *) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#getBytes
+  signature: (int, *, int) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#getBytes
+  signature: (int, *, int, int) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#markReaderIndex
+  signature: () *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#markWriterIndex
+  signature: () *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#readBytes
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#readBytes
+  signature: (*, int) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#readBytes
+  signature: (*, int, int) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#readerIndex
+  signature: (int) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#resetReaderIndex
+  signature: () *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#resetWriterIndex
+  signature: () *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setBoolean
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setByte
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setBytes
+  signature: (int, *) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setBytes
+  signature: (int, *, int) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setBytes
+  signature: (int, *, int, int) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setChar
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setDouble
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setDoubleLE
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setFloat
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setFloatLE
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setIndex
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setInt
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setIntLE
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setLong
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setLongLE
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setMedium
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setMediumLE
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setShort
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setShortLE
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#setZero
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#skipBytes
+  signature: (int) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeBoolean
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeByte
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeBytes
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeBytes
+  signature: (*, int) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeBytes
+  signature: (*, int, int) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeChar
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeDouble
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeDoubleLE
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeFloat
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeFloatLE
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeInt
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeIntLE
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeLong
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeLongLE
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeMedium
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeMediumLE
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeShort
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeShortLE
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writeZero
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBuf#writerIndex
+  signature: (int) *
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.ByteBufUtil#ensureAccessible
+  signature: (*) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: io.netty.buffer.ByteBufUtil#setShortBE
+  signature: (*, int, int) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: io.netty.buffer.ByteBufUtil#writeMediumBE
+  signature: (*, int) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: io.netty.buffer.ByteBufUtil#writeShortBE
+  signature: (*, int) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: io.netty.buffer.CompositeByteBuf#addComponent
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.CompositeByteBuf#addComponents
+  copy:
+  - from: this
+    to: result
+- function: io.netty.buffer.CompositeByteBuf#addFlattenedComponents
+  copy:
+  - from: this
+    to: result

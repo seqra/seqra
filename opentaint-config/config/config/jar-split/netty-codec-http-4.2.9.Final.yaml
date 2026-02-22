@@ -1,0 +1,246 @@
+passThrough:
+- function: io.netty.handler.codec.http.HttpHeaders#add
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#add
+  signature: (java.lang.String, *) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#add
+  signature: (java.lang.String, java.lang.Object) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#add
+  copy:
+  - from: this
+    to: result
+- function: io.netty.handler.codec.http.HttpHeaders#addInt
+  signature: (*, int) *
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#addShort
+  signature: (*, short) *
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#copy
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#entries
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#get
+  copy:
+  - from: arg(1)
+    to: result
+- function: io.netty.handler.codec.http.HttpHeaders#get
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to: result
+- function: io.netty.handler.codec.http.HttpHeaders#getAll
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#getAllAsString
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#getAsString
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to: result
+- function: io.netty.handler.codec.http.HttpHeaders#getHeader
+  copy:
+  - from: arg(2)
+    to: result
+- function: io.netty.handler.codec.http.HttpHeaders#getHost
+  copy:
+  - from: arg(1)
+    to: result
+- function: io.netty.handler.codec.http.HttpHeaders#iteratorAsString
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#names
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#remove
+  copy:
+  - from: this
+    to: result
+- function: io.netty.handler.codec.http.HttpHeaders#set
+  signature: (*) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#set
+  signature: (java.lang.String, *) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#set
+  signature: (java.lang.String, java.lang.Object) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#set
+  copy:
+  - from: this
+    to: result
+- function: io.netty.handler.codec.http.HttpHeaders#setAll
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#setInt
+  signature: (*, int) *
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#setShort
+  signature: (*, short) *
+  copy:
+  - from: this
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: io.netty.handler.codec.http.HttpHeaders#valueStringIterator
+  signature: (*) *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: io.netty.handler.codec.http.multipart.InterfaceHttpPostRequestDecoder#offer
+  signature: (*) *
+  copy:
+  - from: this
+    to: result

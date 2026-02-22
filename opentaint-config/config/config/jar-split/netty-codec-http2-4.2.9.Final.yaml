@@ -1,0 +1,101 @@
+passThrough:
+- function: io.netty.handler.codec.http2.Http2Headers#authority
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to: result
+- function: io.netty.handler.codec.http2.Http2Headers#authority
+  signature: (*) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: this
+    to: result
+- function: io.netty.handler.codec.http2.Http2Headers#method
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to: result
+- function: io.netty.handler.codec.http2.Http2Headers#method
+  signature: (*) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: this
+    to: result
+- function: io.netty.handler.codec.http2.Http2Headers#path
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to: result
+- function: io.netty.handler.codec.http2.Http2Headers#path
+  signature: (*) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: this
+    to: result
+- function: io.netty.handler.codec.http2.Http2Headers#scheme
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to: result
+- function: io.netty.handler.codec.http2.Http2Headers#scheme
+  signature: (*) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: this
+    to: result
+- function: io.netty.handler.codec.http2.Http2Headers#status
+  signature: () *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to: result
+- function: io.netty.handler.codec.http2.Http2Headers#status
+  signature: (*) *
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: this
+    to: result
+- function: io.netty.handler.codec.http2.Http2Headers#valueIterator
+  signature: (*) *
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object

@@ -1,0 +1,17 @@
+passThrough:
+- function: com.sun.mail.imap.IMAPFolder#getACL
+  copy:
+  - from: this
+    to: result
+- function: com.sun.mail.imap.IMAPFolder#getAttributes
+  copy:
+  - from: this
+    to: result
+- function: com.sun.mail.imap.IMAPFolder#getMessageByUID
+  copy:
+  - from: this
+    to: result
+- function: com.sun.mail.imap.IMAPFolder#getQuota
+  copy:
+  - from: this
+    to: result

@@ -1,0 +1,31 @@
+passThrough:
+- function: org.springframework.boot.health.contributor.Status#getCode
+  copy:
+  - from:
+    - this
+    - .org.springframework.boot.health.contributor.Status#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.boot.health.contributor.Status#getDescription
+  copy:
+  - from:
+    - this
+    - .org.springframework.boot.health.contributor.Status#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.boot.health.contributor.Status#<init>
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.boot.health.contributor.Status#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.boot.health.contributor.Status#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this

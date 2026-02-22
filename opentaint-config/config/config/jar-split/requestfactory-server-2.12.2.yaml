@@ -1,0 +1,49 @@
+passThrough:
+- function: com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#getMessage
+  copy:
+  - from:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#getMessageTemplate
+  copy:
+  - from:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#getPath
+  copy:
+  - from:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#setMessage
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#setMessageTemplate
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#setPath
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this

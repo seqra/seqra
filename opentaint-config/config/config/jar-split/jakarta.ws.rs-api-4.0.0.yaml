@@ -1,0 +1,258 @@
+passThrough:
+- function: jakarta.ws.rs.core.AbstractMultivaluedMap#<init>
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: jakarta.ws.rs.core.Form#param
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.MultivaluedHashMap#<init>
+  signature: (*) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: jakarta.ws.rs.core.MultivaluedMap#add
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: jakarta.ws.rs.core.MultivaluedMap#addAll
+  signature: (java.lang.Object, *) *
+  copy:
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: jakarta.ws.rs.core.MultivaluedMap#addAll
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: jakarta.ws.rs.core.MultivaluedMap#addFirst
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: jakarta.ws.rs.core.MultivaluedMap#getFirst
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: jakarta.ws.rs.core.MultivaluedMap#putSingle
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#allow
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#cacheControl
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#contentLocation
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#cookie
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#encoding
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#entity
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#expires
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#header
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#language
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#lastModified
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#link
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#links
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#location
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#replaceAll
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#status
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#tag
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#type
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#variant
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.Response$ResponseBuilder#variants
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#fragment
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#host
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#matrixParam
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#path
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#queryParam
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#replaceMatrix
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#replaceMatrixParam
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#replacePath
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#replaceQuery
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#replaceQueryParam
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#resolveTemplate
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#resolveTemplateFromEncoded
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#resolveTemplates
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#resolveTemplatesFromEncoded
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#scheme
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#schemeSpecificPart
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#segment
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#uri
+  copy:
+  - from: this
+    to: result
+- function: jakarta.ws.rs.core.UriBuilder#userInfo
+  copy:
+  - from: this
+    to: result

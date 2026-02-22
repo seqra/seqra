@@ -1,0 +1,116 @@
+passThrough:
+- function: jakarta.json.JsonArray#getBoolean
+  overrides: false
+  copy:
+  - from: arg(1)
+    to: result
+- function: jakarta.json.JsonArray#getInt
+  overrides: false
+  copy:
+  - from: arg(1)
+    to: result
+- function: jakarta.json.JsonArray#getString
+  overrides: false
+  copy:
+  - from: arg(1)
+    to: result
+- function: jakarta.json.JsonArrayBuilder#add
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonArrayBuilder#addAll
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonArrayBuilder#addNull
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonArrayBuilder#remove
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonArrayBuilder#set
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonArrayBuilder#setNull
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonObject#getBoolean
+  overrides: false
+  copy:
+  - from: arg(1)
+    to: result
+- function: jakarta.json.JsonObject#getInt
+  overrides: false
+  copy:
+  - from: arg(1)
+    to: result
+- function: jakarta.json.JsonObject#getString
+  overrides: false
+  copy:
+  - from: arg(1)
+    to: result
+- function: jakarta.json.JsonObjectBuilder#add
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonObjectBuilder#addAll
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: jakarta.json.JsonObjectBuilder#addAll
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonObjectBuilder#addNull
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonObjectBuilder#remove
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonPatchBuilder#add
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonPatchBuilder#copy
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonPatchBuilder#move
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonPatchBuilder#remove
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonPatchBuilder#replace
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: jakarta.json.JsonPatchBuilder#test
+  overrides: false
+  copy:
+  - from: this
+    to: result
