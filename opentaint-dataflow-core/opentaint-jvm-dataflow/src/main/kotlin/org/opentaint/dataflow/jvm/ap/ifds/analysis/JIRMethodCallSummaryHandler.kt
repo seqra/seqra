@@ -46,7 +46,7 @@ class JIRMethodCallSummaryHandler(
             }
 
             if (summaryEdge.hasMemoryEffect()) {
-                analysisContext.aliasAnalysis?.forEachAliasAfterStatement(statement, summaryFactAp) { aliased ->
+                analysisContext.aliasAnalysis?.forEachAliasAfterCallStatement(statement, summaryFactAp) { aliased ->
                     result += handleSummaryEdge(initialFactRefinement, aliased)
                 }
             }
