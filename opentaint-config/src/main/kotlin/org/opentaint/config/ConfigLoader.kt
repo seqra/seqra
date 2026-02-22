@@ -32,7 +32,7 @@ object ConfigLoader {
 
         val passThrough = mutableListOf<SerializedRule.PassThrough>()
         files.forEach { file ->
-            javaClass.getResourceAsStream("$CONFIG_ROOT${File.separator}$file").use {
+            javaClass.getResourceAsStream("$CONFIG_ROOT/$file").use {
                 if (it == null) return null
                 else {
                     val config = loadSerializedTaintConfig(it)
