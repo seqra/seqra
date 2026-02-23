@@ -93,7 +93,13 @@ class JIRIntraProcAliasAnalysis(
     }
 
     private fun AAInfo.convertToAliasInfo(): AliasInfo? {
-        var cur = this
+        val (nonHeapInfo, accessors) = convertHeapAccessors(this)
+        val base = convertBaseAccessor(nonHeapInfo)
+        return base?.let { AliasInfo(it, accessors) }
+    }
+
+    private fun convertHeapAccessors(initial: AAInfo): Pair<AAInfo, List<JIRLocalAliasAnalysis.AliasAccessor>> {
+        var cur = initial
         val accessors = mutableListOf<JIRLocalAliasAnalysis.AliasAccessor>()
         while (cur is HeapAlias) {
             when (cur) {
@@ -112,23 +118,31 @@ class JIRIntraProcAliasAnalysis(
             }
             cur = cur.instance
         }
-        val base = when (cur) {
-            is LocalAlias.SimpleLoc -> when (val loc = cur.loc) {
-                is Local -> AccessPathBase.LocalVar(loc.idx)
-                is RefValue.Arg -> AccessPathBase.Argument(loc.idx)
-                is RefValue.This -> AccessPathBase.This
-                is RefValue.Static -> AccessPathBase.ClassStatic(loc.type)
-            }
-            is LocalAlias.Alloc -> {
-                val assign = cur.stmt as? Stmt.Assign
-                val const = assign?.expr as? SimpleValue.RefConst
-                val stringConst = const?.expr as? JIRStringConstant
-                stringConst?.let { AccessPathBase.Constant("java.lang.String", it.value) }
-            }
-            is CallReturn,
-            is Unknown -> null
-            is HeapAlias -> error("unreachable")
+
+        accessors.reverse()
+        val optimizedAccessors = accessors.ifEmpty { emptyList() }
+
+        return cur to optimizedAccessors
+    }
+
+    private fun convertBaseAccessor(cur: AAInfo): AccessPathBase? = when (cur) {
+        is LocalAlias.SimpleLoc -> when (val loc = cur.loc) {
+            is Local -> AccessPathBase.LocalVar(loc.idx)
+            is RefValue.Arg -> AccessPathBase.Argument(loc.idx)
+            is RefValue.This -> AccessPathBase.This
+            is RefValue.Static -> AccessPathBase.ClassStatic(loc.type)
         }
-        return base?.let { AliasInfo(it, if (accessors.isEmpty()) emptyList() else accessors) }
+
+        is LocalAlias.Alloc -> {
+            val assign = cur.stmt as? Stmt.Assign
+            val const = assign?.expr as? SimpleValue.RefConst
+            val stringConst = const?.expr as? JIRStringConstant
+            stringConst?.let { AccessPathBase.Constant("java.lang.String", it.value) }
+        }
+
+        is CallReturn,
+        is Unknown -> null
+
+        is HeapAlias -> error("unreachable")
     }
 }
