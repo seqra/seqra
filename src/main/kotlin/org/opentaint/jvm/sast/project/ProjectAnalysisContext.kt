@@ -16,6 +16,7 @@ import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.classpaths.JIRUnknownClass
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.opentaintIrDb
+import org.opentaint.jvm.sast.project.spring.SpringComponentsResolveTransformer
 import org.opentaint.jvm.sast.project.spring.SpringWebProjectContext
 import org.opentaint.jvm.sast.project.spring.createSpringProjectContext
 import org.opentaint.jvm.transformer.JMultiDimArrayAllocationTransformer
@@ -115,67 +116,35 @@ private fun AnalysisContextBuilder.createAnalysisContextWithCp(
     project: Project,
     cpFiles: List<File>
 ): ProjectAnalysisContext {
-    val (cp, projectClasses) = initializeCp(db, settings, projectModulesFiles, cpFiles)
-    return createAnalysisContext(project, db, cp, projectClasses, options)
-}
-
-private fun createAnalysisContext(
-    project: Project,
-    db: JIRDatabase,
-    cp: JIRClasspath,
-    projectClasses: ProjectClasses,
-    options: ProjectAnalysisOptions
-): ProjectAnalysisContext {
-    val missedModules = project.modules.toSet() - projectClasses.locationProjectModules.values.toSet()
-    if (missedModules.isNotEmpty()) {
-        logger.warn {
-            "Modules missed for project  ${project.sourceRoot}: ${missedModules.map { it.moduleSourceRoot }}"
-        }
-    }
-
-    val springContext = projectClasses.createSpringProjectContext()
-
-    return ProjectAnalysisContext(
-        project, options.projectKind, db,
-        cp, projectClasses, springContext
-    )
-}
-
-private fun initializeCp(
-    db: JIRDatabase,
-    settings: JIRSettings,
-    projectModulesFiles: Map<File, ProjectModuleClasses>,
-    allCpFiles: List<File>
-): Pair<JIRClasspath, ProjectClasses> {
     val projectClasses = ProjectClasses(projectModulesFiles)
     val classPathExtensionFeature = ProjectClassPathExtensionFeature()
-
     val lambdaAnonymousClass = LambdaAnonymousClassFeature()
     val lambdaTransformer = LambdaExpressionToAnonymousClassTransformerFeature(lambdaAnonymousClass)
-//        val methodNormalizer = MethodReturnInstNormalizerFeature
 
+    val springComponentsResolver = SpringComponentsResolveTransformer()
+
+    //        val methodNormalizer = MethodReturnInstNormalizerFeature
     val features = mutableListOf(
         KotlinInlineFunctionScopeTransformer,
         UnknownClasses, lambdaAnonymousClass, lambdaTransformer, /*methodNormalizer,*/
         JStringConcatTransformer, JMultiDimArrayAllocationTransformer,
         classPathExtensionFeature,
-        JavaPropertiesResolveTransformer(projectClasses)
+        JavaPropertiesResolveTransformer(projectClasses),
+        springComponentsResolver,
     )
 
-//        note: reactor operators special handling has no reasons for now
-//        features.add(SpringReactorOperatorsTransformer)
-
+    //        note: reactor operators special handling has no reasons for now
+    //        features.add(SpringReactorOperatorsTransformer)
 
     val cp: JIRClasspath
     runBlocking {
-        cp = db.classpathWithApproximations(allCpFiles, features)
+        cp = db.classpathWithApproximations(cpFiles, features)
             ?: run {
                 logger.warn {
                     "Classpath with approximations is requested, but some jar paths are missing"
                 }
-                db.classpath(allCpFiles, features)
+                db.classpath(cpFiles, features)
             }
-//        cp = db.classpath(allCpFiles, features)
     }
 
     cp.validate(settings)
@@ -183,7 +152,24 @@ private fun initializeCp(
     projectClasses.initCp(cp)
     projectClasses.loadProjectClasses()
 
-    return cp to projectClasses
+    checkProjectModules(project, projectClasses)
+
+    val springContext = projectClasses.createSpringProjectContext()
+    springComponentsResolver.initialize(springContext)
+
+    return ProjectAnalysisContext(
+        project, options.projectKind, db,
+        cp, projectClasses, springContext
+    )
+}
+
+private fun checkProjectModules(project: Project, projectClasses: ProjectClasses) {
+    val missedModules = project.modules.toSet() - projectClasses.locationProjectModules.values.toSet()
+    if (missedModules.isEmpty()) return
+
+    logger.warn {
+        "Modules missed for project  ${project.sourceRoot}: ${missedModules.map { it.moduleSourceRoot }}"
+    }
 }
 
 private fun JIRClasspath.validate(settings: JIRSettings) {

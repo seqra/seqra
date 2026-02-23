@@ -1,37 +1,23 @@
 package org.opentaint.jvm.sast.project
 
 import mu.KLogging
-import org.opentaint.dataflow.jvm.util.JIRInstListBuilder
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
-import org.opentaint.ir.api.jvm.JIRClassType
-import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRInstExtFeature
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.ir.api.jvm.PredefinedPrimitives
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
-import org.opentaint.ir.api.jvm.cfg.JIRBool
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRCallInst
-import org.opentaint.ir.api.jvm.cfg.JIREqExpr
-import org.opentaint.ir.api.jvm.cfg.JIRGotoInst
-import org.opentaint.ir.api.jvm.cfg.JIRIfInst
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstList
-import org.opentaint.ir.api.jvm.cfg.JIRInstRef
 import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
-import org.opentaint.ir.api.jvm.cfg.JIRStaticCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRValue
-import org.opentaint.ir.api.jvm.ext.boolean
-import org.opentaint.ir.impl.cfg.JIRInstLocationImpl
-import org.opentaint.ir.impl.cfg.TypedStaticMethodRefImpl
-import org.opentaint.ir.impl.features.classpaths.JIRUnknownType
-import org.opentaint.ir.impl.features.classpaths.VirtualLocation
 import org.opentaint.ir.impl.fs.BuildFolderLocation
 import org.opentaint.ir.impl.fs.JarLocation
-import org.opentaint.ir.impl.types.TypeNameImpl
+import org.opentaint.jvm.sast.project.OpentaintNonDetermineUtil.addNonDetInstruction
+import org.opentaint.jvm.transformer.JSingleInstructionTransformer
+import org.opentaint.jvm.transformer.JSingleInstructionTransformer.BlockGenerationContext
 import org.opentaint.jvm.util.stringType
 import java.util.Properties
 import java.util.jar.JarFile
@@ -56,7 +42,7 @@ class JavaPropertiesResolveTransformer(
         val concreteProperties = propertyDescriptors.filter { (_, d) -> d.concretePropertyName != null }
         if (concreteProperties.isEmpty()) return list
 
-        val builder = JIRInstListBuilder(list.toList().toMutableList())
+        val builder = JSingleInstructionTransformer(list)
         for ((inst, property) in concreteProperties) {
             val value = findPropertyValue(property, inst, list)
                 ?.let { JIRStringConstant(it, methodCls.classpath.stringType) }
@@ -64,63 +50,35 @@ class JavaPropertiesResolveTransformer(
            builder.addPropertyValueBlock(inst, value, property.propertyDefaultValue)
         }
 
-        return builder
+        return builder.buildInstList()
     }
 
-    private fun JIRInstListBuilder.addPropertyValueBlock(
+    private fun JSingleInstructionTransformer.addPropertyValueBlock(
         propertyAccess: JIRAssignInst,
         value: JIRImmediate?,
         default: JIRImmediate?
     ) {
         if (value == null && default == null) return
 
-        val originalLoc = propertyAccess.location
-        val method = propertyAccess.location.method
-        val cp = method.enclosingClass.classpath
-
-        val instCopyIdx: Int
-        addInst { newPropertyAccessIdx ->
-            instCopyIdx = newPropertyAccessIdx
-            val loc = with(originalLoc) {
-                JIRInstLocationImpl(method, newPropertyAccessIdx, lineNumber)
+        generateReplacementBlock(propertyAccess) {
+            addInstruction { loc ->
+                JIRAssignInst(loc, propertyAccess.lhv, propertyAccess.rhv)
             }
-            JIRAssignInst(loc, propertyAccess.lhv, propertyAccess.rhv)
-        }
-        with(originalLoc) {
-            mutableInstructions[index] = JIRGotoInst(this, JIRInstRef(instCopyIdx))
-        }
 
-        if (value != null) {
-            addNonDetAssign(cp, method, value, propertyAccess.lhv)
-        }
+            if (value != null) {
+                addNonDetAssign(value, propertyAccess.lhv)
+            }
 
-        if (default != null) {
-            addNonDetAssign(cp, method, default, propertyAccess.lhv)
-        }
-
-        addInstWithLocation(method) { loc ->
-            JIRGotoInst(loc, JIRInstRef(originalLoc.index + 1))
+            if (default != null) {
+                addNonDetAssign(default, propertyAccess.lhv)
+            }
         }
     }
 
-    private fun JIRInstListBuilder.addNonDetAssign(cp: JIRClasspath, method: JIRMethod, value: JIRImmediate, assignTo: JIRValue) {
-        val condIdx = nextLocalVarIdx()
-        val condVar = JIRLocalVar(condIdx, "cond", cp.boolean)
-        addInstWithLocation(method) { loc ->
-            JIRAssignInst(loc, condVar, opentaintNonDet(cp))
-        }
-        addInstWithLocation(method) { loc ->
-            JIRIfInst(
-                loc,
-                condition = JIREqExpr(cp.boolean, condVar, JIRBool(true, cp.boolean)),
-                trueBranch = JIRInstRef(loc.index + 1),
-                falseBranch = JIRInstRef(loc.index + 2)
-            )
-        }
-        addInstWithLocation(method) { loc ->
+    private fun BlockGenerationContext.addNonDetAssign(value: JIRImmediate, assignTo: JIRValue) =
+        addNonDetInstruction { loc ->
             JIRAssignInst(loc, assignTo, value)
         }
-    }
 
     private fun findPropertyValue(
         descriptor: PropertyDescriptor,
@@ -273,15 +231,6 @@ class JavaPropertiesResolveTransformer(
         else -> null
     }
 
-    private fun opentaintNonDet(cp: JIRClasspath): JIRCallExpr {
-        val type = TypeNameImpl.fromTypeName(PredefinedPrimitives.Boolean)
-        val methodRef = TypedStaticMethodRefImpl(opentaintNonDetCls(cp), "next", argTypes = emptyList(), type)
-        return JIRStaticCallExpr(methodRef, emptyList())
-    }
-
-    private fun opentaintNonDetCls(cp: JIRClasspath): JIRClassType =
-        JIRUnknownType(cp, "opentaint.NonDetCls", virtualLoc, nullable = false)
-
     companion object {
         private val logger = object : KLogging() {}.logger
         private const val JAVA_PROPERTIES = "java.util.Properties"
@@ -289,7 +238,5 @@ class JavaPropertiesResolveTransformer(
         private const val LOAD = "load"
         private const val CLASS_LOADER = "java.lang.ClassLoader"
         private const val GET_RESOURCE = "getResourceAsStream"
-
-        private val virtualLoc = VirtualLocation()
     }
 }

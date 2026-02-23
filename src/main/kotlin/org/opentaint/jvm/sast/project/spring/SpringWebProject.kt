@@ -65,6 +65,7 @@ import org.opentaint.jvm.sast.project.ProjectClassPathExtensionFeature
 import org.opentaint.jvm.sast.project.ProjectClasses
 import org.opentaint.jvm.sast.project.allProjectClasses
 import org.opentaint.jvm.sast.project.publicAndProtectedMethods
+import org.opentaint.jvm.util.toTypedMethod
 import org.opentaint.jvm.util.typename
 
 private val logger = object : KLogging() {}.logger
@@ -73,6 +74,7 @@ const val GeneratedSpringRegistry = "__spring_registry__"
 const val GeneratedSpringControllerDispatcher = "__spring_dispatcher__"
 const val GeneratedSpringControllerDispatcherDispatchMethod = "__dispatch__"
 const val GeneratedSpringControllerDispatcherCleanupMethod = "__cleanup__"
+const val GeneratedSpringControllerDispatcherInitMethod = "__init__"
 const val GeneratedSpringControllerDispatcherSelectMethod = "__select__"
 
 fun ProjectClasses.createSpringProjectContext(): SpringWebProjectContext? {
@@ -89,24 +91,22 @@ fun ProjectClasses.createSpringProjectContext(): SpringWebProjectContext? {
 
     val springControllerWrappers = mutableListOf<JIRMethod>()
     springControllerMethods.mapNotNullTo(springControllerWrappers) { controller ->
-        runCatching {
-            when (controller.returnType.typeName) {
-                ReactorMono, ReactorFlux -> {
-                    logger.debug { "Reactor spring controller: $controller" }
-                    controllerEpGenerator.generate(controller)
-                }
-
-                else -> {
-                    logger.debug { "Simple spring controller: $controller" }
-                    controllerEpGenerator.generate(controller)
-                }
+        logger.debug {
+            val controllerKind = when (controller.returnType.typeName) {
+                ReactorMono, ReactorFlux -> "Reactor"
+                else -> "Simple"
             }
+
+            "$controllerKind spring controller: $controller"
+        }
+
+        runCatching {
+            controllerEpGenerator.generate(controller)
         }.onFailure { ex ->
             logger.error(ex) { "Error while generating spring controller: $controller" }
         }.getOrNull()
     }
 
-    // todo: generate component initializers
     springCtx.generateDispatcher(springControllerWrappers)
 
     springCtx.analyzeSpringRepositories(cp, this)
@@ -154,7 +154,16 @@ class SpringWebProjectContext(
     data class ComponentDependency(val componentType: JIRClassOrInterface, val field: JIRTypedField?)
 
     val componentDependencies = hashMapOf<JIRClassOrInterface, MutableSet<ComponentDependency>>()
+    val fieldDependencies = hashMapOf<JIRField, MutableSet<JIRClassOrInterface>>()
+
     val componentRegistryField = hashMapOf<JIRClassOrInterface, JIRTypedField>()
+
+    fun registryField(component: JIRClassOrInterface): JIRTypedField =
+        componentRegistryField[component]
+            ?: error("Component field not registered: $component")
+
+    fun registryFieldRef(component: JIRClassOrInterface): JIRFieldRef =
+        JIRFieldRef(instance = null, registryField(component))
 
     fun addComponent(component: JIRClassOrInterface): Boolean {
         val dependencies = componentDependencies[component]
@@ -178,6 +187,7 @@ class SpringWebProjectContext(
 }
 
 private fun SpringWebProjectContext.generateDispatcher(controllerWrappers: List<JIRMethod>): JIRMethod {
+    val initMethod = generateComponentInitializer()
     val cleanupMethod = generateCleanup()
     val selectMethod = generateSelect()
     val cp = controllerDispatcher.classpath
@@ -195,6 +205,11 @@ private fun SpringWebProjectContext.generateDispatcher(controllerWrappers: List<
     ).also {
         controllerDispatcherMethods += it
         it.bind(controllerDispatcher)
+    }
+
+    instructions.addInstWithLocation(dispatcher) { loc ->
+        val initCall = JIRStaticCallExpr(initMethod.staticMethodRef(), emptyList())
+        JIRCallInst(loc, initCall)
     }
 
     val selectValue = JIRLocalVar(index = 0, "%sel", cp.int)
@@ -302,6 +317,107 @@ private fun SpringWebProjectContext.generateCleanup(): JIRMethod {
     return cleanupMethod
 }
 
+private fun SpringWebProjectContext.generateComponentInitializer(): JIRMethod {
+    val instructions = JIRInstListBuilder()
+
+    val returnType = PredefinedPrimitives.Void.typeName()
+    val initMethod = SpringGeneratedMethod(
+        name = GeneratedSpringControllerDispatcherInitMethod,
+        returnType = returnType,
+        description = methodDescription(emptyList(), returnType),
+        parameters = emptyList(),
+        instructions = instructions
+    ).also {
+        controllerDispatcherMethods += it
+        it.bind(controllerDispatcher)
+    }
+
+    generateComponentInitializerBody(instructions, initMethod)
+
+    instructions.addInstWithLocation(initMethod) { loc ->
+        JIRReturnInst(loc, returnValue = null)
+    }
+
+    return initMethod
+}
+
+private fun SpringWebProjectContext.generateComponentInitializerBody(
+    instructions: JIRInstListBuilder, initMethod: JIRMethod
+) {
+    val generatedComponents = mutableMapOf<JIRClassOrInterface, JIRValue>()
+    componentDependencies.keys.forEach {
+        instructions.generateComponentInitialization(this, initMethod, it, generatedComponents)
+    }
+}
+
+private fun JIRInstListBuilder.generateComponentInitialization(
+    springCtx: SpringWebProjectContext,
+    initMethod: JIRMethod,
+    component: JIRClassOrInterface,
+    generatedComponents: MutableMap<JIRClassOrInterface, JIRValue>
+): JIRValue? {
+    val generatedValue = generatedComponents[component]
+    if (generatedValue != null) return generatedValue
+
+    if (component !in springCtx.componentRegistryField) {
+        logger.warn("Component missed in registry: $component")
+        return null
+    }
+
+    val componentType = component.toType()
+    val componentValue = nextLocalVar(component.name, componentType)
+    generatedComponents[component] = componentValue
+
+    addInstWithLocation(initMethod) { loc ->
+        JIRAssignInst(loc, componentValue, JIRNewExpr(componentType))
+    }
+
+    generateComponentCtorCall(springCtx, initMethod, component, componentValue, generatedComponents)
+
+    val componentFieldRef = springCtx.registryFieldRef(component)
+    addInstWithLocation(initMethod) { loc ->
+        JIRAssignInst(loc, componentFieldRef, componentValue)
+    }
+
+    return componentValue
+}
+
+private fun JIRInstListBuilder.generateComponentCtorCall(
+    springCtx: SpringWebProjectContext,
+    initMethod: JIRMethod,
+    component: JIRClassOrInterface,
+    instance: JIRValue,
+    generatedComponents: MutableMap<JIRClassOrInterface, JIRValue>
+) {
+    val componentCtor = component.findComponentConstructor()
+        ?: return
+
+    val typedCtor = componentCtor.toTypedMethod
+    val ctorArgs = typedCtor.parameters.map {
+        val paramType = it.type
+        var paramValue: JIRValue? = null
+        if (paramType is JIRRefType) {
+            val paramCls = paramType.jIRClass
+            paramValue = generateComponentInitialization(springCtx, initMethod, paramCls, generatedComponents)
+        }
+
+        if (paramValue == null) {
+            paramValue = generateStubValue(paramType)
+        }
+
+        if (paramValue == null) {
+            return
+        }
+
+        paramValue
+    }
+
+    val ctorCall = JIRSpecialCallExpr(componentCtor.specialMethodRef(), instance, ctorArgs)
+    addInstWithLocation(initMethod) { loc ->
+        JIRCallInst(loc, ctorCall)
+    }
+}
+
 private fun SpringWebProjectContext.registerComponent(
     projectClasses: ProjectClasses,
     cp: JIRClasspath,
@@ -320,6 +436,7 @@ private fun SpringWebProjectContext.registerComponent(
 
         val typedAwField = clsType.declaredFields.first { it.name == awField.name }
         dependencies += SpringWebProjectContext.ComponentDependency(dependency, typedAwField)
+        fieldDependencies.getOrPut(typedAwField.field, ::mutableSetOf).add(dependency)
 
         registerComponent(projectClasses, cp, dependency)
     }
@@ -338,6 +455,9 @@ private fun SpringWebProjectContext.registerComponent(
             }
 
             dependencies += SpringWebProjectContext.ComponentDependency(dependency, dependencyField)
+            dependencyField?.let {
+                fieldDependencies.getOrPut(it.field, ::mutableSetOf).add(dependency)
+            }
 
             registerComponent(projectClasses, cp, dependency)
         }
@@ -366,113 +486,56 @@ private class SpringControllerEntryPointGenerator(
             }
         }
 
-    // According to https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/ModelAttribute.html
-    private fun defaultModelAttributeNameForType(type: JIRType): String? {
-        if (type !is JIRClassType || type.typeParameters.isNotEmpty()) {
-            // TODO
-            return null
-        }
-        return type.jIRClass.simpleName.let { name ->
-            name.replaceFirst(name[0], name[0].lowercaseChar())
-        }
-    }
+    private val bindingResultCls by lazy { cp.findClass(SpringBindingResult) }
 
-    private inner class GenerationCtx(val controller: SpringGeneratedMethod) {
+    private inner class GenerationCtx(
+        val generatedMethod: SpringGeneratedMethod,
+        val controllerType: JIRClassType,
+        val typedControllerMethod: JIRTypedMethod,
+        val instructions: JIRInstListBuilder,
+    ) {
         val generatedComponents = mutableMapOf<JIRClassOrInterface, JIRValue>()
+
+        val pathVariables = hashMapOf<String, JIRValue>()
+        val modelAttributes = hashMapOf<String, JIRValue>()
+
+        val bindingResultInstance by lazy {
+            val bindingResultImplCls = cp.findClass(SpringBeanBindingResult)
+            loadSpringComponent(bindingResultImplCls, "binding_result")
+        }
+
+        val controllerInstance by lazy {
+            loadSpringComponent(controllerType.jIRClass, "controller")
+        }
+
+        fun nextLocalVar(name: String, type: JIRType): JIRLocalVar =
+            instructions.nextLocalVar(name, type)
+
+        fun addInstWithLocation(buildInst: (JIRInstLocation) -> JIRInst) =
+            instructions.addInstWithLocation(generatedMethod, buildInst)
     }
 
-    private fun JIRInstListBuilder.loadSpringComponent(
-        ctx: GenerationCtx,
+    private fun GenerationCtx.loadSpringComponent(
         component: JIRClassOrInterface,
         name: String = "cmp"
     ): JIRValue {
-        val generatedValue = ctx.generatedComponents[component]
+        val generatedValue = generatedComponents[component]
         if (generatedValue != null) return generatedValue
 
-        val idx = nextLocalVarIdx()
-        val componentValue = JIRLocalVar(idx, name = "%${name}_$idx", component.toType())
-        ctx.generatedComponents[component] = componentValue
+        val componentValue = nextLocalVar(name, component.toType())
+        generatedComponents[component] = componentValue
 
         springCtx.registerComponent(projectClasses, cp, component)
 
-        val accessibleComponentDependencies = springCtx.componentDependencies.getValue(component).mapNotNull { dep ->
-            dep.field?.let { it to dep }
-        }
-
-        val accessibleComponentValues = accessibleComponentDependencies.map { (field, dep) ->
-            field to loadSpringComponent(ctx, dep.componentType)
-        }
-
-        val componentField = springCtx.componentRegistryField.getValue(component)
-        addInstWithLocation(ctx.controller) { loc ->
-            JIRAssignInst(loc, componentValue, JIRFieldRef(instance = null, componentField))
-        }
-
-        addInstWithLocation(ctx.controller) { loc ->
-            // reset component field to avoid redundant propagations
-            JIRAssignInst(loc, JIRFieldRef(instance = null, componentField), JIRNullConstant(componentValue.type))
-        }
-
-        // initialize accessible components
-        for ((field, dependency) in accessibleComponentValues) {
-            addInstWithLocation(ctx.controller) { loc ->
-                val ref = JIRFieldRef(componentValue, field)
-                JIRAssignInst(loc, ref, dependency)
-            }
+        val componentFieldRef = springCtx.registryFieldRef(component)
+        addInstWithLocation { loc ->
+            JIRAssignInst(loc, componentValue, componentFieldRef)
         }
 
         return componentValue
     }
 
-
-    private fun JIRInstListBuilder.flushComponentsState(
-        ctx: GenerationCtx,
-        controller: JIRClassOrInterface,
-        componentValue: JIRValue,
-    ) {
-        val flushed = hashSetOf<JIRClassOrInterface>()
-        flushComponentsTreeState(ctx, controller, componentValue, flushed)
-
-        while (true) {
-            val nonFlushedComponent = ctx.generatedComponents.entries
-                .firstOrNull { it.key !in flushed }
-                ?: break
-
-            flushComponentsTreeState(ctx, nonFlushedComponent.key, nonFlushedComponent.value, flushed)
-        }
-    }
-
-    private fun JIRInstListBuilder.flushComponentsTreeState(
-        ctx: GenerationCtx,
-        component: JIRClassOrInterface,
-        componentValue: JIRValue,
-        flushed: MutableSet<JIRClassOrInterface>
-    ) {
-        if (!flushed.add(component)) return
-
-        addInstWithLocation(ctx.controller) { loc ->
-            val componentInstance = springCtx.componentRegistryField.getValue(component)
-            JIRAssignInst(loc, JIRFieldRef(instance = null, componentInstance), componentValue)
-        }
-
-        val dependencies = springCtx.componentDependencies[component] ?: return
-
-        for (dependency in dependencies) {
-            val field = dependency.field ?: continue
-
-            val idx = nextLocalVarIdx()
-            val dependencyValue = JIRLocalVar(idx, name = "%flush_$idx", field.type)
-
-            addInstWithLocation(ctx.controller) { loc ->
-                val ref = JIRFieldRef(componentValue, field)
-                JIRAssignInst(loc, dependencyValue, ref)
-            }
-
-            flushComponentsTreeState(ctx, dependency.componentType, dependencyValue, flushed)
-        }
-    }
-
-    fun generate(controller: JIRMethod): JIRMethod {
+    private fun createGenerationCtx(controller: JIRMethod): GenerationCtx {
         val cls = controllerClass(controller.enclosingClass)
 
         val controllerType = controller.enclosingClass.toType()
@@ -495,271 +558,256 @@ private class SpringControllerEntryPointGenerator(
             it.bind(cls)
         }
 
-        val ctx = GenerationCtx(entryPointMethod)
-        val controllerInstance = instructions.loadSpringComponent(
-            ctx, controllerType.jIRClass, "controller"
-        )
+        return GenerationCtx(entryPointMethod, controllerType, typedMethod, instructions)
+    }
 
-        val bindingResultCls = cp.findClass(SpringBindingResult)
-        val bindingResultInstance by lazy {
-            val bindingResultImplCls = cp.findClass(SpringBeanBindingResult)
-            instructions.loadSpringComponent(ctx, bindingResultImplCls, "binding_result")
-        }
+    fun generate(controller: JIRMethod): JIRMethod {
+        val ctx = createGenerationCtx(controller)
 
-        val pathVariables = hashMapOf<String, JIRValue>()
-        val modelAttributes = hashMapOf<String, JIRValue>()
+        ctx.generatedModelAttributeCalls()
 
-        fun generateParamValue(
-            param: JIRTypedMethodParameter,
-            paramValue: JIRLocalVar
-        ): JIRValue? = when (val type = param.type) {
-            is JIRPrimitiveType -> generateStubValue(type)
+        val controllerResult = ctx.generateControllerMethodCall(ctx.typedControllerMethod)
 
-            is JIRClassType -> {
-                val paramCls = type.jIRClass
-                when {
-                    paramCls.name.startsWith("java.lang") -> generateStubValue(type)
-                    paramCls.isSubClassOf(bindingResultCls) -> bindingResultInstance
-                    projectClasses.isProjectClass(paramCls) -> {
-                        instructions.addInstWithLocation(entryPointMethod) { loc ->
-                            JIRAssignInst(loc, paramValue, JIRNewExpr(type))
-                        }
-
-                        val ctor = paramCls.declaredMethods
-                            .singleOrNull { it.isConstructor && it.parameters.isEmpty() }
-
-                        if (ctor != null) {
-                            val ctorCall = JIRSpecialCallExpr(ctor.specialMethodRef(), paramValue, emptyList())
-                            instructions.addInstWithLocation(entryPointMethod) { loc ->
-                                JIRCallInst(loc, ctorCall)
-                            }
-                        } else {
-                            logger.warn { "No constructor for $paramCls" }
-                        }
-
-                        null // paramValue already assigned with new expr
-                    }
-
-                    paramCls.packageName.startsWith(SpringPackage) -> {
-                        instructions.loadSpringComponent(ctx, paramCls, "param")
-                    }
-
-                    else -> {
-                        logger.warn { "Unsupported parameter class: $paramCls" }
-                        JIRNullConstant(type)
-                    }
-                }
-            }
-
-            else -> {
-                logger.warn { "Unsupported parameter class: ${type.typeName}" }
-                JIRNullConstant(type)
+        if (controllerResult != null) {
+            val returnType = controller.returnType.typeName
+            if (returnType == ReactorMono || returnType == ReactorFlux) {
+                ctx.generateReactorMonoBlock(returnType, controllerResult)
             }
         }
 
-        fun getOrCreateNewArgument(typedMethod: JIRTypedMethod, index: Int): JIRValue {
-            val param = typedMethod.parameters[index]
-            val jIRParam = typedMethod.method.parameters[index]
-
-            val pathVariable = jIRParam.matchedAnnotations(String::isSpringPathVariable)
-                .singleOrNull()
-                ?.let { pathVariableAnnotation ->
-                    pathVariableAnnotation.values["value"] as? String ?: jIRParam.name
-                }
-
-            if (pathVariable != null) {
-                pathVariables[pathVariable]?.let { return it }
-            }
-
-            val modelAttribute = jIRParam
-                .matchedAnnotations(String::isSpringModelAttribute)
-                .singleOrNull()
-                ?.let { modelAttributeAnnotation ->
-                    modelAttributeAnnotation.values["value"] as? String
-                        ?: defaultModelAttributeNameForType(param.type)
-                }.takeIf { pathVariable == null }
-
-            if (modelAttribute != null) {
-                modelAttributes[modelAttribute]?.let { return it }
-            }
-
-            val paramName = if (pathVariable != null) {
-                "pathVariable_$pathVariable"
-            } else if (modelAttribute != null) {
-                "modelAttribute_$modelAttribute"
-            } else {
-                "${typedMethod.name}_param_$index"
-            }
-
-            val paramValue = JIRLocalVar(instructions.nextLocalVarIdx(), name = paramName, param.type)
-            val valueToAssign = generateParamValue(param, paramValue)
-
-            if (valueToAssign != null) {
-                instructions.addInstWithLocation(entryPointMethod) { loc ->
-                    JIRAssignInst(loc, paramValue, valueToAssign)
-                }
-            }
-
-            val isValidated = jIRParam.matchedAnnotations(String::isSpringValidated).any()
-            if (isValidated) {
-                // TODO: pass annotation to validator.initialize somehow?
-                val validators = (param.type as? JIRClassType)?.jIRClass?.jakartaConstraintValidators.orEmpty()
-
-                for (validator in validators) {
-                    val validatorType = validator.toType()
-                    val initializeMethod = validatorType.methods.firstOrNull {
-                        it.name == "initialize" && it.parameters.size == 1
-                    } ?: continue
-                    val isValidMethod = validatorType.methods.firstOrNull {
-                        it.name == "isValid" && it.parameters.size == 2
-                    } ?: continue
-
-                    val validatorInstance = instructions.loadSpringComponent(
-                        ctx, validator, "validator"
-                    )
-
-                    val initializeMethodRef = VirtualMethodRefImpl.of(validatorType, initializeMethod)
-                    val initializeMethodCall = JIRVirtualCallExpr(
-                        initializeMethodRef, validatorInstance,
-                        listOf(getOrCreateNewArgument(initializeMethod, 0))
-                    )
-                    instructions.addInstWithLocation(entryPointMethod) { loc ->
-                        JIRCallInst(loc, initializeMethodCall)
-                    }
-
-                    val isValidMethodRef = VirtualMethodRefImpl.of(validatorType, isValidMethod)
-                    val isValidMethodCall = JIRVirtualCallExpr(
-                        isValidMethodRef, validatorInstance,
-                        listOf(paramValue, getOrCreateNewArgument(isValidMethod, 1))
-                    )
-                    instructions.addInstWithLocation(entryPointMethod) { loc ->
-                        JIRCallInst(loc, isValidMethodCall)
-                    }
-                }
-
-                // todo: better validator resolution
-                for (validator in validators) {
-                    val validatorType = validator.toType()
-                    val validateMethod = validatorType.methods.firstOrNull {
-                        it.name == "validate" && it.parameters.size == 2
-                    } ?: continue
-
-                    val validatorInstance = instructions.loadSpringComponent(
-                        ctx, validator, "validator"
-                    )
-
-                    val validateMethodRef = VirtualMethodRefImpl.of(validatorType, validateMethod)
-                    val validateMethodCall = JIRVirtualCallExpr(
-                        validateMethodRef, validatorInstance,
-                        listOf(paramValue, bindingResultInstance)
-                    )
-
-                    instructions.addInstWithLocation(entryPointMethod) { loc ->
-                        JIRCallInst(loc, validateMethodCall)
-                    }
-                }
-            }
-
-            return paramValue.also {
-                if (pathVariable != null) {
-                    pathVariables[pathVariable] = it
-                }
-                if (modelAttribute != null) {
-                    modelAttributes[modelAttribute] = it
-                }
-            }
+        ctx.addInstWithLocation { loc ->
+            JIRReturnInst(loc, returnValue = null)
         }
 
-        fun generateMethodCall(typedMethod: JIRTypedMethod, returnValueVarName: String? = null): JIRLocalVar? {
-            val methodRef = VirtualMethodRefImpl.of(controllerType, typedMethod)
-            val methodCall = JIRVirtualCallExpr(
-                methodRef,
-                controllerInstance,
-                typedMethod.parameters.indices.map { getOrCreateNewArgument(typedMethod, it) }
-            )
+        return ctx.generatedMethod
+    }
 
-            return if (typedMethod.returnType == cp.void) {
-                instructions.addInstWithLocation(entryPointMethod) { loc ->
-                    JIRCallInst(loc, methodCall)
-                }
-                null
-            } else {
-                val controllerResult = JIRLocalVar(
-                    instructions.nextLocalVarIdx(),
-                    name = returnValueVarName ?: "${typedMethod.name}_result",
-                    typedMethod.returnType
-                )
-                instructions.addInstWithLocation(entryPointMethod) { loc ->
-                    JIRAssignInst(loc, controllerResult, methodCall)
-                }
-
-                controllerResult
-            }
-        }
-
+    private fun GenerationCtx.generatedModelAttributeCalls() {
         controllerType.methods.forEach { method ->
             // Adding calls to methods annotated with @ModelAttribute
             // TODO: call these methods in proper order
             //  (https://github.com/spring-projects/spring-framework/commit/56a82c1cbe8276408f9fff06cfb1ac9da7961a80)
-            val modelAttributeAnnotation = method.method.matchedAnnotations(String::isSpringModelAttribute).singleOrNull()
-                ?: return@forEach
+            val modelAttributeAnnotation =
+                method.method.matchedAnnotations(String::isSpringModelAttribute).singleOrNull()
+                    ?: return@forEach
 
             val modelAttributeName = modelAttributeAnnotation.values["value"] as? String
                 ?: defaultModelAttributeNameForType(method.returnType)
 
             val returnValueVarName = modelAttributeName?.let { "modelAttribute_$it" }
-            val result = generateMethodCall(method, returnValueVarName) ?: return@forEach
+            val result = generateControllerMethodCall(method, returnValueVarName) ?: return@forEach
 
             if (modelAttributeName != null) {
                 modelAttributes[modelAttributeName] = result
             }
         }
+    }
 
-        val controllerResult = generateMethodCall(typedMethod)
+    // According to https://docs.spring.io/spring-framework/docs/current/javadoc-api/org/springframework/web/bind/annotation/ModelAttribute.html
+    private fun defaultModelAttributeNameForType(type: JIRType): String? {
+        if (type !is JIRClassType || type.typeParameters.isNotEmpty()) {
+            // TODO
+            return null
+        }
+        return type.jIRClass.simpleName.let { name ->
+            name.replaceFirst(name[0], name[0].lowercaseChar())
+        }
+    }
 
-        if (controllerResult != null) {
-            val returnType = controller.returnType.typeName
-            if (returnType == ReactorMono || returnType == ReactorFlux) {
-                generateReactorMonoBlock(instructions, entryPointMethod, returnType, controllerResult)
+    private fun GenerationCtx.getOrCreateNewArgument(typedMethod: JIRTypedMethod, index: Int): JIRValue {
+        val param = typedMethod.parameters[index]
+        val jIRParam = typedMethod.method.parameters[index]
+
+        val pathVariable = jIRParam.matchedAnnotations(String::isSpringPathVariable)
+            .singleOrNull()
+            ?.let { pathVariableAnnotation ->
+                pathVariableAnnotation.values["value"] as? String ?: jIRParam.name
+            }
+
+        if (pathVariable != null) {
+            pathVariables[pathVariable]?.let { return it }
+        }
+
+        val modelAttribute = jIRParam
+            .matchedAnnotations(String::isSpringModelAttribute)
+            .singleOrNull()
+            ?.let { modelAttributeAnnotation ->
+                modelAttributeAnnotation.values["value"] as? String
+                    ?: defaultModelAttributeNameForType(param.type)
+            }.takeIf { pathVariable == null }
+
+        if (modelAttribute != null) {
+            modelAttributes[modelAttribute]?.let { return it }
+        }
+
+        val paramName = if (pathVariable != null) {
+            "pathVariable_$pathVariable"
+        } else if (modelAttribute != null) {
+            "modelAttribute_$modelAttribute"
+        } else {
+            "${typedMethod.name}_param_$index"
+        }
+
+        val paramValue = nextLocalVar(paramName, param.type)
+        val valueToAssign = generateParamValue(param, paramValue)
+
+        if (valueToAssign != null) {
+            addInstWithLocation { loc ->
+                JIRAssignInst(loc, paramValue, valueToAssign)
             }
         }
 
-        instructions.flushComponentsState(ctx, controllerType.jIRClass, controllerInstance)
-
-        instructions.addInstWithLocation(entryPointMethod) { loc ->
-            JIRReturnInst(loc, returnValue = null)
+        val isValidated = jIRParam.matchedAnnotations(String::isSpringValidated).any()
+        if (isValidated) {
+            generateParamValidatorCall(param, paramValue)
         }
 
-        return entryPointMethod
+        return paramValue.also {
+            if (pathVariable != null) {
+                pathVariables[pathVariable] = it
+            }
+            if (modelAttribute != null) {
+                modelAttributes[modelAttribute] = it
+            }
+        }
     }
 
-    private fun generateStubValue(type: JIRType): JIRValue = when (type) {
-        is JIRPrimitiveType -> when (type.typeName) {
-            PredefinedPrimitives.Boolean -> JIRBool(true, type)
-            PredefinedPrimitives.Byte -> JIRByte(0, type)
-            PredefinedPrimitives.Char -> JIRChar('x', type)
-            PredefinedPrimitives.Short -> JIRShort(0, type)
-            PredefinedPrimitives.Int -> JIRInt(0, type)
-            PredefinedPrimitives.Long -> JIRLong(0, type)
-            PredefinedPrimitives.Float -> JIRFloat(0f, type)
-            PredefinedPrimitives.Double -> JIRDouble(0.0, type)
-            else -> TODO("Unsupported stub type: $type")
-        }
+    private fun GenerationCtx.generateParamValidatorCall(
+        param: JIRTypedMethodParameter,
+        paramValue: JIRLocalVar
+    ) {
+        // TODO: pass annotation to validator.initialize somehow?
+        val validators = (param.type as? JIRClassType)?.jIRClass?.jakartaConstraintValidators.orEmpty()
 
-        is JIRRefType -> when (type.typeName) {
-            "java.lang.String" -> JIRStringConstant("stub", type)
-            else -> {
-                logger.warn { "Unsupported stub type: ${type.typeName}" }
-                JIRNullConstant(type)
+        for (validator in validators) {
+            val validatorType = validator.toType()
+            val initializeMethod = validatorType.methods.firstOrNull {
+                it.name == "initialize" && it.parameters.size == 1
+            } ?: continue
+            val isValidMethod = validatorType.methods.firstOrNull {
+                it.name == "isValid" && it.parameters.size == 2
+            } ?: continue
+
+            val validatorInstance = loadSpringComponent(validator, "validator")
+
+            val initializeMethodRef = VirtualMethodRefImpl.of(validatorType, initializeMethod)
+            val initializeMethodCall = JIRVirtualCallExpr(
+                initializeMethodRef, validatorInstance,
+                listOf(getOrCreateNewArgument(initializeMethod, 0))
+            )
+            addInstWithLocation { loc ->
+                JIRCallInst(loc, initializeMethodCall)
+            }
+
+            val isValidMethodRef = VirtualMethodRefImpl.of(validatorType, isValidMethod)
+            val isValidMethodCall = JIRVirtualCallExpr(
+                isValidMethodRef, validatorInstance,
+                listOf(paramValue, getOrCreateNewArgument(isValidMethod, 1))
+            )
+            addInstWithLocation { loc ->
+                JIRCallInst(loc, isValidMethodCall)
             }
         }
 
-        else -> TODO("Unsupported stub type: $type")
+        // todo: better validator resolution
+        for (validator in validators) {
+            val validatorType = validator.toType()
+            val validateMethod = validatorType.methods.firstOrNull {
+                it.name == "validate" && it.parameters.size == 2
+            } ?: continue
+
+            val validatorInstance = loadSpringComponent(validator, "validator")
+
+            val validateMethodRef = VirtualMethodRefImpl.of(validatorType, validateMethod)
+            val validateMethodCall = JIRVirtualCallExpr(
+                validateMethodRef, validatorInstance,
+                listOf(paramValue, bindingResultInstance)
+            )
+
+            addInstWithLocation { loc ->
+                JIRCallInst(loc, validateMethodCall)
+            }
+        }
     }
 
-    private fun generateReactorMonoBlock(
-        epMethodInstructions: JIRInstListBuilder,
-        entryPointMethod: SpringGeneratedMethod,
+    private fun GenerationCtx.generateControllerMethodCall(
+        typedMethod: JIRTypedMethod,
+        returnValueVarName: String? = null
+    ): JIRLocalVar? {
+        val methodRef = VirtualMethodRefImpl.of(controllerType, typedMethod)
+        val methodCall = JIRVirtualCallExpr(
+            methodRef,
+            controllerInstance,
+            typedMethod.parameters.indices.map { getOrCreateNewArgument(typedMethod, it) }
+        )
+
+        return if (typedMethod.returnType == cp.void) {
+            addInstWithLocation { loc ->
+                JIRCallInst(loc, methodCall)
+            }
+            null
+        } else {
+            val controllerResult = nextLocalVar(
+                name = returnValueVarName ?: "${typedMethod.name}_result",
+                typedMethod.returnType
+            )
+            addInstWithLocation { loc ->
+                JIRAssignInst(loc, controllerResult, methodCall)
+            }
+
+            controllerResult
+        }
+    }
+
+    private fun GenerationCtx.generateParamValue(
+        param: JIRTypedMethodParameter,
+        paramValue: JIRLocalVar
+    ): JIRValue? = when (val type = param.type) {
+        is JIRPrimitiveType -> generateStubValue(type)
+
+        is JIRClassType -> {
+            val paramCls = type.jIRClass
+            when {
+                paramCls.name.startsWith("java.lang") -> generateStubValue(type)
+                paramCls.isSubClassOf(bindingResultCls) -> bindingResultInstance
+                projectClasses.isProjectClass(paramCls) -> {
+                    addInstWithLocation { loc ->
+                        JIRAssignInst(loc, paramValue, JIRNewExpr(type))
+                    }
+
+                    val ctor = paramCls.declaredMethods
+                        .singleOrNull { it.isConstructor && it.parameters.isEmpty() }
+
+                    if (ctor != null) {
+                        val ctorCall = JIRSpecialCallExpr(ctor.specialMethodRef(), paramValue, emptyList())
+                        addInstWithLocation { loc ->
+                            JIRCallInst(loc, ctorCall)
+                        }
+                    } else {
+                        logger.warn { "No constructor for $paramCls" }
+                    }
+
+                    null // paramValue already assigned with new expr
+                }
+
+                paramCls.packageName.startsWith(SpringPackage) -> {
+                    loadSpringComponent(paramCls, "param")
+                }
+
+                else -> {
+                    logger.warn { "Unsupported parameter class: $paramCls" }
+                    JIRNullConstant(type)
+                }
+            }
+        }
+
+        else -> {
+            logger.warn { "Unsupported parameter class: ${type.typeName}" }
+            JIRNullConstant(type)
+        }
+    }
+
+    private fun GenerationCtx.generateReactorMonoBlock(
         controllerTypeName: String,
         controllerResult: JIRValue
     ) {
@@ -775,13 +823,9 @@ private class SpringControllerEntryPointGenerator(
 
                 val collectListMethodRef = VirtualMethodRefImpl.of(fluxType, fluxCollectListMethod)
                 val collectListMethodCall = JIRVirtualCallExpr(collectListMethodRef, controllerResult, emptyList())
-                val monoResult = JIRLocalVar(
-                    epMethodInstructions.nextLocalVarIdx(),
-                    name = "mono_result",
-                    monoType
-                )
+                val monoResult = nextLocalVar(name = "mono_result", monoType)
 
-                epMethodInstructions.addInstWithLocation(entryPointMethod) { loc ->
+                addInstWithLocation { loc ->
                     JIRAssignInst(loc, monoResult, collectListMethodCall)
                 }
 
@@ -797,7 +841,7 @@ private class SpringControllerEntryPointGenerator(
         val monoBlockMethodRef = VirtualMethodRefImpl.of(monoType, monoBlockMethod)
         val monoBlockMethodCall = JIRVirtualCallExpr(monoBlockMethodRef, controllerResultMono, emptyList())
 
-        epMethodInstructions.addInstWithLocation(entryPointMethod) { loc ->
+        addInstWithLocation { loc ->
             JIRCallInst(loc, monoBlockMethodCall)
         }
     }
@@ -805,6 +849,33 @@ private class SpringControllerEntryPointGenerator(
     private fun controllerClass(controller: JIRClassOrInterface): SpringGeneratedClass {
         val controllerClsName = "${controller.name}_Opentaint_EntryPoint"
         return springGeneratedClass(cp, controllerClsName, controller)
+    }
+}
+
+private fun generateStubValue(type: JIRType): JIRValue? = when (type) {
+    is JIRPrimitiveType -> when (type.typeName) {
+        PredefinedPrimitives.Boolean -> JIRBool(true, type)
+        PredefinedPrimitives.Byte -> JIRByte(0, type)
+        PredefinedPrimitives.Char -> JIRChar('x', type)
+        PredefinedPrimitives.Short -> JIRShort(0, type)
+        PredefinedPrimitives.Int -> JIRInt(0, type)
+        PredefinedPrimitives.Long -> JIRLong(0, type)
+        PredefinedPrimitives.Float -> JIRFloat(0f, type)
+        PredefinedPrimitives.Double -> JIRDouble(0.0, type)
+        else -> TODO("Unsupported stub type: $type")
+    }
+
+    is JIRRefType -> when (type.typeName) {
+        "java.lang.String" -> JIRStringConstant("stub", type)
+        else -> {
+            logger.warn { "Unsupported stub type: ${type.typeName}" }
+            JIRNullConstant(type)
+        }
+    }
+
+    else -> {
+        logger.warn { "Unsupported stub type: ${type.typeName}" }
+        null
     }
 }
 
@@ -854,4 +925,9 @@ fun JIRMethod.specialMethodRef(): TypedSpecialMethodRefImpl {
 fun JIRMethod.staticMethodRef(): TypedStaticMethodRefImpl {
     val clsType = enclosingClass.toType()
     return TypedStaticMethodRefImpl(clsType, name, parameters.map { it.type }, returnType)
+}
+
+private fun JIRInstListBuilder.nextLocalVar(name: String, type: JIRType): JIRLocalVar {
+    val idx = nextLocalVarIdx()
+    return JIRLocalVar(idx, name = "%${name}_$idx", type)
 }
