@@ -124,15 +124,13 @@ class SemgrepJavaPatternParser {
 private fun IdentifierContext.parseName(): Name = withRule {
     tryRule(IdentifierContext::METAVAR) { return MetavarName(it.text) }
     tryRule(IdentifierContext::ANONYMOUS_METAVAR) { this@parseName.todo() }
-    tryRule(IdentifierContext::IDENTIFIER) { return ConcreteName(it.text) }
-    unreachable()
+    return ConcreteName(text)
 }
 
 private fun TypeIdentifierContext.parseTypeIdentifierName(): Name = withRule {
     tryRule(TypeIdentifierContext::METAVAR) { return MetavarName(it.text) }
     tryRule(TypeIdentifierContext::ANONYMOUS_METAVAR) { this@parseTypeIdentifierName.todo() }
-    tryRule(TypeIdentifierContext::IDENTIFIER) { return ConcreteName(it.text) }
-    unreachable()
+    return ConcreteName(text)
 }
 
 private class TypenameParserVisitor : JavaParserBaseVisitor<TypeName>() {
