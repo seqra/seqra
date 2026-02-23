@@ -30,6 +30,9 @@ fun String.isSpringModelAttribute(): Boolean = this == SpringModelAttribute
 fun String.isSpringRequestParam(): Boolean = this == SpringRequestParam
 fun String.isSpringRequestBody(): Boolean = this == SpringRequestBody
 fun String.isJakartaConstraint(): Boolean = this == JakartaConstraint
+fun String.isPostConstruct(): Boolean = this == JavaxPostConstruct || this == JakartaPostConstruct
+fun String.isSpringConfiguration(): Boolean = this == SpringConfiguration
+fun String.isSpringBean(): Boolean = this == SpringBean
 
 fun JIRClassOrInterface.collectSpringRequestMappingAnnotation(): List<JIRAnnotation>? {
     classSpringRequestMappingAnnotation()?.let { return it }

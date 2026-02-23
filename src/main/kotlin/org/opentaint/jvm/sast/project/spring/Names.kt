@@ -28,6 +28,12 @@ const val SpringBeanBindingResult = "$SpringPackage.validation.BeanPropertyBindi
 
 const val SpringAutowired = "$SpringPackage.beans.factory.annotation.Autowired"
 
+const val JavaxPostConstruct = "javax.annotation.PostConstruct"
+const val JakartaPostConstruct = "jakarta.annotation.PostConstruct"
+
+const val SpringConfiguration = "$SpringPackage.context.annotation.Configuration"
+const val SpringBean = "$SpringPackage.context.annotation.Bean"
+
 const val ReactorMono = "reactor.core.publisher.Mono"
 const val ReactorFlux = "reactor.core.publisher.Flux"
 

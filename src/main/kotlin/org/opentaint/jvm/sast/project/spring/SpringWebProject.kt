@@ -107,6 +107,8 @@ fun ProjectClasses.createSpringProjectContext(): SpringWebProjectContext? {
         }.getOrNull()
     }
 
+    springCtx.discoverConfigurationBeans(cp, this)
+
     springCtx.generateDispatcher(springControllerWrappers)
 
     springCtx.analyzeSpringRepositories(cp, this)
@@ -184,6 +186,14 @@ class SpringWebProjectContext(
     fun allComponents(): Set<JIRClassOrInterface> = componentDependencies.keys
 
     val springRepositoryMethods = hashMapOf<JIRMethod, RepositoryMethodInfo>()
+
+    data class BeanMethodInfo(
+        val configurationClass: JIRClassOrInterface,
+        val beanMethod: JIRMethod,
+        val beanType: JIRClassOrInterface
+    )
+
+    val beanMethods = hashMapOf<JIRClassOrInterface, BeanMethodInfo>()
 }
 
 private fun SpringWebProjectContext.generateDispatcher(controllerWrappers: List<JIRMethod>): JIRMethod {
@@ -368,11 +378,18 @@ private fun JIRInstListBuilder.generateComponentInitialization(
     val componentValue = nextLocalVar(component.name, componentType)
     generatedComponents[component] = componentValue
 
-    addInstWithLocation(initMethod) { loc ->
-        JIRAssignInst(loc, componentValue, JIRNewExpr(componentType))
+    val beanMethodInfo = springCtx.beanMethods[component]
+    if (beanMethodInfo != null) {
+        generateBeanMethodCall(springCtx, initMethod, beanMethodInfo, componentValue, generatedComponents)
+    } else {
+        addInstWithLocation(initMethod) { loc ->
+            JIRAssignInst(loc, componentValue, JIRNewExpr(componentType))
+        }
+
+        generateComponentCtorCall(springCtx, initMethod, component, componentValue, generatedComponents)
     }
 
-    generateComponentCtorCall(springCtx, initMethod, component, componentValue, generatedComponents)
+    generatePostConstructCalls(initMethod, component, componentValue)
 
     val componentFieldRef = springCtx.registryFieldRef(component)
     addInstWithLocation(initMethod) { loc ->
@@ -380,6 +397,59 @@ private fun JIRInstListBuilder.generateComponentInitialization(
     }
 
     return componentValue
+}
+
+private fun JIRInstListBuilder.generateBeanMethodCall(
+    springCtx: SpringWebProjectContext,
+    initMethod: JIRMethod,
+    beanMethodInfo: SpringWebProjectContext.BeanMethodInfo,
+    beanValue: JIRLocalVar,
+    generatedComponents: MutableMap<JIRClassOrInterface, JIRValue>
+) {
+    val configClass = beanMethodInfo.configurationClass
+    val beanMethod = beanMethodInfo.beanMethod
+
+    val configInstance = generateComponentInitialization(
+        springCtx, initMethod, configClass, generatedComponents
+    ) ?: return
+
+    val configType = configClass.toType()
+    val typedBeanMethod = beanMethod.toTypedMethod
+
+    val beanMethodArgs = typedBeanMethod.parameters.map { param ->
+        generateComponentParamValue(param, springCtx, initMethod, generatedComponents)
+            ?: return
+    }
+
+    val beanMethodRef = VirtualMethodRefImpl.of(configType, typedBeanMethod)
+    val beanMethodCall = JIRVirtualCallExpr(beanMethodRef, configInstance, beanMethodArgs)
+
+    addInstWithLocation(initMethod) { loc ->
+        JIRAssignInst(loc, beanValue, beanMethodCall)
+    }
+}
+
+private fun JIRInstListBuilder.generatePostConstructCalls(
+    initMethod: JIRMethod,
+    component: JIRClassOrInterface,
+    instance: JIRValue
+) {
+    val componentType = component.toType()
+    val postConstructMethods = component.declaredMethods.filter { method ->
+        method.matchedAnnotations(String::isPostConstruct).isNotEmpty() &&
+            method.parameters.isEmpty()
+    }
+
+    for (postConstruct in postConstructMethods) {
+        val typedMethod = postConstruct.toTypedMethod
+
+        val methodRef = VirtualMethodRefImpl.of(componentType, typedMethod)
+        val methodCall = JIRVirtualCallExpr(methodRef, instance, emptyList())
+
+        addInstWithLocation(initMethod) { loc ->
+            JIRCallInst(loc, methodCall)
+        }
+    }
 }
 
 private fun JIRInstListBuilder.generateComponentCtorCall(
@@ -394,28 +464,34 @@ private fun JIRInstListBuilder.generateComponentCtorCall(
 
     val typedCtor = componentCtor.toTypedMethod
     val ctorArgs = typedCtor.parameters.map {
-        val paramType = it.type
-        var paramValue: JIRValue? = null
-        if (paramType is JIRRefType) {
-            val paramCls = paramType.jIRClass
-            paramValue = generateComponentInitialization(springCtx, initMethod, paramCls, generatedComponents)
-        }
-
-        if (paramValue == null) {
-            paramValue = generateStubValue(paramType)
-        }
-
-        if (paramValue == null) {
-            return
-        }
-
-        paramValue
+        generateComponentParamValue(it, springCtx, initMethod, generatedComponents)
+            ?: return
     }
 
     val ctorCall = JIRSpecialCallExpr(componentCtor.specialMethodRef(), instance, ctorArgs)
     addInstWithLocation(initMethod) { loc ->
         JIRCallInst(loc, ctorCall)
     }
+}
+
+private fun JIRInstListBuilder.generateComponentParamValue(
+    parameter: JIRTypedMethodParameter,
+    springCtx: SpringWebProjectContext,
+    initMethod: JIRMethod,
+    generatedComponents: MutableMap<JIRClassOrInterface, JIRValue>
+): JIRValue? {
+    val paramType = parameter.type
+    var paramValue: JIRValue? = null
+    if (paramType is JIRRefType) {
+        val paramCls = paramType.jIRClass
+        paramValue = generateComponentInitialization(springCtx, initMethod, paramCls, generatedComponents)
+    }
+
+    if (paramValue == null) {
+        paramValue = generateStubValue(paramType)
+    }
+
+    return paramValue
 }
 
 private fun SpringWebProjectContext.registerComponent(
@@ -460,6 +536,45 @@ private fun SpringWebProjectContext.registerComponent(
             }
 
             registerComponent(projectClasses, cp, dependency)
+        }
+    }
+}
+
+private fun SpringWebProjectContext.discoverConfigurationBeans(
+    cp: JIRClasspath,
+    projectClasses: ProjectClasses
+) {
+    val configurationClasses = projectClasses.allProjectClasses()
+        .filter { it.matchedAnnotations(String::isSpringConfiguration).isNotEmpty() }
+
+    for (configClass in configurationClasses) {
+        registerComponent(projectClasses, cp, configClass)
+
+        val beanMethods = configClass.declaredMethods.filter { method ->
+            method.matchedAnnotations(String::isSpringBean).isNotEmpty()
+        }
+
+        for (beanMethod in beanMethods) {
+            val beanType = cp.findClassOrNull(beanMethod.returnType.typeName)
+            if (beanType == null) {
+                logger.warn { "Cannot resolve bean type for @Bean method: ${configClass.name}.${beanMethod.name}" }
+                continue
+            }
+
+            addComponent(beanType)
+
+            this.beanMethods[beanType] = SpringWebProjectContext.BeanMethodInfo(
+                configurationClass = configClass,
+                beanMethod = beanMethod,
+                beanType = beanType
+            )
+
+            for (param in beanMethod.parameters) {
+                val dependency = cp.findClassOrNull(param.type.typeName) ?: continue
+                registerComponent(projectClasses, cp, dependency)
+            }
+
+            logger.debug { "Registered @Bean method: ${configClass.name}.${beanMethod.name} -> ${beanType.name}" }
         }
     }
 }
