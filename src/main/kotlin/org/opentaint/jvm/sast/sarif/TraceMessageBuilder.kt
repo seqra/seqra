@@ -3,6 +3,8 @@ package org.opentaint.jvm.sast.sarif
 import mu.KLogging
 import org.objectweb.asm.Opcodes
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEdge
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry
@@ -31,6 +33,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.jvm.sast.project.spring.GeneratedSpringRegistry
 import org.opentaint.jvm.sast.project.spring.SpringGeneratedMethod
 import org.opentaint.semgrep.pattern.Mark
 import org.opentaint.semgrep.pattern.Mark.Companion.getMark
@@ -324,7 +327,7 @@ class TraceMessageBuilder(
         return "Exiting ${getMethodCalleeNameInPrint(name, className)}"
     }
 
-    data class TaintInfo(val mark: Mark, val pos: AccessPathBase)
+    data class TaintInfo(val mark: Mark, val pos: AccessPathBase, val accessor: Accessor?)
 
     private fun Mark?.inMessage(): String {
         return when (this) {
@@ -344,7 +347,7 @@ class TraceMessageBuilder(
     }
 
     private fun TaintInfo.print(node: TracePathNode, relation: String = "at"): String {
-        return "${mark.inMessage()} data $relation ${pos.inMessage(node)}"
+        return "${mark.inMessage()} data $relation ${inMessage(node)}"
     }
 
     private fun printTaints(node: TracePathNode, taints: List<TaintInfo>, relation: String = "at"): String {
@@ -355,7 +358,7 @@ class TraceMessageBuilder(
     }
 
     private fun printPositions(node: TracePathNode, taints: List<TaintInfo>): String {
-        val relevant = taints.map { it.pos }.distinct()
+        val relevant = taints.distinctBy { it.pos }
         return relevant.joinToString(", ") { it.inMessage(node) }
     }
 
@@ -373,7 +376,8 @@ class TraceMessageBuilder(
     private fun factToTaintInfo(fact: InitialFactAp): TaintInfo? {
         val mark = fact.getMark()
         if (mark is Mark.StateMark) return null
-        return TaintInfo(mark, fact.base)
+        val firstAccessor = fact.getStartAccessors().firstOrNull()
+        return TaintInfo(mark, fact.base, firstAccessor)
     }
 
     data class EdgesInfo(val starts: List<TaintInfo>, val follows: List<TaintInfo>)
@@ -752,10 +756,29 @@ class TraceMessageBuilder(
             traits.printArgument(node.getMethod(), index)
         }
 
-    private fun AccessPathBase.inMessage(node: TracePathNode) = when (this) {
+    private fun TaintInfo.inMessage(node: TracePathNode) =
+        pos.baseInMessage(node, accessor)
+
+    private fun AccessPathBase.baseInMessage(node: TracePathNode, accessor: Accessor?) = when (this) {
         is AccessPathBase.This -> traits.printThis(node.statement)
         is AccessPathBase.Argument -> printArgument(node, idx)
-        is AccessPathBase.ClassStatic -> "a static field"
+        is AccessPathBase.ClassStatic -> {
+            if (typeName == GeneratedSpringRegistry) {
+                val componentName = (accessor as? FieldAccessor)?.fieldName?.substringAfterLast('.')
+                if (componentName != null) {
+                    "the $componentName"
+                } else {
+                    "the Spring registry"
+                }
+            } else {
+                val fieldName = (accessor as? FieldAccessor)?.fieldName
+                if (fieldName != null) {
+                    "the $fieldName"
+                } else {
+                    "a static field"
+                }
+            }
+        }
         is AccessPathBase.LocalVar -> {
             traits.getLocalName(node.statement.location.method, idx)?.let { "\"$it\"" } ?: "a local variable"
         }
@@ -955,10 +978,10 @@ class TraceMessageBuilder(
         val markFollows = hashMapOf<Mark, HashSet<String>>()
         val markStarts = hashMapOf<Mark, HashSet<String>>()
         dataflow.follows.filter { it.mark !is Mark.StateMark }.forEach {
-            markFollows.getOrPut(it.mark, ::hashSetOf).add(it.pos.inMessage(this))
+            markFollows.getOrPut(it.mark, ::hashSetOf).add(it.inMessage(this))
         }
         dataflow.starts.filter { it.mark !is Mark.StateMark }.forEach {
-            markStarts.getOrPut(it.mark, ::hashSetOf).add(it.pos.inMessage(this))
+            markStarts.getOrPut(it.mark, ::hashSetOf).add(it.inMessage(this))
         }
         val propagations = mutableListOf<TaintPropagationInfo>()
         markFollows.forEach { (mark, positions) ->
