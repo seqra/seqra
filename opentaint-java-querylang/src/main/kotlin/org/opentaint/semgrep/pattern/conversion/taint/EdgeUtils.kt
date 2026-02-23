@@ -46,10 +46,11 @@ fun EdgeCondition.findPositivePredicate(): Predicate? =
 fun EdgeCondition.containsPositivePredicate(): Boolean =
     other.any { !it.negated } || readMetaVar.values.any { p -> p.any { !it.negated } }
 
-fun MethodPredicate.findMetaVarConstraint(): MetavarAtom? {
-    val constraint = predicate.constraint
-    return ((constraint as? ParamConstraint)?.condition as? IsMetavar)?.metavar
-}
+fun MethodPredicate.findParamConstraint(): ParamConstraint? =
+    predicate.constraint as? ParamConstraint
+
+fun MethodPredicate.findMetaVarConstraint(): MetavarAtom? =
+    (findParamConstraint()?.condition as? IsMetavar)?.metavar
 
 fun EdgeCondition.containsPredicate(pred: (MethodPredicate) -> Boolean): Boolean {
     if (other.any(pred)) return true

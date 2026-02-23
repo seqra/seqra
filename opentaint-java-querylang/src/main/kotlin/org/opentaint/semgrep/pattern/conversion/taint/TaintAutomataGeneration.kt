@@ -673,12 +673,45 @@ private fun cleanupAutomata(
     automata: TaintRegisterStateAutomata,
     metaVarInfo: ResolvedMetaVarInfo,
 ): TaintRegisterStateAutomata {
-    val withoutRedundantEnd = removeEndEdge(automata)
+    val withoutResultReassign = removeResultReassign(automata)
+    val withoutRedundantEnd = removeEndEdge(withoutResultReassign)
     val withAcceptFixed = removeTransitiveAccept(withoutRedundantEnd)
     val withoutDummyEntry = tryRemoveDummyMethodEntry(withAcceptFixed, metaVarInfo)
     val withoutDummyCleaners = removeDummyCleaner(withoutDummyEntry)
     val withEnterExitFix = fixEntryExitSequence(withoutDummyCleaners)
     return withEnterExitFix
+}
+
+private fun removeResultReassign(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
+    val newSuccessors = automata.successors.mapValues { (_, edges) ->
+        edges.mapTo(mutableSetOf()) {
+            val newEdge = removeResultReassign(it.first)
+            newEdge to it.second
+        }
+    }
+    return automata.copy(successors = newSuccessors)
+}
+
+private fun removeResultReassign(edge: Edge): Edge {
+    if (edge !is Edge.EdgeWithCondition) return edge
+
+    val reassingedMetaVars = edge.condition.readMetaVar.filter { (_, preds) ->
+        preds.size > 1 && preds.any { it.findParamConstraint()?.position is Position.Result }
+    }
+
+    if (reassingedMetaVars.isEmpty()) return edge
+
+    val fixedMetaVarCondition = edge.condition.readMetaVar.toMutableMap()
+    for ((mv, preds) in reassingedMetaVars) {
+        fixedMetaVarCondition[mv] = preds.filter { it.findParamConstraint()?.position !is Position.Result }
+    }
+
+    val fixedCondition = edge.condition.copy(readMetaVar = fixedMetaVarCondition)
+    return when (edge) {
+        is Edge.MethodCall -> edge.copy(condition = fixedCondition)
+        is Edge.MethodEnter -> edge.copy(condition = fixedCondition)
+        is Edge.MethodExit -> edge.copy(condition = fixedCondition)
+    }
 }
 
 private fun fixEntryExitSequence(automata: TaintRegisterStateAutomata): TaintRegisterStateAutomata {
