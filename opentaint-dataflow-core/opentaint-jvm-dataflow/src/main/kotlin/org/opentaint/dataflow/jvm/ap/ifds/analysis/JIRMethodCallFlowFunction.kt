@@ -40,6 +40,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintCleanActionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintPassActionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintSourceActionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.taint.UserDefinedRuleInfo
 import org.opentaint.dataflow.jvm.util.callee
 import org.opentaint.dataflow.util.cartesianProductMapTo
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -286,7 +287,9 @@ class JIRMethodCallFlowFunction(
         for (cleanerResult in cleanerResults) {
             val factReaderAfterCleaner = cleanerResult.fact
             if (factReaderAfterCleaner == null) {
-                val trace = cleanerResult.action?.let { TraceInfo.Rule(it.rule, it.action) }
+                val trace = cleanerResult.action
+                    ?.takeIf { it.rule.info is UserDefinedRuleInfo }
+                    ?.let { TraceInfo.Rule(it.rule, it.action) }
                 addCallToReturnUnchecked(MethodCallFlowFunction.Drop(trace))
                 continue
             }
