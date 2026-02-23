@@ -88,7 +88,11 @@ class MethodEdgesInitialToFinalTreeApSet(
 
             val currentAccess = edges[edgeSetIdx]!!
             val mergedAccess = currentAccess.mergeAdd(accessWithExclusion.access)
-            if (mergedAccess === currentAccess) return null
+            if (mergedAccess === currentAccess) {
+                if (mergedExclusion === currentExclusion) return null
+
+                return AccessWithExclusion(mergedAccess, mergedExclusion)
+            }
 
             edges[edgeSetIdx] = mergedAccess
             return AccessWithExclusion(mergedAccess, mergedExclusion)
