@@ -72,7 +72,7 @@ private class NestedCallInstEvalCtx(val call: Stmt.Call, val level: Int) : InstE
     override fun createArg(idx: Int): Value = call.args.getOrNull(idx)
         ?: error("Incorrect argument idx: $idx")
 
-    override fun createThis(): Value = call.instance
+    override fun createThis(isOuter: Boolean): Value = call.instance
         ?: error("Non instance call")
 
     override fun createLocal(idx: Int): Local = Local(idx, level = level, ctx = call.originalIdx)

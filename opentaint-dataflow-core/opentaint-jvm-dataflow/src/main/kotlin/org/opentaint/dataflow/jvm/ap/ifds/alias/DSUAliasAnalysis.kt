@@ -37,7 +37,7 @@ class DSUAliasAnalysis(
     )
 
     private object RootInstEvalContext : InstEvalContext {
-        override fun createThis(): RefValue = RefValue.This
+        override fun createThis(isOuter: Boolean): RefValue = RefValue.This(isOuter)
         override fun createArg(idx: Int): RefValue = RefValue.Arg(idx)
         override fun createLocal(idx: Int): Local = Local(idx, level = 0, ctx = 0)
     }
@@ -411,9 +411,9 @@ class DSUAliasAnalysis(
 
     private fun RefValue.isOuter(): Boolean = when (this) {
         is Local -> false
+        is RefValue.This -> isOuter
         is RefValue.Arg,
-        is RefValue.Static,
-        is RefValue.This -> true
+        is RefValue.Static -> true
     }
 
     private fun GraphAnalysisState.mapCallFinalStates(
