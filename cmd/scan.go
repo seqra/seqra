@@ -334,7 +334,7 @@ func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string
 	printer.AddNode("")
 	for _, absRuleSetPath := range absRuleSetPaths {
 		if absRuleSetPath.Builtin {
-			printer.AddNode("Bundled ruleset: " + absRuleSetPath.Path)
+			printer.AddNode(fmt.Sprintf("Bundled ruleset (%s): %s", globals.Config.Rules.Version, absRuleSetPath.Path))
 		} else {
 			printer.AddNode("User ruleset: " + absRuleSetPath.Path)
 		}

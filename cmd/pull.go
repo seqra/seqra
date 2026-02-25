@@ -91,8 +91,6 @@ func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter,
 		return nil
 	}
 
-	printer.AddNodeAtLevelDefault("Downloading...", 1)
-
 	download := func(targetPath string) error {
 		if spec.Unpack {
 			return utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, spec.RepoName, spec.Version, spec.AssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify)
@@ -152,8 +150,6 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary, installC
 		}
 		return nil
 	}
-
-	printer.AddNodeAtLevelDefault("Downloading...", 1)
 
 	// Download to the first writable tier
 	for _, t := range tiers {

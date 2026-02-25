@@ -57,13 +57,18 @@ const (
 
 // EnsureLocalRuntime downloads and unpacks Temurin runtime if not present and returns bin/java path
 func EnsureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, aoArch string, skipVerify bool) (string, error) {
-	return ensureLocalRuntime(requiredJavaVersion, imageType, goOs, aoArch, skipVerify)
+	return ensureLocalRuntime(requiredJavaVersion, imageType, goOs, aoArch, skipVerify, true)
 }
 
 // EnsureLocalRuntimeAt downloads and installs Temurin runtime directly into targetDir
 // (flat layout: targetDir/bin/java) and returns the path to the java binary.
 func EnsureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
 	targetDir string, goOs, goArch string, skipVerify bool) (string, error) {
+	return ensureLocalRuntimeAt(requiredJavaVersion, imageType, targetDir, goOs, goArch, skipVerify, true)
+}
+
+func ensureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
+	targetDir string, goOs, goArch string, skipVerify bool, showProgress bool) (string, error) {
 
 	adoptiumOS, adoptiumArch, err := MapPlatformToAdoptium(goOs, goArch)
 	if err != nil {
@@ -90,7 +95,7 @@ func EnsureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
 
 	return withTmpDir(targetDir+"-tmp", func(tmpDir string) (string, error) {
 		tmpArchive := filepath.Join(tmpDir, artefactTar)
-		if err := ensureDownloaded(url, tmpArchive); err != nil {
+		if err := ensureDownloaded(url, tmpArchive, showProgress); err != nil {
 			return "", err
 		}
 
@@ -119,7 +124,7 @@ func EnsureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
 }
 
 // ensureLocalRuntime downloads and unpacks Temurin runtime into ~/.seqra/ if not present.
-func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, goArch string, skipVerify bool) (string, error) {
+func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, goArch string, skipVerify bool, showProgress bool) (string, error) {
 	seqraHome, err := utils.GetSeqraHome()
 	if err != nil {
 		return "", err
@@ -131,7 +136,7 @@ func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, go
 	}
 
 	artefactRoot := filepath.Join(seqraHome, string(imageType), fmt.Sprintf("temurin-%d-%s-%s-%s", requiredJavaVersion, imageType, adoptiumOS, adoptiumArch))
-	return EnsureLocalRuntimeAt(requiredJavaVersion, imageType, artefactRoot, goOs, goArch, skipVerify)
+	return ensureLocalRuntimeAt(requiredJavaVersion, imageType, artefactRoot, goOs, goArch, skipVerify, showProgress)
 }
 
 // MapPlatformToAdoptium converts Go OS/arch to Adoptium naming.
@@ -197,14 +202,14 @@ func withTmpDir(path string, fn func(string) (string, error)) (result string, er
 }
 
 // ensureDownloaded downloads a file if it doesn't already exist.
-func ensureDownloaded(url, dest string) error {
+func ensureDownloaded(url, dest string, showProgress bool) error {
 	logrus.Debugf("trying to tap into %s...", dest)
 	if fileExists(dest) {
 		logrus.Debugf("Reusing downloaded Java archive: %s", dest)
 		return nil
 	}
 	logrus.Debugf("Downloading Temurin Java from %s", url)
-	err := downloadFile(url, dest)
+	err := downloadFile(url, dest, showProgress)
 	if err == nil {
 		logrus.Debugf("Successfully downloaded Temurin Java to %s", dest)
 	}
@@ -369,7 +374,7 @@ func fileExists(p string) bool {
 }
 
 // downloadFile downloads url to dest path
-func downloadFile(url, dest string) error {
+func downloadFile(url, dest string, showProgress bool) error {
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
@@ -387,7 +392,7 @@ func downloadFile(url, dest string) error {
 	defer func() { _ = f.Close() }()
 
 	label := "Downloading " + filepath.Base(dest)
-	if ui.IsSpinnerTerminal() && resp.ContentLength > 0 {
+	if showProgress && ui.IsSpinnerTerminal() && resp.ContentLength > 0 {
 		_, err = ui.CopyWithProgress(f, resp.Body, resp.ContentLength, label)
 	} else {
 		_, err = io.Copy(f, resp.Body)

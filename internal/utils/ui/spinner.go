@@ -125,10 +125,15 @@ func CopyWithProgress(dst io.Writer, src io.Reader, total int64, label string) (
 		}
 	}
 
+	started := false
 	printProgress := func(written int64, force bool, lastPrinted *time.Time) {
 		now := time.Now()
 		if !force && !lastPrinted.IsZero() && now.Sub(*lastPrinted) < updateEvery {
 			return
+		}
+		if !started {
+			fmt.Print("\n")
+			started = true
 		}
 		*lastPrinted = now
 

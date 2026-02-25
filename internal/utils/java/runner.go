@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -338,5 +339,27 @@ func (j *javaRunner) ensureSpecificVersion(version int) (string, error) {
 	// Unset Java environment variables for clean environment when using specific version
 	unsetJavaEnvironmentVariables()
 
-	return ensureLocalRuntime(version, j.imageType, runtime.GOOS, runtime.GOARCH, j.skipVerify)
+	seqraHome, err := utils.GetSeqraHome()
+	if err != nil {
+		return "", err
+	}
+	adoptiumOS, adoptiumArch, err := MapPlatformToAdoptium(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		return "", err
+	}
+	cacheDir := filepath.Join(seqraHome, "jre", fmt.Sprintf("temurin-%d-jre-%s-%s", version, adoptiumOS, adoptiumArch))
+
+	tiers := utils.JRETiers(version, cacheDir)
+	if len(tiers) == 0 {
+		return "", fmt.Errorf("no storage tiers available for Java %d", version)
+	}
+
+	if found := utils.FindExistingJRE(utils.CurrentTiers(tiers, utils.IsInstallCurrent())); found != nil {
+		return utils.JavaBinaryPath(found.Path), nil
+	}
+
+	// Match artifact behavior: for default/bind versions prefer install tier,
+	// for non-default versions use cache tier.
+	downloadTarget := tiers[len(tiers)-1].Path
+	return ensureLocalRuntimeAt(version, j.imageType, downloadTarget, runtime.GOOS, runtime.GOARCH, j.skipVerify, false)
 }
