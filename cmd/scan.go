@@ -142,16 +142,6 @@ func scan(cmd *cobra.Command) {
 				logrus.Fatalf("Unexpected error occurred while trying to construct path to the ruleset: %s", err)
 			}
 
-			if _, err := os.Stat(rulesPath); errors.Is(err, os.ErrNotExist) {
-				logrus.Info("Downloading seqra-rules")
-				err := utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, rulesPath, globals.Config.Github.Token, globals.Config.SkipVerify)
-				if err != nil {
-					logrus.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
-				}
-				logrus.Infof("Successfully downloaded seqra-rules to %s", rulesPath)
-
-			}
-
 			absRuleSetPaths = append(absRuleSetPaths, RulesetType{Path: rulesPath, Builtin: true})
 		default:
 			rulesPath := log.AbsPathOrExit(ruleset, "ruleset")
@@ -191,6 +181,24 @@ func scan(cmd *cobra.Command) {
 	printScanInfo(cmd, scanMode, absProjectModelPath, absRuleSetPaths, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot)
 
 	showSpinners := ui.IsSpinnerTerminal()
+
+	for _, ruleSetPath := range absRuleSetPaths {
+		if !ruleSetPath.Builtin {
+			continue
+		}
+		if _, err := os.Stat(ruleSetPath.Path); errors.Is(err, os.ErrNotExist) {
+			if !showSpinners {
+				logrus.Info("Downloading seqra-rules")
+			}
+			err := utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, ruleSetPath.Path, globals.Config.Github.Token, globals.Config.SkipVerify)
+			if err != nil {
+				logrus.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
+			}
+			if !showSpinners {
+				logrus.Infof("Successfully downloaded seqra-rules to %s", ruleSetPath.Path)
+			}
+		}
+	}
 
 	if tempProjectModel {
 		autobuilderJarPath, err := ensureAutobuilderAvailable()
