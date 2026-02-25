@@ -3,6 +3,8 @@ package org.opentaint.jvm.sast.dataflow
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
+import org.opentaint.dataflow.configuration.jvm.PositionAccessor
+import org.opentaint.dataflow.configuration.jvm.PositionWithAccess
 import org.opentaint.dataflow.configuration.jvm.Result
 import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.This
@@ -10,6 +12,9 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.TypeName
+import org.opentaint.ir.impl.cfg.util.isArray
+import org.opentaint.ir.impl.types.TypeNameImpl
 
 class JIRMethodGetDefaultProvider(
     val base: TaintRulesProvider,
@@ -29,13 +34,26 @@ class JIRMethodGetDefaultProvider(
 
         if (projectClasses.isProjectClass(method.enclosingClass)) return baseRules
 
-        val getDefaultRule = TaintPassThrough(method, ConstantTrue, getDefaultActions, info = null)
+        var actions = getDefaultActions
+        if (method.returnType.mayBeArray()) {
+            actions = actions + getDefaultArrayActions
+        }
+
+        val getDefaultRule = TaintPassThrough(method, ConstantTrue, actions, info = null)
         return baseRules + getDefaultRule
     }
 
     companion object {
+        private val objectTypeName = TypeNameImpl.fromTypeName("java.lang.Object")
+
+        private fun TypeName.mayBeArray(): Boolean = isArray || this == objectTypeName
+
         private val getDefaultActions = listOf(
             CopyAllMarks(from = This, to = Result)
+        )
+
+        private val getDefaultArrayActions = listOf(
+            CopyAllMarks(from = This, to = PositionWithAccess(Result, PositionAccessor.ElementAccessor))
         )
     }
 }
