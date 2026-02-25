@@ -1,0 +1,19 @@
+rules:
+  - id: example-ObjectMapperPatternNotEllipsis
+    languages:
+      - java
+    severity: ERROR
+    message: match example/ObjectMapperPatternNotEllipsis
+    patterns:
+      - pattern: |
+          $MAPPER = new ObjectMapper();
+          ...
+          $MAPPER = $MAPPER.enableDefaultTyping(...);
+          ...
+          $MAPPER.foo("JSON");
+
+      - pattern-not: |
+          ...
+          $MAPPER.enable(...);
+          ...
+          $MAPPER.foo("JSON");

@@ -198,6 +198,12 @@ class ExampleTest : SampleBasedTest() {
     @Test
     fun `test join with taint and matching left`() = runTest<example.JoinWithTaintAndMatchingLeft>()
 
+    @Test
+    fun `test object mapper pattern-not full`() = runTest<example.ObjectMapperPatternNotFull>()
+
+    @Test
+    fun `test object mapper pattern-not ellipsis`() = runTest<example.ObjectMapperPatternNotEllipsis>()
+
     @AfterAll
     fun close() {
         closeRunner()

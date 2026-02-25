@@ -115,7 +115,7 @@ private fun AutomataBuilderCtx.addNegativeAutomata(
     curAutomata: SemgrepRuleAutomata,
     actionListAutomata: SemgrepRuleAutomata,
 ): SemgrepRuleAutomata {
-    if (actionListAutomata.params.hasMethodEnter != curAutomata.params.hasMethodEnter) {
+    if (curAutomata.params.hasMethodEnter && !actionListAutomata.params.hasMethodEnter) {
         // they can never be matched simultaneously
         return curAutomata
     }

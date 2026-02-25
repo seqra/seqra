@@ -1,0 +1,20 @@
+rules:
+  - id: example-ObjectMapperPatternNotFull
+    languages:
+      - java
+    severity: ERROR
+    message: match example/ObjectMapperPatternNotFull
+    patterns:
+      - pattern: |
+          $MAPPER = new ObjectMapper();
+          ...
+          $MAPPER = $MAPPER.enableDefaultTyping(...);
+          ...
+          $MAPPER.foo("JSON");
+
+      - pattern-not: |
+          $MAPPER = new ObjectMapper();
+          ...
+          $MAPPER.enable(...);
+          ...
+          $MAPPER.foo("JSON");
