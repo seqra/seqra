@@ -11,6 +11,7 @@ import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
 import org.opentaint.dataflow.configuration.jvm.IsNull
+import org.opentaint.dataflow.configuration.jvm.IsStaticField
 import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.TypeMatches
@@ -31,4 +32,5 @@ interface ConditionRewriter : ConditionVisitor<Condition> {
     override fun visit(condition: ContainsMark): Condition = condition
     override fun visit(condition: TypeMatches): Condition = condition
     override fun visit(condition: TypeMatchesPattern): Condition = condition
+    override fun visit(condition: IsStaticField): Condition = condition
 }
