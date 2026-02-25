@@ -24,37 +24,57 @@ type TreeNode struct {
 }
 
 type TreePrinter struct {
-	indent      string
-	branchChar  string
-	endChar     string
-	lineChar    string
-	spaceChar   string
-	maxWidth    int
-	textColor   color.Color
-	symbolColor color.Color
-	nodes       []TreeNode
+	indent       string
+	branchChar   string
+	endChar      string
+	lineChar     string
+	spaceChar    string
+	maxWidth     int
+	textColor    color.Color
+	symbolColor  color.Color
+	currentLevel int
+	nodes        []TreeNode
 }
 
 func NewTreePrinter() *TreePrinter {
 	return &TreePrinter{
-		indent:      DefaultIndent,
-		branchChar:  DefaultBranchSymbol,
-		endChar:     DefaultEndSymbol,
-		lineChar:    DefaultLineSymbol,
-		spaceChar:   DefaultSpaceSymbol,
-		maxWidth:    DefaultMaxWidth,
-		textColor:   "",
-		symbolColor: "",
-		nodes:       make([]TreeNode, 0),
+		indent:       DefaultIndent,
+		branchChar:   DefaultBranchSymbol,
+		endChar:      DefaultEndSymbol,
+		lineChar:     DefaultLineSymbol,
+		spaceChar:    DefaultSpaceSymbol,
+		maxWidth:     DefaultMaxWidth,
+		textColor:    "",
+		symbolColor:  "",
+		currentLevel: 0,
+		nodes:        make([]TreeNode, 0),
 	}
 }
 
 func (p *TreePrinter) AddNode(text string) {
-	p.AddNodeAtLevel(text, 0, p.textColor, false)
+	p.addNode(text, p.textColor, false)
 }
 
 func (p *TreePrinter) AddNodeWrapped(text string) {
-	p.AddNodeAtLevel(text, 0, p.textColor, true)
+	p.addNode(text, p.textColor, true)
+}
+
+func (p *TreePrinter) AddNodeColored(text string, textColor color.Color) {
+	p.addNode(text, textColor, false)
+}
+
+func (p *TreePrinter) AddNodeColoredWrapped(text string, textColor color.Color) {
+	p.addNode(text, textColor, true)
+}
+
+func (p *TreePrinter) Push() {
+	p.currentLevel++
+}
+
+func (p *TreePrinter) Pop() {
+	if p.currentLevel > 0 {
+		p.currentLevel--
+	}
 }
 
 func (p *TreePrinter) Print() {
@@ -110,18 +130,10 @@ func (p *TreePrinter) isParentLastAtLevel(index int, parentLevel int) bool {
 	return p.isLastAtLevel(parentIndex, parentLevel)
 }
 
-func (p *TreePrinter) AddNodeAtLevelDefault(text string, level int) {
-	p.AddNodeAtLevel(text, level, p.textColor, false)
-}
-
-func (p *TreePrinter) AddNodeAtLevelWrapped(text string, level int) {
-	p.AddNodeAtLevel(text, level, p.textColor, true)
-}
-
-func (p *TreePrinter) AddNodeAtLevel(text string, level int, textColor color.Color, wrapped bool) {
+func (p *TreePrinter) addNode(text string, textColor color.Color, wrapped bool) {
 	node := TreeNode{
 		text:      text,
-		level:     level,
+		level:     p.currentLevel,
 		textColor: textColor,
 		wrapped:   wrapped,
 	}

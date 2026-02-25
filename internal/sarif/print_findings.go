@@ -177,7 +177,9 @@ func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets 
 		if resultPath != "" && showCodeSnippets {
 			snippet := printSnippetWithBuilder(resultPath, loc.extractNodeLoc(), snippetBuilder)
 			if snippet != "" {
-				printer.AddNodeAtLevelDefault(snippet, 1)
+				printer.Push()
+				printer.AddNode(snippet)
+				printer.Pop()
 			}
 		}
 
@@ -187,6 +189,7 @@ func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets 
 
 	printer.AddNode("")
 	printer.AddNode("Code Flow")
+	printer.Push()
 
 	builder := NewFlowStepBuilder()
 	flowSteps := taintFlow
@@ -198,11 +201,13 @@ func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets 
 
 	for i, cs := range flowSteps {
 		mainLine, locationLine := builder.FormatStep(cs, absProjectPath)
-		printer.AddNodeAtLevelWrapped(mainLine, 1)
-		printer.AddNodeAtLevelDefault(locationLine, 2)
+		printer.AddNodeWrapped(mainLine)
+		printer.Push()
+		printer.AddNode(locationLine)
+		printer.Pop()
 
 		if omitted > 0 && i == 0 {
-			printer.AddNodeAtLevelWrapped(fmt.Sprintf("... %d intermediate steps omitted (use --verbose-flow)", omitted), 1)
+			printer.AddNodeWrapped(fmt.Sprintf("... %d intermediate steps omitted (use --verbose-flow)", omitted))
 		}
 
 		if i != 0 && i != len(flowSteps)-1 {
@@ -216,11 +221,12 @@ func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets 
 			snippetBuilder := NewSnippetBuilder()
 			snippet := printSnippetWithBuilder(locPath, loc.extractNodeLoc(), snippetBuilder)
 			if snippet != "" {
-				printer.AddNodeAtLevelDefault(snippet, 1)
+				printer.AddNode(snippet)
 				continue
 			}
 		}
 	}
+	printer.Pop()
 
 	printer.Print()
 }

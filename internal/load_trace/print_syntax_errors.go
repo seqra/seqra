@@ -31,7 +31,7 @@ func printFile(file fileSummary) {
 	printer := formatters.NewTreePrinter()
 
 	for _, err := range fileSyntaxErrors {
-		printer.AddNodeAtLevel("Error "+err.Message, 0, color.Red, true)
+		printer.AddNodeColoredWrapped("Error "+err.Message, color.Red)
 	}
 
 	for _, rule := range rulesWithErrors {
@@ -50,12 +50,14 @@ func addRuleNodes(printer *formatters.TreePrinter, rule ruleSummary) {
 		return
 	}
 
-	printer.AddNodeAtLevel("Rule: "+rule.RuleID, 0, "", false)
+	printer.AddNode("Rule: " + rule.RuleID)
+	printer.Push()
 
 	allErrors := append(ruleSyntax, stepSyntax...)
 	for _, err := range allErrors {
-		printer.AddNodeAtLevel("Error "+err.Message, 1, color.Red, true)
+		printer.AddNodeColoredWrapped("Error "+err.Message, color.Red)
 	}
+	printer.Pop()
 }
 
 func filterFilesWithSyntaxErrors(files []fileSummary) []fileSummary {

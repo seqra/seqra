@@ -248,18 +248,24 @@ Examples:
 		printer.AddNode(fmt.Sprintf("Source root: %s", config.sourceRoot))
 		printer.AddNode(fmt.Sprintf("Output: %s", config.outputDir))
 		printer.AddNode("Classpaths")
+		printer.Push()
 		for _, classpath := range config.classpaths {
-			printer.AddNodeAtLevelDefault(classpath, 1)
+			printer.AddNode(classpath)
 		}
+		printer.Pop()
 		printer.AddNode("Packages")
+		printer.Push()
 		for _, pkg := range config.packages {
-			printer.AddNodeAtLevelDefault(pkg, 1)
+			printer.AddNode(pkg)
 		}
+		printer.Pop()
 		if len(config.dependencies) != 0 {
 			printer.AddNode("Dependencies")
+			printer.Push()
 			for _, dep := range config.dependencies {
-				printer.AddNodeAtLevelDefault(dep, 1)
+				printer.AddNode(dep)
 			}
+			printer.Pop()
 		}
 		printer.Print()
 

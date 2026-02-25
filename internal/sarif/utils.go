@@ -130,7 +130,7 @@ func (report *Report) printFindingsOverview() {
 	printer := formatters.NewTreePrinter()
 
 	for _, item := range ruleSummary {
-		printer.AddNodeAtLevelWrapped(
+		printer.AddNodeWrapped(
 			fmt.Sprintf("%s: %d findings (errors: %d, warnings: %d, notes: %d)",
 				item.RuleID,
 				item.Total,
@@ -138,7 +138,6 @@ func (report *Report) printFindingsOverview() {
 				item.Warnings,
 				item.Notes,
 			),
-			0,
 		)
 	}
 
@@ -148,8 +147,10 @@ func (report *Report) printFindingsOverview() {
 
 func printReportsInfo(printer *formatters.TreePrinter, absSarifReportPath string) {
 	printer.AddNode("Reports")
-	printer.AddNodeAtLevel(fmt.Sprintf("Log: %s", globals.LogPath), 1, color.Default, false)
-	printer.AddNodeAtLevel(fmt.Sprintf("SARIF: %s", absSarifReportPath), 1, color.Default, false)
+	printer.Push()
+	printer.AddNode(fmt.Sprintf("Log: %s", globals.LogPath))
+	printer.AddNode(fmt.Sprintf("SARIF: %s", absSarifReportPath))
+	printer.Pop()
 }
 
 // PrintSummary prints a human-readable summary of the SARIF report
@@ -160,10 +161,12 @@ func (report *Report) PrintSummary(absSarifReportPath string) {
 	printer := formatters.NewTreePrinter()
 
 	printer.AddNode("Findings")
-	printer.AddNodeAtLevel(fmt.Sprintf("Total: %d", summary.TotalFindings), 1, color.Default, false)
-	printer.AddNodeAtLevel(fmt.Sprintf("Errors: %d", summary.FindingsByLevel["error"]), 1, color.Red, false)
-	printer.AddNodeAtLevel(fmt.Sprintf("Warnings: %d", summary.FindingsByLevel["warning"]), 1, color.Yellow, false)
-	printer.AddNodeAtLevel(fmt.Sprintf("Notes: %d", summary.FindingsByLevel["note"]), 1, color.Default, false)
+	printer.Push()
+	printer.AddNode(fmt.Sprintf("Total: %d", summary.TotalFindings))
+	printer.AddNodeColored(fmt.Sprintf("Errors: %d", summary.FindingsByLevel["error"]), color.Red)
+	printer.AddNodeColored(fmt.Sprintf("Warnings: %d", summary.FindingsByLevel["warning"]), color.Yellow)
+	printer.AddNode(fmt.Sprintf("Notes: %d", summary.FindingsByLevel["note"]))
+	printer.Pop()
 
 	printReportsInfo(printer, absSarifReportPath)
 	printer.Print()

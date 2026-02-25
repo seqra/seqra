@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"github.com/seqra/seqra/v2/internal/utils/color"
 	"github.com/seqra/seqra/v2/internal/utils/formatters"
 	"github.com/sirupsen/logrus"
 )
@@ -13,7 +12,9 @@ func suggest(theme, command string) {
 
 	printer.AddNode(theme)
 	if command != "" {
-		printer.AddNodeAtLevel(command, 1, color.Default, false)
+		printer.Push()
+		printer.AddNode(command)
+		printer.Pop()
 	}
 	printer.Print()
 }

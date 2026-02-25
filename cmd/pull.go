@@ -75,6 +75,8 @@ When bundled artifacts are present (from a release archive), they will be used d
 // fallback chain. It skips the download if the artifact already exists at any tier.
 func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter, installNextToBinary, installCurrent bool) error {
 	printer.AddNode(fmt.Sprintf("%s %s", spec.Name, spec.Version))
+	printer.Push()
+	defer printer.Pop()
 
 	tiers, err := utils.ArtifactTiers(spec)
 	if err != nil {
@@ -84,9 +86,9 @@ func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter,
 	// Check if already available at any current tier
 	if found := utils.FindExisting(utils.CurrentTiers(tiers, installCurrent)); found != nil {
 		if found.Name == utils.TierBundled {
-			printer.AddNodeAtLevelDefault("Using bundled artifact", 1)
+			printer.AddNode("Using bundled artifact")
 		} else {
-			printer.AddNodeAtLevelDefault("Already downloaded", 1)
+			printer.AddNode("Already downloaded")
 		}
 		return nil
 	}
@@ -112,7 +114,7 @@ func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter,
 		if err := download(t.Path); err != nil {
 			return err
 		}
-		printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", t.Path), 1)
+		printer.AddNode(fmt.Sprintf("Downloaded to %s", t.Path))
 		return nil
 	}
 
@@ -127,6 +129,8 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary, installC
 	}
 
 	printer.AddNode(fmt.Sprintf("Java %d", javaVersion))
+	printer.Push()
+	defer printer.Pop()
 
 	// Compute platform-specific cache path
 	seqraHome, err := utils.GetSeqraHome()
@@ -144,9 +148,9 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary, installC
 	// Check if already available at any current tier
 	if found := utils.FindExistingJRE(utils.CurrentTiers(tiers, installCurrent)); found != nil {
 		if found.Name == utils.TierBundled {
-			printer.AddNodeAtLevelDefault("Using bundled JRE", 1)
+			printer.AddNode("Using bundled JRE")
 		} else {
-			printer.AddNodeAtLevelDefault("Already downloaded", 1)
+			printer.AddNode("Already downloaded")
 		}
 		return nil
 	}
@@ -168,7 +172,7 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary, installC
 		if err != nil {
 			return err
 		}
-		printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", javaPath), 1)
+		printer.AddNode(fmt.Sprintf("Downloaded to %s", javaPath))
 		return nil
 	}
 
