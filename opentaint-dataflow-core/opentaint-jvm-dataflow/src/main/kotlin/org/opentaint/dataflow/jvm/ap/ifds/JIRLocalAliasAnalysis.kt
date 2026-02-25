@@ -32,7 +32,7 @@ class JIRLocalAliasAnalysis(
         instIdx: Int, base: AccessPathBase.LocalVar
     ): List<AliasInfo>? =
         alias[instIdx].getOrDefault(base.idx, null)?.filter {
-            it.accessors.isNotEmpty() || it.base != base
+            it !is AliasApInfo || it.accessors.isNotEmpty() || it.base != base
         }
 
     fun findAlias(base: AccessPathBase.LocalVar, statement: CommonInst): List<AliasInfo>? {
@@ -55,14 +55,11 @@ class JIRLocalAliasAnalysis(
     }
 
     sealed interface AliasAccessor {
-        data class Field(
-            val className: String,
-            val fieldName: String,
-            val fieldType: String
-        ) : AliasAccessor
-
+        data class Field(val className: String, val fieldName: String, val fieldType: String) : AliasAccessor
         data object Array : AliasAccessor
     }
 
-    data class AliasInfo(val base: AccessPathBase, val accessors: List<AliasAccessor> = emptyList())
+    sealed interface AliasInfo
+    data class AliasApInfo(val base: AccessPathBase, val accessors: List<AliasAccessor>): AliasInfo
+    data class AliasAllocInfo(val allocInst: Int): AliasInfo
 }

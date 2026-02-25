@@ -149,9 +149,15 @@ private fun InstEvalContext.evalCall(
     expr: JIRCallExpr,
     loc: JIRInst,
     lValue: JIRValue?,
-): Stmt {
-    val args = expr.args.map { evalSimpleValue(it as JIRImmediate, loc) }
+): Stmt? {
     val lhs = (lValue as? JIRLocalVar)?.let { createLocal(it.index) }
+
+    if (expr.method.method.isPrimitiveBoxAllocMethod()) {
+        if (lhs == null) return null
+        return Stmt.Assign(lhs, Expr.Alloc(loc), loc.location.index)
+    }
+
+    val args = expr.args.map { evalSimpleValue(it as JIRImmediate, loc) }
     val instance = (expr as? JIRInstanceCallExpr)?.instance?.let { evalSimpleValue(it as JIRImmediate, loc) }
     val stmt = Stmt.Call(expr.method.method, lhs, instance, args, loc.location.index)
     return stmt
@@ -213,3 +219,19 @@ private fun InstEvalContext.getLocalRefValue(local: JIRValue, loc: JIRInst): Val
     is JIRLocalVar -> createLocal(local.index)
     else -> error("Unexpected local: $local")
 }
+
+private const val stdPrimitiveBoxMethodName = "valueOf"
+
+private val stdPrimitiveBoxes = setOf(
+    "java.lang.Boolean",
+    "java.lang.Byte",
+    "java.lang.Char",
+    "java.lang.Short",
+    "java.lang.Integer",
+    "java.lang.Long",
+    "java.lang.Float",
+    "java.lang.Double",
+)
+
+private fun JIRMethod.isPrimitiveBoxAllocMethod(): Boolean =
+    name == stdPrimitiveBoxMethodName && enclosingClass.name in stdPrimitiveBoxes

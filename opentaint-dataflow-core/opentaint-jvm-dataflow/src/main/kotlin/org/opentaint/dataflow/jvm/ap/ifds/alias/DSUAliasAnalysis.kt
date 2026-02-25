@@ -2,6 +2,7 @@ package org.opentaint.dataflow.jvm.ap.ifds.alias
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAccessor
 import org.opentaint.dataflow.jvm.ap.ifds.alias.JIRIntraProcAliasAnalysis.JIRInstGraph
 import org.opentaint.dataflow.jvm.ap.ifds.alias.RefValue.Local
 import org.opentaint.ir.api.jvm.JIRField
@@ -121,7 +122,7 @@ class DSUAliasAnalysis(
 
     data class FieldAlias(
         override val instance: AAInfo,
-        val field: JIRField,
+        val field: AliasAccessor.Field,
         override val depth: Int,
         override val isImmutable: Boolean,
     ) : HeapAlias
@@ -314,10 +315,15 @@ class DSUAliasAnalysis(
     }
 
     private fun createFieldAliasWrtLimit(instance: AAInfo, field: JIRField): FieldAlias? {
+        val f = AliasAccessor.Field(field.enclosingClass.name, field.name, field.type.typeName)
+        return createFieldAliasWrtLimit(instance, f, field.isFinal)
+    }
+
+    private fun createFieldAliasWrtLimit(instance: AAInfo, field: AliasAccessor.Field, fieldIsImmutable: Boolean): FieldAlias? {
         val immutability = when (instance) {
             is HeapAlias -> instance.isImmutable
             else -> true
-        } && field.isFinal
+        } && fieldIsImmutable
         return createHeapAliasWrtLimit(instance) { depth -> FieldAlias(instance, field, depth, immutability) }
     }
 
@@ -498,7 +504,7 @@ class DSUAliasAnalysis(
 
                 when (this) {
                     is ArrayAlias -> createArrayAliasWrtLimit(instanceAlternative)
-                    is FieldAlias -> createFieldAliasWrtLimit(instanceAlternative, field)
+                    is FieldAlias -> createFieldAliasWrtLimit(instanceAlternative, field, isImmutable)
                 }
             }
         }

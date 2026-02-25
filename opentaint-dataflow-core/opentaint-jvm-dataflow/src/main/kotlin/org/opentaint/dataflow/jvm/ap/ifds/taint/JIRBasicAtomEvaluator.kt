@@ -25,19 +25,24 @@ import org.opentaint.dataflow.configuration.jvm.TypeMatches
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionValue
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAllocInfo
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasApInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasInfo
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.cfg.JIRBool
+import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRConstant
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInt
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRNullConstant
 import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.ir.api.jvm.ext.isAssignable
 
 class JIRBasicAtomEvaluator(
@@ -74,20 +79,20 @@ class JIRBasicAtomEvaluator(
 
     override fun visit(condition: ConstantEq): Boolean =
         condition.position.eval(
-            value = { eqConstant(it, condition.value) },
-            callVarArgValue = { false }, // todo: vararg
+            value = { cmpConstant(it, condition.value, matchArrayValue = false, ::eqConstant, ::eqConstant) },
+            callVarArgValue = { cmpConstant(it, condition.value, matchArrayValue = true, ::eqConstant, ::eqConstant) },
         )
 
     override fun visit(condition: ConstantLt): Boolean =
         condition.position.eval(
-            value = { ltConstant(it, condition.value) },
-            callVarArgValue = { false }, // todo: vararg
+            value = { cmpConstant(it, condition.value, matchArrayValue = false, ::ltConstant, ::ltConstant) },
+            callVarArgValue = { cmpConstant(it, condition.value, matchArrayValue = true, ::ltConstant, ::ltConstant) },
         )
 
     override fun visit(condition: ConstantGt): Boolean =
         condition.position.eval(
-            value = { gtConstant(it, condition.value) },
-            callVarArgValue = { false }, // todo: vararg
+            value = { cmpConstant(it, condition.value, matchArrayValue = false, ::gtConstant, ::gtConstant) },
+            callVarArgValue = { cmpConstant(it, condition.value, matchArrayValue = true, ::gtConstant, ::gtConstant) },
         )
 
     // note: ConstantMatches means StringConstantMatches
@@ -130,7 +135,9 @@ class JIRBasicAtomEvaluator(
         return value is JIRNullConstant
     }
 
-    private fun eqConstant(value: JIRValue, constant: ConstantValue): Boolean {
+    private fun eqConstant(value: String, constant: ConstantStringValue): Boolean = value == constant.value
+
+    private fun eqConstant(value: JIRConstant, constant: ConstantValue): Boolean {
         return when (constant) {
             is ConstantBooleanValue -> {
                 when (value) {
@@ -151,6 +158,9 @@ class JIRBasicAtomEvaluator(
         }
     }
 
+    @Suppress("unused")
+    private fun ltConstant(value: String, constant: ConstantStringValue): Boolean = false
+
     private fun ltConstant(value: JIRValue, constant: ConstantValue): Boolean {
         return when (constant) {
             is ConstantIntValue -> {
@@ -160,6 +170,9 @@ class JIRBasicAtomEvaluator(
             else -> error("Unexpected constant: $constant")
         }
     }
+
+    @Suppress("unused")
+    private fun gtConstant(value: String, constant: ConstantStringValue): Boolean = false
 
     private fun gtConstant(value: JIRValue, constant: ConstantValue): Boolean {
         return when (constant) {
@@ -171,6 +184,65 @@ class JIRBasicAtomEvaluator(
         }
     }
 
+    private fun cmpConstant(
+        value: JIRValue,
+        constant: ConstantValue,
+        matchArrayValue: Boolean,
+        constCmp: (JIRConstant, ConstantValue) -> Boolean,
+        strCmp: (String, ConstantStringValue) -> Boolean,
+    ): Boolean {
+        if (value is JIRConstant) {
+            return constCmp(value, constant)
+        }
+
+        if (value is JIRLocalVar) {
+            resolveLocalVarValue(value, matchArrayValue) { aliasInfo ->
+                when (constant) {
+                    is ConstantStringValue -> {
+                        val constants = aliasInfo.stringConstantValues()
+                        if (constants.any { strCmp(it, constant) }) {
+                            return true
+                        }
+                    }
+
+                    is ConstantBooleanValue -> {
+                        val boxedBools = aliasInfo.findBoxedConstants("java.lang.Boolean")
+                        if (boxedBools.any { constCmp(it, constant) }) {
+                            return true
+                        }
+                    }
+
+                    is ConstantIntValue -> {
+                        val boxedInts = aliasInfo.findBoxedConstants("java.lang.Integer")
+                        if (boxedInts.any { constCmp(it, constant) }) {
+                            return true
+                        }
+                    }
+                }
+            }
+        }
+
+        return false
+    }
+
+    private fun List<AliasInfo>.findBoxedConstants(boxType: String): List<JIRConstant> = this
+        .findAllocCalls()
+        .filter {
+            val m = it.method.method
+            m.name == "valueOf" && m.enclosingClass.name == boxType
+        }
+        .mapNotNull { it.args.getOrNull(0) as? JIRConstant }
+
+    private fun List<AliasInfo>.findAllocCalls(): List<JIRCallExpr> {
+        val allocs = filterIsInstance<AliasAllocInfo>()
+        if (allocs.isEmpty()) return emptyList()
+
+        val instList = (statement as JIRInst).location.method.instList
+        return allocs
+            .mapNotNull { instList.getOrNull(it.allocInst) }
+            .mapNotNull { it.callExpr }
+    }
+
     private fun matches(value: JIRValue, pattern: Regex, matchArrayValue: Boolean): Boolean {
         if (value is JIRStringConstant) {
             return pattern.matches(value.value)
@@ -178,11 +250,8 @@ class JIRBasicAtomEvaluator(
 
         if (value is JIRLocalVar) {
             resolveLocalVarValue(value, matchArrayValue) { aliasInfo ->
-                val constants = aliasInfo
-                    .mapNotNull { ai -> ai.base.takeIf { ai.accessors.isEmpty() } }
-                    .filterIsInstance<AccessPathBase.Constant>()
-
-                if (constants.any { pattern.matches(it.value) }) {
+                val constants = aliasInfo.stringConstantValues()
+                if (constants.any { pattern.matches(it) }) {
                     return true
                 }
             }
@@ -190,6 +259,12 @@ class JIRBasicAtomEvaluator(
 
         return false
     }
+
+    private fun List<AliasInfo>.stringConstantValues(): List<String> = this
+        .filterIsInstance<AliasApInfo>()
+        .mapNotNull { ai -> ai.base.takeIf { ai.accessors.isEmpty() } }
+        .filterIsInstance<AccessPathBase.Constant>()
+        .map { it.value }
 
     private fun isStaticField(value: JIRValue, condition: IsStaticField, matchArrayValue: Boolean): Boolean {
         if (value is JIRFieldRef) {
@@ -200,6 +275,7 @@ class JIRBasicAtomEvaluator(
         if (value is JIRLocalVar) {
             resolveLocalVarValue(value, matchArrayValue) { aliasInfo ->
                 val statics = aliasInfo
+                    .filterIsInstance<AliasApInfo>()
                     .filter { it.base is AccessPathBase.ClassStatic }
                     .mapNotNull { it.accessors.firstOrNull() }
                     .filterIsInstance<JIRLocalAliasAnalysis.AliasAccessor.Field>()
@@ -227,7 +303,7 @@ class JIRBasicAtomEvaluator(
             val allAliases = aa.getAllAliasAtStatement(statement)
             for ((_, aliasSet) in allAliases) {
                 for (info in aliasSet) {
-                    if (info.base != base) continue
+                    if (info !is AliasApInfo || info.base != base) continue
                     val singleAccessor = info.accessors.singleOrNull() ?: continue
                     if (singleAccessor is JIRLocalAliasAnalysis.AliasAccessor.Array) {
                         body(aliasSet)

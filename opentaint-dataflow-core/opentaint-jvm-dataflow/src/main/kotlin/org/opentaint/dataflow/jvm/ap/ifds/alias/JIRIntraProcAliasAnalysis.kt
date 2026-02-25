@@ -6,6 +6,9 @@ import org.opentaint.dataflow.graph.CompactGraph
 import org.opentaint.dataflow.graph.MethodInstGraph
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLanguageManager
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAccessor
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAllocInfo
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasApInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasInfo
 import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.AAInfo
 import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.ArrayAlias
@@ -94,27 +97,16 @@ class JIRIntraProcAliasAnalysis(
 
     private fun AAInfo.convertToAliasInfo(): AliasInfo? {
         val (nonHeapInfo, accessors) = convertHeapAccessors(this)
-        val base = convertBaseAccessor(nonHeapInfo)
-        return base?.let { AliasInfo(it, accessors) }
+        return convertBaseAccessor(nonHeapInfo, accessors)
     }
 
-    private fun convertHeapAccessors(initial: AAInfo): Pair<AAInfo, List<JIRLocalAliasAnalysis.AliasAccessor>> {
+    private fun convertHeapAccessors(initial: AAInfo): Pair<AAInfo, List<AliasAccessor>> {
         var cur = initial
-        val accessors = mutableListOf<JIRLocalAliasAnalysis.AliasAccessor>()
+        val accessors = mutableListOf<AliasAccessor>()
         while (cur is HeapAlias) {
             when (cur) {
-                is FieldAlias -> {
-                    val field = cur.field
-                    accessors.add(
-                        JIRLocalAliasAnalysis.AliasAccessor.Field(
-                            field.enclosingClass.name,
-                            field.name,
-                            field.type.typeName
-                        )
-                    )
-                }
-
-                is ArrayAlias -> accessors.add(JIRLocalAliasAnalysis.AliasAccessor.Array)
+                is FieldAlias -> accessors.add(cur.field)
+                is ArrayAlias -> accessors.add(AliasAccessor.Array)
             }
             cur = cur.instance
         }
@@ -125,24 +117,34 @@ class JIRIntraProcAliasAnalysis(
         return cur to optimizedAccessors
     }
 
-    private fun convertBaseAccessor(cur: AAInfo): AccessPathBase? = when (cur) {
-        is LocalAlias.SimpleLoc -> when (val loc = cur.loc) {
-            is Local -> AccessPathBase.LocalVar(loc.idx)
-            is RefValue.Arg -> AccessPathBase.Argument(loc.idx)
-            is RefValue.This -> AccessPathBase.This
-            is RefValue.Static -> AccessPathBase.ClassStatic(loc.type)
+    private fun convertBaseAccessor(cur: AAInfo, accessors: List<AliasAccessor>): AliasInfo? {
+        val base = when (cur) {
+            is LocalAlias.SimpleLoc -> when (val loc = cur.loc) {
+                is Local -> AccessPathBase.LocalVar(loc.idx)
+                is RefValue.Arg -> AccessPathBase.Argument(loc.idx)
+                is RefValue.This -> AccessPathBase.This
+                is RefValue.Static -> AccessPathBase.ClassStatic(loc.type)
+            }
+
+            is LocalAlias.Alloc -> {
+                val assign = cur.stmt as? Stmt.Assign ?: return null
+
+                val const = assign.expr as? SimpleValue.RefConst
+                val stringConst = const?.expr as? JIRStringConstant
+                if (stringConst == null) {
+                    if (accessors.isNotEmpty()) return null
+                    return AliasAllocInfo(assign.originalIdx)
+                }
+
+                AccessPathBase.Constant("java.lang.String", stringConst.value)
+            }
+
+            is CallReturn,
+            is Unknown -> return null
+
+            is HeapAlias -> error("unreachable")
         }
 
-        is LocalAlias.Alloc -> {
-            val assign = cur.stmt as? Stmt.Assign
-            val const = assign?.expr as? SimpleValue.RefConst
-            val stringConst = const?.expr as? JIRStringConstant
-            stringConst?.let { AccessPathBase.Constant("java.lang.String", it.value) }
-        }
-
-        is CallReturn,
-        is Unknown -> null
-
-        is HeapAlias -> error("unreachable")
+        return AliasApInfo(base, accessors)
     }
 }
