@@ -4,6 +4,7 @@ import mu.KLogging
 import org.opentaint.dataflow.jvm.util.JIRInstListBuilder
 import org.opentaint.dataflow.jvm.util.typeName
 import org.opentaint.ir.api.jvm.JIRAnnotated
+import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
@@ -17,6 +18,7 @@ import org.opentaint.ir.api.jvm.JIRTypedMethod
 import org.opentaint.ir.api.jvm.JIRTypedMethodParameter
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
 import org.opentaint.ir.api.jvm.TypeName
+import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRBool
 import org.opentaint.ir.api.jvm.cfg.JIRByte
@@ -32,6 +34,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRInstRef
 import org.opentaint.ir.api.jvm.cfg.JIRInt
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.cfg.JIRLong
+import org.opentaint.ir.api.jvm.cfg.JIRNewArrayExpr
 import org.opentaint.ir.api.jvm.cfg.JIRNewExpr
 import org.opentaint.ir.api.jvm.cfg.JIRNullConstant
 import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
@@ -108,9 +111,7 @@ fun ProjectClasses.createSpringProjectContext(): SpringWebProjectContext? {
     }
 
     springCtx.discoverConfigurationBeans(cp, this)
-
     springCtx.generateDispatcher(springControllerWrappers)
-
     springCtx.analyzeSpringRepositories(cp, this)
 
     return springCtx
@@ -417,7 +418,7 @@ private fun JIRInstListBuilder.generateBeanMethodCall(
     val typedBeanMethod = beanMethod.toTypedMethod
 
     val beanMethodArgs = typedBeanMethod.parameters.map { param ->
-        generateComponentParamValue(param, springCtx, initMethod, generatedComponents)
+        generateComponentParamValue(param.type, springCtx, initMethod, generatedComponents)
             ?: return
     }
 
@@ -464,7 +465,7 @@ private fun JIRInstListBuilder.generateComponentCtorCall(
 
     val typedCtor = componentCtor.toTypedMethod
     val ctorArgs = typedCtor.parameters.map {
-        generateComponentParamValue(it, springCtx, initMethod, generatedComponents)
+        generateComponentParamValue(it.type, springCtx, initMethod, generatedComponents)
             ?: return
     }
 
@@ -475,23 +476,46 @@ private fun JIRInstListBuilder.generateComponentCtorCall(
 }
 
 private fun JIRInstListBuilder.generateComponentParamValue(
-    parameter: JIRTypedMethodParameter,
+    parameterType: JIRType,
     springCtx: SpringWebProjectContext,
     initMethod: JIRMethod,
     generatedComponents: MutableMap<JIRClassOrInterface, JIRValue>
 ): JIRValue? {
-    val paramType = parameter.type
     var paramValue: JIRValue? = null
-    if (paramType is JIRRefType) {
-        val paramCls = paramType.jIRClass
+    if (parameterType is JIRClassType) {
+        val paramCls = parameterType.jIRClass
         paramValue = generateComponentInitialization(springCtx, initMethod, paramCls, generatedComponents)
+    } else if (parameterType is JIRArrayType) {
+        val elementType = parameterType.elementType
+        val elementValue = generateComponentParamValue(elementType, springCtx, initMethod, generatedComponents)
+
+        if (elementValue != null) {
+            paramValue = generateSingleElementArray(parameterType, "param", initMethod, elementValue)
+        }
     }
 
     if (paramValue == null) {
-        paramValue = generateStubValue(paramType)
+        paramValue = generateStubValue(parameterType)
     }
 
     return paramValue
+}
+
+private fun JIRInstListBuilder.generateSingleElementArray(
+    type: JIRArrayType,
+    arrayName: String,
+    method: JIRMethod,
+    elementValue: JIRValue
+): JIRLocalVar {
+    val intType = type.classpath.int
+    val arrayValue = nextLocalVar(arrayName, type)
+    addInstWithLocation(method) { loc ->
+        JIRAssignInst(loc, arrayValue, JIRNewArrayExpr(type, listOf(JIRInt(1, intType))))
+    }
+    addInstWithLocation(method) { loc ->
+        JIRAssignInst(loc, JIRArrayAccess(arrayValue, JIRInt(0, intType), type.elementType), elementValue)
+    }
+    return arrayValue
 }
 
 private fun SpringWebProjectContext.registerComponent(
@@ -508,6 +532,7 @@ private fun SpringWebProjectContext.registerComponent(
     val autowiredFields = cls.autowiredFields()
     for (awField in autowiredFields) {
         val dependency = cp.resolveAutowiredField(awField)
+            ?.componentClass()
             ?: continue
 
         val typedAwField = clsType.declaredFields.first { it.name == awField.name }
@@ -523,6 +548,7 @@ private fun SpringWebProjectContext.registerComponent(
     if (componentCtor != null) {
         for (param in componentCtor.parameters) {
             val dependency = cp.resolveComponentConstructorParam(componentCtor, param.index)
+                ?.componentClass()
                 ?: continue
 
             val dependencyField = clsType.declaredFields.firstOrNull {
@@ -555,7 +581,7 @@ private fun SpringWebProjectContext.discoverConfigurationBeans(
         }
 
         for (beanMethod in beanMethods) {
-            val beanType = cp.findClassOrNull(beanMethod.returnType.typeName)
+            val beanType = cp.findTypeOrNull(beanMethod.returnType.typeName)?.componentClass()
             if (beanType == null) {
                 logger.warn { "Cannot resolve bean type for @Bean method: ${configClass.name}.${beanMethod.name}" }
                 continue
@@ -570,7 +596,7 @@ private fun SpringWebProjectContext.discoverConfigurationBeans(
             )
 
             for (param in beanMethod.parameters) {
-                val dependency = cp.findClassOrNull(param.type.typeName) ?: continue
+                val dependency = cp.findTypeOrNull(param.type.typeName)?.componentClass() ?: continue
                 registerComponent(projectClasses, cp, dependency)
             }
 
@@ -999,14 +1025,20 @@ private fun JIRClassOrInterface.findComponentConstructor(): JIRMethod? =
         .filter { it.isConstructor && it.parameters.all { param -> param.type.isClass } }
         .minByOrNull { it.parameters.size }
 
-private fun JIRClasspath.resolveComponentConstructorParam(ctor: JIRMethod, paramIdx: Int): JIRClassOrInterface? =
-    findClassOrNull(ctor.parameters[paramIdx].type.typeName)
+private fun JIRClasspath.resolveComponentConstructorParam(ctor: JIRMethod, paramIdx: Int): JIRType? =
+    findTypeOrNull(ctor.parameters[paramIdx].type.typeName)
 
 private fun JIRClassOrInterface.autowiredFields(): List<JIRField> =
     declaredFields.filter { field -> field.matchedAnnotations { it.isSpringAutowiredAnnotation() }.any() }
 
-private fun JIRClasspath.resolveAutowiredField(field: JIRField): JIRClassOrInterface? =
-    findClassOrNull(field.type.typeName)
+private fun JIRClasspath.resolveAutowiredField(field: JIRField): JIRType? =
+    findTypeOrNull(field.type.typeName)
+
+private fun JIRType.componentClass(): JIRClassOrInterface? = when (this) {
+    is JIRClassType -> jIRClass
+    is JIRArrayType -> elementType.componentClass()
+    else -> null
+}
 
 private fun springGeneratedClass(cp: JIRClasspath, name: String, proto: JIRClassOrInterface): SpringGeneratedClass {
     val ext = cp.cpExt()
