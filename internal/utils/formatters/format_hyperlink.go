@@ -8,6 +8,9 @@ import (
 )
 
 func FormatFilePathHyperLink(absProjectPath string, relFilePath string, fileName string, line int64) string {
+	// OSC 8 hyperlinks require a capable terminal; we use color.Enabled as a
+	// practical proxy — when color is off (non-TTY or --color=never), the
+	// terminal is unlikely to render escape-based hyperlinks either.
 	if !color.Enabled() {
 		return fmt.Sprintf("%s:%d", fileName, line)
 	}

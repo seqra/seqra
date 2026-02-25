@@ -13,7 +13,6 @@ import (
 	"github.com/seqra/seqra/v2/internal/utils/ui"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 )
 
 var pullCmd = &cobra.Command{
@@ -113,7 +112,7 @@ func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter,
 				continue
 			}
 		}
-		if err := runInteractiveStep(
+		if err := ui.RunWithSpinner(
 			fmt.Sprintf("Downloading %s %s", spec.Kind(), spec.Version),
 			func() error { return download(t.Path) },
 		); err != nil {
@@ -174,7 +173,7 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary, installC
 			_ = os.Remove(t.Path)
 		}
 		var javaPath string
-		err := runInteractiveStep(
+		err := ui.RunWithSpinner(
 			fmt.Sprintf("Downloading Java %d", javaVersion),
 			func() error {
 				var innerErr error
@@ -192,21 +191,6 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary, installC
 	return fmt.Errorf("no writable location found for Java %d", javaVersion)
 }
 
-func runInteractiveStep(phase string, run func() error) error {
-	if globals.Config.Quiet || !term.IsTerminal(int(os.Stdout.Fd())) {
-		return run()
-	}
-
-	spinner := ui.NewSpinner()
-	spinner.Start(phase)
-	err := run()
-	if err != nil {
-		spinner.StopError(phase)
-		return err
-	}
-	spinner.Stop(phase)
-	return nil
-}
 
 func init() {
 	rootCmd.AddCommand(pullCmd)

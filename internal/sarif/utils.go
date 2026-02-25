@@ -72,7 +72,7 @@ type RuleSummary struct {
 
 func findingLevel(result *Result) Level {
 	if result == nil || result.Level == nil || *result.Level == "" {
-		return Level("note")
+		return Note
 	}
 	return *result.Level
 }
@@ -95,9 +95,9 @@ func generateRuleSummary(report *Report) []RuleSummary {
 
 			rs.Total++
 			switch findingLevel(&result) {
-			case Level("error"):
+			case Error:
 				rs.Errors++
-			case Level("warning"):
+			case Warning:
 				rs.Warnings++
 			default:
 				rs.Notes++
