@@ -40,9 +40,7 @@ class JIRMethodStartFlowFunction(
 
         val sourceEvaluator = TaintSourceActionEvaluator(
             apManager,
-            exclusion = ExclusionSet.Universe,
-            context.factTypeChecker,
-            returnValueType = null
+            exclusion = ExclusionSet.Universe
         )
 
         applyEntryPointConfig(
@@ -100,9 +98,7 @@ class JIRMethodStartFlowFunction(
 
         val sourceEvaluator = TaintSourceActionEvaluator(
             apManager,
-            exclusion = ExclusionSet.Universe,
-            context.factTypeChecker,
-            returnValueType = null
+            exclusion = ExclusionSet.Universe
         )
 
         val factsAfterSink = mutableListOf<FinalFactAp>()

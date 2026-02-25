@@ -384,8 +384,6 @@ class JIRMethodCallFlowFunction(
             TaintSourceActionEvaluator(
                 apManager,
                 exclusion = ExclusionSet.Universe,
-                analysisContext.factTypeChecker,
-                returnValueType = callExpr.method.returnType,
             )
         }
 
@@ -485,7 +483,7 @@ class JIRMethodCallFlowFunction(
         val conditionFactReaders = factReader?.toConditionFactReaders().orEmpty()
 
         val sourceEvaluator = TaintSourceActionEvaluator(
-            apManager, exclusion, analysisContext.factTypeChecker, returnValueType = callExpr.method.returnType,
+            apManager, exclusion,
         )
 
         sourceRules.applyRuleWithAssumptions(

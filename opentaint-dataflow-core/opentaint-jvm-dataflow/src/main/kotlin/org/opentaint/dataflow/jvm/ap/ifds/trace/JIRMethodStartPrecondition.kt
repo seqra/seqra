@@ -32,7 +32,7 @@ class JIRMethodStartPrecondition(
 
         val entryFactReader = InitialFactReader(fact, apManager)
         val sourcePreconditionEvaluator = TaintSourceActionPreconditionEvaluator(
-            entryFactReader, context.factTypeChecker, returnValueType = null
+            entryFactReader
         )
 
         val result = TaintConfigUtils.applyEntryPointConfig(

@@ -223,7 +223,7 @@ class JIRMethodSequentPrecondition(
 
         val entryFactReader = InitialFactReader(fact.rebase(AccessPathBase.Return), apManager)
         val sourcePreconditionEvaluator = TaintSourceActionPreconditionEvaluator(
-            entryFactReader, analysisContext.factTypeChecker, returnValueType = null
+            entryFactReader
         )
 
         for (sourceRule in sourceRules) {
@@ -251,7 +251,7 @@ class JIRMethodSequentPrecondition(
 
         val entryFactReader = InitialFactReader(fact, apManager)
         val sourcePreconditionEvaluator = TaintSourceActionPreconditionEvaluator(
-            entryFactReader, analysisContext.factTypeChecker, returnValueType = null
+            entryFactReader
         )
 
         val valueResolver = CalleePositionToJIRValueResolver(currentInst.location.method)

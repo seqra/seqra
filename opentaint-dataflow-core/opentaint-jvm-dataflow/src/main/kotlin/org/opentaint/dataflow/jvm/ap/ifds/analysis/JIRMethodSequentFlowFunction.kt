@@ -516,7 +516,6 @@ class JIRMethodSequentFlowFunction(
 
         val sourceEvaluator = TaintSourceActionEvaluator(
             apManager, ExclusionSet.Universe,
-            analysisContext.factTypeChecker, returnValueType = null,
         )
 
         val allEvaluatedFacts = hashSetOf<InitialFactAp>()
@@ -609,7 +608,7 @@ class JIRMethodSequentFlowFunction(
 
         val exclusion = fact?.exclusions ?: ExclusionSet.Universe
         val sourceEvaluator = TaintSourceActionEvaluator(
-            apManager, exclusion, analysisContext.factTypeChecker, returnValueType = null,
+            apManager, exclusion,
         )
 
         val result = mutableListOf<Pair<FinalFactAp, TraceInfo>>()
@@ -665,7 +664,7 @@ class JIRMethodSequentFlowFunction(
         val lhv = accessPathBase(currentInst.lhv) ?: return
 
         val sourceEvaluator = TaintSourceActionEvaluator(
-            apManager, ExclusionSet.Universe, factTypeChecker, returnValueType = null
+            apManager, ExclusionSet.Universe
         )
 
         for (sourceRule in sourceRules) {

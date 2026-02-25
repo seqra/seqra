@@ -99,13 +99,11 @@ class TaintPassActionEvaluator(
 
         val toPositionBaseType = positionTypeResolver.resolve(toPos)
 
-        val resultFacts = mutableListOf(mkAccessPath(toPosAccess, factApDelta, fact.exclusions))
-        resultFacts.hackResultArray(toPosAccess, factTypeChecker, toPositionBaseType)
+        val resultFact = mkAccessPath(toPosAccess, factApDelta, fact.exclusions)
+        val wellTypedFact = resultFact.let { factTypeChecker.filterFactByLocalType(toPositionBaseType, it) }
+        if (wellTypedFact == null) return Maybe.none()
 
-        val wellTypedFacts = resultFacts.mapNotNull { factTypeChecker.filterFactByLocalType(toPositionBaseType, it) }
-        if (wellTypedFacts.isEmpty()) return Maybe.none()
-
-        return Maybe.some(listOf(factReader.factAp) + wellTypedFacts)
+        return Maybe.some(listOf(factReader.factAp) + wellTypedFact)
     }
 
     private fun copyFinalFact(
@@ -279,15 +277,11 @@ class TaintCleanActionEvaluator(
 
 class TaintPassActionPreconditionEvaluator(
     private val factReader: InitialFactReader,
-    private val typeChecker: JIRFactTypeChecker,
-    private val returnValueType: JIRType?,
 ) : PassActionEvaluator<Pair<Action, InitialFactAp>> {
     override fun evaluate(rule: TaintConfigurationItem, action: CopyAllMarks): Maybe<List<Pair<Action, InitialFactAp>>> {
         val fromVar = action.from.resolveAp()
 
-        val toVariables = mutableListOf(action.to.resolveAp())
-        toVariables.hackResultArray(typeChecker, returnValueType)
-
+        val toVariables = listOf(action.to.resolveAp())
         return Maybe.from(toVariables).flatMap { toVar ->
             copyAllFactsPrecondition(fromVar, toVar).fmap { facts ->
                 facts.map { action to it }
@@ -297,14 +291,10 @@ class TaintPassActionPreconditionEvaluator(
 
     override fun evaluate(rule: TaintConfigurationItem, action: CopyMark): Maybe<List<Pair<Action, InitialFactAp>>> {
         val fromVar = action.from.resolveAp()
+        val toVariable = action.to.resolveAp()
 
-        val toVariables = mutableListOf(action.to.resolveAp())
-        toVariables.hackResultArray(typeChecker, returnValueType)
-
-        return Maybe.from(toVariables).flatMap { toVar ->
-            copyFinalFactPrecondition(fromVar, toVar, action.mark).fmap { facts ->
-                facts.map { action to it }
-            }
+        return copyFinalFactPrecondition(fromVar, toVariable, action.mark).fmap { facts ->
+            facts.map { action to it }
         }
     }
 
@@ -350,35 +340,26 @@ interface SourceActionEvaluator<T> {
 class TaintSourceActionEvaluator(
     private val apManager: ApManager,
     private val exclusion: ExclusionSet,
-    private val factTypeChecker: JIRFactTypeChecker,
-    private val returnValueType: JIRType?,
 ) : SourceActionEvaluator<FinalFactAp> {
     override fun evaluate(rule: TaintConfigurationItem, action: AssignMark): Maybe<List<FinalFactAp>> {
         val variable = action.position.resolveAp()
 
-        val facts = mutableListOf(apManager.mkAccessPath(variable, exclusion, action.mark.name))
-        facts.hackResultArray(variable, factTypeChecker, returnValueType)
-
-        return Maybe.from(facts)
+        val fact = apManager.mkAccessPath(variable, exclusion, action.mark.name)
+        return Maybe.from(listOf(fact))
     }
 }
 
 class TaintSourceActionPreconditionEvaluator(
     private val factReader: InitialFactReader,
-    private val typeChecker: JIRFactTypeChecker,
-    private val returnValueType: JIRType?,
 ) : SourceActionEvaluator<Pair<TaintConfigurationItem, AssignMark>> {
     override fun evaluate(
         rule: TaintConfigurationItem,
         action: AssignMark,
     ): Maybe<List<Pair<TaintConfigurationItem, AssignMark>>> {
-        val variables = mutableListOf(action.position.resolveAp())
-        variables.hackResultArray(typeChecker, returnValueType)
+        val variable = action.position.resolveAp()
 
-        return Maybe.from(variables).flatMap { variable ->
-            if (!factReader.containsPositionWithTaintMark(variable, action.mark)) return@flatMap Maybe.none()
-            Maybe.some(listOf(rule to action))
-        }
+        if (!factReader.containsPositionWithTaintMark(variable, action.mark)) return Maybe.none()
+        return Maybe.some(listOf(rule to action))
     }
 }
 
@@ -409,35 +390,6 @@ fun Position.resolveAp(baseAp: AccessPathBase): PositionAccess {
 
             PositionAccess.Complex(resolvedBaseAp, accessor)
         }
-    }
-}
-
-private fun MutableList<FinalFactAp>.hackResultArray(
-    access: PositionAccess,
-    typeChecker: JIRFactTypeChecker,
-    resultPositionType: JIRType?,
-) {
-    if (resultPositionType == null) return
-    if (!access.baseIsResult()) return
-
-    if (!with(typeChecker) { resultPositionType.mayBeArray() }) return
-
-    for (fact in this.toList()) {
-        this += fact.prependAccessor(ElementAccessor)
-    }
-}
-
-private fun MutableList<PositionAccess>.hackResultArray(
-    typeChecker: JIRFactTypeChecker,
-    resultPositionType: JIRType?,
-) {
-    if (resultPositionType == null) return
-
-    for (access in this.toList()) {
-        if (!access.baseIsResult()) continue
-        if (!with(typeChecker) { resultPositionType.mayBeArray() }) continue
-
-        this += access.withPrefix(ElementAccessor)
     }
 }
 

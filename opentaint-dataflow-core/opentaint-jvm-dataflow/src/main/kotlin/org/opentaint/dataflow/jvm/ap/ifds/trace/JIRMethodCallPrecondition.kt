@@ -103,7 +103,7 @@ class JIRMethodCallPrecondition(
     ) {
         val entryFactReader = InitialFactReader(fact.rebase(startBase), apManager)
         val sourcePreconditionEvaluator = TaintSourceActionPreconditionEvaluator(
-            entryFactReader, analysisContext.factTypeChecker, callExpr.method.returnType
+            entryFactReader
         )
 
         val conditionRewriter = JIRMarkAwareConditionRewriter(
@@ -138,9 +138,7 @@ class JIRMethodCallPrecondition(
         if (passRules.isEmpty()) return
 
         val entryFactReader = InitialFactReader(fact.rebase(startBase), apManager)
-        val rulePreconditionEvaluator = TaintPassActionPreconditionEvaluator(
-            entryFactReader, analysisContext.factTypeChecker, callExpr.method.returnType
-        )
+        val rulePreconditionEvaluator = TaintPassActionPreconditionEvaluator(entryFactReader)
 
         val conditionRewriter = JIRMarkAwareConditionRewriter(
             jIRValueResolver,
