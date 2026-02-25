@@ -17,6 +17,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/term"
 
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/sarif"
@@ -105,7 +106,6 @@ func scan(cmd *cobra.Command) {
 	userProjectPath = filepath.Clean(userProjectPath)
 	absUserProjectRoot := log.AbsPathOrExit(userProjectPath, "project path")
 
-	logrus.Info()
 	tempProjectModel := false
 	var tempProjectModelPath string
 
@@ -191,13 +191,20 @@ func scan(cmd *cobra.Command) {
 	// Display scan information in tree format
 	printScanInfo(cmd, scanMode, absProjectModelPath, absRuleSetPaths, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot)
 
+	showSpinners := !globals.Config.Quiet && term.IsTerminal(int(os.Stdout.Fd()))
+
 	if tempProjectModel {
+		if showSpinners {
+			logrus.Info()
+		}
 		if err := ui.RunWithSpinner("Compiling project model", func() error {
 			return compile(absUserProjectRoot, tempProjectModelPath, Internal)
 		}); err != nil {
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
 			logrus.Fatal()
 		}
+		logrus.Info()
+		printCompileSummary(tempProjectModelPath)
 	}
 
 	maxMemory := ""
@@ -239,6 +246,9 @@ func scan(cmd *cobra.Command) {
 	}
 	if maxMemory != "" {
 		nativeBuilder.SetMaxMemory(maxMemory)
+	}
+	if showSpinners {
+		logrus.Info()
 	}
 	if err := ui.RunWithSpinner("Analyzing project", func() error {
 		return scanProject(nativeBuilder)
@@ -376,5 +386,3 @@ func scanProject(analyzerBuilder *AnalyzerBuilder) error {
 
 	return err
 }
-
-

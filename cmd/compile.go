@@ -93,12 +93,17 @@ func compile(absProjectRoot, absOutputProjectModelPath string, caller CompileCal
 		return err
 	}
 
+	if caller == External {
+		printCompileSummary(absOutputProjectModelPath)
+	}
+	return nil
+}
+
+func printCompileSummary(absOutputProjectModelPath string) {
 	logrus.Info(formatters.FormatTreeHeader("Compile Summary"))
 	printer := formatters.NewTreePrinter()
-
 	printer.AddNode(fmt.Sprintf("Project model written to: %s", absOutputProjectModelPath))
 	printer.Print()
-	return nil
 }
 
 func compileProject(absOutputProjectModelPath, absProjectRoot string) {
