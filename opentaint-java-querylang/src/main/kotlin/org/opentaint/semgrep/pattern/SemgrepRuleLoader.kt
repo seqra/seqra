@@ -248,7 +248,7 @@ class SemgrepRuleLoader(
     }
 
     private fun addParsedRule(ruleInfo: RuleInfo, rule: Rule<Formula>, trace: SemgrepRuleLoadStepTrace) {
-        if (rule is NormalRule && rule.rule.isEmpty) {
+        if (rule is NormalRule && rule.rule.isEmpty && !ruleInfo.isLibraryRule) {
             trace.error("Empty rule after parse", Reason.ERROR)
             return
         }
@@ -283,7 +283,7 @@ class SemgrepRuleLoader(
         val btaTrace = trace.stepTrace(Step.BUILD_TAINT_AUTOMATA)
         val taintAutomata = createTaintAutomata(ruleAutomata, btaTrace)
 
-        if (taintAutomata.isEmpty) {
+        if (taintAutomata.isEmpty && !rule.info.isLibraryRule) {
             trace.stepTrace(Step.BUILD).error("Empty rule after build", Reason.ERROR)
             return
         }

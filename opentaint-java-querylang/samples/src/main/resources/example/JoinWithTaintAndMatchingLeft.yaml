@@ -1,0 +1,55 @@
+rules:
+  - id: join-with-taint-and-matching-left
+    severity: ERROR
+    message: Join rule with taint and matching left rules
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: matching-init-rule
+          as: matching-init-rule
+        - rule: taint-flow-rule
+          as: taint-flow-rule
+        - rule: common-sink-rule
+          as: common-sink-rule
+      rules:
+        - id: matching-init-rule
+          message: Initialization pattern matched
+          severity: NOTE
+          languages:
+            - java
+          patterns:
+            - pattern: $DATA = createInitialData()
+
+        - id: taint-flow-rule
+          message: Taint flow detected
+          severity: NOTE
+          languages:
+            - java
+          mode: taint
+          pattern-sources:
+            - patterns:
+                - pattern: getUntrustedInput()
+              label: UNTRUSTED
+            - patterns:
+                - pattern: processInput($X)
+              requires: UNTRUSTED
+              label: PROCESSED
+            - patterns:
+                - pattern: $TAINTED = transformData($Y)
+                - focus-metavariable: $TAINTED
+              label: $TAINTED
+              requires: PROCESSED
+
+        - id: common-sink-rule
+          message: Common sink matched
+          severity: NOTE
+          languages:
+            - java
+          patterns:
+            - pattern: executeDangerous($TARGET)
+
+      on:
+        - 'matching-init-rule.$DATA -> common-sink-rule.$TARGET'
+        - 'taint-flow-rule.$TAINTED -> common-sink-rule.$TARGET'

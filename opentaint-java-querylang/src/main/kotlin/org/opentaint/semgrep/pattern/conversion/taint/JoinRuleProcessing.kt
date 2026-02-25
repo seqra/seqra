@@ -14,6 +14,7 @@ import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
 import org.opentaint.semgrep.pattern.SemgrepJoinOnOperation
 import org.opentaint.semgrep.pattern.SemgrepMatchingRule
 import org.opentaint.semgrep.pattern.SemgrepRule
+import org.opentaint.semgrep.pattern.SemgrepTaintLabel
 import org.opentaint.semgrep.pattern.SemgrepTaintRule
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
@@ -42,51 +43,83 @@ data class TaintAutomataJoinOperation(
 fun RuleConversionCtx.convertTaintAutomataJoinToTaintRules(
     rule: TaintAutomataJoinRule
 ): TaintRuleFromSemgrep? {
-    if (rule.operations.size > 1) {
-        trace.error("Join rule with multiple operations", Reason.NOT_IMPLEMENTED)
+    val nonComposeOp = rule.operations.find { it.op !== SemgrepJoinOnOperation.COMPOSE }
+    if (nonComposeOp != null) {
+        trace.error("Join rule with ${nonComposeOp.op} operation", Reason.NOT_IMPLEMENTED)
         return null
     }
 
-    val operation = rule.operations.first()
-    if (operation.op !== SemgrepJoinOnOperation.COMPOSE) {
-        trace.error("Join rule with ${operation.op} operation", Reason.NOT_IMPLEMENTED)
+    if (rule.operations.isEmpty()) {
+        trace.error("Join rule with no operations", Reason.NOT_IMPLEMENTED)
         return null
     }
 
-    return convertSingleCompositionJoinRule(rule, operation)
+    if (!validateNoChainedOperations(rule.operations)) {
+        trace.error("Join rule with chained operations", Reason.NOT_IMPLEMENTED)
+        return null
+    }
+
+    val operationsByRightItem = rule.operations.groupBy { it.rhs }
+    if (operationsByRightItem.size > 1) {
+        trace.error("Join rule with multiple distinct right items", Reason.NOT_IMPLEMENTED)
+        return null
+    }
+
+    val (rightItemRef, compositions) = operationsByRightItem.entries.first()
+    val leftItemRefs = compositions.map { it.lhs }
+    return convertCompositionJoinOperations(rule, rightItemRef, leftItemRefs)
 }
 
-private fun RuleConversionCtx.convertSingleCompositionJoinRule(
-    rule: TaintAutomataJoinRule,
-    composition: TaintAutomataJoinOperation,
-): TaintRuleFromSemgrep? {
-    val leftItem = rule.items.getValue(composition.lhs.itemId)
-    val leftAutomata = leftItem.rule
+private fun validateNoChainedOperations(operations: List<TaintAutomataJoinOperation>): Boolean {
+    val leftItems = operations.map { it.lhs.itemId }.toSet()
+    val rightItems = operations.map { it.rhs.itemId }.toSet()
+    return leftItems.intersect(rightItems).isEmpty()
+}
 
-    if (leftAutomata !is SemgrepMatchingRule) {
-        trace.error("Join on non-matching rule left", Reason.NOT_IMPLEMENTED)
-        return null
+private fun RuleConversionCtx.convertCompositionJoinOperations(
+    rule: TaintAutomataJoinRule,
+    rightItemRef: TaintAutomataJoinMetaVarRef,
+    leftItemRefs: List<TaintAutomataJoinMetaVarRef>,
+): TaintRuleFromSemgrep? {
+    val allLeftRules = mutableListOf<TaintRuleFromSemgrep.TaintRuleGroup>()
+    val allLeftFinalMarks = hashSetOf<GeneratedMark>()
+
+    for (leftItemRef in leftItemRefs) {
+        val leftItem = rule.items.getValue(leftItemRef.itemId)
+        val leftAutomata = leftItem.rule
+
+        val leftCtx = RuleConversionCtx("$ruleId#${leftItemRef.itemId}", meta, trace)
+        val (leftRules, leftFinalMarks) = leftCtx.convertCompositionLeftRule(
+            leftAutomata, leftItemRef.metaVar
+        ) ?: return null
+
+        allLeftRules.addAll(leftRules)
+        allLeftFinalMarks.addAll(leftFinalMarks)
     }
 
-    // todo: reuse similar left rules between several join
-    val leftCtx = RuleConversionCtx("$ruleId#${composition.lhs.itemId}", meta, trace)
-    val (leftRules, leftFinalMarks) = leftCtx.convertCompositionLeftMatchingRule(
-        leftAutomata, composition.lhs.metaVar
-    )
-
-    val rightItem = rule.items.getValue(composition.rhs.itemId)
+    val rightItem = rule.items.getValue(rightItemRef.itemId)
     val rightAutomata = rightItem.rule
     val rightRules = when (rightAutomata) {
         is SemgrepMatchingRule -> convertCompositionRightMatchingRule(
-            rightAutomata, composition.rhs.metaVar, leftFinalMarks
+            rightAutomata, rightItemRef.metaVar, allLeftFinalMarks
         )
 
         is SemgrepTaintRule -> convertCompositionRightTaintRule(
-            rightAutomata, composition.rhs.metaVar, leftFinalMarks
+            rightAutomata, rightItemRef.metaVar, allLeftFinalMarks
         ) ?: return null
     }
 
-    return TaintRuleFromSemgrep(ruleId, leftRules + rightRules)
+    return TaintRuleFromSemgrep(ruleId, allLeftRules + rightRules)
+}
+
+private fun RuleConversionCtx.convertCompositionLeftRule(
+    automata: SemgrepRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>>,
+    finalVar: MetavarAtom,
+): Pair<List<TaintRuleFromSemgrep.TaintRuleGroup>, Set<GeneratedMark>>? {
+    return when (automata) {
+        is SemgrepMatchingRule -> convertCompositionLeftMatchingRule(automata, finalVar)
+        is SemgrepTaintRule -> convertCompositionLeftTaintRule(automata, finalVar)
+    }
 }
 
 private fun RuleConversionCtx.convertCompositionLeftMatchingRule(
@@ -222,4 +255,53 @@ private fun RuleConversionCtx.convertCompositionRightTaintRule(
         taintMarks = sourceMarks.mapTo(hashSetOf()) { GeneratedTaintMark(it) }
     )
     return convertTaintRuleToTaintRules(preparedRules, ignoreEmptySources = true).taintRules
+}
+
+private fun RuleConversionCtx.convertCompositionLeftTaintRule(
+    automata: SemgrepTaintRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>>,
+    finalVar: MetavarAtom,
+): Pair<List<TaintRuleFromSemgrep.TaintRuleGroup>, Set<GeneratedMark>>? {
+    if (automata.sinks.isNotEmpty()) {
+        trace.error("Left taint rule in join should not have sinks", Reason.ERROR)
+        return null
+    }
+
+    if (automata.sources.isEmpty()) {
+        trace.error("Left taint rule in join must have sources", Reason.ERROR)
+        return null
+    }
+
+    if (finalVar !is MetavarAtom.Basic) {
+        trace.error("Complex metavar in join", Reason.ERROR)
+        return null
+    }
+
+    val finalLabels = automata.sources
+        .mapNotNull { it.label }
+        .filter { it.label == finalVar.name }
+
+    if (finalLabels.isEmpty()) {
+        trace.error("Join is impossible: no label ${finalVar.name} found", Reason.ERROR)
+        return null
+    }
+
+    return convertCompositionLeftTaintRule(automata, finalLabels)
+}
+
+private fun RuleConversionCtx.convertCompositionLeftTaintRule(
+    automata: SemgrepTaintRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>>,
+    finalLabels: List<SemgrepTaintLabel>,
+): Pair<List<TaintRuleFromSemgrep.TaintRuleGroup>, Set<GeneratedMark>> {
+    val (sources, taintMarks) = prepareTaintSourceRules(automata)
+
+    val preparedRules = prepareTaintNonSourceRules(
+        automata,
+        sources = sources,
+        taintMarks = taintMarks
+    )
+
+    val result = convertTaintRuleToTaintRules(preparedRules, ignoreEmptySources = false)
+
+    val finalMarks = finalLabels.mapTo(hashSetOf()) { taintMark(it) }
+    return result.taintRules to finalMarks
 }

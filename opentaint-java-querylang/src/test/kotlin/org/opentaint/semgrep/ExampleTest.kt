@@ -195,6 +195,9 @@ class ExampleTest : SampleBasedTest() {
     @Test
     fun `test array example`() = runTest<example.ArrayExample>()
 
+    @Test
+    fun `test join with taint and matching left`() = runTest<example.JoinWithTaintAndMatchingLeft>()
+
     @AfterAll
     fun close() {
         closeRunner()

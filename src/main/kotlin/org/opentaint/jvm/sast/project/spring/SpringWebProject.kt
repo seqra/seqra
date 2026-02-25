@@ -110,9 +110,24 @@ fun ProjectClasses.createSpringProjectContext(): SpringWebProjectContext? {
         }.getOrNull()
     }
 
-    springCtx.discoverConfigurationBeans(cp, this)
-    springCtx.generateDispatcher(springControllerWrappers)
-    springCtx.analyzeSpringRepositories(cp, this)
+    runCatching {
+        springCtx.discoverConfigurationBeans(cp, this)
+    }.onFailure {
+        logger.error(it) { "Error while discovering spring beans" }
+    }
+
+    runCatching {
+        springCtx.generateDispatcher(springControllerWrappers)
+    }.onFailure {
+        logger.error(it) { "Error while generating spring dispatchers" }
+        return null
+    }
+
+    runCatching {
+        springCtx.analyzeSpringRepositories(cp, this)
+    }.onFailure {
+        logger.error(it) { "Error while analyzing spring repositories" }
+    }
 
     return springCtx
 }
