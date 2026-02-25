@@ -7,8 +7,8 @@ import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Simple
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintPassAction
 import org.opentaint.semgrep.pattern.conversion.taint.anyFunction
 import org.opentaint.semgrep.pattern.conversion.taint.base
@@ -181,7 +181,7 @@ class ExampleTest : SampleBasedTest() {
     @Test
     fun `test RuleReturnWithNotInsideSignature with pass`() =
         runTest<example.RuleReturnWithNotInsideSignatureWithPass> { cfg ->
-            val function = anyFunction().copy(name = SerializedNameMatcher.Simple("clean"))
+            val function = anyFunction().copy(name = Simple("clean"))
             val action = SerializedTaintPassAction(
                 from = PositionBase.Argument(0).base(), to = PositionBase.Result.base()
             )

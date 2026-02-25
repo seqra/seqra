@@ -1,13 +1,25 @@
 package org.opentaint.jvm.sast.dataflow.rules
 
 import org.opentaint.dataflow.configuration.jvm.ConditionNameMatcher
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.ClassPattern
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Pattern
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Simple
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher.ClassPattern
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Pattern
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Simple
 import java.util.BitSet
 
-fun SerializedNameMatcher.toConditionNameMatcher(patternManager: PatternManager): ConditionNameMatcher? {
+fun SerializedSimpleNameMatcher.toConditionNameMatcher(patternManager: PatternManager): ConditionNameMatcher.Simple? {
+    return when (this) {
+        is Simple -> ConditionNameMatcher.Concrete(value)
+        is Pattern -> {
+            if (isAny()) return null
+
+            ConditionNameMatcher.Pattern(patternManager.compilePattern(pattern))
+        }
+    }
+}
+
+fun SerializedTypeNameMatcher.toConditionNameMatcher(patternManager: PatternManager): ConditionNameMatcher? {
     return when (this) {
         is Simple -> ConditionNameMatcher.Concrete(value)
         is Pattern -> {
@@ -17,15 +29,12 @@ fun SerializedNameMatcher.toConditionNameMatcher(patternManager: PatternManager)
 
         is ClassPattern -> {
             when (val pkgMatcher = `package`) {
-                is SerializedNameMatcher.Array,
-                is ClassPattern -> error("impossible")
-
                 is Simple -> conditionNameMatcherWithSimplePackage(patternManager, `class`, pkgMatcher)
                 is Pattern -> conditionNameMatcherWithPatternPackage(patternManager, `class`, pkgMatcher)
             }
         }
 
-        is SerializedNameMatcher.Array -> {
+        is SerializedTypeNameMatcher.Array -> {
             element.toConditionNameMatcher(patternManager)?.addSuffix("[]", patternManager)
         }
     }
@@ -33,12 +42,10 @@ fun SerializedNameMatcher.toConditionNameMatcher(patternManager: PatternManager)
 
 private fun conditionNameMatcherWithSimplePackage(
     patternManager: PatternManager,
-    clsMatcher: SerializedNameMatcher,
+    clsMatcher: SerializedSimpleNameMatcher,
     pkgMatcher: Simple
 ): ConditionNameMatcher {
     return when (clsMatcher) {
-        is ClassPattern -> error("impossible")
-
         is Simple -> {
             val name = "${pkgMatcher.value}.${clsMatcher.value}"
             ConditionNameMatcher.Concrete(name)
@@ -53,21 +60,15 @@ private fun conditionNameMatcherWithSimplePackage(
             val pattern = classNamePattern(pkgPattern, clsMatcher.pattern)
             createPattern(pattern, patternManager)
         }
-
-        is SerializedNameMatcher.Array -> {
-            val elementCond = conditionNameMatcherWithSimplePackage(patternManager, clsMatcher.element, pkgMatcher)
-            elementCond.addSuffix("[]", patternManager)
-        }
     }
 }
 
 private fun conditionNameMatcherWithPatternPackage(
     patternManager: PatternManager,
-    clsMatcher: SerializedNameMatcher,
+    clsMatcher: SerializedSimpleNameMatcher,
     pkgMatcher: Pattern
 ): ConditionNameMatcher {
     return when (clsMatcher) {
-        is ClassPattern -> error("impossible")
         is Simple -> {
             if (pkgMatcher.isAny()) {
                 return ConditionNameMatcher.PatternEndsWith(clsMatcher.value)
@@ -81,11 +82,6 @@ private fun conditionNameMatcherWithPatternPackage(
         is Pattern -> {
             val pattern = classNamePattern(pkgMatcher.pattern, clsMatcher.pattern)
             createPattern(pattern, patternManager)
-        }
-
-        is SerializedNameMatcher.Array -> {
-            val elementCond = conditionNameMatcherWithPatternPackage(patternManager, clsMatcher.element, pkgMatcher)
-            elementCond.addSuffix("[]", patternManager)
         }
     }
 }
@@ -142,6 +138,7 @@ private fun ConditionNameMatcher.addSuffix(
     suffix: String,
     patternManager: PatternManager,
 ): ConditionNameMatcher = when (this) {
+    is ConditionNameMatcher.AnyName -> ConditionNameMatcher.PatternEndsWith(suffix)
     is ConditionNameMatcher.Concrete -> ConditionNameMatcher.Concrete(name + suffix)
     is ConditionNameMatcher.PatternEndsWith -> ConditionNameMatcher.PatternEndsWith(this.suffix + suffix)
     is ConditionNameMatcher.PatternStartsWith -> {

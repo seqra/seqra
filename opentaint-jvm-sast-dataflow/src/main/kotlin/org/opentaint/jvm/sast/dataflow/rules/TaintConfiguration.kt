@@ -8,6 +8,7 @@ import org.opentaint.dataflow.configuration.jvm.Argument
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
 import org.opentaint.dataflow.configuration.jvm.Condition
+import org.opentaint.dataflow.configuration.jvm.ConditionNameMatcher
 import org.opentaint.dataflow.configuration.jvm.ConstantBooleanValue
 import org.opentaint.dataflow.configuration.jvm.ConstantEq
 import org.opentaint.dataflow.configuration.jvm.ConstantGt
@@ -21,6 +22,7 @@ import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.CopyMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
 import org.opentaint.dataflow.configuration.jvm.IsNull
+import org.opentaint.dataflow.configuration.jvm.IsStaticField
 import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Position
 import org.opentaint.dataflow.configuration.jvm.PositionAccessor
@@ -56,16 +58,17 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.A
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationParamMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFieldRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFunctionNameMatcher
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.ClassPattern
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Pattern
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Simple
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSignatureMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Pattern
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Simple
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintPassAction
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher.ClassPattern
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SourceRule
@@ -132,11 +135,16 @@ class TaintConfiguration(cp: JIRClasspath) {
 
     private inner class TaintFieldRulesStorage<S : SerializedFieldRule, T : TaintConfigurationItem> {
         private val fieldRules = hashMapOf<String, MutableList<S>>()
+        private val fieldPatterns = hashMapOf<String, MutableList<S>>()
+
         private val fieldItems = hashMapOf<JIRField, List<T>>()
 
         fun addRules(rules: List<S>) {
             for (rule in rules) {
-                fieldRules.getOrPut(rule.fieldName, ::mutableListOf).add(rule)
+                when (val fn = rule.fieldName) {
+                    is Simple -> fieldRules.getOrPut(fn.value, ::mutableListOf).add(rule)
+                    is Pattern -> fieldPatterns.getOrPut(fn.pattern, ::mutableListOf).add(rule)
+                }
             }
 
             // invalidate rules cache
@@ -149,7 +157,13 @@ class TaintConfiguration(cp: JIRClasspath) {
         }
 
         private fun resolveFieldItems(field: JIRField): List<T> {
-            val rules = fieldRules[field.name]?.toMutableList() ?: return emptyList()
+            val rules = mutableListOf<S>()
+            rules += fieldRules[field.name].orEmpty()
+
+            fieldPatterns
+                .filter { patternManager.matchPattern(it.key, field.name) }
+                .flatMapTo(rules) { it.value }
+
             rules.removeAll { !it.className.match(field.enclosingClass.name) }
             return rules.flatMap { resolveFieldRule(it, field) }
         }
@@ -219,7 +233,7 @@ class TaintConfiguration(cp: JIRClasspath) {
         }
     }
 
-    private fun SerializedNameMatcher.match(name: String): Boolean {
+    private fun SerializedTypeNameMatcher.match(name: String): Boolean {
         if (matchNormalizedTypeName(name)) return true
 
         val nameWithDots = name.innerClassNameWithDots()
@@ -228,20 +242,23 @@ class TaintConfiguration(cp: JIRClasspath) {
         return matchNormalizedTypeName(nameWithDots)
     }
 
-    private fun SerializedNameMatcher.matchNormalizedTypeName(name: String): Boolean = when (this) {
-        is Simple -> if (value == "*") true else value == name
-        is Pattern -> {
-            isAny() || patternManager.matchPattern(pattern, name)
-        }
+    private fun SerializedTypeNameMatcher.matchNormalizedTypeName(name: String): Boolean = when (this) {
+        is SerializedSimpleNameMatcher -> match(name)
+
         is ClassPattern -> {
             val (pkgName, clsName) = splitClassName(name)
             `package`.matchNormalizedTypeName(pkgName) && `class`.matchNormalizedTypeName(clsName)
         }
 
-        is SerializedNameMatcher.Array -> {
+        is SerializedTypeNameMatcher.Array -> {
             val nameWithoutArrayModifier = name.removeSuffix("[]")
             name != nameWithoutArrayModifier && element.matchNormalizedTypeName(nameWithoutArrayModifier)
         }
+    }
+
+    private fun SerializedSimpleNameMatcher.match(name: String): Boolean = when (this) {
+        is Simple -> if (value == "*") true else value == name
+        is Pattern -> isAny() || patternManager.matchPattern(pattern, name)
     }
 
     private fun SerializedFunctionNameMatcher.matchFunctionName(method: JIRMethod): Boolean {
@@ -485,6 +502,7 @@ class TaintConfiguration(cp: JIRClasspath) {
         is SerializedCondition.IsConstant -> isConstant.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.IsNull -> isNull.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.IsType -> pos.collectAnyArgumentClassifiers(classifiers)
+        is SerializedCondition.IsStaticField -> pos.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.ParamAnnotated -> pos.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.ClassAnnotated,
         is SerializedCondition.MethodAnnotated,
@@ -597,6 +615,26 @@ class TaintConfiguration(cp: JIRClasspath) {
 
         is SerializedCondition.IsNull -> mkOr(isNull.resolve(method, ctx).map { IsNull(it) })
 
+        is SerializedCondition.IsStaticField -> {
+            val className = className.normalizeAnyName()
+                .toConditionNameMatcher(patternManager)
+
+            val fieldName = fieldName.normalizeAnyName()
+                .toConditionNameMatcher(patternManager)
+
+            if (className == null && fieldName == null) {
+                mkTrue()
+            } else {
+                mkOr(pos.resolve(method, ctx).map {
+                    IsStaticField(
+                        it,
+                        className ?: ConditionNameMatcher.AnyName,
+                        fieldName ?: ConditionNameMatcher.AnyName
+                    )
+                })
+            }
+        }
+
         is SerializedCondition.ContainsMark -> mkOr(
             pos.resolvePosition(method, ctx)
                 .flatMap { it.resolveArrayPosition(method) }
@@ -623,11 +661,11 @@ class TaintConfiguration(cp: JIRClasspath) {
         }
 
         is SerializedCondition.MethodNameMatches -> {
-            patternManager.matchPattern(nameMatches, method.name).asCondition()
+            methodName.match(method.name).asCondition()
         }
 
         is SerializedCondition.ClassNameMatches -> {
-            nameMatcher.match(method.enclosingClass.name).asCondition()
+            className.match(method.enclosingClass.name).asCondition()
         }
     }
 
@@ -821,7 +859,7 @@ class TaintConfiguration(cp: JIRClasspath) {
         }
     }
 
-    private fun SerializedNameMatcher.asAnnotationConstraint(): AnnotationConstraint =
+    private fun SerializedTypeNameMatcher.asAnnotationConstraint(): AnnotationConstraint =
         AnnotationConstraint(this, params = null)
 
     private fun JIRAnnotated.matched(constraint: AnnotationConstraint): Boolean =
@@ -834,18 +872,15 @@ class TaintConfiguration(cp: JIRClasspath) {
     }
 
     private fun JIRAnnotation.matched(param: AnnotationParamMatcher): Boolean {
-        val rawParamValue = this.values[param.name] ?: return false
-        val flatParamValues = rawParamValue.flatAnnotationValues()
+        val matchedParams = values.filter { param.name.match(it.key) }
+        val rawParamValues = matchedParams.mapNotNull { it.value }
+        val flatParamValues = rawParamValues.flatMap { it.flatAnnotationValues() }
         return flatParamValues.any { paramValue ->
             val paramValueStr = paramValue.toString()
 
             when (param) {
-                is SerializedCondition.AnnotationParamPatternMatcher -> {
-                    patternManager.matchPattern(param.pattern, paramValueStr)
-                }
-
                 is SerializedCondition.AnnotationParamStringMatcher -> {
-                    paramValueStr == param.value
+                    param.value.match(paramValueStr)
                 }
             }
         }

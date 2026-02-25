@@ -4,7 +4,6 @@ import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationParamMatcher
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationParamPatternMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationParamStringMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.ConstantCmpType
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.ConstantType
@@ -12,8 +11,11 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.C
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFieldRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFunctionNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Pattern
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Simple
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
@@ -127,9 +129,9 @@ private fun RuleConversionCtx.convertAutomataToTaintRules(
 private data class RegisterVarPosition(val varName: MetavarAtom, val positions: MutableSet<PositionBase>)
 
 private data class RuleCondition(
-    val enclosingClassPackage: SerializedNameMatcher,
-    val enclosingClassName: SerializedNameMatcher,
-    val name: SerializedNameMatcher,
+    val enclosingClassPackage: SerializedSimpleNameMatcher,
+    val enclosingClassName: SerializedSimpleNameMatcher,
+    val name: SerializedSimpleNameMatcher,
     val condition: SerializedCondition,
 )
 
@@ -188,6 +190,7 @@ private fun SerializedCondition.rewriteAsEndCondition(): SerializedCondition = w
     is SerializedCondition.IsConstant -> copy(isConstant = isConstant.rewriteAsEndPosition())
     is SerializedCondition.IsType -> copy(pos = pos.rewriteAsEndPosition())
     is SerializedCondition.ParamAnnotated -> copy(pos = pos.rewriteAsEndPosition())
+    is SerializedCondition.IsStaticField -> copy(pos = pos.rewriteAsEndPosition())
     is SerializedCondition.NumberOfArgs -> SerializedCondition.True
 }
 
@@ -227,23 +230,27 @@ private fun generateMethodEndSource(
     )
 }
 
+private enum class TaintEdgeKind {
+    POSITIVE, CLEANER
+}
+
 fun TaintRuleGenerationCtx.generateTaintRules(ctx: RuleConversionCtx): List<SerializedItem> {
     val rules = mutableListOf<SerializedItem>()
 
-    val evaluatedConditions = hashMapOf<TaintRuleEdge, List<EvaluatedEdgeCondition>>()
+    val evaluatedConditions = hashMapOf<Pair<TaintRuleEdge, TaintEdgeKind>, List<EvaluatedEdgeCondition>>()
 
-    fun evaluate(edge: TaintRuleEdge): List<EvaluatedEdgeCondition> =
-        evaluatedConditions.getOrPut(edge) {
-            evaluateMethodConditionAndEffect(edge.edgeCondition, edge.edgeEffect, ctx.trace)
+    fun evaluate(edge: TaintRuleEdge, kind: TaintEdgeKind): List<EvaluatedEdgeCondition> =
+        evaluatedConditions.getOrPut(edge to kind) {
+            evaluateMethodConditionAndEffect(kind, edge.edgeCondition, edge.edgeEffect, ctx.trace)
         }
 
-    fun evaluateWithStateCheck(edge: TaintRuleEdge, state: State): List<EvaluatedEdgeCondition> =
-        evaluate(edge).map { it.addStateCheck(this, edge.checkGlobalState, state) }
+    fun evaluateWithStateCheck(edge: TaintRuleEdge, kind: TaintEdgeKind, state: State): List<EvaluatedEdgeCondition> =
+        evaluate(edge, kind).map { it.addStateCheck(this, edge.checkGlobalState, state) }
 
     for (ruleEdge in edges) {
         val state = ruleEdge.stateFrom
 
-        for (condition in evaluateWithStateCheck(ruleEdge, state)) {
+        for (condition in evaluateWithStateCheck(ruleEdge, TaintEdgeKind.POSITIVE, state)) {
             rules += condition.additionalFieldRules
 
             val actions = buildStateAssignAction(ruleEdge.stateTo, condition)
@@ -275,7 +282,7 @@ fun TaintRuleGenerationCtx.generateTaintRules(ctx: RuleConversionCtx): List<Seri
     for (ruleEdge in edgesToFinalAccept) {
         val state = ruleEdge.stateFrom
 
-        for (condition in evaluateWithStateCheck(ruleEdge, state)) {
+        for (condition in evaluateWithStateCheck(ruleEdge, TaintEdgeKind.POSITIVE, state)) {
             rules += condition.additionalFieldRules
 
             rules += generateRules(condition.ruleCondition) { function, cond ->
@@ -309,7 +316,7 @@ fun TaintRuleGenerationCtx.generateTaintRules(ctx: RuleConversionCtx): List<Seri
     for (ruleEdge in edgesToFinalDead) {
         val state = ruleEdge.stateFrom
 
-        for (condition in evaluateWithStateCheck(ruleEdge, state)) {
+        for (condition in evaluateWithStateCheck(ruleEdge, TaintEdgeKind.CLEANER, state)) {
             rules += condition.additionalFieldRules
 
             val actions = buildStateCleanAction(ruleEdge.stateTo, state, condition)
@@ -414,9 +421,9 @@ private inline fun <T> generateRules(
 }
 
 private class RuleConditionBuilder {
-    var enclosingClassPackage: SerializedNameMatcher? = null
-    var enclosingClassName: SerializedNameMatcher? = null
-    var methodName: SerializedNameMatcher? = null
+    var enclosingClassPackage: SerializedSimpleNameMatcher? = null
+    var enclosingClassName: SerializedSimpleNameMatcher? = null
+    var methodName: SerializedSimpleNameMatcher? = null
 
     val conditions = hashSetOf<SerializedCondition>()
 
@@ -436,6 +443,7 @@ private class RuleConditionBuilder {
 }
 
 private fun TaintRuleGenerationCtx.evaluateMethodConditionAndEffect(
+    edgeKind: TaintEdgeKind,
     condition: EdgeCondition,
     effect: EdgeEffect,
     semgrepRuleTrace: SemgrepRuleLoadStepTrace,
@@ -449,6 +457,7 @@ private fun TaintRuleGenerationCtx.evaluateMethodConditionAndEffect(
         condition.readMetaVar.values.flatten().forEach {
             val signature = it.predicate.signature.notEvaluatedSignature(evaluatedSignature)
             evaluateEdgePredicateConstraint(
+                edgeKind,
                 signature, it.predicate.constraint, it.negated,
                 ruleBuilder.conditions, additionalFieldRules, semgrepRuleTrace
             )
@@ -457,6 +466,7 @@ private fun TaintRuleGenerationCtx.evaluateMethodConditionAndEffect(
         condition.other.forEach {
             val signature = it.predicate.signature.notEvaluatedSignature(evaluatedSignature)
             evaluateEdgePredicateConstraint(
+                edgeKind,
                 signature, it.predicate.constraint, it.negated, ruleBuilder.conditions,
                 additionalFieldRules, semgrepRuleTrace
             )
@@ -572,21 +582,19 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
 
         val classSignatureMatcher = cube.positive.first().constraint
         val (cp, cn) = when (classSignatureMatcher) {
-            is SerializedNameMatcher.ClassPattern -> {
+            is SerializedTypeNameMatcher.ClassPattern -> {
                 classSignatureMatcher.`package` to classSignatureMatcher.`class`
             }
 
-            is SerializedNameMatcher.Simple -> {
-                val parts = classSignatureMatcher.value.split(".")
-                val packageName = parts.dropLast(1).joinToString(separator = ".")
-                SerializedNameMatcher.Simple(packageName) to SerializedNameMatcher.Simple(parts.last())
+            is Simple -> {
+                classNamePartsFromConcreteString(classSignatureMatcher.value)
             }
 
-            is SerializedNameMatcher.Array -> {
+            is SerializedTypeNameMatcher.Array -> {
                 TODO("Signature class is array")
             }
 
-            is SerializedNameMatcher.Pattern -> {
+            is Pattern -> {
                 TODO("Signature class name pattern")
             }
         }
@@ -605,10 +613,10 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
 private fun TaintRuleGenerationCtx.evaluateFormulaSignatureMethodName(
     methodName: SignatureName,
     semgrepRuleTrace: SemgrepRuleLoadStepTrace,
-): List<Pair<SerializedNameMatcher.Simple?, SerializedCondition?>> {
+): List<Pair<Simple?, SerializedCondition?>> {
     return when (methodName) {
         SignatureName.AnyName -> listOf(null to null)
-        is SignatureName.Concrete -> listOf(SerializedNameMatcher.Simple(methodName.name) to null)
+        is SignatureName.Concrete -> listOf(Simple(methodName.name) to null)
         is SignatureName.MetaVar -> {
             val constraint = when (val constraints = metaVarInfo.constraints[methodName.metaVar]) {
                 null -> null
@@ -625,21 +633,21 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignatureMethodName(
                 transformPositive = { c ->
                     when (c) {
                         is MetaVarConstraint.Concrete -> SerializedCondition.True to c.value
-                        is MetaVarConstraint.RegExp -> SerializedCondition.MethodNameMatches(c.regex) to null
+                        is MetaVarConstraint.RegExp -> SerializedCondition.MethodNameMatches(Pattern(c.regex)) to null
                     }
                 },
                 transformNegated = { c ->
                     when (c) {
                         is MetaVarConstraint.Concrete -> methodNameMatcherCondition(c.value) to null
-                        is MetaVarConstraint.RegExp -> SerializedCondition.MethodNameMatches(c.regex) to null
+                        is MetaVarConstraint.RegExp -> SerializedCondition.MethodNameMatches(Pattern(c.regex)) to null
                     }
                 }
             )
 
-            return conditionsWithConcreteNames.map { (cond, concrete) ->
+            conditionsWithConcreteNames.map { (cond, concrete) ->
                 val concreteNames = concrete.filterNotNull()
                 check(concreteNames.size <= 1) { "Multiple concrete names" }
-                concreteNames.firstOrNull()?.let { SerializedNameMatcher.Simple(it) } to cond
+                concreteNames.firstOrNull()?.let { Simple(it) } to cond
             }
         }
     }
@@ -649,7 +657,7 @@ private fun methodNameMatcherCondition(methodNameConstraint: String): Serialized
     val methodName = methodNameConstraint.substringAfterLast('.')
     val className = methodNameConstraint.substringBeforeLast('.', "")
 
-    val methodNameMatcher = SerializedCondition.MethodNameMatches(methodName)
+    val methodNameMatcher = SerializedCondition.MethodNameMatches(Simple(methodName))
     val classNameMatcher: SerializedCondition.ClassNameMatches? =
         className.takeIf { it.isNotEmpty() }?.let {
             SerializedCondition.ClassNameMatches(classNameMatcherFromConcreteString(it))
@@ -658,16 +666,19 @@ private fun methodNameMatcherCondition(methodNameConstraint: String): Serialized
     return SerializedCondition.and(listOfNotNull(methodNameMatcher, classNameMatcher))
 }
 
-private fun classNameMatcherFromConcreteString(name: String): SerializedNameMatcher {
+private fun classNamePartsFromConcreteString(name: String): Pair<Simple, Simple> {
     val parts = name.split(".")
     val packageName = parts.dropLast(1).joinToString(separator = ".")
-    return SerializedNameMatcher.ClassPattern(
-        SerializedNameMatcher.Simple(packageName),
-        SerializedNameMatcher.Simple(parts.last())
-    )
+    return Simple(packageName) to Simple(parts.last())
+}
+
+private fun classNameMatcherFromConcreteString(name: String): SerializedTypeNameMatcher.ClassPattern {
+    val (pkg, cls) = classNamePartsFromConcreteString(name)
+    return SerializedTypeNameMatcher.ClassPattern(pkg, cls)
 }
 
 private fun TaintRuleGenerationCtx.evaluateEdgePredicateConstraint(
+    edgeKind: TaintEdgeKind,
     signature: MethodSignature?,
     constraint: MethodConstraint?,
     negated: Boolean,
@@ -677,6 +688,7 @@ private fun TaintRuleGenerationCtx.evaluateEdgePredicateConstraint(
 ) {
     if (!negated) {
         evaluateMethodConstraints(
+            edgeKind,
             signature,
             constraint,
             conditions,
@@ -686,6 +698,7 @@ private fun TaintRuleGenerationCtx.evaluateEdgePredicateConstraint(
     } else {
         val negatedConditions = hashSetOf<SerializedCondition>()
         evaluateMethodConstraints(
+            edgeKind,
             signature,
             constraint,
             negatedConditions,
@@ -697,6 +710,7 @@ private fun TaintRuleGenerationCtx.evaluateEdgePredicateConstraint(
 }
 
 private fun TaintRuleGenerationCtx.evaluateMethodConstraints(
+    edgeKind: TaintEdgeKind,
     signature: MethodSignature?,
     constraint: MethodConstraint?,
     conditions: MutableSet<SerializedCondition>,
@@ -737,6 +751,7 @@ private fun TaintRuleGenerationCtx.evaluateMethodConstraints(
 
         is NumberOfArgsConstraint -> conditions += SerializedCondition.NumberOfArgs(constraint.num)
         is ParamConstraint -> evaluateParamConstraints(
+            edgeKind,
             constraint,
             conditions,
             additionalFieldRules,
@@ -761,8 +776,8 @@ private fun TaintRuleGenerationCtx.evaluateMethodSignatureCondition(
         methodCond?.let { cond += it }
 
         if (methodName != null) {
-            val methodNameRegex = "^${methodName.value}\$"
-            cond += SerializedCondition.MethodNameMatches(methodNameRegex)
+            val methodNameRegex = "^${methodName.value}$"
+            cond += SerializedCondition.MethodNameMatches(Pattern(methodNameRegex))
         }
 
         SerializedCondition.and(cond)
@@ -780,34 +795,34 @@ private fun findMetaVarPosition(
 private fun TaintRuleGenerationCtx.typeMatcher(
     typeName: TypeNamePattern,
     semgrepRuleTrace: SemgrepRuleLoadStepTrace
-): MetaVarConstraintFormula<SerializedNameMatcher>? {
+): MetaVarConstraintFormula<SerializedTypeNameMatcher>? {
     return when (typeName) {
         is TypeNamePattern.ClassName -> MetaVarConstraintFormula.Constraint(
-            SerializedNameMatcher.ClassPattern(
+            SerializedTypeNameMatcher.ClassPattern(
                 `package` = anyName(),
-                `class` = SerializedNameMatcher.Simple(typeName.name)
+                `class` = Simple(typeName.name)
             )
         )
 
         is TypeNamePattern.FullyQualified -> {
             MetaVarConstraintFormula.Constraint(
-                SerializedNameMatcher.Simple(typeName.name)
+                Simple(typeName.name)
             )
         }
 
         is TypeNamePattern.PrimitiveName -> {
             MetaVarConstraintFormula.Constraint(
-                SerializedNameMatcher.Simple(typeName.name)
+                Simple(typeName.name)
             )
         }
 
         is TypeNamePattern.ArrayType -> {
             typeMatcher(typeName.element, semgrepRuleTrace)?.transform { matcher ->
-                SerializedNameMatcher.Array(matcher)
+                SerializedTypeNameMatcher.Array(matcher)
             }
         }
 
-        TypeNamePattern.AnyType -> return null
+        is TypeNamePattern.AnyType -> null
 
         is TypeNamePattern.MetaVar -> {
             val constraints = metaVarInfo.constraints[typeName.metaVar]
@@ -827,11 +842,11 @@ private fun TaintRuleGenerationCtx.typeMatcher(
                 when (value) {
                     is MetaVarConstraint.Concrete -> {
                         if (value.value.contains('.')) {
-                            SerializedNameMatcher.Simple(value.value)
+                            Simple(value.value)
                         } else {
-                            SerializedNameMatcher.ClassPattern(
+                            SerializedTypeNameMatcher.ClassPattern(
                                 `package` = anyName(),
-                                `class` = SerializedNameMatcher.Simple(value.value)
+                                `class` = Simple(value.value)
                             )
                         }
                     }
@@ -843,23 +858,23 @@ private fun TaintRuleGenerationCtx.typeMatcher(
                             if (clsPattern.patternCanMatchDot()) {
                                 if (value.regex.endsWith('*') && value.regex.let { it.lowercase() == it }) {
                                     // consider pattern as package pattern
-                                    SerializedNameMatcher.ClassPattern(
-                                        `package` = SerializedNameMatcher.Pattern(value.regex),
+                                    SerializedTypeNameMatcher.ClassPattern(
+                                        `package` = Pattern(value.regex),
                                         `class` = anyName()
                                     )
                                 } else {
-                                    SerializedNameMatcher.Pattern(value.regex)
+                                    Pattern(value.regex)
                                 }
                             } else {
-                                SerializedNameMatcher.ClassPattern(
-                                    `package` = SerializedNameMatcher.Pattern(pkgPattern),
-                                    `class` = SerializedNameMatcher.Pattern(clsPattern)
+                                SerializedTypeNameMatcher.ClassPattern(
+                                    `package` = Pattern(pkgPattern),
+                                    `class` = Pattern(clsPattern)
                                 )
                             }
                         } else {
-                            SerializedNameMatcher.ClassPattern(
+                            SerializedTypeNameMatcher.ClassPattern(
                                 `package` = anyName(),
-                                `class` = SerializedNameMatcher.Pattern(value.regex)
+                                `class` = Pattern(value.regex)
                             )
                         }
                     }
@@ -906,11 +921,11 @@ private fun annotationParamMatchers(
         SignatureModifierValue.AnyValue -> null
         SignatureModifierValue.NoValue -> emptyList()
         is SignatureModifierValue.StringValue -> listOf(
-            AnnotationParamStringMatcher(v.paramName, v.value)
+            AnnotationParamStringMatcher(Simple(v.paramName), Simple(v.value))
         )
 
         is SignatureModifierValue.StringPattern -> listOf(
-            AnnotationParamPatternMatcher(v.paramName, v.pattern)
+            AnnotationParamStringMatcher(Simple(v.paramName), Pattern(v.pattern))
         )
 
         is SignatureModifierValue.MetaVar -> {
@@ -925,7 +940,7 @@ private fun annotationParamMatchers(
             }
 
             if (constraint == null) {
-                val anyValue = AnnotationParamPatternMatcher(v.paramName, ".*")
+                val anyValue = AnnotationParamStringMatcher(Simple(v.paramName), anyName())
                 return MetaVarConstraintFormula.Constraint(listOf(anyValue))
             }
 
@@ -938,8 +953,8 @@ private fun annotationParamMatchers(
 
                 val paramMatchers = cube.positive.map {
                     when (val c = it.constraint) {
-                        is MetaVarConstraint.Concrete -> AnnotationParamStringMatcher(v.paramName, c.value)
-                        is MetaVarConstraint.RegExp -> AnnotationParamPatternMatcher(v.paramName, c.regex)
+                        is MetaVarConstraint.Concrete -> AnnotationParamStringMatcher(Simple(v.paramName), Simple(c.value))
+                        is MetaVarConstraint.RegExp -> AnnotationParamStringMatcher(Simple(v.paramName), Pattern(c.regex))
                     }
                 }
 
@@ -963,13 +978,14 @@ private fun Position.toSerializedPosition(): PositionBase = when (this) {
 }
 
 private fun TaintRuleGenerationCtx.evaluateParamConstraints(
+    edgeKind: TaintEdgeKind,
     param: ParamConstraint,
     conditions: MutableSet<SerializedCondition>,
     additionalFieldRules: MutableList<SerializedFieldRule>,
     semgrepRuleTrace: SemgrepRuleLoadStepTrace,
 ) {
     val position = param.position.toSerializedPosition()
-    conditions += evaluateParamCondition(position, param.condition, additionalFieldRules, semgrepRuleTrace)
+    conditions += evaluateParamCondition(edgeKind, position, param.condition, additionalFieldRules, semgrepRuleTrace)
 }
 
 private fun findMetaVarPosition(
@@ -993,6 +1009,7 @@ private fun findMetaVarPosition(
 }
 
 private fun TaintRuleGenerationCtx.evaluateParamCondition(
+    edgeKind: TaintEdgeKind,
     position: PositionBase,
     condition: ParamCondition.Atom,
     additionalFieldRules: MutableList<SerializedFieldRule>,
@@ -1024,15 +1041,25 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
                 else -> TODO("Complex static field type")
             }
 
-            val metaVar = MetavarAtom.createArtificial("__STATIC_FIELD_VALUE__${condition.fieldName}")
-            val mark = prefix.metaVarState(metaVar, state = 0)
+            val fieldNameMatcher = Simple(condition.fieldName)
 
-            val action = mark.mkAssignMark(PositionBase.Result.base())
-            additionalFieldRules += SerializedFieldRule.SerializedStaticFieldSource(
-                enclosingClassMatcher, condition.fieldName, condition = null, listOf(action)
-            )
+            return when (edgeKind) {
+                TaintEdgeKind.POSITIVE -> {
+                    val metaVar = MetavarAtom.createArtificial("__STATIC_FIELD_VALUE__${condition.fieldName}")
+                    val mark = prefix.metaVarState(metaVar, state = 0)
 
-            return mark.mkContainsMark(position.base())
+                    val action = mark.mkAssignMark(PositionBase.Result.base())
+                    additionalFieldRules += SerializedFieldRule.SerializedStaticFieldSource(
+                        enclosingClassMatcher, fieldNameMatcher, condition = null, listOf(action)
+                    )
+
+                    mark.mkContainsMark(position.base())
+                }
+
+                TaintEdgeKind.CLEANER -> {
+                    SerializedCondition.IsStaticField(position, enclosingClassMatcher, fieldNameMatcher)
+                }
+            }
         }
 
         ParamCondition.AnyStringLiteral -> {
@@ -1158,4 +1185,4 @@ private fun <T, R> MetaVarConstraintFormula<T>.toSerializedConditionCubes(
 private fun <T> List<T>.toSerializedOr(transformer: (T) -> SerializedCondition): SerializedCondition =
     serializedConditionOr(map(transformer))
 
-private val StringTypeName = SerializedNameMatcher.Simple("java.lang.String")
+private val StringTypeName = Simple("java.lang.String")

@@ -1,9 +1,10 @@
 package org.opentaint.jvm.sast.dataflow.rules
 
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.ClassPattern
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Pattern
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Simple
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher.ClassPattern
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Pattern
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Simple
 
 private const val DOT_DELIMITER = "."
 
@@ -11,14 +12,15 @@ private const val INNER_CLASS_DELIMITER = "$"
 
 fun Pattern.isAny(): Boolean = pattern == ".*"
 
-fun SerializedNameMatcher.normalizeAnyName(): SerializedNameMatcher = when (this) {
-    is ClassPattern -> {
-        ClassPattern(`package`.normalizeAnyName(), `class`.normalizeAnyName())
-    }
+fun SerializedTypeNameMatcher.normalizeAnyName(): SerializedTypeNameMatcher = when (this) {
+    is SerializedSimpleNameMatcher -> normalizeAnyName()
+    is ClassPattern -> ClassPattern(`package`.normalizeAnyName(), `class`.normalizeAnyName())
+    is SerializedTypeNameMatcher.Array -> SerializedTypeNameMatcher.Array(element.normalizeAnyName())
+}
 
+fun SerializedSimpleNameMatcher.normalizeAnyName(): SerializedSimpleNameMatcher = when (this) {
     is Pattern -> this
     is Simple -> if (value == "*") anyNameMatcher() else this
-    is SerializedNameMatcher.Array -> SerializedNameMatcher.Array(element.normalizeAnyName())
 }
 
 fun nameToPattern(name: String): String = name.replace(DOT_DELIMITER, "\\.")
@@ -32,7 +34,7 @@ fun String.innerClassNameWithDots(): String? {
 fun classNamePattern(pkgPattern: String, clsPattern: String): String =
     "$pkgPattern\\.$clsPattern"
 
-fun anyNameMatcher(): SerializedNameMatcher = Pattern(".*")
+fun anyNameMatcher(): SerializedSimpleNameMatcher = Pattern(".*")
 
 fun splitClassName(className: String): Pair<String, String> {
     val simpleName = className.substringAfterLast(DOT_DELIMITER)

@@ -13,6 +13,7 @@ import org.opentaint.dataflow.configuration.jvm.RemoveAllMarks
 import org.opentaint.dataflow.configuration.jvm.RemoveMark
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature.JIRLambdaClass
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature.JIRLambdaMethod
+import org.opentaint.dataflow.jvm.util.isVararg
 import org.opentaint.dataflow.util.SarifTraits
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
@@ -110,9 +111,6 @@ class TraceMessageBuilder(
 
     private val varargArrays = hashMapOf<CommonMethod, Set<CommonValue>>()
     private val markedVararg = hashMapOf<CommonValue, HashSet<TraceEdge>>()
-
-    private fun JIRCallExpr.isVararg(): Boolean =
-        method.method.access and Opcodes.ACC_VARARGS != 0
 
     private fun JIRInst.getCallVararg(): CommonValue? {
         val call = (traits.getCallExpr(this) as JIRCallExpr?) ?: return null

@@ -2,11 +2,9 @@ package org.opentaint.jvm.sast.dataflow.rules
 
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.ClassPattern
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Pattern
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher.Simple
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Pattern
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Simple
 import org.opentaint.dataflow.configuration.jvm.serialized.modifyCondition
 import org.opentaint.dataflow.jvm.util.JIRHierarchyInfo
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
@@ -67,8 +65,6 @@ class MethodTaintRulesStorage<S : SerializedRule> private constructor(
 
             for (rule in rules) {
                 when (val fName = rule.function.name.normalizeAnyName()) {
-                    is SerializedNameMatcher.Array,
-                    is ClassPattern -> error("impossible")
                     is Simple -> {
                         concreteMethodNameRules.getOrPut(fName.value) {
                             MethodClassTaintRulesStorage.Builder(patternManager, hierarchyInfo, concreteMethodName = fName.value)
@@ -267,23 +263,12 @@ private class MethodClassTaintRulesStorage<S : SerializedRule> private construct
                 val cls = rule.function.`class`.normalizeAnyName()
 
                 when (pkg) {
-                    is SerializedNameMatcher.Array,
-                    is ClassPattern -> error("impossible")
                     is Simple -> when (cls) {
-                        is SerializedNameMatcher.Array,
-                        is ClassPattern -> error("impossible")
-                        is Simple -> {
-                            addConcreteClassRule(joinClassName(pkg.value, cls.value), rule)
-                        }
-
-                        is Pattern -> {
-                            addConcretePackagePatternClassRule(pkg.value, cls, rule)
-                        }
+                        is Simple -> addConcreteClassRule(joinClassName(pkg.value, cls.value), rule)
+                        is Pattern -> addConcretePackagePatternClassRule(pkg.value, cls, rule)
                     }
 
                     is Pattern -> when (cls) {
-                        is SerializedNameMatcher.Array,
-                        is ClassPattern -> error("impossible")
                         is Simple -> addPatternPackageConcreteClassRule(pkg, cls.value, rule)
                         is Pattern -> addPatternPackagePatternClassRule(pkg, cls, rule)
                     }

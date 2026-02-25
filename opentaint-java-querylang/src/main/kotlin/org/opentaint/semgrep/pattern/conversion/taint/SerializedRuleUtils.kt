@@ -5,7 +5,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModif
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.Companion.mkFalse
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFunctionNameMatcher
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedNameMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
 import org.opentaint.semgrep.pattern.Mark.GeneratedMark
@@ -13,7 +13,7 @@ import org.opentaint.semgrep.pattern.Mark.GeneratedMark
 fun PositionBase.base(): PositionBaseWithModifiers =
     PositionBaseWithModifiers.BaseOnly(this)
 
-fun anyName() = SerializedNameMatcher.Pattern(".*")
+fun anyName() = SerializedSimpleNameMatcher.Pattern(".*")
 
 fun anyFunction() = SerializedFunctionNameMatcher.Complex(anyName(), anyName(), anyName())
 
