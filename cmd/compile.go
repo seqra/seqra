@@ -65,8 +65,13 @@ Arguments:
 			logrus.Fatal()
 		}
 
+		compileJavaRunner := java.NewJavaRunner().WithSkipVerify(globals.Config.SkipVerify).TrySystem().TrySpecificVersion(globals.Config.Java.Version)
+		if _, err := compileJavaRunner.EnsureJava(); err != nil {
+			logrus.Fatalf("Failed to resolve Java for compilation: %s", err)
+		}
+
 		if err := ui.RunWithSpinner("Compiling project model", func() error {
-			return compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath, External)
+			return compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath, compileJavaRunner, External)
 		}); err == nil {
 			logrus.Info()
 			printCompileSummary(absOutputProjectModelPath)
@@ -106,7 +111,7 @@ func ensureAutobuilderAvailable() (string, error) {
 	return autobuilderJarPath, nil
 }
 
-func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath string, caller CompileCaller) error {
+func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath string, javaRunner java.JavaRunner, caller CompileCaller) error {
 	if _, err := os.Stat(absOutputProjectModelPath); err == nil {
 		logrus.Fatalf("Output directory already exists: %s", absOutputProjectModelPath)
 	}
@@ -115,7 +120,7 @@ func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath strin
 		logrus.Fatalf("Unsupported architecture found: %s! Only arm64 and amd64 are supported.", utils.GetArch())
 	}
 
-	compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath)
+	compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath, javaRunner)
 
 	if _, err := os.Stat(absOutputProjectModelPath); err != nil {
 		err := fmt.Errorf("there was a problem during the compile step, check the full logs: %s", globals.LogPath)
@@ -136,7 +141,7 @@ func printCompileSummary(absOutputProjectModelPath string) {
 	printer.Print()
 }
 
-func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath string) {
+func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath string, javaRunner java.JavaRunner) {
 	var err error
 	tempLogsDir, err := os.MkdirTemp("", "seqra-*")
 	if err != nil {
@@ -152,8 +157,6 @@ func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPat
 		SetJarPath(autobuilderJarPath)
 
 	autobuilderCommand := builder.BuildNativeCommand()
-
-	javaRunner := java.NewJavaRunner().WithSkipVerify(globals.Config.SkipVerify).TrySystem().TrySpecificVersion(globals.Config.Java.Version)
 
 	commandSucceeded := func(_ error) bool {
 		if _, err = os.Stat(absOutputProjectModelPath); err != nil {

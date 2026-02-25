@@ -198,11 +198,16 @@ func scan(cmd *cobra.Command) {
 			logrus.Fatalf("Native compile preparation failed: %s", err)
 		}
 
+		compileJavaRunner := java.NewJavaRunner().WithSkipVerify(globals.Config.SkipVerify).TrySystem().TrySpecificVersion(globals.Config.Java.Version)
+		if _, err := compileJavaRunner.EnsureJava(); err != nil {
+			logrus.Fatalf("Failed to resolve Java for compilation: %s", err)
+		}
+
 		if showSpinners {
 			logrus.Info()
 		}
 		if err := ui.RunWithSpinner("Compiling project model", func() error {
-			return compile(absUserProjectRoot, tempProjectModelPath, autobuilderJarPath, Internal)
+			return compile(absUserProjectRoot, tempProjectModelPath, autobuilderJarPath, compileJavaRunner, Internal)
 		}); err != nil {
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
 			logrus.Fatal()
@@ -258,11 +263,16 @@ func scan(cmd *cobra.Command) {
 	}
 	nativeBuilder.SetJarPath(analyzerJarPath)
 
+	analyzerJavaRunner := java.NewJavaRunner().WithSkipVerify(globals.Config.SkipVerify).WithImageType(java.AdoptiumImageJRE).TrySpecificVersion(globals.DefaultJavaVersion)
+	if _, err := analyzerJavaRunner.EnsureJava(); err != nil {
+		logrus.Fatalf("Failed to resolve Java for analyzer: %s", err)
+	}
+
 	if showSpinners {
 		logrus.Info()
 	}
 	if err := ui.RunWithSpinner("Analyzing project", func() error {
-		return scanProject(nativeBuilder)
+		return scanProject(nativeBuilder, analyzerJavaRunner)
 	}); err != nil {
 		logrus.Fatalf("Native scan has failed: %s", err)
 	}
@@ -385,14 +395,12 @@ func ensureAnalyzerAvailable() (string, error) {
 	return analyzerJarPath, nil
 }
 
-func scanProject(analyzerBuilder *AnalyzerBuilder) error {
+func scanProject(analyzerBuilder *AnalyzerBuilder, javaRunner java.JavaRunner) error {
 	analyzerCommand := analyzerBuilder.BuildNativeCommand()
-
-	javaRunner := java.NewJavaRunner().WithSkipVerify(globals.Config.SkipVerify).WithImageType(java.AdoptiumImageJRE).TrySpecificVersion(globals.DefaultJavaVersion)
 
 	commandSucceeded := func(err error) bool {
 		if err != nil {
-			logrus.Errorf("Analyzer failed: %v", err)
+			logrus.Debugf("Analyzer failed: %v", err)
 			return false
 		}
 		return true

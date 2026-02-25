@@ -28,6 +28,10 @@ type JavaRunner interface {
 	WithImageType(imageType AdoptiumImageType) JavaRunner
 	WithSkipVerify(skipVerify bool) JavaRunner
 	GetJavaResolutions() []JavaResolution
+	// EnsureJava resolves and downloads Java if needed, returning the path.
+	// Call this before wrapping ExecuteJavaCommand in a spinner to avoid
+	// download progress bars overlapping with spinner output.
+	EnsureJava() (string, error)
 	ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) error
 }
 
@@ -36,6 +40,7 @@ type javaRunner struct {
 	specificStrategy  *int
 	imageType         AdoptiumImageType
 	skipVerify        bool
+	resolvedJavaPath  string
 }
 
 type JavaResolution func() (string, ResolutionStrategy, error)
@@ -120,83 +125,108 @@ func (j *javaRunner) GetJavaResolutions() []JavaResolution {
 	return resolutionStrategies
 }
 
+func (j *javaRunner) EnsureJava() (string, error) {
+	resolutionStrategies := j.GetJavaResolutions()
+	for i, strategy := range resolutionStrategies {
+		javaPath, _, err := strategy()
+		if err != nil {
+			logrus.Debugf("Java resolution attempt %d failed: %v", i+1, err)
+			continue
+		}
+		j.resolvedJavaPath = javaPath
+		return javaPath, nil
+	}
+	return "", fmt.Errorf("all Java resolution attempts failed")
+}
+
 func (j *javaRunner) ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no Java command arguments provided")
 	}
 
+	// If EnsureJava was called, use the pre-resolved path directly
+	if j.resolvedJavaPath != "" {
+		return j.executeWithJava(j.resolvedJavaPath, Specific, args, commandSucceeded)
+	}
+
 	resolutionStrategies := j.GetJavaResolutions()
 	for i, resolutionStrategy := range resolutionStrategies {
-		javaPath, resolutionStrategy, err := resolutionStrategy()
+		javaPath, strategy, err := resolutionStrategy()
 		if err != nil {
 			logrus.Debugf("Java resolution attempt %d failed: %v", i+1, err)
 			continue
 		}
 
-		cmdArgs := append([]string{javaPath}, args...)
-		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-
-		// Set clean environment for bundled or specific version strategy
-		if resolutionStrategy == Bundled || resolutionStrategy == Specific {
-			cmd.Env = j.getCleanEnvironment()
-			logrus.Debug("Using clean environment for managed Java version strategy")
-		}
-
-		logrus.Debugf("Executing Java command (attempt %d): %s %v (full: %s)", i+1, javaPath, args, strings.Join(cmdArgs, " "))
-
-		// Create pipes for stdout and stderr
-		stdoutPipe, err := cmd.StdoutPipe()
-		if err != nil {
-			logrus.Fatalf("Failed to create stdout pipe: %v", err)
-		}
-
-		stderrPipe, err := cmd.StderrPipe()
-		if err != nil {
-			logrus.Fatalf("Failed to create stderr pipe: %v", err)
-		}
-
-		// Start the command
-		if err := cmd.Start(); err != nil {
-			logrus.Fatalf("Failed to start autobuilder: %v", err)
-		}
-
-		// Function to read from a reader and log each line
-		logOutput := func(pipe io.Reader) {
-			scanner := bufio.NewScanner(pipe)
-			for scanner.Scan() {
-				logrus.Debug(scanner.Text())
-			}
-			if err := scanner.Err(); err != nil {
-				logrus.Debugf("Error reading autobuilder output: %v", err)
-			}
-		}
-
-		// Start goroutines to read and log stdout and stderr
-		go logOutput(stdoutPipe)
-		go logOutput(stderrPipe)
-
-		// Wait for the command to finish
-		err = cmd.Wait()
-
-		// Log any errors
-		if err != nil {
-			exitCode := 1
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				exitCode = exitErr.ExitCode()
-			}
-			logrus.Errorf("Autobuilder exited with code %d: %v", exitCode, err)
-		}
-
-		logrus.Debugf("Java command completed (attempt %d): exit_code=%d", i+1, cmd.ProcessState.ExitCode())
-
-		if commandSucceeded(err) {
+		if err := j.executeWithJava(javaPath, strategy, args, commandSucceeded); err == nil {
 			return nil
 		}
 
-		logrus.Debugf("Java command failed (attempt %d): exit_code=%d, trying next resolution", i+1, cmd.ProcessState.ExitCode())
+		logrus.Debugf("Java command failed (attempt %d), trying next resolution", i+1)
 	}
 
 	return fmt.Errorf("all Java resolution attempts failed")
+}
+
+func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrategy, args []string, commandSucceeded func(error) bool) error {
+	cmdArgs := append([]string{javaPath}, args...)
+	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+
+	// Set clean environment for bundled or specific version strategy
+	if strategy == Bundled || strategy == Specific {
+		cmd.Env = j.getCleanEnvironment()
+		logrus.Debug("Using clean environment for managed Java version strategy")
+	}
+
+	logrus.Debugf("Executing Java command: %s %v (full: %s)", javaPath, args, strings.Join(cmdArgs, " "))
+
+	// Create pipes for stdout and stderr
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		logrus.Fatalf("Failed to create stdout pipe: %v", err)
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		logrus.Fatalf("Failed to create stderr pipe: %v", err)
+	}
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		logrus.Fatalf("Failed to start Java command: %v", err)
+	}
+
+	// Function to read from a reader and log each line
+	logOutput := func(pipe io.Reader) {
+		scanner := bufio.NewScanner(pipe)
+		for scanner.Scan() {
+			logrus.Debug(scanner.Text())
+		}
+		if err := scanner.Err(); err != nil {
+			logrus.Debugf("Error reading command output: %v", err)
+		}
+	}
+
+	// Start goroutines to read and log stdout and stderr
+	go logOutput(stdoutPipe)
+	go logOutput(stderrPipe)
+
+	// Wait for the command to finish
+	err = cmd.Wait()
+
+	// Log any errors at debug level (caller decides severity)
+	if err != nil {
+		exitCode := 1
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		}
+		logrus.Debugf("Java command exited with code %d: %v", exitCode, err)
+	}
+
+	if commandSucceeded(err) {
+		return nil
+	}
+
+	return fmt.Errorf("java command failed")
 }
 
 func (j *javaRunner) TrySpecificVersion(version int) JavaRunner {
