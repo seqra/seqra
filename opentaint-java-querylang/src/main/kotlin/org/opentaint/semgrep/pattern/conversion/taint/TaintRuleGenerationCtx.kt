@@ -5,11 +5,13 @@ import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModif
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
+import org.opentaint.dataflow.util.forEach
 import org.opentaint.semgrep.pattern.Mark
 import org.opentaint.semgrep.pattern.Mark.RuleUniqueMarkPrefix
 import org.opentaint.semgrep.pattern.UserRuleFromSemgrepInfo
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.State
+import java.util.BitSet
 
 class TaintRuleGenerationCtx(
     val prefix: RuleUniqueMarkPrefix,
@@ -100,28 +102,77 @@ class TaintRuleGenerationCtx(
     }
 
     private fun allStates(): List<State> {
-        val result = mutableListOf<State>()
+        val result = hashSetOf<State>()
         edges.flatMapTo(result) { listOf(it.stateFrom, it.stateTo) }
         edgesToFinalAccept.flatMapTo(result) { listOf(it.stateFrom, it.stateTo) }
         edgesToFinalDead.flatMapTo(result) { listOf(it.stateFrom, it.stateTo) }
-        return result
+        return result.toList()
     }
 
-    private val metaVarStates by lazy {
-        val result = hashMapOf<MetavarAtom, MutableSet<State>>()
-        allStates().forEach { state ->
-            state.register.assignedVars.keys.forEach { mv ->
-                result.getOrPut(mv, ::hashSetOf).add(state)
-            }
+    private val allStates by lazy { allStates() }
+    private val stateIndex by lazy { allStates.mapIndexed { i, s -> s to i }.toMap() }
+
+    private fun statePredecessors(): List<BitSet> {
+        val predecessors = List(allStates.size) { BitSet() }
+        (edges + edgesToFinalAccept + edgesToFinalDead).forEach {
+            val toIdx = stateIndex.getValue(it.stateTo)
+            val fromIdx = stateIndex.getValue(it.stateFrom)
+            predecessors[toIdx].set(fromIdx)
         }
-        result
+        return predecessors
     }
 
-    fun containsMarkWithAnyState(
+    private fun stateTransitivePredecessors(): List<BitSet> {
+        val predecessors = statePredecessors()
+
+        do {
+            var hasChanges = false
+            for (states in predecessors) {
+                val initialSize = states.cardinality()
+                val allPredecessors = BitSet()
+                states.forEach { allPredecessors.or(predecessors[it]) }
+                states.or(allPredecessors)
+                hasChanges = hasChanges || initialSize != states.cardinality()
+            }
+        } while (hasChanges)
+
+        predecessors.forEachIndexed { index, set ->
+            set.set(index)
+        }
+
+        return predecessors
+    }
+
+    private fun metaVarStates(): List<Map<MetavarAtom, BitSet>> {
+        val transitivePredecessors = stateTransitivePredecessors()
+        return transitivePredecessors.map { states ->
+            val result = hashMapOf<MetavarAtom, BitSet>()
+            states.forEach { stateId ->
+                val state = allStates[stateId]
+                state.register.assignedVars.keys.forEach { mv ->
+                    result.getOrPut(mv, ::BitSet).set(stateId)
+                }
+            }
+            result
+        }
+    }
+
+    private val metaVarStates by lazy { metaVarStates() }
+
+    private fun metaVarRelevantStates(state: State, varName: MetavarAtom): List<State> {
+        val relevantMetaVarStates = metaVarStates[stateIndex.getValue(state)]
+        val varStatesIndices = relevantMetaVarStates[varName] ?: error("MetaVar is not assigned")
+        val varStates = mutableListOf<State>()
+        varStatesIndices.forEach { varStates += allStates[it] }
+        return varStates
+    }
+
+    fun containsMarkWithAnyStateBefore(
+        state: State,
         varName: MetavarAtom,
         position: PositionBaseWithModifiers
     ): SerializedCondition {
-        val varStates = metaVarStates[varName] ?: error("MetaVar is not assigned")
+        val varStates = metaVarRelevantStates(state, varName)
         val conditions = varStates.map { containsStateMark(varName, it, position) }
         return serializedConditionOr(conditions)
     }

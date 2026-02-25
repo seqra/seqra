@@ -23,7 +23,6 @@ import org.opentaint.semgrep.pattern.SemgrepTaintRule
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
-import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.ParamConstraint
 import org.opentaint.semgrep.pattern.conversion.automata.Position
 import org.opentaint.semgrep.pattern.conversion.automata.Predicate
@@ -515,7 +514,7 @@ private fun ensureSinkStateVars(
 
     val freshVar = MetavarAtom.create("generated_sink_requirement")
 
-    val newAutomata = TaintRegisterStateAutomataBuilder()
+    val newAutomata = TaintRegisterStateAutomataBuilder(startStateId = automata.maxStateId() + 1)
     val newInitialState = ensureSinkStateVars(freshVar, automata.initial, hashSetOf(), automata, newAutomata)
 
     check(newInitialState != null) {
@@ -579,8 +578,6 @@ private fun ensureSinkStateVars(
     }
 
     newAutomata.successors[state] = newSucc
-    newAutomata.nodeIndex[state.node] = newAutomata.nodeIndex.size
-
     return state
 }
 
@@ -593,10 +590,7 @@ private fun forkState(
     val forked = forkedStates[state]
     if (forked != null) return forked
 
-    val newNode = AutomataNode()
-    newAutomata.nodeIndex[newNode] = newAutomata.nodeIndex.size
-
-    val newState = State(newNode, state.register)
+    val newState = newAutomata.newState().copy(register = state.register)
     forkedStates[state] = newState
 
     if (state in current.finalAcceptStates) {
@@ -715,6 +709,6 @@ private fun TaintRegisterStateAutomata.replaceEdges(replacements: List<EdgeRepla
     }
 
     return TaintRegisterStateAutomata(
-        formulaManager, initial, finalAcceptStates, finalDeadStates, mutableSuccessors, nodeIndex
+        formulaManager, initial, finalAcceptStates, finalDeadStates, mutableSuccessors,
     )
 }

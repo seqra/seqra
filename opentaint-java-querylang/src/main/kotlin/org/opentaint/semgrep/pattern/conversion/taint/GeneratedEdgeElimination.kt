@@ -64,7 +64,7 @@ fun <CtxT> eliminateEdges(
     return TaintRegisterStateAutomata(
         automata.formulaManager, automata.initial,
         finalAcceptStates, finalDeadStates,
-        successors, automata.nodeIndex
+        successors,
     )
 }
 

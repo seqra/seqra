@@ -91,35 +91,29 @@ private fun createAutomata(
 ): TaintRegisterStateAutomata {
     val cancelation = OperationCancelation(automataCreationTimeout)
 
-    val result = TaintRegisterStateAutomataBuilder()
+    val result = TaintRegisterStateAutomataBuilder(startStateId = 0)
 
-    fun nodeId(node: AutomataNode): Int = result.nodeIndex.getOrPut(node) { result.nodeIndex.size }
-
-    val emptyRegister = TaintRegisterStateAutomata.StateRegister(emptyMap())
-    val startState = State(initialNode, emptyRegister)
+    val startState = result.newState(initialNode)
     val initialState = startState
 
     val processedStates = hashSetOf<State>()
-    val unprocessed = mutableListOf(startState)
+    val unprocessed = mutableListOf(startState to initialNode)
 
     while (unprocessed.isNotEmpty()) {
-        val state = unprocessed.removeLast()
+        val (state, node) = unprocessed.removeLast()
         if (!processedStates.add(state)) continue
 
-        // force eval
-        nodeId(state.node)
-
-        if (state.node.accept) {
+        if (node.accept) {
             result.acceptStates.add(state)
             // note: no need transitions from final state
             continue
         }
 
-        for ((edgeCondition, dstNode) in state.node.outEdges) {
+        for ((edgeCondition, dstNode) in node.outEdges) {
             for (simplifiedEdge in simplifyEdgeCondition(formulaManager, metaVarInfo, cancelation, edgeCondition)) {
-                val nextState = State(dstNode, emptyRegister)
+                val nextState = result.newState(dstNode)
                 result.successors.getOrPut(state, ::hashSetOf).add(simplifiedEdge to nextState)
-                unprocessed.add(nextState)
+                unprocessed.add(nextState to dstNode)
             }
         }
     }

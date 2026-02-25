@@ -14,7 +14,6 @@ import org.opentaint.semgrep.pattern.conversion.MetavarAtom
 import org.opentaint.semgrep.pattern.conversion.ParamCondition
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction
 import org.opentaint.semgrep.pattern.conversion.TypeNamePattern
-import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.MethodConstraint
 import org.opentaint.semgrep.pattern.conversion.automata.MethodEnclosingClassName
 import org.opentaint.semgrep.pattern.conversion.automata.MethodSignature
@@ -55,6 +54,11 @@ private fun RuleConversionCtx.generateCleanAutomata(
     val rewritten = rewriteEdges(cleaned)
     val liveAutomata = eliminateDeadVariables(rewritten, automata.acceptStateVars)
     val cleanAutomata = cleanupAutomata(liveAutomata, metaVarInfo)
+
+    check(!cleanAutomata.containsStateIdClash()) {
+        "Automata state ids clash"
+    }
+
     return automata.copy(automata = cleanAutomata)
 }
 
@@ -80,7 +84,20 @@ private fun RuleConversionCtx.simulateAutomata(
     automata: TaintRegisterStateAutomata,
     initialStateVars: Set<MetavarAtom>,
 ): TaintRegisterStateAutomata {
-    val initialStateId = automata.stateId(automata.initial)
+    var nextStateId = 0
+    val generatedStateIds = hashMapOf<State, MutableMap<State, Int>>()
+
+    fun stateId(state: State, predecessor: State): Int {
+        val predecessors = generatedStateIds.getOrPut(state, ::hashMapOf)
+
+        val stateId = nextStateId
+        val prev = predecessors.putIfAbsent(predecessor, stateId)
+        if (prev != null) return prev
+        nextStateId++
+        return stateId
+    }
+
+    val initialStateId = stateId(automata.initial, automata.initial)
     val initialStateRegister = StateRegister(initialStateVars.associateWith { initialStateId })
     val initialState = automata.initial.copy(register = initialStateRegister)
 
@@ -110,8 +127,8 @@ private fun RuleConversionCtx.simulateAutomata(
             continue
         }
 
-        for ((simplifiedEdge, dstState) in automata.successors[simulationState.original].orEmpty()) {
-            val loopStartState = simulationState.originalPath[dstState]
+        for ((simplifiedEdge, originalDstState) in automata.successors[simulationState.original].orEmpty()) {
+            val loopStartState = simulationState.originalPath[originalDstState]
             if (loopStartState != null) {
                 if (loopStartState.register == state.register) {
                     // loop has no assignments
@@ -122,15 +139,15 @@ private fun RuleConversionCtx.simulateAutomata(
                 continue
             }
 
-            val dstStateId = automata.stateId(dstState)
+            val dstStateId = stateId(originalDstState, state)
             val updatedEdge = rewriteEdgeWrtComplexMetavars(simplifiedEdge, state.register)
             val dstStateRegister = simulateCondition(updatedEdge, dstStateId, state.register)
 
-            val nextState = dstState.copy(register = dstStateRegister)
+            val nextState = State(dstStateId, dstStateRegister)
             successors.getOrPut(state, ::hashSetOf).add(simplifiedEdge to nextState)
 
-            val nextPath = simulationState.originalPath.put(dstState, nextState)
-            val nextSimulationState = SimulationState(dstState, nextState, nextPath)
+            val nextPath = simulationState.originalPath.put(originalDstState, nextState)
+            val nextSimulationState = SimulationState(originalDstState, nextState, nextPath)
             unprocessed.add(nextSimulationState)
         }
     }
@@ -138,7 +155,7 @@ private fun RuleConversionCtx.simulateAutomata(
     val result = TaintRegisterStateAutomata(
         automata.formulaManager, initialState,
         finalAcceptStates, finalDeadStates,
-        successors, automata.nodeIndex
+        successors,
     )
 
     val resultWithLoopsResolved = resolveLoopBackEdges(result, unprocessedLoopBackEdges)
@@ -329,7 +346,7 @@ private fun rewriteEdges(automata: TaintRegisterStateAutomata): TaintRegisterSta
     return TaintRegisterStateAutomata(
         automata.formulaManager, automata.initial,
         automata.finalAcceptStates, automata.finalDeadStates.filter { it in visited }.toHashSet(),
-        newSuccessors, automata.nodeIndex
+        newSuccessors,
     )
 }
 
@@ -526,7 +543,8 @@ private fun removeUnreachableStates(
     }
 
     var cleanerStateReachable = false
-    val cleanerState = State(AutomataNode(), StateRegister(emptyMap()))
+    val maxStateId = automata.allStates().maxOfOrNull { it.id } ?: 0
+    val cleanerState = State(maxStateId + 1, StateRegister(emptyMap()))
     val reachableSuccessors = hashMapOf<State, MutableSet<Pair<Edge, State>>>()
 
     val unprocessed = mutableListOf<State>()
@@ -555,18 +573,15 @@ private fun removeUnreachableStates(
         return TaintRegisterStateAutomata(
             automata.formulaManager, automata.initial,
             automata.finalAcceptStates, automata.finalDeadStates,
-            reachableSuccessors, automata.nodeIndex
+            reachableSuccessors,
         )
     }
-
-    val nodeIndex = automata.nodeIndex.toMutableMap()
-    nodeIndex[cleanerState.node] = nodeIndex.size
 
     val finalDeadNodes = automata.finalDeadStates + cleanerState
     return TaintRegisterStateAutomata(
         automata.formulaManager, automata.initial,
         automata.finalAcceptStates, finalDeadNodes,
-        reachableSuccessors, nodeIndex
+        reachableSuccessors,
     )
 }
 
@@ -665,7 +680,6 @@ private fun eliminateDeadVariables(
         finalAcceptStates = automata.finalAcceptStates.mapTo(hashSetOf()) { stateMapping[it] ?: it },
         finalDeadStates = automata.finalDeadStates.mapTo(hashSetOf()) { stateMapping[it] ?: it },
         successors = successors,
-        nodeIndex = automata.nodeIndex
     )
 }
 
@@ -879,7 +893,6 @@ private fun removeEndEdge(automata: TaintRegisterStateAutomata): TaintRegisterSt
         automata.formulaManager,
         automata.initial,
         finalAccept, finalDead, successors,
-        automata.nodeIndex
     )
 }
 
@@ -952,7 +965,7 @@ private fun tryRemoveDummyMethodEntry(
     return TaintRegisterStateAutomata(
         automata.formulaManager, automata.initial,
         finalAccept, finalDead,
-        mutableSuccessors, automata.nodeIndex
+        mutableSuccessors,
     )
 }
 
@@ -1005,13 +1018,4 @@ private fun dropUnassignedMarkChecks(automata: TaintAutomataEdges): TaintAutomat
 private fun EdgeCondition.dropUnassignedMarkChecks(state: State): EdgeCondition {
     val readMetaVar = readMetaVar.filterKeys { it in state.register.assignedVars }
     return EdgeCondition(readMetaVar, other)
-}
-
-private fun TaintRegisterStateAutomata.allStates(): Set<State> {
-    val states = hashSetOf<State>()
-    states += initial
-    states += finalAcceptStates
-    states += finalDeadStates
-    states += successors.keys
-    return states
 }

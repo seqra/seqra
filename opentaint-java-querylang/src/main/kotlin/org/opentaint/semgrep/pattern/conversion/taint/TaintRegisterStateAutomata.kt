@@ -1,7 +1,6 @@
 package org.opentaint.semgrep.pattern.conversion.taint
 
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
-import org.opentaint.semgrep.pattern.conversion.automata.AutomataNode
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaManager
 import org.opentaint.semgrep.pattern.conversion.automata.Predicate
 import org.opentaint.semgrep.pattern.conversion.taint.TaintRegisterStateAutomata.Edge
@@ -13,14 +12,13 @@ data class TaintRegisterStateAutomata(
     val finalAcceptStates: Set<State>,
     val finalDeadStates: Set<State>,
     val successors: Map<State, Set<Pair<Edge, State>>>,
-    val nodeIndex: Map<AutomataNode, Int>
 ) {
     data class StateRegister(
         val assignedVars: Map<MetavarAtom, Int>,
     )
 
     data class State(
-        val node: AutomataNode,
+        val id: Int,
         val register: StateRegister
     )
 
@@ -65,7 +63,7 @@ data class TaintRegisterStateAutomata(
         data object AnalysisEnd : Edge
     }
 
-    fun stateId(state: State): Int = nodeIndex[state.node] ?: error("Missing node")
+    fun stateId(state: State): Int = state.id
 }
 
 fun automataPredecessors(automata: TaintRegisterStateAutomata): Map<State, Set<Pair<Edge, State>>> {
@@ -77,3 +75,17 @@ fun automataPredecessors(automata: TaintRegisterStateAutomata): Map<State, Set<P
     }
     return predecessors
 }
+
+fun TaintRegisterStateAutomata.allStates(): Set<State> {
+    val states = hashSetOf<State>()
+    states += initial
+    states += finalAcceptStates
+    states += finalDeadStates
+    states += successors.keys
+    return states
+}
+
+fun TaintRegisterStateAutomata.maxStateId(): Int = allStates().maxOfOrNull { it.id } ?: -1
+
+fun TaintRegisterStateAutomata.containsStateIdClash(): Boolean =
+    allStates().groupBy { it.id }.values.any { it.size > 1 }
