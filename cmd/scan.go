@@ -17,7 +17,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"golang.org/x/term"
 
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/sarif"
@@ -191,14 +190,19 @@ func scan(cmd *cobra.Command) {
 	// Display scan information in tree format
 	printScanInfo(cmd, scanMode, absProjectModelPath, absRuleSetPaths, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot)
 
-	showSpinners := !globals.Config.Quiet && term.IsTerminal(int(os.Stdout.Fd()))
+	showSpinners := ui.IsSpinnerTerminal()
 
 	if tempProjectModel {
+		autobuilderJarPath, err := ensureAutobuilderAvailable()
+		if err != nil {
+			logrus.Fatalf("Native compile preparation failed: %s", err)
+		}
+
 		if showSpinners {
 			logrus.Info()
 		}
 		if err := ui.RunWithSpinner("Compiling project model", func() error {
-			return compile(absUserProjectRoot, tempProjectModelPath, Internal)
+			return compile(absUserProjectRoot, tempProjectModelPath, autobuilderJarPath, Internal)
 		}); err != nil {
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
 			logrus.Fatal()
@@ -247,6 +251,13 @@ func scan(cmd *cobra.Command) {
 	if maxMemory != "" {
 		nativeBuilder.SetMaxMemory(maxMemory)
 	}
+
+	analyzerJarPath, err := ensureAnalyzerAvailable()
+	if err != nil {
+		logrus.Fatalf("Native scan preparation failed: %s", err)
+	}
+	nativeBuilder.SetJarPath(analyzerJarPath)
+
 	if showSpinners {
 		logrus.Info()
 	}
@@ -352,25 +363,30 @@ func deserializeSemgrepRuleLoadTrace(absSemgrepRuleLoadTracePath string) *load_t
 	return &el
 }
 
-func scanProject(analyzerBuilder *AnalyzerBuilder) error {
-	// Get the path to the analyzer JAR
+func ensureAnalyzerAvailable() (string, error) {
 	analyzerJarPath, err := utils.GetAnalyzerJarPath(globals.Config.Analyzer.Version)
 	if err != nil {
-		return fmt.Errorf("failed to construct path to the analyzer: %w", err)
+		return "", fmt.Errorf("failed to construct path to the analyzer: %w", err)
 	}
 
-	// Download the analyzer JAR if it doesn't exist
 	if _, err := os.Stat(analyzerJarPath); errors.Is(err, os.ErrNotExist) {
-		logrus.Info()
-		logrus.Infof("Downloading analyzer version %s", globals.Config.Analyzer.Version)
-		if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-			return fmt.Errorf("failed to download analyzer: %w", err)
+		if !ui.IsSpinnerTerminal() {
+			logrus.Info()
+			logrus.Infof("Downloading analyzer version %s", globals.Config.Analyzer.Version)
 		}
-		logrus.Infof("Successfully downloaded analyzer to %s", analyzerJarPath)
+		if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
+			return "", fmt.Errorf("failed to download analyzer: %w", err)
+		}
+		if !ui.IsSpinnerTerminal() {
+			logrus.Infof("Successfully downloaded analyzer to %s", analyzerJarPath)
+		}
 	}
 
-	// Set the jar path on the builder and build the command
-	analyzerCommand := analyzerBuilder.SetJarPath(analyzerJarPath).BuildNativeCommand()
+	return analyzerJarPath, nil
+}
+
+func scanProject(analyzerBuilder *AnalyzerBuilder) error {
+	analyzerCommand := analyzerBuilder.BuildNativeCommand()
 
 	javaRunner := java.NewJavaRunner().WithSkipVerify(globals.Config.SkipVerify).WithImageType(java.AdoptiumImageJRE).TrySpecificVersion(globals.DefaultJavaVersion)
 
@@ -382,7 +398,7 @@ func scanProject(analyzerBuilder *AnalyzerBuilder) error {
 		return true
 	}
 	// Execute the command using JavaRunner
-	err = javaRunner.ExecuteJavaCommand(analyzerCommand, commandSucceeded)
+	err := javaRunner.ExecuteJavaCommand(analyzerCommand, commandSucceeded)
 
 	return err
 }

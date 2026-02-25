@@ -25,6 +25,10 @@ func NewSpinner() *Spinner {
 	return &Spinner{}
 }
 
+func IsSpinnerTerminal() bool {
+	return !globals.Config.Quiet && term.IsTerminal(int(os.Stdout.Fd()))
+}
+
 func (s *Spinner) Start(message string) {
 	s.mu.Lock()
 	s.stopCh = make(chan struct{})
@@ -75,7 +79,7 @@ func (s *Spinner) StopError(finalMessage string) {
 // RunWithSpinner executes run while displaying a spinner on interactive terminals.
 // In quiet mode or non-TTY environments, run is executed directly without visual feedback.
 func RunWithSpinner(phase string, run func() error) error {
-	if globals.Config.Quiet || !term.IsTerminal(int(os.Stdout.Fd())) {
+	if !IsSpinnerTerminal() {
 		return run()
 	}
 

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/seqra/seqra/v2/internal/utils/formatters"
+	"github.com/seqra/seqra/v2/internal/utils/ui"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
@@ -58,7 +59,17 @@ Arguments:
 		printer.Print()
 		logrus.Info()
 
-		if err := compile(absProjectRoot, absOutputProjectModelPath, External); err == nil {
+		autobuilderJarPath, err := ensureAutobuilderAvailable()
+		if err != nil {
+			logrus.Error(err)
+			logrus.Fatal()
+		}
+
+		if err := ui.RunWithSpinner("Compiling project model", func() error {
+			return compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath, External)
+		}); err == nil {
+			logrus.Info()
+			printCompileSummary(absOutputProjectModelPath)
 			suggest("To scan project run", utils.BuildScanCommandFromCompile(projectRoot, absOutputProjectModelPath))
 		} else {
 			logrus.Fatal()
@@ -73,7 +84,29 @@ func init() {
 	_ = compileCmd.MarkFlagRequired("output")
 }
 
-func compile(absProjectRoot, absOutputProjectModelPath string, caller CompileCaller) error {
+func ensureAutobuilderAvailable() (string, error) {
+	autobuilderJarPath, err := utils.GetAutobuilderJarPath(globals.Config.Autobuilder.Version)
+	if err != nil {
+		return "", fmt.Errorf("failed to construct path to the autobuilder: %w", err)
+	}
+
+	if _, err = os.Stat(autobuilderJarPath); errors.Is(err, os.ErrNotExist) {
+		if !ui.IsSpinnerTerminal() {
+			logrus.Info()
+			logrus.Infof("Downloading autobuilder version %s", globals.Config.Autobuilder.Version)
+		}
+		if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
+			return "", fmt.Errorf("failed to download autobuilder: %w", err)
+		}
+		if !ui.IsSpinnerTerminal() {
+			logrus.Infof("Successfully downloaded autobuilder to %s", autobuilderJarPath)
+		}
+	}
+
+	return autobuilderJarPath, nil
+}
+
+func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath string, caller CompileCaller) error {
 	if _, err := os.Stat(absOutputProjectModelPath); err == nil {
 		logrus.Fatalf("Output directory already exists: %s", absOutputProjectModelPath)
 	}
@@ -82,7 +115,7 @@ func compile(absProjectRoot, absOutputProjectModelPath string, caller CompileCal
 		logrus.Fatalf("Unsupported architecture found: %s! Only arm64 and amd64 are supported.", utils.GetArch())
 	}
 
-	compileProject(absOutputProjectModelPath, absProjectRoot)
+	compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath)
 
 	if _, err := os.Stat(absOutputProjectModelPath); err != nil {
 		err := fmt.Errorf("there was a problem during the compile step, check the full logs: %s", globals.LogPath)
@@ -93,9 +126,6 @@ func compile(absProjectRoot, absOutputProjectModelPath string, caller CompileCal
 		return err
 	}
 
-	if caller == External {
-		printCompileSummary(absOutputProjectModelPath)
-	}
 	return nil
 }
 
@@ -106,23 +136,8 @@ func printCompileSummary(absOutputProjectModelPath string) {
 	printer.Print()
 }
 
-func compileProject(absOutputProjectModelPath, absProjectRoot string) {
-
-	autobuilderJarPath, err := utils.GetAutobuilderJarPath(globals.Config.Autobuilder.Version)
-	if err != nil {
-		logrus.Fatalf("Failed to construct path to the autobuilder: %s", err)
-	}
-
-	// Download the autobuilder JAR if it doesn't exist
-	if _, err = os.Stat(autobuilderJarPath); errors.Is(err, os.ErrNotExist) {
-		logrus.Info()
-		logrus.Infof("Downloading autobuilder version %s", globals.Config.Autobuilder.Version)
-		if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-			logrus.Fatalf("Failed to download autobuilder: %s", err)
-		}
-		logrus.Infof("Successfully downloaded autobuilder to %s", autobuilderJarPath)
-	}
-
+func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath string) {
+	var err error
 	tempLogsDir, err := os.MkdirTemp("", "seqra-*")
 	if err != nil {
 		logrus.Fatalf("Failed to create temporary directory: %s", err)
