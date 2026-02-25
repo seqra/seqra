@@ -111,16 +111,7 @@ func (sb *SectionBuilder) Render() {
 
 	// Build tree
 	if len(sb.items) > 0 {
-		t := tree.New().
-			EnumeratorStyle(th.TreeBranch).
-			IndenterStyle(th.TreeBranch).
-			ItemStyle(th.TreeItem)
-
-		for _, item := range sb.items {
-			t.Child(item)
-		}
-
-		fmt.Fprintln(p.w, t.String())
+		fmt.Fprintln(p.w, indentTreeBlock(sb.buildTree(th).String()))
 	}
 }
 
@@ -135,19 +126,55 @@ func (sb *SectionBuilder) String() string {
 	buf.WriteString("\n")
 
 	if len(sb.items) > 0 {
-		t := tree.New().
-			EnumeratorStyle(th.TreeBranch).
-			IndenterStyle(th.TreeBranch).
-			ItemStyle(th.TreeItem)
-
-		for _, item := range sb.items {
-			t.Child(item)
-		}
-
-		buf.WriteString(t.String())
+		buf.WriteString(indentTreeBlock(sb.buildTree(th).String()))
 	}
 
 	return buf.String()
+}
+
+func (sb *SectionBuilder) buildTree(th *Theme) *tree.Tree {
+	t := tree.New().
+		Enumerator(func(children tree.Children, index int) string {
+			isLast := index == children.Length()-1
+			isSeparator := children.At(index).Value() == ""
+
+			if isSeparator {
+				if isLast {
+					return "    "
+				}
+				return "│   "
+			}
+
+			if isLast {
+				return "└── "
+			}
+			return "├── "
+		}).
+		EnumeratorStyle(th.TreeBranch).
+		IndenterStyle(th.TreeBranch).
+		ItemStyle(th.TreeItem)
+
+	for _, item := range sb.items {
+		t.Child(item)
+	}
+
+	return t
+}
+
+func indentTreeBlock(s string) string {
+	if s == "" {
+		return s
+	}
+
+	lines := strings.Split(s, "\n")
+	for i := range lines {
+		if lines[i] == "" {
+			continue
+		}
+		lines[i] = "  " + lines[i]
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 // ── Header rendering ─────────────────────────────────────────────────
@@ -161,7 +188,7 @@ func renderHeader(title string, titleStyle lipgloss.Style, th *Theme) string {
 		th.HeaderTitle.Render(styledTitle) +
 		th.HeaderBorder.Render(strings.Repeat("─", max(boxWidth-titleLen-4, 0))+"─╮")
 
-	bottomLine := th.HeaderBorder.Render("╰─┬"+strings.Repeat("─", max(boxWidth-4, 0))+"╯")
+	bottomLine := th.HeaderBorder.Render("╰─┬" + strings.Repeat("─", max(boxWidth-4, 0)) + "╯")
 
 	return topLine + "\n" + bottomLine
 }
@@ -261,7 +288,7 @@ func (bb *BoxBuilder) String() string {
 	innerWidth := bb.width - 2
 	titleLen := len(bb.title)
 
-	top := th.HeaderBorder.Render("╭─"+bb.title+strings.Repeat("─", max(bb.width-titleLen-3, 0))+"╮")
+	top := th.HeaderBorder.Render("╭─" + bb.title + strings.Repeat("─", max(bb.width-titleLen-3, 0)) + "╮")
 
 	var lines []string
 	lines = append(lines, top)
@@ -278,7 +305,7 @@ func (bb *BoxBuilder) String() string {
 		lines = append(lines, th.HeaderBorder.Render("│")+" "+line+strings.Repeat(" ", padding)+th.HeaderBorder.Render("│"))
 	}
 
-	bottom := th.HeaderBorder.Render("╰"+strings.Repeat("─", bb.width-2)+"╯")
+	bottom := th.HeaderBorder.Render("╰" + strings.Repeat("─", bb.width-2) + "╯")
 	lines = append(lines, bottom)
 
 	return strings.Join(lines, "\n")

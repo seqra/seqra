@@ -5,9 +5,11 @@ import (
 	"io"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 	"golang.org/x/term"
 )
 
@@ -15,10 +17,12 @@ import (
 // through a Printer instance. It holds the active theme, the output writer,
 // and knows whether it's writing to a TTY.
 type Printer struct {
-	w     io.Writer
-	theme *Theme
-	isTTY bool
-	quiet bool
+	baseW             io.Writer
+	w                 io.Writer
+	theme             *Theme
+	isTTY             bool
+	quiet             bool
+	hasDarkBackground bool
 }
 
 // New creates a Printer that writes to os.Stdout with the default theme.
@@ -26,10 +30,13 @@ type Printer struct {
 func New() *Printer {
 	w := os.Stdout
 	tty := term.IsTerminal(int(w.Fd()))
+	hasDark := detectDarkBackground(tty)
 	return &Printer{
-		w:     w,
-		theme: DefaultTheme(),
-		isTTY: tty,
+		baseW:             w,
+		w:                 colorprofile.NewWriter(w, os.Environ()),
+		theme:             DefaultTheme(hasDark),
+		isTTY:             tty,
+		hasDarkBackground: hasDark,
 	}
 }
 
@@ -39,20 +46,71 @@ func NewWithWriter(w io.Writer) *Printer {
 	if f, ok := w.(*os.File); ok {
 		tty = term.IsTerminal(int(f.Fd()))
 	}
+	hasDark := detectDarkBackground(tty)
 	return &Printer{
-		w:     w,
-		theme: DefaultTheme(),
-		isTTY: tty,
+		baseW:             w,
+		w:                 colorprofile.NewWriter(w, os.Environ()),
+		theme:             DefaultTheme(hasDark),
+		isTTY:             tty,
+		hasDarkBackground: hasDark,
 	}
 }
 
 // Configure applies the given options to the Printer.
 func (p *Printer) Configure(colorMode string, quiet bool) {
 	p.quiet = quiet
+	p.hasDarkBackground = detectDarkBackground(p.isTTY)
+	mode := strings.ToLower(strings.TrimSpace(colorMode))
+	if mode == "" {
+		mode = "auto"
+	}
+
+	switch mode {
+	case "never":
+		p.w = &colorprofile.Writer{Forward: p.baseW, Profile: colorprofile.NoTTY}
+		p.theme = PlainTheme()
+		return
+	case "always":
+		p.w = &colorprofile.Writer{Forward: p.baseW, Profile: colorprofile.TrueColor}
+		p.theme = DefaultTheme(p.hasDarkBackground)
+		return
+	default:
+		p.w = colorprofile.NewWriter(p.baseW, os.Environ())
+	}
+
 	colored := p.resolveColor(colorMode)
 	if !colored {
 		p.theme = PlainTheme()
+		return
 	}
+	p.theme = DefaultTheme(p.hasDarkBackground)
+}
+
+func detectDarkBackground(isTTY bool) bool {
+	if mode := strings.ToLower(strings.TrimSpace(os.Getenv("SEQRA_THEME"))); mode == "light" {
+		return false
+	} else if mode == "dark" {
+		return true
+	}
+
+	if val := strings.TrimSpace(os.Getenv("COLORFGBG")); val != "" {
+		parts := strings.Split(val, ";")
+		for i := len(parts) - 1; i >= 0; i-- {
+			bg, err := strconv.Atoi(strings.TrimSpace(parts[i]))
+			if err != nil {
+				continue
+			}
+			if bg >= 0 {
+				return bg < 8
+			}
+		}
+	}
+
+	if isTTY {
+		return lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
+	}
+
+	return true
 }
 
 // Theme returns the active theme.

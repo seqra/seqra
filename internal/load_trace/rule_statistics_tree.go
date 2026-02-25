@@ -11,16 +11,13 @@ import (
 )
 
 type RuleStatisticsTreeBuilder struct {
-	out                         *output.Printer
 	ruleLoadErrorsResult        *RuleLoadErrorsResult
 	sarifSummary                sarif.Summary
 	absSemgrepRuleLoadTracePath string
 }
 
-func NewRuleStatisticsTreeBuilder(out *output.Printer) *RuleStatisticsTreeBuilder {
-	return &RuleStatisticsTreeBuilder{
-		out: out,
-	}
+func NewRuleStatisticsTreeBuilder() *RuleStatisticsTreeBuilder {
+	return &RuleStatisticsTreeBuilder{}
 }
 
 func (b *RuleStatisticsTreeBuilder) WithRuleLoadErrors(result *RuleLoadErrorsResult) *RuleStatisticsTreeBuilder {
@@ -38,11 +35,8 @@ func (b *RuleStatisticsTreeBuilder) WithRuleLoadTracePath(path string) *RuleStat
 	return b
 }
 
-func (b *RuleStatisticsTreeBuilder) Build() *tree.Tree {
-	root := tree.New()
-	root.Child(b.buildRuleParsingIssues())
-	root.Child(b.buildRuleExecution())
-	return root
+func (b *RuleStatisticsTreeBuilder) Build() []any {
+	return []any{b.buildRuleParsingIssues(), b.buildRuleExecution()}
 }
 
 func (b *RuleStatisticsTreeBuilder) buildRuleParsingIssues() *tree.Tree {
@@ -101,15 +95,15 @@ func (b *RuleStatisticsTreeBuilder) buildRuleExecution() *tree.Tree {
 }
 
 func PrintRuleStatisticsTree(out *output.Printer, ruleLoadErrorsResult *RuleLoadErrorsResult, sarifSummary sarif.Summary, absSemgrepRuleLoadTracePath string) {
-	builder := NewRuleStatisticsTreeBuilder(out).
+	builder := NewRuleStatisticsTreeBuilder().
 		WithRuleLoadErrors(ruleLoadErrorsResult).
 		WithSarifSummary(sarifSummary).
 		WithRuleLoadTracePath(absSemgrepRuleLoadTracePath)
 
-	treeContent := builder.Build()
+	nodes := builder.Build()
 
 	out.Section("Rule Statistics").
-		Child(treeContent).
+		Child(nodes...).
 		Render()
 	out.Blank()
 }

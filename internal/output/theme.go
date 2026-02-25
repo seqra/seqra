@@ -47,15 +47,19 @@ type Theme struct {
 	SnippetLineNum   lipgloss.Style
 }
 
-// DefaultTheme returns the default seqra theme.
-func DefaultTheme() *Theme {
-	red := lipgloss.Color("#FF5F56")
-	yellow := lipgloss.Color("#FFBD2E")
-	green := lipgloss.Color("#27C93F")
-	blue := lipgloss.Color("#2196F3")
-	cyan := lipgloss.Color("#56B6C2")
-	dim := lipgloss.Color("#666666")
-	white := lipgloss.Color("#E5E5E5")
+// DefaultTheme returns the default seqra theme adapted for light/dark terminals.
+// Colors are specified in truecolor and downsampled by colorprofile.Writer as needed.
+func DefaultTheme(hasDarkBackground bool) *Theme {
+	lightDark := lipgloss.LightDark(hasDarkBackground)
+
+	red := lightDark(lipgloss.Color("#dc322f"), lipgloss.Color("#ff6b6b"))
+	yellow := lightDark(lipgloss.Color("#b58900"), lipgloss.Color("#ffd166"))
+	green := lightDark(lipgloss.Color("#859900"), lipgloss.Color("#9ece6a"))
+	blue := lightDark(lipgloss.Color("#268bd2"), lipgloss.Color("#7aa2f7"))
+	cyan := lightDark(lipgloss.Color("#2aa198"), lipgloss.Color("#7dcfff"))
+	muted := lightDark(lipgloss.Color("#586e75"), lipgloss.Color("#6b7280"))
+	title := lightDark(lipgloss.Color("#073642"), lipgloss.Color("#e5e7eb"))
+	border := lightDark(lipgloss.Color("#93a1a1"), lipgloss.Color("#6b7280"))
 
 	return &Theme{
 		Error:   lipgloss.NewStyle().Foreground(red).Bold(true),
@@ -64,12 +68,12 @@ func DefaultTheme() *Theme {
 		Success: lipgloss.NewStyle().Foreground(green).Bold(true),
 		Info:    lipgloss.NewStyle(),
 		Debug:   lipgloss.NewStyle().Foreground(cyan),
-		Muted:   lipgloss.NewStyle().Foreground(dim),
+		Muted:   lipgloss.NewStyle().Foreground(muted),
 
-		HeaderTitle:  lipgloss.NewStyle().Bold(true).Foreground(white),
-		HeaderBorder: lipgloss.NewStyle().Foreground(dim),
+		HeaderTitle:  lipgloss.NewStyle().Bold(true).Foreground(title),
+		HeaderBorder: lipgloss.NewStyle().Foreground(border),
 
-		TreeBranch: lipgloss.NewStyle().Foreground(dim),
+		TreeBranch: lipgloss.NewStyle().Foreground(border),
 		TreeItem:   lipgloss.NewStyle(),
 
 		FieldKey:   lipgloss.NewStyle().Foreground(cyan),
@@ -85,10 +89,10 @@ func DefaultTheme() *Theme {
 		DoneStyle:    lipgloss.NewStyle().Foreground(green),
 		FailStyle:    lipgloss.NewStyle().Foreground(red),
 
-		SnippetBorder:    lipgloss.NewStyle().Foreground(dim),
+		SnippetBorder:    lipgloss.NewStyle().Foreground(border),
 		SnippetLine:      lipgloss.NewStyle(),
 		SnippetHighlight: lipgloss.NewStyle().Bold(true),
-		SnippetLineNum:   lipgloss.NewStyle().Foreground(dim),
+		SnippetLineNum:   lipgloss.NewStyle().Foreground(muted),
 	}
 }
 
