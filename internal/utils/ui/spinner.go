@@ -1,8 +1,11 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -92,4 +95,85 @@ func RunWithSpinner(phase string, run func() error) error {
 	}
 	spinner.Stop(phase)
 	return nil
+}
+
+// CopyWithProgress copies src to dst while displaying a progress bar on interactive terminals.
+// Falls back to plain io.Copy in non-interactive environments or when total is unknown.
+func CopyWithProgress(dst io.Writer, src io.Reader, total int64, label string) (int64, error) {
+	if !IsSpinnerTerminal() || total <= 0 {
+		return io.Copy(dst, src)
+	}
+
+	const (
+		barWidth    = 28
+		updateEvery = 100 * time.Millisecond
+		bytesPerKiB = int64(1024)
+		bytesPerMiB = 1024 * bytesPerKiB
+		bytesPerGiB = 1024 * bytesPerMiB
+	)
+
+	formatBytes := func(n int64) string {
+		switch {
+		case n >= bytesPerGiB:
+			return fmt.Sprintf("%.1f GiB", float64(n)/float64(bytesPerGiB))
+		case n >= bytesPerMiB:
+			return fmt.Sprintf("%.1f MiB", float64(n)/float64(bytesPerMiB))
+		case n >= bytesPerKiB:
+			return fmt.Sprintf("%.1f KiB", float64(n)/float64(bytesPerKiB))
+		default:
+			return fmt.Sprintf("%d B", n)
+		}
+	}
+
+	printProgress := func(written int64, force bool, lastPrinted *time.Time) {
+		now := time.Now()
+		if !force && !lastPrinted.IsZero() && now.Sub(*lastPrinted) < updateEvery {
+			return
+		}
+		*lastPrinted = now
+
+		if written > total {
+			written = total
+		}
+		percent := float64(written) / float64(total)
+		filled := int(percent * barWidth)
+		if filled > barWidth {
+			filled = barWidth
+		}
+		bar := strings.Repeat("=", filled) + strings.Repeat("-", barWidth-filled)
+		fmt.Printf("\r[%s] %s %3.0f%% (%s/%s)", bar, label, percent*100, formatBytes(written), formatBytes(total))
+	}
+
+	buf := make([]byte, 32*1024)
+	var written int64
+	var lastPrinted time.Time
+
+	for {
+		nr, readErr := src.Read(buf)
+		if nr > 0 {
+			nw, writeErr := dst.Write(buf[:nr])
+			if nw > 0 {
+				written += int64(nw)
+				printProgress(written, false, &lastPrinted)
+			}
+			if writeErr != nil {
+				fmt.Print("\n")
+				return written, writeErr
+			}
+			if nw < nr {
+				fmt.Print("\n")
+				return written, io.ErrShortWrite
+			}
+		}
+
+		if readErr != nil {
+			if errors.Is(readErr, io.EOF) {
+				printProgress(written, true, &lastPrinted)
+				fmt.Print("\n")
+				return written, nil
+			}
+			fmt.Print("\n")
+			return written, readErr
+		}
+	}
 }

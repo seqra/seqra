@@ -11,91 +11,11 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/google/go-github/v74/github"
 	"github.com/seqra/seqra/v2/internal/utils/ui"
 	"github.com/sirupsen/logrus"
 )
-
-func copyWithProgress(dst io.Writer, src io.Reader, total int64, label string) (int64, error) {
-	if !ui.IsSpinnerTerminal() || total <= 0 {
-		return io.Copy(dst, src)
-	}
-
-	const (
-		barWidth    = 28
-		updateEvery = 100 * time.Millisecond
-		bytesPerKiB = 1024
-		bytesPerMiB = 1024 * bytesPerKiB
-		bytesPerGiB = 1024 * bytesPerMiB
-	)
-
-	formatBytes := func(n int64) string {
-		switch {
-		case n >= bytesPerGiB:
-			return fmt.Sprintf("%.1f GiB", float64(n)/float64(bytesPerGiB))
-		case n >= bytesPerMiB:
-			return fmt.Sprintf("%.1f MiB", float64(n)/float64(bytesPerMiB))
-		case n >= bytesPerKiB:
-			return fmt.Sprintf("%.1f KiB", float64(n)/float64(bytesPerKiB))
-		default:
-			return fmt.Sprintf("%d B", n)
-		}
-	}
-
-	printProgress := func(written int64, force bool, lastPrinted *time.Time) {
-		now := time.Now()
-		if !force && !lastPrinted.IsZero() && now.Sub(*lastPrinted) < updateEvery {
-			return
-		}
-		*lastPrinted = now
-
-		if written > total {
-			written = total
-		}
-		percent := float64(written) / float64(total)
-		filled := int(percent * barWidth)
-		if filled > barWidth {
-			filled = barWidth
-		}
-		bar := strings.Repeat("=", filled) + strings.Repeat("-", barWidth-filled)
-		fmt.Printf("\r[%s] %s %3.0f%% (%s/%s)", bar, label, percent*100, formatBytes(written), formatBytes(total))
-	}
-
-	buf := make([]byte, 32*1024)
-	var written int64
-	var lastPrinted time.Time
-
-	for {
-		nr, readErr := src.Read(buf)
-		if nr > 0 {
-			nw, writeErr := dst.Write(buf[:nr])
-			if nw > 0 {
-				written += int64(nw)
-				printProgress(written, false, &lastPrinted)
-			}
-			if writeErr != nil {
-				fmt.Print("\n")
-				return written, writeErr
-			}
-			if nw < nr {
-				fmt.Print("\n")
-				return written, io.ErrShortWrite
-			}
-		}
-
-		if readErr != nil {
-			if errors.Is(readErr, io.EOF) {
-				printProgress(written, true, &lastPrinted)
-				fmt.Print("\n")
-				return written, nil
-			}
-			fmt.Print("\n")
-			return written, readErr
-		}
-	}
-}
 
 func newGithubClient(token string) *github.Client {
 	if token == "" {
@@ -179,7 +99,7 @@ func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetP
 				_ = tmpFile.Close()
 			}()
 
-			written, err := copyWithProgress(tmpFile, rc, expectedSize, "Downloading "+assetName)
+			written, err := ui.CopyWithProgress(tmpFile, rc, expectedSize, "Downloading "+assetName)
 			if err != nil {
 				return err
 			}
@@ -349,7 +269,7 @@ func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetNam
 				_ = os.Remove(tmpPath)
 			}()
 
-			written, err := copyWithProgress(tmpFile, rc, expectedSize, "Downloading "+assetName)
+			written, err := ui.CopyWithProgress(tmpFile, rc, expectedSize, "Downloading "+assetName)
 			if err != nil {
 				return err
 			}

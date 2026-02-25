@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/seqra/seqra/v2/internal/utils"
+	"github.com/seqra/seqra/v2/internal/utils/ui"
 	"github.com/sirupsen/logrus"
 )
 
@@ -202,10 +203,10 @@ func ensureDownloaded(url, dest string) error {
 		logrus.Debugf("Reusing downloaded Java archive: %s", dest)
 		return nil
 	}
-	logrus.Infof("Downloading Temurin Java from %s", url)
+	logrus.Debugf("Downloading Temurin Java from %s", url)
 	err := downloadFile(url, dest)
 	if err == nil {
-		logrus.Infof("Successfully downloaded Temurin Java to %s", dest)
+		logrus.Debugf("Successfully downloaded Temurin Java to %s", dest)
 	}
 	return err
 }
@@ -385,6 +386,11 @@ func downloadFile(url, dest string) error {
 	}
 	defer func() { _ = f.Close() }()
 
-	_, err = io.Copy(f, resp.Body)
+	label := "Downloading " + filepath.Base(dest)
+	if ui.IsSpinnerTerminal() && resp.ContentLength > 0 {
+		_, err = ui.CopyWithProgress(f, resp.Body, resp.ContentLength, label)
+	} else {
+		_, err = io.Copy(f, resp.Body)
+	}
 	return err
 }

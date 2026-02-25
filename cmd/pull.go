@@ -10,7 +10,6 @@ import (
 	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/seqra/seqra/v2/internal/utils/formatters"
 	"github.com/seqra/seqra/v2/internal/utils/java"
-	"github.com/seqra/seqra/v2/internal/utils/ui"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
@@ -112,10 +111,7 @@ func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter,
 				continue
 			}
 		}
-		if err := ui.RunWithSpinner(
-			fmt.Sprintf("Downloading %s %s", spec.Kind(), spec.Version),
-			func() error { return download(t.Path) },
-		); err != nil {
+		if err := download(t.Path); err != nil {
 			return err
 		}
 		printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", t.Path), 1)
@@ -172,15 +168,7 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary, installC
 			}
 			_ = os.Remove(t.Path)
 		}
-		var javaPath string
-		err := ui.RunWithSpinner(
-			fmt.Sprintf("Downloading Java %d", javaVersion),
-			func() error {
-				var innerErr error
-				javaPath, innerErr = java.EnsureLocalRuntimeAt(javaVersion, java.AdoptiumImageJRE, t.Path, runtime.GOOS, runtime.GOARCH, globals.Config.SkipVerify)
-				return innerErr
-			},
-		)
+		javaPath, err := java.EnsureLocalRuntimeAt(javaVersion, java.AdoptiumImageJRE, t.Path, runtime.GOOS, runtime.GOARCH, globals.Config.SkipVerify)
 		if err != nil {
 			return err
 		}
@@ -190,7 +178,6 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary, installC
 
 	return fmt.Errorf("no writable location found for Java %d", javaVersion)
 }
-
 
 func init() {
 	rootCmd.AddCommand(pullCmd)
