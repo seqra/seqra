@@ -37,36 +37,41 @@ func buildRuleParsingIssuesNode(out *output.Printer, result *RuleLoadErrorsResul
 
 	var children []any
 
-	if !isDebug {
-		if s.TotalAffectedFiles == 0 && s.TotalAffectedRules == 0 {
-			children = append(children, "No issues found")
-		} else if s.TotalAffectedRules > 0 {
-			children = append(children, fmt.Sprintf("%d rules affected", s.TotalAffectedRules))
-		} else {
-			children = append(children, fmt.Sprintf("%d files affected", s.TotalAffectedFiles))
-		}
+	if !isDebug && s.TotalAffectedFiles == 0 && s.TotalAffectedRules == 0 {
+		children = append(children, "No issues found")
 	} else {
-		children = append(children, out.GroupItem("File-level",
-			fmt.Sprintf("Files with syntax errors: %d", s.FileErrorTypes[SyntaxError]),
-			fmt.Sprintf("Files with unsupported constructs: %d", s.FileErrorTypes[Unsupported]),
-			fmt.Sprintf("Total affected files: %d", s.TotalAffectedFiles),
-		))
-		children = append(children, out.GroupItem("Rule-level",
-			fmt.Sprintf("Rules with syntax errors: %d", s.RuleErrorTypes[SyntaxError]),
-			fmt.Sprintf("Rules with unsupported constructs: %d", s.RuleErrorTypes[Unsupported]),
-			fmt.Sprintf("Total affected rules: %d", s.TotalAffectedRules),
-		))
+		fileLevel := out.GroupItem("File-level",
+			fmt.Sprintf("Files with syntax issues: %d", s.FileErrorTypes[SyntaxError]+s.FileErrorTypes[SyntaxWarning]),
+			fmt.Sprintf("Files with unsupported constructs: %d", s.FileErrorTypes[UnsupportedError]+s.FileErrorTypes[UnsupportedWarning]),
+		)
+		if s.FileErrorTypes[Internal] > 0 {
+			fileLevel.Child(fmt.Sprintf("Files with internal issues: %d", s.FileErrorTypes[Internal]))
+		}
+		fileLevel.Child(fmt.Sprintf("Total affected files: %d", s.TotalAffectedFiles))
+		children = append(children, fileLevel)
+
+		ruleLevel := out.GroupItem("Rule-level",
+			fmt.Sprintf("Rules with syntax issues: %d", s.RuleErrorTypes[SyntaxError]+s.RuleErrorTypes[SyntaxWarning]),
+			fmt.Sprintf("Rules with unsupported constructs: %d", s.RuleErrorTypes[UnsupportedError]+s.RuleErrorTypes[UnsupportedWarning]),
+		)
+		if s.RuleErrorTypes[Internal] > 0 {
+			ruleLevel.Child(fmt.Sprintf("Rules with internal issues: %d", s.RuleErrorTypes[Internal]))
+		}
+		ruleLevel.Child(fmt.Sprintf("Total affected rules: %d", s.TotalAffectedRules))
+		children = append(children, ruleLevel)
 	}
 
-	var detailChildren []any
-	if absSemgrepRuleLoadTracePath != "" {
-		detailChildren = append(detailChildren, fmt.Sprintf("Rule load trace: %s", absSemgrepRuleLoadTracePath))
-	}
-	if isDebug || s.FileErrorTypes[Unsupported] > 0 || s.RuleErrorTypes[Unsupported] > 0 {
-		detailChildren = append(detailChildren, "Report issues: https://github.com/seqra/seqra/issues")
-	}
-	if len(detailChildren) > 0 {
-		children = append(children, out.GroupItem("More details", detailChildren...))
+	if isDebug || s.TotalAffectedFiles > 0 || s.TotalAffectedRules > 0 {
+		var detailChildren []any
+		if absSemgrepRuleLoadTracePath != "" {
+			detailChildren = append(detailChildren, fmt.Sprintf("See Rule load trace: %s", absSemgrepRuleLoadTracePath))
+		}
+		if isDebug || s.FileErrorTypes[Internal] > 0 || s.RuleErrorTypes[Internal] > 0 {
+			detailChildren = append(detailChildren, "Report issues here: https://github.com/seqra/seqra/issues")
+		}
+		if len(detailChildren) > 0 {
+			children = append(children, out.GroupItem("More details", detailChildren...))
+		}
 	}
 
 	return out.GroupItem("Rule parsing issues", children...)
