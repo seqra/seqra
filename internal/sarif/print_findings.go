@@ -203,11 +203,9 @@ func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets 
 
 		if omitted > 0 && i == 0 {
 			printer.AddNodeAtLevelWrapped(fmt.Sprintf("... %d intermediate steps omitted (use --verbose-flow)", omitted), 1)
-			printer.AddNodeAtLevelDefault("", 1)
 		}
 
 		if i != 0 && i != len(flowSteps)-1 {
-			printer.AddNodeAtLevelDefault("", 1)
 			continue
 		}
 
@@ -221,10 +219,6 @@ func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets 
 				printer.AddNodeAtLevelDefault(snippet, 1)
 				continue
 			}
-		}
-
-		if i == 0 {
-			printer.AddNodeAtLevelDefault("", 1)
 		}
 	}
 

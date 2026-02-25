@@ -57,7 +57,7 @@ func (fsb *FlowStepBuilder) FormatStep(cs classifiedStep, absProjectPath string)
 
 	msg := ""
 	if step.Location != nil && step.Location.Message != nil && step.Location.Message.Text != nil {
-		msg = *step.Location.Message.Text
+		msg = strings.Join(strings.Fields(*step.Location.Message.Text), " ")
 	} else {
 		logrus.Warn("ThreadFlowLocation has no message text")
 	}
