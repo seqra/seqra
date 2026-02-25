@@ -13,9 +13,11 @@ import (
 
 	"github.com/seqra/seqra/v2/internal/utils/formatters"
 	"github.com/seqra/seqra/v2/internal/utils/project"
+	"github.com/seqra/seqra/v2/internal/utils/ui"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"golang.org/x/term"
 
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/sarif"
@@ -60,7 +62,7 @@ var scanCmd = &cobra.Command{
 	Use:   "scan project",
 	Short: "Scan your Java or Kotlin project",
 	Args:  cobra.ExactArgs(1), // require exactly one argument
-	Long: `This command automatically detects Java/Kotlin build systems, build project and analyze it
+	Long: `This command automatically detects Java/Kotlin build systems, builds the project, and analyzes it
 
 Arguments:
   project  - Path to a project or a project model (required)
@@ -191,7 +193,9 @@ func scan(cmd *cobra.Command) {
 	printScanInfo(cmd, scanMode, absProjectModelPath, absRuleSetPaths, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot)
 
 	if tempProjectModel {
-		if err := compile(absUserProjectRoot, tempProjectModelPath, Internal); err != nil {
+		if err := runScanPhase("Compiling project model", func() error {
+			return compile(absUserProjectRoot, tempProjectModelPath, Internal)
+		}); err != nil {
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
 			logrus.Fatal()
 		}
@@ -237,7 +241,11 @@ func scan(cmd *cobra.Command) {
 	if maxMemory != "" {
 		nativeBuilder.SetMaxMemory(maxMemory)
 	}
-	scanProject(nativeBuilder)
+	if err := runScanPhase("Analyzing project", func() error {
+		return scanProject(nativeBuilder)
+	}); err != nil {
+		logrus.Fatalf("Native scan has failed: %s", err)
+	}
 
 	if _, err := os.Stat(absSarifReportPath); err != nil {
 		logrus.Fatalf("There was a problem during the scan step, check the full logs: %s", globals.LogPath)
@@ -335,11 +343,11 @@ func deserializeSemgrepRuleLoadTrace(absSemgrepRuleLoadTracePath string) *load_t
 	return &el
 }
 
-func scanProject(analyzerBuilder *AnalyzerBuilder) {
+func scanProject(analyzerBuilder *AnalyzerBuilder) error {
 	// Get the path to the analyzer JAR
 	analyzerJarPath, err := utils.GetAnalyzerJarPath(globals.Config.Analyzer.Version)
 	if err != nil {
-		logrus.Fatalf("Failed to construct path to the analyzer: %s", err)
+		return fmt.Errorf("failed to construct path to the analyzer: %w", err)
 	}
 
 	// Download the analyzer JAR if it doesn't exist
@@ -347,7 +355,7 @@ func scanProject(analyzerBuilder *AnalyzerBuilder) {
 		logrus.Info()
 		logrus.Infof("Downloading analyzer version %s", globals.Config.Analyzer.Version)
 		if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-			logrus.Fatalf("Failed to download analyzer: %s", err)
+			return fmt.Errorf("failed to download analyzer: %w", err)
 		}
 		logrus.Infof("Successfully downloaded analyzer to %s", analyzerJarPath)
 	}
@@ -369,5 +377,24 @@ func scanProject(analyzerBuilder *AnalyzerBuilder) {
 
 	if err != nil {
 		logrus.Errorf("Native scan has failed: %s", err)
+		return err
 	}
+
+	return nil
+}
+
+func runScanPhase(phase string, run func() error) error {
+	if globals.Config.Quiet || !term.IsTerminal(int(os.Stdout.Fd())) {
+		return run()
+	}
+
+	spinner := ui.NewSpinner()
+	spinner.Start(phase)
+	err := run()
+	if err != nil {
+		spinner.StopError(phase)
+		return err
+	}
+	spinner.Stop(phase)
+	return nil
 }

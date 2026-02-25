@@ -123,7 +123,7 @@ func (sb *SnippetBuilder) LoadSnippet(filePath string, centerLine int64) (string
 	return out.String(), nil
 }
 
-func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets bool) {
+func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets bool, verboseFlow bool, findingIndex int, totalFindings int) {
 	absProjectPath, err := report.projectPath(runIdx)
 
 	if err != nil {
@@ -143,7 +143,7 @@ func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets 
 		logrus.Warn("Finding has nil level; defaulting to 'unknown'")
 	}
 	indicator, indicatorColor := levelIndicator(lvl)
-	logrus.Info(formatters.FormatTreeHeaderColorized(indicator, indicatorColor))
+	logrus.Info(formatters.FormatTreeHeaderColorized(fmt.Sprintf("Finding %d/%d %s", findingIndex, totalFindings, indicator), indicatorColor))
 
 	rule := "<unknown>"
 	if result.RuleID != nil {
@@ -189,12 +189,24 @@ func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets 
 	printer.AddNode("Code Flow")
 
 	builder := NewFlowStepBuilder()
-	for i, cs := range taintFlow {
+	flowSteps := taintFlow
+	omitted := 0
+	if !verboseFlow && len(taintFlow) > 2 {
+		flowSteps = []classifiedStep{taintFlow[0], taintFlow[len(taintFlow)-1]}
+		omitted = len(taintFlow) - 2
+	}
+
+	for i, cs := range flowSteps {
 		mainLine, locationLine := builder.FormatStep(cs, absProjectPath)
 		printer.AddNodeAtLevelWrapped(mainLine, 1)
 		printer.AddNodeAtLevelDefault(locationLine, 2)
 
-		if i != 0 && i != len(taintFlow)-1 {
+		if omitted > 0 && i == 0 {
+			printer.AddNodeAtLevelWrapped(fmt.Sprintf("... %d intermediate steps omitted (use --verbose-flow)", omitted), 1)
+			printer.AddNodeAtLevelDefault("", 1)
+		}
+
+		if i != 0 && i != len(flowSteps)-1 {
 			printer.AddNodeAtLevelDefault("", 1)
 			continue
 		}

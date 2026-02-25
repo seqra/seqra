@@ -6,11 +6,13 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
 	"time"
 
+	"github.com/seqra/seqra/v2/internal/utils/color"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/term"
 )
@@ -45,6 +47,12 @@ func OpenLogFile() (*os.File, string, error) {
 // colorMessageFormatter wraps the whole message with a color based on level.
 type colorMessageFormatter struct {
 	Enabled bool
+}
+
+var ansiEscapeRegex = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func stripANSI(s string) string {
+	return ansiEscapeRegex.ReplaceAllString(s, "")
 }
 
 func (f *colorMessageFormatter) Format(entry *logrus.Entry) ([]byte, error) {
@@ -85,7 +93,7 @@ func (f *colorMessageFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	}
 
 	if !f.Enabled {
-		return []byte(message + "\n"), nil
+		return []byte(stripANSI(message) + "\n"), nil
 	}
 
 	var color string
@@ -185,7 +193,7 @@ func (f *blockTextFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 
 // SetUpLogs configures logging with the specified output and level.
 // 'out' is typically the log file writer. Logs will go to both the console and 'out'.
-func SetUpLogs(out io.Writer, level string) error {
+func SetUpLogs(out io.Writer, level string, colorMode string) error {
 	// Parse log level
 	consoleLevel, err := logrus.ParseLevel(level)
 	if err != nil {
@@ -203,7 +211,12 @@ func SetUpLogs(out io.Writer, level string) error {
 	logrus.SetLevel(logrus.TraceLevel)
 
 	// Console formatter with conditional color
-	consoleFormatter := &colorMessageFormatter{Enabled: colorSupported(os.Stdout)}
+	consoleColorEnabled, err := colorSupported(os.Stdout, colorMode)
+	if err != nil {
+		return err
+	}
+	color.SetEnabled(consoleColorEnabled)
+	consoleFormatter := &colorMessageFormatter{Enabled: consoleColorEnabled}
 
 	logrus.AddHook(&writerHook{
 		Writer:    os.Stdout,
@@ -261,33 +274,49 @@ func CloseLogFile() error {
 }
 
 // colorSupported determines if ANSI colors should be used for the given writer.
-func colorSupported(w io.Writer) bool {
+func colorSupported(w io.Writer, mode string) (bool, error) {
+	mode = strings.ToLower(strings.TrimSpace(mode))
+	if mode == "" {
+		mode = "auto"
+	}
+
+	switch mode {
+	case "always":
+		return true, nil
+	case "never":
+		return false, nil
+	case "auto":
+		// continue
+	default:
+		return false, fmt.Errorf("invalid color mode %q, expected one of: auto, always, never", mode)
+	}
+
 	// Respect NO_COLOR (https://no-color.org/)
 	if os.Getenv("NO_COLOR") != "" {
-		return false
+		return false, nil
 	}
 	// Allow explicit override
 	if os.Getenv("FORCE_COLOR") != "" {
-		return true
+		return true, nil
 	}
 
 	f, ok := w.(*os.File)
 	if !ok {
-		return false
+		return false, nil
 	}
 
 	// Only colorize if attached to a TTY
 	if !term.IsTerminal(int(f.Fd())) {
-		return false
+		return false, nil
 	}
 
 	// Basic Windows handling: modern Windows terminals support ANSI,
 	// but if TERM isn't set we err on the safe side and disable.
 	if runtime.GOOS == "windows" {
 		if os.Getenv("TERM") == "" && os.Getenv("WT_SESSION") == "" && os.Getenv("ANSICON") == "" {
-			return false
+			return false, nil
 		}
 	}
 
-	return true
+	return true, nil
 }

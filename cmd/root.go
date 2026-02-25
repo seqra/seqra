@@ -24,9 +24,11 @@ var updateHintCh = make(chan string, 1)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "seqra",
-	Short: "Seqra Analyzer",
-	Long:  `Seqra is a CLI tool that analyzes Java and Kotlin projects to find vulnerabilities`,
+	Use:           "seqra",
+	Short:         "Seqra Analyzer",
+	Long:          `Seqra is a CLI tool that analyzes Java and Kotlin projects to find vulnerabilities`,
+	SilenceErrors: true,
+	SilenceUsage:  true,
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Set up logging to both console and file
@@ -34,7 +36,7 @@ var rootCmd = &cobra.Command{
 		globals.LogPath = logPath
 		cobra.CheckErr(err)
 
-		if err := log.SetUpLogs(logFile, globals.Config.Log.Verbosity); err != nil {
+		if err := log.SetUpLogs(logFile, globals.Config.Log.Verbosity, globals.Config.Log.Color); err != nil {
 			return fmt.Errorf("failed to set up logging: %w", err)
 		}
 
@@ -68,7 +70,9 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
-		logrus.Fatalf("Unexpected error: %s", err)
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		fmt.Fprintln(os.Stderr, "Run 'seqra --help' for usage.")
+		os.Exit(1)
 	}
 }
 
@@ -86,7 +90,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&globals.Config.Log.Verbosity, "verbosity", logrus.InfoLevel.String(), "Log level (debug, info, warn, error, fatal, panic)")
 	_ = viper.BindPFlag("log.verbosity", rootCmd.PersistentFlags().Lookup("verbosity"))
 
-	rootCmd.PersistentFlags().BoolVarP(&globals.Config.Quiet, "quiet", "q", false, "Suppress interactive console output. (default: false)")
+	rootCmd.PersistentFlags().StringVar(&globals.Config.Log.Color, "color", "auto", "Color mode (auto, always, never)")
+	_ = viper.BindPFlag("log.color", rootCmd.PersistentFlags().Lookup("color"))
+
+	rootCmd.PersistentFlags().BoolVarP(&globals.Config.Quiet, "quiet", "q", false, "Suppress interactive console output")
 	_ = viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet"))
 
 	rootCmd.PersistentFlags().StringVar(&globals.Config.Analyzer.Version, "analyzer-version", globals.AnalyzerBindVersion, "Version of seqra analyzer")

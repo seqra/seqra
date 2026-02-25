@@ -3,9 +3,15 @@ package formatters
 import (
 	"fmt"
 	"strings"
+
+	"github.com/seqra/seqra/v2/internal/utils/color"
 )
 
 func FormatFilePathHyperLink(absProjectPath string, relFilePath string, fileName string, line int64) string {
+	if !color.Enabled() {
+		return fmt.Sprintf("%s:%d", fileName, line)
+	}
+
 	absProjectPath = strings.ReplaceAll(absProjectPath, "\\", "/")
 
 	if !strings.HasSuffix(absProjectPath, "/") {

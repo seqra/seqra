@@ -3,9 +3,24 @@ package color
 import (
 	"fmt"
 	"strings"
+	"sync/atomic"
 
 	"github.com/sirupsen/logrus"
 )
+
+var colorEnabled atomic.Bool
+
+func init() {
+	colorEnabled.Store(true)
+}
+
+func SetEnabled(enabled bool) {
+	colorEnabled.Store(enabled)
+}
+
+func Enabled() bool {
+	return colorEnabled.Load()
+}
 
 type Color string
 
@@ -47,7 +62,7 @@ func (c Color) String() string {
 }
 
 func Colorize(text string, color Color) string {
-	if color == "" {
+	if color == "" || !Enabled() {
 		return text
 	}
 	return fmt.Sprintf("\x1b[%sm%s\x1b[0m", color.Code(), text)

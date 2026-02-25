@@ -10,8 +10,10 @@ import (
 	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/seqra/seqra/v2/internal/utils/formatters"
 	"github.com/seqra/seqra/v2/internal/utils/java"
+	"github.com/seqra/seqra/v2/internal/utils/ui"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 )
 
 var pullCmd = &cobra.Command{
@@ -91,7 +93,7 @@ func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter,
 		return nil
 	}
 
-	logrus.Infof("Downloading %s %s...", spec.Kind(), spec.Version)
+	printer.AddNodeAtLevelDefault("Downloading...", 1)
 
 	download := func(targetPath string) error {
 		if spec.Unpack {
@@ -111,7 +113,10 @@ func downloadArtifact(spec globals.ArtifactDef, printer *formatters.TreePrinter,
 				continue
 			}
 		}
-		if err := download(t.Path); err != nil {
+		if err := runInteractiveStep(
+			fmt.Sprintf("Downloading %s %s", spec.Kind(), spec.Version),
+			func() error { return download(t.Path) },
+		); err != nil {
 			return err
 		}
 		printer.AddNodeAtLevelDefault(fmt.Sprintf("Downloaded to %s", t.Path), 1)
@@ -153,7 +158,7 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary, installC
 		return nil
 	}
 
-	logrus.Infof("Downloading Java %d...", javaVersion)
+	printer.AddNodeAtLevelDefault("Downloading...", 1)
 
 	// Download to the first writable tier
 	for _, t := range tiers {
@@ -168,7 +173,15 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary, installC
 			}
 			_ = os.Remove(t.Path)
 		}
-		javaPath, err := java.EnsureLocalRuntimeAt(javaVersion, java.AdoptiumImageJRE, t.Path, runtime.GOOS, runtime.GOARCH, globals.Config.SkipVerify)
+		var javaPath string
+		err := runInteractiveStep(
+			fmt.Sprintf("Downloading Java %d", javaVersion),
+			func() error {
+				var innerErr error
+				javaPath, innerErr = java.EnsureLocalRuntimeAt(javaVersion, java.AdoptiumImageJRE, t.Path, runtime.GOOS, runtime.GOARCH, globals.Config.SkipVerify)
+				return innerErr
+			},
+		)
 		if err != nil {
 			return err
 		}
@@ -177,6 +190,22 @@ func downloadJava(printer *formatters.TreePrinter, installNextToBinary, installC
 	}
 
 	return fmt.Errorf("no writable location found for Java %d", javaVersion)
+}
+
+func runInteractiveStep(phase string, run func() error) error {
+	if globals.Config.Quiet || !term.IsTerminal(int(os.Stdout.Fd())) {
+		return run()
+	}
+
+	spinner := ui.NewSpinner()
+	spinner.Start(phase)
+	err := run()
+	if err != nil {
+		spinner.StopError(phase)
+		return err
+	}
+	spinner.Stop(phase)
+	return nil
 }
 
 func init() {

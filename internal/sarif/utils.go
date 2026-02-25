@@ -3,6 +3,7 @@ package sarif
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/utils/color"
@@ -45,12 +46,12 @@ func GenerateSummary(report *Report) Summary {
 		}
 
 		for _, result := range run.Results {
-			level := result.Level
-			rulesTriggered[*result.RuleID] = true
-			if *level == "" {
-				*level = "note" // Default level if not specified
+			if result.RuleID != nil {
+				rulesTriggered[*result.RuleID] = true
 			}
-			summary.FindingsByLevel[*level]++
+
+			level := findingLevel(&result)
+			summary.FindingsByLevel[level]++
 			summary.TotalFindings++
 		}
 	}
@@ -59,6 +60,90 @@ func GenerateSummary(report *Report) Summary {
 	summary.TotalRulesExecuted += len(rulesExecuted)
 
 	return summary
+}
+
+type RuleSummary struct {
+	RuleID   string
+	Total    int
+	Errors   int
+	Warnings int
+	Notes    int
+}
+
+func findingLevel(result *Result) Level {
+	if result == nil || result.Level == nil || *result.Level == "" {
+		return Level("note")
+	}
+	return *result.Level
+}
+
+func generateRuleSummary(report *Report) []RuleSummary {
+	byRule := make(map[string]*RuleSummary)
+
+	for _, run := range report.Runs {
+		for _, result := range run.Results {
+			ruleID := "<unknown>"
+			if result.RuleID != nil && *result.RuleID != "" {
+				ruleID = *result.RuleID
+			}
+
+			rs, ok := byRule[ruleID]
+			if !ok {
+				rs = &RuleSummary{RuleID: ruleID}
+				byRule[ruleID] = rs
+			}
+
+			rs.Total++
+			switch findingLevel(&result) {
+			case Level("error"):
+				rs.Errors++
+			case Level("warning"):
+				rs.Warnings++
+			default:
+				rs.Notes++
+			}
+		}
+	}
+
+	out := make([]RuleSummary, 0, len(byRule))
+	for _, rs := range byRule {
+		out = append(out, *rs)
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].Total == out[j].Total {
+			return out[i].RuleID < out[j].RuleID
+		}
+		return out[i].Total > out[j].Total
+	})
+
+	return out
+}
+
+func (report *Report) printFindingsOverview() {
+	ruleSummary := generateRuleSummary(report)
+	if len(ruleSummary) == 0 {
+		return
+	}
+
+	logrus.Info(formatters.FormatTreeHeader("Findings Overview"))
+	printer := formatters.NewTreePrinter()
+
+	for _, item := range ruleSummary {
+		printer.AddNodeAtLevelWrapped(
+			fmt.Sprintf("%s: %d findings (errors: %d, warnings: %d, notes: %d)",
+				item.RuleID,
+				item.Total,
+				item.Errors,
+				item.Warnings,
+				item.Notes,
+			),
+			0,
+		)
+	}
+
+	printer.Print()
+	logrus.Info()
 }
 
 func printReportsInfo(printer *formatters.TreePrinter, absSarifReportPath string) {
@@ -91,14 +176,24 @@ type PrintableResult struct {
 	Level     *Level
 }
 
-func (report *Report) PrintAll(showCodeSnippets bool) {
+func (report *Report) PrintAll(showCodeSnippets bool, verboseFlow bool) {
+	report.printFindingsOverview()
+
 	if len(report.Runs) > 0 && len(report.Runs[0].Results) > 0 {
 		logrus.Info(formatters.FormatHeader1("Findings"))
 	}
 
+	totalFindings := 0
+	for _, run := range report.Runs {
+		totalFindings += len(run.Results)
+	}
+
+	findingIndex := 0
+
 	for idx, run := range report.Runs {
 		for _, result := range run.Results {
-			report.printFinding(&result, idx, showCodeSnippets)
+			findingIndex++
+			report.printFinding(&result, idx, showCodeSnippets, verboseFlow, findingIndex, totalFindings)
 			logrus.Info()
 		}
 	}

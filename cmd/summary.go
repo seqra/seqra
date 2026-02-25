@@ -35,18 +35,20 @@ Arguments:
 
 var showFindings bool
 var showCodeSnippets bool
+var verboseFlow bool
 
 func init() {
 	rootCmd.AddCommand(summaryCmd)
 
 	summaryCmd.Flags().BoolVar(&showFindings, "show-findings", false, "Show all issues from Sarif file")
 	summaryCmd.Flags().BoolVar(&showCodeSnippets, "show-code-snippets", false, "Show finding related code snippets")
+	summaryCmd.Flags().BoolVar(&verboseFlow, "verbose-flow", false, "Show full code flow steps for findings")
 	_ = summaryCmd.PersistentFlags().MarkHidden("show-code-snippets")
 }
 
 func printSarifSummary(report *sarif.Report, absSarifPath string) {
 	if showFindings {
-		report.PrintAll(showCodeSnippets)
+		report.PrintAll(showCodeSnippets, verboseFlow)
 		logrus.Info()
 	}
 

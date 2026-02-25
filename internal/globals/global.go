@@ -57,6 +57,7 @@ type Scan struct {
 
 type Log struct {
 	Verbosity string `mapstructure:"verbosity"`
+	Color     string `mapstructure:"color"`
 }
 
 type Github struct {
