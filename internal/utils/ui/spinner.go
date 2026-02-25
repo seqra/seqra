@@ -11,6 +11,7 @@ import (
 
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/utils/formatters"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/term"
 )
 
@@ -101,7 +102,11 @@ func RunWithSpinner(phase string, run func() error) error {
 // Falls back to plain io.Copy in non-interactive environments or when total is unknown.
 func CopyWithProgress(dst io.Writer, src io.Reader, total int64, label string) (int64, error) {
 	verbosity := strings.ToLower(strings.TrimSpace(globals.Config.Log.Verbosity))
-	if !IsSpinnerTerminal() || total <= 0 || verbosity == "debug" || verbosity == "trace" {
+	if !IsSpinnerTerminal() || total <= 0 {
+		return io.Copy(dst, src)
+	}
+
+	if level, err := logrus.ParseLevel(verbosity); err == nil && level >= logrus.DebugLevel {
 		return io.Copy(dst, src)
 	}
 
