@@ -11,11 +11,9 @@ import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
 import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicAtomEvaluator
 import org.opentaint.ir.api.common.cfg.CommonInst
-import org.opentaint.ir.api.jvm.cfg.JIRValue
-import org.opentaint.util.Maybe
 
 class JIRMarkAwareConditionRewriter(
-    positionResolver: PositionResolver<Maybe<JIRValue>>,
+    positionResolver: PositionResolver<CallPositionValue>,
     analysisContext: JIRMethodAnalysisContext,
     statement: CommonInst,
 ) {

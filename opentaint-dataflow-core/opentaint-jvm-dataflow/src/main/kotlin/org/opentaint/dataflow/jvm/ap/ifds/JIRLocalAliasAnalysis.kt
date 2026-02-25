@@ -40,6 +40,11 @@ class JIRLocalAliasAnalysis(
         return getLocalVarAliases(aliasInfo.aliasBeforeStatement, idx, base)
     }
 
+    fun getAllAliasAtStatement(statement: CommonInst): Int2ObjectOpenHashMap<List<AliasInfo>> {
+        val idx = languageManager.getInstIndex(statement)
+        return aliasInfo.aliasBeforeStatement[idx]
+    }
+
     fun findAliasAfterStatement(base: AccessPathBase.LocalVar, statement: CommonInst): List<AliasInfo>? {
         val idx = languageManager.getInstIndex(statement)
         return getLocalVarAliases(aliasInfo.aliasAfterStatement, idx, base)
