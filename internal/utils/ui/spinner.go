@@ -11,7 +11,6 @@ import (
 
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/utils/formatters"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/term"
 )
 
@@ -101,7 +100,8 @@ func RunWithSpinner(phase string, run func() error) error {
 // CopyWithProgress copies src to dst while displaying a progress bar on interactive terminals.
 // Falls back to plain io.Copy in non-interactive environments or when total is unknown.
 func CopyWithProgress(dst io.Writer, src io.Reader, total int64, label string) (int64, error) {
-	if !IsSpinnerTerminal() || total <= 0 || logrus.IsLevelEnabled(logrus.DebugLevel) {
+	verbosity := strings.ToLower(strings.TrimSpace(globals.Config.Log.Verbosity))
+	if !IsSpinnerTerminal() || total <= 0 || verbosity == "debug" || verbosity == "trace" {
 		return io.Copy(dst, src)
 	}
 
