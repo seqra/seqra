@@ -1,63 +1,69 @@
 package load_trace
 
 import (
-	"github.com/seqra/seqra/v2/internal/utils/color"
-	"github.com/seqra/seqra/v2/internal/utils/formatters"
-	"github.com/sirupsen/logrus"
+	"charm.land/lipgloss/v2/tree"
+
+	"github.com/seqra/seqra/v2/internal/output"
 )
 
-func PrintSyntaxErrorReport(loadTraceSummary RuleLoadTraceSummary) {
+func PrintSyntaxErrorReport(out *output.Printer, loadTraceSummary RuleLoadTraceSummary) {
 	filesWithErrors := filterFilesWithSyntaxErrors(loadTraceSummary.Files)
 	if len(filesWithErrors) == 0 {
 		return
 	}
 
-	logrus.Info(formatters.FormatHeader1("Rule Syntax Erros"))
+	sb := out.Section("Rule Syntax Errors")
 	for _, f := range filesWithErrors {
-		printFile(f)
+		fileNode := buildFileNode(out, f)
+		if fileNode != nil {
+			sb.Child(fileNode)
+		}
 	}
+	sb.Render()
 }
 
-func printFile(file fileSummary) {
+func buildFileNode(out *output.Printer, file fileSummary) *tree.Tree {
 	fileSyntaxErrors := filterSyntaxErrors(file.Errors)
 	rulesWithErrors := filterRulesWithSyntaxErrors(file.Rules)
 
 	if len(fileSyntaxErrors) == 0 && len(rulesWithErrors) == 0 {
-		return
+		return nil
 	}
 
-	logrus.Info("File: " + file.Path)
-
-	printer := formatters.NewTreePrinter()
+	th := out.Theme()
+	node := tree.Root("File: " + file.Path)
 
 	for _, err := range fileSyntaxErrors {
-		printer.AddNodeColoredWrapped("Error "+err.Message, color.Red)
+		node.Child(th.Error.Render("Error " + err.Message))
 	}
 
 	for _, rule := range rulesWithErrors {
-		addRuleNodes(printer, rule)
+		ruleNode := buildRuleNode(out, rule)
+		if ruleNode != nil {
+			node.Child(ruleNode)
+		}
 	}
 
-	printer.Print()
-	logrus.Info()
+	return node
 }
 
-func addRuleNodes(printer *formatters.TreePrinter, rule ruleSummary) {
+func buildRuleNode(out *output.Printer, rule ruleSummary) *tree.Tree {
 	ruleSyntax := filterSyntaxErrors(rule.Errors)
 	stepSyntax := collectStepSyntaxErrors(rule.Steps)
 
 	if len(ruleSyntax) == 0 && len(stepSyntax) == 0 {
-		return
+		return nil
 	}
 
-	printer.AddNode("Rule: " + rule.RuleID)
-	printer.Push()
+	th := out.Theme()
+	node := tree.Root("Rule: " + rule.RuleID)
 
 	allErrors := append(ruleSyntax, stepSyntax...)
 	for _, err := range allErrors {
-		printer.AddNodeColoredWrapped("Error "+err.Message, color.Red)
+		node.Child(th.Error.Render("Error " + err.Message))
 	}
-	printer.Pop()
+
+	return node
 }
 
 func filterFilesWithSyntaxErrors(files []fileSummary) []fileSummary {

@@ -11,9 +11,7 @@ import (
 	"github.com/seqra/seqra/v2/internal/load_trace"
 	"github.com/seqra/seqra/v2/internal/version"
 
-	"github.com/seqra/seqra/v2/internal/utils/formatters"
 	"github.com/seqra/seqra/v2/internal/utils/project"
-	"github.com/seqra/seqra/v2/internal/utils/ui"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -180,22 +178,20 @@ func scan(cmd *cobra.Command) {
 	// Display scan information in tree format
 	printScanInfo(cmd, scanMode, absProjectModelPath, absRuleSetPaths, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot)
 
-	showSpinners := ui.IsSpinnerTerminal()
-
 	for _, ruleSetPath := range absRuleSetPaths {
 		if !ruleSetPath.Builtin {
 			continue
 		}
 		if _, err := os.Stat(ruleSetPath.Path); errors.Is(err, os.ErrNotExist) {
-			if !showSpinners {
-				logrus.Info("Downloading seqra-rules")
+			if !out.IsInteractive() {
+				out.Print("Downloading seqra-rules")
 			}
 			err := utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, ruleSetPath.Path, globals.Config.Github.Token, globals.Config.SkipVerify)
 			if err != nil {
 				logrus.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
 			}
-			if !showSpinners {
-				logrus.Infof("Successfully downloaded seqra-rules to %s", ruleSetPath.Path)
+			if !out.IsInteractive() {
+				out.Printf("Successfully downloaded seqra-rules to %s", ruleSetPath.Path)
 			}
 		}
 	}
@@ -211,16 +207,16 @@ func scan(cmd *cobra.Command) {
 			logrus.Fatalf("Failed to resolve Java for compilation: %s", err)
 		}
 
-		if showSpinners {
-			logrus.Info()
+		if out.IsInteractive() {
+			out.Blank()
 		}
-		if err := ui.RunWithSpinner("Compiling project model", func() error {
+		if err := out.RunWithSpinner("Compiling project model", func() error {
 			return compile(absUserProjectRoot, tempProjectModelPath, autobuilderJarPath, compileJavaRunner, Internal)
 		}); err != nil {
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
 			logrus.Fatal()
 		}
-		logrus.Info()
+		out.Blank()
 		printCompileSummary(tempProjectModelPath)
 	}
 
@@ -276,10 +272,10 @@ func scan(cmd *cobra.Command) {
 		logrus.Fatalf("Failed to resolve Java for analyzer: %s", err)
 	}
 
-	if showSpinners {
-		logrus.Info()
+	if out.IsInteractive() {
+		out.Blank()
 	}
-	if err := ui.RunWithSpinner("Analyzing project", func() error {
+	if err := out.RunWithSpinner("Analyzing project", func() error {
 		return scanProject(nativeBuilder, analyzerJavaRunner)
 	}); err != nil {
 		logrus.Fatalf("Native scan has failed: %s", err)
@@ -289,7 +285,7 @@ func scan(cmd *cobra.Command) {
 		logrus.Fatalf("There was a problem during the scan step, check the full logs: %s", globals.LogPath)
 	}
 
-	logrus.Info()
+	out.Blank()
 
 	el := deserializeSemgrepRuleLoadTrace(absSemgrepRuleLoadTracePath)
 
@@ -304,9 +300,9 @@ func scan(cmd *cobra.Command) {
 	}
 
 	sarifSummary := sarif.GenerateSummary(report)
-	load_trace.PrintRuleStatisticsTree(ruleLoadErrorsResult, sarifSummary, absSemgrepRuleLoadTracePath)
+	load_trace.PrintRuleStatisticsTree(out, ruleLoadErrorsResult, sarifSummary, absSemgrepRuleLoadTracePath)
 
-	load_trace.PrintSyntaxErrorReport(ruleLoadTraceSummary)
+	load_trace.PrintSyntaxErrorReport(out, ruleLoadTraceSummary)
 
 	// Process the generated SARIF report if it exists
 	printSarifSummary(report, absSarifReportPath)
@@ -328,28 +324,25 @@ func scan(cmd *cobra.Command) {
 }
 
 func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string, absRuleSetPaths []RulesetType, absSemgrepRuleLoadTracePath string, tempProjectModel bool, absUserProjectRoot string) {
-	logrus.Info(formatters.FormatTreeHeader(mode.String()))
-
-	printer := formatters.NewTreePrinter()
-	printConfig(cmd, printer)
-	printer.AddNode("")
+	sb := out.Section(mode.String())
+	addConfigFields(cmd, sb)
+	sb.Line()
 	if tempProjectModel {
-		printer.AddNode("Project: " + absUserProjectRoot)
-		printer.AddNode("Temporary project model: " + absProjectModelPath)
+		sb.Field("Project", absUserProjectRoot).
+			Field("Temporary project model", absProjectModelPath)
 	} else {
-		printer.AddNode("Project model: " + absProjectModelPath)
+		sb.Field("Project model", absProjectModelPath)
 	}
-	printer.AddNode("")
+	sb.Line()
 	for _, absRuleSetPath := range absRuleSetPaths {
 		if absRuleSetPath.Builtin {
-			printer.AddNode(fmt.Sprintf("Bundled ruleset (%s): %s", globals.Config.Rules.Version, absRuleSetPath.Path))
+			sb.Field("Bundled ruleset", fmt.Sprintf("(%s) %s", globals.Config.Rules.Version, absRuleSetPath.Path))
 		} else {
-			printer.AddNode("User ruleset: " + absRuleSetPath.Path)
+			sb.Field("User ruleset", absRuleSetPath.Path)
 		}
 	}
-	printer.AddNode("Rule load trace: " + absSemgrepRuleLoadTracePath)
-
-	printer.Print()
+	sb.Field("Rule load trace", absSemgrepRuleLoadTracePath)
+	sb.Render()
 }
 
 func setupSemgrepRuleLoadTrace() string {
@@ -388,15 +381,15 @@ func ensureAnalyzerAvailable() (string, error) {
 	}
 
 	if _, err := os.Stat(analyzerJarPath); errors.Is(err, os.ErrNotExist) {
-		if !ui.IsSpinnerTerminal() {
-			logrus.Info()
-			logrus.Infof("Downloading analyzer version %s", globals.Config.Analyzer.Version)
+		if !out.IsInteractive() {
+			out.Blank()
+			out.Printf("Downloading analyzer version %s", globals.Config.Analyzer.Version)
 		}
 		if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
 			return "", fmt.Errorf("failed to download analyzer: %w", err)
 		}
-		if !ui.IsSpinnerTerminal() {
-			logrus.Infof("Successfully downloaded analyzer to %s", analyzerJarPath)
+		if !out.IsInteractive() {
+			out.Printf("Successfully downloaded analyzer to %s", analyzerJarPath)
 		}
 	}
 

@@ -1,0 +1,285 @@
+package output
+
+import (
+	"fmt"
+	"strings"
+
+	"charm.land/lipgloss/v2"
+	"charm.land/lipgloss/v2/tree"
+)
+
+// ── Section ──────────────────────────────────────────────────────────
+// A Section is a titled block of output rendered as a tree with a
+// header box on top. It provides a fluent DSL for building structured
+// CLI output.
+//
+// Usage:
+//
+//	out.Section("Seqra Scan").
+//	    Field("Project", projectPath).
+//	    Field("Output", outputPath).
+//	    Group("Rules",
+//	        out.Item("builtin"),
+//	        out.Item("custom.yaml"),
+//	    ).
+//	    Render()
+
+// SectionBuilder builds and renders a titled tree section.
+type SectionBuilder struct {
+	printer *Printer
+	title   string
+	style   lipgloss.Style
+	items   []any // tree children: strings, *tree.Tree, or TreeItem
+}
+
+// Section starts building a new titled output section.
+func (p *Printer) Section(title string) *SectionBuilder {
+	return &SectionBuilder{
+		printer: p,
+		title:   title,
+		style:   lipgloss.NewStyle(),
+	}
+}
+
+// WithStyle sets a lipgloss style for the section title.
+func (sb *SectionBuilder) WithStyle(s lipgloss.Style) *SectionBuilder {
+	sb.style = s
+	return sb
+}
+
+// Field adds a "Key: Value" node to the section.
+func (sb *SectionBuilder) Field(key string, value any) *SectionBuilder {
+	th := sb.printer.theme
+	text := th.FieldKey.Render(key+":") + " " + th.FieldValue.Render(fmt.Sprint(value))
+	sb.items = append(sb.items, text)
+	return sb
+}
+
+// StyledField adds a "Key: Value" node with a custom style for the value.
+func (sb *SectionBuilder) StyledField(key string, value any, valueStyle lipgloss.Style) *SectionBuilder {
+	th := sb.printer.theme
+	text := th.FieldKey.Render(key+":") + " " + valueStyle.Render(fmt.Sprint(value))
+	sb.items = append(sb.items, text)
+	return sb
+}
+
+// Text adds a plain text node.
+func (sb *SectionBuilder) Text(text string) *SectionBuilder {
+	sb.items = append(sb.items, text)
+	return sb
+}
+
+// StyledText adds a text node rendered with a given style.
+func (sb *SectionBuilder) StyledText(text string, style lipgloss.Style) *SectionBuilder {
+	sb.items = append(sb.items, style.Render(text))
+	return sb
+}
+
+// Line adds a blank line separator.
+func (sb *SectionBuilder) Line() *SectionBuilder {
+	sb.items = append(sb.items, "")
+	return sb
+}
+
+// Group adds a named sub-tree with children.
+func (sb *SectionBuilder) Group(name string, children ...any) *SectionBuilder {
+	sub := tree.Root(name)
+	for _, child := range children {
+		sub.Child(child)
+	}
+	sb.items = append(sb.items, sub)
+	return sb
+}
+
+// Child adds any tree node directly (string, *tree.Tree, etc).
+func (sb *SectionBuilder) Child(children ...any) *SectionBuilder {
+	sb.items = append(sb.items, children...)
+	return sb
+}
+
+// Render builds and prints the section.
+func (sb *SectionBuilder) Render() {
+	if sb.printer.quiet {
+		return
+	}
+	p := sb.printer
+	th := p.theme
+
+	// Render header
+	header := renderHeader(sb.title, sb.style, th)
+	fmt.Fprintln(p.w, header)
+
+	// Build tree
+	if len(sb.items) > 0 {
+		t := tree.New().
+			EnumeratorStyle(th.TreeBranch).
+			IndenterStyle(th.TreeBranch).
+			ItemStyle(th.TreeItem)
+
+		for _, item := range sb.items {
+			t.Child(item)
+		}
+
+		fmt.Fprintln(p.w, t.String())
+	}
+}
+
+// String returns the rendered section as a string without printing.
+func (sb *SectionBuilder) String() string {
+	th := sb.printer.theme
+
+	var buf strings.Builder
+
+	header := renderHeader(sb.title, sb.style, th)
+	buf.WriteString(header)
+	buf.WriteString("\n")
+
+	if len(sb.items) > 0 {
+		t := tree.New().
+			EnumeratorStyle(th.TreeBranch).
+			IndenterStyle(th.TreeBranch).
+			ItemStyle(th.TreeItem)
+
+		for _, item := range sb.items {
+			t.Child(item)
+		}
+
+		buf.WriteString(t.String())
+	}
+
+	return buf.String()
+}
+
+// ── Header rendering ─────────────────────────────────────────────────
+
+func renderHeader(title string, titleStyle lipgloss.Style, th *Theme) string {
+	styledTitle := titleStyle.Render(title)
+	titleLen := len(title) // use raw length for box sizing
+
+	boxWidth := titleLen + 4
+	topLine := th.HeaderBorder.Render("╭─") +
+		th.HeaderTitle.Render(styledTitle) +
+		th.HeaderBorder.Render(strings.Repeat("─", max(boxWidth-titleLen-4, 0))+"─╮")
+
+	bottomLine := th.HeaderBorder.Render("╰─┬"+strings.Repeat("─", max(boxWidth-4, 0))+"╯")
+
+	return topLine + "\n" + bottomLine
+}
+
+// ── Convenience helpers ──────────────────────────────────────────────
+
+// Item wraps a value as a plain tree child. Useful inside Group() calls.
+func (p *Printer) Item(value any) string {
+	return fmt.Sprint(value)
+}
+
+// StyledItem wraps a value with a style. Useful inside Group() calls.
+func (p *Printer) StyledItem(value any, style lipgloss.Style) string {
+	return style.Render(fmt.Sprint(value))
+}
+
+// FieldItem creates a "Key: Value" string for use inside Group() calls.
+func (p *Printer) FieldItem(key string, value any) string {
+	th := p.theme
+	return th.FieldKey.Render(key+":") + " " + th.FieldValue.Render(fmt.Sprint(value))
+}
+
+// StyledFieldItem creates a "Key: Value" string with custom value style.
+func (p *Printer) StyledFieldItem(key string, value any, valueStyle lipgloss.Style) string {
+	th := p.theme
+	return th.FieldKey.Render(key+":") + " " + valueStyle.Render(fmt.Sprint(value))
+}
+
+// ── Suggestion ───────────────────────────────────────────────────────
+
+// Suggest prints a suggestion section with a description and optional command.
+func (p *Printer) Suggest(description string, command string) {
+	if p.quiet {
+		return
+	}
+	th := p.theme
+
+	p.Blank()
+	sb := p.Section("Suggestions").
+		StyledText(description, th.Suggestion)
+
+	if command != "" {
+		sub := tree.Root(th.Suggestion.Render(description))
+		sub.Child(th.Command.Render(command))
+		// Replace last item with the sub-tree version
+		sb.items = sb.items[:len(sb.items)-1]
+		sb.items = append(sb.items, sub)
+	}
+
+	sb.Render()
+}
+
+// ── Box ──────────────────────────────────────────────────────────────
+
+// BoxBuilder builds a bordered box with a title and key-value fields.
+type BoxBuilder struct {
+	printer *Printer
+	title   string
+	fields  []boxField
+	width   int
+}
+
+type boxField struct {
+	key   string
+	value string
+}
+
+// Box starts building a bordered box.
+func (p *Printer) Box(title string) *BoxBuilder {
+	return &BoxBuilder{
+		printer: p,
+		title:   title,
+		width:   66,
+	}
+}
+
+// Width sets the box width.
+func (bb *BoxBuilder) Width(w int) *BoxBuilder {
+	bb.width = w
+	return bb
+}
+
+// Field adds a key-value pair inside the box.
+func (bb *BoxBuilder) Field(key, value string) *BoxBuilder {
+	bb.fields = append(bb.fields, boxField{key: key, value: value})
+	return bb
+}
+
+// Render prints the box.
+func (bb *BoxBuilder) Render() {
+	fmt.Fprintln(bb.printer.w, bb.String())
+}
+
+// String returns the rendered box as a string.
+func (bb *BoxBuilder) String() string {
+	th := bb.printer.theme
+	innerWidth := bb.width - 2
+	titleLen := len(bb.title)
+
+	top := th.HeaderBorder.Render("╭─"+bb.title+strings.Repeat("─", max(bb.width-titleLen-3, 0))+"╮")
+
+	var lines []string
+	lines = append(lines, top)
+
+	for _, f := range bb.fields {
+		line := f.key + ":  " + f.value
+		if len(line) > innerWidth {
+			line = line[:innerWidth]
+		}
+		padding := innerWidth - len(line) - 1
+		if padding < 0 {
+			padding = 0
+		}
+		lines = append(lines, th.HeaderBorder.Render("│")+" "+line+strings.Repeat(" ", padding)+th.HeaderBorder.Render("│"))
+	}
+
+	bottom := th.HeaderBorder.Render("╰"+strings.Repeat("─", bb.width-2)+"╯")
+	lines = append(lines, bottom)
+
+	return strings.Join(lines, "\n")
+}

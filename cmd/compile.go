@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/seqra/seqra/v2/internal/utils/formatters"
-	"github.com/seqra/seqra/v2/internal/utils/ui"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
@@ -50,14 +48,13 @@ Arguments:
 		outputProjectModelPath := filepath.Clean(OutputProjectModelPath)
 		absOutputProjectModelPath := log.AbsPathOrExit(outputProjectModelPath, "output")
 
-		logrus.Info(formatters.FormatTreeHeader("Seqra Compile"))
-		printer := formatters.NewTreePrinter()
-		printConfig(cmd, printer)
-		printer.AddNode("")
-		printer.AddNode("Project: " + absProjectRoot)
-		printer.AddNode("Output project model: " + absOutputProjectModelPath)
-		printer.Print()
-		logrus.Info()
+		sb := out.Section("Seqra Compile")
+		addConfigFields(cmd, sb)
+		sb.Line().
+			Field("Project", absProjectRoot).
+			Field("Output project model", absOutputProjectModelPath).
+			Render()
+		out.Blank()
 
 		autobuilderJarPath, err := ensureAutobuilderAvailable()
 		if err != nil {
@@ -70,10 +67,10 @@ Arguments:
 			logrus.Fatalf("Failed to resolve Java for compilation: %s", err)
 		}
 
-		if err := ui.RunWithSpinner("Compiling project model", func() error {
+		if err := out.RunWithSpinner("Compiling project model", func() error {
 			return compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath, compileJavaRunner, External)
 		}); err == nil {
-			logrus.Info()
+			out.Blank()
 			printCompileSummary(absOutputProjectModelPath)
 			suggest("To scan project run", utils.BuildScanCommandFromCompile(projectRoot, absOutputProjectModelPath))
 		} else {
@@ -96,15 +93,15 @@ func ensureAutobuilderAvailable() (string, error) {
 	}
 
 	if _, err = os.Stat(autobuilderJarPath); errors.Is(err, os.ErrNotExist) {
-		if !ui.IsSpinnerTerminal() {
-			logrus.Info()
-			logrus.Infof("Downloading autobuilder version %s", globals.Config.Autobuilder.Version)
+		if !out.IsInteractive() {
+			out.Blank()
+			out.Printf("Downloading autobuilder version %s", globals.Config.Autobuilder.Version)
 		}
 		if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
 			return "", fmt.Errorf("failed to download autobuilder: %w", err)
 		}
-		if !ui.IsSpinnerTerminal() {
-			logrus.Infof("Successfully downloaded autobuilder to %s", autobuilderJarPath)
+		if !out.IsInteractive() {
+			out.Printf("Successfully downloaded autobuilder to %s", autobuilderJarPath)
 		}
 	}
 
@@ -135,10 +132,9 @@ func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath strin
 }
 
 func printCompileSummary(absOutputProjectModelPath string) {
-	logrus.Info(formatters.FormatTreeHeader("Compile Summary"))
-	printer := formatters.NewTreePrinter()
-	printer.AddNode(fmt.Sprintf("Project model written to: %s", absOutputProjectModelPath))
-	printer.Print()
+	out.Section("Compile Summary").
+		Field("Project model written to", absOutputProjectModelPath).
+		Render()
 }
 
 func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath string, javaRunner java.JavaRunner) {

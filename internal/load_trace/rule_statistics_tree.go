@@ -3,22 +3,23 @@ package load_trace
 import (
 	"fmt"
 
+	"charm.land/lipgloss/v2/tree"
+
 	"github.com/seqra/seqra/v2/internal/globals"
+	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/sarif"
-	"github.com/seqra/seqra/v2/internal/utils/formatters"
-	"github.com/sirupsen/logrus"
 )
 
 type RuleStatisticsTreeBuilder struct {
-	printer                     *formatters.TreePrinter
+	out                         *output.Printer
 	ruleLoadErrorsResult        *RuleLoadErrorsResult
 	sarifSummary                sarif.Summary
 	absSemgrepRuleLoadTracePath string
 }
 
-func NewRuleStatisticsTreeBuilder() *RuleStatisticsTreeBuilder {
+func NewRuleStatisticsTreeBuilder(out *output.Printer) *RuleStatisticsTreeBuilder {
 	return &RuleStatisticsTreeBuilder{
-		printer: formatters.NewTreePrinter(),
+		out: out,
 	}
 }
 
@@ -37,132 +38,78 @@ func (b *RuleStatisticsTreeBuilder) WithRuleLoadTracePath(path string) *RuleStat
 	return b
 }
 
-func (b *RuleStatisticsTreeBuilder) Build() *formatters.TreePrinter {
-	b.addRuleParsingIssues()
-	b.addRuleExecution()
-	return b.printer
+func (b *RuleStatisticsTreeBuilder) Build() *tree.Tree {
+	root := tree.New()
+	root.Child(b.buildRuleParsingIssues())
+	root.Child(b.buildRuleExecution())
+	return root
 }
 
-func (b *RuleStatisticsTreeBuilder) addRuleParsingIssues() {
-	b.printer.AddNode("Rule Parsing Issues")
-	b.printer.Push()
-	defer b.printer.Pop()
+func (b *RuleStatisticsTreeBuilder) buildRuleParsingIssues() *tree.Tree {
+	node := tree.Root("Rule Parsing Issues")
 
 	if b.ruleLoadErrorsResult == nil {
-		b.printer.AddNode("No rule parsing data available")
-		return
+		node.Child("No rule parsing data available")
+		return node
 	}
 
 	if b.ruleLoadErrorsResult.Error != nil {
-		b.printer.AddNode("Unable to retrieve rule load failures info")
-		b.printer.Push()
-		b.printer.AddNode(fmt.Sprintf("Error: %s", b.ruleLoadErrorsResult.Error))
-		b.printer.Pop()
-		return
+		errNode := tree.Root("Unable to retrieve rule load failures info").
+			Child(fmt.Sprintf("Error: %s", b.ruleLoadErrorsResult.Error))
+		node.Child(errNode)
+		return node
 	}
 
 	s := b.ruleLoadErrorsResult.Summary
 	isDebug := globals.Config.Log.Verbosity == "debug"
 
 	if !isDebug && s.TotalAffectedFiles == 0 && s.TotalAffectedRules == 0 {
-		b.printer.AddNode("No issues found")
-		return
+		node.Child("No issues found")
+		return node
 	}
 
-	b.printer.AddNode("File-level")
-	b.printer.Push()
-	b.printer.AddNode(fmt.Sprintf("Files with syntax errors: %d", s.FileErrorTypes[SyntaxError]))
-	b.printer.AddNode(fmt.Sprintf("Files with unsupported constructs: %d", s.FileErrorTypes[Unsupported]))
-	b.printer.AddNode(fmt.Sprintf("Total affected files: %d", s.TotalAffectedFiles))
-	b.printer.Pop()
+	fileLevel := tree.Root("File-level").
+		Child(fmt.Sprintf("Files with syntax errors: %d", s.FileErrorTypes[SyntaxError])).
+		Child(fmt.Sprintf("Files with unsupported constructs: %d", s.FileErrorTypes[Unsupported])).
+		Child(fmt.Sprintf("Total affected files: %d", s.TotalAffectedFiles))
+	node.Child(fileLevel)
 
-	b.printer.AddNode("Rule-level")
-	b.printer.Push()
-	b.printer.AddNode(fmt.Sprintf("Rules with syntax errors: %d", s.RuleErrorTypes[SyntaxError]))
-	b.printer.AddNode(fmt.Sprintf("Rules with unsupported constructs: %d", s.RuleErrorTypes[Unsupported]))
-	b.printer.AddNode(fmt.Sprintf("Total affected rules: %d", s.TotalAffectedRules))
-	b.printer.Pop()
+	ruleLevel := tree.Root("Rule-level").
+		Child(fmt.Sprintf("Rules with syntax errors: %d", s.RuleErrorTypes[SyntaxError])).
+		Child(fmt.Sprintf("Rules with unsupported constructs: %d", s.RuleErrorTypes[Unsupported])).
+		Child(fmt.Sprintf("Total affected rules: %d", s.TotalAffectedRules))
+	node.Child(ruleLevel)
 
 	if isDebug || s.TotalAffectedFiles > 0 || s.TotalAffectedRules > 0 {
-		b.printer.AddNode("More details")
-		b.printer.Push()
+		details := tree.Root("More details")
 		if b.absSemgrepRuleLoadTracePath != "" {
-			b.printer.AddNode(fmt.Sprintf("See Rule load trace: %s", b.absSemgrepRuleLoadTracePath))
+			details.Child(fmt.Sprintf("See Rule load trace: %s", b.absSemgrepRuleLoadTracePath))
 		}
 		if isDebug || s.FileErrorTypes[Unsupported] > 0 || s.RuleErrorTypes[Unsupported] > 0 {
-			b.printer.AddNode("Report issues here: https://github.com/seqra/seqra/issues")
+			details.Child("Report issues here: https://github.com/seqra/seqra/issues")
 		}
-		b.printer.Pop()
+		node.Child(details)
 	}
+
+	return node
 }
 
-func (b *RuleStatisticsTreeBuilder) addRuleExecution() {
-	b.printer.AddNode("Rule Execution")
-	b.printer.Push()
-	b.printer.AddNode(fmt.Sprintf("Rules executed: %d", b.sarifSummary.TotalRulesExecuted))
-	b.printer.AddNode(fmt.Sprintf("Rules triggered: %d", b.sarifSummary.TotalRulesTriggered))
-	b.printer.Pop()
+func (b *RuleStatisticsTreeBuilder) buildRuleExecution() *tree.Tree {
+	return tree.Root("Rule Execution").
+		Child(fmt.Sprintf("Rules executed: %d", b.sarifSummary.TotalRulesExecuted)).
+		Child(fmt.Sprintf("Rules triggered: %d", b.sarifSummary.TotalRulesTriggered))
 }
 
-func PrintRuleStatisticsTree(ruleLoadErrorsResult *RuleLoadErrorsResult, sarifSummary sarif.Summary, absSemgrepRuleLoadTracePath string) {
-	logrus.Info(formatters.FormatTreeHeader("Rule Statistics"))
+func PrintRuleStatisticsTree(out *output.Printer, ruleLoadErrorsResult *RuleLoadErrorsResult, sarifSummary sarif.Summary, absSemgrepRuleLoadTracePath string) {
+	builder := NewRuleStatisticsTreeBuilder(out).
+		WithRuleLoadErrors(ruleLoadErrorsResult).
+		WithSarifSummary(sarifSummary).
+		WithRuleLoadTracePath(absSemgrepRuleLoadTracePath)
 
-	printer := formatters.NewTreePrinter()
+	treeContent := builder.Build()
 
-	// Rule Parsing Issues section
-	printer.AddNode("Rule Parsing Issues")
-	printer.Push()
-
-	if ruleLoadErrorsResult == nil {
-		printer.AddNode("No rule parsing data available")
-	} else if ruleLoadErrorsResult.Error != nil {
-		printer.AddNode("Unable to retrieve rule load failures info")
-		printer.Push()
-		printer.AddNode(fmt.Sprintf("Error: %s", ruleLoadErrorsResult.Error))
-		printer.Pop()
-	} else {
-		s := ruleLoadErrorsResult.Summary
-		isDebug := globals.Config.Log.Verbosity == "debug"
-
-		if !isDebug && s.TotalAffectedFiles == 0 && s.TotalAffectedRules == 0 {
-			printer.AddNode("No issues found")
-		} else {
-			printer.AddNode("File-level")
-			printer.Push()
-			printer.AddNode(fmt.Sprintf("Files with syntax errors: %d", s.FileErrorTypes[SyntaxError]))
-			printer.AddNode(fmt.Sprintf("Files with unsupported constructs: %d", s.FileErrorTypes[Unsupported]))
-			printer.AddNode(fmt.Sprintf("Total affected files: %d", s.TotalAffectedFiles))
-			printer.Pop()
-
-			printer.AddNode("Rule-level")
-			printer.Push()
-			printer.AddNode(fmt.Sprintf("Rules with syntax errors: %d", s.RuleErrorTypes[SyntaxError]))
-			printer.AddNode(fmt.Sprintf("Rules with unsupported constructs: %d", s.RuleErrorTypes[Unsupported]))
-			printer.AddNode(fmt.Sprintf("Total affected rules: %d", s.TotalAffectedRules))
-			printer.Pop()
-
-			if isDebug || s.TotalAffectedFiles > 0 || s.TotalAffectedRules > 0 {
-				printer.AddNode("More details")
-				printer.Push()
-				if absSemgrepRuleLoadTracePath != "" {
-					printer.AddNode(fmt.Sprintf("See Rule load trace: %s", absSemgrepRuleLoadTracePath))
-				}
-				if isDebug || s.FileErrorTypes[Unsupported] > 0 || s.RuleErrorTypes[Unsupported] > 0 {
-					printer.AddNode("Report issues here: https://github.com/seqra/seqra/issues")
-				}
-				printer.Pop()
-			}
-		}
-	}
-	printer.Pop()
-
-	// Rule Execution section
-	printer.AddNode("Rule Execution")
-	printer.Push()
-	printer.AddNode(fmt.Sprintf("Rules executed: %d", sarifSummary.TotalRulesExecuted))
-	printer.AddNode(fmt.Sprintf("Rules triggered: %d", sarifSummary.TotalRulesTriggered))
-	printer.Pop()
-
-	printer.Print()
-	logrus.Info()
+	out.Section("Rule Statistics").
+		Child(treeContent).
+		Render()
+	out.Blank()
 }

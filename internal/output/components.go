@@ -1,0 +1,295 @@
+package output
+
+import (
+	"errors"
+	"fmt"
+	"io"
+	"strings"
+	"sync"
+	"time"
+
+	"charm.land/lipgloss/v2"
+)
+
+// ── Spinner ──────────────────────────────────────────────────────────
+// A spinner shows an animated progress indicator while a long-running
+// operation is in progress.
+
+// spinnerFrames are the braille animation frames.
+var spinnerFrames = []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
+
+// SpinnerHandle controls a running spinner.
+type SpinnerHandle struct {
+	printer *Printer
+	stopCh  chan struct{}
+	doneCh  chan struct{}
+	msg     string
+	start   time.Time
+	mu      sync.Mutex
+}
+
+// StartSpinner creates and starts a new spinner. Call Stop() or StopError()
+// on the returned handle when the operation completes.
+func (p *Printer) StartSpinner(message string) *SpinnerHandle {
+	h := &SpinnerHandle{
+		printer: p,
+		stopCh:  make(chan struct{}),
+		doneCh:  make(chan struct{}),
+		msg:     message,
+		start:   time.Now(),
+	}
+
+	go func() {
+		defer close(h.doneCh)
+		i := 0
+		ticker := time.NewTicker(100 * time.Millisecond)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-h.stopCh:
+				return
+			case <-ticker.C:
+				h.mu.Lock()
+				elapsed := formatDuration(time.Since(h.start))
+				msg := h.msg
+				h.mu.Unlock()
+
+				th := p.theme
+				frame := th.SpinnerStyle.Render(string(spinnerFrames[i]))
+				fmt.Fprintf(p.w, "\r[%s] %s %s", frame, msg, th.Muted.Render(elapsed))
+				i = (i + 1) % len(spinnerFrames)
+			}
+		}
+	}()
+
+	return h
+}
+
+// Stop completes the spinner with a success indicator.
+func (h *SpinnerHandle) Stop(finalMessage string) {
+	close(h.stopCh)
+	<-h.doneCh
+	elapsed := formatDuration(time.Since(h.start))
+	th := h.printer.theme
+	done := th.DoneStyle.Render(h.printer.theme.SpinnerDone)
+	fmt.Fprintf(h.printer.w, "\r[%s] %s in %s\n", done, finalMessage, th.Muted.Render(elapsed))
+}
+
+// StopError completes the spinner with an error indicator.
+func (h *SpinnerHandle) StopError(finalMessage string) {
+	close(h.stopCh)
+	<-h.doneCh
+	elapsed := formatDuration(time.Since(h.start))
+	th := h.printer.theme
+	fail := th.FailStyle.Render(h.printer.theme.SpinnerFail)
+	fmt.Fprintf(h.printer.w, "\r[%s] %s in %s\n", fail, finalMessage, th.Muted.Render(elapsed))
+}
+
+// RunWithSpinner wraps a function with a spinner animation.
+// If the terminal is non-interactive, the function runs without visual feedback.
+func (p *Printer) RunWithSpinner(phase string, run func() error) error {
+	if !p.IsInteractive() {
+		return run()
+	}
+
+	spinner := p.StartSpinner(phase)
+	err := run()
+	if err != nil {
+		spinner.StopError(phase)
+		return err
+	}
+	spinner.Stop(phase)
+	return nil
+}
+
+// ── Progress bar ─────────────────────────────────────────────────────
+
+// CopyWithProgress copies src to dst while displaying a progress bar
+// on interactive terminals. Falls back to plain io.Copy otherwise.
+func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, label string) (int64, error) {
+	if !p.IsInteractive() || total <= 0 {
+		return io.Copy(dst, src)
+	}
+
+	const (
+		barWidth    = 28
+		updateEvery = 100 * time.Millisecond
+		bytesPerKiB = int64(1024)
+		bytesPerMiB = 1024 * bytesPerKiB
+		bytesPerGiB = 1024 * bytesPerMiB
+	)
+
+	formatBytes := func(n int64) string {
+		switch {
+		case n >= bytesPerGiB:
+			return fmt.Sprintf("%.1f GiB", float64(n)/float64(bytesPerGiB))
+		case n >= bytesPerMiB:
+			return fmt.Sprintf("%.1f MiB", float64(n)/float64(bytesPerMiB))
+		case n >= bytesPerKiB:
+			return fmt.Sprintf("%.1f KiB", float64(n)/float64(bytesPerKiB))
+		default:
+			return fmt.Sprintf("%d B", n)
+		}
+	}
+
+	started := false
+	printProgress := func(written int64, force bool, lastPrinted *time.Time) {
+		now := time.Now()
+		if !force && !lastPrinted.IsZero() && now.Sub(*lastPrinted) < updateEvery {
+			return
+		}
+		if !started {
+			fmt.Fprint(p.w, "\n")
+			started = true
+		}
+		*lastPrinted = now
+
+		if written > total {
+			written = total
+		}
+		percent := float64(written) / float64(total)
+		filled := int(percent * barWidth)
+		if filled > barWidth {
+			filled = barWidth
+		}
+
+		th := p.theme
+		bar := th.Success.Render(strings.Repeat("=", filled)) + th.Muted.Render(strings.Repeat("-", barWidth-filled))
+		fmt.Fprintf(p.w, "\r[%s] %s %3.0f%% (%s/%s)", bar, label, percent*100, formatBytes(written), formatBytes(total))
+	}
+
+	buf := make([]byte, 32*1024)
+	var written int64
+	var lastPrinted time.Time
+
+	for {
+		nr, readErr := src.Read(buf)
+		if nr > 0 {
+			nw, writeErr := dst.Write(buf[:nr])
+			if nw > 0 {
+				written += int64(nw)
+				printProgress(written, false, &lastPrinted)
+			}
+			if writeErr != nil {
+				fmt.Fprint(p.w, "\n")
+				return written, writeErr
+			}
+			if nw < nr {
+				fmt.Fprint(p.w, "\n")
+				return written, io.ErrShortWrite
+			}
+		}
+
+		if readErr != nil {
+			if errors.Is(readErr, io.EOF) {
+				printProgress(written, true, &lastPrinted)
+				fmt.Fprint(p.w, "\n")
+				return written, nil
+			}
+			fmt.Fprint(p.w, "\n")
+			return written, readErr
+		}
+	}
+}
+
+// ── Confirm prompt ───────────────────────────────────────────────────
+
+// Confirm shows a Y/N prompt and returns true if the user accepts.
+// If not interactive, returns the default value.
+func (p *Printer) Confirm(prompt string, defaultYes bool) bool {
+	if !p.IsInteractive() {
+		return defaultYes
+	}
+
+	suffix := " [y/N] "
+	if defaultYes {
+		suffix = " [Y/n] "
+	}
+
+	fmt.Fprint(p.w, "\n"+prompt+suffix)
+
+	var response string
+	if _, err := fmt.Scanln(&response); err != nil {
+		return defaultYes
+	}
+	response = strings.TrimSpace(strings.ToLower(response))
+	if response == "y" || response == "yes" {
+		return true
+	}
+	if response == "n" || response == "no" {
+		return false
+	}
+	return defaultYes
+}
+
+// ── Duration formatting ──────────────────────────────────────────────
+
+// FormatDuration returns a human-readable duration string.
+func FormatDuration(d time.Duration) string {
+	return formatDuration(d)
+}
+
+func formatDuration(d time.Duration) string {
+	d = d.Round(time.Second)
+	h := d / time.Hour
+	m := (d % time.Hour) / time.Minute
+	s := (d % time.Minute) / time.Second
+
+	switch {
+	case h > 0:
+		return fmt.Sprintf("%dh %dm %ds", h, m, s)
+	case m > 0:
+		return fmt.Sprintf("%dm %ds", m, s)
+	default:
+		return fmt.Sprintf("%ds", s)
+	}
+}
+
+// ── File size formatting ─────────────────────────────────────────────
+
+// FormatSize returns a human-readable byte size string.
+func FormatSize(bytes int64) string {
+	const (
+		kb = 1024
+		mb = 1024 * kb
+		gb = 1024 * mb
+	)
+	switch {
+	case bytes >= gb:
+		return fmt.Sprintf("%.1f GB", float64(bytes)/float64(gb))
+	case bytes >= mb:
+		return fmt.Sprintf("%.1f MB", float64(bytes)/float64(mb))
+	case bytes >= kb:
+		return fmt.Sprintf("%.1f KB", float64(bytes)/float64(kb))
+	default:
+		return fmt.Sprintf("%d B", bytes)
+	}
+}
+
+// ── Hyperlink ────────────────────────────────────────────────────────
+
+// Hyperlink returns an OSC 8 terminal hyperlink if the terminal supports it,
+// otherwise returns plain text.
+func (p *Printer) Hyperlink(text, url string) string {
+	if !p.isTTY {
+		return text
+	}
+	return lipgloss.NewStyle().Hyperlink(url).Render(text)
+}
+
+// FileLink returns a clickable file:// hyperlink for a file path and line.
+func (p *Printer) FileLink(absProjectPath, relFilePath, displayName string, line int64) string {
+	if !p.isTTY {
+		return fmt.Sprintf("%s:%d", displayName, line)
+	}
+
+	absProjectPath = strings.ReplaceAll(absProjectPath, "\\", "/")
+	if !strings.HasSuffix(absProjectPath, "/") {
+		absProjectPath += "/"
+	}
+
+	uri := fmt.Sprintf("file://%s%s", absProjectPath, relFilePath)
+	link := lipgloss.NewStyle().Hyperlink(uri).Render(displayName)
+	return fmt.Sprintf("%s:%d", link, line)
+}

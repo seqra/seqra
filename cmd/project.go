@@ -11,7 +11,6 @@ import (
 
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/utils"
-	"github.com/seqra/seqra/v2/internal/utils/formatters"
 	"github.com/seqra/seqra/v2/internal/utils/java"
 	"github.com/seqra/seqra/v2/internal/utils/log"
 	"github.com/seqra/seqra/v2/internal/utils/project"
@@ -128,12 +127,12 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 	}
 
 	if _, err = os.Stat(autobuilderJarPath); errors.Is(err, os.ErrNotExist) {
-		logrus.Info()
-		logrus.Infof("Downloading autobuilder version %s", globals.Config.Autobuilder.Version)
+		out.Blank()
+		out.Printf("Downloading autobuilder version %s", globals.Config.Autobuilder.Version)
 		if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
 			return fmt.Errorf("failed to download autobuilder: %w", err)
 		}
-		logrus.Infof("Successfully downloaded autobuilder to %s", autobuilderJarPath)
+		out.Printf("Successfully downloaded autobuilder to %s", autobuilderJarPath)
 	}
 
 	builder := NewAutobuilderBuilder().
@@ -197,17 +196,15 @@ func (c *JavaAutobuilderConfig) logProjectSummary(projectYamlPath string, config
 		totalClasses += len(module.ModuleClasses)
 	}
 
-	logrus.Info()
-	logrus.Info(formatters.FormatTreeHeader("Project Summary"))
-
-	printer := formatters.NewTreePrinter()
-	printer.AddNode(fmt.Sprintf("Generated project.yaml at: %s", projectYamlPath))
-	printer.AddNode("")
-	printer.AddNode(fmt.Sprintf("Total modules: %d", len(config.Modules)))
-	printer.AddNode(fmt.Sprintf("Total classes: %d", totalClasses))
-	printer.AddNode(fmt.Sprintf("Total packages: %d", totalPackages))
-	printer.AddNode(fmt.Sprintf("Total dependencies: %d", len(config.Dependencies)))
-	printer.Print()
+	out.Blank()
+	out.Section("Project Summary").
+		Field("Generated project.yaml at", projectYamlPath).
+		Line().
+		Field("Total modules", len(config.Modules)).
+		Field("Total classes", totalClasses).
+		Field("Total packages", totalPackages).
+		Field("Total dependencies", len(config.Dependencies)).
+		Render()
 }
 
 var (
@@ -242,32 +239,29 @@ Examples:
 			WithClasspath(Classpaths).
 			Build()
 
-		logrus.Info(formatters.FormatTreeHeader("Seqra Project"))
+		classpathItems := make([]any, len(config.classpaths))
+		for i, cp := range config.classpaths {
+			classpathItems[i] = cp
+		}
+		packageItems := make([]any, len(config.packages))
+		for i, pkg := range config.packages {
+			packageItems[i] = pkg
+		}
 
-		printer := formatters.NewTreePrinter()
-		printer.AddNode(fmt.Sprintf("Source root: %s", config.sourceRoot))
-		printer.AddNode(fmt.Sprintf("Output: %s", config.outputDir))
-		printer.AddNode("Classpaths")
-		printer.Push()
-		for _, classpath := range config.classpaths {
-			printer.AddNode(classpath)
-		}
-		printer.Pop()
-		printer.AddNode("Packages")
-		printer.Push()
-		for _, pkg := range config.packages {
-			printer.AddNode(pkg)
-		}
-		printer.Pop()
+		sb := out.Section("Seqra Project").
+			Field("Source root", config.sourceRoot).
+			Field("Output", config.outputDir).
+			Group("Classpaths", classpathItems...).
+			Group("Packages", packageItems...)
+
 		if len(config.dependencies) != 0 {
-			printer.AddNode("Dependencies")
-			printer.Push()
-			for _, dep := range config.dependencies {
-				printer.AddNode(dep)
+			depItems := make([]any, len(config.dependencies))
+			for i, dep := range config.dependencies {
+				depItems[i] = dep
 			}
-			printer.Pop()
+			sb.Group("Dependencies", depItems...)
 		}
-		printer.Print()
+		sb.Render()
 
 		if err := config.Execute(); err != nil {
 			logrus.Fatalf("Failed to generate project configuration: %s", err)

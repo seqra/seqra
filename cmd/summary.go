@@ -4,7 +4,6 @@ import (
 	"os"
 
 	"github.com/seqra/seqra/v2/internal/sarif"
-	"github.com/seqra/seqra/v2/internal/utils/formatters"
 	"github.com/seqra/seqra/v2/internal/utils/log"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -27,9 +26,7 @@ Arguments:
 		if report == nil {
 			return
 		}
-		printer := formatters.NewTreePrinter()
 		printSarifSummary(report, absSarifPath)
-		printer.Print()
 	},
 }
 
@@ -48,11 +45,11 @@ func init() {
 
 func printSarifSummary(report *sarif.Report, absSarifPath string) {
 	if showFindings {
-		report.PrintAll(showCodeSnippets, verboseFlow)
-		logrus.Info()
+		report.PrintAll(out, showCodeSnippets, verboseFlow)
+		out.Blank()
 	}
 
-	report.PrintSummary(absSarifPath)
+	report.PrintSummary(out, absSarifPath)
 }
 
 func loadSarifReport(absSarifPath string) *sarif.Report {

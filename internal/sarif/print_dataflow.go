@@ -6,7 +6,9 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/seqra/seqra/v2/internal/utils/color"
+	"charm.land/lipgloss/v2"
+
+	"github.com/seqra/seqra/v2/internal/output"
 
 	"github.com/sirupsen/logrus"
 )
@@ -64,7 +66,8 @@ func (fsb *FlowStepBuilder) FormatStep(cs classifiedStep, absProjectPath string)
 
 	mainLine := fmt.Sprintf("%s%s", fsb.indent, msg)
 
-	locationLine := printLoc(loc, absProjectPath)
+	// Format location as plain text (hyperlinks handled by caller if needed)
+	locationLine := fmt.Sprintf("%s:%d", loc.relFilePath, loc.line)
 
 	return mainLine, locationLine
 }
@@ -144,16 +147,16 @@ func (loc Location) extractNodeLoc() nodeLoc {
 	return nodeLoc{relFilePath: relFilePath, fileName: fileName, method: method, line: lineVal}
 }
 
-// levelIndicator returns a text-based indicator for the given level
-func levelIndicator(level Level) (string, color.Color) {
+// levelIndicatorStyled returns a text-based indicator and lipgloss style for the given level.
+func levelIndicatorStyled(level Level, th *output.Theme) (string, lipgloss.Style) {
 	switch strings.ToLower(string(level)) {
 	case "error":
-		return "[ERROR]", color.Red
+		return "[ERROR]", th.Error
 	case "warning":
-		return "[WARNING]", color.Yellow
+		return "[WARNING]", th.Warning
 	case "note":
-		return "[NOTE]", color.Default
+		return "[NOTE]", th.Note
 	default:
-		return "[UNKNOWN]", color.Default
+		return "[UNKNOWN]", th.Muted
 	}
 }

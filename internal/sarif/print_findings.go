@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/seqra/seqra/v2/internal/utils/formatters"
+	"charm.land/lipgloss/v2/tree"
+
+	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/sirupsen/logrus"
 )
 
@@ -123,9 +125,8 @@ func (sb *SnippetBuilder) LoadSnippet(filePath string, centerLine int64) (string
 	return out.String(), nil
 }
 
-func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets bool, verboseFlow bool, findingIndex int, totalFindings int) {
+func (report *Report) printFinding(out *output.Printer, result *Result, runIdx int, showCodeSnippets bool, verboseFlow bool, findingIndex int, totalFindings int) {
 	absProjectPath, err := report.projectPath(runIdx)
-
 	if err != nil {
 		logrus.Errorf("Project path lookup failed: %v", err)
 		return
@@ -142,8 +143,7 @@ func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets 
 	} else {
 		logrus.Warn("Finding has nil level; defaulting to 'unknown'")
 	}
-	indicator, indicatorColor := levelIndicator(lvl)
-	logrus.Info(formatters.FormatTreeHeaderColorized(fmt.Sprintf("Finding %d/%d %s", findingIndex, totalFindings, indicator), indicatorColor))
+	indicator, indicatorStyle := levelIndicatorStyled(lvl, out.Theme())
 
 	rule := "<unknown>"
 	if result.RuleID != nil {
@@ -158,38 +158,33 @@ func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets 
 		logrus.Warn("Finding has nil message.text")
 	}
 
-	printer := formatters.NewTreePrinter()
-	printer.AddNode(fmt.Sprintf("Rule: %s", rule))
-	printer.AddNodeWrapped(fmt.Sprintf("Message: %s", msg))
-
 	loc := result.Locations[0]
-	locStr := printLoc(loc.extractNodeLoc(), absProjectPath)
-	printer.AddNode(fmt.Sprintf("Location: %s", locStr))
+	locStr := printLocStyled(loc.extractNodeLoc(), absProjectPath, out)
+
+	sb := out.Section(fmt.Sprintf("Finding %d/%d %s", findingIndex, totalFindings, indicator)).
+		WithStyle(indicatorStyle).
+		Field("Rule", rule).
+		Text(fmt.Sprintf("Message: %s", msg)).
+		Field("Location", locStr)
 
 	taintFlow, err := classifyTaintFlow(result)
 	if err != nil {
 		logrus.Debugf("No source/sink: %s", err)
 
-		snippetBuilder := NewSnippetBuilder()
-
 		resultPath := extractAbsolutePath(&loc, absProjectPath, "Result")
-
 		if resultPath != "" && showCodeSnippets {
-			snippet := printSnippetWithBuilder(resultPath, loc.extractNodeLoc(), snippetBuilder)
+			snippet := out.Snippet().LoadOrEmpty(resultPath, loc.extractNodeLoc().line)
 			if snippet != "" {
-				printer.Push()
-				printer.AddNode(snippet)
-				printer.Pop()
+				sb.Text(snippet)
 			}
 		}
 
-		printer.Print()
+		sb.Render()
 		return
 	}
 
-	printer.AddNode("")
-	printer.AddNode("Code Flow")
-	printer.Push()
+	// Build code flow sub-tree
+	flowTree := tree.Root("Code Flow")
 
 	builder := NewFlowStepBuilder()
 	flowSteps := taintFlow
@@ -201,39 +196,34 @@ func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets 
 
 	for i, cs := range flowSteps {
 		mainLine, locationLine := builder.FormatStep(cs, absProjectPath)
-		printer.AddNodeWrapped(mainLine)
-		printer.Push()
-		printer.AddNode(locationLine)
-		printer.Pop()
-
-		if omitted > 0 && i == 0 {
-			printer.AddNodeWrapped(fmt.Sprintf("... %d intermediate steps omitted (use --verbose-flow)", omitted))
-		}
+		stepNode := tree.Root(mainLine).Child(locationLine)
 
 		if i != 0 && i != len(flowSteps)-1 {
+			flowTree.Child(stepNode)
 			continue
 		}
 
-		loc := cs.Step.Location
-		locPath := extractAbsolutePath(loc, absProjectPath, "Flow")
-
+		stepLoc := cs.Step.Location
+		locPath := extractAbsolutePath(stepLoc, absProjectPath, "Flow")
 		if locPath != "" && showCodeSnippets {
-			snippetBuilder := NewSnippetBuilder()
-			snippet := printSnippetWithBuilder(locPath, loc.extractNodeLoc(), snippetBuilder)
+			snippet := out.Snippet().LoadOrEmpty(locPath, stepLoc.extractNodeLoc().line)
 			if snippet != "" {
-				printer.AddNode(snippet)
-				continue
+				stepNode.Child(snippet)
 			}
 		}
-	}
-	printer.Pop()
 
-	printer.Print()
+		flowTree.Child(stepNode)
+
+		if omitted > 0 && i == 0 {
+			flowTree.Child(fmt.Sprintf("... %d intermediate steps omitted (use --verbose-flow)", omitted))
+		}
+	}
+
+	sb.Line().Child(flowTree).Render()
 }
 
-func printLoc(loc nodeLoc, absProjectPath string) string {
-	link := formatters.FormatFilePathHyperLink(absProjectPath, loc.relFilePath, loc.relFilePath, loc.line)
-	return link
+func printLocStyled(loc nodeLoc, absProjectPath string, out *output.Printer) string {
+	return out.FileLink(absProjectPath, loc.relFilePath, loc.relFilePath, loc.line)
 }
 
 // extractAbsolutePath safely extracts the absolute path from a location

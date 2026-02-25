@@ -6,9 +6,7 @@ import (
 	"sort"
 
 	"github.com/seqra/seqra/v2/internal/globals"
-	"github.com/seqra/seqra/v2/internal/utils/color"
-	"github.com/seqra/seqra/v2/internal/utils/formatters"
-	"github.com/sirupsen/logrus"
+	"github.com/seqra/seqra/v2/internal/output"
 )
 
 // Summary represents a summary of SARIF findings
@@ -120,56 +118,47 @@ func generateRuleSummary(report *Report) []RuleSummary {
 	return out
 }
 
-func (report *Report) printFindingsOverview() {
+func (report *Report) printFindingsOverview(out *output.Printer) {
 	ruleSummary := generateRuleSummary(report)
 	if len(ruleSummary) == 0 {
 		return
 	}
 
-	logrus.Info(formatters.FormatTreeHeader("Findings Overview"))
-	printer := formatters.NewTreePrinter()
-
+	sb := out.Section("Findings Overview")
 	for _, item := range ruleSummary {
-		printer.AddNodeWrapped(
-			fmt.Sprintf("%s: %d findings (errors: %d, warnings: %d, notes: %d)",
-				item.RuleID,
-				item.Total,
-				item.Errors,
-				item.Warnings,
-				item.Notes,
-			),
-		)
+		sb.Text(fmt.Sprintf("%s: %d findings (errors: %d, warnings: %d, notes: %d)",
+			item.RuleID,
+			item.Total,
+			item.Errors,
+			item.Warnings,
+			item.Notes,
+		))
 	}
-
-	printer.Print()
-	logrus.Info()
+	sb.Render()
+	out.Blank()
 }
 
-func printReportsInfo(printer *formatters.TreePrinter, absSarifReportPath string) {
-	printer.AddNode("Reports")
-	printer.Push()
-	printer.AddNode(fmt.Sprintf("Log: %s", globals.LogPath))
-	printer.AddNode(fmt.Sprintf("SARIF: %s", absSarifReportPath))
-	printer.Pop()
+func reportsGroup(out *output.Printer, absSarifReportPath string) []any {
+	return []any{
+		out.FieldItem("Log", globals.LogPath),
+		out.FieldItem("SARIF", absSarifReportPath),
+	}
 }
 
 // PrintSummary prints a human-readable summary of the SARIF report
-func (report *Report) PrintSummary(absSarifReportPath string) {
+func (report *Report) PrintSummary(out *output.Printer, absSarifReportPath string) {
 	summary := GenerateSummary(report)
+	th := out.Theme()
 
-	logrus.Info(formatters.FormatTreeHeader("Scan Summary"))
-	printer := formatters.NewTreePrinter()
-
-	printer.AddNode("Findings")
-	printer.Push()
-	printer.AddNode(fmt.Sprintf("Total: %d", summary.TotalFindings))
-	printer.AddNodeColored(fmt.Sprintf("Errors: %d", summary.FindingsByLevel["error"]), color.Red)
-	printer.AddNodeColored(fmt.Sprintf("Warnings: %d", summary.FindingsByLevel["warning"]), color.Yellow)
-	printer.AddNode(fmt.Sprintf("Notes: %d", summary.FindingsByLevel["note"]))
-	printer.Pop()
-
-	printReportsInfo(printer, absSarifReportPath)
-	printer.Print()
+	out.Section("Scan Summary").
+		Group("Findings",
+			out.FieldItem("Total", summary.TotalFindings),
+			out.StyledFieldItem("Errors", summary.FindingsByLevel["error"], th.Error),
+			out.StyledFieldItem("Warnings", summary.FindingsByLevel["warning"], th.Warning),
+			out.FieldItem("Notes", summary.FindingsByLevel["note"]),
+		).
+		Group("Reports", reportsGroup(out, absSarifReportPath)...).
+		Render()
 }
 
 type PrintableResult struct {
@@ -179,16 +168,16 @@ type PrintableResult struct {
 	Level     *Level
 }
 
-func (report *Report) PrintAll(showCodeSnippets bool, verboseFlow bool) {
-	report.printFindingsOverview()
-
-	if len(report.Runs) > 0 && len(report.Runs[0].Results) > 0 {
-		logrus.Info(formatters.FormatHeader1("Findings"))
-	}
+func (report *Report) PrintAll(out *output.Printer, showCodeSnippets bool, verboseFlow bool) {
+	report.printFindingsOverview(out)
 
 	totalFindings := 0
 	for _, run := range report.Runs {
 		totalFindings += len(run.Results)
+	}
+
+	if totalFindings > 0 {
+		out.Section("Findings").Render()
 	}
 
 	findingIndex := 0
@@ -196,8 +185,8 @@ func (report *Report) PrintAll(showCodeSnippets bool, verboseFlow bool) {
 	for idx, run := range report.Runs {
 		for _, result := range run.Results {
 			findingIndex++
-			report.printFinding(&result, idx, showCodeSnippets, verboseFlow, findingIndex, totalFindings)
-			logrus.Info()
+			report.printFinding(out, &result, idx, showCodeSnippets, verboseFlow, findingIndex, totalFindings)
+			out.Blank()
 		}
 	}
 }

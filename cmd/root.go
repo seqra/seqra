@@ -8,9 +8,11 @@ import (
 	"time"
 
 	"github.com/seqra/seqra/v2/internal/globals"
+	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/utils"
-	"github.com/seqra/seqra/v2/internal/utils/formatters"
 	"github.com/seqra/seqra/v2/internal/utils/log"
+	// Keep logrus for file logging diagnostics
+	// The output package handles user-facing terminal output
 	"github.com/seqra/seqra/v2/internal/version"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -18,6 +20,10 @@ import (
 )
 
 var toolVersion bool
+
+// out is the global output printer used by all commands for user-facing output.
+// It is configured in PersistentPreRunE after logging is set up.
+var out = output.New()
 
 // updateHintCh receives an update hint message if a new version is available.
 var updateHintCh = make(chan string, 1)
@@ -40,6 +46,9 @@ var rootCmd = &cobra.Command{
 			return fmt.Errorf("failed to set up logging: %w", err)
 		}
 
+		// Configure the output printer (color mode, quiet mode)
+		out.Configure(globals.Config.Log.Color, globals.Config.Quiet)
+
 		// Start async update check (non-blocking, at most once per day)
 		if !globals.Config.Quiet {
 			go checkForUpdateAsync()
@@ -51,8 +60,8 @@ var rootCmd = &cobra.Command{
 		// Print update hint if available
 		select {
 		case hint := <-updateHintCh:
-			logrus.Info("")
-			logrus.Info(hint)
+			out.Blank()
+			out.Print(hint)
 		default:
 		}
 	},
@@ -146,13 +155,14 @@ func bindScanTypeFlag(cmd *cobra.Command) {
 	_ = viper.BindPFlag("scan.type", cmd.Flags().Lookup("scan-type"))
 }
 
-func printConfig(cmd *cobra.Command, printer *formatters.TreePrinter) {
+// addConfigFields appends config fields to a SectionBuilder if PrintConfig annotation is set.
+func addConfigFields(cmd *cobra.Command, sb *output.SectionBuilder) {
 	if cmd.Annotations != nil && cmd.Annotations["PrintConfig"] == "true" {
-		printer.AddNode("Log level: " + globals.Config.Log.Verbosity)
+		sb.Field("Log level", globals.Config.Log.Verbosity)
 		if viper.ConfigFileUsed() != "" {
-			printer.AddNode("Using config file: " + viper.ConfigFileUsed())
+			sb.Field("Config file", viper.ConfigFileUsed())
 		}
-		printer.AddNode("Log file: " + globals.LogPath)
+		sb.Field("Log file", globals.LogPath)
 	}
 }
 
