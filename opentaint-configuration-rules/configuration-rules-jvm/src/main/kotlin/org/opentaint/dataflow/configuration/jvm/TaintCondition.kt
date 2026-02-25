@@ -17,6 +17,7 @@ interface ConditionVisitor<out R> {
     fun visit(condition: ContainsMark): R
     fun visit(condition: TypeMatches): R
     fun visit(condition: TypeMatchesPattern): R
+    fun visit(condition: IsStaticField): R
 }
 
 interface Condition {
@@ -105,8 +106,12 @@ data class TypeMatches(
 }
 
 sealed interface ConditionNameMatcher {
-    data class Concrete(val name: String) : ConditionNameMatcher
-    data class Pattern(val pattern: Regex) : ConditionNameMatcher
+    sealed interface Simple : ConditionNameMatcher
+
+    data object AnyName: Simple
+    data class Concrete(val name: String) : Simple
+    data class Pattern(val pattern: Regex) : Simple
+
     data class PatternEndsWith(val suffix: String) : ConditionNameMatcher
     data class PatternStartsWith(val prefix: String) : ConditionNameMatcher
 }
@@ -125,3 +130,11 @@ data class ConstantIntValue(val value: Int) : ConstantValue
 data class ConstantBooleanValue(val value: Boolean) : ConstantValue
 
 data class ConstantStringValue(val value: String) : ConstantValue
+
+data class IsStaticField(
+    val position: Position,
+    val className: ConditionNameMatcher,
+    val fieldName: ConditionNameMatcher.Simple,
+) : Condition {
+    override fun <R> accept(conditionVisitor: ConditionVisitor<R>): R = conditionVisitor.visit(this)
+}

@@ -14,20 +14,20 @@ import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
 @Serializable
-data class SerializedArgMatcher(val index: Int, val type: SerializedNameMatcher)
+data class SerializedArgMatcher(val index: Int, val type: SerializedTypeNameMatcher)
 
 @Serializable(with = SerializedSignatureMatcherSerializer::class)
 sealed interface SerializedSignatureMatcher {
     @Serializable(with = SimpleSignatureSerializer::class)
     data class Simple(
-        val args: List<SerializedNameMatcher.Simple>,
-        val `return`: SerializedNameMatcher.Simple
+        val args: List<SerializedSimpleNameMatcher.Simple>,
+        val `return`: SerializedSimpleNameMatcher.Simple
     ) : SerializedSignatureMatcher
 
     @Serializable
     data class Partial(
         val params: List<SerializedArgMatcher>? = null,
-        val `return`: SerializedNameMatcher? = null
+        val `return`: SerializedTypeNameMatcher? = null
     ) : SerializedSignatureMatcher
 }
 
@@ -51,8 +51,8 @@ object SimpleSignatureSerializer : KSerializer<SerializedSignatureMatcher.Simple
         val paramsStrSplit = if (paramsStr.trim().isBlank()) emptyList() else paramsStr.split(',')
 
         return SerializedSignatureMatcher.Simple(
-            paramsStrSplit.map { SerializedNameMatcher.Simple(it.trim()) },
-            SerializedNameMatcher.Simple(returnTypeStr.trim())
+            paramsStrSplit.map { SerializedSimpleNameMatcher.Simple(it.trim()) },
+            SerializedSimpleNameMatcher.Simple(returnTypeStr.trim())
         )
     }
 }

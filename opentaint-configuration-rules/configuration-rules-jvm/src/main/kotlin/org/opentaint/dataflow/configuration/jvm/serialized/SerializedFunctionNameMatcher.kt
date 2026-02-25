@@ -15,28 +15,28 @@ import kotlinx.serialization.encoding.Encoder
 
 @Serializable(with = SerializedFunctionNameSerializer::class)
 sealed interface SerializedFunctionNameMatcher {
-    val `package`: SerializedNameMatcher
-    val `class`: SerializedNameMatcher
-    val name: SerializedNameMatcher
+    val `package`: SerializedSimpleNameMatcher
+    val `class`: SerializedSimpleNameMatcher
+    val name: SerializedSimpleNameMatcher
 
     @Serializable(with = SimpleFunctionNameSerializer::class)
     data class Simple(
-        override val `package`: SerializedNameMatcher.Simple,
-        override val `class`: SerializedNameMatcher.Simple,
-        override val name: SerializedNameMatcher.Simple,
+        override val `package`: SerializedSimpleNameMatcher.Simple,
+        override val `class`: SerializedSimpleNameMatcher.Simple,
+        override val name: SerializedSimpleNameMatcher.Simple,
     ) : SerializedFunctionNameMatcher
 
     @Serializable
     data class Complex(
-        override val `package`: SerializedNameMatcher,
-        override val `class`: SerializedNameMatcher,
-        override val name: SerializedNameMatcher,
+        override val `package`: SerializedSimpleNameMatcher,
+        override val `class`: SerializedSimpleNameMatcher,
+        override val name: SerializedSimpleNameMatcher,
     ) : SerializedFunctionNameMatcher {
         fun simplify(): SerializedFunctionNameMatcher {
             if (
-                `package` is SerializedNameMatcher.Simple
-                && `class` is SerializedNameMatcher.Simple
-                && name is SerializedNameMatcher.Simple
+                `package` is SerializedSimpleNameMatcher.Simple
+                && `class` is SerializedSimpleNameMatcher.Simple
+                && name is SerializedSimpleNameMatcher.Simple
             ) {
                 return Simple(`package`, `class`, name)
             }
@@ -70,9 +70,9 @@ object SimpleFunctionNameSerializer : KSerializer<SerializedFunctionNameMatcher.
         val packageName = fullClassName.substringBeforeLast('.', missingDelimiterValue = "")
 
         return SerializedFunctionNameMatcher.Simple(
-            `package` = SerializedNameMatcher.Simple(packageName),
-            `class` = SerializedNameMatcher.Simple(className),
-            name = SerializedNameMatcher.Simple(functionName)
+            `package` = SerializedSimpleNameMatcher.Simple(packageName),
+            `class` = SerializedSimpleNameMatcher.Simple(className),
+            name = SerializedSimpleNameMatcher.Simple(functionName)
         )
     }
 

@@ -81,13 +81,13 @@ sealed interface SerializedCondition {
 
     @Serializable
     data class IsType(
-        val typeIs: SerializedNameMatcher,
+        val typeIs: SerializedTypeNameMatcher,
         val pos: PositionBase
     ) : SerializedCondition
 
     @Serializable
     data class AnnotationType(
-        val annotatedWith: SerializedNameMatcher,
+        val annotatedWith: SerializedTypeNameMatcher,
         val pos: PositionBase
     ) : SerializedCondition
 
@@ -145,24 +145,18 @@ sealed interface SerializedCondition {
     data class NumberOfArgs(val numberOfArgs: Int): SerializedCondition
 
     sealed interface AnnotationParamMatcher {
-        val name: String
+        val name: SerializedSimpleNameMatcher
     }
 
     @Serializable
     data class AnnotationParamStringMatcher(
-        override val name: String,
-        val value: String
-    ) : AnnotationParamMatcher
-
-    @Serializable
-    data class AnnotationParamPatternMatcher(
-        override val name: String,
-        val pattern: String
+        override val name: SerializedSimpleNameMatcher,
+        val value: SerializedSimpleNameMatcher
     ) : AnnotationParamMatcher
 
     @Serializable
     data class AnnotationConstraint(
-        val type: SerializedNameMatcher,
+        val type: SerializedTypeNameMatcher,
         val params: List<AnnotationParamMatcher>?
     )
 
@@ -179,10 +173,17 @@ sealed interface SerializedCondition {
     ) : SerializedCondition
 
     @Serializable
-    data class MethodNameMatches(val nameMatches: String) : SerializedCondition
+    data class MethodNameMatches(val methodName: SerializedSimpleNameMatcher) : SerializedCondition
 
     @Serializable
-    data class ClassNameMatches(val nameMatcher: SerializedNameMatcher) : SerializedCondition
+    data class ClassNameMatches(val className: SerializedTypeNameMatcher) : SerializedCondition
+
+    @Serializable
+    data class IsStaticField(
+        val pos: PositionBase,
+        val className: SerializedTypeNameMatcher,
+        val fieldName: SerializedSimpleNameMatcher
+    ): SerializedCondition
 }
 
 class TrueConditionSerializer : KSerializer<SerializedCondition.True> {

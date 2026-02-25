@@ -13,51 +13,73 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 
-@Serializable(with = SerializedNameMatcherSerializer::class)
-sealed interface SerializedNameMatcher {
-    @Serializable
-    data class Pattern(val pattern: String) : SerializedNameMatcher
-
+@Serializable(with = SerializedTypeNameMatcherSerializer::class)
+sealed interface SerializedTypeNameMatcher {
     @Serializable
     data class ClassPattern(
-        val `package`: SerializedNameMatcher,
-        val `class`: SerializedNameMatcher
-    ) : SerializedNameMatcher
-
-    @Serializable(with = SimpleNameMatcherSerializer::class)
-    data class Simple(val value: String) : SerializedNameMatcher
+        val `package`: SerializedSimpleNameMatcher,
+        val `class`: SerializedSimpleNameMatcher
+    ) : SerializedTypeNameMatcher
 
     @Serializable
-    data class Array(val element: SerializedNameMatcher) : SerializedNameMatcher
+    data class Array(val element: SerializedTypeNameMatcher) : SerializedTypeNameMatcher
 }
 
-class SerializedNameMatcherSerializer :
-    YamlContentPolymorphicSerializer<SerializedNameMatcher>(SerializedNameMatcher::class) {
-    override fun selectDeserializer(node: YamlNode): DeserializationStrategy<SerializedNameMatcher> = when (node) {
-        is YamlScalar -> SerializedNameMatcher.Simple.serializer()
+@Serializable(with = SimpleNameMatcherSerializer::class)
+sealed interface SerializedSimpleNameMatcher : SerializedTypeNameMatcher {
+    @Serializable
+    data class Pattern(val pattern: String) : SerializedSimpleNameMatcher
+
+
+    @Serializable(with = SimpleNameMatcherSimpleSerializer::class)
+    data class Simple(val value: String) : SerializedSimpleNameMatcher
+}
+
+class SerializedTypeNameMatcherSerializer :
+    YamlContentPolymorphicSerializer<SerializedTypeNameMatcher>(SerializedTypeNameMatcher::class) {
+    override fun selectDeserializer(node: YamlNode): DeserializationStrategy<SerializedTypeNameMatcher> = when (node) {
         is YamlMap -> {
-            val patternProperty = node.getKey("pattern")
+            val classProperty = node.getKey("class")
             val elementProperty = node.getKey("element")
 
-            if (patternProperty != null) {
-                SerializedNameMatcher.Pattern.serializer()
+            if (classProperty != null) {
+                SerializedTypeNameMatcher.ClassPattern.serializer()
             } else if (elementProperty != null) {
-                SerializedNameMatcher.Array.serializer()
+                SerializedTypeNameMatcher.Array.serializer()
             } else {
-                SerializedNameMatcher.ClassPattern.serializer()
+                SerializedSimpleNameMatcher.serializer()
             }
         }
-        else -> error("Unexpected node: $node")
+
+        else -> SerializedSimpleNameMatcher.serializer()
     }
 }
 
-class SimpleNameMatcherSerializer : KSerializer<SerializedNameMatcher.Simple> {
+class SimpleNameMatcherSerializer :
+    YamlContentPolymorphicSerializer<SerializedSimpleNameMatcher>(SerializedSimpleNameMatcher::class) {
+    override fun selectDeserializer(node: YamlNode): DeserializationStrategy<SerializedSimpleNameMatcher> =
+        when (node) {
+            is YamlScalar -> SerializedSimpleNameMatcher.Simple.serializer()
+            is YamlMap -> {
+                val patternProperty = node.getKey("pattern")
+                if (patternProperty != null) {
+                    SerializedSimpleNameMatcher.Pattern.serializer()
+                } else {
+                    error("Unexpected node: $node")
+                }
+            }
+
+            else -> error("Unexpected node: $node")
+        }
+}
+
+class SimpleNameMatcherSimpleSerializer : KSerializer<SerializedSimpleNameMatcher.Simple> {
     override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("value", PrimitiveKind.STRING)
 
-    override fun deserialize(decoder: Decoder): SerializedNameMatcher.Simple =
-        SerializedNameMatcher.Simple(decoder.decodeString())
+    override fun deserialize(decoder: Decoder): SerializedSimpleNameMatcher.Simple =
+        SerializedSimpleNameMatcher.Simple(decoder.decodeString())
 
-    override fun serialize(encoder: Encoder, value: SerializedNameMatcher.Simple) {
+    override fun serialize(encoder: Encoder, value: SerializedSimpleNameMatcher.Simple) {
         encoder.encodeString(value.value)
     }
 }

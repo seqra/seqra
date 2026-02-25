@@ -7,7 +7,7 @@ sealed interface SerializedAction
 @Serializable
 data class SerializedTaintAssignAction(
     val kind: String,
-    val annotatedWith: SerializedNameMatcher? = null,
+    val annotatedWith: SerializedTypeNameMatcher? = null,
     val pos: PositionBaseWithModifiers,
 ): SerializedAction
 

@@ -127,13 +127,13 @@ sealed interface SerializedRule: SerializedItem {
 }
 
 sealed interface SerializedFieldRule: SerializedItem {
-    val className: SerializedNameMatcher
-    val fieldName: String
+    val className: SerializedTypeNameMatcher
+    val fieldName: SerializedSimpleNameMatcher
 
     @Serializable
     data class SerializedStaticFieldSource(
-        override val className: SerializedNameMatcher,
-        override val fieldName: String,
+        override val className: SerializedTypeNameMatcher,
+        override val fieldName: SerializedSimpleNameMatcher,
         override val condition: SerializedCondition?,
         override val taint: List<SerializedTaintAssignAction>,
         override val info: ItemInfo? = null
