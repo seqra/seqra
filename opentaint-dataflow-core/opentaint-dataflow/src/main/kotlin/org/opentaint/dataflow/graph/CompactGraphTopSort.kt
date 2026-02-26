@@ -30,14 +30,15 @@ class CompactGraphTopSort(val graph: CompactGraph) {
     fun graphTopOrderNodeComparator(startNode: Int): IntComparator {
         val topOrderPriority = graphTopOrderNodePriority(startNode)
         return IntComparator { k1: Int, k2: Int ->
-            val k1Priority = topOrderPriority.get(k1)
-            check(k1Priority != NO_NODE) {
-                "Node: $k1 missed in top order"
+            var k1Priority = topOrderPriority.get(k1)
+            if (k1Priority == NO_NODE) {
+                // todo: consider better approach, maybe better analyze exceptional flows
+                k1Priority = graph.size + k1
             }
 
-            val k2Priority = topOrderPriority.get(k2)
-            check(k2Priority != NO_NODE) {
-                "Node: $k2 missed in top order"
+            var k2Priority = topOrderPriority.get(k2)
+            if (k2Priority == NO_NODE) {
+                k2Priority = graph.size + k2
             }
 
             k1Priority.compareTo(k2Priority)
