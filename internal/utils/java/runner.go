@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/sirupsen/logrus"
 )
@@ -196,11 +197,17 @@ func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrateg
 		logrus.Fatalf("Failed to start Java command: %v", err)
 	}
 
+	streamToTerminal := shouldStreamJavaOutput(globals.Config.Log.Verbosity)
+
 	// Function to read from a reader and log each line
 	logOutput := func(pipe io.Reader) {
 		scanner := bufio.NewScanner(pipe)
 		for scanner.Scan() {
-			logrus.Debug(scanner.Text())
+			line := scanner.Text()
+			logrus.Debug(line)
+			if streamToTerminal {
+				fmt.Fprintln(os.Stderr, line)
+			}
 		}
 		if err := scanner.Err(); err != nil {
 			logrus.Debugf("Error reading command output: %v", err)
@@ -228,6 +235,11 @@ func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrateg
 	}
 
 	return fmt.Errorf("java command failed")
+}
+
+func shouldStreamJavaOutput(verbosity string) bool {
+	level := strings.ToLower(strings.TrimSpace(verbosity))
+	return level == "debug" || level == "trace"
 }
 
 func (j *javaRunner) TrySpecificVersion(version int) JavaRunner {

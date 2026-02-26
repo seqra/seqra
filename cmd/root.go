@@ -48,6 +48,8 @@ var rootCmd = &cobra.Command{
 
 		// Configure the output printer (color mode, quiet mode)
 		out.Configure(globals.Config.Log.Color, globals.Config.Quiet)
+		out.SetVerbosity(globals.Config.Log.Verbosity)
+		out.SetLogWriter(logFile)
 
 		// Start async update check (non-blocking, at most once per day)
 		if !globals.Config.Quiet {

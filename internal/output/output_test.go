@@ -2,6 +2,7 @@ package output
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -98,6 +99,30 @@ func TestSectionWithGroup(t *testing.T) {
 	}
 	if !strings.Contains(got, "Alpha") || !strings.Contains(got, "Beta") {
 		t.Errorf("expected group children in output, got %q", got)
+	}
+}
+
+func TestSectionMirroredToLogWriter(t *testing.T) {
+	var buf bytes.Buffer
+	var logBuf bytes.Buffer
+	p := NewWithWriter(&buf)
+	p.Configure("always", false)
+	p.SetLogWriter(&logBuf)
+
+	p.Section("Mirrored Section").
+		StyledText("colored text", p.Theme().Success).
+		Field("Key", "Value").
+		Render()
+
+	logged := logBuf.String()
+	if !strings.Contains(logged, "Mirrored Section") {
+		t.Errorf("expected mirrored section title in log output, got %q", logged)
+	}
+	if !strings.Contains(logged, "Key") || !strings.Contains(logged, "Value") {
+		t.Errorf("expected mirrored field in log output, got %q", logged)
+	}
+	if regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`).MatchString(logged) {
+		t.Errorf("expected mirrored log output without ANSI escapes, got %q", logged)
 	}
 }
 
@@ -206,4 +231,26 @@ func TestFileLinkNonTTY(t *testing.T) {
 	}
 }
 
+func TestIsInteractiveUIDisabledOnDebugVerbosity(t *testing.T) {
+	var buf bytes.Buffer
+	p := NewWithWriter(&buf)
+	p.Configure("never", false)
+	p.isTTY = true
+	p.SetVerbosity("debug")
 
+	if p.IsInteractiveUI() {
+		t.Fatal("expected interactive UI to be disabled on debug verbosity")
+	}
+}
+
+func TestIsInteractiveUIEnabledOnInfoVerbosity(t *testing.T) {
+	var buf bytes.Buffer
+	p := NewWithWriter(&buf)
+	p.Configure("never", false)
+	p.isTTY = true
+	p.SetVerbosity("info")
+
+	if !p.IsInteractiveUI() {
+		t.Fatal("expected interactive UI to be enabled on info verbosity")
+	}
+}

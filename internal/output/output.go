@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -19,11 +20,15 @@ import (
 type Printer struct {
 	baseW             io.Writer
 	w                 io.Writer
+	logW              io.Writer
+	verbosity         string
 	theme             *Theme
 	isTTY             bool
 	quiet             bool
 	hasDarkBackground bool
 }
+
+var ansiEscapePattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
 // New creates a Printer that writes to os.Stdout with the default theme.
 // Color support is auto-detected based on the terminal.
@@ -136,6 +141,42 @@ func (p *Printer) IsInteractive() bool {
 // Writer returns the underlying io.Writer.
 func (p *Printer) Writer() io.Writer {
 	return p.w
+}
+
+// SetLogWriter configures an additional writer for plain-text output mirroring.
+// Mirrored output has ANSI escapes stripped and is useful for writing user-facing
+// section output to log files.
+func (p *Printer) SetLogWriter(w io.Writer) {
+	p.logW = w
+}
+
+// SetVerbosity stores the configured log verbosity to control
+// interactive UI elements like spinners and progress bars.
+func (p *Printer) SetVerbosity(level string) {
+	p.verbosity = strings.ToLower(strings.TrimSpace(level))
+}
+
+// IsDebugVerbosity returns true for debug-like verbosity modes.
+func (p *Printer) IsDebugVerbosity() bool {
+	return p.verbosity == "debug" || p.verbosity == "trace"
+}
+
+// IsInteractiveUI returns true when interactive UI components
+// (spinners/progress bars) should be rendered.
+func (p *Printer) IsInteractiveUI() bool {
+	return p.IsInteractive() && !p.IsDebugVerbosity()
+}
+
+func (p *Printer) writeMirroredLine(line string) {
+	if p.logW == nil {
+		return
+	}
+	line = strings.ReplaceAll(line, "\r", "")
+	line = ansiEscapePattern.ReplaceAllString(line, "")
+	if !strings.HasSuffix(line, "\n") {
+		line += "\n"
+	}
+	_, _ = io.WriteString(p.logW, line)
 }
 
 // Print writes a styled string followed by a newline.

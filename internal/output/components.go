@@ -66,7 +66,7 @@ func (p *Printer) StartSpinner(message string) *SpinnerHandle {
 		start:   time.Now(),
 	}
 
-	if !p.IsInteractive() {
+	if !p.IsInteractiveUI() {
 		close(h.doneCh)
 		return h
 	}
@@ -125,7 +125,7 @@ func (h *SpinnerHandle) StopError(finalMessage string) {
 // RunWithSpinner wraps a function with a spinner animation.
 // If the terminal is non-interactive, the function runs without visual feedback.
 func (p *Printer) RunWithSpinner(phase string, run func() error) error {
-	if !p.IsInteractive() {
+	if !p.IsInteractiveUI() {
 		return run()
 	}
 
@@ -144,7 +144,7 @@ func (p *Printer) RunWithSpinner(phase string, run func() error) error {
 // CopyWithProgress copies src to dst while displaying a progress bar
 // on interactive terminals. Falls back to plain io.Copy otherwise.
 func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, label string) (int64, error) {
-	if !p.IsInteractive() || total <= 0 {
+	if !p.IsInteractiveUI() || total <= 0 {
 		return io.Copy(dst, src)
 	}
 
