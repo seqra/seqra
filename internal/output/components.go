@@ -13,6 +13,32 @@ import (
 	bspinner "github.com/charmbracelet/bubbles/spinner"
 )
 
+var smoothSpinner = bspinner.Spinner{
+	Frames: []string{
+		"▱▱▱▱▱▱▱",
+		"▰▱▱▱▱▱▱",
+		"▰▰▱▱▱▱▱",
+		"▰▰▰▱▱▱▱",
+		"▱▰▰▰▱▱▱",
+		"▱▱▰▰▰▱▱",
+		"▱▱▱▰▰▰▱",
+		"▱▱▱▱▰▰▰",
+		"▱▱▱▱▱▰▰",
+		"▱▱▱▱▱▱▰",
+		"▱▱▱▱▱▱▱",
+		"▱▱▱▱▱▱▰",
+		"▱▱▱▱▱▰▰",
+		"▱▱▱▱▰▰▰",
+		"▱▱▱▰▰▰▱",
+		"▱▱▰▰▰▱▱",
+		"▱▰▰▰▱▱▱",
+		"▰▰▰▱▱▱▱",
+		"▰▰▱▱▱▱▱",
+		"▰▱▱▱▱▱▱",
+	},
+	FPS: time.Second / 10,
+}
+
 // ── Spinner ──────────────────────────────────────────────────────────
 // A spinner shows an animated progress indicator while a long-running
 // operation is in progress.
@@ -35,7 +61,7 @@ func (p *Printer) StartSpinner(message string) *SpinnerHandle {
 		printer: p,
 		stopCh:  make(chan struct{}),
 		doneCh:  make(chan struct{}),
-		spinner: bspinner.New(bspinner.WithSpinner(bspinner.Pulse)),
+		spinner: bspinner.New(bspinner.WithSpinner(smoothSpinner)),
 		msg:     message,
 		start:   time.Now(),
 	}
@@ -123,12 +149,15 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 	}
 
 	const (
-		barWidth    = 28
-		updateEvery = 100 * time.Millisecond
-		bytesPerKiB = int64(1024)
-		bytesPerMiB = 1024 * bytesPerKiB
-		bytesPerGiB = 1024 * bytesPerMiB
+		barWidth           = 28
+		progressLabelWidth = 45
+		updateEvery        = 100 * time.Millisecond
+		bytesPerKiB        = int64(1024)
+		bytesPerMiB        = 1024 * bytesPerKiB
+		bytesPerGiB        = 1024 * bytesPerMiB
 	)
+
+	paddedLabel := fmt.Sprintf("%-*s", progressLabelWidth, label)
 
 	bar := bprogress.New(
 		bprogress.WithWidth(barWidth),
@@ -166,7 +195,7 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 		}
 		percent := float64(written) / float64(total)
 		barView := bar.ViewAs(percent)
-		fmt.Fprintf(p.w, "\r%s %s %3.0f%% (%s/%s)", label, barView, percent*100, formatBytes(written), formatBytes(total))
+		fmt.Fprintf(p.w, "\r%s %s %3.0f%% (%s/%s)", paddedLabel, barView, percent*100, formatBytes(written), formatBytes(total))
 	}
 
 	buf := make([]byte, 32*1024)

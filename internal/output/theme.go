@@ -48,18 +48,18 @@ type Theme struct {
 }
 
 // DefaultTheme returns the default seqra theme adapted for light/dark terminals.
-// Colors are specified in truecolor and downsampled by colorprofile.Writer as needed.
+// Colors are specified with ANSI 16 indexes so output follows the active terminal theme.
 func DefaultTheme(hasDarkBackground bool) *Theme {
 	lightDark := lipgloss.LightDark(hasDarkBackground)
 
-	red := lightDark(lipgloss.Color("#dc322f"), lipgloss.Color("#ff6b6b"))
-	yellow := lightDark(lipgloss.Color("#b58900"), lipgloss.Color("#ffd166"))
-	green := lightDark(lipgloss.Color("#859900"), lipgloss.Color("#9ece6a"))
-	blue := lightDark(lipgloss.Color("#268bd2"), lipgloss.Color("#7aa2f7"))
-	cyan := lightDark(lipgloss.Color("#2aa198"), lipgloss.Color("#7dcfff"))
-	muted := lightDark(lipgloss.Color("#586e75"), lipgloss.Color("#6b7280"))
-	title := lightDark(lipgloss.Color("#073642"), lipgloss.Color("#e5e7eb"))
-	border := lightDark(lipgloss.Color("#93a1a1"), lipgloss.Color("#6b7280"))
+	red := lightDark(lipgloss.Color("1"), lipgloss.Color("9"))
+	yellow := lightDark(lipgloss.Color("3"), lipgloss.Color("11"))
+	green := lightDark(lipgloss.Color("2"), lipgloss.Color("10"))
+	blue := lightDark(lipgloss.Color("4"), lipgloss.Color("12"))
+	cyan := lightDark(lipgloss.Color("6"), lipgloss.Color("14"))
+	muted := lipgloss.Color("8")
+	title := lightDark(lipgloss.Color("0"), lipgloss.Color("15"))
+	border := lipgloss.Color("8")
 
 	return &Theme{
 		Error:   lipgloss.NewStyle().Foreground(red).Bold(true),
