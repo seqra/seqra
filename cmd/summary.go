@@ -24,7 +24,7 @@ Arguments:
 		absSarifPath := log.AbsPathOrExit(args[0], "sarif path")
 		report := loadSarifReport(absSarifPath)
 		if report == nil {
-			return
+			logrus.Fatal("Failed to load SARIF report")
 		}
 		printSarifSummary(report, absSarifPath)
 	},

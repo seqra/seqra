@@ -13,42 +13,25 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type flowRole string
-
 type classifiedStep struct {
 	Step ThreadFlowLocation
 }
 
 // FlowStepBuilder provides a fluent interface for formatting dataflow steps
 type FlowStepBuilder struct {
-	indent     string
-	iconStyle  map[flowRole]string
-	linkFormat string
+	indent string
 }
 
 // NewFlowStepBuilder creates a new FlowStepBuilder with default settings
 func NewFlowStepBuilder() *FlowStepBuilder {
 	return &FlowStepBuilder{
-		indent:     "",
-		linkFormat: "        └─%s(%s)",
+		indent: "",
 	}
 }
 
 // Indent sets the indentation for flow steps
 func (fsb *FlowStepBuilder) Indent(indent string) *FlowStepBuilder {
 	fsb.indent = indent
-	return fsb
-}
-
-// IconStyle sets custom icons for flow roles
-func (fsb *FlowStepBuilder) IconStyle(style map[flowRole]string) *FlowStepBuilder {
-	fsb.iconStyle = style
-	return fsb
-}
-
-// LinkFormat sets the format string for location links
-func (fsb *FlowStepBuilder) LinkFormat(format string) *FlowStepBuilder {
-	fsb.linkFormat = format
 	return fsb
 }
 

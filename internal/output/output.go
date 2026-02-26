@@ -61,6 +61,13 @@ func NewWithWriter(w io.Writer) *Printer {
 	}
 }
 
+// NewConfigured creates a Printer and applies color/quiet configuration.
+func NewConfigured(colorMode string, quiet bool) *Printer {
+	p := New()
+	p.Configure(colorMode, quiet)
+	return p
+}
+
 // Configure applies the given options to the Printer.
 func (p *Printer) Configure(colorMode string, quiet bool) {
 	p.quiet = quiet

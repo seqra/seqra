@@ -49,17 +49,13 @@ func (sb *SectionBuilder) WithStyle(s lipgloss.Style) *SectionBuilder {
 
 // Field adds a "Key: Value" node to the section.
 func (sb *SectionBuilder) Field(key string, value any) *SectionBuilder {
-	th := sb.printer.theme
-	text := th.FieldKey.Render(key+":") + " " + th.FieldValue.Render(fmt.Sprint(value))
-	sb.items = append(sb.items, text)
+	sb.items = append(sb.items, sb.printer.FieldItem(key, value))
 	return sb
 }
 
 // StyledField adds a "Key: Value" node with a custom style for the value.
 func (sb *SectionBuilder) StyledField(key string, value any, valueStyle lipgloss.Style) *SectionBuilder {
-	th := sb.printer.theme
-	text := th.FieldKey.Render(key+":") + " " + valueStyle.Render(fmt.Sprint(value))
-	sb.items = append(sb.items, text)
+	sb.items = append(sb.items, sb.printer.StyledFieldItem(key, value, valueStyle))
 	return sb
 }
 
@@ -184,8 +180,7 @@ func indentTreeBlock(s string) string {
 
 func renderHeader(title string, titleStyle lipgloss.Style, th *Theme) string {
 	styledTitle := titleStyle.Render(title)
-	titleLen := len(title) // use raw length for box sizing
-
+	titleLen := lipgloss.Width(title)
 	boxWidth := titleLen + 4
 	topLine := th.HeaderBorder.Render("╭─") +
 		th.HeaderTitle.Render(styledTitle) +
@@ -230,15 +225,13 @@ func (p *Printer) Suggest(description string, command string) {
 	th := p.theme
 
 	p.Blank()
-	sb := p.Section("Suggestions").
-		StyledText(description, th.Suggestion)
-
-	if command != "" {
+	sb := p.Section("Suggestions")
+	if command == "" {
+		sb.StyledText(description, th.Suggestion)
+	} else {
 		sub := tree.Root(th.Suggestion.Render(description))
 		sub.Child(th.Command.Render(command))
-		// Replace last item with the sub-tree version
-		sb.items = sb.items[:len(sb.items)-1]
-		sb.items = append(sb.items, sub)
+		sb.Child(sub)
 	}
 
 	sb.Render()
@@ -291,7 +284,7 @@ func (bb *BoxBuilder) Render() {
 func (bb *BoxBuilder) String() string {
 	th := bb.printer.theme
 	innerWidth := bb.width - 2
-	titleLen := len(bb.title)
+	titleLen := lipgloss.Width(bb.title)
 
 	top := th.HeaderBorder.Render("╭─" + bb.title + strings.Repeat("─", max(bb.width-titleLen-3, 0)) + "╮")
 
@@ -300,10 +293,10 @@ func (bb *BoxBuilder) String() string {
 
 	for _, f := range bb.fields {
 		line := f.key + ":  " + f.value
-		if len(line) > innerWidth {
-			line = line[:innerWidth]
+		if visibleWidth(line) > innerWidth {
+			line = truncateToWidth(line, innerWidth)
 		}
-		padding := innerWidth - len(line) - 1
+		padding := innerWidth - visibleWidth(line) - 1
 		if padding < 0 {
 			padding = 0
 		}
@@ -314,4 +307,20 @@ func (bb *BoxBuilder) String() string {
 	lines = append(lines, bottom)
 
 	return strings.Join(lines, "\n")
+}
+
+func visibleWidth(s string) int {
+	plain := ansiEscapePattern.ReplaceAllString(s, "")
+	return lipgloss.Width(plain)
+}
+
+func truncateToWidth(s string, w int) string {
+	if w <= 0 {
+		return ""
+	}
+	runes := []rune(s)
+	for len(runes) > 0 && lipgloss.Width(string(runes)) > w {
+		runes = runes[:len(runes)-1]
+	}
+	return string(runes)
 }

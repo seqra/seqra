@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -58,8 +57,7 @@ Arguments:
 
 		autobuilderJarPath, err := ensureAutobuilderAvailable()
 		if err != nil {
-			logrus.Error(err)
-			logrus.Fatal()
+			logrus.Fatalf("Native compile preparation failed: %s", err)
 		}
 
 		compileJavaRunner := java.NewJavaRunner().
@@ -78,7 +76,7 @@ Arguments:
 			printCompileSummary(absOutputProjectModelPath)
 			suggest("To scan project run", utils.BuildScanCommandFromCompile(projectRoot, absOutputProjectModelPath))
 		} else {
-			logrus.Fatal()
+			logrus.Fatalf("Native compile has failed: %s", err)
 		}
 	},
 }
@@ -96,17 +94,10 @@ func ensureAutobuilderAvailable() (string, error) {
 		return "", fmt.Errorf("failed to construct path to the autobuilder: %w", err)
 	}
 
-	if _, err = os.Stat(autobuilderJarPath); errors.Is(err, os.ErrNotExist) {
-		if !out.IsInteractive() {
-			out.Blank()
-			out.Printf("Downloading autobuilder version %s", globals.Config.Autobuilder.Version)
-		}
-		if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-			return "", fmt.Errorf("failed to download autobuilder: %w", err)
-		}
-		if !out.IsInteractive() {
-			out.Printf("Successfully downloaded autobuilder to %s", autobuilderJarPath)
-		}
+	if err = ensureArtifactAvailable("autobuilder", globals.Config.Autobuilder.Version, autobuilderJarPath, func() error {
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify)
+	}); err != nil {
+		return "", err
 	}
 
 	return autobuilderJarPath, nil
@@ -114,14 +105,16 @@ func ensureAutobuilderAvailable() (string, error) {
 
 func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath string, javaRunner java.JavaRunner, caller CompileCaller) error {
 	if _, err := os.Stat(absOutputProjectModelPath); err == nil {
-		logrus.Fatalf("Output directory already exists: %s", absOutputProjectModelPath)
+		return fmt.Errorf("output directory already exists: %s", absOutputProjectModelPath)
 	}
 
 	if !utils.IsSupportedArch() {
-		logrus.Fatalf("Unsupported architecture found: %s! Only arm64 and amd64 are supported.", utils.GetArch())
+		return fmt.Errorf("unsupported architecture found: %s! only arm64 and amd64 are supported", utils.GetArch())
 	}
 
-	compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath, javaRunner)
+	if err := compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath, javaRunner); err != nil {
+		return err
+	}
 
 	if _, err := os.Stat(absOutputProjectModelPath); err != nil {
 		err := fmt.Errorf("there was a problem during the compile step, check the full logs: %s", globals.LogPath)
@@ -141,11 +134,11 @@ func printCompileSummary(absOutputProjectModelPath string) {
 		Render()
 }
 
-func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath string, javaRunner java.JavaRunner) {
+func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath string, javaRunner java.JavaRunner) error {
 	var err error
 	tempLogsDir, err := os.MkdirTemp("", "seqra-*")
 	if err != nil {
-		logrus.Fatalf("Failed to create temporary directory: %s", err)
+		return fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 	tempLogsFile := filepath.Join(tempLogsDir, "autobuild.log")
 
@@ -170,5 +163,8 @@ func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPat
 	err = javaRunner.ExecuteJavaCommand(autobuilderCommand, commandSucceeded)
 	if err != nil {
 		logrus.Errorf("Native compilation has failed: %s", err)
+		return fmt.Errorf("native compilation has failed: %w", err)
 	}
+
+	return nil
 }

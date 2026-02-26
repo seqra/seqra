@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -43,7 +42,7 @@ func (b *JavaAutobuilderBuilder) WithOutputDir(dir string) *JavaAutobuilderBuild
 
 func (b *JavaAutobuilderBuilder) WithSourceRoot(root string) *JavaAutobuilderBuilder {
 	cleanRoot := filepath.Clean(root)
-	absRoot := log.AbsPathOrExit(cleanRoot, "output directory")
+	absRoot := log.AbsPathOrExit(cleanRoot, "source root")
 	if _, err := os.Stat(absRoot); os.IsNotExist(err) {
 		logrus.Fatalf("Source root directory does not exist: %s", absRoot)
 	}
@@ -126,13 +125,10 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 		return fmt.Errorf("failed to construct path to the autobuilder: %w", err)
 	}
 
-	if _, err = os.Stat(autobuilderJarPath); errors.Is(err, os.ErrNotExist) {
-		out.Blank()
-		out.Printf("Downloading autobuilder version %s", globals.Config.Autobuilder.Version)
-		if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-			return fmt.Errorf("failed to download autobuilder: %w", err)
-		}
-		out.Printf("Successfully downloaded autobuilder to %s", autobuilderJarPath)
+	if err = ensureArtifactAvailable("autobuilder", globals.Config.Autobuilder.Version, autobuilderJarPath, func() error {
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify)
+	}); err != nil {
+		return err
 	}
 
 	builder := NewAutobuilderBuilder().

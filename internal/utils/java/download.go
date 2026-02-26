@@ -227,7 +227,7 @@ func unpack(archivePath, targetDir string) error {
 
 	buff := make([]byte, 512)
 	if _, err = f.Read(buff); err != nil {
-		logrus.Fatal(err)
+		return err
 	}
 	fileType := http.DetectContentType(buff)
 
@@ -249,7 +249,6 @@ func unpack(archivePath, targetDir string) error {
 	case "application/zip":
 		return utils.ExtractZip(archivePath, targetDir)
 	default:
-		logrus.Fatalf("Failed to unpack an archive with unsupported format: %s", fileType)
 		return fmt.Errorf("unsupported archive format: %s", fileType)
 	}
 }
@@ -375,9 +374,7 @@ func fileExists(p string) bool {
 }
 
 func newProgressPrinter() *output.Printer {
-	p := output.New()
-	p.Configure(globals.Config.Log.Color, globals.Config.Quiet)
-	return p
+	return output.NewConfigured(globals.Config.Log.Color, globals.Config.Quiet)
 }
 
 // downloadFile downloads url to dest path

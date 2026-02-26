@@ -26,9 +26,7 @@ func newGithubClient(token string) *github.Client {
 }
 
 func newProgressPrinter() *output.Printer {
-	p := output.New()
-	p.Configure(globals.Config.Log.Color, globals.Config.Quiet)
-	return p
+	return output.NewConfigured(globals.Config.Log.Color, globals.Config.Quiet)
 }
 
 // verifyAssetChecksum checks the SHA256 of filePath using the asset's native digest (preferred)

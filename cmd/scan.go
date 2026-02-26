@@ -182,17 +182,10 @@ func scan(cmd *cobra.Command) {
 		if !ruleSetPath.Builtin {
 			continue
 		}
-		if _, err := os.Stat(ruleSetPath.Path); errors.Is(err, os.ErrNotExist) {
-			if !out.IsInteractive() {
-				out.Print("Downloading seqra-rules")
-			}
-			err := utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, ruleSetPath.Path, globals.Config.Github.Token, globals.Config.SkipVerify)
-			if err != nil {
-				logrus.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
-			}
-			if !out.IsInteractive() {
-				out.Printf("Successfully downloaded seqra-rules to %s", ruleSetPath.Path)
-			}
+		if err := ensureArtifactAvailable("seqra-rules", globals.Config.Rules.Version, ruleSetPath.Path, func() error {
+			return utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, ruleSetPath.Path, globals.Config.Github.Token, globals.Config.SkipVerify)
+		}); err != nil {
+			logrus.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
 		}
 	}
 
@@ -218,7 +211,7 @@ func scan(cmd *cobra.Command) {
 			return compile(absUserProjectRoot, tempProjectModelPath, autobuilderJarPath, compileJavaRunner, Internal)
 		}); err != nil {
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
-			logrus.Fatal()
+			logrus.Fatalf("Native compile has failed: %s", err)
 		}
 		out.Blank()
 		printCompileSummary(tempProjectModelPath)
@@ -255,7 +248,7 @@ func scan(cmd *cobra.Command) {
 		case "error", "warning", "note":
 			nativeBuilder.AddSeverity(severity)
 		default:
-			logrus.Fatalf(`The each "severity" flag should be one of note, warning, or error.`)
+			logrus.Fatalf(`Each "severity" flag should be one of note, warning, or error.`)
 		}
 	}
 	for _, absRuleSetPath := range absRuleSetPaths {
@@ -388,17 +381,10 @@ func ensureAnalyzerAvailable() (string, error) {
 		return "", fmt.Errorf("failed to construct path to the analyzer: %w", err)
 	}
 
-	if _, err := os.Stat(analyzerJarPath); errors.Is(err, os.ErrNotExist) {
-		if !out.IsInteractive() {
-			out.Blank()
-			out.Printf("Downloading analyzer version %s", globals.Config.Analyzer.Version)
-		}
-		if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-			return "", fmt.Errorf("failed to download analyzer: %w", err)
-		}
-		if !out.IsInteractive() {
-			out.Printf("Successfully downloaded analyzer to %s", analyzerJarPath)
-		}
+	if err := ensureArtifactAvailable("analyzer", globals.Config.Analyzer.Version, analyzerJarPath, func() error {
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token, globals.Config.SkipVerify)
+	}); err != nil {
+		return "", err
 	}
 
 	return analyzerJarPath, nil

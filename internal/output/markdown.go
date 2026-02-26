@@ -12,6 +12,9 @@ func (p *Printer) RenderMarkdown(markdown string) string {
 	}
 
 	style := "dark"
+	if !p.hasDarkBackground {
+		style = "light"
+	}
 	r, err := glamour.NewTermRenderer(
 		glamour.WithStylePath(style),
 		glamour.WithWordWrap(80),

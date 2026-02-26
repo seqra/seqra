@@ -39,7 +39,7 @@ func (sb *SnippetBuilder) Marker(m string) *SnippetBuilder {
 }
 
 // Load reads a file and formats a snippet around the given line number.
-// Returns empty string and nil error if the file cannot be read.
+// Returns an error when the file cannot be read.
 func (sb *SnippetBuilder) Load(filePath string, centerLine int64) (string, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {

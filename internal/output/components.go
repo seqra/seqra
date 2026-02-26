@@ -37,14 +37,17 @@ var smoothSpinner = bspinner.Spinner{
 
 // SpinnerHandle controls a running spinner.
 type SpinnerHandle struct {
-	printer *Printer
-	stopCh  chan struct{}
-	doneCh  chan struct{}
-	spinner bspinner.Model
-	msg     string
-	start   time.Time
-	mu      sync.Mutex
+	printer  *Printer
+	stopCh   chan struct{}
+	doneCh   chan struct{}
+	stopOnce sync.Once
+	spinner  bspinner.Model
+	msg      string
+	start    time.Time
+	mu       sync.Mutex
 }
+
+const clearLine = "\r\033[K"
 
 // StartSpinner creates and starts a new spinner. Call Stop() or StopError()
 // on the returned handle when the operation completes.
@@ -86,7 +89,7 @@ func (p *Printer) StartSpinner(message string) *SpinnerHandle {
 
 				th := p.theme
 				frame = th.SpinnerStyle.Render(frame)
-				fmt.Fprintf(p.w, "\r\033[K%s %s %s", frame, msg, th.Muted.Render(elapsed))
+				fmt.Fprintf(p.w, "%s%s %s %s", clearLine, frame, msg, th.Muted.Render(elapsed))
 			}
 		}
 	}()
@@ -96,22 +99,22 @@ func (p *Printer) StartSpinner(message string) *SpinnerHandle {
 
 // Stop completes the spinner with a success indicator.
 func (h *SpinnerHandle) Stop(finalMessage string) {
-	close(h.stopCh)
+	h.stopOnce.Do(func() { close(h.stopCh) })
 	<-h.doneCh
 	elapsed := formatDuration(time.Since(h.start))
 	th := h.printer.theme
 	done := th.DoneStyle.Render(h.printer.theme.SpinnerDone)
-	fmt.Fprintf(h.printer.w, "\r\033[K%s %s in %s\n", done, finalMessage, th.Muted.Render(elapsed))
+	fmt.Fprintf(h.printer.w, "%s%s %s in %s\n", clearLine, done, finalMessage, th.Muted.Render(elapsed))
 }
 
 // StopError completes the spinner with an error indicator.
 func (h *SpinnerHandle) StopError(finalMessage string) {
-	close(h.stopCh)
+	h.stopOnce.Do(func() { close(h.stopCh) })
 	<-h.doneCh
 	elapsed := formatDuration(time.Since(h.start))
 	th := h.printer.theme
 	fail := th.FailStyle.Render(h.printer.theme.SpinnerFail)
-	fmt.Fprintf(h.printer.w, "\r\033[K%s %s in %s\n", fail, finalMessage, th.Muted.Render(elapsed))
+	fmt.Fprintf(h.printer.w, "%s%s %s in %s\n", clearLine, fail, finalMessage, th.Muted.Render(elapsed))
 }
 
 // RunWithSpinner wraps a function with a spinner animation.
@@ -194,7 +197,7 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 		if force && written >= total {
 			symbol = doneSymbol
 		}
-		fmt.Fprintf(p.w, "\r\033[K%s %s %s %3.0f%% (%s/%s)", symbol, paddedLabel, barView, percent*100, formatBytes(written), formatBytes(total))
+		fmt.Fprintf(p.w, "%s%s %s %s %3.0f%% (%s/%s)", clearLine, symbol, paddedLabel, barView, percent*100, formatBytes(written), formatBytes(total))
 	}
 
 	buf := make([]byte, 32*1024)
@@ -210,11 +213,11 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 				printProgress(written, false, &lastPrinted)
 			}
 			if writeErr != nil {
-				fmt.Fprintf(p.w, "\r\033[K%s %s failed\n", failSymbol, label)
+				fmt.Fprintf(p.w, "%s%s %s failed\n", clearLine, failSymbol, label)
 				return written, writeErr
 			}
 			if nw < nr {
-				fmt.Fprintf(p.w, "\r\033[K%s %s failed\n", failSymbol, label)
+				fmt.Fprintf(p.w, "%s%s %s failed\n", clearLine, failSymbol, label)
 				return written, io.ErrShortWrite
 			}
 		}
@@ -225,7 +228,7 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 				fmt.Fprint(p.w, "\n")
 				return written, nil
 			}
-			fmt.Fprintf(p.w, "\r\033[K%s %s failed\n", failSymbol, label)
+			fmt.Fprintf(p.w, "%s%s %s failed\n", clearLine, failSymbol, label)
 			return written, readErr
 		}
 	}
