@@ -9,8 +9,6 @@ import (
 	"charm.land/lipgloss/v2"
 
 	"github.com/seqra/seqra/v2/internal/output"
-
-	"github.com/sirupsen/logrus"
 )
 
 type classifiedStep struct {
@@ -34,7 +32,7 @@ func (fsb *FlowStepBuilder) FormatStep(cs classifiedStep, absProjectPath string)
 	if step.Location != nil && step.Location.Message != nil && step.Location.Message.Text != nil {
 		msg = strings.Join(strings.Fields(*step.Location.Message.Text), " ")
 	} else {
-		logrus.Warn("ThreadFlowLocation has no message text")
+		output.LogInfo("ThreadFlowLocation has no message text")
 	}
 
 	mainLine := msg
@@ -83,7 +81,7 @@ func getExecutionOrder(step ThreadFlowLocation) int64 {
 	if step.ExecutionOrder != nil {
 		return *step.ExecutionOrder
 	}
-	logrus.Warn("Missing executionOrder in taint step; treating as 0")
+	output.LogInfo("Missing executionOrder in taint step; treating as 0")
 	return 0
 }
 
@@ -96,7 +94,7 @@ type nodeLoc struct {
 
 func (loc Location) extractNodeLoc() nodeLoc {
 	if loc.PhysicalLocation == nil || loc.PhysicalLocation.ArtifactLocation == nil || loc.PhysicalLocation.ArtifactLocation.URI == nil {
-		logrus.Warnf("Location has no PhysicalLocation/ArtifactLocation/URI")
+		output.LogInfo("Location has no PhysicalLocation/ArtifactLocation/URI")
 		return nodeLoc{}
 	}
 
@@ -107,12 +105,12 @@ func (loc Location) extractNodeLoc() nodeLoc {
 	if loc.PhysicalLocation.Region != nil && loc.PhysicalLocation.Region.StartLine != nil {
 		lineVal = *loc.PhysicalLocation.Region.StartLine
 	} else {
-		logrus.Warnf("Region or StartLine is nil")
+		output.LogInfo("Region or StartLine is nil")
 	}
 
 	method := ""
 	if len(loc.LogicalLocations) == 0 {
-		logrus.Warnf("Logical locations is empty, unable to extract method name")
+		output.LogInfo("Logical locations is empty, unable to extract method name")
 	} else if logicalLoc := loc.LogicalLocations[0]; logicalLoc.FullyQualifiedName != nil {
 		method = " " + *logicalLoc.FullyQualifiedName
 	}

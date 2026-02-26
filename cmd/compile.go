@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/seqra/seqra/v2/internal/globals"
@@ -54,7 +53,7 @@ Arguments:
 
 		autobuilderJarPath, err := ensureAutobuilderAvailable()
 		if err != nil {
-			logrus.Fatalf("Native compile preparation failed: %s", err)
+			out.Fatalf("Native compile preparation failed: %s", err)
 		}
 
 		compileJavaRunner := java.NewJavaRunner().
@@ -63,7 +62,7 @@ Arguments:
 			TrySystem().
 			TrySpecificVersion(globals.Config.Java.Version)
 		if _, err := compileJavaRunner.EnsureJava(); err != nil {
-			logrus.Fatalf("Failed to resolve Java for compilation: %s", err)
+			out.Fatalf("Failed to resolve Java for compilation: %s", err)
 		}
 
 		if err := out.RunWithSpinner("Compiling project model", func() error {
@@ -73,7 +72,7 @@ Arguments:
 			printCompileSummary(absOutputProjectModelPath)
 			suggest("To scan project run", utils.BuildScanCommandFromCompile(projectRoot, absOutputProjectModelPath))
 		} else {
-			logrus.Fatalf("Native compile has failed: %s", err)
+			out.Fatalf("Native compile has failed: %s", err)
 		}
 	},
 }
@@ -115,7 +114,7 @@ func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath strin
 
 	if _, err := os.Stat(absOutputProjectModelPath); err != nil {
 		err := fmt.Errorf("there was a problem during the compile step, check the full logs: %s", globals.LogPath)
-		logrus.Error(err)
+		out.LogInfo(err)
 		if caller == External {
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based compilation:", utils.BuildCompileCommandWithDocker(ProjectPath, OutputProjectModelPath))
 		}
@@ -150,8 +149,8 @@ func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPat
 
 	commandSucceeded := func(_ error) bool {
 		if _, err = os.Stat(absOutputProjectModelPath); err != nil {
-			logrus.Errorf("Output project model path does not exist after autobuilder execution: %s", absOutputProjectModelPath)
-			logrus.Error("Autobuilder failed to compile the project")
+			out.LogInfof("Output project model path does not exist after autobuilder execution: %s", absOutputProjectModelPath)
+			out.LogInfo("Autobuilder failed to compile the project")
 			return false
 		}
 		return true
@@ -159,7 +158,7 @@ func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPat
 	// Execute the command using JavaRunner
 	err = javaRunner.ExecuteJavaCommand(autobuilderCommand, commandSucceeded)
 	if err != nil {
-		logrus.Errorf("Native compilation has failed: %s", err)
+		out.LogInfof("Native compilation has failed: %s", err)
 		return fmt.Errorf("native compilation has failed: %w", err)
 	}
 

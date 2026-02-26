@@ -5,14 +5,13 @@ import (
 
 	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/utils"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
 var (
-	pruneDryRun     bool
-	pruneYes        bool
-	pruneIncLogs    bool
+	pruneDryRun  bool
+	pruneYes     bool
+	pruneIncLogs bool
 )
 
 var pruneCmd = &cobra.Command{
@@ -30,7 +29,7 @@ By default, log files are kept. Use --include-logs to also prune them.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		result, err := utils.ScanForStaleArtifacts(pruneIncLogs)
 		if err != nil {
-			logrus.Fatalf("Failed to scan for stale artifacts: %s", err)
+			out.Fatalf("Failed to scan for stale artifacts: %s", err)
 		}
 
 		if result.TotalCount == 0 {
@@ -59,7 +58,7 @@ By default, log files are kept. Use --include-logs to also prune them.`,
 		}
 
 		if err := utils.DeleteArtifacts(result.Stale); err != nil {
-			logrus.Fatalf("Failed to delete artifacts: %s", err)
+			out.Fatalf("Failed to delete artifacts: %s", err)
 		}
 
 		out.Successf("Pruned %d items, freed %s", result.TotalCount, output.FormatSize(result.TotalSize))

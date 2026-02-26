@@ -7,18 +7,17 @@ import (
 	"charm.land/lipgloss/v2/tree"
 
 	"github.com/seqra/seqra/v2/internal/output"
-	"github.com/sirupsen/logrus"
 )
 
 func (report *Report) printFinding(out *output.Printer, result *Result, runIdx int, showCodeSnippets bool, verboseFlow bool, findingIndex int, totalFindings int) {
 	absProjectPath, err := report.projectPath(runIdx)
 	if err != nil {
-		logrus.Errorf("Project path lookup failed: %v", err)
+		output.LogInfof("Project path lookup failed: %v", err)
 		return
 	}
 
 	if len(result.Locations) == 0 || result.Locations[0].PhysicalLocation == nil {
-		logrus.Warn("No primary location for finding")
+		output.LogInfo("No primary location for finding")
 		return
 	}
 
@@ -26,7 +25,7 @@ func (report *Report) printFinding(out *output.Printer, result *Result, runIdx i
 	if result.Level != nil {
 		lvl = *result.Level
 	} else {
-		logrus.Warn("Finding has nil level; defaulting to 'unknown'")
+		output.LogInfo("Finding has nil level; defaulting to 'unknown'")
 	}
 	indicator, indicatorStyle := levelIndicatorStyled(lvl, out.Theme())
 
@@ -34,13 +33,13 @@ func (report *Report) printFinding(out *output.Printer, result *Result, runIdx i
 	if result.RuleID != nil {
 		rule = *result.RuleID
 	} else {
-		logrus.Warn("Finding has nil ruleId")
+		output.LogInfo("Finding has nil ruleId")
 	}
 	msg := ""
 	if result.Message.Text != nil {
 		msg = *result.Message.Text
 	} else {
-		logrus.Warn("Finding has nil message.text")
+		output.LogInfo("Finding has nil message.text")
 	}
 
 	loc := result.Locations[0]
@@ -54,7 +53,7 @@ func (report *Report) printFinding(out *output.Printer, result *Result, runIdx i
 
 	taintFlow, err := classifyTaintFlow(result)
 	if err != nil {
-		logrus.Debugf("No source/sink: %s", err)
+		output.LogDebugf("No source/sink: %s", err)
 
 		resultPath := extractAbsolutePath(&loc, absProjectPath, "Result")
 		if resultPath != "" && showCodeSnippets {
@@ -119,7 +118,7 @@ func extractAbsolutePath(location *Location, absProjectPath, locationName string
 		location.PhysicalLocation.ArtifactLocation.URI != nil {
 		return filepath.Join(absProjectPath, *location.PhysicalLocation.ArtifactLocation.URI)
 	}
-	logrus.Warnf("%s location has no URI; snippet path will be empty", locationName)
+	output.LogInfof("%s location has no URI; snippet path will be empty", locationName)
 	return ""
 }
 
@@ -128,7 +127,7 @@ func (report *Report) projectPath(runIdx int) (string, error) {
 
 	if base, ok := run.OriginalURIBaseIDS["%SRCROOT%"]; ok {
 		if base.URI == nil {
-			logrus.Warn("%SRCROOT% base has nil URI")
+			output.LogInfo("%SRCROOT% base has nil URI")
 			return "", fmt.Errorf("%%SRCROOT%% URI is nil")
 		}
 		return *base.URI, nil

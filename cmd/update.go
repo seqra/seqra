@@ -10,7 +10,6 @@ import (
 	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/seqra/seqra/v2/internal/version"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -67,7 +66,7 @@ Only upgrades are supported — downgrading to an older version is refused.`,
 			out.Print("Checking for updates...")
 			targetVersion, targetTag, err = utils.GetLatestRelease(globals.RepoOwner, "seqra", globals.Config.Github.Token)
 			if err != nil {
-				logrus.Fatalf("Failed to check for updates: %s", err)
+				out.Fatalf("Failed to check for updates: %s", err)
 			}
 		}
 
@@ -115,21 +114,21 @@ Only upgrades are supported — downgrading to an older version is refused.`,
 		// Download the release archive
 		tmpDir, err := os.MkdirTemp("", "seqra-update-*")
 		if err != nil {
-			logrus.Fatalf("Failed to create temp directory: %s", err)
+			out.Fatalf("Failed to create temp directory: %s", err)
 		}
 		defer func() { _ = os.RemoveAll(tmpDir) }()
 
 		out.Print("Downloading...")
 		archivePath, err := utils.DownloadReleaseArchive(globals.RepoOwner, "seqra", targetTag, globals.Config.Github.Token, tmpDir, globals.Config.SkipVerify)
 		if err != nil {
-			logrus.Fatalf("Failed to download release: %s", err)
+			out.Fatalf("Failed to download release: %s", err)
 		}
 
 		// Perform self-update
 		installDir := filepath.Dir(exePath)
 		out.Print("Installing...")
 		if err := utils.SelfUpdate(archivePath, installDir); err != nil {
-			logrus.Fatalf("Failed to update: %s", err)
+			out.Fatalf("Failed to update: %s", err)
 		}
 
 		out.Successf("Successfully updated to v%s", targetVersion)

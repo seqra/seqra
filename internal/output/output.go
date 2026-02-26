@@ -150,7 +150,7 @@ func (p *Printer) SetVerbosity(level string) {
 
 // IsDebugVerbosity returns true for debug-like verbosity modes.
 func (p *Printer) IsDebugVerbosity() bool {
-	return p.verbosity == "debug" || p.verbosity == "trace"
+	return p.verbosity == "debug"
 }
 
 // IsInteractiveUI returns true when interactive UI components

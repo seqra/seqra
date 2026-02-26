@@ -11,10 +11,7 @@ import (
 	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/seqra/seqra/v2/internal/utils/log"
-	// Keep logrus for file logging diagnostics
-	// The output package handles user-facing terminal output
 	"github.com/seqra/seqra/v2/internal/version"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -37,6 +34,12 @@ var rootCmd = &cobra.Command{
 	SilenceUsage:  true,
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		verbosity, err := normalizeVerbosity(globals.Config.Log.Verbosity)
+		if err != nil {
+			return err
+		}
+		globals.Config.Log.Verbosity = verbosity
+
 		// Set up logging to both console and file
 		logFile, logPath, err := log.OpenLogFile()
 		globals.LogPath = logPath
@@ -98,7 +101,7 @@ func init() {
 
 	rootCmd.Flags().BoolVarP(&toolVersion, "version", "v", false, "Print the version information")
 
-	rootCmd.PersistentFlags().StringVar(&globals.Config.Log.Verbosity, "verbosity", logrus.InfoLevel.String(), "Log level (debug, info, warn, error, fatal, panic)")
+	rootCmd.PersistentFlags().StringVar(&globals.Config.Log.Verbosity, "verbosity", "info", "Verbosity level (info, debug)")
 	_ = viper.BindPFlag("log.verbosity", rootCmd.PersistentFlags().Lookup("verbosity"))
 
 	rootCmd.PersistentFlags().StringVar(&globals.Config.Log.Color, "color", "auto", "Color mode (auto, always, never)")
@@ -147,6 +150,18 @@ func initConfig() {
 
 	_ = viper.ReadInConfig()
 	_ = viper.Unmarshal(&globals.Config)
+}
+
+func normalizeVerbosity(level string) (string, error) {
+	value := strings.ToLower(strings.TrimSpace(level))
+	switch value {
+	case "", "info":
+		return "info", nil
+	case "debug":
+		return "debug", nil
+	default:
+		return "", fmt.Errorf("invalid --verbosity value %q: expected one of info, debug", level)
+	}
 }
 
 // addConfigFields appends config fields to a SectionBuilder if PrintConfig annotation is set.

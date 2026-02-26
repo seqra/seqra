@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/seqra/seqra/v2/internal/globals"
@@ -44,7 +43,7 @@ func (b *JavaAutobuilderBuilder) WithSourceRoot(root string) *JavaAutobuilderBui
 	cleanRoot := filepath.Clean(root)
 	absRoot := log.AbsPathOrExit(cleanRoot, "source root")
 	if _, err := os.Stat(absRoot); os.IsNotExist(err) {
-		logrus.Fatalf("Source root directory does not exist: %s", absRoot)
+		out.Fatalf("Source root directory does not exist: %s", absRoot)
 	}
 	b.config.sourceRoot = absRoot
 	return b
@@ -55,10 +54,10 @@ func (b *JavaAutobuilderBuilder) WithDependencies(deps []string) *JavaAutobuilde
 	for i, dep := range deps {
 		absDep, err := filepath.Abs(dep)
 		if err != nil {
-			logrus.Fatalf("Failed to resolve absolute path for dependency '%s': %s", dep, err)
+			out.Fatalf("Failed to resolve absolute path for dependency '%s': %s", dep, err)
 		}
 		if _, err := os.Stat(absDep); os.IsNotExist(err) {
-			logrus.Fatalf("Dependency file does not exist: %s", absDep)
+			out.Fatalf("Dependency file does not exist: %s", absDep)
 		}
 		absDeps[i] = absDep
 	}
@@ -76,10 +75,10 @@ func (b *JavaAutobuilderBuilder) WithClasspath(classpath []string) *JavaAutobuil
 	for i, cp := range classpath {
 		absCP, err := filepath.Abs(cp)
 		if err != nil {
-			logrus.Fatalf("Failed to resolve absolute path for classpath entry '%s': %s", cp, err)
+			out.Fatalf("Failed to resolve absolute path for classpath entry '%s': %s", cp, err)
 		}
 		if _, err := os.Stat(absCP); os.IsNotExist(err) {
-			logrus.Fatalf("Classpath entry does not exist: %s", absCP)
+			out.Fatalf("Classpath entry does not exist: %s", absCP)
 		}
 		absClasspath[i] = absCP
 	}
@@ -156,8 +155,8 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 
 	commandSucceeded := func(_ error) bool {
 		if _, err = os.Stat(c.outputDir); err != nil {
-			logrus.Errorf("Output directory does not exist after autobuilder execution: %s", c.outputDir)
-			logrus.Error("Autobuilder failed to compile the project")
+			out.LogInfof("Output directory does not exist after autobuilder execution: %s", c.outputDir)
+			out.LogInfo("Autobuilder failed to compile the project")
 			return false
 		}
 		return true
@@ -261,7 +260,7 @@ Examples:
 		sb.Render()
 
 		if err := config.Execute(); err != nil {
-			logrus.Fatalf("Failed to generate project configuration: %s", err)
+			out.Fatalf("Failed to generate project configuration: %s", err)
 		}
 	},
 }

@@ -5,7 +5,6 @@ import (
 
 	"github.com/seqra/seqra/v2/internal/sarif"
 	"github.com/seqra/seqra/v2/internal/utils/log"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -24,7 +23,7 @@ Arguments:
 		absSarifPath := log.AbsPathOrExit(args[0], "sarif path")
 		report := loadSarifReport(absSarifPath)
 		if report == nil {
-			logrus.Fatal("Failed to load SARIF report")
+			out.Fatal("Failed to load SARIF report")
 		}
 		printSarifSummary(report, absSarifPath)
 	},
@@ -56,13 +55,13 @@ func loadSarifReport(absSarifPath string) *sarif.Report {
 	// Read the SARIF file
 	data, err := os.ReadFile(absSarifPath)
 	if err != nil {
-		logrus.Errorf("Failed to read SARIF report: %v", err)
+		out.LogInfof("Failed to read SARIF report: %v", err)
 		return nil
 	}
 	// Parse the SARIF report
 	report, err := sarif.UnmarshalReport(data)
 	if err != nil {
-		logrus.Errorf("Failed to parse SARIF report: %v", err)
+		out.LogInfof("Failed to parse SARIF report: %v", err)
 		return nil
 	}
 	return &report

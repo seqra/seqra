@@ -12,7 +12,6 @@ import (
 	"github.com/seqra/seqra/v2/internal/version"
 
 	"github.com/seqra/seqra/v2/internal/utils/project"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -103,12 +102,12 @@ func scan(cmd *cobra.Command) {
 	var tempProjectModelPath string
 
 	if !utils.IsSupportedArch() {
-		logrus.Fatalf("Unsupported architecture found: %s! Only arm64 and amd64 are supported.", utils.GetArch())
+		out.Fatalf("Unsupported architecture found: %s! Only arm64 and amd64 are supported.", utils.GetArch())
 	}
 
 	// Resolve project type
 	var scanMode ScanMode
-	logrus.Debugf("Trying to define %v is a project model or a project", absUserProjectRoot)
+	out.LogDebugf("Trying to define %v is a project model or a project", absUserProjectRoot)
 	if _, err := os.Stat(filepath.Join(absUserProjectRoot, "project.yaml")); err == nil {
 		scanMode = Scan
 		absProjectModelPath = absUserProjectRoot
@@ -117,12 +116,12 @@ func scan(cmd *cobra.Command) {
 		scanMode = CompileAndScan
 		tempLogsDir, err = os.MkdirTemp("", "seqra-*")
 		if err != nil {
-			logrus.Fatalf("Failed to create temporary directory: %s", err)
+			out.Fatalf("Failed to create temporary directory: %s", err)
 		}
 		tempProjectModelPath = filepath.Join(tempLogsDir, "project-model")
 		absProjectModelPath = tempProjectModelPath
 	} else {
-		logrus.Fatalf("Unexpected error occurred while checking the project: %s", err)
+		out.Fatalf("Unexpected error occurred while checking the project: %s", err)
 	}
 
 	var absRuleSetPaths = []RulesetType{}
@@ -133,7 +132,7 @@ func scan(cmd *cobra.Command) {
 		case "builtin":
 			rulesPath, err := utils.GetRulesPath(globals.Config.Rules.Version)
 			if err != nil {
-				logrus.Fatalf("Unexpected error occurred while trying to construct path to the ruleset: %s", err)
+				out.Fatalf("Unexpected error occurred while trying to construct path to the ruleset: %s", err)
 			}
 
 			absRuleSetPaths = append(absRuleSetPaths, RulesetType{Path: rulesPath, Builtin: true})
@@ -159,7 +158,7 @@ func scan(cmd *cobra.Command) {
 	var sourceRoot string
 	if !tempProjectModel {
 		if parsedSourceRoot, err := project.GetSourceRoot(absProjectModelPath); err != nil {
-			logrus.Fatalf("Failed to parse sourceRoot from project.yaml: %v", err)
+			out.Fatalf("Failed to parse sourceRoot from project.yaml: %v", err)
 		} else {
 			sourceRoot = parsedSourceRoot
 		}
@@ -181,14 +180,14 @@ func scan(cmd *cobra.Command) {
 		if err := ensureArtifactAvailable("seqra-rules", globals.Config.Rules.Version, ruleSetPath.Path, func() error {
 			return utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, ruleSetPath.Path, globals.Config.Github.Token, globals.Config.SkipVerify)
 		}); err != nil {
-			logrus.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
+			out.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
 		}
 	}
 
 	if tempProjectModel {
 		autobuilderJarPath, err := ensureAutobuilderAvailable()
 		if err != nil {
-			logrus.Fatalf("Native compile preparation failed: %s", err)
+			out.Fatalf("Native compile preparation failed: %s", err)
 		}
 
 		compileJavaRunner := java.NewJavaRunner().
@@ -197,7 +196,7 @@ func scan(cmd *cobra.Command) {
 			TrySystem().
 			TrySpecificVersion(globals.Config.Java.Version)
 		if _, err := compileJavaRunner.EnsureJava(); err != nil {
-			logrus.Fatalf("Failed to resolve Java for compilation: %s", err)
+			out.Fatalf("Failed to resolve Java for compilation: %s", err)
 		}
 
 		if out.IsInteractive() {
@@ -207,7 +206,7 @@ func scan(cmd *cobra.Command) {
 			return compile(absUserProjectRoot, tempProjectModelPath, autobuilderJarPath, compileJavaRunner, Internal)
 		}); err != nil {
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
-			logrus.Fatalf("Native compile has failed: %s", err)
+			out.Fatalf("Native compile has failed: %s", err)
 		}
 		out.Blank()
 		printCompileSummary(tempProjectModelPath)
@@ -217,7 +216,7 @@ func scan(cmd *cobra.Command) {
 	if globals.Config.Scan.MaxMemory != "" {
 		parsedMaxMemory, err := utils.ParseMemoryValue(globals.Config.Scan.MaxMemory)
 		if err != nil {
-			logrus.Fatalf("Invalid max-memory value: %s", err)
+			out.Fatalf("Invalid max-memory value: %s", err)
 		}
 		maxMemory = parsedMaxMemory
 	}
@@ -244,7 +243,7 @@ func scan(cmd *cobra.Command) {
 		case "error", "warning", "note":
 			nativeBuilder.AddSeverity(severity)
 		default:
-			logrus.Fatalf(`Each "severity" flag should be one of note, warning, or error.`)
+			out.Fatalf(`Each "severity" flag should be one of note, warning, or error.`)
 		}
 	}
 	for _, absRuleSetPath := range absRuleSetPaths {
@@ -256,7 +255,7 @@ func scan(cmd *cobra.Command) {
 
 	analyzerJarPath, err := ensureAnalyzerAvailable()
 	if err != nil {
-		logrus.Fatalf("Native scan preparation failed: %s", err)
+		out.Fatalf("Native scan preparation failed: %s", err)
 	}
 	nativeBuilder.SetJarPath(analyzerJarPath)
 
@@ -266,7 +265,7 @@ func scan(cmd *cobra.Command) {
 		WithImageType(java.AdoptiumImageJRE).
 		TrySpecificVersion(globals.DefaultJavaVersion)
 	if _, err := analyzerJavaRunner.EnsureJava(); err != nil {
-		logrus.Fatalf("Failed to resolve Java for analyzer: %s", err)
+		out.Fatalf("Failed to resolve Java for analyzer: %s", err)
 	}
 
 	if out.IsInteractive() {
@@ -275,11 +274,11 @@ func scan(cmd *cobra.Command) {
 	if err := out.RunWithSpinner("Analyzing project", func() error {
 		return scanProject(nativeBuilder, analyzerJavaRunner)
 	}); err != nil {
-		logrus.Fatalf("Native scan has failed: %s", err)
+		out.Fatalf("Native scan has failed: %s", err)
 	}
 
 	if _, err := os.Stat(absSarifReportPath); err != nil {
-		logrus.Fatalf("There was a problem during the scan step, check the full logs: %s", globals.LogPath)
+		out.Fatalf("There was a problem during the scan step, check the full logs: %s", globals.LogPath)
 	}
 
 	out.Blank()
@@ -313,9 +312,9 @@ func scan(cmd *cobra.Command) {
 	// Clean up temporary directory if it was created
 	if tempProjectModel && tempLogsDir != "" {
 		if err := os.RemoveAll(filepath.Dir(absProjectModelPath)); err != nil {
-			logrus.Warnf("Failed to remove temporary directory %s: %v", filepath.Dir(absProjectModelPath), err)
+			out.LogInfof("Failed to remove temporary directory %s: %v", filepath.Dir(absProjectModelPath), err)
 		} else {
-			logrus.Debugf("Removed temporary directory: %s", filepath.Dir(absProjectModelPath))
+			out.LogDebugf("Removed temporary directory: %s", filepath.Dir(absProjectModelPath))
 		}
 	}
 }
@@ -345,11 +344,11 @@ func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string
 func setupSemgrepRuleLoadTrace() string {
 	absSemgrepRuleLoadTracePath, err := load_trace.GenerateSemgrepRuleLoadTraceFilePath()
 	if err != nil {
-		logrus.Fatalf("Failed to generate rule load trace file path: \"%s\": %v", absSemgrepRuleLoadTracePath, err)
+		out.Fatalf("Failed to generate rule load trace file path: \"%s\": %v", absSemgrepRuleLoadTracePath, err)
 	}
 
 	if err = utils.RemoveIfExists(absSemgrepRuleLoadTracePath); err != nil {
-		logrus.Fatalf("Failed to remove existing rule load trace file: \"%s\": %v", absSemgrepRuleLoadTracePath, err)
+		out.Fatalf("Failed to remove existing rule load trace file: \"%s\": %v", absSemgrepRuleLoadTracePath, err)
 	}
 
 	// Rule load trace path is now displayed in the tree format
@@ -359,13 +358,13 @@ func setupSemgrepRuleLoadTrace() string {
 func deserializeSemgrepRuleLoadTrace(absSemgrepRuleLoadTracePath string) *load_trace.SemgrepLoadTrace {
 	data, err := os.ReadFile(absSemgrepRuleLoadTracePath)
 	if err != nil {
-		logrus.Errorf("Failed to read rule load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
+		out.LogInfof("Failed to read rule load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
 		return nil
 	}
 
 	var el load_trace.SemgrepLoadTrace
 	if err := json.Unmarshal(data, &el); err != nil {
-		logrus.Errorf("Failed to deserialize load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
+		out.LogInfof("Failed to deserialize load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
 		return nil
 	}
 	return &el
@@ -391,7 +390,7 @@ func scanProject(analyzerBuilder *AnalyzerBuilder, javaRunner java.JavaRunner) e
 
 	commandSucceeded := func(err error) bool {
 		if err != nil {
-			logrus.Debugf("Analyzer failed: %v", err)
+			out.LogDebugf("Analyzer failed: %v", err)
 			return false
 		}
 		return true

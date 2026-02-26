@@ -396,7 +396,6 @@ func TestShouldStreamJavaOutput(t *testing.T) {
 		want      bool
 	}{
 		{verbosity: "debug", want: true},
-		{verbosity: "trace", want: true},
 		{verbosity: "DEBUG", want: true},
 		{verbosity: "info", want: false},
 		{verbosity: "warn", want: false},

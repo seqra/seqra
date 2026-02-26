@@ -91,10 +91,17 @@ func (f *blockTextFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 // Console output is no longer handled by logrus — it's handled by the output.Printer.
 // Logrus is used exclusively for structured file logging.
 func SetUpLogs(out io.Writer, level string, colorMode string) error {
-	// Parse log level for file logging
-	fileLevel, err := logrus.ParseLevel(level)
-	if err != nil {
-		return err
+	_ = colorMode
+
+	normalizedLevel := strings.ToLower(strings.TrimSpace(level))
+	fileLevel := logrus.InfoLevel
+	switch normalizedLevel {
+	case "", "info":
+		fileLevel = logrus.InfoLevel
+	case "debug":
+		fileLevel = logrus.DebugLevel
+	default:
+		return fmt.Errorf("invalid verbosity %q: expected one of info, debug", level)
 	}
 
 	// File formatter (with per-line timestamp/level/etc.)
@@ -105,7 +112,7 @@ func SetUpLogs(out io.Writer, level string, colorMode string) error {
 
 	// Discard default output — all logging goes through hooks
 	logrus.SetOutput(io.Discard)
-	logrus.SetLevel(logrus.TraceLevel)
+	logrus.SetLevel(logrus.DebugLevel)
 
 	// File logging hook — all levels up to the configured level
 	logrus.AddHook(&writerHook{

@@ -11,7 +11,6 @@ import (
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/seqra/seqra/v2/internal/utils/java"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -42,7 +41,7 @@ When bundled artifacts are present (from a release archive), they will be used d
 		installCurrent := utils.IsInstallCurrent()
 		if !installCurrent {
 			if err := utils.CleanInstallDir(); err != nil {
-				logrus.Fatalf("Failed to clean install directory: %s", err)
+				out.Fatalf("Failed to clean install directory: %s", err)
 			}
 		}
 
@@ -53,20 +52,20 @@ When bundled artifacts are present (from a release archive), they will be used d
 		for _, spec := range artifacts {
 			node, err := downloadArtifact(spec, installNextToBinary, installCurrent)
 			if err != nil {
-				logrus.Fatalf("Failed to download %s: %s", spec.Kind(), err)
+				out.Fatalf("Failed to download %s: %s", spec.Kind(), err)
 			}
 			summaryTree.Child(node)
 		}
 
 		javaNode, err := downloadJava(installNextToBinary, installCurrent)
 		if err != nil {
-			logrus.Fatalf("Failed to download Java: %s", err)
+			out.Fatalf("Failed to download Java: %s", err)
 		}
 		summaryTree.Child(javaNode)
 
 		// Write version marker after all downloads succeed
 		if err := utils.WriteInstallVersionMarker(); err != nil {
-			logrus.Fatalf("Failed to write install version marker: %s", err)
+			out.Fatalf("Failed to write install version marker: %s", err)
 		}
 
 		out.Blank()
@@ -110,7 +109,7 @@ func downloadArtifact(spec globals.ArtifactDef, installNextToBinary, installCurr
 		}
 		if t.Name != utils.TierCache {
 			if err := os.MkdirAll(filepath.Dir(t.Path), 0o755); err != nil {
-				logrus.Debugf("Cannot write to %s tier, trying next", t.Name)
+				out.LogDebugf("Cannot write to %s tier, trying next", t.Name)
 				continue
 			}
 		}
@@ -164,7 +163,7 @@ func downloadJava(installNextToBinary, installCurrent bool) (*tree.Tree, error) 
 		if t.Name != utils.TierCache {
 			// Test writability by creating and removing the target dir
 			if err := os.MkdirAll(t.Path, 0o755); err != nil {
-				logrus.Debugf("Cannot write to %s tier, trying next", t.Name)
+				out.LogDebugf("Cannot write to %s tier, trying next", t.Name)
 				continue
 			}
 			_ = os.Remove(t.Path)

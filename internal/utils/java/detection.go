@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/utils"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -18,33 +18,33 @@ var (
 )
 
 func DetectSystemJava() *JavaInstallation {
-	logrus.Debug("Starting system Java detection")
+	output.LogDebug("Starting system Java detection")
 
 	if javaHome := os.Getenv("JAVA_HOME"); javaHome != "" {
 		javaPath := utils.JavaBinaryPath(javaHome)
-		logrus.Debugf("Checking JAVA_HOME: %s (java path: %s)", javaHome, javaPath)
+		output.LogDebugf("Checking JAVA_HOME: %s (java path: %s)", javaHome, javaPath)
 
 		if installation := validateJavaInstallation(javaPath); installation != nil {
-			logrus.Debugf("Found Java via JAVA_HOME: %s v%s (%s)", installation.Path, installation.FullVersion, installation.Vendor)
+			output.LogDebugf("Found Java via JAVA_HOME: %s v%s (%s)", installation.Path, installation.FullVersion, installation.Vendor)
 			return installation
 		} else {
-			logrus.Debugf("JAVA_HOME points to invalid Java: %s", javaPath)
+			output.LogDebugf("JAVA_HOME points to invalid Java: %s", javaPath)
 		}
 	} else {
-		logrus.Debug("JAVA_HOME not set")
+		output.LogDebug("JAVA_HOME not set")
 	}
 
 	if javaPath, err := exec.LookPath("java"); err == nil {
-		logrus.Debugf("Checking PATH java: %s", javaPath)
+		output.LogDebugf("Checking PATH java: %s", javaPath)
 
 		if installation := validateJavaInstallation(javaPath); installation != nil {
-			logrus.Debugf("Found Java via PATH: %s v%s (%s)", installation.Path, installation.FullVersion, installation.Vendor)
+			output.LogDebugf("Found Java via PATH: %s v%s (%s)", installation.Path, installation.FullVersion, installation.Vendor)
 			return installation
 		} else {
-			logrus.Debugf("PATH java is invalid: %s", javaPath)
+			output.LogDebugf("PATH java is invalid: %s", javaPath)
 		}
 	} else {
-		logrus.Debugf("No java found in PATH: %v", err)
+		output.LogDebugf("No java found in PATH: %v", err)
 	}
 
 	return nil
@@ -98,21 +98,21 @@ func validateJavaInstallation(javaPath string) *JavaInstallation {
 	}
 
 	if _, err := os.Stat(javaPath); err != nil {
-		logrus.Debugf("Java executable not found at %s: %v", javaPath, err)
+		output.LogDebugf("Java executable not found at %s: %v", javaPath, err)
 		return nil
 	}
 
 	cmd := exec.Command(javaPath, "-version")
-	output, err := cmd.CombinedOutput()
+	cmdOutput, err := cmd.CombinedOutput()
 	if err != nil {
-		logrus.Debugf("Java executable validation failed for %s: %v (output: %s)", javaPath, err, string(output))
+		output.LogDebugf("Java executable validation failed for %s: %v (output: %s)", javaPath, err, string(cmdOutput))
 		return nil
 	}
 
-	versionOutput := string(output)
+	versionOutput := string(cmdOutput)
 	majorVersion, fullVersion, err := ParseJavaVersion(versionOutput)
 	if err != nil {
-		logrus.Debugf("Failed to parse Java version for %s: %v (output: %s)", javaPath, err, versionOutput)
+		output.LogDebugf("Failed to parse Java version for %s: %v (output: %s)", javaPath, err, versionOutput)
 		return nil
 	}
 
@@ -125,7 +125,7 @@ func validateJavaInstallation(javaPath string) *JavaInstallation {
 		Vendor:       vendor,
 	}
 
-	logrus.Debugf("Validated Java installation: %s v%s (major: %d, vendor: %s)", javaPath, fullVersion, majorVersion, vendor)
+	output.LogDebugf("Validated Java installation: %s v%s (major: %d, vendor: %s)", javaPath, fullVersion, majorVersion, vendor)
 
 	return installation
 }

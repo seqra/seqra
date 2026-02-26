@@ -15,7 +15,6 @@ import (
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/utils"
-	"github.com/sirupsen/logrus"
 )
 
 var errJavaFound = errors.New("java-binary-found")
@@ -67,7 +66,7 @@ func ensureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
 
 	javaPath := filepath.Join(targetDir, "bin", javaBinary)
 	if fileExists(javaPath) {
-		logrus.Debugf("Using installed Java: %s", javaPath)
+		output.LogDebugf("Using installed Java: %s", javaPath)
 		return javaPath, nil
 	}
 
@@ -87,12 +86,12 @@ func ensureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
 		if !skipVerify {
 			expected, err := FetchAdoptiumChecksum(requiredJavaVersion, adoptiumOS, adoptiumArch, imageType)
 			if err != nil {
-				logrus.Warnf("Could not fetch Adoptium checksum: %v", err)
+				output.LogInfof("Could not fetch Adoptium checksum: %v", err)
 			} else if expected != "" {
 				if err := utils.VerifyFileChecksum(tmpArchive, expected); err != nil {
 					return "", fmt.Errorf("JRE integrity check failed: %w", err)
 				}
-				logrus.Debugf("SHA256 verified: Temurin Java %d", requiredJavaVersion)
+				output.LogDebugf("SHA256 verified: Temurin Java %d", requiredJavaVersion)
 			}
 		}
 
@@ -103,7 +102,7 @@ func ensureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
 		if err != nil {
 			return "", err
 		}
-		logrus.Debugf("Java installed at: %s", javaPath)
+		output.LogDebugf("Java installed at: %s", javaPath)
 		return javaPath, nil
 	})
 }
@@ -158,7 +157,7 @@ func withTmpDir(path string, fn func(string) (string, error)) (result string, er
 	}
 	defer func() {
 		if cleanupErr := os.RemoveAll(path); cleanupErr != nil {
-			logrus.Warnf("failed to clean temporary directory %s: %v", path, cleanupErr)
+			output.LogInfof("failed to clean temporary directory %s: %v", path, cleanupErr)
 		}
 	}()
 
@@ -172,21 +171,21 @@ func withTmpDir(path string, fn func(string) (string, error)) (result string, er
 
 // ensureDownloaded downloads a file if it doesn't already exist.
 func ensureDownloaded(url, dest string, showProgress bool) error {
-	logrus.Debugf("trying to tap into %s...", dest)
+	output.LogDebugf("trying to tap into %s...", dest)
 	if fileExists(dest) {
-		logrus.Debugf("Reusing downloaded Java archive: %s", dest)
+		output.LogDebugf("Reusing downloaded Java archive: %s", dest)
 		return nil
 	}
-	logrus.Debugf("Downloading Temurin Java from %s", url)
+	output.LogDebugf("Downloading Temurin Java from %s", url)
 	err := downloadFile(url, dest, showProgress)
 	if err == nil {
-		logrus.Debugf("Successfully downloaded Temurin Java to %s", dest)
+		output.LogDebugf("Successfully downloaded Temurin Java to %s", dest)
 	}
 	return err
 }
 
 func unpack(archivePath, targetDir string) error {
-	logrus.Debugf("Unpacking Java archive %s into %s", archivePath, targetDir)
+	output.LogDebugf("Unpacking Java archive %s into %s", archivePath, targetDir)
 	f, err := os.Open(archivePath)
 	if err != nil {
 		return err
