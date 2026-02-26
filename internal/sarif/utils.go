@@ -183,13 +183,29 @@ func findingFiles(report *Report) int {
 	return len(files)
 }
 
+func formatLevelCounts(errors, warnings, notes int) string {
+	parts := make([]string, 0, 3)
+	if errors > 0 {
+		parts = append(parts, fmt.Sprintf("%d errors", errors))
+	}
+	if warnings > 0 {
+		parts = append(parts, fmt.Sprintf("%d warnings", warnings))
+	}
+	if notes > 0 {
+		parts = append(parts, fmt.Sprintf("%d notes", notes))
+	}
+	if len(parts) == 0 {
+		return "0 findings"
+	}
+	return strings.Join(parts, ", ")
+}
+
 // PrintSummary prints a human-readable summary of the SARIF report
 func (report *Report) PrintSummary(out *output.Printer, absSarifReportPath string) {
 	summary := GenerateSummary(report)
 	ruleSummary := generateRuleSummary(report)
 
-	totalLine := fmt.Sprintf("%d (errors: %d, warnings: %d, notes: %d)",
-		summary.TotalFindings,
+	totalLine := formatLevelCounts(
 		summary.FindingsByLevel["error"],
 		summary.FindingsByLevel["warning"],
 		summary.FindingsByLevel["note"],
@@ -199,12 +215,13 @@ func (report *Report) PrintSummary(out *output.Printer, absSarifReportPath strin
 	if summary.TotalRulesTriggered > 0 {
 		rulesTriggeredNode := tree.Root(out.FieldItem("Rules triggered", summary.TotalRulesTriggered))
 		for _, item := range ruleSummary {
-			ruleLine := fmt.Sprintf("%s: %d findings (errors: %d, warnings: %d, notes: %d)",
+			ruleLine := fmt.Sprintf("%s: %s",
 				item.RuleID,
-				item.Total,
-				item.Errors,
-				item.Warnings,
-				item.Notes,
+				formatLevelCounts(
+					item.Errors,
+					item.Warnings,
+					item.Notes,
+				),
 			)
 			if len(item.CWETags) > 0 {
 				ruleLine += " [" + strings.Join(item.CWETags, ", ") + "]"
@@ -222,14 +239,8 @@ func (report *Report) PrintSummary(out *output.Printer, absSarifReportPath strin
 		rulesTriggered = out.FieldItem("Rules triggered", summary.TotalRulesTriggered)
 	}
 
-	status := "PASSED"
-	if summary.TotalFindings > 0 {
-		status = fmt.Sprintf("FAILED (%d findings)", summary.TotalFindings)
-	}
-
 	out.Section("Scan Summary").
 		Group("Findings",
-			out.FieldItem("Status", status),
 			out.FieldItem("Total", totalLine),
 			out.FieldItem("Files affected", findingFiles(report)),
 			out.FieldItem("Rules executed", summary.TotalRulesExecuted),
@@ -242,14 +253,14 @@ func (report *Report) PrintSummary(out *output.Printer, absSarifReportPath strin
 		Render()
 }
 
-func (report *Report) PrintAll(out *output.Printer, showCodeSnippets bool, verboseFlow bool) {
+func (report *Report) PrintAll(out *output.Printer, showCodeSnippets bool, verboseFlow bool) bool {
 	totalFindings := 0
 	for _, run := range report.Runs {
 		totalFindings += len(run.Results)
 	}
 
-	if totalFindings > 0 {
-		out.Section("Findings").Render()
+	if totalFindings == 0 {
+		return false
 	}
 
 	type findingRef struct {
@@ -294,8 +305,8 @@ func (report *Report) PrintAll(out *output.Printer, showCodeSnippets bool, verbo
 	}
 	sort.Strings(files)
 
-	findingIndex := 0
-	for _, file := range files {
+	hasOmitted := false
+	for fileIdx, file := range files {
 		group := byFile[file]
 		sort.Slice(group, func(i, j int) bool {
 			if group[i].line != group[j].line {
@@ -312,11 +323,24 @@ func (report *Report) PrintAll(out *output.Printer, showCodeSnippets bool, verbo
 			return group[i].order < group[j].order
 		})
 
-		out.Section(fmt.Sprintf("File: %s (%d findings)", file, len(group))).Render()
-		for _, finding := range group {
-			findingIndex++
-			report.printFinding(out, finding.result, finding.runIdx, showCodeSnippets, verboseFlow, findingIndex, totalFindings)
+		fileSection := out.Section(fmt.Sprintf("%s [%d]", file, len(group)))
+		for findingIdx, finding := range group {
+			if findingIdx > 0 {
+				fileSection.Line()
+			}
+			node, omitted := report.buildFindingTree(out, finding.result, finding.runIdx, showCodeSnippets, verboseFlow)
+			if node != nil {
+				fileSection.Child(node)
+			}
+			if omitted {
+				hasOmitted = true
+			}
+		}
+		fileSection.Render()
+		if fileIdx < len(files)-1 {
 			out.Blank()
 		}
 	}
+
+	return hasOmitted
 }

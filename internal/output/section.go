@@ -149,6 +149,12 @@ func (sb *SectionBuilder) buildTree(th *Theme) *tree.Tree {
 			}
 			return "├── "
 		}).
+		Indenter(func(children tree.Children, index int) string {
+			if index == children.Length()-1 {
+				return "    "
+			}
+			return "│   "
+		}).
 		EnumeratorStyle(th.TreeBranch).
 		IndenterStyle(th.TreeBranch).
 		ItemStyle(th.TreeItem)

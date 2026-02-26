@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/seqra/seqra/v2/internal/sarif"
@@ -43,12 +44,20 @@ func init() {
 }
 
 func printSarifSummary(report *sarif.Report, absSarifPath string) {
+	hasOmittedFlow := false
 	if showFindings {
-		report.PrintAll(out, showCodeSnippets, verboseFlow)
+		hasOmittedFlow = report.PrintAll(out, showCodeSnippets, verboseFlow)
 		out.Blank()
 	}
 
 	report.PrintSummary(out, absSarifPath)
+
+	if showFindings && hasOmittedFlow && !verboseFlow {
+		out.Suggest(
+			"To see full code flow and code snippets, use:",
+			fmt.Sprintf("seqra summary --show-findings --verbose-flow --show-code-snippets %s", absSarifPath),
+		)
+	}
 }
 
 func loadSarifReport(absSarifPath string) *sarif.Report {
