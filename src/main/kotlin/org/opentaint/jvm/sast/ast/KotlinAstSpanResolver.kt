@@ -7,8 +7,8 @@ import org.antlr.v4.runtime.Token
 import org.antlr.v4.runtime.tree.ParseTree
 import org.antlr.v4.runtime.tree.RuleNode
 import org.antlr.v4.runtime.tree.TerminalNode
-import org.opentaint.dataflow.jvm.util.JIRSarifTraits
 import org.opentaint.dataflow.jvm.util.callee
+import org.opentaint.jvm.sast.sarif.JIRSarifTraits
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr

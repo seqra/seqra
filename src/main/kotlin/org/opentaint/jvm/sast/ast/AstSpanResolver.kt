@@ -1,6 +1,6 @@
 package org.opentaint.jvm.sast.ast
 
-import org.opentaint.dataflow.jvm.util.JIRSarifTraits
+import org.opentaint.jvm.sast.sarif.JIRSarifTraits
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.jvm.sast.sarif.IntermediateLocation
 import org.opentaint.jvm.sast.sarif.LocationSpan
