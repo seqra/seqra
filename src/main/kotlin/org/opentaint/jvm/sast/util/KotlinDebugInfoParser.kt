@@ -1,6 +1,6 @@
 package org.opentaint.jvm.sast.util
 
-object DebugInfoParser {
+object KotlinDebugInfoParser {
     fun parseOrNull(mappingInfo: String?): DebugInfo? =
         if (!mappingInfo.isNullOrEmpty())
             parseStratum(mappingInfo, STRATUM_KOTLIN, parseStratum(mappingInfo, STRATUM_KOTLIN_DEBUG, null))

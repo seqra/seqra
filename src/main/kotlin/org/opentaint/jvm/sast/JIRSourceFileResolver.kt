@@ -1,13 +1,14 @@
 package org.opentaint.jvm.sast
 
 import mu.KLogging
-import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.packageName
-import org.opentaint.jvm.sast.ast.JavaClassNameExtractor
+import org.opentaint.jvm.sast.ast.ClassIndex
+import org.opentaint.jvm.sast.ast.JavaClassNameIndexer
+import org.opentaint.jvm.sast.ast.KotlinClassNameIndexer
 import java.io.IOException
 import java.nio.file.FileVisitResult
 import java.nio.file.Files
@@ -15,7 +16,6 @@ import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
 import java.nio.file.attribute.BasicFileAttributes
 import kotlin.io.path.extension
-import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.relativeTo
 
 fun JIRClassOrInterface.mostOuterClass(): JIRClassOrInterface {
@@ -29,12 +29,12 @@ fun JIRClassOrInterface.mostOuterClass(): JIRClassOrInterface {
 class JIRSourceFileResolver(
     private val projectSourceRoot: Path?,
     private val projectLocationsSourceRoots: Map<RegisteredLocation, Path>
-) : SourceFileResolver<CommonInst> {
+) {
+    data class SourceLocation(val path: Path, val language: ClassIndex.Language)
+
     private class SourceLocations(
-        val allSourceByFileName: Map<String, List<Path>>,
-        val javaLocations: Map<String, List<Path>>,
-        val kotlinFileLocations: Map<String, List<Path>>,
-        val kotlinClassLocations: Map<String, List<Path>>,
+        val javaIndex: JavaClassNameIndexer.JavaClassIndex,
+        val kotlinIndex: KotlinClassNameIndexer.KotlinClassIndex,
     )
 
     private val locationSources: Map<RegisteredLocation, SourceLocations> by lazy {
@@ -77,47 +77,25 @@ class JIRSourceFileResolver(
             }
         })
 
-        val javaLocations = hashMapOf<String, MutableList<Path>>()
-        for (jFile in collectedJava) {
-            val classNames = JavaClassNameExtractor.extractClassNames(jFile, isKotlin = false)
-            classNames.forEach {
-                javaLocations.getOrPut(it, ::mutableListOf).add(jFile)
-            }
-        }
-
-        val kotlinClassLocations = hashMapOf<String, MutableList<Path>>()
-        val kotlinFileLocations = hashMapOf<String, MutableList<Path>>()
-
-        for (kFile in collectedKotlin) {
-            kotlinFileLocations.getOrPut(kFile.nameWithoutExtension, ::mutableListOf).add(kFile)
-
-            val classNames = JavaClassNameExtractor.extractClassNames(kFile, isKotlin = true)
-            classNames.forEach {
-                kotlinClassLocations.getOrPut(it, ::mutableListOf).add(kFile)
-            }
-        }
+        val javaIndex = JavaClassNameIndexer.createIndex(collectedJava)
+        val kotlinIndex = KotlinClassNameIndexer.createIndex(collectedKotlin)
 
         val allSourcesByFileName = collectedJava.groupByTo(hashMapOf()) { it.fileName.toString() }
         collectedKotlin.groupByTo(allSourcesByFileName) { it.fileName.toString() }
 
-        return SourceLocations(
-            allSourcesByFileName,
-            javaLocations,
-            kotlinFileLocations,
-            kotlinClassLocations
-        )
+        return SourceLocations(javaIndex, kotlinIndex)
     }
 
-    override fun relativeToRoot(path: Path): String =
+    fun relativeToRoot(path: Path): String =
         (projectSourceRoot?.let { path.relativeTo(it) } ?: path).toString()
 
-    private val sourcesCache = hashMapOf<Pair<String, String>, Path?>()
-    override fun resolveByName(inst: CommonInst, pkg: String, name: String): Path? =
-        sourcesCache.computeIfAbsent(pkg to name) {
-            computeByName(inst, pkg, name)
+    private val sourcesCache = hashMapOf<Pair<String, String>, SourceLocation?>()
+    fun resolveKotlinByName(inst: CommonInst, jvmClassName: String, fileName: String): SourceLocation? =
+        sourcesCache.computeIfAbsent(jvmClassName to fileName) {
+            computeKotlinByName(inst, jvmClassName, fileName)
         }
 
-    private fun computeByName(inst: CommonInst, pkg: String, name: String): Path? {
+    private fun computeKotlinByName(inst: CommonInst, jvmClassName: String, fileName: String): SourceLocation? {
         check(inst is JIRInst) { "Expected inst to be JIRInst" }
         val instLocationCls = inst.location.method.enclosingClass
 
@@ -126,24 +104,38 @@ class JIRSourceFileResolver(
 
         val sources = locationSources[location] ?: return null
 
-        val relatedSourceFiles = sources.allSourceByFileName[name] ?: return null
-        val sourceFilesWithCorrectPackage = relatedSourceFiles.filter { packageMatches(it, pkg) }
+        var relatedSourceFiles = sources.kotlinIndex.fileNameLocations[fileName] ?: return null
+        if (relatedSourceFiles.isEmpty()) return null
 
-        if (sourceFilesWithCorrectPackage.size != 1) {
-            logger.warn { "Source file was not resolved for: $name" }
-            return null
+        if (relatedSourceFiles.size == 1) {
+            return SourceLocation(relatedSourceFiles.first(), ClassIndex.Language.Kotlin)
         }
 
-        return sourceFilesWithCorrectPackage[0]
+        val className = jvmClassName.replace('/', '.')
+        val lookupResult = sources.kotlinIndex.lookup(className)
+
+        if (lookupResult != null) {
+            val intersect = relatedSourceFiles.filterTo(mutableSetOf()) { it in lookupResult.sources }
+            if (intersect.isNotEmpty()) {
+                relatedSourceFiles = intersect
+            }
+        }
+
+        if (relatedSourceFiles.size > 1) {
+            logger.warn { "Ambiguous source file for class ${jvmClassName}: $relatedSourceFiles" }
+        }
+
+        return relatedSourceFiles.firstOrNull()
+            ?.let { SourceLocation(it, ClassIndex.Language.Kotlin) }
     }
 
-    private val locationsCache = hashMapOf<CommonInst, Path?>()
-    override fun resolveByInst(inst: CommonInst): Path? =
+    private val locationsCache = hashMapOf<CommonInst, SourceLocation?>()
+    fun resolveByInst(inst: CommonInst): SourceLocation? =
         locationsCache.computeIfAbsent(inst) {
             computeByInst(inst)
         }
 
-    private fun computeByInst(inst: CommonInst): Path? {
+    private fun computeByInst(inst: CommonInst): SourceLocation? {
         check(inst is JIRInst) { "Expected inst to be JIRInst" }
         val instLocationCls = inst.location.method.enclosingClass
 
@@ -154,50 +146,49 @@ class JIRSourceFileResolver(
 
         val mostOuterCls = instLocationCls.mostOuterClass()
 
-        val outerClsPath = sources.javaLocations[mostOuterCls.name].orEmpty()
-        val sourceLocations = when (outerClsPath.size) {
-            1 -> outerClsPath
-            0 -> {
-                var kotlinClsPath = sources.kotlinClassLocations[mostOuterCls.name].orEmpty()
-                if (kotlinClsPath.isEmpty()) {
-                    kotlinClsPath = sources.kotlinFileLocations[mostOuterCls.simpleName].orEmpty()
-                }
-                if (kotlinClsPath.isEmpty()) {
-                    kotlinClsPath = sources.kotlinFileLocations[mostOuterCls.simpleName.removeSuffix("Kt")].orEmpty()
-                }
-                kotlinClsPath
-            }
+        val bestMatch = selectSourceLookup(listOf(sources.javaIndex, sources.kotlinIndex), mostOuterCls)
 
-            else -> {
-                // note: try to find inner class name
-                val classQueryName = "${mostOuterCls.packageName}.${instLocationCls.simpleName}"
-                val innerClassFiles = sources.javaLocations[classQueryName].orEmpty()
-                val intersect = innerClassFiles.filter { it in outerClsPath }
-                if (intersect.isEmpty()) outerClsPath else intersect
-            }
-        }
-
-        if (sourceLocations.isEmpty()) {
+        var matchedSources = bestMatch?.second?.sources
+        if (matchedSources.isNullOrEmpty()) {
             logger.warn { "Source file was not resolved for: ${instLocationCls.name}" }
             return null
         }
 
-        if (sourceLocations.size > 1) {
-            logger.warn { "Ambiguous source file for class ${instLocationCls.name}: $sourceLocations" }
+        val sourceIndex = bestMatch!!.first
+
+        if (matchedSources.size > 1 && instLocationCls.simpleName != mostOuterCls.simpleName) {
+            // note: try to find inner class name
+            val classQueryName = "${mostOuterCls.packageName}.${instLocationCls.simpleName}"
+            val innerClassFiles = sourceIndex.lookup(classQueryName)?.sources.orEmpty()
+
+            val intersect = innerClassFiles.filterTo(mutableSetOf()) { it in matchedSources }
+            if (intersect.isNotEmpty()) {
+                matchedSources = intersect
+            }
         }
 
-        return sourceLocations.firstOrNull()
+        if (matchedSources.size > 1) {
+            logger.warn { "Ambiguous source file for class ${instLocationCls.name}: $matchedSources" }
+        }
+
+        return matchedSources.firstOrNull()?.let { SourceLocation(it, sourceIndex.language) }
     }
 
-    private fun packageMatches(sourceFile: Path, pkg: String) =
-        packageMatches(sourceFile, pkg.split("/").reversed().drop(1))
+    private fun selectSourceLookup(
+        indices: List<ClassIndex>,
+        cls: JIRClassOrInterface
+    ): Pair<ClassIndex, ClassIndex.LookupResult>? {
+        var bestLookup: Pair<ClassIndex, ClassIndex.LookupResult>? = null
+        for (index in indices) {
+            val lookup = index.lookup(cls.name)
+                ?: continue
 
-    private fun packageMatches(sourceFile: Path, parts: List<String>): Boolean {
-        val filePathParts = sourceFile.toList().reversed().drop(1)
-
-        if (filePathParts.size < parts.size) return false
-
-        return parts.zip(filePathParts).all { it.first == it.second.toString() }
+            if (lookup.priority == 0) return index to lookup
+            if (bestLookup == null || bestLookup.second.priority > lookup.priority) {
+                bestLookup = index to lookup
+            }
+        }
+        return bestLookup
     }
 
     companion object {

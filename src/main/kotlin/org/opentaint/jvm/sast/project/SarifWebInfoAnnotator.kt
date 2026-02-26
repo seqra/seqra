@@ -11,12 +11,12 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.jvm.sast.JIRSourceFileResolver
-import org.opentaint.jvm.sast.ast.JavaAstSpanResolver
+import org.opentaint.jvm.sast.ast.AstSpanResolverProvider
 import org.opentaint.jvm.sast.sarif.TracePathNode
 
 abstract class SarifWebInfoAnnotator(
     val sourceFileResolver: JIRSourceFileResolver,
-    val spanResolver: JavaAstSpanResolver,
+    val spanResolver: AstSpanResolverProvider,
 ) {
     interface ControllerParams
 

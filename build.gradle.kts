@@ -50,6 +50,26 @@ dependencies {
     testImplementation(JunitDependencies.Libs.junit_jupiter_params)
     implementation(Libs.logback)
     implementation(Libs.jdot)
+
+    testCompileOnly(project("samples"))
+}
+
+val testSamples by configurations.creating
+
+dependencies {
+    testSamples(project("samples"))
+}
+
+tasks.withType<Test> {
+    dependsOn(project("samples").tasks.withType<Jar>())
+
+    doFirst {
+        val resolvedTestSamples = testSamples.resolve()
+        val testSamplesJar = resolvedTestSamples.single { it.name == "samples.jar" }
+        val testDependencies = resolvedTestSamples.filter { it.name != "samples.jar" }
+        environment("TEST_SAMPLES_JAR", testSamplesJar.absolutePath)
+        environment("TEST_DEPENDENCIES_JAR", testDependencies.joinToString(File.pathSeparator) { it.absolutePath })
+    }
 }
 
 val projectAnalyzerJar = tasks.register<ShadowJar>("projectAnalyzerJar") {
@@ -125,4 +145,8 @@ fun Task.ensureSeEnvInitialized() {
 fun findOpentaintSeEnvInitializer(): Task? {
     val seProject = gradle.includedBuilds.find { it.name == "opentaint-jvm-sast-se" } ?: return null
     return seProject.resolveIncludedProjectTask(":setupAnalyzerEnvironment")
+}
+
+tasks.withType<Test> {
+    maxHeapSize = "4G"
 }

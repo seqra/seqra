@@ -8,17 +8,64 @@ import org.opentaint.semgrep.pattern.antlr.JavaLexer
 import java.nio.file.Path
 import kotlin.io.path.nameWithoutExtension
 
-object JavaClassNameExtractor {
+object JavaClassNameIndexer {
     private val logger = object : KLogging() {}.logger
 
-    fun extractClassNames(path: Path, isKotlin: Boolean): List<String> = try {
-        extractClassNamesFromSource(path, isKotlin)
-    } catch (ex: Throwable) {
-        logger.error(ex) { "Error extracting Java classes from $path" }
-        listOf(path.nameWithoutExtension)
+    class JavaClassIndex: ClassIndex {
+        override val language: ClassIndex.Language
+            get() = ClassIndex.Language.Java
+
+        val fqnLocations = hashMapOf<String, MutableSet<Path>>()
+        val classLocations = hashMapOf<String, MutableSet<Path>>()
+        val fileLocations = hashMapOf<String, MutableSet<Path>>()
+
+        override fun lookup(fqn: String): ClassIndex.LookupResult? {
+            fqnLocations[fqn]?.let { return ClassIndex.LookupResult(0, it) }
+
+            val simpleName = fqn.substringAfterLast('.')
+            classLocations[simpleName]?.let { return ClassIndex.LookupResult(1, it) }
+            fileLocations[simpleName]?.let { return ClassIndex.LookupResult(2, it) }
+            return null
+        }
     }
 
-    private fun extractClassNamesFromSource(path: Path, isKotlin: Boolean): List<String> {
+    fun createIndex(files: List<Path>): JavaClassIndex {
+        val index = JavaClassIndex()
+
+        for (path in files) {
+            val fileName = path.nameWithoutExtension
+            index.fileLocations.getOrPut(fileName, ::mutableSetOf).add(path)
+
+            val classes = extractClassNames(path)
+            classes.classSimpleNames.forEach {
+                index.classLocations.getOrPut(it, ::mutableSetOf).add(path)
+            }
+
+            classes.fullyQualifiedNames?.forEach {
+                index.fqnLocations.getOrPut(it, ::mutableSetOf).add(path)
+            }
+        }
+
+        return index
+    }
+
+    data class JavaClassNames(
+        val classSimpleNames: List<String>,
+        val packageName: String?
+    ) {
+        val fullyQualifiedNames: List<String>? = packageName?.let { pkg ->
+            classSimpleNames.map { "$pkg${DOT_SEPARATOR}$it" }
+        }
+    }
+
+    fun extractClassNames(path: Path): JavaClassNames = try {
+        extractClassNamesFromSource(path)
+    } catch (ex: Throwable) {
+        logger.error(ex) { "Error extracting Java classes from $path" }
+        JavaClassNames(emptyList(), packageName = null)
+    }
+
+    private fun extractClassNamesFromSource(path: Path): JavaClassNames {
         val lexer = JavaLexer(CharStreams.fromPath(path)).apply { removeErrorListeners() }
         val stream = CommonTokenStream(lexer)
 
@@ -32,7 +79,7 @@ object JavaClassNameExtractor {
 
                 JavaLexer.PACKAGE -> {
                     stream.consume()
-                    packageName = parseQualifiedName(stream, isKotlin) ?: continue
+                    packageName = parseQualifiedName(stream) ?: continue
                 }
 
                 JavaLexer.CLASS, JavaLexer.INTERFACE, JavaLexer.RECORD, JavaLexer.ENUM -> {
@@ -45,15 +92,10 @@ object JavaClassNameExtractor {
             }
         }
 
-        if (packageName != null) {
-            return classNames.map { "$packageName$DOT_SEPARATOR$it" }
-        }
-
-        return classNames
+        return JavaClassNames(classNames, packageName)
     }
 
-    private fun parseQualifiedName(stream: CommonTokenStream, isKotlin: Boolean): String? {
-        var prevIdentifier: Token? = null
+    private fun parseQualifiedName(stream: CommonTokenStream): String? {
         val parts = mutableListOf<String>()
         while (true) {
             val tkId = stream.LA(1)
@@ -71,12 +113,6 @@ object JavaClassNameExtractor {
                 }
 
                 else -> {
-                    val identifierToken = stream.LT(1) ?: return null
-                    if (isKotlin && prevIdentifier != null && identifierToken.line != prevIdentifier.line) {
-                        return parts.joinToString(DOT_SEPARATOR)
-                    }
-                    prevIdentifier = identifierToken
-
                     parts += parseIdentifier(stream) ?: return null
                     stream.consume()
                     continue

@@ -1,7 +1,6 @@
 package org.opentaint.jvm.sast.sarif
 
 import mu.KLogging
-import org.objectweb.asm.Opcodes
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
@@ -218,7 +217,8 @@ class TraceMessageBuilder(
             return stringBuilderAppendName
         if (method.startsWith(lambdaMark))
             return "lambda"
-        return "\"$method\""
+
+        return "\"${method.removeSuffix(suspendFunction)}\""
     }
 
     private fun getMethodCalleeNameInPrint(node: TracePathNode): String {
@@ -253,6 +253,10 @@ class TraceMessageBuilder(
         }
 
         if (isGeneratedLocation(node.statement)) {
+            return false
+        }
+
+        if (isAbnormalLocation(node.statement)) {
             return false
         }
 
@@ -738,6 +742,8 @@ class TraceMessageBuilder(
     }
 
     private fun printArgument(node: TracePathNode, index: Int): String =
+        /*
+        todo: clarify why this is important
         if (node.kind == TracePathNodeKind.CALL && node.entry !is TraceEntry.Final) {
             val stmt = node.statement as? CommonAssignInst
             val call = stmt?.let { it.rhv as? CommonCallExpr }
@@ -747,7 +753,7 @@ class TraceMessageBuilder(
             }
             argument ?: default
         }
-        else if (node.isInsideLambda()) {
+        else*/ if (node.isInsideLambda()) {
             printLambdaArgument(node, index)
         }
         else {
@@ -1053,6 +1059,7 @@ class TraceMessageBuilder(
         private val classInitializerSuffix = "class initializer"
         private val defaultTaintMark = "marked"
         private val lambdaMark = "lambda$"
+        private val suspendFunction = "\$suspendImpl"
         private val artificialLambdaClassMark = "jIR_lambda$"
 
         val logger = object : KLogging() {}.logger
@@ -1064,13 +1071,28 @@ class TraceMessageBuilder(
             return false
         }
 
-        fun tryResolveNormalLocation(stmt: CommonInst): CommonInst? {
+        fun tryResolveNormalGeneratedLocation(stmt: CommonInst): CommonInst? {
             val locationMethod = stmt.location.method
             if (locationMethod is JIRLambdaMethod) {
                 val lambdaCreationLocation = (locationMethod.enclosingClass as JIRLambdaClass).lambdaLocation
                 return lambdaCreationLocation.method.instList.getOrNull(lambdaCreationLocation.index)
             }
             return null
+        }
+
+        fun isAbnormalLocation(stmt: CommonInst): Boolean =
+            stmt is JIRInst && stmt.lineNumber == 0
+
+        fun tryResolveNormalLocation(
+            stmt: CommonInst,
+            relevantLocations: List<List<IntermediateLocation>>?
+        ): CommonInst? {
+            if (relevantLocations == null) return null
+            if (stmt !is JIRReturnInst) return null
+
+            return relevantLocations.firstOrNull()
+                ?.lastOrNull { it.inst is JIRReturnInst }
+                ?.inst as? JIRReturnInst
         }
     }
 }

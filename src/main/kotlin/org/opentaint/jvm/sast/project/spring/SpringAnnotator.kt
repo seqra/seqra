@@ -11,7 +11,7 @@ import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRParameter
 import org.opentaint.jvm.sast.JIRSourceFileResolver
-import org.opentaint.jvm.sast.ast.JavaAstSpanResolver
+import org.opentaint.jvm.sast.ast.AstSpanResolverProvider
 import org.opentaint.jvm.sast.dataflow.matchedAnnotations
 import org.opentaint.jvm.sast.project.SarifWebInfoAnnotator
 import org.opentaint.jvm.sast.sarif.TracePathNode
@@ -20,7 +20,7 @@ import org.opentaint.jvm.sast.sarif.isPureEntryPoint
 
 class SpringAnnotator(
     sourceFileResolver: JIRSourceFileResolver,
-    spanResolver: JavaAstSpanResolver,
+    spanResolver: AstSpanResolverProvider,
 ) : SarifWebInfoAnnotator(sourceFileResolver, spanResolver) {
     private sealed interface SpringParamType {
         data object Other : SpringParamType
@@ -102,7 +102,7 @@ class SpringAnnotator(
         if (method.instList.size == 0) return null
         val firstInst = method.instList.first()
         val src = sourceFileResolver.resolveByInst(firstInst) ?: return null
-        return spanResolver.getParameterName(src, firstInst, paramIdx)
+        return spanResolver.resolver(src.language).getParameterName(src.path, firstInst, paramIdx)
     }
 
     private fun getSpringParamType(

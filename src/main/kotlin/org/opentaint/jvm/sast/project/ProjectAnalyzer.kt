@@ -8,10 +8,10 @@ import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintCo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSummarySerializationContext
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.util.JIRSarifTraits
-import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.jvm.sast.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.JIRCombinedTaintRulesProvider
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
@@ -156,7 +156,7 @@ class ProjectAnalyzer(
 
     private fun ProjectAnalysisContext.generateSarifReportFromTraces(
         output: OutputStream,
-        sourceFileResolver: SourceFileResolver<CommonInst>,
+        sourceFileResolver: JIRSourceFileResolver,
         traces: List<VulnerabilityWithTrace>
     ) {
         val generator = SarifGenerator(
@@ -174,7 +174,7 @@ class ProjectAnalyzer(
 
     private fun ProjectAnalysisContext.generateFactReachabilityReport(
         output: OutputStream,
-        sourceFileResolver: SourceFileResolver<CommonInst>,
+        sourceFileResolver: JIRSourceFileResolver,
         reachableFacts: Map<CommonInst, Set<FinalFactAp>>,
     ) {
         val generator = DebugFactReachabilitySarifGenerator(

@@ -11,13 +11,13 @@ import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.jvm.sast.JIRSourceFileResolver
-import org.opentaint.jvm.sast.ast.JavaAstSpanResolver
+import org.opentaint.jvm.sast.ast.AstSpanResolverProvider
 import org.opentaint.jvm.sast.project.SarifWebInfoAnnotator
 import org.opentaint.jvm.sast.sarif.TracePathNode
 
 class ServletAnnotator(
     sourceFileResolver: JIRSourceFileResolver,
-    spanResolver: JavaAstSpanResolver
+    spanResolver: AstSpanResolverProvider
 ) : SarifWebInfoAnnotator(sourceFileResolver, spanResolver) {
     private sealed interface ServletParam {
         data object Body : ServletParam

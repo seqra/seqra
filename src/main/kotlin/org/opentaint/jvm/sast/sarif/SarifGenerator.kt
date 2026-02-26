@@ -17,7 +17,6 @@ import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
 import org.opentaint.dataflow.configuration.jvm.TaintMethodEntrySink
 import org.opentaint.dataflow.jvm.util.JIRSarifTraits
-import org.opentaint.dataflow.sarif.SourceFileResolver
 import org.opentaint.dataflow.util.SarifTraits
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
@@ -28,7 +27,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRInstLocation
 import org.opentaint.ir.api.jvm.cfg.JIRRef
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.jvm.sast.JIRSourceFileResolver
-import org.opentaint.jvm.sast.ast.JavaAstSpanResolver
+import org.opentaint.jvm.sast.ast.AstSpanResolverProvider
 import org.opentaint.jvm.sast.project.SarifGenerationOptions
 import org.opentaint.jvm.sast.project.servlet.ServletAnnotator
 import org.opentaint.jvm.sast.project.spring.SpringAnnotator
@@ -43,13 +42,13 @@ import kotlin.io.path.absolutePathString
 class SarifGenerator(
     private val options: SarifGenerationOptions,
     private val sourceRoot: Path?,
-    sourceFileResolver: SourceFileResolver<CommonInst>,
+    sourceFileResolver: JIRSourceFileResolver,
     private val traits: SarifTraits<CommonMethod, CommonInst>
 ) {
-    private val spanResolver = JavaAstSpanResolver(traits as JIRSarifTraits)
+    private val spanResolver = AstSpanResolverProvider(traits as JIRSarifTraits)
     private val locationResolver = LocationResolver(sourceFileResolver, traits, spanResolver)
     private val annotators = listOf(
-        SpringAnnotator(sourceFileResolver as JIRSourceFileResolver, spanResolver),
+        SpringAnnotator(sourceFileResolver, spanResolver),
         ServletAnnotator(sourceFileResolver, spanResolver),
     )
 
@@ -103,14 +102,15 @@ class SarifGenerator(
         }
 
         val sinkType = if (vulnerabilityRule is TaintMethodEntrySink) LocationType.RuleMethodEntry else LocationType.Simple
-        val sinkLocation = statementLocation(vulnerability.statement, sinkType)
+
+        val tracePaths = generateTracePaths(trace)
+        val threadFlows = tracePaths?.map { generateThreadFlow(it, vulnerabilityRule.meta.message) }
+
+        val sinkLocation = statementLocation(vulnerability.statement, sinkType, threadFlows)
             ?: run {
                 logger.error("Invalid vulnerability location: $vulnerability")
                 return null
             }
-
-        val tracePaths = generateTracePaths(trace)
-        val threadFlows = tracePaths?.map { generateThreadFlow(it, vulnerabilityRule.meta.message) }
 
         var partialFingerPrints: Map<String, String>? = null
 
@@ -137,7 +137,7 @@ class SarifGenerator(
 
         for (annotator in annotators) {
             result = annotator.annotateSarif(result, vulnerability, trace, tracePaths.orEmpty()) { s ->
-                val loc = statementLocation(s, LocationType.WebInfoRelated)
+                val loc = statementLocation(s, LocationType.WebInfoRelated, relevantLocations = null)
                     ?: return@annotateSarif null
 
                 locationResolver.generateSarifLocation(loc)
@@ -333,11 +333,21 @@ class SarifGenerator(
         )
     }
 
-    private fun statementLocation(statement: CommonInst, type: LocationType): IntermediateLocation? {
+    private fun statementLocation(
+        statement: CommonInst,
+        type: LocationType,
+        relevantLocations: List<List<IntermediateLocation>>?
+    ): IntermediateLocation? {
         if (TraceMessageBuilder.isGeneratedLocation(statement)) {
-            val normalLocation = TraceMessageBuilder.tryResolveNormalLocation(statement)
+            val normalLocation = TraceMessageBuilder.tryResolveNormalGeneratedLocation(statement)
                 ?: return null
-            return statementLocation(normalLocation, type)
+            return statementLocation(normalLocation, type, relevantLocations)
+        }
+
+        if (TraceMessageBuilder.isAbnormalLocation(statement)) {
+            val normalLocation = TraceMessageBuilder.tryResolveNormalLocation(statement, relevantLocations)
+                ?: return null
+            return statementLocation(normalLocation, type, relevantLocations)
         }
 
         return IntermediateLocation(
