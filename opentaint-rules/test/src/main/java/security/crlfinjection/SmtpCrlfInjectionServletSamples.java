@@ -17,7 +17,7 @@ import java.io.IOException;
 import java.util.Properties;
 
 /**
- * Servlet samples for java-servlet-smtp-crlf-injection.
+ * Servlet samples for smtp-crlf-injection.
  */
 public class SmtpCrlfInjectionServletSamples {
 
@@ -30,7 +30,7 @@ public class SmtpCrlfInjectionServletSamples {
     public static class UnsafeSmtpServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/crlf-injection.yaml", id = "java-servlet-smtp-crlf-injection")
+        @PositiveRuleSample(value = "java/security/crlf-injection.yaml", id = "smtp-crlf-injection")
         protected void doPost(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String to = request.getParameter("to");
@@ -66,7 +66,7 @@ public class SmtpCrlfInjectionServletSamples {
 
         @Override
 //      TODO: restore this when conditional validators are implemented
-//        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "java-servlet-smtp-crlf-injection")
+//        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "smtp-crlf-injection")
         protected void doPost(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String to = request.getParameter("to");

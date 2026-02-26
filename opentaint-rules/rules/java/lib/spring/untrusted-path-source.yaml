@@ -4,6 +4,45 @@ rules:
       lib: true
     severity: NOTE
     message: Untrusted data flows from here
+    metadata:
+      short-description: Untrusted path-like source in Spring handlers
+      full-description: |-
+        This is a source rule for path-like untrusted data in Spring handlers.
+        It marks values as tainted when they come from request-controlled mapping parameters,
+        wildcard route captures, body readers, or cookies that can later influence file/path operations.
+
+        Typical source locations matched by this rule include:
+        - `@PathVariable` values and wildcard mapping captures in `@RequestMapping` methods
+        - Other handler parameters in mapped methods that can carry path segments
+        - Values from `MessageBodyReader.readFrom(...)`
+        - Cookie-derived values via `WebUtils.getCookie(...).getValue()`
+
+        Example source usage (tainted):
+
+        ```java
+        import org.springframework.web.bind.annotation.GetMapping;
+        import org.springframework.web.bind.annotation.PathVariable;
+        import org.springframework.web.bind.annotation.RestController;
+
+        @RestController
+        class FileController {
+            @GetMapping("/files/{name}")
+            byte[] readFile(@PathVariable String name) {
+                // name is untrusted path-related input (source)
+                return load(name);
+            }
+
+            private byte[] load(String candidatePath) {
+                // A finding is raised when this reaches a path traversal operation.
+                return new byte[0];
+            }
+        }
+        ```
+
+        Recommended handling at the boundary:
+        - Prefer opaque file IDs over raw path input from clients.
+        - Validate allowed filename patterns and reject traversal tokens (`..`, absolute paths, encoded variants).
+        - Normalize and enforce base-directory checks before any filesystem operation.
     languages:
       - java
     patterns:

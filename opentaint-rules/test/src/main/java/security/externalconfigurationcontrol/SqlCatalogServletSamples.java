@@ -19,7 +19,7 @@ import org.seqra.sast.test.util.NegativeRuleSample;
 import org.seqra.sast.test.util.PositiveRuleSample;
 
 /**
- * Servlet-based samples for sql-catalog-external-manipulation-in-servlet-app rule.
+ * Servlet-based samples for sql-catalog-external-manipulation rule.
  */
 public class SqlCatalogServletSamples {
 
@@ -39,7 +39,7 @@ public class SqlCatalogServletSamples {
         }
 
         @Override
-        @PositiveRuleSample(value = "java/security/external-configuration-control.yaml", id = "sql-catalog-external-manipulation-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/external-configuration-control.yaml", id = "sql-catalog-external-manipulation")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String catalog = request.getParameter("catalog");
@@ -82,7 +82,7 @@ public class SqlCatalogServletSamples {
         }
 
         @Override
-        @NegativeRuleSample(value = "java/security/external-configuration-control.yaml", id = "sql-catalog-external-manipulation-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/external-configuration-control.yaml", id = "sql-catalog-external-manipulation")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String tenantId = (String) request.getAttribute("tenantId");

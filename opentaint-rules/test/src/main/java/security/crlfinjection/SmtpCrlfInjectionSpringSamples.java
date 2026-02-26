@@ -16,7 +16,7 @@ import java.util.Properties;
 
 
 /**
- * Spring MVC samples for spring-smtp-crlf-injection.
+ * Spring MVC samples for smtp-crlf-injection.
  */
 public class SmtpCrlfInjectionSpringSamples {
 
@@ -24,7 +24,7 @@ public class SmtpCrlfInjectionSpringSamples {
     public static class UnsafeSpringSmtpController {
 
         @PostMapping("/smtp-crlf/spring/unsafe")
-        @PositiveRuleSample(value = "java/security/crlf-injection.yaml", id = "spring-smtp-crlf-injection")
+        @PositiveRuleSample(value = "java/security/crlf-injection.yaml", id = "smtp-crlf-injection")
         public void unsafe(@RequestParam("to") String to,
                            @RequestParam("subject") String subject,
                            @RequestParam(value = "trackingId", required = false) String trackingId,
@@ -58,7 +58,7 @@ public class SmtpCrlfInjectionSpringSamples {
 
         @PostMapping("/smtp-crlf/spring/safe")
 //      TODO: restore this when conditional validators are implemented
-//        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "spring-smtp-crlf-injection")
+//        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "smtp-crlf-injection")
         public void safe(@RequestParam("to") String to,
                          @RequestParam("subject") String subject,
                          @RequestParam(value = "trackingId", required = false) String trackingId,

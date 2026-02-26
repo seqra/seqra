@@ -1,5 +1,5 @@
 rules:
-  - id: ldap-injection-in-servlet-app
+  - id: ldap-injection
     severity: ERROR
     message: >-
       Potential LDAP injection: detected untrusted user input going into a LDAP query
@@ -7,98 +7,44 @@ rules:
       cwe: CWE-90
       short-description: Potential LDAP Injection
       full-description: |-
-        LDAP injection is a security vulnerability that occurs when untrusted input is used to dynamically
-        construct LDAP queries (filters or distinguished names) without proper validation or encoding.
-        In Java, this often appears in code that uses JNDI (or LDAP libraries) and concatenates user-controlled
-        data into LDAP search filters. An attacker can manipulate the structure of the LDAP query to bypass authentication,
-        escalate privileges, or retrieve unauthorized data.
+        LDAP injection occurs when untrusted input reaches LDAP query APIs as filter/query text.
+        This rule focuses on LDAP lookup/search calls in JNDI, UnboundID, and Spring LDAP operations.
+
+        Vulnerable example:
 
         ```java
-        // Vulnerable code sample (Java + JNDI)
+        import javax.naming.directory.DirContext;
+        import javax.naming.directory.SearchControls;
 
-        import javax.naming.Context;
-        import javax.naming.NamingEnumeration;
-        import javax.naming.directory.*;
-
-        public class LdapAuthService {
-
-            private final DirContext ctx;
-            private final String baseDn;
-
-            public LdapAuthService(DirContext ctx, String baseDn) {
-                this.ctx = ctx;
-                this.baseDn = baseDn;
-            }
-
-            public boolean authenticate(String username, String password) throws Exception {
-                // User-controlled input is concatenated directly into the LDAP filter
-                String filter = "(&(uid=" + username + ")(userPassword=" + password + "))";
-
-                SearchControls controls = new SearchControls();
-                controls.setSearchScope(SearchControls.SUBTREE_SCOPE);
-
-                NamingEnumeration<SearchResult> results =
-                        ctx.search(baseDn, filter, controls);
-
-                // If any entry matches, authentication is considered successful
-                return results.hasMore();
+        public class LdapService {
+            public void find(DirContext ctx, String filterFromRequest) throws Exception {
+                // filterFromRequest is untrusted
+                ctx.search("ou=users,dc=example,dc=com", filterFromRequest, new SearchControls()); // VULNERABLE
             }
         }
         ```
 
-        In this example, if an attacker supplies a crafted `username` such as `*)(|(uid=*))`,
-        the resulting filter changes its logic and may cause the query to match unintended entries,
-        potentially bypassing authentication or exposing data.
-
-        To remediate this issue, avoid building LDAP filters or DNs with raw string concatenation of user input.
-        Instead, use parameterized LDAP queries / filter argument substitution (which properly encodes special characters),
-        and perform strict input validation. For example:
+        Safe example:
 
         ```java
-        // Safe code sample (Java + JNDI with filter arguments)
+        import javax.naming.directory.DirContext;
+        import javax.naming.directory.SearchControls;
 
-        import javax.naming.Context;
-        import javax.naming.NamingEnumeration;
-        import javax.naming.directory.*;
-
-        public class SafeLdapAuthService {
-
-            private final DirContext ctx;
-            private final String baseDn;
-
-            public SafeLdapAuthService(DirContext ctx, String baseDn) {
-                this.ctx = ctx;
-                this.baseDn = baseDn;
-            }
-
-            public boolean authenticate(String username, String password) throws Exception {
-                // Example of basic input validation (application-specific)
-                if (!username.matches("[a-zA-Z0-9._-]{1,32}")) {
-                    return false; // reject unexpected characters / lengths
+        public class LdapService {
+            public void findByUid(DirContext ctx, String uidFromRequest) throws Exception {
+                if (uidFromRequest == null || !uidFromRequest.matches("[A-Za-z0-9._-]{1,64}")) {
+                    throw new IllegalArgumentException("Invalid uid");
                 }
 
-                String filter = "(&(uid={0})(userPassword={1}))";
-
-                SearchControls controls = new SearchControls();
-                controls.setSearchScope(SearchControls.SUBTREE_SCOPE);
-
-                // JNDI will safely encode filter arguments to prevent injection
-                Object[] filterArgs = new Object[] { username, password };
-
-                NamingEnumeration<SearchResult> results =
-                        ctx.search(baseDn, filter, filterArgs, controls);
-
-                return results.hasMore();
+                String filter = "(uid={0})";
+                Object[] args = new Object[]{uidFromRequest};
+                ctx.search("ou=users,dc=example,dc=com", filter, args, new SearchControls());
             }
         }
         ```
 
-        Key remediation steps:
-        1. **Never concatenate untrusted input into LDAP filters or DNs.**
-        2. **Use parameterized LDAP APIs / filter arguments** where available (as shown with `{0}`, `{1}` and `filterArgs`).
-        3. **Validate and sanitize inputs** with strict allowlists (e.g., allowed characters, length).
-        4. **Use least-privilege LDAP accounts** so that even if a query is abused, impact is limited.
-        5. **Centralize LDAP access** through a well-reviewed data access layer or library that handles encoding correctly.
+        Key vulnerable patterns covered by this rule include `DirContext/LdapContext.search`, `lookup`,
+        UnboundID `LDAPConnection.search`, and Spring LDAP search/lookup APIs with tainted query data.
       references:
         - https://owasp.org/www-community/attacks/LDAP_Injection
         - https://cheatsheetseries.owasp.org/cheatsheets/LDAP_Injection_Prevention_Cheat_Sheet.html
@@ -109,127 +55,14 @@ rules:
     join:
       refs:
         - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
-          as: untrusted-data
-        - rule: java/lib/generic/ldap-injection-sinks.yaml#java-ldap-injection-sinks
-          as: sink
-      on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$QUERY'
-
-  - id: ldap-injection-in-spring-app
-    severity: ERROR
-    message: >-
-      Potential LDAP injection: detected untrusted user input going into a LDAP query
-    metadata:
-      cwe: CWE-90
-      short-description: Potential LDAP Injection
-      full-description: |-
-        LDAP injection is a security vulnerability that occurs when untrusted input is used to dynamically
-        construct LDAP queries (filters or distinguished names) without proper validation or encoding.
-        In Java, this often appears in code that uses JNDI (or LDAP libraries) and concatenates user-controlled
-        data into LDAP search filters. An attacker can manipulate the structure of the LDAP query to bypass authentication,
-        escalate privileges, or retrieve unauthorized data.
-
-        ```java
-        // Vulnerable code sample (Java + JNDI)
-
-        import javax.naming.Context;
-        import javax.naming.NamingEnumeration;
-        import javax.naming.directory.*;
-
-        public class LdapAuthService {
-
-            private final DirContext ctx;
-            private final String baseDn;
-
-            public LdapAuthService(DirContext ctx, String baseDn) {
-                this.ctx = ctx;
-                this.baseDn = baseDn;
-            }
-
-            public boolean authenticate(String username, String password) throws Exception {
-                // User-controlled input is concatenated directly into the LDAP filter
-                String filter = "(&(uid=" + username + ")(userPassword=" + password + "))";
-
-                SearchControls controls = new SearchControls();
-                controls.setSearchScope(SearchControls.SUBTREE_SCOPE);
-
-                NamingEnumeration<SearchResult> results =
-                        ctx.search(baseDn, filter, controls);
-
-                // If any entry matches, authentication is considered successful
-                return results.hasMore();
-            }
-        }
-        ```
-
-        In this example, if an attacker supplies a crafted `username` such as `*)(|(uid=*))`,
-        the resulting filter changes its logic and may cause the query to match unintended entries,
-        potentially bypassing authentication or exposing data.
-
-        To remediate this issue, avoid building LDAP filters or DNs with raw string concatenation of user input.
-        Instead, use parameterized LDAP queries / filter argument substitution (which properly encodes special characters),
-        and perform strict input validation. For example:
-
-        ```java
-        // Safe code sample (Java + JNDI with filter arguments)
-
-        import javax.naming.Context;
-        import javax.naming.NamingEnumeration;
-        import javax.naming.directory.*;
-
-        public class SafeLdapAuthService {
-
-            private final DirContext ctx;
-            private final String baseDn;
-
-            public SafeLdapAuthService(DirContext ctx, String baseDn) {
-                this.ctx = ctx;
-                this.baseDn = baseDn;
-            }
-
-            public boolean authenticate(String username, String password) throws Exception {
-                // Example of basic input validation (application-specific)
-                if (!username.matches("[a-zA-Z0-9._-]{1,32}")) {
-                    return false; // reject unexpected characters / lengths
-                }
-
-                String filter = "(&(uid={0})(userPassword={1}))";
-
-                SearchControls controls = new SearchControls();
-                controls.setSearchScope(SearchControls.SUBTREE_SCOPE);
-
-                // JNDI will safely encode filter arguments to prevent injection
-                Object[] filterArgs = new Object[] { username, password };
-
-                NamingEnumeration<SearchResult> results =
-                        ctx.search(baseDn, filter, filterArgs, controls);
-
-                return results.hasMore();
-            }
-        }
-        ```
-
-        Key remediation steps:
-        1. **Never concatenate untrusted input into LDAP filters or DNs.**
-        2. **Use parameterized LDAP APIs / filter arguments** where available (as shown with `{0}`, `{1}` and `filterArgs`).
-        3. **Validate and sanitize inputs** with strict allowlists (e.g., allowed characters, length).
-        4. **Use least-privilege LDAP accounts** so that even if a query is abused, impact is limited.
-        5. **Centralize LDAP access** through a well-reviewed data access layer or library that handles encoding correctly.
-      references:
-        - https://owasp.org/www-community/attacks/LDAP_Injection
-        - https://cheatsheetseries.owasp.org/cheatsheets/LDAP_Injection_Prevention_Cheat_Sheet.html
-      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/inject/rule-LDAPInjection.yml
-    languages:
-      - java
-    mode: join
-    join:
-      refs:
+          as: servlet-untrusted-data
         - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
-          as: untrusted-data
+          as: spring-untrusted-data
         - rule: java/lib/generic/ldap-injection-sinks.yaml#java-ldap-injection-sinks
           as: sink
       on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$QUERY'
+        - 'servlet-untrusted-data.$UNTRUSTED -> sink.$QUERY'
+        - 'spring-untrusted-data.$UNTRUSTED -> sink.$QUERY'
 
   - id: ldap-entry-poisoning
     severity: WARNING

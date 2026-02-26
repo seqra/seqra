@@ -20,7 +20,7 @@ public class OgnlInjectionSpringSamples {
     public static class UnsafeOgnlController {
 
         @GetMapping("/ognl-injection-in-spring/unsafe")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "ognl-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "ognl-injection")
         public String unsafeOgnl(@RequestParam("expr") String expr) throws Exception {
             // Build OGNL context from application objects
             Map<String, Object> context = new HashMap<>();
@@ -40,7 +40,7 @@ public class OgnlInjectionSpringSamples {
         private final UserService userService = new UserService();
 
         @GetMapping("/ognl-injection-in-spring/safe")
-        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "ognl-injection-in-spring-app")
+        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "ognl-injection")
         public String safeOgnl(@RequestParam(value = "action", required = false) String action,
                                @RequestParam(value = "userId", required = false) String userId) {
             // Safer approach: use whitelisted actions instead of evaluating OGNL expressions.

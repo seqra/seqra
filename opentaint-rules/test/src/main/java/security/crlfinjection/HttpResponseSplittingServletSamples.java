@@ -22,7 +22,7 @@ public class HttpResponseSplittingServletSamples {
     public static class UnsafeHeaderServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/crlf-injection.yaml", id = "http-response-splitting-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/crlf-injection.yaml", id = "http-response-splitting")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String user = request.getParameter("user"); // attacker-controlled
@@ -44,7 +44,7 @@ public class HttpResponseSplittingServletSamples {
 
         @Override
 // TODO: restore this when conditional validators are implemented
-//        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "http-response-splitting-in-servlet-app")
+//        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "http-response-splitting")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String user = request.getParameter("user");

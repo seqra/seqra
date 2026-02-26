@@ -47,7 +47,7 @@ rules:
           ...
           java.text.Normalizer.normalize($VAR, ...);
 
-  - id: format-string-external-manipulation-in-servlet-app
+  - id: format-string-external-manipulation
     severity: WARNING
     message: >-
       The application allows user input to control format string parameters. By passing invalid format
@@ -57,21 +57,33 @@ rules:
       cwe: CWE-134
       short-description: Use of externally-controlled format string
       full-description: |-
-        The application allows user input to control format string parameters. By passing invalid format
-        string specifiers an adversary could cause the application to throw exceptions or possibly leak
-        internal information depending on application logic.
+        Format-string misuse occurs when untrusted data reaches a formatting API as the format template
+        (for example `String.format($FORMAT, ...)`, `Formatter.format(...)`, or `printf(...)`).
 
-        Never allow user-supplied input to be used to create a format string. Replace all format string
-        arguments with hardcoded format strings containing the necessary specifiers.
+        Vulnerable example:
 
-        Example of using `String.format` safely:
+        ```java
+        public class MessageService {
+            public String render(String formatFromRequest, String userValue) {
+                // formatFromRequest is untrusted and controls the format string
+                return String.format(formatFromRequest, userValue); // VULNERABLE
+            }
+        }
         ```
-        // Get untrusted user input
-        String userInput = request.getParameter("someInput");
-        // Ensure that user input is not included in the first argument to String.format
-        String.format("Hardcoded string expecting a string: %s", userInput);
-        // ...
+
+        Safe example:
+
+        ```java
+        public class MessageService {
+            public String render(String formatFromRequest, String userValue) {
+                // Keep format string constant; use untrusted data only as arguments
+                return String.format("User value: %s", userValue);
+            }
+        }
         ```
+
+        Key vulnerable patterns covered by this rule include `String.format`, `Formatter.format`,
+        `PrintStream.printf/format`, and `System.out.printf/format` when template text is tainted.
       provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/strings/rule-FormatStringManipulation.yml
     languages:
       - java
@@ -79,49 +91,14 @@ rules:
     join:
       refs:
         - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
-          as: untrusted-data
-        - rule: java/security/strings.yaml#java-string-format-sinks
-          as: sink
-      on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$FORMAT_STR'
-
-  - id: format-string-external-manipulation-in-spring-app
-    severity: WARNING
-    message: >-
-      The application allows user input to control format string parameters. By passing invalid format
-      string specifiers an adversary could cause the application to throw exceptions or possibly leak
-      internal information depending on application logic.
-    metadata:
-      cwe: CWE-134
-      short-description: Use of externally-controlled format string
-      full-description: |-
-        The application allows user input to control format string parameters. By passing invalid format
-        string specifiers an adversary could cause the application to throw exceptions or possibly leak
-        internal information depending on application logic.
-
-        Never allow user-supplied input to be used to create a format string. Replace all format string
-        arguments with hardcoded format strings containing the necessary specifiers.
-
-        Example of using `String.format` safely:
-        ```
-        // Get untrusted user input
-        String userInput = request.getParameter("someInput");
-        // Ensure that user input is not included in the first argument to String.format
-        String.format("Hardcoded string expecting a string: %s", userInput);
-        // ...
-        ```
-      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/strings/rule-FormatStringManipulation.yml
-    languages:
-      - java
-    mode: join
-    join:
-      refs:
+          as: servlet-untrusted-data
         - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
-          as: untrusted-data
+          as: spring-untrusted-data
         - rule: java/security/strings.yaml#java-string-format-sinks
           as: sink
       on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$FORMAT_STR'
+        - 'servlet-untrusted-data.$UNTRUSTED -> sink.$FORMAT_STR'
+        - 'spring-untrusted-data.$UNTRUSTED -> sink.$FORMAT_STR'
 
   - id: java-string-format-sinks
     options:

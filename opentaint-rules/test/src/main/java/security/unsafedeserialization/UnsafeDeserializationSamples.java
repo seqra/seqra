@@ -39,13 +39,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
  */
 public class UnsafeDeserializationSamples {
 
-    // unsafe-object-mapper-in-servlet-app
+    // unsafe-object-mapper
 
     @WebServlet("/deserialize/unsafe-object-input-stream")
     public static class UnsafeObjectInputStreamServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-object-mapper-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-object-mapper")
         protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
             // VULNERABLE: directly deserialize from request input stream
             try (ObjectInputStream ois = new ObjectInputStream(req.getInputStream())) {
@@ -61,7 +61,7 @@ public class UnsafeDeserializationSamples {
     public static class SafeObjectInputStreamServlet extends HttpServlet {
 
         @Override
-        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-object-mapper-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-object-mapper")
         protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
           try (ObjectInputStream ois = new ObjectInputStream(new java.io.FileInputStream("/tmp/last_resource"))) {
             Object obj = ois.readObject();
@@ -72,14 +72,14 @@ public class UnsafeDeserializationSamples {
         }
     }
 
-    // unsafe-object-mapper-in-spring-app
+    // unsafe-object-mapper
 
     @RestController
     @RequestMapping("/api/deserialize/object-input-stream")
     public static class ObjectInputStreamSpringController {
 
         @PostMapping(path = "/unsafe", consumes = org.springframework.http.MediaType.APPLICATION_OCTET_STREAM_VALUE)
-        @PositiveRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-object-mapper-in-spring-app")
+        @PositiveRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-object-mapper")
         public ResponseEntity<String> unsafeDeserialize(@RequestBody byte[] body) {
             try (ObjectInputStream ois = new ObjectInputStream(new java.io.ByteArrayInputStream(body))) {
                 Object obj = ois.readObject();
@@ -90,7 +90,7 @@ public class UnsafeDeserializationSamples {
         }
 
         @PostMapping(path = "/safe", consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
-        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-object-mapper-in-spring-app")
+        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-object-mapper")
         public ResponseEntity<SafeDto> safeDeserialize(@RequestBody SafeDto dto) {
             // SAFE: rely on Spring's JSON binding into a constrained DTO type
             if (dto == null || dto.name == null || dto.name.length() > 100) {
@@ -148,10 +148,10 @@ public class UnsafeDeserializationSamples {
         }
     }
 
-    // unsafe-jackson-deserialization-in-servlet-app
+    // unsafe-jackson-deserialization
 
     @WebServlet("/deserialize/jackson/unsafe")
-    @PositiveRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-jackson-deserialization-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-jackson-deserialization")
     public static class UnsafeJacksonServlet extends HttpServlet {
 
         // VULNERABLE: default typing enabled globally -> potential RCE gadget exploitation
@@ -166,7 +166,7 @@ public class UnsafeDeserializationSamples {
     }
 
     @WebServlet("/deserialize/jackson/safe")
-    @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-jackson-deserialization-in-servlet-app")
+    @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-jackson-deserialization")
     public static class SafeJacksonServlet extends HttpServlet {
 
         private final ObjectMapper mapper;
@@ -188,11 +188,11 @@ public class UnsafeDeserializationSamples {
         }
     }
 
-    // unsafe-jackson-deserialization-in-spring-app
+    // unsafe-jackson-deserialization
 
     @RestController
     @RequestMapping("/api/deserialize/jackson")
-    @PositiveRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-jackson-deserialization-in-spring-app")
+    @PositiveRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-jackson-deserialization")
     public static class JacksonSpringController {
 
         // VULNERABLE: default typing enabled globally -> potential RCE gadget exploitation
@@ -206,7 +206,7 @@ public class UnsafeDeserializationSamples {
         }
 
         @PostMapping(path = "/safe", consumes = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
-        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-jackson-deserialization-in-spring-app")
+        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-jackson-deserialization")
         public ResponseEntity<SafeDto> safeJackson(@RequestBody SafeDto dto) {
             if (dto == null || dto.name == null || dto.name.isBlank()) {
                 return ResponseEntity.badRequest().build();
@@ -241,13 +241,13 @@ public class UnsafeDeserializationSamples {
         String invokeById(long commandId) throws RemoteException;
     }
 
-    // java-servlet-unsafe-snake-yaml-deserialization / spring-unsafe-snake-yaml-deserialization
+    // unsafe-snake-yaml-deserialization / spring-unsafe-snake-yaml-deserialization
 
     @WebServlet("/yaml/unsafe")
     public static class UnsafeSnakeYamlServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "java-servlet-unsafe-snake-yaml-deserialization")
+        @PositiveRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-snake-yaml-deserialization")
         protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
             // VULNERABLE: use default SnakeYAML constructor on user-provided data
             Yaml yaml = new Yaml();
@@ -260,7 +260,7 @@ public class UnsafeDeserializationSamples {
     public static class SafeSnakeYamlServlet extends HttpServlet {
 
         @Override
-        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "java-servlet-unsafe-snake-yaml-deserialization")
+        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-snake-yaml-deserialization")
         protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
             // SAFE-ish: treat YAML as plain text or use a safe subset parser (simulated here)
             String body = new String(req.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
@@ -277,7 +277,7 @@ public class UnsafeDeserializationSamples {
     public static class SnakeYamlSpringController {
 
         @PostMapping(path = "/unsafe", consumes = "application/x-yaml")
-        @PositiveRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "spring-unsafe-snake-yaml-deserialization")
+        @PositiveRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-snake-yaml-deserialization")
         public ResponseEntity<Object> unsafeYaml(@RequestBody byte[] yamlBytes) {
             Yaml yaml = new Yaml();
             Object obj = yaml.load(new java.io.ByteArrayInputStream(yamlBytes));
@@ -285,7 +285,7 @@ public class UnsafeDeserializationSamples {
         }
 
         @PostMapping(path = "/safe", consumes = "application/x-yaml")
-        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "spring-unsafe-snake-yaml-deserialization")
+        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-snake-yaml-deserialization")
         public ResponseEntity<String> safeYaml(@RequestBody String yamlText) {
             if (yamlText.length() > 4096) {
                 return ResponseEntity.badRequest().body("YAML too large");

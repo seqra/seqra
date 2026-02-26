@@ -32,8 +32,8 @@ import com.mongodb.client.model.Filters;
 
 /**
  * Servlet-based samples for data-query-injection rules:
- * - xpath-injection-in-servlet-app
- * - mongodb-injection-in-servlet-app
+ * - xpath-injection
+ * - mongodb-injection
  */
 public class DataQueryInjectionServletSamples {
 
@@ -47,7 +47,7 @@ public class DataQueryInjectionServletSamples {
         private final Document usersDoc = null; // simplified for sample; assume initialized elsewhere
 
         @Override
-        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "xpath-injection-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "xpath-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String username = request.getParameter("username");
@@ -75,7 +75,7 @@ public class DataQueryInjectionServletSamples {
         private final Document usersDoc = null; // simplified for sample; assume initialized elsewhere
 
         @Override
-        @NegativeRuleSample(value = "java/security/data-query-injection.yaml", id = "xpath-injection-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/data-query-injection.yaml", id = "xpath-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String username = request.getParameter("username");
@@ -117,7 +117,7 @@ public class DataQueryInjectionServletSamples {
         private final DB legacyDb = null; // simplified for sample; assume initialized elsewhere
 
         @Override
-        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String username = request.getParameter("username");
@@ -146,7 +146,7 @@ public class DataQueryInjectionServletSamples {
 
 
         @Override
-        @NegativeRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String username = request.getParameter("username");

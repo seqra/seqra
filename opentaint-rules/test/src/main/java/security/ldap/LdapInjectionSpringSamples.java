@@ -61,7 +61,7 @@ class LdapInjectionSpringService {
 public class LdapInjectionSpringSamples {
 
     @RestController
-    @RequestMapping("/ldap-injection-in-spring-app")
+    @RequestMapping("/ldap-injection")
     public static class UnsafeLdapSpringController {
 
         private final LdapInjectionSpringService ldapService;
@@ -75,7 +75,7 @@ public class LdapInjectionSpringSamples {
          * LDAP search method which concatenates them into the LDAP filter.
          */
         @PostMapping("/unsafe")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public boolean unsafeSearch(@RequestParam("username") String username) throws Exception {
             // VULNERABLE: username flows into vulnerableSearch(), which builds an LDAP filter via concatenation
             return ldapService.vulnerableSearch(username);
@@ -83,7 +83,7 @@ public class LdapInjectionSpringSamples {
     }
 
     @RestController
-    @RequestMapping("/ldap-injection-in-spring-app")
+    @RequestMapping("/ldap-injection")
     public static class SafeLdapSpringController {
 
         private final LdapInjectionSpringService ldapService;
@@ -94,7 +94,7 @@ public class LdapInjectionSpringSamples {
 
         @GetMapping("/safe")
 // TODO: restore this when conditional validators are implemented
-//        @NegativeRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+//        @NegativeRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public boolean safeSearch(@RequestParam("username") String username) throws Exception {
             return ldapService.safeSearch(username);
         }

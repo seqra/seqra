@@ -22,7 +22,7 @@ public class GroovyInjectionServletSamples {
     public static class UnsafeGroovyServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             // Attacker controls this parameter (e.g., ?script=...)
@@ -41,7 +41,7 @@ public class GroovyInjectionServletSamples {
     public static class SafeGroovyServlet extends HttpServlet {
 
         @Override
-        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
 
                 throws ServletException, IOException {

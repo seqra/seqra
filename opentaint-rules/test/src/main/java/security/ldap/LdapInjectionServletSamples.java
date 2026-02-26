@@ -67,7 +67,7 @@ public class LdapInjectionServletSamples extends HttpServlet {
     }
 
     @Override
-    @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
     protected void doPost(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         // VULNERABLE: request parameters (untrusted) flow into LDAP filter via vulnerableAuthenticate()
         String username = req.getParameter("username");
@@ -82,7 +82,7 @@ public class LdapInjectionServletSamples extends HttpServlet {
 
     @Override
 //  TODO: restore this when conditional validators are implemented
-//    @NegativeRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-servlet-app")
+//    @NegativeRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         // SAFE: request parameters flow into safeAuthenticate(), which uses filter arguments
         String username = req.getParameter("username");

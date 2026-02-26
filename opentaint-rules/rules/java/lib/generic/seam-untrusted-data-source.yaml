@@ -4,6 +4,44 @@ rules:
       lib: true
     message: Untrusted data flows from here
     severity: NOTE
+    metadata:
+      short-description: Untrusted data source in Seam/JSF request context
+      full-description: |-
+        This is a source rule for untrusted input in Seam/JSF applications.
+        It marks values as tainted when they are obtained from request parameter/header/cookie maps
+        or injected into Seam components from request context.
+
+        Typical source locations matched by this rule include:
+        - `@In`-annotated Seam setter parameters
+        - `FacesContext.getCurrentInstance().getExternalContext().getRequestParameterMap().get(...)`
+        - `...getRequestHeaderMap().get(...)`
+        - `...getRequestCookieMap().get(...)`
+
+        Example source usage (tainted):
+
+        ```java
+        import javax.faces.context.FacesContext;
+
+        public class LoginAction {
+            public void login() {
+                String username = FacesContext.getCurrentInstance()
+                    .getExternalContext()
+                    .getRequestParameterMap()
+                    .get("username"); // source: untrusted
+
+                process(username);
+            }
+
+            private void process(String input) {
+                // A vulnerability is reported only when tainted input reaches a vulnerable API pattern.
+            }
+        }
+        ```
+
+        Recommended handling at the boundary:
+        - Treat all JSF request map values as untrusted.
+        - Validate and normalize input before passing to logging, query, template, or command-execution APIs.
+        - Keep security checks and canonicalization centralized for consistent handling.
     languages:
       - java
     pattern-either:

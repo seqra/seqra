@@ -37,13 +37,13 @@ import org.springframework.web.client.RestTemplate;
  */
 public class SsrfSamples {
 
-    // ssrf-in-servlet-app
+    // ssrf
 
     @WebServlet("/ssrf/unsafe-proxy")
     public static class UnsafeProxyServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             // User controls full target URL
@@ -79,7 +79,7 @@ public class SsrfSamples {
         );
 
         @Override
-        @NegativeRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String targetUrl = request.getParameter("url");
@@ -140,7 +140,7 @@ public class SsrfSamples {
         }
     }
 
-    // ssrf-in-spring-app
+    // ssrf
 
     @RestController
     @RequestMapping("/ssrf/proxy")
@@ -149,7 +149,7 @@ public class SsrfSamples {
         private final RestTemplate restTemplate = new RestTemplate();
 
         @GetMapping("/unsafe")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> unsafeProxy(@RequestParam("url") String targetUrl) {
             if (targetUrl == null || targetUrl.isBlank()) {
                 return ResponseEntity.badRequest().body("Missing 'url' parameter");
@@ -167,7 +167,7 @@ public class SsrfSamples {
 
         @GetMapping("/safe")
 //      TODO: restore this when conditional validators are implemented
-//        @NegativeRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+//        @NegativeRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> safeProxy(@RequestParam("url") String targetUrl) {
             if (targetUrl == null || targetUrl.isBlank()) {
                 return ResponseEntity.badRequest().body("Missing 'url' parameter");

@@ -22,7 +22,7 @@ public class UnsafeReflectionServletSamples {
     public static class DynamicLoaderServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/external-configuration-control.yaml", id = "unsafe-reflection-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/external-configuration-control.yaml", id = "unsafe-reflection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
 
@@ -52,7 +52,7 @@ public class UnsafeReflectionServletSamples {
         }
 
         @Override
-        @NegativeRuleSample(value = "java/security/external-configuration-control.yaml", id = "unsafe-reflection-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/external-configuration-control.yaml", id = "unsafe-reflection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
 

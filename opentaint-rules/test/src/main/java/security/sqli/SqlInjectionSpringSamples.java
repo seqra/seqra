@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class SqlInjectionSpringSamples {
 
     @RestController
-    @RequestMapping("/sql-injection-in-spring-app")
+    @RequestMapping("/sql-injection")
     public static class UnsafeSqlSpringController {
 
         private final JdbcTemplate jdbcTemplate;
@@ -27,7 +27,7 @@ public class SqlInjectionSpringSamples {
          * Unsafe endpoint that concatenates untrusted request parameters into a SQL query.
          */
         @GetMapping("/unsafe")
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String unsafeSearch(@RequestParam("username") String username) {
             // VULNERABLE: username is directly concatenated into the SQL string
             String sql = "SELECT id, username FROM users WHERE username = '" + username + "'";
@@ -48,7 +48,7 @@ public class SqlInjectionSpringSamples {
     }
 
     @RestController
-    @RequestMapping("/sql-injection-in-spring-app")
+    @RequestMapping("/sql-injection")
     public static class SafeSqlSpringController {
 
         private final JdbcTemplate jdbcTemplate;
@@ -61,7 +61,7 @@ public class SqlInjectionSpringSamples {
          * Safe endpoint that uses parameterized queries and basic validation.
          */
         @GetMapping("/safe")
-        @NegativeRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @NegativeRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String safeSearch(@RequestParam("username") String username) {
             if (username == null || username.isBlank()) {
                 return ""; // simple guard; in a real app, you might return 400 or an error body

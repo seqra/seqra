@@ -22,13 +22,13 @@ import org.slf4j.LoggerFactory;
  */
 public class LogInjectionSamples {
 
-    // log-injection-in-servlet-app
+    // log-injection
 
     @WebServlet("/log-injection-in-servlet/unsafe")
     public static class UnsafeLogServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String username = request.getParameter("username"); // untrusted
@@ -46,7 +46,7 @@ public class LogInjectionSamples {
 
         @Override
 //      TODO: restore this when conditional validators are implemented
-//        @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "log-injection-in-servlet-app")
+//        @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String username = request.getParameter("username");
@@ -67,7 +67,7 @@ public class LogInjectionSamples {
         return value.replaceAll("[\\r\\n\\t\\x00-\\x1F]", "_");
     }
 
-    // log-injection-in-spring-app
+    // log-injection
 
     @org.springframework.web.bind.annotation.RestController
     @org.springframework.web.bind.annotation.RequestMapping("/login/log-injection")
@@ -76,7 +76,7 @@ public class LogInjectionSamples {
         private static final Logger logger = LoggerFactory.getLogger(SpringLogInjectionController.class);
 
         @org.springframework.web.bind.annotation.PostMapping("/unsafe")
-        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
         public org.springframework.http.ResponseEntity<String> unsafeLogin(
                 @org.springframework.web.bind.annotation.RequestParam String username,
                 @org.springframework.web.bind.annotation.RequestParam String password) {
@@ -88,7 +88,7 @@ public class LogInjectionSamples {
 
         /*
         @org.springframework.web.bind.annotation.PostMapping("/safe")
-        @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "log-injection-in-spring-app")
+        @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
         public org.springframework.http.ResponseEntity<String> safeLogin(
                 @org.springframework.web.bind.annotation.RequestParam String username,
                 @org.springframework.web.bind.annotation.RequestParam String password) {
@@ -105,7 +105,7 @@ public class LogInjectionSamples {
         */
     }
 
-    // seam-log-injection-in-servlet-app
+    // seam-log-injection
 
     @Name("seamLoginActionServletStyle")
     public static class SeamServletStyleLoginAction {

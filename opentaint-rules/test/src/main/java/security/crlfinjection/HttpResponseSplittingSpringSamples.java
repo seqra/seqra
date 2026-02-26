@@ -21,7 +21,7 @@ public class HttpResponseSplittingSpringSamples {
          * Unsafe endpoint that uses untrusted input directly in headers and redirect URLs.
          */
         @GetMapping("/http-response-splitting-in-spring/unsafe")
-        @PositiveRuleSample(value = "java/security/crlf-injection.yaml", id = "http-response-splitting-in-spring-app")
+        @PositiveRuleSample(value = "java/security/crlf-injection.yaml", id = "http-response-splitting")
         public void unsafe(@RequestParam(name = "user", required = false) String user,
                            @RequestParam(name = "next", required = false) String next,
                            HttpServletResponse response) throws IOException {
@@ -50,7 +50,7 @@ public class HttpResponseSplittingSpringSamples {
          */
         @GetMapping("/http-response-splitting-in-spring/safe")
 // TODO: restore this when conditional validators are implemented
-//        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "http-response-splitting-in-spring-app")
+//        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "http-response-splitting")
         public void safe(@RequestParam(name = "user", required = false) String user,
                          @RequestParam(name = "next", required = false) String next,
                          HttpServletResponse response) throws IOException {

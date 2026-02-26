@@ -24,7 +24,7 @@ public class OgnlInjectionServletSamples {
     public static class UnsafeOgnlServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "ognl-injection-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "ognl-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             // Attacker controls the "expr" parameter
@@ -52,7 +52,7 @@ public class OgnlInjectionServletSamples {
         private final UserService userService = new UserService();
 
         @Override
-        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "ognl-injection-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "ognl-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
 
                 throws ServletException, IOException {

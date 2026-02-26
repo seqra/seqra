@@ -1,5 +1,5 @@
 rules:
-  - id: unsafe-object-mapper-in-servlet-app
+  - id: unsafe-object-mapper
     severity: ERROR
     message: >-
       Found object deserialization using ObjectInputStream with user-controlled input.
@@ -8,6 +8,13 @@ rules:
     metadata:
       cwe: CWE-502
       short-description: Deserialization of untrusted data with ObjectMapper
+      full-description: |-
+        Unsafe object deserialization occurs when untrusted data is deserialized with ObjectInputStream or equivalent object stream APIs.
+        In Servlet and Spring applications, request-controlled byte streams must not be deserialized into arbitrary object graphs.
+        Attackers can trigger gadget chains during deserialization and achieve remote code execution or severe integrity impact.
+        
+        Do not deserialize untrusted native Java objects. Prefer safer formats and explicit data transfer object mappings.
+        If legacy deserialization is unavoidable, enforce strict class allowlists and isolate deserialization boundaries.
       references:
         - https://find-sec-bugs.github.io/bugs.htm#OBJECT_DESERIALIZATION
       provenance: https://find-sec-bugs.github.io/bugs.htm#OBJECT_DESERIALIZATION
@@ -17,35 +24,14 @@ rules:
     join:
       refs:
         - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
-          as: untrusted-data
-        - rule: java-unsafe-object-mapper-sink
-          as: sink
-      on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
-
-  - id: unsafe-object-mapper-in-spring-app
-    severity: ERROR
-    message: >-
-      Found object deserialization using ObjectInputStream with user-controlled input.
-      Deserialization of entire Java objects is dangerous because malicious actors can
-      create Java object streams with unintended consequences.
-    metadata:
-      cwe: CWE-502
-      short-description: Deserialization of untrusted data with ObjectMapper
-      references:
-        - https://find-sec-bugs.github.io/bugs.htm#OBJECT_DESERIALIZATION
-      provenance: https://find-sec-bugs.github.io/bugs.htm#OBJECT_DESERIALIZATION
-    languages:
-      - java
-    mode: join
-    join:
-      refs:
+          as: servlet-untrusted-data
         - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
-          as: untrusted-data
+          as: spring-untrusted-data
         - rule: java-unsafe-object-mapper-sink
           as: sink
       on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+        - 'servlet-untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+        - 'spring-untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
 
   - id: java-unsafe-object-mapper-sink
     options:
@@ -92,13 +78,20 @@ rules:
 
       - pattern: $X = $Y.getObject(...);
 
-  - id: unsafe-jackson-deserialization-in-servlet-app
+  - id: unsafe-jackson-deserialization
     severity: ERROR
     message: Found Jackson deserialization with user-controlled input.
     metadata:
       cwe:
         - CWE-502
       short-description: Unsafe Jackson deserialization with user-controlled input
+      full-description: |-
+        Unsafe Jackson deserialization occurs when untrusted JSON is deserialized into dangerous or overly broad target types.
+        In Servlet and Spring applications, this can happen when request bodies are bound to polymorphic types without strict controls.
+        Attackers may instantiate unexpected classes or trigger gadget-based behavior depending on mapper configuration and dependencies.
+        
+        Deserialize into explicit, fixed DTO classes and avoid permissive polymorphic typing for untrusted data.
+        Keep Jackson and dependent libraries updated, and validate request payload shape before deserialization.
       references:
         - https://swapneildash.medium.com/understanding-insecure-implementation-of-jackson-deserialization-7b3d409d2038
         - https://cowtowncoder.medium.com/on-jackson-cves-dont-panic-here-is-what-you-need-to-know-54cd0d6e8062
@@ -110,35 +103,14 @@ rules:
     join:
       refs:
         - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
-          as: untrusted-data
-        - rule: java/lib/generic/unsafe-deserialization-sinks.yaml#jackson-unsafe-deserialization
-          as: sink
-      on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$JSON'
-
-  - id: unsafe-jackson-deserialization-in-spring-app
-    severity: ERROR
-    message: Found Jackson deserialization with user-controlled input.
-    metadata:
-      cwe:
-        - CWE-502
-      short-description: Unsafe Jackson deserialization with user-controlled input
-      references:
-        - https://swapneildash.medium.com/understanding-insecure-implementation-of-jackson-deserialization-7b3d409d2038
-        - https://cowtowncoder.medium.com/on-jackson-cves-dont-panic-here-is-what-you-need-to-know-54cd0d6e8062
-        - https://adamcaudill.com/2017/10/04/exploiting-jackson-rce-cve-2017-7525/
-      provenance: https://semgrep.dev/r/gitlab.java_deserialization_rule-JacksonUnsafeDeserialization
-    languages:
-      - java
-    mode: join
-    join:
-      refs:
+          as: servlet-untrusted-data
         - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
-          as: untrusted-data
+          as: spring-untrusted-data
         - rule: java/lib/generic/unsafe-deserialization-sinks.yaml#jackson-unsafe-deserialization
           as: sink
       on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$JSON'
+        - 'servlet-untrusted-data.$UNTRUSTED -> sink.$JSON'
+        - 'spring-untrusted-data.$UNTRUSTED -> sink.$JSON'
 
   - id: server-dangerous-object-deserialization
     severity: ERROR
@@ -150,7 +122,7 @@ rules:
     metadata:
       cwe:
         - CWE-502
-      short-description: Insecure deserelization in Java RMI
+      short-description: Insecure deserialization in Java RMI
       references:
         - https://frohoff.github.io/appseccali-marshalling-pickles/
         - https://book.hacktricks.xyz/network-services-pentesting/1099-pentesting-java-rmi
@@ -169,14 +141,21 @@ rules:
           metavariable: $PARAMTYPE
           regex: ^(?!(Integer|Long|Float|Double|Char|Boolean|int|long|float|double|char|boolean|String))
 
-  - id: java-servlet-unsafe-snake-yaml-deserialization
+  - id: unsafe-snake-yaml-deserialization
     severity: ERROR
     message: >-
-      Insecure deserialization. Used SnakeYAML org.yaml.snakeyaml.Yaml() constructor on user-manipulater yaml data.
+      Insecure deserialization. Used SnakeYAML org.yaml.snakeyaml.Yaml() constructor on user-manipulated YAML data.
     metadata:
       cwe:
         - CWE-502
       short-description: Insecure deserialization of untrusted YAML data
+      full-description: |-
+        Unsafe SnakeYAML deserialization occurs when untrusted YAML is loaded with constructors that instantiate arbitrary object types.
+        In Servlet and Spring applications, request data parsed this way can create dangerous objects and trigger unsafe code paths.
+        This can result in remote code execution or denial of service in vulnerable configurations.
+        
+        Do not load untrusted YAML into arbitrary object graphs. Use safe loader options and map input to simple, explicit data structures.
+        Disable features that allow implicit type instantiation from attacker-controlled YAML tags.
       references:
         - https://securitylab.github.com/research/swagger-yaml-parser-vulnerability/#snakeyaml-deserialization-vulnerability
       provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/use-snakeyaml-constructor.yaml
@@ -186,34 +165,14 @@ rules:
     join:
       refs:
         - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
-          as: untrusted-data
-        - rule: java/lib/generic/unsafe-deserialization-sinks.yaml#yaml-unsafe-deserialization-sink
-          as: sink
-      on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$YAML'
-
-  - id: spring-unsafe-snake-yaml-deserialization
-    severity: ERROR
-    message: >-
-      Insecure deserialization. Used SnakeYAML org.yaml.snakeyaml.Yaml() constructor on user-manipulater yaml data.
-    metadata:
-      cwe:
-        - CWE-502
-      short-description: Insecure deserialization of untrusted YAML data
-      references:
-        - https://securitylab.github.com/research/swagger-yaml-parser-vulnerability/#snakeyaml-deserialization-vulnerability
-      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/use-snakeyaml-constructor.yaml
-    languages:
-      - java
-    mode: join
-    join:
-      refs:
+          as: servlet-untrusted-data
         - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
-          as: untrusted-data
+          as: spring-untrusted-data
         - rule: java/lib/generic/unsafe-deserialization-sinks.yaml#yaml-unsafe-deserialization-sink
           as: sink
       on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$YAML'
+        - 'servlet-untrusted-data.$UNTRUSTED -> sink.$YAML'
+        - 'spring-untrusted-data.$UNTRUSTED -> sink.$YAML'
 
   - id: insecure-resteasy-deserialization
     severity: WARNING

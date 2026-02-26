@@ -32,7 +32,7 @@ public class SqlInjectionServletSamples {
         private DataSource dataSource;
 
         @Override
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String userId = request.getParameter("userId"); // untrusted input
@@ -63,7 +63,7 @@ public class SqlInjectionServletSamples {
         private DataSource dataSource;
 
         @Override
-        @NegativeRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String userId = request.getParameter("userId");

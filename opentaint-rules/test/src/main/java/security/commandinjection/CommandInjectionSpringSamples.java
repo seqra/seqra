@@ -21,7 +21,7 @@ public class CommandInjectionSpringSamples {
          * executed via Runtime.exec.
          */
         @GetMapping("/os-command-injection-in-spring/unsafe")
-        @PositiveRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection")
         public String unsafePing(@RequestParam String host) {
             // VULNERABLE: direct concatenation of untrusted input into OS command
             String command = "ping -c 4 " + host;
@@ -48,7 +48,7 @@ public class CommandInjectionSpringSamples {
 
         @GetMapping("/os-command-injection-in-spring/safe")
 //      TODO: restore this when conditional validators are implemented
-//        @NegativeRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection-in-spring-app")
+//        @NegativeRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection")
         public String safePing(@RequestParam String host) {
             // Strict validation / whitelisting of the host value
             if (host == null || !host.matches("^[a-zA-Z0-9._-]{1,255}$")) {

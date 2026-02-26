@@ -33,7 +33,7 @@ public class TemplateInjectionSpringSamples {
         private Configuration freemarkerConfiguration;
 
         @PostMapping("/unsafe")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "ssti-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "ssti")
         protected void previewUnsafe(HttpServletRequest request, HttpServletResponse response) throws ServletException {
             // Attacker controls the entire template content
             String templateSource = request.getParameter("messageTemplate");
@@ -62,7 +62,7 @@ public class TemplateInjectionSpringSamples {
         private Configuration freemarkerConfiguration;
 
         @PostMapping("/safe")
-        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "ssti-in-spring-app")
+        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "ssti")
         protected void previewSafe(HttpServletRequest request, HttpServletResponse response) throws ServletException {
             try {
                 // Use only server-controlled template names (e.g., stored on disk)

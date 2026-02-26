@@ -24,7 +24,7 @@ public class CommandInjectionServletSamples {
     public static class UnsafeCommandServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String host = request.getParameter("host"); // untrusted input
@@ -53,7 +53,7 @@ public class CommandInjectionServletSamples {
 
         @Override
 // TODO: restore this when conditional validators are implemented
-//        @NegativeRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection-in-servlet-app")
+//        @NegativeRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String host = request.getParameter("host");

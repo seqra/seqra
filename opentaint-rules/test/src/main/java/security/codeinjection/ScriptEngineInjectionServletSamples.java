@@ -26,7 +26,7 @@ public class ScriptEngineInjectionServletSamples {
     public static class UnsafeScriptEngineServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "script-engine-injection-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "script-engine-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String expr = request.getParameter("expr");
@@ -60,7 +60,7 @@ public class ScriptEngineInjectionServletSamples {
         }
 
         @Override
-        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "script-engine-injection-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "script-engine-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
 
                 throws ServletException, IOException {

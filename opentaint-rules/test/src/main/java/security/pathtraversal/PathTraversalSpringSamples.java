@@ -40,7 +40,7 @@ public class PathTraversalSpringSamples {
          * VULNERABLE: untrusted @PathVariable is concatenated directly into a path.
          */
         @GetMapping("/unsafe/{*fileName}")
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-spring-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         public ResponseEntity<ByteArrayResource> unsafePathVariableDownload(@PathVariable String fileName) {
 
             // VULNERABLE: direct concatenation of user input into path
@@ -58,7 +58,7 @@ public class PathTraversalSpringSamples {
          * any validation or base-directory enforcement.
          */
         @GetMapping("/unsafe-param")
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-spring-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         public ResponseEntity<ByteArrayResource> unsafeParamDownload(@RequestParam("file") String fileName) {
 
             Path path = Paths.get(BASE_DIR + fileName);
@@ -74,7 +74,7 @@ public class PathTraversalSpringSamples {
          * VULNERABLE: takes a header value and concatenates it into a path.
          */
         @GetMapping("/unsafe-header")
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-spring-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         public ResponseEntity<ByteArrayResource> unsafeHeaderDownload(@RequestHeader("X-Download-File") String headerName) {
 
             Path path = Paths.get(BASE_DIR + headerName);
@@ -91,7 +91,7 @@ public class PathTraversalSpringSamples {
          * so path traversal sequences like "../" are not possible.
          */
         @GetMapping("/safe-pathvar/{fileName}")
-        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-spring-app")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         public ResponseEntity<ByteArrayResource> safeNonWildcardPathVariable(@PathVariable String fileName) {
 
             // Without a wildcard in the URL pattern (e.g., {*fileName}),
@@ -119,7 +119,7 @@ public class PathTraversalSpringSamples {
          */
         @GetMapping("/safe/{*fileName}")
 // TODO: restore this when conditional sanitizers are implemented
-//        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-spring-app")
+//        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         public ResponseEntity<ByteArrayResource> safePathVariableDownload(@PathVariable String fileName) {
 
             Path target = prepareValidatedTarget(fileName);
@@ -133,7 +133,7 @@ public class PathTraversalSpringSamples {
          */
         @GetMapping("/safe-param")
 // TODO: restore this when conditional sanitizers are implemented
-//        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-spring-app")
+//        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         public ResponseEntity<ByteArrayResource> safeParamDownload(@RequestParam("file") String fileName) {
 
             Path target = prepareValidatedTarget(fileName);
@@ -146,7 +146,7 @@ public class PathTraversalSpringSamples {
          * of filenames, avoiding direct use of untrusted path fragments.
          */
         @GetMapping("/safe-header")
-        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-spring-app")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         public ResponseEntity<ByteArrayResource> safeHeaderDownload(@RequestHeader("X-Download-File") String headerName) {
 
             Map<String, String> allowlist = new HashMap<String, String>();

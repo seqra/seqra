@@ -39,7 +39,7 @@ public class PathTraversalServletSamples {
         private static final String BASE_DIR = "/var/www/uploads/";
 
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
 
@@ -67,7 +67,7 @@ public class PathTraversalServletSamples {
         private static final String BASE_DIR = "/var/www/uploads/";
 
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
 
@@ -99,7 +99,7 @@ public class PathTraversalServletSamples {
         private static final File BASE_DIR = new File("/var/www/uploads");
 
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
 
@@ -142,7 +142,7 @@ public class PathTraversalServletSamples {
 
         @Override
 //    TODO: enable this test when we have conditional sanitizers
-//        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+//        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
 
@@ -185,7 +185,7 @@ public class PathTraversalServletSamples {
         private static final File BASE_DIR = new File("/var/www/uploads").getAbsoluteFile();
 
         @Override
-        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
 
@@ -218,7 +218,7 @@ public class PathTraversalServletSamples {
         private static final File BASE_DIR = new File("/var/www/uploads").getAbsoluteFile();
 
         @Override
-        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
 
@@ -264,7 +264,7 @@ public class PathTraversalServletSamples {
         private static final String UPLOAD_DIR = "/var/www/uploads/";
 
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doPost(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
 

@@ -29,13 +29,11 @@ import org.xml.sax.InputSource;
  */
 public class XxeSamples {
 
-    // xxe-in-servlet-app
-
     @WebServlet("/xxe/upload")
     public static class UnsafeXmlUploadServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe")
         protected void doPost(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             try {
@@ -59,7 +57,7 @@ public class XxeSamples {
     public static class SafeXmlUploadServlet extends HttpServlet {
 
         @Override
-        @NegativeRuleSample(value = "java/security/xxe.yaml", id = "xxe-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/xxe.yaml", id = "xxe")
         protected void doPost(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             try {
@@ -98,14 +96,14 @@ public class XxeSamples {
         }
     }
 
-    // xxe-in-spring-app
+    // xxe
 
     @RestController
     @RequestMapping("/api/xxe")
     public static class XxeSpringController {
 
         @PostMapping(value = "/process-xml", consumes = MediaType.APPLICATION_XML_VALUE)
-        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe-in-spring-app")
+        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe")
         public ResponseEntity<String> processXmlInsecure(@RequestBody String xml) throws Exception {
             // Insecure: default configuration may allow DTDs and external entities
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
@@ -117,7 +115,7 @@ public class XxeSamples {
         }
 
         @PostMapping(value = "/process-xml-safe", consumes = MediaType.APPLICATION_XML_VALUE)
-        @NegativeRuleSample(value = "java/security/xxe.yaml", id = "xxe-in-spring-app")
+        @NegativeRuleSample(value = "java/security/xxe.yaml", id = "xxe")
         public ResponseEntity<String> processXmlSafe(@RequestBody String xml) throws Exception {
             DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
 

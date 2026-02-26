@@ -21,7 +21,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Spring MVC samples for sql-catalog-external-manipulation-in-spring-app rule.
+ * Spring MVC samples for sql-catalog-external-manipulation rule.
  */
 public class SqlCatalogSpringSamples {
 
@@ -36,7 +36,7 @@ public class SqlCatalogSpringSamples {
         }
 
         @GetMapping("/unsafe")
-        @PositiveRuleSample(value = "java/security/external-configuration-control.yaml", id = "sql-catalog-external-manipulation-in-spring-app")
+        @PositiveRuleSample(value = "java/security/external-configuration-control.yaml", id = "sql-catalog-external-manipulation")
         public List<String> getUsers(@RequestParam String catalog, @RequestParam int id) throws SQLException {
             Connection conn = DataSourceUtils.getConnection(dataSource);
             try {
@@ -72,7 +72,7 @@ public class SqlCatalogSpringSamples {
         }
 
         @GetMapping("/safe")
-        @NegativeRuleSample(value = "java/security/external-configuration-control.yaml", id = "sql-catalog-external-manipulation-in-spring-app")
+        @NegativeRuleSample(value = "java/security/external-configuration-control.yaml", id = "sql-catalog-external-manipulation")
         public List<String> getUsers(@RequestParam int id, @AuthenticationPrincipal TenantPrincipal principal) throws SQLException {
             String tenantId = principal.getTenantId();
             String catalog = tenantCatalogResolver.resolveCatalogForTenant(tenantId);

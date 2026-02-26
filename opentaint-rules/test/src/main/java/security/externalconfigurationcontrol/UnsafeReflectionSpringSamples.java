@@ -20,7 +20,7 @@ public class UnsafeReflectionSpringSamples {
     public static class UnsafeReflectionController {
 
         @GetMapping("/unsafe")
-        @PositiveRuleSample(value = "java/security/external-configuration-control.yaml", id = "unsafe-reflection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/external-configuration-control.yaml", id = "unsafe-reflection")
         public String loadClass(@RequestParam String className) throws Exception {
             // UNSAFE: user input directly controls Class.forName
             Class<?> clazz = Class.forName(className);
@@ -41,7 +41,7 @@ public class UnsafeReflectionSpringSamples {
         }
 
         @GetMapping("/safe")
-        @NegativeRuleSample(value = "java/security/external-configuration-control.yaml", id = "unsafe-reflection-in-spring-app")
+        @NegativeRuleSample(value = "java/security/external-configuration-control.yaml", id = "unsafe-reflection")
         public String loadClass(@RequestParam String type) throws Exception {
             Class<?> clazz = ALLOWED_CLASSES.get(type);
             if (clazz == null) {

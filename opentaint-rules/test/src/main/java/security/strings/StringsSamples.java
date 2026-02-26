@@ -52,13 +52,13 @@ public class StringsSamples {
         return userInput;
     }
 
-    // format-string-external-manipulation-in-servlet-app (join rule via servlet untrusted source)
+    // format-string-external-manipulation (join rule via servlet untrusted source)
 
     @WebServlet("/strings/format/servlet")
     public static class FormatStringServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/strings.yaml", id = "format-string-external-manipulation-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/strings.yaml", id = "format-string-external-manipulation")
         protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
             String userFormat = request.getParameter("fmt");
             String value = request.getParameter("value");
@@ -70,7 +70,7 @@ public class StringsSamples {
             writer.println(formatted);
         }
 
-        @NegativeRuleSample(value = "java/security/strings.yaml", id = "format-string-external-manipulation-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/strings.yaml", id = "format-string-external-manipulation")
         protected void doGetSafe(HttpServletRequest request, HttpServletResponse response) throws IOException {
             String value = request.getParameter("value");
 
@@ -82,7 +82,7 @@ public class StringsSamples {
         }
     }
 
-    // format-string-external-manipulation-in-spring-app (join rule via Spring untrusted source)
+    // format-string-external-manipulation (join rule via Spring untrusted source)
 
     @Controller
     @RequestMapping("/strings/format")
@@ -90,7 +90,7 @@ public class StringsSamples {
 
         @GetMapping("/unsafe")
         @ResponseBody
-        @PositiveRuleSample(value = "java/security/strings.yaml", id = "format-string-external-manipulation-in-spring-app")
+        @PositiveRuleSample(value = "java/security/strings.yaml", id = "format-string-external-manipulation")
         public String unsafe(@RequestParam("fmt") String fmt,
                              @RequestParam("value") String value) {
             // VULNERABLE: user-controlled format string
@@ -99,7 +99,7 @@ public class StringsSamples {
 
         @GetMapping("/safe")
         @ResponseBody
-        @NegativeRuleSample(value = "java/security/strings.yaml", id = "format-string-external-manipulation-in-spring-app")
+        @NegativeRuleSample(value = "java/security/strings.yaml", id = "format-string-external-manipulation")
         public String safe(@RequestParam("value") String value) {
             // SAFE: use a hardcoded format string, user input as data only
             return String.format("Value: %s", value);

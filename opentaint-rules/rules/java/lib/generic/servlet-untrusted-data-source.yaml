@@ -4,6 +4,43 @@ rules:
       lib: true
     severity: NOTE
     message: Untrusted data flows from here
+    metadata:
+      short-description: Untrusted data source in Servlet/JSP entrypoints
+      full-description: |-
+        This is a source rule for untrusted input in Servlet and JSP code paths.
+        It marks values as tainted when they originate from HTTP request-controlled entrypoints,
+        request body readers, or uploaded-file metadata APIs.
+
+        Typical source locations matched by this rule include:
+        - `HttpServletRequest` parameters in servlet entry methods (`doGet`, `doPost`, etc.)
+        - Values returned by `MessageBodyReader.readFrom(...)`
+        - File names from multipart upload parsing (`parseRequest(...).getName()`)
+        - File names from `Part.getSubmittedFileName()`
+
+        Example source usage (tainted):
+
+        ```java
+        import jakarta.servlet.http.HttpServlet;
+        import jakarta.servlet.http.HttpServletRequest;
+        import jakarta.servlet.http.HttpServletResponse;
+
+        public class DownloadServlet extends HttpServlet {
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response) {
+                String filename = request.getParameter("file"); // source: untrusted
+                handleFile(filename);
+            }
+
+            private void handleFile(String input) {
+                // Later flow to a vulnerable API pattern is what creates a finding.
+            }
+        }
+        ```
+
+        Recommended handling at the boundary:
+        - Treat all request-derived values as untrusted by default.
+        - Validate expected shape (type, length, charset, allowlist) as early as possible.
+        - Convert to strongly typed/domain values before business logic and security-sensitive calls.
     languages:
       - java
     patterns:

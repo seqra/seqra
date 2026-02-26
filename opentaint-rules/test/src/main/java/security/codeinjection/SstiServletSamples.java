@@ -28,7 +28,7 @@ public class SstiServletSamples {
     public static class UnsafeTemplateServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "ssti-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "ssti")
         protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
             // Attacker controls the entire template content
             String templateSource = request.getParameter("messageTemplate");
@@ -56,7 +56,7 @@ public class SstiServletSamples {
     public static class SafeTemplateServlet extends HttpServlet {
 
         @Override
-        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "ssti-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "ssti")
         protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
             ServletContext servletContext = getServletContext();
             Configuration cfg = (Configuration) servletContext.getAttribute("freemarkerCfg");
