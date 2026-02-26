@@ -92,10 +92,10 @@ class JIRSarifTraits(
 
     override fun printArgumentNth(index: Int, methodName: String?): String {
         val ofMethod = methodName?.let {
-            if (it.startsWith("lambda$"))
+            if (it.startsWith(lambdaMark))
                 " of lambda"
             else
-                " of \"$it\""
+                " of \"${it.removeSuffix(suspendFunction)}\""
         } ?: ""
         return "the ${getOrdinal(index + 1)} argument$ofMethod"
     }
@@ -219,6 +219,11 @@ class JIRSarifTraits(
 
     override fun locationMachineName(statement: JIRInst): String =
         "${statement.location.method}:${statement.location.index}:($statement)"
+
+    companion object {
+        private val lambdaMark = "lambda$"
+        private val suspendFunction = "\$suspendImpl"
+    }
 }
 
 val JIRMethod.thisInstance: JIRThis
