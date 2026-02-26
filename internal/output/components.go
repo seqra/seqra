@@ -9,20 +9,20 @@ import (
 	"time"
 
 	"charm.land/lipgloss/v2"
+	bprogress "github.com/charmbracelet/bubbles/progress"
+	bspinner "github.com/charmbracelet/bubbles/spinner"
 )
 
 // ── Spinner ──────────────────────────────────────────────────────────
 // A spinner shows an animated progress indicator while a long-running
 // operation is in progress.
 
-// spinnerFrames are the braille animation frames.
-var spinnerFrames = []rune{'⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'}
-
 // SpinnerHandle controls a running spinner.
 type SpinnerHandle struct {
 	printer *Printer
 	stopCh  chan struct{}
 	doneCh  chan struct{}
+	spinner bspinner.Model
 	msg     string
 	start   time.Time
 	mu      sync.Mutex
@@ -35,14 +35,23 @@ func (p *Printer) StartSpinner(message string) *SpinnerHandle {
 		printer: p,
 		stopCh:  make(chan struct{}),
 		doneCh:  make(chan struct{}),
+		spinner: bspinner.New(bspinner.WithSpinner(bspinner.Pulse)),
 		msg:     message,
 		start:   time.Now(),
 	}
 
+	if !p.IsInteractive() {
+		close(h.doneCh)
+		return h
+	}
+
 	go func() {
 		defer close(h.doneCh)
-		i := 0
-		ticker := time.NewTicker(100 * time.Millisecond)
+		fps := h.spinner.Spinner.FPS
+		if fps <= 0 {
+			fps = 100 * time.Millisecond
+		}
+		ticker := time.NewTicker(fps)
 		defer ticker.Stop()
 
 		for {
@@ -51,14 +60,15 @@ func (p *Printer) StartSpinner(message string) *SpinnerHandle {
 				return
 			case <-ticker.C:
 				h.mu.Lock()
+				h.spinner, _ = h.spinner.Update(h.spinner.Tick())
+				frame := h.spinner.View()
 				elapsed := formatDuration(time.Since(h.start))
 				msg := h.msg
 				h.mu.Unlock()
 
 				th := p.theme
-				frame := th.SpinnerStyle.Render(string(spinnerFrames[i]))
+				frame = th.SpinnerStyle.Render(frame)
 				fmt.Fprintf(p.w, "\r[%s] %s %s", frame, msg, th.Muted.Render(elapsed))
-				i = (i + 1) % len(spinnerFrames)
 			}
 		}
 	}()
@@ -120,6 +130,12 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 		bytesPerGiB = 1024 * bytesPerMiB
 	)
 
+	bar := bprogress.New(
+		bprogress.WithWidth(barWidth),
+		bprogress.WithoutPercentage(),
+		bprogress.WithFillCharacters('█', '░'),
+	)
+
 	formatBytes := func(n int64) string {
 		switch {
 		case n >= bytesPerGiB:
@@ -149,14 +165,8 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 			written = total
 		}
 		percent := float64(written) / float64(total)
-		filled := int(percent * barWidth)
-		if filled > barWidth {
-			filled = barWidth
-		}
-
-		th := p.theme
-		bar := th.Success.Render(strings.Repeat("=", filled)) + th.Muted.Render(strings.Repeat("-", barWidth-filled))
-		fmt.Fprintf(p.w, "\r[%s] %s %3.0f%% (%s/%s)", bar, label, percent*100, formatBytes(written), formatBytes(total))
+		barView := bar.ViewAs(percent)
+		fmt.Fprintf(p.w, "\r%s %s %3.0f%% (%s/%s)", label, barView, percent*100, formatBytes(written), formatBytes(total))
 	}
 
 	buf := make([]byte, 32*1024)

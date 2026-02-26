@@ -12,8 +12,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/seqra/seqra/v2/internal/globals"
+	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/utils"
-	"github.com/seqra/seqra/v2/internal/utils/ui"
 	"github.com/sirupsen/logrus"
 )
 
@@ -373,6 +374,12 @@ func fileExists(p string) bool {
 	return err == nil && !st.IsDir()
 }
 
+func newProgressPrinter() *output.Printer {
+	p := output.New()
+	p.Configure(globals.Config.Log.Color, globals.Config.Quiet)
+	return p
+}
+
 // downloadFile downloads url to dest path
 func downloadFile(url, dest string, showProgress bool) error {
 	resp, err := http.Get(url)
@@ -392,8 +399,9 @@ func downloadFile(url, dest string, showProgress bool) error {
 	defer func() { _ = f.Close() }()
 
 	label := "Downloading " + filepath.Base(dest)
-	if showProgress && ui.IsSpinnerTerminal() && resp.ContentLength > 0 {
-		_, err = ui.CopyWithProgress(f, resp.Body, resp.ContentLength, label)
+	printer := newProgressPrinter()
+	if showProgress && printer.IsInteractive() && resp.ContentLength > 0 {
+		_, err = printer.CopyWithProgress(f, resp.Body, resp.ContentLength, label)
 	} else {
 		_, err = io.Copy(f, resp.Body)
 	}

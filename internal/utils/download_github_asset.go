@@ -13,7 +13,8 @@ import (
 	"strings"
 
 	"github.com/google/go-github/v74/github"
-	"github.com/seqra/seqra/v2/internal/utils/ui"
+	"github.com/seqra/seqra/v2/internal/globals"
+	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/sirupsen/logrus"
 )
 
@@ -22,6 +23,12 @@ func newGithubClient(token string) *github.Client {
 		return github.NewClient(nil)
 	}
 	return github.NewClient(nil).WithAuthToken(token)
+}
+
+func newProgressPrinter() *output.Printer {
+	p := output.New()
+	p.Configure(globals.Config.Log.Color, globals.Config.Quiet)
+	return p
 }
 
 // verifyAssetChecksum checks the SHA256 of filePath using the asset's native digest (preferred)
@@ -63,6 +70,7 @@ func verifyAssetChecksum(client *github.Client, owner, repo string, release *git
 
 func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetPath, token string, skipVerify bool) error {
 	client := newGithubClient(token)
+	printer := newProgressPrinter()
 
 	ctx := context.Background()
 	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, releaseTag)
@@ -99,7 +107,7 @@ func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetP
 				_ = tmpFile.Close()
 			}()
 
-			written, err := ui.CopyWithProgress(tmpFile, rc, expectedSize, "Downloading "+assetName)
+			written, err := printer.CopyWithProgress(tmpFile, rc, expectedSize, "Downloading "+assetName)
 			if err != nil {
 				return err
 			}
@@ -232,6 +240,7 @@ func DownloadAndUnpackGithubReleaseArchive(owner, repository, releaseTag, assetP
 
 func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetName, destPath, token string, skipVerify bool) error {
 	client := newGithubClient(token)
+	printer := newProgressPrinter()
 
 	ctx := context.Background()
 	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, releaseTag)
@@ -269,7 +278,7 @@ func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetNam
 				_ = os.Remove(tmpPath)
 			}()
 
-			written, err := ui.CopyWithProgress(tmpFile, rc, expectedSize, "Downloading "+assetName)
+			written, err := printer.CopyWithProgress(tmpFile, rc, expectedSize, "Downloading "+assetName)
 			if err != nil {
 				return err
 			}
