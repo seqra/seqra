@@ -15,26 +15,18 @@ import (
 
 var smoothSpinner = bspinner.Spinner{
 	Frames: []string{
-		"▱▱▱▱▱▱▱",
-		"▰▱▱▱▱▱▱",
-		"▰▰▱▱▱▱▱",
-		"▰▰▰▱▱▱▱",
-		"▱▰▰▰▱▱▱",
-		"▱▱▰▰▰▱▱",
-		"▱▱▱▰▰▰▱",
-		"▱▱▱▱▰▰▰",
-		"▱▱▱▱▱▰▰",
-		"▱▱▱▱▱▱▰",
-		"▱▱▱▱▱▱▱",
-		"▱▱▱▱▱▱▰",
-		"▱▱▱▱▱▰▰",
-		"▱▱▱▱▰▰▰",
-		"▱▱▱▰▰▰▱",
-		"▱▱▰▰▰▱▱",
-		"▱▰▰▰▱▱▱",
-		"▰▰▰▱▱▱▱",
-		"▰▰▱▱▱▱▱",
-		"▰▱▱▱▱▱▱",
+		"▱▱▱",
+		"▰▱▱",
+		"▰▰▱",
+		"▰▰▰",
+		"▱▰▰",
+		"▱▱▰",
+		"▱▱▱",
+		"▱▱▰",
+		"▱▰▰",
+		"▰▰▰",
+		"▰▰▱",
+		"▰▱▱",
 	},
 	FPS: time.Second / 10,
 }
@@ -94,7 +86,7 @@ func (p *Printer) StartSpinner(message string) *SpinnerHandle {
 
 				th := p.theme
 				frame = th.SpinnerStyle.Render(frame)
-				fmt.Fprintf(p.w, "\r\033[K[%s] %s %s", frame, msg, th.Muted.Render(elapsed))
+				fmt.Fprintf(p.w, "\r\033[K%s %s %s", frame, msg, th.Muted.Render(elapsed))
 			}
 		}
 	}()
@@ -109,7 +101,7 @@ func (h *SpinnerHandle) Stop(finalMessage string) {
 	elapsed := formatDuration(time.Since(h.start))
 	th := h.printer.theme
 	done := th.DoneStyle.Render(h.printer.theme.SpinnerDone)
-	fmt.Fprintf(h.printer.w, "\r\033[K[%s] %s in %s\n", done, finalMessage, th.Muted.Render(elapsed))
+	fmt.Fprintf(h.printer.w, "\r\033[K%s %s in %s\n", done, finalMessage, th.Muted.Render(elapsed))
 }
 
 // StopError completes the spinner with an error indicator.
@@ -119,7 +111,7 @@ func (h *SpinnerHandle) StopError(finalMessage string) {
 	elapsed := formatDuration(time.Since(h.start))
 	th := h.printer.theme
 	fail := th.FailStyle.Render(h.printer.theme.SpinnerFail)
-	fmt.Fprintf(h.printer.w, "\r\033[K[%s] %s in %s\n", fail, finalMessage, th.Muted.Render(elapsed))
+	fmt.Fprintf(h.printer.w, "\r\033[K%s %s in %s\n", fail, finalMessage, th.Muted.Render(elapsed))
 }
 
 // RunWithSpinner wraps a function with a spinner animation.
@@ -158,6 +150,9 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 	)
 
 	paddedLabel := fmt.Sprintf("%-*s", progressLabelWidth, label)
+	activeSymbol := p.theme.SpinnerStyle.Render("↓")
+	doneSymbol := p.theme.DoneStyle.Render(p.theme.SpinnerDone)
+	failSymbol := p.theme.FailStyle.Render(p.theme.SpinnerFail)
 
 	bar := bprogress.New(
 		bprogress.WithWidth(barWidth),
@@ -195,7 +190,11 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 		}
 		percent := float64(written) / float64(total)
 		barView := bar.ViewAs(percent)
-		fmt.Fprintf(p.w, "\r\033[K%s %s %3.0f%% (%s/%s)", paddedLabel, barView, percent*100, formatBytes(written), formatBytes(total))
+		symbol := activeSymbol
+		if force && written >= total {
+			symbol = doneSymbol
+		}
+		fmt.Fprintf(p.w, "\r\033[K%s %s %s %3.0f%% (%s/%s)", symbol, paddedLabel, barView, percent*100, formatBytes(written), formatBytes(total))
 	}
 
 	buf := make([]byte, 32*1024)
@@ -211,11 +210,11 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 				printProgress(written, false, &lastPrinted)
 			}
 			if writeErr != nil {
-				fmt.Fprint(p.w, "\n")
+				fmt.Fprintf(p.w, "\r\033[K%s %s failed\n", failSymbol, label)
 				return written, writeErr
 			}
 			if nw < nr {
-				fmt.Fprint(p.w, "\n")
+				fmt.Fprintf(p.w, "\r\033[K%s %s failed\n", failSymbol, label)
 				return written, io.ErrShortWrite
 			}
 		}
@@ -226,7 +225,7 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 				fmt.Fprint(p.w, "\n")
 				return written, nil
 			}
-			fmt.Fprint(p.w, "\n")
+			fmt.Fprintf(p.w, "\r\033[K%s %s failed\n", failSymbol, label)
 			return written, readErr
 		}
 	}
