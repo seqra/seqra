@@ -57,41 +57,41 @@ func DefaultTheme(hasDarkBackground bool) *Theme {
 	green := lightDark(lipgloss.Color("2"), lipgloss.Color("10"))
 	blue := lightDark(lipgloss.Color("4"), lipgloss.Color("12"))
 	cyan := lightDark(lipgloss.Color("6"), lipgloss.Color("14"))
-	muted := lipgloss.Color("8")
-	title := lightDark(lipgloss.Color("0"), lipgloss.Color("15"))
-	border := lipgloss.Color("8")
+	magenta := lightDark(lipgloss.Color("5"), lipgloss.Color("13"))
+	muted := lightDark(lipgloss.Color("8"), lipgloss.Color("7"))
+	title := lightDark(lipgloss.Color("4"), lipgloss.Color("14"))
 
 	return &Theme{
 		Error:   lipgloss.NewStyle().Foreground(red).Bold(true),
 		Warning: lipgloss.NewStyle().Foreground(yellow).Bold(true),
-		Note:    lipgloss.NewStyle().Foreground(blue),
+		Note:    lipgloss.NewStyle().Foreground(cyan),
 		Success: lipgloss.NewStyle().Foreground(green).Bold(true),
 		Info:    lipgloss.NewStyle(),
-		Debug:   lipgloss.NewStyle().Foreground(cyan),
+		Debug:   lipgloss.NewStyle().Foreground(magenta),
 		Muted:   lipgloss.NewStyle().Foreground(muted),
 
 		HeaderTitle:  lipgloss.NewStyle().Bold(true).Foreground(title),
-		HeaderBorder: lipgloss.NewStyle().Foreground(border),
+		HeaderBorder: lipgloss.NewStyle(),
 
-		TreeBranch: lipgloss.NewStyle().Foreground(border),
+		TreeBranch: lipgloss.NewStyle(),
 		TreeItem:   lipgloss.NewStyle(),
 
-		FieldKey:   lipgloss.NewStyle().Foreground(cyan),
+		FieldKey:   lipgloss.NewStyle().Foreground(blue),
 		FieldValue: lipgloss.NewStyle(),
 
-		Suggestion: lipgloss.NewStyle().Foreground(yellow),
-		Command:    lipgloss.NewStyle().Foreground(green),
-		FilePath:   lipgloss.NewStyle().Foreground(blue).Underline(true),
+		Suggestion: lipgloss.NewStyle().Foreground(cyan),
+		Command:    lipgloss.NewStyle().Foreground(green).Bold(true),
+		FilePath:   lipgloss.NewStyle().Foreground(cyan).Underline(true),
 
 		SpinnerDone:  "✓",
 		SpinnerFail:  "✗",
-		SpinnerStyle: lipgloss.NewStyle().Foreground(cyan),
+		SpinnerStyle: lipgloss.NewStyle().Foreground(blue),
 		DoneStyle:    lipgloss.NewStyle().Foreground(green),
 		FailStyle:    lipgloss.NewStyle().Foreground(red),
 
-		SnippetBorder:    lipgloss.NewStyle().Foreground(border),
+		SnippetBorder:    lipgloss.NewStyle(),
 		SnippetLine:      lipgloss.NewStyle(),
-		SnippetHighlight: lipgloss.NewStyle().Bold(true),
+		SnippetHighlight: lipgloss.NewStyle().Foreground(blue).Bold(true),
 		SnippetLineNum:   lipgloss.NewStyle().Foreground(muted),
 	}
 }
