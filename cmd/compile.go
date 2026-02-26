@@ -62,7 +62,11 @@ Arguments:
 			logrus.Fatal()
 		}
 
-		compileJavaRunner := java.NewJavaRunner().WithSkipVerify(globals.Config.SkipVerify).TrySystem().TrySpecificVersion(globals.Config.Java.Version)
+		compileJavaRunner := java.NewJavaRunner().
+			WithSkipVerify(globals.Config.SkipVerify).
+			WithDebugOutput(out.DebugStream("Autobuilder")).
+			TrySystem().
+			TrySpecificVersion(globals.Config.Java.Version)
 		if _, err := compileJavaRunner.EnsureJava(); err != nil {
 			logrus.Fatalf("Failed to resolve Java for compilation: %s", err)
 		}

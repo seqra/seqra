@@ -29,6 +29,7 @@ type JavaRunner interface {
 	TrySpecificVersion(version int) JavaRunner
 	WithImageType(imageType AdoptiumImageType) JavaRunner
 	WithSkipVerify(skipVerify bool) JavaRunner
+	WithDebugOutput(writer DebugLineWriter) JavaRunner
 	GetJavaResolutions() []JavaResolution
 	// EnsureJava resolves and downloads Java if needed, returning the path.
 	// Call this before wrapping ExecuteJavaCommand in a spinner to avoid
@@ -37,12 +38,17 @@ type JavaRunner interface {
 	ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) error
 }
 
+type DebugLineWriter interface {
+	WriteLine(text string)
+}
+
 type javaRunner struct {
 	trySystemStrategy bool
 	specificStrategy  *int
 	imageType         AdoptiumImageType
 	skipVerify        bool
 	resolvedJavaPath  string
+	debugOutput       DebugLineWriter
 }
 
 type JavaResolution func() (string, ResolutionStrategy, error)
@@ -206,7 +212,11 @@ func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrateg
 			line := scanner.Text()
 			logrus.Debug(line)
 			if streamToTerminal {
-				fmt.Fprintln(os.Stderr, line)
+				if j.debugOutput != nil {
+					j.debugOutput.WriteLine(line)
+				} else {
+					fmt.Fprintln(os.Stderr, line)
+				}
 			}
 		}
 		if err := scanner.Err(); err != nil {
@@ -259,6 +269,11 @@ func (j *javaRunner) WithImageType(imageType AdoptiumImageType) JavaRunner {
 
 func (j *javaRunner) WithSkipVerify(skipVerify bool) JavaRunner {
 	j.skipVerify = skipVerify
+	return j
+}
+
+func (j *javaRunner) WithDebugOutput(writer DebugLineWriter) JavaRunner {
+	j.debugOutput = writer
 	return j
 }
 

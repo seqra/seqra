@@ -202,7 +202,11 @@ func scan(cmd *cobra.Command) {
 			logrus.Fatalf("Native compile preparation failed: %s", err)
 		}
 
-		compileJavaRunner := java.NewJavaRunner().WithSkipVerify(globals.Config.SkipVerify).TrySystem().TrySpecificVersion(globals.Config.Java.Version)
+		compileJavaRunner := java.NewJavaRunner().
+			WithSkipVerify(globals.Config.SkipVerify).
+			WithDebugOutput(out.DebugStream("Autobuilder")).
+			TrySystem().
+			TrySpecificVersion(globals.Config.Java.Version)
 		if _, err := compileJavaRunner.EnsureJava(); err != nil {
 			logrus.Fatalf("Failed to resolve Java for compilation: %s", err)
 		}
@@ -267,7 +271,11 @@ func scan(cmd *cobra.Command) {
 	}
 	nativeBuilder.SetJarPath(analyzerJarPath)
 
-	analyzerJavaRunner := java.NewJavaRunner().WithSkipVerify(globals.Config.SkipVerify).WithImageType(java.AdoptiumImageJRE).TrySpecificVersion(globals.DefaultJavaVersion)
+	analyzerJavaRunner := java.NewJavaRunner().
+		WithSkipVerify(globals.Config.SkipVerify).
+		WithDebugOutput(out.DebugStream("Analyzer")).
+		WithImageType(java.AdoptiumImageJRE).
+		TrySpecificVersion(globals.DefaultJavaVersion)
 	if _, err := analyzerJavaRunner.EnsureJava(); err != nil {
 		logrus.Fatalf("Failed to resolve Java for analyzer: %s", err)
 	}
