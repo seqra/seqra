@@ -130,24 +130,9 @@ func (p *Printer) Theme() *Theme {
 	return p.theme
 }
 
-// IsTTY returns true if the output is an interactive terminal.
-func (p *Printer) IsTTY() bool {
-	return p.isTTY
-}
-
-// IsQuiet returns true if quiet mode is enabled.
-func (p *Printer) IsQuiet() bool {
-	return p.quiet
-}
-
 // IsInteractive returns true if the output is a TTY and not in quiet mode.
 func (p *Printer) IsInteractive() bool {
 	return p.isTTY && !p.quiet
-}
-
-// Writer returns the underlying io.Writer.
-func (p *Printer) Writer() io.Writer {
-	return p.w
 }
 
 // SetLogWriter configures an additional writer for plain-text output mirroring.
@@ -202,15 +187,6 @@ func (p *Printer) Printf(format string, a ...any) {
 	fmt.Fprintf(p.w, format+"\n", a...)
 }
 
-// Styled writes text rendered with the given style.
-func (p *Printer) Styled(style lipgloss.Style, a ...any) {
-	if p.quiet {
-		return
-	}
-	text := fmt.Sprint(a...)
-	fmt.Fprintln(p.w, style.Render(text))
-}
-
 // Blank prints an empty line.
 func (p *Printer) Blank() {
 	if p.quiet {
@@ -222,12 +198,6 @@ func (p *Printer) Blank() {
 // Error prints an error-styled message. Not suppressed by quiet mode.
 func (p *Printer) Error(a ...any) {
 	text := fmt.Sprint(a...)
-	fmt.Fprintln(p.w, p.theme.Error.Render(text))
-}
-
-// Errorf prints a formatted error message. Not suppressed by quiet mode.
-func (p *Printer) Errorf(format string, a ...any) {
-	text := fmt.Sprintf(format, a...)
 	fmt.Fprintln(p.w, p.theme.Error.Render(text))
 }
 
@@ -247,15 +217,6 @@ func (p *Printer) Warnf(format string, a ...any) {
 	}
 	text := fmt.Sprintf(format, a...)
 	fmt.Fprintln(p.w, p.theme.Warning.Render(text))
-}
-
-// Success prints a success-styled message.
-func (p *Printer) Success(a ...any) {
-	if p.quiet {
-		return
-	}
-	text := fmt.Sprint(a...)
-	fmt.Fprintln(p.w, p.theme.Success.Render(text))
 }
 
 // Successf prints a formatted success message.

@@ -149,14 +149,6 @@ func initConfig() {
 	_ = viper.Unmarshal(&globals.Config)
 }
 
-func bindCompileTypeFlag(cmd *cobra.Command) {
-	_ = viper.BindPFlag("compile.type", cmd.Flags().Lookup("compile-type"))
-}
-
-func bindScanTypeFlag(cmd *cobra.Command) {
-	_ = viper.BindPFlag("scan.type", cmd.Flags().Lookup("scan-type"))
-}
-
 // addConfigFields appends config fields to a SectionBuilder if PrintConfig annotation is set.
 func addConfigFields(cmd *cobra.Command, sb *output.SectionBuilder) {
 	if cmd.Annotations != nil && cmd.Annotations["PrintConfig"] == "true" {

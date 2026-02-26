@@ -26,24 +26,11 @@ func (p *Printer) Snippet() *SnippetBuilder {
 	}
 }
 
-// Radius sets the number of context lines before and after the target line.
-func (sb *SnippetBuilder) Radius(r int64) *SnippetBuilder {
-	sb.radius = r
-	return sb
-}
-
-// Marker sets the marker string for the highlighted line.
-func (sb *SnippetBuilder) Marker(m string) *SnippetBuilder {
-	sb.lineMarker = m
-	return sb
-}
-
-// Load reads a file and formats a snippet around the given line number.
-// Returns an error when the file cannot be read.
-func (sb *SnippetBuilder) Load(filePath string, centerLine int64) (string, error) {
+// LoadOrEmpty loads a snippet, returning empty string on any error.
+func (sb *SnippetBuilder) LoadOrEmpty(filePath string, centerLine int64) string {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return "", err
+		return ""
 	}
 
 	lines := strings.Split(string(data), "\n")
@@ -77,14 +64,5 @@ func (sb *SnippetBuilder) Load(filePath string, centerLine int64) (string, error
 		out.WriteString(fmt.Sprintf("\t%s %2s %s %s\n", border, marker, numStr, content))
 	}
 
-	return out.String(), nil
-}
-
-// LoadOrEmpty loads a snippet, returning empty string on any error.
-func (sb *SnippetBuilder) LoadOrEmpty(filePath string, centerLine int64) string {
-	snippet, err := sb.Load(filePath, centerLine)
-	if err != nil {
-		return ""
-	}
-	return snippet
+	return out.String()
 }

@@ -208,14 +208,11 @@ func (c *JavaAutobuilderConfig) logProjectSummary(projectYamlPath string, config
 }
 
 var (
-	OutputDir     string
-	SourceRoot    string
-	JavaToolchain string
-	Dependencies  []string
-	Classes       []string
-	Packages      []string
-	BuildType     string
-	Classpaths    []string
+	OutputDir    string
+	SourceRoot   string
+	Dependencies []string
+	Packages     []string
+	Classpaths   []string
 )
 
 var projectCmd = &cobra.Command{

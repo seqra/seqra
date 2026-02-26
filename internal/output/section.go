@@ -198,11 +198,6 @@ func (p *Printer) Item(value any) string {
 	return fmt.Sprint(value)
 }
 
-// StyledItem wraps a value with a style. Useful inside Group() calls.
-func (p *Printer) StyledItem(value any, style lipgloss.Style) string {
-	return style.Render(fmt.Sprint(value))
-}
-
 // FieldItem creates a "Key: Value" string for use inside Group() calls.
 func (p *Printer) FieldItem(key string, value any) string {
 	th := p.theme

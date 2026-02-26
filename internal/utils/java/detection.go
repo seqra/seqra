@@ -50,20 +50,6 @@ func DetectSystemJava() *JavaInstallation {
 	return nil
 }
 
-func ValidateJavaExecutable(javaPath string) bool {
-	if javaPath == "" {
-		logrus.Debug("Empty Java path provided for validation")
-		return false
-	}
-
-	logrus.Debugf("Validating Java executable: %s", javaPath)
-	result := validateJavaInstallation(javaPath) != nil
-
-	logrus.Debugf("Java executable validation result for %s: valid=%t", javaPath, result)
-
-	return result
-}
-
 func ParseJavaVersion(versionOutput string) (int, string, error) {
 	matches := versionRegex.FindStringSubmatch(versionOutput)
 	if len(matches) < 2 {

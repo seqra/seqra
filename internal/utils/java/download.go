@@ -32,12 +32,9 @@ const (
 type AdoptiumOS string
 
 const (
-	AdoptiumOSLinux       AdoptiumOS = "linux"
-	AdoptiumOSWindows     AdoptiumOS = "windows"
-	AdoptiumOSMac         AdoptiumOS = "mac"
-	AdoptiumOSSolaris     AdoptiumOS = "solaris"
-	AdoptiumOSAIX         AdoptiumOS = "aix"
-	AdoptiumOSAlpineLinux AdoptiumOS = "alpine-linux"
+	AdoptiumOSLinux   AdoptiumOS = "linux"
+	AdoptiumOSWindows AdoptiumOS = "windows"
+	AdoptiumOSMac     AdoptiumOS = "mac"
 )
 
 // AdoptiumArch enumerates supported architectures for API downloads.
@@ -45,21 +42,8 @@ type AdoptiumArch string
 
 const (
 	AdoptiumArchX64     AdoptiumArch = "x64"
-	AdoptiumArchX86     AdoptiumArch = "x86"
-	AdoptiumArchX32     AdoptiumArch = "x32"
-	AdoptiumArchPPC64   AdoptiumArch = "ppc64"
-	AdoptiumArchPPC64LE AdoptiumArch = "ppc64le"
-	AdoptiumArchS390X   AdoptiumArch = "s390x"
 	AdoptiumArchAARCH64 AdoptiumArch = "aarch64"
-	AdoptiumArchARM     AdoptiumArch = "arm"
-	AdoptiumArchSPARCV9 AdoptiumArch = "sparcv9"
-	AdoptiumArchRISCV64 AdoptiumArch = "riscv64"
 )
-
-// EnsureLocalRuntime downloads and unpacks Temurin runtime if not present and returns bin/java path
-func EnsureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, aoArch string, skipVerify bool) (string, error) {
-	return ensureLocalRuntime(requiredJavaVersion, imageType, goOs, aoArch, skipVerify, true)
-}
 
 // EnsureLocalRuntimeAt downloads and installs Temurin runtime directly into targetDir
 // (flat layout: targetDir/bin/java) and returns the path to the java binary.
@@ -122,22 +106,6 @@ func ensureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
 		logrus.Debugf("Java installed at: %s", javaPath)
 		return javaPath, nil
 	})
-}
-
-// ensureLocalRuntime downloads and unpacks Temurin runtime into ~/.seqra/ if not present.
-func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, goArch string, skipVerify bool, showProgress bool) (string, error) {
-	seqraHome, err := utils.GetSeqraHome()
-	if err != nil {
-		return "", err
-	}
-
-	adoptiumOS, adoptiumArch, err := MapPlatformToAdoptium(goOs, goArch)
-	if err != nil {
-		return "", err
-	}
-
-	artefactRoot := filepath.Join(seqraHome, string(imageType), fmt.Sprintf("temurin-%d-%s-%s-%s", requiredJavaVersion, imageType, adoptiumOS, adoptiumArch))
-	return ensureLocalRuntimeAt(requiredJavaVersion, imageType, artefactRoot, goOs, goArch, skipVerify, showProgress)
 }
 
 // MapPlatformToAdoptium converts Go OS/arch to Adoptium naming.

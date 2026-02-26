@@ -33,14 +33,9 @@ var (
 	DefaultJavaVersion     = BindVersions.Java
 )
 
-const GithubDockerHost = "ghcr.io"
-
 const RepoOwner = "seqra"
 
-const AnalyzerDocker = GithubDockerHost + "/" + RepoOwner + "/seqra-jvm-sast/sast-analyzer"
-
 const AutobuilderRepoName = "seqra-jvm-autobuilder"
-const AutobuilderDocker = GithubDockerHost + "/" + RepoOwner + "/" + AutobuilderRepoName + "/sast-autobuilder"
 const AutobuilderAssetName = "seqra-project-auto-builder.jar"
 
 const AnalyzerRepoName = "seqra-jvm-sast"

@@ -65,10 +65,6 @@ Arguments:
   project  - Path to a project or a project model (required)
 `,
 	Annotations: map[string]string{"PrintConfig": "true"},
-	PreRun: func(cmd *cobra.Command, args []string) {
-		bindCompileTypeFlag(cmd)
-		bindScanTypeFlag(cmd)
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 		UserProjectPath = args[0]
 		scan(cmd)

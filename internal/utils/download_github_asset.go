@@ -6,9 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"strings"
 
@@ -135,105 +133,6 @@ func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetP
 		}
 	}
 	return errors.New("failed to find artifact in release assets")
-}
-
-func DownloadAndUnpackGithubReleaseArchive(owner, repository, releaseTag, assetPath, token string) error {
-	client := newGithubClient(token)
-
-	ctx := context.Background()
-	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, releaseTag)
-	if err != nil {
-		return err
-	}
-
-	archiveURL := release.TarballURL
-
-	resp, err := client.Client().Get(*archiveURL)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = resp.Body.Close()
-	}()
-
-	tmpPath := assetPath + ".temp"
-
-	out, err := os.Create(tmpPath)
-	if err != nil {
-		return err
-	}
-	if _, err := io.Copy(out, resp.Body); err != nil {
-		_ = out.Close()
-		return err
-	}
-	defer func() {
-		_ = out.Close()
-	}()
-
-	f, err := os.Open(tmpPath)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = f.Close()
-		_ = os.Remove(tmpPath)
-	}()
-
-	gz1, err := gzip.NewReader(f)
-	if err != nil {
-		return err
-	}
-	tr1 := tar.NewReader(gz1)
-
-	var basePath string
-	for {
-		hdr, err := tr1.Next()
-		if err == io.EOF {
-			return fmt.Errorf("empty tarball")
-		}
-		if err != nil {
-			return fmt.Errorf("reading tar header: %w", err)
-		}
-
-		// Ignore extended headers like "pax_global_header" etc.
-		switch hdr.Typeflag {
-		case tar.TypeXGlobalHeader, tar.TypeXHeader, tar.TypeGNULongName, tar.TypeGNULongLink, tar.TypeGNUSparse:
-			continue
-		}
-
-		// Normalize and extract first path segment (GitHub: owner-repo-<sha>/...)
-		name := path.Clean(strings.TrimPrefix(hdr.Name, "./"))
-		if name == "" || name == "." {
-			continue
-		}
-		basePath = name
-		break
-	}
-	err = gz1.Close()
-	if err != nil {
-		return err
-	}
-
-	// Rewind to start for actual extraction
-	if _, err := f.Seek(0, 0); err != nil {
-		return err
-	}
-	gz2, err := gzip.NewReader(f)
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		_ = gz2.Close()
-	}()
-
-	tr2 := tar.NewReader(gz2)
-
-	if err := ExtractTar(tr2, basePath, assetPath, true); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetName, destPath, token string, skipVerify bool) error {

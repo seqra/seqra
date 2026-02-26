@@ -18,21 +18,11 @@ type classifiedStep struct {
 }
 
 // FlowStepBuilder provides a fluent interface for formatting dataflow steps
-type FlowStepBuilder struct {
-	indent string
-}
+type FlowStepBuilder struct{}
 
 // NewFlowStepBuilder creates a new FlowStepBuilder with default settings
 func NewFlowStepBuilder() *FlowStepBuilder {
-	return &FlowStepBuilder{
-		indent: "",
-	}
-}
-
-// Indent sets the indentation for flow steps
-func (fsb *FlowStepBuilder) Indent(indent string) *FlowStepBuilder {
-	fsb.indent = indent
-	return fsb
+	return &FlowStepBuilder{}
 }
 
 // FormatStep formats a single dataflow step
@@ -47,7 +37,7 @@ func (fsb *FlowStepBuilder) FormatStep(cs classifiedStep, absProjectPath string)
 		logrus.Warn("ThreadFlowLocation has no message text")
 	}
 
-	mainLine := fmt.Sprintf("%s%s", fsb.indent, msg)
+	mainLine := msg
 
 	// Format location as plain text (hyperlinks handled by caller if needed)
 	locationLine := fmt.Sprintf("%s:%d", loc.relFilePath, loc.line)

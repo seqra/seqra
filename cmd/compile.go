@@ -35,9 +35,6 @@ Arguments:
   project  - Path to a project to compile (required)
 `,
 	Annotations: map[string]string{"PrintConfig": "true"},
-	PreRun: func(cmd *cobra.Command, args []string) {
-		bindCompileTypeFlag(cmd)
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 		ProjectPath = args[0]
 

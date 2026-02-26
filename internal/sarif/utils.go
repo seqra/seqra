@@ -1,7 +1,6 @@
 package sarif
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -15,15 +14,6 @@ type Summary struct {
 	TotalRulesTriggered int
 	TotalFindings       int
 	FindingsByLevel     map[Level]int
-}
-
-// Parse parses SARIF data using standard json package
-func Parse(data []byte) (*Report, error) {
-	var report Report
-	if err := json.Unmarshal(data, &report); err != nil {
-		return nil, fmt.Errorf("failed to parse SARIF: %w", err)
-	}
-	return &report, nil
 }
 
 // GenerateSummary generates a summary of the SARIF report
@@ -159,13 +149,6 @@ func (report *Report) PrintSummary(out *output.Printer, absSarifReportPath strin
 		).
 		Group("Reports", reportsGroup(out, absSarifReportPath)...).
 		Render()
-}
-
-type PrintableResult struct {
-	RuleId    *string
-	Message   *string
-	Locations *string
-	Level     *Level
 }
 
 func (report *Report) PrintAll(out *output.Printer, showCodeSnippets bool, verboseFlow bool) {

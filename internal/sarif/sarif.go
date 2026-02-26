@@ -16,10 +16,6 @@ func UnmarshalReport(data []byte) (Report, error) {
 	return r, err
 }
 
-func (r *Report) Marshal() ([]byte, error) {
-	return json.Marshal(r)
-}
-
 // Static Analysis Results Format (SARIF) Version 2.1.0 JSON Schema: a standard format for
 // the output of static analysis tools.
 type Report struct {
