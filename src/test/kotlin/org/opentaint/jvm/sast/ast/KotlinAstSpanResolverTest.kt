@@ -15,6 +15,8 @@ import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRLocal
 import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
+import org.opentaint.jvm.sast.sarif.InstructionInfo
+import org.opentaint.jvm.sast.sarif.IntermediateLocation
 import org.opentaint.jvm.sast.sarif.LocationType
 
 class KotlinAstSpanResolverTest : AbstractAstSpanResolverTest() {
@@ -48,6 +50,7 @@ class KotlinAstSpanResolverTest : AbstractAstSpanResolverTest() {
         private const val DATA_CLASS_ANNOTATED_FQN = "$SAMPLE_PACKAGE.DataClassAnnotated"
         private const val DATA_CLASS_WITH_DEFAULTS_FQN = "$SAMPLE_PACKAGE.DataClassWithDefaults"
         private const val EXPRESSION_BODY_SAMPLE_FQN = "$SAMPLE_PACKAGE.ExpressionBodySample"
+        private const val INLINE_LAMBDA_FQN = "$SAMPLE_PACKAGE.KotlinInlineLambdaSample"
     }
 
     @Test
@@ -1201,6 +1204,30 @@ class KotlinAstSpanResolverTest : AbstractAstSpanResolverTest() {
         val span = resolver.computeSpan(sourcePath, location)
 
         TODO("Span is incorrect: $span")
+    }
+
+    @Test
+    fun `inline function body entry - resolves to function declaration span via broadest span fallback`() {
+        val sourcePath = getSourcePath(INLINE_LAMBDA_FQN)
+        val method = findMethod(INLINE_LAMBDA_FQN, "inlineLambdaFlow")
+        val firstInst = method.instList.firstOrNull()
+        checkNotNull(firstInst) { "No instructions in inlineLambdaFlow" }
+
+        val buildItMethod = findMethod(INLINE_LAMBDA_FQN, "buildIt")
+        val buildItFirstInst = buildItMethod.instList.firstOrNull()
+        checkNotNull(buildItFirstInst) { "No instructions in buildIt" }
+        val buildItLine = buildItFirstInst.lineNumber
+
+        val info = InstructionInfo(
+            fullyQualified = "${method.enclosingClass.name}.${method.name}",
+            machineName = method.name,
+            lineNumber = buildItLine
+        )
+        val location = IntermediateLocation(firstInst, info, "unknown", null, LocationType.Simple, null, null)
+        val span = resolver.computeSpan(sourcePath, location)
+
+        val expectedSpan = parseSpanMarker(sourcePath, "i2")
+        assertSpanMatchesMarker(span, expectedSpan)
     }
 
     private fun getAnnotatedSourcePath() = sourcesDir.resolve("test/samples/KotlinAnnotatedSample.kt")

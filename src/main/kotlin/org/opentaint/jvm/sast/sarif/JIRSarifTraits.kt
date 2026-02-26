@@ -10,6 +10,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRArgument
 import org.opentaint.ir.api.jvm.cfg.JIRArrayAccess
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
+import org.opentaint.ir.api.jvm.cfg.JIRConstant
 import org.opentaint.ir.api.jvm.cfg.JIRExpr
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -19,6 +20,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.cfg.values
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
+import org.opentaint.jvm.sast.project.spring.GeneratedSpringRegistry
 import org.opentaint.jvm.util.enclosingMethod
 
 class JIRSarifTraits(
@@ -38,7 +40,7 @@ class JIRSarifTraits(
         if (methodCache.contains(md)) return
         val mdLocals = hashMapOf<Int, String>()
         methodCache[md] = mdLocals
-        md.flowGraph().instructions.forEach { insn ->
+        md.instList.forEach { insn ->
             getAssign(insn)?.let { assign ->
                 getLocals(assign.lhv).filterNot { isRegister(it.name) }.forEach { localInfo ->
                     mdLocals[localInfo.idx] = localInfo.name
@@ -46,7 +48,7 @@ class JIRSarifTraits(
                 val local = assign.lhv
                 if (local is JIRLocalVar && assign.rhv is JIRValue) {
                     if (!mdLocals.containsKey(local.index)) {
-                        val value = tryGetReadableValue(assign as JIRInst, assign.rhv)
+                        val value = tryGetReadableValue(assign as JIRInst, assign.rhv, allowConst = false)
                         if (value is ReadableValue.Value) {
                             mdLocals[local.index] = value.toString()
                         }
@@ -94,7 +96,7 @@ class JIRSarifTraits(
             if (it.startsWith(lambdaMark))
                 " of lambda"
             else
-                " of \"${it.removeSuffix(suspendFunction)}\""
+                " of \"${methodName(it)}\""
         } ?: ""
         return "the ${getOrdinal(index + 1)} argument$ofMethod"
     }
@@ -134,18 +136,29 @@ class JIRSarifTraits(
         data object UnparsedLocalVar : ReadableValue
     }
 
-    private fun tryGetReadableValue(statement: JIRInst, expr: CommonExpr): ReadableValue? {
+    private fun tryGetReadableValue(statement: JIRInst, expr: CommonExpr, allowConst: Boolean): ReadableValue? {
         if (expr !is JIRValue) return null
         return when (expr) {
             is JIRFieldRef -> {
                 val instance = expr.instance?.let {
-                    val readableInstance = tryGetReadableValue(statement, it)
+                    val readableInstance = tryGetReadableValue(statement, it, allowConst = false)
                     if (readableInstance is ReadableValue.Value)
                         readableInstance.toString()
                     else
                         "<?>"
-                } ?: expr.field.enclosingType.jIRClass.simpleName
-                ReadableValue.Value("$instance.${expr.field.name}")
+                }
+
+                if (instance != null) {
+                    return ReadableValue.Value("$instance.${expr.field.name}")
+                }
+
+                val typeName = expr.field.enclosingType.typeName
+                if (typeName == GeneratedSpringRegistry) {
+                    val componentName = expr.field.name.substringAfterLast('.')
+                    ReadableValue.Value(componentName)
+                } else {
+                    ReadableValue.Value("$typeName.${expr.field.name}")
+                }
             }
             is JIRArgument -> {
                 val name = expr.name
@@ -155,8 +168,8 @@ class JIRSarifTraits(
                     ReadableValue.Value(printArgument(statement.location.method, expr.index))
             }
             is JIRArrayAccess -> {
-                val arrName = tryGetReadableValue(statement, expr.array)
-                val elemName = tryGetReadableValue(statement, expr.index)
+                val arrName = tryGetReadableValue(statement, expr.array, allowConst = true)
+                val elemName = tryGetReadableValue(statement, expr.index, allowConst = true)
                 if (arrName is ReadableValue.Value)
                     if (elemName is ReadableValue.Value)
                         ReadableValue.Value("$arrName[$elemName]")
@@ -179,12 +192,17 @@ class JIRSarifTraits(
             is JIRThis -> {
                 ReadableValue.Value("this")
             }
-            else -> ReadableValue.Value(expr.toString())
+
+            else -> if (expr is JIRConstant && !allowConst) {
+                null
+            } else {
+                ReadableValue.Value(expr.toString())
+            }
         }
     }
 
     override fun getReadableValue(statement: JIRInst, expr: CommonExpr): String? {
-        val value = tryGetReadableValue(statement, expr) ?: return null
+        val value = tryGetReadableValue(statement, expr, allowConst = true) ?: return null
         return when (value) {
             is ReadableValue.Value -> "\"${value.string}\""
             is ReadableValue.UnparsedLocalVar -> "a local variable"
@@ -220,7 +238,12 @@ class JIRSarifTraits(
         "${statement.location.method}:${statement.location.index}:($statement)"
 
     companion object {
-        private val lambdaMark = "lambda$"
-        private val suspendFunction = "\$suspendImpl"
+        val lambdaMark = "lambda$"
+        val suspendFunction = "\$suspendImpl"
+        val kotlinDefaultParamsSuffix = "\$default"
+
+        fun methodName(name: String) = name
+            .removeSuffix(suspendFunction)
+            .removeSuffix(kotlinDefaultParamsSuffix)
     }
 }

@@ -69,6 +69,14 @@ class SarifGenerator(
         traces: Sequence<VulnerabilityWithTrace>,
         metadatas: List<RuleMetadata>
     ) {
+        val sarifReport = generateSarif(traces, metadatas)
+        json.encodeToStream(sarifReport, output)
+    }
+
+    fun generateSarif(
+        traces: Sequence<VulnerabilityWithTrace>,
+        metadatas: List<RuleMetadata>
+    ): LazySarifReport {
         val sarifResults = traces.mapNotNull { generateSarifResult(it.vulnerability, it.trace) }
 
         val uriBase = options.uriBase ?: sourceRoot?.absolutePathString()
@@ -83,7 +91,7 @@ class SarifGenerator(
         )
 
         val sarifReport = LazySarifReport.fromRuns(listOf(run))
-        json.encodeToStream(sarifReport, output)
+        return sarifReport
     }
 
     private fun generateSarifResult(

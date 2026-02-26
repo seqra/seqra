@@ -191,7 +191,7 @@ class TraceMessageBuilder(
         this.statement.isLambdaCreation()
 
     private fun TracePathNode.isLambdaEntry() =
-        this.entry is TraceEntry.MethodEntry && this.entry.entryPoint.method.name.startsWith(lambdaMark)
+        this.entry is TraceEntry.MethodEntry && this.entry.entryPoint.method.name.startsWith(JIRSarifTraits.lambdaMark)
 
     fun TracePathNode.isInsideLambda() =
         lambdaToArtificialClass.containsKey(this.getMethod())
@@ -212,10 +212,10 @@ class TraceMessageBuilder(
             return "\"$classNameFix\" $classInitializerSuffix"
         if (className == "StringBuilder" && method == "append")
             return stringBuilderAppendName
-        if (method.startsWith(lambdaMark))
+        if (method.startsWith(JIRSarifTraits.lambdaMark))
             return "lambda"
 
-        return "\"${method.removeSuffix(suspendFunction)}\""
+        return "\"${JIRSarifTraits.methodName(method)}\""
     }
 
     private fun getMethodCalleeNameInPrint(node: TracePathNode): String {
@@ -254,6 +254,10 @@ class TraceMessageBuilder(
         }
 
         if (isAbnormalLocation(node.statement)) {
+            return false
+        }
+
+        if (isKotlinDefaultParamsMethod(node.getMethod())) {
             return false
         }
 
@@ -1055,11 +1059,18 @@ class TraceMessageBuilder(
         private val initializerSuffix = "initializer"
         private val classInitializerSuffix = "class initializer"
         private val defaultTaintMark = "marked"
-        private val lambdaMark = "lambda$"
-        private val suspendFunction = "\$suspendImpl"
+        private val kotlinDefaultConstructorMarker = "DefaultConstructorMarker"
         private val artificialLambdaClassMark = "jIR_lambda$"
 
         val logger = object : KLogging() {}.logger
+
+        fun isKotlinDefaultParamsMethod(method: CommonMethod): Boolean {
+            if (method.name.endsWith(JIRSarifTraits.kotlinDefaultParamsSuffix)) return true
+            if (method is JIRMethod && method.name == "<init>"
+                && method.description.contains(kotlinDefaultConstructorMarker)
+            ) return true
+            return false
+        }
 
         fun isGeneratedLocation(stmt: CommonInst): Boolean {
             val locationMethod = stmt.location.method

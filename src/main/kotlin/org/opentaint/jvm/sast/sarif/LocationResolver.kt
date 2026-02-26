@@ -64,23 +64,17 @@ class LocationResolver(
 ) {
     fun resolve(locations: List<IntermediateLocation>): List<ThreadFlowLocation> {
         var currentIdx = 0
-        var prevInlineStack: List<ScopeDescriptor> = emptyList()
-        var prevMethod: CommonMethod? = null
+        val inlineStackByMethod = hashMapOf<CommonMethod, List<ScopeDescriptor>>()
         val result = mutableListOf<ThreadFlowLocation>()
 
         locations.forEach { loc ->
             val curMethod = loc.inst.location.method
-
-            if (prevMethod != curMethod) {
-                // if method was changed, the inline stack must've been reset
-                prevInlineStack = emptyList()
-            }
+            val prevInlineStack = inlineStackByMethod[curMethod] ?: emptyList()
 
             val locResult = resolveLocation(loc, currentIdx, prevInlineStack)
 
-            prevInlineStack = locResult.inlineStack
+            inlineStackByMethod[curMethod] = locResult.inlineStack
             currentIdx += locResult.flowLocations.size
-            prevMethod = curMethod
 
             result.addAll(locResult.flowLocations)
         }
@@ -296,16 +290,18 @@ class LocationResolver(
             message = "Inline ${call.methodName} inserted",
             type = LocationType.Simple,
         ).let { generateThreadFlowLocation(it, call.callLocation.sourceLoc, idx) }
-        // if it's lambda, keep the original line; otherwise, try to highlight method declaration,
-        // just as with MethodEntry case
-        val methodStartLineFix = if (call.methodName == LAMBDA_MARKER) 0 else -1
+
+        if (call.methodName == LAMBDA_MARKER) {
+            return listOf(callFlow)
+        }
+
         val methodFlow = IntermediateLocation(
             inst = initialLocation.inst,
-            info = initialLocation.info.copy(lineNumber = call.methodLocation.lineNumber + methodStartLineFix),
+            info = initialLocation.info.copy(lineNumber = call.methodLocation.lineNumber),
             kind = "unknown",
             message = "Inlined body of ${call.methodName} entered",
             type = LocationType.Simple,
-        ).let { generateThreadFlowLocation(it, call.methodLocation.sourceLoc, idx + 1)}
+        ).let { generateThreadFlowLocation(it, call.methodLocation.sourceLoc, idx + 1) }
         return listOf(callFlow, methodFlow)
     }
 

@@ -7,6 +7,9 @@ import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.TestInstance
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
+import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
+import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
+import org.opentaint.dataflow.jvm.graph.MethodReturnInstNormalizerFeature
 import org.opentaint.jvm.sast.sarif.JIRSarifTraits
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
@@ -17,12 +20,15 @@ import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.opentaintIrDb
+import org.opentaint.jvm.sast.project.KotlinInlineFunctionScopeTransformer
 import org.opentaint.jvm.sast.sarif.InstructionInfo
 import org.opentaint.jvm.sast.sarif.IntermediateLocation
 import org.opentaint.jvm.sast.sarif.LocationSpan
 import org.opentaint.jvm.sast.sarif.LocationType
 import org.opentaint.jvm.sast.sarif.TracePathNode
 import org.opentaint.jvm.sast.sarif.TracePathNodeKind
+import org.opentaint.jvm.transformer.JMultiDimArrayAllocationTransformer
+import org.opentaint.jvm.transformer.JStringConcatTransformer
 import java.nio.file.Path
 import java.util.jar.JarFile
 import kotlin.io.path.Path
@@ -51,6 +57,16 @@ abstract class AbstractAstSpanResolverTest {
         sourcesDir = createTempDirectory("span-resolver-sources")
         extractSourcesFromJar(samplesJar, sourcesDir)
 
+        val lambdaAnonymousClass = LambdaAnonymousClassFeature()
+        val lambdaTransformer = LambdaExpressionToAnonymousClassTransformerFeature(lambdaAnonymousClass)
+        val methodNormalizer = MethodReturnInstNormalizerFeature
+
+        val features = mutableListOf(
+            KotlinInlineFunctionScopeTransformer,
+            UnknownClasses, lambdaAnonymousClass, lambdaTransformer, methodNormalizer,
+            JStringConcatTransformer, JMultiDimArrayAllocationTransformer
+        )
+
         db = runBlocking {
             opentaintIrDb {
                 loadByteCode(listOf(samplesJar.toFile()))
@@ -62,7 +78,7 @@ abstract class AbstractAstSpanResolverTest {
             }.also { it.awaitBackgroundJobs() }
         }
 
-        cp = runBlocking { db.classpath(listOf(samplesJar.toFile()), listOf(UnknownClasses)) }
+        cp = runBlocking { db.classpath(listOf(samplesJar.toFile()), features) }
         traits = JIRSarifTraits(cp)
     }
 
@@ -138,44 +154,72 @@ abstract class AbstractAstSpanResolverTest {
         return IntermediateLocation(inst, info, "test", null, LocationType.Simple, null, traceNode)
     }
 
-    protected data class MarkedSpan(
+    data class MarkedSpan(
+        val markerId: String,
         val startLine: Int,
         val startColumn: Int,
         val endLine: Int,
-        val endColumn: Int
+        val endColumn: Int,
+        val message: String?
     )
 
-    protected fun parseSpanMarker(sourcePath: Path, spanId: String): MarkedSpan {
-        val startMarker = "/*$spanId:start*/"
-        val endMarker = "/*$spanId:end*/"
-        val lines = sourcePath.toFile().readLines()
+    private data class StartMarker(val id: String, val line: Int, val column: Int)
+    private data class EndMarker(val id: String, val line: Int, val column: Int, val message: String?)
 
-        var startLine: Int? = null
-        var startColumn: Int? = null
-        var endLine: Int? = null
-        var endColumn: Int? = null
+    private val markerCache = mutableMapOf<Path, Map<String, MarkedSpan>>()
+
+    private val COMMENT_PATTERN = Regex("""/\*([^*]+)\*/""")
+    private val ENTRY_SEPARATOR = "|<$>|"
+    private val ENTRY_PATTERN = Regex("""([^:]+):(start|end)(?::(.*))?""")
+
+    protected fun parseSpanMarker(sourcePath: Path, spanId: String): MarkedSpan {
+        val spans = markerCache.getOrPut(sourcePath) { parseAllMarkers(sourcePath) }
+        return spans[spanId]
+            ?: error("Span marker '$spanId' not found in $sourcePath. Available markers: ${spans.keys}")
+    }
+
+    private fun parseAllMarkers(sourcePath: Path): Map<String, MarkedSpan> {
+        val lines = sourcePath.toFile().readLines()
+        val startMarkers = mutableMapOf<String, StartMarker>()
+        val endMarkers = mutableMapOf<String, EndMarker>()
 
         for ((index, line) in lines.withIndex()) {
             val lineNumber = index + 1
 
-            val startIdx = line.indexOf(startMarker)
-            if (startIdx >= 0) {
-                startLine = lineNumber
-                startColumn = startIdx + startMarker.length + 1
-            }
+            for (commentMatch in COMMENT_PATTERN.findAll(line)) {
+                val commentContent = commentMatch.groupValues[1]
+                val commentStart = commentMatch.range.first
+                val commentEnd = commentMatch.range.last + 1
 
-            val endIdx = line.indexOf(endMarker)
-            if (endIdx >= 0) {
-                endLine = lineNumber
-                endColumn = endIdx
+                for (entry in commentContent.split(ENTRY_SEPARATOR)) {
+                    val entryMatch = ENTRY_PATTERN.matchEntire(entry.trim()) ?: continue
+                    val id = entryMatch.groupValues[1]
+                    val type = entryMatch.groupValues[2]
+                    val message = entryMatch.groupValues[3].takeIf { it.isNotEmpty() }
+
+                    when (type) {
+                        "start" -> startMarkers[id] = StartMarker(id, lineNumber, commentEnd + 1)
+                        "end" -> endMarkers[id] = EndMarker(id, lineNumber, commentStart, message)
+                    }
+                }
             }
         }
 
-        check(startLine != null && startColumn != null && endLine != null && endColumn != null) {
-            "Span marker '$spanId' not found in $sourcePath"
+        val result = mutableMapOf<String, MarkedSpan>()
+        for ((id, start) in startMarkers) {
+            val end = endMarkers[id]
+                ?: error("Missing end marker for '$id' in $sourcePath")
+            result[id] = MarkedSpan(
+                markerId = id,
+                startLine = start.line,
+                startColumn = start.column,
+                endLine = end.line,
+                endColumn = end.column,
+                message = end.message
+            )
         }
 
-        return MarkedSpan(startLine, startColumn, endLine, endColumn)
+        return result
     }
 
     protected fun assertSpanMatchesMarker(span: LocationSpan?, expectedSpan: MarkedSpan) {
