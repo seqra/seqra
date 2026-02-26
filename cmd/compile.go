@@ -45,8 +45,10 @@ Arguments:
 
 		sb := out.Section("Seqra Compile")
 		addConfigFields(cmd, sb)
-		sb.Line().
-			Field("Project", absProjectRoot).
+		if globals.Config.Log.Verbosity == "debug" {
+			sb.Line()
+		}
+		sb.Field("Project", absProjectRoot).
 			Field("Output project model", absOutputProjectModelPath).
 			Render()
 		out.Blank()

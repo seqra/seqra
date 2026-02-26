@@ -28,9 +28,18 @@ func (p *Printer) Snippet() *SnippetBuilder {
 
 // LoadOrEmpty loads a snippet, returning empty string on any error.
 func (sb *SnippetBuilder) LoadOrEmpty(filePath string, centerLine int64) string {
+	lines := sb.LoadLinesOrEmpty(filePath, centerLine)
+	if len(lines) == 0 {
+		return ""
+	}
+	return strings.Join(lines, "\n")
+}
+
+// LoadLinesOrEmpty loads a snippet and returns it as tree-friendly lines.
+func (sb *SnippetBuilder) LoadLinesOrEmpty(filePath string, centerLine int64) []string {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return ""
+		return nil
 	}
 
 	lines := strings.Split(string(data), "\n")
@@ -45,9 +54,8 @@ func (sb *SnippetBuilder) LoadOrEmpty(filePath string, centerLine int64) string 
 	}
 
 	th := sb.printer.theme
-	var out strings.Builder
+	out := make([]string, 0, end-start+1)
 
-	out.WriteString("\n")
 	for i := start; i <= end; i++ {
 		lineNum := i + 1
 		marker := "  "
@@ -58,11 +66,11 @@ func (sb *SnippetBuilder) LoadOrEmpty(filePath string, centerLine int64) string 
 		}
 
 		numStr := th.SnippetLineNum.Render(fmt.Sprintf("%4d", lineNum))
-		border := th.SnippetBorder.Render("│")
+		prefix := th.SnippetBorder.Render("|")
 		content := lineStyle.Render(lines[i])
 
-		out.WriteString(fmt.Sprintf("\t%s %2s %s %s\n", border, marker, numStr, content))
+		out = append(out, fmt.Sprintf("%s %2s %s %s", prefix, marker, numStr, content))
 	}
 
-	return out.String()
+	return out
 }

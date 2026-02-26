@@ -167,11 +167,13 @@ func normalizeVerbosity(level string) (string, error) {
 // addConfigFields appends config fields to a SectionBuilder if PrintConfig annotation is set.
 func addConfigFields(cmd *cobra.Command, sb *output.SectionBuilder) {
 	if cmd.Annotations != nil && cmd.Annotations["PrintConfig"] == "true" {
-		sb.Field("Log level", globals.Config.Log.Verbosity)
-		if viper.ConfigFileUsed() != "" {
-			sb.Field("Config file", viper.ConfigFileUsed())
+		if globals.Config.Log.Verbosity == "debug" {
+			sb.Field("Log level", globals.Config.Log.Verbosity)
+			if viper.ConfigFileUsed() != "" {
+				sb.Field("Config file", viper.ConfigFileUsed())
+			}
+			sb.Field("Log file", globals.LogPath)
 		}
-		sb.Field("Log file", globals.LogPath)
 	}
 }
 

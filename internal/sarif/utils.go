@@ -3,6 +3,9 @@ package sarif
 import (
 	"fmt"
 	"sort"
+	"strings"
+
+	"charm.land/lipgloss/v2/tree"
 
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/output"
@@ -51,11 +54,13 @@ func GenerateSummary(report *Report) Summary {
 }
 
 type RuleSummary struct {
-	RuleID   string
-	Total    int
-	Errors   int
-	Warnings int
-	Notes    int
+	RuleID      string
+	Description string
+	CWETags     []string
+	Total       int
+	Errors      int
+	Warnings    int
+	Notes       int
 }
 
 func findingLevel(result *Result) Level {
@@ -66,6 +71,18 @@ func findingLevel(result *Result) Level {
 }
 
 func generateRuleSummary(report *Report) []RuleSummary {
+	rulesByID := make(map[string]ReportingDescriptor)
+	for _, run := range report.Runs {
+		for _, rule := range run.Tool.Driver.Rules {
+			if rule.ID == "" {
+				continue
+			}
+			if _, exists := rulesByID[rule.ID]; !exists {
+				rulesByID[rule.ID] = rule
+			}
+		}
+	}
+
 	byRule := make(map[string]*RuleSummary)
 
 	for _, run := range report.Runs {
@@ -95,65 +112,137 @@ func generateRuleSummary(report *Report) []RuleSummary {
 
 	out := make([]RuleSummary, 0, len(byRule))
 	for _, rs := range byRule {
+		if rule, ok := rulesByID[rs.RuleID]; ok {
+			rs.Description = ruleDescription(rule)
+			rs.CWETags = cweTags(rule)
+		}
 		out = append(out, *rs)
 	}
 
 	sort.Slice(out, func(i, j int) bool {
-		if out[i].Total == out[j].Total {
-			return out[i].RuleID < out[j].RuleID
+		if out[i].Errors != out[j].Errors {
+			return out[i].Errors > out[j].Errors
 		}
-		return out[i].Total > out[j].Total
+		if out[i].Warnings != out[j].Warnings {
+			return out[i].Warnings > out[j].Warnings
+		}
+		if out[i].Notes != out[j].Notes {
+			return out[i].Notes > out[j].Notes
+		}
+		if out[i].Total != out[j].Total {
+			return out[i].Total > out[j].Total
+		}
+		return out[i].RuleID < out[j].RuleID
 	})
 
 	return out
 }
 
-func (report *Report) printFindingsOverview(out *output.Printer) {
-	ruleSummary := generateRuleSummary(report)
-	if len(ruleSummary) == 0 {
-		return
+func ruleDescription(rule ReportingDescriptor) string {
+	if rule.ShortDescription != nil && rule.ShortDescription.Text != "" {
+		return strings.TrimSpace(rule.ShortDescription.Text)
 	}
-
-	sb := out.Section("Findings Overview")
-	for _, item := range ruleSummary {
-		sb.Text(fmt.Sprintf("%s: %d findings (errors: %d, warnings: %d, notes: %d)",
-			item.RuleID,
-			item.Total,
-			item.Errors,
-			item.Warnings,
-			item.Notes,
-		))
+	if rule.FullDescription != nil && rule.FullDescription.Text != "" {
+		return strings.TrimSpace(rule.FullDescription.Text)
 	}
-	sb.Render()
-	out.Blank()
+	return ""
 }
 
-func reportsGroup(out *output.Printer, absSarifReportPath string) []any {
-	return []any{
-		out.FieldItem("Log", globals.LogPath),
-		out.FieldItem("SARIF", absSarifReportPath),
+func cweTags(rule ReportingDescriptor) []string {
+	if rule.Properties == nil || len(rule.Properties.Tags) == 0 {
+		return nil
 	}
+
+	var cwes []string
+	for _, tag := range rule.Properties.Tags {
+		if strings.HasPrefix(strings.ToUpper(tag), "CWE-") {
+			cwes = append(cwes, tag)
+		}
+	}
+
+	sort.Strings(cwes)
+	return cwes
+}
+
+func findingFiles(report *Report) int {
+	files := make(map[string]struct{})
+
+	for _, run := range report.Runs {
+		for _, result := range run.Results {
+			if len(result.Locations) == 0 {
+				continue
+			}
+			loc := result.Locations[0].extractNodeLoc()
+			if loc.relFilePath == "" {
+				continue
+			}
+			files[loc.relFilePath] = struct{}{}
+		}
+	}
+
+	return len(files)
 }
 
 // PrintSummary prints a human-readable summary of the SARIF report
 func (report *Report) PrintSummary(out *output.Printer, absSarifReportPath string) {
 	summary := GenerateSummary(report)
-	th := out.Theme()
+	ruleSummary := generateRuleSummary(report)
+
+	totalLine := fmt.Sprintf("%d (errors: %d, warnings: %d, notes: %d)",
+		summary.TotalFindings,
+		summary.FindingsByLevel["error"],
+		summary.FindingsByLevel["warning"],
+		summary.FindingsByLevel["note"],
+	)
+
+	var rulesTriggered any
+	if summary.TotalRulesTriggered > 0 {
+		rulesTriggeredNode := tree.Root(out.FieldItem("Rules triggered", summary.TotalRulesTriggered))
+		for _, item := range ruleSummary {
+			ruleLine := fmt.Sprintf("%s: %d findings (errors: %d, warnings: %d, notes: %d)",
+				item.RuleID,
+				item.Total,
+				item.Errors,
+				item.Warnings,
+				item.Notes,
+			)
+			if len(item.CWETags) > 0 {
+				ruleLine += " [" + strings.Join(item.CWETags, ", ") + "]"
+			}
+
+			ruleNode := tree.Root(ruleLine)
+			if item.Description != "" {
+				ruleNode.Child(item.Description)
+			}
+
+			rulesTriggeredNode.Child(ruleNode)
+		}
+		rulesTriggered = rulesTriggeredNode
+	} else {
+		rulesTriggered = out.FieldItem("Rules triggered", summary.TotalRulesTriggered)
+	}
+
+	status := "PASSED"
+	if summary.TotalFindings > 0 {
+		status = fmt.Sprintf("FAILED (%d findings)", summary.TotalFindings)
+	}
 
 	out.Section("Scan Summary").
 		Group("Findings",
-			out.FieldItem("Total", summary.TotalFindings),
-			out.StyledFieldItem("Errors", summary.FindingsByLevel["error"], th.Error),
-			out.StyledFieldItem("Warnings", summary.FindingsByLevel["warning"], th.Warning),
-			out.FieldItem("Notes", summary.FindingsByLevel["note"]),
+			out.FieldItem("Status", status),
+			out.FieldItem("Total", totalLine),
+			out.FieldItem("Files affected", findingFiles(report)),
+			out.FieldItem("Rules executed", summary.TotalRulesExecuted),
+			rulesTriggered,
 		).
-		Group("Reports", reportsGroup(out, absSarifReportPath)...).
+		Group("Output",
+			out.FieldItem("Report", absSarifReportPath),
+			out.FieldItem("Log", globals.LogPath),
+		).
 		Render()
 }
 
 func (report *Report) PrintAll(out *output.Printer, showCodeSnippets bool, verboseFlow bool) {
-	report.printFindingsOverview(out)
-
 	totalFindings := 0
 	for _, run := range report.Runs {
 		totalFindings += len(run.Results)
@@ -163,12 +252,70 @@ func (report *Report) PrintAll(out *output.Printer, showCodeSnippets bool, verbo
 		out.Section("Findings").Render()
 	}
 
-	findingIndex := 0
+	type findingRef struct {
+		runIdx int
+		result *Result
+		file   string
+		line   int64
+		order  int
+	}
 
-	for idx, run := range report.Runs {
-		for _, result := range run.Results {
+	byFile := make(map[string][]findingRef)
+	order := 0
+
+	for runIdx := range report.Runs {
+		run := &report.Runs[runIdx]
+		for resultIdx := range run.Results {
+			order++
+			result := &run.Results[resultIdx]
+			file := "<unknown>"
+			line := int64(-1)
+			if len(result.Locations) > 0 {
+				loc := result.Locations[0].extractNodeLoc()
+				if loc.relFilePath != "" {
+					file = loc.relFilePath
+				}
+				line = loc.line
+			}
+
+			byFile[file] = append(byFile[file], findingRef{
+				runIdx: runIdx,
+				result: result,
+				file:   file,
+				line:   line,
+				order:  order,
+			})
+		}
+	}
+
+	files := make([]string, 0, len(byFile))
+	for file := range byFile {
+		files = append(files, file)
+	}
+	sort.Strings(files)
+
+	findingIndex := 0
+	for _, file := range files {
+		group := byFile[file]
+		sort.Slice(group, func(i, j int) bool {
+			if group[i].line != group[j].line {
+				li := group[i].line
+				lj := group[j].line
+				if li < 0 {
+					li = 1<<62 - 1
+				}
+				if lj < 0 {
+					lj = 1<<62 - 1
+				}
+				return li < lj
+			}
+			return group[i].order < group[j].order
+		})
+
+		out.Section(fmt.Sprintf("File: %s (%d findings)", file, len(group))).Render()
+		for _, finding := range group {
 			findingIndex++
-			report.printFinding(out, &result, idx, showCodeSnippets, verboseFlow, findingIndex, totalFindings)
+			report.printFinding(out, finding.result, finding.runIdx, showCodeSnippets, verboseFlow, findingIndex, totalFindings)
 			out.Blank()
 		}
 	}

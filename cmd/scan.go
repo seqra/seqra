@@ -16,7 +16,6 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/seqra/seqra/v2/internal/globals"
-	"github.com/seqra/seqra/v2/internal/sarif"
 	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/seqra/seqra/v2/internal/utils/java"
 	"github.com/seqra/seqra/v2/internal/utils/log"
@@ -295,8 +294,7 @@ func scan(cmd *cobra.Command) {
 		return
 	}
 
-	sarifSummary := sarif.GenerateSummary(report)
-	load_trace.PrintRuleStatisticsTree(out, ruleLoadErrorsResult, sarifSummary, absSemgrepRuleLoadTracePath)
+	load_trace.PrintRuleStatisticsTree(out, ruleLoadErrorsResult, absSemgrepRuleLoadTracePath)
 
 	load_trace.PrintSyntaxErrorReport(out, ruleLoadTraceSummary)
 
@@ -322,22 +320,23 @@ func scan(cmd *cobra.Command) {
 func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string, absRuleSetPaths []RulesetType, absSemgrepRuleLoadTracePath string, tempProjectModel bool, absUserProjectRoot string) {
 	sb := out.Section(mode.String())
 	addConfigFields(cmd, sb)
-	sb.Line()
+	if globals.Config.Log.Verbosity == "debug" {
+		sb.Field("Rule load trace", absSemgrepRuleLoadTracePath)
+		sb.Line()
+	}
 	if tempProjectModel {
 		sb.Field("Project", absUserProjectRoot).
 			Field("Temporary project model", absProjectModelPath)
 	} else {
 		sb.Field("Project model", absProjectModelPath)
 	}
-	sb.Line()
 	for _, absRuleSetPath := range absRuleSetPaths {
 		if absRuleSetPath.Builtin {
-			sb.Field("Bundled ruleset", fmt.Sprintf("(%s) %s", globals.Config.Rules.Version, absRuleSetPath.Path))
+			sb.Field(fmt.Sprintf("Bundled ruleset %s", globals.Config.Rules.Version), absRuleSetPath.Path)
 		} else {
 			sb.Field("User ruleset", absRuleSetPath.Path)
 		}
 	}
-	sb.Field("Rule load trace", absSemgrepRuleLoadTracePath)
 	sb.Render()
 }
 
