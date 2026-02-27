@@ -10,7 +10,16 @@ import org.opentaint.semgrep.pattern.Mark.GeneratedMark
 import org.opentaint.semgrep.pattern.Mark.RuleUniqueMarkPrefix
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.RuleWithMetaVars
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
+import org.opentaint.semgrep.pattern.ComplexMetavarInJoin
+import org.opentaint.semgrep.pattern.JoinIsImpossibleNoLabelFound
+import org.opentaint.semgrep.pattern.JoinOnTaintRuleWithNonEmptySources
+import org.opentaint.semgrep.pattern.TaintRuleMatchAnything
+import org.opentaint.semgrep.pattern.JoinRuleWithChainedOperations
+import org.opentaint.semgrep.pattern.JoinRuleWithMultipleDistinctRightItems
+import org.opentaint.semgrep.pattern.JoinRuleWithNoOperations
+import org.opentaint.semgrep.pattern.JoinRuleWithUnsupportedOperation
+import org.opentaint.semgrep.pattern.LeftTaintRuleMustHaveSources
+import org.opentaint.semgrep.pattern.LeftTaintRuleShouldNotHaveSinks
 import org.opentaint.semgrep.pattern.SemgrepJoinOnOperation
 import org.opentaint.semgrep.pattern.SemgrepMatchingRule
 import org.opentaint.semgrep.pattern.SemgrepRule
@@ -45,23 +54,23 @@ fun RuleConversionCtx.convertTaintAutomataJoinToTaintRules(
 ): TaintRuleFromSemgrep? {
     val nonComposeOp = rule.operations.find { it.op !== SemgrepJoinOnOperation.COMPOSE }
     if (nonComposeOp != null) {
-        trace.error("Join rule with ${nonComposeOp.op} operation", Reason.NOT_IMPLEMENTED)
+        trace.error(JoinRuleWithUnsupportedOperation(nonComposeOp.op))
         return null
     }
 
     if (rule.operations.isEmpty()) {
-        trace.error("Join rule with no operations", Reason.NOT_IMPLEMENTED)
+        trace.error(JoinRuleWithNoOperations())
         return null
     }
 
     if (!validateNoChainedOperations(rule.operations)) {
-        trace.error("Join rule with chained operations", Reason.NOT_IMPLEMENTED)
+        trace.error(JoinRuleWithChainedOperations())
         return null
     }
 
     val operationsByRightItem = rule.operations.groupBy { it.rhs }
     if (operationsByRightItem.size > 1) {
-        trace.error("Join rule with multiple distinct right items", Reason.NOT_IMPLEMENTED)
+        trace.error(JoinRuleWithMultipleDistinctRightItems())
         return null
     }
 
@@ -221,7 +230,7 @@ private fun RuleConversionCtx.convertCompositionRightMatchingRule(
                 if (r !is SinkRule) return@filter true
                 if (r.condition != null && r.condition !is SerializedCondition.True) return@filter true
 
-                trace.error("Join rule match anything", Reason.WARNING)
+                trace.error(TaintRuleMatchAnything())
                 false
             }
             TaintRuleFromSemgrep.TaintRuleGroup(filteredRules)
@@ -237,7 +246,7 @@ private fun RuleConversionCtx.convertCompositionRightTaintRule(
     leftFinalMarks: Set<GeneratedMark>,
 ): List<TaintRuleFromSemgrep.TaintRuleGroup>? {
     if (automata.sources.isNotEmpty()) {
-        trace.error("Join on taint rule with non-empty sources", Reason.NOT_IMPLEMENTED)
+        trace.error(JoinOnTaintRuleWithNonEmptySources())
         return null
     }
 
@@ -262,17 +271,17 @@ private fun RuleConversionCtx.convertCompositionLeftTaintRule(
     finalVar: MetavarAtom,
 ): Pair<List<TaintRuleFromSemgrep.TaintRuleGroup>, Set<GeneratedMark>>? {
     if (automata.sinks.isNotEmpty()) {
-        trace.error("Left taint rule in join should not have sinks", Reason.ERROR)
+        trace.error(LeftTaintRuleShouldNotHaveSinks())
         return null
     }
 
     if (automata.sources.isEmpty()) {
-        trace.error("Left taint rule in join must have sources", Reason.ERROR)
+        trace.error(LeftTaintRuleMustHaveSources())
         return null
     }
 
     if (finalVar !is MetavarAtom.Basic) {
-        trace.error("Complex metavar in join", Reason.ERROR)
+        trace.error(ComplexMetavarInJoin())
         return null
     }
 
@@ -281,7 +290,7 @@ private fun RuleConversionCtx.convertCompositionLeftTaintRule(
         .filter { it.label == finalVar.name }
 
     if (finalLabels.isEmpty()) {
-        trace.error("Join is impossible: no label ${finalVar.name} found", Reason.ERROR)
+        trace.error(JoinIsImpossibleNoLabelFound(finalVar.name))
         return null
     }
 

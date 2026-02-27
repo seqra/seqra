@@ -2,7 +2,7 @@ package org.opentaint.semgrep.simplifier
 
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.toSet
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
+import org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaCubeCompact
 import org.opentaint.semgrep.pattern.conversion.automata.isTrue

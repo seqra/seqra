@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion.taint
+package org.opentaint.semgrep.pattern.conversion.taint
 
 import org.opentaint.dataflow.util.copy
 import org.opentaint.dataflow.util.toSet

@@ -12,7 +12,10 @@ import org.opentaint.semgrep.pattern.Mark.RuleUniqueMarkPrefix
 import org.opentaint.semgrep.pattern.NoRequirement
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.RuleWithMetaVars
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
+import org.opentaint.semgrep.pattern.SinkRequiresWithMetaVarIgnored
+import org.opentaint.semgrep.pattern.TaintRuleHasNoLabels
+import org.opentaint.semgrep.pattern.TaintRuleMatchAnything
+import org.opentaint.semgrep.pattern.TaintRuleWithoutSources
 import org.opentaint.semgrep.pattern.SemgrepSinkTaintRequirement
 import org.opentaint.semgrep.pattern.SemgrepTaintAnd
 import org.opentaint.semgrep.pattern.SemgrepTaintLabel
@@ -52,7 +55,7 @@ fun RuleConversionCtx.convertTaintRuleToTaintRules(
     val taintCtx = generateEdgeCtx(taintAutomata)
 
     if (taintCtx.source.isEmpty() && !ignoreEmptySources) {
-        trace.error("Taint rule without sources", Reason.WARNING)
+        trace.error(TaintRuleWithoutSources())
     }
 
     val taintRules = taintCtx.flatMap {
@@ -62,7 +65,7 @@ fun RuleConversionCtx.convertTaintRuleToTaintRules(
                 if (r !is SinkRule) return@filter true
                 if (r.condition != null && r.condition !is SerializedCondition.True) return@filter true
 
-                trace.error("Taint rule match anything", Reason.WARNING)
+                trace.error(TaintRuleMatchAnything())
                 false
             }
             listOf(TaintRuleFromSemgrep.TaintRuleGroup(filteredRules))
@@ -372,13 +375,13 @@ fun RuleConversionCtx.prepareTaintNonSourceRules(
             is SemgrepSinkTaintRequirement.Simple -> sink.requires.requirement
 
             is SemgrepSinkTaintRequirement.MetaVarRequirement -> {
-                trace.error("Sink requires ignored", Reason.NOT_IMPLEMENTED)
+                trace.error(SinkRequiresWithMetaVarIgnored())
                 taintMarkOr(taintMarks)
             }
         }
 
         if (sinkRequiresExpr == null) {
-            trace.error("Taint rule has no labels", Reason.WARNING)
+            trace.error(TaintRuleHasNoLabels())
             sinkRequiresExpr = NoRequirement
         }
 

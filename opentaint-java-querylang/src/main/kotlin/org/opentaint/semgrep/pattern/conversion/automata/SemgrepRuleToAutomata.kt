@@ -1,6 +1,5 @@
 package org.opentaint.semgrep.pattern.conversion.automata
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.ActionListSemgrepRule
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction

@@ -8,7 +8,8 @@ import org.opentaint.dataflow.util.PersistentBitSet
 import org.opentaint.dataflow.util.contains
 import org.opentaint.dataflow.util.toBitSet
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
+import org.opentaint.semgrep.pattern.EdgesWithoutPositivePredicate
+import org.opentaint.semgrep.pattern.LoopVarAssign
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
 import org.opentaint.semgrep.pattern.conversion.ParamCondition
@@ -202,7 +203,7 @@ private fun RuleConversionCtx.resolveLoopBackEdges(
 
     if (requiredLoops.isEmpty()) return automata
 
-    trace.error("Loop var assign", Reason.ERROR)
+    trace.error(LoopVarAssign())
     return automata
 }
 
@@ -505,7 +506,7 @@ private fun RuleConversionCtx.removeMeaningLessEdges(
     }
 
     if (removedEdgesToAccept.isNotEmpty()) {
-        trace.error("Edges without positive predicate: ${removedEdgesToAccept.size}", Reason.WARNING)
+        trace.error(EdgesWithoutPositivePredicate(removedEdgesToAccept.size))
     }
 
     return automata.copy(successors = successors)

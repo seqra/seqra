@@ -1,4 +1,4 @@
-package org.opentaint.org.opentaint.semgrep.pattern.conversion
+package org.opentaint.semgrep.pattern.conversion
 
 import org.opentaint.semgrep.pattern.ConcreteName
 import org.opentaint.semgrep.pattern.MethodInvocation

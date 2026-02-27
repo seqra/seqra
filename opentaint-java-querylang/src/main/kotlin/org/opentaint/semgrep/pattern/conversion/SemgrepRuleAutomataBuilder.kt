@@ -11,7 +11,14 @@ import org.opentaint.semgrep.pattern.RawMetaVarInfo
 import org.opentaint.semgrep.pattern.RawSemgrepRule
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.RuleWithMetaVars
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
+import org.opentaint.semgrep.pattern.EmptyAcceptingState
+import org.opentaint.semgrep.pattern.EmptyPatternsAfterConvertToRawRule
+import org.opentaint.semgrep.pattern.FailedParseNormalizedRule
+import org.opentaint.semgrep.pattern.FailedResolveMetaVar
+import org.opentaint.semgrep.pattern.FailedToConvertToActionList
+import org.opentaint.semgrep.pattern.MetavarConstraintParsingFailure
+import org.opentaint.semgrep.pattern.RuleContainsIncompatiblePatterns
+import org.opentaint.semgrep.pattern.TransformToAutomataFailure
 import org.opentaint.semgrep.pattern.SemgrepMatchingRule
 import org.opentaint.semgrep.pattern.SemgrepRule
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
@@ -61,7 +68,7 @@ class SemgrepRuleAutomataBuilder(
         }
         stats.ruleWithoutPattern += ruleWithoutPattern
         c2rrTrace.phaseError(ruleWithoutPattern) {
-            error("Empty patterns after convertToRawRule: $ruleWithoutPattern times", Reason.WARNING)
+            error(EmptyPatternsAfterConvertToRawRule(ruleWithoutPattern))
         }
 
         val psrTrace = semgrepRuleTrace.stepTrace(Step.BUILD_PARSE_SEMGREP_RULE)
@@ -76,7 +83,7 @@ class SemgrepRuleAutomataBuilder(
         }
         stats.ruleParsingFailure += ruleParsingFailure
         psrTrace.phaseError(ruleParsingFailure) {
-            error("Failed parse normalized rule: $ruleParsingFailure times", Reason.WARNING)
+            error(FailedParseNormalizedRule(ruleParsingFailure))
         }
 
         val mvrTrace = semgrepRuleTrace.stepTrace(Step.BUILD_META_VAR_RESOLVING)
@@ -91,7 +98,7 @@ class SemgrepRuleAutomataBuilder(
         }
         stats.metaVarResolvingFailure += metaVarResolvingFailure
         mvrTrace.phaseError(metaVarResolvingFailure) {
-            error("Failed resolve MetaVar", Reason.WARNING)
+            error(FailedResolveMetaVar())
         }
 
         val ruleAfterRewrite = rulesWithResolvedMetaVar.flatMap { rewriteRule(it) }
@@ -108,7 +115,7 @@ class SemgrepRuleAutomataBuilder(
         }
         stats.actionListConversionFailure += actionListConversionFailure
         alcTrace.phaseError(actionListConversionFailure) {
-            error("Failed to convert to action list", Reason.WARNING)
+            error(FailedToConvertToActionList())
         }
 
         val ruleActionListWithoutDuplicates = ruleActionList.removeDuplicateRules()
@@ -119,13 +126,14 @@ class SemgrepRuleAutomataBuilder(
             val automata = runCatching {
                 transformSemgrepRuleToAutomata(r.rule, r.metaVarInfo, automataBuildTimeout)
             }.onFailure {
-                t2aTrace.error(it.message ?: "", Reason.ERROR)
+                t2aTrace.error(TransformToAutomataFailure(it.message))
                 return@flatMap emptyList()
             }.getOrThrow()
 
             if (automata.containsAcceptState()) {
                 listOf(RuleWithMetaVars(automata, r.metaVarInfo))
             } else {
+                t2aTrace.error(RuleContainsIncompatiblePatterns())
                 emptyAutomataFailure++
                 emptyList()
             }
@@ -133,7 +141,7 @@ class SemgrepRuleAutomataBuilder(
 
         stats.emptyAutomata += emptyAutomataFailure
         t2aTrace.phaseError(emptyAutomataFailure) {
-            error("Empty accepting state", Reason.ERROR)
+            error(EmptyAcceptingState())
         }
 
         return ruleAutomata
@@ -231,7 +239,7 @@ class SemgrepRuleAutomataBuilder(
                 when (it) {
                     is RawMetaVarConstraint.Pattern -> {
                         patternConstraintValue(it.value, semgrepTrace) ?: run {
-                            semgrepTrace.error("Metavar constraint parsing failure", Reason.NOT_IMPLEMENTED)
+                            semgrepTrace.error(MetavarConstraintParsingFailure())
                             null
                         }
                     }

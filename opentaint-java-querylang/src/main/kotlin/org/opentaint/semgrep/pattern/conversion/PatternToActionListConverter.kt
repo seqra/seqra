@@ -1,6 +1,5 @@
 package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.parseMethodArgs
 import org.opentaint.semgrep.pattern.AddExpr
 import org.opentaint.semgrep.pattern.Annotation
 import org.opentaint.semgrep.pattern.ArrayAccess
@@ -14,6 +13,7 @@ import org.opentaint.semgrep.pattern.EllipsisArgumentPrefix
 import org.opentaint.semgrep.pattern.EllipsisMetavar
 import org.opentaint.semgrep.pattern.EllipsisMethodInvocations
 import org.opentaint.semgrep.pattern.EmptyPatternSequence
+import org.opentaint.semgrep.pattern.FailedTransformationToActionList
 import org.opentaint.semgrep.pattern.FieldAccess
 import org.opentaint.semgrep.pattern.FormalArgument
 import org.opentaint.semgrep.pattern.Identifier
@@ -23,6 +23,9 @@ import org.opentaint.semgrep.pattern.Metavar
 import org.opentaint.semgrep.pattern.MetavarName
 import org.opentaint.semgrep.pattern.MethodArguments
 import org.opentaint.semgrep.pattern.MethodDeclaration
+import org.opentaint.semgrep.pattern.MethodDeclarationReturnTypeHasTypeArgs
+import org.opentaint.semgrep.pattern.MethodDeclarationReturnTypeIsArray
+import org.opentaint.semgrep.pattern.MethodDeclarationReturnTypeIsNotMetaVar
 import org.opentaint.semgrep.pattern.MethodInvocation
 import org.opentaint.semgrep.pattern.Modifier
 import org.opentaint.semgrep.pattern.NamedValue
@@ -30,14 +33,13 @@ import org.opentaint.semgrep.pattern.NullLiteral
 import org.opentaint.semgrep.pattern.ObjectCreation
 import org.opentaint.semgrep.pattern.PatternSequence
 import org.opentaint.semgrep.pattern.ReturnStmt
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason.NOT_IMPLEMENTED
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.StaticFieldAccess
 import org.opentaint.semgrep.pattern.StringEllipsis
 import org.opentaint.semgrep.pattern.StringLiteral
 import org.opentaint.semgrep.pattern.ThisExpr
+import org.opentaint.semgrep.pattern.TypeArgumentsIgnored
 import org.opentaint.semgrep.pattern.TypeName
 import org.opentaint.semgrep.pattern.TypedMetavar
 import org.opentaint.semgrep.pattern.VariableAssignment
@@ -72,10 +74,7 @@ class PatternToActionListConverter: ActionListBuilder {
         val oldValue = failedTransformations.getOrDefault(reason, 0)
         failedTransformations[reason] = oldValue + 1
 
-        semgrepTrace.error(
-            "Failed transformation to ActionList: ${ex.message}",
-            SemgrepErrorEntry.Reason.ERROR
-        )
+        semgrepTrace.error(FailedTransformationToActionList(ex.message))
         null
     }
 
@@ -228,7 +227,7 @@ class PatternToActionListConverter: ActionListBuilder {
 
     private fun transformSimpleTypeName(typeName: TypeName.SimpleTypeName): TypeNamePattern {
         if (typeName.typeArgs.isNotEmpty()) {
-            semgrepTrace?.error("Type arguments ignored", SemgrepErrorEntry.Reason.WARNING)
+            semgrepTrace?.error(TypeArgumentsIgnored())
         }
 
         if (typeName.dotSeparatedParts.size == 1) {
@@ -558,17 +557,17 @@ class PatternToActionListConverter: ActionListBuilder {
         if (retType != null) {
             run {
                 if (retType !is TypeName.SimpleTypeName) {
-                    semgrepTrace?.error("Method declaration return type is array", NOT_IMPLEMENTED)
+                    semgrepTrace?.error(MethodDeclarationReturnTypeIsArray())
                     return@run
                 }
 
                 val retTypeMetaVar = retType.dotSeparatedParts.singleOrNull() as? MetavarName
                 if (retTypeMetaVar == null) {
-                    semgrepTrace?.error("Method declaration return type is not meta var", NOT_IMPLEMENTED)
+                    semgrepTrace?.error(MethodDeclarationReturnTypeIsNotMetaVar())
                 }
 
                 if (retType.typeArgs.isNotEmpty()) {
-                    semgrepTrace?.error("Method declaration return type has type args", NOT_IMPLEMENTED)
+                    semgrepTrace?.error(MethodDeclarationReturnTypeHasTypeArgs())
                 }
             }
         }

@@ -13,9 +13,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.builtins.serializer
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason.ERROR
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason.NOT_IMPLEMENTED
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason.WARNING
 import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
 import org.opentaint.semgrep.pattern.conversion.cartesianProductMapTo
 import java.util.Optional
@@ -137,7 +134,7 @@ fun YamlMap.getBoolKeyOrFalse(key: String): Boolean =
     (get(key) as? YamlScalar)?.content?.lowercase() == "true"
 
 fun YamlMap.readStrings(key: String): List<String>? {
-    val entry = entries.entries.find { it.key.content.lowercase() == key.lowercase() } ?: return null
+    val entry = entries.entries.find { it.key.content.equals(key, ignoreCase = true) } ?: return null
     return when (val value = entry.value) {
         is YamlScalar -> {
             listOf(value.content)
@@ -217,21 +214,21 @@ private fun YamlNode.decodeSinkRequires(): SemgrepSinkTaintRequirement? {
         return SemgrepSinkTaintRequirement.Simple(content.decodeRequires() ?: return null)
     }
 
-    currentLoadTrace?.error(Step.LOAD_RULESET, "Sink requirement with metavars", NOT_IMPLEMENTED)
+    currentLoadTrace?.error(Step.LOAD_RULESET, UnsupportedRuleSinkWithRequires.RequiresMetaVars())
     return null
 }
 
 private fun String.decodeRequires(): SemgrepTaintRequires? {
     val result = parseRequires(this)
     if (result == null) {
-        currentLoadTrace?.error(Step.LOAD_RULESET, "Requires parse failed: $this", NOT_IMPLEMENTED)
+        currentLoadTrace?.error(Step.LOAD_RULESET, UnsupportedRuleSinkWithRequires.UnparsedRequires(this))
     }
     return result
 }
 
 private const val metaVariableField = "metavariable"
 
-private object MetaVariablePatternInfoSerializer
+object MetaVariablePatternInfoSerializer
     : InlineCompositeObjectSerializer<MetavariablePatternInfo, ComplexPattern>(
     name = "metavariable-pattern-info",
     objSerializer = ComplexPattern.serializer(),
@@ -247,7 +244,7 @@ private const val bySideEffect = "by-side-effect"
 private const val fromField = "from"
 private const val toField = "to"
 
-private object PatternPropagatorSerializer
+object PatternPropagatorSerializer
     : InlineCompositeObjectSerializer<PatternPropagator, ComplexPattern>(
     name = "pattern-propagator",
     objSerializer = ComplexPattern.serializer(),
@@ -270,7 +267,7 @@ private const val controlField = "control"
 private const val labelField = "label"
 private const val requiresField = "requires"
 
-private object PatternSourceSerializer : InlineCompositeObjectSerializer<PatternSource, ComplexPattern>(
+object PatternSourceSerializer : InlineCompositeObjectSerializer<PatternSource, ComplexPattern>(
     name = "pattern-source",
     objSerializer = ComplexPattern.serializer(),
     inlinedFields = listOf(
@@ -291,7 +288,7 @@ private object PatternSourceSerializer : InlineCompositeObjectSerializer<Pattern
     }
 }
 
-private object PatternSinkSerializer : InlineCompositeObjectSerializer<PatternSink, ComplexPattern>(
+object PatternSinkSerializer : InlineCompositeObjectSerializer<PatternSink, ComplexPattern>(
     name = "pattern-sink",
     objSerializer = ComplexPattern.serializer(),
     inlinedFields = listOf(requiresField to YamlNode.serializer()),
@@ -302,7 +299,7 @@ private object PatternSinkSerializer : InlineCompositeObjectSerializer<PatternSi
     }
 }
 
-private object PatternSanitizerSerializer
+object PatternSanitizerSerializer
     : InlineCompositeObjectSerializer<PatternSanitizer, ComplexPattern>(
     name = "pattern-sanitizer",
     objSerializer = ComplexPattern.serializer(),
@@ -344,7 +341,7 @@ fun parseSemgrepYaml(yml: String, trace: SemgrepFileLoadTrace): SemgrepYamlRuleS
         currentLoadTrace = trace
         tryParseRuleSetYaml(yml)
     } catch (ex: Throwable) {
-        trace.error(Step.LOAD_RULESET, "Failed to load rule set from yaml: ${ex.message}", ERROR)
+        trace.error(Step.LOAD_RULESET, FailedToLoadRuleSetFromYaml(ex.message))
         null
     } finally {
         currentLoadTrace = null
@@ -356,7 +353,7 @@ private fun tryParseRuleSetYaml(yml: String): SemgrepYamlRuleSet = try {
     val rootCause = ex.rootCause()
     if (rootCause !is UnknownPropertyException) throw ex
 
-    currentLoadTrace?.error(Step.LOAD_RULESET, "Unknown property ${rootCause.propertyName}", WARNING)
+    currentLoadTrace?.error(Step.LOAD_RULESET, UnknownProperty(rootCause.propertyName))
 
     yaml.decodeFromString(SemgrepYamlRuleSet.serializer(), yml)
 }
@@ -406,7 +403,7 @@ private val joinOnConditionPattern by lazy {
 private fun parseJoinOnCondition(condition: String, trace: SemgrepRuleLoadStepTrace): SemgrepJoinRuleOn? {
     val match = joinOnConditionPattern.matchEntire(condition)
     if (match == null) {
-        trace.error("Join 'on' condition parse failed: '$condition'", ERROR)
+        trace.error(JoinOnConditionParseFailed(condition))
         return null
     }
 
@@ -457,7 +454,7 @@ private fun parseMatchingRuleFormula(rule: SemgrepYamlRule, trace: SemgrepRuleLo
         val children = rule.patternEither.map { complexPatternToFormula(it, trace) ?: return null }
         Formula.Or(children)
     } else {
-        trace.error("Unsupported pattern", NOT_IMPLEMENTED)
+        trace.error(UnsupportedPattern())
         null
     }
 
@@ -494,7 +491,7 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
                 val inside = f.child
                 val insideAsLeaf = inside as? Formula.LeafPattern
                     ?: run {
-                        semgrepTrace.error("Pattern inside is not a leaf", NOT_IMPLEMENTED)
+                        semgrepTrace.error(PatternInsideIsNotLeaf(inside))
                         return null
                     }
                 if (literal.negated) {
@@ -507,7 +504,7 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
             is Formula.MetavarFocus -> {
                 // todo
                 if (literal.negated)  {
-                    semgrepTrace.error("Not implemented negated MetavarFocus", NOT_IMPLEMENTED)
+                    semgrepTrace.error(NotImplementedNegatedMetavarFocus(f.name))
                     return null
                 }
 
@@ -516,7 +513,7 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
 
             is Formula.MetavarCond -> {
                 // todo
-                semgrepTrace.error("Not implemented MetavarCond", NOT_IMPLEMENTED)
+                semgrepTrace.error(NotImplementedMetavarCond(f.name))
                 return null
             }
 
@@ -524,7 +521,7 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
                 var metaVarConstraint = f.formula.toMetaVarPatternConstraint()
                 if (metaVarConstraint == null) {
                     // todo
-                    semgrepTrace.error("Not implemented complex MetavarPattern", NOT_IMPLEMENTED)
+                    semgrepTrace.error(NotImplementedComplexMetavarPattern(f.name))
                     return null
                 }
 
@@ -548,7 +545,7 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
 
             is Formula.Regex -> {
                 // todo
-                semgrepTrace.error("Not implemented Regex", NOT_IMPLEMENTED)
+                semgrepTrace.error(NotImplementedRegex(f.pattern))
                 return null
             }
 
@@ -564,7 +561,7 @@ private fun convertToNormalizedRule(literals: List<NormalizedFormula.Literal>,
     }
 
     if (patterns.isEmpty()) {
-        semgrepTrace.error("Rule has no patterns", ERROR)
+        semgrepTrace.error(RuleHasNoPatterns())
     }
 
     return RuleWithMetaVars(
@@ -680,10 +677,10 @@ private fun complexPatternToFormula(pattern: ComplexPattern, trace: SemgrepRuleL
         Formula.Not(Formula.Regex(pattern.patternNotRegex))
     } else if (pattern.focusMetaVariables != null) {
         val focusVars = pattern.focusMetaVariables.map { Formula.MetavarFocus(it) }
-        return Formula.And(focusVars)
+        Formula.And(focusVars)
     } else {
-        trace.error("Unexpected complex pattern: $pattern", NOT_IMPLEMENTED)
-        return null
+        trace.error(UnexpectedComplexPattern(pattern))
+        null
     }
 }
 

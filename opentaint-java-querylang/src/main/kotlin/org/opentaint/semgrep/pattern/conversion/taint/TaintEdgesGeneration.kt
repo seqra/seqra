@@ -4,7 +4,7 @@ import org.opentaint.dataflow.util.PersistentBitSet
 import org.opentaint.dataflow.util.PersistentBitSet.Companion.emptyPersistentBitSet
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
+import org.opentaint.semgrep.pattern.UnexpectedAnalysisEndEdge
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
 import org.opentaint.semgrep.pattern.conversion.ParamCondition
 import org.opentaint.semgrep.pattern.conversion.ParamCondition.StringValueMetaVar
@@ -186,7 +186,7 @@ private data class TaintEdgeDescriptor(
 
 private fun RuleConversionCtx.edgeDescriptor(edge: Edge): TaintEdgeDescriptor? = when (edge) {
     is Edge.AnalysisEnd -> {
-        trace.error("Unexpected analysis end edge", Reason.ERROR)
+        trace.error(UnexpectedAnalysisEndEdge())
         null
     }
 

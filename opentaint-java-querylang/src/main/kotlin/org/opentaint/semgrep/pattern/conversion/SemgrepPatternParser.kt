@@ -1,6 +1,8 @@
 package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry
+import org.opentaint.semgrep.pattern.PatternParsingAstFailed
+import org.opentaint.semgrep.pattern.PatternParsingFailure
+import org.opentaint.semgrep.pattern.PatternParsingFailureWithElement
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
 import org.opentaint.semgrep.pattern.SemgrepJavaPatternParser
 import org.opentaint.semgrep.pattern.SemgrepJavaPatternParsingResult
@@ -31,10 +33,7 @@ class DefaultSemgrepPatternParser(
     ): SemgrepJavaPattern? {
         return when (val result = parser.parseSemgrepJavaPattern(pattern)) {
             is SemgrepJavaPatternParsingResult.FailedASTParsing -> {
-                semgrepTrace.error(
-                    "Pattern parsing AST failed with errors:\n${result.errorMessages.joinToString("\n")}",
-                    SemgrepErrorEntry.Reason.ERROR,
-                )
+                semgrepTrace.error(PatternParsingAstFailed(result.errorMessages))
                 null
             }
 
@@ -44,17 +43,16 @@ class DefaultSemgrepPatternParser(
 
             is SemgrepJavaPatternParsingResult.ParserFailure -> {
                 semgrepTrace.error(
-                    "Pattern parsing failed: ${result.exception.message}, ${result.exception.element.text}",
-                    SemgrepErrorEntry.Reason.ERROR,
+                    PatternParsingFailureWithElement(
+                        result.exception.message,
+                        result.exception.element.text,
+                    )
                 )
                 null
             }
 
             is SemgrepJavaPatternParsingResult.OtherFailure -> {
-                semgrepTrace.error(
-                    "Pattern parsing failed: ${result.exception.message}",
-                    SemgrepErrorEntry.Reason.ERROR,
-                )
+                semgrepTrace.error(PatternParsingFailure(result.exception.message))
                 null
             }
         }

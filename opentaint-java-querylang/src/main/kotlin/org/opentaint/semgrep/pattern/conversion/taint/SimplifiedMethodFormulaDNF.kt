@@ -5,7 +5,7 @@ import org.opentaint.dataflow.util.containsAll
 import org.opentaint.dataflow.util.copy
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.removeFirst
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
+import org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.conversion.automata.FalseValue
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaCubeCompact

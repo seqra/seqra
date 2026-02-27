@@ -5,10 +5,10 @@ import org.opentaint.dataflow.util.filter
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.map
 import org.opentaint.dataflow.util.toSet
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.generatedMethodClassName
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.FormulaManagerAwareDecisionVarSelector
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.taint.SemanticPredicateOrderer
+import org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
+import org.opentaint.semgrep.pattern.conversion.generatedMethodClassName
+import org.opentaint.semgrep.pattern.conversion.taint.FormulaManagerAwareDecisionVarSelector
+import org.opentaint.semgrep.pattern.conversion.taint.SemanticPredicateOrderer
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
 import org.opentaint.semgrep.pattern.MetaVarConstraints

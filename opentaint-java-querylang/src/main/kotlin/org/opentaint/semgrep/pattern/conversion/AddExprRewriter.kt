@@ -1,7 +1,5 @@
 package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.generateMethodInvocation
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.parseMethodArgs
 import org.opentaint.semgrep.pattern.ConcreteName
 import org.opentaint.semgrep.pattern.MetavarName
 import org.opentaint.semgrep.pattern.MethodInvocation

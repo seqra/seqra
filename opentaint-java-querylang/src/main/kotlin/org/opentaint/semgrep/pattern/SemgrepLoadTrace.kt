@@ -5,7 +5,6 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import mu.KLogging
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
 import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
 
 @Serializable
@@ -31,13 +30,23 @@ sealed interface SemgrepTraceLogger {
         logger.info { "$logMessagePrefix | $message" }
     }
 
-    fun error(step: Step, message: String, reason: Reason) {
-        addEntry(SemgrepErrorEntry(step, message, reason))
+    fun error(
+        step: Step,
+        message: SemgrepRuleLoadErrorMessage,
+    ) {
+        val location = logMessagePrefix
+        val enrichedMessage = SemgrepLoadIssueMessages.format(
+            category = message.category,
+            severity = message.severity,
+            message = message.message,
+        )
 
-        when (reason) {
-            Reason.WARNING -> logger.warn { "$logMessagePrefix | $message" }
-            Reason.ERROR,
-            Reason.NOT_IMPLEMENTED -> logger.error { "$logMessagePrefix | $message" }
+        addEntry(SemgrepErrorEntry(step, enrichedMessage, message.category, message.severity))
+
+        when {
+            message.category == SemgrepErrorEntry.Category.INTERNAL_WARNING -> logger.warn { "$location | $enrichedMessage" }
+            message.severity == SemgrepErrorEntry.Severity.BLOCKING -> logger.error { "$location | $enrichedMessage" }
+            else -> logger.warn { "$location | $enrichedMessage" }
         }
     }
 
@@ -105,7 +114,7 @@ data class SemgrepRuleLoadStepTrace(
         entries += entry
     }
 
-    fun error(message: String, reason: Reason) = super.error(step, message, reason)
+    fun error(message: SemgrepRuleLoadErrorMessage) = super.error(step, message)
 
     fun compressed(): SemgrepRuleLoadStepTrace? = this.takeIf { entries.isNotEmpty() }
 }
@@ -137,9 +146,17 @@ data class SemgrepInfoEntry(
 data class SemgrepErrorEntry(
     val step: Step,
     val message: String,
-    val reason: Reason,
+    val category: Category,
+    val severity: Severity,
 ) : SemgrepTraceEntry() {
-    enum class Reason {
-        ERROR, WARNING, NOT_IMPLEMENTED
+    enum class Category {
+        RULE_ISSUE,
+        UNSUPPORTED_FEATURE,
+        INTERNAL_WARNING,
+    }
+
+    enum class Severity {
+        BLOCKING,
+        NON_BLOCKING,
     }
 }

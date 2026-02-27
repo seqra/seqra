@@ -1,6 +1,6 @@
 package org.opentaint.semgrep.pattern.conversion
 
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.generateMethodInvocation
+import org.opentaint.semgrep.pattern.conversion.generateMethodInvocation
 import org.opentaint.semgrep.pattern.Ellipsis
 import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern

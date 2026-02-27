@@ -16,8 +16,10 @@ import kotlinx.collections.immutable.persistentListOf
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
-import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
+import org.opentaint.semgrep.pattern.SemgrepRuleLoadErrorMessage
 import org.opentaint.semgrep.pattern.SemgrepErrorEntry
+import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Category.INTERNAL_WARNING
+import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Severity.NON_BLOCKING
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
 import org.opentaint.semgrep.pattern.SemgrepJavaPatternParser
 import org.opentaint.semgrep.pattern.SemgrepJavaPatternParsingResult
@@ -310,6 +312,10 @@ private fun collectAllRules(path: Path): List<SemgrepRuleFile> {
     return result
 }
 
+private class TraceMessage : SemgrepRuleLoadErrorMessage(INTERNAL_WARNING, NON_BLOCKING) {
+    override val message: String get() = "main"
+}
+
 private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, String>> {
     // TODO
     val ignoreFiles = setOf(
@@ -354,20 +360,14 @@ private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, Strin
                     val reasonElementKind = reason.element::class.java.simpleName
                     parserFailures.getOrPut(reasonKind to reasonElementKind, ::mutableListOf).add(pattern)
 
-                    semgrepTrace.error(
-                        "Pattern parse failure: ${reason.message ?: ""}",
-                        SemgrepErrorEntry.Reason.ERROR
-                    )
+                    semgrepTrace.error(TraceMessage())
                     return null
                 }
 
                 is SemgrepJavaPatternParsingResult.OtherFailure -> {
                     failures += 1
                     parserOtherFailures += result.exception to pattern
-                    semgrepTrace.error(
-                        "Other parse failure: ${result.exception.message ?: ""}",
-                        SemgrepErrorEntry.Reason.ERROR
-                    )
+                    semgrepTrace.error(TraceMessage())
                     return null
                 }
 
@@ -424,7 +424,7 @@ private fun collectParsingStats(path: Path): List<Pair<SemgrepJavaPattern, Strin
 }
 
 private fun analyzeErrors(trace: SemgrepLoadTrace) {
-    val allErrors = hashMapOf<SemgrepErrorEntry.Reason, MutableList<SemgrepErrorEntry>>()
+    val allErrors = hashMapOf<SemgrepErrorEntry.Category, MutableList<SemgrepErrorEntry>>()
     val ruleErrors = mutableListOf<SemgrepRuleLoadTrace>()
 
     for (fileError in trace.fileTraces) {
@@ -451,10 +451,10 @@ private fun analyzeErrors(trace: SemgrepLoadTrace) {
     }
 }
 
-private fun MutableMap<SemgrepErrorEntry.Reason, MutableList<SemgrepErrorEntry>>.addErrors(
+private fun MutableMap<SemgrepErrorEntry.Category, MutableList<SemgrepErrorEntry>>.addErrors(
     errors: Iterable<SemgrepErrorEntry>
 ) = errors.forEach {
-    this.getOrPut(it.reason, ::mutableListOf).add(it)
+    this.getOrPut(it.category, ::mutableListOf).add(it)
 }
 
 private fun SemgrepErrorEntry.ruleKind(): String {

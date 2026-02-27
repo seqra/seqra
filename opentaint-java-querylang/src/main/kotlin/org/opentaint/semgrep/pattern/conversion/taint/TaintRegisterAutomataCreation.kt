@@ -1,10 +1,11 @@
 package org.opentaint.semgrep.pattern.conversion.taint
 
 import org.opentaint.dataflow.util.forEach
-import org.opentaint.org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
+import org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.RuleWithMetaVars
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry
+import org.opentaint.semgrep.pattern.EmptyAutomataAfterGeneratedEdgeElimination
+import org.opentaint.semgrep.pattern.TaintAutomataCreationFailure
 import org.opentaint.semgrep.pattern.SemgrepRule
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
@@ -51,7 +52,7 @@ private fun TaintAutomataConversionCtx.createAutomataWithEdgeElimination(
     runCatching {
         createAutomataWithEdgeEliminationUnsafe(formulaManager, metaVarInfo, initialNode)
     }.onFailure { ex ->
-        semgrepRuleTrace.error("Taint automata creation failure: ${ex.message}", SemgrepErrorEntry.Reason.ERROR)
+        semgrepRuleTrace.error(TaintAutomataCreationFailure(ex.message))
     }.getOrNull()
 
 private fun TaintAutomataConversionCtx.createAutomataWithEdgeEliminationUnsafe(
@@ -76,7 +77,7 @@ private fun TaintAutomataConversionCtx.createAutomataWithEdgeEliminationUnsafe(
     )
 
     if (result.successors[result.initial].isNullOrEmpty()) {
-        semgrepRuleTrace.error("Empty automata after generated edge elimination", SemgrepErrorEntry.Reason.WARNING)
+        semgrepRuleTrace.error(EmptyAutomataAfterGeneratedEdgeElimination())
         return null
     }
 

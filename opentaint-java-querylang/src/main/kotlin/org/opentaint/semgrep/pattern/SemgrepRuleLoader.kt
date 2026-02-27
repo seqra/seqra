@@ -3,7 +3,6 @@ package org.opentaint.semgrep.pattern
 import com.charleskorn.kaml.YamlMap
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
 import org.opentaint.semgrep.pattern.SemgrepTraceEntry.Step
 import org.opentaint.semgrep.pattern.conversion.ActionListBuilder
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
@@ -75,7 +74,7 @@ class SemgrepRuleLoader(
             val ruleId = SemgrepRuleUtils.getRuleId(ruleSetName, it.id)
             semgrepFileTrace
                 .ruleTrace(ruleId, it.id)
-                .error(Step.LOAD_RULESET, "Unsupported rule", Reason.ERROR)
+                .error(Step.LOAD_RULESET, UnsupportedRuleLanguage(it.languages))
         }
 
         supportedRules.forEach {
@@ -90,7 +89,7 @@ class SemgrepRuleLoader(
     private fun registerRule(rule: RegisteredRule) {
         if (rule.ruleId in registeredRules) {
             rule.ruleTrace.stepTrace(Step.LOAD_RULESET)
-                .error("Duplicate rule", Reason.ERROR)
+                .error(DuplicateRule(rule.ruleId))
             return
         }
 
@@ -152,7 +151,7 @@ class SemgrepRuleLoader(
             if (prev != null) {
                 registeredRules[ruleId]?.ruleTrace
                     ?.stepTrace(Step.LOAD_RULESET)
-                    ?.error("Ambiguous override: $prev", Reason.ERROR)
+                    ?.error(AmbiguousOverride(currentRuleId = ruleId, previousRuleId = prev))
             }
         }
 
@@ -161,7 +160,7 @@ class SemgrepRuleLoader(
             if (info == null) {
                 registeredRules[overrideId]?.ruleTrace
                     ?.stepTrace(Step.LOAD_RULESET)
-                    ?.error("Rule overrides nothing", Reason.WARNING)
+                    ?.error(RuleOverridesNothing(targetRuleId = ruleId))
                 continue
             }
             parsedRules[ruleId] = RuleOverride(overrideId, info)
@@ -215,7 +214,7 @@ class SemgrepRuleLoader(
             }
             "join" -> {
                 val joinRule = rule.join ?: run {
-                    loadTrace.error("Join rule without join section", Reason.ERROR)
+                    loadTrace.error(JoinRuleWithoutJoinSection())
                     return
                 }
 
@@ -241,7 +240,7 @@ class SemgrepRuleLoader(
             }
 
             else -> {
-                loadTrace.error("Unsupported mode: ${rule.mode}", Reason.ERROR)
+                loadTrace.error(UnsupportedMode(rule.mode))
                 return
             }
         }
@@ -249,13 +248,13 @@ class SemgrepRuleLoader(
 
     private fun addParsedRule(ruleInfo: RuleInfo, rule: Rule<Formula>, trace: SemgrepRuleLoadStepTrace) {
         if (rule is NormalRule && rule.rule.isEmpty && !ruleInfo.isLibraryRule) {
-            trace.error("Empty rule after parse", Reason.ERROR)
+            trace.error(EmptyRuleAfterParse())
             return
         }
 
         val id = ruleInfo.ruleId
         if (id in parsedRules) {
-            trace.error("Duplicate rule", Reason.ERROR)
+            trace.error(DuplicateRule(id))
             return
         }
 
@@ -271,20 +270,20 @@ class SemgrepRuleLoader(
         val ruleAutomata = runCatching {
             ruleAutomataBuilder.build(rule.rule, trace)
         }.onFailure { ex ->
-            trace.stepTrace(Step.BUILD).error("Failed to build rule automata: ${ex.message}", Reason.ERROR)
+            trace.stepTrace(Step.BUILD).error(FailedToBuildRuleAutomata(ex.message))
             return
         }.getOrThrow()
 
         val stats = ruleAutomataBuilder.stats
         if (stats.isFailure) {
-            trace.stepTrace(Step.BUILD).error("Automata build issues", Reason.WARNING)
+            trace.stepTrace(Step.BUILD).error(AutomataBuildIssues())
         }
 
         val btaTrace = trace.stepTrace(Step.BUILD_TAINT_AUTOMATA)
         val taintAutomata = createTaintAutomata(ruleAutomata, btaTrace)
 
         if (taintAutomata.isEmpty && !rule.info.isLibraryRule) {
-            trace.stepTrace(Step.BUILD).error("Empty rule after build", Reason.ERROR)
+            trace.stepTrace(Step.BUILD).error(EmptyRuleAfterBuild())
             return
         }
 
@@ -300,7 +299,7 @@ class SemgrepRuleLoader(
             val rules = ctx.convertTaintAutomataToTaintRules(rule.rule)
             rules to rule.info.metadata
         }.onFailure { ex ->
-            a2trTrace.error("Failed to create taint rules: ${ex.message}", Reason.ERROR)
+            a2trTrace.error(FailedToCreateTaintRules(ex.message))
             return null
         }.getOrThrow().also {
             trace.info("Generate ${it.first.size} rules from ${it.first.ruleId}")
@@ -320,7 +319,7 @@ class SemgrepRuleLoader(
                 ?: return null
             rules to rule.info.metadata
         }.onFailure { ex ->
-            a2trTrace.error("Failed to create taint rules: ${ex.message}", Reason.ERROR)
+            a2trTrace.error(FailedToCreateTaintRules(ex.message))
             return null
         }.getOrThrow().also {
             trace.info("Generate ${it.first.size} rules from ${it.first.ruleId}")
@@ -334,13 +333,13 @@ class SemgrepRuleLoader(
     ): NormalRule<BuiltRule>? {
         val parsedRule = parsedRules[ruleId]
         if (parsedRule == null) {
-            trace.error("Ref $ruleId not registered", Reason.ERROR)
+            trace.error(RefRuleNotRegistered(ruleId))
             return null
         }
 
         if (parsedRule is RuleOverride<*>) {
             if (!overrideChain.add(ruleId)) {
-                trace.error("Override loop", Reason.ERROR)
+                trace.error(OverrideLoop())
                 return null
             }
 
@@ -349,7 +348,7 @@ class SemgrepRuleLoader(
 
         val builtRule = builtNormalRules[ruleId]
         if (builtRule == null) {
-            trace.error("Ref $ruleId not loaded", Reason.ERROR)
+            trace.error(RefRuleNotLoaded(ruleId))
             return null
         }
 
@@ -377,7 +376,8 @@ class SemgrepRuleLoader(
 
         val operations = rule.on.map { op ->
             if (op.left.ruleName !in items || op.right.ruleName !in items) {
-                trace.error("Incorrect join-on condition", Reason.ERROR)
+                trace.error(IncorrectJoinOnCondition())
+                return null
             }
 
             val lhs = parseJoinMetaVarWithRenames(op.left, itemRenames, trace) ?: return null
@@ -387,7 +387,7 @@ class SemgrepRuleLoader(
         }
 
         if (operations.isEmpty()) {
-            trace.error("Join rule without join-on", Reason.WARNING)
+            trace.error(JoinRuleWithoutJoinOn())
             return null
         }
 
@@ -414,7 +414,7 @@ class SemgrepRuleLoader(
     private fun parseMetaVar(metaVarStr: String, trace: SemgrepRuleLoadStepTrace): MetavarAtom? {
         val parsed = parser.parseOrNull(metaVarStr, trace) ?: return null
         if (parsed !is Metavar) {
-            trace.error("Metavar expected, but $metaVarStr", Reason.NOT_IMPLEMENTED)
+            trace.error(JoinRuleMetavarExpected(metaVarStr))
             return null
         }
         return MetavarAtom.create(parsed.name)

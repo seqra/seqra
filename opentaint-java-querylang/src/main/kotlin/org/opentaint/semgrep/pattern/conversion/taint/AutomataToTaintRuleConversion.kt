@@ -25,7 +25,14 @@ import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.RuleWithMetaVars
-import org.opentaint.semgrep.pattern.SemgrepErrorEntry.Reason
+import org.opentaint.semgrep.pattern.FailedToConvertToTaintRule
+import org.opentaint.semgrep.pattern.IgnoredMetavarConstraint
+import org.opentaint.semgrep.pattern.NonMethodCallCleaner
+import org.opentaint.semgrep.pattern.PlaceholderAnnotation
+import org.opentaint.semgrep.pattern.PlaceholderMethodName
+import org.opentaint.semgrep.pattern.PlaceholderStringValue
+import org.opentaint.semgrep.pattern.PlaceholderTypeName
+import org.opentaint.semgrep.pattern.TaintRuleMatchAnything
 import org.opentaint.semgrep.pattern.SemgrepMatchingRule
 import org.opentaint.semgrep.pattern.SemgrepRule
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
@@ -72,7 +79,7 @@ fun <R> RuleConversionCtx.safeConvertToTaintRules(body: () -> R): R? =
     runCatching {
         body()
     }.onFailure { ex ->
-        trace.error("Failed to convert to taint rule for: ${ex.message}", Reason.ERROR)
+        trace.error(FailedToConvertToTaintRule(ex.message))
     }.getOrNull()
 
 private fun RuleConversionCtx.convertMatchingRuleToTaintRules(
@@ -119,7 +126,7 @@ private fun RuleConversionCtx.convertAutomataToTaintRules(
 
         if (!function.matchAnything()) return@filter true
 
-        trace.error("Taint rule match anything", Reason.WARNING)
+        trace.error(TaintRuleMatchAnything())
         false
     }
 
@@ -318,7 +325,7 @@ fun TaintRuleGenerationCtx.generateTaintRules(ctx: RuleConversionCtx): List<Seri
 
             when (ruleEdge.edgeKind) {
                 TaintRuleEdge.Kind.MethodEnter, TaintRuleEdge.Kind.MethodExit -> {
-                    ctx.trace.error("Non method call cleaner", Reason.NOT_IMPLEMENTED)
+                    ctx.trace.error(NonMethodCallCleaner())
                     continue
                 }
 
@@ -617,7 +624,7 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignatureMethodName(
                 null -> null
                 is MetaVarConstraintOrPlaceHolder.Constraint -> constraints.constraint
                 is MetaVarConstraintOrPlaceHolder.PlaceHolder -> {
-                    semgrepRuleTrace.error("Placeholder: method name", Reason.NOT_IMPLEMENTED)
+                    semgrepRuleTrace.error(PlaceholderMethodName())
                     constraints.constraint
                 }
             }
@@ -830,7 +837,7 @@ private fun TaintRuleGenerationCtx.typeMatcher(
                 null -> null
                 is MetaVarConstraintOrPlaceHolder.Constraint -> constraints.constraint.constraint
                 is MetaVarConstraintOrPlaceHolder.PlaceHolder -> {
-                    semgrepRuleTrace.error("Placeholder: type name", Reason.NOT_IMPLEMENTED)
+                    semgrepRuleTrace.error(PlaceholderTypeName())
                     constraints.constraint?.constraint
                 }
             }
@@ -934,7 +941,7 @@ private fun annotationParamMatchers(
                 null -> null
                 is MetaVarConstraintOrPlaceHolder.Constraint -> constraints.constraint.constraint
                 is MetaVarConstraintOrPlaceHolder.PlaceHolder -> {
-                    semgrepRuleTrace.error("Placeholder: annotation", Reason.NOT_IMPLEMENTED)
+                    semgrepRuleTrace.error(PlaceholderAnnotation())
                     constraints.constraint?.constraint
                 }
             }
@@ -1025,7 +1032,7 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
             val constraints = metaVarInfo.constraints[condition.metavar.toString()]
             if (constraints != null) {
                 // todo: semantic metavar constraint
-                semgrepRuleTrace.error("metavar ${condition.metavar} constraint ignored", Reason.NOT_IMPLEMENTED)
+                semgrepRuleTrace.error(IgnoredMetavarConstraint(condition.metavar))
             }
 
             return containsMarkWithAnyStateBefore(state, condition.metavar, position.base())
@@ -1101,7 +1108,7 @@ private fun TaintRuleGenerationCtx.evaluateParamCondition(
                 null -> null
                 is MetaVarConstraintOrPlaceHolder.Constraint -> constraints.constraint.constraint
                 is MetaVarConstraintOrPlaceHolder.PlaceHolder -> {
-                    semgrepRuleTrace.error("Placeholder: string value", Reason.NOT_IMPLEMENTED)
+                    semgrepRuleTrace.error(PlaceholderStringValue())
                     constraints.constraint?.constraint
                 }
             }
