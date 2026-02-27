@@ -76,7 +76,7 @@ func (sb *SnippetBuilder) LoadLinesOrEmpty(filePath string, centerLine int64) []
 		}
 
 		if i == end {
-			out = append(out, fmt.Sprintf("%s %s %s", prefix, numStr, content))
+			out = append(out, fmt.Sprintf("%s%s %s", prefix, numStr, content))
 		} else {
 			out = append(out, fmt.Sprintf("%s %2s %s %s", prefix, marker, numStr, content))
 		}
