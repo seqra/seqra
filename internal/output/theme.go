@@ -71,9 +71,9 @@ func DefaultTheme(hasDarkBackground bool) *Theme {
 		Muted:   lipgloss.NewStyle().Foreground(muted),
 
 		HeaderTitle:  lipgloss.NewStyle().Bold(true).Foreground(title),
-		HeaderBorder: lipgloss.NewStyle(),
+		HeaderBorder: lipgloss.NewStyle().Faint(true),
 
-		TreeBranch: lipgloss.NewStyle(),
+		TreeBranch: lipgloss.NewStyle().Faint(true),
 		TreeItem:   lipgloss.NewStyle(),
 
 		FieldKey:   lipgloss.NewStyle().Foreground(blue),
@@ -89,7 +89,7 @@ func DefaultTheme(hasDarkBackground bool) *Theme {
 		DoneStyle:    lipgloss.NewStyle().Foreground(green),
 		FailStyle:    lipgloss.NewStyle().Foreground(red),
 
-		SnippetBorder:    lipgloss.NewStyle(),
+		SnippetBorder:    lipgloss.NewStyle().Faint(true),
 		SnippetLine:      lipgloss.NewStyle(),
 		SnippetHighlight: lipgloss.NewStyle().Foreground(blue).Bold(true),
 		SnippetLineNum:   lipgloss.NewStyle().Foreground(muted),

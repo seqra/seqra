@@ -66,10 +66,20 @@ func (sb *SnippetBuilder) LoadLinesOrEmpty(filePath string, centerLine int64) []
 		}
 
 		numStr := th.SnippetLineNum.Render(fmt.Sprintf("%4d", lineNum))
-		prefix := th.SnippetBorder.Render("|")
 		content := lineStyle.Render(lines[i])
 
-		out = append(out, fmt.Sprintf("%s %2s %s %s", prefix, marker, numStr, content))
+		var prefix string
+		if i == end {
+			prefix = th.SnippetBorder.Render("└────")
+		} else {
+			prefix = th.SnippetBorder.Render("│")
+		}
+
+		if i == end {
+			out = append(out, fmt.Sprintf("%s %s %s", prefix, numStr, content))
+		} else {
+			out = append(out, fmt.Sprintf("%s %2s %s %s", prefix, marker, numStr, content))
+		}
 	}
 
 	return out

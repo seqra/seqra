@@ -16,34 +16,6 @@ type endpointInfo struct {
 	Params []string
 }
 
-// newTree creates a tree node with 4-char-wide indentation matching the section tree style.
-func newTree(value string) *tree.Tree {
-	return tree.Root(value).
-		Enumerator(treeEnumerator).
-		Indenter(treeIndenter)
-}
-
-func treeEnumerator(children tree.Children, index int) string {
-	isLast := index == children.Length()-1
-	if children.At(index).Value() == "" {
-		if isLast {
-			return "   "
-		}
-		return "│  "
-	}
-	if isLast {
-		return "└──"
-	}
-	return "├──"
-}
-
-func treeIndenter(children tree.Children, index int) string {
-	if index == children.Length()-1 {
-		return "   "
-	}
-	return "│  "
-}
-
 func (report *Report) buildFindingTree(out *output.Printer, result *Result, runIdx int, showCodeSnippets bool, verboseFlow bool) (*tree.Tree, bool) {
 	absProjectPath, err := report.projectPath(runIdx)
 	if err != nil {
@@ -93,17 +65,17 @@ func (report *Report) buildFindingTree(out *output.Printer, result *Result, runI
 	nodeLoc := loc.extractNodeLoc()
 	locStr := printLocStyled(nodeLoc, absProjectPath, out)
 
-	findingNode := newTree(rule)
-	findingNode.Child(out.FieldItem("Severity", strings.ToLower(string(lvl))))
+	findingNode := out.GroupItem(rule)
+	findingNode.Child(out.FieldItem("Severity", strings.ToUpper(string(lvl))))
 	findingNode.Child(out.FieldItem("Location", locStr))
 
 	if showMessage {
-		findingNode.Child("Message: " + msg)
+		findingNode.Child(out.FieldItem("Message", msg))
 	}
 
 	endpoints := findingEndpoints(result)
 	if len(endpoints) > 0 {
-		endpointsNode := newTree("Endpoints")
+		endpointsNode := out.GroupItem("Endpoints")
 		for _, endpoint := range endpoints {
 			endpointLine := endpoint.Route
 			if len(endpoint.Params) > 0 {
@@ -121,21 +93,16 @@ func (report *Report) buildFindingTree(out *output.Printer, result *Result, runI
 
 		resultPath := extractAbsolutePath(&loc, absProjectPath, "Result")
 		if resultPath != "" && showCodeSnippets {
-			snippetLines := out.Snippet().LoadLinesOrEmpty(resultPath, loc.extractNodeLoc().line)
-			if len(snippetLines) > 0 {
-				snippetNode := newTree("Snippet")
-				for _, line := range snippetLines {
-					snippetNode.Child(line)
-				}
-				findingNode.Child(snippetNode)
+			snippet := out.Snippet().LoadOrEmpty(resultPath, loc.extractNodeLoc().line)
+			if snippet != "" {
+				findingNode.Child("Code snippet\n" + snippet)
 			}
 		}
 
 		return findingNode, false
 	}
 
-	// Build code flow sub-tree
-	flowTree := newTree("Code Flow")
+	flowTree := out.GroupItem("Code flow")
 
 	builder := NewFlowStepBuilder()
 	flowSteps := taintFlow
@@ -148,7 +115,7 @@ func (report *Report) buildFindingTree(out *output.Printer, result *Result, runI
 
 	for i, cs := range flowSteps {
 		mainLine, locationLine := builder.FormatStep(cs, absProjectPath)
-		stepNode := newTree(mainLine).Child(locationLine)
+		stepNode := out.GroupItem(mainLine, locationLine)
 
 		stepLoc := cs.Step.Location
 		locPath := extractAbsolutePath(stepLoc, absProjectPath, "Flow")
@@ -156,13 +123,9 @@ func (report *Report) buildFindingTree(out *output.Printer, result *Result, runI
 			line := stepLoc.extractNodeLoc().line
 			snippetKey := fmt.Sprintf("%s:%d", locPath, line)
 			if _, alreadyShown := shownSnippets[snippetKey]; !alreadyShown {
-				snippetLines := out.Snippet().LoadLinesOrEmpty(locPath, line)
-				if len(snippetLines) > 0 {
-					snippetNode := newTree("Snippet")
-					for _, snippetLine := range snippetLines {
-						snippetNode.Child(snippetLine)
-					}
-					stepNode.Child(snippetNode)
+				snippet := out.Snippet().LoadOrEmpty(locPath, line)
+				if snippet != "" {
+					stepNode.Child("Code snippet\n" + snippet)
 					shownSnippets[snippetKey] = struct{}{}
 				}
 			}
@@ -274,7 +237,6 @@ func findingEndpoints(result *Result) []endpointInfo {
 	return endpoints
 }
 
-// extractAbsolutePath safely extracts the absolute path from a location
 func extractAbsolutePath(location *Location, absProjectPath, locationName string) string {
 	if location != nil &&
 		location.PhysicalLocation != nil &&

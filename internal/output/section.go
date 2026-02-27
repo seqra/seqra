@@ -79,11 +79,7 @@ func (sb *SectionBuilder) Line() *SectionBuilder {
 
 // Group adds a named sub-tree with children.
 func (sb *SectionBuilder) Group(name string, children ...any) *SectionBuilder {
-	sub := tree.Root(name)
-	for _, child := range children {
-		sub.Child(child)
-	}
-	sb.items = append(sb.items, sub)
+	sb.items = append(sb.items, sb.printer.GroupItem(name, children...))
 	return sb
 }
 
@@ -91,6 +87,22 @@ func (sb *SectionBuilder) Group(name string, children ...any) *SectionBuilder {
 func (sb *SectionBuilder) Child(children ...any) *SectionBuilder {
 	sb.items = append(sb.items, children...)
 	return sb
+}
+
+// GroupItem creates a named sub-tree with children and returns it
+// for use as a nested child inside Group() or Child() calls.
+func (p *Printer) GroupItem(name string, children ...any) *tree.Tree {
+	th := p.theme
+	sub := tree.Root(name).
+		Enumerator(seqraEnumerator).
+		Indenter(seqraIndenter).
+		EnumeratorStyle(th.TreeBranch).
+		IndenterStyle(th.TreeBranch).
+		ItemStyle(th.TreeItem)
+	for _, child := range children {
+		sub.Child(child)
+	}
+	return sub
 }
 
 // Render builds and prints the section.
@@ -131,30 +143,34 @@ func (sb *SectionBuilder) String() string {
 	return buf.String()
 }
 
+func seqraEnumerator(children tree.Children, index int) string {
+	isLast := index == children.Length()-1
+	isSeparator := children.At(index).Value() == ""
+
+	if isSeparator {
+		if isLast {
+			return "   "
+		}
+		return "│  "
+	}
+
+	if isLast {
+		return "└─ "
+	}
+	return "├─ "
+}
+
+func seqraIndenter(children tree.Children, index int) string {
+	if index == children.Length()-1 {
+		return "   "
+	}
+	return "│  "
+}
+
 func (sb *SectionBuilder) buildTree(th *Theme) *tree.Tree {
 	t := tree.New().
-		Enumerator(func(children tree.Children, index int) string {
-			isLast := index == children.Length()-1
-			isSeparator := children.At(index).Value() == ""
-
-			if isSeparator {
-				if isLast {
-					return "    "
-				}
-				return "│   "
-			}
-
-			if isLast {
-				return "└── "
-			}
-			return "├── "
-		}).
-		Indenter(func(children tree.Children, index int) string {
-			if index == children.Length()-1 {
-				return "    "
-			}
-			return "│   "
-		}).
+		Enumerator(seqraEnumerator).
+		Indenter(seqraIndenter).
 		EnumeratorStyle(th.TreeBranch).
 		IndenterStyle(th.TreeBranch).
 		ItemStyle(th.TreeItem)
@@ -230,9 +246,7 @@ func (p *Printer) Suggest(description string, command string) {
 	if command == "" {
 		sb.StyledText(description, th.Suggestion)
 	} else {
-		sub := tree.Root(th.Suggestion.Render(description))
-		sub.Child(th.Command.Render(command))
-		sb.Child(sub)
+		sb.Child(p.GroupItem(th.Suggestion.Render(description), th.Command.Render(command)))
 	}
 
 	sb.Render()

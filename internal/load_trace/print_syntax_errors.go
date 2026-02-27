@@ -1,8 +1,6 @@
 package load_trace
 
 import (
-	"charm.land/lipgloss/v2/tree"
-
 	"github.com/seqra/seqra/v2/internal/output"
 )
 
@@ -14,15 +12,15 @@ func PrintSyntaxErrorReport(out *output.Printer, loadTraceSummary RuleLoadTraceS
 
 	sb := out.Section("Rule Syntax Errors")
 	for _, f := range filesWithErrors {
-		fileNode := buildFileNode(out, f)
-		if fileNode != nil {
-			sb.Child(fileNode)
+		children := buildFileChildren(out, f)
+		if len(children) > 0 {
+			sb.Group("File: "+f.Path, children...)
 		}
 	}
 	sb.Render()
 }
 
-func buildFileNode(out *output.Printer, file fileSummary) *tree.Tree {
+func buildFileChildren(out *output.Printer, file fileSummary) []any {
 	fileSyntaxErrors := filterSyntaxErrors(file.Errors)
 	rulesWithErrors := filterRulesWithSyntaxErrors(file.Rules)
 
@@ -31,23 +29,23 @@ func buildFileNode(out *output.Printer, file fileSummary) *tree.Tree {
 	}
 
 	th := out.Theme()
-	node := tree.Root("File: " + file.Path)
+	var children []any
 
 	for _, err := range fileSyntaxErrors {
-		node.Child(th.Error.Render("Error " + err.Message))
+		children = append(children, th.Error.Render("Error "+err.Message))
 	}
 
 	for _, rule := range rulesWithErrors {
-		ruleNode := buildRuleNode(out, rule)
-		if ruleNode != nil {
-			node.Child(ruleNode)
+		ruleChildren := buildRuleChildren(out, rule)
+		if len(ruleChildren) > 0 {
+			children = append(children, out.GroupItem("Rule: "+rule.RuleID, ruleChildren...))
 		}
 	}
 
-	return node
+	return children
 }
 
-func buildRuleNode(out *output.Printer, rule ruleSummary) *tree.Tree {
+func buildRuleChildren(out *output.Printer, rule ruleSummary) []any {
 	ruleSyntax := filterSyntaxErrors(rule.Errors)
 	stepSyntax := collectStepSyntaxErrors(rule.Steps)
 
@@ -56,14 +54,13 @@ func buildRuleNode(out *output.Printer, rule ruleSummary) *tree.Tree {
 	}
 
 	th := out.Theme()
-	node := tree.Root("Rule: " + rule.RuleID)
-
 	allErrors := append(ruleSyntax, stepSyntax...)
+	children := make([]any, 0, len(allErrors))
 	for _, err := range allErrors {
-		node.Child(th.Error.Render("Error " + err.Message))
+		children = append(children, th.Error.Render("Error "+err.Message))
 	}
 
-	return node
+	return children
 }
 
 func filterFilesWithSyntaxErrors(files []fileSummary) []fileSummary {

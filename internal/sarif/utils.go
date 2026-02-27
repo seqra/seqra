@@ -5,8 +5,6 @@ import (
 	"sort"
 	"strings"
 
-	"charm.land/lipgloss/v2/tree"
-
 	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/output"
 )
@@ -213,7 +211,7 @@ func (report *Report) PrintSummary(out *output.Printer, absSarifReportPath strin
 
 	var rulesTriggered any
 	if summary.TotalRulesTriggered > 0 {
-		rulesTriggeredNode := tree.Root(out.FieldItem("Rules triggered", summary.TotalRulesTriggered))
+		var ruleNodes []any
 		for _, item := range ruleSummary {
 			ruleLine := fmt.Sprintf("%s: %s",
 				item.RuleID,
@@ -227,14 +225,13 @@ func (report *Report) PrintSummary(out *output.Printer, absSarifReportPath strin
 				ruleLine += " [" + strings.Join(item.CWETags, ", ") + "]"
 			}
 
-			ruleNode := tree.Root(ruleLine)
 			if item.Description != "" {
-				ruleNode.Child(item.Description)
+				ruleNodes = append(ruleNodes, out.GroupItem(ruleLine, item.Description))
+			} else {
+				ruleNodes = append(ruleNodes, ruleLine)
 			}
-
-			rulesTriggeredNode.Child(ruleNode)
 		}
-		rulesTriggered = rulesTriggeredNode
+		rulesTriggered = out.GroupItem(out.FieldItem("Rules triggered", summary.TotalRulesTriggered), ruleNodes...)
 	} else {
 		rulesTriggered = out.FieldItem("Rules triggered", summary.TotalRulesTriggered)
 	}

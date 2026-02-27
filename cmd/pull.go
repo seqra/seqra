@@ -47,21 +47,20 @@ When bundled artifacts are present (from a release archive), they will be used d
 
 		artifacts := globals.Artifacts()
 
-		// Collect results as tree nodes for the summary
-		summaryTree := tree.New()
+		var summaryNodes []any
 		for _, spec := range artifacts {
 			node, err := downloadArtifact(spec, installNextToBinary, installCurrent)
 			if err != nil {
 				out.Fatalf("Failed to download %s: %s", spec.Kind(), err)
 			}
-			summaryTree.Child(node)
+			summaryNodes = append(summaryNodes, node)
 		}
 
 		javaNode, err := downloadJava(installNextToBinary, installCurrent)
 		if err != nil {
 			out.Fatalf("Failed to download Java: %s", err)
 		}
-		summaryTree.Child(javaNode)
+		summaryNodes = append(summaryNodes, javaNode)
 
 		// Write version marker after all downloads succeed
 		if err := utils.WriteInstallVersionMarker(); err != nil {
@@ -70,22 +69,19 @@ When bundled artifacts are present (from a release archive), they will be used d
 
 		out.Blank()
 		out.Section("Pull Summary").
-			Child(summaryTree).
+			Child(summaryNodes...).
 			Render()
 	},
 }
 
-// downloadArtifact downloads a GitHub release artifact using the bundled → install → cache
-// fallback chain. It returns a tree node for the summary.
 func downloadArtifact(spec globals.ArtifactDef, installNextToBinary, installCurrent bool) (*tree.Tree, error) {
-	node := tree.Root(fmt.Sprintf("%s %s", spec.Name, spec.Version))
+	node := out.GroupItem(fmt.Sprintf("%s %s", spec.Name, spec.Version))
 
 	tiers, err := utils.ArtifactTiers(spec)
 	if err != nil {
 		return node, err
 	}
 
-	// Check if already available at any current tier
 	if found := utils.FindExisting(utils.CurrentTiers(tiers, installCurrent)); found != nil {
 		if found.Name == utils.TierBundled {
 			node.Child("Using bundled artifact")
@@ -102,7 +98,6 @@ func downloadArtifact(spec globals.ArtifactDef, installNextToBinary, installCurr
 		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, spec.RepoName, spec.Version, spec.AssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify)
 	}
 
-	// Download to the first writable tier
 	for _, t := range tiers {
 		if t.Name == utils.TierBundled && !installNextToBinary {
 			continue
@@ -123,16 +118,14 @@ func downloadArtifact(spec globals.ArtifactDef, installNextToBinary, installCurr
 	return node, fmt.Errorf("no writable location found for %s", spec.Kind())
 }
 
-// downloadJava downloads a JRE using the bundled → install → cache fallback chain.
 func downloadJava(installNextToBinary, installCurrent bool) (*tree.Tree, error) {
 	javaVersion := globals.Config.Java.Version
-	node := tree.Root(fmt.Sprintf("Java %d", javaVersion))
+	node := out.GroupItem(fmt.Sprintf("Java %d", javaVersion))
 
 	if javaVersion < 8 || javaVersion > 25 {
 		return node, fmt.Errorf("unsupported Java version: %d (supported range: 8-25)", javaVersion)
 	}
 
-	// Compute platform-specific cache path
 	seqraHome, err := utils.GetSeqraHome()
 	if err != nil {
 		return node, err
@@ -145,7 +138,6 @@ func downloadJava(installNextToBinary, installCurrent bool) (*tree.Tree, error) 
 
 	tiers := utils.JRETiers(javaVersion, cacheDir)
 
-	// Check if already available at any current tier
 	if found := utils.FindExistingJRE(utils.CurrentTiers(tiers, installCurrent)); found != nil {
 		if found.Name == utils.TierBundled {
 			node.Child("Using bundled JRE")
@@ -155,13 +147,11 @@ func downloadJava(installNextToBinary, installCurrent bool) (*tree.Tree, error) 
 		return node, nil
 	}
 
-	// Download to the first writable tier
 	for _, t := range tiers {
 		if t.Name == utils.TierBundled && !installNextToBinary {
 			continue
 		}
 		if t.Name != utils.TierCache {
-			// Test writability by creating and removing the target dir
 			if err := os.MkdirAll(t.Path, 0o755); err != nil {
 				out.LogDebugf("Cannot write to %s tier, trying next", t.Name)
 				continue
