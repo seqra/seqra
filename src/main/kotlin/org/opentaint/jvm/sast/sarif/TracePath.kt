@@ -133,6 +133,7 @@ private fun resolveCallPath(
 ): List<TracePathNode> {
     val path = mutableListOf<TracePathNode>()
     for (node in callPath) {
+        var pathGenerated = false
         if (node.statement !in stack) {
             val innerTraces = trace.findInnerCallEntries(traceNode, node)
             if (innerTraces != null) {
@@ -146,10 +147,15 @@ private fun resolveCallPath(
                     val newStack = HashSet<CommonInst>(stack)
                     newStack.add(node.statement)
                     path += resolveCallPath(trace, innerTrace, innerPath, newStack)
+                    path += TracePathNode(node.statement, TracePathNodeKind.RETURN, node)
+                    pathGenerated = true
                 }
             }
         }
-        path += TracePathNode(node.statement, TracePathNodeKind.OTHER, node)
+
+        if (!pathGenerated) {
+            path += TracePathNode(node.statement, TracePathNodeKind.OTHER, node)
+        }
     }
     return path
 }

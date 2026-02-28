@@ -795,7 +795,7 @@ class TraceMessageBuilder(
     data class TaintPropagationInfo(val taint: String, val from: String?, val to: String?)
 
     private fun getCallAction(node: TracePathNode, method: String): String {
-        if (node.kind == TracePathNodeKind.OTHER) {
+        if (node.kind == TracePathNodeKind.OTHER || node.kind == TracePathNodeKind.RETURN) {
             if (method.endsWith(initializerSuffix))
                 return method
             return "Method $method"
