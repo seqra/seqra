@@ -37,10 +37,10 @@ import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
 import org.opentaint.jvm.sast.project.ProjectAnalysisContext
 import org.opentaint.jvm.sast.project.ProjectAnalysisOptions
 import org.opentaint.jvm.sast.project.ProjectKind
-import org.opentaint.jvm.sast.project.SarifGenerationOptions
 import org.opentaint.jvm.sast.project.initializeProjectAnalysisContext
 import org.opentaint.jvm.sast.project.selectProjectEntryPoints
 import org.opentaint.jvm.sast.util.loadDefaultConfig
+import org.opentaint.jvm.sast.util.locationChecker
 import org.opentaint.project.Project
 import java.nio.file.Path
 import kotlin.io.path.readText
@@ -61,8 +61,7 @@ fun testProjectAnalyzerOnTraces(
         testDataJsonPath.readText()
     )
 
-    val sarifOptions = SarifGenerationOptions()
-    val options = ProjectAnalysisOptions(projectKind = projectKind, sarifGenerationOptions = sarifOptions)
+    val options = ProjectAnalysisOptions(projectKind = projectKind)
     val analysisContext = initializeProjectAnalysisContext(project, options)
 
     val mainConfig = JIRTaintRulesProvider(
@@ -236,7 +235,7 @@ private fun ProjectAnalysisContext.analyze(
     )
     JIRTaintAnalyzer(
         cp, config,
-        projectClasses = { projectClasses.isProjectClass(it) },
+        projectClasses = projectClasses.locationChecker(),
         options = options,
         summarySerializationContext = DummySerializationContext,
     ).use { analyzer ->

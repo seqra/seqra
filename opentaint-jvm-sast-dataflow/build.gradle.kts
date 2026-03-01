@@ -23,3 +23,16 @@ dependencies {
 
     implementation(KotlinDependency.Libs.kotlin_logging)
 }
+
+val approximationsConfig by configurations.creating
+
+dependencies {
+    approximationsConfig(project("dataflow-approximations"))
+}
+
+tasks.withType<ProcessResources> {
+    from(approximationsConfig.elements.map { files -> files.map { zipTree(it) } }) {
+        include("**/*.class")
+        into("opentaint-dataflow-approximations")
+    }
+}

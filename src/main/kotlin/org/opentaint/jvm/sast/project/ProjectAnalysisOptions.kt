@@ -2,6 +2,7 @@ package org.opentaint.jvm.sast.project
 
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
+import org.opentaint.jvm.sast.dataflow.DataFlowApproximationLoader
 import org.opentaint.jvm.sast.dataflow.DebugOptions
 import org.opentaint.jvm.sast.dataflow.TaintAnalyzerOptions
 import java.nio.file.Path
@@ -21,7 +22,8 @@ data class ProjectAnalysisOptions(
     val storeSummaries: Boolean = false,
     val debugOptions: DebugOptions? = null,
     val experimentalAAInterProcCallDepth: Int = 1,
-    val sarifGenerationOptions: SarifGenerationOptions
+    val sarifGenerationOptions: SarifGenerationOptions = SarifGenerationOptions(),
+    val approximationOptions: DataFlowApproximationLoader.Options = DataFlowApproximationLoader.Options(),
 ) {
     val summariesApMode get() = ifdsApMode.takeIf { storeSummaries }
 

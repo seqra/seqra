@@ -9,19 +9,19 @@ import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.JIRSettings
 import org.opentaint.ir.api.jvm.ext.JAVA_OBJECT
-import org.opentaint.ir.approximation.Approximations
 import org.opentaint.ir.impl.JIRRamErsSettings
 import org.opentaint.ir.impl.features.InMemoryHierarchy
 import org.opentaint.ir.impl.features.Usages
 import org.opentaint.ir.impl.features.classpaths.JIRUnknownClass
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.opentaintIrDb
+import org.opentaint.jvm.sast.dataflow.DataFlowApproximationLoader.createCpWithApproximations
+import org.opentaint.jvm.sast.dataflow.DataFlowApproximationLoader.installApproximations
 import org.opentaint.jvm.sast.project.spring.SpringComponentsResolveTransformer
 import org.opentaint.jvm.sast.project.spring.SpringWebProjectContext
 import org.opentaint.jvm.sast.project.spring.createSpringProjectContext
 import org.opentaint.jvm.transformer.JMultiDimArrayAllocationTransformer
 import org.opentaint.jvm.transformer.JStringConcatTransformer
-import org.opentaint.jvm.util.classpathWithApproximations
 import org.opentaint.jvm.util.types.installClassScorer
 import org.opentaint.project.Project
 import org.opentaint.project.ProjectModuleClasses
@@ -82,7 +82,7 @@ private fun <T> initializeProjectAnalysisContextUtil(
         installFeatures(Usages)
         keepLocalVariableNames()
 
-        installFeatures(Approximations(emptyList()))
+        installApproximations(this, options.approximationOptions)
 
         installClassScorer()
 
@@ -138,13 +138,7 @@ private fun AnalysisContextBuilder.createAnalysisContextWithCp(
 
     val cp: JIRClasspath
     runBlocking {
-        cp = db.classpathWithApproximations(cpFiles, features)
-            ?: run {
-                logger.warn {
-                    "Classpath with approximations is requested, but some jar paths are missing"
-                }
-                db.classpath(cpFiles, features)
-            }
+        cp = createCpWithApproximations(db, cpFiles, features, options.approximationOptions)
     }
 
     cp.validate(settings)

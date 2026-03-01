@@ -10,6 +10,7 @@ import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
 import org.opentaint.jvm.sast.project.ProjectAnalysisContext
 import org.opentaint.jvm.sast.project.spring.SpringRuleProvider
 import org.opentaint.jvm.sast.util.loadDefaultConfig
+import org.opentaint.jvm.sast.util.locationChecker
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import org.opentaint.semgrep.pattern.createTaintConfig
 
@@ -29,7 +30,7 @@ fun List<TaintRuleFromSemgrep>.semgrepRulesWithDefaultConfig(
 fun ProjectAnalysisContext.analysisConfig(initialConfig: TaintRulesProvider): TaintRulesProvider {
     var config = initialConfig
     config = JIRMethodExitRuleProvider(config)
-    config = JIRMethodGetDefaultProvider(config) { projectClasses.isProjectClass(it) }
+    config = JIRMethodGetDefaultProvider(config, projectClasses.locationChecker())
     if (springWebProjectContext != null) {
         config = SpringRuleProvider(config, springWebProjectContext)
     }

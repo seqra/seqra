@@ -1,34 +1,27 @@
 package org.opentaint.jvm.sast.ast
 
-import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.TestInstance
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
-import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
-import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
-import org.opentaint.dataflow.jvm.graph.MethodReturnInstNormalizerFeature
-import org.opentaint.jvm.sast.sarif.JIRSarifTraits
 import org.opentaint.ir.api.jvm.JIRClasspath
-import org.opentaint.ir.api.jvm.JIRDatabase
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
-import org.opentaint.ir.impl.JIRRamErsSettings
-import org.opentaint.ir.impl.features.InMemoryHierarchy
-import org.opentaint.ir.impl.features.Usages
-import org.opentaint.ir.impl.features.classpaths.UnknownClasses
-import org.opentaint.ir.impl.opentaintIrDb
-import org.opentaint.jvm.sast.project.KotlinInlineFunctionScopeTransformer
+import org.opentaint.jvm.sast.project.ProjectAnalysisContext
+import org.opentaint.jvm.sast.project.ProjectAnalysisOptions
+import org.opentaint.jvm.sast.project.initializeProjectAnalysisContext
 import org.opentaint.jvm.sast.sarif.InstructionInfo
 import org.opentaint.jvm.sast.sarif.IntermediateLocation
+import org.opentaint.jvm.sast.sarif.JIRSarifTraits
 import org.opentaint.jvm.sast.sarif.LocationSpan
 import org.opentaint.jvm.sast.sarif.LocationType
 import org.opentaint.jvm.sast.sarif.TracePathNode
 import org.opentaint.jvm.sast.sarif.TracePathNodeKind
-import org.opentaint.jvm.transformer.JMultiDimArrayAllocationTransformer
-import org.opentaint.jvm.transformer.JStringConcatTransformer
+import org.opentaint.project.Project
+import org.opentaint.project.ProjectModuleClasses
+import java.io.File
 import java.nio.file.Path
 import java.util.jar.JarFile
 import kotlin.io.path.Path
@@ -37,55 +30,52 @@ import kotlin.io.path.createTempDirectory
 import kotlin.io.path.writeText
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-abstract class AbstractAstSpanResolverTest {
+abstract class BasicTestUtils {
 
-    protected lateinit var db: JIRDatabase
-    protected lateinit var cp: JIRClasspath
+    protected lateinit var context: ProjectAnalysisContext
     protected lateinit var traits: JIRSarifTraits
     protected lateinit var sourcesDir: Path
     protected lateinit var samplesJar: Path
+    protected lateinit var dependencyJars: List<Path>
 
     protected abstract val sourceFileExtension: String
+
+    val cp: JIRClasspath get() = context.cp
 
     @BeforeAll
     fun setup() {
         val jarPath = System.getenv("TEST_SAMPLES_JAR")
             ?: error("TEST_SAMPLES_JAR environment variable not set. Run tests via Gradle.")
 
+        val dependencyJarPath = System.getenv("TEST_DEPENDENCIES_JAR")
+            ?: error("TEST_DEPENDENCIES_JAR environment variable not set. Run tests via Gradle.")
+
         samplesJar = Path(jarPath)
+        dependencyJars = dependencyJarPath.split(File.pathSeparator).map { Path(it) }
 
         sourcesDir = createTempDirectory("span-resolver-sources")
         extractSourcesFromJar(samplesJar, sourcesDir)
 
-        val lambdaAnonymousClass = LambdaAnonymousClassFeature()
-        val lambdaTransformer = LambdaExpressionToAnonymousClassTransformerFeature(lambdaAnonymousClass)
-        val methodNormalizer = MethodReturnInstNormalizerFeature
-
-        val features = mutableListOf(
-            KotlinInlineFunctionScopeTransformer,
-            UnknownClasses, lambdaAnonymousClass, lambdaTransformer, methodNormalizer,
-            JStringConcatTransformer, JMultiDimArrayAllocationTransformer
+        val project = Project(
+            sourceRoot = sourcesDir,
+            modules = listOf(
+                ProjectModuleClasses(
+                    moduleSourceRoot = sourcesDir,
+                    moduleClasses = listOf(samplesJar)
+                )
+            ),
+            dependencies = dependencyJars
         )
 
-        db = runBlocking {
-            opentaintIrDb {
-                loadByteCode(listOf(samplesJar.toFile()))
-                useProcessJavaRuntime()
-                persistenceImpl(JIRRamErsSettings)
-                installFeatures(InMemoryHierarchy())
-                installFeatures(Usages)
-                keepLocalVariableNames()
-            }.also { it.awaitBackgroundJobs() }
-        }
+        val options = ProjectAnalysisOptions()
+        context = initializeProjectAnalysisContext(project, options)
 
-        cp = runBlocking { db.classpath(listOf(samplesJar.toFile()), features) }
         traits = JIRSarifTraits(cp)
     }
 
     @AfterAll
     fun tearDown() {
-        if (::cp.isInitialized) cp.close()
-        if (::db.isInitialized) db.close()
+        if (::context.isInitialized) context.close()
         if (::sourcesDir.isInitialized) {
             sourcesDir.toFile().deleteRecursively()
         }

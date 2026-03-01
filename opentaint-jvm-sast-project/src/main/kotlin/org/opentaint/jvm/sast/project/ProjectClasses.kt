@@ -27,6 +27,9 @@ class ProjectClasses(projectModulesFiles: Map<File, ProjectModuleClasses>) {
     val cp: JIRClasspath
         get() = _cp ?: error("Class path not initialized")
 
+    fun isProjectLocation(loc: RegisteredLocation): Boolean =
+        locationProjectModules.containsKey(loc)
+
     fun isProjectClass(cls: JIRClassOrInterface): Boolean {
         val module = locationProjectModules[cls.declaration.location] ?: return false
         return isModuleClass(cls.name, module)

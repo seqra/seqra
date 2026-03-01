@@ -38,9 +38,11 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.jvm.graph.JApplicationGraphImpl
+import org.opentaint.jvm.sast.dataflow.DataFlowApproximationLoader.isApproximation
 import org.opentaint.util.analysis.ApplicationGraph
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -296,12 +298,15 @@ class JIRTaintAnalyzer(
 
         class PackageUnitResolver(private val projectLocations: ClassLocationChecker) : JIRUnitResolver {
             override fun resolve(method: JIRMethod): UnitType {
-                if (!projectLocations.isProjectClass(method.enclosingClass)) {
+                if (!projectLocations.isProjectClass(method.enclosingClass) && !isApproximation(method)) {
                     return UnknownUnit
                 }
 
                 return PackageUnit(method.enclosingClass.packageName)
             }
+
+            override fun locationIsUnknown(loc: RegisteredLocation): Boolean =
+                !projectLocations.isProjectLocation(loc)
         }
     }
 }

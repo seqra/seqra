@@ -14,7 +14,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.jvm.sast.sarif.LocationType
 
-class JavaAstSpanResolverTest : AbstractAstSpanResolverTest() {
+class JavaAstSpanResolverTest : BasicTestUtils() {
 
     override val sourceFileExtension = "java"
 

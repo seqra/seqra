@@ -30,6 +30,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRThis
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.ir.api.jvm.cfg.JIRValue
+import org.opentaint.ir.approximation.JIREnrichedVirtualMethod
 import org.opentaint.jvm.sast.project.spring.GeneratedSpringRegistry
 import org.opentaint.jvm.sast.project.spring.SpringGeneratedMethod
 import org.opentaint.semgrep.pattern.Mark
@@ -1076,6 +1077,7 @@ class TraceMessageBuilder(
             val locationMethod = stmt.location.method
             if (locationMethod is SpringGeneratedMethod) return true
             if (locationMethod is JIRLambdaMethod) return true
+            if (locationMethod is JIREnrichedVirtualMethod) return true
             return false
         }
 

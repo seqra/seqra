@@ -1,7 +1,9 @@
 package org.opentaint.jvm.sast.dataflow
 
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.RegisteredLocation
 
-fun interface ClassLocationChecker {
+interface ClassLocationChecker {
+    fun isProjectLocation(loc: RegisteredLocation): Boolean
     fun isProjectClass(cls: JIRClassOrInterface): Boolean
 }

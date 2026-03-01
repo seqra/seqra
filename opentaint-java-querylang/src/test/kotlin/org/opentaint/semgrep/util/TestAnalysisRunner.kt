@@ -10,6 +10,7 @@ import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.ifds.SingletonUnit
 import org.opentaint.dataflow.ifds.UnitResolver
+import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSafeApplicationGraph
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
@@ -22,6 +23,7 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.impl.features.classpaths.UnknownClasses
 import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.jvm.graph.JApplicationGraphImpl
@@ -73,8 +75,13 @@ class TestAnalysisRunner(
         return TaintAnalysisUnitRunnerManager(
             JIRAnalysisManager(cp),
             ifdsAnalysisGraph as ApplicationGraph<CommonMethod, CommonInst>,
-            unitResolver = JIRUnitResolver {
-                if (it.enclosingClass.declaration.location.isRuntime) UnknownUnit else SingletonUnit
+            unitResolver = object :JIRUnitResolver {
+                override fun locationIsUnknown(loc: RegisteredLocation): Boolean =
+                    loc.isRuntime
+
+                override fun resolve(method: JIRMethod): UnitType =
+                    if (method.enclosingClass.declaration.location.isRuntime) UnknownUnit else SingletonUnit
+
             } as UnitResolver<CommonMethod>,
             apManager = TreeApManager(anyAccessorUnrollStrategy = AnyAccessorUnrollStrategy.AnyAccessorDisabled),
             summarySerializationContext = DummySerializationContext,

@@ -6,7 +6,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
-import org.opentaint.jvm.sast.sarif.JIRSarifTraits
 import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
@@ -17,7 +16,9 @@ import org.opentaint.jvm.sast.project.rules.analysisConfig
 import org.opentaint.jvm.sast.project.rules.loadSemgrepRules
 import org.opentaint.jvm.sast.project.rules.semgrepRulesWithDefaultConfig
 import org.opentaint.jvm.sast.project.spring.springWebProjectEntryPoints
+import org.opentaint.jvm.sast.sarif.JIRSarifTraits
 import org.opentaint.jvm.sast.sarif.SarifGenerator
+import org.opentaint.jvm.sast.util.locationChecker
 import org.opentaint.project.Project
 import org.opentaint.semgrep.pattern.SemgrepRuleUtils
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
@@ -184,7 +185,7 @@ class TestProjectAnalyzer(
 
         JIRTaintAnalyzer(
             cp, config,
-            projectClasses = { projectClasses.isProjectClass(it) },
+            projectClasses = projectClasses.locationChecker(),
             options = options.taintAnalyzerOptions(),
             summarySerializationContext = DummySerializationContext,
         ).use { analyzer ->

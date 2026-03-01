@@ -19,7 +19,7 @@ import org.opentaint.jvm.sast.sarif.InstructionInfo
 import org.opentaint.jvm.sast.sarif.IntermediateLocation
 import org.opentaint.jvm.sast.sarif.LocationType
 
-class KotlinAstSpanResolverTest : AbstractAstSpanResolverTest() {
+class KotlinAstSpanResolverTest : BasicTestUtils() {
 
     override val sourceFileExtension = "kt"
 
