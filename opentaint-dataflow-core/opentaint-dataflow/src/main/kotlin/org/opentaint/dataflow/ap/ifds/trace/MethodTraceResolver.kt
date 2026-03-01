@@ -1085,6 +1085,17 @@ class MethodTraceResolver(
         callActions: List<PartialCallEdgeCombination>,
     ): List<ActionEdgeCombination> {
         val result = mutableListOf<ActionEdgeCombination>()
+
+        fun addResolved(unchanged: Set<TraceEdge>, primaryActions: List<PrimaryAction>?, otherActions: Set<OtherAction>) {
+            if (primaryActions == null) {
+                result.add(ActionEdgeCombination(unchanged, primary = null, otherActions))
+            } else {
+                primaryActions.mapTo(result) {
+                    ActionEdgeCombination(unchanged, it, otherActions)
+                }
+            }
+        }
+
         for (callAction in callActions) {
             val resolvedPrimaryAction = when (val primaryAction = callAction.primary) {
                 null -> null
@@ -1096,9 +1107,7 @@ class MethodTraceResolver(
 
             val ruleActions = callAction.rule
             if (ruleActions.isEmpty()) {
-                resolvedPrimaryAction?.mapTo(result) {
-                    ActionEdgeCombination(callAction.unchanged, it, emptySet())
-                }
+                addResolved(callAction.unchanged, resolvedPrimaryAction, emptySet())
                 continue
             }
 
@@ -1108,14 +1117,7 @@ class MethodTraceResolver(
 
             resolvedRuleActions.cartesianProductMapTo { ruleActionGroup ->
                 val ruleActionSet = ruleActionGroup.toHashSet()
-
-                if (resolvedPrimaryAction == null) {
-                    result.add(ActionEdgeCombination(callAction.unchanged, primary = null, ruleActionSet))
-                } else {
-                    resolvedPrimaryAction.mapTo(result) {
-                        ActionEdgeCombination(callAction.unchanged, it, ruleActionSet)
-                    }
-                }
+                addResolved(callAction.unchanged, resolvedPrimaryAction, ruleActionSet)
             }
         }
         return result
