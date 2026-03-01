@@ -1,0 +1,21 @@
+passThrough:
+- function: kotlinx.coroutines.Deferred#await
+  copy:
+  - from:
+      - this
+      - .kotlinx.coroutines.Deferred#value#java.lang.Object
+    to: result
+
+- function: kotlinx.coroutines.Deferred#getCompleted
+  copy:
+  - from:
+      - this
+      - .kotlinx.coroutines.Deferred#value#java.lang.Object
+    to: result
+
+- function: kotlinx.coroutines.CompletableDeferred#complete
+  copy:
+    - from: arg(0)
+      to:
+        - this
+        - .kotlinx.coroutines.Deferred#value#java.lang.Object
