@@ -1,505 +1,599 @@
 passThrough:
-  - function: kotlinx.coroutines.Deferred#await
-    copy:
-      - from:
-          - this
-          - .kotlinx.coroutines.Deferred#value#java.lang.Object
-        to: result
-
-  - function: kotlinx.coroutines.Deferred#getCompleted
-    copy:
-      - from:
-          - this
-          - .kotlinx.coroutines.Deferred#value#java.lang.Object
-        to: result
-
-  - function: kotlinx.coroutines.CompletableDeferred#complete
-    copy:
-      - from: arg(0)
-        to:
-          - this
-          - .kotlinx.coroutines.Deferred#value#java.lang.Object
-
-  - function: kotlin.text.StringsKt__StringsKt#trim
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#trimStart
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#trimEnd
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#padStart
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#padEnd
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#substring
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#subSequence
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#substringBefore
-
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(2)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#substringAfter
-
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(2)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#substringBeforeLast
-
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(2)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#substringAfterLast
-
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(2)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#replaceRange
-
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(3)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#removeRange
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#removePrefix
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#removeSuffix
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#removeSurrounding
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#replaceBefore
-
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(2)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#replaceAfter
-
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(2)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#replaceBeforeLast
-
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(2)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#replaceAfterLast
-
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(2)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#splitToSequence
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#split
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#lineSequence
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsKt#lines
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsJVMKt#replace
-
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(2)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsJVMKt#replaceFirst
-
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(2)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsJVMKt#concatToString
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsJVMKt#decodeToString
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsJVMKt#encodeToByteArray
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsJVMKt#repeat
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsJVMKt#capitalize
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsJVMKt#decapitalize
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__StringsJVMKt#split
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__IndentKt#trimMargin
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__IndentKt#trimIndent
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt__IndentKt#replaceIndentByMargin
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(1)
-        to: result
-
-  - function: kotlin.text.StringsKt__IndentKt#replaceIndent
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(1)
-        to: result
-
-  - function: kotlin.text.StringsKt__IndentKt#prependIndent
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(1)
-        to: result
-
-  - function: kotlin.text.StringsKt__AppendableKt#appendRange
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(1)
-        to: result
-      - from: arg(1)
-        to: arg(0)
-
-  - function: kotlin.text.StringsKt__AppendableKt#append
-
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(1)
-        to: result
-      - from: arg(1)
-        to: arg(0)
-
-  - function: kotlin.text.StringsKt__StringBuilderKt#append
-
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(1)
-        to: result
-      - from: arg(1)
-        to: arg(0)
-
-  - function: kotlin.text.StringsKt__StringBuilderKt#append
-
-    copy:
-      - from: arg(0)
-        to: result
-      - from: arg(1)
-        to: result
-      - from: arg(1)
-        to: arg(0)
-
-  - function: kotlin.text.StringsKt___StringsKt#drop
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#drop
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#dropLast
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#dropLast
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#dropLastWhile
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#dropLastWhile
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#dropWhile
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#dropWhile
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#filter
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#filter
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#filterIndexed
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#filterIndexed
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#filterNot
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#filterNot
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#slice
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#slice
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#slice
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#take
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#take
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#takeLast
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#takeLast
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#takeLastWhile
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#takeLastWhile
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#takeWhile
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#takeWhile
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#reversed
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#onEach
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#onEachIndexed
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#chunked
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#chunkedSequence
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#windowed
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#windowedSequence
-
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#partition
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#asIterable
-    copy:
-      - from: arg(0)
-        to: result
-
-  - function: kotlin.text.StringsKt___StringsKt#asSequence
-    copy:
-      - from: arg(0)
-        to: result
+- function: kotlinx.coroutines.Deferred#await
+  copy:
+  - from:
+    - this
+    - .kotlinx.coroutines.Deferred#value#java.lang.Object
+    to: result
+
+- function: kotlinx.coroutines.Deferred#getCompleted
+  copy:
+  - from:
+    - this
+    - .kotlinx.coroutines.Deferred#value#java.lang.Object
+    to: result
+
+- function: kotlinx.coroutines.CompletableDeferred#complete
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .kotlinx.coroutines.Deferred#value#java.lang.Object
+
+- function: kotlin.text.StringsKt__StringsKt#trim
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#trimStart
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#trimEnd
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#padStart
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#padStart$default
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#padEnd
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#padEnd$default
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#substring
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#subSequence
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#substringBefore
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#substringBefore$default
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#substringAfter
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#substringAfter$default
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#substringBeforeLast
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#substringBeforeLast$default
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#substringAfterLast
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#substringAfterLast$default
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#replaceRange
+  signature: (java.lang.CharSequence, int, int, java.lang.CharSequence) java.lang.CharSequence
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(3)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#replaceRange
+  signature: (java.lang.CharSequence, kotlin.ranges.IntRange, java.lang.CharSequence) java.lang.CharSequence
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#removeRange
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#removePrefix
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#removeSuffix
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#removeSurrounding
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#replaceBefore
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#replaceBefore$default
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#replaceAfter
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#replaceAfter$default
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#replaceBeforeLast
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#replaceBeforeLast$default
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#replaceAfterLast
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#replaceAfterLast$default
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#commonPrefixWith
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#commonPrefixWith$default
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#commonSuffixWith
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#commonSuffixWith$default
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#splitToSequence
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#splitToSequence$default
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#split
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#split$default
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#lineSequence
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsKt#lines
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#replace
+  signature: (java.lang.String, char, char, boolean) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#replace$default
+  signature: (java.lang.String, char, char, boolean, int, java.lang.Object) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#replace
+  signature: (java.lang.String, java.lang.String, java.lang.String, boolean) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#replace$default
+  signature: (java.lang.String, java.lang.String, java.lang.String, boolean, int, java.lang.Object) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#replaceFirst
+  signature: (java.lang.String, char, char, boolean) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#replaceFirst$default
+  signature: (java.lang.String, char, char, boolean, int, java.lang.Object) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#replaceFirst
+  signature: (java.lang.String, java.lang.String, java.lang.String, boolean) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#replaceFirst$default
+  signature: (java.lang.String, java.lang.String, java.lang.String, boolean, int, java.lang.Object) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(2)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#concatToString
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#concatToString$default
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#decodeToString
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#decodeToString$default
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#encodeToByteArray
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#encodeToByteArray$default
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#repeat
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#capitalize
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#decapitalize
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#split
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__StringsJVMKt#split$default
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__IndentKt#trimMargin
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__IndentKt#trimMargin$default
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__IndentKt#trimIndent
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt__IndentKt#replaceIndentByMargin
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+
+- function: kotlin.text.StringsKt__IndentKt#replaceIndentByMargin$default
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+
+- function: kotlin.text.StringsKt__IndentKt#replaceIndent
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+
+- function: kotlin.text.StringsKt__IndentKt#replaceIndent$default
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+
+- function: kotlin.text.StringsKt__IndentKt#prependIndent
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+
+- function: kotlin.text.StringsKt__IndentKt#prependIndent$default
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+
+- function: kotlin.text.StringsKt__AppendableKt#appendRange
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: arg(1)
+    to: arg(0)
+
+- function: kotlin.text.StringsKt__AppendableKt#append
+  signature: (java.lang.Appendable, java.lang.CharSequence[]) java.lang.Appendable
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: arg(1)
+    to: arg(0)
+
+- function: kotlin.text.StringsKt__StringBuilderKt#append
+  signature: (java.lang.StringBuilder, java.lang.String[]) java.lang.StringBuilder
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: arg(1)
+    to: arg(0)
+
+- function: kotlin.text.StringsKt__StringBuilderKt#append
+  signature: (java.lang.StringBuilder, java.lang.Object[]) java.lang.StringBuilder
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: arg(1)
+    to: arg(0)
+
+- function: kotlin.text.StringsKt___StringsKt#drop
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#dropLast
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#dropLastWhile
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#dropWhile
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#filter
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#filterIndexed
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#filterNot
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#slice
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#take
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#takeLast
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#takeLastWhile
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#takeWhile
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#reversed
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#onEach
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#onEachIndexed
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#chunked
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#chunkedSequence
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#windowed
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#windowed$default
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#windowedSequence
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#windowedSequence$default
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#partition
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#asIterable
+  copy:
+  - from: arg(0)
+    to: result
+
+- function: kotlin.text.StringsKt___StringsKt#asSequence
+  copy:
+  - from: arg(0)
+    to: result
