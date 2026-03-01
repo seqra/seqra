@@ -925,7 +925,7 @@ class MethodTraceResolver(
         statementCall: CommonCallExpr
     ): List<PartialCallEdgeCombination> {
         val callees by lazy {
-            runner.methodCallResolver.resolvedMethodCalls(methodEntryPoint, statementCall, statement)
+            runner.methodCallResolver.resolvedMethodCalls(analysisContext, statementCall, statement)
                 .flatMap { methodEntryPoints(it) }
         }
 

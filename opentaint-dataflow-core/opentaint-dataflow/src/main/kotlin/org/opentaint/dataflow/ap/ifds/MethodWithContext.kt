@@ -9,6 +9,16 @@ data object EmptyMethodContext : MethodContext {
     override fun toString(): String = "{}"
 }
 
+data class CombinedMethodContext(val first: MethodContext, val second: MethodContext) : MethodContext {
+    override fun toString() = "$first & $second"
+}
+
+fun Set<MethodContext>.combine(): MethodContext = reduce { acc, context ->
+    if (context is EmptyMethodContext) return@reduce acc
+    if (acc is EmptyMethodContext) return@reduce context
+    CombinedMethodContext(acc, context)
+}
+
 data class MethodWithContext(val method: CommonMethod, val ctx: MethodContext)
 
 data class MethodEntryPoint(val context: MethodContext, val statement: CommonInst) {

@@ -13,6 +13,7 @@ import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner.LambdaResolvedEvent
+import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLambdaTracker
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
@@ -24,7 +25,7 @@ class JIRMethodCallResolver(
     private val runner: TaintAnalysisUnitRunner
 ) : MethodCallResolver {
     override fun resolveMethodCall(
-        callerEntryPoint: MethodEntryPoint,
+        callerContext: MethodAnalysisContext,
         callExpr: CommonCallExpr,
         location: CommonInst,
         handler: MethodAnalyzer.MethodCallHandler,
@@ -32,29 +33,31 @@ class JIRMethodCallResolver(
     ) {
         jIRDowncast<JIRCallExpr>(callExpr)
         jIRDowncast<JIRInst>(location)
-        resolveMethodCall(callerEntryPoint, callExpr, location, handler, failureHandler)
+        jIRDowncast<JIRMethodAnalysisContext>(callerContext)
+        resolveJirMethodCall(callerContext, callExpr, location, handler, failureHandler)
     }
 
     override fun resolvedMethodCalls(
-        callerEntryPoint: MethodEntryPoint,
+        callerContext: MethodAnalysisContext,
         callExpr: CommonCallExpr,
         location: CommonInst
     ): List<MethodWithContext> {
         jIRDowncast<JIRCallExpr>(callExpr)
         jIRDowncast<JIRInst>(location)
-        return resolvedMethodCalls(callerEntryPoint, callExpr, location)
+        jIRDowncast<JIRMethodAnalysisContext>(callerContext)
+        return resolvedJirMethodCalls(callerContext, callExpr, location)
     }
 
-    private fun resolveMethodCall(
-        callerEntryPoint: MethodEntryPoint,
+    private fun resolveJirMethodCall(
+        callerContext: JIRMethodAnalysisContext,
         callExpr: JIRCallExpr,
         location: JIRInst,
         handler: MethodAnalyzer.MethodCallHandler,
         failureHandler: MethodAnalyzer.MethodCallResolutionFailureHandler
     ) {
-        val callees = callResolver.resolve(callExpr, location, callerEntryPoint.context)
+        val callees = callResolver.resolve(callExpr, location, callerContext)
 
-        val analyzer = runner.getMethodAnalyzer(callerEntryPoint)
+        val analyzer = runner.getMethodAnalyzer(callerContext.methodEntryPoint)
         for (resolvedCallee in callees) {
             when (resolvedCallee) {
                 JIRCallResolver.MethodResolutionResult.MethodResolutionFailed -> {
@@ -66,19 +69,19 @@ class JIRMethodCallResolver(
                 }
 
                 is JIRCallResolver.MethodResolutionResult.Lambda -> {
-                    val subscription = LambdaSubscription(runner, callerEntryPoint, handler)
+                    val subscription = LambdaSubscription(runner, callerContext.methodEntryPoint, handler)
                     lambdaTracker.subscribeOnLambda(resolvedCallee.method, subscription)
                 }
             }
         }
     }
 
-    private fun resolvedMethodCalls(
-        callerEntryPoint: MethodEntryPoint,
+    private fun resolvedJirMethodCalls(
+        callerContext: JIRMethodAnalysisContext,
         callExpr: JIRCallExpr,
         location: JIRInst
     ): List<MethodWithContext> {
-        val callees = callResolver.resolve(callExpr, location, callerEntryPoint.context)
+        val callees = callResolver.resolve(callExpr, location, callerContext)
         return callees.flatMap { resolvedCallee ->
             when (resolvedCallee) {
                 JIRCallResolver.MethodResolutionResult.MethodResolutionFailed -> {

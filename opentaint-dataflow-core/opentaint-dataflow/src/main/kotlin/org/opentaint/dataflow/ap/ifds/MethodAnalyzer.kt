@@ -638,7 +638,7 @@ class NormalMethodAnalyzer(
         callExpr: CommonCallExpr, statement: CommonInst,
         handler: MethodCallHandler, failureHandler: MethodCallResolutionFailureHandler
     ) {
-        methodCallResolver.resolveMethodCall(methodEntryPoint, callExpr, statement, handler, failureHandler)
+        methodCallResolver.resolveMethodCall(analysisContext, callExpr, statement, handler, failureHandler)
     }
 
     override fun handleResolvedMethodCall(method: MethodWithContext, handler: MethodCallHandler) {

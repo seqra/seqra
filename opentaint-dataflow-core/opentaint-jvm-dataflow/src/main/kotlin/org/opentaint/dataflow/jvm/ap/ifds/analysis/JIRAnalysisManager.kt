@@ -60,7 +60,7 @@ class JIRAnalysisManager(
         jIRDowncast<JApplicationGraph>(graph)
         jIRDowncast<JIRUnitResolver>(unitResolver)
 
-        val jIRCallResolver = JIRCallResolver(cp, graph, unitResolver)
+        val jIRCallResolver = JIRCallResolver(cp, unitResolver)
         return JIRMethodCallResolver(lambdaTracker, jIRCallResolver, runner)
     }
 

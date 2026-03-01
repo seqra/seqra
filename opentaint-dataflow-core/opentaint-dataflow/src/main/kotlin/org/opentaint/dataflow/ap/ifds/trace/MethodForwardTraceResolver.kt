@@ -226,7 +226,7 @@ class MethodForwardTraceResolver(
         startFactBase: AccessPathBase,
     ) {
         val methodCalls = runner.methodCallResolver.resolvedMethodCalls(
-            methodEntryPoint, callExpr, callerEdge.statement
+            analysisContext, callExpr, callerEdge.statement
         )
 
         if (methodCalls.isEmpty()) {

@@ -1,52 +1,66 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
-import kotlinx.coroutines.runBlocking
-import mu.KLogging
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.CombinedMethodContext
 import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
 import org.opentaint.dataflow.ap.ifds.MethodContext
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
+import org.opentaint.dataflow.ap.ifds.combine
 import org.opentaint.dataflow.ifds.UnknownUnit
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAllocInfo
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasApInfo
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature.JIRLambdaClass
+import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
+import org.opentaint.dataflow.jvm.util.JIRHierarchyInfo
+import org.opentaint.dataflow.util.cartesianProductMapTo
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
+import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRParameter
 import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
-import org.opentaint.ir.api.jvm.cfg.JIRCastExpr
-import org.opentaint.ir.api.jvm.cfg.JIRCatchInst
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRInstanceCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRLambdaExpr
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
-import org.opentaint.ir.api.jvm.cfg.JIRThis
+import org.opentaint.ir.api.jvm.cfg.JIRNewExpr
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.ir.api.jvm.cfg.JIRVirtualCallExpr
+import org.opentaint.ir.api.jvm.ext.findMethodOrNull
 import org.opentaint.ir.api.jvm.ext.isSubClassOf
-import org.opentaint.ir.impl.features.hierarchyExt
-import org.opentaint.jvm.graph.JApplicationGraph
-import java.util.Optional
+import org.opentaint.jvm.util.toJIRClassOrInterface
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.jvm.optionals.getOrNull
 
 class JIRCallResolver(
-    private val cp: JIRClasspath,
-    private val graph: JApplicationGraph,
+    cp: JIRClasspath,
     private val unitResolver: JIRUnitResolver
 ) {
-    private val hierarchy = runBlocking { cp.hierarchyExt() }
+    private val hierarchy = JIRHierarchyInfo(cp)
+    private val knownLocationIds = LongOpenHashSet()
+
+    init {
+        cp.registeredLocations
+            .filterNot { unitResolver.locationIsUnknown(it) }
+            .forEach { knownLocationIds.add(it.id) }
+    }
 
     private val methodOverridesCache = ConcurrentHashMap<JIRMethod, List<JIRMethod>>()
 
-    private fun methodOverrides(method: JIRMethod): List<JIRMethod> =
-        methodOverridesCache.computeIfAbsent(method) {
-            hierarchy.findOverrides(method, includeAbstract = false)
-                .filterTo(mutableListOf()) {
-                    unitResolver.resolve(it) != UnknownUnit
-                            && it.enclosingClass !is JIRLambdaClass // Lambdas handled by JIRLambdaTracker
-                }
+    private fun methodOverrides(method: JIRMethod, baseClass: JIRClassOrInterface): List<JIRMethod> {
+        if (method.isFinal || method.isConstructor || method.isStatic || method.isClassInitializer) {
+            return emptyList()
         }
+
+        return methodOverridesCache.computeIfAbsent(method) {
+            val overrides = hierarchy.findOverrides(method, baseClass, knownLocationIds)
+            val knownOverrides = overrides.filter { unitResolver.resolve(it) != UnknownUnit }
+            knownOverrides.ifEmpty { emptyList() }
+        }
+    }
 
     sealed interface MethodResolutionResult {
         data object MethodResolutionFailed : MethodResolutionResult
@@ -55,26 +69,30 @@ class JIRCallResolver(
     }
 
     fun allKnownOverridesOrNull(method: JIRMethod): List<JIRMethod>? {
-        if (unitResolver.resolve(method) == UnknownUnit) return null
-
         val methods = mutableListOf<JIRMethod>()
-        if (!method.isAbstract) {
-            methods.add(method)
+
+        if (unitResolver.resolve(method) != UnknownUnit) {
+            if (!method.isAbstract) {
+                methods.add(method)
+            }
         }
 
-        hierarchy.findOverrides(method, includeAbstract = false)
-            .filterTo(methods) { unitResolver.resolve(it) != UnknownUnit }
+        if (!method.isObjectMethod()) {
+            methods += methodOverrides(method, method.enclosingClass)
+        }
 
-        return methods
+        methods.removeAll { unitResolver.resolve(it) == UnknownUnit }
+
+        return methods.ifEmpty { null }
     }
 
-    fun resolve(call: JIRCallExpr, location: JIRInst, context: MethodContext): List<MethodResolutionResult> {
+    fun resolve(call: JIRCallExpr, location: JIRInst, context: JIRMethodAnalysisContext): List<MethodResolutionResult> {
         val method = call.method.method
         val methodIgnored = unitResolver.resolve(method) == UnknownUnit
 
-        // todo: is it ok?
-        // note: also ignore all possible method overrides
-        if (methodIgnored) return listOf(MethodResolutionResult.MethodResolutionFailed)
+        if (methodIgnored && method.isObjectMethod()) {
+            return listOf(MethodResolutionResult.MethodResolutionFailed)
+        }
 
         if (call is JIRLambdaExpr) {
             // lambda expr is an allocation site. lambda calls resolved as virtual calls
@@ -82,35 +100,83 @@ class JIRCallResolver(
         }
 
         if (call !is JIRVirtualCallExpr) {
-            return attachContext(method, context, call, location)
+            if (methodIgnored) {
+                return listOf(MethodResolutionResult.MethodResolutionFailed)
+            }
+
+            val ctxBuilder = MethodContextCreator(context, call, location, instanceTypeConstraints = null)
+            return ctxBuilder.attachContext(method)
+                .map { MethodResolutionResult.ConcreteMethod(it) }
         }
 
         return resolveVirtualMethod(method, call, location, context)
     }
 
     private fun resolveVirtualMethod(
-        method: JIRMethod,
+        baseMethod: JIRMethod,
         call: JIRVirtualCallExpr,
         location: JIRInst,
-        context: MethodContext
-    ): List<MethodResolutionResult> = buildList {
-        if (methodMayBeLambda(method)) {
-            this += MethodResolutionResult.Lambda(call, method)
-        }
+        context: JIRMethodAnalysisContext
+    ): List<MethodResolutionResult> {
+        val instanceTypeConstraints = resolveValueTypeConstraints(call.instance, location, context)
+        val classMethods = instanceTypeConstraints.orEmpty().mapNotNullTo(hashSetOf()) { constraint ->
+            val classMethod = constraint.type.findMethodOrNull(baseMethod.name, baseMethod.description)
+                ?: return@mapNotNullTo null
 
-        val overrides = methodOverrides(method)
-        if (overrides.isEmpty()) {
-            if (!method.isAbstract) {
-                this += attachContext(method, context, call, location)
-            } else {
-                this += MethodResolutionResult.MethodResolutionFailed
+            if (constraint.exactType) {
+                if (!classMethod.isValidConcreteMethod()) return@mapNotNullTo null
             }
-            return@buildList
+
+            classMethod to constraint
         }
 
-        resolveVirtualMethodAtLocation(method, overrides, call, location, context)
-            .mapTo(this) { MethodResolutionResult.ConcreteMethod(it) }
+        if (classMethods.isEmpty()) {
+            classMethods.add(baseMethod to TypeConstraintInfo(baseMethod.enclosingClass, exactType = false))
+        }
+
+        val result = mutableListOf<MethodResolutionResult>()
+
+        val methods = hashSetOf<Pair<JIRMethod, TypeConstraintInfo>>()
+        for ((method, constraint) in classMethods) {
+            if (constraint.exactType) {
+                methods += method to constraint
+                continue
+            }
+
+            if (methodMayBeLambda(method)) {
+                result += MethodResolutionResult.Lambda(call, method)
+            }
+
+            val overrides = methodOverrides(method, constraint.type).filter {
+                it.enclosingClass !is JIRLambdaClass // Lambdas handled by JIRLambdaTracker
+            }
+
+            overrides.mapTo(methods) { it to constraint }
+
+            if (method.isValidConcreteMethod()) {
+                methods += method to constraint
+            }
+        }
+
+        if (methods.isEmpty()) {
+            result += MethodResolutionResult.MethodResolutionFailed
+            return result
+        }
+
+        val ctxBuilder = MethodContextCreator(context, call, location, instanceTypeConstraints = null)
+        val methodsWithContext = methods.flatMapTo(hashSetOf()) { (m, constraint) ->
+            ctxBuilder.withInstanceTypeConstraint(constraint).attachContext(m)
+        }
+
+        methodsWithContext.mapTo(result) {
+            MethodResolutionResult.ConcreteMethod(it)
+        }
+
+        return result
     }
+
+    private fun JIRMethod.isValidConcreteMethod(): Boolean =
+        !isAbstract && unitResolver.resolve(this) != UnknownUnit
 
     private fun methodMayBeLambda(method: JIRMethod): Boolean {
         if (!method.isAbstract) return false
@@ -119,135 +185,74 @@ class JIRCallResolver(
         return method.enclosingClass.declaredMethods.count { it.isAbstract } == 1
     }
 
-    private fun attachContext(
-        method: JIRMethod,
-        context: MethodContext,
-        call: JIRCallExpr,
-        location: JIRInst
-    ): List<MethodResolutionResult.ConcreteMethod> {
-        if (call !is JIRInstanceCallExpr) {
-            return listOf(MethodResolutionResult.ConcreteMethod(MethodWithContext(method, EmptyMethodContext)))
-        }
-
-        val instanceTypes = resolveValueClass(call.instance, location, context)
-        return attachContext(call, location, method, instanceTypes)
-            .map { MethodResolutionResult.ConcreteMethod(it) }
-    }
-
-    private fun attachContext(
-        call: JIRCallExpr,
-        location: JIRInst,
-        method: JIRMethod,
-        instanceTypes: Set<JIRClassOrInterface>?
-    ): List<MethodWithContext> {
-        if (instanceTypes.isNullOrEmpty()) {
-//            logger.warn { "No instance type for $call at ${location.location.method}" }
-            return listOf(MethodWithContext(method, EmptyMethodContext))
-        }
-
-        // Method instance type is concrete enough
-        if (instanceTypes.any { method.enclosingClass.isSubClassOf(it) }) {
-            return listOf(MethodWithContext(method, EmptyMethodContext))
-        }
-
-        return instanceTypes.map {
-            val ctx = JIRInstanceTypeMethodContext(it)
-            MethodWithContext(method, ctx)
-        }
-    }
-
-    private fun resolveVirtualMethodAtLocation(
-        baseMethod: JIRMethod,
-        overrides: List<JIRMethod>,
-        call: JIRVirtualCallExpr,
-        location: JIRInst,
-        context: MethodContext
-    ): List<MethodWithContext> {
-        val methods = if (baseMethod.isAbstract) overrides else overrides + baseMethod
-
-        val instanceTypes = resolveValueClass(call.instance, location, context)
-        if (instanceTypes.isNullOrEmpty()) {
-            return methods.flatMap { attachContext(call, location, it, instanceTypes) }
-        }
-
-        return methods.filter { method ->
-            instanceTypes.any { type ->
-                method.enclosingClass.isSubClassOf(type) || type.isSubClassOf(method.enclosingClass)
-            }
-        }.flatMap { attachContext(call, location, it, instanceTypes) }
-    }
-
-    private val valueCache = ConcurrentHashMap<Triple<JIRValue, JIRInst, MethodContext>, Optional<Set<JIRClassOrInterface>>>()
-
-    private fun resolveValueClass(
+    private fun resolveValueTypeConstraints(
         value: JIRValue,
         location: JIRInst,
-        context: MethodContext,
-    ): Set<JIRClassOrInterface>? = valueCache.computeIfAbsent(Triple(value, location, context)) {
-        resolveValueClass(value, location, context, hashSetOf())
-            ?.filterNotTo(hashSetOf()) { it.isInterface }
-            .let { Optional.ofNullable(it) }
-    }.getOrNull()
-
-    private fun resolveValueClass(
-        value: JIRValue,
-        location: JIRInst,
-        context: MethodContext,
-        visitedValues: MutableSet<JIRValue>
-    ): Set<JIRClassOrInterface>? {
+        context: JIRMethodAnalysisContext,
+    ): Set<TypeConstraintInfo>? {
+        val epContext = context.methodEntryPoint.context
         val valueCls = (value.type as? JIRRefType)?.jIRClass ?: return null
+        val defaultConstraint = TypeConstraintInfo(valueCls, exactType = false)
 
-        if (value !is JIRLocalVar || value in visitedValues) {
-            return when (context) {
-                EmptyMethodContext -> setOf(valueCls)
-                is JIRInstanceTypeMethodContext -> {
-                    val type = if (value is JIRThis) selectClass(valueCls, context.type) else valueCls
-                    setOf(type)
-                }
-                else -> error("Unexpected value for $context")
-            }
+        if (value !is JIRLocalVar) {
+            val base = MethodFlowFunctionUtils.accessPathBase(value)
+            val contextType = base?.let { epContext.baseTypeConstraint(it) }
+            val type = contextType?.let { selectTypeConstraint(defaultConstraint, it) } ?: defaultConstraint
+            return setOf(type)
         }
 
-        val (assignments, catchers) = findAllAssignmentsToValue(value, location)
-        if (assignments.isEmpty() && catchers.isEmpty()) {
-            logger.warn { "No assignments to $value in ${location.location.method}" }
-            return setOf(valueCls)
-        }
+        val aliasInfo = context.aliasAnalysis
+            ?: return setOf(defaultConstraint)
 
-        val resolvedTypes = hashSetOf<JIRClassOrInterface>()
+        val aliases = aliasInfo.findAlias(AccessPathBase.LocalVar(value.index), location)
+            ?: return setOf(defaultConstraint)
 
-        visitedValues.add(value)
-        for (assignment in assignments) {
-            val expr = assignment.rhv
-            val exprCls = (expr.type as? JIRRefType)?.jIRClass ?: return null
+        val resultConstraints = hashSetOf<TypeConstraintInfo>()
+        val contextMethodInstList = context.methodEntryPoint.method.let { it as JIRMethod }.instList
+        for (aliasInfo in aliases) {
+            when (aliasInfo) {
+                is AliasAllocInfo -> {
+                    val allocInst = contextMethodInstList.getOrNull(aliasInfo.allocInst)
+                        ?: continue
 
-            when (expr) {
-                is JIRLocalVar -> {
-                    val varTypes = resolveValueClass(expr, assignment, context, visitedValues) ?: return null
-                    varTypes.mapTo(resolvedTypes) { selectClass(valueCls, it) }
+                    val allocExpr = (allocInst as? JIRAssignInst)?.rhv as? JIRNewExpr
+                        ?: continue
+
+                    val allocType = allocExpr.type as? JIRClassType ?: continue
+                    resultConstraints += TypeConstraintInfo(allocType.jIRClass, exactType = true)
                 }
 
-                is JIRCastExpr -> {
-                    val operandTypes = resolveValueClass(expr.operand, assignment, context, visitedValues) ?: return null
-                    operandTypes.mapTo(resolvedTypes) {
-                        selectClass(valueCls, selectClass(it, exprCls))
-                    }
-                }
+                is AliasApInfo -> {
+                    if (aliasInfo.accessors.isNotEmpty()) continue
+                    if (aliasInfo.base is AccessPathBase.LocalVar) continue
 
-                else -> {
-                    resolvedTypes.add(selectClass(valueCls, exprCls))
+                    val contextType = epContext.baseTypeConstraint(aliasInfo.base)
+                    val type = contextType?.let { selectTypeConstraint(defaultConstraint, it) } ?: defaultConstraint
+                    resultConstraints += type
                 }
             }
         }
-        visitedValues.remove(value)
 
-        for (catcher in catchers) {
-            catcher.throwableTypes.mapNotNullTo(resolvedTypes) {
-                (it as? JIRRefType)?.jIRClass
-            }
+        if (resultConstraints.isEmpty()) {
+            return setOf(defaultConstraint)
         }
 
-        return resolvedTypes
+        return resultConstraints
+    }
+
+    private fun MethodContext.baseTypeConstraint(base: AccessPathBase): TypeConstraintInfo? = when (this) {
+        is EmptyMethodContext -> null
+        is JIRInstanceTypeMethodContext -> typeConstraint.takeIf { base is AccessPathBase.This }
+        is JIRArgumentTypeMethodContext -> typeConstraint.takeIf { base is AccessPathBase.Argument && base.idx == argIdx }
+        is CombinedMethodContext -> first.baseTypeConstraint(base) ?: second.baseTypeConstraint(base)
+        else -> error("Unexpected value for context: $this")
+    }
+
+    private fun selectTypeConstraint(left: TypeConstraintInfo, right: TypeConstraintInfo): TypeConstraintInfo {
+        if (left.exactType) return left
+        if (right.exactType) return right
+        val cls = selectClass(left.type, right.type)
+        return TypeConstraintInfo(cls, exactType = false)
     }
 
     private fun selectClass(base: JIRClassOrInterface, other: JIRClassOrInterface): JIRClassOrInterface {
@@ -262,41 +267,103 @@ class JIRCallResolver(
         return base
     }
 
-    private fun findAllAssignmentsToValue(
-        value: JIRValue,
-        initialLocation: JIRInst
-    ): Pair<List<JIRAssignInst>, List<JIRCatchInst>> {
-        val visitedStatements = hashSetOf<JIRInst>()
-        val unprocessedStatements = mutableListOf<JIRInst>()
+    private inner class MethodContextCreator(
+        val context: JIRMethodAnalysisContext,
+        val call: JIRCallExpr,
+        val location: JIRInst,
+        instanceTypeConstraints: Set<TypeConstraintInfo>?,
+        private val paramTypeConstraints: MutableMap<Int, Set<TypeConstraintInfo>> = hashMapOf(),
+    ) {
+        fun withInstanceTypeConstraint(constraint: TypeConstraintInfo): MethodContextCreator =
+            MethodContextCreator(context, call, location, setOf(constraint), paramTypeConstraints)
 
-        val method = graph.methodOf(initialLocation)
-        val methodGraph = graph.methodGraph(method)
-        unprocessedStatements.addAll(methodGraph.predecessors(initialLocation))
-
-        val assignments = mutableListOf<JIRAssignInst>()
-        val catchers = mutableListOf<JIRCatchInst>()
-
-        while (unprocessedStatements.isNotEmpty()) {
-            val stmt = unprocessedStatements.removeLast()
-            if (!visitedStatements.add(stmt)) continue
-
-            if (stmt is JIRCatchInst && stmt.throwable == value) {
-                catchers.add(stmt)
-                continue
-            }
-
-            if (stmt is JIRAssignInst && stmt.lhv == value) {
-                assignments.add(stmt)
-                continue
-            }
-
-            unprocessedStatements.addAll(methodGraph.predecessors(stmt))
+        private val instanceTypes by lazy {
+            if (call !is JIRInstanceCallExpr) return@lazy null
+            instanceTypeConstraints
+                ?: resolveValueTypeConstraints(call.instance, location, context)
         }
 
-        return assignments to catchers
+        private fun paramTypeConstraints(param: JIRParameter): Set<TypeConstraintInfo> {
+            val arg = call.args.getOrNull(param.index) ?: return emptySet()
+            return paramTypeConstraints.getOrPut(param.index) {
+                resolveValueTypeConstraints(arg, location, context).orEmpty()
+            }
+        }
+
+        fun attachContext(method: JIRMethod): List<MethodWithContext> {
+            val argTypeParams = argumentTypeContextParams(method)
+            if (argTypeParams.isNotEmpty()) {
+                val typeConstraints = argTypeParams.associateWith { paramTypeConstraints(it) }
+                return attachParamContext(method, typeConstraints)
+            }
+
+            if (call !is JIRInstanceCallExpr || method.isConstructor) {
+                return listOf((MethodWithContext(method, EmptyMethodContext)))
+            }
+
+            return attachInstanceContext(method, instanceTypes)
+        }
+
+        private fun argumentTypeContextParams(method: JIRMethod): List<JIRParameter> {
+            return method.parameters.filter {
+                it.annotations.any { it.name ==  ArgumentTypeContextAnnotation}
+            }
+        }
+
+        private fun attachInstanceContext(
+            method: JIRMethod,
+            instanceTypes: Set<TypeConstraintInfo>?
+        ): List<MethodWithContext> {
+            if (instanceTypes.isNullOrEmpty()) {
+                return listOf(MethodWithContext(method, EmptyMethodContext))
+            }
+
+            // Method instance type is concrete enough
+            if (instanceTypes.any { method.enclosingClass.isSubClassOf(it.type) }) {
+                return listOf(MethodWithContext(method, EmptyMethodContext))
+            }
+
+            return instanceTypes.map {
+                val ctx = JIRInstanceTypeMethodContext(it)
+                MethodWithContext(method, ctx)
+            }
+        }
+
+        private fun attachParamContext(
+            method: JIRMethod,
+            paramTypes: Map<JIRParameter, Set<TypeConstraintInfo>>,
+        ): List<MethodWithContext> {
+            val paramContexts = paramTypes.mapValues { (param, types) ->
+                if (types.isEmpty()) {
+                    return@mapValues listOf(EmptyMethodContext)
+                }
+
+                val paramType = param.type.toJIRClassOrInterface(method.enclosingClass.classpath)
+                    ?: return@mapValues listOf(EmptyMethodContext)
+
+                // Method param type is concrete enough
+                if (types.any { paramType.isSubClassOf(it.type) }) {
+                    return@mapValues listOf(EmptyMethodContext)
+                }
+
+                types.map { JIRArgumentTypeMethodContext(param.index, it) }
+            }
+
+            val result = mutableListOf<MethodWithContext>()
+            paramContexts.values.toList().cartesianProductMapTo { contextArray ->
+                val context = contextArray.toSet().combine()
+                result += MethodWithContext(method, context)
+            }
+
+            return result
+        }
     }
 
+    private fun JIRMethod.isObjectMethod(): Boolean =
+        enclosingClass.name == "java.lang.Object"
+
     companion object {
-        private val logger = object : KLogging() {}.logger
+        private const val ArgumentTypeContextAnnotation =
+            "org.opentaint.jvm.dataflow.approximations.ArgumentTypeContext"
     }
 }
