@@ -21060,14 +21060,27 @@ passThrough:
 - function: java.util.stream.Stream#collect
   signature: (java.util.stream.Collector) java.lang.Object
   copy:
-  - from: this
-    to: result
+    - from: this
+      to: result
+
+    - from:
+        - this
+        - .java.util.stream.BaseStream#Element#java.lang.Object
+      to:
+        - result
+        - .java.lang.Iterable#Element#java.lang.Object
 - function: java.util.stream.Stream#collect
   signature: (java.util.function.Supplier, java.util.function.BiConsumer, java.util.function.BiConsumer)
     java.lang.Object
   copy:
   - from: this
     to: result
+  - from:
+      - this
+      - .java.util.stream.BaseStream#Element#java.lang.Object
+    to:
+      - result
+      - .java.lang.Iterable#Element#java.lang.Object
 - function: java.util.stream.Stream#concat
   signature: (java.util.stream.Stream, java.util.stream.Stream) java.util.stream.Stream
   copy:
