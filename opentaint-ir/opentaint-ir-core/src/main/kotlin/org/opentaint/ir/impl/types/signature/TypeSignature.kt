@@ -40,6 +40,7 @@ internal class TypeSignature(jIRClass: JIRClassOrInterface) :
         }
     }
 
+
     companion object {
 
         private fun TypeResolutionImpl.apply(visitor: RecursiveJvmTypeVisitor) = TypeResolutionImpl(
@@ -47,6 +48,7 @@ internal class TypeSignature(jIRClass: JIRClassOrInterface) :
             interfaceType.map { visitor.visitType(it) },
             typeVariables.map { visitor.visitDeclaration(it) }
         )
+
 
         fun of(jIRClass: JIRClassOrInterface): TypeResolution {
             val signature = jIRClass.signature ?: return Pure

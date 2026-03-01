@@ -6,6 +6,7 @@ import org.opentaint.ir.impl.cfg.util.typeNameFromJvmName
 import org.objectweb.asm.Opcodes
 import org.opentaint.ir.api.jvm.ext.toType
 
+
 class JIRUnknownType(
     override var classpath: JIRClasspath,
     private val name: String,

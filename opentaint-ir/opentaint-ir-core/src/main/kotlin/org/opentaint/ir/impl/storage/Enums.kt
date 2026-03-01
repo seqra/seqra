@@ -30,6 +30,7 @@ enum class AnnotationValueKind {
 
 }
 
+
 enum class LocationState {
     INITIAL,
     AWAITING_INDEXING,

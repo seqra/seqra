@@ -1,3 +1,4 @@
+
 @file:JvmName("JIRBuilders")
 package org.opentaint.ir.impl.features
 
@@ -10,6 +11,7 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.ext.HierarchyExtension
 import org.opentaint.ir.api.jvm.ext.toType
+
 
 class BuildersExtension(private val classpath: JIRClasspath, private val hierarchyExtension: HierarchyExtension) {
 
@@ -46,6 +48,7 @@ class BuildersExtension(private val classpath: JIRClasspath, private val hierarc
         }
     }
 }
+
 
 suspend fun JIRClasspath.buildersExtension(): BuildersExtension {
     if (!db.isInstalled(Builders)) {

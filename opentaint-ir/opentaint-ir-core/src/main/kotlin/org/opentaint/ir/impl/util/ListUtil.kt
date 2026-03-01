@@ -23,4 +23,5 @@ fun <T> concatLists(vararg lists: List<T>?): List<T> {
     }
 }
 
+
 fun <T> List<T>.adjustEmptyList(): List<T> = ifEmpty { Collections.emptyList() }

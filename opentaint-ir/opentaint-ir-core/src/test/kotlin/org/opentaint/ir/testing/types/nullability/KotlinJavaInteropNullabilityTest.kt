@@ -8,6 +8,7 @@ import org.opentaint.ir.testing.types.NullAnnotationExamples
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
+
 class KotlinJavaInteropNullabilityTest : BaseTypesTest() {
 
     @Test

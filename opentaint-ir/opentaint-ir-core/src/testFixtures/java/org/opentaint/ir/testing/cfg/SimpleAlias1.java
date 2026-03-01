@@ -38,7 +38,9 @@ class A {
 
     public int i = 5;
 
+
 }
+
 
 class Benchmark {
 

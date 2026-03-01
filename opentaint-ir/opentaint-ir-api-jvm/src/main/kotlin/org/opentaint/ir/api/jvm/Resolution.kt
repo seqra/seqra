@@ -1,5 +1,6 @@
 package org.opentaint.ir.api.jvm
 
+
 interface Resolution
 interface MethodResolution : Resolution
 interface RecordComponentResolution : Resolution

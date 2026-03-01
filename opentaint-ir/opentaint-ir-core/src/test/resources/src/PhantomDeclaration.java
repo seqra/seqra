@@ -1,3 +1,4 @@
+
 public class PhantomDeclaration {
     int x = 0;
     int y = 0;
@@ -9,5 +10,6 @@ public class PhantomDeclaration {
     public void runSomething() {
         System.out.println("Hello world");
     }
+
 
 }

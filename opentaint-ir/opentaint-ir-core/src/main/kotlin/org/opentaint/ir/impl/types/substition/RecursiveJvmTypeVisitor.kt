@@ -12,6 +12,7 @@ internal class VisitorContext(private val processed: HashSet<Any> = HashSet()) {
         return processed.add(type)
     }
 
+
     fun isProcessed(type: Any): Boolean {
         return processed.contains(type)
     }
@@ -80,6 +81,7 @@ internal interface RecursiveJvmTypeVisitor : JvmTypeVisitor<VisitorContext> {
         )
     }
 }
+
 
 internal val Map<String, JvmTypeParameterDeclaration>.fixDeclarationVisitor: RecursiveJvmTypeVisitor
     get() {

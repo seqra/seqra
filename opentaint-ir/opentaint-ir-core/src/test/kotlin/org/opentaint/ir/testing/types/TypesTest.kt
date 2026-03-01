@@ -34,6 +34,7 @@ class TypesTest : BaseTypesTest() {
             assertEquals("int[]", type.typeName)
         }
 
+
         val methods = primitiveAndArrays.declaredMethods.filterNot { it.method.isConstructor }
         with(methods.first()) {
             assertTrue(returnType is JIRArrayType)
@@ -144,6 +145,7 @@ class TypesTest : BaseTypesTest() {
     private fun rawList(): JIRClassType {
         return JIRClassTypeImpl(cp, listClass, null, JIRSubstitutorImpl.empty, false, emptyList())
     }
+
 
     private val JIRClassType.iterator get() = findMethodOrNull { it.name == "iterator" && it.parameters.isEmpty() }
 

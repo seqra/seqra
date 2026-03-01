@@ -72,6 +72,7 @@ internal class TypeExtractor(private val typeRegistrant: TypeRegistrant) :
 
             protected val parameters = ArrayList<JvmType>()
 
+
             override fun appendDirectBound(): SignatureVisitor {
                 return TypeExtractor(DirectBound())
             }

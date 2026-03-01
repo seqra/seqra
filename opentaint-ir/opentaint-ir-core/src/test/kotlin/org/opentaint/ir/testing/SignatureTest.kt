@@ -23,6 +23,7 @@ import org.opentaint.ir.testing.usages.Generics
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
+
 class SignatureTest : BaseTest() {
 
     companion object : WithGlobalDbImmutable()
@@ -134,6 +135,7 @@ class SignatureTest : BaseTest() {
             assertEquals("java.util.List", fieldType.name)
         }
     }
+
 
     private val JIRClassOrInterface.resolution get() = TypeSignature.of(this)
     private val JIRMethod.resolution get() = MethodSignature.of(this)

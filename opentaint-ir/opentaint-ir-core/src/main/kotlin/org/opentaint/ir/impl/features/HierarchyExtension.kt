@@ -1,3 +1,4 @@
+
 @file:JvmName("JIRHierarchies")
 @file:Suppress("SqlResolve", "SqlSourceToSinkFlow")
 package org.opentaint.ir.impl.features

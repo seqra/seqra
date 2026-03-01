@@ -1,3 +1,4 @@
+
 public class PhantomCodeConsumer {
 
     private final PhantomClass clazz = new PhantomClass();
@@ -11,4 +12,5 @@ public class PhantomCodeConsumer {
         clazz.run();
     }
 }
+
 

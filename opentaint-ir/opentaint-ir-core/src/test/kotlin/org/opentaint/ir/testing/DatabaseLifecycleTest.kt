@@ -42,6 +42,7 @@ class DatabaseLifecycleTest {
     private val testDirClone: File get() = File(tempFolder, "test")
     private val guavaLibClone: File get() = File(tempFolder, guavaLib.name)
 
+
     @BeforeEach
     fun cloneClasspath() {
         allClasspath.forEach {

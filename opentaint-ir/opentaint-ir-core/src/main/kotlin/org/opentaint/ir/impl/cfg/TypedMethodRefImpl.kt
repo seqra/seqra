@@ -159,6 +159,7 @@ class VirtualMethodRefImpl(
     }
 }
 
+
 class TypedMethodRefImpl(
         type: JIRClassType,
         name: String,
@@ -221,5 +222,6 @@ class JIRInstLocationImpl(
         result = 31 * result + method.hashCode()
         return result
     }
+
 
 }

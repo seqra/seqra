@@ -152,7 +152,7 @@ private fun parsePrimitiveType(opcode: Int) = when (opcode) {
 
 private fun parseBsmHandleTag(tag: Int): BsmHandleTag = when (tag) {
     Opcodes.H_GETFIELD -> BsmHandleTag.FieldHandle.GET_FIELD
-    Opcodes.H_GFrontendTATIC -> BsmHandleTag.FieldHandle.GET_STATIC
+    Opcodes.H_GETSTATIC -> BsmHandleTag.FieldHandle.GET_STATIC
     Opcodes.H_PUTFIELD -> BsmHandleTag.FieldHandle.PUT_FIELD
     Opcodes.H_PUTSTATIC -> BsmHandleTag.FieldHandle.PUT_STATIC
 
@@ -1413,7 +1413,7 @@ class RawInstListBuilder(
                 addInstruction(insnNode, createRawAssign(method, fieldRef, value))
             }
 
-            Opcodes.GFrontendTATIC -> {
+            Opcodes.GETSTATIC -> {
                 val assignment = nextRegister(fieldType)
                 val field = JIRRawFieldRef(declaringClass, fieldName, fieldType)
                 addInstruction(insnNode, createRawAssign(method, assignment, field))

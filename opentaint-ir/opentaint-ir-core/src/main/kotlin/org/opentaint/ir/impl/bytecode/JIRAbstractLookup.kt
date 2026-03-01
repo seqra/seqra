@@ -50,6 +50,7 @@ abstract class JIRAbstractLookup<Entry : JIRAccessible, Result : JIRAccessible>(
 
 }
 
+
 internal interface PolymorphicSignatureSupport {
     fun List<JIRMethod>.indexOf(name: String): Int {
         if (isEmpty()) {
@@ -74,6 +75,7 @@ internal interface PolymorphicSignatureSupport {
         return if (index >= 0) get(index) else null
     }
 }
+
 
 abstract class DelegatingLookup<Field : JIRAccessible, Method : JIRAccessible>(
     private val ext: List<JIRLookupExtFeature>,

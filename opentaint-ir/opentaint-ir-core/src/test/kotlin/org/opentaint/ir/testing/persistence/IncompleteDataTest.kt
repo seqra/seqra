@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test
 import java.io.File
 import java.nio.file.Files
 
+
 @LifecycleTest
 class IncompleteDataTest {
 
@@ -89,6 +90,7 @@ class IncompleteDataTest {
                 }
         }
     }
+
 
     private fun withPersistence(action: (DSLContext) -> Unit) {
         val persistence = SQLitePersistenceImpl(

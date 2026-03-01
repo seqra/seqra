@@ -1,3 +1,4 @@
+
 @file:JvmName("JIRMethods")
 package org.opentaint.ir.api.jvm.ext
 
@@ -8,6 +9,7 @@ import org.objectweb.asm.Type
 import org.objectweb.asm.tree.FieldInsnNode
 import org.objectweb.asm.tree.MethodInsnNode
 import java.util.*
+
 
 const val CONSTRUCTOR = "<init>"
 
@@ -41,6 +43,7 @@ val JIRMethod.hasBody: Boolean
     get() {
         return !isNative && !isAbstract && withAsmNode { it.instructions.first != null }
     }
+
 
 val JIRMethod.usedMethods: List<JIRMethod>
     get() {
@@ -89,7 +92,7 @@ val JIRMethod.usedFields: FieldUsagesResult
                             if (jIRClass != null) {
                                 when (instruction.opcode) {
                                     Opcodes.GETFIELD -> reads.add(jIRClass)
-                                    Opcodes.GFrontendTATIC -> reads.add(jIRClass)
+                                    Opcodes.GETSTATIC -> reads.add(jIRClass)
                                     Opcodes.PUTFIELD -> writes.add(jIRClass)
                                     Opcodes.PUTSTATIC -> writes.add(jIRClass)
                                 }

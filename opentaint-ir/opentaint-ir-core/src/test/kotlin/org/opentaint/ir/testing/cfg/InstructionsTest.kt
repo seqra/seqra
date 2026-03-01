@@ -33,6 +33,7 @@ import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import javax.activation.DataHandler
 
+
 class InstructionsTest : BaseInstructionsTest() {
 
     @Test
@@ -58,6 +59,7 @@ class InstructionsTest : BaseInstructionsTest() {
         val usedArgumentNames = usedArgumentExprs.map { (it as JIRArgument).name }
         assertEquals(listOf("i", "j", "b", "d"), usedArgumentNames)
     }
+
 
     @Test
     fun `cmp insts`() {
@@ -226,6 +228,7 @@ class InstructionsTest : BaseInstructionsTest() {
 
         assertEquals(parent, fieldInt.enclosingType.jIRClass)
         assertEquals(cp.int, fieldInt.type)
+
 
         // public boolean field
         val methodWithPublicFieldBoolean = child.declaredMethods.first { it.name == "accessBooleanField" }

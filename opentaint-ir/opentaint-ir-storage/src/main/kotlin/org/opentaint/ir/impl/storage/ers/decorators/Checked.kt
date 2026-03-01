@@ -29,6 +29,7 @@ private class CheckedTransaction(
         get() = uncheckedDelegate.isFinished
 }
 
+
 private class CheckedEntityIterable(
     private val uncheckedDelegate: EntityIterable,
     private val ownerTxn: Transaction

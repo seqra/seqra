@@ -71,9 +71,11 @@ class VirtualClassContentsBuilder() {
         }
     }
 
+
     fun build() = VirtualClassContent(builders)
 
 }
+
 
 class VirtualClassContentBuilder {
     internal var matcher: (JIRClassOrInterface) -> Boolean = { false }

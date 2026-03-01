@@ -33,6 +33,7 @@ abstract class BaseTypesTest : BaseTest() {
         return this as JIRClassType
     }
 
+
     protected inline fun <reified T> Any.assertIs(): T {
         return assertInstanceOf(T::class.java, this)
     }

@@ -36,6 +36,7 @@ interface JavaVersion {
     val majorVersion: Int
 }
 
+
 /**
  * Compilation database
  *
@@ -133,6 +134,7 @@ interface JIRDatabase : Closeable {
 
     val features: List<JIRFeature<*, *>>
 }
+
 
 interface JIRDatabasePersistence : Closeable {
 

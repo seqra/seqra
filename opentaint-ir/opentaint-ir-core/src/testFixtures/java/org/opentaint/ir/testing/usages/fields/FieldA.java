@@ -28,6 +28,7 @@ public class FieldA {
 
 }
 
+
 class FieldAImpl extends FieldA {
 
     public final FieldB fieldB = new FieldB(1);
@@ -44,4 +45,5 @@ class FieldAImpl extends FieldA {
         System.out.println(fieldB);
     }
 }
+
 

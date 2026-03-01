@@ -15,6 +15,7 @@ class FullObjectsSet(type: JIRType) : JIRPointsToSet {
     override val isEmpty: Boolean
         get() = possibleTypes.isEmpty()
 
+
     override fun intersects(other: JIRPointsToSet) = false
 
     override val possibleStrings: Set<String>? = null

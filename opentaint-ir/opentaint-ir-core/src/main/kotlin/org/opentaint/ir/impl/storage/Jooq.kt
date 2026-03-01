@@ -33,6 +33,7 @@ inline fun DSLContext.withoutAutoCommit(crossinline action: (Connection) -> Unit
     }
 }
 
+
 fun <ELEMENT, RECORD : Record> Connection.insertElements(
     table: Table<RECORD>,
     elements: Iterable<ELEMENT>,

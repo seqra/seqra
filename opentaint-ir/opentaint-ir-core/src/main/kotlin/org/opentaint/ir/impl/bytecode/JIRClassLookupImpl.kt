@@ -28,6 +28,7 @@ internal abstract class JIRClassLookup<Result : JIRAccessible>(clazz: JIRClassOr
     override val JIRClassOrInterface.resolvePackage: String
         get() = packageName
 
+
     internal open class JIRMethodLookup(
         clazz: JIRClassOrInterface,
         protected val name: String,
@@ -95,5 +96,6 @@ internal abstract class JIRClassLookup<Result : JIRAccessible>(clazz: JIRClassOr
         }
 
     }
+
 
 }

@@ -1,3 +1,4 @@
+
 @file:JvmName("JIRLoops")
 package org.opentaint.ir.impl.cfg.util
 
@@ -6,6 +7,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.impl.cfg.graphs.findDominators
 import java.util.*
 import kotlin.LazyThreadSafetyMode.PUBLICATION
+
 
 class JIRLoop(
     val graph: JIRGraph,
@@ -44,6 +46,7 @@ class JIRLoop(
         return result
     }
 
+
 }
 
 val JIRGraph.loops: Set<JIRLoop>
@@ -80,6 +83,7 @@ private fun JIRGraph.newLoop(head: JIRInst, loopStatements: MutableList<JIRInst>
     assert(successors(backJump).contains(head))
     return JIRLoop(this, head = head, instructions = loopStatements)
 }
+
 
 private fun JIRGraph.loopBodyOf(header: JIRInst, inst: JIRInst): MutableList<JIRInst> {
     val loopBody = arrayListOf(header)

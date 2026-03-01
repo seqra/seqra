@@ -5,6 +5,7 @@ import java.util.List;
 
 public class Generics {
 
+
     static class LinkedBase<T, W extends List<T>> {
         T state;
         W stateW;
@@ -12,8 +13,10 @@ public class Generics {
 
     }
 
+
     static class LinkedImpl<W extends List<String>> extends LinkedBase<String, W> {
     }
+
 
     static class SingleBase<T> {
 

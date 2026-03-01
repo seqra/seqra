@@ -285,6 +285,7 @@ public class NpeExamples {
         return y.field.length();
     }
 
+
     // NOT WORKING
     int noNPEAfterAliasing() {
         SimpleClassWithField x = new SimpleClassWithField(null);

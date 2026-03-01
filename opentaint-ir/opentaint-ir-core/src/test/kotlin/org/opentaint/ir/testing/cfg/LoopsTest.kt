@@ -105,6 +105,7 @@ class LoopsTest : BaseTest() {
             return this.flowGraph().loops.toList().sortedBy { it.head.lineNumber }
         }
 
+
     private fun JIRLoop.assertSources(start: Int, end: Int) {
         val sourceLineNumbers = instructions.map { it.lineNumber }
         assertEquals(end, sourceLineNumbers.max())

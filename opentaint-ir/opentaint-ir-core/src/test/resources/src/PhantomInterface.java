@@ -1,3 +1,4 @@
+
 public interface PhantomInterface {
 
     static void staticFoo() {

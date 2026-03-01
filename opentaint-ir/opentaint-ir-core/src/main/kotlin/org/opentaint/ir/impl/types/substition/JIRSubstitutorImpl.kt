@@ -11,6 +11,7 @@ import org.opentaint.ir.impl.types.signature.JvmTypeParameterDeclarationImpl
 import org.opentaint.ir.impl.types.signature.JvmTypeVariable
 import org.opentaint.ir.impl.types.signature.copyWith
 
+
 class JIRSubstitutorImpl(
     // map declaration -> actual type or type variable
     override val substitutions: PersistentMap<JvmTypeParameterDeclaration, JvmType> = persistentMapOf()

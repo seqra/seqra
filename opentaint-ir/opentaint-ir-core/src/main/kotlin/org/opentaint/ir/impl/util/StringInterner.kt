@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.util
 
+
 val String.interned: String get() = StringInterner.intern(this)
 
 object StringInterner {

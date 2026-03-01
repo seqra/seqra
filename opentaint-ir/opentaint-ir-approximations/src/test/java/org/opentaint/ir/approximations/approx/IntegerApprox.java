@@ -2,6 +2,7 @@ package org.opentaint.ir.approximations.approx;
 
 import org.opentaint.ir.approximation.annotation.Approximate;
 
+
 @Approximate(java.lang.Integer.class)
 public class IntegerApprox {
     private final int value;

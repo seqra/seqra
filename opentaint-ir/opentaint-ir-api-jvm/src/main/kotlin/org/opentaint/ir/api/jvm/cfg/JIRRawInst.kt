@@ -85,6 +85,7 @@ class JIRRawLineNumberInst(override val owner: JIRMethod, val lineNumber: Int, v
     }
 }
 
+
 class JIRRawLabelInst(
     override val owner: JIRMethod,
     val name: String
@@ -797,6 +798,7 @@ data class JIRRawSpecialCallExpr(
         return visitor.visitJIRRawSpecialCallExpr(this)
     }
 }
+
 
 sealed interface JIRRawValue : JIRRawExpr
 

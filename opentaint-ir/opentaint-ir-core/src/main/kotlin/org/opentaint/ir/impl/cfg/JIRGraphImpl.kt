@@ -154,6 +154,7 @@ class JIRGraphImpl(
     }
 }
 
+
 fun JIRGraph.filter(visitor: JIRInstVisitor<Boolean>) =
     JIRGraphImpl(method, instructions.filter { it.accept(visitor) })
 

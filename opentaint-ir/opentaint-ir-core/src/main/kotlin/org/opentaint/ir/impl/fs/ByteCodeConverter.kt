@@ -161,6 +161,7 @@ private fun FieldNode.asFieldInfo() = FieldInfo(
     ),
 )
 
+
 val ClassSource.info: ClassInfo
     get() {
         return newClassNode(ClassReader.SKIP_CODE).asClassInfo(byteCode)

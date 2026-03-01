@@ -53,6 +53,7 @@ class TryCatchFinally2 {
         return s
     }
 
+
     fun box(): String {
         if (test1() != "TryCatchFinally") return "fail1: ${test1()}"
 
@@ -86,6 +87,7 @@ class TryCatchFinally3 {
         }
         return s + "Failed"
     }
+
 
     fun test2WithFinally(): String {
         var s = "";
@@ -198,6 +200,8 @@ class TryCatchFinally4{
         }
         return s + "Failed"
     }
+
+
 
     fun box() : String {
         if (test1() != "TryCatch") return "fail1: ${test1()}"

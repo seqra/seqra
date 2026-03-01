@@ -87,6 +87,7 @@ class JIRClassTypeImpl(
             }
         }
 
+
     override val superType: JIRClassType?
         get() {
             val superClass = jIRClass.superClass ?: return null
@@ -225,6 +226,7 @@ class JIRClassTypeImpl(
         )
         return result.toList()
     }
+
 
     private fun superSubstitutor(superClass: JIRClassOrInterface, superType: JvmType): JIRSubstitutor {
         val superParameters = superClass.directTypeParameters()

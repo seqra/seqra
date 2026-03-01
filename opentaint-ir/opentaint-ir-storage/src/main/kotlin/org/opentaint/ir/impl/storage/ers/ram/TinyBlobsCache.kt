@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.storage.ers.ram
 
+
 internal fun ByteArray.probablyCached(): ByteArray {
     return if (size == 1) {
         theCache[this[0].toInt() and 0xff]

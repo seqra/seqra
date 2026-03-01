@@ -346,6 +346,7 @@ abstract class DatabaseEnvTest {
         }
     }
 
+
     @Test
     fun `classes common methods usages`() = runBlocking {
         val runnable = cp.findClass<Runnable>()

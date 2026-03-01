@@ -4,6 +4,7 @@ import org.objectweb.asm.Opcodes
 import java.io.File
 import java.math.BigInteger
 
+
 /**
  * Immutable structure represented a file system location of bytecode such as `jar` or build folder.
  *

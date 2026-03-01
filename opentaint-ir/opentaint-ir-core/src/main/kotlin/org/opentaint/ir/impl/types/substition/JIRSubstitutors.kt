@@ -20,6 +20,7 @@ private fun List<JvmTypeParameterDeclaration>.substitute(
     return (outer ?: JIRSubstitutorImpl.empty).newScope(substitution)
 }
 
+
 object SafeSubstitution : JIRGenericsSubstitutionFeature {
 
     override fun substitute(

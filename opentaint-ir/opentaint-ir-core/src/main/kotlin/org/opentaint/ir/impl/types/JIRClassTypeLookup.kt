@@ -24,11 +24,13 @@ class JIRClassTypeLookupImpl(val type: JIRClassType) : JIRLookup<JIRTypedField, 
     }
 }
 
+
 abstract class JIRClassTypeLookup<Result : JIRAccessible>(clazz: JIRClassType) :
     JIRAbstractLookup<JIRClassType, Result>(clazz) {
 
     override val JIRClassType.resolvePackage: String
         get() = jIRClass.packageName
+
 
     internal open class JIRTypedMethodLookup(
         type: JIRClassType,
@@ -48,6 +50,7 @@ abstract class JIRClassTypeLookup<Result : JIRAccessible>(clazz: JIRClassType) :
             return super.lookupElement(en) ?: en.declaredMethods.find(name)
         }
     }
+
 
     internal class JIRStaticTypedMethodLookup(
         type: JIRClassType,

@@ -14,6 +14,8 @@ public class Interfaces {
     public static class Impl2 extends Impl1 {
     }
 
+
+
     public Interface build1() {
         return new Impl1();
     }

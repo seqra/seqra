@@ -1,3 +1,4 @@
+
 @file:JvmName("JIRFields")
 package org.opentaint.ir.api.jvm.ext
 
@@ -19,6 +20,7 @@ val JIRField.isTransient: Boolean
     get() {
         return access and Opcodes.ACC_TRANSIENT != 0
     }
+
 
 val JIRField.isEnum: Boolean
     get() {

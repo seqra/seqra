@@ -62,6 +62,7 @@ val Class<*>.withDb: JIRDatabaseHolder
         return s.withDb
     }
 
+
 interface JIRDatabaseHolder {
 
     val classpathFeatures: List<JIRClasspathFeature>

@@ -78,6 +78,7 @@ class JIRMethodImpl(
         return featuresChain.call<JIRMethodExtFeature, JIRFlowGraphResult> { it.flowGraph(this) }!!.flowGraph
     }
 
+
     override val instList: JIRInstList<JIRInst> get() {
         return featuresChain.call<JIRMethodExtFeature, JIRInstListResult> { it.instList(this) }!!.instList
     }

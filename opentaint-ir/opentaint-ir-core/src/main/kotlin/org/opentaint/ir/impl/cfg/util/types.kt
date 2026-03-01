@@ -22,6 +22,7 @@ internal val UNINIT_THIS = TypeNameImpl.fromTypeName("UNINIT_THIS")
 internal val TypeName.jvmTypeName get() = typeName.jvmName()
 internal val TypeName.jvmClassName get() = jvmTypeName.removePrefix("L").removeSuffix(";")
 
+
 val TypeName.internalDesc: String
     get() = when {
         isPrimitive -> jvmTypeName

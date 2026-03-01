@@ -1,3 +1,4 @@
+
 import java.io.Closeable;
 
 public class GenericsApi<T extends Closeable> {

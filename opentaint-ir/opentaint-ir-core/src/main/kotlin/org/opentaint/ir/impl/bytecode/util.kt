@@ -13,6 +13,7 @@ val ClassNode.hasFrameInfo: Boolean
         return methods.any { mn -> mn.instructions.any { it is FrameNode } }
     }
 
+
 val MethodNode.jsrInlined: MethodNode
     get() {
         return JSRInlinerAdapter(null, access, name, desc, signature, exceptions?.toTypedArray()).also {

@@ -50,7 +50,7 @@ private val TypeName.typeInt
 private val BsmHandleTag.tagInt: Int
     get() = when (this) {
         BsmHandleTag.FieldHandle.GET_FIELD -> Opcodes.H_GETFIELD
-        BsmHandleTag.FieldHandle.GET_STATIC -> Opcodes.H_GFrontendTATIC
+        BsmHandleTag.FieldHandle.GET_STATIC -> Opcodes.H_GETSTATIC
         BsmHandleTag.FieldHandle.PUT_FIELD -> Opcodes.H_PUTFIELD
         BsmHandleTag.FieldHandle.PUT_STATIC -> Opcodes.H_PUTSTATIC
         BsmHandleTag.MethodHandle.INVOKE_VIRTUAL -> Opcodes.H_INVOKEVIRTUAL
@@ -592,6 +592,7 @@ class MethodNodeBuilder(
         currentInsnList.add(TypeInsnNode(Opcodes.INSTANCEOF, expr.targetType.internalDesc))
     }
 
+
     private val BsmHandleTag.isGetFieldOrStaticTag
         get() = this == BsmHandleTag.FieldHandle.GET_FIELD || this == BsmHandleTag.FieldHandle.GET_STATIC
 
@@ -727,7 +728,7 @@ class MethodNodeBuilder(
 
     override fun visitJIRRawFieldRef(value: JIRRawFieldRef) {
         value.instance?.accept(this)
-        val opcode = if (value.instance == null) Opcodes.GFrontendTATIC else Opcodes.GETFIELD
+        val opcode = if (value.instance == null) Opcodes.GETSTATIC else Opcodes.GETFIELD
         currentInsnList.add(
             FieldInsnNode(
                 opcode,

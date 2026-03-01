@@ -113,6 +113,7 @@ class JIRClassOrInterfaceImpl(
         default.joinFeatureFields(this, featuresChain)
     }
 
+
     override val declaredMethods: List<JIRMethod> by lazy(PUBLICATION) {
         val default = info.methods.map { toJIRMethod(it, featuresChain) }
         default.joinFeatureMethods(this, featuresChain)

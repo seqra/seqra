@@ -1,3 +1,4 @@
+
 @file:JvmName("JIRCommons")
 package org.opentaint.ir.api.jvm.ext
 
@@ -51,6 +52,7 @@ fun String.jIRdbName(): String {
     }
 }
 
+
 val JIRClasspath.objectType: JIRClassType
     get() = findTypeOrNull<Any>() as? JIRClassType ?: throwClassNotFound<Any>()
 
@@ -62,6 +64,7 @@ val JIRClasspath.cloneableClass: JIRClassOrInterface
 
 val JIRClasspath.serializableClass: JIRClassOrInterface
     get() = findClass<Serializable>()
+
 
 // call with SAFE. comparator works only on methods from one hierarchy
 internal object UnsafeHierarchyMethodComparator : Comparator<JIRMethod> {

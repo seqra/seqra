@@ -77,6 +77,7 @@ abstract class BaseInMemoryHierarchyTest : BaseTest() {
         }
     }
 
+
     @Test
     fun `find subclasses of Any`() {
         val numberOfClasses = getNumberOfClasses()
@@ -91,6 +92,7 @@ abstract class BaseInMemoryHierarchyTest : BaseTest() {
         val count = findSubClasses<Comparable<*>>(allHierarchy = true).count()
         assertTrue(count > 100, "expected more then 100 but got $count")
     }
+
 
     @Test
     fun `find direct subclasses of Comparable`() {

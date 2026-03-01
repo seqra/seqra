@@ -41,6 +41,7 @@ abstract class AbstractTransactionDecorator : Transaction {
     override fun abort() = delegate.abort()
 }
 
+
 enum class CombineOperation {
     PLUS,
     TIMES,
@@ -70,6 +71,7 @@ abstract class AbstractEntityIterableDecorator : EntityIterable {
     final override fun minus(other: EntityIterable): EntityIterable = combine(MINUS, unwrapOther(other))
     override fun deleteAll() = delegate.deleteAll()
 }
+
 
 abstract class AbstractEntityDecorator : Entity() {
     internal abstract val delegate: Entity

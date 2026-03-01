@@ -126,6 +126,7 @@ public class JavaTasks {
 
         heapSort(temperature);
 
+
         // O(n)
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputName))) {
             for (Double number : temperature) {

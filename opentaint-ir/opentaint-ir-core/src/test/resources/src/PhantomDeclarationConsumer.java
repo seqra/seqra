@@ -1,3 +1,4 @@
+
 public class PhantomDeclarationConsumer {
 
     PhantomDeclaration f = new PhantomDeclaration();

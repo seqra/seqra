@@ -104,6 +104,7 @@ class AnnotationCollector(
         return id
     }
 
+
     private fun collectValue(nameValue: Pair<String, AnnotationValue>, parent: AnnotationItem) {
         val (name, value) = nameValue
         val valueId = annotationValueIdGen.incrementAndGet()

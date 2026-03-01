@@ -1,6 +1,9 @@
 package org.opentaint.ir.approximation
 
+import org.objectweb.asm.tree.AnnotationNode
+import org.objectweb.asm.tree.ClassNode
 import org.opentaint.ir.api.jvm.ByteCodeIndexer
+import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRClassExtFeature
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClasspath
@@ -19,14 +22,15 @@ import org.opentaint.ir.api.storage.ers.Entity
 import org.opentaint.ir.api.storage.ers.EntityIterable
 import org.opentaint.ir.api.storage.ers.compressed
 import org.opentaint.ir.approximation.annotation.Approximate
+import org.opentaint.ir.approximation.annotation.ApproximateByName
+import org.opentaint.ir.approximation.annotation.ApproximatedFieldName
+import org.opentaint.ir.approximation.annotation.ApproximatedMethodName
 import org.opentaint.ir.approximation.annotation.Version
 import org.opentaint.ir.impl.cfg.JIRInstListImpl
 import org.opentaint.ir.impl.fs.className
 import org.opentaint.ir.impl.storage.execute
 import org.opentaint.ir.impl.storage.txn
 import org.opentaint.ir.impl.types.RefKind
-import org.objectweb.asm.tree.AnnotationNode
-import org.objectweb.asm.tree.ClassNode
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentMap
 
@@ -91,7 +95,8 @@ class Approximations(
     override fun onSignal(signal: JIRSignal) {
         if (signal is JIRSignal.BeforeIndexing) {
             val persistence = signal.jIRdb.persistence
-            val approxSymbol = persistence.findSymbolId(approximationAnnotationClassName)
+            val approxSymbolClass = persistence.findSymbolId(approximationAnnotationClassName)
+            val approxSymbolName = persistence.findSymbolId(approximationByNameAnnotationClassName)
             persistence.read { context ->
                 context.execute(
                     sqlAction = {
@@ -114,31 +119,23 @@ class Approximations(
                         val targetId = persistence.findSymbolId("target")
                         val fromVersionId = persistence.findSymbolId("fromVersion")
                         val toVersionId = persistence.findSymbolId("toVersion")
-                        context.txn.find("Annotation", "nameId", approxSymbol.compressed)
+
+                        val namedApprox = context.txn.find("Annotation", "nameId", approxSymbolName.compressed)
                             .filter { it.getCompressedBlob<Int>("refKind") == RefKind.CLASS.ordinal }
                             .mapNotNull { annotation ->
-                                val values = annotation.getLinks("values")
-                                val versionsValue = values.filterTo(mutableListOf()) {
-                                    versionsId == it.annotationValueNameId
-                                }
-                                if (versionsValue.isEmpty())
-                                    return@mapNotNull annotation to values
+                                matchAnnotationVersions(persistence, annotation, versionsId, versionSymbol, targetId, fromVersionId, toVersionId)
+                            }.mapNotNull { (annotation, values) ->
+                                val clazz = annotation.getLink("ref")
+                                val originalClassName = values.annotationStringValueByName(persistence, valueId)
+                                    ?: return@mapNotNull null
 
-                                val versionMatches = versionsValue.any { versionValue ->
-                                    val versionAnnotation = versionValue.getLink("refAnnotation")
-                                    check(versionSymbol == versionAnnotation.annotationNameId)
-                                    val versionValues = versionAnnotation.getLinks("values")
-                                    val target = versionValues.annotationStringValueByName(persistence, targetId)
-                                        ?: error("unable to find `target` value in `Version` annotation")
-                                    val fromVersion = versionValues.annotationStringValueByName(persistence, fromVersionId)
-                                        ?: error("unable to find `fromVersion` value in `Version` annotation")
-                                    val toVersion = versionValues.annotationStringValueByName(persistence, toVersionId)
-                                        ?: error("unable to find `toVersion` value in `Version` annotation")
-                                    VersionsIntervalInfo(target, fromVersion, toVersion).matches(versionMap)
-                                }
-                                if (versionMatches)
-                                    annotation to values
-                                else null
+                                clazz.getCompressed<Long>("nameId") to persistence.findSymbolId(originalClassName)
+                            }
+
+                        val classApprox = context.txn.find("Annotation", "nameId", approxSymbolClass.compressed)
+                            .filter { it.getCompressedBlob<Int>("refKind") == RefKind.CLASS.ordinal }
+                            .mapNotNull { annotation ->
+                                matchAnnotationVersions(persistence, annotation, versionsId, versionSymbol, targetId, fromVersionId, toVersionId)
                             }.flatMap { (annotation, values) ->
                                 annotation.getLink("ref").let { clazz ->
                                     values.map { clazz to it }
@@ -148,6 +145,8 @@ class Approximations(
                             }.map { (clazz, annotationValue) ->
                                 clazz.getCompressed<Long>("nameId") to annotationValue.getCompressedBlob<Long>("classSymbolId")
                             }
+
+                        namedApprox + classApprox
                     }
                 ).forEach { (approximation, original) ->
                     val approximationClassName = persistence.findSymbolName(approximation!!).toApproximationName()
@@ -159,6 +158,40 @@ class Approximations(
         }
     }
 
+    private fun matchAnnotationVersions(
+        persistence: JIRDatabasePersistence,
+        annotation: Entity,
+        versionsId: Long,
+        versionSymbol: Long,
+        targetId: Long,
+        fromVersionId: Long,
+        toVersionId: Long
+    ): Pair<Entity, EntityIterable>? {
+        val values = annotation.getLinks("values")
+        val versionsValue = values.filterTo(mutableListOf()) {
+            versionsId == it.annotationValueNameId
+        }
+        if (versionsValue.isEmpty())
+            return annotation to values
+
+        val versionMatches = versionsValue.any { versionValue ->
+            val versionAnnotation = versionValue.getLink("refAnnotation")
+            check(versionSymbol == versionAnnotation.annotationNameId)
+            val versionValues = versionAnnotation.getLinks("values")
+            val target = versionValues.annotationStringValueByName(persistence, targetId)
+                ?: error("unable to find `target` value in `Version` annotation")
+            val fromVersion = versionValues.annotationStringValueByName(persistence, fromVersionId)
+                ?: error("unable to find `fromVersion` value in `Version` annotation")
+            val toVersion = versionValues.annotationStringValueByName(persistence, toVersionId)
+                ?: error("unable to find `toVersion` value in `Version` annotation")
+            VersionsIntervalInfo(target, fromVersion, toVersion).matches(versionMap)
+        }
+        return if (versionMatches)
+            annotation to values
+        else null
+    }
+
+
     /**
      * Returns a list of [JIREnrichedVirtualField] if there is an approximation for [clazz] and null otherwise.
      */
@@ -166,7 +199,12 @@ class Approximations(
         val approximationName = findApproximationByOriginOrNull(clazz.name.toOriginalName()) ?: return null
         val approximationClass = clazz.classpath.findClassOrNull(approximationName) ?: return null
 
-        return approximationClass.declaredFields.map { transformerIntoVirtual.transformIntoVirtualField(clazz, it) }
+        return approximationClass.declaredFields.map {
+            val fieldName = findApproximatedName(it, approximatedFieldName)
+                ?: it.name
+
+            transformerIntoVirtual.transformIntoVirtualField(clazz, it, fieldName)
+        }
     }
 
     /**
@@ -177,8 +215,17 @@ class Approximations(
         val approximationClass = clazz.classpath.findClassOrNull(approximationName) ?: return null
 
         return approximationClass.declaredMethods.map {
-            approximationClass.classpath.transformMethodIntoVirtual(clazz, it)
+            val methodName = findApproximatedName(it, approximatedMethodName)
+                ?: it.name
+
+            approximationClass.classpath.transformMethodIntoVirtual(clazz, it, methodName)
         }
+    }
+
+    private fun findApproximatedName(element: JIRAnnotated, annotationName: String): String? {
+        val nameAnnotation = element.annotations.firstOrNull { a -> a.name == annotationName }
+            ?: return null
+        return nameAnnotation.values["value"] as? String
     }
 
     override fun transformRawInstList(method: JIRMethod, list: JIRInstList<JIRRawInst>): JIRInstList<JIRRawInst> {
@@ -317,16 +364,27 @@ private class ApproximationIndexer(
 
         // Check whether the classNode contains an approximation related annotation
         val approximationAnnotation = annotations.singleOrNull {
-            approximationAnnotationClassName in it.desc.className
+            approximationAnnotationClassName in it.desc.className || approximationByNameAnnotationClassName in it.desc.className
         } ?: return
 
         if (!checkVersion(approximationAnnotation))
             return
 
-        // Extract a name of the target class for this approximation
-        val target = approximationAnnotation.values.filterIsInstance<org.objectweb.asm.Type>().single()
+        val originalClassName = when {
+            approximationByNameAnnotationClassName in approximationAnnotation.desc.className -> {
+                val target = approximationAnnotation.values[1] as String
+                target.toOriginalName()
+            }
 
-        val originalClassName = target.className.toOriginalName()
+            approximationAnnotationClassName in approximationAnnotation.desc.className -> {
+                // Extract a name of the target class for this approximation
+                val target = approximationAnnotation.values.filterIsInstance<org.objectweb.asm.Type>().single()
+                target.className.toOriginalName()
+            }
+
+            else -> error("Impossible")
+        }
+
         val approximationClassName = classNode.name.className.toApproximationName()
 
         // Ensure that each approximation has one and only one
@@ -353,6 +411,9 @@ private class ApproximationIndexer(
 }
 
 private val approximationAnnotationClassName = Approximate::class.qualifiedName!!
+private val approximationByNameAnnotationClassName = ApproximateByName::class.qualifiedName!!
+private val approximatedMethodName = ApproximatedMethodName::class.qualifiedName!!
+private val approximatedFieldName = ApproximatedFieldName::class.qualifiedName!!
 private val versionAnnotationClassName = Version::class.qualifiedName!!
 
 @JvmInline

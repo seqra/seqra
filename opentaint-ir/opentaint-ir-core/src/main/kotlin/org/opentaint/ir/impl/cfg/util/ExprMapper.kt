@@ -369,6 +369,7 @@ class ExprMapper(val mapping: Map<JIRRawExpr, JIRRawExpr>) : JIRRawInstVisitor<J
         }
     }
 
+
     override fun visitJIRRawThis(value: JIRRawThis) = exprHandler(value) { value }
     override fun visitJIRRawArgument(value: JIRRawArgument) = exprHandler(value) { value }
     override fun visitJIRRawLocalVar(value: JIRRawLocalVar) = exprHandler(value) { value }

@@ -2,7 +2,9 @@ package org.opentaint.ir.testing.cfg
 
 import org.junit.jupiter.api.Assertions.assertEquals
 
+
 class Varargs {
+
 
     fun <T> foo(vararg a: T) = a.size
 

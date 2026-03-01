@@ -1,3 +1,4 @@
+
 public class PhantomClass {
 
     public int intField;

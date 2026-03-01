@@ -1,3 +1,4 @@
+
 @file:JvmName("JIRUsages")
 package org.opentaint.ir.impl.features
 
@@ -52,7 +53,7 @@ class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, pr
         val opcode = when {
             isStatic && mode == FieldUsageMode.WRITE -> Opcodes.PUTSTATIC
             !isStatic && mode == FieldUsageMode.WRITE -> Opcodes.PUTFIELD
-            isStatic && mode == FieldUsageMode.READ -> Opcodes.GFrontendTATIC
+            isStatic && mode == FieldUsageMode.READ -> Opcodes.GETSTATIC
             !isStatic && mode == FieldUsageMode.READ -> Opcodes.GETFIELD
             else -> return emptySequence()
         }
@@ -71,6 +72,7 @@ class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, pr
                 .toHashSet() + enclosingClass
         }
     }
+
 
     private fun findMatches(
         hierarchy: Set<JIRClassOrInterface>,
@@ -115,6 +117,7 @@ class SyncUsagesExtension(private val hierarchyExtension: HierarchyExtension, pr
         return false
     }
 }
+
 
 suspend fun JIRClasspath.usagesExt(): SyncUsagesExtension {
     if (!db.isInstalled(Usages)) {

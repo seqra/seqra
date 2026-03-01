@@ -1,3 +1,4 @@
+
 @file:JvmName("JIRClasses")
 package org.opentaint.ir.api.jvm.ext
 
@@ -7,6 +8,7 @@ import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.tree.MethodNode
+
 
 val JIRClassOrInterface.isLocalOrAnonymous: Boolean
     get() {
@@ -52,6 +54,7 @@ fun JIRClassOrInterface.findDeclaredMethodOrNull(name: String, desc: String? = n
     }
 }
 
+
 /**
  * find method by name and description
  */
@@ -65,6 +68,7 @@ fun JIRClassOrInterface.findMethodOrNull(name: String, desc: String): JIRMethod?
 fun JIRClassOrInterface.findMethodOrNull(methodNode: MethodNode): JIRMethod? =
     findMethodOrNull(methodNode.name, methodNode.desc)
 
+
 /**
  * @return null if ClassId is not enum and enum value names otherwise
  */
@@ -75,6 +79,7 @@ val JIRClassOrInterface.enumValues: List<JIRField>?
         }
         return null
     }
+
 
 val JIRClassOrInterface.methods: List<JIRMethod>
     get() {
@@ -140,6 +145,7 @@ val JIRClassOrInterface.constructors: List<JIRMethod>
         return declaredMethods.filter { it.isConstructor }
     }
 
+
 val JIRClassOrInterface.allSuperHierarchy: Set<JIRClassOrInterface>
     get() {
         return allSuperHierarchySequence.toMutableSet()
@@ -202,6 +208,7 @@ val JIRClassOrInterface.isKotlin: Boolean
         return annotations.any { it.matches("kotlin.Metadata") }
     }
 
+
 private val JIRClassOrInterface.simpleBinaryName: String?
     get() {
         // top level class
@@ -213,6 +220,7 @@ private val JIRClassOrInterface.simpleBinaryName: String?
             throw InternalError("Malformed class name", ex)
         }
     }
+
 
 // call with SAFE. comparator works only on methods from one hierarchy
 internal object UnsafeHierarchyFieldComparator : Comparator<JIRField> {

@@ -1,3 +1,4 @@
+
 @file:JvmName("JIRClasspaths")
 package org.opentaint.ir.api.jvm.ext
 
@@ -22,6 +23,7 @@ inline fun <reified T> JIRClasspath.findTypeOrNull(): JIRType? {
 fun JIRClasspath.findTypeOrNull(typeName: TypeName): JIRType? {
     return findTypeOrNull(typeName.typeName)
 }
+
 
 /**
  * find class. Tf there are none then throws `NoClassInClasspathException`

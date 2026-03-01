@@ -79,6 +79,7 @@ class BuildersIndexer(val persistence: JIRDatabasePersistence, private val locat
         }
     }
 
+
     override fun flush(context: StorageContext) {
         context.execute(
             sqlAction = {
@@ -305,6 +306,7 @@ object Builders : JIRFeature<Set<String>, BuildersResponse> {
 
     override fun newIndexer(jIRdb: JIRDatabase, location: RegisteredLocation) =
         BuildersIndexer(jIRdb.persistence, location)
+
 
 }
 

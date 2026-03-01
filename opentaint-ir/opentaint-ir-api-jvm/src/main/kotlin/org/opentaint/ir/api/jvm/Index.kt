@@ -20,6 +20,7 @@ interface JIRFeature<REQ, RES> {
     fun onSignal(signal: JIRSignal)
 }
 
+
 sealed class JIRSignal(val jIRdb: JIRDatabase) {
 
     /** can be used for creating persistence scheme */
@@ -42,6 +43,7 @@ sealed class JIRSignal(val jIRdb: JIRDatabase) {
     class Closed(jIRdb: JIRDatabase) : JIRSignal(jIRdb)
 
 }
+
 
 suspend fun <REQ, RES> JIRClasspath.query(feature: JIRFeature<REQ, RES>, req: REQ): Sequence<RES> {
     return feature.query(this, req)

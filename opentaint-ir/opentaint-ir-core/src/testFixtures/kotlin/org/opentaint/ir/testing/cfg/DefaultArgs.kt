@@ -25,6 +25,7 @@ class DefaultArgs {
     ) =
         A(normalizeCase, uppercaseFirstLetter, divideByCamelHumps, wordSeparator)
 
+
     fun box() : String {
         val expected = A(true, true, true, " ")
         if(reformat("", true, true) != expected) return "fail"

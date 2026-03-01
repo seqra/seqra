@@ -5,6 +5,7 @@ import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.objectweb.asm.ClassWriter
 
+
 /**
  * ASM class writer with opentaint ir specific resolution of common superclasses
  */

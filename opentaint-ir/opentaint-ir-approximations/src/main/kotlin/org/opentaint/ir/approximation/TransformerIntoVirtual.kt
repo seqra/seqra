@@ -11,7 +11,8 @@ class TransformerIntoVirtual(
 ) {
     fun JIRClasspath.transformMethodIntoVirtual(
         to: JIRClassOrInterface,
-        method: JIRMethod
+        method: JIRMethod,
+        methodName: String,
     ): JIREnrichedVirtualMethod = with(method) {
         val parameters = parameters.map { param ->
             // TODO process annotations somehow to eliminate approximations
@@ -27,7 +28,7 @@ class TransformerIntoVirtual(
         val methodNode = withAsmNode { it } // Safe since used under synchronization in JIREnrichedVirtualMethod
 
         (EnrichedVirtualMethodBuilder()
-            .name(name)
+            .name(methodName)
             .access(access)
             .returnType(returnType.eliminateApproximation(approximations).typeName) as EnrichedVirtualMethodBuilder)
             .enrichedParameters(parameters)
@@ -41,10 +42,11 @@ class TransformerIntoVirtual(
 
     fun transformIntoVirtualField(
         to: JIRClassOrInterface,
-        field: JIRField
+        field: JIRField,
+        fieldName: String,
     ): JIREnrichedVirtualField = with(field) {
         (EnrichedVirtualFieldBuilder()
-            .name(name)
+            .name(fieldName)
             .type(type.eliminateApproximation(approximations).typeName)
             .access(access) as EnrichedVirtualFieldBuilder)
             .annotations(annotations)

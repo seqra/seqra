@@ -48,4 +48,5 @@ public interface Creature {
         }
     }
 
+
 }

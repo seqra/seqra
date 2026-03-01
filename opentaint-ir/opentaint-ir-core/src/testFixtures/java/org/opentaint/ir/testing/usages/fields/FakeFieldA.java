@@ -1,5 +1,6 @@
 package org.opentaint.ir.testing.usages.fields;
 
+
 public class FakeFieldA {
 
     public int a;

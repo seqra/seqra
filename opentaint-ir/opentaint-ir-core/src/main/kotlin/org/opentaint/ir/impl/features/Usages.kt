@@ -41,6 +41,7 @@ import java.nio.ByteBuffer
 import kotlin.experimental.and
 import kotlin.experimental.or
 
+
 private class MethodMap(size: Int) {
 
     private val ticks = ByteArray((size - 1) / 8 + 1)
@@ -207,7 +208,7 @@ object Usages : JIRFeature<UsageFeatureRequest, UsageFeatureResponse> {
             context.execute(
                 sqlAction = {
                     val jooq = context.dslContext
-                    val calls = jooq.select(CLASSES.ID, CALLS.CALLER_METHOD_OFFSFrontend, SYMBOLS.NAME, CLASSES.LOCATION_ID)
+                    val calls = jooq.select(CLASSES.ID, CALLS.CALLER_METHOD_OFFSETS, SYMBOLS.NAME, CLASSES.LOCATION_ID)
                         .from(CALLS)
                         .join(SYMBOLS).on(SYMBOLS.ID.eq(CLASSES.NAME))
                         .join(CLASSES)
