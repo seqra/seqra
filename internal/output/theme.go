@@ -53,7 +53,7 @@ func DefaultTheme(hasDarkBackground bool) *Theme {
 	lightDark := lipgloss.LightDark(hasDarkBackground)
 
 	red := lightDark(lipgloss.Color("1"), lipgloss.Color("9"))
-	yellow := lightDark(lipgloss.Color("3"), lipgloss.Color("11"))
+	yellow := lipgloss.Color("214")
 	green := lightDark(lipgloss.Color("2"), lipgloss.Color("10"))
 	blue := lightDark(lipgloss.Color("4"), lipgloss.Color("12"))
 	cyan := lightDark(lipgloss.Color("6"), lipgloss.Color("14"))

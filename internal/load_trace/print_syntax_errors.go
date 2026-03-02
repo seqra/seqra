@@ -18,6 +18,7 @@ func PrintSyntaxErrorReport(out *output.Printer, loadTraceSummary RuleLoadTraceS
 		}
 	}
 	sb.Render()
+	out.Blank()
 }
 
 func buildFileChildren(out *output.Printer, file fileSummary) []any {

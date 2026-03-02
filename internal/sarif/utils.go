@@ -181,21 +181,28 @@ func findingFiles(report *Report) int {
 	return len(files)
 }
 
-func formatLevelCounts(errors, warnings, notes int) string {
+func formatLevelCounts(th *output.Theme, errors, warnings, notes int) string {
 	parts := make([]string, 0, 3)
 	if errors > 0 {
-		parts = append(parts, fmt.Sprintf("%d errors", errors))
+		parts = append(parts, th.Error.Render(fmt.Sprintf("%d %s", errors, pluralize(errors, "error"))))
 	}
 	if warnings > 0 {
-		parts = append(parts, fmt.Sprintf("%d warnings", warnings))
+		parts = append(parts, th.Warning.Render(fmt.Sprintf("%d %s", warnings, pluralize(warnings, "warning"))))
 	}
 	if notes > 0 {
-		parts = append(parts, fmt.Sprintf("%d notes", notes))
+		parts = append(parts, th.Note.Render(fmt.Sprintf("%d %s", notes, pluralize(notes, "note"))))
 	}
 	if len(parts) == 0 {
-		return "0 findings"
+		return th.Success.Render("0 findings")
 	}
 	return strings.Join(parts, ", ")
+}
+
+func pluralize(count int, singular string) string {
+	if count == 1 {
+		return singular
+	}
+	return singular + "s"
 }
 
 // PrintSummary prints a human-readable summary of the SARIF report
@@ -203,7 +210,10 @@ func (report *Report) PrintSummary(out *output.Printer, absSarifReportPath strin
 	summary := GenerateSummary(report)
 	ruleSummary := generateRuleSummary(report)
 
+	th := out.Theme()
+
 	totalLine := formatLevelCounts(
+		th,
 		summary.FindingsByLevel["error"],
 		summary.FindingsByLevel["warning"],
 		summary.FindingsByLevel["note"],
@@ -216,6 +226,7 @@ func (report *Report) PrintSummary(out *output.Printer, absSarifReportPath strin
 			ruleLine := fmt.Sprintf("%s: %s",
 				item.RuleID,
 				formatLevelCounts(
+					th,
 					item.Errors,
 					item.Warnings,
 					item.Notes,
