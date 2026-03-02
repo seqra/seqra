@@ -74,6 +74,8 @@ sourceSets {
     }
 }
 
+val kotlinGrammarVersion = "bf61744020dc46f2d7b8761e35b0c0cb39b3f31a"
+
 val downloadKotlinParserGrammar by tasks.registering(Download::class) {
     val grammarFiles = listOf(
         "KotlinLexer.g4",
@@ -81,7 +83,7 @@ val downloadKotlinParserGrammar by tasks.registering(Download::class) {
         "UnicodeClasses.g4",
     )
 
-    val antlrGrammarBaseUrl = "https://raw.githubusercontent.com/antlr/grammars-v4/master/kotlin/kotlin/"
+    val antlrGrammarBaseUrl = "https://raw.githubusercontent.com/antlr/grammars-v4/$kotlinGrammarVersion/kotlin/kotlin/"
 
     src(grammarFiles.map { antlrGrammarBaseUrl + it })
     dest(kotlinGrammar)

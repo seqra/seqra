@@ -21,9 +21,9 @@ dependencies {
     implementation(opentaintUtilJvm)
     implementation(opentaintUtilCli)
     implementation(opentaintProject)
-    implementation("org.opentaint.opentaint-configuration-rules:configuration-rules-jvm")
     implementation(opentaintConfig)
 
+    implementation("org.opentaint.opentaint-configuration-rules:configuration-rules-jvm")
     implementation("org.opentaint.opentaint-dataflow-core:opentaint-jvm-dataflow")
     implementation("org.opentaint.sast.se:api")
 
