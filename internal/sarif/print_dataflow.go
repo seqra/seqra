@@ -15,16 +15,8 @@ type classifiedStep struct {
 	Step ThreadFlowLocation
 }
 
-// FlowStepBuilder provides a fluent interface for formatting dataflow steps
-type FlowStepBuilder struct{}
-
-// NewFlowStepBuilder creates a new FlowStepBuilder with default settings
-func NewFlowStepBuilder() *FlowStepBuilder {
-	return &FlowStepBuilder{}
-}
-
-// FormatStep formats a single dataflow step
-func (fsb *FlowStepBuilder) FormatStep(cs classifiedStep, absProjectPath string) (string, string) {
+// formatFlowStep formats a single dataflow step into a summary line and a location line.
+func formatFlowStep(cs classifiedStep, absProjectPath string) (string, string) {
 	step := cs.Step
 	loc := step.Location.extractNodeLoc()
 

@@ -18,8 +18,7 @@ func RemoveIfExists(path string) error {
 }
 
 func RemoveIfExistsOrExit(path string) {
-	err := RemoveIfExists(path)
-	if err != nil {
+	if err := RemoveIfExists(path); err != nil {
 		output.Fatalf("Failed to remove '%s': %s", path, err)
 	}
 }

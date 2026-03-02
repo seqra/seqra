@@ -190,17 +190,16 @@ func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrateg
 	// Create pipes for stdout and stderr
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
-		output.Fatalf("Failed to create stdout pipe: %v", err)
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
 
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
-		output.Fatalf("Failed to create stderr pipe: %v", err)
+		return fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
-	// Start the command
 	if err := cmd.Start(); err != nil {
-		output.Fatalf("Failed to start Java command: %v", err)
+		return fmt.Errorf("failed to start Java command: %w", err)
 	}
 
 	streamToTerminal := shouldStreamJavaOutput(globals.Config.Log.Verbosity)
