@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/sarif"
 	"github.com/seqra/seqra/v2/internal/utils/log"
 	"github.com/spf13/cobra"
@@ -64,13 +65,13 @@ func loadSarifReport(absSarifPath string) *sarif.Report {
 	// Read the SARIF file
 	data, err := os.ReadFile(absSarifPath)
 	if err != nil {
-		out.LogInfof("Failed to read SARIF report: %v", err)
+		output.LogInfof("Failed to read SARIF report: %v", err)
 		return nil
 	}
 	// Parse the SARIF report
 	report, err := sarif.UnmarshalReport(data)
 	if err != nil {
-		out.LogInfof("Failed to parse SARIF report: %v", err)
+		output.LogInfof("Failed to parse SARIF report: %v", err)
 		return nil
 	}
 	return &report

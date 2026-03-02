@@ -107,7 +107,7 @@ func (p *Printer) GroupItem(name string, children ...any) *tree.Tree {
 
 // Render builds and prints the section.
 func (sb *SectionBuilder) Render() {
-	if sb.printer.quiet {
+	if sb.printer.isQuiet() {
 		return
 	}
 	p := sb.printer

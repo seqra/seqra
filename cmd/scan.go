@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/seqra/seqra/v2/internal/load_trace"
+	"github.com/seqra/seqra/v2/internal/sarif"
 	"github.com/seqra/seqra/v2/internal/version"
 
 	"github.com/seqra/seqra/v2/internal/utils/project"
@@ -16,6 +17,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/seqra/seqra/v2/internal/globals"
+	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/seqra/seqra/v2/internal/utils/java"
 	"github.com/seqra/seqra/v2/internal/utils/log"
@@ -106,7 +108,7 @@ func scan(cmd *cobra.Command) {
 
 	// Resolve project type
 	var scanMode ScanMode
-	out.LogDebugf("Trying to define %v is a project model or a project", absUserProjectRoot)
+	output.LogDebugf("Trying to define %v is a project model or a project", absUserProjectRoot)
 	if _, err := os.Stat(filepath.Join(absUserProjectRoot, "project.yaml")); err == nil {
 		scanMode = Scan
 		absProjectModelPath = absUserProjectRoot
@@ -170,14 +172,20 @@ func scan(cmd *cobra.Command) {
 	absSemgrepRuleLoadTracePath := setupSemgrepRuleLoadTrace()
 
 	// Display scan information in tree format
-	printScanInfo(cmd, scanMode, absProjectModelPath, absRuleSetPaths, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot)
+	printScanInfo(cmd, scanMode, absProjectModelPath, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot)
 
 	for _, ruleSetPath := range absRuleSetPaths {
 		if !ruleSetPath.Builtin {
 			continue
 		}
-		if err := ensureArtifactAvailable("seqra-rules", globals.Config.Rules.Version, ruleSetPath.Path, func() error {
-			return utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, ruleSetPath.Path, globals.Config.Github.Token, globals.Config.SkipVerify)
+		if _, err := os.Stat(ruleSetPath.Path); err == nil {
+			continue
+		}
+		if out.IsInteractive() {
+			out.Blank()
+		}
+		if err := out.RunWithSpinner(fmt.Sprintf("Downloading rules %s", globals.Config.Rules.Version), func() error {
+			return utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, ruleSetPath.Path, globals.Config.Github.Token, globals.Config.SkipVerify, out)
 		}); err != nil {
 			out.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
 		}
@@ -294,7 +302,8 @@ func scan(cmd *cobra.Command) {
 		return
 	}
 
-	load_trace.PrintRuleStatisticsTree(out, ruleLoadErrorsResult, absSemgrepRuleLoadTracePath)
+	sarifSummary := sarif.GenerateSummary(report)
+	load_trace.PrintRuleStatisticsTree(out, ruleLoadErrorsResult, absSemgrepRuleLoadTracePath, sarifSummary)
 
 	load_trace.PrintSyntaxErrorReport(out, ruleLoadTraceSummary)
 
@@ -310,14 +319,14 @@ func scan(cmd *cobra.Command) {
 	// Clean up temporary directory if it was created
 	if tempProjectModel && tempLogsDir != "" {
 		if err := os.RemoveAll(filepath.Dir(absProjectModelPath)); err != nil {
-			out.LogInfof("Failed to remove temporary directory %s: %v", filepath.Dir(absProjectModelPath), err)
+			output.LogInfof("Failed to remove temporary directory %s: %v", filepath.Dir(absProjectModelPath), err)
 		} else {
-			out.LogDebugf("Removed temporary directory: %s", filepath.Dir(absProjectModelPath))
+			output.LogDebugf("Removed temporary directory: %s", filepath.Dir(absProjectModelPath))
 		}
 	}
 }
 
-func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string, absRuleSetPaths []RulesetType, absSemgrepRuleLoadTracePath string, tempProjectModel bool, absUserProjectRoot string) {
+func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string, absSemgrepRuleLoadTracePath string, tempProjectModel bool, absUserProjectRoot string) {
 	sb := out.Section(mode.String())
 	addConfigFields(cmd, sb)
 	if globals.Config.Log.Verbosity == "debug" {
@@ -329,13 +338,6 @@ func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string
 			Field("Temporary project model", absProjectModelPath)
 	} else {
 		sb.Field("Project model", absProjectModelPath)
-	}
-	for _, absRuleSetPath := range absRuleSetPaths {
-		if absRuleSetPath.Builtin {
-			sb.Field(fmt.Sprintf("Bundled ruleset %s", globals.Config.Rules.Version), absRuleSetPath.Path)
-		} else {
-			sb.Field("User ruleset", absRuleSetPath.Path)
-		}
 	}
 	sb.Render()
 }
@@ -357,13 +359,13 @@ func setupSemgrepRuleLoadTrace() string {
 func deserializeSemgrepRuleLoadTrace(absSemgrepRuleLoadTracePath string) *load_trace.SemgrepLoadTrace {
 	data, err := os.ReadFile(absSemgrepRuleLoadTracePath)
 	if err != nil {
-		out.LogInfof("Failed to read rule load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
+		output.LogInfof("Failed to read rule load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
 		return nil
 	}
 
 	var el load_trace.SemgrepLoadTrace
 	if err := json.Unmarshal(data, &el); err != nil {
-		out.LogInfof("Failed to deserialize load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
+		output.LogInfof("Failed to deserialize load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
 		return nil
 	}
 	return &el
@@ -376,7 +378,7 @@ func ensureAnalyzerAvailable() (string, error) {
 	}
 
 	if err := ensureArtifactAvailable("analyzer", globals.Config.Analyzer.Version, analyzerJarPath, func() error {
-		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token, globals.Config.SkipVerify)
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token, globals.Config.SkipVerify, out)
 	}); err != nil {
 		return "", err
 	}
@@ -389,7 +391,7 @@ func scanProject(analyzerBuilder *AnalyzerBuilder, javaRunner java.JavaRunner) e
 
 	commandSucceeded := func(err error) bool {
 		if err != nil {
-			out.LogDebugf("Analyzer failed: %v", err)
+			output.LogDebugf("Analyzer failed: %v", err)
 			return false
 		}
 		return true

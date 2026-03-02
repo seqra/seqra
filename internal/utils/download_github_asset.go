@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"github.com/google/go-github/v74/github"
-	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/output"
 )
 
@@ -20,10 +19,6 @@ func newGithubClient(token string) *github.Client {
 		return github.NewClient(nil)
 	}
 	return github.NewClient(nil).WithAuthToken(token)
-}
-
-func newProgressPrinter() *output.Printer {
-	return output.NewConfigured(globals.Config.Log.Color, globals.Config.Quiet)
 }
 
 // verifyAssetChecksum checks the SHA256 of filePath using the asset's native digest (preferred)
@@ -63,9 +58,8 @@ func verifyAssetChecksum(client *github.Client, owner, repo string, release *git
 	return nil
 }
 
-func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetPath, token string, skipVerify bool) error {
+func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetPath, token string, skipVerify bool, printer *output.Printer) error {
 	client := newGithubClient(token)
-	printer := newProgressPrinter()
 
 	ctx := context.Background()
 	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, releaseTag)
@@ -134,9 +128,8 @@ func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetP
 	return errors.New("failed to find artifact in release assets")
 }
 
-func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetName, destPath, token string, skipVerify bool) error {
+func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetName, destPath, token string, skipVerify bool, printer *output.Printer) error {
 	client := newGithubClient(token)
-	printer := newProgressPrinter()
 
 	ctx := context.Background()
 	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, releaseTag)

@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2/tree"
 
 	"github.com/seqra/seqra/v2/internal/globals"
+	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/seqra/seqra/v2/internal/utils/java"
 	"github.com/spf13/cobra"
@@ -93,9 +94,9 @@ func downloadArtifact(spec globals.ArtifactDef, installNextToBinary, installCurr
 
 	download := func(targetPath string) error {
 		if spec.Unpack {
-			return utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, spec.RepoName, spec.Version, spec.AssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify)
+			return utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, spec.RepoName, spec.Version, spec.AssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify, out)
 		}
-		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, spec.RepoName, spec.Version, spec.AssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify)
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, spec.RepoName, spec.Version, spec.AssetName, targetPath, globals.Config.Github.Token, globals.Config.SkipVerify, out)
 	}
 
 	for _, t := range tiers {
@@ -104,7 +105,7 @@ func downloadArtifact(spec globals.ArtifactDef, installNextToBinary, installCurr
 		}
 		if t.Name != utils.TierCache {
 			if err := os.MkdirAll(filepath.Dir(t.Path), 0o755); err != nil {
-				out.LogDebugf("Cannot write to %s tier, trying next", t.Name)
+				output.LogDebugf("Cannot write to %s tier, trying next", t.Name)
 				continue
 			}
 		}
@@ -153,12 +154,12 @@ func downloadJava(installNextToBinary, installCurrent bool) (*tree.Tree, error) 
 		}
 		if t.Name != utils.TierCache {
 			if err := os.MkdirAll(t.Path, 0o755); err != nil {
-				out.LogDebugf("Cannot write to %s tier, trying next", t.Name)
+				output.LogDebugf("Cannot write to %s tier, trying next", t.Name)
 				continue
 			}
 			_ = os.Remove(t.Path)
 		}
-		javaPath, err := java.EnsureLocalRuntimeAt(javaVersion, java.AdoptiumImageJRE, t.Path, runtime.GOOS, runtime.GOARCH, globals.Config.SkipVerify)
+		javaPath, err := java.EnsureLocalRuntimeAt(javaVersion, java.AdoptiumImageJRE, t.Path, runtime.GOOS, runtime.GOARCH, globals.Config.SkipVerify, out)
 		if err != nil {
 			return node, err
 		}

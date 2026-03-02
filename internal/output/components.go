@@ -147,9 +147,6 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 		barWidth           = 28
 		progressLabelWidth = 45
 		updateEvery        = 100 * time.Millisecond
-		bytesPerKiB        = int64(1024)
-		bytesPerMiB        = 1024 * bytesPerKiB
-		bytesPerGiB        = 1024 * bytesPerMiB
 	)
 
 	paddedLabel := fmt.Sprintf("%-*s", progressLabelWidth, label)
@@ -162,19 +159,6 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 		bprogress.WithoutPercentage(),
 		bprogress.WithFillCharacters('█', '░'),
 	)
-
-	formatBytes := func(n int64) string {
-		switch {
-		case n >= bytesPerGiB:
-			return fmt.Sprintf("%.1f GiB", float64(n)/float64(bytesPerGiB))
-		case n >= bytesPerMiB:
-			return fmt.Sprintf("%.1f MiB", float64(n)/float64(bytesPerMiB))
-		case n >= bytesPerKiB:
-			return fmt.Sprintf("%.1f KiB", float64(n)/float64(bytesPerKiB))
-		default:
-			return fmt.Sprintf("%d B", n)
-		}
-	}
 
 	started := false
 	printProgress := func(written int64, force bool, lastPrinted *time.Time) {
@@ -197,7 +181,7 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 		if force && written >= total {
 			symbol = doneSymbol
 		}
-		fmt.Fprintf(p.w, "%s%s %s %s %3.0f%% (%s/%s)", clearLine, symbol, paddedLabel, barView, percent*100, formatBytes(written), formatBytes(total))
+		fmt.Fprintf(p.w, "%s%s %s %s %3.0f%% (%s/%s)", clearLine, symbol, paddedLabel, barView, percent*100, FormatSize(written), FormatSize(total))
 	}
 
 	buf := make([]byte, 32*1024)

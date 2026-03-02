@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/seqra/seqra/v2/internal/globals"
+	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/seqra/seqra/v2/internal/utils/java"
 	"github.com/seqra/seqra/v2/internal/utils/log"
@@ -125,7 +126,7 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 	}
 
 	if err = ensureArtifactAvailable("autobuilder", globals.Config.Autobuilder.Version, autobuilderJarPath, func() error {
-		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify)
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify, out)
 	}); err != nil {
 		return err
 	}
@@ -155,8 +156,8 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 
 	commandSucceeded := func(_ error) bool {
 		if _, err = os.Stat(c.outputDir); err != nil {
-			out.LogInfof("Output directory does not exist after autobuilder execution: %s", c.outputDir)
-			out.LogInfo("Autobuilder failed to compile the project")
+			output.LogInfof("Output directory does not exist after autobuilder execution: %s", c.outputDir)
+			output.LogInfo("Autobuilder failed to compile the project")
 			return false
 		}
 		return true

@@ -160,7 +160,7 @@ func normalizeVerbosity(level string) (string, error) {
 	case "debug":
 		return "debug", nil
 	default:
-		return "", fmt.Errorf("invalid --verbosity value %q: expected one of info, debug", level)
+		return "info", nil
 	}
 }
 

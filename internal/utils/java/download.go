@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/seqra/seqra/v2/internal/globals"
 	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/utils"
 )
@@ -47,12 +46,12 @@ const (
 // EnsureLocalRuntimeAt downloads and installs Temurin runtime directly into targetDir
 // (flat layout: targetDir/bin/java) and returns the path to the java binary.
 func EnsureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
-	targetDir string, goOs, goArch string, skipVerify bool) (string, error) {
-	return ensureLocalRuntimeAt(requiredJavaVersion, imageType, targetDir, goOs, goArch, skipVerify, true)
+	targetDir string, goOs, goArch string, skipVerify bool, printer *output.Printer) (string, error) {
+	return ensureLocalRuntimeAt(requiredJavaVersion, imageType, targetDir, goOs, goArch, skipVerify, printer)
 }
 
 func ensureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
-	targetDir string, goOs, goArch string, skipVerify bool, showProgress bool) (string, error) {
+	targetDir string, goOs, goArch string, skipVerify bool, printer *output.Printer) (string, error) {
 
 	adoptiumOS, adoptiumArch, err := MapPlatformToAdoptium(goOs, goArch)
 	if err != nil {
@@ -79,7 +78,7 @@ func ensureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
 
 	return withTmpDir(targetDir+"-tmp", func(tmpDir string) (string, error) {
 		tmpArchive := filepath.Join(tmpDir, artefactTar)
-		if err := ensureDownloaded(url, tmpArchive, showProgress); err != nil {
+		if err := ensureDownloaded(url, tmpArchive, printer); err != nil {
 			return "", err
 		}
 
@@ -170,14 +169,14 @@ func withTmpDir(path string, fn func(string) (string, error)) (result string, er
 }
 
 // ensureDownloaded downloads a file if it doesn't already exist.
-func ensureDownloaded(url, dest string, showProgress bool) error {
+func ensureDownloaded(url, dest string, printer *output.Printer) error {
 	output.LogDebugf("trying to tap into %s...", dest)
 	if fileExists(dest) {
 		output.LogDebugf("Reusing downloaded Java archive: %s", dest)
 		return nil
 	}
 	output.LogDebugf("Downloading Temurin Java from %s", url)
-	err := downloadFile(url, dest, showProgress)
+	err := downloadFile(url, dest, printer)
 	if err == nil {
 		output.LogDebugf("Successfully downloaded Temurin Java to %s", dest)
 	}
@@ -340,12 +339,8 @@ func fileExists(p string) bool {
 	return err == nil && !st.IsDir()
 }
 
-func newProgressPrinter() *output.Printer {
-	return output.NewConfigured(globals.Config.Log.Color, globals.Config.Quiet)
-}
-
-// downloadFile downloads url to dest path
-func downloadFile(url, dest string, showProgress bool) error {
+// downloadFile downloads url to dest path, showing a progress bar if printer is non-nil and interactive.
+func downloadFile(url, dest string, printer *output.Printer) error {
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
@@ -363,8 +358,7 @@ func downloadFile(url, dest string, showProgress bool) error {
 	defer func() { _ = f.Close() }()
 
 	label := "Downloading " + filepath.Base(dest)
-	printer := newProgressPrinter()
-	if showProgress && printer.IsInteractive() && resp.ContentLength > 0 {
+	if printer != nil && resp.ContentLength > 0 {
 		_, err = printer.CopyWithProgress(f, resp.Body, resp.ContentLength, label)
 	} else {
 		_, err = io.Copy(f, resp.Body)

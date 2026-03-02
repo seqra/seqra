@@ -13,7 +13,7 @@ import (
 // code snippets around a target line.
 type SnippetBuilder struct {
 	printer    *Printer
-	radius     int64
+	radius     int
 	lineMarker string
 }
 
@@ -27,6 +27,7 @@ func (p *Printer) Snippet() *SnippetBuilder {
 }
 
 // LoadOrEmpty loads a snippet, returning empty string on any error.
+// centerLine is 1-based.
 func (sb *SnippetBuilder) LoadOrEmpty(filePath string, centerLine int64) string {
 	lines := sb.LoadLinesOrEmpty(filePath, centerLine)
 	if len(lines) == 0 {
@@ -36,6 +37,7 @@ func (sb *SnippetBuilder) LoadOrEmpty(filePath string, centerLine int64) string 
 }
 
 // LoadLinesOrEmpty loads a snippet and returns it as tree-friendly lines.
+// centerLine is 1-based.
 func (sb *SnippetBuilder) LoadLinesOrEmpty(filePath string, centerLine int64) []string {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
@@ -43,14 +45,15 @@ func (sb *SnippetBuilder) LoadLinesOrEmpty(filePath string, centerLine int64) []
 	}
 
 	lines := strings.Split(string(data), "\n")
-	start := centerLine - sb.radius - 1
-	end := centerLine + sb.radius - 1
+	center := int(centerLine)
+	start := center - sb.radius - 1
+	end := center + sb.radius - 1
 
 	if start < 0 {
 		start = 0
 	}
-	if end >= int64(len(lines)) {
-		end = int64(len(lines) - 1)
+	if end >= len(lines) {
+		end = len(lines) - 1
 	}
 
 	th := sb.printer.theme
@@ -60,7 +63,7 @@ func (sb *SnippetBuilder) LoadLinesOrEmpty(filePath string, centerLine int64) []
 		lineNum := i + 1
 		marker := "  "
 		lineStyle := th.SnippetLine
-		if lineNum == centerLine {
+		if lineNum == center {
 			marker = sb.lineMarker
 			lineStyle = th.SnippetHighlight
 		}

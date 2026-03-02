@@ -388,5 +388,5 @@ func (j *javaRunner) ensureSpecificVersion(version int) (string, error) {
 	// Match artifact behavior: for default/bind versions prefer install tier,
 	// for non-default versions use cache tier.
 	downloadTarget := tiers[len(tiers)-1].Path
-	return ensureLocalRuntimeAt(version, j.imageType, downloadTarget, runtime.GOOS, runtime.GOARCH, j.skipVerify, false)
+	return ensureLocalRuntimeAt(version, j.imageType, downloadTarget, runtime.GOOS, runtime.GOARCH, j.skipVerify, nil)
 }

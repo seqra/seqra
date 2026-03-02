@@ -11,6 +11,8 @@ import (
 	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/seqra/seqra/v2/internal/utils/java"
 	"github.com/seqra/seqra/v2/internal/utils/log"
+
+	"github.com/seqra/seqra/v2/internal/output"
 )
 
 type CompileCaller int
@@ -93,7 +95,7 @@ func ensureAutobuilderAvailable() (string, error) {
 	}
 
 	if err = ensureArtifactAvailable("autobuilder", globals.Config.Autobuilder.Version, autobuilderJarPath, func() error {
-		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify)
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify, out)
 	}); err != nil {
 		return "", err
 	}
@@ -116,7 +118,7 @@ func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath strin
 
 	if _, err := os.Stat(absOutputProjectModelPath); err != nil {
 		err := fmt.Errorf("there was a problem during the compile step, check the full logs: %s", globals.LogPath)
-		out.LogInfo(err)
+		output.LogInfo(err)
 		if caller == External {
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based compilation:", utils.BuildCompileCommandWithDocker(ProjectPath, OutputProjectModelPath))
 		}
@@ -151,8 +153,8 @@ func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPat
 
 	commandSucceeded := func(_ error) bool {
 		if _, err = os.Stat(absOutputProjectModelPath); err != nil {
-			out.LogInfof("Output project model path does not exist after autobuilder execution: %s", absOutputProjectModelPath)
-			out.LogInfo("Autobuilder failed to compile the project")
+			output.LogInfof("Output project model path does not exist after autobuilder execution: %s", absOutputProjectModelPath)
+			output.LogInfo("Autobuilder failed to compile the project")
 			return false
 		}
 		return true
@@ -160,7 +162,7 @@ func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPat
 	// Execute the command using JavaRunner
 	err = javaRunner.ExecuteJavaCommand(autobuilderCommand, commandSucceeded)
 	if err != nil {
-		out.LogInfof("Native compilation has failed: %s", err)
+		output.LogInfof("Native compilation has failed: %s", err)
 		return fmt.Errorf("native compilation has failed: %w", err)
 	}
 

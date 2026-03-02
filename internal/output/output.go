@@ -16,14 +16,14 @@ import (
 // through a Printer instance. It holds the active theme, the output writer,
 // and knows whether it's writing to a TTY.
 type Printer struct {
-	baseW             io.Writer
-	w                 io.Writer
-	logW              io.Writer
-	verbosity         string
-	theme             *Theme
-	isTTY   bool
-	quiet   bool
-	profile colorprofile.Profile
+	baseW     io.Writer
+	w         io.Writer
+	logW      io.Writer
+	verbosity string
+	theme     *Theme
+	isTTY     bool
+	quiet     bool
+	profile   colorprofile.Profile
 }
 
 var ansiEscapePattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
@@ -133,6 +133,10 @@ func (p *Printer) IsInteractiveUI() bool {
 	return p.IsInteractive() && !p.IsDebugVerbosity()
 }
 
+func (p *Printer) isQuiet() bool {
+	return p.quiet
+}
+
 func (p *Printer) writeMirroredLine(line string) {
 	if p.logW == nil {
 		return
@@ -200,6 +204,18 @@ func (p *Printer) Successf(format string, a ...any) {
 	}
 	text := fmt.Sprintf(format, a...)
 	fmt.Fprintln(p.w, p.theme.Success.Render(text))
+}
+
+// Fatal prints an error-styled message and terminates the process with exit code 1.
+func (p *Printer) Fatal(a ...any) {
+	p.Error(a...)
+	os.Exit(1)
+}
+
+// Fatalf prints a formatted error-styled message and terminates the process with exit code 1.
+func (p *Printer) Fatalf(format string, a ...any) {
+	p.Error(fmt.Sprintf(format, a...))
+	os.Exit(1)
 }
 
 // resolveColor determines whether colors should be enabled.
