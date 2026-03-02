@@ -27,6 +27,9 @@ opentaint summary results.sarif
 
 # With all findings
 opentaint summary --show-findings results.sarif
+
+# With full code flow and code snippets
+opentaint summary --show-findings --verbose-flow --show-code-snippets results.sarif
 ```
 
 ### IDE Integration
@@ -72,6 +75,16 @@ opentaint compile --output ./my-project-model /path/to/project
 opentaint scan --output results.sarif ./my-project-model
 ```
 
+### opentaint summary
+
+View findings from a SARIF report.
+
+| Flag | Description |
+|------|-------------|
+| `--show-findings` | Show all findings |
+| `--show-code-snippets` | Show code snippets for each finding |
+| `--verbose-flow` | Show full code flow steps for each finding |
+
 ### opentaint project
 
 Create project models from precompiled JARs or classes when source code isn't available.
@@ -90,6 +103,7 @@ These options apply to all commands:
 - `--config string` — Path to configuration file
 - `--java-version int` — Java version for analyzer (default: 21)
 - `--quiet` — Suppress interactive output
-- `--verbosity string` — Log level (debug, info, warn, error, fatal, panic)
+- `--verbosity string` — Verbosity level (`info`, `debug`)
+- `--color string` — Color mode (`auto`, `always`, `never`); defaults to `auto` (detects terminal)
 
 For persistent configuration using files or environment variables, see the [Configuration](configuration.md) documentation.

@@ -146,6 +146,7 @@ For detailed instructions, see [Installation Guide](docs/installation.md).
 ```bash
 opentaint scan --output results.sarif /path/to/project    # Scan project
 opentaint summary --show-findings results.sarif           # View results
+opentaint summary --show-findings --verbose-flow --show-code-snippets results.sarif  # Full detail
 ```
 
 | Command | Description |
@@ -171,7 +172,8 @@ scan:
   timeout: 15m
   max_memory: 16G
 log:
-  verbosity: info  # debug, info, warn, error
+  verbosity: info  # info, debug
+  color: auto      # auto, always, never
 ```
 
 Or use environment variables: `OPENTAINT_SCAN_TIMEOUT=30m`, `OPENTAINT_SCAN_MAX_MEMORY=16G`

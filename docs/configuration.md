@@ -20,7 +20,8 @@ scan:
 
 # Logging
 log:
-  verbosity: info  # debug, info, warn, error, fatal, panic
+  verbosity: info  # info, debug
+  color: auto      # auto, always, never
 
 # Java runtime settings
 java:
@@ -36,7 +37,8 @@ quiet: false
 |---------|-------------|---------|
 | `scan.timeout` | Analysis timeout duration | `15m` |
 | `scan.max_memory` | Maximum memory for analyzer (e.g., `8G`, `1024m`) | `8G` |
-| `log.verbosity` | Log level: debug, info, warn, error, fatal, panic | `info` |
+| `log.verbosity` | Verbosity level: `info`, `debug` | `info` |
+| `log.color` | Color mode: `auto`, `always`, `never` | `auto` |
 | `java.version` | Java version for running the analyzer | `23` |
 | `quiet` | Suppress interactive console output | `false` |
 
@@ -48,6 +50,7 @@ All configuration options can also be set via environment variables with the `OP
 export OPENTAINT_SCAN_TIMEOUT=30m
 export OPENTAINT_SCAN_MAX_MEMORY=16G
 export OPENTAINT_LOG_VERBOSITY=debug
+export OPENTAINT_LOG_COLOR=always
 export OPENTAINT_JAVA_VERSION=23
 
 opentaint scan --output results.sarif /path/to/project
