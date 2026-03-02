@@ -107,7 +107,6 @@ func (report *Report) buildFindingTree(out *output.Printer, result *Result, runI
 
 	flowTree := out.GroupItem(out.Theme().FieldKey.Render("Code flow:"))
 
-	builder := NewFlowStepBuilder()
 	flowSteps := taintFlow
 	omitted := false
 	shownSnippets := make(map[string]struct{})
@@ -117,7 +116,7 @@ func (report *Report) buildFindingTree(out *output.Printer, result *Result, runI
 	}
 
 	for i, cs := range flowSteps {
-		mainLine, locationLine := builder.FormatStep(cs, absProjectPath)
+		mainLine, locationLine := formatFlowStep(cs, absProjectPath)
 		mainLine = output.WrapText(mainLine, flowWrap)
 		stepNode := out.GroupItem(mainLine, locationLine)
 

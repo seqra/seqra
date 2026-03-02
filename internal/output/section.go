@@ -115,13 +115,13 @@ func (sb *SectionBuilder) Render() {
 
 	// Render header
 	header := renderHeader(sb.title, sb.style, th)
-	fmt.Fprintln(p.w, header)
+	fmt.Fprintln(p.w, header) //nolint:errcheck
 	p.writeMirroredLine(header)
 
 	// Build tree
 	if len(sb.items) > 0 {
 		body := indentTreeBlock(sb.buildTree(th).String())
-		fmt.Fprintln(p.w, body)
+		fmt.Fprintln(p.w, body) //nolint:errcheck
 		p.writeMirroredLine(body)
 	}
 }
@@ -291,7 +291,7 @@ func (bb *BoxBuilder) Field(key, value string) *BoxBuilder {
 // Render prints the box.
 func (bb *BoxBuilder) Render() {
 	text := bb.String()
-	fmt.Fprintln(bb.printer.w, text)
+	fmt.Fprintln(bb.printer.w, text) //nolint:errcheck
 	bb.printer.writeMirroredLine(text)
 }
 

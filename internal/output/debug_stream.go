@@ -36,12 +36,12 @@ func (d *DebugStreamWriter) WriteLine(text string) {
 
 	if !d.headerDone {
 		header := d.printer.theme.Debug.Bold(true).Render(d.label)
-		fmt.Fprintln(stderrWriter, header)
+		fmt.Fprintln(stderrWriter, header) //nolint:errcheck
 		d.printer.writeMirroredLine(d.label)
 		d.headerDone = true
 	}
 
 	line := "    " + text
-	fmt.Fprintln(stderrWriter, d.printer.theme.Muted.Render(line))
+	fmt.Fprintln(stderrWriter, d.printer.theme.Muted.Render(line)) //nolint:errcheck
 	d.printer.writeMirroredLine(line)
 }

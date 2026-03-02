@@ -154,7 +154,7 @@ func (p *Printer) Print(a ...any) {
 	if p.quiet {
 		return
 	}
-	fmt.Fprintln(p.w, a...)
+	fmt.Fprintln(p.w, a...) //nolint:errcheck
 }
 
 // Printf writes a formatted string followed by a newline.
@@ -162,7 +162,7 @@ func (p *Printer) Printf(format string, a ...any) {
 	if p.quiet {
 		return
 	}
-	fmt.Fprintf(p.w, format+"\n", a...)
+	fmt.Fprintf(p.w, format+"\n", a...) //nolint:errcheck
 }
 
 // Blank prints an empty line.
@@ -170,13 +170,13 @@ func (p *Printer) Blank() {
 	if p.quiet {
 		return
 	}
-	fmt.Fprintln(p.w)
+	fmt.Fprintln(p.w) //nolint:errcheck
 }
 
 // Error prints an error-styled message. Not suppressed by quiet mode.
 func (p *Printer) Error(a ...any) {
 	text := fmt.Sprint(a...)
-	fmt.Fprintln(p.w, p.theme.Error.Render(text))
+	fmt.Fprintln(p.w, p.theme.Error.Render(text)) //nolint:errcheck
 }
 
 // Warn prints a warning-styled message.
@@ -185,7 +185,7 @@ func (p *Printer) Warn(a ...any) {
 		return
 	}
 	text := fmt.Sprint(a...)
-	fmt.Fprintln(p.w, p.theme.Warning.Render(text))
+	fmt.Fprintln(p.w, p.theme.Warning.Render(text)) //nolint:errcheck
 }
 
 // Warnf prints a formatted warning message.
@@ -194,7 +194,7 @@ func (p *Printer) Warnf(format string, a ...any) {
 		return
 	}
 	text := fmt.Sprintf(format, a...)
-	fmt.Fprintln(p.w, p.theme.Warning.Render(text))
+	fmt.Fprintln(p.w, p.theme.Warning.Render(text)) //nolint:errcheck
 }
 
 // Successf prints a formatted success message.
@@ -203,7 +203,7 @@ func (p *Printer) Successf(format string, a ...any) {
 		return
 	}
 	text := fmt.Sprintf(format, a...)
-	fmt.Fprintln(p.w, p.theme.Success.Render(text))
+	fmt.Fprintln(p.w, p.theme.Success.Render(text)) //nolint:errcheck
 }
 
 // Fatal prints an error-styled message and terminates the process with exit code 1.

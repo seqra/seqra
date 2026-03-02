@@ -89,7 +89,7 @@ func (p *Printer) StartSpinner(message string) *SpinnerHandle {
 
 				th := p.theme
 				frame = th.SpinnerStyle.Render(frame)
-				fmt.Fprintf(p.w, "%s%s %s %s", clearLine, frame, msg, th.Muted.Render(elapsed))
+				fmt.Fprintf(p.w, "%s%s %s %s", clearLine, frame, msg, th.Muted.Render(elapsed)) //nolint:errcheck
 			}
 		}
 	}()
@@ -104,7 +104,7 @@ func (h *SpinnerHandle) Stop(finalMessage string) {
 	elapsed := formatDuration(time.Since(h.start))
 	th := h.printer.theme
 	done := th.DoneStyle.Render(h.printer.theme.SpinnerDone)
-	fmt.Fprintf(h.printer.w, "%s%s %s in %s\n", clearLine, done, finalMessage, th.Muted.Render(elapsed))
+	fmt.Fprintf(h.printer.w, "%s%s %s in %s\n", clearLine, done, finalMessage, th.Muted.Render(elapsed)) //nolint:errcheck
 }
 
 // StopError completes the spinner with an error indicator.
@@ -114,7 +114,7 @@ func (h *SpinnerHandle) StopError(finalMessage string) {
 	elapsed := formatDuration(time.Since(h.start))
 	th := h.printer.theme
 	fail := th.FailStyle.Render(h.printer.theme.SpinnerFail)
-	fmt.Fprintf(h.printer.w, "%s%s %s in %s\n", clearLine, fail, finalMessage, th.Muted.Render(elapsed))
+	fmt.Fprintf(h.printer.w, "%s%s %s in %s\n", clearLine, fail, finalMessage, th.Muted.Render(elapsed)) //nolint:errcheck
 }
 
 // RunWithSpinner wraps a function with a spinner animation.
@@ -167,7 +167,7 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 			return
 		}
 		if !started {
-			fmt.Fprint(p.w, "\n")
+			fmt.Fprint(p.w, "\n") //nolint:errcheck
 			started = true
 		}
 		*lastPrinted = now
@@ -181,7 +181,7 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 		if force && written >= total {
 			symbol = doneSymbol
 		}
-		fmt.Fprintf(p.w, "%s%s %s %s %3.0f%% (%s/%s)", clearLine, symbol, paddedLabel, barView, percent*100, FormatSize(written), FormatSize(total))
+		fmt.Fprintf(p.w, "%s%s %s %s %3.0f%% (%s/%s)", clearLine, symbol, paddedLabel, barView, percent*100, FormatSize(written), FormatSize(total)) //nolint:errcheck
 	}
 
 	buf := make([]byte, 32*1024)
@@ -197,11 +197,11 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 				printProgress(written, false, &lastPrinted)
 			}
 			if writeErr != nil {
-				fmt.Fprintf(p.w, "%s%s %s failed\n", clearLine, failSymbol, label)
+				fmt.Fprintf(p.w, "%s%s %s failed\n", clearLine, failSymbol, label) //nolint:errcheck
 				return written, writeErr
 			}
 			if nw < nr {
-				fmt.Fprintf(p.w, "%s%s %s failed\n", clearLine, failSymbol, label)
+				fmt.Fprintf(p.w, "%s%s %s failed\n", clearLine, failSymbol, label) //nolint:errcheck
 				return written, io.ErrShortWrite
 			}
 		}
@@ -209,10 +209,10 @@ func (p *Printer) CopyWithProgress(dst io.Writer, src io.Reader, total int64, la
 		if readErr != nil {
 			if errors.Is(readErr, io.EOF) {
 				printProgress(written, true, &lastPrinted)
-				fmt.Fprint(p.w, "\n")
+				fmt.Fprint(p.w, "\n") //nolint:errcheck
 				return written, nil
 			}
-			fmt.Fprintf(p.w, "%s%s %s failed\n", clearLine, failSymbol, label)
+			fmt.Fprintf(p.w, "%s%s %s failed\n", clearLine, failSymbol, label) //nolint:errcheck
 			return written, readErr
 		}
 	}
@@ -232,7 +232,7 @@ func (p *Printer) Confirm(prompt string, defaultYes bool) bool {
 		suffix = " [Y/n] "
 	}
 
-	fmt.Fprint(p.w, "\n"+prompt+suffix)
+	fmt.Fprint(p.w, "\n"+prompt+suffix) //nolint:errcheck
 
 	var response string
 	if _, err := fmt.Scanln(&response); err != nil {

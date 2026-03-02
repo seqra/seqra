@@ -6,8 +6,6 @@ import (
 	"sort"
 	"strings"
 
-	"charm.land/lipgloss/v2"
-
 	"github.com/seqra/seqra/v2/internal/output"
 )
 
@@ -110,16 +108,4 @@ func (loc Location) extractNodeLoc() nodeLoc {
 	return nodeLoc{relFilePath: relFilePath, fileName: fileName, method: method, line: lineVal}
 }
 
-// levelIndicatorStyled returns a text-based indicator and lipgloss style for the given level.
-func levelIndicatorStyled(level Level, th *output.Theme) (string, lipgloss.Style) {
-	switch strings.ToLower(string(level)) {
-	case "error":
-		return "[ERROR]", th.Error
-	case "warning":
-		return "[WARNING]", th.Warning
-	case "note":
-		return "[NOTE]", th.Note
-	default:
-		return "[UNKNOWN]", th.Muted
-	}
-}
+

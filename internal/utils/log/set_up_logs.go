@@ -94,7 +94,7 @@ func SetUpLogs(out io.Writer, level string, colorMode string) error {
 	_ = colorMode
 
 	normalizedLevel := strings.ToLower(strings.TrimSpace(level))
-	fileLevel := logrus.InfoLevel
+	var fileLevel logrus.Level
 	switch normalizedLevel {
 	case "", "info":
 		fileLevel = logrus.InfoLevel
