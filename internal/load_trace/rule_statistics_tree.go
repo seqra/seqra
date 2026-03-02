@@ -40,16 +40,6 @@ func buildRuleParsingIssuesNode(out *output.Printer, result *RuleLoadErrorsResul
 	if !isDebug && s.TotalAffectedFiles == 0 && s.TotalAffectedRules == 0 {
 		children = append(children, "No issues found")
 	} else {
-		fileLevel := out.GroupItem("File-level",
-			fmt.Sprintf("Files with syntax issues: %d", s.FileErrorTypes[SyntaxError]+s.FileErrorTypes[SyntaxWarning]),
-			fmt.Sprintf("Files with unsupported constructs: %d", s.FileErrorTypes[UnsupportedError]+s.FileErrorTypes[UnsupportedWarning]),
-		)
-		if s.FileErrorTypes[Internal] > 0 {
-			fileLevel.Child(fmt.Sprintf("Files with internal issues: %d", s.FileErrorTypes[Internal]))
-		}
-		fileLevel.Child(fmt.Sprintf("Total affected files: %d", s.TotalAffectedFiles))
-		children = append(children, fileLevel)
-
 		ruleLevel := out.GroupItem("Rule-level",
 			fmt.Sprintf("Rules with syntax issues: %d", s.RuleErrorTypes[SyntaxError]+s.RuleErrorTypes[SyntaxWarning]),
 			fmt.Sprintf("Rules with unsupported constructs: %d", s.RuleErrorTypes[UnsupportedError]+s.RuleErrorTypes[UnsupportedWarning]),

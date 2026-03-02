@@ -113,11 +113,18 @@ type errorEntry struct {
 	Type    errorCategory
 }
 
-func CollectRuleLoadTraceSummary(trace *SemgrepLoadTrace) RuleLoadTraceSummary {
+func CollectRuleLoadTraceSummary(trace *SemgrepLoadTrace, rulesetPaths []string) RuleLoadTraceSummary {
 	out := RuleLoadTraceSummary{}
 
 	if trace.FileTraces == nil {
 		return out
+	}
+
+	emptyPathCount := 0
+	for _, ft := range trace.FileTraces {
+		if ft.Path == "" {
+			emptyPathCount++
+		}
 	}
 
 	for _, fileTrace := range trace.FileTraces {
@@ -127,6 +134,9 @@ func CollectRuleLoadTraceSummary(trace *SemgrepLoadTrace) RuleLoadTraceSummary {
 		}
 
 		fileSummary.Path = fileTrace.Path
+		if fileSummary.Path == "" && emptyPathCount == 1 && len(rulesetPaths) == 1 {
+			fileSummary.Path = rulesetPaths[0]
+		}
 		fileSummary.Errors, fileSummary.errorTypes = collectFromEntries(fileTrace.Entries)
 
 		if fileTrace.RuleTraces != nil {
