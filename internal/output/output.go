@@ -104,9 +104,9 @@ func (p *Printer) Theme() *Theme {
 	return p.theme
 }
 
-// IsInteractive returns true if the output is a TTY and not in quiet mode.
+// IsInteractive returns true if the output is a TTY.
 func (p *Printer) IsInteractive() bool {
-	return p.isTTY && !p.quiet
+	return p.isTTY
 }
 
 // SetLogWriter configures an additional writer for plain-text output mirroring.
@@ -130,11 +130,7 @@ func (p *Printer) IsDebugVerbosity() bool {
 // IsInteractiveUI returns true when interactive UI components
 // (spinners/progress bars) should be rendered.
 func (p *Printer) IsInteractiveUI() bool {
-	return p.IsInteractive() && !p.IsDebugVerbosity()
-}
-
-func (p *Printer) isQuiet() bool {
-	return p.quiet
+	return p.IsInteractive() && !p.IsDebugVerbosity() && !p.quiet
 }
 
 func (p *Printer) writeMirroredLine(line string) {
@@ -151,29 +147,20 @@ func (p *Printer) writeMirroredLine(line string) {
 
 // Print writes a styled string followed by a newline.
 func (p *Printer) Print(a ...any) {
-	if p.quiet {
-		return
-	}
 	fmt.Fprintln(p.w, a...) //nolint:errcheck
 }
 
 // Printf writes a formatted string followed by a newline.
 func (p *Printer) Printf(format string, a ...any) {
-	if p.quiet {
-		return
-	}
 	fmt.Fprintf(p.w, format+"\n", a...) //nolint:errcheck
 }
 
 // Blank prints an empty line.
 func (p *Printer) Blank() {
-	if p.quiet {
-		return
-	}
 	fmt.Fprintln(p.w) //nolint:errcheck
 }
 
-// Error prints an error-styled message. Not suppressed by quiet mode.
+// Error prints an error-styled message.
 func (p *Printer) Error(a ...any) {
 	text := fmt.Sprint(a...)
 	fmt.Fprintln(p.w, p.theme.Error.Render(text)) //nolint:errcheck
@@ -181,27 +168,18 @@ func (p *Printer) Error(a ...any) {
 
 // Warn prints a warning-styled message.
 func (p *Printer) Warn(a ...any) {
-	if p.quiet {
-		return
-	}
 	text := fmt.Sprint(a...)
 	fmt.Fprintln(p.w, p.theme.Warning.Render(text)) //nolint:errcheck
 }
 
 // Warnf prints a formatted warning message.
 func (p *Printer) Warnf(format string, a ...any) {
-	if p.quiet {
-		return
-	}
 	text := fmt.Sprintf(format, a...)
 	fmt.Fprintln(p.w, p.theme.Warning.Render(text)) //nolint:errcheck
 }
 
 // Successf prints a formatted success message.
 func (p *Printer) Successf(format string, a ...any) {
-	if p.quiet {
-		return
-	}
 	text := fmt.Sprintf(format, a...)
 	fmt.Fprintln(p.w, p.theme.Success.Render(text)) //nolint:errcheck
 }

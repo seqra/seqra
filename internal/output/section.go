@@ -107,9 +107,6 @@ func (p *Printer) GroupItem(name string, children ...any) *tree.Tree {
 
 // Render builds and prints the section.
 func (sb *SectionBuilder) Render() {
-	if sb.printer.isQuiet() {
-		return
-	}
 	p := sb.printer
 	th := p.theme
 
@@ -236,9 +233,6 @@ func (p *Printer) StyledFieldItem(key string, value any, valueStyle lipgloss.Sty
 
 // Suggest prints a suggestion section with a description and optional command.
 func (p *Printer) Suggest(description string, command string) {
-	if p.quiet {
-		return
-	}
 	th := p.theme
 
 	p.Blank()

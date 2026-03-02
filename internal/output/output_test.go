@@ -30,19 +30,24 @@ func TestPrinterPrintf(t *testing.T) {
 	}
 }
 
-func TestPrinterQuietSuppresses(t *testing.T) {
+func TestPrinterQuietDoesNotSuppressTextOutput(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewWithWriter(&buf)
 	p.Configure("never", true)
 
-	p.Print("should not appear")
-	p.Printf("should not appear %d", 42)
-	p.Blank()
-	p.Warn("should not appear")
+	p.Print("hello")
+	p.Printf("value %d", 42)
+	p.Warn("warning message")
 
 	got := buf.String()
-	if got != "" {
-		t.Errorf("expected no output in quiet mode, got %q", got)
+	if !strings.Contains(got, "hello") {
+		t.Errorf("expected Print output in quiet mode, got %q", got)
+	}
+	if !strings.Contains(got, "value 42") {
+		t.Errorf("expected Printf output in quiet mode, got %q", got)
+	}
+	if !strings.Contains(got, "warning message") {
+		t.Errorf("expected Warn output in quiet mode, got %q", got)
 	}
 }
 
@@ -126,18 +131,18 @@ func TestSectionMirroredToLogWriter(t *testing.T) {
 	}
 }
 
-func TestSectionQuietSuppresses(t *testing.T) {
+func TestSectionQuietStillRenders(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewWithWriter(&buf)
 	p.Configure("never", true)
 
-	p.Section("Should Not Appear").
+	p.Section("Should Appear").
 		Field("Key", "Value").
 		Render()
 
 	got := buf.String()
-	if got != "" {
-		t.Errorf("expected no output for section in quiet mode, got %q", got)
+	if !strings.Contains(got, "Should Appear") {
+		t.Errorf("expected section output in quiet mode, got %q", got)
 	}
 }
 
