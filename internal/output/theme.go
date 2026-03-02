@@ -5,6 +5,7 @@ package output
 
 import (
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/colorprofile"
 )
 
 // Theme holds all the visual styles used throughout the CLI.
@@ -49,17 +50,16 @@ type Theme struct {
 
 // DefaultTheme returns the default seqra theme adapted for light/dark terminals.
 // Colors are specified with ANSI 16 indexes so output follows the active terminal theme.
-func DefaultTheme(hasDarkBackground bool) *Theme {
-	lightDark := lipgloss.LightDark(hasDarkBackground)
-
-	red := lightDark(lipgloss.Color("1"), lipgloss.Color("9"))
-	yellow := lipgloss.Color("214")
-	green := lightDark(lipgloss.Color("2"), lipgloss.Color("10"))
-	blue := lightDark(lipgloss.Color("4"), lipgloss.Color("12"))
-	cyan := lightDark(lipgloss.Color("6"), lipgloss.Color("14"))
-	magenta := lightDark(lipgloss.Color("5"), lipgloss.Color("13"))
-	muted := lightDark(lipgloss.Color("8"), lipgloss.Color("7"))
-	title := lightDark(lipgloss.Color("4"), lipgloss.Color("14"))
+func DefaultTheme(profile colorprofile.Profile) *Theme {
+	c := lipgloss.Complete(profile)
+	red := c(lipgloss.Color("1"), lipgloss.Color("160"), lipgloss.Color("#DC322F"))
+	yellow := c(lipgloss.Color("3"), lipgloss.Color("136"), lipgloss.Color("#B58900"))
+	green := c(lipgloss.Color("2"), lipgloss.Color("64"), lipgloss.Color("#859900"))
+	blue := c(lipgloss.Color("4"), lipgloss.Color("33"), lipgloss.Color("#268BD2"))
+	cyan := c(lipgloss.Color("6"), lipgloss.Color("37"), lipgloss.Color("#2AA198"))
+	magenta := c(lipgloss.Color("5"), lipgloss.Color("125"), lipgloss.Color("#D33682"))
+	muted := c(lipgloss.Color("8"), lipgloss.Color("66"), lipgloss.Color("#586E75"))
+	title := c(lipgloss.Color("5"), lipgloss.Color("61"), lipgloss.Color("#6C71C4"))
 
 	return &Theme{
 		Error:   lipgloss.NewStyle().Foreground(red).Bold(true),

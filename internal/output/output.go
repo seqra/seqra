@@ -6,10 +6,8 @@ import (
 	"os"
 	"regexp"
 	"runtime"
-	"strconv"
 	"strings"
 
-	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/colorprofile"
 	"golang.org/x/term"
 )
@@ -23,9 +21,9 @@ type Printer struct {
 	logW              io.Writer
 	verbosity         string
 	theme             *Theme
-	isTTY             bool
-	quiet             bool
-	hasDarkBackground bool
+	isTTY   bool
+	quiet   bool
+	profile colorprofile.Profile
 }
 
 var ansiEscapePattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
@@ -35,13 +33,13 @@ var ansiEscapePattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 func New() *Printer {
 	w := os.Stdout
 	tty := term.IsTerminal(int(w.Fd()))
-	hasDark := detectDarkBackground(tty)
+	cw := colorprofile.NewWriter(w, os.Environ())
 	return &Printer{
-		baseW:             w,
-		w:                 colorprofile.NewWriter(w, os.Environ()),
-		theme:             DefaultTheme(hasDark),
-		isTTY:             tty,
-		hasDarkBackground: hasDark,
+		baseW:   w,
+		w:       cw,
+		theme:   DefaultTheme(cw.Profile),
+		isTTY:   tty,
+		profile: cw.Profile,
 	}
 }
 
@@ -51,13 +49,13 @@ func NewWithWriter(w io.Writer) *Printer {
 	if f, ok := w.(*os.File); ok {
 		tty = term.IsTerminal(int(f.Fd()))
 	}
-	hasDark := detectDarkBackground(tty)
+	cw := colorprofile.NewWriter(w, os.Environ())
 	return &Printer{
-		baseW:             w,
-		w:                 colorprofile.NewWriter(w, os.Environ()),
-		theme:             DefaultTheme(hasDark),
-		isTTY:             tty,
-		hasDarkBackground: hasDark,
+		baseW:   w,
+		w:       cw,
+		theme:   DefaultTheme(cw.Profile),
+		isTTY:   tty,
+		profile: cw.Profile,
 	}
 }
 
@@ -71,7 +69,6 @@ func NewConfigured(colorMode string, quiet bool) *Printer {
 // Configure applies the given options to the Printer.
 func (p *Printer) Configure(colorMode string, quiet bool) {
 	p.quiet = quiet
-	p.hasDarkBackground = detectDarkBackground(p.isTTY)
 	mode := strings.ToLower(strings.TrimSpace(colorMode))
 	if mode == "" {
 		mode = "auto"
@@ -79,15 +76,19 @@ func (p *Printer) Configure(colorMode string, quiet bool) {
 
 	switch mode {
 	case "never":
-		p.w = &colorprofile.Writer{Forward: p.baseW, Profile: colorprofile.NoTTY}
+		p.profile = colorprofile.NoTTY
+		p.w = &colorprofile.Writer{Forward: p.baseW, Profile: p.profile}
 		p.theme = PlainTheme()
 		return
 	case "always":
-		p.w = &colorprofile.Writer{Forward: p.baseW, Profile: colorprofile.TrueColor}
-		p.theme = DefaultTheme(p.hasDarkBackground)
+		p.profile = colorprofile.TrueColor
+		p.w = &colorprofile.Writer{Forward: p.baseW, Profile: p.profile}
+		p.theme = DefaultTheme(p.profile)
 		return
 	default:
-		p.w = colorprofile.NewWriter(p.baseW, os.Environ())
+		cw := colorprofile.NewWriter(p.baseW, os.Environ())
+		p.profile = cw.Profile
+		p.w = cw
 	}
 
 	colored := p.resolveColor(colorMode)
@@ -95,34 +96,7 @@ func (p *Printer) Configure(colorMode string, quiet bool) {
 		p.theme = PlainTheme()
 		return
 	}
-	p.theme = DefaultTheme(p.hasDarkBackground)
-}
-
-func detectDarkBackground(isTTY bool) bool {
-	if mode := strings.ToLower(strings.TrimSpace(os.Getenv("SEQRA_THEME"))); mode == "light" {
-		return false
-	} else if mode == "dark" {
-		return true
-	}
-
-	if val := strings.TrimSpace(os.Getenv("COLORFGBG")); val != "" {
-		parts := strings.Split(val, ";")
-		for i := len(parts) - 1; i >= 0; i-- {
-			bg, err := strconv.Atoi(strings.TrimSpace(parts[i]))
-			if err != nil {
-				continue
-			}
-			if bg >= 0 {
-				return bg < 8
-			}
-		}
-	}
-
-	if isTTY {
-		return lipgloss.HasDarkBackground(os.Stdin, os.Stdout)
-	}
-
-	return true
+	p.theme = DefaultTheme(p.profile)
 }
 
 // Theme returns the active theme.
