@@ -252,3 +252,38 @@ func (p *Printer) resolveColor(mode string) bool {
 	}
 	return true
 }
+
+// WrapText wraps text to fit within the given column width, preserving
+// existing newlines and splitting only on whitespace boundaries.
+func WrapText(text string, width int) string {
+	if width <= 0 {
+		return text
+	}
+	var out strings.Builder
+	for i, paragraph := range strings.Split(text, "\n") {
+		if i > 0 {
+			out.WriteByte('\n')
+		}
+		words := strings.Fields(paragraph)
+		if len(words) == 0 {
+			continue
+		}
+		lineLen := 0
+		for j, word := range words {
+			wLen := len([]rune(word))
+			if j == 0 {
+				out.WriteString(word)
+				lineLen = wLen
+			} else if lineLen+1+wLen > width {
+				out.WriteByte('\n')
+				out.WriteString(word)
+				lineLen = wLen
+			} else {
+				out.WriteByte(' ')
+				out.WriteString(word)
+				lineLen += 1 + wLen
+			}
+		}
+	}
+	return out.String()
+}

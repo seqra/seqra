@@ -65,17 +65,20 @@ func (report *Report) buildFindingTree(out *output.Printer, result *Result, runI
 	nodeLoc := loc.extractNodeLoc()
 	locStr := printLocStyled(nodeLoc, absProjectPath, out)
 
+	const msgWrap = 120
+	const flowWrap = 117
+
 	findingNode := out.GroupItem(rule)
 	findingNode.Child(out.FieldItem("Severity", strings.ToUpper(string(lvl))))
 	findingNode.Child(out.FieldItem("Location", locStr))
 
 	if showMessage {
-		findingNode.Child(out.FieldItem("Message", msg))
+		findingNode.Child(out.FieldItem("Message", output.WrapText(msg, msgWrap)))
 	}
 
 	endpoints := findingEndpoints(result)
 	if len(endpoints) > 0 {
-		endpointsNode := out.GroupItem("Endpoints")
+		endpointsNode := out.GroupItem(out.Theme().FieldKey.Render("Endpoints:"))
 		for _, endpoint := range endpoints {
 			endpointLine := endpoint.Route
 			if len(endpoint.Params) > 0 {
@@ -102,7 +105,7 @@ func (report *Report) buildFindingTree(out *output.Printer, result *Result, runI
 		return findingNode, false
 	}
 
-	flowTree := out.GroupItem("Code flow")
+	flowTree := out.GroupItem(out.Theme().FieldKey.Render("Code flow:"))
 
 	builder := NewFlowStepBuilder()
 	flowSteps := taintFlow
@@ -115,6 +118,7 @@ func (report *Report) buildFindingTree(out *output.Printer, result *Result, runI
 
 	for i, cs := range flowSteps {
 		mainLine, locationLine := builder.FormatStep(cs, absProjectPath)
+		mainLine = output.WrapText(mainLine, flowWrap)
 		stepNode := out.GroupItem(mainLine, locationLine)
 
 		stepLoc := cs.Step.Location
