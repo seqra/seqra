@@ -172,7 +172,7 @@ func scan(cmd *cobra.Command) {
 	absSemgrepRuleLoadTracePath := setupSemgrepRuleLoadTrace()
 
 	// Display scan information in tree format
-	printScanInfo(cmd, scanMode, absProjectModelPath, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot)
+	printScanInfo(cmd, scanMode, absProjectModelPath, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot, absRuleSetPaths)
 
 	for _, ruleSetPath := range absRuleSetPaths {
 		if !ruleSetPath.Builtin {
@@ -326,7 +326,7 @@ func scan(cmd *cobra.Command) {
 	}
 }
 
-func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string, absSemgrepRuleLoadTracePath string, tempProjectModel bool, absUserProjectRoot string) {
+func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string, absSemgrepRuleLoadTracePath string, tempProjectModel bool, absUserProjectRoot string, absRuleSetPaths []RulesetType) {
 	sb := out.Section(mode.String())
 	addConfigFields(cmd, sb)
 	if globals.Config.Log.Verbosity == "debug" {
@@ -338,6 +338,11 @@ func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string
 			Field("Temporary project model", absProjectModelPath)
 	} else {
 		sb.Field("Project model", absProjectModelPath)
+	}
+	for _, r := range absRuleSetPaths {
+		if r.Builtin {
+			sb.Field("Bundled ruleset", globals.Config.Rules.Version)
+		}
 	}
 	sb.Render()
 }
