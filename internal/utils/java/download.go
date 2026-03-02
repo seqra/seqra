@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/utils"
-	"github.com/sirupsen/logrus"
 )
 
 var errJavaFound = errors.New("java-binary-found")
@@ -30,12 +30,9 @@ const (
 type AdoptiumOS string
 
 const (
-	AdoptiumOSLinux       AdoptiumOS = "linux"
-	AdoptiumOSWindows     AdoptiumOS = "windows"
-	AdoptiumOSMac         AdoptiumOS = "mac"
-	AdoptiumOSSolaris     AdoptiumOS = "solaris"
-	AdoptiumOSAIX         AdoptiumOS = "aix"
-	AdoptiumOSAlpineLinux AdoptiumOS = "alpine-linux"
+	AdoptiumOSLinux   AdoptiumOS = "linux"
+	AdoptiumOSWindows AdoptiumOS = "windows"
+	AdoptiumOSMac     AdoptiumOS = "mac"
 )
 
 // AdoptiumArch enumerates supported architectures for API downloads.
@@ -43,26 +40,18 @@ type AdoptiumArch string
 
 const (
 	AdoptiumArchX64     AdoptiumArch = "x64"
-	AdoptiumArchX86     AdoptiumArch = "x86"
-	AdoptiumArchX32     AdoptiumArch = "x32"
-	AdoptiumArchPPC64   AdoptiumArch = "ppc64"
-	AdoptiumArchPPC64LE AdoptiumArch = "ppc64le"
-	AdoptiumArchS390X   AdoptiumArch = "s390x"
 	AdoptiumArchAARCH64 AdoptiumArch = "aarch64"
-	AdoptiumArchARM     AdoptiumArch = "arm"
-	AdoptiumArchSPARCV9 AdoptiumArch = "sparcv9"
-	AdoptiumArchRISCV64 AdoptiumArch = "riscv64"
 )
-
-// EnsureLocalRuntime downloads and unpacks Temurin runtime if not present and returns bin/java path
-func EnsureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, aoArch string, skipVerify bool) (string, error) {
-	return ensureLocalRuntime(requiredJavaVersion, imageType, goOs, aoArch, skipVerify)
-}
 
 // EnsureLocalRuntimeAt downloads and installs Temurin runtime directly into targetDir
 // (flat layout: targetDir/bin/java) and returns the path to the java binary.
 func EnsureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
-	targetDir string, goOs, goArch string, skipVerify bool) (string, error) {
+	targetDir string, goOs, goArch string, skipVerify bool, printer *output.Printer) (string, error) {
+	return ensureLocalRuntimeAt(requiredJavaVersion, imageType, targetDir, goOs, goArch, skipVerify, printer)
+}
+
+func ensureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
+	targetDir string, goOs, goArch string, skipVerify bool, printer *output.Printer) (string, error) {
 
 	adoptiumOS, adoptiumArch, err := MapPlatformToAdoptium(goOs, goArch)
 	if err != nil {
@@ -76,7 +65,7 @@ func EnsureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
 
 	javaPath := filepath.Join(targetDir, "bin", javaBinary)
 	if fileExists(javaPath) {
-		logrus.Debugf("Using installed Java: %s", javaPath)
+		output.LogDebugf("Using installed Java: %s", javaPath)
 		return javaPath, nil
 	}
 
@@ -89,19 +78,19 @@ func EnsureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
 
 	return withTmpDir(targetDir+"-tmp", func(tmpDir string) (string, error) {
 		tmpArchive := filepath.Join(tmpDir, artefactTar)
-		if err := ensureDownloaded(url, tmpArchive); err != nil {
+		if err := ensureDownloaded(url, tmpArchive, printer); err != nil {
 			return "", err
 		}
 
 		if !skipVerify {
 			expected, err := FetchAdoptiumChecksum(requiredJavaVersion, adoptiumOS, adoptiumArch, imageType)
 			if err != nil {
-				logrus.Warnf("Could not fetch Adoptium checksum: %v", err)
+				output.LogInfof("Could not fetch Adoptium checksum: %v", err)
 			} else if expected != "" {
 				if err := utils.VerifyFileChecksum(tmpArchive, expected); err != nil {
 					return "", fmt.Errorf("JRE integrity check failed: %w", err)
 				}
-				logrus.Debugf("SHA256 verified: Temurin Java %d", requiredJavaVersion)
+				output.LogDebugf("SHA256 verified: Temurin Java %d", requiredJavaVersion)
 			}
 		}
 
@@ -112,25 +101,9 @@ func EnsureLocalRuntimeAt(requiredJavaVersion int, imageType AdoptiumImageType,
 		if err != nil {
 			return "", err
 		}
-		logrus.Debugf("Java installed at: %s", javaPath)
+		output.LogDebugf("Java installed at: %s", javaPath)
 		return javaPath, nil
 	})
-}
-
-// ensureLocalRuntime downloads and unpacks Temurin runtime into ~/.seqra/ if not present.
-func ensureLocalRuntime(requiredJavaVersion int, imageType AdoptiumImageType, goOs, goArch string, skipVerify bool) (string, error) {
-	seqraHome, err := utils.GetSeqraHome()
-	if err != nil {
-		return "", err
-	}
-
-	adoptiumOS, adoptiumArch, err := MapPlatformToAdoptium(goOs, goArch)
-	if err != nil {
-		return "", err
-	}
-
-	artefactRoot := filepath.Join(seqraHome, string(imageType), fmt.Sprintf("temurin-%d-%s-%s-%s", requiredJavaVersion, imageType, adoptiumOS, adoptiumArch))
-	return EnsureLocalRuntimeAt(requiredJavaVersion, imageType, artefactRoot, goOs, goArch, skipVerify)
 }
 
 // MapPlatformToAdoptium converts Go OS/arch to Adoptium naming.
@@ -183,7 +156,7 @@ func withTmpDir(path string, fn func(string) (string, error)) (result string, er
 	}
 	defer func() {
 		if cleanupErr := os.RemoveAll(path); cleanupErr != nil {
-			logrus.Warnf("failed to clean temporary directory %s: %v", path, cleanupErr)
+			output.LogInfof("failed to clean temporary directory %s: %v", path, cleanupErr)
 		}
 	}()
 
@@ -196,22 +169,22 @@ func withTmpDir(path string, fn func(string) (string, error)) (result string, er
 }
 
 // ensureDownloaded downloads a file if it doesn't already exist.
-func ensureDownloaded(url, dest string) error {
-	logrus.Debugf("trying to tap into %s...", dest)
+func ensureDownloaded(url, dest string, printer *output.Printer) error {
+	output.LogDebugf("trying to tap into %s...", dest)
 	if fileExists(dest) {
-		logrus.Debugf("Reusing downloaded Java archive: %s", dest)
+		output.LogDebugf("Reusing downloaded Java archive: %s", dest)
 		return nil
 	}
-	logrus.Infof("Downloading Temurin Java from %s", url)
-	err := downloadFile(url, dest)
+	output.LogDebugf("Downloading Temurin Java from %s", url)
+	err := downloadFile(url, dest, printer)
 	if err == nil {
-		logrus.Infof("Successfully downloaded Temurin Java to %s", dest)
+		output.LogDebugf("Successfully downloaded Temurin Java to %s", dest)
 	}
 	return err
 }
 
 func unpack(archivePath, targetDir string) error {
-	logrus.Debugf("Unpacking Java archive %s into %s", archivePath, targetDir)
+	output.LogDebugf("Unpacking Java archive %s into %s", archivePath, targetDir)
 	f, err := os.Open(archivePath)
 	if err != nil {
 		return err
@@ -220,7 +193,7 @@ func unpack(archivePath, targetDir string) error {
 
 	buff := make([]byte, 512)
 	if _, err = f.Read(buff); err != nil {
-		logrus.Fatal(err)
+		return err
 	}
 	fileType := http.DetectContentType(buff)
 
@@ -242,7 +215,6 @@ func unpack(archivePath, targetDir string) error {
 	case "application/zip":
 		return utils.ExtractZip(archivePath, targetDir)
 	default:
-		logrus.Fatalf("Failed to unpack an archive with unsupported format: %s", fileType)
 		return fmt.Errorf("unsupported archive format: %s", fileType)
 	}
 }
@@ -367,8 +339,8 @@ func fileExists(p string) bool {
 	return err == nil && !st.IsDir()
 }
 
-// downloadFile downloads url to dest path
-func downloadFile(url, dest string) error {
+// downloadFile downloads url to dest path, showing a progress bar if printer is non-nil and interactive.
+func downloadFile(url, dest string, printer *output.Printer) error {
 	resp, err := http.Get(url)
 	if err != nil {
 		return err
@@ -385,6 +357,11 @@ func downloadFile(url, dest string) error {
 	}
 	defer func() { _ = f.Close() }()
 
-	_, err = io.Copy(f, resp.Body)
+	label := "Downloading " + filepath.Base(dest)
+	if printer != nil && resp.ContentLength > 0 {
+		_, err = printer.CopyWithProgress(f, resp.Body, resp.ContentLength, label)
+	} else {
+		_, err = io.Copy(f, resp.Body)
+	}
 	return err
 }

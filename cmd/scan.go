@@ -9,16 +9,15 @@ import (
 	"time"
 
 	"github.com/seqra/seqra/v2/internal/load_trace"
+	"github.com/seqra/seqra/v2/internal/sarif"
 	"github.com/seqra/seqra/v2/internal/version"
 
-	"github.com/seqra/seqra/v2/internal/utils/formatters"
 	"github.com/seqra/seqra/v2/internal/utils/project"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
 	"github.com/seqra/seqra/v2/internal/globals"
-	"github.com/seqra/seqra/v2/internal/sarif"
+	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/utils"
 	"github.com/seqra/seqra/v2/internal/utils/java"
 	"github.com/seqra/seqra/v2/internal/utils/log"
@@ -60,16 +59,12 @@ var scanCmd = &cobra.Command{
 	Use:   "scan project",
 	Short: "Scan your Java or Kotlin project",
 	Args:  cobra.ExactArgs(1), // require exactly one argument
-	Long: `This command automatically detects Java/Kotlin build systems, build project and analyze it
+	Long: `This command automatically detects Java/Kotlin build systems, builds the project, and analyzes it
 
 Arguments:
   project  - Path to a project or a project model (required)
 `,
 	Annotations: map[string]string{"PrintConfig": "true"},
-	PreRun: func(cmd *cobra.Command, args []string) {
-		bindCompileTypeFlag(cmd)
-		bindScanTypeFlag(cmd)
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 		UserProjectPath = args[0]
 		scan(cmd)
@@ -104,17 +99,16 @@ func scan(cmd *cobra.Command) {
 	userProjectPath = filepath.Clean(userProjectPath)
 	absUserProjectRoot := log.AbsPathOrExit(userProjectPath, "project path")
 
-	logrus.Info()
 	tempProjectModel := false
 	var tempProjectModelPath string
 
 	if !utils.IsSupportedArch() {
-		logrus.Fatalf("Unsupported architecture found: %s! Only arm64 and amd64 are supported.", utils.GetArch())
+		out.Fatalf("Unsupported architecture found: %s! Only arm64 and amd64 are supported.", utils.GetArch())
 	}
 
 	// Resolve project type
 	var scanMode ScanMode
-	logrus.Debugf("Trying to define %v is a project model or a project", absUserProjectRoot)
+	output.LogDebugf("Trying to define %v is a project model or a project", absUserProjectRoot)
 	if _, err := os.Stat(filepath.Join(absUserProjectRoot, "project.yaml")); err == nil {
 		scanMode = Scan
 		absProjectModelPath = absUserProjectRoot
@@ -123,12 +117,12 @@ func scan(cmd *cobra.Command) {
 		scanMode = CompileAndScan
 		tempLogsDir, err = os.MkdirTemp("", "seqra-*")
 		if err != nil {
-			logrus.Fatalf("Failed to create temporary directory: %s", err)
+			out.Fatalf("Failed to create temporary directory: %s", err)
 		}
 		tempProjectModelPath = filepath.Join(tempLogsDir, "project-model")
 		absProjectModelPath = tempProjectModelPath
 	} else {
-		logrus.Fatalf("Unexpected error occurred while checking the project: %s", err)
+		out.Fatalf("Unexpected error occurred while checking the project: %s", err)
 	}
 
 	var absRuleSetPaths = []RulesetType{}
@@ -139,17 +133,7 @@ func scan(cmd *cobra.Command) {
 		case "builtin":
 			rulesPath, err := utils.GetRulesPath(globals.Config.Rules.Version)
 			if err != nil {
-				logrus.Fatalf("Unexpected error occurred while trying to construct path to the ruleset: %s", err)
-			}
-
-			if _, err := os.Stat(rulesPath); errors.Is(err, os.ErrNotExist) {
-				logrus.Info("Downloading seqra-rules")
-				err := utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, rulesPath, globals.Config.Github.Token, globals.Config.SkipVerify)
-				if err != nil {
-					logrus.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
-				}
-				logrus.Infof("Successfully downloaded seqra-rules to %s", rulesPath)
-
+				out.Fatalf("Unexpected error occurred while trying to construct path to the ruleset: %s", err)
 			}
 
 			absRuleSetPaths = append(absRuleSetPaths, RulesetType{Path: rulesPath, Builtin: true})
@@ -175,7 +159,7 @@ func scan(cmd *cobra.Command) {
 	var sourceRoot string
 	if !tempProjectModel {
 		if parsedSourceRoot, err := project.GetSourceRoot(absProjectModelPath); err != nil {
-			logrus.Fatalf("Failed to parse sourceRoot from project.yaml: %v", err)
+			out.Fatalf("Failed to parse sourceRoot from project.yaml: %v", err)
 		} else {
 			sourceRoot = parsedSourceRoot
 		}
@@ -188,20 +172,58 @@ func scan(cmd *cobra.Command) {
 	absSemgrepRuleLoadTracePath := setupSemgrepRuleLoadTrace()
 
 	// Display scan information in tree format
-	printScanInfo(cmd, scanMode, absProjectModelPath, absRuleSetPaths, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot)
+	printScanInfo(cmd, scanMode, absProjectModelPath, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot, absRuleSetPaths)
+
+	for _, ruleSetPath := range absRuleSetPaths {
+		if !ruleSetPath.Builtin {
+			continue
+		}
+		if _, err := os.Stat(ruleSetPath.Path); err == nil {
+			continue
+		}
+		if out.IsInteractive() {
+			out.Blank()
+		}
+		if err := out.RunWithSpinner(fmt.Sprintf("Downloading rules %s", globals.Config.Rules.Version), func() error {
+			return utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, ruleSetPath.Path, globals.Config.Github.Token, globals.Config.SkipVerify, out)
+		}); err != nil {
+			out.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
+		}
+	}
 
 	if tempProjectModel {
-		if err := compile(absUserProjectRoot, tempProjectModelPath, Internal); err != nil {
-			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
-			logrus.Fatal()
+		autobuilderJarPath, err := ensureAutobuilderAvailable()
+		if err != nil {
+			out.Fatalf("Native compile preparation failed: %s", err)
 		}
+
+		compileJavaRunner := java.NewJavaRunner().
+			WithSkipVerify(globals.Config.SkipVerify).
+			WithDebugOutput(out.DebugStream("Autobuilder")).
+			TrySystem().
+			TrySpecificVersion(globals.Config.Java.Version)
+		if _, err := compileJavaRunner.EnsureJava(); err != nil {
+			out.Fatalf("Failed to resolve Java for compilation: %s", err)
+		}
+
+		if out.IsInteractive() {
+			out.Blank()
+		}
+		if err := out.RunWithSpinner("Compiling project model", func() error {
+			return compile(absUserProjectRoot, tempProjectModelPath, autobuilderJarPath, compileJavaRunner, Internal)
+		}); err != nil {
+			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
+			out.Fatalf("Native compile has failed: %s", err)
+		}
+		out.Blank()
+		printCompileSummary(tempProjectModelPath)
 	}
 
 	maxMemory := ""
 	if globals.Config.Scan.MaxMemory != "" {
 		parsedMaxMemory, err := utils.ParseMemoryValue(globals.Config.Scan.MaxMemory)
 		if err != nil {
-			logrus.Fatalf("Invalid max-memory value: %s", err)
+			out.Fatalf("Invalid max-memory value: %s", err)
 		}
 		maxMemory = parsedMaxMemory
 	}
@@ -228,7 +250,7 @@ func scan(cmd *cobra.Command) {
 		case "error", "warning", "note":
 			nativeBuilder.AddSeverity(severity)
 		default:
-			logrus.Fatalf(`The each "severity" flag should be one of note, warning, or error.`)
+			out.Fatalf(`Each "severity" flag should be one of note, warning, or error.`)
 		}
 	}
 	for _, absRuleSetPath := range absRuleSetPaths {
@@ -237,13 +259,36 @@ func scan(cmd *cobra.Command) {
 	if maxMemory != "" {
 		nativeBuilder.SetMaxMemory(maxMemory)
 	}
-	scanProject(nativeBuilder)
 
-	if _, err := os.Stat(absSarifReportPath); err != nil {
-		logrus.Fatalf("There was a problem during the scan step, check the full logs: %s", globals.LogPath)
+	analyzerJarPath, err := ensureAnalyzerAvailable()
+	if err != nil {
+		out.Fatalf("Native scan preparation failed: %s", err)
+	}
+	nativeBuilder.SetJarPath(analyzerJarPath)
+
+	analyzerJavaRunner := java.NewJavaRunner().
+		WithSkipVerify(globals.Config.SkipVerify).
+		WithDebugOutput(out.DebugStream("Analyzer")).
+		WithImageType(java.AdoptiumImageJRE).
+		TrySpecificVersion(globals.DefaultJavaVersion)
+	if _, err := analyzerJavaRunner.EnsureJava(); err != nil {
+		out.Fatalf("Failed to resolve Java for analyzer: %s", err)
 	}
 
-	logrus.Info()
+	if out.IsInteractive() {
+		out.Blank()
+	}
+	if err := out.RunWithSpinner("Analyzing project", func() error {
+		return scanProject(nativeBuilder, analyzerJavaRunner)
+	}); err != nil {
+		out.Fatalf("Native scan has failed: %s", err)
+	}
+
+	if _, err := os.Stat(absSarifReportPath); err != nil {
+		out.Fatalf("There was a problem during the scan step, check the full logs: %s", globals.LogPath)
+	}
+
+	out.Blank()
 
 	el := deserializeSemgrepRuleLoadTrace(absSemgrepRuleLoadTracePath)
 
@@ -258,9 +303,9 @@ func scan(cmd *cobra.Command) {
 	}
 
 	sarifSummary := sarif.GenerateSummary(report)
-	load_trace.PrintRuleStatisticsTree(ruleLoadErrorsResult, sarifSummary, absSemgrepRuleLoadTracePath)
+	load_trace.PrintRuleStatisticsTree(out, ruleLoadErrorsResult, absSemgrepRuleLoadTracePath, sarifSummary)
 
-	load_trace.PrintSyntaxErrorReport(ruleLoadTraceSummary)
+	load_trace.PrintSyntaxErrorReport(out, ruleLoadTraceSummary)
 
 	// Process the generated SARIF report if it exists
 	printSarifSummary(report, absSarifReportPath)
@@ -274,46 +319,42 @@ func scan(cmd *cobra.Command) {
 	// Clean up temporary directory if it was created
 	if tempProjectModel && tempLogsDir != "" {
 		if err := os.RemoveAll(filepath.Dir(absProjectModelPath)); err != nil {
-			logrus.Warnf("Failed to remove temporary directory %s: %v", filepath.Dir(absProjectModelPath), err)
+			output.LogInfof("Failed to remove temporary directory %s: %v", filepath.Dir(absProjectModelPath), err)
 		} else {
-			logrus.Debugf("Removed temporary directory: %s", filepath.Dir(absProjectModelPath))
+			output.LogDebugf("Removed temporary directory: %s", filepath.Dir(absProjectModelPath))
 		}
 	}
 }
 
-func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string, absRuleSetPaths []RulesetType, absSemgrepRuleLoadTracePath string, tempProjectModel bool, absUserProjectRoot string) {
-	logrus.Info(formatters.FormatTreeHeader(mode.String()))
-
-	printer := formatters.NewTreePrinter()
-	printConfig(cmd, printer)
-	printer.AddNode("")
-	if tempProjectModel {
-		printer.AddNode("Project: " + absUserProjectRoot)
-		printer.AddNode("Temporary project model: " + absProjectModelPath)
-	} else {
-		printer.AddNode("Project model: " + absProjectModelPath)
+func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string, absSemgrepRuleLoadTracePath string, tempProjectModel bool, absUserProjectRoot string, absRuleSetPaths []RulesetType) {
+	sb := out.Section(mode.String())
+	addConfigFields(cmd, sb)
+	if globals.Config.Log.Verbosity == "debug" {
+		sb.Field("Rule load trace", absSemgrepRuleLoadTracePath)
+		sb.Line()
 	}
-	printer.AddNode("")
-	for _, absRuleSetPath := range absRuleSetPaths {
-		if absRuleSetPath.Builtin {
-			printer.AddNode("Bundled ruleset: " + absRuleSetPath.Path)
-		} else {
-			printer.AddNode("User ruleset: " + absRuleSetPath.Path)
+	if tempProjectModel {
+		sb.Field("Project", absUserProjectRoot).
+			Field("Temporary project model", absProjectModelPath)
+	} else {
+		sb.Field("Project model", absProjectModelPath)
+	}
+	for _, r := range absRuleSetPaths {
+		if r.Builtin {
+			sb.Field("Bundled ruleset", globals.Config.Rules.Version)
 		}
 	}
-	printer.AddNode("Rule load trace: " + absSemgrepRuleLoadTracePath)
-
-	printer.Print()
+	sb.Render()
 }
 
 func setupSemgrepRuleLoadTrace() string {
 	absSemgrepRuleLoadTracePath, err := load_trace.GenerateSemgrepRuleLoadTraceFilePath()
 	if err != nil {
-		logrus.Fatalf("Failed to generate rule load trace file path: \"%s\": %v", absSemgrepRuleLoadTracePath, err)
+		out.Fatalf("Failed to generate rule load trace file path: \"%s\": %v", absSemgrepRuleLoadTracePath, err)
 	}
 
 	if err = utils.RemoveIfExists(absSemgrepRuleLoadTracePath); err != nil {
-		logrus.Fatalf("Failed to remove existing rule load trace file: \"%s\": %v", absSemgrepRuleLoadTracePath, err)
+		out.Fatalf("Failed to remove existing rule load trace file: \"%s\": %v", absSemgrepRuleLoadTracePath, err)
 	}
 
 	// Rule load trace path is now displayed in the tree format
@@ -323,51 +364,45 @@ func setupSemgrepRuleLoadTrace() string {
 func deserializeSemgrepRuleLoadTrace(absSemgrepRuleLoadTracePath string) *load_trace.SemgrepLoadTrace {
 	data, err := os.ReadFile(absSemgrepRuleLoadTracePath)
 	if err != nil {
-		logrus.Errorf("Failed to read rule load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
+		output.LogInfof("Failed to read rule load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
 		return nil
 	}
 
 	var el load_trace.SemgrepLoadTrace
 	if err := json.Unmarshal(data, &el); err != nil {
-		logrus.Errorf("Failed to deserialize load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
+		output.LogInfof("Failed to deserialize load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
 		return nil
 	}
 	return &el
 }
 
-func scanProject(analyzerBuilder *AnalyzerBuilder) {
-	// Get the path to the analyzer JAR
+func ensureAnalyzerAvailable() (string, error) {
 	analyzerJarPath, err := utils.GetAnalyzerJarPath(globals.Config.Analyzer.Version)
 	if err != nil {
-		logrus.Fatalf("Failed to construct path to the analyzer: %s", err)
+		return "", fmt.Errorf("failed to construct path to the analyzer: %w", err)
 	}
 
-	// Download the analyzer JAR if it doesn't exist
-	if _, err := os.Stat(analyzerJarPath); errors.Is(err, os.ErrNotExist) {
-		logrus.Info()
-		logrus.Infof("Downloading analyzer version %s", globals.Config.Analyzer.Version)
-		if err := utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-			logrus.Fatalf("Failed to download analyzer: %s", err)
-		}
-		logrus.Infof("Successfully downloaded analyzer to %s", analyzerJarPath)
+	if err := ensureArtifactAvailable("analyzer", globals.Config.Analyzer.Version, analyzerJarPath, func() error {
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token, globals.Config.SkipVerify, out)
+	}); err != nil {
+		return "", err
 	}
 
-	// Set the jar path on the builder and build the command
-	analyzerCommand := analyzerBuilder.SetJarPath(analyzerJarPath).BuildNativeCommand()
+	return analyzerJarPath, nil
+}
 
-	javaRunner := java.NewJavaRunner().WithSkipVerify(globals.Config.SkipVerify).WithImageType(java.AdoptiumImageJRE).TrySpecificVersion(globals.DefaultJavaVersion)
+func scanProject(analyzerBuilder *AnalyzerBuilder, javaRunner java.JavaRunner) error {
+	analyzerCommand := analyzerBuilder.BuildNativeCommand()
 
 	commandSucceeded := func(err error) bool {
 		if err != nil {
-			logrus.Errorf("Analyzer failed: %v", err)
+			output.LogDebugf("Analyzer failed: %v", err)
 			return false
 		}
 		return true
 	}
 	// Execute the command using JavaRunner
-	err = javaRunner.ExecuteJavaCommand(analyzerCommand, commandSucceeded)
+	err := javaRunner.ExecuteJavaCommand(analyzerCommand, commandSucceeded)
 
-	if err != nil {
-		logrus.Errorf("Native scan has failed: %s", err)
-	}
+	return err
 }

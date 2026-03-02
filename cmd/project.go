@@ -1,17 +1,15 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/seqra/seqra/v2/internal/globals"
+	"github.com/seqra/seqra/v2/internal/output"
 	"github.com/seqra/seqra/v2/internal/utils"
-	"github.com/seqra/seqra/v2/internal/utils/formatters"
 	"github.com/seqra/seqra/v2/internal/utils/java"
 	"github.com/seqra/seqra/v2/internal/utils/log"
 	"github.com/seqra/seqra/v2/internal/utils/project"
@@ -44,9 +42,9 @@ func (b *JavaAutobuilderBuilder) WithOutputDir(dir string) *JavaAutobuilderBuild
 
 func (b *JavaAutobuilderBuilder) WithSourceRoot(root string) *JavaAutobuilderBuilder {
 	cleanRoot := filepath.Clean(root)
-	absRoot := log.AbsPathOrExit(cleanRoot, "output directory")
+	absRoot := log.AbsPathOrExit(cleanRoot, "source root")
 	if _, err := os.Stat(absRoot); os.IsNotExist(err) {
-		logrus.Fatalf("Source root directory does not exist: %s", absRoot)
+		out.Fatalf("Source root directory does not exist: %s", absRoot)
 	}
 	b.config.sourceRoot = absRoot
 	return b
@@ -57,10 +55,10 @@ func (b *JavaAutobuilderBuilder) WithDependencies(deps []string) *JavaAutobuilde
 	for i, dep := range deps {
 		absDep, err := filepath.Abs(dep)
 		if err != nil {
-			logrus.Fatalf("Failed to resolve absolute path for dependency '%s': %s", dep, err)
+			out.Fatalf("Failed to resolve absolute path for dependency '%s': %s", dep, err)
 		}
 		if _, err := os.Stat(absDep); os.IsNotExist(err) {
-			logrus.Fatalf("Dependency file does not exist: %s", absDep)
+			out.Fatalf("Dependency file does not exist: %s", absDep)
 		}
 		absDeps[i] = absDep
 	}
@@ -78,10 +76,10 @@ func (b *JavaAutobuilderBuilder) WithClasspath(classpath []string) *JavaAutobuil
 	for i, cp := range classpath {
 		absCP, err := filepath.Abs(cp)
 		if err != nil {
-			logrus.Fatalf("Failed to resolve absolute path for classpath entry '%s': %s", cp, err)
+			out.Fatalf("Failed to resolve absolute path for classpath entry '%s': %s", cp, err)
 		}
 		if _, err := os.Stat(absCP); os.IsNotExist(err) {
-			logrus.Fatalf("Classpath entry does not exist: %s", absCP)
+			out.Fatalf("Classpath entry does not exist: %s", absCP)
 		}
 		absClasspath[i] = absCP
 	}
@@ -127,13 +125,10 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 		return fmt.Errorf("failed to construct path to the autobuilder: %w", err)
 	}
 
-	if _, err = os.Stat(autobuilderJarPath); errors.Is(err, os.ErrNotExist) {
-		logrus.Info()
-		logrus.Infof("Downloading autobuilder version %s", globals.Config.Autobuilder.Version)
-		if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-			return fmt.Errorf("failed to download autobuilder: %w", err)
-		}
-		logrus.Infof("Successfully downloaded autobuilder to %s", autobuilderJarPath)
+	if err = ensureArtifactAvailable("autobuilder", globals.Config.Autobuilder.Version, autobuilderJarPath, func() error {
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify, out)
+	}); err != nil {
+		return err
 	}
 
 	builder := NewAutobuilderBuilder().
@@ -153,12 +148,16 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 
 	autobuilderCommand := builder.BuildNativeCommand()
 
-	javaRunner := java.NewJavaRunner().WithSkipVerify(globals.Config.SkipVerify).WithImageType(java.AdoptiumImageJRE).TrySpecificVersion(globals.DefaultJavaVersion)
+	javaRunner := java.NewJavaRunner().
+		WithSkipVerify(globals.Config.SkipVerify).
+		WithDebugOutput(out.DebugStream("Autobuilder")).
+		WithImageType(java.AdoptiumImageJRE).
+		TrySpecificVersion(globals.DefaultJavaVersion)
 
 	commandSucceeded := func(_ error) bool {
 		if _, err = os.Stat(c.outputDir); err != nil {
-			logrus.Errorf("Output directory does not exist after autobuilder execution: %s", c.outputDir)
-			logrus.Error("Autobuilder failed to compile the project")
+			output.LogInfof("Output directory does not exist after autobuilder execution: %s", c.outputDir)
+			output.LogInfo("Autobuilder failed to compile the project")
 			return false
 		}
 		return true
@@ -197,28 +196,23 @@ func (c *JavaAutobuilderConfig) logProjectSummary(projectYamlPath string, config
 		totalClasses += len(module.ModuleClasses)
 	}
 
-	logrus.Info()
-	logrus.Info(formatters.FormatTreeHeader("Project Summary"))
-
-	printer := formatters.NewTreePrinter()
-	printer.AddNode(fmt.Sprintf("Generated project.yaml at: %s", projectYamlPath))
-	printer.AddNode("")
-	printer.AddNode(fmt.Sprintf("Total modules: %d", len(config.Modules)))
-	printer.AddNode(fmt.Sprintf("Total classes: %d", totalClasses))
-	printer.AddNode(fmt.Sprintf("Total packages: %d", totalPackages))
-	printer.AddNode(fmt.Sprintf("Total dependencies: %d", len(config.Dependencies)))
-	printer.Print()
+	out.Blank()
+	out.Section("Project Summary").
+		Field("Generated project.yaml at", projectYamlPath).
+		Line().
+		Field("Total modules", len(config.Modules)).
+		Field("Total classes", totalClasses).
+		Field("Total packages", totalPackages).
+		Field("Total dependencies", len(config.Dependencies)).
+		Render()
 }
 
 var (
-	OutputDir     string
-	SourceRoot    string
-	JavaToolchain string
-	Dependencies  []string
-	Classes       []string
-	Packages      []string
-	BuildType     string
-	Classpaths    []string
+	OutputDir    string
+	SourceRoot   string
+	Dependencies []string
+	Packages     []string
+	Classpaths   []string
 )
 
 var projectCmd = &cobra.Command{
@@ -242,29 +236,32 @@ Examples:
 			WithClasspath(Classpaths).
 			Build()
 
-		logrus.Info(formatters.FormatTreeHeader("Seqra Project"))
+		classpathItems := make([]any, len(config.classpaths))
+		for i, cp := range config.classpaths {
+			classpathItems[i] = cp
+		}
+		packageItems := make([]any, len(config.packages))
+		for i, pkg := range config.packages {
+			packageItems[i] = pkg
+		}
 
-		printer := formatters.NewTreePrinter()
-		printer.AddNode(fmt.Sprintf("Source root: %s", config.sourceRoot))
-		printer.AddNode(fmt.Sprintf("Output: %s", config.outputDir))
-		printer.AddNode("Classpaths")
-		for _, classpath := range config.classpaths {
-			printer.AddNodeAtLevelDefault(classpath, 1)
-		}
-		printer.AddNode("Packages")
-		for _, pkg := range config.packages {
-			printer.AddNodeAtLevelDefault(pkg, 1)
-		}
+		sb := out.Section("Seqra Project").
+			Field("Source root", config.sourceRoot).
+			Field("Output", config.outputDir).
+			Group("Classpaths", classpathItems...).
+			Group("Packages", packageItems...)
+
 		if len(config.dependencies) != 0 {
-			printer.AddNode("Dependencies")
-			for _, dep := range config.dependencies {
-				printer.AddNodeAtLevelDefault(dep, 1)
+			depItems := make([]any, len(config.dependencies))
+			for i, dep := range config.dependencies {
+				depItems[i] = dep
 			}
+			sb.Group("Dependencies", depItems...)
 		}
-		printer.Print()
+		sb.Render()
 
 		if err := config.Execute(); err != nil {
-			logrus.Fatalf("Failed to generate project configuration: %s", err)
+			out.Fatalf("Failed to generate project configuration: %s", err)
 		}
 	},
 }

@@ -1,9 +1,5 @@
 package load_trace
 
-import (
-	"fmt"
-)
-
 // Shared enums and types
 
 type Reason string
@@ -60,40 +56,7 @@ type TraceEntry struct {
 	Reason  Reason `json:"reason,omitempty"`
 }
 
-// NewInfoEntry creates a new info trace entry
-func NewInfoEntry(message string) TraceEntry {
-	return TraceEntry{
-		Type:    "Info",
-		Message: message,
-	}
-}
-
-// NewErrorEntry creates a new error trace entry
-func NewErrorEntry(step Step, reason Reason, message string) TraceEntry {
-	return TraceEntry{
-		Type:    "Error",
-		Message: message,
-		Step:    step,
-		Reason:  reason,
-	}
-}
-
 // IsError returns true if this is an error entry
 func (te TraceEntry) IsError() bool {
 	return te.Type == "Error"
-}
-
-// IsInfo returns true if this is an info entry
-func (te TraceEntry) IsInfo() bool {
-	return te.Type == "Info"
-}
-
-// ValidateTraceEntry validates that a trace entry has the correct type
-func ValidateTraceEntry(entry TraceEntry) error {
-	switch entry.Type {
-	case "Error", "Info":
-		return nil
-	default:
-		return fmt.Errorf("unknown trace entry type: %q", entry.Type)
-	}
 }

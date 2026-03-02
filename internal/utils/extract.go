@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/seqra/seqra/v2/internal/output"
 )
 
 // ExtractTar extracts the contents of a tar reader to the specified destination directory.
@@ -48,9 +48,9 @@ func ExtractTar(tr *tar.Reader, basePath, destPath string, isSourceDir bool) err
 				return err
 			}
 		case tar.TypeXGlobalHeader:
-			logrus.Trace("Skipping global header")
+			output.LogDebug("Skipping global header")
 		default:
-			logrus.Warnf("Skipping unsupported type %c: %s", hdr.Typeflag, hdr.Name)
+			output.LogInfof("Skipping unsupported type %c: %s", hdr.Typeflag, hdr.Name)
 		}
 	}
 	return nil

@@ -2,9 +2,9 @@ package globals
 
 import (
 	_ "embed"
+	"fmt"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v2"
 )
 
@@ -21,7 +21,7 @@ type versions struct {
 var BindVersions = func() versions {
 	var v versions
 	if err := yaml.Unmarshal(versionsYAML, &v); err != nil {
-		logrus.Fatalf("Failed to parse embedded versions.yaml: %v", err)
+		panic(fmt.Sprintf("failed to parse embedded versions.yaml: %v", err))
 	}
 	return v
 }()
@@ -33,14 +33,9 @@ var (
 	DefaultJavaVersion     = BindVersions.Java
 )
 
-const GithubDockerHost = "ghcr.io"
-
 const RepoOwner = "seqra"
 
-const AnalyzerDocker = GithubDockerHost + "/" + RepoOwner + "/seqra-jvm-sast/sast-analyzer"
-
 const AutobuilderRepoName = "seqra-jvm-autobuilder"
-const AutobuilderDocker = GithubDockerHost + "/" + RepoOwner + "/" + AutobuilderRepoName + "/sast-autobuilder"
 const AutobuilderAssetName = "seqra-project-auto-builder.jar"
 
 const AnalyzerRepoName = "seqra-jvm-sast"
@@ -57,6 +52,7 @@ type Scan struct {
 
 type Log struct {
 	Verbosity string `mapstructure:"verbosity"`
+	Color     string `mapstructure:"color"`
 }
 
 type Github struct {
