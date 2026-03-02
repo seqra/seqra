@@ -4,141 +4,70 @@ import (
 	"fmt"
 
 	"github.com/seqra/opentaint/v2/internal/globals"
+	"github.com/seqra/opentaint/v2/internal/output"
 	"github.com/seqra/opentaint/v2/internal/sarif"
-	"github.com/seqra/opentaint/v2/internal/utils/formatters"
-	"github.com/sirupsen/logrus"
 )
 
-type RuleStatisticsTreeBuilder struct {
-	printer                     *formatters.TreePrinter
-	ruleLoadErrorsResult        *RuleLoadErrorsResult
-	sarifSummary                sarif.Summary
-	absSemgrepRuleLoadTracePath string
+func PrintRuleStatisticsTree(out *output.Printer, ruleLoadErrorsResult *RuleLoadErrorsResult, absSemgrepRuleLoadTracePath string, sarifSummary sarif.Summary) {
+	parsingNode := buildRuleParsingIssuesNode(out, ruleLoadErrorsResult, absSemgrepRuleLoadTracePath)
+	executionNode := out.GroupItem("Rule execution",
+		out.FieldItem("Rules executed", sarifSummary.TotalRulesExecuted),
+		out.FieldItem("Rules triggered", sarifSummary.TotalRulesTriggered),
+	)
+
+	out.Section("Rule Statistics").
+		Child(parsingNode, executionNode).
+		Render()
+	out.Blank()
 }
 
-func NewRuleStatisticsTreeBuilder() *RuleStatisticsTreeBuilder {
-	return &RuleStatisticsTreeBuilder{
-		printer: formatters.NewTreePrinter(),
-	}
-}
-
-func (b *RuleStatisticsTreeBuilder) WithRuleLoadErrors(result *RuleLoadErrorsResult) *RuleStatisticsTreeBuilder {
-	b.ruleLoadErrorsResult = result
-	return b
-}
-
-func (b *RuleStatisticsTreeBuilder) WithSarifSummary(summary sarif.Summary) *RuleStatisticsTreeBuilder {
-	b.sarifSummary = summary
-	return b
-}
-
-func (b *RuleStatisticsTreeBuilder) WithRuleLoadTracePath(path string) *RuleStatisticsTreeBuilder {
-	b.absSemgrepRuleLoadTracePath = path
-	return b
-}
-
-func (b *RuleStatisticsTreeBuilder) Build() *formatters.TreePrinter {
-	b.addRuleParsingIssues()
-	b.addRuleExecution()
-	return b.printer
-}
-
-func (b *RuleStatisticsTreeBuilder) addRuleParsingIssues() {
-	b.printer.AddNode("Rule Parsing Issues")
-
-	if b.ruleLoadErrorsResult == nil {
-		b.printer.AddNodeAtLevel("No rule parsing data available", 1, "", false)
-		return
+func buildRuleParsingIssuesNode(out *output.Printer, result *RuleLoadErrorsResult, absSemgrepRuleLoadTracePath string) any {
+	if result == nil {
+		return out.GroupItem("Rule parsing issues", "No rule parsing data available")
 	}
 
-	if b.ruleLoadErrorsResult.Error != nil {
-		b.printer.AddNodeAtLevel("Unable to retrieve rule load failures info", 1, "", false)
-		b.printer.AddNodeAtLevel(fmt.Sprintf("Error: %s", b.ruleLoadErrorsResult.Error), 2, "", false)
-		return
+	if result.Error != nil {
+		return out.GroupItem("Rule parsing issues",
+			out.GroupItem("Unable to retrieve rule load failures info",
+				fmt.Sprintf("Error: %s", result.Error)))
 	}
 
-	s := b.ruleLoadErrorsResult.Summary
+	s := result.Summary
 	isDebug := globals.Config.Log.Verbosity == "debug"
 
-	if !isDebug && s.TotalAffectedFiles == 0 && s.TotalAffectedRules == 0 {
-		b.printer.AddNodeAtLevel("No issues found", 1, "", false)
-		return
-	}
+	var children []any
 
-	b.printer.AddNodeAtLevel("File-level", 1, "", false)
-	b.printer.AddNodeAtLevel(fmt.Sprintf("Files with syntax errors: %d", s.FileErrorTypes[SyntaxError]), 2, "", false)
-	b.printer.AddNodeAtLevel(fmt.Sprintf("Files with unsupported constructs: %d", s.FileErrorTypes[Unsupported]), 2, "", false)
-	b.printer.AddNodeAtLevel(fmt.Sprintf("Total affected files: %d", s.TotalAffectedFiles), 2, "", false)
-
-	b.printer.AddNodeAtLevel("Rule-level", 1, "", false)
-	b.printer.AddNodeAtLevel(fmt.Sprintf("Rules with syntax errors: %d", s.RuleErrorTypes[SyntaxError]), 2, "", false)
-	b.printer.AddNodeAtLevel(fmt.Sprintf("Rules with unsupported constructs: %d", s.RuleErrorTypes[Unsupported]), 2, "", false)
-	b.printer.AddNodeAtLevel(fmt.Sprintf("Total affected rules: %d", s.TotalAffectedRules), 2, "", false)
-
-	if isDebug || s.TotalAffectedFiles > 0 || s.TotalAffectedRules > 0 {
-		b.printer.AddNodeAtLevel("More details", 1, "", false)
-		if b.absSemgrepRuleLoadTracePath != "" {
-			b.printer.AddNodeAtLevel(fmt.Sprintf("See Rule load trace: %s", b.absSemgrepRuleLoadTracePath), 2, "", false)
-		}
-		if isDebug || s.FileErrorTypes[Unsupported] > 0 || s.RuleErrorTypes[Unsupported] > 0 {
-			b.printer.AddNodeAtLevel("Report issues here: https://github.com/seqra/opentaint/issues", 2, "", false)
-		}
-	}
-}
-
-func (b *RuleStatisticsTreeBuilder) addRuleExecution() {
-	b.printer.AddNode("Rule Execution")
-	b.printer.AddNodeAtLevel(fmt.Sprintf("Rules executed: %d", b.sarifSummary.TotalRulesExecuted), 1, "", false)
-	b.printer.AddNodeAtLevel(fmt.Sprintf("Rules triggered: %d", b.sarifSummary.TotalRulesTriggered), 1, "", false)
-}
-
-func PrintRuleStatisticsTree(ruleLoadErrorsResult *RuleLoadErrorsResult, sarifSummary sarif.Summary, absSemgrepRuleLoadTracePath string) {
-	logrus.Info(formatters.FormatTreeHeader("Rule Statistics"))
-
-	printer := formatters.NewTreePrinter()
-
-	// Rule Parsing Issues section
-	printer.AddNode("Rule Parsing Issues")
-
-	if ruleLoadErrorsResult == nil {
-		printer.AddNodeAtLevel("No rule parsing data available", 1, "", false)
-	} else if ruleLoadErrorsResult.Error != nil {
-		printer.AddNodeAtLevel("Unable to retrieve rule load failures info", 1, "", false)
-		printer.AddNodeAtLevel(fmt.Sprintf("Error: %s", ruleLoadErrorsResult.Error), 2, "", false)
-	} else {
-		s := ruleLoadErrorsResult.Summary
-		isDebug := globals.Config.Log.Verbosity == "debug"
-
-		if !isDebug && s.TotalAffectedFiles == 0 && s.TotalAffectedRules == 0 {
-			printer.AddNodeAtLevel("No issues found", 1, "", false)
+	if !isDebug {
+		if s.TotalAffectedFiles == 0 && s.TotalAffectedRules == 0 {
+			children = append(children, "No issues found")
+		} else if s.TotalAffectedRules > 0 {
+			children = append(children, fmt.Sprintf("%d rules affected", s.TotalAffectedRules))
 		} else {
-			printer.AddNodeAtLevel("File-level", 1, "", false)
-			printer.AddNodeAtLevel(fmt.Sprintf("Files with syntax errors: %d", s.FileErrorTypes[SyntaxError]), 2, "", false)
-			printer.AddNodeAtLevel(fmt.Sprintf("Files with unsupported constructs: %d", s.FileErrorTypes[Unsupported]), 2, "", false)
-			printer.AddNodeAtLevel(fmt.Sprintf("Total affected files: %d", s.TotalAffectedFiles), 2, "", false)
-
-			printer.AddNodeAtLevel("Rule-level", 1, "", false)
-			printer.AddNodeAtLevel(fmt.Sprintf("Rules with syntax errors: %d", s.RuleErrorTypes[SyntaxError]), 2, "", false)
-			printer.AddNodeAtLevel(fmt.Sprintf("Rules with unsupported constructs: %d", s.RuleErrorTypes[Unsupported]), 2, "", false)
-			printer.AddNodeAtLevel(fmt.Sprintf("Total affected rules: %d", s.TotalAffectedRules), 2, "", false)
-
-			if isDebug || s.TotalAffectedFiles > 0 || s.TotalAffectedRules > 0 {
-				printer.AddNodeAtLevel("More details", 1, "", false)
-				if absSemgrepRuleLoadTracePath != "" {
-					printer.AddNodeAtLevel(fmt.Sprintf("See Rule load trace: %s", absSemgrepRuleLoadTracePath), 2, "", false)
-				}
-				if isDebug || s.FileErrorTypes[Unsupported] > 0 || s.RuleErrorTypes[Unsupported] > 0 {
-					printer.AddNodeAtLevel("Report issues here: https://github.com/seqra/opentaint/issues", 2, "", false)
-				}
-			}
+			children = append(children, fmt.Sprintf("%d files affected", s.TotalAffectedFiles))
 		}
+	} else {
+		children = append(children, out.GroupItem("File-level",
+			fmt.Sprintf("Files with syntax errors: %d", s.FileErrorTypes[SyntaxError]),
+			fmt.Sprintf("Files with unsupported constructs: %d", s.FileErrorTypes[Unsupported]),
+			fmt.Sprintf("Total affected files: %d", s.TotalAffectedFiles),
+		))
+		children = append(children, out.GroupItem("Rule-level",
+			fmt.Sprintf("Rules with syntax errors: %d", s.RuleErrorTypes[SyntaxError]),
+			fmt.Sprintf("Rules with unsupported constructs: %d", s.RuleErrorTypes[Unsupported]),
+			fmt.Sprintf("Total affected rules: %d", s.TotalAffectedRules),
+		))
 	}
 
-	// Rule Execution section
-	printer.AddNode("Rule Execution")
-	printer.AddNodeAtLevel(fmt.Sprintf("Rules executed: %d", sarifSummary.TotalRulesExecuted), 1, "", false)
-	printer.AddNodeAtLevel(fmt.Sprintf("Rules triggered: %d", sarifSummary.TotalRulesTriggered), 1, "", false)
+	var detailChildren []any
+	if absSemgrepRuleLoadTracePath != "" {
+		detailChildren = append(detailChildren, fmt.Sprintf("Rule load trace: %s", absSemgrepRuleLoadTracePath))
+	}
+	if isDebug || s.FileErrorTypes[Unsupported] > 0 || s.RuleErrorTypes[Unsupported] > 0 {
+		detailChildren = append(detailChildren, "Report issues: https://github.com/seqra/opentaint/issues")
+	}
+	if len(detailChildren) > 0 {
+		children = append(children, out.GroupItem("More details", detailChildren...))
+	}
 
-	printer.Print()
-	logrus.Info()
+	return out.GroupItem("Rule parsing issues", children...)
 }

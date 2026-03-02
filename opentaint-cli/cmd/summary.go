@@ -1,12 +1,12 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
+	"github.com/seqra/opentaint/v2/internal/output"
 	"github.com/seqra/opentaint/v2/internal/sarif"
-	"github.com/seqra/opentaint/v2/internal/utils/formatters"
 	"github.com/seqra/opentaint/v2/internal/utils/log"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -25,45 +25,52 @@ Arguments:
 		absSarifPath := log.AbsPathOrExit(args[0], "sarif path")
 		report := loadSarifReport(absSarifPath)
 		if report == nil {
-			return
+			out.Fatal("Failed to load SARIF report")
 		}
-		printer := formatters.NewTreePrinter()
 		printSarifSummary(report, absSarifPath)
-		printer.Print()
 	},
 }
 
 var showFindings bool
 var showCodeSnippets bool
+var verboseFlow bool
 
 func init() {
 	rootCmd.AddCommand(summaryCmd)
 
 	summaryCmd.Flags().BoolVar(&showFindings, "show-findings", false, "Show all issues from Sarif file")
 	summaryCmd.Flags().BoolVar(&showCodeSnippets, "show-code-snippets", false, "Show finding related code snippets")
-	_ = summaryCmd.PersistentFlags().MarkHidden("show-code-snippets")
+	summaryCmd.Flags().BoolVar(&verboseFlow, "verbose-flow", false, "Show full code flow steps for findings")
 }
 
 func printSarifSummary(report *sarif.Report, absSarifPath string) {
+	hasOmittedFlow := false
 	if showFindings {
-		report.PrintAll(showCodeSnippets)
-		logrus.Info()
+		hasOmittedFlow = report.PrintAll(out, showCodeSnippets, verboseFlow)
+		out.Blank()
 	}
 
-	report.PrintSummary(absSarifPath)
+	report.PrintSummary(out, absSarifPath)
+
+	if showFindings && hasOmittedFlow && !verboseFlow {
+		out.Suggest(
+			"To see full code flow and code snippets, use:",
+			fmt.Sprintf("opentaint summary --show-findings --verbose-flow --show-code-snippets %s", absSarifPath),
+		)
+	}
 }
 
 func loadSarifReport(absSarifPath string) *sarif.Report {
 	// Read the SARIF file
 	data, err := os.ReadFile(absSarifPath)
 	if err != nil {
-		logrus.Errorf("Failed to read SARIF report: %v", err)
+		output.LogInfof("Failed to read SARIF report: %v", err)
 		return nil
 	}
 	// Parse the SARIF report
 	report, err := sarif.UnmarshalReport(data)
 	if err != nil {
-		logrus.Errorf("Failed to parse SARIF report: %v", err)
+		output.LogInfof("Failed to parse SARIF report: %v", err)
 		return nil
 	}
 	return &report

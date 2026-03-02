@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/sirupsen/logrus"
+	"github.com/seqra/opentaint/v2/internal/output"
 )
 
 // InstallMethod represents how opentaint was installed.
@@ -124,7 +124,7 @@ func DownloadReleaseArchive(owner, repo, tag, token, destDir string, skipVerify 
 				}
 			}
 
-			logrus.Debugf("Downloaded release archive to %s", destPath)
+			output.LogDebugf("Downloaded release archive to %s", destPath)
 			return destPath, nil
 		}
 	}
@@ -192,7 +192,7 @@ func SelfUpdate(archivePath, installDir string) error {
 			return fmt.Errorf("failed to install new binary (try running with sudo): %w", err)
 		}
 		if err := os.Chmod(currentBinary, 0o755); err != nil {
-			logrus.Warnf("Failed to set binary permissions: %v", err)
+			output.LogInfof("Failed to set binary permissions: %v", err)
 		}
 	}
 
@@ -202,7 +202,7 @@ func SelfUpdate(archivePath, installDir string) error {
 		currentLib := filepath.Join(installDir, "lib")
 		_ = os.RemoveAll(currentLib)
 		if err := os.Rename(newLib, currentLib); err != nil {
-			logrus.Warnf("Failed to update lib directory: %v", err)
+			output.LogInfof("Failed to update lib directory: %v", err)
 		}
 	}
 
@@ -212,7 +212,7 @@ func SelfUpdate(archivePath, installDir string) error {
 		currentJRE := filepath.Join(installDir, "jre")
 		_ = os.RemoveAll(currentJRE)
 		if err := os.Rename(newJRE, currentJRE); err != nil {
-			logrus.Warnf("Failed to update jre directory: %v", err)
+			output.LogInfof("Failed to update jre directory: %v", err)
 		}
 	}
 

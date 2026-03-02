@@ -8,17 +8,8 @@ import (
 	"github.com/seqra/opentaint/v2/internal/globals"
 )
 
-type CommandBuilder interface {
-	SetVerbosity(verbosity string) CommandBuilder
-	BuildNativeCommand() []string
-}
-
 type BaseCommandBuilder struct {
 	verbosity string
-}
-
-func (b *BaseCommandBuilder) SetVerbosity(verbosity string) {
-	b.verbosity = verbosity
 }
 
 func (b *BaseCommandBuilder) appendVerbosityFlag(flags []string) []string {
@@ -54,7 +45,6 @@ type AnalyzerBuilder struct {
 	*BaseCommandBuilder
 	projectPath              string
 	outputDir                string
-	logsFile                 string
 	sarifFileName            string
 	sarifCodeFlowLimit       int64
 	sarifToolVersion         string
@@ -77,11 +67,6 @@ func (a *AnalyzerBuilder) SetProject(projectPath string) *AnalyzerBuilder {
 
 func (a *AnalyzerBuilder) SetOutputDir(outputDir string) *AnalyzerBuilder {
 	a.outputDir = outputDir
-	return a
-}
-
-func (a *AnalyzerBuilder) SetLogsFile(logsFile string) *AnalyzerBuilder {
-	a.logsFile = logsFile
 	return a
 }
 
@@ -147,11 +132,6 @@ func (a *AnalyzerBuilder) SetJarPath(jarPath string) *AnalyzerBuilder {
 
 func (a *AnalyzerBuilder) SetMaxMemory(maxMemory string) *AnalyzerBuilder {
 	a.maxMemory = maxMemory
-	return a
-}
-
-func (a *AnalyzerBuilder) SetVerbosity(verbosity string) CommandBuilder {
-	a.BaseCommandBuilder.SetVerbosity(verbosity)
 	return a
 }
 
@@ -283,40 +263,6 @@ func (a *AutobuilderBuilder) SetMaxMemory(maxMemory string) *AutobuilderBuilder 
 func (a *AutobuilderBuilder) SetJarPath(jarPath string) *AutobuilderBuilder {
 	a.jarPath = jarPath
 	return a
-}
-
-func (a *AutobuilderBuilder) SetVerbosity(verbosity string) CommandBuilder {
-	a.BaseCommandBuilder.SetVerbosity(verbosity)
-	return a
-}
-
-func (a *AutobuilderBuilder) BuildDockerFlags() []string {
-	flags := []string{
-		"--project-root-dir", a.projectRootDir,
-		"--result-dir", a.resultDir,
-	}
-
-	if a.buildMode != "" {
-		flags = append(flags, "--build", a.buildMode)
-	}
-
-	if a.logsFile != "" {
-		flags = append(flags, "--logs-file", a.logsFile)
-	}
-
-	flags = a.appendVerbosityFlag(flags)
-
-	if a.buildType != "" {
-		flags = append(flags, "--build-type", a.buildType)
-		for _, cp := range a.classpaths {
-			flags = append(flags, "--cp", cp)
-		}
-		for _, pkg := range a.packages {
-			flags = append(flags, "--pkg", pkg)
-		}
-	}
-
-	return flags
 }
 
 func (a *AutobuilderBuilder) BuildNativeCommand() []string {

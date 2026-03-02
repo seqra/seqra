@@ -6,11 +6,13 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
+	"github.com/seqra/opentaint/v2/internal/globals"
+	"github.com/seqra/opentaint/v2/internal/output"
 	"github.com/seqra/opentaint/v2/internal/utils"
-	"github.com/sirupsen/logrus"
 )
 
 type ResolutionStrategy int
@@ -27,8 +29,17 @@ type JavaRunner interface {
 	TrySpecificVersion(version int) JavaRunner
 	WithImageType(imageType AdoptiumImageType) JavaRunner
 	WithSkipVerify(skipVerify bool) JavaRunner
+	WithDebugOutput(writer DebugLineWriter) JavaRunner
 	GetJavaResolutions() []JavaResolution
+	// EnsureJava resolves and downloads Java if needed, returning the path.
+	// Call this before wrapping ExecuteJavaCommand in a spinner to avoid
+	// download progress bars overlapping with spinner output.
+	EnsureJava() (string, error)
 	ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) error
+}
+
+type DebugLineWriter interface {
+	WriteLine(text string)
 }
 
 type javaRunner struct {
@@ -36,6 +47,8 @@ type javaRunner struct {
 	specificStrategy  *int
 	imageType         AdoptiumImageType
 	skipVerify        bool
+	resolvedJavaPath  string
+	debugOutput       DebugLineWriter
 }
 
 type JavaResolution func() (string, ResolutionStrategy, error)
@@ -52,23 +65,23 @@ func (j *javaRunner) GetJavaResolutions() []JavaResolution {
 	// Implement fallback behavior when both strategies are configured
 	if j.trySystemStrategy && j.specificStrategy != nil {
 		version := *j.specificStrategy
-		logrus.Debugf("Starting Java resolution with system first, fallback to Java %d", version)
+		output.LogDebugf("Starting Java resolution with system first, fallback to Java %d", version)
 		return []JavaResolution{
 			func() (string, ResolutionStrategy, error) {
-				logrus.Debugf("Trying system Java first (fallback strategy)")
+				output.LogDebugf("Trying system Java first (fallback strategy)")
 				if javaPath := j.findSystemJava(); javaPath != "" {
-					logrus.Debugf("System Java found (%s), using it", javaPath)
+					output.LogDebugf("System Java found (%s), using it", javaPath)
 					return javaPath, System, nil
 				}
 
-				logrus.Debugf("System Java not found, falling back to Java %d", version)
+				output.LogDebugf("System Java not found, falling back to Java %d", version)
 				javaPath, err := j.ensureSpecificVersion(version)
 				if err == nil {
-					logrus.Debugf("Fallback Java %d found (%s)", version, javaPath)
+					output.LogDebugf("Fallback Java %d found (%s)", version, javaPath)
 					return javaPath, Specific, nil
 				}
 
-				logrus.Warnf("Both system Java and Java %d failed: %v", version, err)
+				output.LogInfof("Both system Java and Java %d failed: %v", version, err)
 				return "", None, fmt.Errorf("failed to find system Java or Java %d: %w", version, err)
 			},
 		}
@@ -78,11 +91,11 @@ func (j *javaRunner) GetJavaResolutions() []JavaResolution {
 	var resolutionStrategies []JavaResolution
 
 	if j.trySystemStrategy {
-		logrus.Debugf("Starting Java resolution with system strategy only")
+		output.LogDebugf("Starting Java resolution with system strategy only")
 		resolutionStrategies = append(resolutionStrategies, func() (string, ResolutionStrategy, error) {
-			logrus.Debugf("Trying system Java resolution")
+			output.LogDebugf("Trying system Java resolution")
 			if javaPath := j.findSystemJava(); javaPath != "" {
-				logrus.Debugf("Detected system Java (%s)", javaPath)
+				output.LogDebugf("Detected system Java (%s)", javaPath)
 				return javaPath, System, nil
 			}
 			return "", None, fmt.Errorf("no suitable system Java found")
@@ -91,14 +104,14 @@ func (j *javaRunner) GetJavaResolutions() []JavaResolution {
 
 	if j.specificStrategy != nil {
 		version := *j.specificStrategy
-		logrus.Debugf("Starting Java resolution with specific version strategy only: Java %d", version)
+		output.LogDebugf("Starting Java resolution with specific version strategy only: Java %d", version)
 
 		// Try bundled JRE first (only when not using system strategy)
 		if !j.trySystemStrategy {
 			resolutionStrategies = append(resolutionStrategies, func() (string, ResolutionStrategy, error) {
-				logrus.Debugf("Trying bundled JRE resolution")
+				output.LogDebugf("Trying bundled JRE resolution")
 				if javaPath := j.findBundledJRE(); javaPath != "" {
-					logrus.Debugf("Found bundled JRE (%s)", javaPath)
+					output.LogDebugf("Found bundled JRE (%s)", javaPath)
 					return javaPath, Bundled, nil
 				}
 				return "", None, fmt.Errorf("no bundled JRE found")
@@ -106,13 +119,13 @@ func (j *javaRunner) GetJavaResolutions() []JavaResolution {
 		}
 
 		resolutionStrategies = append(resolutionStrategies, func() (string, ResolutionStrategy, error) {
-			logrus.Debugf("Trying specific Java version resolution: Java %d", version)
+			output.LogDebugf("Trying specific Java version resolution: Java %d", version)
 			javaPath, err := j.ensureSpecificVersion(version)
 			if err == nil {
-				logrus.Debugf("Detected Java %d (%s)", version, javaPath)
+				output.LogDebugf("Detected Java %d (%s)", version, javaPath)
 				return javaPath, Specific, nil
 			}
-			logrus.Warnf("Failed to detect Java %d: %v", version, err)
+			output.LogInfof("Failed to detect Java %d: %v", version, err)
 			return "", None, fmt.Errorf("failed to detect Java %d: %w", version, err)
 		})
 	}
@@ -120,83 +133,122 @@ func (j *javaRunner) GetJavaResolutions() []JavaResolution {
 	return resolutionStrategies
 }
 
+func (j *javaRunner) EnsureJava() (string, error) {
+	resolutionStrategies := j.GetJavaResolutions()
+	for i, strategy := range resolutionStrategies {
+		javaPath, _, err := strategy()
+		if err != nil {
+			output.LogDebugf("Java resolution attempt %d failed: %v", i+1, err)
+			continue
+		}
+		j.resolvedJavaPath = javaPath
+		return javaPath, nil
+	}
+	return "", fmt.Errorf("all Java resolution attempts failed")
+}
+
 func (j *javaRunner) ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no Java command arguments provided")
 	}
 
+	// If EnsureJava was called, use the pre-resolved path directly
+	if j.resolvedJavaPath != "" {
+		return j.executeWithJava(j.resolvedJavaPath, Specific, args, commandSucceeded)
+	}
+
 	resolutionStrategies := j.GetJavaResolutions()
 	for i, resolutionStrategy := range resolutionStrategies {
-		javaPath, resolutionStrategy, err := resolutionStrategy()
+		javaPath, strategy, err := resolutionStrategy()
 		if err != nil {
-			logrus.Debugf("Java resolution attempt %d failed: %v", i+1, err)
+			output.LogDebugf("Java resolution attempt %d failed: %v", i+1, err)
 			continue
 		}
 
-		cmdArgs := append([]string{javaPath}, args...)
-		cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-
-		// Set clean environment for bundled or specific version strategy
-		if resolutionStrategy == Bundled || resolutionStrategy == Specific {
-			cmd.Env = j.getCleanEnvironment()
-			logrus.Debug("Using clean environment for managed Java version strategy")
-		}
-
-		logrus.Debugf("Executing Java command (attempt %d): %s %v (full: %s)", i+1, javaPath, args, strings.Join(cmdArgs, " "))
-
-		// Create pipes for stdout and stderr
-		stdoutPipe, err := cmd.StdoutPipe()
-		if err != nil {
-			logrus.Fatalf("Failed to create stdout pipe: %v", err)
-		}
-
-		stderrPipe, err := cmd.StderrPipe()
-		if err != nil {
-			logrus.Fatalf("Failed to create stderr pipe: %v", err)
-		}
-
-		// Start the command
-		if err := cmd.Start(); err != nil {
-			logrus.Fatalf("Failed to start autobuilder: %v", err)
-		}
-
-		// Function to read from a reader and log each line
-		logOutput := func(pipe io.Reader) {
-			scanner := bufio.NewScanner(pipe)
-			for scanner.Scan() {
-				logrus.Debug(scanner.Text())
-			}
-			if err := scanner.Err(); err != nil {
-				logrus.Debugf("Error reading autobuilder output: %v", err)
-			}
-		}
-
-		// Start goroutines to read and log stdout and stderr
-		go logOutput(stdoutPipe)
-		go logOutput(stderrPipe)
-
-		// Wait for the command to finish
-		err = cmd.Wait()
-
-		// Log any errors
-		if err != nil {
-			exitCode := 1
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				exitCode = exitErr.ExitCode()
-			}
-			logrus.Errorf("Autobuilder exited with code %d: %v", exitCode, err)
-		}
-
-		logrus.Debugf("Java command completed (attempt %d): exit_code=%d", i+1, cmd.ProcessState.ExitCode())
-
-		if commandSucceeded(err) {
+		if err := j.executeWithJava(javaPath, strategy, args, commandSucceeded); err == nil {
 			return nil
 		}
 
-		logrus.Debugf("Java command failed (attempt %d): exit_code=%d, trying next resolution", i+1, cmd.ProcessState.ExitCode())
+		output.LogDebugf("Java command failed (attempt %d), trying next resolution", i+1)
 	}
 
 	return fmt.Errorf("all Java resolution attempts failed")
+}
+
+func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrategy, args []string, commandSucceeded func(error) bool) error {
+	cmdArgs := append([]string{javaPath}, args...)
+	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+
+	// Set clean environment for bundled or specific version strategy
+	if strategy == Bundled || strategy == Specific {
+		cmd.Env = j.getCleanEnvironment()
+		output.LogDebug("Using clean environment for managed Java version strategy")
+	}
+
+	output.LogDebugf("Executing Java command: %s %v (full: %s)", javaPath, args, strings.Join(cmdArgs, " "))
+
+	// Create pipes for stdout and stderr
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stdout pipe: %w", err)
+	}
+
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("failed to create stderr pipe: %w", err)
+	}
+
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start Java command: %w", err)
+	}
+
+	streamToTerminal := shouldStreamJavaOutput(globals.Config.Log.Verbosity)
+
+	// Function to read from a reader and log each line
+	logOutput := func(pipe io.Reader) {
+		scanner := bufio.NewScanner(pipe)
+		for scanner.Scan() {
+			line := scanner.Text()
+			output.LogDebug(line)
+			if streamToTerminal {
+				if j.debugOutput != nil {
+					j.debugOutput.WriteLine(line)
+				} else {
+					fmt.Fprintln(os.Stderr, line)
+				}
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			output.LogDebugf("Error reading command output: %v", err)
+		}
+	}
+
+	// Start goroutines to read and log stdout and stderr
+	go logOutput(stdoutPipe)
+	go logOutput(stderrPipe)
+
+	// Wait for the command to finish
+	err = cmd.Wait()
+
+	// Log any errors at debug level (caller decides severity)
+	if err != nil {
+		exitCode := 1
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		}
+		output.LogDebugf("Java command exited with code %d: %v", exitCode, err)
+	}
+
+	if commandSucceeded(err) {
+		return nil
+	}
+
+	return fmt.Errorf("java command failed")
+}
+
+func shouldStreamJavaOutput(verbosity string) bool {
+	level := strings.ToLower(strings.TrimSpace(verbosity))
+	return level == "debug"
 }
 
 func (j *javaRunner) TrySpecificVersion(version int) JavaRunner {
@@ -219,6 +271,11 @@ func (j *javaRunner) WithSkipVerify(skipVerify bool) JavaRunner {
 	return j
 }
 
+func (j *javaRunner) WithDebugOutput(writer DebugLineWriter) JavaRunner {
+	j.debugOutput = writer
+	return j
+}
+
 // unsetJavaEnvironmentVariables unsets Java-related environment variables
 // to ensure a clean environment when using specific Java versions
 func unsetJavaEnvironmentVariables() {
@@ -230,20 +287,20 @@ func unsetJavaEnvironmentVariables() {
 		"JAVA_LATEST_HOME",
 	}
 
-	logrus.Debug("Unsetting Java environment variables for clean environment")
+	output.LogDebug("Unsetting Java environment variables for clean environment")
 
 	for _, envVar := range javaEnvVars {
 		if value := os.Getenv(envVar); value != "" {
-			logrus.Debugf("Unsetting %s (was: %s)", envVar, value)
+			output.LogDebugf("Unsetting %s (was: %s)", envVar, value)
 			if err := os.Unsetenv(envVar); err != nil {
-				logrus.Warnf("Failed to unset %s: %v", envVar, err)
+				output.LogInfof("Failed to unset %s: %v", envVar, err)
 			}
 		} else {
-			logrus.Debugf("%s not set, skipping", envVar)
+			output.LogDebugf("%s not set, skipping", envVar)
 		}
 	}
 
-	logrus.Debug("Java environment variables unset for clean environment")
+	output.LogDebug("Java environment variables unset for clean environment")
 }
 
 // getCleanEnvironment returns environment variables with Java-related variables excluded
@@ -264,12 +321,12 @@ func (j *javaRunner) getCleanEnvironment() []string {
 			if !javaEnvVars[parts[0]] {
 				cleanEnv = append(cleanEnv, env)
 			} else {
-				logrus.Debugf("Excluding %s from command environment", parts[0])
+				output.LogDebugf("Excluding %s from command environment", parts[0])
 			}
 		}
 	}
 
-	logrus.Debugf("Created clean environment with %d variables (excluded Java variables)", len(cleanEnv))
+	output.LogDebugf("Created clean environment with %d variables (excluded Java variables)", len(cleanEnv))
 	return cleanEnv
 }
 
@@ -292,11 +349,11 @@ func (j *javaRunner) findBundledJRE() string {
 func (j *javaRunner) findSystemJava() string {
 	installation := DetectSystemJava()
 	if installation != nil {
-		logrus.Debugf("Found system Java: %s v%s (%s)", installation.Path, installation.FullVersion, installation.Vendor)
+		output.LogDebugf("Found system Java: %s v%s (%s)", installation.Path, installation.FullVersion, installation.Vendor)
 		return installation.Path
 	}
 
-	logrus.Debug("No system Java found")
+	output.LogDebug("No system Java found")
 	return ""
 }
 
@@ -308,5 +365,27 @@ func (j *javaRunner) ensureSpecificVersion(version int) (string, error) {
 	// Unset Java environment variables for clean environment when using specific version
 	unsetJavaEnvironmentVariables()
 
-	return ensureLocalRuntime(version, j.imageType, runtime.GOOS, runtime.GOARCH, j.skipVerify)
+	opentaintHome, err := utils.GetOpentaintHome()
+	if err != nil {
+		return "", err
+	}
+	adoptiumOS, adoptiumArch, err := MapPlatformToAdoptium(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		return "", err
+	}
+	cacheDir := filepath.Join(opentaintHome, "jre", fmt.Sprintf("temurin-%d-jre-%s-%s", version, adoptiumOS, adoptiumArch))
+
+	tiers := utils.JRETiers(version, cacheDir)
+	if len(tiers) == 0 {
+		return "", fmt.Errorf("no storage tiers available for Java %d", version)
+	}
+
+	if found := utils.FindExistingJRE(utils.CurrentTiers(tiers, utils.IsInstallCurrent())); found != nil {
+		return utils.JavaBinaryPath(found.Path), nil
+	}
+
+	// Match artifact behavior: for default/bind versions prefer install tier,
+	// for non-default versions use cache tier.
+	downloadTarget := tiers[len(tiers)-1].Path
+	return ensureLocalRuntimeAt(version, j.imageType, downloadTarget, runtime.GOOS, runtime.GOARCH, j.skipVerify, nil)
 }

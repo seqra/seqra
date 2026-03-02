@@ -36,19 +36,6 @@ func LoadConfig(projectModelPath string) (*Config, error) {
 	return &config, nil
 }
 
-func SaveConfig(config *Config, outputPath string) error {
-	yamlData, err := yaml.Marshal(config)
-	if err != nil {
-		return fmt.Errorf("failed to marshal YAML: %w", err)
-	}
-
-	if err := os.WriteFile(outputPath, yamlData, 0644); err != nil {
-		return fmt.Errorf("failed to write project.yaml: %w", err)
-	}
-
-	return nil
-}
-
 func GetSourceRoot(projectModelPath string) (string, error) {
 	config, err := LoadConfig(projectModelPath)
 	if err != nil {

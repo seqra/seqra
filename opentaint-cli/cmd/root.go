@@ -8,35 +8,51 @@ import (
 	"time"
 
 	"github.com/seqra/opentaint/v2/internal/globals"
+	"github.com/seqra/opentaint/v2/internal/output"
 	"github.com/seqra/opentaint/v2/internal/utils"
-	"github.com/seqra/opentaint/v2/internal/utils/formatters"
 	"github.com/seqra/opentaint/v2/internal/utils/log"
 	"github.com/seqra/opentaint/v2/internal/version"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var toolVersion bool
 
+// out is the global output printer used by all commands for user-facing output.
+// It is configured in PersistentPreRunE after logging is set up.
+var out = output.New()
+
 // updateHintCh receives an update hint message if a new version is available.
 var updateHintCh = make(chan string, 1)
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "opentaint",
-	Short: "OpenTaint Analyzer",
-	Long:  `OpenTaint is a CLI tool that analyzes Java and Kotlin projects to find vulnerabilities`,
+	Use:           "opentaint",
+	Short:         "OpenTaint Analyzer",
+	Long:          `OpenTaint is a CLI tool that analyzes Java and Kotlin projects to find vulnerabilities`,
+	SilenceErrors: true,
+	SilenceUsage:  true,
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		verbosity, err := normalizeVerbosity(globals.Config.Log.Verbosity)
+		if err != nil {
+			return err
+		}
+		globals.Config.Log.Verbosity = verbosity
+
 		// Set up logging to both console and file
 		logFile, logPath, err := log.OpenLogFile()
 		globals.LogPath = logPath
 		cobra.CheckErr(err)
 
-		if err := log.SetUpLogs(logFile, globals.Config.Log.Verbosity); err != nil {
+		if err := log.SetUpLogs(logFile, globals.Config.Log.Verbosity, globals.Config.Log.Color); err != nil {
 			return fmt.Errorf("failed to set up logging: %w", err)
 		}
+
+		// Configure the output printer (color mode, quiet mode)
+		out.Configure(globals.Config.Log.Color, globals.Config.Quiet)
+		out.SetVerbosity(globals.Config.Log.Verbosity)
+		out.SetLogWriter(logFile)
 
 		// Start async update check (non-blocking, at most once per day)
 		if !globals.Config.Quiet {
@@ -49,8 +65,8 @@ var rootCmd = &cobra.Command{
 		// Print update hint if available
 		select {
 		case hint := <-updateHintCh:
-			logrus.Info("")
-			logrus.Info(hint)
+			out.Blank()
+			out.Print(hint)
 		default:
 		}
 	},
@@ -68,7 +84,9 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
-		logrus.Fatalf("Unexpected error: %s", err)
+		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		fmt.Fprintln(os.Stderr, "Run 'opentaint --help' for usage.")
+		os.Exit(1)
 	}
 }
 
@@ -83,10 +101,13 @@ func init() {
 
 	rootCmd.Flags().BoolVarP(&toolVersion, "version", "v", false, "Print the version information")
 
-	rootCmd.PersistentFlags().StringVar(&globals.Config.Log.Verbosity, "verbosity", logrus.InfoLevel.String(), "Log level (debug, info, warn, error, fatal, panic)")
+	rootCmd.PersistentFlags().StringVar(&globals.Config.Log.Verbosity, "verbosity", "info", "Verbosity level (info, debug)")
 	_ = viper.BindPFlag("log.verbosity", rootCmd.PersistentFlags().Lookup("verbosity"))
 
-	rootCmd.PersistentFlags().BoolVarP(&globals.Config.Quiet, "quiet", "q", false, "Suppress interactive console output. (default: false)")
+	rootCmd.PersistentFlags().StringVar(&globals.Config.Log.Color, "color", "auto", "Color mode (auto, always, never)")
+	_ = viper.BindPFlag("log.color", rootCmd.PersistentFlags().Lookup("color"))
+
+	rootCmd.PersistentFlags().BoolVarP(&globals.Config.Quiet, "quiet", "q", false, "Suppress interactive UI elements (spinners, progress bars)")
 	_ = viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet"))
 
 	rootCmd.PersistentFlags().StringVar(&globals.Config.Analyzer.Version, "analyzer-version", globals.AnalyzerBindVersion, "Version of opentaint analyzer")
@@ -131,21 +152,28 @@ func initConfig() {
 	_ = viper.Unmarshal(&globals.Config)
 }
 
-func bindCompileTypeFlag(cmd *cobra.Command) {
-	_ = viper.BindPFlag("compile.type", cmd.Flags().Lookup("compile-type"))
+func normalizeVerbosity(level string) (string, error) {
+	value := strings.ToLower(strings.TrimSpace(level))
+	switch value {
+	case "", "info":
+		return "info", nil
+	case "debug":
+		return "debug", nil
+	default:
+		return "info", nil
+	}
 }
 
-func bindScanTypeFlag(cmd *cobra.Command) {
-	_ = viper.BindPFlag("scan.type", cmd.Flags().Lookup("scan-type"))
-}
-
-func printConfig(cmd *cobra.Command, printer *formatters.TreePrinter) {
+// addConfigFields appends config fields to a SectionBuilder if PrintConfig annotation is set.
+func addConfigFields(cmd *cobra.Command, sb *output.SectionBuilder) {
 	if cmd.Annotations != nil && cmd.Annotations["PrintConfig"] == "true" {
-		printer.AddNode("Log level: " + globals.Config.Log.Verbosity)
-		if viper.ConfigFileUsed() != "" {
-			printer.AddNode("Using config file: " + viper.ConfigFileUsed())
+		if globals.Config.Log.Verbosity == "debug" {
+			sb.Field("Log level", globals.Config.Log.Verbosity)
+			if viper.ConfigFileUsed() != "" {
+				sb.Field("Config file", viper.ConfigFileUsed())
+			}
+			sb.Field("Log file", globals.LogPath)
 		}
-		printer.AddNode("Log file: " + globals.LogPath)
 	}
 }
 

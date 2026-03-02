@@ -1,16 +1,18 @@
 package main
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/seqra/opentaint/v2/cmd"
 	"github.com/seqra/opentaint/v2/internal/utils/log"
-	"github.com/sirupsen/logrus"
 )
 
 func main() {
 	// Ensure log file is properly closed when main exits
 	defer func() {
 		if err := log.CloseLogFile(); err != nil {
-			logrus.Fatalf("Unexpected error: %s", err)
+			fmt.Fprintf(os.Stderr, "Failed to close log file: %s\n", err)
 		}
 	}()
 

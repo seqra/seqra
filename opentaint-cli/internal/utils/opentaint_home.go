@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/seqra/opentaint/v2/internal/globals"
 )
@@ -126,19 +125,6 @@ func CleanInstallDir() error {
 		}
 	}
 	return nil
-}
-
-// IsBundledPath returns true if the given path is under the bundled lib directory.
-func IsBundledPath(path string) bool {
-	bundledLib := GetBundledLibPath()
-	if bundledLib == "" {
-		return false
-	}
-	rel, err := filepath.Rel(bundledLib, path)
-	if err != nil {
-		return false
-	}
-	return len(rel) > 0 && !strings.HasPrefix(rel, "..")
 }
 
 // resolveArtifactPath resolves the path for an artifact by checking tiers in order:

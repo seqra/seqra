@@ -389,3 +389,22 @@ func TestEnvironmentVariableList(t *testing.T) {
 	}
 	_ = os.Unsetenv("NON_JAVA")
 }
+
+func TestShouldStreamJavaOutput(t *testing.T) {
+	tests := []struct {
+		verbosity string
+		want      bool
+	}{
+		{verbosity: "debug", want: true},
+		{verbosity: "DEBUG", want: true},
+		{verbosity: "info", want: false},
+		{verbosity: "warn", want: false},
+		{verbosity: "", want: false},
+	}
+
+	for _, tt := range tests {
+		if got := shouldStreamJavaOutput(tt.verbosity); got != tt.want {
+			t.Fatalf("shouldStreamJavaOutput(%q) = %t, want %t", tt.verbosity, got, tt.want)
+		}
+	}
+}

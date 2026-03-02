@@ -1,19 +1,18 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/seqra/opentaint/v2/internal/utils/formatters"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 
 	"github.com/seqra/opentaint/v2/internal/globals"
 	"github.com/seqra/opentaint/v2/internal/utils"
 	"github.com/seqra/opentaint/v2/internal/utils/java"
 	"github.com/seqra/opentaint/v2/internal/utils/log"
+
+	"github.com/seqra/opentaint/v2/internal/output"
 )
 
 type CompileCaller int
@@ -37,9 +36,6 @@ Arguments:
   project  - Path to a project to compile (required)
 `,
 	Annotations: map[string]string{"PrintConfig": "true"},
-	PreRun: func(cmd *cobra.Command, args []string) {
-		bindCompileTypeFlag(cmd)
-	},
 	Run: func(cmd *cobra.Command, args []string) {
 		ProjectPath = args[0]
 
@@ -49,19 +45,38 @@ Arguments:
 		outputProjectModelPath := filepath.Clean(OutputProjectModelPath)
 		absOutputProjectModelPath := log.AbsPathOrExit(outputProjectModelPath, "output")
 
-		logrus.Info(formatters.FormatTreeHeader("OpenTaint Compile"))
-		printer := formatters.NewTreePrinter()
-		printConfig(cmd, printer)
-		printer.AddNode("")
-		printer.AddNode("Project: " + absProjectRoot)
-		printer.AddNode("Output project model: " + absOutputProjectModelPath)
-		printer.Print()
-		logrus.Info()
+		sb := out.Section("OpenTaint Compile")
+		addConfigFields(cmd, sb)
+		if globals.Config.Log.Verbosity == "debug" {
+			sb.Line()
+		}
+		sb.Field("Project", absProjectRoot).
+			Field("Output project model", absOutputProjectModelPath).
+			Render()
+		out.Blank()
 
-		if err := compile(absProjectRoot, absOutputProjectModelPath, External); err == nil {
+		autobuilderJarPath, err := ensureAutobuilderAvailable()
+		if err != nil {
+			out.Fatalf("Native compile preparation failed: %s", err)
+		}
+
+		compileJavaRunner := java.NewJavaRunner().
+			WithSkipVerify(globals.Config.SkipVerify).
+			WithDebugOutput(out.DebugStream("Autobuilder")).
+			TrySystem().
+			TrySpecificVersion(globals.Config.Java.Version)
+		if _, err := compileJavaRunner.EnsureJava(); err != nil {
+			out.Fatalf("Failed to resolve Java for compilation: %s", err)
+		}
+
+		if err := out.RunWithSpinner("Compiling project model", func() error {
+			return compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath, compileJavaRunner, External)
+		}); err == nil {
+			out.Blank()
+			printCompileSummary(absOutputProjectModelPath)
 			suggest("To scan project run", utils.BuildScanCommandFromCompile(projectRoot, absOutputProjectModelPath))
 		} else {
-			logrus.Fatal()
+			out.Fatalf("Native compile has failed: %s", err)
 		}
 	},
 }
@@ -73,54 +88,57 @@ func init() {
 	_ = compileCmd.MarkFlagRequired("output")
 }
 
-func compile(absProjectRoot, absOutputProjectModelPath string, caller CompileCaller) error {
+func ensureAutobuilderAvailable() (string, error) {
+	autobuilderJarPath, err := utils.GetAutobuilderJarPath(globals.Config.Autobuilder.Version)
+	if err != nil {
+		return "", fmt.Errorf("failed to construct path to the autobuilder: %w", err)
+	}
+
+	if err = ensureArtifactAvailable("autobuilder", globals.Config.Autobuilder.Version, autobuilderJarPath, func() error {
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify, out)
+	}); err != nil {
+		return "", err
+	}
+
+	return autobuilderJarPath, nil
+}
+
+func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath string, javaRunner java.JavaRunner, caller CompileCaller) error {
 	if _, err := os.Stat(absOutputProjectModelPath); err == nil {
-		logrus.Fatalf("Output directory already exists: %s", absOutputProjectModelPath)
+		return fmt.Errorf("output directory already exists: %s", absOutputProjectModelPath)
 	}
 
 	if !utils.IsSupportedArch() {
-		logrus.Fatalf("Unsupported architecture found: %s! Only arm64 and amd64 are supported.", utils.GetArch())
+		return fmt.Errorf("unsupported architecture found: %s! only arm64 and amd64 are supported", utils.GetArch())
 	}
 
-	compileProject(absOutputProjectModelPath, absProjectRoot)
+	if err := compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath, javaRunner); err != nil {
+		return err
+	}
 
 	if _, err := os.Stat(absOutputProjectModelPath); err != nil {
 		err := fmt.Errorf("there was a problem during the compile step, check the full logs: %s", globals.LogPath)
-		logrus.Error(err)
+		output.LogInfo(err)
 		if caller == External {
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based compilation:", utils.BuildCompileCommandWithDocker(ProjectPath, OutputProjectModelPath))
 		}
 		return err
 	}
 
-	logrus.Info(formatters.FormatTreeHeader("Compile Summary"))
-	printer := formatters.NewTreePrinter()
-
-	printer.AddNode(fmt.Sprintf("Project model written to: %s", absOutputProjectModelPath))
-	printer.Print()
 	return nil
 }
 
-func compileProject(absOutputProjectModelPath, absProjectRoot string) {
+func printCompileSummary(absOutputProjectModelPath string) {
+	out.Section("Compile Summary").
+		Field("Project model written to", absOutputProjectModelPath).
+		Render()
+}
 
-	autobuilderJarPath, err := utils.GetAutobuilderJarPath(globals.Config.Autobuilder.Version)
-	if err != nil {
-		logrus.Fatalf("Failed to construct path to the autobuilder: %s", err)
-	}
-
-	// Download the autobuilder JAR if it doesn't exist
-	if _, err = os.Stat(autobuilderJarPath); errors.Is(err, os.ErrNotExist) {
-		logrus.Info()
-		logrus.Infof("Downloading autobuilder version %s", globals.Config.Autobuilder.Version)
-		if err = utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify); err != nil {
-			logrus.Fatalf("Failed to download autobuilder: %s", err)
-		}
-		logrus.Infof("Successfully downloaded autobuilder to %s", autobuilderJarPath)
-	}
-
+func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath string, javaRunner java.JavaRunner) error {
+	var err error
 	tempLogsDir, err := os.MkdirTemp("", "opentaint-*")
 	if err != nil {
-		logrus.Fatalf("Failed to create temporary directory: %s", err)
+		return fmt.Errorf("failed to create temporary directory: %w", err)
 	}
 	tempLogsFile := filepath.Join(tempLogsDir, "autobuild.log")
 
@@ -133,12 +151,10 @@ func compileProject(absOutputProjectModelPath, absProjectRoot string) {
 
 	autobuilderCommand := builder.BuildNativeCommand()
 
-	javaRunner := java.NewJavaRunner().WithSkipVerify(globals.Config.SkipVerify).TrySystem().TrySpecificVersion(globals.Config.Java.Version)
-
 	commandSucceeded := func(_ error) bool {
 		if _, err = os.Stat(absOutputProjectModelPath); err != nil {
-			logrus.Errorf("Output project model path does not exist after autobuilder execution: %s", absOutputProjectModelPath)
-			logrus.Error("Autobuilder failed to compile the project")
+			output.LogInfof("Output project model path does not exist after autobuilder execution: %s", absOutputProjectModelPath)
+			output.LogInfo("Autobuilder failed to compile the project")
 			return false
 		}
 		return true
@@ -146,6 +162,9 @@ func compileProject(absOutputProjectModelPath, absProjectRoot string) {
 	// Execute the command using JavaRunner
 	err = javaRunner.ExecuteJavaCommand(autobuilderCommand, commandSucceeded)
 	if err != nil {
-		logrus.Errorf("Native compilation has failed: %s", err)
+		output.LogInfof("Native compilation has failed: %s", err)
+		return fmt.Errorf("native compilation has failed: %w", err)
 	}
+
+	return nil
 }

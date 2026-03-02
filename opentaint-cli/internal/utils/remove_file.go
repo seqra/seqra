@@ -3,7 +3,7 @@ package utils
 import (
 	"os"
 
-	"github.com/sirupsen/logrus"
+	"github.com/seqra/opentaint/v2/internal/output"
 )
 
 func RemoveIfExists(path string) error {
@@ -18,8 +18,7 @@ func RemoveIfExists(path string) error {
 }
 
 func RemoveIfExistsOrExit(path string) {
-	err := RemoveIfExists(path)
-	if err != nil {
-		logrus.Fatalf("Failed to remove '%s': %s", path, err)
+	if err := RemoveIfExists(path); err != nil {
+		output.Fatalf("Failed to remove '%s': %s", path, err)
 	}
 }

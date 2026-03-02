@@ -6,13 +6,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
-	"golang.org/x/term"
 )
 
 var (
@@ -40,100 +38,6 @@ func OpenLogFile() (*os.File, string, error) {
 	}
 
 	return logFile, logPath, nil
-}
-
-// colorMessageFormatter wraps the whole message with a color based on level.
-type colorMessageFormatter struct {
-	Enabled bool
-}
-
-func (f *colorMessageFormatter) Format(entry *logrus.Entry) ([]byte, error) {
-	// Check for explicit color field
-	var explicitColor string
-	if colorValue, exists := entry.Data["color"]; exists {
-		if colorStr, ok := colorValue.(string); ok {
-			explicitColor = colorStr
-		}
-	}
-
-	// Build fields string if any exist (excluding color field)
-	var fieldsStr string
-	if len(entry.Data) > 0 {
-		// Stable ordering for fields
-		keys := make([]string, 0, len(entry.Data))
-		for k := range entry.Data {
-			if k != "color" {
-				keys = append(keys, k)
-			}
-		}
-		sort.Strings(keys)
-
-		var parts []string
-		for _, k := range keys {
-			parts = append(parts, fmt.Sprintf("%s=%v", k, entry.Data[k]))
-		}
-		if len(parts) > 0 {
-			fieldsStr = " " + strings.Join(parts, " ")
-		}
-	}
-
-	var message string
-	if fieldsStr != "" {
-		message = fieldsStr + " " + entry.Message
-	} else {
-		message = entry.Message
-	}
-
-	if !f.Enabled {
-		return []byte(message + "\n"), nil
-	}
-
-	var color string
-	if explicitColor != "" {
-		color = getColorCode(explicitColor)
-	} else {
-		color = levelColor(entry.Level)
-	}
-
-	reset := "\x1b[0m"
-	return []byte(color + message + reset + "\n"), nil
-}
-
-func levelColor(lvl logrus.Level) string {
-	// Basic, widely supported ANSI colors (no 256-color/truecolor to keep compatibility high)
-	switch lvl {
-	case logrus.PanicLevel, logrus.FatalLevel, logrus.ErrorLevel:
-		return "\x1b[31m" // red
-	case logrus.WarnLevel:
-		return "\x1b[33m" // yellow
-	case logrus.DebugLevel:
-		return "\x1b[36m" // cyan
-	case logrus.TraceLevel:
-		return "\x1b[35m" // magenta
-	default:
-		return "" // no color
-	}
-}
-
-func getColorCode(colorName string) string {
-	switch strings.ToLower(colorName) {
-	case "red":
-		return "\x1b[31m"
-	case "green":
-		return "\x1b[32m"
-	case "yellow":
-		return "\x1b[33m"
-	case "blue":
-		return "\x1b[34m"
-	case "magenta":
-		return "\x1b[35m"
-	case "cyan":
-		return "\x1b[36m"
-	case "white":
-		return "\x1b[37m"
-	default:
-		return "" // no color
-	}
 }
 
 // blockTextFormatter keeps multi-line messages as one block.
@@ -183,41 +87,59 @@ func (f *blockTextFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// SetUpLogs configures logging with the specified output and level.
-// 'out' is typically the log file writer. Logs will go to both the console and 'out'.
-func SetUpLogs(out io.Writer, level string) error {
-	// Parse log level
-	consoleLevel, err := logrus.ParseLevel(level)
-	if err != nil {
-		return err
+// SetUpLogs configures logging to the given file writer.
+// Console output is no longer handled by logrus — it's handled by the output.Printer.
+// Logrus is used exclusively for structured file logging.
+func SetUpLogs(out io.Writer, level string, colorMode string) error {
+	_ = colorMode
+
+	normalizedLevel := strings.ToLower(strings.TrimSpace(level))
+	var fileLevel logrus.Level
+	switch normalizedLevel {
+	case "", "info":
+		fileLevel = logrus.InfoLevel
+	case "debug":
+		fileLevel = logrus.DebugLevel
+	default:
+		return fmt.Errorf("invalid verbosity %q: expected one of info, debug", level)
 	}
 
 	// File formatter (with per-line timestamp/level/etc.)
 	fileFormatter := &blockTextFormatter{
 		TimestampFormat: "2006-01-02 15:04:05",
-		Indent:          "    ", // 4 spaces (change to "\t" if you prefer tabs)
+		Indent:          "    ", // 4 spaces
 	}
 
-	// Two writers: one for file, one for console
-	logrus.SetOutput(io.Discard) // avoid default stdout
-	logrus.SetLevel(logrus.TraceLevel)
+	// Discard default output — all logging goes through hooks
+	logrus.SetOutput(io.Discard)
+	logrus.SetLevel(logrus.DebugLevel)
 
-	// Console formatter with conditional color
-	consoleFormatter := &colorMessageFormatter{Enabled: colorSupported(os.Stdout)}
-
-	logrus.AddHook(&writerHook{
-		Writer:    os.Stdout,
-		Formatter: consoleFormatter,
-		LogLevels: allowedLevels(consoleLevel),
-	})
-
+	// File logging hook — all levels up to the configured level
 	logrus.AddHook(&writerHook{
 		Writer:    out,
 		Formatter: fileFormatter,
-		LogLevels: logrus.AllLevels,
+		LogLevels: allowedLevels(fileLevel),
+	})
+
+	// Stderr hook for fatal/error — these still go to stderr for exit codes
+	logrus.AddHook(&writerHook{
+		Writer:    os.Stderr,
+		Formatter: &plainMessageFormatter{},
+		LogLevels: []logrus.Level{logrus.PanicLevel, logrus.FatalLevel},
 	})
 
 	return nil
+}
+
+// plainMessageFormatter outputs just the message with no decoration.
+// Used for fatal errors that go to stderr.
+type plainMessageFormatter struct{}
+
+func (f *plainMessageFormatter) Format(entry *logrus.Entry) ([]byte, error) {
+	if entry.Message == "" {
+		return []byte("\n"), nil
+	}
+	return []byte(entry.Message + "\n"), nil
 }
 
 // allowedLevels returns all log levels >= given level
@@ -258,36 +180,4 @@ func CloseLogFile() error {
 		return logFile.Close()
 	}
 	return nil
-}
-
-// colorSupported determines if ANSI colors should be used for the given writer.
-func colorSupported(w io.Writer) bool {
-	// Respect NO_COLOR (https://no-color.org/)
-	if os.Getenv("NO_COLOR") != "" {
-		return false
-	}
-	// Allow explicit override
-	if os.Getenv("FORCE_COLOR") != "" {
-		return true
-	}
-
-	f, ok := w.(*os.File)
-	if !ok {
-		return false
-	}
-
-	// Only colorize if attached to a TTY
-	if !term.IsTerminal(int(f.Fd())) {
-		return false
-	}
-
-	// Basic Windows handling: modern Windows terminals support ANSI,
-	// but if TERM isn't set we err on the safe side and disable.
-	if runtime.GOOS == "windows" {
-		if os.Getenv("TERM") == "" && os.Getenv("WT_SESSION") == "" && os.Getenv("ANSICON") == "" {
-			return false
-		}
-	}
-
-	return true
 }

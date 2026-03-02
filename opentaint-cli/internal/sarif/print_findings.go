@@ -2,229 +2,244 @@ package sarif
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
-	"github.com/seqra/opentaint/v2/internal/utils/formatters"
-	"github.com/sirupsen/logrus"
+	"charm.land/lipgloss/v2/tree"
+
+	"github.com/seqra/opentaint/v2/internal/output"
 )
 
-// FindingOutputBuilder provides a fluent interface for formatting security findings
-type FindingOutputBuilder struct {
-	showHeader    bool
-	showRule      bool
-	showMessage   bool
-	showSnippets  bool
-	showDataflow  bool
-	headerFormat  string
-	ruleFormat    string
-	messageFormat string
-	sourcePrefix  string
-	sinkPrefix    string
-	defaultLevel  string
+type endpointInfo struct {
+	Route  string
+	Params []string
 }
 
-// NewFindingOutputBuilder creates a new FindingOutputBuilder with default settings
-func NewFindingOutputBuilder(showSnippets bool) *FindingOutputBuilder {
-	return &FindingOutputBuilder{
-		showHeader:    true,
-		showRule:      true,
-		showMessage:   true,
-		showSnippets:  showSnippets,
-		showDataflow:  true,
-		headerFormat:  "%s",
-		ruleFormat:    "Rule: %s",
-		messageFormat: "Message: %s",
-		sourcePrefix:  "[SOURCE]",
-		sinkPrefix:    "[SINK]",
-		defaultLevel:  "[UNKNOWN]",
-	}
-}
-
-// ShowSnippets controls whether to display code snippets
-func (fob *FindingOutputBuilder) ShowSnippets(show bool) *FindingOutputBuilder {
-	fob.showSnippets = show
-	return fob
-}
-
-// ShowDataflow controls whether to display dataflow information
-func (fob *FindingOutputBuilder) ShowDataflow(show bool) *FindingOutputBuilder {
-	fob.showDataflow = show
-	return fob
-}
-
-// SourcePrefix sets the prefix for source locations
-func (fob *FindingOutputBuilder) SourcePrefix(prefix string) *FindingOutputBuilder {
-	fob.sourcePrefix = prefix
-	return fob
-}
-
-// SinkPrefix sets the prefix for sink locations
-func (fob *FindingOutputBuilder) SinkPrefix(prefix string) *FindingOutputBuilder {
-	fob.sinkPrefix = prefix
-	return fob
-}
-
-// SnippetBuilder provides a fluent interface for loading and formatting code snippets
-type SnippetBuilder struct {
-	radius     int64
-	showBorder bool
-	lineMarker string
-	borderChar string
-	lineFormat string
-}
-
-// NewSnippetBuilder creates a new SnippetBuilder with default settings
-func NewSnippetBuilder() *SnippetBuilder {
-	return &SnippetBuilder{
-		radius:     3,
-		showBorder: true,
-		lineMarker: ">>",
-		borderChar: "—",
-		lineFormat: "\t│ %2s %4d %s",
-	}
-}
-
-// Radius sets the number of lines to show around the target line
-func (sb *SnippetBuilder) Radius(radius int64) *SnippetBuilder {
-	sb.radius = radius
-	return sb
-}
-
-// LoadSnippet loads and formats a code snippet
-func (sb *SnippetBuilder) LoadSnippet(filePath string, centerLine int64) (string, error) {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", err
-	}
-
-	lines := strings.Split(string(data), "\n")
-	start := centerLine - sb.radius - 1
-	end := centerLine + sb.radius - 1
-
-	if start < 0 {
-		start = 0
-	}
-	if end >= int64(len(lines)) {
-		end = int64(len(lines) - 1)
-	}
-
-	var out strings.Builder
-
-	for i := start; i <= end; i++ {
-		marker := "  "
-		if i+1 == centerLine {
-			marker = sb.lineMarker
-		}
-		out.WriteString(fmt.Sprintf(sb.lineFormat+"\n", marker, i+1, lines[i]))
-	}
-
-	return out.String(), nil
-}
-
-func (report *Report) printFinding(result *Result, runIdx int, showCodeSnippets bool) {
+func (report *Report) buildFindingTree(out *output.Printer, result *Result, runIdx int, showCodeSnippets bool, verboseFlow bool) (*tree.Tree, bool) {
 	absProjectPath, err := report.projectPath(runIdx)
-
 	if err != nil {
-		logrus.Errorf("Project path lookup failed: %v", err)
-		return
+		output.LogInfof("Project path lookup failed: %v", err)
+		return nil, false
 	}
 
 	if len(result.Locations) == 0 || result.Locations[0].PhysicalLocation == nil {
-		logrus.Warn("No primary location for finding")
-		return
+		output.LogInfo("No primary location for finding")
+		return nil, false
 	}
 
 	lvl := Level("unknown")
 	if result.Level != nil {
 		lvl = *result.Level
 	} else {
-		logrus.Warn("Finding has nil level; defaulting to 'unknown'")
+		output.LogInfo("Finding has nil level; defaulting to 'unknown'")
 	}
-	indicator, indicatorColor := levelIndicator(lvl)
-	logrus.Info(formatters.FormatTreeHeaderColorized(indicator, indicatorColor))
 
 	rule := "<unknown>"
 	if result.RuleID != nil {
 		rule = *result.RuleID
 	} else {
-		logrus.Warn("Finding has nil ruleId")
+		output.LogInfo("Finding has nil ruleId")
 	}
+
+	var ruleDesc string
+	var cwe []string
+	if ruleMeta := report.ruleByID(runIdx, rule); ruleMeta != nil {
+		ruleDesc = ruleDescription(*ruleMeta)
+		cwe = cweTags(*ruleMeta)
+	}
+	if len(cwe) > 0 {
+		rule += " [" + strings.Join(cwe, ", ") + "]"
+	}
+
 	msg := ""
 	if result.Message.Text != nil {
 		msg = *result.Message.Text
 	} else {
-		logrus.Warn("Finding has nil message.text")
+		output.LogInfo("Finding has nil message.text")
 	}
 
-	printer := formatters.NewTreePrinter()
-	printer.AddNode(fmt.Sprintf("Rule: %s", rule))
-	printer.AddNodeWrapped(fmt.Sprintf("Message: %s", msg))
+	showMessage := strings.TrimSpace(msg) != "" && strings.TrimSpace(msg) != strings.TrimSpace(ruleDesc)
 
 	loc := result.Locations[0]
-	locStr := printLoc(loc.extractNodeLoc(), absProjectPath)
-	printer.AddNode(fmt.Sprintf("Location: %s", locStr))
+	nodeLoc := loc.extractNodeLoc()
+	locStr := printLocStyled(nodeLoc, absProjectPath, out)
+
+	const msgWrap = 120
+	const flowWrap = 117
+
+	findingNode := out.GroupItem(rule)
+	findingNode.Child(out.FieldItem("Severity", strings.ToUpper(string(lvl))))
+	findingNode.Child(out.FieldItem("Location", locStr))
+
+	if showMessage {
+		findingNode.Child(out.FieldItem("Message", output.WrapText(msg, msgWrap)))
+	}
+
+	endpoints := findingEndpoints(result)
+	if len(endpoints) > 0 {
+		endpointsNode := out.GroupItem(out.Theme().FieldKey.Render("Endpoints:"))
+		for _, endpoint := range endpoints {
+			endpointLine := endpoint.Route
+			if len(endpoint.Params) > 0 {
+				endpointLine += " (" + strings.Join(endpoint.Params, ", ") + ")"
+			}
+			endpointsNode.Child(endpointLine)
+		}
+		findingNode.Child(endpointsNode)
+		findingNode.Child("")
+	}
 
 	taintFlow, err := classifyTaintFlow(result)
 	if err != nil {
-		logrus.Debugf("No source/sink: %s", err)
-
-		snippetBuilder := NewSnippetBuilder()
+		output.LogDebugf("No source/sink: %s", err)
 
 		resultPath := extractAbsolutePath(&loc, absProjectPath, "Result")
-
 		if resultPath != "" && showCodeSnippets {
-			snippet := printSnippetWithBuilder(resultPath, loc.extractNodeLoc(), snippetBuilder)
+			snippet := out.Snippet().LoadOrEmpty(resultPath, loc.extractNodeLoc().line)
 			if snippet != "" {
-				printer.AddNodeAtLevelDefault(snippet, 1)
+				findingNode.Child("Code snippet\n" + snippet)
 			}
 		}
 
-		printer.Print()
-		return
+		return findingNode, false
 	}
 
-	printer.AddNode("")
-	printer.AddNode("Code Flow")
+	flowTree := out.GroupItem(out.Theme().FieldKey.Render("Code flow:"))
 
-	builder := NewFlowStepBuilder()
-	for i, cs := range taintFlow {
-		mainLine, locationLine := builder.FormatStep(cs, absProjectPath)
-		printer.AddNodeAtLevelWrapped(mainLine, 1)
-		printer.AddNodeAtLevelDefault(locationLine, 2)
+	flowSteps := taintFlow
+	omitted := false
+	shownSnippets := make(map[string]struct{})
+	if !verboseFlow && len(taintFlow) > 2 {
+		flowSteps = []classifiedStep{taintFlow[0], taintFlow[len(taintFlow)-1]}
+		omitted = true
+	}
 
-		if i != 0 && i != len(taintFlow)-1 {
-			printer.AddNodeAtLevelDefault("", 1)
-			continue
+	for i, cs := range flowSteps {
+		mainLine, locationLine := formatFlowStep(cs, absProjectPath)
+		mainLine = output.WrapText(mainLine, flowWrap)
+		stepNode := out.GroupItem(mainLine, locationLine)
+
+		stepLoc := cs.Step.Location
+		locPath := extractAbsolutePath(stepLoc, absProjectPath, "Flow")
+		if locPath != "" && showCodeSnippets {
+			line := stepLoc.extractNodeLoc().line
+			snippetKey := fmt.Sprintf("%s:%d", locPath, line)
+			if _, alreadyShown := shownSnippets[snippetKey]; !alreadyShown {
+				snippet := out.Snippet().LoadOrEmpty(locPath, line)
+				if snippet != "" {
+					stepNode.Child("Code snippet\n" + snippet)
+					shownSnippets[snippetKey] = struct{}{}
+				}
+			}
 		}
 
-		loc := cs.Step.Location
-		locPath := extractAbsolutePath(loc, absProjectPath, "Flow")
+		flowTree.Child(stepNode)
+		if !verboseFlow && len(flowSteps) == 2 && i == 0 {
+			flowTree.Child("")
+		}
+	}
 
-		if locPath != "" && showCodeSnippets {
-			snippetBuilder := NewSnippetBuilder()
-			snippet := printSnippetWithBuilder(locPath, loc.extractNodeLoc(), snippetBuilder)
-			if snippet != "" {
-				printer.AddNodeAtLevelDefault(snippet, 1)
+	findingNode.Child(flowTree)
+	return findingNode, omitted
+}
+
+func printLocStyled(loc nodeLoc, absProjectPath string, out *output.Printer) string {
+	return out.FileLink(absProjectPath, loc.relFilePath, loc.relFilePath, loc.line)
+}
+
+func (report *Report) ruleByID(runIdx int, ruleID string) *ReportingDescriptor {
+	if ruleID == "" || runIdx < 0 || runIdx >= len(report.Runs) {
+		return nil
+	}
+
+	run := report.Runs[runIdx]
+	for i := range run.Tool.Driver.Rules {
+		if run.Tool.Driver.Rules[i].ID == ruleID {
+			return &run.Tool.Driver.Rules[i]
+		}
+	}
+
+	for runIndex := range report.Runs {
+		for i := range report.Runs[runIndex].Tool.Driver.Rules {
+			if report.Runs[runIndex].Tool.Driver.Rules[i].ID == ruleID {
+				return &report.Runs[runIndex].Tool.Driver.Rules[i]
+			}
+		}
+	}
+
+	return nil
+}
+
+func findingEndpoints(result *Result) []endpointInfo {
+	if result == nil || len(result.RelatedLocations) == 0 {
+		return nil
+	}
+
+	type endpointBuilder struct {
+		route  string
+		params map[string]struct{}
+	}
+
+	byRoute := make(map[string]*endpointBuilder)
+
+	for _, related := range result.RelatedLocations {
+		for _, logical := range related.LogicalLocations {
+			endpoint := ""
+			if logical.FullyQualifiedName != nil {
+				endpoint = strings.TrimSpace(*logical.FullyQualifiedName)
+			}
+			if endpoint == "" {
+				if logical.Name != nil {
+					endpoint = strings.TrimSpace(*logical.Name)
+				}
+			}
+			if endpoint == "" {
 				continue
 			}
-		}
 
-		if i == 0 {
-			printer.AddNodeAtLevelDefault("", 1)
+			builder, exists := byRoute[endpoint]
+			if !exists {
+				builder = &endpointBuilder{route: endpoint, params: make(map[string]struct{})}
+				byRoute[endpoint] = builder
+			}
+
+			tags := []string{}
+			if logical.Properties != nil {
+				tags = logical.Properties.Tags
+			}
+			if len(tags) > 0 {
+				for _, tag := range tags {
+					tag = strings.TrimSpace(tag)
+					if tag == "" {
+						continue
+					}
+					builder.params[tag] = struct{}{}
+				}
+			}
 		}
 	}
 
-	printer.Print()
+	routes := make([]string, 0, len(byRoute))
+	for route := range byRoute {
+		routes = append(routes, route)
+	}
+	sort.Strings(routes)
+
+	endpoints := make([]endpointInfo, 0, len(routes))
+	for _, route := range routes {
+		builder := byRoute[route]
+		params := make([]string, 0, len(builder.params))
+		for param := range builder.params {
+			params = append(params, param)
+		}
+		sort.Strings(params)
+		endpoints = append(endpoints, endpointInfo{Route: route, Params: params})
+	}
+
+	return endpoints
 }
 
-func printLoc(loc nodeLoc, absProjectPath string) string {
-	link := formatters.FormatFilePathHyperLink(absProjectPath, loc.relFilePath, loc.relFilePath, loc.line)
-	return link
-}
-
-// extractAbsolutePath safely extracts the absolute path from a location
 func extractAbsolutePath(location *Location, absProjectPath, locationName string) string {
 	if location != nil &&
 		location.PhysicalLocation != nil &&
@@ -232,37 +247,16 @@ func extractAbsolutePath(location *Location, absProjectPath, locationName string
 		location.PhysicalLocation.ArtifactLocation.URI != nil {
 		return filepath.Join(absProjectPath, *location.PhysicalLocation.ArtifactLocation.URI)
 	}
-	logrus.Warnf("%s location has no URI; snippet path will be empty", locationName)
+	output.LogInfof("%s location has no URI; snippet path will be empty", locationName)
 	return ""
 }
-
-// printSnippetWithBuilder prints a code snippet using the SnippetBuilder
-func printSnippetWithBuilder(
-	snippetPath string, loc nodeLoc, sb *SnippetBuilder) string {
-	snippet, err := sb.LoadSnippet(snippetPath, loc.line)
-	if err != nil {
-		logrus.Warnf("Failed to load code snippet: %v", err)
-		return ""
-	}
-
-	if sb.showBorder {
-		snippet = "\n" + snippet
-	}
-
-	return snippet
-}
-
-// printSnippet prints a code snippet (backward compatibility)
-// func printSnippet(prefix string, snippetPath string, loc flowNodeLoc, absProjectPath string) {
-// 	printSnippetWithBuilder(prefix, snippetPath, loc, absProjectPath, NewSnippetBuilder())
-// }
 
 func (report *Report) projectPath(runIdx int) (string, error) {
 	run := report.Runs[runIdx]
 
 	if base, ok := run.OriginalURIBaseIDS["%SRCROOT%"]; ok {
 		if base.URI == nil {
-			logrus.Warn("%SRCROOT% base has nil URI")
+			output.LogInfo("%SRCROOT% base has nil URI")
 			return "", fmt.Errorf("%%SRCROOT%% URI is nil")
 		}
 		return *base.URI, nil

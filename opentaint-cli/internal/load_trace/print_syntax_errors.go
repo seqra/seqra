@@ -1,61 +1,67 @@
 package load_trace
 
 import (
-	"github.com/seqra/opentaint/v2/internal/utils/color"
-	"github.com/seqra/opentaint/v2/internal/utils/formatters"
-	"github.com/sirupsen/logrus"
+	"github.com/seqra/opentaint/v2/internal/output"
 )
 
-func PrintSyntaxErrorReport(loadTraceSummary RuleLoadTraceSummary) {
+func PrintSyntaxErrorReport(out *output.Printer, loadTraceSummary RuleLoadTraceSummary) {
 	filesWithErrors := filterFilesWithSyntaxErrors(loadTraceSummary.Files)
 	if len(filesWithErrors) == 0 {
 		return
 	}
 
-	logrus.Info(formatters.FormatHeader1("Rule Syntax Erros"))
+	sb := out.Section("Rule Syntax Errors")
 	for _, f := range filesWithErrors {
-		printFile(f)
+		children := buildFileChildren(out, f)
+		if len(children) > 0 {
+			sb.Group("File: "+f.Path, children...)
+		}
 	}
+	sb.Render()
+	out.Blank()
 }
 
-func printFile(file fileSummary) {
+func buildFileChildren(out *output.Printer, file fileSummary) []any {
 	fileSyntaxErrors := filterSyntaxErrors(file.Errors)
 	rulesWithErrors := filterRulesWithSyntaxErrors(file.Rules)
 
 	if len(fileSyntaxErrors) == 0 && len(rulesWithErrors) == 0 {
-		return
+		return nil
 	}
 
-	logrus.Info("File: " + file.Path)
-
-	printer := formatters.NewTreePrinter()
+	th := out.Theme()
+	var children []any
 
 	for _, err := range fileSyntaxErrors {
-		printer.AddNodeAtLevel("Error "+err.Message, 0, color.Red, true)
+		children = append(children, th.Error.Render("Error "+err.Message))
 	}
 
 	for _, rule := range rulesWithErrors {
-		addRuleNodes(printer, rule)
+		ruleChildren := buildRuleChildren(out, rule)
+		if len(ruleChildren) > 0 {
+			children = append(children, out.GroupItem("Rule: "+rule.RuleID, ruleChildren...))
+		}
 	}
 
-	printer.Print()
-	logrus.Info()
+	return children
 }
 
-func addRuleNodes(printer *formatters.TreePrinter, rule ruleSummary) {
+func buildRuleChildren(out *output.Printer, rule ruleSummary) []any {
 	ruleSyntax := filterSyntaxErrors(rule.Errors)
 	stepSyntax := collectStepSyntaxErrors(rule.Steps)
 
 	if len(ruleSyntax) == 0 && len(stepSyntax) == 0 {
-		return
+		return nil
 	}
 
-	printer.AddNodeAtLevel("Rule: "+rule.RuleID, 0, "", false)
-
+	th := out.Theme()
 	allErrors := append(ruleSyntax, stepSyntax...)
+	children := make([]any, 0, len(allErrors))
 	for _, err := range allErrors {
-		printer.AddNodeAtLevel("Error "+err.Message, 1, color.Red, true)
+		children = append(children, th.Error.Render("Error "+err.Message))
 	}
+
+	return children
 }
 
 func filterFilesWithSyntaxErrors(files []fileSummary) []fileSummary {
