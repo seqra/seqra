@@ -10,13 +10,9 @@ import (
 
 func PrintRuleStatisticsTree(out *output.Printer, ruleLoadErrorsResult *RuleLoadErrorsResult, absSemgrepRuleLoadTracePath string, sarifSummary sarif.Summary) {
 	parsingNode := buildRuleParsingIssuesNode(out, ruleLoadErrorsResult, absSemgrepRuleLoadTracePath)
-	executionNode := out.GroupItem("Rule execution",
-		out.FieldItem("Rules executed", sarifSummary.TotalRulesExecuted),
-		out.FieldItem("Rules triggered", sarifSummary.TotalRulesTriggered),
-	)
 
 	out.Section("Rule Statistics").
-		Child(parsingNode, executionNode).
+		Child(parsingNode).
 		Render()
 	out.Blank()
 }
