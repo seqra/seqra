@@ -56,9 +56,8 @@ Arguments:
 			Render()
 		out.Blank()
 
-		failOnInvalidInputs(func() error { return validateCompileInputs(absOutputProjectModelPath) })
-
 		if DryRunCompile {
+			failOnInvalidInputs(func() error { return validateCompileInputs(absProjectRoot, absOutputProjectModelPath) })
 			runDryRun("Compilation")
 			return
 		}
@@ -97,9 +96,31 @@ func init() {
 	compileCmd.Flags().BoolVar(&DryRunCompile, "dry-run", false, "Validate inputs and show what would run without compiling")
 }
 
-func validateCompileInputs(absOutputProjectModelPath string) error {
+func validateCompileInputs(absProjectRoot, absOutputProjectModelPath string) error {
+	projectInfo, err := os.Stat(absProjectRoot)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("project directory does not exist: %s", absProjectRoot)
+		}
+		return fmt.Errorf("failed to access project directory %s: %w", absProjectRoot, err)
+	}
+	if !projectInfo.IsDir() {
+		return fmt.Errorf("project path is not a directory: %s", absProjectRoot)
+	}
+
 	if _, err := os.Stat(absOutputProjectModelPath); err == nil {
 		return fmt.Errorf("output directory already exists: %s", absOutputProjectModelPath)
+	}
+	outputParentDir := filepath.Dir(absOutputProjectModelPath)
+	outputParentInfo, err := os.Stat(outputParentDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("output parent directory does not exist: %s", outputParentDir)
+		}
+		return fmt.Errorf("failed to access output parent directory %s: %w", outputParentDir, err)
+	}
+	if !outputParentInfo.IsDir() {
+		return fmt.Errorf("output parent path is not a directory: %s", outputParentDir)
 	}
 
 	if !utils.IsSupportedArch() {
@@ -125,7 +146,7 @@ func ensureAutobuilderAvailable() (string, error) {
 }
 
 func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath string, javaRunner java.JavaRunner, caller CompileCaller) error {
-	if err := validateCompileInputs(absOutputProjectModelPath); err != nil {
+	if err := validateCompileInputs(absProjectRoot, absOutputProjectModelPath); err != nil {
 		return err
 	}
 

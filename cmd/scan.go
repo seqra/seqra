@@ -190,20 +190,14 @@ func scan(cmd *cobra.Command) {
 	// Display scan information in tree format
 	printScanInfo(cmd, scanMode, absProjectModelPath, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot, absRuleSetPaths)
 
-	failOnInvalidInputs(validateScanInputs)
+	maxMemory, err := validateScanInputs(scanMode, absUserProjectRoot, absProjectModelPath, absSarifReportPath, absRuleSetPaths)
+	if err != nil {
+		out.Fatalf("Input validation failed: %s", err)
+	}
 
 	if DryRunScan {
 		runDryRun("Compilation and analysis")
 		return
-	}
-
-	maxMemory := ""
-	if globals.Config.Scan.MaxMemory != "" {
-		parsedMaxMemory, err := utils.ParseMemoryValue(globals.Config.Scan.MaxMemory)
-		if err != nil {
-			out.Fatalf("Invalid max-memory value: %s", err)
-		}
-		maxMemory = parsedMaxMemory
 	}
 
 	for _, ruleSetPath := range absRuleSetPaths {
@@ -364,20 +358,69 @@ func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string
 	sb.Render()
 }
 
-func validateScanInputs() error {
-	if globals.Config.Scan.MaxMemory != "" {
-		if _, err := utils.ParseMemoryValue(globals.Config.Scan.MaxMemory); err != nil {
-			return fmt.Errorf("invalid max-memory value: %w", err)
+func validateScanInputs(scanMode ScanMode, absUserProjectRoot, absProjectModelPath, absSarifReportPath string, absRuleSetPaths []RulesetType) (string, error) {
+	maxMemory := ""
+
+	projectInfo, err := os.Stat(absUserProjectRoot)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("project path does not exist: %s", absUserProjectRoot)
 		}
+		return "", fmt.Errorf("failed to access project path %s: %w", absUserProjectRoot, err)
+	}
+	if !projectInfo.IsDir() {
+		return "", fmt.Errorf("project path is not a directory: %s", absUserProjectRoot)
+	}
+
+	if scanMode == Scan {
+		projectModelFile := filepath.Join(absProjectModelPath, "project.yaml")
+		if _, err := os.Stat(projectModelFile); err != nil {
+			if os.IsNotExist(err) {
+				return "", fmt.Errorf("project model file does not exist: %s", projectModelFile)
+			}
+			return "", fmt.Errorf("failed to access project model file %s: %w", projectModelFile, err)
+		}
+	}
+
+	for _, ruleSetPath := range absRuleSetPaths {
+		if ruleSetPath.Builtin {
+			continue
+		}
+		if _, err := os.Stat(ruleSetPath.Path); err != nil {
+			if os.IsNotExist(err) {
+				return "", fmt.Errorf("ruleset path does not exist: %s", ruleSetPath.Path)
+			}
+			return "", fmt.Errorf("failed to access ruleset path %s: %w", ruleSetPath.Path, err)
+		}
+	}
+
+	outputParentDir := filepath.Dir(absSarifReportPath)
+	outputParentInfo, err := os.Stat(outputParentDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return "", fmt.Errorf("output directory does not exist: %s", outputParentDir)
+		}
+		return "", fmt.Errorf("failed to access output directory %s: %w", outputParentDir, err)
+	}
+	if !outputParentInfo.IsDir() {
+		return "", fmt.Errorf("output path is not a directory: %s", outputParentDir)
+	}
+
+	if globals.Config.Scan.MaxMemory != "" {
+		parsedMaxMemory, err := utils.ParseMemoryValue(globals.Config.Scan.MaxMemory)
+		if err != nil {
+			return "", fmt.Errorf("invalid max-memory value: %w", err)
+		}
+		maxMemory = parsedMaxMemory
 	}
 	for _, severity := range Severity {
 		switch severity {
 		case "error", "warning", "note":
 		default:
-			return fmt.Errorf(`each "severity" flag should be one of note, warning, or error`)
+			return "", fmt.Errorf(`each "severity" flag should be one of note, warning, or error`)
 		}
 	}
-	return nil
+	return maxMemory, nil
 }
 
 func setupSemgrepRuleLoadTrace() string {
