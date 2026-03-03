@@ -13,6 +13,7 @@ import (
 	"github.com/seqra/seqra/v2/internal/utils/java"
 	"github.com/seqra/seqra/v2/internal/utils/log"
 	"github.com/seqra/seqra/v2/internal/utils/project"
+	"github.com/seqra/seqra/v2/internal/validation"
 )
 
 type JavaAutobuilderConfig struct {
@@ -168,7 +169,7 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 		return fmt.Errorf("native autobuilder execution failed: %w", err)
 	}
 
-	config, err := validateProjectModelOutput(c.outputDir)
+	config, err := validation.ValidateProjectModelOutput(c.outputDir)
 	if err != nil {
 		return fmt.Errorf("output validation failed after project generation: %w", err)
 	}

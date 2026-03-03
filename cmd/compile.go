@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/seqra/seqra/v2/internal/validation"
 	"github.com/spf13/cobra"
 
 	"github.com/seqra/seqra/v2/internal/globals"
@@ -57,7 +58,7 @@ Arguments:
 		out.Blank()
 
 		if DryRunCompile {
-			failOnInvalidInputs(func() error { return validateCompileInputs(absProjectRoot, absOutputProjectModelPath) })
+			failOnInvalidInputs(func() error { return validation.ValidateCompileInputs(absProjectRoot, absOutputProjectModelPath) })
 			runDryRun("Compilation")
 			return
 		}
@@ -96,40 +97,6 @@ func init() {
 	compileCmd.Flags().BoolVar(&DryRunCompile, "dry-run", false, "Validate inputs and show what would run without compiling")
 }
 
-func validateCompileInputs(absProjectRoot, absOutputProjectModelPath string) error {
-	projectInfo, err := os.Stat(absProjectRoot)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("project directory does not exist: %s", absProjectRoot)
-		}
-		return fmt.Errorf("failed to access project directory %s: %w", absProjectRoot, err)
-	}
-	if !projectInfo.IsDir() {
-		return fmt.Errorf("project path is not a directory: %s", absProjectRoot)
-	}
-
-	if _, err := os.Stat(absOutputProjectModelPath); err == nil {
-		return fmt.Errorf("output directory already exists: %s", absOutputProjectModelPath)
-	}
-	outputParentDir := filepath.Dir(absOutputProjectModelPath)
-	outputParentInfo, err := os.Stat(outputParentDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return fmt.Errorf("output parent directory does not exist: %s", outputParentDir)
-		}
-		return fmt.Errorf("failed to access output parent directory %s: %w", outputParentDir, err)
-	}
-	if !outputParentInfo.IsDir() {
-		return fmt.Errorf("output parent path is not a directory: %s", outputParentDir)
-	}
-
-	if !utils.IsSupportedArch() {
-		return fmt.Errorf("unsupported architecture found: %s! only arm64 and amd64 are supported", utils.GetArch())
-	}
-
-	return nil
-}
-
 func ensureAutobuilderAvailable() (string, error) {
 	autobuilderJarPath, err := utils.GetAutobuilderJarPath(globals.Config.Autobuilder.Version)
 	if err != nil {
@@ -146,7 +113,7 @@ func ensureAutobuilderAvailable() (string, error) {
 }
 
 func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath string, javaRunner java.JavaRunner, caller CompileCaller) error {
-	if err := validateCompileInputs(absProjectRoot, absOutputProjectModelPath); err != nil {
+	if err := validation.ValidateCompileInputs(absProjectRoot, absOutputProjectModelPath); err != nil {
 		return err
 	}
 
@@ -154,7 +121,7 @@ func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath strin
 		return err
 	}
 
-	if _, err := validateProjectModelOutput(absOutputProjectModelPath); err != nil {
+	if _, err := validation.ValidateProjectModelOutput(absOutputProjectModelPath); err != nil {
 		validationErr := fmt.Errorf("output validation failed after compile: %w", err)
 		output.LogInfo(validationErr)
 		if caller == External {

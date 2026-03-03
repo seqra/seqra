@@ -9,6 +9,7 @@ import (
 
 	"github.com/seqra/seqra/v2/internal/load_trace"
 	"github.com/seqra/seqra/v2/internal/sarif"
+	"github.com/seqra/seqra/v2/internal/validation"
 	"github.com/seqra/seqra/v2/internal/version"
 
 	"github.com/seqra/seqra/v2/internal/utils/project"
@@ -189,7 +190,14 @@ func scan(cmd *cobra.Command) {
 	// Display scan information in tree format
 	printScanInfo(cmd, scanMode, absProjectModelPath, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot, absRuleSetPaths)
 
-	maxMemory, err := validateScanInputs(scanMode, absUserProjectRoot, absProjectModelPath, absSarifReportPath, absRuleSetPaths)
+	var nonBuiltinRulesetPaths []string
+	for _, r := range absRuleSetPaths {
+		if !r.Builtin {
+			nonBuiltinRulesetPaths = append(nonBuiltinRulesetPaths, r.Path)
+		}
+	}
+
+	maxMemory, err := validation.ValidateScanInputs(absUserProjectRoot, absProjectModelPath, absSarifReportPath, nonBuiltinRulesetPaths, Severity, globals.Config.Scan.MaxMemory, scanMode == Scan)
 	if err != nil {
 		out.Fatalf("Input validation failed: %s", err)
 	}
@@ -286,7 +294,7 @@ func scan(cmd *cobra.Command) {
 		out.Fatalf("Native scan has failed: %s", err)
 	}
 
-	report, err := validateSarifOutput(absSarifReportPath)
+	report, err := validation.ValidateSarifOutput(absSarifReportPath)
 	if err != nil {
 		output.LogInfof("Scan output validation failed: %v", err)
 		out.Fatalf("There was a problem during the scan step, check the full logs: %s", globals.LogPath)
@@ -294,16 +302,9 @@ func scan(cmd *cobra.Command) {
 
 	out.Blank()
 
-	el, err := validateRuleLoadTraceOutput(absSemgrepRuleLoadTracePath)
+	el, err := validation.ValidateRuleLoadTraceOutput(absSemgrepRuleLoadTracePath)
 	if err != nil {
 		out.Fatalf("Failed to validate rule load trace output: %s", err)
-	}
-
-	var nonBuiltinRulesetPaths []string
-	for _, r := range absRuleSetPaths {
-		if !r.Builtin {
-			nonBuiltinRulesetPaths = append(nonBuiltinRulesetPaths, r.Path)
-		}
 	}
 	ruleLoadTraceSummary := load_trace.CollectRuleLoadTraceSummary(el, nonBuiltinRulesetPaths)
 
@@ -355,71 +356,6 @@ func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string
 		}
 	}
 	sb.Render()
-}
-
-func validateScanInputs(scanMode ScanMode, absUserProjectRoot, absProjectModelPath, absSarifReportPath string, absRuleSetPaths []RulesetType) (string, error) {
-	maxMemory := ""
-
-	projectInfo, err := os.Stat(absUserProjectRoot)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", fmt.Errorf("project path does not exist: %s", absUserProjectRoot)
-		}
-		return "", fmt.Errorf("failed to access project path %s: %w", absUserProjectRoot, err)
-	}
-	if !projectInfo.IsDir() {
-		return "", fmt.Errorf("project path is not a directory: %s", absUserProjectRoot)
-	}
-
-	if scanMode == Scan {
-		projectModelFile := filepath.Join(absProjectModelPath, "project.yaml")
-		if _, err := os.Stat(projectModelFile); err != nil {
-			if os.IsNotExist(err) {
-				return "", fmt.Errorf("project model file does not exist: %s", projectModelFile)
-			}
-			return "", fmt.Errorf("failed to access project model file %s: %w", projectModelFile, err)
-		}
-	}
-
-	for _, ruleSetPath := range absRuleSetPaths {
-		if ruleSetPath.Builtin {
-			continue
-		}
-		if _, err := os.Stat(ruleSetPath.Path); err != nil {
-			if os.IsNotExist(err) {
-				return "", fmt.Errorf("ruleset path does not exist: %s", ruleSetPath.Path)
-			}
-			return "", fmt.Errorf("failed to access ruleset path %s: %w", ruleSetPath.Path, err)
-		}
-	}
-
-	outputParentDir := filepath.Dir(absSarifReportPath)
-	outputParentInfo, err := os.Stat(outputParentDir)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", fmt.Errorf("output directory does not exist: %s", outputParentDir)
-		}
-		return "", fmt.Errorf("failed to access output directory %s: %w", outputParentDir, err)
-	}
-	if !outputParentInfo.IsDir() {
-		return "", fmt.Errorf("output path is not a directory: %s", outputParentDir)
-	}
-
-	if globals.Config.Scan.MaxMemory != "" {
-		parsedMaxMemory, err := utils.ParseMemoryValue(globals.Config.Scan.MaxMemory)
-		if err != nil {
-			return "", fmt.Errorf("invalid max-memory value: %w", err)
-		}
-		maxMemory = parsedMaxMemory
-	}
-	for _, severity := range Severity {
-		switch severity {
-		case "error", "warning", "note":
-		default:
-			return "", fmt.Errorf(`each "severity" flag should be one of note, warning, or error`)
-		}
-	}
-	return maxMemory, nil
 }
 
 func setupSemgrepRuleLoadTrace() string {
