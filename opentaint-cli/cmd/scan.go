@@ -292,7 +292,13 @@ func scan(cmd *cobra.Command) {
 
 	el := deserializeSemgrepRuleLoadTrace(absSemgrepRuleLoadTracePath)
 
-	ruleLoadTraceSummary := load_trace.CollectRuleLoadTraceSummary(el)
+	var nonBuiltinRulesetPaths []string
+	for _, r := range absRuleSetPaths {
+		if !r.Builtin {
+			nonBuiltinRulesetPaths = append(nonBuiltinRulesetPaths, r.Path)
+		}
+	}
+	ruleLoadTraceSummary := load_trace.CollectRuleLoadTraceSummary(el, nonBuiltinRulesetPaths)
 
 	res := load_trace.CollectRulesetLoadErrorsSummary(ruleLoadTraceSummary)
 	ruleLoadErrorsResult := &res

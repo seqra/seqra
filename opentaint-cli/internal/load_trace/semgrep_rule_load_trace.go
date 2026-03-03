@@ -2,12 +2,19 @@ package load_trace
 
 // Shared enums and types
 
-type Reason string
+type Category string
 
 const (
-	ReasonError          Reason = "ERROR"
-	ReasonWarning        Reason = "WARNING"
-	ReasonNotImplemented Reason = "NOT_IMPLEMENTED"
+	CategoryRuleIssue       Category = "RULE_ISSUE"
+	CategoryUnsupported     Category = "UNSUPPORTED_FEATURE"
+	CategoryInternalWarning Category = "INTERNAL_WARNING"
+)
+
+type Severity string
+
+const (
+	SeverityBlocking    Severity = "BLOCKING"
+	SeverityNonBlocking Severity = "NON_BLOCKING"
 )
 
 type Step string
@@ -50,13 +57,9 @@ type SemgrepRuleLoadStepTrace struct {
 
 // TraceEntry represents a single trace entry (info or error)
 type TraceEntry struct {
-	Type    string `json:"type"`
-	Message string `json:"message"`
-	Step    Step   `json:"step,omitempty"`
-	Reason  Reason `json:"reason,omitempty"`
-}
-
-// IsError returns true if this is an error entry
-func (te TraceEntry) IsError() bool {
-	return te.Type == "Error"
+	Type     string   `json:"type"`
+	Message  string   `json:"message"`
+	Step     Step     `json:"step,omitempty"`
+	Category Category `json:"category,omitempty"`
+	Severity Severity `json:"severity,omitempty"`
 }

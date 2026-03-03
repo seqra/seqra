@@ -74,10 +74,10 @@ func AggregateRuleLoadErrorsSummary(loadTraceSummary RuleLoadTraceSummary) RuleL
 func newSummary() RuleLoadErrorsAggregatedSummary {
 	return RuleLoadErrorsAggregatedSummary{
 		FileErrorTypes: map[errorCategory]int{
-			SyntaxError: 0, Unsupported: 0,
+			SyntaxError: 0, UnsupportedError: 0, SyntaxWarning: 0, UnsupportedWarning: 0, Internal: 0,
 		},
 		RuleErrorTypes: map[errorCategory]int{
-			SyntaxError: 0, Unsupported: 0,
+			SyntaxError: 0, UnsupportedError: 0, SyntaxWarning: 0, UnsupportedWarning: 0, Internal: 0,
 		},
 		TotalAffectedFiles: 0,
 		TotalAffectedRules: 0,
@@ -113,11 +113,18 @@ type errorEntry struct {
 	Type    errorCategory
 }
 
-func CollectRuleLoadTraceSummary(trace *SemgrepLoadTrace) RuleLoadTraceSummary {
+func CollectRuleLoadTraceSummary(trace *SemgrepLoadTrace, rulesetPaths []string) RuleLoadTraceSummary {
 	out := RuleLoadTraceSummary{}
 
 	if trace.FileTraces == nil {
 		return out
+	}
+
+	emptyPathCount := 0
+	for _, ft := range trace.FileTraces {
+		if ft.Path == "" {
+			emptyPathCount++
+		}
 	}
 
 	for _, fileTrace := range trace.FileTraces {
@@ -127,6 +134,9 @@ func CollectRuleLoadTraceSummary(trace *SemgrepLoadTrace) RuleLoadTraceSummary {
 		}
 
 		fileSummary.Path = fileTrace.Path
+		if fileSummary.Path == "" && emptyPathCount == 1 && len(rulesetPaths) == 1 {
+			fileSummary.Path = rulesetPaths[0]
+		}
 		fileSummary.Errors, fileSummary.errorTypes = collectFromEntries(fileTrace.Entries)
 
 		if fileTrace.RuleTraces != nil {
@@ -164,22 +174,20 @@ func collectFromEntries(entries []TraceEntry) ([]errorEntry, map[errorCategory]s
 	categories := make(map[errorCategory]struct{})
 
 	for _, entry := range entries {
-		if entry.IsError() {
-			errCategory := classifyError(&entry)
-			if errCategory == nil {
-				continue
-			}
-
-			category := *errCategory
-			msg := entry.Message
-
-			errs = append(errs, errorEntry{
-				Message: msg,
-				Type:    category,
-			})
-
-			categories[category] = struct{}{}
+		errCategory := classifyError(&entry)
+		if errCategory == nil {
+			continue
 		}
+
+		category := *errCategory
+		msg := entry.Message
+
+		errs = append(errs, errorEntry{
+			Message: msg,
+			Type:    category,
+		})
+
+		categories[category] = struct{}{}
 	}
 
 	return errs, categories
@@ -189,31 +197,40 @@ type errorCategory int
 
 const (
 	SyntaxError errorCategory = iota
-	// Unsupported Opentaint not implemented, opentaint internal errors, OpenTaint is expected to be unsupported
-	Unsupported
+	SyntaxWarning
+	UnsupportedError
+	UnsupportedWarning
+	Internal
 )
 
-var userErrorSteps = map[Step]struct{}{
-	StepLoadRuleset:           {},
-	StepBuildConvertToRawRule: {},
-	StepBuildParseSemgrepRule: {},
-}
-
 func classifyError(errEntry *TraceEntry) *errorCategory {
-	if errEntry.Type != "Error" {
+	c := Internal
+
+	switch errEntry.Category {
+	case CategoryRuleIssue:
+		switch errEntry.Severity {
+		case SeverityBlocking:
+			c = SyntaxError
+		default:
+			c = SyntaxWarning
+		}
+
+	case CategoryUnsupported:
+		switch errEntry.Severity {
+		case SeverityBlocking:
+			c = UnsupportedError
+		default:
+			c = UnsupportedWarning
+		}
+	case CategoryInternalWarning:
+		if errEntry.Severity != SeverityBlocking {
+			return nil
+		}
+
+		c = Internal
+	default:
 		return nil
 	}
 
-	if errEntry.Reason == ReasonNotImplemented {
-		c := Unsupported
-		return &c
-	}
-
-	if _, ok := userErrorSteps[errEntry.Step]; ok {
-		c := SyntaxError
-		return &c
-	}
-
-	c := Unsupported
 	return &c
 }
