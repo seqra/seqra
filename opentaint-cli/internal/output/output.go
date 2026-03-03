@@ -18,6 +18,7 @@ import (
 type Printer struct {
 	baseW     io.Writer
 	w         io.Writer
+	debugW    io.Writer
 	logW      io.Writer
 	verbosity string
 	theme     *Theme
@@ -37,6 +38,7 @@ func New() *Printer {
 	return &Printer{
 		baseW:   w,
 		w:       cw,
+		debugW:  colorprofile.NewWriter(os.Stderr, os.Environ()),
 		theme:   DefaultTheme(cw.Profile),
 		isTTY:   tty,
 		profile: cw.Profile,
@@ -53,6 +55,7 @@ func NewWithWriter(w io.Writer) *Printer {
 	return &Printer{
 		baseW:   w,
 		w:       cw,
+		debugW:  colorprofile.NewWriter(os.Stderr, os.Environ()),
 		theme:   DefaultTheme(cw.Profile),
 		isTTY:   tty,
 		profile: cw.Profile,
