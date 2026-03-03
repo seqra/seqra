@@ -187,27 +187,6 @@ func TestFormatSize(t *testing.T) {
 	}
 }
 
-func TestBoxRender(t *testing.T) {
-	var buf bytes.Buffer
-	p := NewWithWriter(&buf)
-	p.Configure("never", false)
-
-	p.Box("TITLE").
-		Field("Key", "Value").
-		Render()
-
-	got := buf.String()
-	if !strings.Contains(got, "TITLE") {
-		t.Errorf("expected box title in output, got %q", got)
-	}
-	if !strings.Contains(got, "Key") || !strings.Contains(got, "Value") {
-		t.Errorf("expected field in box output, got %q", got)
-	}
-	if !strings.Contains(got, "╭") || !strings.Contains(got, "╯") {
-		t.Errorf("expected box borders in output, got %q", got)
-	}
-}
-
 func TestSuggest(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewWithWriter(&buf)

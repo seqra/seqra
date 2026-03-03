@@ -2,14 +2,9 @@ package output
 
 import (
 	"fmt"
-	"io"
-	"os"
 	"sync"
-
-	"github.com/charmbracelet/colorprofile"
 )
 
-var stderrWriter io.Writer = colorprofile.NewWriter(os.Stderr, os.Environ())
 
 // DebugStreamWriter writes labeled and indented debug output to stderr.
 // The source label is printed once before the first line.
@@ -36,12 +31,12 @@ func (d *DebugStreamWriter) WriteLine(text string) {
 
 	if !d.headerDone {
 		header := d.printer.theme.Debug.Bold(true).Render(d.label)
-		fmt.Fprintln(stderrWriter, header) //nolint:errcheck
+		fmt.Fprintln(d.printer.debugW, header) //nolint:errcheck
 		d.printer.writeMirroredLine(d.label)
 		d.headerDone = true
 	}
 
 	line := "    " + text
-	fmt.Fprintln(stderrWriter, d.printer.theme.Muted.Render(line)) //nolint:errcheck
+	fmt.Fprintln(d.printer.debugW, d.printer.theme.Muted.Render(line)) //nolint:errcheck
 	d.printer.writeMirroredLine(line)
 }
