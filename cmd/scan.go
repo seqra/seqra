@@ -181,9 +181,6 @@ func scan(cmd *cobra.Command) {
 		if _, err := os.Stat(ruleSetPath.Path); err == nil {
 			continue
 		}
-		if out.IsInteractive() {
-			out.Blank()
-		}
 		if err := out.RunWithSpinner(fmt.Sprintf("Downloading rules %s", globals.Config.Rules.Version), func() error {
 			return utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, ruleSetPath.Path, globals.Config.Github.Token, globals.Config.SkipVerify, out)
 		}); err != nil {
@@ -206,9 +203,6 @@ func scan(cmd *cobra.Command) {
 			out.Fatalf("Failed to resolve Java for compilation: %s", err)
 		}
 
-		if out.IsInteractive() {
-			out.Blank()
-		}
 		if err := out.RunWithSpinner("Compiling project model", func() error {
 			return compile(absUserProjectRoot, tempProjectModelPath, autobuilderJarPath, compileJavaRunner, Internal)
 		}); err != nil {
@@ -275,9 +269,6 @@ func scan(cmd *cobra.Command) {
 		out.Fatalf("Failed to resolve Java for analyzer: %s", err)
 	}
 
-	if out.IsInteractive() {
-		out.Blank()
-	}
 	if err := out.RunWithSpinner("Analyzing project", func() error {
 		return scanProject(nativeBuilder, analyzerJavaRunner)
 	}); err != nil {
@@ -348,6 +339,8 @@ func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string
 	for _, r := range absRuleSetPaths {
 		if r.Builtin {
 			sb.Field("Bundled ruleset", globals.Config.Rules.Version)
+		} else {
+			sb.Field("User ruleset", r.Path)
 		}
 	}
 	sb.Render()

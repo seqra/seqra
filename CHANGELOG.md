@@ -1,3 +1,24 @@
+## v2.5.0
+### chore: Bump analyzer to 2026.03.02 and rules to v2.2.0
+#### seqra-jvm-sast
+- Better rule load error messages
+- Wrap inner call entries in call-return
+- Fix kotlin Sarif reports
+- Move sarif utils from df-core
+- Kotlin: better sarif locations
+- Atom eval: Handle boxed primitive constants
+- Fix pattern-not handling
+- Fix taint automata state conditions
+- Support join rules with taint rule on the left side
+- Remove array hack
+- AA: Handle constructor this as non-outer location
+- Support is-static-field condition
+- Support more spring features
+- Fix identifier parsing
+- Better spring message
+- Rework Spring support
+#### seqra-rules
+- feat: Servlet and Spring rules fusion
 ## v2.4.0
 ### feat: Add inter-procedural alias analysis
 - ci: Add Windows CI
