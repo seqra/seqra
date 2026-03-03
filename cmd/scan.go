@@ -238,6 +238,9 @@ func scan(cmd *cobra.Command) {
 			return compile(absUserProjectRoot, tempProjectModelPath, autobuilderJarPath, compileJavaRunner, Internal)
 		}); err != nil {
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
+			if out.IsInteractiveUI() {
+				out.Blank()
+			}
 			out.Fatalf("Native compile has failed: %s", err)
 		}
 		out.Blank()

@@ -84,6 +84,9 @@ Arguments:
 			printCompileSummary(absOutputProjectModelPath)
 			suggest("To scan project run", utils.BuildScanCommandFromCompile(projectRoot, absOutputProjectModelPath))
 		} else {
+			if out.IsInteractiveUI() {
+				out.Blank()
+			}
 			out.Fatalf("Native compile has failed: %s", err)
 		}
 	},
