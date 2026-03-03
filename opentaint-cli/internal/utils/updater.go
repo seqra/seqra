@@ -142,7 +142,9 @@ func getArchiveName() string {
 
 // SelfUpdate performs an in-place update of the opentaint binary and bundled artifacts.
 func SelfUpdate(archivePath, installDir string) error {
-	tmpDir, err := os.MkdirTemp("", "opentaint-update-*")
+	// Create temp dir next to install target to avoid cross-device rename errors
+	// when replacing binaries/directories (e.g. /tmp -> $HOME/.opentaint).
+	tmpDir, err := os.MkdirTemp(installDir, ".opentaint-update-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp dir: %w", err)
 	}
