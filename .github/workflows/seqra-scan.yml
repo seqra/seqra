@@ -13,17 +13,19 @@ on:
 
 env:
   STIRLING_PDF_VERSION: 'v2.5.3'
+  GO_VERSION: '1.25.x'
 
 jobs:
   scan-stirling-pdf:
     runs-on: ubuntu-latest
-    container: golang:1.25
 
     steps:
       - uses: actions/checkout@v6
 
       - name: Setup seqra
         uses: ./.github/actions/setup-seqra
+        with:
+          go-version: '1.25.x'
 
       - name: Set GitHub token arg
         id: github-token
