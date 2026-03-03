@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/seqra/opentaint/v2/internal/load_trace"
 	"github.com/seqra/opentaint/v2/internal/sarif"
+	"github.com/seqra/opentaint/v2/internal/validation"
 	"github.com/seqra/opentaint/v2/internal/version"
 
 	"github.com/seqra/opentaint/v2/internal/utils/project"
@@ -29,6 +29,7 @@ var (
 	SemgrepCompatibilitySarif bool
 	Severity                  []string
 	Ruleset                   []string
+	DryRunScan                bool
 )
 
 type RulesetType struct {
@@ -41,6 +42,11 @@ type ScanMode int
 const (
 	Scan ScanMode = iota
 	CompileAndScan
+)
+
+const (
+	dryRunScanProjectModelPath  = "opentaint-scan-dry-run/project-model"
+	dryRunRuleLoadTraceFileName = "opentaint-rule-load-trace.dry-run.json"
 )
 
 func (m ScanMode) String() string {
@@ -89,6 +95,7 @@ func init() {
 	scanCmd.Flags().Int64Var(&globals.Config.Scan.CodeFlowLimit, "code-flow-limit", 0, "Maximum number of code flows to include in the report (0 = unlimited)")
 	_ = scanCmd.PersistentFlags().MarkHidden("code-flow-limit")
 	_ = viper.BindPFlag("scan.code_flow_limit", scanCmd.Flags().Lookup("code-flow-limit"))
+	scanCmd.Flags().BoolVar(&DryRunScan, "dry-run", false, "Validate inputs and show what would run without compiling or scanning")
 }
 
 func scan(cmd *cobra.Command) {
@@ -115,11 +122,15 @@ func scan(cmd *cobra.Command) {
 	} else if errors.Is(err, os.ErrNotExist) {
 		tempProjectModel = true
 		scanMode = CompileAndScan
-		tempLogsDir, err = os.MkdirTemp("", "opentaint-*")
-		if err != nil {
-			out.Fatalf("Failed to create temporary directory: %s", err)
+		if DryRunScan {
+			tempProjectModelPath = filepath.Join(os.TempDir(), dryRunScanProjectModelPath)
+		} else {
+			tempLogsDir, err = os.MkdirTemp("", "opentaint-*")
+			if err != nil {
+				out.Fatalf("Failed to create temporary directory: %s", err)
+			}
+			tempProjectModelPath = filepath.Join(tempLogsDir, "project-model")
 		}
-		tempProjectModelPath = filepath.Join(tempLogsDir, "project-model")
 		absProjectModelPath = tempProjectModelPath
 	} else {
 		out.Fatalf("Unexpected error occurred while checking the project: %s", err)
@@ -169,10 +180,32 @@ func scan(cmd *cobra.Command) {
 
 	uriBase := fmt.Sprintf("%s%s", sourceRoot, string(filepath.Separator))
 
-	absSemgrepRuleLoadTracePath := setupSemgrepRuleLoadTrace()
+	var absSemgrepRuleLoadTracePath string
+	if DryRunScan {
+		absSemgrepRuleLoadTracePath = filepath.Join(os.TempDir(), dryRunRuleLoadTraceFileName)
+	} else {
+		absSemgrepRuleLoadTracePath = setupSemgrepRuleLoadTrace()
+	}
 
 	// Display scan information in tree format
 	printScanInfo(cmd, scanMode, absProjectModelPath, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot, absRuleSetPaths)
+
+	var nonBuiltinRulesetPaths []string
+	for _, r := range absRuleSetPaths {
+		if !r.Builtin {
+			nonBuiltinRulesetPaths = append(nonBuiltinRulesetPaths, r.Path)
+		}
+	}
+
+	maxMemory, err := validation.ValidateScanInputs(absUserProjectRoot, absProjectModelPath, absSarifReportPath, nonBuiltinRulesetPaths, Severity, globals.Config.Scan.MaxMemory, scanMode == Scan)
+	if err != nil {
+		out.Fatalf("Input validation failed: %s", err)
+	}
+
+	if DryRunScan {
+		runDryRun("Compilation and analysis")
+		return
+	}
 
 	for _, ruleSetPath := range absRuleSetPaths {
 		if !ruleSetPath.Builtin {
@@ -213,15 +246,6 @@ func scan(cmd *cobra.Command) {
 		printCompileSummary(tempProjectModelPath)
 	}
 
-	maxMemory := ""
-	if globals.Config.Scan.MaxMemory != "" {
-		parsedMaxMemory, err := utils.ParseMemoryValue(globals.Config.Scan.MaxMemory)
-		if err != nil {
-			out.Fatalf("Invalid max-memory value: %s", err)
-		}
-		maxMemory = parsedMaxMemory
-	}
-
 	// Update builder with native paths for native execution
 	nativeProjectPath := filepath.Join(absProjectModelPath, "project.yaml")
 	nativeOutputDir := filepath.Dir(absSarifReportPath)
@@ -240,12 +264,7 @@ func scan(cmd *cobra.Command) {
 		nativeBuilder.EnableSemgrepCompatibility()
 	}
 	for _, severity := range Severity {
-		switch severity {
-		case "error", "warning", "note":
-			nativeBuilder.AddSeverity(severity)
-		default:
-			out.Fatalf(`Each "severity" flag should be one of note, warning, or error.`)
-		}
+		nativeBuilder.AddSeverity(severity)
 	}
 	for _, absRuleSetPath := range absRuleSetPaths {
 		nativeBuilder.AddRuleSet(absRuleSetPath.Path)
@@ -275,29 +294,22 @@ func scan(cmd *cobra.Command) {
 		out.Fatalf("Native scan has failed: %s", err)
 	}
 
-	if _, err := os.Stat(absSarifReportPath); err != nil {
+	report, err := validation.ValidateSarifOutput(absSarifReportPath)
+	if err != nil {
+		output.LogInfof("Scan output validation failed: %v", err)
 		out.Fatalf("There was a problem during the scan step, check the full logs: %s", globals.LogPath)
 	}
 
 	out.Blank()
 
-	el := deserializeSemgrepRuleLoadTrace(absSemgrepRuleLoadTracePath)
-
-	var nonBuiltinRulesetPaths []string
-	for _, r := range absRuleSetPaths {
-		if !r.Builtin {
-			nonBuiltinRulesetPaths = append(nonBuiltinRulesetPaths, r.Path)
-		}
+	el, err := validation.ValidateRuleLoadTraceOutput(absSemgrepRuleLoadTracePath)
+	if err != nil {
+		out.Fatalf("Failed to validate rule load trace output: %s", err)
 	}
 	ruleLoadTraceSummary := load_trace.CollectRuleLoadTraceSummary(el, nonBuiltinRulesetPaths)
 
 	res := load_trace.CollectRulesetLoadErrorsSummary(ruleLoadTraceSummary)
 	ruleLoadErrorsResult := &res
-
-	report := loadSarifReport(absSarifReportPath)
-	if report == nil {
-		return
-	}
 
 	sarifSummary := sarif.GenerateSummary(report)
 	load_trace.PrintRuleStatisticsTree(out, ruleLoadErrorsResult, absSemgrepRuleLoadTracePath, sarifSummary)
@@ -358,21 +370,6 @@ func setupSemgrepRuleLoadTrace() string {
 
 	// Rule load trace path is now displayed in the tree format
 	return absSemgrepRuleLoadTracePath
-}
-
-func deserializeSemgrepRuleLoadTrace(absSemgrepRuleLoadTracePath string) *load_trace.SemgrepLoadTrace {
-	data, err := os.ReadFile(absSemgrepRuleLoadTracePath)
-	if err != nil {
-		output.LogInfof("Failed to read rule load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
-		return nil
-	}
-
-	var el load_trace.SemgrepLoadTrace
-	if err := json.Unmarshal(data, &el); err != nil {
-		output.LogInfof("Failed to deserialize load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
-		return nil
-	}
-	return &el
 }
 
 func ensureAnalyzerAvailable() (string, error) {

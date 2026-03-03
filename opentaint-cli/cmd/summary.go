@@ -2,9 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
-	"github.com/seqra/opentaint/v2/internal/output"
 	"github.com/seqra/opentaint/v2/internal/sarif"
 	"github.com/seqra/opentaint/v2/internal/utils/log"
 	"github.com/spf13/cobra"
@@ -23,9 +21,9 @@ Arguments:
 
 	Run: func(cmd *cobra.Command, args []string) {
 		absSarifPath := log.AbsPathOrExit(args[0], "sarif path")
-		report := loadSarifReport(absSarifPath)
-		if report == nil {
-			out.Fatal("Failed to load SARIF report")
+		report, err := sarif.LoadReport(absSarifPath)
+		if err != nil {
+			out.Fatalf("Failed to load SARIF report: %s", err)
 		}
 		printSarifSummary(report, absSarifPath)
 	},
@@ -58,20 +56,4 @@ func printSarifSummary(report *sarif.Report, absSarifPath string) {
 			fmt.Sprintf("opentaint summary --show-findings --verbose-flow --show-code-snippets %s", absSarifPath),
 		)
 	}
-}
-
-func loadSarifReport(absSarifPath string) *sarif.Report {
-	// Read the SARIF file
-	data, err := os.ReadFile(absSarifPath)
-	if err != nil {
-		output.LogInfof("Failed to read SARIF report: %v", err)
-		return nil
-	}
-	// Parse the SARIF report
-	report, err := sarif.UnmarshalReport(data)
-	if err != nil {
-		output.LogInfof("Failed to parse SARIF report: %v", err)
-		return nil
-	}
-	return &report
 }

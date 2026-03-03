@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/seqra/opentaint/v2/internal/validation"
 	"github.com/spf13/cobra"
 
 	"github.com/seqra/opentaint/v2/internal/globals"
@@ -24,6 +25,7 @@ const (
 
 var OutputProjectModelPath string
 var ProjectPath string
+var DryRunCompile bool
 
 // compileCmd represents the compile command
 var compileCmd = &cobra.Command{
@@ -54,6 +56,12 @@ Arguments:
 			Field("Output project model", absOutputProjectModelPath).
 			Render()
 		out.Blank()
+
+		if DryRunCompile {
+			failOnInvalidInputs(func() error { return validation.ValidateCompileInputs(absProjectRoot, absOutputProjectModelPath) })
+			runDryRun("Compilation")
+			return
+		}
 
 		autobuilderJarPath, err := ensureAutobuilderAvailable()
 		if err != nil {
@@ -86,6 +94,7 @@ func init() {
 
 	compileCmd.Flags().StringVarP(&OutputProjectModelPath, "output", "o", "", `Path to the result project model`)
 	_ = compileCmd.MarkFlagRequired("output")
+	compileCmd.Flags().BoolVar(&DryRunCompile, "dry-run", false, "Validate inputs and show what would run without compiling")
 }
 
 func ensureAutobuilderAvailable() (string, error) {
@@ -104,25 +113,21 @@ func ensureAutobuilderAvailable() (string, error) {
 }
 
 func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath string, javaRunner java.JavaRunner, caller CompileCaller) error {
-	if _, err := os.Stat(absOutputProjectModelPath); err == nil {
-		return fmt.Errorf("output directory already exists: %s", absOutputProjectModelPath)
-	}
-
-	if !utils.IsSupportedArch() {
-		return fmt.Errorf("unsupported architecture found: %s! only arm64 and amd64 are supported", utils.GetArch())
+	if err := validation.ValidateCompileInputs(absProjectRoot, absOutputProjectModelPath); err != nil {
+		return err
 	}
 
 	if err := compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath, javaRunner); err != nil {
 		return err
 	}
 
-	if _, err := os.Stat(absOutputProjectModelPath); err != nil {
-		err := fmt.Errorf("there was a problem during the compile step, check the full logs: %s", globals.LogPath)
-		output.LogInfo(err)
+	if _, err := validation.ValidateProjectModelOutput(absOutputProjectModelPath); err != nil {
+		validationErr := fmt.Errorf("output validation failed after compile: %w", err)
+		output.LogInfo(validationErr)
 		if caller == External {
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based compilation:", utils.BuildCompileCommandWithDocker(ProjectPath, OutputProjectModelPath))
 		}
-		return err
+		return fmt.Errorf("there was a problem during the compile step, check the full logs: %s", globals.LogPath)
 	}
 
 	return nil
