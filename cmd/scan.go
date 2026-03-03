@@ -190,8 +190,10 @@ func scan(cmd *cobra.Command) {
 	// Display scan information in tree format
 	printScanInfo(cmd, scanMode, absProjectModelPath, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot, absRuleSetPaths)
 
+	failOnInvalidInputs(validateScanInputs)
+
 	if DryRunScan {
-		runDryRun(validateScanInputs, "Compilation and analysis")
+		runDryRun("Compilation and analysis")
 		return
 	}
 

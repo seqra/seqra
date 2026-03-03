@@ -261,8 +261,10 @@ Examples:
 		}
 		sb.Render()
 
+		failOnInvalidInputs(config.validate)
+
 		if DryRunProject {
-			runDryRun(config.validate, "Project generation")
+			runDryRun("Project generation")
 			return
 		}
 

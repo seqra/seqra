@@ -56,8 +56,10 @@ Arguments:
 			Render()
 		out.Blank()
 
+		failOnInvalidInputs(func() error { return validateCompileInputs(absOutputProjectModelPath) })
+
 		if DryRunCompile {
-			runDryRun(func() error { return validateCompileInputs(absOutputProjectModelPath) }, "Compilation")
+			runDryRun("Compilation")
 			return
 		}
 
