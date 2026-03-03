@@ -1,5 +1,9 @@
-## v2.5.0
-### chore: Bump analyzer to 2026.03.02 and rules to v2.2.0
+## v2.6.0
+### feat: Rework Spring support, fuse Servlet and Spring rules, and improve Kotlin SARIF output
+- feat: Redesign CLI output layer with adaptive theming and unified DSL
+- feat: Support new rule load trace format
+- fix: Use platform-specific Java binary name in JAVA_HOME detection
+- docs: Update README.md
 #### seqra-jvm-sast
 - Better rule load error messages
 - Wrap inner call entries in call-return
@@ -19,6 +23,13 @@
 - Rework Spring support
 #### seqra-rules
 - feat: Servlet and Spring rules fusion
+## v2.5.1
+### fix: Improve installer reliability and update experience
+- fix: Improve installer reliability and update experience
+- fix: Update release.yml
+## v2.5.0
+### feat: Overhaul distribution and dependency management
+- feat: Overhaul distribution and dependency management
 ## v2.4.0
 ### feat: Add inter-procedural alias analysis
 - ci: Add Windows CI
