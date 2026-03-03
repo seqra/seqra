@@ -69,7 +69,18 @@ func (report *Report) buildFindingTree(out *output.Printer, result *Result, runI
 	const flowWrap = 117
 
 	findingNode := out.GroupItem(rule)
-	findingNode.Child(out.FieldItem("Severity", strings.ToUpper(string(lvl))))
+	severityStr := strings.ToUpper(string(lvl))
+	th := out.Theme()
+	var coloredSeverity string
+	switch lvl {
+	case Error:
+		coloredSeverity = th.Error.Render(severityStr)
+	case Warning:
+		coloredSeverity = th.Warning.Render(severityStr)
+	default:
+		coloredSeverity = th.Note.Render(severityStr)
+	}
+	findingNode.Child(out.FieldItem("Severity", coloredSeverity))
 	findingNode.Child(out.FieldItem("Location", locStr))
 
 	if showMessage {
