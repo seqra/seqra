@@ -24,6 +24,7 @@ const (
 
 var OutputProjectModelPath string
 var ProjectPath string
+var DryRunCompile bool
 
 // compileCmd represents the compile command
 var compileCmd = &cobra.Command{
@@ -54,6 +55,14 @@ Arguments:
 			Field("Output project model", absOutputProjectModelPath).
 			Render()
 		out.Blank()
+
+		if DryRunCompile {
+			if err := validateCompileInputs(absOutputProjectModelPath); err != nil {
+				out.Fatalf("Input validation failed: %s", err)
+			}
+			out.Print("Dry run mode. Inputs validated. Compilation skipped.")
+			return
+		}
 
 		autobuilderJarPath, err := ensureAutobuilderAvailable()
 		if err != nil {
@@ -86,6 +95,19 @@ func init() {
 
 	compileCmd.Flags().StringVarP(&OutputProjectModelPath, "output", "o", "", `Path to the result project model`)
 	_ = compileCmd.MarkFlagRequired("output")
+	compileCmd.Flags().BoolVar(&DryRunCompile, "dry-run", false, "Validate inputs and show what would run without compiling")
+}
+
+func validateCompileInputs(absOutputProjectModelPath string) error {
+	if _, err := os.Stat(absOutputProjectModelPath); err == nil {
+		return fmt.Errorf("output directory already exists: %s", absOutputProjectModelPath)
+	}
+
+	if !utils.IsSupportedArch() {
+		return fmt.Errorf("unsupported architecture found: %s! only arm64 and amd64 are supported", utils.GetArch())
+	}
+
+	return nil
 }
 
 func ensureAutobuilderAvailable() (string, error) {
@@ -104,12 +126,8 @@ func ensureAutobuilderAvailable() (string, error) {
 }
 
 func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath string, javaRunner java.JavaRunner, caller CompileCaller) error {
-	if _, err := os.Stat(absOutputProjectModelPath); err == nil {
-		return fmt.Errorf("output directory already exists: %s", absOutputProjectModelPath)
-	}
-
-	if !utils.IsSupportedArch() {
-		return fmt.Errorf("unsupported architecture found: %s! only arm64 and amd64 are supported", utils.GetArch())
+	if err := validateCompileInputs(absOutputProjectModelPath); err != nil {
+		return err
 	}
 
 	if err := compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath, javaRunner); err != nil {

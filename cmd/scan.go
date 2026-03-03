@@ -29,6 +29,7 @@ var (
 	SemgrepCompatibilitySarif bool
 	Severity                  []string
 	Ruleset                   []string
+	DryRunScan                bool
 )
 
 type RulesetType struct {
@@ -89,6 +90,7 @@ func init() {
 	scanCmd.Flags().Int64Var(&globals.Config.Scan.CodeFlowLimit, "code-flow-limit", 0, "Maximum number of code flows to include in the report (0 = unlimited)")
 	_ = scanCmd.PersistentFlags().MarkHidden("code-flow-limit")
 	_ = viper.BindPFlag("scan.code_flow_limit", scanCmd.Flags().Lookup("code-flow-limit"))
+	scanCmd.Flags().BoolVar(&DryRunScan, "dry-run", false, "Validate inputs and show what would run without compiling or scanning")
 }
 
 func scan(cmd *cobra.Command) {
@@ -115,11 +117,15 @@ func scan(cmd *cobra.Command) {
 	} else if errors.Is(err, os.ErrNotExist) {
 		tempProjectModel = true
 		scanMode = CompileAndScan
-		tempLogsDir, err = os.MkdirTemp("", "seqra-*")
-		if err != nil {
-			out.Fatalf("Failed to create temporary directory: %s", err)
+		if DryRunScan {
+			tempProjectModelPath = filepath.Join(os.TempDir(), "seqra-scan-dry-run", "project-model")
+		} else {
+			tempLogsDir, err = os.MkdirTemp("", "seqra-*")
+			if err != nil {
+				out.Fatalf("Failed to create temporary directory: %s", err)
+			}
+			tempProjectModelPath = filepath.Join(tempLogsDir, "project-model")
 		}
-		tempProjectModelPath = filepath.Join(tempLogsDir, "project-model")
 		absProjectModelPath = tempProjectModelPath
 	} else {
 		out.Fatalf("Unexpected error occurred while checking the project: %s", err)
@@ -169,10 +175,35 @@ func scan(cmd *cobra.Command) {
 
 	uriBase := fmt.Sprintf("%s%s", sourceRoot, string(filepath.Separator))
 
-	absSemgrepRuleLoadTracePath := setupSemgrepRuleLoadTrace()
+	absSemgrepRuleLoadTracePath := filepath.Join(os.TempDir(), "seqra-rule-load-trace.dry-run.json")
+	if !DryRunScan {
+		absSemgrepRuleLoadTracePath = setupSemgrepRuleLoadTrace()
+	}
 
 	// Display scan information in tree format
 	printScanInfo(cmd, scanMode, absProjectModelPath, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot, absRuleSetPaths)
+
+	maxMemory := ""
+	if globals.Config.Scan.MaxMemory != "" {
+		parsedMaxMemory, err := utils.ParseMemoryValue(globals.Config.Scan.MaxMemory)
+		if err != nil {
+			out.Fatalf("Invalid max-memory value: %s", err)
+		}
+		maxMemory = parsedMaxMemory
+	}
+
+	for _, severity := range Severity {
+		switch severity {
+		case "error", "warning", "note":
+		default:
+			out.Fatalf(`Each "severity" flag should be one of note, warning, or error.`)
+		}
+	}
+
+	if DryRunScan {
+		out.Print("Dry run mode. Inputs validated. Compilation and analysis skipped.")
+		return
+	}
 
 	for _, ruleSetPath := range absRuleSetPaths {
 		if !ruleSetPath.Builtin {
@@ -213,15 +244,6 @@ func scan(cmd *cobra.Command) {
 		printCompileSummary(tempProjectModelPath)
 	}
 
-	maxMemory := ""
-	if globals.Config.Scan.MaxMemory != "" {
-		parsedMaxMemory, err := utils.ParseMemoryValue(globals.Config.Scan.MaxMemory)
-		if err != nil {
-			out.Fatalf("Invalid max-memory value: %s", err)
-		}
-		maxMemory = parsedMaxMemory
-	}
-
 	// Update builder with native paths for native execution
 	nativeProjectPath := filepath.Join(absProjectModelPath, "project.yaml")
 	nativeOutputDir := filepath.Dir(absSarifReportPath)
@@ -240,12 +262,7 @@ func scan(cmd *cobra.Command) {
 		nativeBuilder.EnableSemgrepCompatibility()
 	}
 	for _, severity := range Severity {
-		switch severity {
-		case "error", "warning", "note":
-			nativeBuilder.AddSeverity(severity)
-		default:
-			out.Fatalf(`Each "severity" flag should be one of note, warning, or error.`)
-		}
+		nativeBuilder.AddSeverity(severity)
 	}
 	for _, absRuleSetPath := range absRuleSetPaths {
 		nativeBuilder.AddRuleSet(absRuleSetPath.Path)

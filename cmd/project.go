@@ -208,11 +208,12 @@ func (c *JavaAutobuilderConfig) logProjectSummary(projectYamlPath string, config
 }
 
 var (
-	OutputDir    string
-	SourceRoot   string
-	Dependencies []string
-	Packages     []string
-	Classpaths   []string
+	OutputDir     string
+	SourceRoot    string
+	Dependencies  []string
+	Packages      []string
+	Classpaths    []string
+	DryRunProject bool
 )
 
 var projectCmd = &cobra.Command{
@@ -260,6 +261,14 @@ Examples:
 		}
 		sb.Render()
 
+		if DryRunProject {
+			if err := config.validate(); err != nil {
+				out.Fatalf("Input validation failed: %s", err)
+			}
+			out.Print("Dry run mode. Inputs validated. Project generation skipped.")
+			return
+		}
+
 		if err := config.Execute(); err != nil {
 			out.Fatalf("Failed to generate project configuration: %s", err)
 		}
@@ -278,4 +287,5 @@ func init() {
 	_ = projectCmd.MarkFlagRequired("package")
 	projectCmd.Flags().StringArrayVar(&Classpaths, "classpath", []string{}, "Classpath entries (classes or JAR files)")
 	_ = projectCmd.MarkFlagRequired("classpath")
+	projectCmd.Flags().BoolVar(&DryRunProject, "dry-run", false, "Validate inputs and show what would run without generating project model")
 }
