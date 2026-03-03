@@ -214,9 +214,7 @@ func scan(cmd *cobra.Command) {
 		if _, err := os.Stat(ruleSetPath.Path); err == nil {
 			continue
 		}
-		if err := out.RunWithSpinner(fmt.Sprintf("Downloading rules %s", globals.Config.Rules.Version), func() error {
-			return utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, ruleSetPath.Path, globals.Config.Github.Token, globals.Config.SkipVerify, out)
-		}); err != nil {
+		if err := utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, ruleSetPath.Path, globals.Config.Github.Token, globals.Config.SkipVerify, out); err != nil {
 			out.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
 		}
 	}
