@@ -1,6 +1,6 @@
 ## v2.6.1
-### feat: Color severity level in finding summary output
-- feat: Color severity level in finding summary output
+### fix: Color severity level in finding summary output
+- fix: Color severity level in finding summary output
 - fix(deps): Bump golang.org/x/net from 0.33.0 to 0.38.0
 ## v2.6.0
 ### feat: Rework Spring support, fuse Servlet and Spring rules, and improve Kotlin SARIF output
