@@ -101,8 +101,9 @@ Only upgrades are supported — downgrading to an older version is refused.`,
 			return
 		}
 
-		out.Section("Seqra Update").Render()
-		out.Printf("Updating v%s -> v%s", currentVersion, targetVersion)
+		out.Section("Seqra Update").
+			Text(fmt.Sprintf("Updating v%s -> v%s", currentVersion, targetVersion)).
+			Render()
 
 		if !updateYes {
 			if !out.Confirm("Proceed with update?", false) {
