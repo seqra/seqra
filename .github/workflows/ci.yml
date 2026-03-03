@@ -9,6 +9,7 @@ on:
     branches:
       - dev
       - main
+  workflow_dispatch:
 
 env:
   GO_VERSION: '1.25.x'
