@@ -124,6 +124,7 @@ func (p *Printer) RunWithSpinner(phase string, run func() error) error {
 		return run()
 	}
 
+	p.InteractiveBlank()
 	spinner := p.StartSpinner(phase)
 	err := run()
 	if err != nil {
