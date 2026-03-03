@@ -168,20 +168,16 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 		return fmt.Errorf("native autobuilder execution failed: %w", err)
 	}
 
-	return c.printProjectSummary()
+	config, err := validateProjectModelOutput(c.outputDir)
+	if err != nil {
+		return fmt.Errorf("output validation failed after project generation: %w", err)
+	}
+
+	return c.printProjectSummary(config)
 }
 
-func (c *JavaAutobuilderConfig) printProjectSummary() error {
+func (c *JavaAutobuilderConfig) printProjectSummary(config *project.Config) error {
 	projectYamlPath := filepath.Join(c.outputDir, "project.yaml")
-
-	if _, err := os.Stat(projectYamlPath); err != nil {
-		return fmt.Errorf("project.yaml not found at %s: %w", projectYamlPath, err)
-	}
-
-	config, err := project.LoadConfig(c.outputDir)
-	if err != nil {
-		return fmt.Errorf("failed to load generated project.yaml: %w", err)
-	}
 
 	c.logProjectSummary(projectYamlPath, config)
 	suggest("To scan project run", utils.BuildScanCommandFromCompile(c.outputDir, c.outputDir))

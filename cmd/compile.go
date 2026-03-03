@@ -154,13 +154,13 @@ func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath strin
 		return err
 	}
 
-	if _, err := os.Stat(absOutputProjectModelPath); err != nil {
-		err := fmt.Errorf("there was a problem during the compile step, check the full logs: %s", globals.LogPath)
-		output.LogInfo(err)
+	if _, err := validateProjectModelOutput(absOutputProjectModelPath); err != nil {
+		validationErr := fmt.Errorf("output validation failed after compile: %w", err)
+		output.LogInfo(validationErr)
 		if caller == External {
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based compilation:", utils.BuildCompileCommandWithDocker(ProjectPath, OutputProjectModelPath))
 		}
-		return err
+		return fmt.Errorf("there was a problem during the compile step, check the full logs: %s", globals.LogPath)
 	}
 
 	return nil

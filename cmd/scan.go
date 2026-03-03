@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -287,13 +286,18 @@ func scan(cmd *cobra.Command) {
 		out.Fatalf("Native scan has failed: %s", err)
 	}
 
-	if _, err := os.Stat(absSarifReportPath); err != nil {
+	report, err := validateSarifOutput(absSarifReportPath)
+	if err != nil {
+		output.LogInfof("Scan output validation failed: %v", err)
 		out.Fatalf("There was a problem during the scan step, check the full logs: %s", globals.LogPath)
 	}
 
 	out.Blank()
 
-	el := deserializeSemgrepRuleLoadTrace(absSemgrepRuleLoadTracePath)
+	el, err := validateRuleLoadTraceOutput(absSemgrepRuleLoadTracePath)
+	if err != nil {
+		out.Fatalf("Failed to validate rule load trace output: %s", err)
+	}
 
 	var nonBuiltinRulesetPaths []string
 	for _, r := range absRuleSetPaths {
@@ -305,11 +309,6 @@ func scan(cmd *cobra.Command) {
 
 	res := load_trace.CollectRulesetLoadErrorsSummary(ruleLoadTraceSummary)
 	ruleLoadErrorsResult := &res
-
-	report := loadSarifReport(absSarifReportPath)
-	if report == nil {
-		return
-	}
 
 	sarifSummary := sarif.GenerateSummary(report)
 	load_trace.PrintRuleStatisticsTree(out, ruleLoadErrorsResult, absSemgrepRuleLoadTracePath, sarifSummary)
@@ -435,21 +434,6 @@ func setupSemgrepRuleLoadTrace() string {
 
 	// Rule load trace path is now displayed in the tree format
 	return absSemgrepRuleLoadTracePath
-}
-
-func deserializeSemgrepRuleLoadTrace(absSemgrepRuleLoadTracePath string) *load_trace.SemgrepLoadTrace {
-	data, err := os.ReadFile(absSemgrepRuleLoadTracePath)
-	if err != nil {
-		output.LogInfof("Failed to read rule load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
-		return nil
-	}
-
-	var el load_trace.SemgrepLoadTrace
-	if err := json.Unmarshal(data, &el); err != nil {
-		output.LogInfof("Failed to deserialize load trace file \"%s\": %v", absSemgrepRuleLoadTracePath, err)
-		return nil
-	}
-	return &el
 }
 
 func ensureAnalyzerAvailable() (string, error) {
