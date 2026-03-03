@@ -142,7 +142,9 @@ func getArchiveName() string {
 
 // SelfUpdate performs an in-place update of the seqra binary and bundled artifacts.
 func SelfUpdate(archivePath, installDir string) error {
-	tmpDir, err := os.MkdirTemp("", "seqra-update-*")
+	// Create temp dir next to install target to avoid cross-device rename errors
+	// when replacing binaries/directories (e.g. /tmp -> $HOME/.seqra).
+	tmpDir, err := os.MkdirTemp(installDir, ".seqra-update-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temp dir: %w", err)
 	}
