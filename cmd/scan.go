@@ -44,6 +44,11 @@ const (
 	CompileAndScan
 )
 
+const (
+	dryRunScanProjectModelPath  = "seqra-scan-dry-run/project-model"
+	dryRunRuleLoadTraceFileName = "seqra-rule-load-trace.dry-run.json"
+)
+
 func (m ScanMode) String() string {
 	switch m {
 	case Scan:
@@ -118,7 +123,7 @@ func scan(cmd *cobra.Command) {
 		tempProjectModel = true
 		scanMode = CompileAndScan
 		if DryRunScan {
-			tempProjectModelPath = filepath.Join(os.TempDir(), "seqra-scan-dry-run", "project-model")
+			tempProjectModelPath = filepath.Join(os.TempDir(), dryRunScanProjectModelPath)
 		} else {
 			tempLogsDir, err = os.MkdirTemp("", "seqra-*")
 			if err != nil {
@@ -175,13 +180,20 @@ func scan(cmd *cobra.Command) {
 
 	uriBase := fmt.Sprintf("%s%s", sourceRoot, string(filepath.Separator))
 
-	absSemgrepRuleLoadTracePath := filepath.Join(os.TempDir(), "seqra-rule-load-trace.dry-run.json")
-	if !DryRunScan {
+	var absSemgrepRuleLoadTracePath string
+	if DryRunScan {
+		absSemgrepRuleLoadTracePath = filepath.Join(os.TempDir(), dryRunRuleLoadTraceFileName)
+	} else {
 		absSemgrepRuleLoadTracePath = setupSemgrepRuleLoadTrace()
 	}
 
 	// Display scan information in tree format
 	printScanInfo(cmd, scanMode, absProjectModelPath, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot, absRuleSetPaths)
+
+	if DryRunScan {
+		runDryRun(validateScanInputs, "Compilation and analysis")
+		return
+	}
 
 	maxMemory := ""
 	if globals.Config.Scan.MaxMemory != "" {
@@ -190,19 +202,6 @@ func scan(cmd *cobra.Command) {
 			out.Fatalf("Invalid max-memory value: %s", err)
 		}
 		maxMemory = parsedMaxMemory
-	}
-
-	for _, severity := range Severity {
-		switch severity {
-		case "error", "warning", "note":
-		default:
-			out.Fatalf(`Each "severity" flag should be one of note, warning, or error.`)
-		}
-	}
-
-	if DryRunScan {
-		out.Print("Dry run mode. Inputs validated. Compilation and analysis skipped.")
-		return
 	}
 
 	for _, ruleSetPath := range absRuleSetPaths {
@@ -361,6 +360,22 @@ func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string
 		}
 	}
 	sb.Render()
+}
+
+func validateScanInputs() error {
+	if globals.Config.Scan.MaxMemory != "" {
+		if _, err := utils.ParseMemoryValue(globals.Config.Scan.MaxMemory); err != nil {
+			return fmt.Errorf("invalid max-memory value: %w", err)
+		}
+	}
+	for _, severity := range Severity {
+		switch severity {
+		case "error", "warning", "note":
+		default:
+			return fmt.Errorf(`each "severity" flag should be one of note, warning, or error`)
+		}
+	}
+	return nil
 }
 
 func setupSemgrepRuleLoadTrace() string {

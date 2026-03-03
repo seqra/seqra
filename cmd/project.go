@@ -262,10 +262,7 @@ Examples:
 		sb.Render()
 
 		if DryRunProject {
-			if err := config.validate(); err != nil {
-				out.Fatalf("Input validation failed: %s", err)
-			}
-			out.Print("Dry run mode. Inputs validated. Project generation skipped.")
+			runDryRun(config.validate, "Project generation")
 			return
 		}
 

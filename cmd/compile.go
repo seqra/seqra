@@ -57,10 +57,7 @@ Arguments:
 		out.Blank()
 
 		if DryRunCompile {
-			if err := validateCompileInputs(absOutputProjectModelPath); err != nil {
-				out.Fatalf("Input validation failed: %s", err)
-			}
-			out.Print("Dry run mode. Inputs validated. Compilation skipped.")
+			runDryRun(func() error { return validateCompileInputs(absOutputProjectModelPath) }, "Compilation")
 			return
 		}
 
