@@ -1,3 +1,8 @@
+## v2.6.2
+### fix: Improve update flow and add dry-run validation flow
+- fix: Improve update flow
+- fix: Add dry-run validation flow
+- ci: Add scan workflow
 ## v2.6.1
 ### fix: Color severity level in finding summary output
 - fix: Color severity level in finding summary output
