@@ -55,9 +55,9 @@ Arguments:
 		sb.Field("Project", absProjectRoot).
 			Field("Output project model", absOutputProjectModelPath).
 			Render()
-		out.Blank()
 
 		if DryRunCompile {
+			out.Blank()
 			failOnInvalidInputs(func() error { return validation.ValidateCompileInputs(absProjectRoot, absOutputProjectModelPath) })
 			runDryRun("Compilation")
 			return
@@ -84,6 +84,7 @@ Arguments:
 			printCompileSummary(absOutputProjectModelPath)
 			suggest("To scan project run", utils.BuildScanCommandFromCompile(projectRoot, absOutputProjectModelPath))
 		} else {
+			out.InteractiveBlank()
 			out.Fatalf("Native compile has failed: %s", err)
 		}
 	},

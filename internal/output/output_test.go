@@ -206,6 +206,36 @@ func TestSuggest(t *testing.T) {
 	}
 }
 
+func TestSuggestQuietHasLeadingBlankLine(t *testing.T) {
+	var buf bytes.Buffer
+	p := NewWithWriter(&buf)
+	p.Configure("never", true)
+
+	p.Suggest("Try this approach", "seqra scan --output result.sarif /project")
+
+	got := buf.String()
+	if !strings.HasPrefix(got, "\n") {
+		t.Errorf("expected leading blank line in quiet mode, got %q", got)
+	}
+}
+
+func TestInteractiveBlank(t *testing.T) {
+	var buf bytes.Buffer
+	p := NewWithWriter(&buf)
+	p.Configure("never", false)
+
+	p.InteractiveBlank()
+	if buf.String() != "" {
+		t.Errorf("expected no output for non-interactive UI, got %q", buf.String())
+	}
+
+	p.isTTY = true
+	p.InteractiveBlank()
+	if buf.String() != "\n" {
+		t.Errorf("expected single blank line for interactive UI, got %q", buf.String())
+	}
+}
+
 func TestFileLinkNonTTY(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewWithWriter(&buf) // non-TTY since it's a buffer
