@@ -163,6 +163,14 @@ func (p *Printer) Blank() {
 	fmt.Fprintln(p.w) //nolint:errcheck
 }
 
+// InteractiveBlank prints an empty line only when interactive UI
+// components are enabled.
+func (p *Printer) InteractiveBlank() {
+	if p.IsInteractiveUI() {
+		p.Blank()
+	}
+}
+
 // Error prints an error-styled message.
 func (p *Printer) Error(a ...any) {
 	text := fmt.Sprint(a...)

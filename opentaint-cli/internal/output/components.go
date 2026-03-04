@@ -118,14 +118,13 @@ func (h *SpinnerHandle) StopError(finalMessage string) {
 }
 
 // RunWithSpinner wraps a function with a spinner animation.
-// Prints a blank line before the spinner on interactive terminals.
 // If the terminal is non-interactive, the function runs without visual feedback.
 func (p *Printer) RunWithSpinner(phase string, run func() error) error {
 	if !p.IsInteractiveUI() {
 		return run()
 	}
 
-	p.Blank()
+	p.InteractiveBlank()
 	spinner := p.StartSpinner(phase)
 	err := run()
 	if err != nil {
