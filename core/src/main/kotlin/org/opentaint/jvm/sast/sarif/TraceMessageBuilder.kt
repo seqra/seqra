@@ -3,6 +3,7 @@ package org.opentaint.jvm.sast.sarif
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEdge
@@ -331,7 +332,7 @@ class TraceMessageBuilder(
         return "Exiting ${getMethodCalleeNameInPrint(name, className)}"
     }
 
-    data class TaintInfo(val mark: Mark, val pos: AccessPathBase, val accessor: Accessor?)
+    data class TaintInfo(val mark: Mark, val pos: AccessPathBase, val fact: InitialFactAp?)
 
     private fun Mark?.inMessage(): String {
         return when (this) {
@@ -380,8 +381,7 @@ class TraceMessageBuilder(
     private fun factToTaintInfo(fact: InitialFactAp): TaintInfo? {
         val mark = fact.getMark()
         if (mark is Mark.StateMark) return null
-        val firstAccessor = fact.getStartAccessors().firstOrNull()
-        return TaintInfo(mark, fact.base, firstAccessor)
+        return TaintInfo(mark, fact.base, fact)
     }
 
     data class EdgesInfo(val starts: List<TaintInfo>, val follows: List<TaintInfo>)
@@ -763,12 +763,19 @@ class TraceMessageBuilder(
         }
 
     private fun TaintInfo.inMessage(node: TracePathNode) =
-        pos.baseInMessage(node, accessor)
+        pos.baseInMessage(node, fact)
 
-    private fun AccessPathBase.baseInMessage(node: TracePathNode, accessor: Accessor?) = when (this) {
+    private fun InitialFactAp.nextFirstAccessor(accessor: Accessor): Accessor? =
+        readAccessor(accessor)?.getStartAccessors()?.firstOrNull()
+
+    private fun AccessPathBase.baseInMessage(node: TracePathNode, fact: InitialFactAp?) = when (this) {
         is AccessPathBase.This -> traits.printThis(node.statement)
         is AccessPathBase.Argument -> printArgument(node, idx)
         is AccessPathBase.ClassStatic -> {
+            val staticAccessor = fact?.getStartAccessors()?.firstOrNull() as? ClassStaticAccessor
+            val accessor = fact?.let { f -> staticAccessor?.let { sa -> f.nextFirstAccessor(sa) } }
+            val typeName = staticAccessor?.typeName
+
             if (typeName == GeneratedSpringRegistry) {
                 val componentName = (accessor as? FieldAccessor)?.fieldName?.substringAfterLast('.')
                 if (componentName != null) {
@@ -1085,6 +1092,7 @@ class TraceMessageBuilder(
             val locationMethod = stmt.location.method
             if (locationMethod is JIRLambdaMethod) {
                 val lambdaCreationLocation = (locationMethod.enclosingClass as JIRLambdaClass).lambdaLocation
+                    ?: return null
                 return lambdaCreationLocation.method.instList.getOrNull(lambdaCreationLocation.index)
             }
             return null

@@ -29,7 +29,6 @@ import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.findMethodOrNull
 import org.opentaint.jvm.sast.dataflow.DebugOptions
-import org.opentaint.jvm.sast.dataflow.DummySerializationContext
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
 import org.opentaint.jvm.sast.dataflow.TaintAnalyzerOptions
@@ -237,7 +236,6 @@ private fun ProjectAnalysisContext.analyze(
         cp, config,
         projectClasses = projectClasses.locationChecker(),
         options = options,
-        summarySerializationContext = DummySerializationContext,
     ).use { analyzer ->
         return analyzer.analyzeWithIfds(entryPoints)
     }

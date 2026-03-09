@@ -5,6 +5,7 @@ import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
+import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
@@ -17,7 +18,6 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.automata.AutomataApManager
 import org.opentaint.dataflow.ap.ifds.access.cactus.CactusApManager
 import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
-import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction.TraceSummaryEdge
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
@@ -28,6 +28,7 @@ import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSafeApplicationGraph
+import org.opentaint.dataflow.jvm.ap.ifds.JIRSummarySerializationContext
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRAnalysisManager
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
@@ -53,7 +54,6 @@ class JIRTaintAnalyzer(
     val taintConfiguration: TaintRulesProvider,
     val projectClasses: ClassLocationChecker,
     val options: TaintAnalyzerOptions,
-    val summarySerializationContext: SummarySerializationContext,
     val analysisUnit: JIRUnitResolver = PackageUnitResolver(projectClasses),
 ): AutoCloseable {
 
@@ -73,6 +73,7 @@ class JIRTaintAnalyzer(
         override fun unrollAccessor(accessor: Accessor): Boolean = when (accessor) {
             is ElementAccessor -> true
             is FieldAccessor -> accessor.fieldName != "<rule-storage>"
+            is ClassStaticAccessor,
             is AnyAccessor,
             is FinalAccessor,
             is TaintMarkAccessor -> false
@@ -87,13 +88,19 @@ class JIRTaintAnalyzer(
         }
     }
 
-    private val aaParams get() = JIRLocalAliasAnalysis.Params(
-        aliasAnalysisInterProcCallDepth = options.experimentalAAInterProcCallDepth
+    private val analysisParams get() = JIRAnalysisManager.Params(
+        aliasAnalysisParams = JIRLocalAliasAnalysis.Params(
+            aliasAnalysisInterProcCallDepth = options.experimentalAAInterProcCallDepth
+        )
     )
+
+    private val summarySerializationContext by lazy {
+        if (options.storeSummaries) JIRSummarySerializationContext(cp) else DummySerializationContext
+    }
 
     @Suppress("UNCHECKED_CAST")
     private fun createIfdsEngine() = TaintAnalysisUnitRunnerManager(
-        JIRAnalysisManager(cp, aaParams),
+        JIRAnalysisManager(cp, analysisParams),
         ifdsAnalysisGraph as ApplicationGraph<CommonMethod, CommonInst>,
         analysisUnit as UnitResolver<CommonMethod>,
         taintConfig,

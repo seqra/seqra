@@ -91,7 +91,7 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
             ifdsAnalysisTimeout = ifdsAnalysisTimeout.seconds,
             ifdsApMode = ifdsApMode,
             projectKind = projectKind,
-            storeSummaries = true,
+            storeSummaries = false,
             experimentalAAInterProcCallDepth = experimentalAAInterProcCallDepth,
             debugOptions = debugOptions,
             sarifGenerationOptions = sarifOptions,

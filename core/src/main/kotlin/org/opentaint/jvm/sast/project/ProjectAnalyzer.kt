@@ -6,7 +6,6 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
-import org.opentaint.dataflow.jvm.ap.ifds.JIRSummarySerializationContext
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClasspath
@@ -119,8 +118,6 @@ class ProjectAnalyzer(
         entryPoints: List<JIRMethod>,
         rules: PreloadedRules
     ): AnalysisResult {
-        val summarySerializationContext = JIRSummarySerializationContext(cp)
-
         val loadedConfig = loadTaintConfig(cp, rules)
         val config = analysisConfig(loadedConfig)
 
@@ -128,7 +125,6 @@ class ProjectAnalyzer(
             cp, config,
             projectClasses = projectClasses.locationChecker(),
             options = options.taintAnalyzerOptions(),
-            summarySerializationContext = summarySerializationContext,
         ).use { analyzer ->
             logger.info { "Start IFDS analysis for project: ${project.sourceRoot}" }
             val traces = analyzer.analyzeWithIfds(entryPoints)

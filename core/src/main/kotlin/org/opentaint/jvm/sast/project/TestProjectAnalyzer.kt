@@ -10,7 +10,6 @@ import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRMethod
-import org.opentaint.jvm.sast.dataflow.DummySerializationContext
 import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.jvm.sast.project.rules.analysisConfig
 import org.opentaint.jvm.sast.project.rules.loadSemgrepRules
@@ -187,7 +186,6 @@ class TestProjectAnalyzer(
             cp, config,
             projectClasses = projectClasses.locationChecker(),
             options = options.taintAnalyzerOptions(),
-            summarySerializationContext = DummySerializationContext,
         ).use { analyzer ->
             logger.info { "Start IFDS analysis for test: $sample" }
             val traces = analyzer.analyzeWithIfds(sample.methods)

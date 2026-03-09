@@ -1,6 +1,7 @@
 package org.opentaint.jvm.sast.project.spring
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.jvm.Argument
@@ -111,11 +112,11 @@ class SpringRuleProvider(
             }
 
             val currentFact = fact ?: return emptyList()
-            val cleanupPosition = currentFact.base.cleanupPosition() ?: return emptyList()
+            val cleanupPositions = currentFact.cleanupPositions() ?: return emptyList()
 
             val cleaner = TaintCleaner(
                 method, ConstantTrue,
-                listOf(RemoveAllMarks(cleanupPosition)),
+                cleanupPositions.map { RemoveAllMarks(it) },
                 info = null
             )
 
@@ -125,20 +126,19 @@ class SpringRuleProvider(
         return base.cleanerRulesForMethod(method, statement, fact, allRelevant)
     }
 
-    private fun AccessPathBase.cleanupPosition(): Position? {
-        if (this !is AccessPathBase.ClassStatic) return toPosition()
-        if (this.typeName != GeneratedSpringRegistry) return toPosition()
-        return null
-    }
+    private fun FactAp.cleanupPositions(): List<Position>? = when (val b = base) {
+        is AccessPathBase.Argument -> listOf(Argument(b.idx))
+        is AccessPathBase.ClassStatic -> getStartAccessors()
+            .filterIsInstance<ClassStaticAccessor>()
+            .filterNot { it.typeName == GeneratedSpringRegistry }
+            .map { ClassStatic(it.typeName) }
+            .takeIf { it.isNotEmpty() }
 
-    private fun AccessPathBase.toPosition(): Position? = when (this) {
-        is AccessPathBase.Argument -> Argument(idx)
-        is AccessPathBase.ClassStatic -> ClassStatic(typeName)
         is AccessPathBase.Constant -> null
         is AccessPathBase.Exception -> null
         is AccessPathBase.LocalVar -> null
-        is AccessPathBase.Return -> Result
-        is AccessPathBase.This -> This
+        is AccessPathBase.Return -> listOf(Result)
+        is AccessPathBase.This -> listOf(This)
     }
 
     override fun sourceRulesForStaticField(field: JIRField, statement: CommonInst, fact: FactAp?, allRelevant: Boolean): Iterable<TaintStaticFieldSource> {
