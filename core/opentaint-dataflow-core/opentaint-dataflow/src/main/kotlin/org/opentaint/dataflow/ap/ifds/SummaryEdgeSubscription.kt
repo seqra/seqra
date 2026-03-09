@@ -1071,7 +1071,6 @@ abstract class SummaryFactStorage<Storage : Any>(methodEntryPoint: CommonInst) :
     AccessPathBaseStorage<Storage>(methodEntryPoint) {
     private var locals: ConcurrentHashMap<Int, Storage>? = null
     private var constants: ConcurrentHashMap<AccessPathBase.Constant, Storage>? = null
-    private var statics: ConcurrentHashMap<AccessPathBase.ClassStatic, Storage>? = null
 
     override fun getOrCreateLocal(idx: Int): Storage {
         val summaries = locals ?: ConcurrentHashMap<Int, Storage>()
@@ -1101,19 +1100,7 @@ abstract class SummaryFactStorage<Storage : Any>(methodEntryPoint: CommonInst) :
         constants?.forEach { body(it.key, it.value) }
     }
 
-    override fun getOrCreateClassStatic(base: AccessPathBase.ClassStatic): Storage {
-        val summaries = statics ?: ConcurrentHashMap<AccessPathBase.ClassStatic, Storage>()
-            .also { statics = it }
 
-        return summaries.computeIfAbsent(base) { createStorage() }
-    }
-
-    override fun findClassStatic(base: AccessPathBase.ClassStatic): Storage? =
-        statics?.get(base)
-
-    override fun forEachClassStaticValue(body: (AccessPathBase, Storage) -> Unit) {
-        statics?.forEach { body(it.key, it.value) }
-    }
 }
 
 typealias MethodSummaryZeroEdgesForExitPoint<Storage, Pattern> =

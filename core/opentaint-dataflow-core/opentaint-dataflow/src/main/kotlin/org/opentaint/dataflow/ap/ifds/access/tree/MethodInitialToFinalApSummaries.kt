@@ -120,40 +120,29 @@ private class MethodTaintedSummariesMergingStorage(
     val initialAccess: AccessPath.AccessNode?
 ) {
     private var exclusion: ExclusionSet? = null
-    private var edges: AccessTreeNode? = null
-    private var edgesDelta: AccessTreeNode? = null
+    private val treeStorage = MergingTreeSummaryStorage(apManager.refManager)
 
     fun add(exitAccess: AccessTreeNode, addedEx: ExclusionSet): Boolean {
         val currentExclusion = exclusion
         if (currentExclusion == null) {
             exclusion = addedEx
-            edges = exitAccess
-            edgesDelta = exitAccess
+            treeStorage.add(exitAccess)
             return true
         }
 
-        val currentEdges = edges!!
         val mergedExclusion = currentExclusion.union(addedEx)
         if (mergedExclusion === currentExclusion) {
-            val (modifiedEdges, modificationDelta) = currentEdges.mergeAddDelta(exitAccess)
-            if (modificationDelta == null) return false
-
-            edges = modifiedEdges
-            edgesDelta = edgesDelta?.mergeAdd(modificationDelta) ?: modificationDelta
-            return true
+            return treeStorage.add(exitAccess)
         }
 
-        val mergedAp = currentEdges.mergeAdd(exitAccess)
+        treeStorage.add(exitAccess)
         exclusion = mergedExclusion
-        edges = mergedAp
-        edgesDelta = mergedAp
 
         return true
     }
 
-    fun getAndResetDelta(): Sequence<F2FBBuilder<AccessPath.AccessNode?, AccessTree.AccessNode>> {
-        val delta = edgesDelta ?: return emptySequence()
-        edgesDelta = null
+    fun getAndResetDelta(): Sequence<F2FBBuilder<AccessPath.AccessNode?, AccessTreeNode>> {
+        val delta = treeStorage.getAndResetDelta() ?: return emptySequence()
 
         return FactToFactEdgeBuilderBuilder(apManager)
             .setInitialAp(initialAccess)
@@ -162,9 +151,9 @@ private class MethodTaintedSummariesMergingStorage(
             .let { sequenceOf(it) }
     }
 
-    fun summaries(): F2FBBuilder<AccessPath.AccessNode?, AccessTree.AccessNode>? {
+    fun summaries(): F2FBBuilder<AccessPath.AccessNode?, AccessTreeNode>? {
         val exclusion = this.exclusion ?: return null
-        val edges = this.edges ?: return null
+        val edges = this.treeStorage.edges() ?: return null
         return FactToFactEdgeBuilderBuilder(apManager)
             .setInitialAp(initialAccess)
             .setExitAp(edges)

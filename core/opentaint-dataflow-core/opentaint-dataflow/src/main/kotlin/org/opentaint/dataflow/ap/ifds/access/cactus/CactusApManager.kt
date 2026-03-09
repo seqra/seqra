@@ -2,6 +2,7 @@ package org.opentaint.dataflow.ap.ifds.access.cactus
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.ap.ifds.access.FinalFactList
 import org.opentaint.dataflow.ap.ifds.ExclusionSet.Empty
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.LanguageManager
@@ -68,6 +69,8 @@ class CactusApManager(
 
     override fun factSideEffectSummariesApStorage(methodInitialStatement: CommonInst): FactSideEffectSummariesApStorage =
         FactSESummariesCactusStorage(methodInitialStatement)
+
+    override fun finalFactList(): FinalFactList = CactusFinalFactList()
 
     override fun mostAbstractInitialAp(base: AccessPathBase): InitialFactAp =
         AccessPathWithCycles(base, access = null, exclusions = Empty)

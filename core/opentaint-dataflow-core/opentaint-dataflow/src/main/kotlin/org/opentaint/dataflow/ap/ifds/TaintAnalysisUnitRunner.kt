@@ -3,6 +3,7 @@ package org.opentaint.dataflow.ap.ifds
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.yield
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.util.analysis.ApplicationGraph
@@ -146,6 +147,7 @@ class TaintAnalysisUnitRunner(
     }
 
     private suspend fun tabulationAlgorithm() = coroutineScope {
+        var steps = 0
         while (isActive) {
             if (eventPriorityQueue.isEmpty()) {
                 eventPriorityQueue.add(workList.receive())
@@ -156,11 +158,23 @@ class TaintAnalysisUnitRunner(
                 eventPriorityQueue.add(nextEvent)
             }
 
+            if (steps++ > RUNNER_STEPS_QUANT) {
+                steps = 0
+                yield()
+            }
+
             val event = eventPriorityQueue.poll() ?: error("Unexpected empty event queue")
 
+            var processed = true
             when (event) {
                 is MethodAnalyzer -> {
                     while (event.containsUnprocessedEdges && isActive) {
+                        if (steps++ > RUNNER_STEPS_QUANT) {
+                            processed = false
+                            eventPriorityQueue.add(event)
+                            break
+                        }
+
                         event.tabulationAlgorithmStep()
                     }
                 }
@@ -182,9 +196,11 @@ class TaintAnalysisUnitRunner(
                 }
             }
 
-            eventsEnqueued.decrement()
-            eventsProcessed.increment()
-            manager.handleEventProcessed()
+            if (processed) {
+                eventsEnqueued.decrement()
+                eventsProcessed.increment()
+                manager.handleEventProcessed()
+            }
         }
     }
 
@@ -438,5 +454,9 @@ class TaintAnalysisUnitRunner(
         val methodRunners = methodAnalyzers(methodEntryPoint)
         val runner = methodRunners.getAnalyzer(methodEntryPoint)
         return runner.resolveCalleeFact(statement, factAp)
+    }
+
+    companion object {
+        private const val RUNNER_STEPS_QUANT = 1000
     }
 }

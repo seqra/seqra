@@ -4,6 +4,7 @@ import mu.KotlinLogging
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
+import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
@@ -150,7 +151,7 @@ class TaintCleanActionEvaluator(
         action: RemoveAllMarks,
     ): List<EvaluatedCleanAction> {
         val variable = action.position.resolveAp()
-        return listOf(removeAllFacts(initialFact, variable, rule, action))
+        return removeAllFacts(initialFact, variable, rule, action)
     }
 
     fun evaluate(
@@ -177,18 +178,18 @@ class TaintCleanActionEvaluator(
         from: PositionAccess,
         rule: TaintConfigurationItem,
         action: RemoveAllMarks,
-    ): EvaluatedCleanAction {
-        val fact = evc.fact ?: return evc
+    ): List<EvaluatedCleanAction> {
+        val fact = evc.fact ?: return listOf(evc)
 
-        if (!fact.containsPosition(from)) return evc
+        if (!fact.containsPosition(from)) return listOf(evc)
 
-        if (from !is PositionAccess.Simple) {
-            logger.error("Unsupported Remove from complex: $from")
-            return evc
+        if (from is PositionAccess.Simple) {
+            val actionInfo = EvaluatedCleanAction.ActionInfo(rule, action)
+            return listOf(EvaluatedCleanAction(fact = null, actionInfo, evc))
         }
 
-        val actionInfo = EvaluatedCleanAction.ActionInfo(rule, action)
-        return EvaluatedCleanAction(fact = null, actionInfo, evc)
+        val cleanAccessors = from.accessorList()
+        return cleanAccessors(cleanAccessors, fact, rule, action, evc)
     }
 
     private fun removeFinalFact(
@@ -203,7 +204,17 @@ class TaintCleanActionEvaluator(
         if (!fact.containsPositionWithTaintMark(from, markRestriction)) return listOf(evc)
 
         val cleanAccessors = from.accessorList() + TaintMarkAccessor(markRestriction.name)
-        val (cleanedFacts, factCleaned) = clearPosition(cleanAccessors, fact.factAp)
+        return cleanAccessors(cleanAccessors, fact, rule, action, evc)
+    }
+
+    private fun cleanAccessors(
+        accessors: List<Accessor>,
+        fact: FinalFactReader,
+        rule: TaintConfigurationItem,
+        action: Action,
+        evc: EvaluatedCleanAction
+    ): List<EvaluatedCleanAction> {
+        val (cleanedFacts, factCleaned) = clearPosition(accessors, fact.factAp)
 
         val result = mutableListOf<EvaluatedCleanAction>()
         if (factCleaned) {
@@ -367,7 +378,7 @@ fun Position.resolveBaseAp(): AccessPathBase = when (this) {
     is Argument -> AccessPathBase.Argument(index)
     is This -> AccessPathBase.This
     is Result -> AccessPathBase.Return
-    is ClassStatic -> AccessPathBase.ClassStatic(className)
+    is ClassStatic -> AccessPathBase.ClassStatic
     is PositionWithAccess -> base.resolveBaseAp()
 }
 
@@ -377,8 +388,12 @@ fun Position.resolveAp(baseAp: AccessPathBase): PositionAccess {
     return when (this) {
         is Argument,
         is This,
-        is Result,
-        is ClassStatic -> PositionAccess.Simple(baseAp)
+        is Result -> PositionAccess.Simple(baseAp)
+
+        is ClassStatic -> PositionAccess.Complex(
+            PositionAccess.Simple(baseAp),
+            ClassStaticAccessor(className)
+        )
 
         is PositionWithAccess -> {
             val resolvedBaseAp = base.resolveAp(baseAp)

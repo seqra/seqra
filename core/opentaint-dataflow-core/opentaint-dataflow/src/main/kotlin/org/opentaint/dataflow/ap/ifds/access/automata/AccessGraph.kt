@@ -10,6 +10,8 @@ import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
+import org.opentaint.dataflow.ap.ifds.FactTypeChecker.CompatibilityFilterResult
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
 import org.opentaint.dataflow.util.PersistentArrayBuilder
@@ -22,6 +24,7 @@ import org.opentaint.dataflow.util.bitSetOf
 import org.opentaint.dataflow.util.contains
 import org.opentaint.dataflow.util.filter
 import org.opentaint.dataflow.util.forEach
+import org.opentaint.dataflow.util.printer.PrintableGraph
 import org.opentaint.dataflow.util.removeFirst
 import org.opentaint.dataflow.util.toBitSet
 import java.io.DataInputStream
@@ -176,6 +179,24 @@ class AccessGraph(
                     }
                 }
             }
+        }
+    }
+
+    @Suppress("unused")
+    fun print() = Printer()
+
+    inner class Printer : PrintableGraph<NodeMarker, AccessorIdx> {
+        override fun allNodes(): List<NodeMarker> = nodeSucc.indices.toList()
+        override fun nodeLabel(node: NodeMarker): String = repr(node)
+        override fun edgeLabel(edge: AccessorIdx): String = with(manager) { edge.accessor.toString() }
+
+        override fun successors(node: NodeMarker): List<Pair<AccessorIdx, NodeMarker>> {
+            val successors = mutableListOf<Pair<AccessorIdx, NodeMarker>>()
+            nodeSucc[node]?.forEach { accessor ->
+                val successor = getStateSuccessor(node, accessor)
+                successors += accessor to successor
+            }
+            return successors
         }
     }
 
@@ -456,6 +477,26 @@ class AccessGraph(
         val mergedMutable = mutableCopy.merge(other)
         val mergeResult = mergedMutable.persist()
         return mergeResult
+    }
+
+    fun filter(filter: FactTypeChecker.FactCompatibilityFilter): AccessGraph? {
+        val rejectedPredecessors = BitSet()
+        val finalPredecessors = nodePredecessors(final)
+        finalPredecessors.forEach { accessor ->
+            val accessorObj = with(manager) { accessor.accessor }
+            when (filter.check(accessorObj)) {
+                CompatibilityFilterResult.Compatible -> return this
+                CompatibilityFilterResult.NotCompatible -> {
+                    rejectedPredecessors.add(accessor)
+                }
+            }
+        }
+
+        if (rejectedPredecessors.cardinality() == finalPredecessors.cardinality()) {
+            return null
+        }
+
+        return this
     }
 
     fun filter(filter: FactTypeChecker.FactApFilter): AccessGraph? {

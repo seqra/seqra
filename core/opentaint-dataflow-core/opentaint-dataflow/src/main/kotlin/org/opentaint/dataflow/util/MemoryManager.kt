@@ -1,51 +1,86 @@
 package org.opentaint.dataflow.util
 
+import com.sun.management.GarbageCollectionNotificationInfo
 import com.sun.management.HotSpotDiagnosticMXBean
+import mu.KLogging
 import java.lang.management.ManagementFactory
-import java.lang.management.MemoryNotificationInfo
-import java.lang.management.MemoryPoolMXBean
+import java.lang.management.MemoryMXBean
 import java.lang.management.MemoryType
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import javax.management.Notification
 import javax.management.NotificationEmitter
 import javax.management.NotificationListener
-import kotlin.math.roundToLong
+import javax.management.openmbean.CompositeData
 import kotlin.system.exitProcess
-
 
 class MemoryManager(
     private val memoryThreshold: Double,
+    val refManager: SoftReferenceManager?,
     private val onOutOfMemory: () -> Unit
 ) {
-    private fun MemoryPoolMXBean.updateThresholds(): Boolean {
-        val currentThreshold = collectionUsageThreshold
-        val threshold = (memoryThreshold * usage.max).roundToLong()
+    private val memoryManagerState = AtomicInteger(STATE_NORMAL)
+    private val lastGcRequestTime = AtomicLong(0)
+    private val thresholdBytes = AtomicLong(0)
 
-        if (currentThreshold >= threshold) return false
+    inner class GCNotificationListener(
+        private val memMx: MemoryMXBean,
+    ) : NotificationListener {
+        init {
+            thresholdBytes.set((memMx.heapMemoryUsage.max * memoryThreshold).toLong())
+        }
 
-        collectionUsageThreshold = threshold
-        usageThreshold = threshold
+        override fun handleNotification(n: Notification, handback: Any?) {
+            if (n.type != GarbageCollectionNotificationInfo.GARBAGE_COLLECTION_NOTIFICATION) return
 
-        return true
-    }
+            val info = GarbageCollectionNotificationInfo.from(n.userData as CompositeData)
+            val after = info.gcInfo.memoryUsageAfterGc
 
-    fun createMemoryListener(): NotificationListener {
-        val memoryPool = ManagementFactory.getMemoryPoolMXBeans()
-            .singleOrNull {
-                it.type == MemoryType.HEAP
-                        && it.isUsageThresholdSupported
-                        && it.isCollectionUsageThresholdSupported
+            var usedAfterGc = 0L
+            for ((poolName, usage) in after) {
+                val pool = ManagementFactory.getMemoryPoolMXBeans().firstOrNull { it.name == poolName }
+                if (pool?.type == MemoryType.HEAP) {
+                    usedAfterGc += usage.used
+                }
             }
-            ?: error("Expected exactly one memory pool that support threshold")
 
-        memoryPool.updateThresholds()
+            val thr = thresholdBytes.get()
+            val state = memoryManagerState.get()
 
-        return NotificationListener { notification: Notification, _ ->
-            if (notification.type == MemoryNotificationInfo.MEMORY_THRESHOLD_EXCEEDED) {
-                // The pool could have been resized => updating absolute thresholds
-                memoryPool.updateThresholds()
-            } else {
-                check(notification.type == MemoryNotificationInfo.MEMORY_COLLECTION_THRESHOLD_EXCEEDED)
-                if (!memoryPool.updateThresholds()) {
+            if (usedAfterGc < thr) {
+                refManager?.enable()
+                val currentState = memoryManagerState.getAndSet(STATE_NORMAL)
+                if (currentState != STATE_NORMAL) {
+                    logger.info("Memory back to normal state: $usedAfterGc < $thr")
+                }
+                return
+            }
+
+            logger.info("Detected high memory usage: $usedAfterGc > $thr")
+
+            when(state) {
+                STATE_NORMAL -> {
+                    val cleaned = refManager?.cleanup()
+                    if (cleaned != null && cleaned < 0) return
+
+                    logger.debug("Cleaned soft refs: $cleaned")
+
+                    memoryManagerState.compareAndSet(STATE_NORMAL, STATE_SOFT_REF_RESET)
+
+                    // Ask JVM for another GC; we confirm on the next GC end
+                    memMx.gc()
+                }
+
+                STATE_SOFT_REF_RESET -> {
+                    memMx.gc()
+                    memoryManagerState.compareAndSet(STATE_SOFT_REF_RESET, GC_AFTER_CLEANUP)
+                    lastGcRequestTime.set(info.gcInfo.endTime)
+                }
+
+                GC_AFTER_CLEANUP -> {
+                    if (info.gcInfo.startTime <= lastGcRequestTime.get() + 10) return
+                    if (currentMemoryUsage() < thr) return
+
                     handleOOM()
                     onOutOfMemory()
                 }
@@ -54,27 +89,27 @@ class MemoryManager(
     }
 
     fun registerListener(listener: NotificationListener) {
-        val notificationFilter: (Notification) -> Boolean = { notification ->
-            notification.type == MemoryNotificationInfo.MEMORY_COLLECTION_THRESHOLD_EXCEEDED
-                    || notification.type == MemoryNotificationInfo.MEMORY_THRESHOLD_EXCEEDED
-        }
-
-        val emitter = ManagementFactory.getMemoryMXBean() as NotificationEmitter
-        emitter.addNotificationListener(listener, notificationFilter, null)
+        ManagementFactory.getGarbageCollectorMXBeans()
+            .mapNotNull { it as? NotificationEmitter }
+            .forEach { it.addNotificationListener(listener, null, null) }
     }
 
     fun removeListener(listener: NotificationListener) {
-        val emitter = ManagementFactory.getMemoryMXBean() as NotificationEmitter
-        emitter.removeNotificationListener(listener)
+        ManagementFactory.getGarbageCollectorMXBeans()
+            .mapNotNull { it as? NotificationEmitter }
+            .forEach { it.removeNotificationListener(listener) }
     }
 
     inline fun <T> runWithMemoryManager(body: () -> T): T {
-        val listener = createMemoryListener()
+        val memMx = ManagementFactory.getMemoryMXBean()
+        val listener = GCNotificationListener(memMx)
         registerListener(listener)
         try {
+            refManager?.enable()
             return body()
         } finally {
             removeListener(listener)
+            refManager?.cleanup()
         }
     }
 
@@ -99,6 +134,18 @@ class MemoryManager(
     }
 
     companion object {
+        private const val STATE_NORMAL = 0
+        private const val STATE_SOFT_REF_RESET = 1
+        private const val GC_AFTER_CLEANUP = 2
+
+        private val logger = object : KLogging() {}.logger
+
         private const val DEBUG_DUMP_HEAP_ON_OOM = false
+
+        fun currentMemoryUsage(): Long {
+            val maxMemory = Runtime.getRuntime().maxMemory()
+            val usedMemory = maxMemory - Runtime.getRuntime().freeMemory()
+            return usedMemory
+        }
     }
 }

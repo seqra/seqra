@@ -80,6 +80,12 @@ interface AnalysisManager: LanguageManager {
         statement: CommonInst,
     ): MethodCallSummaryHandler
 
+    fun getMethodSummaryEdgeProcessor(
+        apManager: ApManager,
+        analysisContext: MethodAnalysisContext,
+        statement: CommonInst
+    ): MethodSummaryEdgeProcessor? = null
+
     fun getMethodSideEffectSummaryHandler(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,

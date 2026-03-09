@@ -1,5 +1,14 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
+import org.objectweb.asm.tree.ClassNode
+import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
+import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
+import org.opentaint.dataflow.ap.ifds.ElementAccessor
+import org.opentaint.dataflow.ap.ifds.FieldAccessor
+import org.opentaint.dataflow.ap.ifds.FinalAccessor
+import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.ir.api.jvm.ByteCodeIndexer
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRDatabase
@@ -13,14 +22,6 @@ import org.opentaint.ir.api.storage.StorageContext
 import org.opentaint.ir.api.storage.SymbolInterner
 import org.opentaint.ir.api.storage.asSymbolId
 import org.opentaint.ir.impl.storage.txn
-import org.objectweb.asm.tree.ClassNode
-import org.opentaint.dataflow.ap.ifds.Accessor
-import org.opentaint.dataflow.ap.ifds.AnyAccessor
-import org.opentaint.dataflow.ap.ifds.ElementAccessor
-import org.opentaint.dataflow.ap.ifds.FieldAccessor
-import org.opentaint.dataflow.ap.ifds.FinalAccessor
-import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
-import org.opentaint.dataflow.ap.ifds.access.ApMode
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
 
@@ -158,14 +159,15 @@ class JIRSummariesFeature(
             ELEMENT_ACCESSOR_ID -> ElementAccessor
             else -> {
                 idToAccessorCache.computeIfAbsent(id) {
-                    val (classNameId, fieldNameId, fieldTypeId, taintMarkId) = jIRdb.persistence.read { context ->
+                    val (classNameId, fieldNameId, fieldTypeId, taintMarkId, staticTypeNameId) = jIRdb.persistence.read { context ->
                         val accessorEntity = context.txn.find(ACCESSOR_IDS_TYPE, "id", id)
                             .singleOrNull() ?: error("Deserialization error. Unknown accessor with id: $id")
                         val classNameId = accessorEntity.get<Long>("classNameId")
                         val fieldNameId = accessorEntity.get<Long>("fieldNameId")
                         val fieldTypeId = accessorEntity.get<Long>("fieldTypeId")
                         val taintMarkId = accessorEntity.get<Long>("taintMarkId")
-                        arrayOf(classNameId, fieldNameId, fieldTypeId, taintMarkId)
+                        val staticTypeNameId = accessorEntity.get<Long>("staticTypeNameId")
+                        arrayOf(classNameId, fieldNameId, fieldTypeId, taintMarkId, staticTypeNameId)
                     }
 
                     if (classNameId != null) {
@@ -176,6 +178,10 @@ class JIRSummariesFeature(
                         val fieldName = findSymbolName(fieldNameId, symbolType = "fieldName")
                         val fieldType = findSymbolName(fieldTypeId, symbolType = "fieldType")
                         FieldAccessor(className, fieldName, fieldType)
+                    } else if (staticTypeNameId != null) {
+                        val typeName = interner.findSymbolName(staticTypeNameId)
+                            ?: error("Deserialization error. Unknown typeName id: $id")
+                        ClassStaticAccessor(typeName)
                     } else {
                         checkNotNull(taintMarkId) { "Expected non-null taintMarkId" }
 
@@ -219,6 +225,18 @@ class JIRSummariesFeature(
                         ?.get<Long>("id")
                 }
 
+                accessorId ?: accessorIdGen.incrementAndGet().also {
+                    newAccessors.add(accessor)
+                }
+            }
+
+            is ClassStaticAccessor -> accessorToIdCache.computeIfAbsent(accessor) {
+                val staticTypeNameId = accessor.typeName.asSymbolId(interner)
+                val accessorId = jIRdb.persistence.read { context ->
+                    context.txn.find(ACCESSOR_IDS_TYPE, "staticTypeNameId", staticTypeNameId)
+                        .singleOrNull()
+                        ?.get<Long>("id")
+                }
                 accessorId ?: accessorIdGen.incrementAndGet().also {
                     newAccessors.add(accessor)
                 }
@@ -297,6 +315,14 @@ class JIRSummariesFeature(
                         fieldAccessorId["classNameId"] = classNameId
                         fieldAccessorId["fieldNameId"] = fieldNameId
                         fieldAccessorId["fieldTypeId"] = fieldTypeId
+                    }
+                }
+            } else if (accessor is ClassStaticAccessor) {
+                val staticTypeNameId = accessor.typeName.asSymbolId(interner)
+                jIRdb.persistence.write { context ->
+                    context.txn.newEntity(ACCESSOR_IDS_TYPE).also { staticAccessorId ->
+                        staticAccessorId["id"] = accessorToIdCache[accessor]!!
+                        staticAccessorId["staticTypeNameId"] = staticTypeNameId
                     }
                 }
             } else {

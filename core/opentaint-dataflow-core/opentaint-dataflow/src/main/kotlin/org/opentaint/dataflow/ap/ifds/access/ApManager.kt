@@ -34,6 +34,9 @@ interface ApManager {
     fun methodNDInitialToFinalApSummariesStorage(methodInitialStatement: CommonInst): MethodNDInitialToFinalApSummariesStorage
     fun factSideEffectSummariesApStorage(methodInitialStatement: CommonInst): FactSideEffectSummariesApStorage
 
+    fun listEdgeCompressionRequired(edge: Edge): Boolean = false
+    fun finalFactList(): FinalFactList
+
     fun mostAbstractInitialAp(base: AccessPathBase): InitialFactAp
     fun mostAbstractFinalAp(base: AccessPathBase): FinalFactAp
 
@@ -140,4 +143,10 @@ interface MethodInitialToFinalApSummariesStorage {
 interface MethodNDInitialToFinalApSummariesStorage {
     fun add(edges: List<Edge.NDFactToFact>, added: MutableList<NDFactToFactEdgeBuilder>)
     fun filterEdgesTo(dst: MutableList<NDFactToFactEdgeBuilder>, initialFactPattern: FinalFactAp?, finalFactBase: AccessPathBase?)
+}
+
+interface FinalFactList {
+    fun add(fact: FinalFactAp)
+    fun get(idx: Int): FinalFactAp
+    fun removeLast(): FinalFactAp
 }

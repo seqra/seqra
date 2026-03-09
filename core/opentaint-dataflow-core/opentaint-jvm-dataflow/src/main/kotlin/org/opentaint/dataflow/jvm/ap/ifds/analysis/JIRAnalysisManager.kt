@@ -15,6 +15,7 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodCallSummaryHandler
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSideEffectSummaryHandler
 import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction
+import org.opentaint.dataflow.ap.ifds.analysis.MethodSummaryEdgeProcessor
 import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisContext
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
@@ -47,10 +48,15 @@ import org.opentaint.util.analysis.ApplicationGraph
 
 class JIRAnalysisManager(
     cp: JIRClasspath,
-    private val aliasAnalysisParams: JIRLocalAliasAnalysis.Params = JIRLocalAliasAnalysis.Params(),
+    private val params: Params = Params(),
 ) : JIRLanguageManager(cp), TaintAnalysisManager {
     private val lambdaTracker = JIRLambdaTracker()
     override val factTypeChecker = JIRFactTypeChecker(cp)
+
+    data class Params(
+        val aliasAnalysisParams: JIRLocalAliasAnalysis.Params = JIRLocalAliasAnalysis.Params(),
+        val callResolverParams: JIRMethodCallResolver.Params = JIRMethodCallResolver.Params(),
+    )
 
     override fun getMethodCallResolver(
         graph: ApplicationGraph<CommonMethod, CommonInst>,
@@ -61,7 +67,7 @@ class JIRAnalysisManager(
         jIRDowncast<JIRUnitResolver>(unitResolver)
 
         val jIRCallResolver = JIRCallResolver(cp, unitResolver)
-        return JIRMethodCallResolver(lambdaTracker, jIRCallResolver, runner)
+        return JIRMethodCallResolver(lambdaTracker, jIRCallResolver, runner, params.callResolverParams)
     }
 
     override fun getMethodAnalysisContext(
@@ -75,14 +81,16 @@ class JIRAnalysisManager(
         jIRDowncast<JApplicationGraph>(graph)
         callResolver as JIRMethodCallResolver
 
+        val method = entryPointStatement.location.method
+        val localVariableReachability = JIRLocalVariableReachability(method, graph, this)
+
+        val aliasAnalysisParams = params.aliasAnalysisParams
         val aliasAnalysis = if (aliasAnalysisParams.useAliasAnalysis) {
-            JIRLocalAliasAnalysis(entryPointStatement, graph, callResolver, this, aliasAnalysisParams)
+            JIRLocalAliasAnalysis(entryPointStatement, graph, callResolver, localVariableReachability, this, aliasAnalysisParams)
         } else {
             null
         }
 
-        val method = entryPointStatement.location.method
-        val localVariableReachability = JIRLocalVariableReachability(method, graph, this)
         return JIRMethodAnalysisContext(
             methodEntryPoint,
             factTypeChecker,
@@ -165,6 +173,15 @@ class JIRAnalysisManager(
         return JIRMethodCallSummaryHandler(statement, analysisContext, apManager)
     }
 
+    override fun getMethodSummaryEdgeProcessor(
+        apManager: ApManager,
+        analysisContext: MethodAnalysisContext,
+        statement: CommonInst
+    ): MethodSummaryEdgeProcessor {
+        jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
+        return JIRMethodSummaryEdgeProcessor(analysisContext)
+    }
+
     override fun getMethodSideEffectSummaryHandler(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
@@ -232,11 +249,15 @@ class JIRAnalysisManager(
             val localRejected = factTypeChecker.localFactsRejected.sum()
             val accessTotal = factTypeChecker.accessTotal.sum()
             val accessRejected = factTypeChecker.accessRejected.sum()
+            val compatTotal = factTypeChecker.compatibilityTotal.sum()
+            val compatRejected = factTypeChecker.compatibilityRejected.sum()
             buildString {
                 append("Fact types: ")
                 append("local $localRejected/$localTotal (${percentToString(localRejected, localTotal)})")
                 append(" | ")
                 append("access $accessRejected/$accessTotal (${percentToString(accessRejected, accessTotal)})")
+                append(" | ")
+                append("compatibility $compatRejected/$compatTotal (${percentToString(compatRejected, compatTotal)})")
             }
         }
     }

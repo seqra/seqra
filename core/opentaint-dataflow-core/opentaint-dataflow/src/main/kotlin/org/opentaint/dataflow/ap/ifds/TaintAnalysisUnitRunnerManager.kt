@@ -17,6 +17,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import mu.KotlinLogging
 import org.opentaint.dataflow.ap.ifds.access.ApManager
+import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
@@ -37,6 +38,7 @@ import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.util.MemoryManager
+import org.opentaint.dataflow.util.SoftReferenceManager
 import org.opentaint.dataflow.util.percentToString
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -91,7 +93,7 @@ class TaintAnalysisUnitRunnerManager(
         (progressDispatcher.executor as? ExecutorService)?.shutdownNow()
     }
 
-    private val analysisMemoryManager = MemoryManager(OOM_DETECTION_THRESHOLD) {
+    private val analysisMemoryManager = MemoryManager(OOM_DETECTION_THRESHOLD, apManager.refManager()) {
         logger.error { "Running low on memory, stopping analysis" }
         analysisCompletion.complete(Unit)
     }
@@ -123,11 +125,13 @@ class TaintAnalysisUnitRunnerManager(
 
         handleEventProcessed()
 
+        val currentProgress = AtomicInteger(0)
+
         // Spawn progress job:
         val progress = progressScope.launch {
             while (isActive) {
                 delay(10.seconds)
-                reportRunnerProgress()
+                reportRunnerProgress(currentProgress)
             }
         }
 
@@ -149,7 +153,7 @@ class TaintAnalysisUnitRunnerManager(
                     runnerJobs.joinAll()
                 }
 
-                reportRunnerProgress()
+                reportRunnerProgress(currentProgress)
                 logger.info { "Analysis done in ${timeStart.elapsedNow()}" }
             }
         }
@@ -175,7 +179,7 @@ class TaintAnalysisUnitRunnerManager(
         if (vulnerabilities.isEmpty()) return emptyList()
 
         val traceResolverCancellation = ProcessingCancellation()
-        val traceResolverMemoryManager = MemoryManager(TRACE_GENERATION_MEMORY_THRESHOLD) {
+        val traceResolverMemoryManager = MemoryManager(TRACE_GENERATION_MEMORY_THRESHOLD, apManager.refManager()) {
             traceResolverCancellation.cancel()
             logger.error { "Running low on memory, stopping trace resolution" }
         }
@@ -258,7 +262,7 @@ class TaintAnalysisUnitRunnerManager(
         if (unconfirmedVulnerabilities.isEmpty()) return confirmed
 
         val vulnConfirmCancellation = ProcessingCancellation()
-        val vulnConfirmMemoryManager = MemoryManager(TRACE_GENERATION_MEMORY_THRESHOLD) {
+        val vulnConfirmMemoryManager = MemoryManager(TRACE_GENERATION_MEMORY_THRESHOLD, apManager.refManager()) {
             vulnConfirmCancellation.cancel()
             logger.error { "Running low on memory, stopping vulnerability confirmation" }
         }
@@ -409,15 +413,19 @@ class TaintAnalysisUnitRunnerManager(
 
     private fun reportMemoryUsage(): String {
         val maxMemory = Runtime.getRuntime().maxMemory()
-        val usedMemory = maxMemory - Runtime.getRuntime().freeMemory()
+        val usedMemory = MemoryManager.currentMemoryUsage()
         return "Memory usage: ${usedMemory}/${maxMemory} (${percentToString(usedMemory, maxMemory)})"
     }
 
-    private fun reportRunnerProgress() {
+    private fun reportRunnerProgress(prevProgress: AtomicInteger) {
         val stats = runnerForUnit.mapValues { it.value.stats() }
 
-        logger.info { "Progress: ${totalEventsProcessed.get()}/${totalEventsEnqueued.get()}" }
+        val totalProcessed = totalEventsProcessed.get()
+        val delta = totalProcessed - prevProgress.get()
+        logger.info { "Progress: ${totalProcessed}/${totalEventsEnqueued.get()} (+$delta)" }
         logger.info { reportMemoryUsage() }
+
+        prevProgress.set(totalProcessed)
 
         analysisManager.reportLanguageSpecificRunnerProgress(logger)
 
@@ -478,6 +486,9 @@ class TaintAnalysisUnitRunnerManager(
         appendLine("Steps for taint rules (sampled)")
         mostStepsForTaintRule.take(5).forEach { appendLine("${it.key} -> ${it.value}") }
     }
+
+    private fun ApManager.refManager(): SoftReferenceManager? =
+        if (this is TreeApManager) refManager else null
 
     companion object {
         private val logger = KotlinLogging.logger {}

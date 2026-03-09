@@ -186,20 +186,7 @@ class MethodAnalyzerEdges(
             constants?.forEach { body(it.key, it.value) }
         }
 
-        private var statics: MutableMap<AccessPathBase.ClassStatic, Storage>? = null
 
-        override fun getOrCreateClassStatic(base: AccessPathBase.ClassStatic): Storage {
-            val edges = statics ?: Object2ObjectOpenHashMap<AccessPathBase.ClassStatic, Storage>()
-                .also { statics = it }
-
-            return edges.getOrPut(base) { createStorage() }
-        }
-
-        override fun findClassStatic(base: AccessPathBase.ClassStatic) = statics?.get(base)
-
-        override fun forEachClassStaticValue(body: (AccessPathBase, Storage) -> Unit) {
-            statics?.forEach { body(it.key, it.value) }
-        }
     }
 
     companion object {

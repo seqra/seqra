@@ -6,6 +6,7 @@ import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges
 import org.opentaint.dataflow.ap.ifds.access.common.CommonF2FSet
+import org.opentaint.dataflow.util.SoftReferenceManager
 import org.opentaint.dataflow.util.collectToListWithPostProcess
 import org.opentaint.ir.api.common.cfg.CommonInst
 
@@ -32,7 +33,7 @@ class MethodEdgesInitialToFinalTreeApSet(
             final: AccessWithExclusion<AccessTree.AccessNode>,
         ): AccessWithExclusion<AccessTree.AccessNode>? {
             val storage = sameInitialAccessEdges.getOrPut(initial) {
-                EdgeNonUniverseExclusionMergingStorage(maxInstIdx, languageManager)
+                EdgeNonUniverseExclusionMergingStorage(maxInstIdx, languageManager, apManager.refManager)
             }
 
             return storage.add(statement, final)
@@ -65,10 +66,10 @@ class MethodEdgesInitialToFinalTreeApSet(
 
     private class EdgeNonUniverseExclusionMergingStorage(
         maxInstIdx: Int,
-        private val languageManager: LanguageManager
-    ) {
+        private val languageManager: LanguageManager,
+        refManager: SoftReferenceManager,
+    ): TreeSetWithCompression(maxInstIdx, refManager) {
         private val exclusions = arrayOfNulls<ExclusionSet>(MethodAnalyzerEdges.instructionStorageSize(maxInstIdx))
-        private val edges = arrayOfNulls<AccessTree.AccessNode>(MethodAnalyzerEdges.instructionStorageSize(maxInstIdx))
 
         fun add(
             statement: CommonInst,
@@ -95,6 +96,8 @@ class MethodEdgesInitialToFinalTreeApSet(
             }
 
             edges[edgeSetIdx] = mergedAccess
+            intern(edgeSetIdx)
+
             return AccessWithExclusion(mergedAccess, mergedExclusion)
         }
 

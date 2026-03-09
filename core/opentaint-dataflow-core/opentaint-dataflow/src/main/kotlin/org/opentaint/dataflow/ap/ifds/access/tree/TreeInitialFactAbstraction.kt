@@ -17,6 +17,7 @@ class TreeInitialFactAbstraction(
     private val apManager: TreeApManager
 ): InitialFactAbstraction {
     private val initialFacts = MethodSameMarkInitialFact(hashMapOf())
+    private val interner = AccessTreeSoftInterner(apManager.refManager)
 
     override fun addAbstractedInitialFact(
         factAp: FinalFactAp,
@@ -26,7 +27,7 @@ class TreeInitialFactAbstraction(
 
         // note: we can ignore fact exclusions here
         val facts = initialFacts.getOrPut(factAp.base)
-        val addedFact = facts.addInitialFact(factAp.access) ?: return emptyList()
+        val addedFact = facts.addInitialFact(factAp.access, interner) ?: return emptyList()
 
         val abstractFacts = mutableListOf<Pair<InitialFactAp, FinalFactAp>>()
         addAbstractInitialFact(facts, factAp.base, addedFact, abstractFacts, typeChecker)
@@ -57,7 +58,7 @@ class TreeInitialFactAbstraction(
     private fun addAbstractInitialFact(
         facts: MethodSameBaseInitialFact,
         concreteFactBase: AccessPathBase,
-        initialConcreteFact: AccessTree.AccessNode,
+        initialConcreteFact: AccessTreeNode,
         abstractFacts: MutableList<Pair<InitialFactAp, FinalFactAp>>,
         typeChecker: FactTypeChecker
     ) {
@@ -118,7 +119,7 @@ class TreeInitialFactAbstraction(
         val mergedNewFacts = newFacts.reduceOrNull { acc, f -> acc.mergeAdd(f) }
             ?: return null
 
-        return addInitialFact(mergedNewFacts)
+        return addInitialFact(mergedNewFacts, interner)
     }
 
     private fun ReversedApNode?.createFilter(typeChecker: FactTypeChecker): FactTypeChecker.FactApFilter {
@@ -229,14 +230,29 @@ class TreeInitialFactAbstraction(
     ) {
         fun allAddedFacts(): AccessTreeNode = added ?: AccessTreeNode.create()
 
-        fun addInitialFact(ap: AccessTreeNode): AccessTreeNode? {
+        fun addInitialFact(ap: AccessTreeNode, interner: AccessTreeSoftInterner): AccessTreeNode? {
             val currentNode = added ?: AccessTreeNode.create()
             val (updatedAddedNode, addedInitial) = currentNode.mergeAddDelta(ap)
 
             if (addedInitial == null) return null
 
             this.added = updatedAddedNode
+
+            intern(interner)
+
             return addedInitial
+        }
+
+        private var operationsBeforeIntern = INTERN_RATE
+
+        private fun intern(interner: AccessTreeSoftInterner) {
+            val current = added ?: return
+
+            if (operationsBeforeIntern-- > 0) return
+            if (current.size < INTERN_SIZE_REQUIREMENT) return
+
+            operationsBeforeIntern = INTERN_RATE
+            added = interner.intern(current)
         }
 
         fun addAnalyzedInitialFact(ap: AccessPath.AccessNode?, exclusions: Set<Accessor>): Boolean =
@@ -288,5 +304,10 @@ class TreeInitialFactAbstraction(
                 }
             }
         }
+    }
+
+    companion object {
+        private const val INTERN_RATE = 100
+        private const val INTERN_SIZE_REQUIREMENT = 10_000
     }
 }

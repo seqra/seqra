@@ -27,8 +27,17 @@ class JIRLocalVariableReachability(
     fun isReachable(base: AccessPathBase, statement: CommonInst): Boolean {
         if (base !is AccessPathBase.LocalVar) return true
         val storageIdx = instructionStorageIdx(statement, languageManager)
-        val storage = reachabilityInfo[storageIdx] ?: return false
-        return storage.get(base.idx)
+        return isReachable(base.idx, storageIdx)
+    }
+
+    fun isReachable(base: AccessPathBase, statementIdx: Int): Boolean {
+        if (base !is AccessPathBase.LocalVar) return true
+        return isReachable(base.idx, statementIdx)
+    }
+
+    fun isReachable(localIdx: Int, statementIdx: Int): Boolean {
+        val storage = reachabilityInfo[statementIdx] ?: return false
+        return storage.get(localIdx)
     }
 
     private fun computeReachability(): Array<BitSet?> {

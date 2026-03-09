@@ -3,8 +3,10 @@ package org.opentaint.dataflow.ap.ifds.access.tree
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
+import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
@@ -64,6 +66,11 @@ class AccessPath(
         if (access == null) return this
         if (access.accessor != accessor) return this
         return null
+    }
+
+    override fun compatibilityFilter(typeChecker: FactTypeChecker): FactTypeChecker.FactCompatibilityFilter {
+        val node = access ?: return FactTypeChecker.AlwaysCompatibleFilter
+        return typeChecker.accessPathCompatibilityFilter(node.toList())
     }
 
     sealed interface AccessPathDelta : InitialFactAp.Delta {
@@ -250,12 +257,27 @@ class AccessPath(
         override fun toString(): String = joinToString("") { it.toSuffix() }
 
 
-        fun addParent(accessor: Accessor): AccessNode = when (accessor) {
-            FinalAccessor -> error("Final parent")
-            ElementAccessor -> AccessNode(ElementAccessor, limitElementAccess(limit = SUBSEQUENT_ARRAY_ELEMENTS_LIMIT))
-            is FieldAccessor -> AccessNode(accessor, limitFieldAccess(accessor))
-            is TaintMarkAccessor -> AccessNode(accessor, this)
-            AnyAccessor -> this // todo: All accessors are not supported in tree base ap
+        fun addParent(accessor: Accessor): AccessNode {
+            checkNoClassStaticAccessor()
+
+            return when (accessor) {
+                FinalAccessor -> error("Final parent")
+                ElementAccessor -> AccessNode(ElementAccessor, limitElementAccess(limit = SUBSEQUENT_ARRAY_ELEMENTS_LIMIT))
+                is FieldAccessor -> AccessNode(accessor, limitFieldAccess(accessor))
+                is ClassStaticAccessor -> AccessNode(accessor, this)
+                is TaintMarkAccessor -> AccessNode(accessor, this)
+                AnyAccessor -> this // todo: All accessors are not supported in tree base ap
+            }
+        }
+
+        private fun checkNoClassStaticAccessor() {
+            var node: AccessNode? = this
+            while (node != null) {
+                check(node.accessor !is ClassStaticAccessor) {
+                    "At most one ClassStaticAccessor is allowed in access path"
+                }
+                node = node.next
+            }
         }
 
         private fun limitElementAccess(limit: Int): AccessNode? {

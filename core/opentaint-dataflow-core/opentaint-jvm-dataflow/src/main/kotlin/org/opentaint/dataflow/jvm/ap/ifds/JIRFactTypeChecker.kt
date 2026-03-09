@@ -5,9 +5,11 @@ import it.unimi.dsi.fastutil.longs.LongLongPair
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
+import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker.AlwaysAcceptFilter
+import org.opentaint.dataflow.ap.ifds.FactTypeChecker.CompatibilityFilterResult
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker.FactApFilter
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker.FilterResult
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
@@ -30,6 +32,7 @@ import org.opentaint.ir.api.jvm.ext.ifArrayGetElementType
 import org.opentaint.ir.api.jvm.ext.isAssignable
 import org.opentaint.ir.api.jvm.ext.isSubClassOf
 import org.opentaint.ir.api.jvm.ext.objectType
+import org.opentaint.ir.impl.features.classpaths.JIRUnknownType
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.LongAdder
 
@@ -55,6 +58,14 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
         if (!isCorrect) accessRejected.increment()
     }
 
+    val compatibilityTotal = LongAdder()
+    val compatibilityRejected = LongAdder()
+
+    private fun Boolean.logCompatibilityCheck(): Boolean = also { isCorrect ->
+        compatibilityTotal.increment()
+        if (!isCorrect) compatibilityRejected.increment()
+    }
+
     private inner class AccessorFilter(
         private val actualType: JIRType,
         private val isLocalCheck: Boolean
@@ -66,7 +77,7 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
 
         private fun checkAccessor(accessor: Accessor): FilterResult {
             when (accessor) {
-                is TaintMarkAccessor, FinalAccessor, AnyAccessor -> return FilterResult.Accept
+                is TaintMarkAccessor, FinalAccessor, AnyAccessor, is ClassStaticAccessor -> return FilterResult.Accept
                 is FieldAccessor -> {
                     if (actualType !is JIRRefType) return FilterResult.Reject
 
@@ -89,6 +100,26 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
         }
     }
 
+    private inner class AccessorCompatibilityFilter(
+        private val actualType: JIRType
+    ) : FactTypeChecker.FactCompatibilityFilter {
+        override fun check(accessor: Accessor): CompatibilityFilterResult  = checkAccessor(accessor).also {
+            val result = it !== CompatibilityFilterResult.NotCompatible
+            result.logCompatibilityCheck()
+        }
+
+        private fun checkAccessor(accessor: Accessor): CompatibilityFilterResult {
+            if (accessor !is FieldAccessor) return CompatibilityFilterResult.Compatible
+
+            val fieldType = fieldAccessorType(accessor)
+                ?: return CompatibilityFilterResult.Compatible
+
+            if (!typesCompatible(actualType, fieldType)) return CompatibilityFilterResult.NotCompatible
+
+            return CompatibilityFilterResult.Compatible
+        }
+    }
+
     override fun filterFactByLocalType(actualType: CommonType?, factAp: FinalFactAp): FinalFactAp? {
         if (actualType == null) return factAp
         jIRDowncast<JIRType>(actualType)
@@ -100,6 +131,11 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
     override fun accessPathFilter(accessPath: List<Accessor>): FactApFilter {
         val actualType = accessorActualType(accessPath) ?: return AlwaysAcceptFilter
         return AccessorFilter(actualType, isLocalCheck = false)
+    }
+
+    override fun accessPathCompatibilityFilter(accessPath: List<Accessor>): FactTypeChecker.FactCompatibilityFilter {
+        val actualType = accessorActualType(accessPath) ?: return FactTypeChecker.AlwaysCompatibleFilter
+        return AccessorCompatibilityFilter(actualType)
     }
 
     fun callArgumentMayBeArray(call: JIRCallExpr, arg: AccessPathBase.Argument): Boolean {
@@ -122,7 +158,7 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
                 accessorActualType(prevAccessors)?.ifArrayGetElementType
             }
 
-            is TaintMarkAccessor, FinalAccessor, AnyAccessor -> null
+            is TaintMarkAccessor, FinalAccessor, AnyAccessor, is ClassStaticAccessor -> null
         }
     }
 
@@ -143,6 +179,17 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
         is JIRUnboundWildcard, is JIRBoundedWildcard -> true
 
         else -> error("Unexpected type: $type")
+    }
+
+    private fun typesCompatible(t1: JIRType, t2: JIRType): Boolean {
+        if (t1 == t2) return true
+        if (t1 is JIRUnknownType || t2 is JIRUnknownType) return true
+        if (t1.isAssignable(t2) || t2.isAssignable(t1)) return true
+        if (t1 !is JIRRefType || t2 !is JIRRefType) return false
+        if (t1 !is JIRClassType && t2 !is JIRClassType) return true
+        if (t1 is JIRClassType && typeMayHaveSubtypeOf(t2, t1)) return true
+        if (t2 is JIRClassType && typeMayHaveSubtypeOf(t1, t2)) return true
+        return false
     }
 
     private fun typeMayHaveSubtypeOf(type: JIRRefType, requiredType: JIRClassType): Boolean = when (type) {

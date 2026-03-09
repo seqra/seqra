@@ -276,9 +276,10 @@ class JIRBasicAtomEvaluator(
             resolveLocalVarValue(value, matchArrayValue) { aliasInfo ->
                 val statics = aliasInfo
                     .filterIsInstance<AliasApInfo>()
-                    .filter { it.base is AccessPathBase.ClassStatic }
-                    .mapNotNull { it.accessors.firstOrNull() }
-                    .filterIsInstance<JIRLocalAliasAnalysis.AliasAccessor.Field>()
+                    .filter { it.base == AccessPathBase.ClassStatic }
+                    .mapNotNull { apInfo ->
+                        apInfo.accessors.filterIsInstance<JIRLocalAliasAnalysis.AliasAccessor.Field>().firstOrNull()
+                    }
 
                 if (statics.any { staticFieldMatches(it.className, it.fieldName, condition) }) {
                     return true

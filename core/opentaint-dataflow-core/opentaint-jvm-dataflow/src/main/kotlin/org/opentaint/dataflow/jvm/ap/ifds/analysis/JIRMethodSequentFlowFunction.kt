@@ -22,10 +22,10 @@ import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.accessPathBase
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.clearField
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.excludeField
-import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.mayReadField
+import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.mayReadAccessor
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.mayRemoveAfterWrite
-import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.readFieldTo
-import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.writeToField
+import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.readAccessorTo
+import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.writeToAccessor
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyRuleWithAssumptions
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FinalFactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRFactWithMarkAfterAnyFieldResolver.Companion.createMarkAfterFieldsResolver
@@ -271,17 +271,17 @@ class JIRMethodSequentFlowFunction(
         val onUnchanged: (FinalFactAp) -> Unit = if (factModified) propagateFact else { _ -> unchanged() }
 
         when {
-            assignFromAccess?.accessor != null -> {
-                check(assignToAccess.accessor == null) { "Complex assignment: $assignTo = $assignFrom" }
+            assignFromAccess is MethodFlowFunctionUtils.MemoryAccess -> {
+                check(assignToAccess !is MethodFlowFunctionUtils.MemoryAccess) { "Complex assignment: $assignTo = $assignFrom" }
                 fieldRead(
-                    assignToAccess.base, assignFromAccess.base, assignFromAccess.accessor, fact,
+                    assignToAccess.base, assignFromAccess, fact,
                     onUnchanged, propagateFact, propagateFactWithAccessorExclude
                 )
             }
 
-            assignToAccess.accessor != null -> {
+            assignToAccess is MethodFlowFunctionUtils.MemoryAccess -> {
                 fieldWrite(
-                    assignToAccess.base, assignToAccess.accessor, assignFromAccess?.base, fact,
+                    assignToAccess, assignFromAccess?.base, fact,
                     onUnchanged, propagateFact, propagateFactWithAccessorExclude
                 )
             }
@@ -322,6 +322,73 @@ class JIRMethodSequentFlowFunction(
 
     private fun fieldRead(
         assignTo: AccessPathBase,
+        access: MethodFlowFunctionUtils.MemoryAccess,
+        factAp: FinalFactAp,
+        unchanged: (FinalFactAp) -> Unit,
+        propagateFact: (FinalFactAp) -> Unit,
+        propagateFactWithAccessorExclude: (FinalFactAp, Accessor) -> Unit
+    ) = when (access) {
+        is MethodFlowFunctionUtils.RefAccess -> fieldRead(
+            assignTo, access.base, access.accessor, factAp,
+            unchanged, propagateFact, propagateFactWithAccessorExclude
+        )
+
+        is MethodFlowFunctionUtils.StaticRefAccess -> {
+            /**
+             * x = <static>.<class>.a | f(<static>.<class>.a)
+             * -------------------
+             * b = <static>.<class> | f(<static>.<class>.a), f(b.a)
+             * x = b.a
+             */
+
+            val auxiliaryBase = AccessPathBase.LocalVar.create(-1) // b
+            fieldRead(
+                auxiliaryBase,
+                access.base, access.classStaticAccessor, factAp,
+                unchanged = {
+                    if (it.base != auxiliaryBase) {
+                        unchanged(it)
+                    }
+                },
+                propagateFact = { f ->
+                    if (f.base != auxiliaryBase) {
+                        propagateFact(f)
+                    } else {
+                        fieldRead(
+                            assignTo,
+                            auxiliaryBase, access.accessor,
+                            factAp = f,
+                            unchanged = {
+                                if (it.base != auxiliaryBase) {
+                                    unchanged(it)
+                                }
+                            },
+                            propagateFact = {
+                                if (it.base != auxiliaryBase) {
+                                    propagateFact(it)
+                                }
+                            },
+                            propagateFactWithAccessorExclude = { f, ex ->
+                                if (f.base != auxiliaryBase) {
+                                    propagateFactWithAccessorExclude(f, ex)
+                                } else{
+                                    propagateFactWithAccessorExclude(factAp, ex)
+                                }
+                            }
+                        )
+                    }
+                },
+                propagateFactWithAccessorExclude = { f, ex ->
+                    if (f.base != auxiliaryBase) {
+                        propagateFactWithAccessorExclude(f, ex)
+                    }
+                }
+            )
+        }
+    }
+
+    private fun fieldRead(
+        assignTo: AccessPathBase,
         instance: AccessPathBase,
         accessor: Accessor,
         factAp: FinalFactAp,
@@ -329,7 +396,7 @@ class JIRMethodSequentFlowFunction(
         propagateFact: (FinalFactAp) -> Unit,
         propagateFactWithAccessorExclude: (FinalFactAp, Accessor) -> Unit
     ) {
-        if (!factAp.mayReadField(instance, accessor)) {
+        if (!factAp.mayReadAccessor(instance, accessor)) {
             // Fact is irrelevant to current reading
             unchanged(factAp)
             return
@@ -351,7 +418,7 @@ class JIRMethodSequentFlowFunction(
 
         check(factAp.startsWithAccessor(accessor))
 
-        val newAp = factAp.readFieldTo(newBase = assignTo, field = accessor)
+        val newAp = factAp.readAccessorTo(newBase = assignTo, accessor = accessor)
         propagateFact(newAp)
 
         // Assign can't overwrite fact
@@ -361,8 +428,27 @@ class JIRMethodSequentFlowFunction(
     }
 
     private fun fieldWrite(
+        access: MethodFlowFunctionUtils.MemoryAccess,
+        assignFrom: AccessPathBase?,
+        factAp: FinalFactAp,
+        unchanged: (FinalFactAp) -> Unit,
+        propagateFact: (FinalFactAp) -> Unit,
+        propagateFactWithAccessorExclude: (FinalFactAp, Accessor) -> Unit
+    ) = when (access) {
+        is MethodFlowFunctionUtils.RefAccess -> fieldWrite(
+            access.base, listOf(access.accessor), assignFrom, factAp,
+            unchanged, propagateFact, propagateFactWithAccessorExclude
+        )
+
+        is MethodFlowFunctionUtils.StaticRefAccess -> fieldWrite(
+            access.base, listOf(access.accessor, access.classStaticAccessor), assignFrom, factAp,
+            unchanged, propagateFact, propagateFactWithAccessorExclude
+        )
+    }
+
+    private fun fieldWrite(
         instance: AccessPathBase,
-        accessor: Accessor,
+        accessors: List<Accessor>,
         assignFrom: AccessPathBase?,
         factAp: FinalFactAp,
         unchanged: (FinalFactAp) -> Unit,
@@ -382,12 +468,12 @@ class JIRMethodSequentFlowFunction(
                  * a.x = b | f(b), f(b -> a.x), f(a -> a / {x})
                  */
 
-                val auxiliaryBase = AccessPathBase.LocalVar(-1) // b
+                val auxiliaryBase = AccessPathBase.LocalVar.create(-1) // b
                 check(auxiliaryBase != instance)
 
                 fieldWrite(
                     instance = instance,
-                    accessor = accessor,
+                    accessors = accessors,
                     assignFrom = auxiliaryBase,
                     factAp = factAp.rebase(auxiliaryBase), // f(b)
                     unchanged = {
@@ -409,7 +495,7 @@ class JIRMethodSequentFlowFunction(
 
                 fieldWrite(
                     instance = instance,
-                    accessor = accessor,
+                    accessors = accessors,
                     assignFrom = auxiliaryBase,
                     factAp = factAp, // f(a)
                     unchanged = {
@@ -438,7 +524,7 @@ class JIRMethodSequentFlowFunction(
             unchanged(factAp)
 
             // New lhs fact
-            val newAp = factAp.writeToField(newBase = instance, field = accessor)
+            val newAp = accessors.fold(factAp) { f, a -> f.writeToAccessor(instance, a) }
             propagateFact(newAp)
 
             analysisContext.aliasAnalysis?.forEachAliasAtStatement(currentInst, newAp) { aliased ->
@@ -451,10 +537,12 @@ class JIRMethodSequentFlowFunction(
         // We have fact on lhs and NO fact on the rhs -> remove fact from lhs
 
         // todo hack: keep fact on the array elements
-        if (factAp.base == instance && accessor is ElementAccessor) {
+        if (factAp.base == instance && accessors.any { it is ElementAccessor }) {
             propagateFact(factAp)
             return
         }
+
+        val accessor = accessors.first()
 
         if (!factAp.mayRemoveAfterWrite(instance, accessor)) {
             // Fact is irrelevant to current writing
@@ -466,7 +554,7 @@ class JIRMethodSequentFlowFunction(
             val nonAbstractAp = factAp.removeAbstraction()
             if (nonAbstractAp != null) {
                 fieldWrite(
-                    instance, accessor, assignFrom, nonAbstractAp,
+                    instance, accessors, assignFrom, nonAbstractAp,
                     unchanged, propagateFact, propagateFactWithAccessorExclude
                 )
             }

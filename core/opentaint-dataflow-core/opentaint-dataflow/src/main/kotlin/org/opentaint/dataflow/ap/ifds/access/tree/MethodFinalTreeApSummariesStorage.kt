@@ -10,31 +10,18 @@ class MethodFinalTreeApSummariesStorage(
     TreeFinalApAccess {
     override fun createStorage(): Storage<AccessTree.AccessNode> = MethodZeroToFactSummaryEdgeStorage(apManager)
 
-    private class MethodZeroToFactSummaryEdgeStorage(
-        val apManager: TreeApManager,
-    ): Storage<AccessTree.AccessNode> {
-        private var summaryEdgeAccess: AccessTree.AccessNode? = null
+    private class MethodZeroToFactSummaryEdgeStorage(val apManager: TreeApManager): Storage<AccessTree.AccessNode> {
+        private val treeStorage = MergingTreeSummaryStorage(apManager.refManager)
 
         override fun add(edges: List<AccessTree.AccessNode>, added: MutableList<Z2FBBuilder<AccessTree.AccessNode>>) {
-            edges.mapNotNullTo(added) { add(it) }
-        }
+            edges.forEach { treeStorage.add(it) }
 
-        private fun add(edgeAccess: AccessTree.AccessNode): Z2FBBuilder<AccessTree.AccessNode>? {
-            val summaryAccess = summaryEdgeAccess
-            if (summaryAccess == null) {
-                summaryEdgeAccess = edgeAccess
-                return ZeroEdgeBuilderBuilder(apManager).setNode(edgeAccess)
-            }
-
-            val mergedAccess = summaryAccess.mergeAdd(edgeAccess)
-            if (summaryAccess === mergedAccess) return null
-
-            summaryEdgeAccess = mergedAccess
-            return ZeroEdgeBuilderBuilder(apManager).setNode(mergedAccess)
+            val delta = treeStorage.getAndResetDelta() ?: return
+            added += ZeroEdgeBuilderBuilder(apManager).setNode(delta)
         }
 
         override fun collectEdges(dst: MutableList<Z2FBBuilder<AccessTree.AccessNode>>) {
-            summaryEdgeAccess?.let { dst += ZeroEdgeBuilderBuilder(apManager).setNode(it) }
+            treeStorage.edges()?.let { dst += ZeroEdgeBuilderBuilder(apManager).setNode(it) }
         }
     }
 

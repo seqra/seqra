@@ -10,6 +10,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAccessor
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAllocInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasApInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasInfo
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalVariableReachability
 import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.AAInfo
 import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.ArrayAlias
 import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.CallReturn
@@ -59,32 +60,80 @@ class JIRIntraProcAliasAnalysis(
         override fun buildMethodJig(entryPoint: JIRInst): JIRInstGraph = getJIG(entryPoint)
     }
 
-    fun compute(): JIRLocalAliasAnalysis.MethodAliasInfo {
+    fun compute(localVariableReachability: JIRLocalVariableReachability): JIRLocalAliasAnalysis.MethodAliasInfo {
         val jig = getJIG(entryPoint)
         val daa = DSUAliasAnalysis(CallResolver()).analyze(jig)
 
-        val aliasBeforeStatement =
-            Array(jig.statements.size) { i -> resolveLocalVar(daa.statesBeforeStmt[i]) }.also { squash(it) }
-        val aliasAfterStatement =
-            Array(jig.statements.size) { i -> resolveLocalVar(daa.statesAfterStmt[i]) }.also { squash(it) }
+        val aliasBeforeStatement = Array(jig.statements.size) { i ->
+            resolveLocalVar(daa.statesBeforeStmt[i], localVariableReachability, i)
+        }
 
-        return JIRLocalAliasAnalysis.MethodAliasInfo(aliasBeforeStatement, aliasAfterStatement)
+        val aliasAfterStatement = Array(jig.statements.size) { i ->
+            resolveLocalVar(daa.statesAfterStmt[i], localVariableReachability, i)
+        }
+
+        return compressAliasInfo(aliasBeforeStatement, aliasAfterStatement)
     }
 
-    private fun squash(arr: Array<Int2ObjectOpenHashMap<List<AliasInfo>>>) {
-        for (i in 1 until arr.size) {
-            if (arr[i - 1] == arr[i]) {
-                arr[i] = arr[i - 1]
+    private fun compressAliasInfo(
+        aliasBeforeStatement: Array<Int2ObjectOpenHashMap<List<AliasInfo>>>,
+        aliasAfterStatement: Array<Int2ObjectOpenHashMap<List<AliasInfo>>>
+    ): JIRLocalAliasAnalysis.MethodAliasInfo {
+        val compressedBefore = arrayOfNulls<Int2ObjectOpenHashMap<Array<Any>>>(aliasBeforeStatement.size)
+        val compressedAfter = arrayOfNulls<Int2ObjectOpenHashMap<Array<Any>>>(aliasAfterStatement.size)
+
+        compress(aliasBeforeStatement, compressedBefore, reference = null, referenceCompressed = null)
+        compress(aliasAfterStatement, compressedAfter, aliasBeforeStatement, compressedBefore)
+        return JIRLocalAliasAnalysis.MethodAliasInfo(compressedBefore, compressedAfter)
+    }
+
+    private fun compress(
+        statementInfo: Array<Int2ObjectOpenHashMap<List<AliasInfo>>>,
+        compressed: Array<Int2ObjectOpenHashMap<Array<Any>>?>,
+        reference: Array<Int2ObjectOpenHashMap<List<AliasInfo>>>?,
+        referenceCompressed: Array<Int2ObjectOpenHashMap<Array<Any>>?>?
+    ) {
+        for (i in statementInfo.indices) {
+            val current = statementInfo[i]
+            if (current.isEmpty()) continue
+
+            if (i > 0 && statementInfo[i - 1] == current) {
+                compressed[i] = compressed[i - 1]
+                continue
             }
+
+            if (reference != null) {
+                if (reference[i] == current) {
+                    compressed[i] = referenceCompressed!![i]
+                }
+
+                if (i > 0 && reference[i - 1] == current) {
+                    compressed[i] = referenceCompressed!![i - 1]
+                    continue
+                }
+            }
+
+            val unwrapped = JIRLocalAliasAnalysis.unwrapAllInfo(current)
+            compressed[i] = unwrapped
         }
     }
 
-    private fun resolveLocalVar(daa: ConnectedAliases): Int2ObjectOpenHashMap<List<AliasInfo>> {
+    private fun resolveLocalVar(
+        daa: ConnectedAliases,
+        reachableLocals: JIRLocalVariableReachability,
+        instIdx: Int
+    ): Int2ObjectOpenHashMap<List<AliasInfo>> {
         val result = Int2ObjectOpenHashMap<List<AliasInfo>>()
         daa.aliasGroups.forEach { group ->
-            val locals = group.filter { it is LocalAlias.SimpleLoc && it.loc is Local }
+            val locals = group.filter {
+                it is LocalAlias.SimpleLoc && it.loc is Local && reachableLocals.isReachable(it.loc.idx, instIdx)
+            }
             if (locals.isEmpty()) return@forEach
-            val converted = group.mapNotNull { it.convertToAliasInfo() }
+
+            val converted = group
+                .mapNotNull { it.convertToAliasInfo() }
+                .filter { it !is AliasApInfo || reachableLocals.isReachable(it.base, instIdx) }
+
             // size == 1 means only local was converted to AliasInfo; not really meaningful
             if (converted.size <= 1) return@forEach
             locals.forEach { local ->
@@ -123,7 +172,10 @@ class JIRIntraProcAliasAnalysis(
                 is Local -> AccessPathBase.LocalVar(loc.idx)
                 is RefValue.Arg -> AccessPathBase.Argument(loc.idx)
                 is RefValue.This -> AccessPathBase.This
-                is RefValue.Static -> AccessPathBase.ClassStatic(loc.type)
+                is RefValue.Static -> {
+                    val staticAccessors = listOf(AliasAccessor.Static(loc.type)) + accessors
+                    return AliasApInfo(AccessPathBase.ClassStatic, staticAccessors)
+                }
             }
 
             is LocalAlias.Alloc -> {

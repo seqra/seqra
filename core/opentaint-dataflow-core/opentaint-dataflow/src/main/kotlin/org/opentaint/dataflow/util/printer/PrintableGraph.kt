@@ -22,9 +22,7 @@ interface PrintableGraph<GNode, GLabel> {
         Util.sh(arrayOf(viewer.value, "file://$path"))
     }
 
-    fun toFile(fileName: String, dotCmd: String): Path {
-        Graph.setDefaultCmd(dotCmd)
-
+    fun graph(): Graph {
         val graph = Graph("automata")
 
         graph.setBgColor(Color.X11.transparent)
@@ -61,6 +59,12 @@ interface PrintableGraph<GNode, GLabel> {
             }
         }
 
+        return graph
+    }
+
+    fun toFile(fileName: String, dotCmd: String): Path {
+        Graph.setDefaultCmd(dotCmd)
+        val graph = graph()
         val outFile = graph.dot2file("svg")
         val newFile = "${outFile.removeSuffix(".out")}$fileName.svg"
         val resultingFile = File(newFile).toPath()

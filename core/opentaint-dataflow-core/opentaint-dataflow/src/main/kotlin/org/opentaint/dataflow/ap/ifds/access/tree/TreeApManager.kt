@@ -1,7 +1,9 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.Edge
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.ap.ifds.access.FinalFactList
 import org.opentaint.dataflow.ap.ifds.ExclusionSet.Empty
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.LanguageManager
@@ -22,10 +24,12 @@ import org.opentaint.dataflow.ap.ifds.access.FactSideEffectSummariesApStorage
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
+import org.opentaint.dataflow.util.SoftReferenceManager
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 class TreeApManager(
-    override val anyAccessorUnrollStrategy: AnyAccessorUnrollStrategy
+    override val anyAccessorUnrollStrategy: AnyAccessorUnrollStrategy,
+    val refManager: SoftReferenceManager = SoftReferenceManager(),
 ) : ApManager {
     override fun initialFactAbstraction(methodInitialStatement: CommonInst): InitialFactAbstraction =
         TreeInitialFactAbstraction(this)
@@ -67,6 +71,18 @@ class TreeApManager(
 
     override fun factSideEffectSummariesApStorage(methodInitialStatement: CommonInst): FactSideEffectSummariesApStorage =
         FactSideEffectSummariesTreeApStorage(methodInitialStatement, this)
+
+    override fun listEdgeCompressionRequired(edge: Edge): Boolean {
+        val fact = when (edge) {
+            is Edge.ZeroToZero -> return false
+            is Edge.FactToFact -> edge.factAp
+            is Edge.NDFactToFact -> edge.factAp
+            is Edge.ZeroToFact -> edge.factAp
+        }
+        return TreeFinalFactList.factCompressionRequired(fact)
+    }
+
+    override fun finalFactList(): FinalFactList = TreeFinalFactList(this)
 
     override fun mostAbstractInitialAp(base: AccessPathBase): InitialFactAp =
         AccessPath(this, base, access = null, exclusions = Empty)

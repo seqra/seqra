@@ -3,6 +3,7 @@ package org.opentaint.dataflow.ap.ifds.access.cactus
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 
@@ -76,6 +77,9 @@ class AccessPathWithCycles(
         factAp as AccessPathWithCycles
         return this == factAp
     }
+
+    override fun compatibilityFilter(typeChecker: FactTypeChecker): FactTypeChecker.FactCompatibilityFilter =
+        FactTypeChecker.AlwaysCompatibleFilter
 
     override val size: Int
         get() = access?.size ?: 0

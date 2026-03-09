@@ -1,29 +1,34 @@
 package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
+import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
+import org.opentaint.dataflow.ap.ifds.MethodAnalyzer
+import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
+import org.opentaint.dataflow.ap.ifds.MethodWithContext
+import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
+import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner.LambdaResolvedEvent
+import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
+import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolver
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLambdaTracker
+import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
+import org.opentaint.dataflow.jvm.ap.ifds.jIRDowncast
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.findMethodOrNull
-import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
-import org.opentaint.dataflow.ap.ifds.MethodAnalyzer
-import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
-import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
-import org.opentaint.dataflow.ap.ifds.MethodWithContext
-import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
-import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner.LambdaResolvedEvent
-import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
-import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolver
-import org.opentaint.dataflow.jvm.ap.ifds.JIRLambdaTracker
-import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
-import org.opentaint.dataflow.jvm.ap.ifds.jIRDowncast
 
 class JIRMethodCallResolver(
     private val lambdaTracker: JIRLambdaTracker,
     val callResolver: JIRCallResolver,
-    private val runner: TaintAnalysisUnitRunner
+    private val runner: TaintAnalysisUnitRunner,
+    private val params: Params,
 ) : MethodCallResolver {
+    data class Params(
+        val skipUnresolvedLambda: Boolean = true,
+    )
+
     override fun resolveMethodCall(
         callerContext: MethodAnalysisContext,
         callExpr: CommonCallExpr,
@@ -48,6 +53,11 @@ class JIRMethodCallResolver(
         return resolvedJirMethodCalls(callerContext, callExpr, location)
     }
 
+    private val lambdaFeature by lazy {
+        callResolver.cp.features?.filterIsInstance<LambdaAnonymousClassFeature>()?.firstOrNull()
+            ?: error("No lambda feature found")
+    }
+
     private fun resolveJirMethodCall(
         callerContext: JIRMethodAnalysisContext,
         callExpr: JIRCallExpr,
@@ -59,19 +69,36 @@ class JIRMethodCallResolver(
 
         val analyzer = runner.getMethodAnalyzer(callerContext.methodEntryPoint)
         for (resolvedCallee in callees) {
-            when (resolvedCallee) {
-                JIRCallResolver.MethodResolutionResult.MethodResolutionFailed -> {
-                    analyzer.handleMethodCallResolutionFailure(callExpr, failureHandler)
-                }
+            resolveJirMethodCall(callerContext, resolvedCallee, analyzer, callExpr, failureHandler, handler)
+        }
+    }
 
-                is JIRCallResolver.MethodResolutionResult.ConcreteMethod -> {
-                    analyzer.handleResolvedMethodCall(resolvedCallee.method, handler)
-                }
+    private fun resolveJirMethodCall(
+        callerContext: JIRMethodAnalysisContext,
+        resolvedCallee: JIRCallResolver.MethodResolutionResult,
+        analyzer: MethodAnalyzer,
+        callExpr: JIRCallExpr,
+        failureHandler: MethodAnalyzer.MethodCallResolutionFailureHandler,
+        handler: MethodAnalyzer.MethodCallHandler
+    ) {
+        when (resolvedCallee) {
+            JIRCallResolver.MethodResolutionResult.MethodResolutionFailed -> {
+                analyzer.handleMethodCallResolutionFailure(callExpr, failureHandler)
+            }
 
-                is JIRCallResolver.MethodResolutionResult.Lambda -> {
-                    val subscription = LambdaSubscription(runner, callerContext.methodEntryPoint, handler)
-                    lambdaTracker.subscribeOnLambda(resolvedCallee.method, subscription)
-                }
+            is JIRCallResolver.MethodResolutionResult.ConcreteMethod -> {
+                analyzer.handleResolvedMethodCall(resolvedCallee.method, handler)
+            }
+
+            is JIRCallResolver.MethodResolutionResult.Lambda -> {
+                resolvedCallee.withLambdaProxy(
+                    callerContext,
+                    delegate = { resolveJirMethodCall(callerContext, it, analyzer, callExpr, failureHandler, handler) },
+                    handleLambda = {
+                        val subscription = LambdaSubscription(runner, callerContext.methodEntryPoint, handler)
+                        lambdaTracker.subscribeOnLambda(resolvedCallee.method, subscription)
+                    }
+                )
             }
         }
     }
@@ -83,16 +110,25 @@ class JIRMethodCallResolver(
     ): List<MethodWithContext> {
         val callees = callResolver.resolve(callExpr, location, callerContext)
         return callees.flatMap { resolvedCallee ->
-            when (resolvedCallee) {
-                JIRCallResolver.MethodResolutionResult.MethodResolutionFailed -> {
-                    emptyList()
-                }
+            resolvedJirMethodCalls(callerContext, resolvedCallee)
+        }
+    }
 
-                is JIRCallResolver.MethodResolutionResult.ConcreteMethod -> {
-                    listOf(resolvedCallee.method)
-                }
+    private fun resolvedJirMethodCalls(
+        callerContext: JIRMethodAnalysisContext,
+        resolvedCallee: JIRCallResolver.MethodResolutionResult
+    ): List<MethodWithContext> =
+        when (resolvedCallee) {
+            JIRCallResolver.MethodResolutionResult.MethodResolutionFailed -> {
+                emptyList()
+            }
 
-                is JIRCallResolver.MethodResolutionResult.Lambda -> {
+            is JIRCallResolver.MethodResolutionResult.ConcreteMethod -> {
+                listOf(resolvedCallee.method)
+            }
+
+            is JIRCallResolver.MethodResolutionResult.Lambda -> {
+                resolvedCallee.withLambdaProxy(callerContext, { resolvedJirMethodCalls(callerContext, it) }) {
                     val resolvedLambdas = mutableListOf<MethodWithContext>()
                     lambdaTracker.forEachRegisteredLambda(
                         resolvedCallee.method,
@@ -112,7 +148,6 @@ class JIRMethodCallResolver(
                 }
             }
         }
-    }
 
     private data class LambdaSubscription(
         private val runner: TaintAnalysisUnitRunner,
@@ -126,5 +161,29 @@ class JIRMethodCallResolver(
             val lambdaMethodWithContext = MethodWithContext(methodImpl, EmptyMethodContext)
             runner.addResolvedLambdaEvent(LambdaResolvedEvent(callerEntryPoint, handler, lambdaMethodWithContext))
         }
+    }
+
+    private inline fun <T> JIRCallResolver.MethodResolutionResult.Lambda.withLambdaProxy(
+        callerContext: JIRMethodAnalysisContext,
+        delegate: (JIRCallResolver.MethodResolutionResult) -> T,
+        handleLambda: () -> T
+    ): T {
+        if (params.skipUnresolvedLambda) {
+            return delegate(JIRCallResolver.MethodResolutionResult.MethodResolutionFailed)
+        }
+
+        val caller = callerContext.methodEntryPoint.method as JIRMethod
+
+        if (caller is LambdaAnonymousClassFeature.OpentaintLambdaProxyMethod) {
+            return handleLambda()
+        }
+
+        val callerLocation = caller.enclosingClass.declaration.location
+
+        val proxy = lambdaFeature.getOrCreateLambdaProxy(method, callResolver.cp, callerLocation)
+        val proxyMethod = proxy.declaredMethods.first()
+        val proxyWithCtx = MethodWithContext(proxyMethod, EmptyMethodContext)
+        val concreteCall = JIRCallResolver.MethodResolutionResult.ConcreteMethod(proxyWithCtx)
+        return delegate(concreteCall)
     }
 }

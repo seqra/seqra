@@ -1,6 +1,5 @@
 package org.opentaint.dataflow.ap.ifds
 
-import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 import org.opentaint.dataflow.ap.ifds.Edge.FactToFact
 import org.opentaint.dataflow.ap.ifds.Edge.NDFactToFact
 import org.opentaint.dataflow.ap.ifds.Edge.ZeroInitialEdge
@@ -170,7 +169,7 @@ class NormalMethodAnalyzer(
     private var zeroInitialFactProcessed: Boolean = false
     private val initialFacts = apManager.initialFactAbstraction(methodEntryPoint.statement)
     private val edges = MethodAnalyzerEdges(apManager, methodEntryPoint, analysisManager)
-    private var pendingSummaryEdges = arrayListOf<Edge>()
+    private var pendingSummaryEdges = EdgeCollection.EdgeList(apManager, methodEntryPoint)
     private var pendingSideEffectRequirements = arrayListOf<InitialFactAp>()
     private var pendingSideEffectSummaries = arrayListOf<SideEffectSummary>()
 
@@ -179,11 +178,11 @@ class NormalMethodAnalyzer(
     )
 
     private var analyzerEnqueued = false
-    private var unprocessedEdges = arrayListOf<Edge>()
-    private var enqueuedUnchangedEdges = ObjectOpenHashSet<Edge>()
+    private var unprocessedEdges = EdgeCollection.EdgeList(apManager, methodEntryPoint)
+    private var enqueuedUnchangedEdges = EdgeCollection.EdgeSet()
 
     override val containsUnprocessedEdges: Boolean
-        get() = unprocessedEdges.isNotEmpty()
+        get() = !unprocessedEdges.isEmpty
 
     override var analyzerSteps: Long = 0
         private set
@@ -289,13 +288,13 @@ class NormalMethodAnalyzer(
             }
         }
 
-        if (unprocessedEdges.isNotEmpty()) return
+        if (!unprocessedEdges.isEmpty) return
 
         analyzerEnqueued = false
 
         // Create new empty list to shrink internal array
-        unprocessedEdges = arrayListOf()
-        enqueuedUnchangedEdges = ObjectOpenHashSet()
+        unprocessedEdges = EdgeCollection.EdgeList(apManager, methodEntryPoint)
+        enqueuedUnchangedEdges = EdgeCollection.EdgeSet()
 
         flushPendingSummaryEdges()
         flushPendingSideEffectRequirements()
@@ -597,7 +596,14 @@ class NormalMethodAnalyzer(
         }
 
         if (isValidSummaryEdge) {
-            newSummaryEdge(edge)
+            val processor = analysisManager.getMethodSummaryEdgeProcessor(apManager, analysisContext, edge.statement)
+            if (processor == null) {
+                newSummaryEdge(edge)
+            } else {
+                processor.processSummaryEdge(edge).forEach {
+                    newSummaryEdge(it)
+                }
+            }
         }
     }
 
@@ -614,9 +620,9 @@ class NormalMethodAnalyzer(
     }
 
     private fun flushPendingSummaryEdges() {
-        if (pendingSummaryEdges.isNotEmpty()) {
-            runner.addNewSummaryEdges(methodEntryPoint, pendingSummaryEdges)
-            pendingSummaryEdges = arrayListOf()
+        if (!pendingSummaryEdges.isEmpty) {
+            runner.addNewSummaryEdges(methodEntryPoint, pendingSummaryEdges.toList())
+            pendingSummaryEdges = EdgeCollection.EdgeList(apManager, methodEntryPoint)
         }
     }
 

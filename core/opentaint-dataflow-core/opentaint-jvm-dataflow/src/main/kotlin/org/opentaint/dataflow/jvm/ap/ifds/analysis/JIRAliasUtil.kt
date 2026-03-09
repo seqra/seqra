@@ -2,6 +2,7 @@ package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
@@ -97,4 +98,5 @@ private fun applyAlias(
 private fun AliasAccessor.apAccessor(): Accessor = when (this) {
     is AliasAccessor.Array -> ElementAccessor
     is AliasAccessor.Field -> FieldAccessor(className, fieldName, fieldType)
+    is AliasAccessor.Static -> ClassStaticAccessor(typeName)
 }

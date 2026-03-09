@@ -37,7 +37,7 @@ import org.opentaint.jvm.util.toJIRClassOrInterface
 import java.util.concurrent.ConcurrentHashMap
 
 class JIRCallResolver(
-    cp: JIRClasspath,
+    val cp: JIRClasspath,
     private val unitResolver: JIRUnitResolver
 ) {
     private val hierarchy = JIRHierarchyInfo(cp)

@@ -9,20 +9,29 @@ sealed interface AccessPathBase {
         override fun toString(): String = "<this>"
     }
 
-    data class LocalVar(val idx: Int) : AccessPathBase {
+    @ConsistentCopyVisibility
+    data class LocalVar private constructor(val idx: Int) : AccessPathBase {
         override fun toString(): String = "var($idx)"
+
+        companion object{
+            fun create(idx: Int): LocalVar = LocalVar(idx)
+        }
     }
 
-    data class Argument(val idx: Int) : AccessPathBase {
+    @ConsistentCopyVisibility
+    data class Argument private constructor(val idx: Int) : AccessPathBase {
         override fun toString(): String = "arg($idx)"
+
+        companion object {
+            fun create(idx: Int): Argument = Argument(idx)
+        }
     }
 
     data class Constant(val typeName: String, val value: String) : AccessPathBase {
         override fun toString(): String = "const<$typeName>($value)"
     }
-
-    data class ClassStatic(val typeName: String) : AccessPathBase {
-        override fun toString(): String = "<static>($typeName)"
+    data object ClassStatic : AccessPathBase {
+        override fun toString(): String = "<static>"
     }
 
     data object Return : AccessPathBase {
@@ -31,6 +40,24 @@ sealed interface AccessPathBase {
 
     data object Exception : AccessPathBase {
         override fun toString(): String = "exception"
+    }
+
+    companion object {
+        private const val PREDEFINED_ARGS = 16
+        private const val PREDEFINED_LOCALS = 128
+
+        private val arguments = Array(PREDEFINED_ARGS) { Argument.create(it) }
+        private val localVars = Array(PREDEFINED_LOCALS) { LocalVar.create(it) }
+
+        fun LocalVar(idx: Int): LocalVar {
+            if (idx < PREDEFINED_LOCALS) return localVars[idx]
+            return LocalVar.create(idx)
+        }
+
+        fun Argument(idx: Int): Argument {
+            if (idx < PREDEFINED_ARGS) return arguments[idx]
+            return Argument.create(idx)
+        }
     }
 }
 
@@ -47,6 +74,7 @@ sealed class Accessor : Comparable<Accessor> {
             ElementAccessor, FinalAccessor, AnyAccessor -> 0 // Definitely equal
             is FieldAccessor -> this.compareToFieldAccessor(other as FieldAccessor)
             is TaintMarkAccessor -> this.compareToTaintMarkAccessor(other as TaintMarkAccessor)
+            is ClassStaticAccessor -> this.compareToClassStaticAccessor(other as ClassStaticAccessor)
         }
     }
 }
@@ -68,7 +96,7 @@ data class FieldAccessor(
     val fieldType: String
 ) : Accessor() {
     override fun toSuffix(): String = ".$fieldName"
-    override fun toString(): String = "${className}#${fieldName}:$fieldType"
+    override fun toString(): String = "${className.substringAfterLast('.')}#${fieldName}"
 
     override val accessorClassId: Int = 2
 
@@ -112,6 +140,17 @@ data object AnyAccessor : Accessor() {
     override val accessorClassId: Int  = 4
 
     fun containsAccessor(accessor: Accessor): Boolean = accessor is FieldAccessor || accessor is ElementAccessor
+}
+
+data class ClassStaticAccessor(val typeName: String) : Accessor() {
+    override fun toSuffix(): String = "<static>($typeName)"
+    override fun toString(): String = "<static>($typeName)"
+
+    override val accessorClassId: Int = 5
+
+    fun compareToClassStaticAccessor(other: ClassStaticAccessor): Int {
+        return typeName.compareTo(other.typeName)
+    }
 }
 
 inline fun <T : Any> ApManager.tryAnyAccessorOrNull(accessor: Accessor, body: () -> T?): T? {

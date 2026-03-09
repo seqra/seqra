@@ -31,6 +31,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.util.maybeFlatMap
+import kotlin.collections.plusAssign
 
 class JIRMethodSequentPrecondition(
     private val apManager: ApManager,
@@ -131,17 +132,13 @@ class JIRMethodSequentPrecondition(
         }
 
         return when {
-            assignFromAccess?.accessor != null -> {
-                check(assignToAccess?.accessor == null) { "Complex assignment: $assignTo = $assignFrom" }
-                fieldRead(
-                    assignToAccess?.base, assignFromAccess.base, assignFromAccess.accessor, fact
-                )
+            assignFromAccess is MethodFlowFunctionUtils.MemoryAccess -> {
+                check(assignToAccess !is MethodFlowFunctionUtils.MemoryAccess) { "Complex assignment: $assignTo = $assignFrom" }
+                fieldRead(assignToAccess?.base, assignFromAccess, fact)
             }
 
-            assignToAccess?.accessor != null -> {
-                fieldWrite(
-                    assignToAccess.base, assignToAccess.accessor, assignFromAccess?.base, fact
-                )
+            assignToAccess is MethodFlowFunctionUtils.MemoryAccess -> {
+                fieldWrite(assignToAccess, assignFromAccess?.base, fact)
             }
 
             else -> simpleAssign(assignToAccess?.base, assignFromAccess?.base, fact)
@@ -167,44 +164,88 @@ class JIRMethodSequentPrecondition(
 
     private fun fieldRead(
         assignTo: AccessPathBase?,
-        instance: AccessPathBase,
-        accessor: Accessor,
+        access: MethodFlowFunctionUtils.MemoryAccess,
         fact: InitialFactAp,
     ): List<InitialFactAp>? {
-        if (fact.base != assignTo) {
-            return null
-        }
+        if (fact.base != assignTo) return null
+        val resultFact = when (access) {
+            is MethodFlowFunctionUtils.RefAccess -> fact
+                .prependAccessor(access.accessor)
+                .rebase(access.base)
 
-        return listOf(fact.prependAccessor(accessor).rebase(instance))
+            is MethodFlowFunctionUtils.StaticRefAccess -> fact
+                .prependAccessor(access.accessor)
+                .prependAccessor(access.classStaticAccessor)
+                .rebase(access.base)
+        }
+        return listOf(resultFact)
     }
 
     private fun fieldWrite(
-        instance: AccessPathBase,
-        accessor: Accessor,
+        access: MethodFlowFunctionUtils.MemoryAccess,
         assignFrom: AccessPathBase?,
         fact: InitialFactAp,
     ): List<InitialFactAp>? {
-        if (fact.base != instance || !fact.startsWithAccessor(accessor)) {
+        if (fact.base != access.base) return null
+
+        when (access) {
+            is MethodFlowFunctionUtils.RefAccess -> {
+                val (accessorFacts, otherFacts) = handleAccessorWrite(fact, access.accessor)
+                    ?: return null
+
+                val facts = otherFacts.toMutableList()
+                if (assignFrom != null) {
+                    accessorFacts.mapTo(facts) { it.rebase(assignFrom) }
+                }
+
+                return facts
+            }
+
+            is MethodFlowFunctionUtils.StaticRefAccess -> {
+                val facts = mutableListOf<InitialFactAp>()
+                val (accessorStaticFacts, otherStaticFacts) = handleAccessorWrite(fact, access.classStaticAccessor)
+                    ?: return null
+
+                facts += otherStaticFacts
+                accessorStaticFacts.forEach { f ->
+                    val (af, other) = handleAccessorWrite(f, access.accessor)
+                        ?: return@forEach
+
+                    other.mapTo(facts) { it.prependAccessor(access.classStaticAccessor) }
+
+                    if (assignFrom != null) {
+                        af.mapTo(facts) { it.rebase(assignFrom) }
+                    }
+                }
+                return facts
+            }
+        }
+    }
+
+    private fun handleAccessorWrite(
+        fact: InitialFactAp,
+        accessor: Accessor
+    ): Pair<List<InitialFactAp>, List<InitialFactAp>>? {
+        if (!fact.startsWithAccessor(accessor)) {
             return null
         }
 
-        val facts = buildList {
-            val factAtAccessor = fact.readAccessor(accessor) ?: error("No fact")
-            if (assignFrom != null) {
-                this += factAtAccessor.rebase(assignFrom)
-            }
+        val accessorFacts = mutableListOf<InitialFactAp>()
+        val otherFacts = mutableListOf<InitialFactAp>()
 
-            val otherFact = fact.clearAccessor(accessor)
-            if (otherFact != null) {
-                this += otherFact
-            }
+        val factAtAccessor = fact.readAccessor(accessor) ?: error("No fact")
+        accessorFacts += factAtAccessor
 
-            if (accessor is ElementAccessor) {
-                this += factAtAccessor.prependAccessor(ElementAccessor)
-            }
+        val otherFact = fact.clearAccessor(accessor)
+        if (otherFact != null) {
+            otherFacts += otherFact
         }
 
-        return facts
+        if (accessor is ElementAccessor) {
+            otherFacts += factAtAccessor.prependAccessor(ElementAccessor)
+        }
+
+        return accessorFacts to otherFacts
     }
 
     private fun MutableSet<SequentPrecondition>.unconditionalSourcesPrecondition(fact: InitialFactAp) {

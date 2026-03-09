@@ -4,6 +4,7 @@ import org.opentaint.util.assert
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
+import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
@@ -75,6 +76,11 @@ class AccessCactus(
 
     override fun equalTo(factAp: InitialFactAp): Boolean {
         TODO("Not yet implemented")
+    }
+
+    override fun filterFact(filter: FactTypeChecker.FactCompatibilityFilter): FinalFactAp? {
+        if (filter is FactTypeChecker.AlwaysCompatibleFilter) return this
+        TODO("Filter cactus with compatibility filter")
     }
 
     override fun getStartAccessors(): Set<Accessor> =
@@ -1184,6 +1190,7 @@ class AccessCactus(
                 return when (high) {
                     ElementAccessor -> low === ElementAccessor
                     is FieldAccessor -> (low is FieldAccessor) && (low.className == high.className)
+                    is ClassStaticAccessor -> low is ClassStaticAccessor
                     is TaintMarkAccessor -> error("Unexpected TaintMarkAccessor")
                     FinalAccessor -> error("Unexpected FinalAccessor")
                     AnyAccessor -> low === AnyAccessor

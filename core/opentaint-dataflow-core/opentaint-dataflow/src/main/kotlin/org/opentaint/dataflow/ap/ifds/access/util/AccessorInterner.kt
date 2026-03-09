@@ -1,4 +1,4 @@
-package org.opentaint.dataflow.ap.ifds.access.automata
+package org.opentaint.dataflow.ap.ifds.access.util
 
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.util.ConcurrentReadSafeObject2IntMap

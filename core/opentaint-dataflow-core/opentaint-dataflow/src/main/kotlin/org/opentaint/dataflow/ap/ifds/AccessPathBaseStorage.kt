@@ -21,9 +21,8 @@ abstract class AccessPathBaseStorage<V : Any>(initialStatement: CommonInst) {
     abstract fun findLocal(idx: Int): V?
     abstract fun forEachLocalValue(body: (AccessPathBase, V) -> Unit)
 
-    abstract fun getOrCreateClassStatic(base: AccessPathBase.ClassStatic): V
-    abstract fun findClassStatic(base: AccessPathBase.ClassStatic): V?
-    abstract fun forEachClassStaticValue(body: (AccessPathBase, V) -> Unit)
+    @JvmField
+    var classStaticStorage: V? = null
 
     abstract fun getOrCreateConstant(base: AccessPathBase.Constant): V
     abstract fun findConstant(base: AccessPathBase.Constant): V?
@@ -44,7 +43,9 @@ abstract class AccessPathBaseStorage<V : Any>(initialStatement: CommonInst) {
             storage as V
         }
 
-        is AccessPathBase.ClassStatic -> getOrCreateClassStatic(base)
+        AccessPathBase.ClassStatic -> {
+            classStaticStorage ?: createStorage().also { classStaticStorage = it }
+        }
         is AccessPathBase.LocalVar -> getOrCreateLocal(base.idx)
         is AccessPathBase.Constant -> getOrCreateConstant(base)
 
@@ -61,7 +62,7 @@ abstract class AccessPathBaseStorage<V : Any>(initialStatement: CommonInst) {
     fun find(base: AccessPathBase): V? = when (base) {
         AccessPathBase.This -> thisStorage
         is AccessPathBase.Argument -> argsStorage.getOrNull(base.idx) as V?
-        is AccessPathBase.ClassStatic -> findClassStatic(base)
+        AccessPathBase.ClassStatic -> classStaticStorage
         is AccessPathBase.LocalVar -> findLocal(base.idx)
         is AccessPathBase.Constant -> findConstant(base)
         AccessPathBase.Return -> returnStorage
@@ -89,7 +90,7 @@ abstract class AccessPathBaseStorage<V : Any>(initialStatement: CommonInst) {
         }
 
         forEachLocalValue { base, value -> body(base, value) }
-        forEachClassStaticValue { base, value -> body(base, value) }
+        classStaticStorage?.let { body(AccessPathBase.ClassStatic, it) }
         forEachConstantValue { base, value -> body(base, value) }
     }
 }

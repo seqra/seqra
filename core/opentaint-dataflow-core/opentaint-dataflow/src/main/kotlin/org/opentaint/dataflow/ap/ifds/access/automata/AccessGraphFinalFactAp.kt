@@ -101,6 +101,9 @@ data class AccessGraphFinalFactAp(
     override fun filterFact(filter: FactTypeChecker.FactApFilter): FinalFactAp? =
         access.filter(filter)?.let { AccessGraphFinalFactAp(base, it, exclusions) }
 
+    override fun filterFact(filter: FactTypeChecker.FactCompatibilityFilter): FinalFactAp? =
+        access.filter(filter)?.let { AccessGraphFinalFactAp(base, it, exclusions) }
+
     override fun contains(factAp: InitialFactAp): Boolean {
         factAp as AccessGraphInitialFactAp
 
