@@ -4,8 +4,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"github.com/seqra/seqra/v2/internal/globals"
 )
 
 func TestUnsetJavaEnvironmentVariables(t *testing.T) {
@@ -405,16 +403,13 @@ func TestShouldStreamJavaOutput(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if got := shouldStreamJavaOutput(tt.verbosity); got != tt.want {
-			t.Fatalf("shouldStreamJavaOutput(%q) = %t, want %t", tt.verbosity, got, tt.want)
+		if got := shouldStreamJavaOutput(tt.verbosity, false); got != tt.want {
+			t.Fatalf("shouldStreamJavaOutput(%q, false) = %t, want %t", tt.verbosity, got, tt.want)
 		}
 	}
 }
 
-func TestShouldStreamJavaOutput_Quiet(t *testing.T) {
-	globals.Config.Quiet = true
-	defer func() { globals.Config.Quiet = false }()
-
+func TestShouldStreamJavaOutput_ForceStream(t *testing.T) {
 	tests := []struct {
 		verbosity string
 		want      bool
@@ -426,8 +421,8 @@ func TestShouldStreamJavaOutput_Quiet(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if got := shouldStreamJavaOutput(tt.verbosity); got != tt.want {
-			t.Fatalf("shouldStreamJavaOutput(%q) with quiet=true = %t, want %t", tt.verbosity, got, tt.want)
+		if got := shouldStreamJavaOutput(tt.verbosity, true); got != tt.want {
+			t.Fatalf("shouldStreamJavaOutput(%q, true) = %t, want %t", tt.verbosity, got, tt.want)
 		}
 	}
 }
