@@ -118,6 +118,10 @@ func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath strin
 		return err
 	}
 
+	if err := os.MkdirAll(filepath.Dir(absOutputProjectModelPath), 0o755); err != nil {
+		return fmt.Errorf("failed to create output parent directory: %w", err)
+	}
+
 	if err := compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath, javaRunner); err != nil {
 		return err
 	}

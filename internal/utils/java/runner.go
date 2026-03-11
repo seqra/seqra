@@ -248,7 +248,7 @@ func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrateg
 
 func shouldStreamJavaOutput(verbosity string) bool {
 	level := strings.ToLower(strings.TrimSpace(verbosity))
-	return level == "debug"
+	return level == "debug" || globals.Config.Quiet
 }
 
 func (j *javaRunner) TrySpecificVersion(version int) JavaRunner {

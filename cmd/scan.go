@@ -202,6 +202,10 @@ func scan(cmd *cobra.Command) {
 		out.Fatalf("Input validation failed: %s", err)
 	}
 
+	if err := os.MkdirAll(filepath.Dir(absSarifReportPath), 0o755); err != nil {
+		out.Fatalf("Failed to create output directory: %s", err)
+	}
+
 	if DryRunScan {
 		runDryRun("Compilation and analysis")
 		return
