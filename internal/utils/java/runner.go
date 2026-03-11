@@ -30,6 +30,7 @@ type JavaRunner interface {
 	WithImageType(imageType AdoptiumImageType) JavaRunner
 	WithSkipVerify(skipVerify bool) JavaRunner
 	WithDebugOutput(writer DebugLineWriter) JavaRunner
+	WithStreamOutput(stream bool) JavaRunner
 	GetJavaResolutions() []JavaResolution
 	// EnsureJava resolves and downloads Java if needed, returning the path.
 	// Call this before wrapping ExecuteJavaCommand in a spinner to avoid
@@ -47,6 +48,7 @@ type javaRunner struct {
 	specificStrategy  *int
 	imageType         AdoptiumImageType
 	skipVerify        bool
+	streamOutput      bool
 	resolvedJavaPath  string
 	debugOutput       DebugLineWriter
 }
@@ -202,7 +204,7 @@ func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrateg
 		return fmt.Errorf("failed to start Java command: %w", err)
 	}
 
-	streamToTerminal := shouldStreamJavaOutput(globals.Config.Log.Verbosity)
+	streamToTerminal := shouldStreamJavaOutput(globals.Config.Log.Verbosity, j.streamOutput)
 
 	// Function to read from a reader and log each line
 	logOutput := func(pipe io.Reader) {
@@ -246,9 +248,9 @@ func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrateg
 	return fmt.Errorf("java command failed")
 }
 
-func shouldStreamJavaOutput(verbosity string) bool {
+func shouldStreamJavaOutput(verbosity string, forceStream bool) bool {
 	level := strings.ToLower(strings.TrimSpace(verbosity))
-	return level == "debug"
+	return level == "debug" || forceStream
 }
 
 func (j *javaRunner) TrySpecificVersion(version int) JavaRunner {
@@ -273,6 +275,11 @@ func (j *javaRunner) WithSkipVerify(skipVerify bool) JavaRunner {
 
 func (j *javaRunner) WithDebugOutput(writer DebugLineWriter) JavaRunner {
 	j.debugOutput = writer
+	return j
+}
+
+func (j *javaRunner) WithStreamOutput(stream bool) JavaRunner {
+	j.streamOutput = stream
 	return j
 }
 

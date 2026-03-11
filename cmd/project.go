@@ -151,6 +151,7 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 
 	javaRunner := java.NewJavaRunner().
 		WithSkipVerify(globals.Config.SkipVerify).
+		WithStreamOutput(globals.Config.Quiet).
 		WithDebugOutput(out.DebugStream("Autobuilder")).
 		WithImageType(java.AdoptiumImageJRE).
 		TrySpecificVersion(globals.DefaultJavaVersion)

@@ -70,6 +70,7 @@ Arguments:
 
 		compileJavaRunner := java.NewJavaRunner().
 			WithSkipVerify(globals.Config.SkipVerify).
+			WithStreamOutput(globals.Config.Quiet).
 			WithDebugOutput(out.DebugStream("Autobuilder")).
 			TrySystem().
 			TrySpecificVersion(globals.Config.Java.Version)
@@ -115,6 +116,10 @@ func ensureAutobuilderAvailable() (string, error) {
 
 func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath string, javaRunner java.JavaRunner, caller CompileCaller) error {
 	if err := validation.ValidateCompileInputs(absProjectRoot, absOutputProjectModelPath); err != nil {
+		return err
+	}
+
+	if err := utils.EnsureParentDir(absOutputProjectModelPath); err != nil {
 		return err
 	}
 

@@ -202,6 +202,10 @@ func scan(cmd *cobra.Command) {
 		out.Fatalf("Input validation failed: %s", err)
 	}
 
+	if err := utils.EnsureParentDir(absSarifReportPath); err != nil {
+		out.Fatalf("Failed to create output directory: %s", err)
+	}
+
 	if DryRunScan {
 		runDryRun("Compilation and analysis")
 		return
@@ -227,6 +231,7 @@ func scan(cmd *cobra.Command) {
 
 		compileJavaRunner := java.NewJavaRunner().
 			WithSkipVerify(globals.Config.SkipVerify).
+			WithStreamOutput(globals.Config.Quiet).
 			WithDebugOutput(out.DebugStream("Autobuilder")).
 			TrySystem().
 			TrySpecificVersion(globals.Config.Java.Version)
@@ -280,6 +285,7 @@ func scan(cmd *cobra.Command) {
 
 	analyzerJavaRunner := java.NewJavaRunner().
 		WithSkipVerify(globals.Config.SkipVerify).
+		WithStreamOutput(globals.Config.Quiet).
 		WithDebugOutput(out.DebugStream("Analyzer")).
 		WithImageType(java.AdoptiumImageJRE).
 		TrySpecificVersion(globals.DefaultJavaVersion)
