@@ -403,8 +403,26 @@ func TestShouldStreamJavaOutput(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		if got := shouldStreamJavaOutput(tt.verbosity); got != tt.want {
-			t.Fatalf("shouldStreamJavaOutput(%q) = %t, want %t", tt.verbosity, got, tt.want)
+		if got := shouldStreamJavaOutput(tt.verbosity, false); got != tt.want {
+			t.Fatalf("shouldStreamJavaOutput(%q, false) = %t, want %t", tt.verbosity, got, tt.want)
+		}
+	}
+}
+
+func TestShouldStreamJavaOutput_ForceStream(t *testing.T) {
+	tests := []struct {
+		verbosity string
+		want      bool
+	}{
+		{verbosity: "debug", want: true},
+		{verbosity: "info", want: true},
+		{verbosity: "warn", want: true},
+		{verbosity: "", want: true},
+	}
+
+	for _, tt := range tests {
+		if got := shouldStreamJavaOutput(tt.verbosity, true); got != tt.want {
+			t.Fatalf("shouldStreamJavaOutput(%q, true) = %t, want %t", tt.verbosity, got, tt.want)
 		}
 	}
 }

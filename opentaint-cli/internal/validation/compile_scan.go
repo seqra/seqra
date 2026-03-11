@@ -16,10 +16,6 @@ func ValidateCompileInputs(absProjectRoot, absOutputProjectModelPath string) err
 		return err
 	}
 
-	if err := requireParentDirExists(absOutputProjectModelPath, "output parent directory"); err != nil {
-		return err
-	}
-
 	if !utils.IsSupportedArch() {
 		return fmt.Errorf("unsupported architecture found: %s! only arm64 and amd64 are supported", utils.GetArch())
 	}
@@ -43,10 +39,6 @@ func ValidateScanInputs(absUserProjectRoot, absProjectModelPath, absSarifReportP
 		if err := requirePathExists(ruleSetPath, "ruleset path"); err != nil {
 			return "", err
 		}
-	}
-
-	if err := requireParentDirExists(absSarifReportPath, "output directory"); err != nil {
-		return "", err
 	}
 
 	for _, severity := range severities {

@@ -3,7 +3,6 @@ package validation
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 )
 
 func requireDirExists(path, label string) error {
@@ -52,15 +51,6 @@ func requirePathExists(path, label string) error {
 			return fmt.Errorf("%s does not exist: %s", label, path)
 		}
 		return fmt.Errorf("failed to access %s %s: %w", label, path, err)
-	}
-
-	return nil
-}
-
-func requireParentDirExists(path, label string) error {
-	parentDir := filepath.Dir(path)
-	if err := requireDirExists(parentDir, label); err != nil {
-		return err
 	}
 
 	return nil
