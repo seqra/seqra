@@ -1,3 +1,9 @@
+## v2.6.3
+### fix: Auto-create directories, normalize interactive output spacing, and streamline quiet mode logs
+- fix: Auto-create directories
+- fix: Normalize compile error and interactive output spacing
+- fix: Remove duplicate rules download spinner output
+- fix: Stream JAR output in quiet mode
 ## v2.6.2
 ### fix: Improve update flow and add dry-run validation flow
 - fix: Improve update flow
