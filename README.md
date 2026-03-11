@@ -6,7 +6,7 @@
   </picture>
 </p>
 
-<h1 align="center"> Security-focused static analyzer for Java and Kotlin web applications</h1>
+<h1 align="center"> Security static analyzer for Java and Kotlin</h1>
 
 <p align="center">
   Opentaint analyzes bytecode of Java and Kotlin web applications (with growing Spring support) using Semgrep-style YAML rules with CodeQL-grade dataflow to find vulnerabilities that source-only scanners miss.
