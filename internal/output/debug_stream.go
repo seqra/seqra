@@ -30,6 +30,7 @@ func (d *DebugStreamWriter) WriteLine(text string) {
 	defer d.mu.Unlock()
 
 	if !d.headerDone {
+		fmt.Fprintln(d.printer.debugW) //nolint:errcheck
 		header := d.printer.theme.Debug.Bold(true).Render(d.label)
 		fmt.Fprintln(d.printer.debugW, header) //nolint:errcheck
 		d.printer.writeMirroredLine(d.label)
