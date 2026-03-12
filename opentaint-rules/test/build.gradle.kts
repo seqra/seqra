@@ -108,6 +108,12 @@ dependencies {
 
     // YAML parsing for rule validation
     implementation("org.yaml:snakeyaml:2.3")
+
+    // dom4j for SAXReader XXE samples
+    implementation("org.dom4j:dom4j:2.1.4")
+
+    // Apache Commons Digester3 for Digester XXE samples
+    implementation("org.apache.commons:commons-digester3:3.2")
 }
 
 // CI helper: validate that all rules are valid YAML and covered by tests

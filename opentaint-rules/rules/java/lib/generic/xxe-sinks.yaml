@@ -14,41 +14,33 @@ rules:
     patterns:
       - pattern-either:
           - patterns:
-              - pattern-not-inside: |
-                  ...
-                  $FACTORY.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-                  ...
-              - pattern-not-inside: |
-                  ...
-                  $FACTORY.setFeature("http://javax.xml.XMLConstants/feature/secure-processing", true);
-                  ...
-              - pattern-not-inside: |
-                  ...
-                  $FACTORY.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-                  ...
-              - pattern-not-inside: |
-                  ...
-                  $FACTORY.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
-                  ...
-              - pattern-not-inside: |
-                  ...
-                  $FACTORY.setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "");
-                  ...
-              - pattern-not-inside: |
-                  ...
-                  $FACTORY.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
-                  ...
-              - pattern-not-inside: |
-                  ...
-                  $FACTORY.setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "");
-                  ...
-              - pattern-either:
+              - patterns:
                   - pattern-not-inside: |
+                      $FACTORY.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
                       ...
+                  - pattern-not-inside: |
+                      $FACTORY.setFeature("http://javax.xml.XMLConstants/feature/secure-processing", true);
+                      ...
+                  - pattern-not-inside: |
+                      $FACTORY.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+                      ...
+                  - pattern-not-inside: |
+                      $FACTORY.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+                      ...
+                  - pattern-not-inside: |
+                      $FACTORY.setAttribute("http://javax.xml.XMLConstants/property/accessExternalDTD", "");
+                      ...
+                  - pattern-not-inside: |
+                      $FACTORY.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+                      ...
+                  - pattern-not-inside: |
+                      $FACTORY.setAttribute("http://javax.xml.XMLConstants/property/accessExternalSchema", "");
+                      ...
+              - patterns:
+                  - pattern-not-inside: |
                       $FACTORY.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
                       ...
                   - pattern-not-inside: |
-                      ...
                       $FACTORY.setFeature("http://xml.org/sax/features/external-general-entities", false);
                       ...
               - pattern-either:
@@ -56,75 +48,76 @@ rules:
                       - pattern-inside: |
                           $FACTORY = SAXParserFactory.newInstance();
                           ...
-                      - pattern: $FACTORY.newSAXParser().parse($UNTRUSTED);
+                      - pattern: (javax.xml.parsers.SAXParserFactory $FACTORY).newSAXParser().parse($UNTRUSTED, ...);
                   - patterns:
                       - pattern-inside: |
                           $FACTORY = new SAXReader(...);
                           ...
-                      - pattern: $FACTORY.read($UNTRUSTED);
+                      - pattern: (org.dom4j.io.SAXReader $FACTORY).read($UNTRUSTED);
                   - patterns:
                       - pattern-inside: |
                           $FACTORY = DocumentBuilderFactory.newInstance();
                           ...
                       - pattern: |
-                          $DOCBUILDER = $FACTORY.newDocumentBuilder();
+                          $DOCBUILDER = (javax.xml.parsers.DocumentBuilderFactory $FACTORY).newDocumentBuilder();
                           ...
                           $DOCBUILDER.parse($UNTRUSTED, ...);
                   - patterns:
                       - pattern-inside: |
                           $FACTORY = XMLReaderFactory.createXMLReader();
                           ...
-                      - pattern: $FACTORY.parse($UNTRUSTED);
+                      - pattern: (org.xml.sax.XMLReader $FACTORY).parse($UNTRUSTED);
+                  - patterns:
+                      - pattern-inside: |
+                          $FACTORY = javax.xml.transform.TransformerFactory.newInstance();
+                          ...
+                      - pattern-either:
+                          - pattern: |
+                              (javax.xml.transform.TransformerFactory $FACTORY).newTransformer($UNTRUSTED, ...)
+                          - pattern: |
+                              (javax.xml.transform.Transformer $T) = (javax.xml.transform.TransformerFactory $FACTORY).newTransformer();
+                              ...
+                              $T.transform($UNTRUSTED, ...)
 
           - patterns:
               - pattern-either:
                   - patterns:
                       - pattern-not-inside: |
-                          $RETURNTYPE $METHOD(...) {
-                            ...
                             $XMLFACTORY.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, Boolean.FALSE);
                             ...
-                          }
                       - pattern-not-inside: |
-                          $RETURNTYPE $METHOD(...) {
-                            ...
                             $XMLFACTORY.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
                             ...
-                          }
                       - pattern-not-inside: |
-                          $RETURNTYPE $METHOD(...) {
-                            ...
                             $XMLFACTORY.setProperty("javax.xml.stream.isSupportingExternalEntities", Boolean.FALSE);
                             ...
-                          }
                       - pattern-not-inside: |
-                          $RETURNTYPE $METHOD(...) {
-                            ...
                             $XMLFACTORY.setProperty("javax.xml.stream.isSupportingExternalEntities", false);
                             ...
-                          }
                   - patterns:
                       - pattern-not-inside: |
-                          $RETURNTYPE $METHOD(...) {
-                            ...
                             $XMLFACTORY.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.FALSE);
                             ...
-                          }
                       - pattern-not-inside: |
-                          $RETURNTYPE $METHOD(...) {
-                            ...
                             $XMLFACTORY.setProperty(XMLInputFactory.SUPPORT_DTD, false);
                             ...
-                          }
+                      - pattern-not-inside: |
+                            ...
+                            $XMLFACTORY.setProperty("javax.xml.stream.supportDTD", Boolean.FALSE);
+                            ...
+                      - pattern-not-inside: |
+                            ...
+                            $XMLFACTORY.setProperty("javax.xml.stream.supportDTD", false);
+                            ...
               - pattern: |
-                  $XMLFACTORY.createXMLStreamReader($UNTRUSTED);
+                  (javax.xml.stream.XMLInputFactory $XMLFACTORY).createXMLStreamReader($UNTRUSTED);
 
-          - patterns:
-              - pattern: |
-                  (org.apache.commons.digester3.Digester $DIGESTER).parse($UNTRUSTED)
+              - pattern-inside: |
+                  $XMLFACTORY = XMLInputFactory.newInstance();
+                  ...
 
-          - pattern: (javax.xml.transform.TransformerFactory $T).newTransformer($UNTRUSTED, ...)
-          - pattern: (javax.xml.transform.Transformer $T).transform($UNTRUSTED, ...)
+          - pattern: |
+              (org.apache.commons.digester3.Digester $DIGESTER).parse($UNTRUSTED)
 
           - pattern: new java.beans.XMLDecoder($UNTRUSTED);
           - pattern: new java.beans.XMLDecoder($UNTRUSTED, $OWNER);
