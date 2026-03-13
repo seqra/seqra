@@ -37,3 +37,5 @@ go.work.sum
 .env.*.local
 config.local.*
 .tasks
+**/.gradle
+**/build
