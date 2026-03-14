@@ -33,7 +33,7 @@ var (
 	DefaultJavaVersion     = BindVersions.Java
 )
 
-const RepoOwner = "seqra"
+const RepoOwner = "seqrateam"
 
 const AutobuilderRepoName = "opentaint"
 const AutobuilderAssetName = "opentaint-project-auto-builder.jar"
@@ -41,7 +41,7 @@ const AutobuilderAssetName = "opentaint-project-auto-builder.jar"
 const AnalyzerRepoName = "opentaint"
 const AnalyzerAssetName = "opentaint-project-analyzer.jar"
 
-const RulesRepoName = "seqra-rules"
+const RulesRepoName = "opentaint"
 const RulesAssetName = "seqra-rules.tar.gz"
 
 type Scan struct {

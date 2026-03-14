@@ -29,7 +29,7 @@
     - mkdir -p "$SEQRA_ARTIFACTS"
 
     # Download seqra
-    -  wget -O "$SEQRA_ARTIFACTS/seqra.tar.gz" "https://github.com/seqra/seqra/releases/download/$SEQRA_VERSION/seqra_linux_amd64.tar.gz"
+    -  wget -O "$SEQRA_ARTIFACTS/seqra.tar.gz" "https://github.com/seqrateam/opentaint/releases/download/$SEQRA_VERSION/opentaint_linux_amd64.tar.gz"
 
     # Extract seqra
     - ls -lah $SEQRA_ARTIFACTS
