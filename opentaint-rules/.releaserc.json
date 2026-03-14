@@ -1,4 +1,5 @@
 {
+  "tagFormat": "rules/v${version}",
   "branches": [
     "main",
     {
@@ -14,47 +15,31 @@
         "preset": "conventionalcommits",
         "releaseRules": [
           {
+            "scope": "rules",
             "breaking": true,
             "release": "major"
           },
           {
-            "type": "chore",
-            "release": false
-          },
-          {
-            "type": "ci",
-            "release": false
-          },
-          {
-            "type": "docs",
-            "release": false
-          },
-          {
+            "scope": "rules",
             "type": "feat",
             "release": "minor"
           },
           {
+            "scope": "rules",
             "type": "fix",
             "release": "patch"
           },
           {
+            "scope": "rules",
             "type": "refactor",
             "release": "patch"
           },
           {
+            "scope": "rules",
             "type": "revert",
             "release": "patch"
           },
           {
-            "type": "style",
-            "release": false
-          },
-          {
-            "type": "test",
-            "release": false
-          },
-          {
-            "scope": "no-release",
             "release": false
           }
         ]
@@ -119,7 +104,7 @@
         "releasedLabels": false,
         "assets": [
           {
-            "path": "seqra-rules.tar.gz",
+            "path": "../seqra-rules.tar.gz",
             "label": "seqra-rules.tar.gz"
           }
         ]

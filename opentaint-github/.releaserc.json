@@ -1,4 +1,5 @@
 {
+  "tagFormat": "github-action/v${version}",
   "branches": [
     "main",
     {
@@ -14,47 +15,31 @@
         "preset": "conventionalcommits",
         "releaseRules": [
           {
+            "scope": "github-action",
             "breaking": true,
             "release": "major"
           },
           {
-            "type": "chore",
-            "release": false
-          },
-          {
-            "type": "ci",
-            "release": false
-          },
-          {
-            "type": "docs",
-            "release": false
-          },
-          {
+            "scope": "github-action",
             "type": "feat",
             "release": "minor"
           },
           {
+            "scope": "github-action",
             "type": "fix",
             "release": "patch"
           },
           {
+            "scope": "github-action",
             "type": "refactor",
             "release": "patch"
           },
           {
+            "scope": "github-action",
             "type": "revert",
             "release": "patch"
           },
           {
-            "type": "style",
-            "release": false
-          },
-          {
-            "type": "test",
-            "release": false
-          },
-          {
-            "scope": "no-release",
             "release": false
           }
         ]

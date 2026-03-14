@@ -1,4 +1,5 @@
 {
+  "tagFormat": "gitlab/v${version}",
   "branches": [
     "main",
     {
@@ -14,47 +15,31 @@
         "preset": "conventionalcommits",
         "releaseRules": [
           {
+            "scope": "gitlab",
             "breaking": true,
             "release": "major"
           },
           {
-            "type": "chore",
-            "release": false
-          },
-          {
-            "type": "ci",
-            "release": false
-          },
-          {
-            "type": "docs",
-            "release": false
-          },
-          {
+            "scope": "gitlab",
             "type": "feat",
             "release": "minor"
           },
           {
+            "scope": "gitlab",
             "type": "fix",
             "release": "patch"
           },
           {
+            "scope": "gitlab",
             "type": "refactor",
             "release": "patch"
           },
           {
+            "scope": "gitlab",
             "type": "revert",
             "release": "patch"
           },
           {
-            "type": "style",
-            "release": false
-          },
-          {
-            "type": "test",
-            "release": false
-          },
-          {
-            "scope": "no-release",
             "release": false
           }
         ]

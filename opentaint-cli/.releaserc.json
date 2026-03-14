@@ -14,47 +14,31 @@
         "preset": "conventionalcommits",
         "releaseRules": [
           {
+            "scope": "cli",
             "breaking": true,
             "release": "major"
           },
           {
-            "type": "chore",
-            "release": false
-          },
-          {
-            "type": "ci",
-            "release": false
-          },
-          {
-            "type": "docs",
-            "release": false
-          },
-          {
+            "scope": "cli",
             "type": "feat",
             "release": "minor"
           },
           {
+            "scope": "cli",
             "type": "fix",
             "release": "patch"
           },
           {
+            "scope": "cli",
             "type": "refactor",
             "release": "patch"
           },
           {
+            "scope": "cli",
             "type": "revert",
             "release": "patch"
           },
           {
-            "type": "style",
-            "release": false
-          },
-          {
-            "type": "test",
-            "release": false
-          },
-          {
-            "scope": "no-release",
             "release": false
           }
         ]
