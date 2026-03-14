@@ -1,6 +1,6 @@
 @file:Suppress("ConstPropertyName")
 
-import org.seqra.common.dep
+import org.opentaint.common.dep
 
 object Versions {
     const val clikt = "5.0.0"

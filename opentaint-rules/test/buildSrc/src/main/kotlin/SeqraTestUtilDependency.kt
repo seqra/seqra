@@ -1,10 +1,7 @@
 import org.gradle.api.Project
-import org.seqra.common.SeqraDependency
+import org.opentaint.common.OpentaintDependency
 
-object SeqraTestUtilDependency : SeqraDependency {
-    override val seqraRepository: String = "seqra-sast-test-util"
-    override val versionProperty: String = "seqraSastTestUtilVersion"
-
+object OpenTaintTestUtilDependency : OpentaintDependency {
     val Project.seqraSastTestUtil: String
-        get() = propertyDep(group = "org.seqra.sast-test-util", name = "seqra-sast-test-util")
+        get() = propertyDep(group = "org.opentaint.sast-test-util", name = "opentaint-sast-test-util")
 }

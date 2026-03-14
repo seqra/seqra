@@ -1,4 +1,4 @@
-import org.seqra.common.configureDefaultJvm
+import org.opentaint.common.configureDefaultJvm
 
 plugins {
     `java-library`

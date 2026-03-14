@@ -1,4 +1,4 @@
-import SeqraTestUtilDependency.seqraSastTestUtil
+import OpenTaintTestUtilDependency.seqraSastTestUtil
 
 plugins {
     java
