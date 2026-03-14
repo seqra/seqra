@@ -95,20 +95,20 @@ jobs:
           mkdir -p lib
 
           echo "Downloading analyzer ${ANALYZER_VERSION}..."
-          gh release download "${ANALYZER_VERSION}" \
-            --repo ${{ github.repository_owner }}/opentaint \
+          gh release download "analyzer/${ANALYZER_VERSION}" \
+            --repo ${{ github.repository }} \
             --pattern "opentaint-project-analyzer.jar" \
             --dir lib
 
           echo "Downloading autobuilder ${AUTOBUILDER_VERSION}..."
-          gh release download "${AUTOBUILDER_VERSION}" \
-            --repo ${{ github.repository_owner }}/opentaint \
+          gh release download "analyzer/${AUTOBUILDER_VERSION}" \
+            --repo ${{ github.repository }} \
             --pattern "opentaint-project-auto-builder.jar" \
             --dir lib
 
           echo "Downloading rules ${RULES_VERSION}..."
-          gh release download "${RULES_VERSION}" \
-            --repo seqra/seqra-rules \
+          gh release download "rules/${RULES_VERSION}" \
+            --repo ${{ github.repository }} \
             --pattern "seqra-rules.tar.gz" \
             --dir /tmp
 
