@@ -19,7 +19,7 @@ env:
 
 jobs:
   scan-stirling-pdf:
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted, ex44 ]
 
     steps:
       - uses: actions/checkout@v6

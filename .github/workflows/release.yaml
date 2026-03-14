@@ -24,7 +24,7 @@ env:
 
 jobs:
   goreleaser:
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted, ex44 ]
     permissions:
       contents: write
       packages: write

@@ -19,7 +19,7 @@ env:
 
 jobs:
   build-and-lint:
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted, ex44 ]
 
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
           go test ./... -v -count=1
 
   goreleaser-check:
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted, ex44 ]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -51,7 +51,7 @@ jobs:
           workdir: opentaint-cli
 
   shellcheck:
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted, ex44 ]
     steps:
       - uses: actions/checkout@v4
       - uses: ludeeus/action-shellcheck@master
@@ -59,7 +59,7 @@ jobs:
           scandir: './opentaint-cli/scripts'
 
   run-on-petclinic-without-installed-java-17:
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted, ex44 ]
 
     steps:
       - uses: actions/checkout@v4
@@ -98,7 +98,7 @@ jobs:
           ./opentaint scan ${{ steps.github-token.outputs.arg }} --output report.sarif ../project-root-java-11 --verbosity debug
 
   run-on-petclinic:
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted, ex44 ]
 
     steps:
       - uses: actions/checkout@v4
@@ -184,7 +184,7 @@ jobs:
           ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif ../project-root
 
   test-install-sh-linux:
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted, ex44 ]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

@@ -24,7 +24,7 @@ permissions: write-all
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    runs-on: [ self-hosted, ex44 ]
     container: buildpack-deps:jammy-scm
 
     steps:
