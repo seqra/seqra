@@ -1,0 +1,63 @@
+name: CI-GitHub-Action
+
+on:
+  push:
+    paths:
+      - 'opentaint-github/**'
+    branches: [ "main" ]
+  pull_request:
+    paths:
+      - 'opentaint-github/**'
+    branches: [ "main" ]
+
+permissions:
+  actions: read
+  contents: read
+  security-events: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - repo: spring-projects/spring-petclinic
+            sha: 30aab0ae764ad845b5eedd76028756835fec771f
+            java-version: 17
+          - repo: WebGoat/WebGoat
+            sha: 06c0be257f3ec5b02521368b030018816ac94090
+            java-version: 23
+
+    runs-on: ubuntu-latest
+    container: buildpack-deps:jammy-scm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ matrix.repo }}
+          path: project-root
+          ref: ${{ matrix.sha }}
+          fetch-depth: 0
+
+      - name: Sanitize artifact name
+        id: sanitize
+        run: |
+          SANITIZED_NAME=$(echo "${{ matrix.repo }}" | tr '/' '_')
+          echo "SANITIZED_NAME=${SANITIZED_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Set up JDK
+        uses: actions/setup-java@v3
+        with:
+          java-version: '${{ matrix.java-version }}'
+          distribution: 'temurin'
+          server-id: github
+          settings-path: ${{ github.workspace }}
+
+      - name: Run seqra
+        uses: ./opentaint-github
+        timeout-minutes: 7
+        with:
+          project-root: project-root
+          token: ${{ secrets.SEQRA_GITHUB_TOKEN }}
+          artifact-name: ${{ steps.sanitize.outputs.SANITIZED_NAME }}
+          verbosity: 'debug'
