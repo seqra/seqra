@@ -2,6 +2,17 @@ name: Release CLI
 
 on:
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
 
   push:
     paths:
@@ -24,7 +35,36 @@ jobs:
         with:
           fetch-depth: 0
       -
-        name: 'Release'
+        name: Manual release
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
+        id: manual_release
+        run: |
+          set -euo pipefail
+          TAG_PREFIX="v"
+          BUMP_TYPE="${{ github.event.inputs.release_type }}"
+
+          LATEST_TAG=$(git tag -l "${TAG_PREFIX}*.*.*" --sort=-v:refname | head -1)
+          if [ -z "$LATEST_TAG" ]; then
+            LATEST_VERSION="0.0.0"
+          else
+            LATEST_VERSION="${LATEST_TAG#${TAG_PREFIX}}"
+          fi
+
+          IFS='.' read -r major minor patch <<< "$LATEST_VERSION"
+          case "$BUMP_TYPE" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          NEW_VERSION="${major}.${minor}.${patch}"
+          NEW_TAG="${TAG_PREFIX}${NEW_VERSION}"
+
+          echo "Bumping ${LATEST_TAG:-none} -> $NEW_TAG ($BUMP_TYPE)"
+          echo "$NEW_VERSION" > opentaint-cli/release_version.txt
+          echo "released=true" >> "$GITHUB_OUTPUT"
+      -
+        name: 'Release (auto)'
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_type == 'auto' }}
         id: semantic_release
         uses: cycjimmy/semantic-release-action@v4
         env:
@@ -40,7 +80,6 @@ jobs:
         name: 'Get release_version and pass to next job'
         id: release_version
         working-directory: opentaint-cli
-        # see .releaserc.json to obtain certain file name
         run: |
           if [ -f release_version.txt ]; then
             echo "status=succeeded" >>"$GITHUB_OUTPUT"
@@ -128,6 +167,7 @@ jobs:
           workdir: opentaint-cli
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: v${{ steps.release_version.outputs.RELEASE_VERSION }}
       -
         name: Bundle JREs into release archives
         if: ${{ steps.release_version.outputs.status == 'succeeded' }}
@@ -149,7 +189,7 @@ jobs:
           gh release upload "$RELEASE_TAG" dist/checksums.txt --clobber
       -
         name: Update package manager manifests
-        if: ${{ steps.release_version.outputs.status == 'succeeded' && steps.semantic_release.outputs.new_release_channel == '' }}
+        if: ${{ steps.release_version.outputs.status == 'succeeded' && (steps.semantic_release.outputs.new_release_channel == '' || steps.manual_release.outputs.released == 'true') }}
         working-directory: opentaint-cli
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -187,7 +227,7 @@ jobs:
           cd -
       -
         name: Build and push Docker image
-        if: ${{ steps.release_version.outputs.status == 'succeeded' && steps.semantic_release.outputs.new_release_channel == '' }}
+        if: ${{ steps.release_version.outputs.status == 'succeeded' && (steps.semantic_release.outputs.new_release_channel == '' || steps.manual_release.outputs.released == 'true') }}
         uses: docker/build-push-action@v6
         with:
           context: opentaint-cli

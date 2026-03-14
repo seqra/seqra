@@ -2,6 +2,17 @@ name: Release GitHub Action
 
 on:
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type'
+        required: true
+        default: 'auto'
+        type: choice
+        options:
+          - auto
+          - patch
+          - minor
+          - major
 
   push:
     paths:
@@ -33,7 +44,49 @@ jobs:
         run: |
           git status || git config --global --add safe.directory $GITHUB_WORKSPACE
 
-      - name: Release
+      - name: Manual release
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
+        id: manual_release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG_PREFIX="github-action/v"
+          BUMP_TYPE="${{ github.event.inputs.release_type }}"
+
+          LATEST_TAG=$(git tag -l "${TAG_PREFIX}*.*.*" --sort=-v:refname | head -1)
+          if [ -z "$LATEST_TAG" ]; then
+            LATEST_VERSION="0.0.0"
+          else
+            LATEST_VERSION="${LATEST_TAG#${TAG_PREFIX}}"
+          fi
+
+          IFS='.' read -r major minor patch <<< "$LATEST_VERSION"
+          case "$BUMP_TYPE" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          NEW_VERSION="${major}.${minor}.${patch}"
+          NEW_TAG="${TAG_PREFIX}${NEW_VERSION}"
+
+          echo "Bumping ${LATEST_TAG:-none} -> $NEW_TAG ($BUMP_TYPE)"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "$NEW_TAG"
+          git push origin "$NEW_TAG"
+
+          gh release create "$NEW_TAG" \
+            --title "$NEW_TAG" \
+            --generate-notes
+
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "new_major_version=$major" >> "$GITHUB_OUTPUT"
+          echo "released=true" >> "$GITHUB_OUTPUT"
+
+      - name: Release (auto)
+        if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_type == 'auto' }}
         uses: cycjimmy/semantic-release-action@v4
         id: version
         env:
@@ -47,12 +100,13 @@ jobs:
             conventional-changelog-conventionalcommits@7.0.2
 
       - name: Push floating major version tag
-        if: ${{ steps.version.outputs.new_release_published == 'true' }}
+        if: ${{ steps.manual_release.outputs.released == 'true' || steps.version.outputs.new_release_published == 'true' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f "github-action/v${{ steps.version.outputs.new_release_major_version }}"
-          git push origin "github-action/v${{ steps.version.outputs.new_release_major_version }}" --force
+          MAJOR="${{ steps.manual_release.outputs.new_major_version || steps.version.outputs.new_release_major_version }}"
+          git tag -f "github-action/v${MAJOR}"
+          git push origin "github-action/v${MAJOR}" --force
 
     outputs:
-      release_version: ${{ steps.version.outputs.new_release_version }}
+      release_version: ${{ steps.manual_release.outputs.new_version || steps.version.outputs.new_release_version }}
