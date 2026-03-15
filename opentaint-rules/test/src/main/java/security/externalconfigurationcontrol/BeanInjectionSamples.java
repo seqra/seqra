@@ -1,8 +1,8 @@
 package security.externalconfigurationcontrol;
 
 import org.apache.commons.beanutils.BeanUtilsBean;
-import org.seqra.sast.test.util.NegativeRuleSample;
-import org.seqra.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.NegativeRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
 
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;

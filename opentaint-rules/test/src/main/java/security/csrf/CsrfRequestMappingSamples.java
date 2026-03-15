@@ -1,7 +1,7 @@
 package security.csrf;
 
-import org.seqra.sast.test.util.NegativeRuleSample;
-import org.seqra.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.NegativeRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

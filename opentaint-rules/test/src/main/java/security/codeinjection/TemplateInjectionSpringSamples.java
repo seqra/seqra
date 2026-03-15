@@ -10,8 +10,8 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.seqra.sast.test.util.NegativeRuleSample;
-import org.seqra.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.NegativeRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;

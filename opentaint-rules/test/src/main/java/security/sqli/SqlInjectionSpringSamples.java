@@ -1,7 +1,7 @@
 package security.sqli;
 
-import org.seqra.sast.test.util.NegativeRuleSample;
-import org.seqra.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.NegativeRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

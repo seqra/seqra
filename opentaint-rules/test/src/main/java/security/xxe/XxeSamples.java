@@ -1,7 +1,7 @@
 package security.xxe;
 
-import org.seqra.sast.test.util.NegativeRuleSample;
-import org.seqra.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.NegativeRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
 
 import javax.servlet.ServletException;
 import javax.servlet.annotation.WebServlet;

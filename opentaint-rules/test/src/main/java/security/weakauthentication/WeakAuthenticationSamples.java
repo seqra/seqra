@@ -3,8 +3,8 @@ package security.weakauthentication;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import org.opensaml.xml.parse.BasicParserPool;
-import org.seqra.sast.test.util.PositiveRuleSample;
-import org.seqra.sast.test.util.NegativeRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.NegativeRuleSample;
 
 /**
  * Samples for weak-authentication rules: SAML ignore-comments and JWT decode without verify.

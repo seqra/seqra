@@ -1,7 +1,7 @@
 package security.sensitivedataexposure;
 
-import org.seqra.sast.test.util.PositiveRuleSample;
-import org.seqra.sast.test.util.NegativeRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.NegativeRuleSample;
 
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;

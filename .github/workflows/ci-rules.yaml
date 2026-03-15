@@ -72,7 +72,7 @@ jobs:
           java -Xmx8G -Djdk.util.jar.enableMultiRelease=false -Dorg.opentaint.ir.impl.storage.defaultBatchSize=2000 \
                -jar opentaint-analyzer/opentaint-project-analyzer.jar \
                --project opentaint-project/project.yaml --output-dir opentaint-result --verbosity debug \
-               --semgrep-rule-set ./opentaint-rules/rules --debug-run-rule-tests
+               --querylang-rule-set ./opentaint-rules/rules --debug-run-rule-tests
 
       - name: Show test results
         run: cat opentaint-result/test-result.json

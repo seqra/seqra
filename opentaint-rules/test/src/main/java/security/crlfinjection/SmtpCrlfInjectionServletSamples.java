@@ -1,6 +1,6 @@
 package security.crlfinjection;
 
-import org.seqra.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
 
 import javax.mail.Message;
 import javax.mail.MessagingException;

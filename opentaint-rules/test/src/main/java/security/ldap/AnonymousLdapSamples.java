@@ -1,7 +1,7 @@
 package security.ldap;
 
-import org.seqra.sast.test.util.NegativeRuleSample;
-import org.seqra.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.NegativeRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
 
 import javax.naming.Context;
 import javax.naming.directory.InitialDirContext;

@@ -1,7 +1,7 @@
 package security.crypto;
 
-import org.seqra.sast.test.util.NegativeRuleSample;
-import org.seqra.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.NegativeRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
 
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;

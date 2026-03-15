@@ -13,7 +13,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.jboss.seam.annotations.Name;
 import org.jboss.seam.log.Log;
 import org.jboss.seam.log.Logging;
-import org.seqra.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

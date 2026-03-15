@@ -9,7 +9,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.seqra.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
 
 /**
  * Samples for os-command-injection-in-servlet.

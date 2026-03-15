@@ -13,8 +13,8 @@ import com.mongodb.connection.SslSettings;
 import com.hazelcast.config.SymmetricEncryptionConfig;
 import org.apache.commons.mail.Email;
 import org.apache.commons.mail.SimpleEmail;
-import org.seqra.sast.test.util.PositiveRuleSample;
-import org.seqra.sast.test.util.NegativeRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.NegativeRuleSample;
 
 import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;

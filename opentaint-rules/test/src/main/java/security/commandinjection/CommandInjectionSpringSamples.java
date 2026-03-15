@@ -3,7 +3,7 @@ package security.commandinjection;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 
-import org.seqra.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;

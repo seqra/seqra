@@ -11,8 +11,8 @@ import java.security.Permissions;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.seqra.sast.test.util.NegativeRuleSample;
-import org.seqra.sast.test.util.PositiveRuleSample;
+import org.opentaint.sast.test.util.NegativeRuleSample;
+import org.opentaint.sast.test.util.PositiveRuleSample;
 
 /**
  * Samples for permissions-related rules in java/security/permissions.yaml.
