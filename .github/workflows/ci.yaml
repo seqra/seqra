@@ -2,11 +2,43 @@ name: CI
 
 on:
   workflow_dispatch:
-  
+
   push:
     branches: [ "main" ]
+    paths:
+      - 'opentaint-jvm-sast-dataflow/**'
+      - 'opentaint-jvm-sast-project/**'
+      - 'opentaint-jvm-sast-se-api/**'
+      - 'opentaint-java-querylang/**'
+      - 'opentaint-config/**'
+      - 'opentaint-configuration-rules/**'
+      - 'opentaint-ir/**'
+      - 'opentaint-dataflow-core/**'
+      - 'opentaint-utils/**'
+      - 'opentaint-project-model/**'
+      - 'opentaint-sast-test-util/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'buildSrc/**'
+      - 'src/**'
   pull_request:
     branches: [ "main" ]
+    paths:
+      - 'opentaint-jvm-sast-dataflow/**'
+      - 'opentaint-jvm-sast-project/**'
+      - 'opentaint-jvm-sast-se-api/**'
+      - 'opentaint-java-querylang/**'
+      - 'opentaint-config/**'
+      - 'opentaint-configuration-rules/**'
+      - 'opentaint-ir/**'
+      - 'opentaint-dataflow-core/**'
+      - 'opentaint-utils/**'
+      - 'opentaint-project-model/**'
+      - 'opentaint-sast-test-util/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'buildSrc/**'
+      - 'src/**'
 
 env:
   RULES_VERSION: v1.4.0
