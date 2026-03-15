@@ -1,4 +1,4 @@
-# Seqra Security Rules
+# OpenTaint Security Rules
 
 [![GitHub release](https://img.shields.io/github/release/seqra/seqra-rules.svg)](https://github.com/seqra/seqra-rules/releases)
 
