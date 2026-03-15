@@ -1,0 +1,53 @@
+name: 'Manual version bump'
+description: 'Compute next semver tag from existing tags and a bump type'
+
+inputs:
+  tag-prefix:
+    description: 'Git tag prefix (e.g. "v", "github/v", "gitlab/v", "rules/v")'
+    required: true
+  bump-type:
+    description: 'Bump type: major, minor, or patch'
+    required: true
+
+outputs:
+  new-version:
+    description: 'New version without prefix (e.g. 1.2.3)'
+    value: ${{ steps.bump.outputs.new_version }}
+  new-tag:
+    description: 'New full tag (e.g. v1.2.3)'
+    value: ${{ steps.bump.outputs.new_tag }}
+  major-version:
+    description: 'Major version number'
+    value: ${{ steps.bump.outputs.major }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Compute next version
+      id: bump
+      shell: bash
+      run: |
+        set -euo pipefail
+        TAG_PREFIX="${{ inputs.tag-prefix }}"
+        BUMP_TYPE="${{ inputs.bump-type }}"
+
+        LATEST_TAG=$(git tag -l "${TAG_PREFIX}*.*.*" --sort=-v:refname | head -1)
+        if [ -z "$LATEST_TAG" ]; then
+          LATEST_VERSION="0.0.0"
+        else
+          LATEST_VERSION="${LATEST_TAG#${TAG_PREFIX}}"
+        fi
+
+        IFS='.' read -r major minor patch <<< "$LATEST_VERSION"
+        case "$BUMP_TYPE" in
+          major) major=$((major + 1)); minor=0; patch=0 ;;
+          minor) minor=$((minor + 1)); patch=0 ;;
+          patch) patch=$((patch + 1)) ;;
+        esac
+        NEW_VERSION="${major}.${minor}.${patch}"
+        NEW_TAG="${TAG_PREFIX}${NEW_VERSION}"
+
+        echo "Bumping ${LATEST_TAG:-none} -> $NEW_TAG ($BUMP_TYPE)"
+        echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+        echo "new_tag=$NEW_TAG" >> "$GITHUB_OUTPUT"
+        echo "major=$major" >> "$GITHUB_OUTPUT"

@@ -14,17 +14,25 @@ on:
           - minor
           - major
 
-  push:
-    paths:
-      - 'opentaint-cli/**'
-    branches:
-      - main
+  workflow_run:
+    workflows: [ "CI CLI" ]
+    branches: [ main ]
+    types:
+      - completed
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   OPENTAINT_DEPENDENCIES_VERSION: 2026.03.12.95b57fa
 
 jobs:
-  goreleaser:
+  release:
     runs-on: [ self-hosted, ex44 ]
+
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
     permissions:
       contents: write
       packages: write
@@ -38,30 +46,15 @@ jobs:
         name: Manual release
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
         id: manual_release
+        uses: ./.github/actions/manual-version-bump
+        with:
+          tag-prefix: 'v'
+          bump-type: ${{ github.event.inputs.release_type }}
+      -
+        name: Write manual release version
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
         run: |
-          set -euo pipefail
-          TAG_PREFIX="v"
-          BUMP_TYPE="${{ github.event.inputs.release_type }}"
-
-          LATEST_TAG=$(git tag -l "${TAG_PREFIX}*.*.*" --sort=-v:refname | head -1)
-          if [ -z "$LATEST_TAG" ]; then
-            LATEST_VERSION="0.0.0"
-          else
-            LATEST_VERSION="${LATEST_TAG#${TAG_PREFIX}}"
-          fi
-
-          IFS='.' read -r major minor patch <<< "$LATEST_VERSION"
-          case "$BUMP_TYPE" in
-            major) major=$((major + 1)); minor=0; patch=0 ;;
-            minor) minor=$((minor + 1)); patch=0 ;;
-            patch) patch=$((patch + 1)) ;;
-          esac
-          NEW_VERSION="${major}.${minor}.${patch}"
-          NEW_TAG="${TAG_PREFIX}${NEW_VERSION}"
-
-          echo "Bumping ${LATEST_TAG:-none} -> $NEW_TAG ($BUMP_TYPE)"
-          echo "$NEW_VERSION" > opentaint-cli/release_version.txt
-          echo "released=true" >> "$GITHUB_OUTPUT"
+          echo "${{ steps.manual_release.outputs.new-version }}" > opentaint-cli/release_version.txt
       -
         name: 'Release (auto)'
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_type == 'auto' }}
@@ -189,7 +182,7 @@ jobs:
           gh release upload "$RELEASE_TAG" dist/checksums.txt --clobber
       -
         name: Update package manager manifests
-        if: ${{ steps.release_version.outputs.status == 'succeeded' && (steps.semantic_release.outputs.new_release_channel == '' || steps.manual_release.outputs.released == 'true') }}
+        if: ${{ steps.release_version.outputs.status == 'succeeded' && (steps.semantic_release.outputs.new_release_channel == '' || steps.manual_release.outputs.new-version != '') }}
         working-directory: opentaint-cli
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
@@ -227,7 +220,7 @@ jobs:
           cd -
       -
         name: Build and push Docker image
-        if: ${{ steps.release_version.outputs.status == 'succeeded' && (steps.semantic_release.outputs.new_release_channel == '' || steps.manual_release.outputs.released == 'true') }}
+        if: ${{ steps.release_version.outputs.status == 'succeeded' && (steps.semantic_release.outputs.new_release_channel == '' || steps.manual_release.outputs.new-version != '') }}
         uses: docker/build-push-action@v6
         with:
           context: opentaint-cli

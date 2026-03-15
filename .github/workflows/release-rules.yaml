@@ -14,16 +14,23 @@ on:
           - minor
           - major
 
-  push:
-    paths:
-      - 'opentaint-rules/**'
-    branches:
-      - main
+  workflow_run:
+    workflows: [ "CI Rules" ]
+    branches: [ main ]
+    types:
+      - completed
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   release:
     runs-on: [ self-hosted, ex44 ]
     container: buildpack-deps:jammy-scm
+
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
     permissions:
       contents: write
 
@@ -48,48 +55,31 @@ jobs:
         run: |
           cd opentaint-rules/rules; tar cfvz ../../seqra-rules.tar.gz .
 
-      - name: Manual release
+      - name: Manual version bump
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
         id: manual_release
+        uses: ./.github/actions/manual-version-bump
+        with:
+          tag-prefix: 'rules/v'
+          bump-type: ${{ github.event.inputs.release_type }}
+
+      - name: Push manual release tag
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
-          TAG_PREFIX="rules/v"
-          BUMP_TYPE="${{ github.event.inputs.release_type }}"
-
-          LATEST_TAG=$(git tag -l "${TAG_PREFIX}*" --sort=-v:refname | head -1)
-          if [ -z "$LATEST_TAG" ]; then
-            LATEST_VERSION="0.0.0"
-          else
-            LATEST_VERSION="${LATEST_TAG#${TAG_PREFIX}}"
-          fi
-
-          IFS='.' read -r major minor patch <<< "$LATEST_VERSION"
-          case "$BUMP_TYPE" in
-            major) major=$((major + 1)); minor=0; patch=0 ;;
-            minor) minor=$((minor + 1)); patch=0 ;;
-            patch) patch=$((patch + 1)) ;;
-          esac
-          NEW_VERSION="${major}.${minor}.${patch}"
-          NEW_TAG="${TAG_PREFIX}${NEW_VERSION}"
-
-          echo "Bumping ${LATEST_TAG:-none} -> $NEW_TAG ($BUMP_TYPE)"
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "$NEW_TAG"
-          git push origin "$NEW_TAG"
+          git tag "${{ steps.manual_release.outputs.new-tag }}"
+          git push origin "${{ steps.manual_release.outputs.new-tag }}"
 
-          gh release create "$NEW_TAG" \
-            --title "$NEW_TAG" \
+          gh release create "${{ steps.manual_release.outputs.new-tag }}" \
+            --title "${{ steps.manual_release.outputs.new-tag }}" \
             --generate-notes \
             --latest=false \
             seqra-rules.tar.gz
 
-          echo "v${NEW_VERSION}" > opentaint-rules/release_version.txt
-          echo "status=succeeded" >> "$GITHUB_OUTPUT"
-          echo "RELEASE_VERSION=v${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "v${{ steps.manual_release.outputs.new-version }}" > opentaint-rules/release_version.txt
 
       - name: Release (auto)
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_type == 'auto' }}
@@ -105,7 +95,7 @@ jobs:
             conventional-changelog-conventionalcommits@7.0.2
 
       - name: Get release_version and pass to next job
-        if: ${{ steps.manual_release.outputs.status != 'succeeded' }}
+        if: ${{ steps.manual_release.outputs.new-version == '' }}
         id: release_version
         working-directory: opentaint-rules
         run: |
@@ -118,7 +108,7 @@ jobs:
           rm -f release_version.txt
 
       - name: Update floating latest tag
-        if: ${{ steps.manual_release.outputs.status == 'succeeded' || steps.release_version.outputs.status == 'succeeded' }}
+        if: ${{ steps.manual_release.outputs.new-version != '' || steps.release_version.outputs.status == 'succeeded' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -126,4 +116,4 @@ jobs:
           git push origin "rules/latest" --force
 
     outputs:
-      release_version: ${{ steps.manual_release.outputs.RELEASE_VERSION || steps.release_version.outputs.RELEASE_VERSION }}
+      release_version: ${{ steps.manual_release.outputs.new-version || steps.release_version.outputs.RELEASE_VERSION }}

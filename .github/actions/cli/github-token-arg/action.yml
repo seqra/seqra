@@ -1,0 +1,30 @@
+name: 'Build GitHub token argument'
+description: 'Builds the --github-token and --owner CLI arguments'
+
+inputs:
+  github-token:
+    description: 'GitHub token (from secrets.SEQRA_GITHUB_TOKEN)'
+    required: false
+    default: ''
+  owner:
+    description: 'Repository owner'
+    required: true
+
+outputs:
+  arg:
+    description: 'The assembled token + owner CLI arguments'
+    value: ${{ steps.build.outputs.arg }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build token arg
+      id: build
+      shell: bash
+      run: |
+        TOKEN_ARG=""
+        if [ -n "${{ inputs.github-token }}" ]; then
+          TOKEN_ARG="--github-token ${{ inputs.github-token }}"
+        fi
+        TOKEN_ARG="$TOKEN_ARG --owner ${{ inputs.owner }}"
+        echo "arg=$TOKEN_ARG" >> $GITHUB_OUTPUT

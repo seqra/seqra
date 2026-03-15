@@ -20,7 +20,12 @@ on:
     branches:
       - main
 
-permissions: write-all
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
 
 jobs:
   release:
@@ -44,47 +49,30 @@ jobs:
         run: |
           git status || git config --global --add safe.directory $GITHUB_WORKSPACE
 
-      - name: Manual release
+      - name: Manual version bump
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
         id: manual_release
+        uses: ./.github/actions/manual-version-bump
+        with:
+          tag-prefix: 'gitlab/v'
+          bump-type: ${{ github.event.inputs.release_type }}
+
+      - name: Push manual release tag
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
-          TAG_PREFIX="gitlab/v"
-          BUMP_TYPE="${{ github.event.inputs.release_type }}"
-
-          LATEST_TAG=$(git tag -l "${TAG_PREFIX}*" --sort=-v:refname | head -1)
-          if [ -z "$LATEST_TAG" ]; then
-            LATEST_VERSION="0.0.0"
-          else
-            LATEST_VERSION="${LATEST_TAG#${TAG_PREFIX}}"
-          fi
-
-          IFS='.' read -r major minor patch <<< "$LATEST_VERSION"
-          case "$BUMP_TYPE" in
-            major) major=$((major + 1)); minor=0; patch=0 ;;
-            minor) minor=$((minor + 1)); patch=0 ;;
-            patch) patch=$((patch + 1)) ;;
-          esac
-          NEW_VERSION="${major}.${minor}.${patch}"
-          NEW_TAG="${TAG_PREFIX}${NEW_VERSION}"
-
-          echo "Bumping ${LATEST_TAG:-none} -> $NEW_TAG ($BUMP_TYPE)"
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "$NEW_TAG"
-          git push origin "$NEW_TAG"
+          git tag "${{ steps.manual_release.outputs.new-tag }}"
+          git push origin "${{ steps.manual_release.outputs.new-tag }}"
 
-          gh release create "$NEW_TAG" \
-            --title "$NEW_TAG" \
+          gh release create "${{ steps.manual_release.outputs.new-tag }}" \
+            --title "${{ steps.manual_release.outputs.new-tag }}" \
             --generate-notes \
             --latest=false
 
-          echo "v${NEW_VERSION}" > opentaint-gitlab/release_version.txt
-          echo "status=succeeded" >> "$GITHUB_OUTPUT"
-          echo "RELEASE_VERSION=v${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "v${{ steps.manual_release.outputs.new-version }}" > opentaint-gitlab/release_version.txt
 
       - name: Release (auto)
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_type == 'auto' }}
@@ -100,7 +88,7 @@ jobs:
             conventional-changelog-conventionalcommits@7.0.2
 
       - name: Get release_version and pass to next job
-        if: ${{ steps.manual_release.outputs.status != 'succeeded' }}
+        if: ${{ steps.manual_release.outputs.new-version == '' }}
         id: release_version
         working-directory: opentaint-gitlab
         run: |
@@ -113,7 +101,7 @@ jobs:
           rm -f release_version.txt
 
       - name: Update floating latest tag
-        if: ${{ steps.manual_release.outputs.status == 'succeeded' || steps.release_version.outputs.status == 'succeeded' }}
+        if: ${{ steps.manual_release.outputs.new-version != '' || steps.release_version.outputs.status == 'succeeded' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -121,4 +109,4 @@ jobs:
           git push origin "gitlab/latest" --force
 
     outputs:
-      release_version: ${{ steps.manual_release.outputs.RELEASE_VERSION || steps.release_version.outputs.RELEASE_VERSION }}
+      release_version: ${{ steps.manual_release.outputs.new-version || steps.release_version.outputs.RELEASE_VERSION }}

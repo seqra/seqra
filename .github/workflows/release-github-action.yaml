@@ -14,18 +14,25 @@ on:
           - minor
           - major
 
-  push:
-    paths:
-      - 'opentaint-github/**'
-    branches:
-      - main
+  workflow_run:
+    workflows: [ "CI GitHub Action" ]
+    branches: [ main ]
+    types:
+      - completed
 
-permissions: write-all
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
 
 jobs:
   release:
     runs-on: [ self-hosted, ex44 ]
     container: buildpack-deps:jammy-scm
+
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     steps:
       - name: Install and configure applications
@@ -44,47 +51,28 @@ jobs:
         run: |
           git status || git config --global --add safe.directory $GITHUB_WORKSPACE
 
-      - name: Manual release
+      - name: Manual version bump
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
         id: manual_release
+        uses: ./.github/actions/manual-version-bump
+        with:
+          tag-prefix: 'github/v'
+          bump-type: ${{ github.event.inputs.release_type }}
+
+      - name: Push manual release tag
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          set -euo pipefail
-          TAG_PREFIX="github/v"
-          BUMP_TYPE="${{ github.event.inputs.release_type }}"
-
-          LATEST_TAG=$(git tag -l "${TAG_PREFIX}*.*.*" --sort=-v:refname | head -1)
-          if [ -z "$LATEST_TAG" ]; then
-            LATEST_VERSION="0.0.0"
-          else
-            LATEST_VERSION="${LATEST_TAG#${TAG_PREFIX}}"
-          fi
-
-          IFS='.' read -r major minor patch <<< "$LATEST_VERSION"
-          case "$BUMP_TYPE" in
-            major) major=$((major + 1)); minor=0; patch=0 ;;
-            minor) minor=$((minor + 1)); patch=0 ;;
-            patch) patch=$((patch + 1)) ;;
-          esac
-          NEW_VERSION="${major}.${minor}.${patch}"
-          NEW_TAG="${TAG_PREFIX}${NEW_VERSION}"
-
-          echo "Bumping ${LATEST_TAG:-none} -> $NEW_TAG ($BUMP_TYPE)"
-
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "$NEW_TAG"
-          git push origin "$NEW_TAG"
+          git tag "${{ steps.manual_release.outputs.new-tag }}"
+          git push origin "${{ steps.manual_release.outputs.new-tag }}"
 
-          gh release create "$NEW_TAG" \
-            --title "$NEW_TAG" \
+          gh release create "${{ steps.manual_release.outputs.new-tag }}" \
+            --title "${{ steps.manual_release.outputs.new-tag }}" \
             --generate-notes \
             --latest=false
-
-          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
-          echo "new_major_version=$major" >> "$GITHUB_OUTPUT"
-          echo "released=true" >> "$GITHUB_OUTPUT"
 
       - name: Release (auto)
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_type == 'auto' }}
@@ -101,15 +89,15 @@ jobs:
             conventional-changelog-conventionalcommits@7.0.2
 
       - name: Push floating major version tag
-        if: ${{ steps.manual_release.outputs.released == 'true' || steps.version.outputs.new_release_published == 'true' }}
+        if: ${{ steps.manual_release.outputs.new-version != '' || steps.version.outputs.new_release_published == 'true' }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          MAJOR="${{ steps.manual_release.outputs.new_major_version || steps.version.outputs.new_release_major_version }}"
+          MAJOR="${{ steps.manual_release.outputs.major-version || steps.version.outputs.new_release_major_version }}"
           git tag -f "github/v${MAJOR}"
           git push origin "github/v${MAJOR}" --force
           git tag -f "github/latest"
           git push origin "github/latest" --force
 
     outputs:
-      release_version: ${{ steps.manual_release.outputs.new_version || steps.version.outputs.new_release_version }}
+      release_version: ${{ steps.manual_release.outputs.new-version || steps.version.outputs.new_release_version }}
