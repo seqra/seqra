@@ -52,19 +52,14 @@ jobs:
 
   ci-owasp:
     runs-on: [ self-hosted, ex44 ]
-    container: cruizba/ubuntu-dind:focal-25.0.3
+    container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
     permissions:
       contents: read
-      packages: read
     defaults:
       run:
         working-directory: opentaint-core
 
     steps:
-      - name: Setup Git
-        working-directory: .
-        run: apt update && apt install -y git
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -79,24 +74,14 @@ jobs:
       - name: Build analyzer jar
         run: ./gradlew :projectAnalyzerJar
 
+      - name: Build autobuilder jar
+        run: ./gradlew opentaint-jvm-autobuilder:projectAutoBuilderJar
+
       - name: Checkout owasp
         uses: actions/checkout@v4
         with:
           repository: 'OWASP-Benchmark/BenchmarkJava'
           path: ./test-dir/OWASP
-
-      - uses: robinraju/release-downloader@v1.12
-        with:
-          repository: seqra/seqra
-          latest: true
-          fileName: seqra_linux_amd64.tar.gz
-          out-file-path: seqra-cli
-
-      - name: Extract CLI
-        working-directory: .
-        run: |
-          cd seqra-cli
-          tar -xzf seqra_linux_amd64.tar.gz
 
       - name: Set up Maven
         uses: stCarolas/setup-maven@v5
@@ -106,7 +91,12 @@ jobs:
       - name: Build owasp
         working-directory: .
         run: |
-          seqra-cli/seqra compile test-dir/OWASP --owner ${{ github.repository_owner }} --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output test-dir/opentaint-project --verbosity debug
+          java -jar opentaint-core/opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar \
+                    --project-root-dir test-dir/OWASP \
+                    --build portable \
+                    --result-dir test-dir/opentaint-project \
+                    --logs-file test-dir/autobuild.log \
+                    --verbosity debug
 
       - name: Checkout rules
         uses: actions/checkout@v4
