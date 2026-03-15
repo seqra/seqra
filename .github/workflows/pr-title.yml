@@ -33,7 +33,7 @@ jobs:
           scopes: |
             cli
             rules
-            github-action
+            github
             gitlab
             analyzer
             autobuilder
@@ -74,7 +74,7 @@ jobs:
           declare -A SCOPE_PATHS
           SCOPE_PATHS[cli]="^opentaint-cli/"
           SCOPE_PATHS[rules]="^opentaint-rules/"
-          SCOPE_PATHS[github-action]="^opentaint-github/"
+          SCOPE_PATHS[github]="^opentaint-github/"
           SCOPE_PATHS[gitlab]="^opentaint-gitlab/"
           SCOPE_PATHS[analyzer]="^opentaint-core/(opentaint-jvm-sast-dataflow/|opentaint-jvm-sast-project/|opentaint-jvm-sast-se-api/|opentaint-java-querylang/|opentaint-config/|opentaint-configuration-rules/|opentaint-ir/|opentaint-dataflow-core/|opentaint-utils/common-util/|opentaint-utils/opentaint-jvm-util/|opentaint-utils/build\.gradle\.kts|opentaint-utils/settings\.gradle\.kts|opentaint-utils/buildSrc/|build\.gradle\.kts|settings\.gradle\.kts|buildSrc/|src/|opentaint-sast-test-util/)"
           SCOPE_PATHS[autobuilder]="^opentaint-core/opentaint-jvm-autobuilder/"

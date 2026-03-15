@@ -1,5 +1,5 @@
 {
-  "tagFormat": "github-action/v${version}",
+  "tagFormat": "github/v${version}",
   "branches": [
     "main",
     {
@@ -15,27 +15,27 @@
         "preset": "conventionalcommits",
         "releaseRules": [
           {
-            "scope": "github-action",
+            "scope": "github",
             "breaking": true,
             "release": "major"
           },
           {
-            "scope": "github-action",
+            "scope": "github",
             "type": "feat",
             "release": "minor"
           },
           {
-            "scope": "github-action",
+            "scope": "github",
             "type": "fix",
             "release": "patch"
           },
           {
-            "scope": "github-action",
+            "scope": "github",
             "type": "refactor",
             "release": "patch"
           },
           {
-            "scope": "github-action",
+            "scope": "github",
             "type": "revert",
             "release": "patch"
           },
@@ -98,12 +98,12 @@
     [
       "@semantic-release/github",
       {
-      "successComment": false,
-      "failTitle": false,
-      "labels": false,
-      "releasedLabels": false,
-      "makeLatest": false,
-      "assets": []
+        "successComment": false,
+        "failTitle": false,
+        "labels": false,
+        "releasedLabels": false,
+        "makeLatest": false,
+        "assets": []
       }
     ],
     [

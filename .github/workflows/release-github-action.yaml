@@ -51,7 +51,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          TAG_PREFIX="github-action/v"
+          TAG_PREFIX="github/v"
           BUMP_TYPE="${{ github.event.inputs.release_type }}"
 
           LATEST_TAG=$(git tag -l "${TAG_PREFIX}*.*.*" --sort=-v:refname | head -1)
@@ -106,8 +106,8 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           MAJOR="${{ steps.manual_release.outputs.new_major_version || steps.version.outputs.new_release_major_version }}"
-          git tag -f "github-action/v${MAJOR}"
-          git push origin "github-action/v${MAJOR}" --force
+          git tag -f "github/v${MAJOR}"
+          git push origin "github/v${MAJOR}" --force
 
     outputs:
       release_version: ${{ steps.manual_release.outputs.new_version || steps.version.outputs.new_release_version }}
