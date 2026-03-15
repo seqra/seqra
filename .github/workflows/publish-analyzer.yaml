@@ -59,3 +59,11 @@ jobs:
           body: ${{ steps.changes.outputs.release-notes }}
           files: opentaint-core/build/libs/opentaint-project-analyzer.jar
           make_latest: false
+
+      - name: Update floating latest tag
+        if: steps.changes.outputs.has-changes == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "analyzer/latest"
+          git push origin "analyzer/latest" --force

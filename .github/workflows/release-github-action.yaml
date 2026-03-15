@@ -108,6 +108,8 @@ jobs:
           MAJOR="${{ steps.manual_release.outputs.new_major_version || steps.version.outputs.new_release_major_version }}"
           git tag -f "github/v${MAJOR}"
           git push origin "github/v${MAJOR}" --force
+          git tag -f "github/latest"
+          git push origin "github/latest" --force
 
     outputs:
       release_version: ${{ steps.manual_release.outputs.new_version || steps.version.outputs.new_release_version }}

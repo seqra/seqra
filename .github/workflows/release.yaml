@@ -243,6 +243,14 @@ jobs:
             github_token=${{ secrets.SEQRA_GITHUB_TOKEN }}
           build-args: |
             SEQRA_BUILD_FLAGS=-s -w -X github.com/${{ github.repository_owner }}/opentaint/v2/internal/version.Version=${{ steps.release_version.outputs.RELEASE_VERSION }}
+      -
+        name: Update floating latest tag
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "latest"
+          git push origin "latest" --force
 
     outputs:
       release_version: ${{ steps.release_version.outputs.RELEASE_VERSION }}
