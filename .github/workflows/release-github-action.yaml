@@ -79,7 +79,8 @@ jobs:
 
           gh release create "$NEW_TAG" \
             --title "$NEW_TAG" \
-            --generate-notes
+            --generate-notes \
+            --latest=false
 
           echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "new_major_version=$major" >> "$GITHUB_OUTPUT"

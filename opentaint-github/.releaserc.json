@@ -98,11 +98,12 @@
     [
       "@semantic-release/github",
       {
-        "successComment": false,
-        "failTitle": false,
-        "labels": false,
-        "releasedLabels": false,
-        "assets": []
+      "successComment": false,
+      "failTitle": false,
+      "labels": false,
+      "releasedLabels": false,
+      "makeLatest": false,
+      "assets": []
       }
     ],
     [

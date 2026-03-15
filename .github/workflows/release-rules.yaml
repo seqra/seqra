@@ -84,6 +84,7 @@ jobs:
           gh release create "$NEW_TAG" \
             --title "$NEW_TAG" \
             --generate-notes \
+            --latest=false \
             seqra-rules.tar.gz
 
           echo "v${NEW_VERSION}" > opentaint-rules/release_version.txt

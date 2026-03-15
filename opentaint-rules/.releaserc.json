@@ -98,11 +98,12 @@
     [
       "@semantic-release/github",
       {
-        "successComment": false,
-        "failTitle": false,
-        "labels": false,
-        "releasedLabels": false,
-        "assets": [
+      "successComment": false,
+      "failTitle": false,
+      "labels": false,
+      "releasedLabels": false,
+      "makeLatest": false,
+      "assets": [
           {
             "path": "../seqra-rules.tar.gz",
             "label": "seqra-rules.tar.gz"

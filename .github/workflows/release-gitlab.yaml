@@ -79,7 +79,8 @@ jobs:
 
           gh release create "$NEW_TAG" \
             --title "$NEW_TAG" \
-            --generate-notes
+            --generate-notes \
+            --latest=false
 
           echo "v${NEW_VERSION}" > opentaint-gitlab/release_version.txt
           echo "status=succeeded" >> "$GITHUB_OUTPUT"
