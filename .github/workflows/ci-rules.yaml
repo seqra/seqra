@@ -24,19 +24,15 @@ jobs:
         with:
           repository: ${{ github.repository }}
           token: ${{ secrets.SEQRA_GITHUB_TOKEN }}
-          latest: true
-          fileName: opentaint_linux_amd64.tar.gz
-          out-file-path: cli
-
-      - run: |
-          cd cli
-          tar -xzf opentaint_linux_amd64.tar.gz
+          tag: autobuilder/latest
+          fileName: opentaint-project-auto-builder.jar
+          out-file-path: opentaint-autobuilder
 
       - uses: robinraju/release-downloader@v1.12
         with:
           repository: ${{ github.repository }}
           token: ${{ secrets.SEQRA_GITHUB_TOKEN }}
-          tag: ${{ vars.ANALYZER_VERSION }}
+          tag: analyzer/latest
           fileName: opentaint-project-analyzer.jar
           out-file-path: opentaint-analyzer
 
@@ -62,7 +58,12 @@ jobs:
 
       - name: OpenTaint compile test project
         run: |
-          cli/opentaint compile opentaint-rules/test --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output ./opentaint-project --verbosity debug
+          java -jar opentaint-autobuilder/opentaint-project-auto-builder.jar \
+               --project-root-dir opentaint-rules/test \
+               --build portable \
+               --result-dir ./opentaint-project \
+               --logs-file autobuild.log \
+               --verbosity debug
 
       - name: Run OpenTaint analyzer
         run: |
