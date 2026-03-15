@@ -73,3 +73,16 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "analyzer/latest"
           git push origin "analyzer/latest" --force
+
+      - name: Update analyzer/latest release
+        if: steps.changes.outputs.has-changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete "analyzer/latest" --yes || true
+          gh release create "analyzer/latest" \
+            --title "analyzer/latest" \
+            --notes "Floating release tracking the latest analyzer build (${{ steps.changes.outputs.version }})" \
+            --latest=false \
+            --prerelease \
+            opentaint-core/build/libs/opentaint-project-analyzer.jar

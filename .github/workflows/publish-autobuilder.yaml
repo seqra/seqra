@@ -73,3 +73,16 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "autobuilder/latest"
           git push origin "autobuilder/latest" --force
+
+      - name: Update autobuilder/latest release
+        if: steps.changes.outputs.has-changes == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete "autobuilder/latest" --yes || true
+          gh release create "autobuilder/latest" \
+            --title "autobuilder/latest" \
+            --notes "Floating release tracking the latest autobuilder build (${{ steps.changes.outputs.version }})" \
+            --latest=false \
+            --prerelease \
+            opentaint-core/opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar

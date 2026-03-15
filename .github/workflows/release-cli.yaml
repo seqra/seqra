@@ -239,11 +239,20 @@ jobs:
       -
         name: Update floating latest tag
         if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "latest"
           git push origin "latest" --force
+
+          gh release delete "latest" --yes || true
+          gh release create "latest" \
+            --title "latest" \
+            --notes "Floating release tracking the latest CLI version (v${{ steps.release_version.outputs.RELEASE_VERSION }})" \
+            --latest=false \
+            --prerelease
 
     outputs:
       release_version: ${{ steps.release_version.outputs.RELEASE_VERSION }}

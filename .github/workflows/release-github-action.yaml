@@ -90,6 +90,8 @@ jobs:
 
       - name: Push floating major version tag
         if: ${{ steps.manual_release.outputs.new-version != '' || steps.version.outputs.new_release_published == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -98,6 +100,13 @@ jobs:
           git push origin "github/v${MAJOR}" --force
           git tag -f "github/latest"
           git push origin "github/latest" --force
+
+          gh release delete "github/latest" --yes || true
+          gh release create "github/latest" \
+            --title "github/latest" \
+            --notes "Floating release tracking the latest GitHub Action version" \
+            --latest=false \
+            --prerelease
 
     outputs:
       release_version: ${{ steps.manual_release.outputs.new-version || steps.version.outputs.new_release_version }}
