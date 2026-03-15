@@ -1,0 +1,60 @@
+name: Autobuilder release
+
+on:
+  workflow_dispatch:
+
+  workflow_run:
+    workflows: [ "CI-AUTOBUILDER" ]
+    branches: [ main ]
+    types:
+      - completed
+
+jobs:
+  publish:
+    runs-on: [ self-hosted, ex44 ]
+
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    container: cruizba/ubuntu-dind:focal-25.0.3
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Setup Git
+        run: apt update && apt install -y git
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for autobuilder changes
+        id: changes
+        uses: ./.github/actions/check-scoped-commits
+        with:
+          scopes: autobuilder,common
+          tag-prefix: 'autobuilder/'
+
+      - name: Set up JDK 8
+        if: steps.changes.outputs.has-changes == 'true'
+        uses: actions/setup-java@v3
+        with:
+          java-version: '8'
+          distribution: 'corretto'
+          server-id: github
+          settings-path: ${{ github.workspace }}
+
+      - name: Build autobuilder jar
+        if: steps.changes.outputs.has-changes == 'true'
+        run: ./gradlew opentaint-jvm-autobuilder:projectAutoBuilderJar -PanalyzerVersion=${{ steps.changes.outputs.version }}
+
+      - name: Upload autobuilder jar
+        if: steps.changes.outputs.has-changes == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: autobuilder/${{ steps.changes.outputs.version }}
+          tag_name: autobuilder/${{ steps.changes.outputs.version }}
+          body: ${{ steps.changes.outputs.release-notes }}
+          files: opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar
+          make_latest: false

@@ -1,0 +1,60 @@
+name: Analyzer release
+
+on:
+  workflow_dispatch:
+
+  workflow_run:
+    workflows: [ "CI" ]
+    branches: [ main ]
+    types:
+      - completed
+
+jobs:
+  publish:
+    runs-on: [ self-hosted, ex44 ]
+
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    container: cruizba/ubuntu-dind:focal-25.0.3
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Setup Git
+        run: apt update && apt install -y git
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check for analyzer changes
+        id: changes
+        uses: ./.github/actions/check-scoped-commits
+        with:
+          scopes: analyzer,common
+          tag-prefix: 'analyzer/'
+
+      - name: Set up JDK 11
+        if: steps.changes.outputs.has-changes == 'true'
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          server-id: github
+          settings-path: ${{ github.workspace }}
+
+      - name: Build analyzer jar
+        if: steps.changes.outputs.has-changes == 'true'
+        run: ./gradlew :projectAnalyzerJar -PanalyzerVersion=${{ steps.changes.outputs.version }}
+
+      - name: Upload analyzer jar
+        if: steps.changes.outputs.has-changes == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          name: analyzer/${{ steps.changes.outputs.version }}
+          tag_name: analyzer/${{ steps.changes.outputs.version }}
+          body: ${{ steps.changes.outputs.release-notes }}
+          files: build/libs/opentaint-project-analyzer.jar
+          make_latest: false

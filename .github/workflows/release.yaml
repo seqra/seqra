@@ -127,26 +127,26 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SEQRA_GITHUB_TOKEN }}
         run: |
-          ANALYZER_VERSION=$(grep '^analyzer:' internal/globals/versions.yaml | awk '{print $2}' | tr -d '"')
-          AUTOBUILDER_VERSION=$(grep '^autobuilder:' internal/globals/versions.yaml | awk '{print $2}' | tr -d '"')
-          RULES_VERSION=$(grep '^rules:' internal/globals/versions.yaml | awk '{print $2}' | tr -d '"')
+          ANALYZER_TAG=$(grep '^analyzer:' internal/globals/versions.yaml | awk '{print $2}' | tr -d '"')
+          AUTOBUILDER_TAG=$(grep '^autobuilder:' internal/globals/versions.yaml | awk '{print $2}' | tr -d '"')
+          RULES_TAG=$(grep '^rules:' internal/globals/versions.yaml | awk '{print $2}' | tr -d '"')
 
           mkdir -p lib
 
-          echo "Downloading analyzer ${ANALYZER_VERSION}..."
-          gh release download "analyzer/${ANALYZER_VERSION}" \
+          echo "Downloading analyzer ${ANALYZER_TAG}..."
+          gh release download "$ANALYZER_TAG" \
             --repo ${{ github.repository }} \
             --pattern "opentaint-project-analyzer.jar" \
             --dir lib
 
-          echo "Downloading autobuilder ${AUTOBUILDER_VERSION}..."
-          gh release download "analyzer/${AUTOBUILDER_VERSION}" \
+          echo "Downloading autobuilder ${AUTOBUILDER_TAG}..."
+          gh release download "$AUTOBUILDER_TAG" \
             --repo ${{ github.repository }} \
             --pattern "opentaint-project-auto-builder.jar" \
             --dir lib
 
-          echo "Downloading rules ${RULES_VERSION}..."
-          gh release download "rules/${RULES_VERSION}" \
+          echo "Downloading rules ${RULES_TAG}..."
+          gh release download "$RULES_TAG" \
             --repo ${{ github.repository }} \
             --pattern "seqra-rules.tar.gz" \
             --dir /tmp

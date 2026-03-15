@@ -1,0 +1,76 @@
+name: 'Check scoped commits'
+description: 'Check if scoped conventional commits exist since last tag and generate release notes'
+
+inputs:
+  scopes:
+    description: 'Comma-separated list of commit scopes to match (e.g. analyzer,common)'
+    required: true
+  tag-prefix:
+    description: 'Git tag prefix to find the last release (e.g. analyzer/)'
+    required: true
+
+outputs:
+  has-changes:
+    description: 'Whether relevant scoped commits were found'
+    value: ${{ steps.check.outputs.has-changes }}
+  release-notes:
+    description: 'Generated release notes from scoped commits'
+    value: ${{ steps.check.outputs.release-notes }}
+  version:
+    description: 'Calver+hash version (YYYY.MM.DD.<sha7>)'
+    value: ${{ steps.check.outputs.version }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check for scoped commits and generate notes
+      id: check
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        TAG_PREFIX="${{ inputs.tag-prefix }}"
+        SCOPES="${{ inputs.scopes }}"
+
+        SCOPE_PATTERN=$(echo "$SCOPES" | tr ',' '|')
+        REGEX="^\w+\((${SCOPE_PATTERN})\)"
+
+        LAST_TAG=$(git tag -l "${TAG_PREFIX}*" --sort=-creatordate | head -1)
+
+        if [ -z "$LAST_TAG" ]; then
+          echo "No previous tag with prefix '${TAG_PREFIX}' found — scanning all commits"
+          COMMITS=$(git log --oneline --format='%s' HEAD)
+        else
+          echo "Last tag: $LAST_TAG"
+          COMMITS=$(git log --oneline --format='%s' "${LAST_TAG}..HEAD")
+        fi
+
+        RELEVANT=$(echo "$COMMITS" | grep -E "$REGEX" || true)
+
+        if [ -z "$RELEVANT" ]; then
+          echo "has-changes=false" >> "$GITHUB_OUTPUT"
+          echo "No commits matching scopes [$SCOPES] since ${LAST_TAG:-beginning}"
+          exit 0
+        fi
+
+        echo "has-changes=true" >> "$GITHUB_OUTPUT"
+
+        VERSION="$(git log -1 --format='%cd' --date=format:'%Y.%m.%d' HEAD).$(echo "$GITHUB_SHA" | cut -c 1-7)"
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+        NOTES=""
+        while IFS= read -r line; do
+          [ -z "$line" ] && continue
+          case "$line" in
+            feat\(*) NOTES="${NOTES}* :gift: ${line#*: }"$'\n' ;;
+            fix\(*)  NOTES="${NOTES}* :lady_beetle: ${line#*: }"$'\n' ;;
+            refactor\(*) NOTES="${NOTES}* :hammer_and_wrench: ${line#*: }"$'\n' ;;
+            revert\(*) NOTES="${NOTES}* :back: ${line#*: }"$'\n' ;;
+            *) NOTES="${NOTES}* ${line}"$'\n' ;;
+          esac
+        done <<< "$RELEVANT"
+
+        EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+        echo "release-notes<<$EOF" >> "$GITHUB_OUTPUT"
+        echo "$NOTES" >> "$GITHUB_OUTPUT"
+        echo "$EOF" >> "$GITHUB_OUTPUT"
