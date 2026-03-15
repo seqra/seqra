@@ -42,7 +42,7 @@ func Artifacts() []ArtifactDef {
 	return []ArtifactDef{
 		{
 			Name:        "Autobuilder",
-			RepoName:    AutobuilderRepoName,
+			RepoName:    Config.Repo,
 			AssetName:   AutobuilderAssetName,
 			LibSubpath:  AutobuilderAssetName,
 			CachePrefix: "autobuilder_",
@@ -52,7 +52,7 @@ func Artifacts() []ArtifactDef {
 		},
 		{
 			Name:        "Analyzer",
-			RepoName:    AnalyzerRepoName,
+			RepoName:    Config.Repo,
 			AssetName:   AnalyzerAssetName,
 			LibSubpath:  AnalyzerAssetName,
 			CachePrefix: "analyzer_",
@@ -62,7 +62,7 @@ func Artifacts() []ArtifactDef {
 		},
 		{
 			Name:        "Rules",
-			RepoName:    RulesRepoName,
+			RepoName:    Config.Repo,
 			AssetName:   RulesAssetName,
 			LibSubpath:  "rules",
 			CachePrefix: "rules_",

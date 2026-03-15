@@ -106,7 +106,7 @@ func ensureAutobuilderAvailable() (string, error) {
 	}
 
 	if err = ensureArtifactAvailable("autobuilder", globals.Config.Autobuilder.Version, autobuilderJarPath, func() error {
-		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AutobuilderRepoName, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify, out)
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.Config.Repo, globals.Config.Autobuilder.Version, globals.AutobuilderAssetName, autobuilderJarPath, globals.Config.Github.Token, globals.Config.SkipVerify, out)
 	}); err != nil {
 		return "", err
 	}

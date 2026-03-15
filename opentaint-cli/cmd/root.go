@@ -133,6 +133,10 @@ func init() {
 	_ = rootCmd.PersistentFlags().MarkHidden("owner")
 	_ = viper.BindPFlag("owner", rootCmd.PersistentFlags().Lookup("owner"))
 
+	rootCmd.PersistentFlags().StringVar(&globals.Config.Repo, "repo", globals.RepoName, "GitHub repository name")
+	_ = rootCmd.PersistentFlags().MarkHidden("repo")
+	_ = viper.BindPFlag("repo", rootCmd.PersistentFlags().Lookup("repo"))
+
 	rootCmd.PersistentFlags().BoolVar(&globals.Config.SkipVerify, "skip-verify", false, "Skip SHA256 checksum verification of downloaded artifacts")
 	_ = viper.BindPFlag("skip-verify", rootCmd.PersistentFlags().Lookup("skip-verify"))
 }
@@ -210,7 +214,7 @@ func checkForUpdateAsync() {
 	}
 
 	// Fetch latest release
-	latestVersion, _, err := utils.GetLatestRelease(globals.RepoOwner, "opentaint", globals.Config.Github.Token)
+	latestVersion, _, err := utils.GetLatestRelease(globals.Config.Owner, globals.Config.Repo, globals.Config.Github.Token)
 	if err != nil {
 		return
 	}

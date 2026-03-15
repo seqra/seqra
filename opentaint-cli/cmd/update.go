@@ -64,7 +64,7 @@ Only upgrades are supported — downgrading to an older version is refused.`,
 			}
 		} else {
 			out.Print("Checking for updates...")
-			targetVersion, targetTag, err = utils.GetLatestRelease(globals.RepoOwner, "opentaint", globals.Config.Github.Token)
+			targetVersion, targetTag, err = utils.GetLatestRelease(globals.Config.Owner, globals.Config.Repo, globals.Config.Github.Token)
 			if err != nil {
 				out.Fatalf("Failed to check for updates: %s", err)
 			}
@@ -120,7 +120,7 @@ Only upgrades are supported — downgrading to an older version is refused.`,
 		defer func() { _ = os.RemoveAll(tmpDir) }()
 
 		out.Print("Downloading...")
-		archivePath, err := utils.DownloadReleaseArchive(globals.RepoOwner, "opentaint", targetTag, globals.Config.Github.Token, tmpDir, globals.Config.SkipVerify)
+		archivePath, err := utils.DownloadReleaseArchive(globals.Config.Owner, globals.Config.Repo, targetTag, globals.Config.Github.Token, tmpDir, globals.Config.SkipVerify)
 		if err != nil {
 			out.Fatalf("Failed to download release: %s", err)
 		}

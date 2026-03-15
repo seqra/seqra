@@ -218,7 +218,7 @@ func scan(cmd *cobra.Command) {
 		if _, err := os.Stat(ruleSetPath.Path); err == nil {
 			continue
 		}
-		if err := utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.RulesRepoName, globals.Config.Rules.Version, globals.RulesAssetName, ruleSetPath.Path, globals.Config.Github.Token, globals.Config.SkipVerify, out); err != nil {
+		if err := utils.DownloadAndUnpackGithubReleaseAsset(globals.Config.Owner, globals.Config.Repo, globals.Config.Rules.Version, globals.RulesAssetName, ruleSetPath.Path, globals.Config.Github.Token, globals.Config.SkipVerify, out); err != nil {
 			out.Fatalf("Unexpected error occurred while trying to download ruleset: %s", err)
 		}
 	}
@@ -384,7 +384,7 @@ func ensureAnalyzerAvailable() (string, error) {
 	}
 
 	if err := ensureArtifactAvailable("analyzer", globals.Config.Analyzer.Version, analyzerJarPath, func() error {
-		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.AnalyzerRepoName, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token, globals.Config.SkipVerify, out)
+		return utils.DownloadGithubReleaseAsset(globals.Config.Owner, globals.Config.Repo, globals.Config.Analyzer.Version, globals.AnalyzerAssetName, analyzerJarPath, globals.Config.Github.Token, globals.Config.SkipVerify, out)
 	}); err != nil {
 		return "", err
 	}

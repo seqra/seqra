@@ -34,14 +34,10 @@ var (
 )
 
 const RepoOwner = "seqrateam"
+const RepoName = "opentaint"
 
-const AutobuilderRepoName = "opentaint"
 const AutobuilderAssetName = "opentaint-project-auto-builder.jar"
-
-const AnalyzerRepoName = "opentaint"
 const AnalyzerAssetName = "opentaint-project-analyzer.jar"
-
-const RulesRepoName = "opentaint"
 const RulesAssetName = "seqra-rules.tar.gz"
 
 type Scan struct {
@@ -85,6 +81,7 @@ type ConfigType struct {
 	Rules       Rules       `mapstructure:"rules"`
 	Java        Java        `mapstructure:"java"`
 	Owner       string      `mapstructure:"owner"`
+	Repo        string      `mapstructure:"repo"`
 	Quiet       bool        `mapstructure:"quiet"`
 	SkipVerify  bool        `mapstructure:"skip-verify"`
 }
