@@ -6,10 +6,16 @@ on:
   push:
     paths:
       - 'opentaint-core/opentaint-jvm-autobuilder/**'
+      - 'opentaint-core/opentaint-project-model/**'
+      - 'opentaint-core/opentaint-utils/cli-util/**'
+      - 'opentaint-core/opentaint-common-build/**'
     branches: [ "main" ]
   pull_request:
     paths:
       - 'opentaint-core/opentaint-jvm-autobuilder/**'
+      - 'opentaint-core/opentaint-project-model/**'
+      - 'opentaint-core/opentaint-utils/cli-util/**'
+      - 'opentaint-core/opentaint-common-build/**'
     branches: [ "main" ]
 
 concurrency:

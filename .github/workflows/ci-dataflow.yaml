@@ -6,10 +6,18 @@ on:
   push:
     paths:
       - 'opentaint-core/opentaint-dataflow-core/**'
+      - 'opentaint-core/opentaint-ir/**'
+      - 'opentaint-core/opentaint-utils/**'
+      - 'opentaint-core/opentaint-configuration-rules/**'
+      - 'opentaint-core/opentaint-common-build/**'
     branches: [ "main" ]
   pull_request:
     paths:
       - 'opentaint-core/opentaint-dataflow-core/**'
+      - 'opentaint-core/opentaint-ir/**'
+      - 'opentaint-core/opentaint-utils/**'
+      - 'opentaint-core/opentaint-configuration-rules/**'
+      - 'opentaint-core/opentaint-common-build/**'
     branches: [ "main" ]
 
 concurrency:

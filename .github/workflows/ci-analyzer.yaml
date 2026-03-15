@@ -1,4 +1,4 @@
-name: CI Core
+name: CI Analyzer
 
 on:
   workflow_dispatch:
@@ -6,11 +6,45 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - 'opentaint-core/**'
+      - 'opentaint-core/src/**'
+      - 'opentaint-core/build.gradle.kts'
+      - 'opentaint-core/settings.gradle.kts'
+      - 'opentaint-core/buildSrc/**'
+      - 'opentaint-core/gradle/**'
+      - 'opentaint-core/opentaint-java-querylang/**'
+      - 'opentaint-core/samples/**'
+      - 'opentaint-core/opentaint-ir/**'
+      - 'opentaint-core/opentaint-dataflow-core/**'
+      - 'opentaint-core/opentaint-configuration-rules/**'
+      - 'opentaint-core/opentaint-config/**'
+      - 'opentaint-core/opentaint-jvm-sast-dataflow/**'
+      - 'opentaint-core/opentaint-jvm-sast-project/**'
+      - 'opentaint-core/opentaint-jvm-sast-se-api/**'
+      - 'opentaint-core/opentaint-sast-test-util/**'
+      - 'opentaint-core/opentaint-utils/**'
+      - 'opentaint-core/opentaint-project-model/**'
+      - 'opentaint-core/opentaint-common-build/**'
   pull_request:
     branches: [ "main" ]
     paths:
-      - 'opentaint-core/**'
+      - 'opentaint-core/src/**'
+      - 'opentaint-core/build.gradle.kts'
+      - 'opentaint-core/settings.gradle.kts'
+      - 'opentaint-core/buildSrc/**'
+      - 'opentaint-core/gradle/**'
+      - 'opentaint-core/opentaint-java-querylang/**'
+      - 'opentaint-core/samples/**'
+      - 'opentaint-core/opentaint-ir/**'
+      - 'opentaint-core/opentaint-dataflow-core/**'
+      - 'opentaint-core/opentaint-configuration-rules/**'
+      - 'opentaint-core/opentaint-config/**'
+      - 'opentaint-core/opentaint-jvm-sast-dataflow/**'
+      - 'opentaint-core/opentaint-jvm-sast-project/**'
+      - 'opentaint-core/opentaint-jvm-sast-se-api/**'
+      - 'opentaint-core/opentaint-sast-test-util/**'
+      - 'opentaint-core/opentaint-utils/**'
+      - 'opentaint-core/opentaint-project-model/**'
+      - 'opentaint-core/opentaint-common-build/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

@@ -6,10 +6,12 @@ on:
   push:
     paths:
       - 'opentaint-core/opentaint-ir/**'
+      - 'opentaint-core/opentaint-common-build/**'
     branches: [ "main" ]
   pull_request:
     paths:
       - 'opentaint-core/opentaint-ir/**'
+      - 'opentaint-core/opentaint-common-build/**'
     branches: [ "main" ]
 
 concurrency:
