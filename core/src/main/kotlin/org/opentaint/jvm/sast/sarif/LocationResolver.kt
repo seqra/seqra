@@ -9,9 +9,11 @@ import io.github.detekt.sarif4k.Region
 import io.github.detekt.sarif4k.ThreadFlowLocation
 import mu.KLogging
 import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.BytecodeGraph
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.cfg.JIRGraph
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.cfg.JIRRawInst
 import org.opentaint.ir.api.jvm.cfg.JIRRawLineNumberInst
@@ -30,6 +32,7 @@ import org.opentaint.jvm.sast.project.SarifGenerationOptions
 import org.opentaint.jvm.sast.util.DebugInfo
 import org.opentaint.jvm.sast.util.KotlinDebugInfoParser
 import org.opentaint.jvm.sast.util.SourcePosition
+import java.util.concurrent.ConcurrentHashMap
 
 data class LocationSpan(
     val startLine: Int,
@@ -153,12 +156,15 @@ class LocationResolver(
         return ResolvedInlineCall(callLocation, methodLocation, entry.methodName)
     }
 
+    private val methodInstGraphDominators = ConcurrentHashMap<JIRMethod, GraphDominators<JIRInst>>()
+
     private fun restoreInlineCalls(inst: CommonInst): List<InlineEntry> {
         inst as JIRInst
 
         val method = inst.location.method
-        val methodGraph = method.flowGraph()
-        val methodDominators = GraphDominators(methodGraph).apply { find() }
+        val methodDominators = methodInstGraphDominators.computeIfAbsent(method) {
+            method.flowGraph().findDominators()
+        }
 
         val instDominators = methodDominators.dominators(inst)
         val inlineEvents = instDominators.mapNotNull { i ->
@@ -368,5 +374,18 @@ class LocationResolver(
 
     companion object {
         private val logger = object : KLogging() {}.logger
+
+        private fun JIRGraph.findDominators(): GraphDominators<JIRInst> =
+            GraphDominators(GraphWithFastInstListIndexOf(this)).apply { find() }
+
+        // todo: remove after fix in IR
+        private class GraphWithFastInstListIndexOf(val g: JIRGraph) : BytecodeGraph<JIRInst> by g {
+            override val instructions: List<JIRInst> get() = InstList(g.instructions)
+        }
+
+        @Suppress("JavaDefaultMethodsNotOverriddenByDelegation")
+        private class InstList(val original: List<JIRInst>) : List<JIRInst> by original {
+            override fun indexOf(element: JIRInst): Int = element.location.index
+        }
     }
 }
