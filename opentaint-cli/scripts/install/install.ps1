@@ -113,6 +113,7 @@ function Main {
 
         Write-Host ""
         Write-Host "opentaint installed successfully!"
+        Write-Host "OPENTAINT_BINARY_PATH=$binDir\opentaint.exe"
         Write-Host "Run 'opentaint --version' to verify the installation."
     }
     finally {

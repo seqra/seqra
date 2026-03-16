@@ -163,7 +163,7 @@ jobs:
           if ("${{ secrets.SEQRA_GITHUB_TOKEN }}") {
             $TOKEN_ARG = "--github-token ${{ secrets.SEQRA_GITHUB_TOKEN }}"
           }
-          $TOKEN_ARG = "$TOKEN_ARG --owner ${{ github.repository_owner }}"
+          $TOKEN_ARG = $TOKEN_ARG --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }}"
           echo "arg=$TOKEN_ARG" >> $env:GITHUB_OUTPUT
 
       - uses: actions/checkout@v4
@@ -251,12 +251,17 @@ jobs:
         working-directory: opentaint-cli
         run: python3 -m http.server 8080 &
       - name: Run install.sh
+        id: install-linux
         working-directory: opentaint-cli
         env:
           OPENTAINT_DOWNLOAD_BASE_URL: http://localhost:8080
-        run: bash scripts/install/install.sh
+        run: |
+          echo "OPENTAINT_BINARY_PATH=$(bash scripts/install/install.sh | grep ^OPENTAINT_BINARY_PATH= | cut -d= -f2)" >> $GITHUB_OUTPUT
       - name: Verify installation
-        run: ~/.opentaint/install/opentaint --version
+        run: |
+          BINARY_PATH="${{ steps.install-linux.outputs.OPENTAINT_BINARY_PATH }}"
+          if [ -z "$BINARY_PATH" ]; then BINARY_PATH="$HOME/.opentaint/install/opentaint"; fi
+          "$BINARY_PATH" --version
 
   test-install-sh-macos:
     runs-on: macos-latest
@@ -275,12 +280,17 @@ jobs:
         working-directory: opentaint-cli
         run: python3 -m http.server 8080 &
       - name: Run install.sh
+        id: install-macos
         working-directory: opentaint-cli
         env:
           OPENTAINT_DOWNLOAD_BASE_URL: http://localhost:8080
-        run: bash scripts/install/install.sh
+        run: |
+          echo "OPENTAINT_BINARY_PATH=$(bash scripts/install/install.sh | grep ^OPENTAINT_BINARY_PATH= | cut -d= -f2)" >> $GITHUB_OUTPUT
       - name: Verify installation
-        run: ~/.opentaint/install/opentaint --version
+        run: |
+          BINARY_PATH="${{ steps.install-macos.outputs.OPENTAINT_BINARY_PATH }}"
+          if [ -z "$BINARY_PATH" ]; then BINARY_PATH="$HOME/.opentaint/install/opentaint"; fi
+          "$BINARY_PATH" --version
 
   test-install-ps1:
     runs-on: windows-latest
@@ -298,6 +308,7 @@ jobs:
           $hash = (Get-FileHash -Path opentaint-full_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
           "$hash  opentaint-full_windows_amd64.zip" | Out-File -FilePath checksums.txt -Encoding utf8NoBOM
       - name: Run install.ps1
+        id: install-windows
         shell: pwsh
         working-directory: opentaint-cli
         env:
@@ -305,8 +316,13 @@ jobs:
         run: |
           Start-Process -NoNewWindow python -ArgumentList "-m", "http.server", "8080"
           Start-Sleep -Seconds 2
-          pwsh -File scripts/install/install.ps1
+          $output = pwsh -File scripts/install/install.ps1 2>&1 | Out-String
+          $output -match 'OPENTAINT_BINARY_PATH=(.+)'
+          $binaryPath = $matches[1]
+          Write-Host "::set-output name=OPENTAINT_BINARY_PATH::$binaryPath"
       - name: Verify installation
         shell: pwsh
         run: |
-          & "$env:LOCALAPPDATA\opentaint\install\opentaint.exe" --version
+          $binaryPath = "${{ steps.install-windows.outputs.OPENTAINT_BINARY_PATH }}"
+          if ([string]::IsNullOrEmpty($binaryPath)) { $binaryPath = "$env:LOCALAPPDATA\opentaint\install\opentaint.exe" }
+          & $binaryPath --version

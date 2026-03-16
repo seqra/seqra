@@ -135,6 +135,8 @@ main() {
     echo ""
     echo "opentaint installed successfully!"
     echo ""
+    echo "OPENTAINT_BINARY_PATH=$bin_dir/opentaint"
+    echo ""
 
     # Check if bin_dir is in PATH
     case ":$PATH:" in
