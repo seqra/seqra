@@ -16,11 +16,10 @@ concurrency:
 jobs:
   publish:
     runs-on: [ self-hosted, ex44 ]
-    container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
+    container: cruizba/ubuntu-dind:focal-25.0.3
 
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
-    container: cruizba/ubuntu-dind:focal-25.0.3
     permissions:
       contents: write
       packages: write
