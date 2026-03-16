@@ -3,7 +3,6 @@ package org.opentaint.dataflow.jvm.ap.ifds
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.jvm.ap.ifds.alias.JIRIntraProcAliasAnalysis
-import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodCallResolver
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.jvm.graph.JApplicationGraph
@@ -11,7 +10,7 @@ import org.opentaint.jvm.graph.JApplicationGraph
 class JIRLocalAliasAnalysis(
     private val entryPoint: JIRInst,
     private val graph: JApplicationGraph,
-    private val callResolver: JIRMethodCallResolver,
+    private val callResolver: JIRCallResolver,
     private val localVariableReachability: JIRLocalVariableReachability,
     private val languageManager: JIRLanguageManager,
     private val params: Params,
@@ -81,7 +80,7 @@ class JIRLocalAliasAnalysis(
         fun wrapAllInfo(info: Int2ObjectOpenHashMap<Array<Any>>): Int2ObjectOpenHashMap<List<AliasInfo>> {
             val result = Int2ObjectOpenHashMap<List<AliasInfo>>()
             for ((key, aliases) in info) {
-                result.put(key, List(aliases.size) { it.wrapAliasInfo() })
+                result.put(key, List(aliases.size) { aliases[it].wrapAliasInfo() })
             }
             return result
         }

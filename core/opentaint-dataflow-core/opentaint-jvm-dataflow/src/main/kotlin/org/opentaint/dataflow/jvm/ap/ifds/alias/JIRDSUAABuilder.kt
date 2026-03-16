@@ -29,11 +29,48 @@ sealed interface ExprOrValue
 
 sealed interface Value: ExprOrValue
 
-sealed interface RefValue: Value {
-    data class Local(val idx: Int, val level: Int, val ctx: Int) : RefValue
-    data class Arg(val idx: Int) : RefValue
-    data class This(val isOuter: Boolean) : RefValue
-    data class Static(val type: String) : RefValue
+sealed interface RefValue : Value, Comparable<RefValue> {
+    val valueKind: Int
+
+    override fun compareTo(other: RefValue): Int {
+        val kindCmp = valueKind.compareTo(other.valueKind)
+        if (kindCmp != 0) return kindCmp
+        return compareValue(other)
+    }
+
+    fun compareValue(other: RefValue): Int
+
+    data class Local(val idx: Int, val ctx: ContextInfo) : RefValue {
+        override val valueKind: Int get() = 0
+
+        override fun compareValue(other: RefValue): Int = compare(other as Local)
+        fun compare(other: Local): Int = comparator.compare(this, other)
+
+        companion object {
+            private val comparator = compareBy<Local> { it.idx }.thenComparing { it.ctx }
+        }
+    }
+
+    data class Arg(val idx: Int) : RefValue {
+        override val valueKind: Int get() = 1
+
+        override fun compareValue(other: RefValue): Int = compare(other as Arg)
+        fun compare(other: Arg): Int = idx.compareTo(other.idx)
+    }
+
+    data class This(val isOuter: Boolean) : RefValue {
+        override val valueKind: Int get() = 2
+
+        override fun compareValue(other: RefValue): Int = compare(other as This)
+        fun compare(other: This): Int = isOuter.compareTo(other.isOuter)
+    }
+
+    data class Static(val type: String) : RefValue {
+        override val valueKind: Int get() = 3
+
+        override fun compareValue(other: RefValue): Int = compare(other as Static)
+        fun compare(other: Static): Int = type.compareTo(other.type)
+    }
 }
 
 sealed interface Expr: ExprOrValue {
@@ -48,7 +85,7 @@ sealed interface SimpleValue: Expr, Value {
     data class RefConst(val expr: JIRExpr): SimpleValue
 }
 
-sealed interface Stmt {
+sealed interface Stmt : Comparable<Stmt> {
     val originalIdx: Int
 
     sealed interface NoCall: Stmt
@@ -62,6 +99,8 @@ sealed interface Stmt {
     data class WriteStatic(val field: JIRField, val value: ExprOrValue, override val originalIdx: Int) : NoCall
     data class Return(val value: RefValue?, override val originalIdx: Int) : NoCall
     data class Throw(val value: RefValue, override val originalIdx: Int) : NoCall
+
+    override fun compareTo(other: Stmt): Int = this.originalIdx.compareTo(other.originalIdx)
 }
 
 interface InstEvalContext {

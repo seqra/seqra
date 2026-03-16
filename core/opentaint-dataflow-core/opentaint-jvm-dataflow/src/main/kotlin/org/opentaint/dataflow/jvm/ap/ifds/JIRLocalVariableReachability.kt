@@ -16,9 +16,9 @@ import org.opentaint.dataflow.util.copy
 import java.util.BitSet
 
 class JIRLocalVariableReachability(
-    private val method: JIRMethod,
-    private val graph: JApplicationGraph,
-    private val languageManager: JIRLanguageManager
+    val method: JIRMethod,
+    val graph: JApplicationGraph,
+    val languageManager: JIRLanguageManager
 ) {
     private val maxInstIdx = method.instList.maxOf { it.location.index }
 

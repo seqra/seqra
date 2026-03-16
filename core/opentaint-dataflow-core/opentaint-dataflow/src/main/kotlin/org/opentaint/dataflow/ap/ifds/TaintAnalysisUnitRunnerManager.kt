@@ -337,10 +337,12 @@ class TaintAnalysisUnitRunnerManager(
         override fun getMethodAnalysisContext(
             methodEntryPoint: MethodEntryPoint,
             graph: ApplicationGraph<CommonMethod, CommonInst>,
-            callResolver: MethodCallResolver
+            callResolver: MethodCallResolver,
+            contextForEmptyMethod: MethodAnalysisContext?
         ): MethodAnalysisContext = analysisManager.getMethodAnalysisContext(
             methodEntryPoint, graph, callResolver,
-            TaintAnalysisContext(taintConfig, sinkTracker)
+            TaintAnalysisContext(taintConfig, sinkTracker),
+            contextForEmptyMethod
         )
     }
 

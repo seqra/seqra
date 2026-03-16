@@ -74,19 +74,27 @@ class JIRAnalysisManager(
         methodEntryPoint: MethodEntryPoint,
         graph: ApplicationGraph<CommonMethod, CommonInst>,
         callResolver: MethodCallResolver,
-        taintAnalysisContext: TaintAnalysisContext
+        taintAnalysisContext: TaintAnalysisContext,
+        contextForEmptyMethod: MethodAnalysisContext?
     ): MethodAnalysisContext {
         val entryPointStatement = methodEntryPoint.statement
         jIRDowncast<JIRInst>(entryPointStatement)
         jIRDowncast<JApplicationGraph>(graph)
         callResolver as JIRMethodCallResolver
 
+        val jirContextForEmptyMethod = contextForEmptyMethod as? JIRMethodAnalysisContext
+
         val method = entryPointStatement.location.method
-        val localVariableReachability = JIRLocalVariableReachability(method, graph, this)
+        val localVariableReachability = jirContextForEmptyMethod?.localVariableReachability
+            ?: JIRLocalVariableReachability(method, graph, this)
 
         val aliasAnalysisParams = params.aliasAnalysisParams
         val aliasAnalysis = if (aliasAnalysisParams.useAliasAnalysis) {
-            JIRLocalAliasAnalysis(entryPointStatement, graph, callResolver, localVariableReachability, this, aliasAnalysisParams)
+            jirContextForEmptyMethod?.aliasAnalysis
+                ?: JIRLocalAliasAnalysis(
+                    entryPointStatement, graph, callResolver.callResolver,
+                    localVariableReachability, this, aliasAnalysisParams
+                )
         } else {
             null
         }

@@ -13,6 +13,7 @@ import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryE
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.ZeroCallFact
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallSummaryHandler
@@ -159,7 +160,8 @@ interface MethodAnalyzer {
 class NormalMethodAnalyzer(
     private val runner: AnalysisRunner,
     override val methodEntryPoint: MethodEntryPoint,
-    private val taintRulesStatsSamplingPeriod: Int?
+    private val taintRulesStatsSamplingPeriod: Int?,
+    emptyContextAnalyzer: MethodAnalyzer?,
 ) : MethodAnalyzer {
     private val apManager: ApManager get() = runner.apManager
     private val analysisManager get() = runner.analysisManager
@@ -173,8 +175,9 @@ class NormalMethodAnalyzer(
     private var pendingSideEffectRequirements = arrayListOf<InitialFactAp>()
     private var pendingSideEffectSummaries = arrayListOf<SideEffectSummary>()
 
-    private val analysisContext = analysisManager.getMethodAnalysisContext(
-        methodEntryPoint, runner.graph, runner.methodCallResolver
+    private val analysisContext: MethodAnalysisContext = analysisManager.getMethodAnalysisContext(
+        methodEntryPoint, runner.graph, runner.methodCallResolver,
+        (emptyContextAnalyzer as? NormalMethodAnalyzer)?.analysisContext
     )
 
     private var analyzerEnqueued = false

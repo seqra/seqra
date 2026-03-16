@@ -13,6 +13,7 @@ interface TaintAnalysisManager : AnalysisManager {
         methodEntryPoint: MethodEntryPoint,
         graph: ApplicationGraph<CommonMethod, CommonInst>,
         callResolver: MethodCallResolver,
+        contextForEmptyMethod: MethodAnalysisContext?,
     ): MethodAnalysisContext {
         error("Taint context required")
     }
@@ -22,5 +23,6 @@ interface TaintAnalysisManager : AnalysisManager {
         graph: ApplicationGraph<CommonMethod, CommonInst>,
         callResolver: MethodCallResolver,
         taintAnalysisContext: TaintAnalysisContext,
+        contextForEmptyMethod: MethodAnalysisContext?,
     ): MethodAnalysisContext
 }

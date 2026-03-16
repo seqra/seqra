@@ -29,3 +29,22 @@ dependencies {
 
     implementation(Libs.sarif4k)
 }
+
+
+val testSamples by configurations.creating
+
+dependencies {
+    testSamples(project("samples"))
+}
+
+tasks.withType<Test> {
+    maxHeapSize = "4G"
+
+    dependsOn(project("samples").tasks.withType<Jar>())
+
+    doFirst {
+        val resolvedTestSamples = testSamples.resolve()
+        val testSamplesJar = resolvedTestSamples.single { it.name == "samples.jar" }
+        environment("TEST_SAMPLES_JAR", testSamplesJar.absolutePath)
+    }
+}

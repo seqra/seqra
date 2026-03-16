@@ -4,6 +4,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.graph.CompactGraph
 import org.opentaint.dataflow.graph.MethodInstGraph
+import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLanguageManager
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAccessor
@@ -11,16 +12,8 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAllocInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasApInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalVariableReachability
-import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.AAInfo
-import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.ArrayAlias
-import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.CallReturn
 import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.ConnectedAliases
-import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.FieldAlias
-import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.HeapAlias
-import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.LocalAlias
-import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.Unknown
 import org.opentaint.dataflow.jvm.ap.ifds.alias.RefValue.Local
-import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodCallResolver
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -31,10 +24,14 @@ import org.opentaint.util.analysis.ApplicationGraph
 class JIRIntraProcAliasAnalysis(
     private val entryPoint: JIRInst,
     private val graph: JApplicationGraph,
-    private val callResolver: JIRMethodCallResolver,
+    private val callResolver: JIRCallResolver,
     private val languageManager: JIRLanguageManager,
     private val params: JIRLocalAliasAnalysis.Params,
 ) {
+    companion object {
+        private const val HEAP_CHAIN_LIMIT = 5
+    }
+
     data class JIRInstGraph(
         val statements: List<JIRInst>,
         val graph: CompactGraph,
@@ -62,7 +59,7 @@ class JIRIntraProcAliasAnalysis(
 
     fun compute(localVariableReachability: JIRLocalVariableReachability): JIRLocalAliasAnalysis.MethodAliasInfo {
         val jig = getJIG(entryPoint)
-        val daa = DSUAliasAnalysis(CallResolver()).analyze(jig)
+        val daa = DSUAliasAnalysis(CallResolver(), localVariableReachability).analyze(jig)
 
         val aliasBeforeStatement = Array(jig.statements.size) { i ->
             resolveLocalVar(daa.statesBeforeStmt[i], localVariableReachability, i)
@@ -124,15 +121,16 @@ class JIRIntraProcAliasAnalysis(
         instIdx: Int
     ): Int2ObjectOpenHashMap<List<AliasInfo>> {
         val result = Int2ObjectOpenHashMap<List<AliasInfo>>()
-        daa.aliasGroups.forEach { group ->
+        daa.aliasGroups.forEach { (_, group) ->
             val locals = group.filter {
                 it is LocalAlias.SimpleLoc && it.loc is Local && reachableLocals.isReachable(it.loc.idx, instIdx)
             }
             if (locals.isEmpty()) return@forEach
 
             val converted = group
-                .mapNotNull { it.convertToAliasInfo() }
+                .flatMap { it.convertToAliasInfo(daa.aliasGroups, depth = 0) }
                 .filter { it !is AliasApInfo || reachableLocals.isReachable(it.base, instIdx) }
+                .distinct()
 
             // size == 1 means only local was converted to AliasInfo; not really meaningful
             if (converted.size <= 1) return@forEach
@@ -144,36 +142,44 @@ class JIRIntraProcAliasAnalysis(
         return result
     }
 
-    private fun AAInfo.convertToAliasInfo(): AliasInfo? {
-        val (nonHeapInfo, accessors) = convertHeapAccessors(this)
-        return convertBaseAccessor(nonHeapInfo, accessors)
-    }
-
-    private fun convertHeapAccessors(initial: AAInfo): Pair<AAInfo, List<AliasAccessor>> {
-        var cur = initial
-        val accessors = mutableListOf<AliasAccessor>()
-        while (cur is HeapAlias) {
-            when (cur) {
-                is FieldAlias -> accessors.add(cur.field)
-                is ArrayAlias -> accessors.add(AliasAccessor.Array)
-            }
-            cur = cur.instance
+    private fun AAInfo.convertToAliasInfo(
+        aliasGroups: Int2ObjectOpenHashMap<List<AAInfo>>,
+        depth: Int
+    ): List<AliasInfo> {
+        if (this !is HeapAlias) {
+            val base = convertBaseAccessor(this)
+            return listOfNotNull(base)
         }
 
-        accessors.reverse()
-        val optimizedAccessors = accessors.ifEmpty { emptyList() }
+        if (depth > HEAP_CHAIN_LIMIT) {
+            return emptyList()
+        }
 
-        return cur to optimizedAccessors
+        val instanceGroup = aliasGroups[instance] ?: return emptyList()
+        val instances = instanceGroup.flatMap { it.convertToAliasInfo(aliasGroups, depth + 1) }
+        val accessor = when (val a = this.heapAccessor) {
+            is ArrayAlias -> AliasAccessor.Array
+            is FieldAlias -> a.field
+        }
+
+        return instances.mapNotNull {
+            when (it) {
+                is AliasAllocInfo -> return@mapNotNull null
+                is AliasApInfo -> AliasApInfo(it.base, it.accessors + accessor)
+            }
+        }
     }
 
-    private fun convertBaseAccessor(cur: AAInfo, accessors: List<AliasAccessor>): AliasInfo? {
+    private fun convertBaseAccessor(cur: AAInfo): AliasInfo? {
+        if (cur.ctx != ContextInfo.rootContext) return null
+
         val base = when (cur) {
             is LocalAlias.SimpleLoc -> when (val loc = cur.loc) {
                 is Local -> AccessPathBase.LocalVar(loc.idx)
                 is RefValue.Arg -> AccessPathBase.Argument(loc.idx)
                 is RefValue.This -> AccessPathBase.This
                 is RefValue.Static -> {
-                    val staticAccessors = listOf(AliasAccessor.Static(loc.type)) + accessors
+                    val staticAccessors = listOf(AliasAccessor.Static(loc.type))
                     return AliasApInfo(AccessPathBase.ClassStatic, staticAccessors)
                 }
             }
@@ -183,10 +189,7 @@ class JIRIntraProcAliasAnalysis(
 
                 val const = assign.expr as? SimpleValue.RefConst
                 val stringConst = const?.expr as? JIRStringConstant
-                if (stringConst == null) {
-                    if (accessors.isNotEmpty()) return null
-                    return AliasAllocInfo(assign.originalIdx)
-                }
+                    ?: return AliasAllocInfo(assign.originalIdx)
 
                 AccessPathBase.Constant("java.lang.String", stringConst.value)
             }
@@ -197,6 +200,6 @@ class JIRIntraProcAliasAnalysis(
             is HeapAlias -> error("unreachable")
         }
 
-        return AliasApInfo(base, accessors)
+        return AliasApInfo(base, emptyList())
     }
 }

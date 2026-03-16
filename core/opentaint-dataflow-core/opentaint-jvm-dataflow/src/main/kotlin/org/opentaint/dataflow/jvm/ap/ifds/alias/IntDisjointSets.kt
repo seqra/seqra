@@ -1,128 +1,172 @@
 package org.opentaint.dataflow.jvm.ap.ifds.alias
 
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
+import it.unimi.dsi.fastutil.ints.IntArrayList
+import it.unimi.dsi.fastutil.ints.IntComparator
+import it.unimi.dsi.fastutil.ints.IntIntMutablePair
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
+import org.opentaint.dataflow.util.forEachInt
+import org.opentaint.dataflow.util.forEachIntEntry
 
 class IntDisjointSets(
+    private val strategy: RankStrategy,
     private val parent: Int2IntOpenHashMap = Int2IntOpenHashMap(),
-    private val rank: Int2IntOpenHashMap = Int2IntOpenHashMap(),
-    private var hash: Int = 0,
 ) : ImmutableIntDSU {
+    interface RankStrategy: IntComparator {
+        override fun compare(a: Int, b: Int): Int
+    }
+
+    init {
+        parent.defaultReturnValue(NO_VALUE)
+    }
+
     fun find(x: Int): Int {
-        if (!parent.containsKey(x)) return x
-        val p = parent[x]
+        val p = parent.get(x)
+        if (p == NO_VALUE) return x
+
         val root = find(p)
-        parent[x] = root
-        updateHash(x)
+        parent.put(x, root)
         return root
     }
 
-    private fun getRank(x: Int): Int {
-        if (!rank.containsKey(x)) return 0
-        return rank[x]
-    }
-
-    fun union(x: Int, y: Int) {
+    fun union(x: Int, y: Int): Boolean {
         val u = find(x)
         val v = find(y)
 
         if (u == v) {
-            return
+            return false
         }
 
-        val rankU = getRank(u)
-        val rankV = getRank(v)
+        val cmp = strategy.compare(u, v)
+        check(cmp != 0) { "Strategy cmp is 0 for non-equal elements" }
 
-        when {
-            rankU > rankV -> merge(u, v)
-            rankU < rankV -> merge(v, u)
-            else -> {
-                merge(u, v)
-                rank[u] = rankU + 1
-            }
+        if (cmp < 0) {
+            merge(p = u, c = v)
+        } else {
+            merge(p = v, c = u)
         }
+
+        return true
     }
 
-    fun forEachElementInSet(setElement: Int, body: (Int) -> Unit) {
+    fun forEachElementInSet(setElement: Int, body: (Int) -> Unit?) {
         val setRoot = find(setElement)
         val allElements = allElements()
 
-        if (setRoot !in allElements) {
+        if (!allElements.contains(setRoot)) {
             body(setRoot)
             return
         }
 
-        for (e in allElements) {
-            if (find(e) == setRoot) body(e)
+        allElements.forEachInt { e ->
+            if (find(e) == setRoot) body(e) ?: return
         }
     }
 
-    fun unionSets(others: List<IntDisjointSets>) {
-        for (other in others) {
-            for ((a, b) in other.parent) {
-                union(a, b)
+    fun collectElementParentPairs(dst: MutableList<IntIntMutablePair>) {
+        parent.forEachIntEntry { key, value ->
+            dst += IntIntMutablePair(key, value)
+        }
+    }
+
+    private fun merge(p: Int, c: Int) {
+        parent.put(c, p)
+    }
+
+    fun removeAll(elements: IntOpenHashSet) = removeAll(elements) { _, _ -> /*do nothing*/ }
+
+    fun prepareRemoveAll(
+        elements: IntOpenHashSet,
+        removedRoots: IntOpenHashSet
+    ) = removeAll(elements) { element, status ->
+        when (status) {
+            is RemoveResult.EntireSetRemoved -> removedRoots.add(element)
+            is RemoveResult.SetElementRemoved -> {}
+            is RemoveResult.NewSetRepr -> {
+                // keep old root as a child of new root
+                parent.put(element, status.repr)
             }
         }
     }
 
-    private fun updateHash(element: Int) {
-        hash += element.hashCode()
-    }
+    private inline fun removeAll(elements: IntOpenHashSet, onEachRemoved: (Int, RemoveResult) -> Unit) {
+        val allElements = allElements()
 
-    private fun updateHashRemoveElement(element: Int) {
-        hash -= element.hashCode()
-    }
+        elements.forEach {
+            val result = if (allElements.contains(it)) {
+                removeExistingElement(it)
+            } else {
+                RemoveResult.EntireSetRemoved
+            }
 
-    private fun merge(x: Int, y: Int) {
-        parent[y] = x
-    }
-
-    fun removeAll(pred: (Int) -> Boolean) {
-        val elementsToRemove = allElements().filter { pred(it) }
-        elementsToRemove.forEach { removeExistingElement(it) }
-    }
-
-    private fun Int2IntOpenHashMap.removeOrNull(x: Int): Int? {
-        if (!containsKey(x)) return null
-        return remove(x)
-    }
-
-    private fun removeExistingElement(element: Int) {
-        val children = parent.filter { it.value == element }.keys.toList()
-
-        val elementParent = parent.removeOrNull(element)
-        val elementRank = rank.removeOrNull(element)
-
-        updateHashRemoveElement(element)
-
-        if (children.isEmpty()) return
-
-        val newRoot = elementParent ?: children.first()
-
-        for (c in children) {
-            parent[c] = newRoot
+            onEachRemoved(it, result)
         }
+    }
+
+    sealed interface RemoveResult {
+        data object EntireSetRemoved : RemoveResult
+        data object SetElementRemoved : RemoveResult
+        data class NewSetRepr(val repr: Int) : RemoveResult
+    }
+
+    private fun removeExistingElement(element: Int): RemoveResult {
+        val children = IntArrayList()
+        parent.forEachIntEntry { key, value ->
+            if (value == element) {
+                children.add(key)
+            }
+        }
+
+        val rawElementParent = parent.remove(element)
+
+        if (children.isEmpty) return RemoveResult.EntireSetRemoved
+
+        val newRoot = if (rawElementParent != NO_VALUE) {
+            rawElementParent
+        } else {
+            children.sort(strategy)
+            children.getInt(0)
+        }
+        children.forEachInt { c ->
+            parent.put(c, newRoot)
+        }
+
         // one of children inherited rootness, so it can't be its own parent
-        if (elementParent == null) {
+        if (rawElementParent == NO_VALUE) {
             parent.remove(newRoot)
-            rank[newRoot] = elementRank ?: 1
+        }
+
+        return if (rawElementParent != NO_VALUE) {
+            RemoveResult.SetElementRemoved
+        } else {
+            RemoveResult.NewSetRepr(newRoot)
         }
     }
 
-    private fun allElements(): MutableSet<Int> {
-        val allElements = parent.keys.toHashSet()
+    fun allElements(): IntOpenHashSet {
+        val allElements = IntOpenHashSet()
+        allElements.addAll(parent.keys)
         allElements.addAll(parent.values)
         return allElements
     }
 
     override fun mutableCopy(): IntDisjointSets = clone()
 
-    private fun clone(): IntDisjointSets =
-        IntDisjointSets(parent.toMap(Int2IntOpenHashMap()), rank.toMap(Int2IntOpenHashMap()), hash)
+    private fun clone(): IntDisjointSets = IntDisjointSets(strategy, parent.clone())
 
-    fun allSets(): Collection<List<Int>> =
-        allElements().groupBy { find(it) }.values
+    fun allSets(): Collection<IntOpenHashSet> {
+        val groups = Int2ObjectOpenHashMap<IntOpenHashSet>()
+        allElements().forEachInt { element ->
+            val root = find(element)
+            val group = groups.get(root)
+                ?: IntOpenHashSet().also { groups.put(root, it) }
+            group.add(element)
+        }
+        return groups.values
+    }
 
-    override fun hashCode(): Int = hash
+    override fun hashCode(): Int = error("HashCode is not supported")
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -130,9 +174,17 @@ class IntDisjointSets(
 
         if (this.parent == other.parent) return true
 
-        val thisPartitions = this.allSets().map { it.toSet() }.toSet()
-        val otherPartitions = other.allSets().map { it.toSet() }.toSet()
+        val thisElements = this.allElements()
+        if (thisElements != other.allElements()) return false
 
-        return thisPartitions == otherPartitions
+        thisElements.forEachInt { element ->
+            if (this.find(element) != other.find(element)) return false
+        }
+
+        return true
+    }
+
+    companion object {
+        private const val NO_VALUE = Int.MIN_VALUE
     }
 }

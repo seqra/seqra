@@ -2,9 +2,18 @@ package org.opentaint.dataflow.jvm.ap.ifds.alias
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
+import it.unimi.dsi.fastutil.ints.IntArrayList
+import it.unimi.dsi.fastutil.ints.IntCollection
+import it.unimi.dsi.fastutil.ints.IntIntImmutablePair
+import it.unimi.dsi.fastutil.ints.IntIntMutablePair
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAccessor
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalVariableReachability
 import org.opentaint.dataflow.jvm.ap.ifds.alias.JIRIntraProcAliasAnalysis.JIRInstGraph
 import org.opentaint.dataflow.jvm.ap.ifds.alias.RefValue.Local
+import org.opentaint.dataflow.util.forEachInt
+import org.opentaint.dataflow.util.forEachIntEntry
+import org.opentaint.dataflow.util.mapIntTo
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -13,14 +22,35 @@ import java.util.BitSet
 
 class DSUAliasAnalysis(
     val methodCallResolver: CallResolver,
+    val rootMethodReachabilityInfo: JIRLocalVariableReachability
 ) {
-    companion object {
-        private const val HEAP_CHAIN_LIMIT = 5
+    private val aliasManager = AAInfoManager()
+    private val dsuMergeStrategy = DsuMergeStrategy(aliasManager)
+
+    private val nestedReachabilityInfo = hashMapOf<JIRMethod, JIRLocalVariableReachability>()
+
+    private fun methodReachabilityInfo(method: JIRMethod): JIRLocalVariableReachability {
+        if (method == rootMethodReachabilityInfo.method) return rootMethodReachabilityInfo
+        return nestedReachabilityInfo.getOrPut(method) {
+            JIRLocalVariableReachability(
+                method,
+                rootMethodReachabilityInfo.graph,
+                rootMethodReachabilityInfo.languageManager
+            )
+        }
     }
 
-    private val aliasManager = AAInfoManager()
+    class DsuMergeStrategy(
+        private val manager: AAInfoManager
+    ) : IntDisjointSets.RankStrategy {
+        override fun compare(a: Int, b: Int): Int {
+            val aImpl = manager.getElementUncheck(a)
+            val bImpl = manager.getElementUncheck(b)
+            return aImpl.compareTo(bImpl)
+        }
+    }
 
-    data class ConnectedAliases(val aliasGroups: List<Set<AAInfo>>)
+    data class ConnectedAliases(val aliasGroups: Int2ObjectOpenHashMap<List<AAInfo>>)
 
     data class AnalysisResult(
         val statesBeforeStmt: List<ConnectedAliases>,
@@ -40,34 +70,252 @@ class DSUAliasAnalysis(
     private object RootInstEvalContext : InstEvalContext {
         override fun createThis(isOuter: Boolean): RefValue = RefValue.This(isOuter)
         override fun createArg(idx: Int): RefValue = RefValue.Arg(idx)
-        override fun createLocal(idx: Int): Local = Local(idx, level = 0, ctx = 0)
+        override fun createLocal(idx: Int): Local = Local(idx, ContextInfo.rootContext)
     }
 
-    data class ImmutableState(val aliasGroups: ImmutableIntDSU) {
-        fun mutableCopy(): State = State(aliasGroups.mutableCopy())
+    interface ImmutableState {
+        fun mutableCopy(): State
     }
 
-    data class State(val aliasGroups: IntDisjointSets) {
-        fun asImmutable(): ImmutableState = ImmutableState(aliasGroups)
+    class State private constructor(
+        val manager: AAInfoManager,
+        val aliasGroups: IntDisjointSets,
+    ) : ImmutableState {
+
+        override fun hashCode(): Int = error("Unsupported operation")
+
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (other !is State) return false
+
+            /**
+             * We don't need to align heap instances here.
+             * Since set repr selection is deterministic due to strategy,
+             * if sets are equal their repr are also equal.
+             * So, heap instances must be equal.
+             * */
+            return aliasGroups == other.aliasGroups
+        }
+
+        fun asImmutable(): ImmutableState = this
+
+        override fun mutableCopy(): State = State(manager, aliasGroups.mutableCopy())
+
+        fun removeUnsafe(infos: IntOpenHashSet): State {
+            if (infos.isEmpty()) return this
+
+            val normalizedInfos = fixHeapElementInstance(infos)
+            val result = aliasGroups.mutableCopy()
+
+            val removedInstances = IntOpenHashSet()
+            result.prepareRemoveAll(normalizedInfos, removedInstances)
+
+            val removeAfterHeapFix = IntOpenHashSet()
+            restoreHeapInvariant(manager, result, removeAfterHeapFix)
+
+            // since we use prepare-remove, old replaced roots are still in the DSU
+            removeAfterHeapFix.addAll(normalizedInfos)
+            result.removeAll(removeAfterHeapFix)
+
+            if (removedInstances.isEmpty()) {
+                return State(manager, result)
+            }
+
+            val removedHeap = IntOpenHashSet()
+            result.allElements().forEachInt {
+                if (!manager.isHeapAlias(it)) return@forEachInt
+
+                val heapElement = manager.getHeapRefUnchecked(it)
+                if (removedInstances.contains(heapElement.instance)) {
+                    removedHeap.add(it)
+                }
+            }
+
+            return State(manager, result).removeUnsafe(removedHeap)
+        }
+
+        fun aliasGroupId(info: Int): Int = aliasGroups.find(info)
+        fun aliasGroupRepr(groupId: Int): Int = aliasGroups.find(groupId)
+
+        fun mergeAliasSets(aliasSets: IntOpenHashSet): State {
+            if (aliasSets.size < 2) return this
+
+            val firstRepr = aliasSets.intIterator().nextInt()
+            val relations = mutableListOf<IntIntMutablePair>()
+            aliasSets.forEachInt {
+                if (it == firstRepr) return@forEachInt
+                relations += IntIntMutablePair(firstRepr, it)
+            }
+
+            val result = aliasGroups.mutableCopy()
+            mergeUnionRelations(relations, result, manager)
+
+            return State(manager, result)
+        }
+
+        fun forEachAliasInSet(info: Int, body: (Int) -> Unit) = forEachAliasInSetWithBreak(info, body)
+
+        fun forEachAliasInSetWithBreak(info: Int, body: (Int) -> Unit?) {
+            aliasGroups.forEachElementInSet(info, body)
+        }
+
+        fun allAliasSets(): Collection<IntOpenHashSet> = aliasGroups.allSets()
+
+        fun allSetElements(): IntOpenHashSet = aliasGroups.allElements()
+
+        override fun toString(): String = buildString {
+            for (aliasSet in allAliasSets()) {
+                appendLine("{")
+                aliasSet.forEachInt {
+                    appendLine("\t($it) -> ${manager.getElementUncheck(it)}")
+                }
+                appendLine("}")
+            }
+        }
+
+        private fun fixHeapElementInstance(elements: IntOpenHashSet) =
+            elements.mapIntTo(IntOpenHashSet(elements.size)) {
+                ensureHeapElementCorrect(it, aliasGroups, manager)
+            }
+
+        companion object {
+            fun empty(manager: AAInfoManager, strategy: DsuMergeStrategy): State =
+                State(manager, IntDisjointSets(strategy))
+
+            private fun restoreHeapInvariant(
+                manager: AAInfoManager,
+                state: IntDisjointSets,
+                elementsToRemove: IntOpenHashSet,
+            ) {
+                while (true) {
+                    val replacements = mutableListOf<IntIntImmutablePair>()
+
+                    state.allElements().forEachInt { elementIdx ->
+                        if (elementsToRemove.contains(elementIdx)) return@forEachInt
+
+                        val fixedHeap = ensureHeapElementCorrect(elementIdx, state, manager)
+                        if (fixedHeap == elementIdx) return@forEachInt
+
+                        replacements += IntIntImmutablePair(elementIdx, fixedHeap)
+                    }
+
+                    if (replacements.isEmpty()) return
+
+                    for (replacement in replacements) {
+                        elementsToRemove.add(replacement.leftInt())
+                        state.union(replacement.leftInt(), replacement.rightInt())
+                    }
+                }
+            }
+
+            private fun ensureHeapElementCorrect(element: Int, state: IntDisjointSets, manager: AAInfoManager): Int {
+                if (!manager.isHeapAlias(element)) return element
+
+                val heapElement = manager.getHeapRefUnchecked(element)
+                val heapInstanceRepr = state.find(heapElement.instance)
+                if (heapInstanceRepr == heapElement.instance) return element
+
+                return manager.replaceHeapInstance(element, heapInstanceRepr)
+            }
+
+            fun merge(manager: AAInfoManager, strategy: DsuMergeStrategy, states: List<ImmutableState>): State {
+                val allElementParentRelations = mutableListOf<IntIntMutablePair>()
+                states.forEach { s ->
+                    val stateDsu = (s as State).aliasGroups
+                    stateDsu.collectElementParentPairs(allElementParentRelations)
+                }
+
+                val result = IntDisjointSets(strategy)
+                mergeUnionRelations(allElementParentRelations, result, manager)
+
+                return State(manager, result)
+            }
+
+            private fun mergeUnionRelations(
+                relations: List<IntIntMutablePair>,
+                result: IntDisjointSets,
+                manager: AAInfoManager
+            ) {
+                val removedElements = IntOpenHashSet()
+                while (true) {
+                    var modified = false
+                    relations.forEach {
+                        val status = result.union(it.leftInt(), it.rightInt())
+                        modified = modified or status
+                    }
+
+                    if (!modified) break
+
+                    restoreHeapInvariant(manager, result, removedElements)
+
+                    relations.forEach { relation ->
+                        val fixedLeft = ensureHeapElementCorrect(relation.leftInt(), result, manager)
+                        val fixedRight = ensureHeapElementCorrect(relation.rightInt(), result, manager)
+
+                        relation.left(fixedLeft)
+                        relation.right(fixedRight)
+                    }
+                }
+                result.removeAll(removedElements)
+            }
+        }
     }
 
     private fun AAInfo.index(): Int {
         return aliasManager.getOrAdd(this)
     }
 
+    private fun State.allElements(): IntOpenHashSet {
+        val result = IntOpenHashSet()
+        result.addAll(allSetElements())
+
+        val unprocessedHeapElement = IntArrayList()
+        result.forEachInt {
+            if (manager.isHeapAlias(it)) unprocessedHeapElement.add(it)
+        }
+
+        while (unprocessedHeapElement.isNotEmpty()) {
+            val element = unprocessedHeapElement.removeInt(unprocessedHeapElement.lastIndex)
+            val instance = manager.getHeapRefUnchecked(element).instance
+            if (result.add(instance)) {
+                if (manager.isHeapAlias(instance)) {
+                    unprocessedHeapElement.add(instance)
+                }
+            }
+        }
+
+        return result
+    }
+
     private fun getConnectedAliases(states: Array<ImmutableState?>): List<ConnectedAliases> =
         List(states.size) { stmt ->
-            states[stmt]?.let { s ->
-                val groups = s.aliasGroups.mutableCopy().allSets().map { set ->
-                    set.map { aliasManager.getElementUncheck(it) }.toSet()
+            val state = states[stmt]?.mutableCopy()
+                ?: return@List ConnectedAliases(Int2ObjectOpenHashMap())
+
+            val groupsElements = Int2ObjectOpenHashMap<IntOpenHashSet>()
+
+            state.allElements().forEach { element ->
+                val groupId = state.aliasGroupId(element)
+                val group = groupsElements.get(groupId)
+                    ?: IntOpenHashSet().also { groupsElements.put(groupId, it) }
+                group.add(element)
+            }
+
+            val groups = Int2ObjectOpenHashMap<List<AAInfo>>()
+            groupsElements.forEachIntEntry { key, groupElements ->
+                val elements = mutableListOf<AAInfo>()
+                groupElements.forEachInt {
+                    elements += aliasManager.getElementUncheck(it)
                 }
-                ConnectedAliases(groups)
-            } ?: ConnectedAliases(emptyList())
+                groups.put(key, elements)
+            }
+
+            ConnectedAliases(groups)
         }
 
     fun analyze(jig: JIRInstGraph): AnalysisResult {
-        val initialState = ImmutableState(IntDisjointSets())
-        val rootCall = CallTreeNode(level = 0, instEvalCtx = RootInstEvalContext)
+        val initialState = State.empty(aliasManager, dsuMergeStrategy)
+        val rootCall = CallTreeNode(ContextInfo.rootContext, instEvalCtx = RootInstEvalContext)
         val analysisState = GraphAnalysisState(jig.statements.size, rootCall)
         val (stateBeforeStmt, stateAfterStmt) = analyze(jig, initialState, analysisState)
         return AnalysisResult(
@@ -86,49 +334,53 @@ class DSUAliasAnalysis(
         simulateJIG(
             jig, initialState, stateBeforeStmt, stateAfterStmt,
             { i, s -> eval(i, s, analysisState.call) },
-            ::merge
+            { i, s -> merge(i, s, analysisState.call) }
         )
         return stateBeforeStmt to stateAfterStmt
     }
 
-    private fun merge(states: Int2ObjectMap<ImmutableState?>): ImmutableState {
-        val statesWithPhi = states.mapValuesTo(hashMapOf()) { it.value?.mutableCopy() }
-        val result = IntDisjointSets()
-        result.unionSets(statesWithPhi.values.mapNotNull { it?.aliasGroups })
-        return State(result).asImmutable()
+    private fun merge(inst: JIRInst, states: Int2ObjectMap<ImmutableState?>, call: CallTreeNode): ImmutableState {
+        val statesToMerge = states.values.filterNotNull()
+        val merged = State.merge(aliasManager, dsuMergeStrategy, statesToMerge)
+
+        val reachabilityInfo = methodReachabilityInfo(inst.location.method)
+        val instIdx = inst.location.index
+        val reachableMerged = merged.removeUnreachableLocals(reachabilityInfo, instIdx, call)
+
+        return reachableMerged.asImmutable()
     }
 
-    sealed interface AAInfo
-    data class Unknown(val stmt: Stmt, val level: Int) : AAInfo
-    data class CallReturn(val stmt: Stmt.Call, val level: Int) : AAInfo
+    private fun State.removeUnreachableLocals(
+        reachabilityInfo: JIRLocalVariableReachability,
+        instIdx: Int,
+        call: CallTreeNode
+    ): State {
+        val unreachableLocals = IntOpenHashSet()
+        allElements().forEachInt {
+            val element = manager.getElementUncheck(it)
+            if (element !is LocalAlias.SimpleLoc) return@forEachInt
 
-    sealed interface LocalAlias : AAInfo {
-        data class SimpleLoc(val loc: RefValue) : LocalAlias
-        data class Alloc(val stmt: Stmt) : LocalAlias
+            val loc = element.loc
+            if (loc !is Local) return@forEachInt
+            if (loc.ctx != call.ctx) return@forEachInt
+
+            if (reachabilityInfo.isReachable(loc.idx, instIdx)) return@forEachInt
+
+            unreachableLocals.add(it)
+        }
+
+        return removeUnsafe(unreachableLocals)
     }
 
-    sealed interface HeapAlias : AAInfo {
-        val instance: AAInfo
-        val depth: Int
-        val isImmutable: Boolean
+    private fun eval(inst: JIRInst, state: ImmutableState, callFrame: CallTreeNode): ImmutableState {
+        val reachabilityInfo = methodReachabilityInfo(inst.location.method)
+        val instIdx = inst.location.index
+
+        val s0 = state.mutableCopy()
+        val s1 = s0.removeUnreachableLocals(reachabilityInfo, instIdx, callFrame)
+
+        return eval(inst, s1, callFrame).asImmutable()
     }
-
-    data class ArrayAlias(
-        override val instance: AAInfo,
-        override val depth: Int,
-    ) : HeapAlias {
-        override val isImmutable: Boolean get() = false
-    }
-
-    data class FieldAlias(
-        override val instance: AAInfo,
-        val field: AliasAccessor.Field,
-        override val depth: Int,
-        override val isImmutable: Boolean,
-    ) : HeapAlias
-
-    private fun eval(inst: JIRInst, state: ImmutableState, callFrame: CallTreeNode): ImmutableState =
-        eval(inst, state.mutableCopy(), callFrame).asImmutable()
 
     private fun eval(inst: JIRInst, state: State, callFrame: CallTreeNode): State {
         val stmt = callFrame.instEvalCtx.evalInst(inst) ?: return state
@@ -147,12 +399,12 @@ class DSUAliasAnalysis(
         }
 
         val resultState = if (stmt.lValue != null) {
-            val info = aliasSetFromInfo(CallReturn(stmt, callFrame.level))
-            state.removeOldAndMergeWith(stmt.lValue.aliasInfo().index(), setOf(info))
+            val info = aliasSetFromInfo(CallReturn(stmt, callFrame.ctx))
+            state.removeOldAndMergeWith(stmt.lValue.aliasInfo().index(), info)
         } else state
         if (stmt.cantMutateAliasedHeap()) return resultState
 
-        val argAliases = hashSetOf<Int>()
+        val argAliases = IntOpenHashSet()
         stmt.args.forEach { arg ->
             val info = arg.aliasInfo() ?: return@forEach
             val infoIndex = aliasManager.getOrAdd(info)
@@ -174,7 +426,7 @@ class DSUAliasAnalysis(
             analyze(resolvedMethod.graph, stateBefore, resolvedMethod.state)
 
             val methodFinalStates = resolvedMethod.state.mapCallFinalStates(
-                resolvedMethod.graph, stmt, callFrame.level
+                resolvedMethod.graph, stmt, callFrame.ctx.level
             )
             statesAfterCall += methodFinalStates
         }
@@ -185,32 +437,27 @@ class DSUAliasAnalysis(
             return statesAfterCall.first().mutableCopy()
         }
 
-        val statesMap = Int2ObjectOpenHashMap<ImmutableState>()
-        statesAfterCall.forEachIndexed { index, state ->
-            statesMap[index] = state
-        }
-        return merge(statesMap).mutableCopy()
+        return State.merge(aliasManager, dsuMergeStrategy, statesAfterCall)
     }
 
-    private fun State.invalidateOuterHeapAliases(startInvalidAliases: Set<Int>): State {
+    private fun State.invalidateOuterHeapAliases(startInvalidAliases: IntOpenHashSet): State {
         val invalidAliases = collectTransitiveInvalidAliases(startInvalidAliases)
-        return resetHeapWithInvalidInstance(invalidAliases)
-    }
 
-    private fun State.resetHeapWithInvalidInstance(invalidAliases: Set<Int>): State {
-        val result = aliasGroups.mutableCopy()
-        result.removeAll {
+        val invalidHeapAliases = IntOpenHashSet()
+        invalidAliases.forEach {
             val element = aliasManager.getElementUncheck(it)
-            if (element !is HeapAlias || element.isImmutable) return@removeAll false
-            it in invalidAliases
+            if (element !is HeapAlias || isHeapImmutable(element, IntOpenHashSet())) return@forEach
+
+            invalidHeapAliases.add(it)
         }
-        return State(result)
+
+        return removeUnsafe(invalidHeapAliases)
     }
 
-    private fun State.collectTransitiveInvalidAliases(startInvalidAliases: Set<Int>): Set<Int> {
-        val currentAliasGroups = aliasGroups.allSets().toList()
+    private fun State.collectTransitiveInvalidAliases(startInvalidAliases: IntOpenHashSet): IntOpenHashSet {
+        val currentAliasGroups = allAliasSets().toList()
 
-        val invalidAliases = hashSetOf<Int>()
+        val invalidAliases = IntOpenHashSet()
         invalidAliases.addAll(startInvalidAliases)
 
         val invalidGroups = BitSet()
@@ -232,13 +479,13 @@ class DSUAliasAnalysis(
         return invalidAliases
     }
 
-    private fun aliasGroupContainsInvalidOrOuter(group: Iterable<Int>, invalid: Set<Int>): Boolean {
-        for (aInfoIndex in group) {
+    private fun State.aliasGroupContainsInvalidOrOuter(group: IntCollection, invalid: IntOpenHashSet): Boolean {
+        group.forEachInt { aInfoIndex ->
             when (val aInfo = aliasManager.getElementUncheck(aInfoIndex)) {
                 is Unknown -> return true
                 is CallReturn -> return true
-                is HeapAlias -> if (aInfo.instance.index() in invalid) return true
-                is LocalAlias.Alloc -> continue
+                is HeapAlias -> if (aliasGroupRepr(aInfo.instance) in invalid) return true
+                is LocalAlias.Alloc -> return@forEachInt
                 is LocalAlias.SimpleLoc -> {
                     if (aInfo.loc.isOuter()) return true
                     if (aInfoIndex in invalid) return true
@@ -271,112 +518,123 @@ class DSUAliasAnalysis(
     private fun evalCopy(stmt: Stmt.Copy, state: State): State =
         state.removeOldAndMergeWith(stmt.lValue.aliasInfo(), stmt.rValue.aliasInfo())
 
-    private fun evalExpr(expr: Expr, stmt: Stmt, callFrame: CallTreeNode, state: State): Set<AliasSet> = when (expr) {
+    private fun evalExpr(expr: Expr, stmt: Stmt, callFrame: CallTreeNode, state: State): AliasSet = when (expr) {
         is Expr.Alloc,
-        is SimpleValue.RefConst -> setOf(aliasSetFromInfo(LocalAlias.Alloc(stmt)))
+        is SimpleValue.RefConst -> aliasSetFromInfo(LocalAlias.Alloc(stmt, callFrame.ctx))
 
-        is Expr.FieldLoad -> evalFieldLoad(expr, stmt, callFrame, state)
+        is Expr.FieldLoad -> evalFieldLoad(expr, state)
 
-        is Expr.ArrayLoad -> evalArrayLoad(expr, stmt, callFrame, state)
+        is Expr.ArrayLoad -> evalArrayLoad(expr, state)
 
         is SimpleValue.Primitive,
-        is Expr.Unknown -> setOf(aliasSetFromInfo(Unknown(stmt, callFrame.level)))
+        is Expr.Unknown -> aliasSetFromInfo(Unknown(stmt, callFrame.ctx))
     }
 
     private fun evalHeapLoad(
         instance: RefValue,
-        stmt: Stmt, callFrame: CallTreeNode,
-        state: State, heapAppender: (AAInfo) -> HeapAlias?
-    ): Set<AliasSet> {
-        var valueMayBeUnknown = false
+        state: State,
+        heapAppender: (Int) -> HeapAlias
+    ): AliasSet {
+        val obj = state.heapObj(instance.aliasInfo())
+        val heapLocation = heapAppender(obj)
+        return aliasSetFromInfo(heapLocation)
+    }
 
-        val result = hashSetOf<AliasSet>()
-        state.forEachAliasInSet(instance.aliasInfo().index()) { instanceIndex ->
-            val instanceAlias = aliasManager.getElementUncheck(instanceIndex)
-            val field = heapAppender(instanceAlias)
-            if (field != null) {
-                result += aliasSetFromInfo(field)
-            } else {
-                valueMayBeUnknown = true
+    private fun State.heapObj(instance: AAInfo): Int {
+        val instanceIdx = instance.index()
+        return aliasGroupId(instanceIdx)
+    }
+
+    private fun State.isHeapImmutable(obj: AAInfo, onStack: IntOpenHashSet): Boolean = when (obj) {
+        is HeapAlias -> obj.heapAccessor.isImmutable && isHeapImmutable(obj.instance, onStack)
+        is LocalAlias.SimpleLoc -> !obj.loc.isOuter()
+        is LocalAlias.Alloc -> true
+        is CallReturn -> false
+        is Unknown -> false
+    }
+
+    private fun State.isHeapImmutable(obj: Int, onStack: IntOpenHashSet): Boolean {
+        var result = true
+        forEachAliasInSetWithBreak(obj) {
+            if (!onStack.add(it)) {
+                return@forEachAliasInSetWithBreak null
             }
-        }
 
-        if (valueMayBeUnknown) {
-            result += aliasSetFromInfo(Unknown(stmt, callFrame.level))
-        }
+            val element = manager.getElementUncheck(it)
+            if (!isHeapImmutable(element, onStack)) {
+                result = false
+                return@forEachAliasInSetWithBreak null
+            }
 
+            onStack.remove(it)
+            Unit
+        }
         return result
     }
 
-    private fun <T : HeapAlias> createHeapAliasWrtLimit(instance: AAInfo, builder: (Int) -> T): T? {
-        val depth = if (instance is HeapAlias) instance.depth + 1 else 0
-        if (depth > HEAP_CHAIN_LIMIT) return null
-        return builder(depth)
-    }
-
-    private fun createFieldAliasWrtLimit(instance: AAInfo, field: JIRField): FieldAlias? {
+    private fun createFieldAlias(obj: Int, field: JIRField): HeapAlias {
         val f = AliasAccessor.Field(field.enclosingClass.name, field.name, field.type.typeName)
-        return createFieldAliasWrtLimit(instance, f, field.isFinal)
+        return createFieldAlias(obj, f, field.isFinal)
     }
 
-    private fun createFieldAliasWrtLimit(instance: AAInfo, field: AliasAccessor.Field, fieldIsImmutable: Boolean): FieldAlias? {
-        val immutability = when (instance) {
-            is HeapAlias -> instance.isImmutable
-            else -> true
-        } && fieldIsImmutable
-        return createHeapAliasWrtLimit(instance) { depth -> FieldAlias(instance, field, depth, immutability) }
+    private fun createFieldAlias(obj: Int, field: AliasAccessor.Field, fieldIsImmutable: Boolean): HeapAlias {
+        return HeapAlias(obj, FieldAlias(field, fieldIsImmutable))
     }
 
-    private fun createArrayAliasWrtLimit(instance: AAInfo): ArrayAlias? =
-        createHeapAliasWrtLimit(instance) { depth -> ArrayAlias(instance, depth) }
+    private fun createArrayAlias(obj: Int): HeapAlias = HeapAlias(obj, ArrayAlias)
 
     private fun evalArrayLoad(
-        load: Expr.ArrayLoad,
-        stmt: Stmt, callFrame: CallTreeNode, state: State
-    ): Set<AliasSet> =
-        evalHeapLoad(load.instance, stmt, callFrame, state, ::createArrayAliasWrtLimit)
+        load: Expr.ArrayLoad, state: State
+    ) = evalHeapLoad(load.instance, state, ::createArrayAlias)
 
     private fun evalFieldLoad(
-        load: Expr.FieldLoad,
-        stmt: Stmt, callFrame: CallTreeNode, state: State
-    ): Set<AliasSet> =
-        evalHeapLoad(load.instance, stmt, callFrame, state) { instance -> createFieldAliasWrtLimit(instance, load.field) }
+        load: Expr.FieldLoad, state: State
+    ) = evalHeapLoad(load.instance, state) { instance -> createFieldAlias(instance, load.field) }
 
     private fun evalHeapStore(
         instance: RefValue,
         value: ExprOrValue,
         state: State,
-        heapAppender: (AAInfo) -> HeapAlias?
+        heapAppender: (Int) -> HeapAlias
     ): State {
-        val currentInstanceAliasIndexes = hashSetOf<Int>()
-        state.forEachAliasInSet(instance.aliasInfo().index()) { currentInstanceAliasIndexes += it }
+        val instanceInfo = instance.aliasInfo()
+        val obj = state.heapObj(instanceInfo)
 
-        val fields = currentInstanceAliasIndexes.mapNotNullTo(hashSetOf()) {
-            heapAppender(aliasManager.getElementUncheck(it))?.index()
-        }
+        val heapAlias = heapAppender(obj).index()
 
         var resultState = state
-        if (!currentInstanceAliasIndexes.containsMultipleConcreteOrOuterLocations(state, hashSetOf())) {
-            resultState = resultState.remove(fields)
+        if (!state.containsMultipleConcreteOrOuterLocations(instanceInfo)) {
+            resultState = resultState.remove(heapAlias)
         }
 
-        if (value is RefValue)
-            return resultState.mergeWith(value.aliasInfo().index(), fields)
+        if (value is RefValue) {
+            resultState = resultState.mergeWith(value.aliasInfo().index(), heapAlias)
+        }
+
         return resultState
     }
 
     private fun evalArrayStore(stmt: Stmt.ArrayStore, state: State): State =
-        evalHeapStore(stmt.instance, stmt.value, state, ::createArrayAliasWrtLimit)
+        evalHeapStore(stmt.instance, stmt.value, state, ::createArrayAlias)
 
     private fun evalFieldStore(stmt: Stmt.FieldStore, state: State): State =
-        evalHeapStore(stmt.instance, stmt.value, state) { createFieldAliasWrtLimit(it, stmt.field) }
+        evalHeapStore(stmt.instance, stmt.value, state) { createFieldAlias(it, stmt.field) }
 
-    private fun Iterable<Int>.containsMultipleConcreteOrOuterLocations(
+    private fun State.containsMultipleConcreteOrOuterLocations(instance: AAInfo): Boolean =
+        containsMultipleConcreteOrOuterLocations(instance.index(), IntOpenHashSet())
+
+    private fun State.containsMultipleConcreteOrOuterLocations(infoIdx: Int, visited: IntOpenHashSet): Boolean {
+        val instances = IntArrayList()
+        forEachAliasInSet(infoIdx) { instances.add(it) }
+        return instances.containsMultipleConcreteOrOuterLocations(this, visited)
+    }
+
+    private fun IntCollection.containsMultipleConcreteOrOuterLocations(
         state: State,
-        visited: MutableSet<Int>
+        visited: IntOpenHashSet
     ): Boolean {
         var concrete = 0
-        for (infoIndex in this) {
+        forEachInt { infoIndex ->
             // value depends on itself
             if (infoIndex in visited) {
                 return true
@@ -389,10 +647,9 @@ class DSUAliasAnalysis(
                 is HeapAlias -> {
                     val toRollback = this.filterTo(hashSetOf()) { visited.add(it) }
 
+                    val instanceRepr = state.aliasGroupRepr(info.instance)
                     try {
-                        val instances = mutableListOf<Int>()
-                        state.forEachAliasInSet(info.instance.index()) { instances.add(it) }
-                        if (instances.containsMultipleConcreteOrOuterLocations(state, visited)) {
+                        if (state.containsMultipleConcreteOrOuterLocations(instanceRepr, visited)) {
                             return true
                         }
                     } finally {
@@ -406,7 +663,7 @@ class DSUAliasAnalysis(
 
                 is LocalAlias.SimpleLoc -> {
                     if (info.loc.isOuter()) return true
-                    continue
+                    return@forEachInt
                 }
 
                 is Unknown -> return true
@@ -446,88 +703,24 @@ class DSUAliasAnalysis(
     }
 
     private fun State.removeCallLocals(level: Int): State {
-        val result = aliasGroups.mutableCopy()
-        val aaInfoToRemove = BitSet()
+        val aaInfoToRemove = IntOpenHashSet()
 
-        for (aliasSet in aliasGroups.allSets()) {
-            for (info in aliasSet) {
-                val element = aliasManager.getElementUncheck(info)
-                if (!element.isCallLocal(level)) continue
-
-                aaInfoToRemove.set(info)
-
-                val alternative = element.nonLocalAlternative(aliasGroups, level)
-                    ?: continue
-
-                val alternativeId = aliasManager.getOrAdd(alternative)
-                aliasSet.forEach { result.union(it, alternativeId) }
+        allElements().forEachInt { info ->
+            val element = aliasManager.getElementUncheck(info)
+            if (element.isCallLocal(level)) {
+                aaInfoToRemove.add(info)
             }
         }
 
-        result.removeAll { aaInfoToRemove.get(it) }
-        return State(result)
+        return this.removeUnsafe(aaInfoToRemove)
     }
 
     private fun AAInfo.isCallLocal(level: Int): Boolean = when (this) {
         is LocalAlias.Alloc -> false
-        is Unknown -> this.level > level
-        is CallReturn -> this.level > level
-        is LocalAlias.SimpleLoc -> loc is Local && loc.level > level
-        is HeapAlias -> instance.isCallLocal(level)
-    }
-
-    private fun AAInfo.nonLocalAlternative(aliasGroups: IntDisjointSets, level: Int): AAInfo? {
-        if (this !is HeapAlias) return null
-        return findNonLocalAlternative(aliasGroups, level)
-    }
-
-    private fun AAInfo.findNonLocalAlternative(aliasGroups: IntDisjointSets, level: Int): AAInfo? {
-        return when (this) {
-            is Unknown, is CallReturn -> null
-            is LocalAlias.Alloc -> this
-
-            is LocalAlias.SimpleLoc -> {
-                if (loc !is Local) return this
-                if (loc.level <= level) return this
-
-                val alternatives = aliasGroups.findAlternatives(this)
-                    .filterTo(mutableListOf()) { !it.isCallLocal(level) }
-
-                alternatives.sortBy { it.alternativePriority() }
-
-                alternatives.firstNotNullOfOrNull { it.findNonLocalAlternative(aliasGroups, level) }
-            }
-
-            is HeapAlias -> {
-                val instanceAlternative = instance.findNonLocalAlternative(aliasGroups, level)
-                    ?: return null
-
-                when (this) {
-                    is ArrayAlias -> createArrayAliasWrtLimit(instanceAlternative)
-                    is FieldAlias -> createFieldAliasWrtLimit(instanceAlternative, field, isImmutable)
-                }
-            }
-        }
-    }
-
-    private fun AAInfo.alternativePriority(): Int = when (this) {
-        is LocalAlias.Alloc -> 0
-        is LocalAlias.SimpleLoc -> 1
-        is FieldAlias -> 2 + this.depth
-        is ArrayAlias -> 1000 + this.depth
-        else -> 10_000
-    }
-
-    private fun IntDisjointSets.findAlternatives(element: AAInfo): List<AAInfo> {
-        val elementId = aliasManager.getOrAdd(element)
-        val alternatives = mutableListOf<AAInfo>()
-        forEachElementInSet(elementId) { alternativeId ->
-            if (alternativeId == elementId) return@forEachElementInSet
-
-            val alternative = aliasManager.getElementUncheck(alternativeId)
-            alternatives.add(alternative)
-        }
-        return alternatives
+        is Unknown -> this.ctx.level > level
+        is CallReturn -> this.ctx.level > level
+        is LocalAlias.SimpleLoc -> loc is Local && loc.ctx.level > level
+        is HeapAlias -> false
     }
 
     private fun RefValue.aliasInfo(): AAInfo = LocalAlias.SimpleLoc(this)
@@ -542,44 +735,26 @@ class DSUAliasAnalysis(
 
     private fun aliasSetFromInfo(info: AAInfo): AliasSet = AliasSet(info.index())
 
-    private fun State.forEachAliasInSet(info: Int, body: (Int) -> Unit) {
-        aliasGroups.forEachElementInSet(info, body)
-    }
+    private fun State.remove(element: Int): State {
+        val info = aliasManager.getElementUncheck(element)
+        if (info is Unknown) return this
 
-    private fun State.remove(infos: Set<Int>): State {
-        val result = aliasGroups.mutableCopy()
-        result.removeAll {
-            val info = aliasManager.getElementUncheck(it)
-            info.dependsOn(infos)
-        }
-        return State(result)
-    }
-
-    private fun AAInfo.dependsOn(values: Set<Int>): Boolean {
-        if (this is Unknown) return false
-        if (this.index() in values) return true
-
-        if (this !is HeapAlias) return false
-        return instance.dependsOn(values)
+        return removeUnsafe(IntOpenHashSet.of(element))
     }
 
     private fun State.removeOldAndMergeWith(info: AAInfo, other: AAInfo): State =
-        removeOldAndMergeWith(info.index(), setOf(aliasSetFromInfo(other)))
+        removeOldAndMergeWith(info.index(), aliasSetFromInfo(other))
 
-    private fun State.removeOldAndMergeWith(info: Int, alias: Set<AliasSet>): State {
-        val result = this.remove(setOf(info))
+    private fun State.removeOldAndMergeWith(info: Int, alias: AliasSet): State {
+        val result = this.remove(info)
         return result.mergeAliasSets(info, alias)
     }
 
-    private fun State.mergeWith(info: Int, other: Set<Int>): State =
-        mergeAliasSets(info, other.mapTo(hashSetOf()) { AliasSet(it) })
+    private fun State.mergeWith(info: Int, other: Int): State =
+        mergeAliasSets(info, AliasSet(other))
 
-    private fun State.mergeAliasSets(info: Int, other: Set<AliasSet>): State {
-        val result = aliasGroups.mutableCopy()
-        val infoRepr = result.find(info)
-        other.forEach { result.union(infoRepr, it.repr) }
-        return State(result)
-    }
+    private fun State.mergeAliasSets(info: Int, other: AliasSet): State =
+        mergeAliasSets(IntOpenHashSet(intArrayOf(info, other.repr)))
 
     private fun Stmt.Call.cantMutateAliasedHeap(): Boolean {
         if (args.any { it !is SimpleValue.Primitive }) return false

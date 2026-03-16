@@ -1,12 +1,12 @@
 package org.opentaint.dataflow.jvm.ap.ifds.alias
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
+import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.GraphAnalysisState
 import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.ResolvedCallMethod
 import org.opentaint.dataflow.jvm.ap.ifds.alias.JIRIntraProcAliasAnalysis.JIRInstGraph
 import org.opentaint.dataflow.jvm.ap.ifds.alias.RefValue.Local
-import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodCallResolver
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.jvm.graph.JApplicationGraph
@@ -18,12 +18,10 @@ interface CallResolver {
 }
 
 abstract class JirCallResolver(
-    val methodCallResolver: JIRMethodCallResolver,
+    val callResolver: JIRCallResolver,
     val graph: JApplicationGraph,
     val params: JIRLocalAliasAnalysis.Params
 ): CallResolver {
-    val callResolver = methodCallResolver.callResolver
-
     abstract fun buildMethodJig(entryPoint: JIRInst): JIRInstGraph
 
     override fun resolveMethodCall(callStmt: Stmt.Call, level: Int): List<JIRMethod>? {
@@ -43,7 +41,7 @@ abstract class JirCallResolver(
     }
 }
 
-class CallTreeNode(val level: Int, val instEvalCtx: InstEvalContext) {
+class CallTreeNode(val ctx: ContextInfo, val instEvalCtx: InstEvalContext) {
     private val emptyCalls = BitSet()
     private val calls = Int2ObjectOpenHashMap<ResolvedCall>()
 
@@ -51,7 +49,7 @@ class CallTreeNode(val level: Int, val instEvalCtx: InstEvalContext) {
         if (emptyCalls.get(stmt.originalIdx)) return ResolvedCall.empty.methods
 
         return calls.getOrPut(stmt.originalIdx) {
-            val resolved = resolveCallNoCache(stmt, level, callResolver)
+            val resolved = resolveCallNoCache(stmt, ctx, callResolver)
             if (resolved === ResolvedCall.empty) {
                 emptyCalls.set(stmt.originalIdx)
                 return ResolvedCall.empty.methods
@@ -68,27 +66,27 @@ private class ResolvedCall(val methods: Map<JIRMethod, ResolvedCallMethod>?) {
     }
 }
 
-private class NestedCallInstEvalCtx(val call: Stmt.Call, val level: Int) : InstEvalContext {
+private class NestedCallInstEvalCtx(val call: Stmt.Call, val ctx: ContextInfo) : InstEvalContext {
     override fun createArg(idx: Int): Value = call.args.getOrNull(idx)
         ?: error("Incorrect argument idx: $idx")
 
     override fun createThis(isOuter: Boolean): Value = call.instance
         ?: error("Non instance call")
 
-    override fun createLocal(idx: Int): Local = Local(idx, level = level, ctx = call.originalIdx)
+    override fun createLocal(idx: Int): Local = Local(idx, ctx)
 }
 
-private fun resolveCallNoCache(stmt: Stmt.Call, level: Int, callResolver: CallResolver): ResolvedCall {
-    val methods = callResolver.resolveMethodCall(stmt, level)
+private fun resolveCallNoCache(stmt: Stmt.Call, ctx: ContextInfo, callResolver: CallResolver): ResolvedCall {
+    val methods = callResolver.resolveMethodCall(stmt, ctx.level)
         ?: return ResolvedCall.empty
 
-    val resolvedCall = methods.mapNotNull { method ->
+    val resolvedCall = methods.mapIndexedNotNull { idx, method ->
         val graph = callResolver.buildMethodGraph(method)
-            ?: return@mapNotNull null
+            ?: return@mapIndexedNotNull null
 
-        val nextLevel = level + 1
-        val instEvalCtx = NestedCallInstEvalCtx(stmt, nextLevel)
-        val state = GraphAnalysisState(graph.statements.size, CallTreeNode(nextLevel, instEvalCtx))
+        val nestedCtx = ContextInfo(ctx.context + mkContextId(stmt, idx))
+        val instEvalCtx = NestedCallInstEvalCtx(stmt, nestedCtx)
+        val state = GraphAnalysisState(graph.statements.size, CallTreeNode(nestedCtx, instEvalCtx))
         method to ResolvedCallMethod(graph, state)
     }.toMap()
 
@@ -96,3 +94,6 @@ private fun resolveCallNoCache(stmt: Stmt.Call, level: Int, callResolver: CallRe
 
     return ResolvedCall(resolvedCall)
 }
+
+private fun mkContextId(stmt: Stmt.Call, methodIdx: Int): Int =
+    (stmt.originalIdx * 1000) + methodIdx
