@@ -58,8 +58,7 @@ jobs:
           workdir: opentaint-cli
 
   shellcheck:
-    runs-on: [ self-hosted, ex44 ]
-    container: buildpack-deps:jammy-scm
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: ludeeus/action-shellcheck@master
