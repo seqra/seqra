@@ -79,16 +79,57 @@ jobs:
           fi
 
           declare -A SCOPE_PATHS
+
           SCOPE_PATHS[cli]="^opentaint-cli/"
           SCOPE_PATHS[rules]="^opentaint-rules/"
           SCOPE_PATHS[github]="^opentaint-github/"
           SCOPE_PATHS[gitlab]="^opentaint-gitlab/"
-          SCOPE_PATHS[analyzer]="^opentaint-core/(opentaint-jvm-sast-dataflow/|opentaint-jvm-sast-project/|opentaint-jvm-sast-se-api/|opentaint-java-querylang/|opentaint-config/|opentaint-configuration-rules/|opentaint-ir/|opentaint-dataflow-core/|opentaint-utils/common-util/|opentaint-utils/opentaint-jvm-util/|opentaint-utils/build\.gradle\.kts|opentaint-utils/settings\.gradle\.kts|opentaint-utils/buildSrc/|build\.gradle\.kts|settings\.gradle\.kts|buildSrc/|src/|opentaint-sast-test-util/)"
           SCOPE_PATHS[autobuilder]="^opentaint-core/opentaint-jvm-autobuilder/"
-          SCOPE_PATHS[common]="^opentaint-core/(opentaint-project-model/|opentaint-utils/cli-util/|opentaint-common-build/)"
           SCOPE_PATHS[infra]="^opentaint-infra-dependencies/"
           SCOPE_PATHS[ci]="^\.github/"
-          SCOPE_PATHS[docs]="^(docs/|README\.md|CHANGELOG\.md|logos/|LICENSE\.md|.*\.svg|.*\.png)"
+
+          ANALYZER_MODULES=(
+            "opentaint-jvm-sast-dataflow/"
+            "opentaint-jvm-sast-project/"
+            "opentaint-jvm-sast-se-api/"
+            "opentaint-java-querylang/"
+            "opentaint-config/"
+            "opentaint-configuration-rules/"
+            "opentaint-ir/"
+            "opentaint-dataflow-core/"
+            "opentaint-utils/common-util/"
+            "opentaint-utils/opentaint-jvm-util/"
+            "opentaint-utils/build\.gradle\.kts"
+            "opentaint-utils/settings\.gradle\.kts"
+            "opentaint-utils/buildSrc/"
+            "build\.gradle\.kts"
+            "settings\.gradle\.kts"
+            "buildSrc/"
+            "src/"
+            "opentaint-sast-test-util/"
+          )
+          ANALYZER_PATTERN=$(IFS="|"; echo "${ANALYZER_MODULES[*]}")
+          SCOPE_PATHS[analyzer]="^opentaint-core/(${ANALYZER_PATTERN})"
+
+          COMMON_MODULES=(
+            "opentaint-project-model/"
+            "opentaint-utils/cli-util/"
+            "opentaint-common-build/"
+          )
+          COMMON_PATTERN=$(IFS="|"; echo "${COMMON_MODULES[*]}")
+          SCOPE_PATHS[common]="^opentaint-core/(${COMMON_PATTERN})"
+
+          DOCS_PATTERNS=(
+            "docs/"
+            "README\.md"
+            "CHANGELOG\.md"
+            "logos/"
+            "LICENSE\.md"
+            ".*\.svg"
+            ".*\.png"
+          )
+          DOCS_PATTERN=$(IFS="|"; echo "${DOCS_PATTERNS[*]}")
+          SCOPE_PATHS[docs]="^(${DOCS_PATTERN})"
 
           ALLOWED="${SCOPE_PATHS[$SCOPE]:-}"
           if [ -z "$ALLOWED" ]; then
