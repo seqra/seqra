@@ -25,7 +25,7 @@ env:
 jobs:
   build-and-lint:
     runs-on: [ self-hosted, ex44 ]
-    container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
+    container: buildpack-deps:jammy-scm
 
     steps:
       - uses: actions/checkout@v4
@@ -46,7 +46,7 @@ jobs:
 
   goreleaser-check:
     runs-on: [ self-hosted, ex44 ]
-    container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
+    container: buildpack-deps:jammy-scm
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -59,7 +59,7 @@ jobs:
 
   shellcheck:
     runs-on: [ self-hosted, ex44 ]
-    container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
+    container: buildpack-deps:jammy-scm
     steps:
       - uses: actions/checkout@v4
       - uses: ludeeus/action-shellcheck@master
@@ -68,7 +68,7 @@ jobs:
 
   run-on-petclinic-without-installed-java-17:
     runs-on: [ self-hosted, ex44 ]
-    container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
+    container: buildpack-deps:jammy-scm
 
     steps:
       - uses: actions/checkout@v4
@@ -106,7 +106,7 @@ jobs:
 
   run-on-petclinic:
     runs-on: [ self-hosted, ex44 ]
-    container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
+    container: buildpack-deps:jammy-scm
 
     steps:
       - uses: actions/checkout@v4
@@ -192,7 +192,7 @@ jobs:
 
   scan-stirling-pdf:
     runs-on: [ self-hosted, ex44 ]
-    container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
+    container: buildpack-deps:jammy-scm
 
     steps:
       - uses: actions/checkout@v4
@@ -235,7 +235,7 @@ jobs:
 
   test-install-sh-linux:
     runs-on: [ self-hosted, ex44 ]
-    container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
+    container: buildpack-deps:jammy-scm
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
