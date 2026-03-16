@@ -162,7 +162,7 @@ jobs:
           if ("${{ secrets.SEQRA_GITHUB_TOKEN }}") {
             $TOKEN_ARG = "--github-token ${{ secrets.SEQRA_GITHUB_TOKEN }}"
           }
-          $TOKEN_ARG = $TOKEN_ARG --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }}"
+          $TOKEN_ARG = "$TOKEN_ARG --owner ${{ github.repository_owner }} --repo ${{ github.event.repository.name }}"
           echo "arg=$TOKEN_ARG" >> $env:GITHUB_OUTPUT
 
       - uses: actions/checkout@v4
