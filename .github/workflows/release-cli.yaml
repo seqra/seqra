@@ -30,6 +30,7 @@ env:
 jobs:
   release:
     runs-on: [ self-hosted, ex44 ]
+    container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
 
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
