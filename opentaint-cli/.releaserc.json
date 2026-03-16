@@ -39,6 +39,7 @@
             "release": "patch"
           },
           {
+            "scope": "!(cli)",
             "release": false
           }
         ]
