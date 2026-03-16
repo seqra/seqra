@@ -3,7 +3,6 @@ package utils
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -90,7 +89,7 @@ func DownloadReleaseArchive(owner, repo, tag, token, destDir string, skipVerify 
 	archiveName := getArchiveName()
 	ctx := context.Background()
 
-	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repo, url.PathEscape(tag))
+	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repo, tag)
 	if err != nil {
 		return "", fmt.Errorf("failed to get release %s: %w", tag, err)
 	}

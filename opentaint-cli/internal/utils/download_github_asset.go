@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -63,7 +62,7 @@ func DownloadGithubReleaseAsset(owner, repository, releaseTag, assetName, assetP
 	client := newGithubClient(token)
 
 	ctx := context.Background()
-	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, url.PathEscape(releaseTag))
+	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, releaseTag)
 	if err != nil {
 		return err
 	}
@@ -133,7 +132,7 @@ func DownloadAndUnpackGithubReleaseAsset(owner, repository, releaseTag, assetNam
 	client := newGithubClient(token)
 
 	ctx := context.Background()
-	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, url.PathEscape(releaseTag))
+	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repository, releaseTag)
 	if err != nil {
 		return err
 	}
