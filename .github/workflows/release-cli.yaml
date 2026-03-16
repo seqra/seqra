@@ -189,7 +189,11 @@ jobs:
           done
           # Regenerate checksums covering all three variants
           cd dist
-          sha256sum opentaint-cli_*.{tar.gz,zip} opentaint_*.{tar.gz,zip} opentaint-full_*.{tar.gz,zip} 2>/dev/null > checksums.txt
+          echo "Files for checksum:"
+          ls -la opentaint-cli_*.{tar.gz,zip} opentaint_*.{tar.gz,zip} opentaint-full_*.{tar.gz,zip} 2>/dev/null || true
+          sha256sum opentaint-cli_*.{tar.gz,zip} opentaint_*.{tar.gz,zip} opentaint-full_*.{tar.gz,zip} 2>/dev/null > checksums.txt || true
+          echo "Checksums generated:"
+          cat checksums.txt
           cd ..
           gh release upload "$RELEASE_TAG" dist/checksums.txt --clobber
       -
