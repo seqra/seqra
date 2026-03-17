@@ -32,7 +32,7 @@ module.exports = {
         preset: 'conventionalcommits',
         presetConfig: { types: TYPES },
         writerOpts: {
-          transform: createTransform(['cli', 'rules', 'analyzer', 'autobuilder', 'common']),
+          transform: createTransform(['cli', 'rules', 'analyzer', 'autobuilder', 'core']),
         },
       },
     ],

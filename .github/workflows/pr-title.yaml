@@ -41,7 +41,7 @@ jobs:
             gitlab
             analyzer
             autobuilder
-            common
+            core
             infra
             ci
             docs
@@ -111,13 +111,13 @@ jobs:
           ANALYZER_PATTERN=$(IFS="|"; echo "${ANALYZER_MODULES[*]}")
           SCOPE_PATHS[analyzer]="^opentaint-core/(${ANALYZER_PATTERN})"
 
-          COMMON_MODULES=(
+          CORE_MODULES=(
             "opentaint-project-model/"
             "opentaint-utils/cli-util/"
             "opentaint-common-build/"
           )
-          COMMON_PATTERN=$(IFS="|"; echo "${COMMON_MODULES[*]}")
-          SCOPE_PATHS[common]="^opentaint-core/(${COMMON_PATTERN})"
+          CORE_PATTERN=$(IFS="|"; echo "${CORE_MODULES[*]}")
+          SCOPE_PATHS[core]="^opentaint-core/(${CORE_PATTERN})"
 
           DOCS_PATTERNS=(
             "docs/"

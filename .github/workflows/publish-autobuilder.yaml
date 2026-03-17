@@ -48,7 +48,7 @@ jobs:
         id: changes
         uses: ./.github/actions/check-scoped-commits
         with:
-          scopes: autobuilder,common
+          scopes: autobuilder,core
           tag-prefix: 'autobuilder/'
 
       - name: Set up JDK 8

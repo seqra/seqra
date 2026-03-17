@@ -48,7 +48,7 @@ jobs:
         id: changes
         uses: ./.github/actions/check-scoped-commits
         with:
-          scopes: analyzer,common
+          scopes: analyzer,core
           tag-prefix: 'analyzer/'
 
       - name: Set up JDK 11

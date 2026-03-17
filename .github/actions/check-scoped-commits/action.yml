@@ -3,7 +3,7 @@ description: 'Check if scoped conventional commits exist since last tag and gene
 
 inputs:
   scopes:
-    description: 'Comma-separated list of commit scopes to match (e.g. analyzer,common)'
+    description: 'Comma-separated list of commit scopes to match (e.g. analyzer,core)'
     required: true
   tag-prefix:
     description: 'Git tag prefix to find the last release (e.g. analyzer/)'
