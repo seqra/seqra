@@ -32,6 +32,10 @@ jobs:
     runs-on: [ self-hosted, ex44 ]
     container: ghcr.io/catthehacker/ubuntu:act-latest
 
+    defaults:
+      run:
+        shell: bash
+
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     permissions:
@@ -189,11 +193,7 @@ jobs:
           done
           # Regenerate checksums covering all three variants
           cd dist
-          echo "Files for checksum:"
-          ls -la opentaint-cli_*.tar.gz opentaint-cli_*.zip opentaint_*.tar.gz opentaint_*.zip opentaint-full_*.tar.gz opentaint-full_*.zip 2>/dev/null || true
-          sha256sum opentaint-cli_*.tar.gz opentaint-cli_*.zip opentaint_*.tar.gz opentaint_*.zip opentaint-full_*.tar.gz opentaint-full_*.zip 2>/dev/null > checksums.txt || true
-          echo "Checksums generated:"
-          cat checksums.txt
+          sha256sum opentaint-cli_*.{tar.gz,zip} opentaint_*.{tar.gz,zip} opentaint-full_*.{tar.gz,zip} 2>/dev/null > checksums.txt
           cd ..
           if [ -s dist/checksums.txt ]; then
             gh release upload "$RELEASE_TAG" dist/checksums.txt --clobber
