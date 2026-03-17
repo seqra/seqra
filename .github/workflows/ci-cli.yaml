@@ -52,6 +52,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: opentaint-cli/go.sum
       - uses: goreleaser/goreleaser-action@v6
         with:
           args: release --snapshot --clean
@@ -240,6 +241,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: opentaint-cli/go.sum
       - name: Build test archive
         working-directory: opentaint-cli
         run: |
@@ -269,6 +271,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: opentaint-cli/go.sum
       - name: Build test archive
         working-directory: opentaint-cli
         run: |
@@ -298,6 +301,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: opentaint-cli/go.sum
       - name: Build test archive
         shell: pwsh
         working-directory: opentaint-cli
