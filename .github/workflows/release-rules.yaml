@@ -21,7 +21,8 @@ concurrency:
 
 jobs:
   release:
-    runs-on: [ self-hosted, ex44 ]
+    # runs-on: [ self-hosted, ex44 ]
+    runs-on: ubuntu-latest
     container: buildpack-deps:jammy-scm
 
 
