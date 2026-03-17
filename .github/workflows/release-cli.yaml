@@ -180,6 +180,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: v${{ steps.release_version.outputs.RELEASE_VERSION }}
+          HOMEBREW_TAP_OWNER: ${{ github.repository_owner }}
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
       -
         name: Bundle JREs into release archives
         if: ${{ steps.release_version.outputs.status == 'succeeded' }}
