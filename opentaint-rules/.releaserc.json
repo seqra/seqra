@@ -106,8 +106,8 @@
       "makeLatest": false,
       "assets": [
           {
-            "path": "../seqra-rules.tar.gz",
-            "label": "seqra-rules.tar.gz"
+            "path": "../opentaint-rules.tar.gz",
+            "label": "opentaint-rules.tar.gz"
           }
         ]
       }

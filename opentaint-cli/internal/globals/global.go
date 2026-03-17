@@ -38,7 +38,7 @@ const RepoName = "opentaint"
 
 const AutobuilderAssetName = "opentaint-project-auto-builder.jar"
 const AnalyzerAssetName = "opentaint-project-analyzer.jar"
-const RulesAssetName = "seqra-rules.tar.gz"
+const RulesAssetName = "opentaint-rules.tar.gz"
 
 type Scan struct {
 	Timeout       time.Duration `mapstructure:"timeout"`

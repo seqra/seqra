@@ -36,7 +36,7 @@
 - Fix identifier parsing
 - Better spring message
 - Rework Spring support
-#### seqra-rules
+#### opentaint-rules
 - feat: Servlet and Spring rules fusion
 ## v2.5.1
 ### fix: Improve installer reliability and update experience
@@ -59,7 +59,7 @@
 - Fixed configuration loading on Windows
 - Disabled aliases for method summaries with no memory impact
 - Enabled inter-procedural AA
-#### seqra-rules
+#### opentaint-rules
 - fix: Require insecure cookie to flow in response and add tests
 - fix: Add ProcessBuilder creation with tainted List sink
 ## v2.3.0
@@ -70,7 +70,7 @@
 - Annotate Servlet controllers
 - Handle vulnerabilities with generated locations
 - Fix tree summary storage with Any accessor
-#### seqra-rules
+#### opentaint-rules
 - fix: Add a sanitizer for `unvalidated-redirect` and clean sources
 ## v2.2.0
 ### feat: Bump versions and refactor repo owner option
@@ -104,7 +104,7 @@
 - Add option to generate sarif fingerprints
 - Fix Sarif tool description messages
 - Fix method summaries selector in trace resolver
-#### seqra-rules
+#### opentaint-rules
 - feat: Add jsp source and sink
 ## v2.0.2
 ### fix: Bump version
@@ -198,7 +198,7 @@
 - Fix recursion in sarif traits
 - Add spring controller info
 - Don't reset heap alias on calls without heap access
-#### seqra-rules
+#### opentaint-rules
 - chore: Fix `xss` rule description
 ## v1.2.0
 ### feat: Enable native scanning and update Discord link
@@ -216,7 +216,7 @@
 - Enable alias analysis by default
 - Annotate all rules with rule-info
 - Fix signature patterns
-#### seqra-rules
+#### opentaint-rules
 - feat: Add a rule for SQLI and some fixes
 ## v1.1.0
 ### feat: Add emoji for severity and require some options

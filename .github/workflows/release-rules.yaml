@@ -64,7 +64,7 @@ jobs:
 
       - name: Create rules archive
         run: |
-          cd opentaint-rules/rules; tar cfvz ../../seqra-rules.tar.gz .
+          cd opentaint-rules/rules; tar cfvz ../../opentaint-rules.tar.gz .
 
       - name: Manual version bump
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
@@ -88,7 +88,7 @@ jobs:
             --title "${{ steps.manual_release.outputs.new-tag }}" \
             --generate-notes \
             --latest=false \
-            seqra-rules.tar.gz
+            opentaint-rules.tar.gz
 
           echo "v${{ steps.manual_release.outputs.new-version }}" > opentaint-rules/release_version.txt
 
@@ -134,7 +134,7 @@ jobs:
             --notes "Floating release tracking the latest rules version" \
             --latest=false \
             --prerelease \
-            seqra-rules.tar.gz
+            opentaint-rules.tar.gz
 
     outputs:
       release_version: ${{ steps.manual_release.outputs.new-version || steps.release_version.outputs.RELEASE_VERSION }}

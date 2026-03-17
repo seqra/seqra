@@ -153,11 +153,11 @@ jobs:
           echo "Downloading rules ${RULES_TAG}..."
           gh release download "$RULES_TAG" \
             --repo ${{ github.repository }} \
-            --pattern "seqra-rules.tar.gz" \
+            --pattern "opentaint-rules.tar.gz" \
             --dir /tmp
 
           mkdir -p lib/rules
-          tar -xzf /tmp/seqra-rules.tar.gz -C lib/rules
+          tar -xzf /tmp/opentaint-rules.tar.gz -C lib/rules
 
           echo "Bundled artifacts:"
           ls -la lib/

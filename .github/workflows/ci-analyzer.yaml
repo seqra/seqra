@@ -145,9 +145,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.SEQRA_GITHUB_TOKEN }}
-          repository: '${{ github.repository_owner }}/seqra-rules'
+          repository: '${{ github.repository_owner }}/opentaint-rules'
           ref: ${{ env.RULES_VERSION }}
-          path: ./test-dir/seqra-rules
+          path: ./test-dir/opentaint-rules
 
       - name: Analyze owasp
         working-directory: .
