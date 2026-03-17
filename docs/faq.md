@@ -30,4 +30,4 @@ Yes! Opentaint is compatible with Semgrep rule syntax, plus adds dataflow analys
 
 **How do I integrate Opentaint into my development workflow?**
 
-Opentaint can be integrated into your CI/CD pipeline using our [GitHub Action](https://github.com/seqra/opentaint-action) or [GitLab CI template](https://github.com/seqra/opentaint-gitlab). It also supports local development with SARIF output for your favorite IDE.
+OpenTaint can be integrated into your CI/CD pipeline using our [GitHub Action](https://github.com/seqra/opentaint/tree/main/github) or [GitLab CI template](https://github.com/seqra/opentaint/tree/main/gitlab). It also supports local development with SARIF output for your favorite IDE.

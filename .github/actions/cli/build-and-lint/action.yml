@@ -17,25 +17,25 @@ runs:
       uses: actions/setup-go@v5
       with:
         go-version: ${{ inputs.GO_VERSION }}
-        cache-dependency-path: opentaint-cli/go.sum
+        cache-dependency-path: cli/go.sum
 
     - name: Install dependencies
       shell: bash
-      working-directory: opentaint-cli
+      working-directory: cli
       run: go get .
 
     - name: Build
       shell: bash
-      working-directory: opentaint-cli
+      working-directory: cli
       run: go build -v ./...
 
     - name: Test with the Go CLI
       shell: bash
-      working-directory: opentaint-cli
+      working-directory: cli
       run: go test
 
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v7
       with:
         version: ${{ inputs.GOLANGCI_LINT_VERSION }}
-        working-directory: opentaint-cli
+        working-directory: cli

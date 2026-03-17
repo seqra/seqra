@@ -1,6 +1,6 @@
-# Seqra GitHub Action
+# OpenTaint GitHub Action
 
-Run [Seqra](https://github.com/seqra/seqra) static analysis in your CI, generate a SARIF report, and optionally upload it to GitHub Code Scanning.
+Run [OpenTaint](https://github.com/seqra/opentaint) static analysis in your CI, generate a SARIF report, and optionally upload it to GitHub Code Scanning.
 
 
 ## Usage
@@ -9,7 +9,7 @@ Run [Seqra](https://github.com/seqra/seqra) static analysis in your CI, generate
 
 ### Prerequisites
 
-Seqra analyzes compiled bytecode of your project. Before running this action, ensure your CI environment is configured to compile the project. For example:
+OpenTaint analyzes compiled bytecode of your project. Before running this action, ensure your CI environment is configured to compile the project. For example:
 
 - **Java/Kotlin projects:** Set up a JDK using `actions/setup-java@v5`
 
@@ -18,12 +18,12 @@ Seqra analyzes compiled bytecode of your project. Before running this action, en
 ### Scan
 
 ```yaml
-name: Seqra Analysis
+name: OpenTaint Analysis
 on:
     workflow_dispatch
 
 jobs:
-  seqra:
+  opentaint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout your repository
@@ -35,15 +35,15 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Run Seqra code analysis
-        uses: seqra/seqra-action@v2
+      - name: Run OpenTaint code analysis
+        uses: seqra/opentaint/github@v2
 ```
 
 
 ### Scan and upload to GitHub code scanning alerts
 
 ```yaml
-name: Seqra Analysis
+name: OpenTaint Analysis
 on:
     workflow_dispatch
 
@@ -53,7 +53,7 @@ permissions:
   security-events: write
 
 jobs:
-  seqra:
+  opentaint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout your repository
@@ -65,8 +65,8 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Run Seqra code analysis
-        uses: seqra/seqra-action@v2
+      - name: Run OpenTaint code analysis
+        uses: seqra/opentaint/github@v2
         with:
           upload-sarif: 'true'
           artifact-name: 'sarif'
@@ -76,7 +76,7 @@ jobs:
 ### All Inputs
 
 ```yaml
-name: Seqra Analysis
+name: OpenTaint Analysis
 on:
     workflow_dispatch
 
@@ -86,7 +86,7 @@ permissions:
   security-events: write
 
 jobs:
-  seqra:
+  opentaint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout your repository
@@ -98,29 +98,29 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Run Seqra code analysis
-        uses: seqra/seqra-action@v2
+      - name: Run OpenTaint code analysis
+        uses: seqra/opentaint/github@v2
         with:
             # Relative path under $GITHUB_WORKSPACE to the root of the analyzed project
             project-root: '.'
 
-            # Should seqra-action upload sarif to GitHub Code Security
+            # Should opentaint-action upload sarif to GitHub Code Security
             upload-sarif: 'false'
 
-            # Seqra version selector:
+            # OpenTaint version selector:
             # - latest (latest stable)
             # - v2 (latest stable in major v2)
             # - v2.5 (latest stable in minor v2.5)
             # - v2.5.1 (exact)
             # Default is 'v2'
-            seqra-version: 'v2'
+            opentaint-version: 'v2'
 
             # Paths to custom rules directories (comma-separated)
             # By default it uses builtin rules
             rules-path: 'builtin'
 
             # Name of uploaded artifact
-            artifact-name: 'seqra.sarif'
+            artifact-name: 'opentaint.sarif'
 
             # Log level
             verbosity: 'info'
@@ -144,7 +144,7 @@ After the job completes, you’ll find:
 
 ## Version Selection
 
-`seqra-version` supports flexible selectors so you do not need to update this action for every Seqra release:
+`opentaint-version` supports flexible selectors so you do not need to update this action for every OpenTaint release:
 
 * `latest` - always use the latest stable release
 * `v2` - use the latest stable release in major version 2 (default)
@@ -155,12 +155,12 @@ Examples:
 
 ```yaml
 with:
-  seqra-version: 'latest'
+  opentaint-version: 'latest'
 ```
 
 ```yaml
 with:
-  seqra-version: 'v2.5'
+  opentaint-version: 'v2.5'
 ```
 
 
@@ -178,7 +178,7 @@ with:
 
 ## Troubleshooting
 
-* **"Compilation has failed:"** Seqra needs to compile your project to analyze bytecode. Ensure you have set up the required build tools (e.g., JDK via `actions/setup-java@v5`) before running this action. See [Prerequisites](#prerequisites).
+* **"Compilation has failed:"** OpenTaint needs to compile your project to analyze bytecode. Ensure you have set up the required build tools (e.g., JDK via `actions/setup-java@v5`) before running this action. See [Prerequisites](#prerequisites).
 * **Monorepos:** You can analyze only the project you need using `project-root`.
 * **Timeouts:** If the scan times out, increase `timeout` (e.g., `30m`).
 
@@ -190,4 +190,4 @@ See [CHANGELOG](CHANGELOG.md).
 ## License
 This project is released under the [MIT License](LICENSE).
 
-The [core analysis engine](https://github.com/seqra/seqra-jvm-sast) is source-available under the [Functional Source License (FSL-1.1-ALv2)](https://fsl.software/), which converts to Apache 2.0 two years after each release. You can use Seqra for free, including for commercial use, except for competing products or services.
+The [core analysis engine](https://github.com/seqra/opentaint/tree/main/opentaint-core) is source-available under the [Functional Source License (FSL-1.1-ALv2)](https://fsl.software/), which converts to Apache 2.0 two years after each release. You can use OpenTaint for free, including for commercial use, except for competing products or services.

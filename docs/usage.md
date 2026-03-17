@@ -38,10 +38,10 @@ Open `results.sarif` with the [SARIF Viewer](https://marketplace.visualstudio.co
 
 ### GitHub Integration
 
-Use [opentaint-action](https://github.com/seqra/opentaint-action) for automated analysis and GitHub code scanning integration:
+Use [GitHub Action](https://github.com/seqra/opentaint/tree/main/github) for automated analysis and GitHub code scanning integration:
 
 ```yaml
-- uses: seqra/opentaint-action@v2
+- uses: seqra/opentaint/github@v2
   with:
     path: ./
 ```

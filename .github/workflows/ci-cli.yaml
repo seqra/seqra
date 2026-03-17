@@ -3,13 +3,13 @@ name: CI CLI
 on:
   push:
     paths:
-      - 'opentaint-cli/**'
+      - 'cli/**'
       - 'scripts/**'
     branches:
       - main
   pull_request:
     paths:
-      - 'opentaint-cli/**'
+      - 'cli/**'
       - 'scripts/**'
     branches:
       - main
@@ -42,7 +42,7 @@ jobs:
           GOLANGCI_LINT_VERSION: ${{ env.GOLANGCI_LINT_VERSION }}
 
       - name: Run all tests
-        working-directory: opentaint-cli
+        working-directory: cli
         run: |
           go test ./... -v -count=1
 
@@ -54,11 +54,11 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: opentaint-cli/go.sum
+          cache-dependency-path: cli/go.sum
       - uses: goreleaser/goreleaser-action@v6
         with:
           args: release --snapshot --clean
-          workdir: opentaint-cli
+          workdir: cli
         env:
           HOMEBREW_TAP_OWNER: ${{ github.repository_owner }}
 
@@ -104,7 +104,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Run opentaint scan in native environment when user can build project but has no java 17+
-        working-directory: opentaint-cli
+        working-directory: cli
         run: |
           ./opentaint scan ${{ steps.github-token.outputs.arg }} --output report.sarif ../project-root-java-11 --verbosity debug
 
@@ -140,13 +140,13 @@ jobs:
           distribution: 'temurin'
 
       - name: Run opentaint separate compile and scan
-        working-directory: opentaint-cli
+        working-directory: cli
         run: |
           ./opentaint compile --quiet ${{ steps.github-token.outputs.arg }} --output portable-project ../project-root --verbosity debug
           ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif portable-project --verbosity debug
 
       - name: Run opentaint scan
-        working-directory: opentaint-cli
+        working-directory: cli
         run: |
           ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif ../project-root
 
@@ -184,13 +184,13 @@ jobs:
           distribution: 'temurin'
 
       - name: Run opentaint separate compile and scan
-        working-directory: opentaint-cli
+        working-directory: cli
         run: |
           ./opentaint compile --quiet ${{ steps.github-token.outputs.arg }} --output portable-project ../project-root --verbosity debug
           ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif portable-project --verbosity debug
 
       - name: Run opentaint scan
-        working-directory: opentaint-cli
+        working-directory: cli
         run: |
           ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif ../project-root
 
@@ -221,19 +221,19 @@ jobs:
           distribution: 'temurin'
 
       - name: Download Stirling-PDF JAR
-        working-directory: opentaint-cli
+        working-directory: cli
         run: |
           mkdir -p stirling-pdf
           curl -L -o stirling-pdf/Stirling-PDF.jar "https://github.com/Stirling-Tools/Stirling-PDF/releases/download/${STIRLING_PDF_VERSION}/Stirling-PDF.jar"
 
       - name: Create project model
-        working-directory: opentaint-cli
+        working-directory: cli
         run: |
           mkdir -p stirling-pdf/src
           ./opentaint project ${{ steps.github-token.outputs.arg }} --output stirling-pdf-model --source-root stirling-pdf/src --classpath stirling-pdf/Stirling-PDF.jar --package stirling.software
 
       - name: Run opentaint scan
-        working-directory: opentaint-cli
+        working-directory: cli
         run: |
           ./opentaint scan ${{ steps.github-token.outputs.arg }} --output stirling-pdf-report.sarif stirling-pdf-model
 
@@ -245,15 +245,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: opentaint-cli/go.sum
+          cache-dependency-path: cli/go.sum
       - name: Build test archive
-        working-directory: opentaint-cli
+        working-directory: cli
         run: |
           go build -o opentaint .
           tar -czf opentaint-full_linux_amd64.tar.gz opentaint
           sha256sum opentaint-full_linux_amd64.tar.gz > checksums.txt
       - name: Start file server
-        working-directory: opentaint-cli
+        working-directory: cli
         run: python3 -m http.server 8080 &
       - name: Run install.sh
         id: install-linux
@@ -274,15 +274,15 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: opentaint-cli/go.sum
+          cache-dependency-path: cli/go.sum
       - name: Build test archive
-        working-directory: opentaint-cli
+        working-directory: cli
         run: |
           go build -o opentaint .
           tar -czf opentaint-full_darwin_arm64.tar.gz opentaint
           shasum -a 256 opentaint-full_darwin_arm64.tar.gz > checksums.txt
       - name: Start file server
-        working-directory: opentaint-cli
+        working-directory: cli
         run: python3 -m http.server 8080 &
       - name: Run install.sh
         id: install-macos
@@ -303,10 +303,10 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
-          cache-dependency-path: opentaint-cli/go.sum
+          cache-dependency-path: cli/go.sum
       - name: Build test archive
         shell: pwsh
-        working-directory: opentaint-cli
+        working-directory: cli
         run: |
           go build -o opentaint.exe .
           Compress-Archive -Path opentaint.exe -DestinationPath opentaint-full_windows_amd64.zip

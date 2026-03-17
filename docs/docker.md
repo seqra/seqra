@@ -165,7 +165,7 @@ jobs:
           sarif_file: results.sarif
 ```
 
-> **Note:** For a more streamlined GitHub integration, consider using the dedicated [opentaint-action](https://github.com/seqra/opentaint-action).
+> **Note:** For a more streamlined GitHub integration, consider using the dedicated [GitHub Action](https://github.com/seqra/opentaint/tree/main/github).
 
 ### GitLab CI
 
@@ -181,7 +181,7 @@ opentaint-scan:
       sast: results.sarif
 ```
 
-> **Note:** For a more streamlined GitLab integration, see [opentaint-gitlab](https://github.com/seqra/opentaint-gitlab).
+> **Note:** For a more streamlined GitLab integration, see [GitLab template](https://github.com/seqra/opentaint/tree/main/gitlab).
 
 
 ## Troubleshooting

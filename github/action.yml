@@ -1,4 +1,4 @@
-name: "Seqra security code analysis"
+name: "OpenTaint security code analysis"
 description: "Security-focused static analyzer for Java and Kotlin"
 
 branding:
@@ -10,10 +10,10 @@ inputs:
     description: 'Relative path under $GITHUB_WORKSPACE to the root of the analyzed project'
     default: '.'
   upload-sarif:
-    description: 'Should seqra-action upload sarif to GitHub Code Security'
+    description: 'Should opentaint-action upload sarif to GitHub Code Security'
     default: 'false'
-  seqra-version:
-    description: 'Seqra version selector: latest, v<major>, v<major>.<minor>, or exact v<major>.<minor>.<patch>'
+  opentaint-version:
+    description: 'OpenTaint version selector: latest, v<major>, v<major>.<minor>, or exact v<major>.<minor>.<patch>'
     default: 'v2'
   rules-path:
     description: 'Paths to rules directories (comma-separated)'
@@ -24,9 +24,9 @@ inputs:
     default: ""
   artifact-name:
     description: 'Name of uploaded artifact'
-    default: 'seqra.sarif'
+    default: 'opentaint.sarif'
   upload-artifact:
-    description: 'Should seqra-action upload sarif artifact'
+    description: 'Should opentaint-action upload sarif artifact'
     default: 'true'
   verbosity:
     description: 'Log level'
@@ -48,14 +48,14 @@ runs:
         set -euo pipefail
 
         UUID=$(printf '%s' "${{ inputs.artifact-name }}" | sha1sum | awk '{print $1}')
-        SEQRA_ARTIFACTS=seqra-artifacts/$UUID
-        echo "SEQRA_ARTIFACTS=$SEQRA_ARTIFACTS" >> "${GITHUB_OUTPUT}"
-        echo "SEQRA_INSTALL_DIR=$GITHUB_WORKSPACE/$SEQRA_ARTIFACTS" >> "${GITHUB_OUTPUT}"
-        echo "SEQRA_BIN=$GITHUB_WORKSPACE/$SEQRA_ARTIFACTS/seqra" >> "${GITHUB_OUTPUT}"
-        echo "SEQRA_PROJECT=$RUNNER_TEMP/$SEQRA_ARTIFACTS/project" >> "${GITHUB_OUTPUT}"
-        echo "SEQRA_SARIF=$RUNNER_TEMP/$SEQRA_ARTIFACTS/seqra.sarif" >> "${GITHUB_OUTPUT}"
+        OPENTAINT_ARTIFACTS=opentaint-artifacts/$UUID
+        echo "OPENTAINT_ARTIFACTS=$OPENTAINT_ARTIFACTS" >> "${GITHUB_OUTPUT}"
+        echo "OPENTAINT_INSTALL_DIR=$GITHUB_WORKSPACE/$OPENTAINT_ARTIFACTS" >> "${GITHUB_OUTPUT}"
+        echo "OPENTAINT_BIN=$GITHUB_WORKSPACE/$OPENTAINT_ARTIFACTS/opentaint" >> "${GITHUB_OUTPUT}"
+        echo "OPENTAINT_PROJECT=$RUNNER_TEMP/$OPENTAINT_ARTIFACTS/project" >> "${GITHUB_OUTPUT}"
+        echo "OPENTAINT_SARIF=$RUNNER_TEMP/$OPENTAINT_ARTIFACTS/opentaint.sarif" >> "${GITHUB_OUTPUT}"
 
-    - name: Resolve seqra version
+    - name: Resolve OpenTaint version
       id: resolve-version
       shell: bash
       run: |
@@ -66,26 +66,26 @@ runs:
           ACTION_PATH="$GITHUB_WORKSPACE"
         fi
 
-        RESOLVER_PATH="$ACTION_PATH/../scripts/resolve_seqra_version.py"
+        RESOLVER_PATH="$ACTION_PATH/../scripts/resolve_opentaint_version.py"
         if [[ ! -f "$RESOLVER_PATH" ]]; then
-          RESOLVER_PATH="$GITHUB_WORKSPACE/scripts/resolve_seqra_version.py"
+          RESOLVER_PATH="$GITHUB_WORKSPACE/scripts/resolve_opentaint_version.py"
         fi
 
-        SEQRA_VERSION=$(python3 "$RESOLVER_PATH" \
-          --selector "${{ inputs.seqra-version }}" \
-          --repository "seqrateam/opentaint" \
+        OPENTAINT_VERSION=$(python3 "$RESOLVER_PATH" \
+          --selector "${{ inputs.opentaint-version }}" \
+          --repository "seqra/opentaint" \
           --token "${{ inputs.token || github.token }}")
 
-        echo "SEQRA_VERSION=$SEQRA_VERSION" >> "${GITHUB_OUTPUT}"
+        echo "OPENTAINT_VERSION=$OPENTAINT_VERSION" >> "${GITHUB_OUTPUT}"
 
-    - name: Install seqra
+    - name: Install OpenTaint
       shell: bash
       run: |
         set -euo pipefail
 
-        curl -fsSL https://raw.githubusercontent.com/seqrateam/opentaint/main/scripts/install/install.sh | \
-          SEQRA_INSTALL_DIR="${{ steps.globals.outputs.SEQRA_INSTALL_DIR }}" \
-          SEQRA_DOWNLOAD_BASE_URL="https://github.com/seqrateam/opentaint/releases/download/${{ steps.resolve-version.outputs.SEQRA_VERSION }}" \
+        curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | \
+          OPENTAINT_INSTALL_DIR="${{ steps.globals.outputs.OPENTAINT_INSTALL_DIR }}" \
+          OPENTAINT_DOWNLOAD_BASE_URL="https://github.com/seqra/opentaint/releases/download/${{ steps.resolve-version.outputs.OPENTAINT_VERSION }}" \
           bash
 
     - name: Compile project
@@ -95,9 +95,9 @@ runs:
 
            TOKEN_ARGS=(--github-token "${{ inputs.token || github.token }}")
 
-           "${{ steps.globals.outputs.SEQRA_BIN }}" --quiet "${TOKEN_ARGS[@]}" compile \
-             --verbosity "${{ inputs.verbosity }}" \
-             --output "${{ steps.globals.outputs.SEQRA_PROJECT }}" "${{ inputs.project-root }}"
+            "${{ steps.globals.outputs.OPENTAINT_BIN }}" --quiet "${TOKEN_ARGS[@]}" compile \
+              --verbosity "${{ inputs.verbosity }}" \
+              --output "${{ steps.globals.outputs.OPENTAINT_PROJECT }}" "${{ inputs.project-root }}"
 
     - name: Run analysis
       shell: bash
@@ -128,7 +128,7 @@ runs:
 
            TOKEN_ARGS=(--github-token "${{ inputs.token || github.token }}")
 
-           CMD=("${{ steps.globals.outputs.SEQRA_BIN }}" --quiet "${TOKEN_ARGS[@]}" scan)
+            CMD=("${{ steps.globals.outputs.OPENTAINT_BIN }}" --quiet "${TOKEN_ARGS[@]}" scan)
 
            append_csv_args "ruleset" "${{ inputs.rules-path }}"
 
@@ -137,7 +137,7 @@ runs:
 
            append_csv_args "severity" "${{ inputs.severity }}"
 
-           CMD+=(--output "${{ steps.globals.outputs.SEQRA_SARIF }}" "${{ steps.globals.outputs.SEQRA_PROJECT }}")
+            CMD+=(--output "${{ steps.globals.outputs.OPENTAINT_SARIF }}" "${{ steps.globals.outputs.OPENTAINT_PROJECT }}")
 
            "${CMD[@]}"
 
@@ -146,10 +146,10 @@ runs:
       uses: actions/upload-artifact@v4
       with:
         name: ${{ inputs.artifact-name }}
-        path: ${{ steps.globals.outputs.SEQRA_SARIF }}
+        path: ${{ steps.globals.outputs.OPENTAINT_SARIF }}
 
     - name: Upload sarif to github code security
       if: ${{ inputs.upload-sarif == 'true' }}
       uses: github/codeql-action/upload-sarif@v4
       with:
-        sarif_file: ${{ steps.globals.outputs.SEQRA_SARIF }}
+        sarif_file: ${{ steps.globals.outputs.OPENTAINT_SARIF }}

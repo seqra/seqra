@@ -65,7 +65,7 @@ jobs:
         name: Write manual release version
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
         run: |
-          echo "${{ steps.manual_release.outputs.new-version }}" > opentaint-cli/release_version.txt
+          echo "${{ steps.manual_release.outputs.new-version }}" > cli/release_version.txt
       -
         name: Create release tag (manual)
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
@@ -83,7 +83,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           semantic_version: 23.0.0
-          working_directory: opentaint-cli
+          working_directory: cli
           extra_plugins: |
             @semantic-release/commit-analyzer@11.1.0
             @semantic-release/exec@6.0.3
@@ -91,7 +91,7 @@ jobs:
       -
         name: 'Get release_version and pass to next job'
         id: release_version
-        working-directory: opentaint-cli
+        working-directory: cli
         run: |
           if [ -f release_version.txt ]; then
             echo "status=succeeded" >>"$GITHUB_OUTPUT"
@@ -135,7 +135,7 @@ jobs:
       -
         name: Download bundled artifacts
         if: ${{ steps.release_version.outputs.status == 'succeeded' }}
-        working-directory: opentaint-cli
+        working-directory: cli
         env:
           GH_TOKEN: ${{ secrets.SEQRA_GITHUB_TOKEN }}
         run: |
@@ -176,7 +176,7 @@ jobs:
           distribution: goreleaser
           version: '~> v2'
           args: release --clean
-          workdir: opentaint-cli
+          workdir: cli
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_CURRENT_TAG: v${{ steps.release_version.outputs.RELEASE_VERSION }}
@@ -185,7 +185,7 @@ jobs:
       -
         name: Bundle JREs into release archives
         if: ${{ steps.release_version.outputs.status == 'succeeded' }}
-        working-directory: opentaint-cli
+        working-directory: cli
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -208,7 +208,7 @@ jobs:
       -
         name: Update package manager manifests
         if: ${{ steps.release_version.outputs.status == 'succeeded' && (steps.semantic_release.outputs.new_release_channel == '' || steps.manual_release.outputs.new-version != '') }}
-        working-directory: opentaint-cli
+        working-directory: cli
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
           HOMEBREW_TAP_OWNER: ${{ github.repository_owner }}
@@ -249,7 +249,7 @@ jobs:
         if: ${{ steps.release_version.outputs.status == 'succeeded' && (steps.semantic_release.outputs.new_release_channel == '' || steps.manual_release.outputs.new-version != '') }}
         uses: docker/build-push-action@v6
         with:
-          context: opentaint-cli
+          context: cli
           build-contexts: |
             opentaint-dependencies:latest=docker-image://ghcr.io/${{ github.repository_owner }}/opentaint-infra-dependencies/opentaint-dependencies:${{ env.OPENTAINT_DEPENDENCIES_VERSION }}
           platforms: linux/amd64, linux/arm64

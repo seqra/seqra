@@ -33,7 +33,7 @@ var (
 	DefaultJavaVersion     = BindVersions.Java
 )
 
-const RepoOwner = "seqrateam"
+const RepoOwner = "seqra"
 const RepoName = "opentaint"
 
 const AutobuilderAssetName = "opentaint-project-auto-builder.jar"

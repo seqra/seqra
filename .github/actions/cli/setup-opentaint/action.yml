@@ -16,10 +16,10 @@ runs:
     - uses: actions/setup-go@v5
       with:
         go-version: ${{ inputs.go-version }}
-        cache-dependency-path: opentaint-cli/go.sum
+        cache-dependency-path: cli/go.sum
 
     - name: Build
       shell: bash
-      working-directory: opentaint-cli
+      working-directory: cli
       run: |
         go build

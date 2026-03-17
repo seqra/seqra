@@ -80,10 +80,10 @@ jobs:
 
           declare -A SCOPE_PATHS
 
-          SCOPE_PATHS[cli]="^opentaint-cli/"
-          SCOPE_PATHS[rules]="^opentaint-rules/"
-          SCOPE_PATHS[github]="^opentaint-github/"
-          SCOPE_PATHS[gitlab]="^opentaint-gitlab/"
+          SCOPE_PATHS[cli]="^cli/"
+          SCOPE_PATHS[rules]="^rules/"
+          SCOPE_PATHS[github]="^github/"
+          SCOPE_PATHS[gitlab]="^gitlab/"
           SCOPE_PATHS[autobuilder]="^opentaint-core/opentaint-jvm-autobuilder/"
           SCOPE_PATHS[infra]="^opentaint-infra-dependencies/"
           SCOPE_PATHS[ci]="^\.github/"

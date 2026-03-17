@@ -59,7 +59,7 @@ jobs:
 
       - name: Create rules archive
         run: |
-          cd opentaint-rules/rules; tar cfvz ../../opentaint-rules.tar.gz .
+          cd rules/rules; tar cfvz ../../opentaint-rules.tar.gz .
 
       - name: Manual version bump
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
@@ -85,7 +85,7 @@ jobs:
             --latest=false \
             opentaint-rules.tar.gz
 
-          echo "v${{ steps.manual_release.outputs.new-version }}" > opentaint-rules/release_version.txt
+          echo "v${{ steps.manual_release.outputs.new-version }}" > rules/release_version.txt
 
       - name: Release (auto)
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_type == 'auto' }}
@@ -94,7 +94,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           semantic_version: 23.0.0
-          working_directory: opentaint-rules
+          working_directory: rules
           extra_plugins: |
             @semantic-release/commit-analyzer@11.1.0
             @semantic-release/exec@6.0.3
@@ -103,7 +103,7 @@ jobs:
       - name: Get release_version and pass to next job
         if: ${{ steps.manual_release.outputs.new-version == '' }}
         id: release_version
-        working-directory: opentaint-rules
+        working-directory: rules
         run: |
           if [ -f release_version.txt ]; then
             echo "status=succeeded" >>"$GITHUB_OUTPUT"

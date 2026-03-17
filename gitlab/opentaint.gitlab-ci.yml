@@ -1,0 +1,76 @@
+.opentaint-template:
+  stage: analysis
+  image: docker:24.0.5
+  services:
+    - name: docker:24.0.5-dind
+      alias: dind
+  timeout: 20m
+  variables:
+    DOCKER_HOST: tcp://dind:2375
+    # Relative path to the root of the analyzed project
+    PROJECT_ROOT: "."
+    # OpenTaint version selector: latest, v<major>, v<major>.<minor>, or exact v<major>.<minor>.<patch>
+    OPENTAINT_VERSION: "v2"
+    # Comma-separated paths to rule files or directories (e.g., "rules/custom.yml,rules/extra")
+    RULES_PATH: "builtin"
+    # Comma-separated severity levels to report: note, warning, error
+    SEVERITY: "warning,error"
+    # Scan timeout
+    TIMEOUT: "15m"
+  script:
+    - apk add --no-cache git curl bash tar jq github-cli python3
+
+    # Generate sanitized artifact name
+    - SANITIZED_NAME=$(echo "$ARTIFACT_NAME" | tr '/' '_')
+
+    # Run OpenTaint steps
+    - UUID=$(echo "$SANITIZED_NAME" | sha1sum | awk '{print $1}')
+    - export OPENTAINT_ARTIFACTS="opentaint-artifacts/$UUID"
+    - mkdir -p "$OPENTAINT_ARTIFACTS"
+
+    # Resolve OpenTaint version selector and download OpenTaint
+    - |
+      set -euo pipefail
+
+      curl -fsSL \
+        "https://raw.githubusercontent.com/seqra/opentaint/main/scripts/resolve_opentaint_version.py" \
+        -o "$OPENTAINT_ARTIFACTS/resolve_opentaint_version.py"
+
+      RESOLVED_OPENTAINT_VERSION=$(python3 "$OPENTAINT_ARTIFACTS/resolve_opentaint_version.py" \
+        --selector "$OPENTAINT_VERSION" \
+        --repository "seqra/opentaint")
+
+      echo "Resolved OpenTaint version: $RESOLVED_OPENTAINT_VERSION"
+      wget -O "$OPENTAINT_ARTIFACTS/opentaint.tar.gz" "https://github.com/seqra/opentaint/releases/download/$RESOLVED_OPENTAINT_VERSION/opentaint_linux_amd64.tar.gz"
+
+    # Extract OpenTaint
+    - ls -lah $OPENTAINT_ARTIFACTS
+    - 'tar -xzvf "$OPENTAINT_ARTIFACTS/opentaint.tar.gz" -C "$OPENTAINT_ARTIFACTS"'
+    - 'chmod +x "$OPENTAINT_ARTIFACTS/opentaint"'
+
+    # Compile project
+    - '$OPENTAINT_ARTIFACTS/opentaint compile --quiet --output "$OPENTAINT_ARTIFACTS/project" $PROJECT_ROOT'
+
+    # Run analysis
+    - |
+      cmd="$OPENTAINT_ARTIFACTS/opentaint scan --quiet"
+
+      IFS=',' read -ra rulesets <<< "$RULES_PATH"
+      for ruleset in "${rulesets[@]}"; do
+        cmd="$cmd --ruleset $ruleset"
+      done
+
+      IFS=',' read -ra severities <<< "$SEVERITY"
+      for severity in "${severities[@]}"; do
+        cmd="$cmd --severity $severity"
+      done
+
+      cmd="$cmd --timeout $TIMEOUT"
+      cmd="$cmd --output analysis_results/opentaint.sarif $OPENTAINT_ARTIFACTS/project"
+
+      eval "$cmd"
+
+  artifacts:
+    name: "OpenTaint Sarif"
+    paths:
+      - "analysis_results/opentaint.sarif"

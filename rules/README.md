@@ -1,8 +1,8 @@
 # OpenTaint Security Rules
 
-[![GitHub release](https://img.shields.io/github/release/seqra/opentaint-rules.svg)](https://github.com/seqra/opentaint-rules/releases)
+[![GitHub release](https://img.shields.io/github/release/seqra/opentaint.svg?label=rules)](https://github.com/seqra/opentaint/releases)
 
-A curated collection of security rules for [Seqra](https://github.com/seqra/seqra), a static analysis engine for Java and Kotlin that combines Semgrep-style pattern matching with dataflow/taint analysis.
+A curated collection of security rules for [OpenTaint](https://github.com/seqra/opentaint), a static analysis engine for Java and Kotlin that combines Semgrep-style pattern matching with dataflow/taint analysis.
 
 The repository provides:
 
@@ -79,7 +79,7 @@ rules:
 
 Key points:
 
-- **`lib: true`** explicitly marks a rule as non-executable; it will not be run by Seqra as a top-level rule.
+- **`lib: true`** explicitly marks a rule as non-executable; it will not be run by OpenTaint as a top-level rule.
 - Library rules are typically:
   - Source definitions (`*untrusted-data-source*`)
   - Sink definitions (`*sinks*`)
@@ -117,7 +117,7 @@ Semantics:
 - `on` describes how to correlate matches from referenced rules:
   - `untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED` expresses a **dataflow relationship** between the `$UNTRUSTED` captured in the source rule and the same `$UNTRUSTED` captured in the sink rule.
 
-This join mode is **based on Semgrep's join mode**, but Seqra extends it with custom features (such as the `->` notation in the `on` section) to express taint-style flows across multiple rule components.
+This join mode is **based on Semgrep's join mode**, but OpenTaint extends it with custom features (such as the `->` notation in the `on` section) to express taint-style flows across multiple rule components.
 
 ---
 

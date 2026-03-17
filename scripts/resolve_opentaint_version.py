@@ -17,7 +17,7 @@ MINOR_SELECTOR_RE = re.compile(r"^v(\d+)\.(\d+)$")
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Resolve Seqra release selector to an exact stable tag. "
+            "Resolve OpenTaint release selector to an exact stable tag. "
             "Supported selectors: latest, v<major>, v<major>.<minor>, v<major>.<minor>.<patch>."
         )
     )
@@ -42,7 +42,7 @@ def parse_link_header(link_header: str) -> dict[str, str]:
 def github_get_json(url: str, token: str) -> tuple[list[dict], dict[str, str]]:
     headers = {
         "Accept": "application/vnd.github+json",
-        "User-Agent": "seqra-action-version-resolver",
+        "User-Agent": "opentaint-action-version-resolver",
     }
     if token:
         headers["Authorization"] = f"Bearer {token}"
@@ -90,7 +90,7 @@ def resolve_selector(
     selector: str, stable: list[tuple[tuple[int, int, int], str]]
 ) -> str:
     if not stable:
-        raise ValueError("No stable Seqra releases found")
+        raise ValueError("No stable OpenTaint releases found")
 
     if SEMVER_RE.match(selector):
         return selector
@@ -116,7 +116,7 @@ def resolve_selector(
         raise ValueError(f"No stable release found for selector {selector}")
 
     raise ValueError(
-        "Invalid seqra-version selector. "
+        "Invalid opentaint-version selector. "
         "Use latest, v<major>, v<major>.<minor>, or exact v<major>.<minor>.<patch>."
     )
 

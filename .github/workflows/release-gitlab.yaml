@@ -79,7 +79,7 @@ jobs:
             --generate-notes \
             --latest=false
 
-          echo "v${{ steps.manual_release.outputs.new-version }}" > opentaint-gitlab/release_version.txt
+          echo "v${{ steps.manual_release.outputs.new-version }}" > gitlab/release_version.txt
 
       - name: Release (auto)
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_type == 'auto' }}
@@ -88,7 +88,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           semantic_version: 23.0.0
-          working_directory: opentaint-gitlab
+          working_directory: gitlab
           extra_plugins: |
             @semantic-release/commit-analyzer@11.1.0
             @semantic-release/exec@6.0.3
@@ -97,7 +97,7 @@ jobs:
       - name: Get release_version and pass to next job
         if: ${{ steps.manual_release.outputs.new-version == '' }}
         id: release_version
-        working-directory: opentaint-gitlab
+        working-directory: gitlab
         run: |
           if [ -f release_version.txt ]; then
             echo "status=succeeded" >>"$GITHUB_OUTPUT"

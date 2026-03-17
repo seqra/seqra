@@ -3,11 +3,11 @@ name: CI Rules
 on:
   push:
     paths:
-      - 'opentaint-rules/**'
+      - 'rules/**'
     branches: [ "main" ]
   pull_request:
     paths:
-      - 'opentaint-rules/**'
+      - 'rules/**'
     branches: [ "main" ]
 
 concurrency:
@@ -47,13 +47,13 @@ jobs:
           distribution: 'temurin'
 
       - name: Build tests jar
-        run: cd opentaint-rules/test && ./gradlew :build
+        run: cd rules/test && ./gradlew :build
         env:
           SEQRA_GITHUB_ACTOR: ${{ secrets.SEQRA_GITHUB_ACTOR }}
           SEQRA_GITHUB_TOKEN: ${{ secrets.SEQRA_GITHUB_TOKEN }}
 
       - name: Check rules coverage
-        run: cd opentaint-rules/test && ./gradlew :checkRulesCoverage
+        run: cd rules/test && ./gradlew :checkRulesCoverage
         env:
           SEQRA_GITHUB_ACTOR: ${{ secrets.SEQRA_GITHUB_ACTOR }}
           SEQRA_GITHUB_TOKEN: ${{ secrets.SEQRA_GITHUB_TOKEN }}
@@ -61,7 +61,7 @@ jobs:
       - name: OpenTaint compile test project
         run: |
           java -jar opentaint-autobuilder/opentaint-project-auto-builder.jar \
-               --project-root-dir opentaint-rules/test \
+               --project-root-dir rules/test \
                --build portable \
                --result-dir ./opentaint-project \
                --logs-file autobuild.log \
@@ -72,7 +72,7 @@ jobs:
           java -Xmx8G -Djdk.util.jar.enableMultiRelease=false -Dorg.opentaint.ir.impl.storage.defaultBatchSize=2000 \
                -jar opentaint-analyzer/opentaint-project-analyzer.jar \
                --project opentaint-project/project.yaml --output-dir opentaint-result --verbosity debug \
-               --querylang-rule-set ./opentaint-rules/rules --debug-run-rule-tests
+               --querylang-rule-set ./rules/rules --debug-run-rule-tests
 
       - name: Show test results
         run: cat opentaint-result/test-result.json

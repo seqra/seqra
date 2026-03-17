@@ -183,8 +183,8 @@ For detailed configuration, see [Configuration Guide](docs/configuration.md).
 
 ## CI/CD Integration
 
-- **GitHub Actions:** [seqra/opentaint-action](https://github.com/seqra/opentaint-action)
-- **GitLab CI:** [seqra/opentaint-gitlab](https://github.com/seqra/opentaint-gitlab)
+- **GitHub Actions:** [seqra/opentaint/github](https://github.com/seqra/opentaint/tree/main/github)
+- **GitLab CI:** [seqra/opentaint/gitlab](https://github.com/seqra/opentaint/tree/main/gitlab)
 
 ---
 

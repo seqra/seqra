@@ -5,11 +5,11 @@ on:
 
   push:
     paths:
-      - 'opentaint-github/**'
+      - 'github/**'
     branches: [ "main" ]
   pull_request:
     paths:
-      - 'opentaint-github/**'
+      - 'github/**'
     branches: [ "main" ]
 
 concurrency:
@@ -58,8 +58,8 @@ jobs:
           java-version: '${{ matrix.java-version }}'
           distribution: 'temurin'
 
-      - name: Run seqra
-        uses: ./opentaint-github
+      - name: Run OpenTaint
+        uses: ./github
         timeout-minutes: 7
         with:
           project-root: project-root
