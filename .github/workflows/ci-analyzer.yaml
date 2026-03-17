@@ -51,7 +51,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  RULES_VERSION: v1.4.0
+  RULES_VERSION: rules/v0.0.2
   EXPECTED_TRACES: 8785
 
 jobs:
@@ -141,13 +141,18 @@ jobs:
                     --logs-file test-dir/autobuild.log \
                     --verbosity debug
 
-      - name: Checkout rules
-        uses: actions/checkout@v4
+      - name: Download rules
+        uses: robinraju/release-downloader@v1.12
         with:
+          repository: ${{ github.repository }}
           token: ${{ secrets.SEQRA_GITHUB_TOKEN }}
-          repository: '${{ github.repository_owner }}/opentaint-rules'
-          ref: ${{ env.RULES_VERSION }}
-          path: ./test-dir/opentaint-rules
+          tag: ${{ env.RULES_VERSION }}
+          fileName: opentaint-rules.tar.gz
+          out-file-path: test-dir
+
+      - name: Extract rules
+        working-directory: .
+        run: mkdir -p test-dir/opentaint-rules && tar xzf test-dir/opentaint-rules.tar.gz -C test-dir/opentaint-rules
 
       - name: Analyze owasp
         working-directory: .
@@ -158,7 +163,7 @@ jobs:
             -Xmx8g \
             -jar opentaint-core/build/libs/opentaint-project-analyzer.jar \
             --project test-dir/opentaint-project/project.yaml \
-            --semgrep-rule-set test-dir/seqra-rules \
+            --semgrep-rule-set test-dir/opentaint-rules \
             --output-dir test-dir/reports \
             --ifds-analysis-timeout=1000 \
             --logs-file test-dir/analyzer.log \
