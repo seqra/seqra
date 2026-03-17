@@ -57,7 +57,7 @@ homebrew_casks:
     binaries:
       - opentaint
     repository:
-      owner: seqra
+      owner: "{{ .Env.HOMEBREW_TAP_OWNER }}"
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: "https://github.com/seqra/opentaint"

@@ -200,6 +200,7 @@ jobs:
         working-directory: opentaint-cli
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          HOMEBREW_TAP_OWNER: ${{ github.repository_owner }}
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
         run: |
           RELEASE_TAG="v${{ steps.release_version.outputs.RELEASE_VERSION }}"
@@ -218,7 +219,7 @@ jobs:
           done
 
           # Push updated cask to Homebrew tap
-          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/seqra/homebrew-tap.git" /tmp/homebrew-tap
+          git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${{ github.repository_owner }}/homebrew-tap.git" /tmp/homebrew-tap
           mkdir -p /tmp/homebrew-tap/Casks
           cp "$CASK_FILE" /tmp/homebrew-tap/Casks/opentaint.rb
           cd /tmp/homebrew-tap
