@@ -65,7 +65,13 @@ runs:
         if [[ ! -d "$ACTION_PATH" ]]; then
           ACTION_PATH="$GITHUB_WORKSPACE"
         fi
-        SEQRA_VERSION=$(python3 "$ACTION_PATH/scripts/resolve_seqra_version.py" \
+
+        RESOLVER_PATH="$ACTION_PATH/../scripts/resolve_seqra_version.py"
+        if [[ ! -f "$RESOLVER_PATH" ]]; then
+          RESOLVER_PATH="$GITHUB_WORKSPACE/scripts/resolve_seqra_version.py"
+        fi
+
+        SEQRA_VERSION=$(python3 "$RESOLVER_PATH" \
           --selector "${{ inputs.seqra-version }}" \
           --repository "seqrateam/opentaint" \
           --token "${{ inputs.token || github.token }}")

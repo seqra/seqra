@@ -9,8 +9,8 @@
     DOCKER_HOST: tcp://dind:2375
     # Relative path to the root of the analyzed project
     PROJECT_ROOT: "."
-    # Tag of seqra release
-    SEQRA_VERSION: "v2.4.0"
+    # Seqra version selector: latest, v<major>, v<major>.<minor>, or exact v<major>.<minor>.<patch>
+    SEQRA_VERSION: "v2"
     # Comma-separated paths to rule files or directories (e.g., "rules/custom.yml,rules/extra")
     RULES_PATH: "builtin"
     # Comma-separated severity levels to report: note, warning, error
@@ -18,7 +18,7 @@
     # Scan timeout
     TIMEOUT: "15m"
   script:
-    - apk add --no-cache git curl bash tar jq github-cli
+    - apk add --no-cache git curl bash tar jq github-cli python3
 
     # Generate sanitized artifact name
     - SANITIZED_NAME=$(echo "$ARTIFACT_NAME" | tr '/' '_')
@@ -28,8 +28,20 @@
     - export SEQRA_ARTIFACTS="seqra-artifacts/$UUID"
     - mkdir -p "$SEQRA_ARTIFACTS"
 
-    # Download seqra
-    -  wget -O "$SEQRA_ARTIFACTS/seqra.tar.gz" "https://github.com/seqrateam/opentaint/releases/download/$SEQRA_VERSION/opentaint_linux_amd64.tar.gz"
+    # Resolve seqra version selector and download seqra
+    - |
+      set -euo pipefail
+
+      curl -fsSL \
+        "https://raw.githubusercontent.com/seqrateam/opentaint/main/scripts/resolve_seqra_version.py" \
+        -o "$SEQRA_ARTIFACTS/resolve_seqra_version.py"
+
+      RESOLVED_SEQRA_VERSION=$(python3 "$SEQRA_ARTIFACTS/resolve_seqra_version.py" \
+        --selector "$SEQRA_VERSION" \
+        --repository "seqrateam/opentaint")
+
+      echo "Resolved Seqra version: $RESOLVED_SEQRA_VERSION"
+      wget -O "$SEQRA_ARTIFACTS/seqra.tar.gz" "https://github.com/seqrateam/opentaint/releases/download/$RESOLVED_SEQRA_VERSION/opentaint_linux_amd64.tar.gz"
 
     # Extract seqra
     - ls -lah $SEQRA_ARTIFACTS

@@ -25,7 +25,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--repository", required=True, help="GitHub repository in owner/name format"
     )
-    parser.add_argument("--token", required=True, help="GitHub token")
+    parser.add_argument("--token", default="", help="Optional GitHub token")
     return parser.parse_args()
 
 
@@ -40,14 +40,14 @@ def parse_link_header(link_header: str) -> dict[str, str]:
 
 
 def github_get_json(url: str, token: str) -> tuple[list[dict], dict[str, str]]:
-    request = urllib.request.Request(
-        url,
-        headers={
-            "Accept": "application/vnd.github+json",
-            "Authorization": f"Bearer {token}",
-            "User-Agent": "seqra-action-version-resolver",
-        },
-    )
+    headers = {
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "seqra-action-version-resolver",
+    }
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+
+    request = urllib.request.Request(url, headers=headers)
 
     try:
         with urllib.request.urlopen(request) as response:
