@@ -37,7 +37,8 @@ object EdgeCollection {
                     else -> error("Impossible edge kind")
                 }
 
-                storage!!.get(indices[kind]++, methodEntryPoint)
+                val edge = storage!!.get(indices[kind]++, methodEntryPoint)
+                result.add(edge)
             }
             return result
         }
