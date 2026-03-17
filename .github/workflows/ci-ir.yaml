@@ -5,13 +5,13 @@ on:
 
   push:
     paths:
-      - 'opentaint-core/opentaint-ir/**'
-      - 'opentaint-core/opentaint-common-build/**'
+      - 'core/opentaint-ir/**'
+      - 'core/opentaint-common-build/**'
     branches: [ "main" ]
   pull_request:
     paths:
-      - 'opentaint-core/opentaint-ir/**'
-      - 'opentaint-core/opentaint-common-build/**'
+      - 'core/opentaint-ir/**'
+      - 'core/opentaint-common-build/**'
     branches: [ "main" ]
 
 concurrency:
@@ -46,7 +46,7 @@ jobs:
 
       - name: Run tests
         run: ./gradlew opentaint-ir:check
-        working-directory: opentaint-core
+        working-directory: core
 
       - name: Upload Gradle reports
         if: (!cancelled())
@@ -77,7 +77,7 @@ jobs:
 
       - name: Run tests
         run: ./gradlew opentaint-ir:lifecycleTest
-        working-directory: opentaint-core
+        working-directory: core
 
       - name: Upload Gradle reports
         if: (!cancelled())

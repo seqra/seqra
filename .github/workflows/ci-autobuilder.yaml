@@ -5,17 +5,17 @@ on:
 
   push:
     paths:
-      - 'opentaint-core/opentaint-jvm-autobuilder/**'
-      - 'opentaint-core/opentaint-project-model/**'
-      - 'opentaint-core/opentaint-utils/cli-util/**'
-      - 'opentaint-core/opentaint-common-build/**'
+      - 'core/opentaint-jvm-autobuilder/**'
+      - 'core/opentaint-project-model/**'
+      - 'core/opentaint-utils/cli-util/**'
+      - 'core/opentaint-common-build/**'
     branches: [ "main" ]
   pull_request:
     paths:
-      - 'opentaint-core/opentaint-jvm-autobuilder/**'
-      - 'opentaint-core/opentaint-project-model/**'
-      - 'opentaint-core/opentaint-utils/cli-util/**'
-      - 'opentaint-core/opentaint-common-build/**'
+      - 'core/opentaint-jvm-autobuilder/**'
+      - 'core/opentaint-project-model/**'
+      - 'core/opentaint-utils/cli-util/**'
+      - 'core/opentaint-common-build/**'
     branches: [ "main" ]
 
 concurrency:
@@ -30,7 +30,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: opentaint-core
+        working-directory: core
 
     steps:
       - name: Checkout repository
@@ -68,7 +68,7 @@ jobs:
       - name: Build owasp
         working-directory: .
         run: |
-          java -jar opentaint-core/opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar \
+          java -jar core/opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar \
                     --project-root-dir test-dir/OWASP \
                     --build portable \
                     --result-dir test-dir/BenchmarkJava-portable-build \

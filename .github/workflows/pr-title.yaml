@@ -84,7 +84,7 @@ jobs:
           SCOPE_PATHS[rules]="^rules/"
           SCOPE_PATHS[github]="^github/"
           SCOPE_PATHS[gitlab]="^gitlab/"
-          SCOPE_PATHS[autobuilder]="^opentaint-core/opentaint-jvm-autobuilder/"
+          SCOPE_PATHS[autobuilder]="^core/opentaint-jvm-autobuilder/"
           SCOPE_PATHS[infra]="^opentaint-infra-dependencies/"
           SCOPE_PATHS[ci]="^\.github/"
 
@@ -109,7 +109,7 @@ jobs:
             "opentaint-sast-test-util/"
           )
           ANALYZER_PATTERN=$(IFS="|"; echo "${ANALYZER_MODULES[*]}")
-          SCOPE_PATHS[analyzer]="^opentaint-core/(${ANALYZER_PATTERN})"
+          SCOPE_PATHS[analyzer]="^core/(${ANALYZER_PATTERN})"
 
           CORE_MODULES=(
             "opentaint-project-model/"
@@ -117,7 +117,7 @@ jobs:
             "opentaint-common-build/"
           )
           CORE_PATTERN=$(IFS="|"; echo "${CORE_MODULES[*]}")
-          SCOPE_PATHS[core]="^opentaint-core/(${CORE_PATTERN})"
+          SCOPE_PATHS[core]="^core/(${CORE_PATTERN})"
 
           DOCS_PATTERNS=(
             "docs/"

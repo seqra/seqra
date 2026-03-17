@@ -6,45 +6,45 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - 'opentaint-core/src/**'
-      - 'opentaint-core/build.gradle.kts'
-      - 'opentaint-core/settings.gradle.kts'
-      - 'opentaint-core/buildSrc/**'
-      - 'opentaint-core/gradle/**'
-      - 'opentaint-core/opentaint-java-querylang/**'
-      - 'opentaint-core/samples/**'
-      - 'opentaint-core/opentaint-ir/**'
-      - 'opentaint-core/opentaint-dataflow-core/**'
-      - 'opentaint-core/opentaint-configuration-rules/**'
-      - 'opentaint-core/opentaint-config/**'
-      - 'opentaint-core/opentaint-jvm-sast-dataflow/**'
-      - 'opentaint-core/opentaint-jvm-sast-project/**'
-      - 'opentaint-core/opentaint-jvm-sast-se-api/**'
-      - 'opentaint-core/opentaint-sast-test-util/**'
-      - 'opentaint-core/opentaint-utils/**'
-      - 'opentaint-core/opentaint-project-model/**'
-      - 'opentaint-core/opentaint-common-build/**'
+      - 'core/src/**'
+      - 'core/build.gradle.kts'
+      - 'core/settings.gradle.kts'
+      - 'core/buildSrc/**'
+      - 'core/gradle/**'
+      - 'core/opentaint-java-querylang/**'
+      - 'core/samples/**'
+      - 'core/opentaint-ir/**'
+      - 'core/opentaint-dataflow-core/**'
+      - 'core/opentaint-configuration-rules/**'
+      - 'core/opentaint-config/**'
+      - 'core/opentaint-jvm-sast-dataflow/**'
+      - 'core/opentaint-jvm-sast-project/**'
+      - 'core/opentaint-jvm-sast-se-api/**'
+      - 'core/opentaint-sast-test-util/**'
+      - 'core/opentaint-utils/**'
+      - 'core/opentaint-project-model/**'
+      - 'core/opentaint-common-build/**'
   pull_request:
     branches: [ "main" ]
     paths:
-      - 'opentaint-core/src/**'
-      - 'opentaint-core/build.gradle.kts'
-      - 'opentaint-core/settings.gradle.kts'
-      - 'opentaint-core/buildSrc/**'
-      - 'opentaint-core/gradle/**'
-      - 'opentaint-core/opentaint-java-querylang/**'
-      - 'opentaint-core/samples/**'
-      - 'opentaint-core/opentaint-ir/**'
-      - 'opentaint-core/opentaint-dataflow-core/**'
-      - 'opentaint-core/opentaint-configuration-rules/**'
-      - 'opentaint-core/opentaint-config/**'
-      - 'opentaint-core/opentaint-jvm-sast-dataflow/**'
-      - 'opentaint-core/opentaint-jvm-sast-project/**'
-      - 'opentaint-core/opentaint-jvm-sast-se-api/**'
-      - 'opentaint-core/opentaint-sast-test-util/**'
-      - 'opentaint-core/opentaint-utils/**'
-      - 'opentaint-core/opentaint-project-model/**'
-      - 'opentaint-core/opentaint-common-build/**'
+      - 'core/src/**'
+      - 'core/build.gradle.kts'
+      - 'core/settings.gradle.kts'
+      - 'core/buildSrc/**'
+      - 'core/gradle/**'
+      - 'core/opentaint-java-querylang/**'
+      - 'core/samples/**'
+      - 'core/opentaint-ir/**'
+      - 'core/opentaint-dataflow-core/**'
+      - 'core/opentaint-configuration-rules/**'
+      - 'core/opentaint-config/**'
+      - 'core/opentaint-jvm-sast-dataflow/**'
+      - 'core/opentaint-jvm-sast-project/**'
+      - 'core/opentaint-jvm-sast-se-api/**'
+      - 'core/opentaint-sast-test-util/**'
+      - 'core/opentaint-utils/**'
+      - 'core/opentaint-project-model/**'
+      - 'core/opentaint-common-build/**'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -62,7 +62,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: opentaint-core
+        working-directory: core
     steps:
       - uses: actions/checkout@v4
 
@@ -94,7 +94,7 @@ jobs:
       contents: read
     defaults:
       run:
-        working-directory: opentaint-core
+        working-directory: core
 
     steps:
       - name: Checkout repository
@@ -135,7 +135,7 @@ jobs:
       - name: Build owasp
         working-directory: .
         run: |
-          java -jar opentaint-core/opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar \
+          java -jar core/opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar \
                     --project-root-dir test-dir/OWASP \
                     --build portable \
                     --result-dir test-dir/opentaint-project \
@@ -162,7 +162,7 @@ jobs:
             -Dorg.opentaint.ir.impl.storage.defaultBatchSize=2000 \
             -Djdk.util.jar.enableMultiRelease=false \
             -Xmx8g \
-            -jar opentaint-core/build/libs/opentaint-project-analyzer.jar \
+            -jar core/build/libs/opentaint-project-analyzer.jar \
             --project test-dir/opentaint-project/project.yaml \
             --semgrep-rule-set test-dir/opentaint-rules \
             --output-dir test-dir/reports \

@@ -5,19 +5,19 @@ on:
 
   push:
     paths:
-      - 'opentaint-core/opentaint-dataflow-core/**'
-      - 'opentaint-core/opentaint-ir/**'
-      - 'opentaint-core/opentaint-utils/**'
-      - 'opentaint-core/opentaint-configuration-rules/**'
-      - 'opentaint-core/opentaint-common-build/**'
+      - 'core/opentaint-dataflow-core/**'
+      - 'core/opentaint-ir/**'
+      - 'core/opentaint-utils/**'
+      - 'core/opentaint-configuration-rules/**'
+      - 'core/opentaint-common-build/**'
     branches: [ "main" ]
   pull_request:
     paths:
-      - 'opentaint-core/opentaint-dataflow-core/**'
-      - 'opentaint-core/opentaint-ir/**'
-      - 'opentaint-core/opentaint-utils/**'
-      - 'opentaint-core/opentaint-configuration-rules/**'
-      - 'opentaint-core/opentaint-common-build/**'
+      - 'core/opentaint-dataflow-core/**'
+      - 'core/opentaint-ir/**'
+      - 'core/opentaint-utils/**'
+      - 'core/opentaint-configuration-rules/**'
+      - 'core/opentaint-common-build/**'
     branches: [ "main" ]
 
 concurrency:
@@ -44,7 +44,7 @@ jobs:
 
       - name: Run tests
         run: ./gradlew opentaint-dataflow-core:check
-        working-directory: opentaint-core
+        working-directory: core
 
       - name: Upload Gradle reports
         if: (!cancelled())
