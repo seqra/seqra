@@ -66,6 +66,14 @@ jobs:
         run: |
           echo "${{ steps.manual_release.outputs.new-version }}" > opentaint-cli/release_version.txt
       -
+        name: Create release tag (manual)
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ steps.manual_release.outputs.new-version }}"
+          git push origin "v${{ steps.manual_release.outputs.new-version }}"
+      -
         name: 'Release (auto)'
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_type == 'auto' }}
         id: semantic_release
