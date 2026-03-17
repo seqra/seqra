@@ -60,7 +60,7 @@ class MergingTreeSummaryStorage(manager: SoftReferenceManager) {
 
         var result = this
         for (component in components) {
-            check(component.size > 1) { "Unexpected singleton component" }
+            if (component.size < 2) continue
             result = result.removeAllAccessorChains(component, chainLengthToRemove = 2, IdentityHashMap())
         }
         if (this === result) return this
