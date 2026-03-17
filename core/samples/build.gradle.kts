@@ -37,3 +37,7 @@ tasks.jar {
         include("**/*.kt")
     }
 }
+
+tasks.withType<Jar> {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}

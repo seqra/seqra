@@ -11,13 +11,14 @@ import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRCallInst
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRInst
-import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRLocal
+import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRStringConstant
 import org.opentaint.ir.api.jvm.ext.cfg.callExpr
 import org.opentaint.jvm.sast.sarif.InstructionInfo
 import org.opentaint.jvm.sast.sarif.IntermediateLocation
 import org.opentaint.jvm.sast.sarif.LocationType
+import java.nio.file.FileSystems
 
 class KotlinAstSpanResolverTest : BasicTestUtils() {
 
@@ -1228,6 +1229,21 @@ class KotlinAstSpanResolverTest : BasicTestUtils() {
 
         val expectedSpan = parseSpanMarker(sourcePath, "i2")
         assertSpanMatchesMarker(span, expectedSpan)
+    }
+
+    @Test
+    fun `span resolver parser test1`() = testKotlinParser("Test1.kt")
+
+    @Test
+    fun `span resolver parser test2`() = testKotlinParser("Test2.kt")
+
+    private fun testKotlinParser(testName: String) {
+        val parsed = FileSystems.newFileSystem(samplesJar).use { fs ->
+            val path = fs.getPath("parser/kotlin/$testName")
+            resolver.getKotlinAst(path)
+        }
+
+        assertNotNull(parsed)
     }
 
     private fun getAnnotatedSourcePath() = sourcesDir.resolve("test/samples/KotlinAnnotatedSample.kt")

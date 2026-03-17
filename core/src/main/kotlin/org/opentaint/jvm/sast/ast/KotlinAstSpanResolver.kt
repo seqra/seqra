@@ -63,16 +63,18 @@ class KotlinAstSpanResolver(traits: JIRSarifTraits) : AbstractAstSpanResolver(tr
 
     private val parsedFiles = ConcurrentHashMap<Path, Optional<KotlinFileContext>>()
 
-    private fun getKotlinAst(path: Path): KotlinFileContext? =
+    fun getKotlinAst(path: Path): KotlinFileContext? =
         parsedFiles.computeIfAbsent(path) { Optional.ofNullable(parseKotlinFile(path)) }.getOrNull()
 
     private fun parseKotlinFile(path: Path): KotlinFileContext? = runCatching {
         val lexer = KotlinLexer(CharStreams.fromPath(path)).apply { removeErrorListeners() }
         val tokenStream = CommonTokenStream(lexer)
         val parser = KotlinParser(tokenStream).apply { removeErrorListeners() }
-        parser.kotlinFile()
+        parser.kotlinFile()?.apply {
+            exception?.let { throw it }
+        }
     }.onFailure { ex ->
-        logger.error(ex) { "File parsing failure" }
+        logger.error(ex) { "File parsing failure: $path" }
     }.getOrNull()
 
     private fun computeSpan(ast: KotlinFileContext, location: IntermediateLocation): LocationSpan? {

@@ -1,18 +1,16 @@
 import OpentaintConfigDependency.opentaintConfig
-import OpentaintUtilDependency.opentaintUtilJvm
-import org.opentaint.common.KotlinDependency
-import OpentaintIrDependency.opentaint_ir_core
-import OpentaintIrDependency.opentaint_ir_approximations
 import OpentaintIrDependency.opentaint_ir_api_storage
+import OpentaintIrDependency.opentaint_ir_approximations
+import OpentaintIrDependency.opentaint_ir_core
 import OpentaintIrDependency.opentaint_ir_storage
 import OpentaintTestUtilDependency.opentaintSastTestUtil
-import de.undercouch.gradle.tasks.download.Download
+import OpentaintUtilDependency.opentaintUtilJvm
+import org.opentaint.common.KotlinDependency
 
 plugins {
     id("kotlin-conventions")
     kotlinSerialization()
     antlr
-    id("de.undercouch.download") version "5.6.0"
 }
 
 // workaround to remove antlr grammar generation dependencies from runtime classpath
@@ -63,7 +61,7 @@ tasks.withType<Test> {
     jvmArgs = listOf("-Xmx4g")
 }
 
-val kotlinGrammar = layout.buildDirectory.dir("kotlin-grammar/src/antlr")
+val kotlinGrammar = layout.projectDirectory.dir("src/main/antlr-kotlin")
 val kotlinGrammarGenerated = layout.buildDirectory.dir("kotlin-grammar/classes/generated")
 
 sourceSets {
@@ -74,22 +72,6 @@ sourceSets {
     }
 }
 
-val kotlinGrammarVersion = "bf61744020dc46f2d7b8761e35b0c0cb39b3f31a"
-
-val downloadKotlinParserGrammar by tasks.registering(Download::class) {
-    val grammarFiles = listOf(
-        "KotlinLexer.g4",
-        "KotlinParser.g4",
-        "UnicodeClasses.g4",
-    )
-
-    val antlrGrammarBaseUrl = "https://raw.githubusercontent.com/antlr/grammars-v4/$kotlinGrammarVersion/kotlin/kotlin/"
-
-    src(grammarFiles.map { antlrGrammarBaseUrl + it })
-    dest(kotlinGrammar)
-    overwrite(false)
-}
-
 tasks.generateGrammarSource {
     val pkg = "org.opentaint.semgrep.pattern.antlr"
     arguments = arguments + listOf("-package", pkg, "-visitor")
@@ -97,7 +79,6 @@ tasks.generateGrammarSource {
 }
 
 val generateKotlinGrammarSource by tasks.registering(AntlrTask::class) {
-    dependsOn(downloadKotlinParserGrammar)
     source(kotlinGrammar)
 
     val pkg = "org.opentaint.semgrep.pattern.kotlin.antlr"
