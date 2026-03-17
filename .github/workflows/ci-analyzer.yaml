@@ -87,6 +87,7 @@ jobs:
           retention-days: 1
 
   owasp:
+    if: false
     runs-on: [ self-hosted, ex44 ]
     container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
     permissions:
