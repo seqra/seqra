@@ -5,11 +5,11 @@ on:
 
   push:
     paths:
-      - 'opentaint-ir/**'
+      - 'opentaint-core/opentaint-ir/**'
     branches: [ "main" ]
   pull_request:
     paths:
-      - 'opentaint-ir/**'
+      - 'opentaint-core/opentaint-ir/**'
     branches: [ "main" ]
 
 jobs:
@@ -42,6 +42,7 @@ jobs:
         uses: gradle/gradle-build-action@v2
         with:
           arguments: opentaint-ir:check
+          build-root-directory: opentaint-core
 
       - name: Upload Gradle reports
         if: (!cancelled())
@@ -74,6 +75,7 @@ jobs:
         uses: gradle/gradle-build-action@v2
         with:
           arguments: opentaint-ir:lifecycleTest
+          build-root-directory: opentaint-core
 
       - name: Upload Gradle reports
         if: (!cancelled())

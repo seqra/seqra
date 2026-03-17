@@ -6,39 +6,11 @@ on:
   push:
     branches: [ "main" ]
     paths:
-      - 'opentaint-jvm-sast-dataflow/**'
-      - 'opentaint-jvm-sast-project/**'
-      - 'opentaint-jvm-sast-se-api/**'
-      - 'opentaint-java-querylang/**'
-      - 'opentaint-config/**'
-      - 'opentaint-configuration-rules/**'
-      - 'opentaint-ir/**'
-      - 'opentaint-dataflow-core/**'
-      - 'opentaint-utils/**'
-      - 'opentaint-project-model/**'
-      - 'opentaint-sast-test-util/**'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'buildSrc/**'
-      - 'src/**'
+      - 'opentaint-core/**'
   pull_request:
     branches: [ "main" ]
     paths:
-      - 'opentaint-jvm-sast-dataflow/**'
-      - 'opentaint-jvm-sast-project/**'
-      - 'opentaint-jvm-sast-se-api/**'
-      - 'opentaint-java-querylang/**'
-      - 'opentaint-config/**'
-      - 'opentaint-configuration-rules/**'
-      - 'opentaint-ir/**'
-      - 'opentaint-dataflow-core/**'
-      - 'opentaint-utils/**'
-      - 'opentaint-project-model/**'
-      - 'opentaint-sast-test-util/**'
-      - 'build.gradle.kts'
-      - 'settings.gradle.kts'
-      - 'buildSrc/**'
-      - 'src/**'
+      - 'opentaint-core/**'
 
 env:
   RULES_VERSION: v1.4.0
@@ -50,6 +22,9 @@ jobs:
     container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: opentaint-core
     steps:
       - uses: actions/checkout@v4
 
@@ -58,13 +33,14 @@ jobs:
         with:
           java-version: '11'
           distribution: 'temurin'
-          server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
-          settings-path: ${{ github.workspace }} # location for the settings.xml file
+          server-id: github
+          settings-path: ${{ github.workspace }}
 
       - name: Run tests
         uses: gradle/gradle-build-action@v2
         with:
           arguments: check
+          build-root-directory: opentaint-core
 
       - name: Upload Gradle reports
         if: (!cancelled())
@@ -80,9 +56,13 @@ jobs:
     permissions:
       contents: read
       packages: read
+    defaults:
+      run:
+        working-directory: opentaint-core
 
     steps:
       - name: Setup Git
+        working-directory: .
         run: apt update && apt install -y git
 
       - name: Checkout repository
@@ -93,8 +73,8 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
-          settings-path: ${{ github.workspace }} # location for the settings.xml file
+          server-id: github
+          settings-path: ${{ github.workspace }}
 
       - name: Build analyzer jar
         run: ./gradlew :projectAnalyzerJar
@@ -112,7 +92,9 @@ jobs:
           fileName: seqra_linux_amd64.tar.gz
           out-file-path: seqra-cli
 
-      - run: |
+      - name: Extract CLI
+        working-directory: .
+        run: |
           cd seqra-cli
           tar -xzf seqra_linux_amd64.tar.gz
 
@@ -122,6 +104,7 @@ jobs:
           maven-version: '3.9.11'
 
       - name: Build owasp
+        working-directory: .
         run: |
           seqra-cli/seqra compile test-dir/OWASP --owner ${{ github.repository_owner }} --github-token ${{ secrets.SEQRA_GITHUB_TOKEN }} --output test-dir/opentaint-project --verbosity debug
 
@@ -134,12 +117,13 @@ jobs:
           path: ./test-dir/seqra-rules
 
       - name: Analyze owasp
+        working-directory: .
         run: |
           java \
             -Dorg.opentaint.ir.impl.storage.defaultBatchSize=2000 \
             -Djdk.util.jar.enableMultiRelease=false \
             -Xmx8g \
-            -jar build/libs/opentaint-project-analyzer.jar \
+            -jar opentaint-core/build/libs/opentaint-project-analyzer.jar \
             --project test-dir/opentaint-project/project.yaml \
             --semgrep-rule-set test-dir/seqra-rules \
             --output-dir test-dir/reports \
@@ -148,6 +132,7 @@ jobs:
             --verbosity debug
 
       - name: Check report exists
+        working-directory: .
         run: |
           if [ -e "test-dir/reports/report-ifds.sarif" ]; then
             echo "Report exists"
@@ -157,6 +142,7 @@ jobs:
           fi
 
       - name: Check stats
+        working-directory: .
         run: |
           STATS="$(cat test-dir/analyzer.log | grep "TraceGenerationStats")"
           echo $STATS

@@ -5,11 +5,11 @@ on:
 
   push:
     paths:
-      - 'opentaint-dataflow-core/**'
+      - 'opentaint-core/opentaint-dataflow-core/**'
     branches: [ "main" ]
   pull_request:
     paths:
-      - 'opentaint-dataflow-core/**'
+      - 'opentaint-core/opentaint-dataflow-core/**'
     branches: [ "main" ]
 
 jobs:
@@ -26,13 +26,14 @@ jobs:
         with:
           java-version: '11'
           distribution: 'temurin'
-          server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
-          settings-path: ${{ github.workspace }} # location for the settings.xml file
+          server-id: github
+          settings-path: ${{ github.workspace }}
 
       - name: Run tests
         uses: gradle/gradle-build-action@v2
         with:
           arguments: opentaint-dataflow-core:check
+          build-root-directory: opentaint-core
 
       - name: Upload Gradle reports
         if: (!cancelled())

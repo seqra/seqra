@@ -5,11 +5,11 @@ on:
 
   push:
     paths:
-      - 'opentaint-jvm-autobuilder/**'
+      - 'opentaint-core/opentaint-jvm-autobuilder/**'
     branches: [ "main" ]
   pull_request:
     paths:
-      - 'opentaint-jvm-autobuilder/**'
+      - 'opentaint-core/opentaint-jvm-autobuilder/**'
     branches: [ "main" ]
 
 jobs:
@@ -18,6 +18,9 @@ jobs:
     container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
     permissions:
       contents: read
+    defaults:
+      run:
+        working-directory: opentaint-core
 
     steps:
       - name: Checkout repository
@@ -28,13 +31,12 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          server-id: github # Value of the distributionManagement/repository/id field of the pom.xml
-          settings-path: ${{ github.workspace }} # location for the settings.xml file
+          server-id: github
+          settings-path: ${{ github.workspace }}
 
       - name: Build autobuilder jar
         run: ./gradlew opentaint-jvm-autobuilder:projectAutoBuilderJar
 
-      # Run autobuilder on OWASP
       - name: Checkout owasp
         uses: actions/checkout@v4
         with:
@@ -47,8 +49,9 @@ jobs:
           maven-version: '3.9.11'
 
       - name: Build owasp
+        working-directory: .
         run: |
-          java -jar opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar \
+          java -jar opentaint-core/opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar \
                     --project-root-dir test-dir/OWASP \
                     --build portable \
                     --result-dir test-dir/BenchmarkJava-portable-build \
@@ -56,6 +59,7 @@ jobs:
                     --verbosity debug
 
       - name: Check build succeed
+        working-directory: .
         run: |
           if [ -f "test-dir/BenchmarkJava-portable-build/project.yaml" ]; then
             exit 0

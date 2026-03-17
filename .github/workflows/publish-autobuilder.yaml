@@ -47,6 +47,7 @@ jobs:
 
       - name: Build autobuilder jar
         if: steps.changes.outputs.has-changes == 'true'
+        working-directory: opentaint-core
         run: ./gradlew opentaint-jvm-autobuilder:projectAutoBuilderJar -PanalyzerVersion=${{ steps.changes.outputs.version }}
 
       - name: Upload autobuilder jar
@@ -56,5 +57,5 @@ jobs:
           name: autobuilder/${{ steps.changes.outputs.version }}
           tag_name: autobuilder/${{ steps.changes.outputs.version }}
           body: ${{ steps.changes.outputs.release-notes }}
-          files: opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar
+          files: opentaint-core/opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar
           make_latest: false
