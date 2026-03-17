@@ -14,11 +14,6 @@ on:
           - minor
           - major
 
-  workflow_run:
-    workflows: [ "CI Rules" ]
-    branches: [ main ]
-    types:
-      - completed
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -29,7 +24,6 @@ jobs:
     runs-on: [ self-hosted, ex44 ]
     container: buildpack-deps:jammy-scm
 
-    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
 
     permissions:
       contents: write

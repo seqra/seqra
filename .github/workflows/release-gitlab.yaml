@@ -14,11 +14,6 @@ on:
           - minor
           - major
 
-  push:
-    paths:
-      - 'opentaint-gitlab/**'
-    branches:
-      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
