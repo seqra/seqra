@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # OpenTaint installer for Linux and macOS
-# Usage: curl -fsSL https://raw.githubusercontent.com/seqrateam/opentaint/main/opentaint-cli/scripts/install/install.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/seqrateam/opentaint/main/scripts/install/install.sh | bash
 
 REPO="seqrateam/opentaint"
 INSTALL_DIR="${OPENTAINT_INSTALL_DIR:-}"

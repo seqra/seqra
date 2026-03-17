@@ -83,7 +83,7 @@ runs:
       run: |
         set -euo pipefail
 
-        curl -fsSL https://raw.githubusercontent.com/seqrateam/opentaint/main/opentaint-cli/scripts/install/install.sh | \
+        curl -fsSL https://raw.githubusercontent.com/seqrateam/opentaint/main/scripts/install/install.sh | \
           SEQRA_INSTALL_DIR="${{ steps.globals.outputs.SEQRA_INSTALL_DIR }}" \
           SEQRA_DOWNLOAD_BASE_URL="https://github.com/seqrateam/opentaint/releases/download/${{ steps.resolve-version.outputs.SEQRA_VERSION }}" \
           bash
