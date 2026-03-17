@@ -57,6 +57,8 @@ jobs:
         with:
           args: release --snapshot --clean
           workdir: opentaint-cli
+        env:
+          HOMEBREW_TAP_OWNER: ${{ github.repository_owner }}
 
   shellcheck:
     runs-on: ubuntu-latest
