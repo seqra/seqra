@@ -6,10 +6,10 @@
   </picture>
 </p>
 
-<h1 align="center">The open source taint analysis engine</h1>
+<h1 align="center">The open source taint analysis engine for the AI coding era</h1>
 
 <p align="center">
-  OpenTaint analyzes bytecode of Java and Kotlin web applications (with growing Spring support) using Semgrep-style YAML rules with CodeQL-grade dataflow to find vulnerabilities that source-only scanners miss.
+  Enterprise-grade dataflow analysis with code-native rules — no paywall, no pattern-matching compromises.
 </p>
 
 <p align="center">
@@ -33,15 +33,23 @@
   <img src="logos/gitlab-logo.svg" alt="GitLab" height="40">
 </p>
 
-## Key Features
+---
 
-- **Spring-aware dataflow** — Models Spring annotations, persistence layer, and cross-controller paths. Catches stored injections where data written by one endpoint is exploited through another.
+## Why OpenTaint
 
-- **Java and Kotlin** — Analyzes compiled bytecode to precisely understand inheritance, generics, and library interactions and finds vulnerabilities that source-only scanners miss.
+AI-generated code is growing codebases faster than ever. Pattern-matching scanners produce too many false positives to keep up. Enterprise taint analyzers that actually work are locked behind paywalls. AI agents in a security role provide no formal guarantees or stable scan results — one fragile layer in a world of fragile code. OpenTaint provides real dataflow analysis, fully open source, with rules that AI agents can read and write.
 
-- **YAML rules** — Semgrep-style syntax, CodeQL-grade dataflow. Define security rules in readable YAML and get full inter-procedural taint analysis out of the box.
+## Powerful Dataflow Analysis
 
-- **Open source** — CLI, GitHub Action, GitLab CI template, and rules are [MIT licensed](cli/LICENSE). Core engine is [Apache 2.0 licensed](LICENSE.md).
+Inter-procedural taint analysis that tracks untrusted data to dangerous APIs. Built on a novel IFDS-with-abduction approach. Flow-, field-, and object-sensitive. Tuned for web application security — aims at exploitable vulnerabilities, not theoretical noise. Currently supports Java and Kotlin with bytecode-level analysis and deep Spring Boot framework ecosystem support. More languages ahead.
+
+## Code-Native Rules
+
+Rules that look like code. Readable, writable, and tunable by humans and AI agents alike. The engine translates code-native rules into full taint configurations — multiple sources, sinks, sanitizers, and propagators connected by different types of taint marks. Reduce false positives by refining rules directly.
+
+## Open Source, Enterprise-Grade
+
+Full inter-procedural dataflow analysis, available to everyone. CLI, GitHub Action, GitLab CI, and rules all included. [Apache 2.0](LICENSE.md) and [MIT](cli/LICENSE) licensed.
 
 
 ## Demo
