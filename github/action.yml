@@ -49,7 +49,7 @@ runs:
 
         UUID=$(printf '%s' "${{ inputs.artifact-name }}" | sha1sum | awk '{print $1}')
         OPENTAINT_ARTIFACTS=opentaint-artifacts/$UUID
-        OPENTAINT_REPOSITORY="${{ github.action_repository }}"
+        OPENTAINT_REPOSITORY="${{ github.action_repository || github.repository }}"
         echo "OPENTAINT_ARTIFACTS=$OPENTAINT_ARTIFACTS" >> "${GITHUB_OUTPUT}"
         echo "OPENTAINT_REPOSITORY=$OPENTAINT_REPOSITORY" >> "${GITHUB_OUTPUT}"
         echo "OPENTAINT_INSTALL_DIR=$GITHUB_WORKSPACE/$OPENTAINT_ARTIFACTS" >> "${GITHUB_OUTPUT}"
