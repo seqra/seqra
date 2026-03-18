@@ -61,7 +61,7 @@ homebrew_casks:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     homepage: "https://github.com/seqra/opentaint"
-    description: "Security-focused static analyzer for Java and Kotlin web applications"
+    description: "The open source taint analysis engine"
     hooks:
       post:
         install: |
