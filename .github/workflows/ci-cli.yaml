@@ -318,7 +318,7 @@ jobs:
         env:
           OPENTAINT_DOWNLOAD_BASE_URL: http://127.0.0.1:8080
         run: |
-          Start-Process -NoNewWindow python -ArgumentList "-m", "http.server", "8080"
+          Start-Process -NoNewWindow python -ArgumentList "-m", "http.server", "8080" -WorkingDirectory cli
           Start-Sleep -Seconds 2
           $output = pwsh -File scripts/install/install.ps1 2>&1 | Out-String
           $output -match 'OPENTAINT_BINARY_PATH=(.+)'
