@@ -23,6 +23,9 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Mark repository as safe
+      shell: bash
+      run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
     - name: Check for scoped commits and generate notes
       id: check
       shell: bash
