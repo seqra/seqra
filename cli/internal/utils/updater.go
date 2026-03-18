@@ -17,7 +17,6 @@ type InstallMethod int
 const (
 	InstallMethodUnknown InstallMethod = iota
 	InstallMethodHomebrew
-	InstallMethodGoInstall
 	InstallMethodBinary
 )
 
@@ -32,13 +31,7 @@ func DetectInstallMethod() (InstallMethod, string) {
 		return InstallMethodUnknown, ""
 	}
 
-	goPath := os.Getenv("GOPATH")
-	if goPath == "" {
-		home, _ := os.UserHomeDir()
-		goPath = filepath.Join(home, "go")
-	}
-
-	return classifyExePath(exe, goPath), exe
+	return classifyExePath(exe), exe
 }
 
 func UpdateHint(latestVersion string) string {
@@ -46,21 +39,15 @@ func UpdateHint(latestVersion string) string {
 	switch method {
 	case InstallMethodHomebrew:
 		return fmt.Sprintf("A new version is available: v%s. Run \"brew upgrade --cask opentaint\" to update.", latestVersion)
-	case InstallMethodGoInstall:
-		return fmt.Sprintf("A new version is available: v%s. Run \"go install github.com/seqra/opentaint@latest\" to update.", latestVersion)
 	default:
 		return fmt.Sprintf("A new version is available: v%s. Run \"opentaint update\" to update.", latestVersion)
 	}
 }
 
-func classifyExePath(exePath, goPath string) InstallMethod {
+func classifyExePath(exePath string) InstallMethod {
 	lowerPath := strings.ToLower(exePath)
 	if strings.Contains(lowerPath, "/cellar/") || strings.Contains(lowerPath, "/caskroom/") || strings.Contains(lowerPath, "/homebrew/") {
 		return InstallMethodHomebrew
-	}
-	goBin := filepath.Join(goPath, "bin")
-	if strings.HasPrefix(exePath, goBin) {
-		return InstallMethodGoInstall
 	}
 	return InstallMethodBinary
 }

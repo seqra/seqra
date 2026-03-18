@@ -81,21 +81,6 @@ Replace the URL with your platform's download link from the table above.
 
 If you see *"opentaint" cannot be opened because the developer cannot be verified*, go to **System Preferences > Security & Privacy** and click **Open anyway**.
 
-## Go Install
-
-Requires Go 1.25+:
-
-```bash
-go install github.com/seqra/opentaint/v2@latest
-```
-
-Note: `go install` builds only the binary without bundled artifacts. Run `opentaint pull` after installation to download the analyzer components.
-
-Add Go binaries to your PATH if needed:
-- **bash (Linux):** `echo 'export PATH=$PATH:$(go env GOPATH)/bin' >> ~/.bashrc && source ~/.bashrc`
-- **zsh (macOS):** `echo 'export PATH=$PATH:$(go env GOPATH)/bin' >> ~/.zshrc && source ~/.zshrc`
-- **Windows:** Add `%USERPROFILE%\go\bin` to your system PATH
-
 ## Updating
 
 ```bash

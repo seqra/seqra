@@ -16,14 +16,14 @@ var (
 
 // GetVersion returns the version of the application.
 // It first tries to use the version set by ldflags (for releases),
-// then falls back to build info from go install (for development builds).
+// then falls back to build info for development builds.
 func GetVersion() string {
 	// If version was set by ldflags (e.g., via GoReleaser), use it
 	if Version != "dev" {
 		return Version
 	}
 
-	// Try to get version from build info (works with go install)
+	// Try to get version from build info.
 	if info, ok := debug.ReadBuildInfo(); ok {
 		// Check if we have version info in the main module
 		if info.Main.Version != "" && info.Main.Version != "(devel)" {
@@ -35,7 +35,6 @@ func GetVersion() string {
 			return version
 		}
 
-		// Check if this was built with go install from a tagged version
 		for _, setting := range info.Settings {
 			if setting.Key == "vcs.revision" && len(setting.Value) >= 7 {
 				// Use short commit hash for development builds

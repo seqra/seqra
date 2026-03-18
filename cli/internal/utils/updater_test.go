@@ -15,45 +15,34 @@ func TestClassifyExePath(t *testing.T) {
 	tests := []struct {
 		name     string
 		exePath  string
-		goPath   string
 		expected InstallMethod
 	}{
 		{
 			"homebrew cellar",
 			"/usr/local/Cellar/opentaint/1.0/bin/opentaint",
-			"/home/user/go",
 			InstallMethodHomebrew,
 		},
 		{
 			"homebrew linuxbrew",
 			"/home/user/.linuxbrew/Homebrew/bin/opentaint",
-			"/home/user/go",
 			InstallMethodHomebrew,
 		},
 		{
 			"homebrew cask",
 			"/opt/homebrew/Caskroom/opentaint/1.0/opentaint",
-			"/home/user/go",
 			InstallMethodHomebrew,
-		},
-		{
-			"go install",
-			"/home/user/go/bin/opentaint",
-			"/home/user/go",
-			InstallMethodGoInstall,
 		},
 		{
 			"binary fallback",
 			"/usr/local/bin/opentaint",
-			"/home/user/go",
 			InstallMethodBinary,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := classifyExePath(tt.exePath, tt.goPath)
+			got := classifyExePath(tt.exePath)
 			if got != tt.expected {
-				t.Errorf("classifyExePath(%q, %q) = %d, want %d", tt.exePath, tt.goPath, got, tt.expected)
+				t.Errorf("classifyExePath(%q) = %d, want %d", tt.exePath, got, tt.expected)
 			}
 		})
 	}

@@ -134,9 +134,8 @@ Each finding includes the HTTP endpoint, making it easy to understand your appli
 | **Install script** (Windows CMD) | `curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.cmd -o install.cmd && install.cmd && del install.cmd` |
 | **Docker** | See [Quick Start](#quick-start) or [Docker docs](docs/docker.md) |
 | **Binary** | [Download from releases](https://github.com/seqra/opentaint/releases/latest) |
-| **Go** | `go install github.com/seqra/opentaint/v2@latest` |
 
-Release archives come in three variants: **`opentaint-full`** (binary + JARs + rules + JRE), **`opentaint`** (binary + JARs + rules), and **`opentaint-cli`** (binary only). Homebrew and install scripts default to `full`. For `go install`, run `opentaint pull` to download analyzer components.
+Release archives come in three variants: **`opentaint-full`** (binary + JARs + rules + JRE), **`opentaint`** (binary + JARs + rules), and **`opentaint-cli`** (binary only). Homebrew and install scripts default to `full`.
 
 For detailed instructions, see [Installation Guide](docs/installation.md).
 

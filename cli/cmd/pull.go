@@ -34,9 +34,7 @@ When bundled artifacts are present (from a release archive), they will be used d
 			Field("Java", globals.Config.Java.Version).
 			Render()
 
-		// Skip installing next to binary for go install (shared ~/go/bin/ directory)
-		method, _ := utils.DetectInstallMethod()
-		installNextToBinary := method != utils.InstallMethodGoInstall
+		installNextToBinary := true
 
 		// Clean stale install-tier artifacts before downloading
 		installCurrent := utils.IsInstallCurrent()

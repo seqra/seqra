@@ -38,10 +38,6 @@ Only upgrades are supported — downgrading to an older version is refused.`,
 			out.Print("opentaint was installed via Homebrew.")
 			out.Print("Run: brew upgrade --cask opentaint")
 			return
-		case utils.InstallMethodGoInstall:
-			out.Print("opentaint was installed via go install.")
-			out.Print("Run: go install github.com/seqra/opentaint@latest")
-			return
 		}
 
 		currentVersion := version.GetVersion()
