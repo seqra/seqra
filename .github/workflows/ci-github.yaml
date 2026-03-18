@@ -64,3 +64,4 @@ jobs:
           token: ${{ secrets.SEQRA_GITHUB_TOKEN }}
           artifact-name: ${{ steps.sanitize.outputs.SANITIZED_NAME }}
           verbosity: 'debug'
+          opentaint-version : 'v0'
