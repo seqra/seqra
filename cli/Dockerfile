@@ -12,6 +12,9 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="$OPENTAINT_BUILD_FLAGS" -o opent
 
 FROM opentaint-dependencies:latest
 
+ARG OPENTAINT_OWNER=seqra
+ENV OPENTAINT_OWNER=${OPENTAINT_OWNER}
+
 RUN useradd -ms /bin/bash opentaint
 
 WORKDIR /home/opentaint
