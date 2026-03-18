@@ -3,9 +3,9 @@ package load_trace
 import (
 	"fmt"
 
-	"github.com/seqra/opentaint/v2/internal/globals"
-	"github.com/seqra/opentaint/v2/internal/output"
-	"github.com/seqra/opentaint/v2/internal/sarif"
+	"github.com/seqra/opentaint/internal/globals"
+	"github.com/seqra/opentaint/internal/output"
+	"github.com/seqra/opentaint/internal/sarif"
 )
 
 func PrintRuleStatisticsTree(out *output.Printer, ruleLoadErrorsResult *RuleLoadErrorsResult, absSemgrepRuleLoadTracePath string, sarifSummary sarif.Summary) {

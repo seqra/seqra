@@ -5,8 +5,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/seqra/opentaint/v2/internal/globals"
-	"github.com/seqra/opentaint/v2/internal/output"
+	"github.com/seqra/opentaint/internal/globals"
+	"github.com/seqra/opentaint/internal/output"
 )
 
 // Summary represents a summary of SARIF findings

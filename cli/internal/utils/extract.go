@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/seqra/opentaint/v2/internal/output"
+	"github.com/seqra/opentaint/internal/output"
 )
 
 // ExtractTar extracts the contents of a tar reader to the specified destination directory.

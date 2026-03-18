@@ -1,7 +1,7 @@
 package load_trace
 
 import (
-	"github.com/seqra/opentaint/v2/internal/output"
+	"github.com/seqra/opentaint/internal/output"
 )
 
 func PrintSyntaxErrorReport(out *output.Printer, loadTraceSummary RuleLoadTraceSummary) {

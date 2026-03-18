@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/seqra/opentaint/v2/internal/utils"
+	"github.com/seqra/opentaint/internal/utils"
 )
 
 func ValidateCompileInputs(absProjectRoot, absOutputProjectModelPath string) error {

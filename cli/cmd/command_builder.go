@@ -5,7 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/seqra/opentaint/v2/internal/globals"
+	"github.com/seqra/opentaint/internal/globals"
 )
 
 type BaseCommandBuilder struct {

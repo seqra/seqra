@@ -8,10 +8,10 @@ import (
 
 	"charm.land/lipgloss/v2/tree"
 
-	"github.com/seqra/opentaint/v2/internal/globals"
-	"github.com/seqra/opentaint/v2/internal/output"
-	"github.com/seqra/opentaint/v2/internal/utils"
-	"github.com/seqra/opentaint/v2/internal/utils/java"
+	"github.com/seqra/opentaint/internal/globals"
+	"github.com/seqra/opentaint/internal/output"
+	"github.com/seqra/opentaint/internal/utils"
+	"github.com/seqra/opentaint/internal/utils/java"
 	"github.com/spf13/cobra"
 )
 

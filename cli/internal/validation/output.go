@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/seqra/opentaint/v2/internal/load_trace"
-	"github.com/seqra/opentaint/v2/internal/sarif"
-	"github.com/seqra/opentaint/v2/internal/utils/project"
+	"github.com/seqra/opentaint/internal/load_trace"
+	"github.com/seqra/opentaint/internal/sarif"
+	"github.com/seqra/opentaint/internal/utils/project"
 )
 
 func ValidateProjectModelOutput(outputDir string) (*project.Config, error) {

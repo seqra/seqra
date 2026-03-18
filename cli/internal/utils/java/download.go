@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/seqra/opentaint/v2/internal/output"
-	"github.com/seqra/opentaint/v2/internal/utils"
+	"github.com/seqra/opentaint/internal/output"
+	"github.com/seqra/opentaint/internal/utils"
 )
 
 var errJavaFound = errors.New("java-binary-found")

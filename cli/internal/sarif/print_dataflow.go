@@ -6,7 +6,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/seqra/opentaint/v2/internal/output"
+	"github.com/seqra/opentaint/internal/output"
 )
 
 type classifiedStep struct {
@@ -107,5 +107,3 @@ func (loc Location) extractNodeLoc() nodeLoc {
 
 	return nodeLoc{relFilePath: relFilePath, fileName: fileName, method: method, line: lineVal}
 }
-
-

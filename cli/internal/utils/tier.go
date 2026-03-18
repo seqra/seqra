@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/seqra/opentaint/v2/internal/globals"
+	"github.com/seqra/opentaint/internal/globals"
 )
 
 // Tier name constants.

@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/go-github/v74/github"
-	"github.com/seqra/opentaint/v2/internal/output"
+	"github.com/seqra/opentaint/internal/output"
 )
 
 func newGithubClient(token string) *github.Client {

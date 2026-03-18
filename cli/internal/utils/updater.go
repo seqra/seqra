@@ -8,7 +8,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/seqra/opentaint/v2/internal/output"
+	"github.com/seqra/opentaint/internal/output"
 )
 
 // InstallMethod represents how opentaint was installed.
@@ -47,7 +47,7 @@ func UpdateHint(latestVersion string) string {
 	case InstallMethodHomebrew:
 		return fmt.Sprintf("A new version is available: v%s. Run \"brew upgrade --cask opentaint\" to update.", latestVersion)
 	case InstallMethodGoInstall:
-		return fmt.Sprintf("A new version is available: v%s. Run \"go install github.com/seqra/opentaint/v2@latest\" to update.", latestVersion)
+		return fmt.Sprintf("A new version is available: v%s. Run \"go install github.com/seqra/opentaint@latest\" to update.", latestVersion)
 	default:
 		return fmt.Sprintf("A new version is available: v%s. Run \"opentaint update\" to update.", latestVersion)
 	}

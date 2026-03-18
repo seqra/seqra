@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seqra/opentaint/v2/internal/globals"
-	"github.com/seqra/opentaint/v2/internal/output"
-	"github.com/seqra/opentaint/v2/internal/utils"
-	"github.com/seqra/opentaint/v2/internal/utils/log"
-	"github.com/seqra/opentaint/v2/internal/version"
+	"github.com/seqra/opentaint/internal/globals"
+	"github.com/seqra/opentaint/internal/output"
+	"github.com/seqra/opentaint/internal/utils"
+	"github.com/seqra/opentaint/internal/utils/log"
+	"github.com/seqra/opentaint/internal/version"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )

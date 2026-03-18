@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/seqra/opentaint/v2/internal/globals"
+	"github.com/seqra/opentaint/internal/globals"
 )
 
 func TestDeleteArtifacts(t *testing.T) {

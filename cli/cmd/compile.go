@@ -5,15 +5,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/seqra/opentaint/v2/internal/validation"
+	"github.com/seqra/opentaint/internal/validation"
 	"github.com/spf13/cobra"
 
-	"github.com/seqra/opentaint/v2/internal/globals"
-	"github.com/seqra/opentaint/v2/internal/utils"
-	"github.com/seqra/opentaint/v2/internal/utils/java"
-	"github.com/seqra/opentaint/v2/internal/utils/log"
+	"github.com/seqra/opentaint/internal/globals"
+	"github.com/seqra/opentaint/internal/utils"
+	"github.com/seqra/opentaint/internal/utils/java"
+	"github.com/seqra/opentaint/internal/utils/log"
 
-	"github.com/seqra/opentaint/v2/internal/output"
+	"github.com/seqra/opentaint/internal/output"
 )
 
 type CompileCaller int

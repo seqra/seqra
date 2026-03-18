@@ -10,9 +10,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/seqra/opentaint/v2/internal/globals"
-	"github.com/seqra/opentaint/v2/internal/output"
-	"github.com/seqra/opentaint/v2/internal/utils"
+	"github.com/seqra/opentaint/internal/globals"
+	"github.com/seqra/opentaint/internal/output"
+	"github.com/seqra/opentaint/internal/utils"
 )
 
 type ResolutionStrategy int

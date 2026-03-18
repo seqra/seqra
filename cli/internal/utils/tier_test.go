@@ -3,7 +3,7 @@ package utils
 import (
 	"testing"
 
-	"github.com/seqra/opentaint/v2/internal/globals"
+	"github.com/seqra/opentaint/internal/globals"
 )
 
 func TestArtifactTiers_BindVersion(t *testing.T) {

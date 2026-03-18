@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/seqra/opentaint/v2/internal/globals"
+	"github.com/seqra/opentaint/internal/globals"
 )
 
 // Stale artifact kind constants.

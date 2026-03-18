@@ -8,7 +8,7 @@ import (
 
 	"charm.land/lipgloss/v2/tree"
 
-	"github.com/seqra/opentaint/v2/internal/output"
+	"github.com/seqra/opentaint/internal/output"
 )
 
 type endpointInfo struct {

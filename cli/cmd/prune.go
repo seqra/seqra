@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/seqra/opentaint/v2/internal/output"
-	"github.com/seqra/opentaint/v2/internal/utils"
+	"github.com/seqra/opentaint/internal/output"
+	"github.com/seqra/opentaint/internal/utils"
 	"github.com/spf13/cobra"
 )
 

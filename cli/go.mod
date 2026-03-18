@@ -1,4 +1,4 @@
-module github.com/seqra/opentaint/v2
+module github.com/seqra/opentaint
 
 go 1.25.0
 

@@ -3,7 +3,7 @@ package utils
 import (
 	"os"
 
-	"github.com/seqra/opentaint/v2/internal/output"
+	"github.com/seqra/opentaint/internal/output"
 )
 
 func RemoveIfExists(path string) error {

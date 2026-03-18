@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/seqra/opentaint/v2/internal/globals"
-	"github.com/seqra/opentaint/v2/internal/output"
-	"github.com/seqra/opentaint/v2/internal/utils"
-	"github.com/seqra/opentaint/v2/internal/version"
+	"github.com/seqra/opentaint/internal/globals"
+	"github.com/seqra/opentaint/internal/output"
+	"github.com/seqra/opentaint/internal/utils"
+	"github.com/seqra/opentaint/internal/version"
 	"github.com/spf13/cobra"
 )
 
@@ -40,7 +40,7 @@ Only upgrades are supported — downgrading to an older version is refused.`,
 			return
 		case utils.InstallMethodGoInstall:
 			out.Print("opentaint was installed via go install.")
-			out.Print("Run: go install github.com/seqra/opentaint/v2@latest")
+			out.Print("Run: go install github.com/seqra/opentaint@latest")
 			return
 		}
 
