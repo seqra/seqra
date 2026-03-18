@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="16 20 340 80" fill="none">
+  <g transform="translate(-5, 12) scale(0.45)">
+    <line x1="68" y1="38" x2="132" y2="38"  stroke="#f5f5f3" stroke-width="13" stroke-linecap="square"/>
+    <line x1="100" y1="38" x2="100" y2="65" stroke="#f5f5f3" stroke-width="13" stroke-linecap="square"/>
+    <circle cx="100" cy="108" r="35" fill="none" stroke="#f5f5f3" stroke-width="13"/>
+    <line x1="100" y1="151" x2="100" y2="176" stroke="#f5f5f3" stroke-width="13" stroke-linecap="square"/>
+    <circle cx="100" cy="108" r="15" fill="#E8201A"/>
+  </g>
+  <text x="62" y="74" font-family="monospace" font-size="52" font-weight="600" letter-spacing="-0.025em"><tspan fill="#f5f5f3">open</tspan><tspan fill="#E8201A">t</tspan><tspan fill="#f5f5f3">aint</tspan><tspan fill="#E8201A">.</tspan></text>
+</svg>

@@ -1,12 +1,12 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="logos/logo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="logos/logo-light.svg">
-    <img src="logos/logo-light.svg" alt="OpenTaint" height="100">
+    <source media="(prefers-color-scheme: dark)" srcset="logos/opentaint-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="logos/opentaint-light.svg">
+    <img src="logos/opentaint-light.svg" alt="OpenTaint" height="100">
   </picture>
 </p>
 
-<h1 align="center"> Security static analyzer for Java and Kotlin</h1>
+<h1 align="center">The open source taint analysis engine</h1>
 
 <p align="center">
   OpenTaint analyzes bytecode of Java and Kotlin web applications (with growing Spring support) using Semgrep-style YAML rules with CodeQL-grade dataflow to find vulnerabilities that source-only scanners miss.
