@@ -14,7 +14,7 @@ inputs:
     default: 'false'
   opentaint-version:
     description: 'OpenTaint version selector: latest, v<major>, v<major>.<minor>, or exact v<major>.<minor>.<patch>'
-    default: 'v2'
+    default: 'v0'
   rules-path:
     description: 'Paths to rules directories (comma-separated)'
     default: 'builtin'
