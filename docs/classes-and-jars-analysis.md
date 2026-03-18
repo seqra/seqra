@@ -1,7 +1,7 @@
 # Precompiled Classes and JARs Analysis
 
 
-Opentaint supports analyzing pre-compiled Java classes and JARs through a `project.yaml` configuration file. This enables security analysis when you cannot compile the project due to unavailable build environment, or when working with compiled bytecode only.
+OpenTaint supports analyzing pre-compiled Java classes and JARs through a `project.yaml` configuration file. This enables security analysis when you cannot compile the project due to unavailable build environment, or when working with compiled bytecode only.
 
 ## File Structure
 

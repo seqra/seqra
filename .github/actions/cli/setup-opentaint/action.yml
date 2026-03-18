@@ -1,4 +1,4 @@
-name: 'Setup Opentaint'
+name: 'Setup OpenTaint'
 description: 'Fix git safe directory, setup Go, and build opentaint'
 
 inputs:

@@ -30,7 +30,7 @@ private fun generateSarifRuleDescription(metadata: RuleMetadata, options: SarifG
     }
 
     val shortDescription = metadata.metadata?.readStrings("short-description")?.firstOrNull()
-        ?: "Opentaint Finding: ${options.formatRuleId(metadata.ruleId)}"
+        ?: "OpenTaint Finding: ${options.formatRuleId(metadata.ruleId)}"
 
     val fullDescription = metadata.metadata?.readStrings("full-description")?.firstOrNull()
         ?: metadata.message
@@ -50,8 +50,8 @@ fun generateSarifAnalyzerToolDescription(metadatas: List<RuleMetadata>, options:
 
     return Tool(
         driver = ToolComponent(
-            name = "Opentaint",
-            organization = "Opentaint",
+            name = "OpenTaint",
+            organization = "Seqra",
             version = options.toolVersion,
             semanticVersion = options.toolSemanticVersion,
             rules = rules

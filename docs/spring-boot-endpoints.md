@@ -1,6 +1,6 @@
 # Spring Boot Endpoint Extraction
 
-Opentaint is built for Spring, and endpoint extraction is one of its key features. Every security finding is automatically mapped to its HTTP endpoint, so you know exactly which APIs are affected.
+OpenTaint is built for Spring, and endpoint extraction is one of its key features. Every security finding is automatically mapped to its HTTP endpoint, so you know exactly which APIs are affected.
 
 This feature automatically maps controllers to their endpoints and includes this information in SARIF reports, making it easier to understand your application's web attack surface.
 
@@ -8,16 +8,16 @@ This feature automatically maps controllers to their endpoints and includes this
 ## Overview
 
 
-When scanning Spring Boot applications, Opentaint automatically detects related controller methods annotated with Spring mapping annotations (like `@GetMapping`, `@PostMapping`, etc.) and extracts the corresponding HTTP endpoints. This information is included in the SARIF report's `relatedLocations` section, providing a comprehensive view of your application's API surface.
+When scanning Spring Boot applications, OpenTaint automatically detects related controller methods annotated with Spring mapping annotations (like `@GetMapping`, `@PostMapping`, etc.) and extracts the corresponding HTTP endpoints. This information is included in the SARIF report's `relatedLocations` section, providing a comprehensive view of your application's API surface.
 
 
-**Important**: Endpoint extraction works for **every rule match** that occurs within or relates to Spring controller methods, regardless of the specific pattern used. Whether your rule targets security vulnerabilities, code quality issues, or any other aspect of controller code, Opentaint will automatically include the related endpoint information in the results.
+**Important**: Endpoint extraction works for **every rule match** that occurs within or relates to Spring controller methods, regardless of the specific pattern used. Whether your rule targets security vulnerabilities, code quality issues, or any other aspect of controller code, OpenTaint will automatically include the related endpoint information in the results.
 
 
 ## How It Works
 
 
-Opentaint analyzes controller classes and methods to build a mapping between:
+OpenTaint analyzes controller classes and methods to build a mapping between:
 - **Controller methods** (the actual Java code)
 - **HTTP endpoints** (the URLs and HTTP methods they handle)
 
@@ -40,7 +40,7 @@ public String displayUserProfile(
 ```
 
 
-When using a Opentaint rule with this pattern:
+When using a OpenTaint rule with this pattern:
 
 
 ```yaml
@@ -52,7 +52,7 @@ When using a Opentaint rule with this pattern:
 ```
 
 
-Opentaint produces a SARIF result where the `relatedLocations` entry contains detailed endpoint information:
+OpenTaint produces a SARIF result where the `relatedLocations` entry contains detailed endpoint information:
 
 
 ```json

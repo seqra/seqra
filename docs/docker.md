@@ -1,6 +1,6 @@
 # Docker Usage
 
-Opentaint is available as a Docker image with all dependencies included. This provides a consistent, isolated environment for security analysis without requiring local installation of Opentaint, Java, or other dependencies.
+OpenTaint is available as a Docker image with all dependencies included. This provides a consistent, isolated environment for security analysis without requiring local installation of OpenTaint, Java, or other dependencies.
 
 
 ## Quick Start
@@ -20,7 +20,7 @@ docker run --rm \
 
 ## Pulling the Image
 
-The Opentaint Docker image is available from GitHub Container Registry.
+The OpenTaint Docker image is available from GitHub Container Registry.
 
 Pull the latest version:
 ```bash
@@ -134,11 +134,11 @@ For more ways to view and analyze results, see [View and Analyze Results](../REA
 
 ## Image Details
 
-- **Base:** Pre-configured with all Opentaint dependencies
+- **Base:** Pre-configured with all OpenTaint dependencies
 - **Working directory:** `/home/opentaint`
 - **Pre-installed components:**
-  - Opentaint CLI
-  - Opentaint autobuilder and analyzer JARs
+  - OpenTaint CLI
+  - OpenTaint autobuilder and analyzer JARs
   - Security rules
   - Java runtime (Temurin JDK)
 
@@ -156,7 +156,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Run Opentaint scan
+      - name: Run OpenTaint scan
         run: opentaint scan --output results.sarif .
 
       - name: Upload SARIF results

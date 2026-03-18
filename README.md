@@ -2,14 +2,14 @@
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="logos/logo-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="logos/logo-light.svg">
-    <img src="logos/logo-light.svg" alt="Opentaint" height="100">
+    <img src="logos/logo-light.svg" alt="OpenTaint" height="100">
   </picture>
 </p>
 
 <h1 align="center"> Security static analyzer for Java and Kotlin</h1>
 
 <p align="center">
-  Opentaint analyzes bytecode of Java and Kotlin web applications (with growing Spring support) using Semgrep-style YAML rules with CodeQL-grade dataflow to find vulnerabilities that source-only scanners miss.
+  OpenTaint analyzes bytecode of Java and Kotlin web applications (with growing Spring support) using Semgrep-style YAML rules with CodeQL-grade dataflow to find vulnerabilities that source-only scanners miss.
 </p>
 
 <p align="center">
@@ -81,9 +81,9 @@ For more options, see [Installation](#installation) and [Usage](#usage).
 
 ---
 
-## What Opentaint Catches
+## What OpenTaint Catches
 
-Opentaint tracks data from controller parameters through your webb application to dangerous sinks.
+OpenTaint tracks data from controller parameters through your webb application to dangerous sinks.
 
 **SQL Injection via JdbcTemplate**
 
@@ -95,7 +95,7 @@ public List<User> searchUsers(@RequestParam String name) {
 }
 ```
 
-Opentaint reports: `sql-injection-in-spring-app` at `GET /users/search` — untrusted input flows to SQL query.
+OpenTaint reports: `sql-injection-in-spring-app` at `GET /users/search` — untrusted input flows to SQL query.
 
 **XSS in Controller Response**
 
@@ -107,7 +107,7 @@ public String greet(@RequestParam String name) {
 }
 ```
 
-Opentaint reports: `xss-in-spring-app` at `GET /greet` — user input returned without HTML escaping.
+OpenTaint reports: `xss-in-spring-app` at `GET /greet` — user input returned without HTML escaping.
 
 **SSRF via RestTemplate**
 
@@ -118,7 +118,7 @@ public String fetchUrl(@RequestParam String url) {
 }
 ```
 
-Opentaint reports: `ssrf-in-spring-app` at `GET /fetch` — user-controlled URL passed to HTTP client.
+OpenTaint reports: `ssrf-in-spring-app` at `GET /fetch` — user-controlled URL passed to HTTP client.
 
 Each finding includes the HTTP endpoint, making it easy to understand your application's attack surface.
 
@@ -219,4 +219,4 @@ For comprehensive guides on all features, see the full [Documentation](docs/READ
 
 ## License
 
-Opentaint is released under the [Apache 2.0 License](LICENSE.md).
+OpenTaint is released under the [Apache 2.0 License](LICENSE.md).

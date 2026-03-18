@@ -1,6 +1,6 @@
 # Configuration
 
-Opentaint can be configured through a configuration file or environment variables. Command-line flags always take precedence over configuration file settings and environment variables.
+OpenTaint can be configured through a configuration file or environment variables. Command-line flags always take precedence over configuration file settings and environment variables.
 
 ## Configuration File
 
