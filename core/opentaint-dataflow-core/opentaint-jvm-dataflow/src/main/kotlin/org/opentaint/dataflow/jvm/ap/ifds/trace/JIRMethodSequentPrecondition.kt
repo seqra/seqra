@@ -31,7 +31,6 @@ import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
 import org.opentaint.ir.api.jvm.cfg.JIRThrowInst
 import org.opentaint.ir.api.jvm.cfg.JIRValue
 import org.opentaint.util.maybeFlatMap
-import kotlin.collections.plusAssign
 
 class JIRMethodSequentPrecondition(
     private val apManager: ApManager,
@@ -207,16 +206,22 @@ class JIRMethodSequentPrecondition(
                     ?: return null
 
                 facts += otherStaticFacts
+
+                val relevantFacts = mutableListOf<InitialFactAp>()
                 accessorStaticFacts.forEach { f ->
                     val (af, other) = handleAccessorWrite(f, access.accessor)
                         ?: return@forEach
 
+                    relevantFacts += af
                     other.mapTo(facts) { it.prependAccessor(access.classStaticAccessor) }
-
-                    if (assignFrom != null) {
-                        af.mapTo(facts) { it.rebase(assignFrom) }
-                    }
                 }
+
+                if (relevantFacts.isEmpty()) return null
+
+                if (assignFrom != null) {
+                    relevantFacts.mapTo(facts) { it.rebase(assignFrom) }
+                }
+
                 return facts
             }
         }
