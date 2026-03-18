@@ -109,11 +109,11 @@ jobs:
 
             # OpenTaint version selector:
             # - latest (latest stable)
-            # - v0 (latest stable in major v0)
-            # - v0.1 (latest stable in minor v0.1)
-            # - v0.1.1 (exact)
-            # Default is 'v0'
-            opentaint-version: 'v0'
+            # - v2 (latest stable in major v2)
+            # - v2.0 (latest stable in minor v2.0)
+            # - v2.0.2 (exact)
+            # Default is 'v2'
+            opentaint-version: 'v2'
 
             # Paths to custom rules directories (comma-separated)
             # By default it uses builtin rules
@@ -147,9 +147,9 @@ After the job completes, you’ll find:
 `opentaint-version` supports flexible selectors so you do not need to update this action for every OpenTaint release:
 
 * `latest` - always use the latest stable release
-* `v0` - use the latest stable release in major version 0 (default)
-* `v0.1` - use the latest stable patch in minor version 0.1
-* `v0.1.1` - pin an exact release
+* `v2` - use the latest stable release in major version 2 (default)
+* `v2.0` - use the latest stable patch in minor version 2.0
+* `v2.0.1` - pin an exact release
 
 Examples:
 
@@ -160,7 +160,7 @@ with:
 
 ```yaml
 with:
-  opentaint-version: 'v0.1'
+  opentaint-version: 'v2.0'
 ```
 
 
