@@ -1,6 +1,6 @@
 # Spring Boot Endpoint Extraction
 
-OpenTaint is built for Spring, and endpoint extraction is one of its key features. Every security finding is automatically mapped to its HTTP endpoint, so you know exactly which APIs are affected.
+OpenTaint provides deep Spring Boot support, and automatic endpoint extraction is one of its key features. Every security finding is automatically mapped to its HTTP endpoint, so you know exactly which APIs are affected.
 
 This feature automatically maps controllers to their endpoints and includes this information in SARIF reports, making it easier to understand your application's web attack surface.
 

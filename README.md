@@ -41,7 +41,9 @@ AI-generated code is growing codebases faster than ever. Pattern-matching scanne
 
 ## Powerful Dataflow Analysis
 
-Inter-procedural taint analysis that tracks untrusted data to dangerous APIs. Built on a novel IFDS-with-abduction approach. Flow-, field-, and object-sensitive. Tuned for web application security — aims at exploitable vulnerabilities, not theoretical noise. Currently supports Java and Kotlin with bytecode-level analysis and deep Spring Boot framework ecosystem support. More languages ahead.
+Inter-procedural taint analysis that tracks untrusted data to dangerous APIs. Built on a novel IFDS-with-abduction approach. Models framework-specific flow like Spring filters and interceptors, tracks data through object fields and aliased references.
+
+Cross-endpoint flow tracking, persistence layer modelling, alias analysis, and asynchronous code analysis — tuned for web application security, aimed at exploitable vulnerabilities, not theoretical noise. Currently supports Java and Kotlin with bytecode-level analysis and deep Spring Boot framework ecosystem support. More languages ahead.
 
 ## Code-Native Rules
 
