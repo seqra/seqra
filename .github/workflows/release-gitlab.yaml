@@ -25,7 +25,6 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    container: buildpack-deps:jammy-scm
 
     steps:
       - name: Install and configure applications

@@ -27,7 +27,6 @@ env:
 jobs:
   build-and-lint:
     runs-on: ubuntu-latest
-    container: buildpack-deps:jammy-scm
 
     steps:
       - uses: actions/checkout@v4
@@ -48,7 +47,6 @@ jobs:
 
   goreleaser-check:
     runs-on: ubuntu-latest
-    container: buildpack-deps:jammy-scm
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -72,7 +70,6 @@ jobs:
 
   run-on-petclinic-without-installed-java-17:
     runs-on: ubuntu-latest
-    container: buildpack-deps:jammy-scm
 
     steps:
       - uses: actions/checkout@v4
@@ -110,7 +107,6 @@ jobs:
 
   run-on-petclinic:
     runs-on: ubuntu-latest
-    container: buildpack-deps:jammy-scm
 
     steps:
       - uses: actions/checkout@v4
@@ -196,7 +192,6 @@ jobs:
 
   scan-stirling-pdf:
     runs-on: ubuntu-latest
-    container: buildpack-deps:jammy-scm
 
     steps:
       - uses: actions/checkout@v4
@@ -239,7 +234,6 @@ jobs:
 
   test-install-sh-linux:
     runs-on: ubuntu-latest
-    container: buildpack-deps:jammy-scm
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5

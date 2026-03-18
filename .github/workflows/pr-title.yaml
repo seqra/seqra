@@ -15,9 +15,11 @@ concurrency:
 jobs:
   pr-title:
     runs-on: ubuntu-latest
+    container: ubuntu:latest
     name: Title
     permissions:
       pull-requests: read
+      statuses: write
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

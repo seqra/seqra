@@ -34,7 +34,6 @@ jobs:
             java-version: 23
 
     runs-on: ubuntu-latest
-    container: buildpack-deps:jammy-scm
     steps:
       - uses: actions/checkout@v4
 
