@@ -14,12 +14,12 @@ inputs:
     default: 'false'
   opentaint-version:
     description: 'OpenTaint version selector: latest, v<major>, v<major>.<minor>, or exact v<major>.<minor>.<patch>'
-    default: 'v0'
+    default: 'v2'
   rules-path:
     description: 'Paths to rules directories (comma-separated)'
     default: 'builtin'
   token:
-    description: 'Token for download rules from private repository'
+    description: 'Token for resolving versions and downloading assets from private repositories'
     required: false
     default: ""
   artifact-name:
@@ -49,7 +49,9 @@ runs:
 
         UUID=$(printf '%s' "${{ inputs.artifact-name }}" | sha1sum | awk '{print $1}')
         OPENTAINT_ARTIFACTS=opentaint-artifacts/$UUID
+        OPENTAINT_REPOSITORY="${{ github.action_repository }}"
         echo "OPENTAINT_ARTIFACTS=$OPENTAINT_ARTIFACTS" >> "${GITHUB_OUTPUT}"
+        echo "OPENTAINT_REPOSITORY=$OPENTAINT_REPOSITORY" >> "${GITHUB_OUTPUT}"
         echo "OPENTAINT_INSTALL_DIR=$GITHUB_WORKSPACE/$OPENTAINT_ARTIFACTS" >> "${GITHUB_OUTPUT}"
         echo "OPENTAINT_BIN=$GITHUB_WORKSPACE/$OPENTAINT_ARTIFACTS/opentaint" >> "${GITHUB_OUTPUT}"
         echo "OPENTAINT_PROJECT=$RUNNER_TEMP/$OPENTAINT_ARTIFACTS/project" >> "${GITHUB_OUTPUT}"
@@ -73,7 +75,7 @@ runs:
 
         OPENTAINT_VERSION=$(python3 "$RESOLVER_PATH" \
           --selector "${{ inputs.opentaint-version }}" \
-          --repository "seqra/opentaint" \
+          --repository "${{ steps.globals.outputs.OPENTAINT_REPOSITORY }}" \
           --token "${{ inputs.token || github.token }}")
 
         echo "OPENTAINT_VERSION=$OPENTAINT_VERSION" >> "${GITHUB_OUTPUT}"
@@ -83,9 +85,10 @@ runs:
       run: |
         set -euo pipefail
 
-        curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | \
+        curl -fsSL "https://raw.githubusercontent.com/${{ steps.globals.outputs.OPENTAINT_REPOSITORY }}/main/scripts/install/install.sh" | \
           OPENTAINT_INSTALL_DIR="${{ steps.globals.outputs.OPENTAINT_INSTALL_DIR }}" \
-          OPENTAINT_DOWNLOAD_BASE_URL="https://github.com/seqra/opentaint/releases/download/${{ steps.resolve-version.outputs.OPENTAINT_VERSION }}" \
+          OPENTAINT_REPOSITORY="${{ steps.globals.outputs.OPENTAINT_REPOSITORY }}" \
+          OPENTAINT_DOWNLOAD_BASE_URL="https://github.com/${{ steps.globals.outputs.OPENTAINT_REPOSITORY }}/releases/download/${{ steps.resolve-version.outputs.OPENTAINT_VERSION }}" \
           bash
 
     - name: Compile project

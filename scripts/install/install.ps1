@@ -3,7 +3,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-$Repo = "seqra/opentaint"
+$Repo = if ($env:OPENTAINT_REPOSITORY) { $env:OPENTAINT_REPOSITORY } else { "seqra/opentaint" }
 $BaseUrl = if ($env:OPENTAINT_DOWNLOAD_BASE_URL) { $env:OPENTAINT_DOWNLOAD_BASE_URL } else { "https://github.com/$Repo/releases/latest/download" }
 
 function Get-Architecture {
