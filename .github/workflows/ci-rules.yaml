@@ -9,6 +9,7 @@ on:
     paths:
       - 'rules/**'
     branches: [ "main" ]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
