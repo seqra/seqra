@@ -5,7 +5,7 @@ on:
 
   push:
     paths:
-      - 'opentaint-infra-dependencies/**'
+      - 'infra/**'
     branches: ["main"]
 
 concurrency:
@@ -40,8 +40,8 @@ jobs:
 
       - name: Create image names
         run: |
-          echo "IMAGE=ghcr.io/${{ github.repository_owner }}/opentaint-infra-dependencies/opentaint-dependencies:${{ steps.version.outputs.version }}" >> $GITHUB_ENV
+          echo "IMAGE=ghcr.io/${{ github.repository_owner }}/infra/opentaint-dependencies:${{ steps.version.outputs.version }}" >> $GITHUB_ENV
 
       - name: Build images
         run: |
-          docker buildx build --push --platform linux/amd64,linux/arm64 -f opentaint-infra-dependencies/dependencies.Dockerfile -t ${{ env.IMAGE }} .
+          docker buildx build --push --platform linux/amd64,linux/arm64 -f infra/dependencies.Dockerfile -t ${{ env.IMAGE }} .

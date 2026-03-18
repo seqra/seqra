@@ -85,7 +85,7 @@ jobs:
           SCOPE_PATHS[github]="^github/"
           SCOPE_PATHS[gitlab]="^gitlab/"
           SCOPE_PATHS[autobuilder]="^core/opentaint-jvm-autobuilder/"
-          SCOPE_PATHS[infra]="^opentaint-infra-dependencies/"
+          SCOPE_PATHS[infra]="^infra/"
           SCOPE_PATHS[ci]="^\.github/"
 
           ANALYZER_MODULES=(
