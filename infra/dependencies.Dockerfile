@@ -44,5 +44,5 @@ ENV JAVA_17_HOME=/usr/lib/jvm/17-jdk
 ENV JAVA_21_HOME=/usr/lib/jvm/21-jdk
 ENV JAVA_LATEST_HOME=/usr/lib/jvm/25-jdk
 
-RUN mkdir -p /usr/local/lib/seqra/jre/bin \
-    && ln -sf /usr/lib/jvm/21-jdk/bin/java /usr/local/lib/seqra/jre/bin/java
+RUN mkdir -p /usr/local/lib/opentaint/jre/bin \
+    && ln -sf /usr/lib/jvm/21-jdk/bin/java /usr/local/lib/opentaint/jre/bin/java
