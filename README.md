@@ -1,8 +1,8 @@
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="logos/opentaint-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="logos/opentaint-light.svg">
-    <img src="logos/opentaint-light.svg" alt="OpenTaint" height="100">
+    <source media="(prefers-color-scheme: dark)" srcset="logos/opentaint-logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="logos/opentaint-logo-light.svg">
+    <img src="logos/opentaint-logo-light.svg" alt="OpenTaint" height="100">
   </picture>
 </p>
 
@@ -41,7 +41,7 @@
 
 - **YAML rules** — Semgrep-style syntax, CodeQL-grade dataflow. Define security rules in readable YAML and get full inter-procedural taint analysis out of the box.
 
-- **Source-available** — CLI is MIT licensed. Core engine uses FSL-1.1-ALv2, converting to Apache 2.0 two years after each release.
+- **Open source** — CLI, GitHub Action, GitLab CI template, and rules are [MIT licensed](cli/LICENSE). Core engine is [Apache 2.0 licensed](LICENSE.md).
 
 
 ## Demo
@@ -209,7 +209,6 @@ For comprehensive guides on all features, see the full [Documentation](docs/READ
 
 ## Support
 
-- **Blog:** [opentaint.org/blog](https://opentaint.org/blog)
 - **Issues:** [GitHub Issues](https://github.com/seqra/opentaint/issues)
 - **Community:** [Discord](https://discord.gg/6BXDfbP4p9)
 - **Email:** [seqradev@gmail.com](mailto:seqradev@gmail.com)
@@ -218,4 +217,4 @@ For comprehensive guides on all features, see the full [Documentation](docs/READ
 
 ## License
 
-OpenTaint is released under the [Apache 2.0 License](LICENSE.md).
+The [core analysis engine](core/) is released under the [Apache 2.0 License](LICENSE.md). The [CLI](cli/), [GitHub Action](github/), [GitLab CI template](gitlab/), and [rules](rules/) are released under the [MIT License](cli/LICENSE).
