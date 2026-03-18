@@ -33,7 +33,6 @@ jobs:
             sha: 06c0be257f3ec5b02521368b030018816ac94090
             java-version: 23
 
-    # runs-on: [ self-hosted, ex44 ]
     runs-on: ubuntu-latest
     container: buildpack-deps:jammy-scm
     steps:

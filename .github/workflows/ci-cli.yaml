@@ -26,7 +26,7 @@ env:
 
 jobs:
   build-and-lint:
-    runs-on: [ self-hosted, ex44 ]
+    runs-on: ubuntu-latest
     container: buildpack-deps:jammy-scm
 
     steps:
@@ -47,7 +47,7 @@ jobs:
           go test ./... -v -count=1
 
   goreleaser-check:
-    runs-on: [ self-hosted, ex44 ]
+    runs-on: ubuntu-latest
     container: buildpack-deps:jammy-scm
     steps:
       - uses: actions/checkout@v4
@@ -71,7 +71,7 @@ jobs:
           scandir: './scripts'
 
   run-on-petclinic-without-installed-java-17:
-    runs-on: [ self-hosted, ex44 ]
+    runs-on: ubuntu-latest
     container: buildpack-deps:jammy-scm
 
     steps:
@@ -109,7 +109,7 @@ jobs:
           ./opentaint scan ${{ steps.github-token.outputs.arg }} --output report.sarif ../project-root-java-11 --verbosity debug
 
   run-on-petclinic:
-    runs-on: [ self-hosted, ex44 ]
+    runs-on: ubuntu-latest
     container: buildpack-deps:jammy-scm
 
     steps:
@@ -195,7 +195,7 @@ jobs:
           ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif ../project-root
 
   scan-stirling-pdf:
-    runs-on: [ self-hosted, ex44 ]
+    runs-on: ubuntu-latest
     container: buildpack-deps:jammy-scm
 
     steps:
@@ -238,7 +238,7 @@ jobs:
           ./opentaint scan ${{ steps.github-token.outputs.arg }} --output stirling-pdf-report.sarif stirling-pdf-model
 
   test-install-sh-linux:
-    runs-on: [ self-hosted, ex44 ]
+    runs-on: ubuntu-latest
     container: buildpack-deps:jammy-scm
     steps:
       - uses: actions/checkout@v4

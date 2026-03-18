@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   publish:
-    runs-on: [ self-hosted, ex44 ]
+    runs-on: ubuntu-latest
     container: cruizba/ubuntu-dind:focal-25.0.3
 
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}

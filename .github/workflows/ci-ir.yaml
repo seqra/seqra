@@ -21,7 +21,7 @@ concurrency:
 jobs:
   check:
     name: Run core tests on JDK ${{ matrix.jdk }}
-    runs-on: [ self-hosted, ex44 ]
+    runs-on: ubuntu-latest
     container: ubuntu:latest
 
     strategy:
@@ -58,7 +58,7 @@ jobs:
 
   lifecycle:
     name: Run lifecycle tests
-    runs-on: [ self-hosted, ex44 ]
+    runs-on: ubuntu-latest
     container: ubuntu:latest
 
     steps:

@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   publish:
-    runs-on: [ self-hosted, ex44 ]
+    runs-on: ubuntu-latest
     container: cruizba/ubuntu-dind:focal-latest
     permissions:
       contents: write

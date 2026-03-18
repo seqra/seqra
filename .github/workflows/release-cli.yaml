@@ -24,7 +24,6 @@ env:
 
 jobs:
   release:
-    # runs-on: [ self-hosted, ex44 ]
     runs-on: ubuntu-latest
     container: ghcr.io/catthehacker/ubuntu:act-latest
 

@@ -26,7 +26,7 @@ concurrency:
 
 jobs:
   check:
-    runs-on: [ self-hosted, ex44 ]
+    runs-on: ubuntu-latest
     container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
     permissions:
       contents: read
