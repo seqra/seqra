@@ -22,7 +22,7 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
-
+    container: buildpack-deps:jammy-scm
 
     permissions:
       contents: write
