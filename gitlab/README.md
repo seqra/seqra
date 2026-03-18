@@ -69,6 +69,6 @@ After the job completes, you’ll find:
 See [CHANGELOG](CHANGELOG.md).
 
 ## License
-This project is released under the [MIT License](LICENSE).
+This GitLab CI template is released under the [MIT License](LICENSE).
 
-The [core analysis engine](https://github.com/seqra/opentaint/tree/main/core) is source-available under the [Functional Source License (FSL-1.1-ALv2)](https://fsl.software/), which converts to Apache 2.0 two years after each release. You can use OpenTaint for free, including for commercial use, except for competing products or services.
+The [core analysis engine](https://github.com/seqra/opentaint/tree/main/core) is released under the [Apache 2.0 License](../LICENSE.md).

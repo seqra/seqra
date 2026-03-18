@@ -22,7 +22,7 @@ You get **CodeQL-like findings** without the learning curve of a specialized que
 
 **Is OpenTaint free to use?**
 
-Yes! You can use OpenTaint for free, including on private repos and for internal commercial use (excluding competing uses). The analyzer code is source-available under the **Functional Source License (FSL-1.1-ALv2)**, which converts to Apache 2.0 after two years from the release date.
+Yes! OpenTaint is free and open source. The core engine is licensed under [Apache 2.0](../LICENSE.md), and the CLI, CI integrations, and rules are licensed under [MIT](../cli/LICENSE).
 
 **Can I use existing Semgrep rules?**
 

@@ -244,6 +244,8 @@ When introducing or changing rules, follow these guidelines:
 
 ## License
 
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+This project is released under the [MIT License](LICENSE).
+
+The [core analysis engine](https://github.com/seqra/opentaint/tree/main/core) is released under the [Apache 2.0 License](../LICENSE.md).
 
 Rule content may incorporate or adapt patterns originally published under various open-source licenses (for example, from community rule sets). Where applicable, original provenance and license information is recorded in rule `metadata`.
