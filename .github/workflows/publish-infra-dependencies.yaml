@@ -40,7 +40,7 @@ jobs:
 
       - name: Create image names
         run: |
-          echo "IMAGE=ghcr.io/${{ github.repository_owner }}/infra/opentaint-dependencies:${{ steps.version.outputs.version }}" >> $GITHUB_ENV
+          echo "IMAGE=ghcr.io/${{ github.repository_owner }}/opentaint/infra:${{ steps.version.outputs.version }}" >> $GITHUB_ENV
 
       - name: Build images
         run: |
