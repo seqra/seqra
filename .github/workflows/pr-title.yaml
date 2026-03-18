@@ -26,8 +26,6 @@ jobs:
         with:
           types: |
             chore
-            ci
-            docs
             feat
             fix
             refactor

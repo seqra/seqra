@@ -2,8 +2,6 @@
 
 const TYPES = [
   { type: 'chore', hidden: true },
-  { type: 'ci', hidden: true },
-  { type: 'docs', hidden: true },
   { type: 'feat', section: ':gift: Features', hidden: false },
   { type: 'fix', section: ':lady_beetle: Bug Fixes', hidden: false },
   { type: 'refactor', section: ':hammer_and_wrench: Refactored', hidden: false },
