@@ -77,7 +77,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup opentaint
+      - name: Setup OpenTaint
         uses: ./.github/actions/cli/setup-opentaint
         with:
           go-version: ${{ env.GO_VERSION }}
@@ -115,7 +115,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup opentaint
+      - name: Setup OpenTaint
         uses: ./.github/actions/cli/setup-opentaint
 
       - name: Set GitHub token arg

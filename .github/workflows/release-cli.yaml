@@ -20,7 +20,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  OPENTAINT_DEPENDENCIES_VERSION: 2026.03.12.95b57fa
+  OPENTAINT_DEPENDENCIES_VERSION: 2026.03.18.f5fd6e4
 
 jobs:
   release:
