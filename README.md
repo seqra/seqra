@@ -85,7 +85,7 @@ OpenTaint does real inter-procedural taint analysis. IFDS-with-abduction engine.
 
 Enterprise-grade. Powerful, precise, performant at scale. Handles large monorepo codebases. Tracks complex multi-hop attack paths — cross-endpoint flows, data through persistence layers, stored injections.
 
-Rules look like code. Humans and AI agents read, write, and tune them — no proprietary DSL. The engine translates rules into full taint configurations: sources, sinks, sanitizers, propagators, taint marks. False positive? Refine the rule.
+Rules look like code. Humans and AI agents read, write, and tune them — no proprietary DSL. The engine translates rules into full taint configurations: sources, sinks, sanitizers, propagators, taint marks.
 
 Fully open source. CLI, GitHub Action, GitLab CI, rules — all included. [Apache 2.0](LICENSE.md) and [MIT](cli/LICENSE) licensed.
 
