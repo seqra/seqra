@@ -20,7 +20,24 @@
   <a href="https://discord.gg/6BXDfbP4p9"><img src="https://img.shields.io/discord/1403357427176575036?logo=discord&label=Discord" alt="Discord"></a>
 </p>
 
-<!-- TODO: add screenshot -->
+<table align="center">
+  <tr>
+    <td>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-dark-2.png">
+        <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-light-2.png">
+        <img src="public/opentaint-frame-light-2.png" alt="OpenTaint scan output" width="480">
+      </picture>
+    </td>
+    <td>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-dark-1.png">
+        <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-light-1.png">
+        <img src="public/opentaint-frame-light-1.png" alt="OpenTaint summary output" width="480">
+      </picture>
+    </td>
+  </tr>
+</table>
 
 <p align="center"><b>Supported technologies and integrations</b></p>
 <p align="center">
