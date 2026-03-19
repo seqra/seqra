@@ -5,12 +5,14 @@ on:
     paths:
       - 'cli/**'
       - 'scripts/**'
+      - '.github/workflows/ci-cli.yaml'
     branches:
       - main
   pull_request:
     paths:
       - 'cli/**'
       - 'scripts/**'
+      - '.github/workflows/ci-cli.yaml'
     branches:
       - main
   workflow_dispatch:
