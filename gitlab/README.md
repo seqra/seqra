@@ -10,6 +10,12 @@ Generates a SARIF report for code scanning integration or further processing.
 
 > **Note:** This template runs on **Linux x86\_64** environments.
 
+The template does not pin a Docker image. Your job must run in an environment that provides:
+`bash`, `git`, `curl`, `python3`, `tar`, and valid CA certificates.
+
+On Debian/Ubuntu-based images, any missing tools are installed automatically via `apt-get`.
+On other images, the job fails with an error listing the missing tools.
+
 ### Example: Run OpenTaint
 
 ```yaml
@@ -21,6 +27,7 @@ stages:
 
 opentaint-job:
   extends: .opentaint-template
+  image: ubuntu:24.04
   variables:
     PROJECT_ROOT: "."
 ```
@@ -37,6 +44,7 @@ stages:
 
 opentaint-job:
   extends: .opentaint-template
+  image: ubuntu:24.04
   variables:
     # Relative path to the root of the analyzed project
     PROJECT_ROOT: "."
@@ -90,6 +98,7 @@ variables:
 
 * **Monorepos:** You can analyze only the project you need using `PROJECT_ROOT`.
 * **Timeouts:** If the scan times out, increase `TIMEOUT` (e.g., `30m`).
+* **Missing tools:** If you see `ERROR: Missing required tools`, set `image:` in your job to a Debian/Ubuntu-based image (e.g., `ubuntu:24.04`) or use a custom image that provides the required tools.
 
 ## Changelog
 
