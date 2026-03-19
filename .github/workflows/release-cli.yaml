@@ -206,7 +206,7 @@ jobs:
           fi
       -
         name: Update package manager manifests
-        if: ${{ steps.release_version.outputs.status == 'succeeded' && (steps.semantic_release.outputs.new_release_channel == '' || steps.manual_release.outputs.new-version != '') }}
+        if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' && steps.release_version.outputs.status == 'succeeded' && (steps.semantic_release.outputs.new_release_channel == '' || steps.manual_release.outputs.new-version != '') }}
         working-directory: cli
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
