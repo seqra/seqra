@@ -15,7 +15,7 @@
     # Scan timeout
     TIMEOUT: "15m"
   script:
-    - apt-get update && apt-get install -y --no-install-recommends git curl jq python3
+    - apt-get update && apt-get install -y --no-install-recommends ca-certificates git curl jq python3
 
     # Generate sanitized artifact name
     - SANITIZED_NAME=$(printf '%s' "$ARTIFACT_NAME" | tr '/' '_')
@@ -38,7 +38,7 @@
         --repository "seqra/opentaint")
 
       echo "Resolved OpenTaint version: $RESOLVED_OPENTAINT_VERSION"
-      wget -O "$OPENTAINT_ARTIFACTS/opentaint.tar.gz" "https://github.com/seqra/opentaint/releases/download/$RESOLVED_OPENTAINT_VERSION/opentaint-full_linux_amd64.tar.gz"
+      curl -fsSL -o "$OPENTAINT_ARTIFACTS/opentaint.tar.gz" "https://github.com/seqra/opentaint/releases/download/$RESOLVED_OPENTAINT_VERSION/opentaint-full_linux_amd64.tar.gz"
 
     # Extract OpenTaint
     - ls -lah $OPENTAINT_ARTIFACTS
