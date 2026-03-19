@@ -22,39 +22,39 @@
 
 <p align="center">
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-dark-2.png">
-  <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-light-2.png">
-  <img src="public/opentaint-frame-light-2.png" alt="OpenTaint summary output" width="720">
+  <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-light-2.png">
+  <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-dark-2.png">
+  <img src="public/opentaint-frame-dark-2.png" alt="OpenTaint summary output" width="720">
 </picture>
 
 <details>
   <summary><b>More screenshots</b></summary>
   <p align="center">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-dark-1.png">
-      <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-light-1.png">
-      <img src="public/opentaint-frame-light-1.png" alt="OpenTaint scan output" width="720">
+      <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-light-1.png">
+      <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-dark-1.png">
+      <img src="public/opentaint-frame-dark-1.png" alt="OpenTaint scan output" width="720">
     </picture>
   </p>
   </p>  <p align="center">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-dark-3.png">
-      <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-light-3.png">
-      <img src="public/opentaint-frame-light-3.png" alt="OpenTaint summary output" width="720">
+      <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-light-3.png">
+      <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-dark-3.png">
+      <img src="public/opentaint-frame-dark-3.png" alt="OpenTaint summary output" width="720">
     </picture>
   </p>
   </p>  <p align="center">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-dark-4.png">
-      <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-light-4.png">
-      <img src="public/opentaint-frame-light-4.png" alt="OpenTaint summary output" width="720">
+      <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-light-4.png">
+      <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-dark-4.png">
+      <img src="public/opentaint-frame-dark-4.png" alt="OpenTaint summary output" width="720">
     </picture>
   </p>
   </p>  <p align="center">
     <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-dark-5.png">
-      <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-light-5.png">
-      <img src="public/opentaint-frame-light-5.png" alt="OpenTaint summary output" width="720">
+      <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-light-5.png">
+      <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-dark-5.png">
+      <img src="public/opentaint-frame-dark-5.png" alt="OpenTaint summary output" width="720">
     </picture>
   </p>
 </details>
