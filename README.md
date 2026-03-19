@@ -6,7 +6,7 @@
   </picture>
 </p>
 
-<h1 align="center">The open source taint analysis engine for the AI coding era</h1>
+<h1 align="center">The open source taint analysis engine for the AI era</h1>
 
 <p align="center">
   Enterprise-grade dataflow analysis with code-native rules — no paywall, no pattern-matching compromises.
