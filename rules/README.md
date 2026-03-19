@@ -16,7 +16,7 @@ The repository provides:
 
 ```text
 .
-├─ rules/java/
+├─ ruleset/java/
 │  ├─ security/       # Executable rules run against user code (one file per vulnerability class)
 │  └─ lib/            # Reusable rule fragments, not executed directly (marked as lib: true)
 └─ test/
@@ -24,14 +24,14 @@ The repository provides:
       └─ security/  # Rule tests with @PositiveRuleSample / @NegativeRuleSample
 ```
 
-### `rules/`: Executable Security Rules
+### `ruleset/`: Executable Security Rules
 
-All rules that are intended to run on user code live under `rules/`. Each file groups a *class of vulnerability*.
+All rules that are intended to run on user code live under `ruleset/`. Each file groups a *class of vulnerability*.
 
 Example:
 
 ```text
-rules/java/security/
+ruleset/java/security/
   command-injection.yaml
   sqli.yaml
   xss.yaml
@@ -42,7 +42,7 @@ Characteristics:
 
 - Rules are written in **Semgrep-compatible YAML**.
 - Each rule entry has an `id`, `severity`, `message`, `metadata`, `languages`, and pattern/mode fields (`mode: taint`, `pattern`, `patterns`, `pattern-either`, `pattern-sources`, `pattern-sinks`, etc.).
-- Rules in `rules/` are considered **executable** unless:
+- Rules in `ruleset/` are considered **executable** unless:
   - `options.disabled: <reason>` — the rule is disabled
   - `options.lib: true` — the rule is a library component (should normally reside in `lib/`)
 
@@ -89,9 +89,9 @@ Key points:
 
 ## Join Mode
 
-Many rules under `rules/` combine multiple library rules using **`mode: join`**.
+Many rules under `ruleset/` combine multiple library rules using **`mode: join`**.
 
-Example (from `rules/java/security/ssrf.yaml`):
+Example (from `ruleset/java/security/ssrf.yaml`):
 
 ```yaml
 - id: ssrf-in-servlet-app
@@ -167,11 +167,11 @@ class SomeServletXssSample {
 
 The CI helper `RuleCoverageCheck` (in `test/src/main/java/rules/RuleCoverageCheck.java`) enforces:
 
-1. **YAML validity** for every file in `rules/`:
+1. **YAML validity** for every file in `ruleset/`:
    - Root is a map and contains a `rules` list.
    - Each rule has a non-blank `id`.
 2. **Test coverage for all active rules**:
-   - Active rules are those in `rules/` where:
+   - Active rules are those in `ruleset/` where:
      - `options.disabled` is not `true`, and
      - `options.lib` is not `true`
    - Each such rule must have at least one `@PositiveRuleSample` referencing:
@@ -195,7 +195,7 @@ Behavior:
 
 - Runs the `RuleCoverageCheck` helper
 - Ensures:
-  - All rule YAMLs in `rules/` are syntactically valid
+   - All rule YAMLs in `ruleset/` are syntactically valid
   - Every enabled, non-lib rule has at least one positive test sample
 
 Usage (from the `test/root` subdirectory):
@@ -224,7 +224,7 @@ When introducing or changing rules, follow these guidelines:
    - Shared sources, sinks, or helpers → `java/lib/generic/` or `java/lib/spring/`
 
 2. **Mark library-only rules**
-   - Add `options.lib: true` for library fragments in `lib/` (or exceptionally in `rules/` if they are not meant to be executed directly).
+   - Add `options.lib: true` for library fragments in `lib/` (or exceptionally in `ruleset/` if they are not meant to be executed directly).
 
 3. **Avoid duplicates**
    - Reuse existing library rules from `lib/` and compose them via `mode: join` where applicable.

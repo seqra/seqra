@@ -57,7 +57,7 @@ jobs:
 
       - name: Create rules archive
         run: |
-          cd rules/rules; tar cfvz ../../opentaint-rules.tar.gz .
+          cd rules/ruleset; tar cfvz ../../opentaint-rules.tar.gz .
 
       - name: Manual version bump
         if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.release_type != 'auto' }}

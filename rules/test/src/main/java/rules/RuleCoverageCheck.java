@@ -22,7 +22,7 @@ import org.yaml.snakeyaml.Yaml;
 
 /**
  * CI helper that checks that:
- * 1) every YAML in ../rules is valid;
+ * 1) every YAML in ../ruleset is valid;
  * 2) every non-disabled and non-lib rule is covered by some @PositiveRuleSample test
  *    under src/main/java/security.
  *
@@ -34,7 +34,7 @@ public class RuleCoverageCheck {
 
     public static void main(String[] args) throws Exception {
         Path projectRoot = Paths.get("..").toRealPath();
-        Path rulesRoot = projectRoot.resolve("rules");
+        Path rulesRoot = projectRoot.resolve("ruleset");
         Path testsRoot = projectRoot.resolve("test").resolve("src").resolve("main").resolve("java").resolve("security");
 
         List<String> errors = new ArrayList<>();
