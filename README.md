@@ -89,10 +89,6 @@ Rules look like code. Humans and AI agents read, write, and tune them — no pro
 
 Fully open source. CLI, GitHub Action, GitLab CI, rules — all included. No vendor lock-in. [Apache 2.0](LICENSE.md) and [MIT](cli/LICENSE) licensed.
 
-## Demo
-
-https://github.com/user-attachments/assets/aba3733b-2959-4470-be0c-605d259e97b6
-
 ---
 
 ## What OpenTaint Catches
