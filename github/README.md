@@ -36,7 +36,7 @@ jobs:
           java-version: '21'
 
       - name: Run OpenTaint code analysis
-        uses: seqra/opentaint/github@v0
+        uses: seqra/opentaint/github@github/v0
 ```
 
 
@@ -66,7 +66,7 @@ jobs:
           java-version: '21'
 
       - name: Run OpenTaint code analysis
-        uses: seqra/opentaint/github@v0
+        uses: seqra/opentaint/github@github/v0
         with:
           upload-sarif: 'true'
           artifact-name: 'sarif'
@@ -99,7 +99,7 @@ jobs:
           java-version: '21'
 
       - name: Run OpenTaint code analysis
-        uses: seqra/opentaint/github@v0
+        uses: seqra/opentaint/github@github/v0
         with:
             # Relative path under $GITHUB_WORKSPACE to the root of the analyzed project
             project-root: '.'
