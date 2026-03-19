@@ -1,6 +1,6 @@
 # OpenTaint Security Rules
 
-[![GitHub release](https://img.shields.io/github/release/seqra/opentaint.svg?label=rules)](https://github.com/seqra/opentaint/releases)
+[![GitHub release](https://img.shields.io/github/v/tag/seqra/opentaint?filter=rules/v*&label=rules)](https://github.com/seqra/opentaint/releases)
 
 A curated collection of security rules for [OpenTaint](https://github.com/seqra/opentaint), a static analysis engine for Java and Kotlin that combines Semgrep-style pattern matching with dataflow/taint analysis.
 
