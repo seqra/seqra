@@ -8,7 +8,7 @@ Generates a SARIF report for code scanning integration or further processing.
 
 ### Scan
 
-> **Note:** This template runs on **Linux x86\_64** environments and requires **Docker-in-Docker**.
+> **Note:** This template runs on **Linux x86\_64** environments.
 
 ### Example: Run OpenTaint
 
@@ -40,8 +40,13 @@ opentaint-job:
   variables:
     # Relative path to the root of the analyzed project
     PROJECT_ROOT: "."
-    # Tag of OpenTaint release
-    OPENTAINT_VERSION: "v2.4.0"
+    # OpenTaint version selector:
+    # - latest (latest stable)
+    # - v0 (latest stable in major v0)
+    # - v0.1 (latest stable in minor v0.1)
+    # - v0.1.0 (exact)
+    # Default is 'v0'
+    OPENTAINT_VERSION: "v0.1.0"
     # Comma-separated paths to rule files or directories (e.g., "rules/custom.yml,rules/extra")
     RULES_PATH: "builtin"
     # Comma-separated severity levels to report: note, warning, error
@@ -57,6 +62,28 @@ After the job completes, you’ll find:
 
 * `opentaint-job:archive` in the job artifacts.
 * These can be consumed by other CI jobs or uploaded to a code scanning service.
+
+
+## Version Selection
+
+`OPENTAINT_VERSION` supports flexible selectors so you do not need to update this template for every OpenTaint release:
+
+* `latest` - always use the latest stable release
+* `v0` - use the latest stable release in major version 0 (default)
+* `v0.1` - use the latest stable patch in minor version 0.1
+* `v0.1.0` - pin an exact release
+
+Examples:
+
+```yaml
+variables:
+  OPENTAINT_VERSION: "latest"
+```
+
+```yaml
+variables:
+  OPENTAINT_VERSION: "v0.1"
+```
 
 
 ## Troubleshooting
