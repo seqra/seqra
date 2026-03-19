@@ -93,7 +93,7 @@ jobs:
           gh release delete "analyzer/latest" --yes || true
           gh release create "analyzer/latest" \
             --title "analyzer/latest" \
-            --notes "Floating release tracking the latest analyzer build (${{ steps.changes.outputs.version }})" \
+            --notes "Floating release tracking the latest analyzer version (v${{ steps.changes.outputs.version }})" \
             --latest=false \
             --prerelease \
             core/build/libs/opentaint-project-analyzer.jar

@@ -115,10 +115,17 @@ jobs:
           git tag -f "gitlab/latest"
           git push origin "gitlab/latest" --force
 
+          LATEST_VERSION="${{ steps.manual_release.outputs.new-version }}"
+          if [ -n "$LATEST_VERSION" ]; then
+            LATEST_VERSION="v${LATEST_VERSION}"
+          else
+            LATEST_VERSION="${{ steps.release_version.outputs.RELEASE_VERSION }}"
+          fi
+
           gh release delete "gitlab/latest" --yes || true
           gh release create "gitlab/latest" \
             --title "gitlab/latest" \
-            --notes "Floating release tracking the latest GitLab CI template version" \
+            --notes "Floating release tracking the latest GitLab CI template version (${LATEST_VERSION})" \
             --latest=false \
             --prerelease
 

@@ -93,7 +93,7 @@ jobs:
           gh release delete "autobuilder/latest" --yes || true
           gh release create "autobuilder/latest" \
             --title "autobuilder/latest" \
-            --notes "Floating release tracking the latest autobuilder build (${{ steps.changes.outputs.version }})" \
+            --notes "Floating release tracking the latest autobuilder version (v${{ steps.changes.outputs.version }})" \
             --latest=false \
             --prerelease \
             core/opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar

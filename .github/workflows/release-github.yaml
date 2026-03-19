@@ -108,7 +108,7 @@ jobs:
           gh release delete "github/latest" --yes || true
           gh release create "github/latest" \
             --title "github/latest" \
-            --notes "Floating release tracking the latest GitHub Action version" \
+            --notes "Floating release tracking the latest GitHub Action version (v${{ steps.manual_release.outputs.new-version || steps.version.outputs.new_release_version }})" \
             --latest=false \
             --prerelease
 

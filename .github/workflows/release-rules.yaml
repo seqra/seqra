@@ -121,10 +121,17 @@ jobs:
           git tag -f "rules/latest"
           git push origin "rules/latest" --force
 
+          LATEST_VERSION="${{ steps.manual_release.outputs.new-version }}"
+          if [ -n "$LATEST_VERSION" ]; then
+            LATEST_VERSION="v${LATEST_VERSION}"
+          else
+            LATEST_VERSION="${{ steps.release_version.outputs.RELEASE_VERSION }}"
+          fi
+
           gh release delete "rules/latest" --yes || true
           gh release create "rules/latest" \
             --title "rules/latest" \
-            --notes "Floating release tracking the latest rules version" \
+            --notes "Floating release tracking the latest rules version (${LATEST_VERSION})" \
             --latest=false \
             --prerelease \
             opentaint-rules.tar.gz
