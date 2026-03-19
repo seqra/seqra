@@ -1,16 +1,12 @@
 .opentaint-template:
   stage: analysis
-  image: docker:24.0.5
-  services:
-    - name: docker:24.0.5-dind
-      alias: dind
+  image: alpine:3.21
   timeout: 20m
   variables:
-    DOCKER_HOST: tcp://dind:2375
     # Relative path to the root of the analyzed project
     PROJECT_ROOT: "."
     # OpenTaint version selector: latest, v<major>, v<major>.<minor>, or exact v<major>.<minor>.<patch>
-    OPENTAINT_VERSION: "v2"
+    OPENTAINT_VERSION: "v0"
     # Comma-separated paths to rule files or directories (e.g., "rules/custom.yml,rules/extra")
     RULES_PATH: "builtin"
     # Comma-separated severity levels to report: note, warning, error
@@ -18,7 +14,7 @@
     # Scan timeout
     TIMEOUT: "15m"
   script:
-    - apk add --no-cache git curl bash tar jq github-cli python3
+    - apk add --no-cache git curl bash tar jq python3
 
     # Generate sanitized artifact name
     - SANITIZED_NAME=$(echo "$ARTIFACT_NAME" | tr '/' '_')
@@ -41,7 +37,7 @@
         --repository "seqra/opentaint")
 
       echo "Resolved OpenTaint version: $RESOLVED_OPENTAINT_VERSION"
-      wget -O "$OPENTAINT_ARTIFACTS/opentaint.tar.gz" "https://github.com/seqra/opentaint/releases/download/$RESOLVED_OPENTAINT_VERSION/opentaint_linux_amd64.tar.gz"
+      wget -O "$OPENTAINT_ARTIFACTS/opentaint.tar.gz" "https://github.com/seqra/opentaint/releases/download/$RESOLVED_OPENTAINT_VERSION/opentaint-full_linux_amd64.tar.gz"
 
     # Extract OpenTaint
     - ls -lah $OPENTAINT_ARTIFACTS
