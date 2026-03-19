@@ -1,6 +1,6 @@
 .opentaint-template:
   stage: analysis
-  image: ubuntu:24.04
+  # image: ubuntu:24.04
   timeout: 20m
   variables:
     ARTIFACT_NAME: "opentaint.sarif"
@@ -15,17 +15,26 @@
     # Scan timeout
     TIMEOUT: "15m"
   script:
-    - apt-get update && apt-get install -y --no-install-recommends ca-certificates git curl jq python3
+    - |
+      missing=()
+      for cmd in git curl python3 tar; do
+        command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
+      done
+      if [ ${#missing[@]} -gt 0 ]; then
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update && apt-get install -y --no-install-recommends ca-certificates "${missing[@]}"
+        else
+          echo "ERROR: Missing required tools: ${missing[*]}. Please use an image that provides them." >&2
+          exit 1
+        fi
+      fi
 
-    # Generate sanitized artifact name
     - SANITIZED_NAME=$(printf '%s' "$ARTIFACT_NAME" | tr '/' '_')
 
-    # Run OpenTaint steps
     - UUID=$(printf '%s' "$SANITIZED_NAME" | sha1sum | awk '{print $1}')
     - export OPENTAINT_ARTIFACTS="opentaint-artifacts/$UUID"
     - mkdir -p "$OPENTAINT_ARTIFACTS"
 
-    # Resolve OpenTaint version selector and download OpenTaint
     - |
       set -euo pipefail
 
@@ -38,17 +47,18 @@
         --repository "seqra/opentaint")
 
       echo "Resolved OpenTaint version: $RESOLVED_OPENTAINT_VERSION"
-      curl -fsSL -o "$OPENTAINT_ARTIFACTS/opentaint.tar.gz" "https://github.com/seqra/opentaint/releases/download/$RESOLVED_OPENTAINT_VERSION/opentaint-full_linux_amd64.tar.gz"
 
-    # Extract OpenTaint
-    - ls -lah $OPENTAINT_ARTIFACTS
-    - 'tar -xzvf "$OPENTAINT_ARTIFACTS/opentaint.tar.gz" -C "$OPENTAINT_ARTIFACTS"'
-    - 'chmod +x "$OPENTAINT_ARTIFACTS/opentaint"'
+    - |
+      set -euo pipefail
 
-    # Compile project
+      curl -fsSL "https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh" | \
+        OPENTAINT_INSTALL_DIR="$OPENTAINT_ARTIFACTS" \
+        OPENTAINT_REPOSITORY="seqra/opentaint" \
+        OPENTAINT_DOWNLOAD_BASE_URL="https://github.com/seqra/opentaint/releases/download/$RESOLVED_OPENTAINT_VERSION" \
+        bash
+
     - '$OPENTAINT_ARTIFACTS/opentaint compile --quiet --output "$OPENTAINT_ARTIFACTS/project" $PROJECT_ROOT'
 
-    # Run analysis
     - |
       cmd="$OPENTAINT_ARTIFACTS/opentaint scan --quiet"
 
