@@ -20,6 +20,8 @@
   <a href="https://discord.gg/6BXDfbP4p9"><img src="https://img.shields.io/discord/1403357427176575036?logo=discord&label=Discord" alt="Discord"></a>
 </p>
 
+<!-- TODO: add screenshot -->
+
 <p align="center"><b>Supported technologies and integrations</b></p>
 <p align="center">
   <img src="logos/java-logo.svg" alt="Java" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
@@ -37,26 +39,10 @@
 
 ## Why OpenTaint
 
-AI-generated code is growing codebases faster than ever. Pattern-matching scanners produce too many false positives to keep up. Enterprise taint analyzers that actually work are locked behind paywalls. AI agents in a security role provide no formal guarantees or stable scan results — one fragile layer in a world of fragile code. OpenTaint provides real dataflow analysis, fully open source, with rules that AI agents can read and write.
-
-## Powerful Dataflow Analysis
-
-Inter-procedural taint analysis that tracks untrusted data to dangerous APIs. Built on a novel IFDS-with-abduction approach. Models framework-specific flow like Spring filters and interceptors, tracks data through object fields and aliased references.
-
-Cross-endpoint flow tracking, persistence layer modelling, alias analysis, and asynchronous code analysis — tuned for web application security, aimed at exploitable vulnerabilities, not theoretical noise. Currently supports Java and Kotlin with bytecode-level analysis and deep Spring Boot framework ecosystem support. More languages ahead.
-
-## Code-Native Rules
-
-Rules that look like code. Readable, writable, and tunable by humans and AI agents alike. The engine translates code-native rules into full taint configurations — multiple sources, sinks, sanitizers, and propagators connected by different types of taint marks. Reduce false positives by refining rules directly.
-
-## Open Source, Enterprise-Grade
-
-Full inter-procedural dataflow analysis, available to everyone. CLI, GitHub Action, GitLab CI, and rules all included. [Apache 2.0](LICENSE.md) and [MIT](cli/LICENSE) licensed.
-
-
-## Demo
-
-https://github.com/user-attachments/assets/aba3733b-2959-4470-be0c-605d259e97b6
+- **Cutting-edge dataflow analysis.** Inter-procedural taint tracking across endpoints, persistence layers, aliases, and async code.
+- **Rules that read like code.** Write and tune taint rules the same way you write application code — or let your AI agent do it.
+- **Open source, production-ready.** Full analysis engine with CLI, GitHub Action, GitLab CI, and rules included. Apache 2.0 and MIT licensed.
+- **Enterprise-grade, finds real trophies.** Powerful, precise, and performant at scale. Catches exploitable vulnerabilities.
 
 ## Quick Start
 
@@ -88,6 +74,24 @@ docker run --rm -v $(pwd):/project -v $(pwd):/output \
 ```
 
 For more options, see [Installation](#installation) and [Usage](#usage).
+
+---
+
+## About OpenTaint
+
+AI-generated code is scaling codebases fast. Pattern matchers produce too many false positives. Enterprise taint analyzers that work are paywalled. AI agents in a security role give no formal guarantees.
+
+OpenTaint does real inter-procedural taint analysis. IFDS-with-abduction engine. Tracks untrusted data from HTTP inputs to dangerous APIs — across endpoints, persistence layers, object fields, aliased references, async code. Models Spring data flow, the full Boot ecosystem. Java and Kotlin at bytecode level. More languages ahead.
+
+Enterprise-grade. Powerful, precise, performant at scale. Handles large monorepo codebases. Tracks complex multi-hop attack paths — cross-endpoint flows, data through persistence layers, stored injections.
+
+Rules look like code. Humans and AI agents read, write, and tune them — no proprietary DSL. The engine translates rules into full taint configurations: sources, sinks, sanitizers, propagators, taint marks. False positive? Refine the rule.
+
+Fully open source. CLI, GitHub Action, GitLab CI, rules — all included. No vendor lock-in. [Apache 2.0](LICENSE.md) and [MIT](cli/LICENSE) licensed.
+
+## Demo
+
+https://github.com/user-attachments/assets/aba3733b-2959-4470-be0c-605d259e97b6
 
 ---
 
