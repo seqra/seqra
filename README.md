@@ -40,9 +40,9 @@
 ## Why OpenTaint
 
 - **Cutting-edge dataflow analysis.** Inter-procedural taint tracking across endpoints, persistence layers, aliases, and async code.
+- **Enterprise-grade, finds real trophies.** Powerful, precise, and performant at scale. Catches exploitable vulnerabilities.
 - **Rules that read like code.** Write and tune taint rules the same way you write application code — or let your AI agent do it.
 - **Open source, production-ready.** Full analysis engine with CLI, GitHub Action, GitLab CI, and rules included. Apache 2.0 and MIT licensed.
-- **Enterprise-grade, finds real trophies.** Powerful, precise, and performant at scale. Catches exploitable vulnerabilities.
 
 ## Quick Start
 
