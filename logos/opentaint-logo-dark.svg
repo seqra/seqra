@@ -9,7 +9,7 @@
     .logo {
     font-family: "JetBrains Mono", monospace;
     font-size: 72px;
-    font-weight: 400;
+    font-weight: 600;
     fill: #f5f5f3;
     }
     .accent {
