@@ -9,6 +9,7 @@ on:
       - 'core/opentaint-project-model/**'
       - 'core/opentaint-utils/cli-util/**'
       - 'core/opentaint-common-build/**'
+      - '.github/workflows/ci-autobuilder.yaml'
     branches: [ "main" ]
   pull_request:
     paths:
@@ -16,6 +17,7 @@ on:
       - 'core/opentaint-project-model/**'
       - 'core/opentaint-utils/cli-util/**'
       - 'core/opentaint-common-build/**'
+      - '.github/workflows/ci-autobuilder.yaml'
     branches: [ "main" ]
 
 concurrency:

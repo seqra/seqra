@@ -6,10 +6,12 @@ on:
   push:
     paths:
       - 'github/**'
+      - '.github/workflows/ci-github.yaml'
     branches: [ "main" ]
   pull_request:
     paths:
       - 'github/**'
+      - '.github/workflows/ci-github.yaml'
     branches: [ "main" ]
 
 concurrency:

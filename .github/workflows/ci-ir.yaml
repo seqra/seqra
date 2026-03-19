@@ -7,11 +7,13 @@ on:
     paths:
       - 'core/opentaint-ir/**'
       - 'core/opentaint-common-build/**'
+      - '.github/workflows/ci-ir.yaml'
     branches: [ "main" ]
   pull_request:
     paths:
       - 'core/opentaint-ir/**'
       - 'core/opentaint-common-build/**'
+      - '.github/workflows/ci-ir.yaml'
     branches: [ "main" ]
 
 concurrency:

@@ -24,6 +24,7 @@ on:
       - 'core/opentaint-utils/**'
       - 'core/opentaint-project-model/**'
       - 'core/opentaint-common-build/**'
+      - '.github/workflows/ci-analyzer.yaml'
   pull_request:
     branches: [ "main" ]
     paths:
@@ -45,6 +46,7 @@ on:
       - 'core/opentaint-utils/**'
       - 'core/opentaint-project-model/**'
       - 'core/opentaint-common-build/**'
+      - '.github/workflows/ci-analyzer.yaml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
