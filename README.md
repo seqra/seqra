@@ -27,6 +27,20 @@
   <img src="public/opentaint-frame-dark-2.png" alt="OpenTaint summary output" width="720">
 </picture>
 
+<p align="center"><b>Supported technologies and integrations</b></p>
+<p align="center">
+  <img src="logos/java-logo.svg" alt="Java" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="logos/kotlin-logo.svg" alt="Kotlin" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="logos/spring-boot-logo.svg" alt="Spring" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="logos/github-logo-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="logos/github-logo-light.svg">
+    <img src="logos/github-logo-light.svg" alt="GitHub" height="40">
+  </picture>&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="logos/gitlab-logo.svg" alt="GitLab" height="40">
+</p>
+
+<div align="center">
 <details>
   <summary><b>More screenshots</b></summary>
   <p align="center">
@@ -58,19 +72,7 @@
     </picture>
   </p>
 </details>
-
-<p align="center"><b>Supported technologies and integrations</b></p>
-<p align="center">
-  <img src="logos/java-logo.svg" alt="Java" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="logos/kotlin-logo.svg" alt="Kotlin" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="logos/spring-boot-logo.svg" alt="Spring" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="logos/github-logo-dark.svg">
-    <source media="(prefers-color-scheme: light)" srcset="logos/github-logo-light.svg">
-    <img src="logos/github-logo-light.svg" alt="GitHub" height="40">
-  </picture>&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="logos/gitlab-logo.svg" alt="GitLab" height="40">
-</p>
+</div>
 
 ---
 
