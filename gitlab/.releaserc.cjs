@@ -44,7 +44,6 @@ module.exports = {
         failTitle: false,
         labels: false,
         releasedLabels: false,
-        makeLatest: false,
         assets: [],
       },
     ],

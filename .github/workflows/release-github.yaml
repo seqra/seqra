@@ -90,8 +90,16 @@ jobs:
           extra_plugins: |
             @semantic-release/commit-analyzer@11.1.0
             @semantic-release/exec@6.0.3
-            @semantic-release/github@10.3.5
             conventional-changelog-conventionalcommits@7.0.2
+
+      - name: Unmark release as latest
+        if: ${{ steps.manual_release.outputs.new-version != '' || steps.version.outputs.new_release_published == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_VERSION="${{ steps.manual_release.outputs.new-version || steps.version.outputs.new_release_version }}"
+          RELEASE_TAG="github/v$(echo "$RELEASE_VERSION" | sed 's/^v//')"
+          gh release edit "$RELEASE_TAG" --latest=false
 
       - name: Push floating major version tag
         if: ${{ steps.manual_release.outputs.new-version != '' || steps.version.outputs.new_release_published == 'true' }}
