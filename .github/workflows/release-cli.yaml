@@ -205,8 +205,20 @@ jobs:
             echo "No checksums to upload"
           fi
       -
+        name: Check Homebrew token availability
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        id: check_homebrew
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -n "$HOMEBREW_TAP_TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+      -
         name: Update package manager manifests
-        if: ${{ secrets.HOMEBREW_TAP_TOKEN != '' && steps.release_version.outputs.status == 'succeeded' && (steps.semantic_release.outputs.new_release_channel == '' || steps.manual_release.outputs.new-version != '') }}
+        if: ${{ steps.check_homebrew.outputs.available == 'true' && steps.release_version.outputs.status == 'succeeded' && (steps.semantic_release.outputs.new_release_channel == '' || steps.manual_release.outputs.new-version != '') }}
         working-directory: cli
         env:
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
