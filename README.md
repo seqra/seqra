@@ -40,6 +40,15 @@
   <img src="logos/gitlab-logo.svg" alt="GitLab" height="40">
 </p>
 
+<p align="center"><b>Roadmap</b></p>
+<p align="center">
+  <img src="logos/python-logo.svg" alt="Python" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="logos/go-logo.svg" alt="Go" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="logos/csharp-logo.svg" alt="C#" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="logos/javascript-logo.svg" alt="JavaScript" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="logos/typescript-logo.svg" alt="TypeScript" height="40">
+</p>
+
 <div align="center">
 <details>
   <summary><b>More screenshots</b></summary>
