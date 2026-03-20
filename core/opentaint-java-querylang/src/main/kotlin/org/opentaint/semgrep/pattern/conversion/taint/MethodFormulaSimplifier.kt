@@ -7,8 +7,6 @@ import org.opentaint.dataflow.util.map
 import org.opentaint.dataflow.util.toSet
 import org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.conversion.generatedMethodClassName
-import org.opentaint.semgrep.pattern.conversion.taint.FormulaManagerAwareDecisionVarSelector
-import org.opentaint.semgrep.pattern.conversion.taint.SemanticPredicateOrderer
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
 import org.opentaint.semgrep.pattern.MetaVarConstraints
@@ -73,11 +71,13 @@ fun methodFormulaSat(
     val simplifiedCubes = formula.tryFindSimplifiedCubes()
     if (simplifiedCubes != null) return true
 
-    return methodFormulaCheckSat(formula, cancelation) { model ->
-        val simplifiedCube = manager.simplifyMethodFormulaCube(
-            model, metaVarInfo, applyNotEquivalentTransformations = false
-        )
-        simplifiedCube != null
+    return MethodFormulaBenchmark.checkSat(manager, formula, metaVarInfo) {
+        methodFormulaCheckSat(formula, cancelation, usePrunning = true) { model ->
+            val simplifiedCube = manager.simplifyMethodFormulaCube(
+                model, metaVarInfo, applyNotEquivalentTransformations = false
+            )
+            simplifiedCube != null
+        }
     }
 }
 
@@ -233,7 +233,9 @@ private fun MethodFormulaManager.formulaSimplifiedCubes(
     val dnf = when (formula) {
         MethodFormula.True -> return listOf(MethodFormulaCubeCompact())
         MethodFormula.False -> return emptyList()
-        else -> methodFormulaDNF(formula, cancelation, FormulaManagerAwareDecisionVarSelector(this))
+        else -> MethodFormulaBenchmark.benchmarkFormulaDNF(this, formula, metaVarInfo) {
+            methodFormulaDNFAlgebraic(formula, cancelation)
+        }
     }
 
     val cubes = dnf
@@ -267,7 +269,7 @@ private fun MethodFormula.tryFindSimplifiedCubes(): List<MethodFormulaCubeCompac
     return null
 }
 
-private fun MethodFormulaManager.simplifyMethodFormulaCube(
+fun MethodFormulaManager.simplifyMethodFormulaCube(
     cube: MethodFormulaCubeCompact,
     metaVarInfo: ResolvedMetaVarInfo,
     applyNotEquivalentTransformations: Boolean,

@@ -1,5 +1,6 @@
 package org.opentaint.semgrep.pattern
 
+import kotlinx.serialization.Serializable
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula.And
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula.Companion.mkAnd
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula.Companion.mkOr
@@ -8,15 +9,23 @@ import org.opentaint.semgrep.pattern.MetaVarConstraintFormula.NegatedConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula.Or
 import org.opentaint.semgrep.pattern.conversion.cartesianProductMapTo
 
+@Serializable
 sealed interface MetaVarConstraintFormula<C> {
+    @Serializable
     sealed interface Literal<C> : MetaVarConstraintFormula<C> {
         val constraint: C
     }
 
+    @Serializable
     data class Constraint<C>(override val constraint: C) : Literal<C>
+
+    @Serializable
     data class NegatedConstraint<C>(override val constraint: C) : Literal<C>
 
+    @Serializable
     data class And<C>(val args: Set<MetaVarConstraintFormula<C>>) : MetaVarConstraintFormula<C>
+
+    @Serializable
     data class Or<C>(val args: Set<MetaVarConstraintFormula<C>>) : MetaVarConstraintFormula<C>
 
     companion object {
@@ -37,11 +46,11 @@ sealed interface MetaVarConstraintFormula<C> {
 fun <C, R : Any> MetaVarConstraintFormula<C>.transform(mapper: (C) -> R): MetaVarConstraintFormula<R> =
     transformOrIgnore(mapper) ?: error("Impossible")
 
-fun <C, R: Any> MetaVarConstraintFormula<C>.flatMap(
+fun <C, R : Any> MetaVarConstraintFormula<C>.flatMap(
     mapper: (MetaVarConstraintFormula.Literal<C>) -> MetaVarConstraintFormula<R>
 ): MetaVarConstraintFormula<R> = flatMapOrIgnore(mapper) ?: error("Impossible")
 
-fun <C, R: Any> MetaVarConstraintFormula<C>.transformOrIgnore(
+fun <C, R : Any> MetaVarConstraintFormula<C>.transformOrIgnore(
     mapper: (C) -> R?
 ): MetaVarConstraintFormula<R>? = transformLiteralOrIgnore { mapper(it.constraint) }
 

@@ -1,5 +1,6 @@
 package org.opentaint.semgrep.pattern
 
+import kotlinx.serialization.Serializable
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternActionList
 
 data class RuleWithMetaVars<R, C>(val rule: R, val metaVarInfo: C) {
@@ -24,15 +25,21 @@ data class RawMetaVarInfo(
     val metaVariableConstraints: Map<String, MetaVarConstraintFormula<RawMetaVarConstraint>>,
 )
 
+@Serializable
 sealed interface MetaVarConstraint {
+    @Serializable
     data class RegExp(val regex: String) : MetaVarConstraint
+
+    @Serializable
     data class Concrete(val value: String) : MetaVarConstraint
 }
 
+@Serializable
 data class MetaVarConstraints(
     val constraint: MetaVarConstraintFormula<MetaVarConstraint>
 )
 
+@Serializable
 data class ResolvedMetaVarInfo(
     val focusMetaVars: Set<String>,
     val metaVarConstraints: Map<String, MetaVarConstraints>
