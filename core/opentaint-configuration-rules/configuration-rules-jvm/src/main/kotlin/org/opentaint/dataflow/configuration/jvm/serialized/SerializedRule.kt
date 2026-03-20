@@ -68,6 +68,8 @@ sealed interface SerializedRule: SerializedItem {
         override val function: SerializedFunctionNameMatcher,
         override val signature: SerializedSignatureMatcher? = null,
         override val overrides: Boolean = true,
+        val taintCopyOnly: Boolean = false,
+        val bypassVerification: Boolean = false,
         val condition: SerializedCondition? = null,
         val copy: List<SerializedTaintPassAction>,
         override val info: ItemInfo? = null

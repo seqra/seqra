@@ -1,0 +1,101 @@
+name: CI Analyzer OWASP
+
+on:
+  workflow_dispatch:
+
+  push:
+    branches: [ "main" ]
+    paths:
+      - 'core/**'
+      - 'rules/ruleset/**'
+      - '.github/workflows/ci-analyzer-owasp.yaml'
+  pull_request:
+    branches: [ "main" ]
+    paths:
+      - 'core/**'
+      - 'rules/ruleset/**'
+      - '.github/workflows/ci-analyzer-owasp.yaml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  EXPECTED_TRACES: 3011
+
+jobs:
+  owasp:
+    runs-on: ubuntu-latest
+    container: gitlab/gitlab-runner-helper:ubuntu-x86_64-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build analyzer jar
+        working-directory: core
+        run: ./gradlew :projectAnalyzerJar
+
+      - name: Build autobuilder jar
+        working-directory: core
+        run: ./gradlew opentaint-jvm-autobuilder:projectAutoBuilderJar
+
+      - name: Checkout owasp
+        uses: actions/checkout@v4
+        with:
+          repository: 'OWASP-Benchmark/BenchmarkJava'
+          path: ./test-dir/OWASP
+
+      - name: Set up Maven
+        uses: stCarolas/setup-maven@v5
+        with:
+          maven-version: '3.9.11'
+
+      - name: Build owasp
+        run: |
+          java -jar core/opentaint-jvm-autobuilder/build/libs/opentaint-project-auto-builder.jar \
+                    --project-root-dir test-dir/OWASP \
+                    --build portable \
+                    --result-dir test-dir/opentaint-project \
+                    --logs-file test-dir/autobuild.log \
+                    --verbosity debug
+
+      - name: Analyze owasp
+        run: |
+          java \
+            -Dorg.opentaint.ir.impl.storage.defaultBatchSize=2000 \
+            -Djdk.util.jar.enableMultiRelease=false \
+            -Xmx8g \
+            -jar core/build/libs/opentaint-project-analyzer.jar \
+            --project test-dir/opentaint-project/project.yaml \
+            --semgrep-rule-set rules/ruleset \
+            --output-dir test-dir/reports \
+            --ifds-analysis-timeout=1000 \
+            --logs-file test-dir/analyzer.log \
+            --verbosity debug
+
+      - name: Check report exists
+        run: |
+          if [ -e "test-dir/reports/report-ifds.sarif" ]; then
+            echo "Report exists"
+          else
+            echo "Report does not exist"
+            exit 1
+          fi
+
+      - name: Check stats
+        run: |
+          STATS="$(cat test-dir/analyzer.log | grep "TraceGenerationStats")"
+          echo $STATS
+          echo $STATS | grep -q "total=${{ env.EXPECTED_TRACES }}"

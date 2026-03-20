@@ -5,12 +5,20 @@ import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.False
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.Or
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula.True
 
-class MethodFormulaManager {
-    private val predicateIds = hashMapOf<Predicate, Int>()
-    private val predicates = arrayListOf<Predicate>()
+class MethodFormulaManager(initialPredicates: List<Predicate> = emptyList()) {
+    private val predicateIds = hashMapOf<Predicate, Int>().also {
+        initialPredicates.forEachIndexed { index, predicate ->
+            it[predicate] = index
+        }
+    }
+
+    private val predicates = arrayListOf<Predicate>().also { it.addAll(initialPredicates) }
 
     val allPredicateIds: List<PredicateId>
         get() = (1..predicates.size).toList()
+
+    val allPredicates: List<Predicate>
+        get() = predicates.toList()
 
     fun predicateId(predicate: Predicate): PredicateId = predicateIds.getOrPut(predicate) {
         val id = predicates.size

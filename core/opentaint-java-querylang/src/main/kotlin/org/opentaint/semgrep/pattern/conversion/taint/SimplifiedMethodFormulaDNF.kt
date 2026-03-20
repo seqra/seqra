@@ -5,10 +5,10 @@ import org.opentaint.dataflow.util.containsAll
 import org.opentaint.dataflow.util.copy
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.removeFirst
-import org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.conversion.automata.FalseValue
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormula
 import org.opentaint.semgrep.pattern.conversion.automata.MethodFormulaCubeCompact
+import org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.conversion.automata.TrueValue
 import org.opentaint.semgrep.pattern.conversion.automata.UnknownValue
 import org.opentaint.semgrep.pattern.conversion.automata.VariableValue
@@ -25,9 +25,104 @@ fun methodFormulaDNF(
     return methodFormulaModels(formula, cancelation, decisionVarSelector)
 }
 
+fun methodFormulaDNFSinglePass(
+    formula: MethodFormula,
+    cancelation: OperationCancelation,
+    decisionVarSelector: DecisionVarSelector,
+): List<MethodFormulaCubeCompact> {
+    return singlePassMethodFormulaModels(formula, cancelation, decisionVarSelector)
+}
+
+fun methodFormulaDNFAlgebraic(
+    formula: MethodFormula,
+    cancelation: OperationCancelation,
+): List<MethodFormulaCubeCompact> {
+    return removeSubsumed(formulaToCubes(formula, cancelation))
+}
+
+private fun formulaToCubes(
+    formula: MethodFormula,
+    cancelation: OperationCancelation,
+): List<MethodFormulaCubeCompact> = when (formula) {
+    is MethodFormula.False -> emptyList()
+    is MethodFormula.True -> listOf(MethodFormulaCubeCompact())
+    is MethodFormula.Literal -> listOf(MethodFormulaCubeCompact.singleLiteral(formula.predicate, formula.negated))
+    is MethodFormula.Cube -> cubeNodeToCubes(formula)
+    is MethodFormula.Or -> orToCubes(formula, cancelation)
+    is MethodFormula.And -> andToCubes(formula, cancelation)
+}
+
+private fun cubeNodeToCubes(formula: MethodFormula.Cube): List<MethodFormulaCubeCompact> {
+    if (!formula.negated) {
+        return listOf(formula.cube.copy())
+    }
+    val cubes = mutableListOf<MethodFormulaCubeCompact>()
+    formula.cube.positiveLiterals.forEach { cubes.add(MethodFormulaCubeCompact.singleLiteral(it, negated = true)) }
+    formula.cube.negativeLiterals.forEach { cubes.add(MethodFormulaCubeCompact.singleLiteral(it, negated = false)) }
+    return cubes.ifEmpty { emptyList() }
+}
+
+private fun orToCubes(
+    formula: MethodFormula.Or,
+    cancelation: OperationCancelation,
+): List<MethodFormulaCubeCompact> {
+    val result = mutableListOf<MethodFormulaCubeCompact>()
+    for (child in formula.any) {
+        result.addAll(formulaToCubes(child, cancelation))
+    }
+    return removeSubsumed(result)
+}
+
+private fun andToCubes(
+    formula: MethodFormula.And,
+    cancelation: OperationCancelation,
+): List<MethodFormulaCubeCompact> {
+    val childCubeLists = formula.all.map { formulaToCubes(it, cancelation) }
+    val sorted = childCubeLists.sortedBy { it.size }
+
+    var accumulated: List<MethodFormulaCubeCompact> = sorted[0]
+    for (i in 1 until sorted.size) {
+        cancelation.check()
+        if (accumulated.isEmpty()) return emptyList()
+        accumulated = removeSubsumed(crossProduct(accumulated, sorted[i]))
+    }
+    return accumulated
+}
+
+private fun crossProduct(
+    left: List<MethodFormulaCubeCompact>,
+    right: List<MethodFormulaCubeCompact>,
+): List<MethodFormulaCubeCompact> {
+    val result = ArrayList<MethodFormulaCubeCompact>(left.size * right.size)
+    for (l in left) {
+        for (r in right) {
+            val merged = l.copy()
+            merged.mutableAdd(r)
+            if (!merged.hasConflict()) {
+                result.add(merged)
+            }
+        }
+    }
+    return result
+}
+
+private fun removeSubsumed(cubes: List<MethodFormulaCubeCompact>): List<MethodFormulaCubeCompact> {
+    if (cubes.size <= 1) return cubes
+    val sorted = cubes.sortedBy { it.size }
+    val kept = mutableListOf<MethodFormulaCubeCompact>()
+    outer@ for (cube in sorted) {
+        for (smaller in kept) {
+            if (cube.containsAll(smaller)) continue@outer
+        }
+        kept.add(cube)
+    }
+    return kept
+}
+
 fun methodFormulaCheckSat(
     formula: MethodFormula,
     cancelation: OperationCancelation,
+    usePrunning: Boolean,
     verifyModel: (MethodFormulaCubeCompact) -> Boolean,
 ): Boolean {
     val checkSatStorage = object : FormulaModelsStorage {
@@ -39,6 +134,10 @@ fun methodFormulaCheckSat(
             dst.addAll(models)
         }
 
+        override fun isSubsumedByExisting(model: MethodFormulaCubeCompact): Boolean {
+            return models.any { model.containsAll(it) }
+        }
+
         override fun addModel(model: MethodFormulaCubeCompact, startModel: MethodFormulaCubeCompact) {
             if (verifyModel(model)) {
                 throw FormulaSatResult()
@@ -48,9 +147,14 @@ fun methodFormulaCheckSat(
         }
     }
 
+    val partialModelVerifier = verifyModel.takeIf { usePrunning }
+
     try {
-        methodFormulaModels(formula, cancelation, checkSatStorage, SequentialDecisionVarSelector.INITIAL)
-    } catch (isSat: FormulaSatResult) {
+        methodFormulaModels(
+            formula, cancelation, checkSatStorage,
+            SequentialDecisionVarSelector.INITIAL, partialModelVerifier
+        )
+    } catch (_: FormulaSatResult) {
         return true
     }
 
@@ -99,17 +203,31 @@ private class ModelStorage {
 interface FormulaModelsStorage {
     val isEmpty: Boolean
     fun addModel(model: MethodFormulaCubeCompact, startModel: MethodFormulaCubeCompact)
-
+    fun isSubsumedByExisting(model: MethodFormulaCubeCompact): Boolean
     fun collectToList(dst: MutableList<MethodFormulaCubeCompact>)
 }
 
-private class FormulaModels(val formula: MethodFormula): FormulaModelsStorage {
+class FormulaModels(val formula: MethodFormula): FormulaModelsStorage {
     private val storage = ModelStorage()
 
     override val isEmpty: Boolean get() = storage.isEmpty
 
     override fun collectToList(dst: MutableList<MethodFormulaCubeCompact>) {
         storage.forEachModel { dst.add(it) }
+    }
+
+    override fun isSubsumedByExisting(model: MethodFormulaCubeCompact): Boolean {
+        val usedVars = model.usedLitVars()
+        var subsumed = false
+        storage.forEachWeakerModelGroup(usedVars) { group ->
+            group.forEach {
+                if (model.containsAll(it)) {
+                    subsumed = true
+                    return@forEachWeakerModelGroup
+                }
+            }
+        }
+        return subsumed
     }
 
     override fun addModel(model: MethodFormulaCubeCompact, startModel: MethodFormulaCubeCompact) {
@@ -242,13 +360,14 @@ private class IterationModelsCollector(
 }
 
 fun methodFormulaModels(formula: MethodFormula, cancelation: OperationCancelation, decisionVarSelector: DecisionVarSelector) =
-    methodFormulaModels(formula, cancelation, FormulaModels(formula), decisionVarSelector)
+    methodFormulaModels(formula, cancelation, FormulaModels(formula), decisionVarSelector, verifyPartial = null)
 
 private fun methodFormulaModels(
     formula: MethodFormula,
     cancelation: OperationCancelation,
     models: FormulaModelsStorage,
     decisionVarSelector: DecisionVarSelector,
+    verifyPartial: ((MethodFormulaCubeCompact) -> Boolean)?
 ): List<MethodFormulaCubeCompact> {
     val startModels = startModels(formula)
     for (startModel in startModels) {
@@ -266,7 +385,10 @@ private fun methodFormulaModels(
             }
 
             val iterationModels = IterationModelsCollector(models, startModel)
-            val status = deepSearchModel(decisionVarSelector, iterationFormula, startModel, iterationModels, cancelation)
+            val status = deepSearchModel(
+                decisionVarSelector, iterationFormula, startModel, iterationModels,
+                cancelation, verifyPartial
+            )
 
             if (!status) {
                 break
@@ -277,6 +399,88 @@ private fun methodFormulaModels(
     val result = mutableListOf<MethodFormulaCubeCompact>()
     models.collectToList(result)
     return result
+}
+
+private fun singlePassMethodFormulaModels(
+    formula: MethodFormula,
+    cancelation: OperationCancelation,
+    decisionVarSelector: DecisionVarSelector,
+): List<MethodFormulaCubeCompact> {
+    val models = FormulaModels(formula)
+    val startModels = startModels(formula)
+    for (startModel in startModels) {
+        val collector = IterationModelsCollector(models, startModel)
+        singlePassDeepSearchModel(
+            decisionVarSelector, formula, startModel, collector, models, cancelation
+        )
+    }
+    val result = mutableListOf<MethodFormulaCubeCompact>()
+    models.collectToList(result)
+    return result
+}
+
+private fun singlePassSearchModel(
+    decisionVar: Int,
+    decisionVarSelector: DecisionVarSelector,
+    formula: MethodFormula,
+    currentModel: MethodFormulaCubeCompact,
+    resultModels: IterationModelsCollector,
+    existingModels: FormulaModelsStorage,
+    cancelation: OperationCancelation,
+) {
+    currentModel.positiveLiterals.set(decisionVar)
+    if (!existingModels.isSubsumedByExisting(currentModel)) {
+        singlePassDeepSearchModel(
+            decisionVarSelector, formula, currentModel, resultModels,
+            existingModels, cancelation
+        )
+    }
+    currentModel.positiveLiterals.clear(decisionVar)
+
+    currentModel.negativeLiterals.set(decisionVar)
+    if (!existingModels.isSubsumedByExisting(currentModel)) {
+        singlePassDeepSearchModel(
+            decisionVarSelector, formula, currentModel, resultModels,
+            existingModels, cancelation
+        )
+    }
+    currentModel.negativeLiterals.clear(decisionVar)
+}
+
+private fun singlePassDeepSearchModel(
+    decisionVarSelector: DecisionVarSelector,
+    formula: MethodFormula,
+    currentModel: MethodFormulaCubeCompact,
+    resultModels: IterationModelsCollector,
+    existingModels: FormulaModelsStorage,
+    cancelation: OperationCancelation,
+) {
+    cancelation.check()
+
+    val simplificationResult = simplifyWrtModel(formula, currentModel)
+    simplificationResult.handle(
+        failed = { },
+        simplifiedTrue = { requiredModel ->
+            val resultModel = currentModel.add(requiredModel)
+            check(!resultModel.hasConflict()) { "Simplification failed" }
+
+            if (!existingModels.isSubsumedByExisting(resultModel)) {
+                resultModels.addModel(resultModel)
+            }
+        },
+        partial = {
+            val nextModel = currentModel.add(it.requiredModel)
+            check(!nextModel.hasConflict()) { "Simplification failed" }
+
+            val (nextVar, nextDecisionVarSelector) = decisionVarSelector.nextDecisionVar(it.requiredVars)
+                ?: error("Simplification failed")
+
+            singlePassSearchModel(
+                nextVar, nextDecisionVarSelector, it.formula, nextModel,
+                resultModels, existingModels, cancelation
+            )
+        }
+    )
 }
 
 private fun startModels(formula: MethodFormula): List<MethodFormulaCubeCompact> {
@@ -335,14 +539,19 @@ private fun searchModel(
     formula: MethodFormula,
     currentModel: MethodFormulaCubeCompact,
     resultModels: IterationModelsCollector,
-    cancelation: OperationCancelation
+    cancelation: OperationCancelation,
+    verifyPartial: ((MethodFormulaCubeCompact) -> Boolean)?
 ): Boolean {
+    if (verifyPartial != null && !verifyPartial(currentModel)) {
+        return false
+    }
+
     currentModel.positiveLiterals.set(decisionVar)
-    val positiveSat = deepSearchModel(decisionVarSelector, formula, currentModel, resultModels, cancelation)
+    val positiveSat = deepSearchModel(decisionVarSelector, formula, currentModel, resultModels, cancelation, verifyPartial)
     currentModel.positiveLiterals.clear(decisionVar)
 
     currentModel.negativeLiterals.set(decisionVar)
-    val negativeSat = deepSearchModel(decisionVarSelector, formula, currentModel, resultModels, cancelation)
+    val negativeSat = deepSearchModel(decisionVarSelector, formula, currentModel, resultModels, cancelation, verifyPartial)
     currentModel.negativeLiterals.clear(decisionVar)
 
     return positiveSat or negativeSat
@@ -373,7 +582,8 @@ private fun deepSearchModel(
     formula: MethodFormula,
     currentModel: MethodFormulaCubeCompact,
     resultModels: IterationModelsCollector,
-    cancelation: OperationCancelation
+    cancelation: OperationCancelation,
+    verifyPartial: ((MethodFormulaCubeCompact) -> Boolean)?,
 ): Boolean {
     cancelation.check()
 
@@ -394,7 +604,7 @@ private fun deepSearchModel(
             val (nextVar, nextDecisionVarSelector) = decisionVarSelector.nextDecisionVar(it.requiredVars)
                 ?: error("Simplification failed")
 
-            searchModel(nextVar, nextDecisionVarSelector, it.formula, nextModel, resultModels, cancelation)
+            searchModel(nextVar, nextDecisionVarSelector, it.formula, nextModel, resultModels, cancelation, verifyPartial)
         }
     )
 }
