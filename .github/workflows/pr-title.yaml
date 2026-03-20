@@ -99,7 +99,7 @@ jobs:
           AUTOBUILDER_PATTERN=$(IFS="|"; echo "${AUTOBUILDER_MODULES[*]}")
           SCOPE_PATHS[autobuilder]="^(core/(${AUTOBUILDER_PATTERN})|\.github/workflows/(ci|publish)-autobuilder\.)"
           SCOPE_PATHS[infra]="^(infra/|\.github/workflows/publish-infra)"
-          SCOPE_PATHS[ci]="^(\.github/|release-notes-transform\.cjs)"
+          SCOPE_PATHS[ci]="^(\.github/|release-notes-transform\.cjs|[^/]+/\.releaserc\.cjs)"
 
           ANALYZER_MODULES=(
             "opentaint-jvm-sast-dataflow/"
