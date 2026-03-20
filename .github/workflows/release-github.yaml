@@ -95,14 +95,17 @@ jobs:
             @semantic-release/exec@6.0.3
             conventional-changelog-conventionalcommits@7.0.2
 
-      - name: Unmark release as latest
+      - name: Publish release as non-latest
         if: ${{ steps.manual_release.outputs.new-version != '' || steps.version.outputs.new_release_published == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RELEASE_VERSION="${{ steps.manual_release.outputs.new-version || steps.version.outputs.new_release_version }}"
           RELEASE_TAG="github/v$(echo "$RELEASE_VERSION" | sed 's/^v//')"
-          gh release edit "$RELEASE_TAG" --latest=false
+          RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" -q '.id')
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+            -F draft=false \
+            -f make_latest=false
 
       - name: Push floating version tags
         if: ${{ steps.manual_release.outputs.new-version != '' || steps.version.outputs.new_release_published == 'true' }}

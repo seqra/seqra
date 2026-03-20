@@ -114,7 +114,7 @@ jobs:
           fi
           rm -f release_version.txt
 
-      - name: Unmark release as latest
+      - name: Publish release as non-latest
         if: ${{ steps.manual_release.outputs.new-version != '' || steps.release_version.outputs.status == 'succeeded' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -124,7 +124,10 @@ jobs:
             RELEASE_VERSION="${{ steps.release_version.outputs.RELEASE_VERSION }}"
           fi
           RELEASE_TAG="rules/v$(echo "$RELEASE_VERSION" | sed 's/^v//')"
-          gh release edit "$RELEASE_TAG" --latest=false
+          RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" -q '.id')
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+            -F draft=false \
+            -f make_latest=false
 
       - name: Update floating latest tag
         if: ${{ steps.manual_release.outputs.new-version != '' || steps.release_version.outputs.status == 'succeeded' }}
