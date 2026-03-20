@@ -80,10 +80,10 @@ jobs:
 
           declare -A SCOPE_PATHS
 
-          SCOPE_PATHS[cli]="^cli/"
-          SCOPE_PATHS[rules]="^rules/"
-          SCOPE_PATHS[github]="^github/"
-          SCOPE_PATHS[gitlab]="^gitlab/"
+          SCOPE_PATHS[cli]="^(cli/|\.github/workflows/(ci|release)-cli\.)"
+          SCOPE_PATHS[rules]="^(rules/|\.github/workflows/(ci|release)-rules\.)"
+          SCOPE_PATHS[github]="^(github/|\.github/workflows/(ci|release)-github\.)"
+          SCOPE_PATHS[gitlab]="^(gitlab/|\.github/workflows/release-gitlab\.)"
           AUTOBUILDER_MODULES=(
             "opentaint-jvm-autobuilder/"
             "opentaint-project-model/"
@@ -97,9 +97,9 @@ jobs:
             "buildSrc/"
           )
           AUTOBUILDER_PATTERN=$(IFS="|"; echo "${AUTOBUILDER_MODULES[*]}")
-          SCOPE_PATHS[autobuilder]="^core/(${AUTOBUILDER_PATTERN})"
-          SCOPE_PATHS[infra]="^infra/"
-          SCOPE_PATHS[ci]="^\.github/"
+          SCOPE_PATHS[autobuilder]="^(core/(${AUTOBUILDER_PATTERN})|\.github/workflows/(ci|publish)-autobuilder\.)"
+          SCOPE_PATHS[infra]="^(infra/|\.github/workflows/publish-infra)"
+          SCOPE_PATHS[ci]="^(\.github/|release-notes-transform\.cjs)"
 
           ANALYZER_MODULES=(
             "opentaint-jvm-sast-dataflow/"
@@ -122,7 +122,7 @@ jobs:
             "opentaint-sast-test-util/"
           )
           ANALYZER_PATTERN=$(IFS="|"; echo "${ANALYZER_MODULES[*]}")
-          SCOPE_PATHS[analyzer]="^core/(${ANALYZER_PATTERN})"
+          SCOPE_PATHS[analyzer]="^(core/(${ANALYZER_PATTERN})|\.github/workflows/((ci|publish)-analyzer|ci-(dataflow|ir))\.)"
 
           CORE_MODULES=(
             "opentaint-project-model/"
