@@ -1,0 +1,81 @@
+name: 'Update floating tags'
+description: 'Push floating major/minor/latest git tags and recreate corresponding GitHub releases'
+
+inputs:
+  release-version:
+    description: 'Release version without v prefix (e.g. 1.2.3)'
+    required: true
+  tag-prefix:
+    description: 'Git tag prefix (e.g. "gitlab/", "github/", "rules/", or empty for CLI)'
+    required: true
+    default: ''
+  component-name:
+    description: 'Human-readable component name for release notes (e.g. "GitLab CI template")'
+    required: true
+  release-assets:
+    description: 'Files to attach to floating releases (space-separated paths)'
+    required: false
+    default: ''
+  copy-assets-from:
+    description: 'Tag to copy assets from (e.g. v0.1.2). Mutually exclusive with release-assets.'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Update floating tags
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        VERSION="$(echo "${{ inputs.release-version }}" | sed 's/^v//')"
+        PREFIX="${{ inputs.tag-prefix }}"
+        COMPONENT="${{ inputs.component-name }}"
+        MAJOR="$(echo "$VERSION" | cut -d. -f1)"
+        MAJOR_TAG="${PREFIX}v${MAJOR}"
+        MINOR_TAG="${PREFIX}v$(echo "$VERSION" | cut -d. -f1-2)"
+        LATEST_TAG="${PREFIX}latest"
+
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+        git tag -f "$MAJOR_TAG"
+        git push origin "$MAJOR_TAG" --force
+        git tag -f "$MINOR_TAG"
+        git push origin "$MINOR_TAG" --force
+        git tag -f "$LATEST_TAG"
+        git push origin "$LATEST_TAG" --force
+
+        ASSET_ARGS=()
+        ASSETS_DIR=""
+        if [ -n "${{ inputs.copy-assets-from }}" ]; then
+          ASSETS_DIR=$(mktemp -d)
+          gh release download "${{ inputs.copy-assets-from }}" --dir "$ASSETS_DIR"
+          for f in "$ASSETS_DIR"/*; do
+            [ -f "$f" ] || continue
+            ASSET_ARGS+=("$f")
+          done
+        elif [ -n "${{ inputs.release-assets }}" ]; then
+          read -ra ASSET_ARGS <<< "${{ inputs.release-assets }}"
+        fi
+
+        gh release delete "$LATEST_TAG" --yes || true
+        gh release create "$LATEST_TAG" \
+          --title "$LATEST_TAG" \
+          --notes "Floating release tracking the latest ${COMPONENT} version (${PREFIX}v${VERSION})" \
+          --latest=false \
+          --prerelease \
+          "${ASSET_ARGS[@]+"${ASSET_ARGS[@]}"}"
+
+        gh release delete "$MINOR_TAG" --yes || true
+        gh release create "$MINOR_TAG" \
+          --title "$MINOR_TAG" \
+          --notes "Floating release tracking the latest ${COMPONENT} ${MINOR_TAG#${PREFIX}}.x version (${PREFIX}v${VERSION})" \
+          --latest=false \
+          --prerelease \
+          "${ASSET_ARGS[@]+"${ASSET_ARGS[@]}"}"
+
+        if [ -n "$ASSETS_DIR" ]; then
+          rm -rf "$ASSETS_DIR"
+        fi

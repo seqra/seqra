@@ -107,37 +107,15 @@ jobs:
             -F draft=false \
             -f make_latest=false
 
-      - name: Push floating version tags
+      - name: Update floating version tags
         if: ${{ steps.manual_release.outputs.new-version != '' || steps.version.outputs.new_release_published == 'true' }}
+        uses: ./.github/actions/update-floating-tags
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          RELEASE_VERSION="${{ steps.manual_release.outputs.new-version || steps.version.outputs.new_release_version }}"
-          MAJOR="${{ steps.manual_release.outputs.major-version || steps.version.outputs.new_release_major_version }}"
-          MINOR_TAG="github/v$(echo "$RELEASE_VERSION" | cut -d. -f1-2)"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f "github/v${MAJOR}"
-          git push origin "github/v${MAJOR}" --force
-          git tag -f "$MINOR_TAG"
-          git push origin "$MINOR_TAG" --force
-          git tag -f "github/latest"
-          git push origin "github/latest" --force
-
-          gh release delete "$MINOR_TAG" --yes || true
-          gh release create "$MINOR_TAG" \
-            --title "$MINOR_TAG" \
-            --notes "Floating release tracking the latest GitHub Action ${MINOR_TAG#github/}.x version (github/v${RELEASE_VERSION})" \
-            --latest=false \
-            --prerelease
-
-          gh release delete "github/latest" --yes || true
-          gh release create "github/latest" \
-            --title "github/latest" \
-            --notes "Floating release tracking the latest GitHub Action version (v${RELEASE_VERSION})" \
-            --latest=false \
-            --prerelease
+        with:
+          release-version: ${{ steps.manual_release.outputs.new-version || steps.version.outputs.new_release_version }}
+          tag-prefix: 'github/'
+          component-name: 'GitHub Action'
 
     outputs:
       release_version: ${{ steps.manual_release.outputs.new-version || steps.version.outputs.new_release_version }}

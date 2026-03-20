@@ -131,54 +131,14 @@ jobs:
 
       - name: Update floating version tags
         if: ${{ steps.manual_release.outputs.new-version != '' || steps.release_version.outputs.status == 'succeeded' }}
+        uses: ./.github/actions/update-floating-tags
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          RELEASE_VERSION="${{ steps.manual_release.outputs.new-version }}"
-          if [ -z "$RELEASE_VERSION" ]; then
-            RELEASE_VERSION="${{ steps.release_version.outputs.RELEASE_VERSION }}"
-          fi
-          RELEASE_VERSION="$(echo "$RELEASE_VERSION" | sed 's/^v//')"
-          MAJOR="$(echo "$RELEASE_VERSION" | cut -d. -f1)"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git tag -f "rules/v${MAJOR}"
-          git push origin "rules/v${MAJOR}" --force
-          git tag -f "rules/latest"
-          git push origin "rules/latest" --force
-
-          gh release delete "rules/latest" --yes || true
-          gh release create "rules/latest" \
-            --title "rules/latest" \
-            --notes "Floating release tracking the latest rules version (rules/v${RELEASE_VERSION})" \
-            --latest=false \
-            --prerelease \
-            opentaint-rules.tar.gz
-
-      - name: Update floating minor version tag
-        if: ${{ steps.manual_release.outputs.new-version != '' || steps.release_version.outputs.status == 'succeeded' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          RELEASE_VERSION="${{ steps.manual_release.outputs.new-version }}"
-          if [ -z "$RELEASE_VERSION" ]; then
-            RELEASE_VERSION="${{ steps.release_version.outputs.RELEASE_VERSION }}"
-          fi
-          RELEASE_VERSION="$(echo "$RELEASE_VERSION" | sed 's/^v//')"
-          MINOR_TAG="rules/v$(echo "$RELEASE_VERSION" | cut -d. -f1-2)"
-
-          git tag -f "$MINOR_TAG"
-          git push origin "$MINOR_TAG" --force
-
-          gh release delete "$MINOR_TAG" --yes || true
-          gh release create "$MINOR_TAG" \
-            --title "$MINOR_TAG" \
-            --notes "Floating release tracking the latest rules ${MINOR_TAG#rules/}.x version (rules/v${RELEASE_VERSION})" \
-            --latest=false \
-            --prerelease \
-            opentaint-rules.tar.gz
+        with:
+          release-version: ${{ steps.manual_release.outputs.new-version || steps.release_version.outputs.RELEASE_VERSION }}
+          tag-prefix: 'rules/'
+          component-name: 'rules'
+          release-assets: opentaint-rules.tar.gz
 
     outputs:
       release_version: ${{ steps.manual_release.outputs.new-version || steps.release_version.outputs.RELEASE_VERSION }}
