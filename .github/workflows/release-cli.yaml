@@ -280,6 +280,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          RELEASE_TAG="v${{ steps.release_version.outputs.RELEASE_VERSION }}"
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag -f "latest"
@@ -288,9 +290,45 @@ jobs:
           gh release delete "latest" --yes || true
           gh release create "latest" \
             --title "latest" \
-            --notes "Floating release tracking the latest CLI version (v${{ steps.release_version.outputs.RELEASE_VERSION }})" \
+            --notes "Floating release tracking the latest CLI version (${RELEASE_TAG})" \
             --latest=false \
             --prerelease
+
+          ASSETS_DIR=$(mktemp -d)
+          gh release download "$RELEASE_TAG" --dir "$ASSETS_DIR"
+          for f in "$ASSETS_DIR"/*; do
+            [ -f "$f" ] || continue
+            gh release upload "latest" "$f" --clobber
+          done
+          rm -rf "$ASSETS_DIR"
+      -
+        name: Update floating minor version tag
+        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          RELEASE_TAG="v${{ steps.release_version.outputs.RELEASE_VERSION }}"
+          MINOR_TAG="v$(echo "${{ steps.release_version.outputs.RELEASE_VERSION }}" | cut -d. -f1-2)"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "$MINOR_TAG"
+          git push origin "$MINOR_TAG" --force
+
+          gh release delete "$MINOR_TAG" --yes || true
+          gh release create "$MINOR_TAG" \
+            --title "$MINOR_TAG" \
+            --notes "Floating release tracking the latest CLI ${MINOR_TAG}.x version (${RELEASE_TAG})" \
+            --latest=false \
+            --prerelease
+
+          ASSETS_DIR=$(mktemp -d)
+          gh release download "$RELEASE_TAG" --dir "$ASSETS_DIR"
+          for f in "$ASSETS_DIR"/*; do
+            [ -f "$f" ] || continue
+            gh release upload "$MINOR_TAG" "$f" --clobber
+          done
+          rm -rf "$ASSETS_DIR"
 
     outputs:
       release_version: ${{ steps.release_version.outputs.RELEASE_VERSION }}
