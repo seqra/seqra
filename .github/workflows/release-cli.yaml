@@ -278,15 +278,19 @@ jobs:
             OPENTAINT_OWNER=${{ github.repository_owner }}
             SEQRA_BUILD_FLAGS=-s -w -X github.com/${{ github.repository_owner }}/opentaint/internal/version.Version=${{ steps.release_version.outputs.RELEASE_VERSION }}
       -
-        name: Update floating latest tag
+        name: Update floating version tags
         if: ${{ steps.release_version.outputs.status == 'succeeded' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           RELEASE_TAG="v${{ steps.release_version.outputs.RELEASE_VERSION }}"
+          MAJOR="$(echo "${{ steps.release_version.outputs.RELEASE_VERSION }}" | cut -d. -f1)"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git tag -f "v${MAJOR}"
+          git push origin "v${MAJOR}" --force
           git tag -f "latest"
           git push origin "latest" --force
 
