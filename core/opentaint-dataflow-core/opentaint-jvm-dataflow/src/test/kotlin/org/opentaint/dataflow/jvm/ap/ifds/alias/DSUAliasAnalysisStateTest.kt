@@ -2,7 +2,6 @@ package org.opentaint.dataflow.jvm.ap.ifds.alias
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAccessor.Field
-import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.State
 import org.opentaint.dataflow.jvm.ap.ifds.alias.LocalAlias.SimpleLoc
 import java.util.IdentityHashMap
 import kotlin.test.Test
@@ -72,7 +71,7 @@ class DSUAliasAnalysisStateTest {
 
         fun mergeStates(vararg builders: StateBuilder) {
             val states = builders.map { it.state }
-            this.state = State.merge(manager, strategy, states)
+            this.state = State.merge(manager, strategy, states, MergeType.May)
 
             builders.forEach {
                 created.putAll(it.created)
