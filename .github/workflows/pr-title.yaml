@@ -134,10 +134,10 @@ jobs:
 
           DOCS_PATTERNS=(
             "docs/"
-            "README\.md"
-            "CHANGELOG\.md"
+            "(.*/)?README\.md"
+            "(.*/)?CHANGELOG\.md"
             "logos/"
-            "LICENSE\.md"
+            "(.*/)?LICENSE(\.md)?"
             ".*\.svg"
             ".*\.png"
           )
