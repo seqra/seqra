@@ -14,6 +14,8 @@
     SEVERITY: "warning,error"
     # Scan timeout
     TIMEOUT: "15m"
+    # Java version for compilation (e.g., 8, 11, 17, 21, 25)
+    JAVA_VERSION: ""
   script:
     - |
       missing=()
@@ -57,10 +59,14 @@
         OPENTAINT_DOWNLOAD_BASE_URL="https://github.com/seqra/opentaint/releases/download/$RESOLVED_OPENTAINT_VERSION" \
         bash
 
-    - '$OPENTAINT_ARTIFACTS/opentaint compile --quiet --output "$OPENTAINT_ARTIFACTS/project" $PROJECT_ROOT'
+    - '$OPENTAINT_ARTIFACTS/opentaint compile --quiet ${JAVA_VERSION:+--java-version $JAVA_VERSION} --output "$OPENTAINT_ARTIFACTS/project" $PROJECT_ROOT'
 
     - |
       cmd="$OPENTAINT_ARTIFACTS/opentaint scan --quiet"
+
+      if [ -n "$JAVA_VERSION" ]; then
+        cmd="$cmd --java-version $JAVA_VERSION"
+      fi
 
       IFS=',' read -ra rulesets <<< "$RULES_PATH"
       for ruleset in "${rulesets[@]}"; do
