@@ -9,9 +9,7 @@ Run [OpenTaint](https://github.com/seqra/opentaint) static analysis in your CI, 
 
 ### Prerequisites
 
-OpenTaint analyzes compiled bytecode of your project. Before running this action, ensure your CI environment is configured to compile the project. For example:
-
-- **Java/Kotlin projects:** Set up a JDK using `actions/setup-java@v5`
+OpenTaint analyzes compiled bytecode of your project. Before running this action, ensure your CI environment is configured to compile the project.
 
 ### Quick Start
 
@@ -28,12 +26,6 @@ jobs:
     steps:
       - name: Checkout your repository
         uses: actions/checkout@v6
-
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '21'
 
       - name: Run OpenTaint code analysis
         uses: seqra/opentaint/github@github/v0
@@ -59,17 +51,32 @@ jobs:
       - name: Checkout your repository
         uses: actions/checkout@v6
 
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '21'
-
       - name: Run OpenTaint code analysis
         uses: seqra/opentaint/github@github/v0
         with:
           upload-sarif: 'true'
           artifact-name: 'sarif'
+```
+
+
+### Scan with a specific Java version
+
+```yaml
+name: OpenTaint Analysis
+on:
+    workflow_dispatch
+
+jobs:
+  opentaint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout your repository
+        uses: actions/checkout@v6
+
+      - name: Run OpenTaint code analysis
+        uses: seqra/opentaint/github@github/v0
+        with:
+          java-version: '25'
 ```
 
 
@@ -91,12 +98,6 @@ jobs:
     steps:
       - name: Checkout your repository
         uses: actions/checkout@v6
-
-      - name: Set up JDK
-        uses: actions/setup-java@v5
-        with:
-          distribution: 'temurin'
-          java-version: '21'
 
       - name: Run OpenTaint code analysis
         uses: seqra/opentaint/github@github/v0
@@ -131,6 +132,10 @@ jobs:
             # Severity levels to report (comma-separated)
             # Valid values: note, warning, error
             severity: 'warning,error'
+
+            # Java version for compilation (e.g., 8, 11, 17, 21, 25)
+            # By default uses the CLI default
+            java-version: ''
 ```
 
 
@@ -178,7 +183,7 @@ with:
 
 ## Troubleshooting
 
-* **"Compilation has failed:"** OpenTaint needs to compile your project to analyze bytecode. Ensure you have set up the required build tools (e.g., JDK via `actions/setup-java@v5`) before running this action. See [Prerequisites](#prerequisites).
+* **"Compilation has failed:"** OpenTaint automatically downloads the required JDK for compilation. If your project requires a specific Java version, set the `java-version` input (e.g., `java-version: '17'`).
 * **Monorepos:** You can analyze only the project you need using `project-root`.
 * **Timeouts:** If the scan times out, increase `timeout` (e.g., `30m`).
 

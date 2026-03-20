@@ -37,6 +37,9 @@ inputs:
   severity:
     description: 'Severity levels to report (comma-separated). Valid values: note, warning, error'
     default: 'warning,error'
+  java-version:
+    description: 'Java version for compilation (e.g., 8, 11, 17, 21, 25)'
+    default: ''
 
 runs:
   using: 'composite'
@@ -98,8 +101,14 @@ runs:
 
            TOKEN_ARGS=(--github-token "${{ inputs.token || github.token }}")
 
+            COMPILE_ARGS=()
+           if [ -n "${{ inputs.java-version }}" ]; then
+             COMPILE_ARGS+=(--java-version "${{ inputs.java-version }}")
+           fi
+
             "${{ steps.globals.outputs.OPENTAINT_BIN }}" --quiet "${TOKEN_ARGS[@]}" compile \
               --verbosity "${{ inputs.verbosity }}" \
+              "${COMPILE_ARGS[@]}" \
               --output "${{ steps.globals.outputs.OPENTAINT_PROJECT }}" "${{ inputs.project-root }}"
 
     - name: Run analysis
@@ -132,6 +141,10 @@ runs:
            TOKEN_ARGS=(--github-token "${{ inputs.token || github.token }}")
 
             CMD=("${{ steps.globals.outputs.OPENTAINT_BIN }}" --quiet "${TOKEN_ARGS[@]}" scan)
+
+           if [ -n "${{ inputs.java-version }}" ]; then
+             CMD+=(--java-version "${{ inputs.java-version }}")
+           fi
 
            append_csv_args "ruleset" "${{ inputs.rules-path }}"
 
