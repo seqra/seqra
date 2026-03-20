@@ -33,7 +33,7 @@ interface PrintableGraph<GNode, GLabel> {
 
         fun mkNode(node: GNode): Node = nodes.getOrPut(node) {
             val index = nodes.size
-            val label = nodeLabel(node).split("\n").joinToString("\\\n") { line -> "${line.replace("\"", "\\\"")}\\l" }
+            val label = nodeLabel(node).normalizeLabel()
             val nd = Node("$index")
                 .setShape(Shape.box)
                 .setLabel(label)
@@ -51,8 +51,7 @@ interface PrintableGraph<GNode, GLabel> {
                 val edgeLabel = edgeLabel(edgeT)
 
                 graph.addEdge(Edge(stateNode.name, dstNode.name).also {
-                    val label =
-                        edgeLabel.split("\n").joinToString("\\\n") { line -> "${line.replace("\"", "\\\"")}\\l" }
+                    val label = edgeLabel.normalizeLabel()
                     it.setLabel(label)
                     it.setStyle(Style.Edge.solid)
                 })
@@ -71,6 +70,10 @@ interface PrintableGraph<GNode, GLabel> {
         Files.move(File(outFile).toPath(), resultingFile)
         return resultingFile
     }
+
+    private fun String.normalizeLabel(): String =
+        this.split("\n")
+            .joinToString("\\\n") { line -> "${line.replace("\"", "\\\"")}\\l" }
 
     companion object {
         private val viewer = lazy {

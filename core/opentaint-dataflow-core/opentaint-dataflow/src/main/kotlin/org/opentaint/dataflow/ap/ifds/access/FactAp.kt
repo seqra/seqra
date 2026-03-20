@@ -9,6 +9,8 @@ interface AccessorList {
     fun startsWithAccessor(accessor: Accessor): Boolean
     fun getStartAccessors(): Set<Accessor>
     fun getAllAccessors(): Set<Accessor>
+
+    fun isAbstract(): Boolean
 }
 
 interface ReadableAccessorList<T : Any> : AccessorList {
@@ -48,8 +50,6 @@ interface FinalFactAp : FactAp, ReadableAccessorList<FinalFactAp> {
     fun rebase(newBase: AccessPathBase): FinalFactAp
     fun exclude(accessor: Accessor): FinalFactAp
     fun replaceExclusions(exclusions: ExclusionSet): FinalFactAp
-
-    fun isAbstract(): Boolean
 
     fun prependAccessor(accessor: Accessor): FinalFactAp
     fun clearAccessor(accessor: Accessor): FinalFactAp?

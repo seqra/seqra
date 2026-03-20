@@ -9,7 +9,9 @@ import org.opentaint.dataflow.ap.ifds.FactTypeChecker.CompatibilityFilterResult
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import org.opentaint.dataflow.util.forEach
+import kotlin.collections.plusAssign
 
 fun AutomataApManager.createCompatibilityFilter(
     access: AccessGraph,
@@ -34,6 +36,7 @@ fun AutomataApManager.createFilter(
             is AnyAccessor -> FactTypeChecker.AlwaysAcceptFilter
             is FinalAccessor -> FactTypeChecker.AlwaysRejectFilter
             is TaintMarkAccessor -> OnlyFinalAccessorAllowedFilter
+            is ValueAccessor -> OnlyTaintMarkAccessorAllowedFilter
             else -> error("Unexpected single accessor")
         }
     },
@@ -59,6 +62,7 @@ private inline fun <T> AutomataApManager.createFilter(
             }
 
             is TaintMarkAccessor -> filters += singleAccessorFilter(accessor)
+            is ValueAccessor -> filters += singleAccessorFilter(accessor)
             is FieldAccessor,
             is ClassStaticAccessor -> filters += accessorListFilter(listOf(accessor))
 
@@ -81,13 +85,23 @@ private inline fun <T> AutomataApManager.createFilter(
     return combine(filters)
 }
 
-private object OnlyFinalAccessorAllowedFilter : FactTypeChecker.FactApFilter {
+private interface OnlySpecifiedAccessorAllowedFilter : FactTypeChecker.FactApFilter {
+    fun predicate(accessor: Accessor): Boolean
+
     override fun check(accessor: Accessor): FactTypeChecker.FilterResult =
-        if (accessor is FinalAccessor) {
+        if (predicate(accessor)) {
             FactTypeChecker.FilterResult.Accept
         } else {
             FactTypeChecker.FilterResult.Reject
         }
+}
+
+private object OnlyFinalAccessorAllowedFilter : OnlySpecifiedAccessorAllowedFilter {
+    override fun predicate(accessor: Accessor): Boolean = accessor is FinalAccessor
+}
+
+private object OnlyTaintMarkAccessorAllowedFilter : OnlySpecifiedAccessorAllowedFilter {
+    override fun predicate(accessor: Accessor): Boolean = accessor is TaintMarkAccessor
 }
 
 private class CombinedFilter(

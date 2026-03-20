@@ -2,6 +2,7 @@ package org.opentaint.dataflow.ap.ifds.trace
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition.CallPreconditionFact.CallFailurePreconditionFact
 import org.opentaint.dataflow.ap.ifds.trace.TaintRulePrecondition.PassRuleCondition
 
 interface MethodCallPrecondition {
@@ -15,11 +16,15 @@ interface MethodCallPrecondition {
     ): CallPrecondition
 
     sealed interface CallPreconditionFact {
-        data class CallToReturnTaintRule(val precondition: TaintRulePrecondition) : CallPreconditionFact
+        sealed interface CallFailurePreconditionFact : CallPreconditionFact
+
+        object UnresolvedCallSkip : CallPreconditionFact, CallFailurePreconditionFact
+        data class CallToReturnTaintRule(val precondition: TaintRulePrecondition) : CallPreconditionFact, CallFailurePreconditionFact
         data class CallToStart(val callerFact: InitialFactAp, val startFactBase: AccessPathBase) : CallPreconditionFact
     }
 
     fun factPrecondition(fact: InitialFactAp): List<CallPrecondition>
+    fun factPreconditionResolutionFailure(fact: InitialFactAp, startFactBase: AccessPathBase): List<CallFailurePreconditionFact>
 
     data class PassRuleConditionFacts(val facts: List<InitialFactAp>)
 

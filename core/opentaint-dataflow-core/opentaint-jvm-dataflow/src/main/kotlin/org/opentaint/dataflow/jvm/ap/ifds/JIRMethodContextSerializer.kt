@@ -28,7 +28,7 @@ class JIRMethodContextSerializer(private val cp: JIRClasspath) : MethodContextSe
             }
 
             is JIRArgumentTypeMethodContext -> {
-                writeEnum(ContextType.JIR_INSTANCE_TYPE)
+                writeEnum(ContextType.JIR_ARGUMENT_TYPE)
                 writeInt(methodContext.argIdx)
                 writeConstraint(methodContext.typeConstraint)
             }

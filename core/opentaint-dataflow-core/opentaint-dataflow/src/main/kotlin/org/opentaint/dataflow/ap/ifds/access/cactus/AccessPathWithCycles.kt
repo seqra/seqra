@@ -15,6 +15,10 @@ class AccessPathWithCycles(
     override fun rebase(newBase: AccessPathBase): InitialFactAp =
         AccessPathWithCycles(newBase, access, exclusions)
 
+    override fun isAbstract(): Boolean {
+        TODO("Not yet implemented")
+    }
+
     override fun exclude(accessor: Accessor): InitialFactAp =
         AccessPathWithCycles(base, access, exclusions.add(accessor))
 

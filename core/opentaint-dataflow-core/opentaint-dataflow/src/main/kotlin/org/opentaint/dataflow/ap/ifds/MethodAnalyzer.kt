@@ -25,7 +25,6 @@ import org.opentaint.dataflow.ap.ifds.trace.MethodForwardTraceResolver.RelevantF
 import org.opentaint.dataflow.ap.ifds.trace.MethodForwardTraceResolver.TraceGraph
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.ProcessingCancellation
-import org.opentaint.dataflow.graph.MethodInstGraph
 import org.opentaint.dataflow.util.cartesianProductMapTo
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
@@ -107,6 +106,8 @@ interface MethodAnalyzer {
 
     fun handleResolvedMethodCall(method: MethodWithContext, handler: MethodCallHandler)
 
+    fun handleResolvedMethodCall(entryPoint: MethodEntryPoint, handler: MethodCallHandler)
+
     fun handleMethodCallResolutionFailure(
         callExpr: CommonCallExpr,
         handler: MethodCallResolutionFailureHandler
@@ -125,7 +126,8 @@ interface MethodAnalyzer {
 
     fun resolveIntraProceduralFullTrace(
         summaryTrace: MethodTraceResolver.SummaryTrace,
-        cancellation: ProcessingCancellation
+        cancellation: ProcessingCancellation,
+        collapseUnchangedNodes: Boolean,
     ): List<MethodTraceResolver.FullTrace>
 
     fun resolveIntraProceduralForwardFullTrace(
@@ -150,10 +152,12 @@ interface MethodAnalyzer {
     }
 
     sealed interface MethodCallResolutionFailureHandler {
-        data class ZeroToZeroHandler(val edge: ZeroToZero) : MethodCallResolutionFailureHandler
-        data class ZeroToFactHandler(val edge: ZeroInitialEdge, val callerFactAp: FinalFactAp) : MethodCallResolutionFailureHandler
-        data class FactToFactHandler(val callerEdge: FactToFact, val callerFactAp: FinalFactAp): MethodCallResolutionFailureHandler
-        data class NDFactToFactHandler(val callerEdge: NDFactToFact, val callerFactAp: FinalFactAp): MethodCallResolutionFailureHandler
+        val callerEdge: Edge
+
+        data class ZeroToZeroHandler(override val callerEdge: ZeroToZero) : MethodCallResolutionFailureHandler
+        data class ZeroToFactHandler(override val callerEdge: ZeroToFact, val startFactBase: AccessPathBase) : MethodCallResolutionFailureHandler
+        data class FactToFactHandler(override val callerEdge: FactToFact, val startFactBase: AccessPathBase): MethodCallResolutionFailureHandler
+        data class NDFactToFactHandler(override val callerEdge: NDFactToFact, val startFactBase: AccessPathBase): MethodCallResolutionFailureHandler
     }
 }
 
@@ -166,7 +170,6 @@ class NormalMethodAnalyzer(
     private val apManager: ApManager get() = runner.apManager
     private val analysisManager get() = runner.analysisManager
     private val methodCallResolver get() = runner.methodCallResolver
-    private val methodInstGraph = MethodInstGraph.build(analysisManager, runner.graph, methodEntryPoint.method)
 
     private var zeroInitialFactProcessed: Boolean = false
     private val initialFacts = apManager.initialFactAbstraction(methodEntryPoint.statement)
@@ -179,6 +182,8 @@ class NormalMethodAnalyzer(
         methodEntryPoint, runner.graph, runner.methodCallResolver,
         (emptyContextAnalyzer as? NormalMethodAnalyzer)?.analysisContext
     )
+
+    private val methodInstGraph = analysisManager.getMethodInstGraph(runner.graph, analysisContext, methodEntryPoint.method)
 
     private var analyzerEnqueued = false
     private var unprocessedEdges = EdgeCollection.EdgeList(apManager, methodEntryPoint)
@@ -357,7 +362,7 @@ class NormalMethodAnalyzer(
             returnValue,
             callExpr,
             edge.statement,
-            false,
+            generateTrace = false,
         )
 
         when (edge) {
@@ -415,7 +420,7 @@ class NormalMethodAnalyzer(
             is MethodCallFlowFunction.CallToStartZFact -> {
                 val callerEdge = ZeroToFact(methodEntryPoint, edge.statement, fact.callerFactAp)
                 val handler = MethodCallHandler.ZeroToFactHandler(callerEdge, fact.startFactBase)
-                val failureHandler = MethodCallResolutionFailureHandler.ZeroToFactHandler(edge, fact.callerFactAp)
+                val failureHandler = MethodCallResolutionFailureHandler.ZeroToFactHandler(callerEdge, fact.startFactBase)
                 resolveMethodCall(callExpr, edge.statement, handler, failureHandler)
             }
 
@@ -467,7 +472,7 @@ class NormalMethodAnalyzer(
                 handleInputFactChange(edge.initialFactAp, callerEdge.initialFactAp)
 
                 val handler = MethodCallHandler.FactToFactHandler(callerEdge, fact.startFactBase)
-                val failureHandler = MethodCallResolutionFailureHandler.FactToFactHandler(callerEdge, fact.callerFactAp)
+                val failureHandler = MethodCallResolutionFailureHandler.FactToFactHandler(callerEdge, fact.startFactBase)
                 resolveMethodCall(callExpr, edge.statement, handler, failureHandler)
             }
 
@@ -518,7 +523,7 @@ class NormalMethodAnalyzer(
                 val callerEdge = NDFactToFact(methodEntryPoint, fact.initialFacts, edge.statement, fact.callerFactAp)
 
                 val handler = MethodCallHandler.NDFactToFactHandler(callerEdge, fact.startFactBase)
-                val failureHandler = MethodCallResolutionFailureHandler.NDFactToFactHandler(callerEdge, fact.callerFactAp)
+                val failureHandler = MethodCallResolutionFailureHandler.NDFactToFactHandler(callerEdge, fact.startFactBase)
                 resolveMethodCall(callExpr, edge.statement, handler, failureHandler)
             }
         }
@@ -566,13 +571,37 @@ class NormalMethodAnalyzer(
             handleInputFactChange(edgeBeforeStatement.initialFactAp, edgeAfterStatement.initialFactAp)
         }
 
-        tryEmmitSummaryEdge(edgeAfterStatement)
-        propagateEdgeToSuccessors(edgeAfterStatement, edgeUnchanged = false)
+        val edgePostProcessor = analysisManager.getEdgePostProcessor(
+            apManager,
+            analysisContext,
+            methodInstGraph,
+            edgeAfterStatement.statement
+        )
+        val processedEdges = edgePostProcessor?.process(edgeAfterStatement) ?: listOf(edgeAfterStatement)
+
+        processedEdges.forEach { edge ->
+            propagateEdge(edge, edgeUnchanged = false)
+        }
     }
 
     private fun handleUnchangedStatementEdge(edge: Edge) {
+        val edgePostProcessor = analysisManager.getEdgePostProcessor(
+            apManager,
+            analysisContext,
+            methodInstGraph,
+            edge.statement
+        )
+        val processedEdges = edgePostProcessor?.process(edge) ?: listOf(edge)
+
+        processedEdges.forEach { processedEdge ->
+            val edgeUnchanged = processedEdge === edge
+            propagateEdge(edge, edgeUnchanged)
+        }
+    }
+
+    private fun propagateEdge(edge: Edge, edgeUnchanged: Boolean) {
         tryEmmitSummaryEdge(edge)
-        propagateEdgeToSuccessors(edge, edgeUnchanged = true)
+        propagateEdgeToSuccessors(edge, edgeUnchanged)
     }
 
     private fun propagateEdgeToSuccessors(edge: Edge, edgeUnchanged: Boolean) {
@@ -599,14 +628,7 @@ class NormalMethodAnalyzer(
         }
 
         if (isValidSummaryEdge) {
-            val processor = analysisManager.getMethodSummaryEdgeProcessor(apManager, analysisContext, edge.statement)
-            if (processor == null) {
-                newSummaryEdge(edge)
-            } else {
-                processor.processSummaryEdge(edge).forEach {
-                    newSummaryEdge(it)
-                }
-            }
+            newSummaryEdge(edge)
         }
     }
 
@@ -656,6 +678,10 @@ class NormalMethodAnalyzer(
         }
     }
 
+    override fun handleResolvedMethodCall(entryPoint: MethodEntryPoint, handler: MethodCallHandler) {
+        handleMethodCall(handler, entryPoint)
+    }
+
     private fun handleMethodCall(handler: MethodCallHandler, ep: MethodEntryPoint) = when (handler) {
         is MethodCallHandler.ZeroToZeroHandler ->
             runner.subscribeOnMethodSummaries(handler.currentEdge, ep)
@@ -673,40 +699,53 @@ class NormalMethodAnalyzer(
     override fun handleMethodCallResolutionFailure(
         callExpr: CommonCallExpr,
         handler: MethodCallResolutionFailureHandler
-    ) = when (handler) {
-        is MethodCallResolutionFailureHandler.ZeroToZeroHandler -> {
-            // If no callees resolved propagate as call-to-return
-            handleStatementEdge(handler.edge, ZeroToZero(methodEntryPoint, handler.edge.statement))
-        }
+    ) {
+        val statement = handler.callerEdge.statement
+        val returnValue: CommonValue? = (statement as? CommonAssignInst)?.lhv
+        val flowFunction = analysisManager.getMethodCallFlowFunction(
+            apManager,
+            analysisContext,
+            returnValue,
+            callExpr,
+            statement,
+            generateTrace = false,
+        )
 
-        is MethodCallResolutionFailureHandler.ZeroToFactHandler -> {
-            // If no callees resolved propagate as call-to-return
-            val stubFact = MethodCallFlowFunction.CallToReturnZFact(handler.callerFactAp, traceInfo = null)
-            propagateZeroCallFact(callExpr, handler.edge, stubFact)
-        }
+        when (handler) {
+            is MethodCallResolutionFailureHandler.ZeroToZeroHandler -> {
+                flowFunction.propagateZeroToZeroResolutionFailure().forEach { fact ->
+                    propagateZeroCallFact(callExpr, handler.callerEdge, fact)
+                }
+            }
 
-        is MethodCallResolutionFailureHandler.FactToFactHandler -> {
-            // If no callees resolved propagate as call-to-return
-            val stubFact = MethodCallFlowFunction.CallToReturnFFact(
-                handler.callerEdge.initialFactAp, handler.callerFactAp, traceInfo = null
-            )
-            propagateFactCallFact(callExpr, handler.callerEdge, stubFact)
-        }
+            is MethodCallResolutionFailureHandler.ZeroToFactHandler -> {
+                flowFunction.propagateZeroToFactResolutionFailure(handler.callerEdge.factAp, handler.startFactBase).forEach { fact ->
+                    propagateZeroCallFact(callExpr, handler.callerEdge, fact)
+                }
+            }
 
-        is MethodCallResolutionFailureHandler.NDFactToFactHandler -> {
-            // If no callees resolved propagate as call-to-return
-            val stubFact = MethodCallFlowFunction.CallToReturnNonDistributiveFact(
-                handler.callerEdge.initialFacts, handler.callerFactAp, traceInfo = null
-            )
-            propagateNDFactCallFact(callExpr, handler.callerEdge, stubFact)
+            is MethodCallResolutionFailureHandler.FactToFactHandler -> {
+                val edge = handler.callerEdge
+                flowFunction.propagateFactToFactResolutionFailure(edge.initialFactAp, edge.factAp, handler.startFactBase).forEach { fact ->
+                    propagateFactCallFact(callExpr, handler.callerEdge, fact)
+                }
+            }
+
+            is MethodCallResolutionFailureHandler.NDFactToFactHandler -> {
+                val edge = handler.callerEdge
+                flowFunction.propagateNDFactToFactResolutionFailure(edge.initialFacts, edge.factAp, handler.startFactBase).forEach { fact ->
+                    propagateNDFactCallFact(callExpr, handler.callerEdge, fact)
+                }
+            }
         }
     }
 
-    private val methodEntryPointsCache = hashMapOf<CommonMethod, Array<CommonInst>>()
+    private val methodEntryPointsCache = hashMapOf<MethodWithContext, Array<CommonInst>>()
 
     private fun methodEntryPoints(method: MethodWithContext): List<MethodEntryPoint> {
-        val methodEntryPoints = methodEntryPointsCache.getOrPut(method.method) {
-            runner.graph.methodGraph(method.method).entryPoints().toList().toTypedArray()
+        val methodEntryPoints = methodEntryPointsCache.getOrPut(method) {
+            val epResolver = analysisManager.getMethodEntrypointResolver(runner.graph)
+            epResolver.resolveEntryPoints(method.method, method.ctx).toTypedArray()
         }
         return methodEntryPoints.map { MethodEntryPoint(method.ctx, it) }
     }
@@ -1206,10 +1245,11 @@ class NormalMethodAnalyzer(
 
     override fun resolveIntraProceduralFullTrace(
         summaryTrace: MethodTraceResolver.SummaryTrace,
-        cancellation: ProcessingCancellation
+        cancellation: ProcessingCancellation,
+        collapseUnchangedNodes: Boolean,
     ): List<MethodTraceResolver.FullTrace> {
         val resolver = MethodTraceResolver(runner, analysisContext, edges, methodInstGraph)
-        val (fullTrace, steps) = resolver.resolveIntraProceduralFullTrace(summaryTrace, cancellation)
+        val (fullTrace, steps) = resolver.resolveIntraProceduralFullTrace(summaryTrace, cancellation, collapseUnchangedNodes)
         traceResolverSteps += steps
         return fullTrace
     }
@@ -1388,6 +1428,10 @@ class EmptyMethodAnalyzer(
         error("Empty method should not method resolution results")
     }
 
+    override fun handleResolvedMethodCall(entryPoint: MethodEntryPoint, handler: MethodCallHandler) {
+        error("Empty method should not method resolution results")
+    }
+
     override fun handleMethodCallResolutionFailure(callExpr: CommonCallExpr, handler: MethodCallResolutionFailureHandler) {
         error("Empty method should not method resolution results")
     }
@@ -1402,7 +1446,8 @@ class EmptyMethodAnalyzer(
 
     override fun resolveIntraProceduralFullTrace(
         summaryTrace: MethodTraceResolver.SummaryTrace,
-        cancellation: ProcessingCancellation
+        cancellation: ProcessingCancellation,
+        collapseUnchangedNodes: Boolean,
     ): List<MethodTraceResolver.FullTrace> {
         TODO("Not yet implemented")
     }

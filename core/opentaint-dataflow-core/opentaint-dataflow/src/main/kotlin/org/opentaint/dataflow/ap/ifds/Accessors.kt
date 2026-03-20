@@ -71,7 +71,7 @@ sealed class Accessor : Comparable<Accessor> {
         }
 
         return when (this) {
-            ElementAccessor, FinalAccessor, AnyAccessor -> 0 // Definitely equal
+            ElementAccessor, FinalAccessor, AnyAccessor, ValueAccessor -> 0 // Definitely equal
             is FieldAccessor -> this.compareToFieldAccessor(other as FieldAccessor)
             is TaintMarkAccessor -> this.compareToTaintMarkAccessor(other as TaintMarkAccessor)
             is ClassStaticAccessor -> this.compareToClassStaticAccessor(other as ClassStaticAccessor)
@@ -151,6 +151,13 @@ data class ClassStaticAccessor(val typeName: String) : Accessor() {
     fun compareToClassStaticAccessor(other: ClassStaticAccessor): Int {
         return typeName.compareTo(other.typeName)
     }
+}
+
+object ValueAccessor : Accessor() {
+    override fun toString(): String = "[value]"
+    override fun toSuffix(): String = ".[value]"
+
+    override val accessorClassId: Int = 6
 }
 
 inline fun <T : Any> ApManager.tryAnyAccessorOrNull(accessor: Accessor, body: () -> T?): T? {

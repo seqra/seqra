@@ -397,15 +397,17 @@ fun Position.resolveAp(baseAp: AccessPathBase): PositionAccess {
 
         is PositionWithAccess -> {
             val resolvedBaseAp = base.resolveAp(baseAp)
-            val accessor = when (val a = access) {
-                PositionAccessor.ElementAccessor -> ElementAccessor
-                is PositionAccessor.FieldAccessor -> FieldAccessor(a.className, a.fieldName, a.fieldType)
-                PositionAccessor.AnyFieldAccessor -> AnyAccessor
-            }
+            val accessor = access.toApAccessor()
 
             PositionAccess.Complex(resolvedBaseAp, accessor)
         }
     }
+}
+
+fun PositionAccessor.toApAccessor() = when(this) {
+    PositionAccessor.AnyFieldAccessor -> AnyAccessor
+    PositionAccessor.ElementAccessor -> ElementAccessor
+    is PositionAccessor.FieldAccessor -> FieldAccessor(className, fieldName, fieldType)
 }
 
 private fun PositionAccess.baseIsResult(): Boolean = when (this) {

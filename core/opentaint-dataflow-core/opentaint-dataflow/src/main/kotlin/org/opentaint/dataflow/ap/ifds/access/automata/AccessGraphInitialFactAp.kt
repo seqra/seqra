@@ -18,6 +18,9 @@ data class AccessGraphInitialFactAp(
     override fun rebase(newBase: AccessPathBase): InitialFactAp =
         AccessGraphInitialFactAp(newBase, access, exclusions)
 
+    override fun isAbstract(): Boolean =
+        exclusions !is ExclusionSet.Universe && access.initialNodeIsFinal()
+
     override fun exclude(accessor: Accessor): InitialFactAp {
         check(accessor !is AnyAccessor)
         return AccessGraphInitialFactAp(base, access, exclusions.add(accessor))
@@ -54,6 +57,8 @@ data class AccessGraphInitialFactAp(
             val newGraph = access.read(accessor.idx) ?: return@with null
             return Delta(newGraph)
         }
+
+        override fun isAbstract(): Boolean = access.initialNodeIsFinal()
     }
 
     override fun splitDelta(other: FinalFactAp): List<Pair<InitialFactAp, InitialFactAp.Delta>> {

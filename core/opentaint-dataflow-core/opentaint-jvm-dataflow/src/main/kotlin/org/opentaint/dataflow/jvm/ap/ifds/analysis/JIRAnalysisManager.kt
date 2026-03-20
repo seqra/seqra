@@ -8,18 +8,20 @@ import org.opentaint.dataflow.ap.ifds.TaintAnalysisManager
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.ap.ifds.analysis.MethodEdgePostProcessor
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallSummaryHandler
+import org.opentaint.dataflow.ap.ifds.analysis.MethodEntrypointResolver
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSideEffectSummaryHandler
 import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction
-import org.opentaint.dataflow.ap.ifds.analysis.MethodSummaryEdgeProcessor
 import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisContext
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodStartPrecondition
+import org.opentaint.dataflow.graph.MethodInstGraph
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
@@ -108,6 +110,19 @@ class JIRAnalysisManager(
         )
     }
 
+    override fun getMethodInstGraph(
+        graph: ApplicationGraph<CommonMethod, CommonInst>,
+        analysisContext: MethodAnalysisContext,
+        method: CommonMethod
+    ): MethodInstGraph = MethodInstGraph.build(this, graph, method)
+
+    override fun getMethodEntrypointResolver(
+        graph: ApplicationGraph<CommonMethod, CommonInst>,
+    ): MethodEntrypointResolver {
+        jIRDowncast<JApplicationGraph>(graph)
+        return JIRMethodEntrypointResolver(graph)
+    }
+
     override fun getMethodStartFlowFunction(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext
@@ -181,15 +196,6 @@ class JIRAnalysisManager(
         return JIRMethodCallSummaryHandler(statement, analysisContext, apManager)
     }
 
-    override fun getMethodSummaryEdgeProcessor(
-        apManager: ApManager,
-        analysisContext: MethodAnalysisContext,
-        statement: CommonInst
-    ): MethodSummaryEdgeProcessor {
-        jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
-        return JIRMethodSummaryEdgeProcessor(analysisContext)
-    }
-
     override fun getMethodSideEffectSummaryHandler(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
@@ -221,6 +227,18 @@ class JIRAnalysisManager(
             callExpr,
             statement
         )
+    }
+
+    override fun getEdgePostProcessor(
+        apManager: ApManager,
+        analysisContext: MethodAnalysisContext,
+        graph: MethodInstGraph,
+        statement: CommonInst,
+    ): MethodEdgePostProcessor {
+        jIRDowncast<JIRMethodAnalysisContext>(analysisContext)
+        jIRDowncast<JIRInst>(statement)
+
+        return JIRMethodSummaryEdgeProcessor(analysisContext, graph, this, statement)
     }
 
     override fun isReachable(

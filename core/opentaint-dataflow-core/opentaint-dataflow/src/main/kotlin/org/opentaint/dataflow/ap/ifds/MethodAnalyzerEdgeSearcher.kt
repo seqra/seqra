@@ -98,6 +98,7 @@ abstract class MethodAnalyzerEdgeSearcher(
             val preconditionFunction = analysisManager.getMethodCallPrecondition(
                 apManager, analysisContext, returnValue, statementCall, statement
             )
+
             val preconditions = preconditionFunction.factPrecondition(fact)
             val facts = mutableListOf<InitialFactAp>()
             for (precondition in preconditions) {

@@ -10,6 +10,7 @@ import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode.Companion.SUBSEQUENT_ARRAY_ELEMENTS_LIMIT
@@ -22,6 +23,8 @@ class AccessPath(
 ): InitialFactAp {
     override fun rebase(newBase: AccessPathBase): InitialFactAp =
         AccessPath(apManager, newBase, access, exclusions)
+
+    override fun isAbstract(): Boolean = access == null
 
     override fun exclude(accessor: Accessor): InitialFactAp =
         AccessPath(apManager, base, access, exclusions.add(accessor))
@@ -80,6 +83,7 @@ class AccessPath(
             override fun getStartAccessors(): Set<Accessor> = emptySet()
             override fun getAllAccessors(): Set<Accessor> = emptySet()
             override fun readAccessor(accessor: Accessor): InitialFactAp.Delta? = null
+            override fun isAbstract(): Boolean = true
         }
 
         data class Delta(val node: AccessNode) : AccessPathDelta {
@@ -91,6 +95,8 @@ class AccessPath(
                 if (node.accessor == accessor) return node.next?.let { Delta(it) }
                 return null
             }
+
+            override fun isAbstract(): Boolean = false
         }
 
         override fun concat(other: InitialFactAp.Delta): InitialFactAp.Delta {
@@ -266,6 +272,12 @@ class AccessPath(
                 is FieldAccessor -> AccessNode(accessor, limitFieldAccess(accessor))
                 is ClassStaticAccessor -> AccessNode(accessor, this)
                 is TaintMarkAccessor -> AccessNode(accessor, this)
+                ValueAccessor -> {
+                    check(this.accessor is TaintMarkAccessor) {
+                        "Value accessor can only be prepended before a taint mark"
+                    }
+                    AccessNode(accessor, this)
+                }
                 AnyAccessor -> this // todo: All accessors are not supported in tree base ap
             }
         }

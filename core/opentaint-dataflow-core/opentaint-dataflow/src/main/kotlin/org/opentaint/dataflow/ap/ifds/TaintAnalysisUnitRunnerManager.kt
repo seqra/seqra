@@ -106,13 +106,13 @@ class TaintAnalysisUnitRunnerManager(
     }
 
     fun runAnalysis(
-        startMethods: List<CommonMethod>,
+        startMethods: List<MethodWithContext>,
         timeout: Duration,
         cancellationTimeout: Duration
     ) = analysisMemoryManager.runWithMemoryManager {
         val timeStart = TimeSource.Monotonic.markNow()
 
-        val unitStartMethods = startMethods.groupBy { unitResolver.resolve(it) }.filterKeys { it != UnknownUnit }
+        val unitStartMethods = startMethods.groupBy { unitResolver.resolve(it.method) }.filterKeys { it != UnknownUnit }
 
         logger.info { "Starting analysis of ${startMethods.size} methods in ${unitStartMethods.size} units" }
 

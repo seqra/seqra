@@ -1,32 +1,38 @@
 package org.opentaint.dataflow.jvm.ap.ifds.taint
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.ReadableAccessorList
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasApInfo
+import org.opentaint.dataflow.jvm.ap.ifds.analysis.apAccessor
+import org.opentaint.ir.api.jvm.cfg.JIRInst
 
 inline fun <R> readPosition(
     ap: FinalFactAp,
     position: PositionAccess,
     onMismatch: (FinalFactAp, Accessor?) -> R,
     matchedNode: (FinalFactAp) -> R
-): R = readPositionUtil(ap, position, onMismatch, matchedNode)
+): R = readPositionUtil(ap, ap.base, position, onMismatch, matchedNode)
 
 inline fun <R> readPosition(
     ap: InitialFactAp,
     position: PositionAccess,
     onMismatch: (InitialFactAp, Accessor?) -> R,
     matchedNode: (InitialFactAp) -> R
-): R = readPositionUtil(ap, position, onMismatch, matchedNode)
+): R = readPositionUtil(ap, ap.base, position, onMismatch, matchedNode)
 
 inline fun <F, R> readPositionUtil(
     ap: F,
+    apBase: AccessPathBase,
     position: PositionAccess,
     onMismatch: (F, Accessor?) -> R,
     matchedNode: (F) -> R
-): R where F: FactAp, F: ReadableAccessorList<F> {
+): R where F: ReadableAccessorList<F> {
     val accessors = mutableListOf<Accessor>()
     var currentPosition = position
     while (true) {
@@ -37,7 +43,7 @@ inline fun <F, R> readPositionUtil(
             }
 
             is PositionAccess.Simple -> {
-                if (ap.base != currentPosition.base) {
+                if (apBase != currentPosition.base) {
                     return onMismatch(ap, null)
                 }
                 break
@@ -69,7 +75,7 @@ inline fun <F, R> readWithAnyAccessorSplit(
     accessors: MutableList<Accessor>,
     matchedNode: (F) -> R,
     onMismatch: (F, Accessor?) -> R
-): R where F : FactAp, F : ReadableAccessorList<F> {
+): R where F : ReadableAccessorList<F> {
     val mismatchedNodes = mutableListOf<Pair<F, Accessor>>()
     val visitedNodes = hashSetOf<F>()
     val resultNode = readPositionWithAnyAccessorSplit(ap, accessors, mismatchedNodes, visitedNodes)
@@ -88,7 +94,7 @@ fun <F> readPositionWithAnyAccessorSplit(
     accessors: MutableList<Accessor>,
     mismatched: MutableList<Pair<F, Accessor>>,
     visited: MutableSet<F>,
-): F? where F : FactAp, F : ReadableAccessorList<F> {
+): F? where F : ReadableAccessorList<F> {
     if (accessors.isEmpty()) {
         return result
     }
@@ -154,6 +160,7 @@ fun <F> readAnyPositionUtil(
 ): PositionAccess? where F: FactAp, F: ReadableAccessorList<F> {
     readPositionUtil(
         ap,
+        ap.base,
         position,
         onMismatch = { _, _ -> },
         matchedNode = { _ ->
@@ -179,3 +186,38 @@ fun <F> readAnyPositionUtil(
 
     return null
 }
+
+fun JIRLocalAliasAnalysis.forEachAliasAfterStatement(
+    statement: JIRInst,
+    reader: FinalFactReader,
+    newBase: AccessPathBase.LocalVar,
+    body: (FinalFactAp, AliasApInfo) -> Unit
+) {
+    val aliases = findAliasAfterStatement(newBase, statement) ?: return
+    aliases.filterIsInstance<AliasApInfo>()
+        .filterNot { alias -> alias.base is AccessPathBase.Constant }
+        .forEach { alias -> applyAlias(reader, newBase, alias, body) }
+}
+
+private fun applyAlias(
+    reader: FinalFactReader,
+    newBase: AccessPathBase.LocalVar,
+    alias: AliasApInfo,
+    body: (FinalFactAp, AliasApInfo) -> Unit
+) {
+    if (!reader.containsPosition(alias.toAp())) {
+        return
+    }
+
+    val result = alias.accessors.fold(reader.factAp.rebase(newBase)) { f, accessor ->
+        val apAccessor = accessor.apAccessor()
+        f.readAccessor(apAccessor) ?: error("Unexpected null accessor read")
+    }
+
+    body(result, alias)
+}
+
+fun AliasApInfo.toAp(): PositionAccess =
+    accessors.fold(PositionAccess.Simple(base)) { acc: PositionAccess, accessor ->
+        PositionAccess.Complex(acc, accessor.apAccessor())
+    }

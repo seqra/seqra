@@ -166,7 +166,16 @@ class JIRMethodSequentPrecondition(
         access: MethodFlowFunctionUtils.MemoryAccess,
         fact: InitialFactAp,
     ): List<InitialFactAp>? {
-        if (fact.base != assignTo) return null
+        if (fact.base != assignTo && fact.base == access.base &&
+            access is MethodFlowFunctionUtils.RefAccess && access.accessor is ElementAccessor
+        ) {
+            return listOf(fact)
+        }
+
+        if (fact.base != assignTo) {
+            return null
+        }
+
         val resultFact = when (access) {
             is MethodFlowFunctionUtils.RefAccess -> fact
                 .prependAccessor(access.accessor)

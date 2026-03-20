@@ -11,6 +11,7 @@ import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
@@ -94,6 +95,7 @@ class AccessCactus(
         override fun getStartAccessors(): Set<Accessor> = emptySet()
         override fun getAllAccessors(): Set<Accessor> = emptySet()
         override fun readAccessor(accessor: Accessor): FinalFactAp.Delta? = null
+        override fun isAbstract(): Boolean = true
     }
 
     data class NodeDelta(val node: AccessNode) : Delta {
@@ -107,6 +109,8 @@ class AccessCactus(
         }
         override fun readAccessor(accessor: Accessor): FinalFactAp.Delta? =
             node.getChild(accessor)?.let { NodeDelta(it) }
+
+        override fun isAbstract(): Boolean = node.isAbstract
     }
 
     override fun delta(other: InitialFactAp): List<FinalFactAp.Delta> {
@@ -1194,6 +1198,7 @@ class AccessCactus(
                     is TaintMarkAccessor -> error("Unexpected TaintMarkAccessor")
                     FinalAccessor -> error("Unexpected FinalAccessor")
                     AnyAccessor -> low === AnyAccessor
+                    ValueAccessor -> TODO()
                 }
             }
 

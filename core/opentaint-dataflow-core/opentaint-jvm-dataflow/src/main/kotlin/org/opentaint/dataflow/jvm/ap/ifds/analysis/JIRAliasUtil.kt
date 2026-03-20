@@ -95,7 +95,7 @@ private fun applyAlias(
     body(result)
 }
 
-private fun AliasAccessor.apAccessor(): Accessor = when (this) {
+fun AliasAccessor.apAccessor(): Accessor = when (this) {
     is AliasAccessor.Array -> ElementAccessor
     is AliasAccessor.Field -> FieldAccessor(className, fieldName, fieldType)
     is AliasAccessor.Static -> ClassStaticAccessor(typeName)

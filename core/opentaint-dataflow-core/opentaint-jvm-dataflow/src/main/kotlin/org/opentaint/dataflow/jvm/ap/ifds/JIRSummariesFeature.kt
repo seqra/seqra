@@ -24,6 +24,7 @@ import org.opentaint.ir.api.storage.asSymbolId
 import org.opentaint.ir.impl.storage.txn
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import org.opentaint.dataflow.ap.ifds.ValueAccessor
 
 class JIRSummariesFeature(
     apMode: ApMode,
@@ -157,6 +158,7 @@ class JIRSummariesFeature(
             ANY_ACCESSOR_ID -> AnyAccessor
             FINAL_ACCESSOR_ID -> FinalAccessor
             ELEMENT_ACCESSOR_ID -> ElementAccessor
+            VALUE_ACCESSOR_ID -> ValueAccessor
             else -> {
                 idToAccessorCache.computeIfAbsent(id) {
                     val (classNameId, fieldNameId, fieldTypeId, taintMarkId, staticTypeNameId) = jIRdb.persistence.read { context ->
@@ -199,6 +201,7 @@ class JIRSummariesFeature(
             AnyAccessor -> ANY_ACCESSOR_ID
             ElementAccessor -> ELEMENT_ACCESSOR_ID
             FinalAccessor -> FINAL_ACCESSOR_ID
+            ValueAccessor -> VALUE_ACCESSOR_ID
 
             is FieldAccessor -> accessorToIdCache.computeIfAbsent(accessor) {
                 val classNameId = accessor.className.asSymbolId(interner)
@@ -359,6 +362,7 @@ class JIRSummariesFeature(
         private const val ANY_ACCESSOR_ID = 0L
         private const val FINAL_ACCESSOR_ID = 1L
         private const val ELEMENT_ACCESSOR_ID = 2L
-        private const val MAX_RESERVED_ACCESSOR_ID = 2L
+        private const val VALUE_ACCESSOR_ID = 3L
+        private const val MAX_RESERVED_ACCESSOR_ID = 3L
     }
 }
