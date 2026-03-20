@@ -101,23 +101,35 @@ jobs:
           RELEASE_TAG="github/v$(echo "$RELEASE_VERSION" | sed 's/^v//')"
           gh release edit "$RELEASE_TAG" --latest=false
 
-      - name: Push floating major version tag
+      - name: Push floating version tags
         if: ${{ steps.manual_release.outputs.new-version != '' || steps.version.outputs.new_release_published == 'true' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          RELEASE_VERSION="${{ steps.manual_release.outputs.new-version || steps.version.outputs.new_release_version }}"
+          MAJOR="${{ steps.manual_release.outputs.major-version || steps.version.outputs.new_release_major_version }}"
+          MINOR_TAG="github/v$(echo "$RELEASE_VERSION" | cut -d. -f1-2)"
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          MAJOR="${{ steps.manual_release.outputs.major-version || steps.version.outputs.new_release_major_version }}"
           git tag -f "github/v${MAJOR}"
           git push origin "github/v${MAJOR}" --force
+          git tag -f "$MINOR_TAG"
+          git push origin "$MINOR_TAG" --force
           git tag -f "github/latest"
           git push origin "github/latest" --force
+
+          gh release delete "$MINOR_TAG" --yes || true
+          gh release create "$MINOR_TAG" \
+            --title "$MINOR_TAG" \
+            --notes "Floating release tracking the latest GitHub Action ${MINOR_TAG#github/}.x version (github/v${RELEASE_VERSION})" \
+            --latest=false \
+            --prerelease
 
           gh release delete "github/latest" --yes || true
           gh release create "github/latest" \
             --title "github/latest" \
-            --notes "Floating release tracking the latest GitHub Action version (v${{ steps.manual_release.outputs.new-version || steps.version.outputs.new_release_version }})" \
+            --notes "Floating release tracking the latest GitHub Action version (v${RELEASE_VERSION})" \
             --latest=false \
             --prerelease
 
