@@ -61,6 +61,26 @@ opentaint-job:
     SEVERITY: "warning,error"
     # Scan timeout
     TIMEOUT: "15m"
+    # Java version for compilation (e.g., 8, 11, 17, 21, 25)
+    JAVA_VERSION: ""
+```
+
+
+### Scan with a specific Java version
+
+```yaml
+include:
+  - remote: https://raw.githubusercontent.com/seqra/opentaint/main/gitlab/opentaint.gitlab-ci.yml
+
+stages:
+  - analysis
+
+opentaint-job:
+  extends: .opentaint-template
+  image: ubuntu:24.04
+  variables:
+    PROJECT_ROOT: "."
+    JAVA_VERSION: "25"
 ```
 
 
