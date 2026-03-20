@@ -44,6 +44,7 @@ module.exports = {
         failTitle: false,
         labels: false,
         releasedLabels: false,
+        draftRelease: true,
         assets: [],
       },
     ],

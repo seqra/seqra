@@ -16,7 +16,7 @@ on:
 
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
@@ -80,6 +80,9 @@ jobs:
 
           echo "v${{ steps.manual_release.outputs.new-version }}" > gitlab/release_version.txt
 
+      - name: Force-update tags
+        run: git fetch --tags --force
+
       - name: Release (auto)
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_type == 'auto' }}
         uses: cycjimmy/semantic-release-action@v4
@@ -106,7 +109,7 @@ jobs:
           fi
           rm -f release_version.txt
 
-      - name: Unmark release as latest
+      - name: Publish release as non-latest
         if: ${{ steps.manual_release.outputs.new-version != '' || steps.release_version.outputs.status == 'succeeded' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -116,55 +119,20 @@ jobs:
             RELEASE_VERSION="${{ steps.release_version.outputs.RELEASE_VERSION }}"
           fi
           RELEASE_TAG="gitlab/v$(echo "$RELEASE_VERSION" | sed 's/^v//')"
-          gh release edit "$RELEASE_TAG" --latest=false
+          RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" -q '.id')
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
+            -F draft=false \
+            -f make_latest=false
 
-      - name: Update floating latest tag
+      - name: Update floating version tags
         if: ${{ steps.manual_release.outputs.new-version != '' || steps.release_version.outputs.status == 'succeeded' }}
+        uses: ./.github/actions/update-floating-tags
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f "gitlab/latest"
-          git push origin "gitlab/latest" --force
-
-          LATEST_VERSION="${{ steps.manual_release.outputs.new-version }}"
-          if [ -n "$LATEST_VERSION" ]; then
-            LATEST_VERSION="v${LATEST_VERSION}"
-          else
-            LATEST_VERSION="${{ steps.release_version.outputs.RELEASE_VERSION }}"
-          fi
-
-          gh release delete "gitlab/latest" --yes || true
-          gh release create "gitlab/latest" \
-            --title "gitlab/latest" \
-            --notes "Floating release tracking the latest GitLab CI template version (${LATEST_VERSION})" \
-            --latest=false \
-            --prerelease
-
-      - name: Update floating minor version tag
-        if: ${{ steps.manual_release.outputs.new-version != '' || steps.release_version.outputs.status == 'succeeded' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          RELEASE_VERSION="${{ steps.manual_release.outputs.new-version }}"
-          if [ -z "$RELEASE_VERSION" ]; then
-            RELEASE_VERSION="${{ steps.release_version.outputs.RELEASE_VERSION }}"
-          fi
-          RELEASE_VERSION="$(echo "$RELEASE_VERSION" | sed 's/^v//')"
-          MINOR_TAG="gitlab/v$(echo "$RELEASE_VERSION" | cut -d. -f1-2)"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f "$MINOR_TAG"
-          git push origin "$MINOR_TAG" --force
-
-          gh release delete "$MINOR_TAG" --yes || true
-          gh release create "$MINOR_TAG" \
-            --title "$MINOR_TAG" \
-            --notes "Floating release tracking the latest GitLab CI template ${MINOR_TAG#gitlab/}.x version (gitlab/v${RELEASE_VERSION})" \
-            --latest=false \
-            --prerelease
+        with:
+          release-version: ${{ steps.manual_release.outputs.new-version || steps.release_version.outputs.RELEASE_VERSION }}
+          tag-prefix: 'gitlab/'
+          component-name: 'GitLab CI template'
 
     outputs:
       release_version: ${{ steps.manual_release.outputs.new-version || steps.release_version.outputs.RELEASE_VERSION }}

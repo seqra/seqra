@@ -16,7 +16,7 @@ on:
 
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -73,6 +73,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag "v${{ steps.manual_release.outputs.new-version }}"
           git push origin "v${{ steps.manual_release.outputs.new-version }}"
+      -
+        name: Force-update tags
+        run: git fetch --tags --force
       -
         name: 'Release (auto)'
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_type == 'auto' }}
@@ -275,60 +278,16 @@ jobs:
             OPENTAINT_OWNER=${{ github.repository_owner }}
             SEQRA_BUILD_FLAGS=-s -w -X github.com/${{ github.repository_owner }}/opentaint/internal/version.Version=${{ steps.release_version.outputs.RELEASE_VERSION }}
       -
-        name: Update floating latest tag
+        name: Update floating version tags
         if: ${{ steps.release_version.outputs.status == 'succeeded' }}
+        uses: ./.github/actions/update-floating-tags
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          RELEASE_TAG="v${{ steps.release_version.outputs.RELEASE_VERSION }}"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f "latest"
-          git push origin "latest" --force
-
-          gh release delete "latest" --yes || true
-          gh release create "latest" \
-            --title "latest" \
-            --notes "Floating release tracking the latest CLI version (${RELEASE_TAG})" \
-            --latest=false \
-            --prerelease
-
-          ASSETS_DIR=$(mktemp -d)
-          gh release download "$RELEASE_TAG" --dir "$ASSETS_DIR"
-          for f in "$ASSETS_DIR"/*; do
-            [ -f "$f" ] || continue
-            gh release upload "latest" "$f" --clobber
-          done
-          rm -rf "$ASSETS_DIR"
-      -
-        name: Update floating minor version tag
-        if: ${{ steps.release_version.outputs.status == 'succeeded' }}
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          RELEASE_TAG="v${{ steps.release_version.outputs.RELEASE_VERSION }}"
-          MINOR_TAG="v$(echo "${{ steps.release_version.outputs.RELEASE_VERSION }}" | cut -d. -f1-2)"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f "$MINOR_TAG"
-          git push origin "$MINOR_TAG" --force
-
-          gh release delete "$MINOR_TAG" --yes || true
-          gh release create "$MINOR_TAG" \
-            --title "$MINOR_TAG" \
-            --notes "Floating release tracking the latest CLI ${MINOR_TAG}.x version (${RELEASE_TAG})" \
-            --latest=false \
-            --prerelease
-
-          ASSETS_DIR=$(mktemp -d)
-          gh release download "$RELEASE_TAG" --dir "$ASSETS_DIR"
-          for f in "$ASSETS_DIR"/*; do
-            [ -f "$f" ] || continue
-            gh release upload "$MINOR_TAG" "$f" --clobber
-          done
-          rm -rf "$ASSETS_DIR"
+        with:
+          release-version: ${{ steps.release_version.outputs.RELEASE_VERSION }}
+          tag-prefix: ''
+          component-name: 'CLI'
+          copy-assets-from: v${{ steps.release_version.outputs.RELEASE_VERSION }}
 
     outputs:
       release_version: ${{ steps.release_version.outputs.RELEASE_VERSION }}
