@@ -8,6 +8,8 @@ import java.io.InputStream
 
 @Serializable
 data class SerializedTaintConfig(
+    val library: String? = null,
+    val dependencies: List<String>? = null,
     val entryPoint: List<SerializedRule.EntryPoint>? = null,
     val source: List<SerializedRule.Source>? = null,
     val methodExitSource: List<SerializedRule.MethodExitSource>? = null,
