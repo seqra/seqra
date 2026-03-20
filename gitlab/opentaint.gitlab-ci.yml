@@ -1,6 +1,6 @@
 .opentaint-template:
   stage: analysis
-  # image: ubuntu:24.04
+  image: ubuntu:24.04
   timeout: 20m
   variables:
     ARTIFACT_NAME: "opentaint.sarif"
