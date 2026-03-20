@@ -3,6 +3,7 @@ package org.opentaint.dataflow.jvm.ap.ifds
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.jvm.ap.ifds.alias.JIRIntraProcAliasAnalysis
+import org.opentaint.dataflow.jvm.ap.ifds.alias.MergeType
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.jvm.graph.JApplicationGraph
@@ -20,7 +21,8 @@ class JIRLocalAliasAnalysis(
         val aliasAnalysisInterProcCallDepth: Int = 0,
     )
 
-    private val aliasInfo by lazy { compute() }
+    private val mayAliasInfo by lazy { compute(MergeType.May) }
+    private val mustAliasInfo by lazy { compute(MergeType.Must) }
 
     class MethodAliasInfo(
         val aliasBeforeStatement: Array<Int2ObjectOpenHashMap<Array<Any>>?>,
@@ -35,23 +37,28 @@ class JIRLocalAliasAnalysis(
             it !is AliasApInfo || it.accessors.isNotEmpty() || it.base != base
         }?.map { it.wrapAliasInfo() }
 
+    fun findMustAlias(base: AccessPathBase.LocalVar, statement: CommonInst): List<AliasInfo>? {
+        val idx = languageManager.getInstIndex(statement)
+        return getLocalVarAliases(mustAliasInfo.aliasBeforeStatement, idx, base)
+    }
+
     fun findAlias(base: AccessPathBase.LocalVar, statement: CommonInst): List<AliasInfo>? {
         val idx = languageManager.getInstIndex(statement)
-        return getLocalVarAliases(aliasInfo.aliasBeforeStatement, idx, base)
+        return getLocalVarAliases(mayAliasInfo.aliasBeforeStatement, idx, base)
     }
 
     fun getAllAliasAtStatement(statement: CommonInst): Int2ObjectOpenHashMap<List<AliasInfo>> {
         val idx = languageManager.getInstIndex(statement)
-        return aliasInfo.aliasBeforeStatement[idx]?.let { wrapAllInfo(it) } ?: Int2ObjectOpenHashMap()
+        return mayAliasInfo.aliasBeforeStatement[idx]?.let { wrapAllInfo(it) } ?: Int2ObjectOpenHashMap()
     }
 
     fun findAliasAfterStatement(base: AccessPathBase.LocalVar, statement: CommonInst): List<AliasInfo>? {
         val idx = languageManager.getInstIndex(statement)
-        return getLocalVarAliases(aliasInfo.aliasAfterStatement, idx, base)
+        return getLocalVarAliases(mayAliasInfo.aliasAfterStatement, idx, base)
     }
 
-    private fun compute(): MethodAliasInfo {
-        return JIRIntraProcAliasAnalysis(entryPoint, graph, callResolver, languageManager, params).compute(localVariableReachability)
+    private fun compute(mergeType: MergeType): MethodAliasInfo {
+        return JIRIntraProcAliasAnalysis(entryPoint, graph, callResolver, languageManager, params, mergeType).compute(localVariableReachability)
     }
 
     sealed interface AliasAccessor {

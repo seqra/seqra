@@ -27,6 +27,7 @@ class JIRIntraProcAliasAnalysis(
     private val callResolver: JIRCallResolver,
     private val languageManager: JIRLanguageManager,
     private val params: JIRLocalAliasAnalysis.Params,
+    private val mergeType: MergeType,
 ) {
     companion object {
         private const val HEAP_CHAIN_LIMIT = 5
@@ -59,7 +60,7 @@ class JIRIntraProcAliasAnalysis(
 
     fun compute(localVariableReachability: JIRLocalVariableReachability): JIRLocalAliasAnalysis.MethodAliasInfo {
         val jig = getJIG(entryPoint)
-        val daa = DSUAliasAnalysis(CallResolver(), localVariableReachability).analyze(jig)
+        val daa = DSUAliasAnalysis(CallResolver(), localVariableReachability, mergeType).analyze(jig)
 
         val aliasBeforeStatement = Array(jig.statements.size) { i ->
             resolveLocalVar(daa.statesBeforeStmt[i], localVariableReachability, i)
