@@ -16,7 +16,7 @@ on:
 
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -73,6 +73,9 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git tag "v${{ steps.manual_release.outputs.new-version }}"
           git push origin "v${{ steps.manual_release.outputs.new-version }}"
+      -
+        name: Force-update tags
+        run: git fetch --tags --force
       -
         name: 'Release (auto)'
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_type == 'auto' }}

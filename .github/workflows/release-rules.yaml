@@ -16,7 +16,7 @@ on:
 
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -84,6 +84,9 @@ jobs:
             opentaint-rules.tar.gz
 
           echo "v${{ steps.manual_release.outputs.new-version }}" > rules/release_version.txt
+
+      - name: Force-update tags
+        run: git fetch --tags --force
 
       - name: Release (auto)
         if: ${{ github.event_name != 'workflow_dispatch' || github.event.inputs.release_type == 'auto' }}
