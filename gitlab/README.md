@@ -20,7 +20,7 @@ On other images, the job fails with an error listing the missing tools.
 
 ```yaml
 include:
-  - remote: https://raw.githubusercontent.com/seqra/opentaint/main/gitlab/opentaint.gitlab-ci.yml
+  - remote: https://raw.githubusercontent.com/seqra/opentaint/gitlab/v0/gitlab/opentaint.gitlab-ci.yml
 
 stages:
   - analysis
@@ -37,7 +37,7 @@ opentaint-job:
 
 ```yaml
 include:
-  - remote: https://raw.githubusercontent.com/seqra/opentaint/main/gitlab/opentaint.gitlab-ci.yml
+  - remote: https://raw.githubusercontent.com/seqra/opentaint/gitlab/v0/gitlab/opentaint.gitlab-ci.yml
 
 stages:
   - analysis
@@ -70,7 +70,7 @@ opentaint-job:
 
 ```yaml
 include:
-  - remote: https://raw.githubusercontent.com/seqra/opentaint/main/gitlab/opentaint.gitlab-ci.yml
+  - remote: https://raw.githubusercontent.com/seqra/opentaint/gitlab/v0/gitlab/opentaint.gitlab-ci.yml
 
 stages:
   - analysis
@@ -94,14 +94,30 @@ After the job completes, you’ll find:
 
 ## Version Selection
 
-`OPENTAINT_VERSION` supports flexible selectors so you do not need to update this template for every OpenTaint release:
+There are two independent version selectors:
 
-* `latest` - always use the latest stable release
-* `v0` - use the latest stable release in major version 0 (default)
-* `v0.1` - use the latest stable patch in minor version 0.1
-* `v0.1.0` - pin an exact release
+### CI template version
 
-Examples:
+Controlled by the tag in the `include:` URL. Using a major-version tag ensures you always get the latest compatible template without manual updates.
+
+* `gitlab/v0` — latest stable template in major version 0 (recommended)
+* `gitlab/v0.1` — pin to a specific minor version
+* `gitlab/v0.1.0` — pin to an exact version
+* `gitlab/latest` — always use the latest template
+
+```yaml
+include:
+  - remote: https://raw.githubusercontent.com/seqra/opentaint/gitlab/v0.1/gitlab/opentaint.gitlab-ci.yml
+```
+
+### OpenTaint CLI version
+
+Controlled by the `OPENTAINT_VERSION` variable. This determines which release of the analysis engine is downloaded at runtime.
+
+* `latest` — always use the latest stable release
+* `v0` — use the latest stable release in major version 0 (default)
+* `v0.1` — use the latest stable patch in minor version 0.1
+* `v0.1.0` — pin an exact release
 
 ```yaml
 variables:
