@@ -499,8 +499,8 @@ class ExpressionTransformer:
         return target
 
     def _visit_dict(self, expr: DictExpr) -> pir_pb2.PIRValueProto:
-        keys = [self.accept(k) if k else self._const_none() for k in expr.keys]
-        values = [self.accept(v) for v in expr.values]
+        keys = [self.accept(k) if k else self._const_none() for k, v in expr.items]
+        values = [self.accept(v) for k, v in expr.items]
         target = self.st._new_temp_value()
         self.st._emit(
             pir_pb2.PIRInstructionProto(

@@ -1,6 +1,6 @@
 # Python IR Implementation Plan
 
-## Status: COMPLETE (initial implementation)
+## Status: COMPLETE (full test system)
 
 ## Phase 1: Protobuf & Infrastructure
 - [x] Create project directory and git repo
@@ -45,15 +45,23 @@
 - [x] Verify: end-to-end Kotlin → Python → Kotlin works
 
 ## Phase 5: Tests
-- [x] Tier 2: unit tests for basic instructions (assign, binop, call, branch, loop)
-- [x] Tier 2: unit tests for type mapping
-- [x] Tier 2: unit tests for classes, methods, decorators
-- [x] Tier 2: unit tests for exception handling
-- [x] All 16 tests pass
+- [x] Tier 2: basic instructions (assign, binop, call, branch, loop) — 8 tests
+- [x] Tier 2: type mapping — 3 tests
+- [x] Tier 2: classes, methods, decorators — 3 tests
+- [x] Tier 2: exception handling — 2 tests
+- [x] Tier 2: control flow (if/elif/else, while, for, break/continue, ternary, short-circuit) — 15 tests
+- [x] Tier 2: operators (all binary, unary, comparison ops) — 26 tests
+- [x] Tier 2: functions (params, defaults, *args, **kwargs, kw-only, recursive, static/class methods) — 14 tests
+- [x] Tier 2: collections (list/tuple/set/dict, subscript, slice, unpack, delete) — 16 tests
+- [x] Tier 2: type annotations (int, str, Optional, Union, Callable, Tuple, Any) — 12 tests
+- [x] Tier 2: advanced classes (inheritance, abstract, enum, dataclass, nested, property) — 11 tests
+- [x] Tier 2: advanced exceptions (try/except/else/finally, raise from, bare raise, nested) — 8 tests
+- [x] Tier 2: generators & async (yield, yield from, async/await) — 8 tests
+- [x] Tier 3: round-trip tests (PIRReconstructor + ExecuteFunction) — 10 tests
+- [x] Tier 1: real-world benchmarks (click, requests, attrs, typer) — 4 tests
+- [x] All 140 tests pass
 
 ## TODO (future work)
-- [ ] Tier 3: round-trip tests (PIRReconstructor + ExecuteFunction)
-- [ ] Tier 1: real-world benchmark tests (flask, requests, etc.)
 - [ ] Common interface mapping (CommonProject, CommonMethod, etc.)
 - [ ] Extension functions (PIRModules.kt, PIRClasses.kt, etc.)
 - [ ] Comprehension lowering (list/set/dict comprehensions → loops)
@@ -79,3 +87,15 @@
 - Fixed mypy integration: needed incremental=False, preserve_asts=True, explicit module names
 - Fixed gRPC generated Python import path
 - All 16 tests pass (BUILD SUCCESSFUL)
+
+### Session 2
+- Implemented Tier 3 round-trip tests: PIRReconstructor.kt (CFG → Python code) + RoundTripTest.kt (10 tests)
+- Implemented Tier 1 real-world benchmarks: BenchmarkTest.kt (click, requests, attrs, typer — 4 tests)
+- Fixed ProjectBuilder module name derivation for package files (_find_search_root, _path_to_module)
+- Fixed DictExpr lowering: mypy's DictExpr uses .items not .keys/.values
+- Fixed staticmethod/classmethod/property detection: mypy sets FuncDef.is_static/is_class/is_property flags directly
+- Added dataclass detection via class_def.info.metadata['dataclass']
+- Added enum detection via base class fullname check (enum.Enum, etc.)
+- Expanded Tier 2 tests: 7 new test classes covering control flow, operators, functions, collections, types, advanced classes, advanced exceptions, generators/async
+- Optimized tests: shared classpath per test class via @TestInstance(PER_CLASS) + @BeforeAll
+- All 140 tests pass across 3 tiers (BUILD SUCCESSFUL)

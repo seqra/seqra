@@ -72,13 +72,43 @@ class ModuleBuilder:
                 for mro_item in class_def.info.mro:
                     proto.mro.append(mro_item.fullname)
             proto.is_abstract = class_def.info.is_abstract
+            # Detect dataclass
+            if (
+                hasattr(class_def.info, "metadata")
+                and "dataclass" in class_def.info.metadata
+            ):
+                proto.is_dataclass = True
+            elif any(
+                hasattr(d, "name") and d.name == "dataclass"
+                for d in getattr(class_def, "decorators", [])
+            ):
+                proto.is_dataclass = True
+            # Detect enum
+            for base in class_def.info.bases:
+                if hasattr(base, "type") and hasattr(base.type, "fullname"):
+                    if base.type.fullname in (
+                        "enum.Enum",
+                        "enum.IntEnum",
+                        "enum.Flag",
+                        "enum.IntFlag",
+                    ):
+                        proto.is_enum = True
+                        break
 
         for defn in class_def.defs.body:
             if isinstance(defn, (FuncDef, Decorator, OverloadedFuncDef)):
                 func_def = self._unwrap_func(defn)
                 if func_def:
                     func_proto = self._build_function(func_def, defn)
-                    # Set flags for methods
+                    # Set flags from FuncDef flags (mypy strips decorators
+                    # for staticmethod/classmethod/property and sets flags directly)
+                    if getattr(func_def, "is_static", False):
+                        func_proto.is_static_method = True
+                    if getattr(func_def, "is_class", False):
+                        func_proto.is_class_method = True
+                    if getattr(func_def, "is_property", False):
+                        func_proto.is_property = True
+                    # Also check decorator names as fallback
                     if isinstance(defn, Decorator):
                         for dec in defn.decorators:
                             if isinstance(dec, NameExpr):

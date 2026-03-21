@@ -37,25 +37,27 @@ class ProjectBuilder:
         options.export_types = True
 
         mypy_sources = []
+        all_file_paths = []
+
         for s in self.sources:
             if os.path.isfile(s):
-                # Derive module name from filename
-                basename = os.path.basename(s)
-                mod_name = os.path.splitext(basename)[0]
-                mypy_sources.append(mypy.build.BuildSource(path=s, module=mod_name))
+                all_file_paths.append(os.path.abspath(s))
             elif os.path.isdir(s):
                 for root, dirs, files in os.walk(s):
                     for f in files:
                         if f.endswith(".py"):
-                            path = os.path.join(root, f)
-                            # Derive module name from relative path
-                            rel = os.path.relpath(path, os.path.dirname(s))
-                            mod_name = rel.replace(os.sep, ".").removesuffix(".py")
-                            if mod_name.endswith(".__init__"):
-                                mod_name = mod_name.removesuffix(".__init__")
-                            mypy_sources.append(
-                                mypy.build.BuildSource(path=path, module=mod_name)
+                            all_file_paths.append(
+                                os.path.abspath(os.path.join(root, f))
                             )
+
+        # Determine the common search root for proper module name derivation.
+        # If files are part of a Python package (directory with __init__.py),
+        # walk up to find the topmost package and use its parent as the root.
+        search_root = self._find_search_root(all_file_paths)
+
+        for path in all_file_paths:
+            mod_name = self._path_to_module(path, search_root)
+            mypy_sources.append(mypy.build.BuildSource(path=path, module=mod_name))
 
         if not mypy_sources:
             return
@@ -90,6 +92,57 @@ class ProjectBuilder:
                 module_name=module_name,
             )
             yield module_builder.build()
+
+    def _find_search_root(self, file_paths: list[str]) -> str:
+        """Find the best root directory for module name derivation.
+
+        If the files belong to a Python package (a directory with __init__.py),
+        we walk up from the package directory to find the topmost package,
+        then use its parent as the search root.
+
+        Example: for /site-packages/click/core.py, if click/ has __init__.py,
+        the search root is /site-packages/, making the module name 'click.core'.
+        """
+        if not file_paths:
+            return "."
+
+        # Find directories of all files
+        dirs = set(os.path.dirname(p) for p in file_paths)
+
+        # For each unique directory, walk up while __init__.py exists
+        roots = set()
+        for d in dirs:
+            pkg_root = d
+            while True:
+                parent = os.path.dirname(pkg_root)
+                if parent == pkg_root:
+                    break  # reached filesystem root
+                init_py = os.path.join(pkg_root, "__init__.py")
+                if not os.path.isfile(init_py):
+                    # This directory is not a package; search root is here
+                    roots.add(pkg_root)
+                    break
+                # It is a package; walk up
+                pkg_root = parent
+                if os.path.isfile(os.path.join(pkg_root, "__init__.py")):
+                    continue
+                else:
+                    roots.add(pkg_root)
+                    break
+
+        # Use the shortest common root
+        if roots:
+            return min(roots, key=len)
+        # Fallback: common directory of all files
+        return os.path.commonpath(file_paths)
+
+    def _path_to_module(self, path: str, search_root: str) -> str:
+        """Convert an absolute path to a Python module name relative to search_root."""
+        rel = os.path.relpath(path, search_root)
+        mod_name = rel.replace(os.sep, ".").removesuffix(".py")
+        if mod_name.endswith(".__init__"):
+            mod_name = mod_name.removesuffix(".__init__")
+        return mod_name
 
     def _should_include(self, state, source_paths: set[str]) -> bool:
         if state.path is None:
