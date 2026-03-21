@@ -1,6 +1,7 @@
 """Builds PIRModuleProto from a single mypy MypyFile AST."""
 
 from __future__ import annotations
+import sys
 from mypy.nodes import (
     MypyFile,
     FuncDef,
@@ -99,7 +100,9 @@ class ModuleBuilder:
             if isinstance(defn, (FuncDef, Decorator, OverloadedFuncDef)):
                 func_def = self._unwrap_func(defn)
                 if func_def:
-                    func_proto = self._build_function(func_def, defn)
+                    func_proto = self._build_function(
+                        func_def, defn, enclosing_class=class_def.name
+                    )
                     # Set flags from FuncDef flags (mypy strips decorators
                     # for staticmethod/classmethod/property and sets flags directly)
                     if getattr(func_def, "is_static", False):
@@ -130,7 +133,7 @@ class ModuleBuilder:
         return proto
 
     def _build_function(
-        self, func_def: FuncDef, orig_defn=None
+        self, func_def: FuncDef, orig_defn=None, enclosing_class: str | None = None
     ) -> pir_pb2.PIRFunctionProto:
         scope = ScopeStack()
         stmt_visitor = StatementTransformer(
@@ -140,7 +143,11 @@ class ModuleBuilder:
         )
         try:
             cfg_proto = stmt_visitor.build_function_cfg(func_def)
-        except Exception:
+        except Exception as e:
+            print(
+                f"[PIR WARNING] Failed to build CFG for {self.module_name}.{func_def.name}: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
             cfg_proto = pir_pb2.PIRCFGProto(
                 blocks=[
                     pir_pb2.PIRBasicBlockProto(
@@ -156,9 +163,13 @@ class ModuleBuilder:
                 exit_blocks=[0],
             )
 
+        if enclosing_class:
+            qualified_name = f"{self.module_name}.{enclosing_class}.{func_def.name}"
+        else:
+            qualified_name = f"{self.module_name}.{func_def.name}"
         proto = pir_pb2.PIRFunctionProto(
             name=func_def.name,
-            qualified_name=f"{self.module_name}.{func_def.name}",
+            qualified_name=qualified_name,
             cfg=cfg_proto,
             is_async=func_def.is_coroutine,
             is_generator=func_def.is_generator,
@@ -220,7 +231,11 @@ class ModuleBuilder:
         )
         try:
             cfg_proto = stmt_visitor.build_module_init_cfg(self.tree)
-        except Exception:
+        except Exception as e:
+            print(
+                f"[PIR WARNING] Failed to build module_init CFG for {self.module_name}: {type(e).__name__}: {e}",
+                file=sys.stderr,
+            )
             cfg_proto = pir_pb2.PIRCFGProto(
                 blocks=[
                     pir_pb2.PIRBasicBlockProto(

@@ -454,6 +454,11 @@ class StatementTransformer:
         self.continue_target = header_block
 
         self._activate(body_block)
+        # Emit tuple unpack if target is a tuple expression
+        if isinstance(stmt.index, TupleExpr):
+            self._emit_for_target_unpack(
+                stmt.index, target_val, getattr(stmt, "line", -1)
+            )
         self._visit_block(stmt.body)
         if not self._current_block_terminated():
             self._emit_goto(header_block)
@@ -469,7 +474,19 @@ class StatementTransformer:
         if isinstance(target, NameExpr):
             name = self.scope.resolve_local(target.name)
             return pir_pb2.PIRValueProto(local=pir_pb2.PIRLocalProto(name=name))
+        if isinstance(target, TupleExpr):
+            # For tuple unpacking targets like `for a, b in items:`,
+            # use a temp for the next_iter result, then emit an unpack.
+            temp = self._new_temp_value()
+            return temp
         return self._new_temp_value()
+
+    def _emit_for_target_unpack(
+        self, target: Expression, iter_val: pir_pb2.PIRValueProto, line: int
+    ):
+        """After next_iter, emit unpack instructions for tuple targets."""
+        if isinstance(target, TupleExpr):
+            self._assign_to(target, iter_val, line)
 
     # ─── Try/Except ───────────────────────────────────────
 
@@ -501,14 +518,7 @@ class StatementTransformer:
             self._activate(handler_blocks[i])
             exc_type_protos = []
             if stmt.types[i] is not None:
-                # Get the exception type
-                exc_type_protos.append(
-                    pir_pb2.PIRTypeProto(
-                        class_type=pir_pb2.PIRClassTypeProto(
-                            qualified_name="builtins.Exception"
-                        )
-                    )
-                )
+                exc_type_protos.extend(self._resolve_except_types(stmt.types[i]))
             exc_target = None
             if stmt.vars[i] is not None:
                 var_name = self.scope.resolve_local(stmt.vars[i].name)
@@ -553,22 +563,30 @@ class StatementTransformer:
     # ─── With ─────────────────────────────────────────────
 
     def _visit_with(self, stmt: WithStmt):
+        ctx_vals = []
         for i, ctx_expr in enumerate(stmt.expr):
             ctx_val = self._accept_expr(ctx_expr)
+            ctx_vals.append(ctx_val)
             enter_result = self._new_temp_value()
+            # Emit __enter__ call as method on context manager
+            enter_attr = self._new_temp_value()
+            self._emit(
+                pir_pb2.PIRInstructionProto(
+                    line_number=getattr(stmt, "line", -1),
+                    load_attr=pir_pb2.PIRLoadAttrProto(
+                        target=enter_attr,
+                        object=ctx_val,
+                        attribute="__enter__",
+                    ),
+                )
+            )
             self._emit(
                 pir_pb2.PIRInstructionProto(
                     line_number=getattr(stmt, "line", -1),
                     call=pir_pb2.PIRCallProto(
                         target=enter_result,
-                        callee=pir_pb2.PIRValueProto(
-                            local=pir_pb2.PIRLocalProto(name="$__enter__")
-                        ),
-                        args=[
-                            pir_pb2.PIRCallArgProto(
-                                value=ctx_val, kind=pir_pb2.POSITIONAL
-                            )
-                        ],
+                        callee=enter_attr,
+                        args=[],
                     ),
                 )
             )
@@ -576,6 +594,44 @@ class StatementTransformer:
                 self._assign_to(stmt.target[i], enter_result, getattr(stmt, "line", -1))
 
         self._visit_block(stmt.body)
+
+        # Emit __exit__ calls in reverse order
+        for ctx_val in reversed(ctx_vals):
+            exit_attr = self._new_temp_value()
+            self._emit(
+                pir_pb2.PIRInstructionProto(
+                    line_number=getattr(stmt, "line", -1),
+                    load_attr=pir_pb2.PIRLoadAttrProto(
+                        target=exit_attr,
+                        object=ctx_val,
+                        attribute="__exit__",
+                    ),
+                )
+            )
+            exit_result = self._new_temp_value()
+            none_val = pir_pb2.PIRValueProto(
+                const_val=pir_pb2.PIRConstProto(none_value=True)
+            )
+            self._emit(
+                pir_pb2.PIRInstructionProto(
+                    line_number=getattr(stmt, "line", -1),
+                    call=pir_pb2.PIRCallProto(
+                        target=exit_result,
+                        callee=exit_attr,
+                        args=[
+                            pir_pb2.PIRCallArgProto(
+                                value=none_val, kind=pir_pb2.POSITIONAL
+                            ),
+                            pir_pb2.PIRCallArgProto(
+                                value=none_val, kind=pir_pb2.POSITIONAL
+                            ),
+                            pir_pb2.PIRCallArgProto(
+                                value=none_val, kind=pir_pb2.POSITIONAL
+                            ),
+                        ],
+                    ),
+                )
+            )
 
     # ─── Raise ────────────────────────────────────────────
 
@@ -662,6 +718,25 @@ class StatementTransformer:
                 name="AssertionError", module="builtins"
             )
         )
+        # Emit assert message as argument if present
+        if stmt.msg:
+            msg_val = self._accept_expr(stmt.msg)
+            call_target = self._new_temp_value()
+            self._emit(
+                pir_pb2.PIRInstructionProto(
+                    line_number=getattr(stmt, "line", -1),
+                    call=pir_pb2.PIRCallProto(
+                        target=call_target,
+                        callee=exc,
+                        args=[
+                            pir_pb2.PIRCallArgProto(
+                                value=msg_val, kind=pir_pb2.POSITIONAL
+                            )
+                        ],
+                    ),
+                )
+            )
+            exc = call_target
         self._emit(
             pir_pb2.PIRInstructionProto(
                 line_number=getattr(stmt, "line", -1),
@@ -670,3 +745,48 @@ class StatementTransformer:
         )
 
         self._activate(pass_block)
+
+    # ─── Helpers ──────────────────────────────────────────
+
+    def _resolve_except_types(
+        self, type_expr: Expression
+    ) -> list[pir_pb2.PIRTypeProto]:
+        """Resolve the exception type expression in an except clause."""
+        result = []
+        if isinstance(type_expr, TupleExpr):
+            # except (TypeError, ValueError): ...
+            for item in type_expr.items:
+                result.extend(self._resolve_except_types(item))
+        elif isinstance(type_expr, NameExpr):
+            fullname = ""
+            if type_expr.node and hasattr(type_expr.node, "fullname"):
+                fullname = type_expr.node.fullname or ""
+            if not fullname:
+                fullname = f"builtins.{type_expr.name}"
+            result.append(
+                pir_pb2.PIRTypeProto(
+                    class_type=pir_pb2.PIRClassTypeProto(qualified_name=fullname)
+                )
+            )
+        elif isinstance(type_expr, MemberExpr):
+            # e.g., except os.error: ...
+            fullname = ""
+            if type_expr.node and hasattr(type_expr.node, "fullname"):
+                fullname = type_expr.node.fullname or ""
+            if not fullname:
+                fullname = f"{type_expr.name}"
+            result.append(
+                pir_pb2.PIRTypeProto(
+                    class_type=pir_pb2.PIRClassTypeProto(qualified_name=fullname)
+                )
+            )
+        else:
+            # Fallback to generic Exception
+            result.append(
+                pir_pb2.PIRTypeProto(
+                    class_type=pir_pb2.PIRClassTypeProto(
+                        qualified_name="builtins.Exception"
+                    )
+                )
+            )
+        return result

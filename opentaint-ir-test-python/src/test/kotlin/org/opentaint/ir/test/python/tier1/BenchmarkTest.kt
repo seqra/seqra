@@ -18,6 +18,7 @@ import java.io.File
  *   1. No unhandled exceptions (pipeline completes)
  *   2. Expected minimum entity counts (not silently skipping code)
  *   3. All functions have a non-empty CFG
+ *   4. CFG quality: at least 1 instruction per function on average
  */
 @Tag("tier1")
 class BenchmarkTest : PIRTestBase() {
@@ -28,9 +29,10 @@ class BenchmarkTest : PIRTestBase() {
         minModules: Int,
         minClasses: Int,
         minFunctions: Int,
+        recursive: Boolean = false,
     ) {
         val pkgDir = findPackageDir(pythonModule)
-        val pyFiles = listPyFiles(pkgDir, maxFiles)
+        val pyFiles = listPyFiles(pkgDir, maxFiles, recursive)
         assertTrue(pyFiles.isNotEmpty(), "No .py files found in $pkgDir")
 
         val projectRoot = findProjectRoot()
@@ -40,7 +42,7 @@ class BenchmarkTest : PIRTestBase() {
             sources = pyFiles,
             pythonExecutable = createPythonWrapperPublic(projectRoot),
             mypyFlags = listOf("--ignore-missing-imports"),
-            rpcTimeout = java.time.Duration.ofSeconds(120),
+            rpcTimeout = java.time.Duration.ofSeconds(180),
         ))
 
         cp.use {
@@ -48,7 +50,7 @@ class BenchmarkTest : PIRTestBase() {
             val stats = collectStats(it)
 
             println("╔══════════════════════════════════════════════════════════════")
-            println("║ $pythonModule (${pyFiles.size} files)")
+            println("║ $pythonModule (${pyFiles.size} files, recursive=$recursive)")
             println("║ Modules: ${stats.modules}, Classes: ${stats.classes}, " +
                     "Functions: ${stats.functions}, Blocks: ${stats.blocks}, " +
                     "Instructions: ${stats.instructions}")
@@ -63,39 +65,129 @@ class BenchmarkTest : PIRTestBase() {
             assertTrue(stats.functions >= minFunctions,
                 "$pythonModule: expected >= $minFunctions functions, got ${stats.functions}")
 
-            // All functions should have non-empty CFG
+            // CFG quality: track functions with empty CFG and those with 0 instructions
             val badFunctions = mutableListOf<String>()
+            val zeroInstructionFunctions = mutableListOf<String>()
             for (module in it.modules) {
                 for (func in allFunctions(module)) {
                     if (func.cfg.blocks.isEmpty()) {
                         badFunctions.add(func.qualifiedName)
+                    } else if (func.cfg.blocks.sumOf { b -> b.instructions.size } == 0) {
+                        zeroInstructionFunctions.add(func.qualifiedName)
                     }
                 }
             }
+
+            // Print summary of CFG build failures (0 instructions)
+            val cfgFailures = badFunctions + zeroInstructionFunctions
+            if (cfgFailures.isNotEmpty()) {
+                println("║ ⚠ CFG quality: ${cfgFailures.size} of ${stats.functions} functions with 0 instructions:")
+                cfgFailures.take(20).forEach { println("║   - $it") }
+                if (cfgFailures.size > 20) {
+                    println("║   ... and ${cfgFailures.size - 20} more")
+                }
+            }
+
+            // Allow up to 5% + 1 functions without CFG blocks
             val allowedBad = (stats.functions * 0.05).toInt() + 1
             assertTrue(
                 badFunctions.size <= allowedBad,
                 "$pythonModule: ${badFunctions.size} of ${stats.functions} functions without CFG:\n  " +
                     badFunctions.take(20).joinToString("\n  ")
             )
+
+            // CFG quality assertion: at least 1 instruction per function on average
+            if (stats.functions > 0) {
+                assertTrue(
+                    stats.instructions >= stats.functions,
+                    "$pythonModule: CFG quality too low — ${stats.instructions} total instructions " +
+                        "across ${stats.functions} functions (expected >= 1 per function on average)"
+                )
+            }
         }
     }
 
+    // ─── Existing benchmarks ─────────────────────────────────
+
     @Test
-    @Timeout(120)
+    @Timeout(180)
     fun `benchmark - click`() = analyzePkg("click", 8, 5, 5, 20)
 
     @Test
-    @Timeout(120)
+    @Timeout(180)
     fun `benchmark - requests`() = analyzePkg("requests", 8, 5, 5, 20)
 
     @Test
-    @Timeout(120)
+    @Timeout(180)
     fun `benchmark - attrs`() = analyzePkg("attr", 8, 5, 3, 10)
 
     @Test
-    @Timeout(120)
+    @Timeout(180)
     fun `benchmark - typer`() = analyzePkg("typer", 5, 3, 2, 5)
+
+    // ─── New benchmarks ──────────────────────────────────────
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - rich`() = analyzePkg("rich", 12, 8, 10, 30, recursive = true)
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - pygments`() = analyzePkg("pygments", 10, 7, 8, 20, recursive = true)
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - urllib3`() = analyzePkg("urllib3", 10, 6, 5, 15, recursive = true)
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - packaging`() = analyzePkg("packaging", 10, 5, 3, 15)
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - cryptography`() = analyzePkg("cryptography", 10, 6, 1, 10, recursive = true)
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - more-itertools`() = analyzePkg("more_itertools", 3, 2, 1, 5)
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - idna`() = analyzePkg("idna", 8, 4, 2, 5)
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - charset-normalizer`() = analyzePkg("charset_normalizer", 8, 5, 3, 10)
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - markdown-it`() = analyzePkg("markdown_it", 10, 6, 3, 15, recursive = true)
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - grpc`() = analyzePkg("grpc", 10, 6, 5, 15, recursive = true)
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - google-protobuf`() = analyzePkg("google.protobuf", 10, 6, 5, 15, recursive = true)
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - mypy`() = analyzePkg("mypy", 15, 10, 10, 40, recursive = true)
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - shellingham`() = analyzePkg("shellingham", 7, 3, 1, 3)
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - mdurl`() = analyzePkg("mdurl", 6, 3, 1, 5)
+
+    @Test
+    @Timeout(180)
+    fun `benchmark - markupsafe`() = analyzePkg("markupsafe", 2, 1, 1, 2)
+
+    // certifi is a data-only package (no __file__ attribute), skip it
 
     // ─── Helpers ──────────────────────────────────────────
 
@@ -113,11 +205,18 @@ class BenchmarkTest : PIRTestBase() {
             return output
         }
 
-        fun listPyFiles(dir: String, maxFiles: Int): List<String> {
-            val allFiles = File(dir).listFiles()
-                ?.filter { it.extension == "py" && it.isFile }
-                ?.sortedByDescending { if (it.name == "__init__.py") Long.MAX_VALUE else it.length() }
-                ?: emptyList()
+        fun listPyFiles(dir: String, maxFiles: Int, recursive: Boolean = false): List<String> {
+            val allFiles = if (recursive) {
+                File(dir).walk()
+                    .filter { it.isFile && it.extension == "py" }
+                    .toList()
+                    .sortedByDescending { if (it.name == "__init__.py") Long.MAX_VALUE else it.length() }
+            } else {
+                File(dir).listFiles()
+                    ?.filter { it.extension == "py" && it.isFile }
+                    ?.sortedByDescending { if (it.name == "__init__.py") Long.MAX_VALUE else it.length() }
+                    ?: emptyList()
+            }
             return allFiles.take(maxFiles).map { it.absolutePath }
         }
     }

@@ -18,10 +18,27 @@ from pir_server.proto import pir_pb2
 
 
 class TypeMapper:
+    MAX_DEPTH = 10
+
+    def __init__(self):
+        self._depth = 0
+
     def map(self, typ: Type | None) -> pir_pb2.PIRTypeProto:
         if typ is None:
             return pir_pb2.PIRTypeProto(any_type=pir_pb2.PIRAnyTypeProto())
 
+        # Guard against recursive types
+        self._depth += 1
+        if self._depth > self.MAX_DEPTH:
+            self._depth -= 1
+            return pir_pb2.PIRTypeProto(any_type=pir_pb2.PIRAnyTypeProto())
+
+        try:
+            return self._map_inner(typ)
+        finally:
+            self._depth -= 1
+
+    def _map_inner(self, typ: Type) -> pir_pb2.PIRTypeProto:
         typ = get_proper_type(typ)
         proto = pir_pb2.PIRTypeProto()
 

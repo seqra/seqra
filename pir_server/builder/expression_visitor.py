@@ -167,7 +167,16 @@ class ExpressionTransformer:
     # ─── Constants ──────────────────────────────────────────
 
     def _const_int(self, value: int) -> pir_pb2.PIRValueProto:
-        return pir_pb2.PIRValueProto(const_val=pir_pb2.PIRConstProto(int_value=value))
+        # Protobuf int64 range: clamp Python's arbitrary-precision ints
+        if -(2**63) <= value <= 2**63 - 1:
+            return pir_pb2.PIRValueProto(
+                const_val=pir_pb2.PIRConstProto(int_value=value)
+            )
+        else:
+            # Fall back to string representation for huge ints
+            return pir_pb2.PIRValueProto(
+                const_val=pir_pb2.PIRConstProto(string_value=str(value))
+            )
 
     def _const_float(self, value: float) -> pir_pb2.PIRValueProto:
         return pir_pb2.PIRValueProto(const_val=pir_pb2.PIRConstProto(float_value=value))
