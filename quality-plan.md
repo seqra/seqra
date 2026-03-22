@@ -1,6 +1,6 @@
 # Quality Plan
 
-## Status: ALL PASSING (302 tests)
+## Status: ALL PASSING (662 tests)
 
 ## Baseline (start of quality phase)
 - 140 tests passing (4 Tier-1 benchmarks, 126 Tier-2 unit tests, 10 Tier-3 round-trip)
@@ -51,8 +51,8 @@ Total: 19 benchmark packages, all passing
 - [x] ComplexControlFlowTest (22 tests) — try-in-loop, loop-in-try, triple-nested, while-in-for, multi-break, complex boolean conditions, for/else, while/else
 - [x] AssignmentPatternsTest (21 tests) — simple, multi-target, augmented, tuple unpack, swap, starred, attr, subscript, chained
 - [x] ExceptionTypeResolutionTest (23 tests) — ValueError, TypeError, RuntimeError, bare except, tuple except, base class Exception
-- [ ] Comprehension tests — deferred (comprehensions currently lower to None)
-- [ ] Lambda tests — deferred (lambdas currently lower to None)
+- [x] Comprehension round-trip tests (39 tests in RoundTripComprehensionTest)
+- [x] Lambda round-trip tests (30 tests in RoundTripLambdaTest)
 
 ## Q4: Additional Test Approaches
 - [x] CFG quality assertions in benchmarks (instructions >= functions, <=5% empty CFGs)
@@ -60,6 +60,7 @@ Total: 19 benchmark packages, all passing
 - [x] CfgIntegrityTest (33 tests) — structural CFG validation (reachability, successor/predecessor consistency, terminator checks, dangling edges, block label uniqueness)
 - [x] EdgeCasesTest (40 tests) — edge-case coverage (empty functions, deep nesting, all comparison operators, delete stmts, parameter kinds, assert patterns, try/except variants)
 - [x] 12 new Tier-3 round-trip tests (while-break, for-continue, augmented assign, nested if, chained if, power, find-max, count-chars, nested loops, early return, build dict)
+- [x] 360 new Tier-3 round-trip tests across 8 new test classes (RoundTripArithmeticTest, RoundTripStringTest, RoundTripConditionalTest, RoundTripLoopTest, RoundTripCollectionTest, RoundTripMixedTest, RoundTripComprehensionTest, RoundTripLambdaTest)
 - [x] Stronger benchmark assertions (instruction diversity, 0 dangling edges, <10% unreachable blocks)
 - [x] Refactored 4 slow test classes to PER_CLASS lifecycle (BasicInstructionsTest, ClassesTest, ExceptionHandlingTest, TypeMappingTest)
 
@@ -147,3 +148,28 @@ Total: 19 benchmark packages, all passing
   - for/else and while/else break targets
   - with-stmt __exit__ dead code
 - All 302 tests pass (19 Tier-1, 258 Tier-2, 22 Tier-3 + 3 untagged)
+
+### Session 7
+- Massively expanded Tier-3 round-trip tests from 22 to 313 (291 new tests)
+- Created RoundTripTestBase.kt: shared infrastructure for round-trip test classes
+- Created RoundTripTestBase.kt: shared infrastructure for all round-trip test classes
+- Created 7 new round-trip test classes:
+  - RoundTripArithmeticTest (57 tests): math, number algorithms, bitwise ops
+  - RoundTripStringTest (47 tests): string manipulation, searching, encoding
+  - RoundTripConditionalTest (46 tests): if/elif/else, boolean logic, ternary
+  - RoundTripLoopTest (49 tests): while/for, break/continue, nested loops, sorting
+  - RoundTripCollectionTest (47 tests): lists, dicts, tuples, matrix ops
+  - RoundTripMixedTest (45 tests): algorithms (binary search, kadane, sieve, RPN, etc.)
+  - RoundTripComprehensionTest (39 tests): list/set/dict comprehensions, generator exprs, conditional exprs
+- All 8 round-trip test classes pass individually (0 failures)
+- Total: 632 tests (19 Tier-1, 258 Tier-2, 352 Tier-3 + 3 untagged)
+
+### Session 8
+- Added lambda round-trip support to PIRReconstructor:
+  - New `reconstructWithLambdas()` method resolves synthetic `<lambda>$N` functions from classpath
+  - Lambda functions are emitted as regular `def` blocks with sanitized names
+  - `sanitizeFuncName()` converts `<lambda>$0` -> `__lambda___0` for valid Python identifiers
+  - `PIRGlobalRef` names are sanitized in `val_()` to handle lambda references
+- Created RoundTripLambdaTest (30 tests): lambda expressions, sorted/map/filter with key, compose, conditional lambda, multi-arg
+- Added `roundTripWithLambdas()` helper to RoundTripTestBase
+- Total: 662 tests (19 Tier-1, 258 Tier-2, 382 Tier-3 + 3 untagged)

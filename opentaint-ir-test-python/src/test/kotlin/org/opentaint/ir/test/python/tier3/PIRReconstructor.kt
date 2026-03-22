@@ -19,9 +19,40 @@ import org.opentaint.ir.api.python.*
 class PIRReconstructor {
 
     fun reconstruct(func: PIRFunction): String {
+        return reconstructSingle(func)
+    }
+
+    /**
+     * Reconstruct a function along with any lambda functions it references.
+     *
+     * Lambda expressions are lowered to synthetic `<lambda>$N` functions.
+     * This method scans for PIRGlobalRef values matching that pattern,
+     * looks up the corresponding PIRFunction in the classpath, and emits
+     * the lambda as a regular `def` with a sanitized name before the main function.
+     */
+    fun reconstructWithLambdas(func: PIRFunction, cp: PIRClasspath): String {
+        val sb = StringBuilder()
+        val lambdaRefs = collectLambdaRefs(func)
+
+        // Reconstruct each referenced lambda as a top-level def
+        for (ref in lambdaRefs) {
+            val qualifiedName = "${func.module.name}.$ref"
+            val lambdaFunc = cp.findFunctionOrNull(qualifiedName)
+            if (lambdaFunc != null) {
+                sb.append(reconstructSingle(lambdaFunc))
+                sb.appendLine()
+            }
+        }
+
+        // Reconstruct the main function
+        sb.append(reconstructSingle(func))
+        return sb.toString()
+    }
+
+    private fun reconstructSingle(func: PIRFunction): String {
         val sb = StringBuilder()
         val params = func.parameters.joinToString(", ") { it.name }
-        sb.appendLine("def ${func.name}($params):")
+        sb.appendLine("def ${sanitizeFuncName(func.name)}($params):")
 
         val blocks = func.cfg.blocks
         if (blocks.isEmpty()) {
@@ -68,6 +99,62 @@ class PIRReconstructor {
         }
 
         return sb.toString()
+    }
+
+    /**
+     * Collect all PIRGlobalRef names that look like lambda references (`<lambda>$N`).
+     */
+    private fun collectLambdaRefs(func: PIRFunction): Set<String> {
+        val refs = mutableSetOf<String>()
+        for (block in func.cfg.blocks) {
+            for (inst in block.instructions) {
+                collectLambdaRefsFromInstruction(inst, refs)
+            }
+        }
+        return refs
+    }
+
+    private fun collectLambdaRefsFromInstruction(inst: PIRInstruction, refs: MutableSet<String>) {
+        fun checkValue(v: PIRValue) {
+            if (v is PIRGlobalRef && v.name.startsWith("<lambda>")) {
+                refs.add(v.name)
+            }
+        }
+        when (inst) {
+            is PIRAssign -> { checkValue(inst.target); checkValue(inst.source) }
+            is PIRBinOp -> { checkValue(inst.target); checkValue(inst.left); checkValue(inst.right) }
+            is PIRUnaryOp -> { checkValue(inst.target); checkValue(inst.operand) }
+            is PIRCompare -> { checkValue(inst.target); checkValue(inst.left); checkValue(inst.right) }
+            is PIRCall -> { inst.target?.let { checkValue(it) }; checkValue(inst.callee); inst.args.forEach { checkValue(it.value) } }
+            is PIRLoadAttr -> { checkValue(inst.target); checkValue(inst.obj) }
+            is PIRStoreAttr -> { checkValue(inst.obj); checkValue(inst.value) }
+            is PIRLoadSubscript -> { checkValue(inst.target); checkValue(inst.obj); checkValue(inst.index) }
+            is PIRStoreSubscript -> { checkValue(inst.obj); checkValue(inst.index); checkValue(inst.value) }
+            is PIRLoadGlobal -> checkValue(inst.target)
+            is PIRStoreGlobal -> checkValue(inst.value)
+            is PIRBuildList -> { checkValue(inst.target); inst.elements.forEach { checkValue(it) } }
+            is PIRBuildTuple -> { checkValue(inst.target); inst.elements.forEach { checkValue(it) } }
+            is PIRBuildSet -> { checkValue(inst.target); inst.elements.forEach { checkValue(it) } }
+            is PIRBuildDict -> { checkValue(inst.target); inst.keys.forEach { checkValue(it) }; inst.values.forEach { checkValue(it) } }
+            is PIRBuildSlice -> { checkValue(inst.target); inst.lower?.let { checkValue(it) }; inst.upper?.let { checkValue(it) }; inst.step?.let { checkValue(it) } }
+            is PIRBuildString -> { checkValue(inst.target); inst.parts.forEach { checkValue(it) } }
+            is PIRGetIter -> { checkValue(inst.target); checkValue(inst.iterable) }
+            is PIRNextIter -> { checkValue(inst.target); checkValue(inst.iterator) }
+            is PIRUnpack -> { inst.targets.forEach { checkValue(it) }; checkValue(inst.source) }
+            is PIRBranch -> checkValue(inst.condition)
+            is PIRReturn -> inst.value?.let { checkValue(it) }
+            is PIRRaise -> inst.exception?.let { checkValue(it) }
+            is PIRExceptHandler -> inst.target?.let { checkValue(it) }
+            is PIRYield -> { inst.target?.let { checkValue(it) }; inst.value?.let { checkValue(it) } }
+            is PIRYieldFrom -> { inst.target?.let { checkValue(it) }; checkValue(inst.iterable) }
+            is PIRAwait -> { inst.target?.let { checkValue(it) }; checkValue(inst.awaitable) }
+            is PIRDeleteLocal -> checkValue(inst.local)
+            is PIRDeleteAttr -> checkValue(inst.obj)
+            is PIRDeleteSubscript -> { checkValue(inst.obj); checkValue(inst.index) }
+            is PIRLoadClosure -> checkValue(inst.target)
+            is PIRStoreClosure -> checkValue(inst.value)
+            is PIRGoto, is PIRDeleteGlobal, is PIRTypeCheck, is PIRUnreachable -> {}
+        }
     }
 
     private fun reconstructInstruction(inst: PIRInstruction): List<String> {
@@ -195,13 +282,24 @@ class PIRReconstructor {
             is PIREllipsisConst -> "..."
             is PIRBytesConst -> "b\"...\""
             is PIRComplexConst -> "complex(${v.real}, ${v.imag})"
-            is PIRGlobalRef -> v.name
+            is PIRGlobalRef -> sanitizeFuncName(v.name)
         }
     }
 
     private fun sanitize(name: String): String {
         // Replace $ with __ for valid Python identifiers
         return name.replace("\$", "__")
+    }
+
+    /**
+     * Sanitize function names that contain invalid Python characters.
+     * `<lambda>$0` -> `__lambda___0`
+     */
+    private fun sanitizeFuncName(name: String): String {
+        return name
+            .replace("<", "__")
+            .replace(">", "__")
+            .replace("\$", "_")
     }
 
     private fun binOp(op: PIRBinaryOperator): String = when (op) {
