@@ -45,7 +45,7 @@ data class PIRFunctionImpl(
     override val isClassMethod: Boolean,
     override val isProperty: Boolean,
     override val closureVars: List<String>,
-    override val enclosingClass: PIRClass?,
+    override var enclosingClass: PIRClass?,
     override val module: PIRModule,
 ) : PIRFunction
 

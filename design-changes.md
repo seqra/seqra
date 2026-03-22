@@ -73,3 +73,33 @@ This document tracks deviations from the original design and bugs discovered dur
 1. Before setting exception handlers, activate a new block for the try body (so pre-try instructions are finalized without handlers).
 2. After visiting the try body (and emitting the goto-to-end terminator), explicitly call `_finalize_current_block()` before restoring old handlers. This ensures the try body's last block gets the correct handler labels stamped on it.
 **File**: `pir_server/builder/statement_visitor.py`
+
+### DC-13: Decorated Method Qualified Names
+**Original design**: `MypyModuleBuilder.buildFunction()` used `funcDef.fullname` from the proto if non-empty, falling back to `enclosingClass`-based construction only when fullname was empty.
+**Problem**: The Python AST serializer's `_serialize_decorator_def()` called `_serialize_func_def(dec.func)` without passing `enclosing_class`. So for `@staticmethod def static_method(y):` inside `ECClass`, the func's fullname became `__test__.static_method` (no class prefix). The Kotlin builder then used this wrong fullname from the proto, making methods invisible to `findFunctionOrNull("__test__.ECClass.static_method")`.
+**Fix**: In `buildFunction()`, check `enclosingClass != null` first and always construct the qualified name from it when present, regardless of what the proto's fullname says.
+**File**: `opentaint-ir-impl-python/builder/MypyModuleBuilder.kt`
+
+### DC-14: enclosingClass Back-Reference Not Set
+**Original design**: `buildFunction()` always set `enclosingClass = null` in the returned `PIRFunctionImpl`, even for class methods.
+**Problem**: Tests checking `method.enclosingClass` got null for all methods.
+**Fix**: Changed `PIRFunctionImpl.enclosingClass` from `val` to `var`. After building a `PIRClassImpl` with its methods list, loop through methods and set `method.enclosingClass = cls`.
+**Files**: `PIRImplData.kt`, `MypyModuleBuilder.kt`
+
+### DC-15: AST Serializer RecursionError on Deep Expressions
+**Original design**: `_serialize_expr()` had no depth limit, recursing into nested expressions without bound.
+**Problem**: The `idna` package contains deeply nested `OpExpr` chains (e.g., `a | b | c | ...` with 40+ levels). This caused both Python RecursionError and protobuf `DecodeError` (protobuf has a ~100-level nesting limit).
+**Fix**: Added `MAX_EXPR_DEPTH = 40` instance counter to `_serialize_expr()`. When exceeded, returns empty `MypyExprProto`. Also added try/catch per definition in `serialize()` to skip (with warning) any definition that fails serialization.
+**File**: `pir_server/builder/ast_serializer.py`
+
+### DC-16: Python Server Orphan Process
+**Original design**: The Python gRPC server had no mechanism to detect when its parent (Kotlin JVM) process died.
+**Problem**: If the JVM crashed or was killed without calling `Shutdown` RPC, the Python server remained running indefinitely, consuming resources.
+**Fix**: Added `_parent_watchdog()` thread that monitors `sys.stdin.buffer.read()`. When the parent dies, stdin returns EOF, triggering `server.stop()` + `os._exit(0)`. Also added `proc.outputStream.close()` in Kotlin's `PIRProcessManager.close()` to trigger the watchdog on graceful shutdown.
+**Files**: `pir_server/server.py`, `PIRProcessManager.kt`
+
+### DC-17: IPv4/IPv6 Connection Mismatch
+**Original design**: Python gRPC server bound to `localhost:{port}`.
+**Problem**: On systems with IPv6, `localhost` resolves to both `127.0.0.1` (IPv4) and `::1` (IPv6). The Python server sometimes bound to IPv6 `::1` while the Kotlin gRPC client connected to IPv4 `127.0.0.1`. This caused intermittent `DEADLINE_EXCEEDED` connection failures that were non-deterministic and appeared only under load (rapid process creation/destruction).
+**Fix**: Changed server to bind explicitly to `127.0.0.1:{port}` instead of `localhost:{port}`. Kotlin client already used `forAddress("localhost", port)` which resolves to IPv4.
+**File**: `pir_server/server.py`

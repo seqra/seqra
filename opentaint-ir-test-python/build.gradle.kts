@@ -26,5 +26,15 @@ tasks.test {
     // Each test class spawns a Python subprocess with gRPC server.
     // Single fork prevents port conflicts and resource exhaustion.
     maxParallelForks = 1
-    maxHeapSize = "1g"
+    maxHeapSize = "8g"
+
+    // Test logging: show which tests start and pass/fail
+    testLogging {
+        events("started", "passed", "failed", "skipped")
+        showStandardStreams = false
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }

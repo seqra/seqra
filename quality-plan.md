@@ -1,6 +1,6 @@
 # Quality Plan
 
-## Status: ALL PASSING (662 tests)
+## Status: ALL PASSING (681 tests) — All runnable via single `gradle test -PallTiers`
 
 ## Baseline (start of quality phase)
 - 140 tests passing (4 Tier-1 benchmarks, 126 Tier-2 unit tests, 10 Tier-3 round-trip)
@@ -173,3 +173,20 @@ Total: 19 benchmark packages, all passing
 - Created RoundTripLambdaTest (30 tests): lambda expressions, sorted/map/filter with key, compose, conditional lambda, multi-arg
 - Added `roundTripWithLambdas()` helper to RoundTripTestBase
 - Total: 662 tests (19 Tier-1, 258 Tier-2, 382 Tier-3 + 3 untagged)
+
+### Session 10 (Massive Testing Phase)
+- **Made all 681 tests runnable via single `gradle test -PallTiers` (75s, 0 failures)**
+- **Made `gradle test` (tier2+tier3, 662 tests) run in 44s with 0 failures**
+- Infrastructure improvements:
+  - Increased JVM max heap from 1G to 8G
+  - Added test logging (started/passed/failed/skipped)
+  - Fixed IPv4/IPv6 mismatch: changed Python gRPC server to bind `127.0.0.1` instead of `localhost` (was causing intermittent connection failures when IPv6 `::1` was resolved)
+  - Added ping retry with shorter deadline (5 retries × 10s, backoff)
+  - Added `shutdownNow()` fallback for channel cleanup
+- Bug fixes:
+  - DC-13: Decorated method qualified names wrong — `buildFunction` used proto fullname (wrong for Decorator nodes) instead of enclosingClass-based name
+  - DC-14: `enclosingClass` back-reference not set on PIRFunctionImpl for class methods
+  - DC-15: AST serializer RecursionError on deeply nested expressions (idna package) — added depth limit (MAX_EXPR_DEPTH=40) with try/catch per definition
+  - DC-16: Python server orphan process issue — added stdin watchdog thread + stdin pipe close on process manager shutdown
+  - DC-17: Thread pool too small (was 1 worker) — increased to 4 workers
+- Total: 681 tests (19 Tier-1, 262 Tier-2, 382 Tier-3 + 3 untagged + 15 new benchmark assertions)

@@ -105,9 +105,18 @@ class AstSerializer:
             path=self.tree.path or "",
         )
         for defn in self.tree.defs:
-            d = self._serialize_definition(defn)
-            if d is not None:
-                proto.defs.append(d)
+            try:
+                d = self._serialize_definition(defn)
+                if d is not None:
+                    proto.defs.append(d)
+            except Exception as e:
+                import sys
+
+                print(
+                    f"WARNING: Failed to serialize definition in {self.module_name}: "
+                    f"{type(e).__name__}: {e}",
+                    file=sys.stderr,
+                )
         proto.imports.extend(self._collect_imports())
         return proto
 
@@ -393,10 +402,22 @@ class AstSerializer:
 
     # ─── Expressions ──────────────────────────────────────
 
+    MAX_EXPR_DEPTH = 40
+
     def _serialize_expr(self, expr: Expression) -> pir_pb2.MypyExprProto:
         if expr is None:
             return pir_pb2.MypyExprProto()
 
+        self._expr_depth = getattr(self, "_expr_depth", 0) + 1
+        try:
+            if self._expr_depth > self.MAX_EXPR_DEPTH:
+                # Bail out for deeply nested expression trees (e.g., idna's huge | chains)
+                return pir_pb2.MypyExprProto()
+            return self._serialize_expr_inner(expr)
+        finally:
+            self._expr_depth -= 1
+
+    def _serialize_expr_inner(self, expr: Expression) -> pir_pb2.MypyExprProto:
         line = getattr(expr, "line", -1)
         col = getattr(expr, "column", 0)
         proto = pir_pb2.MypyExprProto(line=line, col=col)

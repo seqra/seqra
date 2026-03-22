@@ -55,6 +55,8 @@ class PIRProcessManager(
     override fun close() {
         val proc = process ?: return
         try {
+            // Close stdin pipe — triggers the Python watchdog thread to exit
+            try { proc.outputStream.close() } catch (_: Exception) {}
             if (proc.isAlive) {
                 proc.waitFor(5, TimeUnit.SECONDS)
             }

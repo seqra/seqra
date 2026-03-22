@@ -141,7 +141,7 @@ class MypyModuleBuilder(
             }
         }
 
-        return PIRClassImpl(
+        val cls = PIRClassImpl(
             name = classDef.name,
             qualifiedName = classDef.fullname.ifEmpty { "$moduleName.${classDef.name}" },
             baseClasses = classDef.baseClassesList,
@@ -156,6 +156,15 @@ class MypyModuleBuilder(
             isEnum = classDef.isEnum,
             module = module,
         )
+
+        // Wire up enclosingClass back-reference on all methods
+        for (method in methods) {
+            if (method is PIRFunctionImpl) {
+                method.enclosingClass = cls
+            }
+        }
+
+        return cls
     }
 
     // ─── Function building ───────────────────────────────
@@ -165,10 +174,13 @@ class MypyModuleBuilder(
         enclosingClass: String?,
         module: PIRModule,
     ): PIRFunction {
-        val qualifiedName = if (funcDef.fullname.isNotEmpty()) {
-            funcDef.fullname
-        } else if (enclosingClass != null) {
+        val qualifiedName = if (enclosingClass != null) {
+            // Always use enclosingClass when present — the proto's fullname may be wrong
+            // for decorated methods (Python serializer doesn't pass enclosing_class to
+            // _serialize_func_def for Decorator nodes).
             "$moduleName.$enclosingClass.${funcDef.name}"
+        } else if (funcDef.fullname.isNotEmpty()) {
+            funcDef.fullname
         } else {
             "$moduleName.${funcDef.name}"
         }

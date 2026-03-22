@@ -50,9 +50,36 @@ class PIRClasspathImpl private constructor(
 
             val classpath = PIRClasspathImpl(processManager, channel, stub, settings)
 
-            val pingResponse = stub.ping(PingRequest.getDefaultInstance())
-            classpath.pythonVersion = pingResponse.pythonVersion
-            classpath.mypyVersion = pingResponse.mypyVersion
+            // Ping with retries — the gRPC channel may need time to connect
+            // after the server reports READY.
+            val maxRetries = 5
+            var lastException: Exception? = null
+            for (attempt in 1..maxRetries) {
+                if (!processManager.isRunning) {
+                    processManager.close()
+                    throw PIRServerStartupException(
+                        "Python server died before ping (attempt $attempt/$maxRetries)"
+                    )
+                }
+                try {
+                    val pingStub = PIRServiceGrpc.newBlockingStub(channel)
+                        .withDeadlineAfter(10, TimeUnit.SECONDS)
+                    val pingResponse = pingStub.ping(PingRequest.getDefaultInstance())
+                    classpath.pythonVersion = pingResponse.pythonVersion
+                    classpath.mypyVersion = pingResponse.mypyVersion
+                    lastException = null
+                    break
+                } catch (e: Exception) {
+                    lastException = e
+                    if (attempt < maxRetries) {
+                        Thread.sleep(1000L * attempt)
+                    }
+                }
+            }
+            if (lastException != null) {
+                processManager.close()
+                throw lastException
+            }
 
             if (settings.sources.isNotEmpty()) {
                 classpath.buildProject()
@@ -113,7 +140,11 @@ class PIRClasspathImpl private constructor(
             try {
                 stub.shutdown(ShutdownRequest.getDefaultInstance())
             } catch (_: Exception) {}
-            channel.shutdown().awaitTermination(5, TimeUnit.SECONDS)
+            channel.shutdown()
+            if (!channel.awaitTermination(5, TimeUnit.SECONDS)) {
+                channel.shutdownNow()
+                channel.awaitTermination(3, TimeUnit.SECONDS)
+            }
         } finally {
             processManager.close()
         }
