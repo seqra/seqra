@@ -1,6 +1,6 @@
 # Quality Plan
 
-## Status: ALL PASSING (681 tests) — All runnable via single `gradle test -PallTiers`
+## Status: ALL PASSING (936 tests) — All runnable via single `gradle test -PallTiers`
 
 ## Baseline (start of quality phase)
 - 140 tests passing (4 Tier-1 benchmarks, 126 Tier-2 unit tests, 10 Tier-3 round-trip)
@@ -53,6 +53,13 @@ Total: 19 benchmark packages, all passing
 - [x] ExceptionTypeResolutionTest (23 tests) — ValueError, TypeError, RuntimeError, bare except, tuple except, base class Exception
 - [x] Comprehension round-trip tests (39 tests in RoundTripComprehensionTest)
 - [x] Lambda round-trip tests (30 tests in RoundTripLambdaTest)
+- [x] WalrusOperatorTest (17 tests) — walrus in if, while, comp, ternary, assert, nested, condition chain
+- [x] ChainedComparisonTest (18 tests) — 2/3/4-operand chains, mixed ops, in control flow
+- [x] ConstantTypesTest (24 tests) — complex, bytes, ellipsis, large int, unicode, collection literals
+- [x] ForTupleUnpackTest (14 tests) — pair/triple/nested unpack, dict.items, enumerate, zip, starred
+- [x] ExceptionControlFlowComboTest (25 tests) — break/continue/return in try/except, nested try, while+try, multi-handler
+- [x] LambdaEdgeCasesTest (18 tests) — nested lambda, lambda+comp, default args, immediate invocation, chain
+- [x] AdvancedFeaturesTest (25 tests) — super(), slice+step, decorators, dict splat, augmented ops, isinstance
 
 ## Q4: Additional Test Approaches
 - [x] CFG quality assertions in benchmarks (instructions >= functions, <=5% empty CFGs)
@@ -63,6 +70,10 @@ Total: 19 benchmark packages, all passing
 - [x] 360 new Tier-3 round-trip tests across 8 new test classes (RoundTripArithmeticTest, RoundTripStringTest, RoundTripConditionalTest, RoundTripLoopTest, RoundTripCollectionTest, RoundTripMixedTest, RoundTripComprehensionTest, RoundTripLambdaTest)
 - [x] Stronger benchmark assertions (instruction diversity, 0 dangling edges, <10% unreachable blocks)
 - [x] Refactored 4 slow test classes to PER_CLASS lifecycle (BasicInstructionsTest, ClassesTest, ExceptionHandlingTest, TypeMappingTest)
+- [x] RoundTripExceptionTest (53 tests) — try/except/else/finally, nested try, try-in-loop, break/continue in except, multi-handler
+- [x] RoundTripWalrusTest (31 tests) — walrus in if/while/ternary, nested walrus, arithmetic patterns
+- [x] RoundTripAdvancedTest (40 tests) — chained comparisons, augmented chains, ternary chains, complex boolean, collection building
+- [x] Enhanced PIRReconstructor to wrap exception-handler blocks in try/except for correct round-trip behavior
 
 ## Progress Log
 
@@ -190,3 +201,22 @@ Total: 19 benchmark packages, all passing
   - DC-16: Python server orphan process issue — added stdin watchdog thread + stdin pipe close on process manager shutdown
   - DC-17: Thread pool too small (was 1 worker) — increased to 4 workers
 - Total: 681 tests (19 Tier-1, 262 Tier-2, 382 Tier-3 + 3 untagged + 15 new benchmark assertions)
+
+### Session 11 (Coverage Expansion)
+- **Systematic gap analysis**: identified all supported-but-untested features
+- **Added 10 new test classes (255 new tests)**:
+  - 7 new Tier-2 test classes (141 tests):
+    - WalrusOperatorTest (17 tests): walrus in if, while, comprehension, ternary, assert, nested, condition chain
+    - ChainedComparisonTest (18 tests): 2/3/4-operand chains, mixed operators, in if/while control flow
+    - ConstantTypesTest (24 tests): complex numbers, bytes, ellipsis, large ints, unicode strings, collection literals
+    - ForTupleUnpackTest (14 tests): pair/triple/nested unpack, dict.items(), enumerate, zip, starred
+    - ExceptionControlFlowComboTest (25 tests): break/continue/return in try/except, nested try, while+try, multi-handler
+    - LambdaEdgeCasesTest (18 tests): nested lambda, lambda+comprehension combo, default args, immediate invocation, chain
+    - AdvancedFeaturesTest (25 tests): super(), slice with step, multiple decorators, dict splat, augmented ops, isinstance
+  - 3 new Tier-3 round-trip test classes (124 tests):
+    - RoundTripExceptionTest (53 tests): try/except/else/finally round-trips, nested try, try-in-loop, break/continue in except
+    - RoundTripWalrusTest (31 tests): walrus in if/while/ternary, nested walrus, arithmetic patterns
+    - RoundTripAdvancedTest (40 tests): chained comparisons, augmented chains, ternary chains, complex boolean, collection building
+- **Enhanced PIRReconstructor**: blocks with `exceptionHandlers` now wrapped in `try:/except:` for correct exception round-tripping
+- **All 936 tests pass** via `gradle test -PallTiers` (73s, 0 failures)
+- Total: 936 tests (19 Tier-1, 403 Tier-2, 496 Tier-3 + 3 untagged + 15 benchmark assertions)

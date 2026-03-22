@@ -81,19 +81,40 @@ class PIRReconstructor {
             }
         }
 
+        // Build a label->block map for looking up handler blocks
+        val blockByLabel = blocks.associateBy { it.label }
+
         sb.appendLine("    __state = ${blocks.first().label}")
         sb.appendLine("    while True:")
 
         for (block in blocks) {
+            val hasHandlers = block.exceptionHandlers.isNotEmpty()
+            // Find the first handler label (the one to jump to on exception)
+            val handlerLabel = if (hasHandlers) block.exceptionHandlers.first() else -1
+
             sb.appendLine("        if __state == ${block.label}:")
             if (block.instructions.isEmpty()) {
                 sb.appendLine("            pass")
                 continue
             }
-            for (inst in block.instructions) {
-                val lines = reconstructInstruction(inst)
-                for (line in lines) {
-                    sb.appendLine("            $line")
+
+            if (hasHandlers) {
+                sb.appendLine("            try:")
+                for (inst in block.instructions) {
+                    val lines = reconstructInstruction(inst)
+                    for (line in lines) {
+                        sb.appendLine("                $line")
+                    }
+                }
+                sb.appendLine("            except:")
+                sb.appendLine("                __state = $handlerLabel")
+                sb.appendLine("                continue")
+            } else {
+                for (inst in block.instructions) {
+                    val lines = reconstructInstruction(inst)
+                    for (line in lines) {
+                        sb.appendLine("            $line")
+                    }
                 }
             }
         }
