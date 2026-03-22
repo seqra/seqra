@@ -35,6 +35,8 @@ class ModuleBuilder:
         self.module_name = module_name
         self.type_mapper = TypeMapper()
         self.diagnostics: list[pir_pb2.PIRDiagnosticProto] = []
+        self.lambda_counter: int = 0
+        self.lambda_functions: list[pir_pb2.PIRFunctionProto] = []
 
     def build(self) -> pir_pb2.PIRModuleProto:
         proto = pir_pb2.PIRModuleProto(
@@ -56,6 +58,9 @@ class ModuleBuilder:
                         proto.fields.append(field)
 
         proto.module_init.CopyFrom(self._build_module_init())
+        # Add lambda functions synthesized during lowering
+        for lf in self.lambda_functions:
+            proto.functions.append(lf)
         proto.imports.extend(self._collect_imports())
         proto.diagnostics.extend(self.diagnostics)
 
@@ -142,6 +147,7 @@ class ModuleBuilder:
             types=self.types,
             type_mapper=self.type_mapper,
             scope=scope,
+            module_builder=self,
         )
         try:
             cfg_proto = stmt_visitor.build_function_cfg(func_def)
@@ -235,6 +241,7 @@ class ModuleBuilder:
             types=self.types,
             type_mapper=self.type_mapper,
             scope=scope,
+            module_builder=self,
         )
         try:
             cfg_proto = stmt_visitor.build_module_init_cfg(self.tree)

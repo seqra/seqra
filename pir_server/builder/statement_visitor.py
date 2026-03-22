@@ -19,6 +19,7 @@ from mypy.nodes import (
     PassStmt,
     GlobalDecl,
     FuncDef,
+    FuncItem,
     MypyFile,
     NameExpr,
     TupleExpr,
@@ -44,10 +45,17 @@ class StatementTransformer:
       - exception_handlers: stack of handler block labels
     """
 
-    def __init__(self, types: dict, type_mapper: TypeMapper, scope: ScopeStack):
+    def __init__(
+        self,
+        types: dict,
+        type_mapper: TypeMapper,
+        scope: ScopeStack,
+        module_builder=None,
+    ):
         self.types = types
         self.type_mapper = type_mapper
         self.scope = scope
+        self.module_builder = module_builder  # For registering lambda functions
         self.expr_transformer = ExpressionTransformer(self)
 
         self.blocks: list[pir_pb2.PIRBasicBlockProto] = []
@@ -155,7 +163,7 @@ class StatementTransformer:
 
     # ─── CFG builders ─────────────────────────────────────
 
-    def build_function_cfg(self, func_def: FuncDef) -> pir_pb2.PIRCFGProto:
+    def build_function_cfg(self, func_def: FuncItem) -> pir_pb2.PIRCFGProto:
         self._reset()
         entry = 0
         self.current_label = entry

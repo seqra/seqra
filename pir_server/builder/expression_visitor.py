@@ -146,19 +146,16 @@ class ExpressionTransformer:
             return self._visit_await(expr)
         elif isinstance(expr, AssignmentExpr):
             return self._visit_walrus(expr)
-        elif isinstance(
-            expr,
-            (
-                ListComprehension,
-                SetComprehension,
-                DictionaryComprehension,
-                GeneratorExpr,
-            ),
-        ):
-            # For comprehensions, emit a call placeholder
-            return self._const_none()  # TODO: lower comprehensions
+        elif isinstance(expr, ListComprehension):
+            return self._visit_list_comprehension(expr)
+        elif isinstance(expr, SetComprehension):
+            return self._visit_set_comprehension(expr)
+        elif isinstance(expr, DictionaryComprehension):
+            return self._visit_dict_comprehension(expr)
+        elif isinstance(expr, GeneratorExpr):
+            return self._visit_generator_expr(expr)
         elif isinstance(expr, LambdaExpr):
-            return self._const_none()  # TODO: lower lambdas
+            return self._visit_lambda(expr)
         elif isinstance(expr, SuperExpr):
             return self._visit_super(expr)
         else:
@@ -607,6 +604,328 @@ class ExpressionTransformer:
             )
         )
         return target
+
+    # ─── Lambda ─────────────────────────────────────────────
+
+    def _visit_lambda(self, expr: LambdaExpr) -> pir_pb2.PIRValueProto:
+        """Lower a lambda expression to a synthetic function.
+
+        Creates a PIRFunctionProto with the lambda's CFG and registers it
+        in the module builder's lambda_functions list. Returns a global
+        reference to the synthesized function name.
+        """
+        from pir_server.builder.statement_visitor import StatementTransformer
+        from pir_server.builder.scope import ScopeStack
+        from mypy.types import CallableType
+
+        mb = self.st.module_builder
+        if mb is None:
+            # No module builder available; fall back to None
+            return self._const_none()
+
+        # Generate a unique name for the lambda
+        idx = mb.lambda_counter
+        mb.lambda_counter += 1
+        lambda_name = f"<lambda>${idx}"
+        qualified_name = f"{mb.module_name}.{lambda_name}"
+
+        # Build the lambda's CFG using a fresh StatementTransformer
+        scope = ScopeStack()
+        stmt_visitor = StatementTransformer(
+            types=self.st.types,
+            type_mapper=self.st.type_mapper,
+            scope=scope,
+            module_builder=mb,
+        )
+        try:
+            cfg_proto = stmt_visitor.build_function_cfg(expr)
+        except Exception:
+            cfg_proto = pir_pb2.PIRCFGProto(
+                blocks=[
+                    pir_pb2.PIRBasicBlockProto(
+                        label=0,
+                        instructions=[
+                            pir_pb2.PIRInstructionProto(
+                                return_inst=pir_pb2.PIRReturnProto()
+                            )
+                        ],
+                    )
+                ],
+                entry_block=0,
+                exit_blocks=[0],
+            )
+
+        # Build the function proto
+        func_proto = pir_pb2.PIRFunctionProto(
+            name=lambda_name,
+            qualified_name=qualified_name,
+            cfg=cfg_proto,
+        )
+
+        # Add parameters
+        from mypy.nodes import (
+            ARG_POS,
+            ARG_OPT,
+            ARG_STAR,
+            ARG_STAR2,
+            ARG_NAMED,
+            ARG_NAMED_OPT,
+        )
+
+        kind_map = {
+            ARG_POS: pir_pb2.POSITIONAL_OR_KEYWORD,
+            ARG_OPT: pir_pb2.POSITIONAL_OR_KEYWORD,
+            ARG_STAR: pir_pb2.VAR_POSITIONAL,
+            ARG_STAR2: pir_pb2.VAR_KEYWORD,
+            ARG_NAMED: pir_pb2.KEYWORD_ONLY,
+            ARG_NAMED_OPT: pir_pb2.KEYWORD_ONLY,
+        }
+        for arg in expr.arguments:
+            param = pir_pb2.PIRParameterProto(
+                name=arg.variable.name if arg.variable else "",
+                kind=kind_map.get(arg.kind, pir_pb2.POSITIONAL_OR_KEYWORD),
+                has_default=arg.initializer is not None,
+            )
+            if arg.variable and arg.variable.type:
+                param.type.CopyFrom(mb.type_mapper.map(arg.variable.type))
+            func_proto.parameters.append(param)
+
+        # Set return type if available
+        func_type = expr.type
+        if isinstance(func_type, CallableType):
+            func_proto.return_type.CopyFrom(mb.type_mapper.map(func_type.ret_type))
+
+        # Register the synthetic function
+        mb.lambda_functions.append(func_proto)
+
+        # Return a global reference to the lambda
+        return pir_pb2.PIRValueProto(
+            global_ref=pir_pb2.PIRGlobalRefProto(
+                name=lambda_name,
+                module=mb.module_name,
+            )
+        )
+
+    # ─── Comprehensions ────────────────────────────────────
+
+    def _visit_list_comprehension(
+        self, expr: ListComprehension
+    ) -> pir_pb2.PIRValueProto:
+        """Lower [expr for x in iterable if cond] to a loop that builds a list."""
+        return self._visit_comprehension_as_loop(
+            expr.generator, "list", getattr(expr, "line", -1)
+        )
+
+    def _visit_set_comprehension(self, expr: SetComprehension) -> pir_pb2.PIRValueProto:
+        """Lower {expr for x in iterable if cond} to a loop that builds a set."""
+        return self._visit_comprehension_as_loop(
+            expr.generator, "set", getattr(expr, "line", -1)
+        )
+
+    def _visit_dict_comprehension(
+        self, expr: DictionaryComprehension
+    ) -> pir_pb2.PIRValueProto:
+        """Lower {k: v for x in iterable if cond} to a loop that builds a dict."""
+        line = getattr(expr, "line", -1)
+        result = self.st._new_temp_value()
+
+        # result = {}
+        self.st._emit(
+            pir_pb2.PIRInstructionProto(
+                line_number=line,
+                build_dict=pir_pb2.PIRBuildDictProto(target=result, keys=[], values=[]),
+            )
+        )
+
+        # For each loop level (dict comprehensions can have nested loops)
+        self._emit_comprehension_loops(
+            indices=expr.indices,
+            sequences=expr.sequences,
+            condlists=expr.condlists,
+            body_callback=lambda: self._emit_dict_store(
+                result, expr.key, expr.value, line
+            ),
+            line=line,
+            loop_idx=0,
+        )
+
+        return result
+
+    def _visit_generator_expr(self, expr: GeneratorExpr) -> pir_pb2.PIRValueProto:
+        """Lower a generator expression to a loop building a list.
+
+        Generator expressions in non-iteration contexts are materialized as
+        lists for IR modeling purposes. For taint analysis this is
+        semantically equivalent.
+        """
+        return self._visit_comprehension_as_loop(
+            expr, "list", getattr(expr, "line", -1)
+        )
+
+    def _visit_comprehension_as_loop(
+        self, gen: GeneratorExpr, collection_type: str, line: int
+    ) -> pir_pb2.PIRValueProto:
+        """Shared lowering for list/set comprehensions and generator expressions."""
+        result = self.st._new_temp_value()
+
+        # result = [] or result = set()
+        if collection_type == "list":
+            self.st._emit(
+                pir_pb2.PIRInstructionProto(
+                    line_number=line,
+                    build_list=pir_pb2.PIRBuildListProto(target=result, elements=[]),
+                )
+            )
+        else:
+            # set() call
+            set_ref = pir_pb2.PIRValueProto(
+                global_ref=pir_pb2.PIRGlobalRefProto(name="set", module="builtins")
+            )
+            self.st._emit(
+                pir_pb2.PIRInstructionProto(
+                    line_number=line,
+                    call=pir_pb2.PIRCallProto(target=result, callee=set_ref, args=[]),
+                )
+            )
+
+        # Emit the nested loop structure
+        add_method = "append" if collection_type == "list" else "add"
+
+        self._emit_comprehension_loops(
+            indices=gen.indices,
+            sequences=gen.sequences,
+            condlists=gen.condlists,
+            body_callback=lambda: self._emit_collection_add(
+                result, gen.left_expr, add_method, line
+            ),
+            line=line,
+            loop_idx=0,
+        )
+
+        return result
+
+    def _emit_comprehension_loops(
+        self, indices, sequences, condlists, body_callback, line: int, loop_idx: int
+    ):
+        """Recursively emit nested for-loops with conditions for comprehensions."""
+        if loop_idx >= len(sequences):
+            # Base case: emit the body
+            body_callback()
+            return
+
+        # Get iter for this level
+        iterable_val = self.accept(sequences[loop_idx])
+        iter_val = self.st._new_temp_value()
+        self.st._emit(
+            pir_pb2.PIRInstructionProto(
+                line_number=line,
+                get_iter=pir_pb2.PIRGetIterProto(
+                    target=iter_val, iterable=iterable_val
+                ),
+            )
+        )
+
+        header_block = self.st._new_block()
+        body_block = self.st._new_block()
+        exit_block = self.st._new_block()
+
+        self.st._emit_goto(header_block)
+        self.st._activate(header_block)
+
+        # Loop variable
+        target_val = self.st._new_temp_value()
+        # If the index is a NameExpr, resolve it to a local
+        idx_expr = indices[loop_idx]
+        from mypy.nodes import NameExpr as NE, TupleExpr as TE
+
+        if isinstance(idx_expr, NE):
+            target_val = pir_pb2.PIRValueProto(
+                local=pir_pb2.PIRLocalProto(
+                    name=self.st.scope.resolve_local(idx_expr.name)
+                )
+            )
+
+        self.st._emit(
+            pir_pb2.PIRInstructionProto(
+                line_number=line,
+                next_iter=pir_pb2.PIRNextIterProto(
+                    target=target_val,
+                    iterator=iter_val,
+                    body_block=body_block,
+                    exit_block=exit_block,
+                ),
+            )
+        )
+
+        self.st._activate(body_block)
+
+        # Emit tuple unpacking if loop variable is a tuple
+        if isinstance(idx_expr, TE):
+            self.st._emit_for_target_unpack(idx_expr, target_val, line)
+
+        # Apply conditions for this loop level
+        conditions = condlists[loop_idx] if loop_idx < len(condlists) else []
+        if conditions:
+            for cond_expr in conditions:
+                cond_val = self.accept(cond_expr)
+                skip_block = self.st._new_block()
+                continue_block = self.st._new_block()
+                self.st._emit_branch(cond_val, continue_block, skip_block, line)
+                self.st._activate(skip_block)
+                self.st._emit_goto(header_block)
+                self.st._activate(continue_block)
+
+        # Recurse for inner loops or emit body
+        self._emit_comprehension_loops(
+            indices, sequences, condlists, body_callback, line, loop_idx + 1
+        )
+
+        # Back to header
+        if not self.st._current_block_terminated():
+            self.st._emit_goto(header_block)
+
+        self.st._activate(exit_block)
+
+    def _emit_collection_add(self, collection, value_expr, method: str, line: int):
+        """Emit: collection.method(value)"""
+        value = self.accept(value_expr)
+        method_ref = self.st._new_temp_value()
+        self.st._emit(
+            pir_pb2.PIRInstructionProto(
+                line_number=line,
+                load_attr=pir_pb2.PIRLoadAttrProto(
+                    target=method_ref,
+                    object=collection,
+                    attribute=method,
+                ),
+            )
+        )
+        self.st._emit(
+            pir_pb2.PIRInstructionProto(
+                line_number=line,
+                call=pir_pb2.PIRCallProto(
+                    callee=method_ref,
+                    args=[
+                        pir_pb2.PIRCallArgProto(value=value, kind=pir_pb2.POSITIONAL)
+                    ],
+                ),
+            )
+        )
+
+    def _emit_dict_store(self, dict_val, key_expr, value_expr, line: int):
+        """Emit: dict[key] = value"""
+        key = self.accept(key_expr)
+        value = self.accept(value_expr)
+        self.st._emit(
+            pir_pb2.PIRInstructionProto(
+                line_number=line,
+                store_subscript=pir_pb2.PIRStoreSubscriptProto(
+                    object=dict_val,
+                    index=key,
+                    value=value,
+                ),
+            )
+        )
 
     def _visit_super(self, expr: SuperExpr) -> pir_pb2.PIRValueProto:
         target = self.st._new_temp_value()
