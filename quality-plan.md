@@ -1,6 +1,6 @@
 # Quality Plan
 
-## Status: ALL PASSING (317 tests)
+## Status: ALL PASSING (321 tests)
 
 ## Baseline (start of quality phase)
 - 140 tests passing (4 Tier-1 benchmarks, 126 Tier-2 unit tests, 10 Tier-3 round-trip)
@@ -41,6 +41,9 @@ Total: 19 benchmark packages, all passing
 - [x] Add assert message support (emit call with message argument)
 - [x] Fix `with` statement to use load_attr __enter__/__exit__ pattern (was using fake $__enter__ local)
 - [x] Fix exception handler labels on try-body blocks (blocks inside try had empty exceptionHandlers)
+- [x] Fix mid-block terminators: dead code after return/raise emitted in same basic block
+- [x] Fix for/else and while/else: break target was same block as else body, causing dead code
+- [x] Fix with-stmt `__exit__` dead code: skip `__exit__` when body terminates with return/raise
 - [ ] Fix chained comparison lowering (uses BIT_AND instead of short-circuit and) — deferred, works for correctness
 
 ## Q3: Add More Complex CFG Tests
@@ -103,3 +106,19 @@ Total: 19 benchmark packages, all passing
 - Strengthened Tier-1 benchmark assertions: instruction diversity (>=3 types), 0 dangling edges, <10% unreachable blocks
 - Refactored 4 slow test classes to PER_CLASS lifecycle (12x speedup per class)
 - All 317 tests pass (19 Tier-1, 276 Tier-2, 22 Tier-3)
+
+### Session 5 (Quality Phase continued)
+- Found and fixed 3 bugs via systematic scanning of 18 benchmark packages:
+  - DC-10: Mid-block terminators — dead code after return/raise in basic blocks
+    - Root cause: `_visit_block` didn't stop emitting after a terminator
+    - Also: `_visit_with` emitted `__exit__` after a return in the body
+    - Scanned all 18 packages: 5 affected functions reduced to 0
+  - DC-11: for/else and while/else break target
+    - Break went to same block as else body, causing dead code when else returned
+    - Fix: separate `break_block` (after else) from `exit_block` (else body)
+  - DC-12: with-stmt `__exit__` dead code
+    - `__exit__` was emitted after return in with body, creating mid-block terminator
+    - Fix: skip `__exit__` emission when body is already terminated
+- Added 4 new tests to CfgIntegrityTest for mid-block terminator detection
+- Updated existing tests to use non-returning with bodies for `__exit__` checks
+- All 321 tests pass (19 Tier-1, 280 Tier-2, 22 Tier-3)

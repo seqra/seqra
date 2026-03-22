@@ -207,6 +207,11 @@ class StatementTransformer:
 
     def _visit_block(self, block: Block):
         for stmt in block.body:
+            # Stop emitting instructions if the current block already has a
+            # terminator.  This prevents dead code after return/raise/break
+            # from creating malformed basic blocks with mid-block terminators.
+            if self._current_block_terminated():
+                break
             self._visit_stmt(stmt)
 
     def _visit_stmt(self, stmt):
@@ -389,7 +394,17 @@ class StatementTransformer:
     def _visit_while(self, stmt: WhileStmt):
         header_block = self._new_block()
         body_block = self._new_block()
-        exit_block = self._new_block()
+
+        # If there's an else clause, break goes to after_block (skipping else),
+        # and normal loop exit goes to else_block.
+        if stmt.else_body:
+            else_block = self._new_block()
+            after_block = self._new_block()
+            exit_block = else_block
+            break_block = after_block
+        else:
+            exit_block = self._new_block()
+            break_block = exit_block
 
         self._emit_goto(header_block)
         self._activate(header_block)
@@ -399,7 +414,7 @@ class StatementTransformer:
 
         old_break = self.break_target
         old_continue = self.continue_target
-        self.break_target = exit_block
+        self.break_target = break_block
         self.continue_target = header_block
 
         self._activate(body_block)
@@ -410,9 +425,14 @@ class StatementTransformer:
         self.break_target = old_break
         self.continue_target = old_continue
 
-        self._activate(exit_block)
         if stmt.else_body:
+            self._activate(else_block)
             self._visit_block(stmt.else_body)
+            if not self._current_block_terminated():
+                self._emit_goto(after_block)
+            self._activate(after_block)
+        else:
+            self._activate(exit_block)
 
     # ─── For ──────────────────────────────────────────────
 
@@ -430,7 +450,16 @@ class StatementTransformer:
 
         header_block = self._new_block()
         body_block = self._new_block()
-        exit_block = self._new_block()
+        # If there's an else clause, break goes to a separate block (after_block)
+        # and normal loop exit goes to else_block. Without else, both go to exit_block.
+        if stmt.else_body:
+            else_block = self._new_block()
+            after_block = self._new_block()
+            exit_block = else_block
+            break_block = after_block
+        else:
+            exit_block = self._new_block()
+            break_block = exit_block
 
         self._emit_goto(header_block)
         self._activate(header_block)
@@ -450,7 +479,7 @@ class StatementTransformer:
 
         old_break = self.break_target
         old_continue = self.continue_target
-        self.break_target = exit_block
+        self.break_target = break_block
         self.continue_target = header_block
 
         self._activate(body_block)
@@ -466,9 +495,14 @@ class StatementTransformer:
         self.break_target = old_break
         self.continue_target = old_continue
 
-        self._activate(exit_block)
         if stmt.else_body:
+            self._activate(else_block)
             self._visit_block(stmt.else_body)
+            if not self._current_block_terminated():
+                self._emit_goto(after_block)
+            self._activate(after_block)
+        else:
+            self._activate(exit_block)
 
     def _lower_for_target(self, target: Expression) -> pir_pb2.PIRValueProto:
         if isinstance(target, NameExpr):
@@ -610,6 +644,12 @@ class StatementTransformer:
                 self._assign_to(stmt.target[i], enter_result, getattr(stmt, "line", -1))
 
         self._visit_block(stmt.body)
+
+        # Only emit __exit__ calls if the body didn't terminate with
+        # return/raise/break/continue. If the body terminated, the __exit__
+        # calls would be dead code in the same block.
+        if self._current_block_terminated():
+            return
 
         # Emit __exit__ calls in reverse order
         for ctx_val in reversed(ctx_vals):

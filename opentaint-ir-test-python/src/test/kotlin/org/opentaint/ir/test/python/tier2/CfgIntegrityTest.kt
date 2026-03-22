@@ -108,7 +108,8 @@ def ci_if_elif_else(x: int) -> str:
 
 def ci_with_stmt(path: str) -> str:
     with open(path) as f:
-        return f.read()
+        data = f.read()
+    return data
 
 def ci_for_else(items: list) -> str:
     for x in items:
@@ -159,6 +160,25 @@ def ci_deeply_nested(x: int) -> int:
 
 def ci_many_params(a: int, b: int, c: int, d: int, e: int) -> int:
     return a + b + c + d + e
+
+def ci_with_return(path: str) -> str:
+    with open(path) as f:
+        return f.read()
+
+def ci_try_raise_then_code():
+    try:
+        raise ValueError("err")
+        x = 1
+    except:
+        pass
+
+def ci_for_else_return(items: list) -> int:
+    for x in items:
+        if x < 0:
+            return x
+    else:
+        return 0
+    return -1
 
 def ci_no_return():
     x = 1
@@ -251,17 +271,18 @@ def ci_no_return():
 
             // Unreachable blocks are allowed if they are dead merge/fallthrough
             // blocks generated after branches where all paths return/raise.
-            // These blocks should only contain trivial instructions (empty,
-            // a single return, or a single goto to another dead block).
+            // They must end with a terminator (return/goto/raise) and should
+            // not contain side-effecting instructions like calls.
             for (label in unreachable) {
                 val block = cfg.block(label)
-                val isDeadMerge = block.instructions.isEmpty() ||
-                    (block.instructions.size == 1 && (
-                        block.instructions[0] is PIRReturn ||
-                        block.instructions[0] is PIRGoto))
-                assertTrue(isDeadMerge,
-                    "${func.qualifiedName}: unreachable block $label has non-trivial instructions: " +
-                        block.instructions.map { it::class.simpleName })
+                if (block.instructions.isEmpty()) continue
+                val last = block.instructions.last()
+                val endsWithTerminator = last is PIRReturn || last is PIRGoto || last is PIRRaise
+                val hasNoSideEffects = block.instructions.none { it is PIRCall }
+                assertTrue(endsWithTerminator && hasNoSideEffects,
+                    "${func.qualifiedName}: unreachable block $label has problematic instructions: " +
+                        block.instructions.map { it::class.simpleName } +
+                        " (endsWithTerm=$endsWithTerminator, noSideEffects=$hasNoSideEffects)")
             }
         }
     }
@@ -599,6 +620,64 @@ def ci_no_return():
                         "${func.qualifiedName}: exception handler label $handlerLabel in block ${block.label} " +
                             "not in block labels $allLabels")
                 }
+            }
+        }
+    }
+
+    // ─── Tests: No mid-block terminators ───────────────────────
+
+    @Test
+    fun `no terminators in middle of blocks`() {
+        for (func in allTestFunctions()) {
+            val cfg = func.cfg
+            for (block in cfg.blocks) {
+                val insts = block.instructions
+                for (i in 0 until insts.size - 1) {
+                    val inst = insts[i]
+                    val isTerminator = inst is PIRGoto || inst is PIRBranch ||
+                        inst is PIRReturn || inst is PIRRaise ||
+                        inst is PIRNextIter || inst is PIRUnreachable
+                    assertFalse(isTerminator,
+                        "${func.qualifiedName}: block ${block.label} has terminator " +
+                            "${inst::class.simpleName} at position $i (of ${insts.size})")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `with-return does not leave dead code`() {
+        val f = func("ci_with_return")
+        for (block in f.cfg.blocks) {
+            val insts = block.instructions
+            for (i in 0 until insts.size - 1) {
+                assertFalse(insts[i] is PIRReturn,
+                    "ci_with_return: block ${block.label} has return at pos $i (of ${insts.size})")
+            }
+        }
+    }
+
+    @Test
+    fun `try-raise-then-code does not leave dead code`() {
+        val f = func("ci_try_raise_then_code")
+        for (block in f.cfg.blocks) {
+            val insts = block.instructions
+            for (i in 0 until insts.size - 1) {
+                assertFalse(insts[i] is PIRRaise,
+                    "ci_try_raise_then_code: block ${block.label} has raise at pos $i (of ${insts.size})")
+            }
+        }
+    }
+
+    @Test
+    fun `for-else-return does not leave dead code`() {
+        val f = func("ci_for_else_return")
+        for (block in f.cfg.blocks) {
+            val insts = block.instructions
+            for (i in 0 until insts.size - 1) {
+                val inst = insts[i]
+                assertFalse(inst is PIRReturn || inst is PIRGoto && i < insts.size - 1,
+                    "ci_for_else_return: block ${block.label} has terminator at pos $i (of ${insts.size})")
             }
         }
     }

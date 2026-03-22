@@ -10,10 +10,23 @@ This document tracks deviations from the original design and bugs discovered dur
 **Fix**: Added `_resolve_except_types()` method to `statement_visitor.py` that resolves `NameExpr` and `MemberExpr` exception types to their fully qualified names using mypy's symbol resolution. Handles tuple `except (A, B)` by recursing into each element.
 **File**: `pir_server/builder/statement_visitor.py`
 
-### DC-2: With Statement Missing `__exit__` Call
-**Original design**: `_visit_with` only emitted a fake `$__enter__` local call. No `__exit__` call at all.
-**Problem**: Context manager protocol was half-modeled. For taint analysis, the `__exit__` call is critical because it may propagate exceptions or clean up tainted resources.
-**Fix**: Rewrote `_visit_with` to use `PIRLoadAttr` for both `__enter__` and `__exit__` methods on the context manager object. `__exit__` is called with `(None, None, None)` arguments (normal exit path). Calls are emitted in reverse order for multiple context managers.
+### DC-10: Mid-Block Terminators (Dead Code After return/raise)
+**Original design**: `_visit_block()` visited all statements sequentially without checking if the current block was already terminated.
+**Problem**: When a block contained a `return` or `raise` followed by more statements (e.g., `raise ValueError(...); x = 1` inside a `try` body, or `return` inside a `with` body followed by `__exit__` calls), the dead code was emitted into the same basic block after the terminator. This violates the basic block invariant that a terminator must be the last instruction.
+**Impact**: Downstream analyses could misinterpret instructions after a terminator as reachable, producing incorrect data flow.
+**Fix**: Added `_current_block_terminated()` check in `_visit_block()` loop — stops emitting statements after a terminator. Also added early return in `_visit_with()` when the body is terminated, preventing dead `__exit__` calls after a return.
+**File**: `pir_server/builder/statement_visitor.py`
+
+### DC-11: for/else and while/else Break Target
+**Original design**: In `_visit_for()` and `_visit_while()`, the `break_target` was the same block as the `exit_block` where the `else` body was visited.
+**Problem**: When the `else` body contained a `return`, the exit block was terminated. Then code after the for/while statement (which is reachable via the `break` path) was skipped because `_visit_block` saw the block was terminated. This caused the after-loop code to be lost.
+**Fix**: For `for/else` and `while/else`, separate the `break_block` (after the else, where post-loop code goes) from the `else_block` (where the else body is visited). Break goes to `break_block`, normal loop exit goes to `else_block`. After visiting the else body, if it didn't terminate, emit a goto to `break_block`.
+**File**: `pir_server/builder/statement_visitor.py`
+
+### DC-12: with-stmt `__exit__` Dead Code
+**Original design**: `_visit_with()` always emitted `__exit__` calls after visiting the body, regardless of whether the body terminated.
+**Problem**: When the `with` body contained a `return` or `raise`, the `__exit__` calls were emitted after the terminator in the same basic block, creating dead code and violating the basic block invariant.
+**Fix**: After visiting the body, check `_current_block_terminated()`. If true, skip `__exit__` emission entirely (the calls would be unreachable anyway).
 **File**: `pir_server/builder/statement_visitor.py`
 
 ### DC-3: For-Loop Tuple Unpacking

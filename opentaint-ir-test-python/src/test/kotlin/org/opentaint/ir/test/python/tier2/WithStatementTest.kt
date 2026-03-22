@@ -25,12 +25,14 @@ def ws_no_target():
 
 def ws_multiple():
     with open("a") as f1, open("b") as f2:
-        return f1.read() + f2.read()
+        data = f1.read() + f2.read()
+    return data
 
 def ws_nested():
     with open("a") as f:
         with open("b") as g:
-            return f.read() + g.read()
+            data = f.read() + g.read()
+    return data
         """.trimIndent()
     }
 
