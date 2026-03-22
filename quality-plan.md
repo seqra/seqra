@@ -1,6 +1,6 @@
 # Quality Plan
 
-## Status: ALL PASSING (990 tests) — All runnable via single `gradle test -PallTiers`
+## Status: ALL PASSING (1103 tests) — All runnable via single `gradle test -PallTiers`
 
 ## Baseline (start of quality phase)
 - 140 tests passing (4 Tier-1 benchmarks, 126 Tier-2 unit tests, 10 Tier-3 round-trip)
@@ -298,3 +298,19 @@ Total: 25 web application benchmarks, all passing
 - **Added 29 new library benchmarks** to `BenchmarkTest.kt`: web frameworks (flask, django, fastapi, starlette, werkzeug, jinja2, tornado, falcon, bottle, pyramid, sanic, aiohttp, celery), data/ORM (pydantic, sqlalchemy, marshmallow), HTTP (httpx, httpcore), utils (yaml, mako, markdown, tqdm, pycparser, pyparsing, pathspec, typeguard, anyio, filelock, lxml)
 - **All 990 tests pass** via `gradle test -PallTiers` (~4 minutes, 0 failures)
 - Total: 990 tests (73 Tier-1 benchmarks [48 library + 25 webapp], 403 Tier-2, 496 Tier-3 + 3 untagged + 15 benchmark assertions)
+
+### Session 12 continued (Coverage Expansion: 990 → 1103 tests)
+- **Systematic gap analysis** via code exploration: identified P0/P1/P2 test coverage gaps
+- **Added 4 new Tier-2 test classes (113 new tests)**:
+  - ClosureNestedFunctionTest (31 tests): nested defs, closures, nonlocal, global keyword, class-in-function, lambda-in-function, conditional nested defs, decorator-inside-function, deeply nested functions. Documents that nested defs are NOT extracted (skipped in CfgBuilder).
+  - AsyncConstructsTest (20 tests): async def, await, multiple awaits, async for, async with, async generator, await in conditionals, await in try/except, nested awaits, async with no as target.
+  - PropertyDecoratorTest (29 tests): property getter/setter/deleter (documents empty properties list), custom decorators, stacked decorators, decorator with args, staticmethod/classmethod flags, dataclass fields/generated __init__, enum class flags/methods/IntEnum.
+  - AdvancedExpressionsTest (25 tests): matrix multiply (@), f-strings (lowered to calls, not PIRBuildString), star/double-star in calls, del on tuples/slices/nested attrs, tuple return values, comprehension tuple unpack, assert patterns, global write (treated as local), augmented subscript, yield from.
+- **Key discoveries documented in tests**:
+  - F-strings are lowered by mypy to regular calls/concat before IR — no PIRBuildString emitted
+  - PIRProperty list on classes is empty (API defined but not wired in builder)
+  - Global/nonlocal writes are treated as regular local assignments (no PIRStoreGlobal/PIRStoreClosure)
+  - Nested functions/classes inside function bodies are NOT extracted as PIRFunction/PIRClass
+  - Property setter/deleter from OverloadedFuncDef only getter is extracted
+- **All 1103 tests pass** via `gradle test -PallTiers` (~4 min, 0 failures)
+- Total: 1103 tests (73 Tier-1, 516 Tier-2, 496 Tier-3 + 3 untagged + 15 benchmark assertions)
