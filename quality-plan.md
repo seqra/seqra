@@ -1,6 +1,6 @@
 # Quality Plan
 
-## Status: ALL PASSING (321 tests)
+## Status: ALL PASSING (302 tests)
 
 ## Baseline (start of quality phase)
 - 140 tests passing (4 Tier-1 benchmarks, 126 Tier-2 unit tests, 10 Tier-3 round-trip)
@@ -122,3 +122,28 @@ Total: 19 benchmark packages, all passing
 - Added 4 new tests to CfgIntegrityTest for mid-block terminator detection
 - Updated existing tests to use non-returning with bodies for `__exit__` checks
 - All 321 tests pass (19 Tier-1, 280 Tier-2, 22 Tier-3)
+
+### Session 6
+- Propagated CFG build failures via protobuf diagnostics (replaces stderr logging)
+  - Added PIRDiagnosticProto to proto schema with severity, message, function_name, exception_type
+  - Added diagnostics field to PIRModuleProto, PIRModule interface, PIRModuleImpl
+  - Module builder populates diagnostics instead of printing to stderr
+- Implemented lambda lowering
+  - LambdaExpr builds CFG using same FuncItem infrastructure as FuncDef
+  - Generates synthetic <lambda>$N functions registered in module
+  - Verified: click 5 lambdas, requests 1, rich 10, mypy 29
+- Implemented comprehension lowering
+  - List: [expr for x in iter if cond] -> loop with list.append
+  - Set: {expr ...} -> loop with set.add
+  - Dict: {k:v ...} -> loop with dict[k] = v
+  - Supports nested loops and multiple filter conditions
+  - Generator expressions materialized as lists
+- Verified class hierarchies and MRO across real packages
+  - Single/multiple inheritance, diamond patterns, C3 linearization all correct
+  - Enum detection, dataclass detection working
+  - Base classes fully qualified
+- Fixed 3 additional bugs (DC-10/11/12 from session 5):
+  - Mid-block terminators from dead code
+  - for/else and while/else break targets
+  - with-stmt __exit__ dead code
+- All 302 tests pass (19 Tier-1, 258 Tier-2, 22 Tier-3 + 3 untagged)
