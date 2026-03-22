@@ -9,7 +9,8 @@ from pir_server.executor import execute_function
 
 class PIRServiceServicer(pir_pb2_grpc.PIRServiceServicer):
     def BuildProject(self, request, context):
-        """Stream PIRModuleProto messages, one per module."""
+        """Stream MypyModuleProto messages (raw AST), one per module.
+        Kotlin side performs all CFG lowering."""
         try:
             builder = ProjectBuilder(
                 sources=list(request.sources),
@@ -27,24 +28,10 @@ class PIRServiceServicer(pir_pb2_grpc.PIRServiceServicer):
             traceback.print_exc()
             return
 
+    # Keep BuildProjectAst as alias for backward compatibility
     def BuildProjectAst(self, request, context):
-        """Stream MypyModuleProto messages (raw AST, no CFG lowering)."""
-        try:
-            builder = ProjectBuilder(
-                sources=list(request.sources),
-                mypy_flags=list(request.mypy_flags),
-                python_version=request.python_version or None,
-                search_paths=list(request.search_paths),
-            )
-            for module_proto in builder.build_ast():
-                yield module_proto
-        except Exception as e:
-            context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(f"BuildProjectAst failed: {e}")
-            import traceback
-
-            traceback.print_exc()
-            return
+        """Alias for BuildProject — returns raw AST modules."""
+        return self.BuildProject(request, context)
 
     def BuildModule(self, request, context):
         """Build a single module."""
@@ -60,11 +47,11 @@ class PIRServiceServicer(pir_pb2_grpc.PIRServiceServicer):
                     return module_proto
             context.set_code(grpc.StatusCode.NOT_FOUND)
             context.set_details(f"Module '{request.module_name}' not found")
-            return pir_pb2.PIRModuleProto()
+            return pir_pb2.MypyModuleProto()
         except Exception as e:
             context.set_code(grpc.StatusCode.INTERNAL)
             context.set_details(str(e))
-            return pir_pb2.PIRModuleProto()
+            return pir_pb2.MypyModuleProto()
 
     def ExecuteFunction(self, request, context):
         """Execute a Python function — used by Tier 3 tests."""
@@ -74,7 +61,7 @@ class PIRServiceServicer(pir_pb2_grpc.PIRServiceServicer):
         import mypy.version
 
         return pir_pb2.PingResponse(
-            version="0.1.0",
+            version="0.2.0",
             python_version=f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             mypy_version=mypy.version.__version__,
         )

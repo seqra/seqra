@@ -4,7 +4,6 @@ import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import org.opentaint.ir.api.python.*
 import org.opentaint.ir.impl.python.builder.MypyModuleBuilder
-import org.opentaint.ir.impl.python.converter.ModuleConverter
 import org.opentaint.ir.impl.python.proto.PIRServiceGrpc
 import org.opentaint.ir.impl.python.proto.BuildProjectRequest
 import org.opentaint.ir.impl.python.proto.PingRequest
@@ -56,11 +55,7 @@ class PIRClasspathImpl private constructor(
             classpath.mypyVersion = pingResponse.mypyVersion
 
             if (settings.sources.isNotEmpty()) {
-                if (settings.useKotlinLowering) {
-                    classpath.buildProjectAst()
-                } else {
-                    classpath.buildProject()
-                }
+                classpath.buildProject()
             }
 
             return classpath
@@ -75,27 +70,7 @@ class PIRClasspathImpl private constructor(
             .addAllSearchPaths(settings.searchPaths)
             .build()
 
-        val converter = ModuleConverter(this)
-
         val iterator = stub.buildProject(request)
-        while (iterator.hasNext()) {
-            val moduleProto = iterator.next()
-            val module = converter.convert(moduleProto)
-            _modules.add(module)
-            modulesByName[module.name] = module
-            indexModule(module)
-        }
-    }
-
-    private fun buildProjectAst() {
-        val request = BuildProjectRequest.newBuilder()
-            .addAllSources(settings.sources)
-            .addAllMypyFlags(settings.mypyFlags)
-            .setPythonVersion(settings.pythonVersion ?: "")
-            .addAllSearchPaths(settings.searchPaths)
-            .build()
-
-        val iterator = stub.buildProjectAst(request)
         while (iterator.hasNext()) {
             val astModuleProto = iterator.next()
             val builder = MypyModuleBuilder(astModuleProto, this)

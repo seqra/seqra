@@ -9,15 +9,12 @@ option java_outer_classname = "Pir";
 // ─── Service ────────────────────────────────────────────────
 
 service PIRService {
-  // Build an entire project. Returns modules as a stream.
-  rpc BuildProject(BuildProjectRequest) returns (stream PIRModuleProto);
-
-  // Build an entire project as raw mypy AST. Returns raw AST modules as a stream.
+  // Build an entire project. Returns raw mypy AST modules as a stream.
   // The Kotlin side performs all CFG lowering.
-  rpc BuildProjectAst(BuildProjectRequest) returns (stream MypyModuleProto);
+  rpc BuildProject(BuildProjectRequest) returns (stream MypyModuleProto);
 
   // Build a single module (for incremental rebuilds).
-  rpc BuildModule(BuildModuleRequest) returns (PIRModuleProto);
+  rpc BuildModule(BuildModuleRequest) returns (MypyModuleProto);
 
   // Execute a Python function with given args and return the result.
   // Used by Tier 3 round-trip tests.
