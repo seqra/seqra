@@ -181,27 +181,18 @@ class Priority(IntEnum):
     }
 
     @Test fun `class exposes property via properties list`() {
-        // PIRProperty is not yet wired up in the builder — properties list is always empty.
-        // Properties are instead accessible as methods with isProperty=true.
         val cls = findClass("PropClass")
-        assertTrue(cls.properties.isEmpty(),
-            "properties list should be empty (PIRProperty not yet implemented); " +
-            "got: ${cls.properties.map { it.name }}")
-        val propertyMethods = cls.methods.filter { it.isProperty && it.name == "value" }
-        assertTrue(propertyMethods.isNotEmpty(),
-            "PropClass should expose 'value' as a method with isProperty=true; " +
-            "methods: ${cls.methods.map { "${it.name}(isProperty=${it.isProperty})" }}")
+        val valueProp = cls.properties.find { it.name == "value" }
+        assertNotNull(valueProp,
+            "PropClass should have a 'value' property; got: ${cls.properties.map { it.name }}")
     }
 
     @Test fun `property getter is wired in PIRProperty`() {
-        // PIRProperty is not yet wired up — properties list is empty.
-        // Verify getter is accessible as a method with isProperty=true instead.
         val cls = findClass("PropClass")
-        assertTrue(cls.properties.isEmpty(),
-            "properties list should be empty (PIRProperty not yet implemented)")
-        val getter = cls.methods.find { it.name == "value" && it.isProperty }
-        assertNotNull(getter, "value getter should exist as a method with isProperty=true; " +
-            "methods: ${cls.methods.map { "${it.name}(isProperty=${it.isProperty})" }}")
+        val valueProp = cls.properties.find { it.name == "value" }
+        assertNotNull(valueProp, "value property not found")
+        assertNotNull(valueProp!!.getter, "value property should have a getter")
+        assertTrue(valueProp.getter!!.isProperty, "getter should be flagged as isProperty")
     }
 
     @Test fun `property getter body accesses backing field`() {
@@ -218,82 +209,51 @@ class Priority(IntEnum):
     // ─── Property setter tests ─────────────────────────────
 
     @Test fun `property setter is present in PIRProperty`() {
-        // PIRProperty is not yet wired up — properties list is empty.
-        // The setter is also not separately available as a method because mypy wraps
-        // property getter/setter/deleter in an OverloadedFuncDef and the builder
-        // only unwraps the first item (the getter).
         val cls = findClass("PropClass")
-        assertTrue(cls.properties.isEmpty(),
-            "properties list should be empty (PIRProperty not yet implemented)")
-        val setterMethod = cls.methods.find { it.name == "value" && !it.isProperty }
-        assertNull(setterMethod,
-            "setter should NOT appear as a separate non-property method (current behavior); " +
-            "methods: ${cls.methods.map { "${it.name}(isProperty=${it.isProperty})" }}")
+        val valueProp = cls.properties.find { it.name == "value" }
+        assertNotNull(valueProp, "value property not found")
+        assertNotNull(valueProp!!.setter, "value property should have a setter")
     }
 
     @Test fun `property setter body stores to backing field`() {
-        // PIRProperty is not yet wired up — properties list is empty.
-        // The setter is not available as a separate method either because mypy
-        // wraps getter/setter/deleter in OverloadedFuncDef and only the getter
-        // (first item) is unwrapped by the builder.
         val cls = findClass("PropClass")
-        assertTrue(cls.properties.isEmpty(),
-            "properties list should be empty (PIRProperty not yet implemented)")
-        // Verify the getter (only property method available) has a CFG
-        val getter = cls.methods.find { it.name == "value" && it.isProperty }
-        assertNotNull(getter, "value getter should exist as a method with isProperty=true")
-        assertTrue(getter!!.cfg.blocks.isNotEmpty(),
-            "value getter should have a valid CFG")
+        val valueProp = cls.properties.find { it.name == "value" }
+        assertNotNull(valueProp, "value property not found")
+        val setter = valueProp!!.setter
+        assertNotNull(setter, "value setter not found")
+        assertTrue(setter!!.cfg.blocks.isNotEmpty(), "setter should have valid CFG")
+        val storeAttrs = setter.cfg.blocks.flatMap { it.instructions }
+            .filterIsInstance<PIRStoreAttr>()
+        assertTrue(storeAttrs.any { it.attribute == "_value" },
+            "Setter body should store to self._value")
     }
 
     // ─── Property deleter tests ────────────────────────────
 
     @Test fun `property deleter is present in PIRProperty`() {
-        // PIRProperty is not yet wired up — properties list is empty.
-        // The deleter is not available as a separate method either because mypy
-        // wraps getter/setter/deleter in OverloadedFuncDef and only the getter
-        // (first item) is unwrapped by the builder.
         val cls = findClass("PropClass")
-        assertTrue(cls.properties.isEmpty(),
-            "properties list should be empty (PIRProperty not yet implemented)")
-        val deleterMethod = cls.methods.filter { it.name == "value" }
-        assertEquals(1, deleterMethod.size,
-            "Only one 'value' method (the getter) should be present; " +
-            "got: ${deleterMethod.map { "${it.name}(isProperty=${it.isProperty})" }}")
-        assertTrue(deleterMethod[0].isProperty,
-            "The single 'value' method should be the property getter")
+        val valueProp = cls.properties.find { it.name == "value" }
+        assertNotNull(valueProp, "value property not found")
+        assertNotNull(valueProp!!.deleter,
+            "value property should have a deleter; methods: ${cls.methods.map { it.name }}")
     }
 
     // ─── Multiple properties on one class ──────────────────
 
     @Test fun `class with multiple properties exposes all`() {
-        // PIRProperty is not yet wired up — properties list is always empty.
-        // Properties are available as methods with isProperty=true instead.
         val cls = findClass("PropClass")
-        assertTrue(cls.properties.isEmpty(),
-            "properties list should be empty (PIRProperty not yet implemented)")
-        val propertyMethods = cls.methods.filter { it.isProperty }.map { it.name }.toSet()
-        assertTrue("value" in propertyMethods,
-            "Expected 'value' as property method; got: $propertyMethods")
-        assertTrue("name" in propertyMethods,
-            "Expected 'name' as property method; got: $propertyMethods")
+        val propNames = cls.properties.map { it.name }.toSet()
+        assertTrue("value" in propNames, "Expected 'value' property; got: $propNames")
+        assertTrue("name" in propNames, "Expected 'name' property; got: $propNames")
     }
 
     @Test fun `second property has getter and setter but no deleter`() {
-        // PIRProperty is not yet wired up — properties list is empty.
-        // The 'name' property getter is available as a method with isProperty=true.
-        // The setter is not separately available (OverloadedFuncDef only unwraps first item).
         val cls = findClass("PropClass")
-        assertTrue(cls.properties.isEmpty(),
-            "properties list should be empty (PIRProperty not yet implemented)")
-        val nameGetter = cls.methods.find { it.name == "name" && it.isProperty }
-        assertNotNull(nameGetter,
-            "name property getter should exist as a method with isProperty=true; " +
-            "methods: ${cls.methods.map { "${it.name}(isProperty=${it.isProperty})" }}")
-        val nameMethods = cls.methods.filter { it.name == "name" }
-        assertEquals(1, nameMethods.size,
-            "Only one 'name' method (the getter) should be present; " +
-            "got: ${nameMethods.map { "${it.name}(isProperty=${it.isProperty})" }}")
+        val nameProp = cls.properties.find { it.name == "name" }
+        assertNotNull(nameProp, "name property not found; got: ${cls.properties.map { it.name }}")
+        assertNotNull(nameProp!!.getter, "name property should have a getter")
+        assertNotNull(nameProp.setter, "name property should have a setter")
+        assertNull(nameProp.deleter, "name property should NOT have a deleter")
     }
 
     // ─── Custom decorator tests ────────────────────────────

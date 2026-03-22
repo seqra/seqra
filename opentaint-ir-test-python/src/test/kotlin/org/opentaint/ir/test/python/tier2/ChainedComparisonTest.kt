@@ -8,7 +8,7 @@ import org.opentaint.ir.test.python.PIRTestBase
 /**
  * Tests for chained comparison lowering.
  * Python allows `a < b < c` which should be lowered to
- * `(a < b) AND (b < c)` using BIT_AND to combine.
+ * `(a < b) AND (b < c)` using short-circuit branching.
  */
 @Tag("tier2")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -79,10 +79,12 @@ def cc_single_compare(x: int) -> bool:
             "Expected exactly 2 PIRCompare for 0 < x < 10, got ${compares.size}")
     }
 
-    @Test fun `chained comparison produces BIT_AND`() {
-        val binOps = insts("cc_simple").filterIsInstance<PIRBinOp>()
-        assertTrue(binOps.any { it.op == PIRBinaryOperator.BIT_AND },
-            "Expected BIT_AND to combine chained comparisons")
+    @Test fun `chained comparison uses short-circuit branching`() {
+        // After fixing DC-18: chained comparisons now use short-circuit AND
+        // instead of BIT_AND. This means additional branches are emitted.
+        val branches = insts("cc_simple").filterIsInstance<PIRBranch>()
+        assertTrue(branches.isNotEmpty(),
+            "Expected short-circuit branch for chained comparison")
     }
 
     @Test fun `chained comparison compare ops are LT`() {
@@ -99,11 +101,11 @@ def cc_single_compare(x: int) -> bool:
             "Expected 3 PIRCompare for 0 < x < 10 < 100, got ${compares.size}")
     }
 
-    @Test fun `triple chain produces 2 BIT_AND`() {
-        val binOps = insts("cc_triple").filterIsInstance<PIRBinOp>()
-            .filter { it.op == PIRBinaryOperator.BIT_AND }
-        assertEquals(2, binOps.size,
-            "Expected 2 BIT_AND for triple chain, got ${binOps.size}")
+    @Test fun `triple chain uses 2 short-circuit branches`() {
+        // 3-operand chain (a < b < c < d) uses 2 short-circuit branches
+        val branches = insts("cc_triple").filterIsInstance<PIRBranch>()
+        assertTrue(branches.size >= 2,
+            "Expected at least 2 short-circuit branches for triple chain, got ${branches.size}")
     }
 
     // ─── Mixed operators ───────────────────────────────────
@@ -141,12 +143,13 @@ def cc_single_compare(x: int) -> bool:
         assertTrue(branches.isNotEmpty(), "Expected PIRBranch for if with chained comparison")
     }
 
-    @Test fun `chained in if produces 2 compares and BIT_AND`() {
+    @Test fun `chained in if produces 2 compares with short-circuit`() {
         val compares = insts("cc_in_if").filterIsInstance<PIRCompare>()
-        val bitAnds = insts("cc_in_if").filterIsInstance<PIRBinOp>()
-            .filter { it.op == PIRBinaryOperator.BIT_AND }
         assertEquals(2, compares.size, "Expected 2 compares in if")
-        assertTrue(bitAnds.isNotEmpty(), "Expected BIT_AND in if")
+        // Short-circuit: branches for chained comparison + if-statement
+        val branches = insts("cc_in_if").filterIsInstance<PIRBranch>()
+        assertTrue(branches.size >= 2,
+            "Expected at least 2 branches (short-circuit + if)")
     }
 
     @Test fun `chained in while has loop structure`() {
@@ -157,12 +160,13 @@ def cc_single_compare(x: int) -> bool:
 
     // ─── Four operands ─────────────────────────────────────
 
-    @Test fun `four operand chain produces 3 compares and 2 BIT_AND`() {
+    @Test fun `four operand chain produces 3 compares with short-circuit`() {
         val compares = insts("cc_four_operands").filterIsInstance<PIRCompare>()
-        val bitAnds = insts("cc_four_operands").filterIsInstance<PIRBinOp>()
-            .filter { it.op == PIRBinaryOperator.BIT_AND }
         assertEquals(3, compares.size, "Expected 3 compares for a < b < c < d")
-        assertEquals(2, bitAnds.size, "Expected 2 BIT_AND for a < b < c < d")
+        // 4-operand chain: 2 short-circuit branches between comparisons
+        val branches = insts("cc_four_operands").filterIsInstance<PIRBranch>()
+        assertTrue(branches.size >= 2,
+            "Expected at least 2 short-circuit branches for 4-operand chain")
     }
 
     // ─── Single compare (baseline) ─────────────────────────

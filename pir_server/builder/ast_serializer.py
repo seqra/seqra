@@ -106,8 +106,7 @@ class AstSerializer:
         )
         for defn in self.tree.defs:
             try:
-                d = self._serialize_definition(defn)
-                if d is not None:
+                for d in self._serialize_definitions(defn):
                     proto.defs.append(d)
             except Exception as e:
                 import sys
@@ -122,28 +121,39 @@ class AstSerializer:
 
     # ─── Definitions ──────────────────────────────────────
 
-    def _serialize_definition(self, defn) -> pir_pb2.MypyDefinitionProto | None:
+    def _serialize_definitions(
+        self, defn, enclosing_class: str | None = None
+    ) -> list[pir_pb2.MypyDefinitionProto]:
+        """Serialize a definition, returning a list (usually 1 item, but OverloadedFuncDef may produce multiple)."""
         if isinstance(defn, ClassDef):
-            return pir_pb2.MypyDefinitionProto(
-                class_def=self._serialize_class_def(defn)
-            )
+            return [
+                pir_pb2.MypyDefinitionProto(class_def=self._serialize_class_def(defn))
+            ]
         elif isinstance(defn, Decorator):
-            return pir_pb2.MypyDefinitionProto(
-                decorator=self._serialize_decorator_def(defn)
-            )
-        elif isinstance(defn, FuncDef):
-            return pir_pb2.MypyDefinitionProto(func_def=self._serialize_func_def(defn))
-        elif isinstance(defn, OverloadedFuncDef):
-            func_def = self._unwrap_func(defn)
-            if func_def:
-                return pir_pb2.MypyDefinitionProto(
-                    func_def=self._serialize_func_def(func_def)
+            return [
+                pir_pb2.MypyDefinitionProto(
+                    decorator=self._serialize_decorator_def(defn, enclosing_class)
                 )
+            ]
+        elif isinstance(defn, FuncDef):
+            return [
+                pir_pb2.MypyDefinitionProto(
+                    func_def=self._serialize_func_def(defn, enclosing_class)
+                )
+            ]
+        elif isinstance(defn, OverloadedFuncDef):
+            # Serialize ALL items (e.g. property getter + setter + deleter)
+            results = []
+            for item in defn.items:
+                results.extend(self._serialize_definitions(item, enclosing_class))
+            return results
         elif isinstance(defn, AssignmentStmt):
-            return pir_pb2.MypyDefinitionProto(
-                assignment=self._serialize_assignment_stmt(defn)
-            )
-        return None
+            return [
+                pir_pb2.MypyDefinitionProto(
+                    assignment=self._serialize_assignment_stmt(defn)
+                )
+            ]
+        return []
 
     def _serialize_class_def(self, class_def: ClassDef) -> pir_pb2.MypyClassDefProto:
         proto = pir_pb2.MypyClassDefProto(
@@ -184,8 +194,7 @@ class AstSerializer:
 
         # Class body
         for defn in class_def.defs.body:
-            d = self._serialize_definition(defn)
-            if d is not None:
+            for d in self._serialize_definitions(defn, enclosing_class=class_def.name):
                 proto.body.append(d)
 
         return proto
@@ -224,9 +233,11 @@ class AstSerializer:
 
         return proto
 
-    def _serialize_decorator_def(self, dec: Decorator) -> pir_pb2.MypyDecoratorDefProto:
+    def _serialize_decorator_def(
+        self, dec: Decorator, enclosing_class: str | None = None
+    ) -> pir_pb2.MypyDecoratorDefProto:
         proto = pir_pb2.MypyDecoratorDefProto(
-            func=self._serialize_func_def(dec.func),
+            func=self._serialize_func_def(dec.func, enclosing_class),
             name=dec.func.name,
         )
         # Serialize decorator expressions

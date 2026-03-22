@@ -111,7 +111,8 @@ Total: 25 web application benchmarks, all passing
 - [x] Fix mid-block terminators: dead code after return/raise emitted in same basic block
 - [x] Fix for/else and while/else: break target was same block as else body, causing dead code
 - [x] Fix with-stmt `__exit__` dead code: skip `__exit__` when body terminates with return/raise
-- [ ] Fix chained comparison lowering (uses BIT_AND instead of short-circuit and) — deferred, works for correctness
+- [x] Fix chained comparison lowering (DC-18: uses BIT_AND → short-circuit branching)
+- [x] Wire up PIRProperty in MypyModuleBuilder (DC-19: getter/setter/deleter extraction)
 
 ## Q3: Add More Complex CFG Tests
 - [x] WithStatementTest (11 tests) — __enter__/__exit__, no target, multiple, nested

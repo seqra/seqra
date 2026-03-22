@@ -141,6 +141,29 @@ class MypyModuleBuilder(
             }
         }
 
+        // Group property methods into PIRProperty objects.
+        // OverloadedFuncDef serializes all items: getter, setter, deleter in order.
+        // The getter is the one with isProperty=true. Setter/deleter have the same name
+        // but may NOT have isProperty=true (mypy only sets it on the @property getter).
+        // We detect properties by finding methods with isProperty=true, then group all
+        // methods sharing that name.
+        val propertyGetterNames = methods.filter { it.isProperty }.map { it.name }.toSet()
+        for (propName in propertyGetterNames) {
+            val group = methods.filter { it.name == propName }
+            // First occurrence is the getter (has isProperty=true)
+            val getter = group.firstOrNull { it.isProperty }
+            // Setter: method with more params than getter (has value parameter)
+            val getterParamCount = getter?.parameters?.size ?: 0
+            val setter = group.firstOrNull { !it.isProperty && it.parameters.size > getterParamCount }
+                ?: group.firstOrNull { it !== getter && it.parameters.size > getterParamCount }
+            // Deleter: method with same param count as getter, after getter, not setter
+            val deleter = group.firstOrNull { it !== getter && it !== setter
+                && it.parameters.size == getterParamCount }
+
+            val propType = getter?.returnType ?: PIRAnyType
+            properties.add(PIRPropertyImpl(propName, propType, getter, setter, deleter))
+        }
+
         val cls = PIRClassImpl(
             name = classDef.name,
             qualifiedName = classDef.fullname.ifEmpty { "$moduleName.${classDef.name}" },

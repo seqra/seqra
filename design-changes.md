@@ -103,3 +103,17 @@ This document tracks deviations from the original design and bugs discovered dur
 **Problem**: On systems with IPv6, `localhost` resolves to both `127.0.0.1` (IPv4) and `::1` (IPv6). The Python server sometimes bound to IPv6 `::1` while the Kotlin gRPC client connected to IPv4 `127.0.0.1`. This caused intermittent `DEADLINE_EXCEEDED` connection failures that were non-deterministic and appeared only under load (rapid process creation/destruction).
 **Fix**: Changed server to bind explicitly to `127.0.0.1:{port}` instead of `localhost:{port}`. Kotlin client already used `forAddress("localhost", port)` which resolves to IPv4.
 **File**: `pir_server/server.py`
+
+### DC-18: Chained Comparison Short-Circuit
+**Original design**: Chained comparisons like `a < b < c` were lowered using `BIT_AND` to combine individual comparisons: `(a < b) & (b < c)`.
+**Problem**: `BIT_AND` is not short-circuit — it evaluates both operands even when the first is false. Python's semantics require short-circuit evaluation: if `a < b` is false, `b < c` should not be evaluated. This matters for side effects and when operand evaluation is expensive.
+**Fix**: Changed `visitComparison()` in `ExpressionLowering.kt` to use short-circuit branching pattern (same as `visitShortCircuit` for `and`/`or`). Each chained comparison pair creates a branch: if false, jump to end block; if true, continue to next pair. Result variable is assigned after each comparison.
+**File**: `opentaint-ir-impl-python/src/main/kotlin/org/opentaint/ir/impl/python/builder/ExpressionLowering.kt`
+
+### DC-19: PIRProperty Not Wired Up
+**Original design**: `PIRProperty` interface defined in API with getter/setter/deleter fields, but `MypyModuleBuilder.buildClass()` created an empty properties list.
+**Problem**: Property getter/setter/deleter were not accessible via the `PIRProperty` API, only as raw methods with `isProperty=true` on the getter. Setters and deleters were not extracted at all because `_unwrap_func()` on `OverloadedFuncDef` only took `items[0]` (the getter).
+**Fix**: Two-part fix:
+1. Python AST serializer: Changed `_serialize_definition()` to `_serialize_definitions()` returning a list, and for `OverloadedFuncDef` serialize ALL items (getter + setter + deleter), not just the first. Also pass `enclosing_class` through `_serialize_decorator_def`.
+2. Kotlin MypyModuleBuilder: After building all class methods, group property methods by name. Getter detected by `isProperty=true` flag, setter by having more params than getter (`self + value` vs `self`), deleter by same params as getter but appearing after it.
+**Files**: `pir_server/builder/ast_serializer.py`, `opentaint-ir-impl-python/src/main/kotlin/org/opentaint/ir/impl/python/builder/MypyModuleBuilder.kt`

@@ -279,8 +279,11 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
             return target
         }
 
-        // Chained comparison: a < b < c → (a < b) AND (b < c)
-        var result: PIRValueProto? = null
+        // Chained comparison: a < b < c → short-circuit AND
+        // Evaluate each pair left-to-right; if any is false, skip remaining.
+        val resultVar = cfgBuilder.newTempValue()
+        val endBlock = cfgBuilder.newBlock()
+
         var prevRight = accept(expr.getOperands(0))
         for (i in 0 until expr.operatorsCount) {
             val nextRight = accept(expr.getOperands(i + 1))
@@ -298,27 +301,26 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
                     )
                     .build()
             )
-            result = if (result == null) {
-                cmpTarget
-            } else {
-                val andTarget = cfgBuilder.newTempValue()
-                cfgBuilder.emit(
-                    PIRInstructionProto.newBuilder()
-                        .setLineNumber(line)
-                        .setBinOp(
-                            PIRBinOpProto.newBuilder()
-                                .setTarget(andTarget)
-                                .setLeft(result)
-                                .setRight(cmpTarget)
-                                .setOp(BinaryOperator.BIT_AND)
-                        )
-                        .build()
-                )
-                andTarget
+            // Store into result
+            cfgBuilder.emit(
+                PIRInstructionProto.newBuilder()
+                    .setLineNumber(line)
+                    .setAssign(PIRAssignProto.newBuilder().setTarget(resultVar).setSource(cmpTarget))
+                    .build()
+            )
+
+            if (i < expr.operatorsCount - 1) {
+                // Short-circuit: if this comparison is false, skip remaining
+                val nextCmp = cfgBuilder.newBlock()
+                cfgBuilder.emitBranch(cmpTarget, nextCmp, endBlock, line)
+                cfgBuilder.activate(nextCmp)
             }
+
             prevRight = nextRight
         }
-        return result!!
+        cfgBuilder.emitGoto(endBlock, line)
+        cfgBuilder.activate(endBlock)
+        return resultVar
     }
 
     // ─── Call ─────────────────────────────────────────────
