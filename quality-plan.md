@@ -1,6 +1,6 @@
 # Quality Plan
 
-## Status: ALL PASSING (232 tests)
+## Status: ALL PASSING (317 tests)
 
 ## Baseline (start of quality phase)
 - 140 tests passing (4 Tier-1 benchmarks, 126 Tier-2 unit tests, 10 Tier-3 round-trip)
@@ -40,6 +40,7 @@ Total: 19 benchmark packages, all passing
 - [x] Fix int overflow for huge Python ints in protobuf (int64 can't hold 2^64+)
 - [x] Add assert message support (emit call with message argument)
 - [x] Fix `with` statement to use load_attr __enter__/__exit__ pattern (was using fake $__enter__ local)
+- [x] Fix exception handler labels on try-body blocks (blocks inside try had empty exceptionHandlers)
 - [ ] Fix chained comparison lowering (uses BIT_AND instead of short-circuit and) — deferred, works for correctness
 
 ## Q3: Add More Complex CFG Tests
@@ -53,8 +54,11 @@ Total: 19 benchmark packages, all passing
 ## Q4: Additional Test Approaches
 - [x] CFG quality assertions in benchmarks (instructions >= functions, <=5% empty CFGs)
 - [x] CFG build failure logging (warnings printed to stderr)
-- [ ] CFG structural integrity tests — future work
-- [ ] More Tier-3 round-trip tests — future work
+- [x] CfgIntegrityTest (33 tests) — structural CFG validation (reachability, successor/predecessor consistency, terminator checks, dangling edges, block label uniqueness)
+- [x] EdgeCasesTest (40 tests) — edge-case coverage (empty functions, deep nesting, all comparison operators, delete stmts, parameter kinds, assert patterns, try/except variants)
+- [x] 12 new Tier-3 round-trip tests (while-break, for-continue, augmented assign, nested if, chained if, power, find-max, count-chars, nested loops, early return, build dict)
+- [x] Stronger benchmark assertions (instruction diversity, 0 dangling edges, <10% unreachable blocks)
+- [x] Refactored 4 slow test classes to PER_CLASS lifecycle (BasicInstructionsTest, ClassesTest, ExceptionHandlingTest, TypeMappingTest)
 
 ## Progress Log
 
@@ -73,3 +77,29 @@ Total: 19 benchmark packages, all passing
 - Added 4 new Tier-2 test classes (77 new tests)
 - Added CFG quality assertions to benchmark tests
 - All 232 tests pass (19 Tier-1, 203 Tier-2, 10 Tier-3)
+
+### Session 4 (Quality Phase continued)
+- Fixed bug: exception handler labels not set on try-body blocks (DC-9)
+  - Blocks inside `try` body now get correct `exceptionHandlers` pointing to except handler blocks
+  - Root cause: block finalization happened after handler stack was restored
+  - Fix: explicitly finalize try-body block before restoring old handler stack
+- Added CfgIntegrityTest (33 tests): structural CFG validation
+  - All blocks reachable from entry (dead merge blocks allowed)
+  - Successor/predecessor consistency (bidirectional)
+  - Exit blocks end with return/raise/unreachable
+  - No dangling edges (all goto/branch/nextiter targets resolve)
+  - Block labels are unique, entry exists in blocks list
+  - Exception handler labels all resolve to existing blocks
+- Added EdgeCasesTest (40 tests): edge-case coverage
+  - Empty/minimal functions, deep nesting (5-level if, 4-level loops)
+  - Multi-target assignment, tuple swap
+  - Try-in-try, try/except/else/finally, multi-except, raise-from
+  - while-True-break, nested-break-continue, for-in-while
+  - All comparison operators (is, is not, in, not in)
+  - f-strings, class methods (static/class/instance), globals
+  - Assert with/without message, delete (local/attr/subscript)
+  - Parameter kinds (VAR_POSITIONAL, VAR_KEYWORD, KEYWORD_ONLY)
+- Added 12 new Tier-3 round-trip tests: while-break, for-continue, augmented assign, nested-if, multi-assign, chained-if, power, find-max, count-chars, nested-while-loops, early-return, build-dict
+- Strengthened Tier-1 benchmark assertions: instruction diversity (>=3 types), 0 dangling edges, <10% unreachable blocks
+- Refactored 4 slow test classes to PER_CLASS lifecycle (12x speedup per class)
+- All 317 tests pass (19 Tier-1, 276 Tier-2, 22 Tier-3)

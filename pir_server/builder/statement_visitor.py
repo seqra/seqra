@@ -499,13 +499,19 @@ class StatementTransformer:
         else_block = self._new_block() if stmt.else_body else None
         end_block = self._new_block()
 
+        # Activate a new block for the try body so that pre-try instructions
+        # are finalized without exception handlers, and the try body blocks
+        # get the correct handler labels.
+        try_body_block = self._new_block()
+        self._emit_goto(try_body_block)
+        self._activate(try_body_block)
+
         old_handlers = self.current_exception_handlers
         self.current_exception_handlers = [hb for hb in handler_blocks]
 
         self._visit_block(stmt.body)
 
-        self.current_exception_handlers = old_handlers
-
+        # Emit goto to the next block (else/finally/end) to terminate the try body.
         if not self._current_block_terminated():
             if else_block is not None:
                 self._emit_goto(else_block)
@@ -513,6 +519,16 @@ class StatementTransformer:
                 self._emit_goto(finally_block)
             else:
                 self._emit_goto(end_block)
+
+        # Explicitly finalize the current try-body block BEFORE restoring
+        # handlers, so it gets the exception_handlers labels stamped on it.
+        # Without this, the block would be finalized by the next _activate()
+        # call (for handler blocks), by which point current_exception_handlers
+        # has already been restored to the outer scope's handlers.
+        self._finalize_current_block()
+        self.current_instructions = []
+
+        self.current_exception_handlers = old_handlers
 
         for i, handler_body in enumerate(stmt.handlers):
             self._activate(handler_blocks[i])

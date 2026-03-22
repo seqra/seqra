@@ -51,3 +51,12 @@ This document tracks deviations from the original design and bugs discovered dur
 **Problem**: `assert condition, "message"` lost the message argument.
 **Fix**: When `stmt.msg` is present, the message is lowered and emitted as a `PIRCall` to the `AssertionError` constructor with the message as a positional argument.
 **File**: `pir_server/builder/statement_visitor.py`
+
+### DC-9: Exception Handler Labels Not Set on Try-Body Blocks
+**Original design**: `_visit_try` set `current_exception_handlers` before visiting the try body, then restored it after. The intent was that `_finalize_current_block()` would stamp the handler labels onto each block as it was created.
+**Problem**: The try body's blocks were only finalized when the next `_activate()` call happened (for handler blocks). By that time, `current_exception_handlers` had already been restored to the outer scope's handlers. Result: all blocks inside `try` bodies had `exceptionHandlers = []`, making exception flow invisible to the IR.
+**Impact**: For taint analysis, this meant that exception-handler-mediated data flow (e.g., `except ValueError as e:` capturing tainted data) was structurally disconnected from the try body that produced the exception.
+**Fix**: Two changes to `_visit_try()`:
+1. Before setting exception handlers, activate a new block for the try body (so pre-try instructions are finalized without handlers).
+2. After visiting the try body (and emitting the goto-to-end terminator), explicitly call `_finalize_current_block()` before restoring old handlers. This ensures the try body's last block gets the correct handler labels stamped on it.
+**File**: `pir_server/builder/statement_visitor.py`

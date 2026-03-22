@@ -6,54 +6,49 @@ import org.opentaint.ir.api.python.*
 import org.opentaint.ir.test.python.PIRTestBase
 
 @Tag("tier2")
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class TypeMappingTest : PIRTestBase() {
+
+    private lateinit var cp: PIRClasspath
+
+    companion object {
+        val SOURCE = """
+def tm_int_param(x: int) -> int:
+    return x
+
+def tm_str_return() -> str:
+    return "hello"
+
+def tm_no_annot(x):
+    return x
+        """.trimIndent()
+    }
+
+    @BeforeAll fun setup() { cp = buildFromSource(SOURCE) }
+    @AfterAll fun tearDown() { cp.close() }
+
+    private fun func(name: String) = cp.findFunctionOrNull("__test__.$name")!!
 
     @Test
     fun `int parameter has class type builtins_int`() {
-        val cp = buildFromSource("""
-            def f(x: int) -> int:
-                return x
-        """)
-        cp.use {
-            val func = it.findFunctionOrNull("__test__.f")
-            Assertions.assertNotNull(func, "Function __test__.f not found")
-            val param = func!!.parameters.first { p -> p.name == "x" }
-            val type = param.type
-            Assertions.assertTrue(type is PIRClassType,
-                "Expected PIRClassType, got ${type::class.simpleName}")
-            Assertions.assertEquals("builtins.int", (type as PIRClassType).qualifiedName)
-        }
+        val param = func("tm_int_param").parameters.first { p -> p.name == "x" }
+        val type = param.type
+        Assertions.assertTrue(type is PIRClassType,
+            "Expected PIRClassType, got ${type::class.simpleName}")
+        Assertions.assertEquals("builtins.int", (type as PIRClassType).qualifiedName)
     }
 
     @Test
     fun `str return type maps correctly`() {
-        val cp = buildFromSource("""
-            def f() -> str:
-                return "hello"
-        """)
-        cp.use {
-            val func = it.findFunctionOrNull("__test__.f")
-            Assertions.assertNotNull(func, "Function __test__.f not found")
-            val retType = func!!.returnType
-            Assertions.assertTrue(retType is PIRClassType,
-                "Expected PIRClassType, got ${retType::class.simpleName}")
-            Assertions.assertEquals("builtins.str", (retType as PIRClassType).qualifiedName)
-        }
+        val retType = func("tm_str_return").returnType
+        Assertions.assertTrue(retType is PIRClassType,
+            "Expected PIRClassType, got ${retType::class.simpleName}")
+        Assertions.assertEquals("builtins.str", (retType as PIRClassType).qualifiedName)
     }
 
     @Test
     fun `function with no type annotations returns Any`() {
-        val cp = buildFromSource("""
-            def f(x):
-                return x
-        """)
-        cp.use {
-            val func = it.findFunctionOrNull("__test__.f")
-            Assertions.assertNotNull(func, "Function __test__.f not found")
-            // Parameters without annotations should be Any
-            val param = func!!.parameters.first { p -> p.name == "x" }
-            // May be Any or unknown
-            Assertions.assertNotNull(param.type)
-        }
+        val param = func("tm_no_annot").parameters.first { p -> p.name == "x" }
+        Assertions.assertNotNull(param.type)
     }
 }

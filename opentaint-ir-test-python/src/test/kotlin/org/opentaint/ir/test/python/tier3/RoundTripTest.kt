@@ -97,6 +97,105 @@ def rt_greet(name: str) -> str:
 
 def rt_make_list(a: int, b: int, c: int) -> list:
     return [a, b, c]
+
+def rt_while_break(items: list) -> int:
+    i = 0
+    while i < len(items):
+        if items[i] < 0:
+            break
+        i = i + 1
+    return i
+
+def rt_for_continue(items: list) -> int:
+    total = 0
+    for x in items:
+        if x < 0:
+            continue
+        total = total + x
+    return total
+
+def rt_augmented_assign(x: int) -> int:
+    result = x
+    result = result + 10
+    result = result * 2
+    result = result - 5
+    return result
+
+def rt_nested_if(x: int, y: int) -> str:
+    if x > 0:
+        if y > 0:
+            return "both positive"
+        else:
+            return "x positive"
+    else:
+        if y > 0:
+            return "y positive"
+        else:
+            return "both negative"
+
+def rt_multi_assign(a: int, b: int) -> list:
+    x = a + b
+    y = a - b
+    z = x + y
+    return [x, y, z]
+
+def rt_chained_if(x: int) -> str:
+    if x > 100:
+        return "huge"
+    if x > 50:
+        return "large"
+    if x > 10:
+        return "medium"
+    if x > 0:
+        return "small"
+    return "non-positive"
+
+def rt_power(base: int, exp: int) -> int:
+    result = 1
+    i = 0
+    while i < exp:
+        result = result * base
+        i = i + 1
+    return result
+
+def rt_find_max(items: list) -> int:
+    best = items[0]
+    for x in items:
+        if x > best:
+            best = x
+    return best
+
+def rt_count_chars(s: str, target: str) -> int:
+    count = 0
+    for c in s:
+        if c == target:
+            count = count + 1
+    return count
+
+def rt_nested_loops(n: int) -> int:
+    total = 0
+    i = 0
+    while i < n:
+        j = 0
+        while j < n:
+            total = total + 1
+            j = j + 1
+        i = i + 1
+    return total
+
+def rt_early_return(items: list) -> int:
+    for x in items:
+        if x == 0:
+            return 0
+    return 1
+
+def rt_build_dict(keys: list, vals: list) -> dict:
+    result = {}
+    i = 0
+    while i < len(keys):
+        result[keys[i]] = vals[i]
+        i = i + 1
+    return result
         """.trimIndent()
     }
 
@@ -223,4 +322,42 @@ def rt_make_list(a: int, b: int, c: int) -> list:
 
     @Test fun `round trip - list building`() = roundTrip("rt_make_list",
         posArgs(listOf(1, 2, 3), listOf(0, 0, 0), listOf(-1, 0, 1)))
+
+    // ─── New complex round-trip tests ────────────────────────
+
+    @Test fun `round trip - while break`() = roundTrip("rt_while_break",
+        posArgs(listOf(listOf(1, 2, -1, 3)), listOf(listOf(1, 2, 3)), listOf(listOf(-1, 2, 3))))
+
+    @Test fun `round trip - for continue`() = roundTrip("rt_for_continue",
+        posArgs(listOf(listOf(1, -2, 3, -4, 5)), listOf(emptyList<Int>()), listOf(listOf(-1, -2, -3))))
+
+    @Test fun `round trip - augmented assignment`() = roundTrip("rt_augmented_assign",
+        posArgs(listOf(0), listOf(5), listOf(10), listOf(-3)))
+
+    @Test fun `round trip - nested if`() = roundTrip("rt_nested_if",
+        posArgs(listOf(1, 1), listOf(1, -1), listOf(-1, 1), listOf(-1, -1)))
+
+    @Test fun `round trip - multi assign`() = roundTrip("rt_multi_assign",
+        posArgs(listOf(3, 2), listOf(0, 0), listOf(10, -5)))
+
+    @Test fun `round trip - chained if`() = roundTrip("rt_chained_if",
+        posArgs(listOf(200), listOf(75), listOf(25), listOf(5), listOf(0), listOf(-10)))
+
+    @Test fun `round trip - power`() = roundTrip("rt_power",
+        posArgs(listOf(2, 0), listOf(2, 10), listOf(3, 3), listOf(1, 100)))
+
+    @Test fun `round trip - find max`() = roundTrip("rt_find_max",
+        posArgs(listOf(listOf(1, 5, 3, 2, 4)), listOf(listOf(10)), listOf(listOf(-3, -1, -5))))
+
+    @Test fun `round trip - count chars`() = roundTrip("rt_count_chars",
+        posArgs(listOf("hello", "l"), listOf("aaa", "a"), listOf("abc", "z")))
+
+    @Test fun `round trip - nested while loops`() = roundTrip("rt_nested_loops",
+        posArgs(listOf(0), listOf(1), listOf(3), listOf(5)))
+
+    @Test fun `round trip - early return`() = roundTrip("rt_early_return",
+        posArgs(listOf(listOf(1, 0, 3)), listOf(listOf(1, 2, 3)), listOf(emptyList<Int>())))
+
+    @Test fun `round trip - build dict`() = roundTrip("rt_build_dict",
+        posArgs(listOf(listOf("a", "b"), listOf(1, 2)), listOf(emptyList<String>(), emptyList<Int>())))
 }

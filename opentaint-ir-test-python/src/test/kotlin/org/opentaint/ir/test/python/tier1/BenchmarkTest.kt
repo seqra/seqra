@@ -54,6 +54,9 @@ class BenchmarkTest : PIRTestBase() {
             println("║ Modules: ${stats.modules}, Classes: ${stats.classes}, " +
                     "Functions: ${stats.functions}, Blocks: ${stats.blocks}, " +
                     "Instructions: ${stats.instructions}")
+            println("║ Instruction kinds: ${stats.instructionKinds.size} types")
+            println("║ Dangling edges: ${stats.danglingEdges}, Unreachable blocks: ${stats.unreachableBlocks}")
+            println("║ Blocks with exception handlers: ${stats.blocksWithHandlers}")
             println("║ Time: ${"%.1f".format(elapsed)}s")
             println("╚══════════════════════════════════════════════════════════════")
 
@@ -103,6 +106,25 @@ class BenchmarkTest : PIRTestBase() {
                     "$pythonModule: CFG quality too low — ${stats.instructions} total instructions " +
                         "across ${stats.functions} functions (expected >= 1 per function on average)"
                 )
+            }
+
+            // No dangling edges (all goto/branch/nextiter targets must resolve)
+            assertEquals(0, stats.danglingEdges,
+                "$pythonModule: found ${stats.danglingEdges} dangling edges in CFGs")
+
+            // Instruction diversity: real-world packages should use many instruction types.
+            // At minimum: PIRReturn, PIRAssign, PIRCall — most use 10+ types
+            assertTrue(stats.instructionKinds.size >= 3,
+                "$pythonModule: instruction diversity too low — only ${stats.instructionKinds.size} types: " +
+                    stats.instructionKinds)
+
+            // Unreachable blocks should be rare (< 10% of total blocks).
+            // Some dead merge blocks are expected from if/else where both branches return.
+            if (stats.blocks > 0) {
+                val unreachablePct = stats.unreachableBlocks.toDouble() / stats.blocks
+                assertTrue(unreachablePct < 0.10,
+                    "$pythonModule: too many unreachable blocks: ${stats.unreachableBlocks} of ${stats.blocks} " +
+                        "(${"%.1f".format(unreachablePct * 100)}%)")
             }
         }
     }
@@ -236,20 +258,69 @@ class BenchmarkTest : PIRTestBase() {
     data class Stats(
         val modules: Int, val classes: Int, val functions: Int,
         val blocks: Int, val instructions: Int,
+        val instructionKinds: Set<String>,
+        val danglingEdges: Int,
+        val unreachableBlocks: Int,
+        val blocksWithHandlers: Int,
     )
 
     private fun collectStats(cp: PIRClasspath): Stats {
         var modules = 0; var classes = 0; var functions = 0
         var blocks = 0; var instructions = 0
+        val instructionKinds = mutableSetOf<String>()
+        var danglingEdges = 0
+        var unreachableBlocks = 0
+        var blocksWithHandlers = 0
         for (module in cp.modules) {
             modules++; classes += module.classes.size
             for (func in allFunctions(module)) {
                 functions++
-                blocks += func.cfg.blocks.size
-                instructions += func.cfg.blocks.sumOf { it.instructions.size }
+                val cfg = func.cfg
+                blocks += cfg.blocks.size
+                val allLabels = cfg.blocks.map { it.label }.toSet()
+                for (block in cfg.blocks) {
+                    instructions += block.instructions.size
+                    if (block.exceptionHandlers.isNotEmpty()) blocksWithHandlers++
+                    for (inst in block.instructions) {
+                        instructionKinds.add(inst::class.simpleName ?: "Unknown")
+                        // Check for dangling edges
+                        when (inst) {
+                            is PIRGoto -> if (inst.targetBlock !in allLabels) danglingEdges++
+                            is PIRBranch -> {
+                                if (inst.trueBlock !in allLabels) danglingEdges++
+                                if (inst.falseBlock !in allLabels) danglingEdges++
+                            }
+                            is PIRNextIter -> {
+                                if (inst.bodyBlock !in allLabels) danglingEdges++
+                                if (inst.exitBlock !in allLabels) danglingEdges++
+                            }
+                            else -> {}
+                        }
+                    }
+                    for (h in block.exceptionHandlers) {
+                        if (h !in allLabels) danglingEdges++
+                    }
+                }
+                // Check reachability via BFS
+                if (cfg.blocks.isNotEmpty()) {
+                    val reachable = mutableSetOf(cfg.entry.label)
+                    val queue = ArrayDeque<PIRBasicBlock>()
+                    queue.add(cfg.entry)
+                    while (queue.isNotEmpty()) {
+                        val b = queue.removeFirst()
+                        for (succ in cfg.successors(b) + cfg.exceptionalSuccessors(b)) {
+                            if (succ.label !in reachable) {
+                                reachable.add(succ.label)
+                                queue.add(succ)
+                            }
+                        }
+                    }
+                    unreachableBlocks += cfg.blocks.size - reachable.size
+                }
             }
         }
-        return Stats(modules, classes, functions, blocks, instructions)
+        return Stats(modules, classes, functions, blocks, instructions,
+            instructionKinds, danglingEdges, unreachableBlocks, blocksWithHandlers)
     }
 
     private fun allFunctions(module: PIRModule): Sequence<PIRFunction> = sequence {

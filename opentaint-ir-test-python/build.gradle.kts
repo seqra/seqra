@@ -23,4 +23,8 @@ tasks.test {
             excludeTags("tier1")
         }
     }
+    // Each test class spawns a Python subprocess with gRPC server.
+    // Single fork prevents port conflicts and resource exhaustion.
+    maxParallelForks = 1
+    maxHeapSize = "1g"
 }
