@@ -30,6 +30,18 @@ data class PIRSettings(
 )
 
 /**
+ * A diagnostic message produced during IR construction.
+ */
+data class PIRDiagnostic(
+    val severity: PIRDiagnosticSeverity,
+    val message: String,
+    val functionName: String,
+    val exceptionType: String,
+)
+
+enum class PIRDiagnosticSeverity { WARNING, ERROR }
+
+/**
  * A Python module (.py file).
  */
 interface PIRModule {
@@ -41,6 +53,7 @@ interface PIRModule {
     val moduleInit: PIRFunction
     val imports: List<String>
     val classpath: PIRClasspath
+    val diagnostics: List<PIRDiagnostic>
 }
 
 /**

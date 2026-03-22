@@ -34,6 +34,7 @@ class ModuleBuilder:
         self.types = types
         self.module_name = module_name
         self.type_mapper = TypeMapper()
+        self.diagnostics: list[pir_pb2.PIRDiagnosticProto] = []
 
     def build(self) -> pir_pb2.PIRModuleProto:
         proto = pir_pb2.PIRModuleProto(
@@ -56,6 +57,7 @@ class ModuleBuilder:
 
         proto.module_init.CopyFrom(self._build_module_init())
         proto.imports.extend(self._collect_imports())
+        proto.diagnostics.extend(self.diagnostics)
 
         return proto
 
@@ -144,9 +146,14 @@ class ModuleBuilder:
         try:
             cfg_proto = stmt_visitor.build_function_cfg(func_def)
         except Exception as e:
-            print(
-                f"[PIR WARNING] Failed to build CFG for {self.module_name}.{func_def.name}: {type(e).__name__}: {e}",
-                file=sys.stderr,
+            func_qname = f"{self.module_name}.{func_def.name}"
+            self.diagnostics.append(
+                pir_pb2.PIRDiagnosticProto(
+                    severity=pir_pb2.ERROR,
+                    message=f"Failed to build CFG for {func_qname}: {type(e).__name__}: {e}",
+                    function_name=func_def.name,
+                    exception_type=type(e).__name__,
+                )
             )
             cfg_proto = pir_pb2.PIRCFGProto(
                 blocks=[
@@ -232,9 +239,13 @@ class ModuleBuilder:
         try:
             cfg_proto = stmt_visitor.build_module_init_cfg(self.tree)
         except Exception as e:
-            print(
-                f"[PIR WARNING] Failed to build module_init CFG for {self.module_name}: {type(e).__name__}: {e}",
-                file=sys.stderr,
+            self.diagnostics.append(
+                pir_pb2.PIRDiagnosticProto(
+                    severity=pir_pb2.ERROR,
+                    message=f"Failed to build module_init CFG for {self.module_name}: {type(e).__name__}: {e}",
+                    function_name="__module_init__",
+                    exception_type=type(e).__name__,
+                )
             )
             cfg_proto = pir_pb2.PIRCFGProto(
                 blocks=[

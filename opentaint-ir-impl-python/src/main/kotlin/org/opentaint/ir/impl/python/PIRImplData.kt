@@ -13,6 +13,7 @@ data class PIRModuleImpl(
     override val moduleInit: PIRFunction,
     override val imports: List<String>,
     override val classpath: PIRClasspath,
+    override val diagnostics: List<PIRDiagnostic> = emptyList(),
 ) : PIRModule
 
 data class PIRClassImpl(

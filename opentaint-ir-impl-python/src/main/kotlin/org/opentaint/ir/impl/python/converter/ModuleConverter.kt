@@ -12,6 +12,8 @@ class ModuleConverter(
     private val instructionConverter = InstructionConverter(typeConverter, valueConverter)
 
     fun convert(proto: PIRModuleProto): PIRModule {
+        val diagnostics = proto.diagnosticsList.map { convertDiagnostic(it) }
+
         // We create a placeholder module first, then fill in classes/functions
         // because they need back-references to the module.
         val module = PIRModuleImpl(
@@ -23,6 +25,7 @@ class ModuleConverter(
             moduleInit = convertFunction(proto.moduleInit, null, null),
             imports = proto.importsList.toList(),
             classpath = classpath,
+            diagnostics = diagnostics,
         )
 
         // Now convert classes and functions with the module reference
@@ -39,6 +42,7 @@ class ModuleConverter(
             moduleInit = moduleInit,
             imports = proto.importsList.toList(),
             classpath = classpath,
+            diagnostics = diagnostics,
         )
     }
 
@@ -155,6 +159,19 @@ class ModuleConverter(
         exitLabels = setOf(0),
     )
 
+    private fun convertDiagnostic(proto: PIRDiagnosticProto): PIRDiagnostic {
+        val severity = when (proto.severity.number) {
+            1 -> org.opentaint.ir.api.python.PIRDiagnosticSeverity.ERROR
+            else -> org.opentaint.ir.api.python.PIRDiagnosticSeverity.WARNING
+        }
+        return PIRDiagnostic(
+            severity = severity,
+            message = proto.message,
+            functionName = proto.functionName,
+            exceptionType = proto.exceptionType,
+        )
+    }
+
     private fun createDummyModule(): PIRModule = object : PIRModule {
         override val name = "<unknown>"
         override val path = ""
@@ -164,5 +181,6 @@ class ModuleConverter(
         override val moduleInit: PIRFunction get() = throw UnsupportedOperationException()
         override val imports = emptyList<String>()
         override val classpath: PIRClasspath get() = throw UnsupportedOperationException()
+        override val diagnostics = emptyList<PIRDiagnostic>()
     }
 }

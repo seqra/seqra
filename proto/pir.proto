@@ -63,6 +63,20 @@ message PingResponse {
 message ShutdownRequest {}
 message ShutdownResponse {}
 
+// ─── Diagnostics ────────────────────────────────────────────
+
+enum PIRDiagnosticSeverity {
+  WARNING = 0;
+  ERROR = 1;
+}
+
+message PIRDiagnosticProto {
+  PIRDiagnosticSeverity severity = 1;
+  string message = 2;
+  string function_name = 3;   // Function where the issue occurred (empty for module-level)
+  string exception_type = 4;  // Python exception type that caused the failure
+}
+
 // ─── Entities ───────────────────────────────────────────────
 
 message PIRModuleProto {
@@ -73,6 +87,7 @@ message PIRModuleProto {
   repeated PIRFieldProto fields = 5;
   PIRFunctionProto module_init = 6;
   repeated string imports = 7;
+  repeated PIRDiagnosticProto diagnostics = 8;
 }
 
 message PIRClassProto {
