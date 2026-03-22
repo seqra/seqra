@@ -27,6 +27,8 @@ data class PIRSettings(
     val serverStartupTimeout: java.time.Duration = java.time.Duration.ofSeconds(30),
     val rpcTimeout: java.time.Duration = java.time.Duration.ofSeconds(120),
     val embeddedServer: Boolean = true,
+    /** Use Kotlin-side CFG lowering (new AST path) instead of Python-side lowering. */
+    val useKotlinLowering: Boolean = true,
 )
 
 /**

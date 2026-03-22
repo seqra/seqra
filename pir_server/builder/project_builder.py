@@ -9,6 +9,7 @@ from mypy.fscache import FileSystemCache
 from mypy.nodes import MypyFile
 from pir_server.proto import pir_pb2
 from pir_server.builder.module_builder import ModuleBuilder
+from pir_server.builder.ast_serializer import AstSerializer
 
 
 class ProjectBuilder:
@@ -92,6 +93,76 @@ class ProjectBuilder:
                 module_name=module_name,
             )
             yield module_builder.build()
+
+    def build_ast(self) -> Iterator[pir_pb2.MypyModuleProto]:
+        """Build project and return raw mypy AST (no CFG lowering).
+
+        This is the thin path: runs mypy, then serializes AST to proto.
+        All complex lowering is done on the Kotlin side.
+        """
+        options = mypy.options.Options()
+        if self.python_version:
+            parts = self.python_version.split(".")
+            if len(parts) >= 2:
+                options.python_version = (int(parts[0]), int(parts[1]))
+        options.ignore_missing_imports = "--ignore-missing-imports" in self.mypy_flags
+        options.incremental = False
+        options.preserve_asts = True
+        options.export_types = True
+
+        mypy_sources = []
+        all_file_paths = []
+
+        for s in self.sources:
+            if os.path.isfile(s):
+                all_file_paths.append(os.path.abspath(s))
+            elif os.path.isdir(s):
+                for root, dirs, files in os.walk(s):
+                    for f in files:
+                        if f.endswith(".py"):
+                            all_file_paths.append(
+                                os.path.abspath(os.path.join(root, f))
+                            )
+
+        search_root = self._find_search_root(all_file_paths)
+
+        for path in all_file_paths:
+            mod_name = self._path_to_module(path, search_root)
+            mypy_sources.append(mypy.build.BuildSource(path=path, module=mod_name))
+
+        if not mypy_sources:
+            return
+
+        fscache = FileSystemCache()
+        try:
+            result = mypy.build.build(
+                sources=mypy_sources,
+                options=options,
+                fscache=fscache,
+            )
+        except Exception as e:
+            import sys
+
+            print(f"mypy build failed: {e}", file=sys.stderr)
+            raise
+
+        source_paths = set()
+        for s in self.sources:
+            source_paths.add(os.path.abspath(s))
+
+        for module_name, state in result.graph.items():
+            tree: MypyFile | None = state.tree
+            if tree is None:
+                continue
+            if not self._should_include(state, source_paths):
+                continue
+
+            serializer = AstSerializer(
+                tree=tree,
+                types=result.types,
+                module_name=module_name,
+            )
+            yield serializer.serialize()
 
     def _find_search_root(self, file_paths: list[str]) -> str:
         """Find the best root directory for module name derivation.

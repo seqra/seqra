@@ -27,6 +27,25 @@ class PIRServiceServicer(pir_pb2_grpc.PIRServiceServicer):
             traceback.print_exc()
             return
 
+    def BuildProjectAst(self, request, context):
+        """Stream MypyModuleProto messages (raw AST, no CFG lowering)."""
+        try:
+            builder = ProjectBuilder(
+                sources=list(request.sources),
+                mypy_flags=list(request.mypy_flags),
+                python_version=request.python_version or None,
+                search_paths=list(request.search_paths),
+            )
+            for module_proto in builder.build_ast():
+                yield module_proto
+        except Exception as e:
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(f"BuildProjectAst failed: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return
+
     def BuildModule(self, request, context):
         """Build a single module."""
         try:
