@@ -1,6 +1,6 @@
 # Quality Plan
 
-## Status: ALL PASSING (936 tests) — All runnable via single `gradle test -PallTiers`
+## Status: ALL PASSING (990 tests) — All runnable via single `gradle test -PallTiers`
 
 ## Baseline (start of quality phase)
 - 140 tests passing (4 Tier-1 benchmarks, 126 Tier-2 unit tests, 10 Tier-3 round-trip)
@@ -29,6 +29,73 @@
 - ~~certifi~~ (removed: data-only package, no __file__)
 
 Total: 19 benchmark packages, all passing
+
+### New Library Benchmarks (Session 12)
+- [x] flask (24 files)
+- [x] django (899 files, recursive)
+- [x] fastapi (48 files, recursive)
+- [x] starlette (34 files, recursive)
+- [x] werkzeug (52 files, recursive)
+- [x] jinja2 (25 files, recursive)
+- [x] tornado (73 files, recursive)
+- [x] falcon (102 files, recursive)
+- [x] bottle (1 file, single-file framework)
+- [x] pyramid (61 files, recursive)
+- [x] sanic (132 files, recursive)
+- [x] aiohttp (55 files, recursive)
+- [x] celery (161 files, recursive)
+- [x] pydantic (105 files, recursive)
+- [x] sqlalchemy (256 files, recursive)
+- [x] marshmallow (14 files, recursive)
+- [x] httpx (23 files, recursive)
+- [x] httpcore (31 files, recursive)
+- [x] yaml/pyyaml (17 files, recursive)
+- [x] mako (33 files, recursive)
+- [x] markdown (33 files, recursive)
+- [x] tqdm (31 files, recursive)
+- [x] pycparser (17 files, recursive)
+- [x] pyparsing (17 files, recursive)
+- [x] pathspec (31 files, recursive)
+- [x] typeguard (12 files, recursive)
+- [x] anyio (42 files, recursive)
+- [x] filelock (10 files, recursive)
+- [x] lxml (25 files, recursive)
+
+Total: 48 library benchmark packages (19 original + 29 new), all passing
+
+### Web Application Benchmarks (Session 12)
+Django web apps:
+- [x] saleor (e-commerce platform)
+- [x] netbox (network automation)
+- [x] wagtail (CMS)
+- [x] taiga-back (project management)
+- [x] django-oscar (e-commerce)
+- [x] django-rest-framework
+- [x] healthchecks (monitoring)
+- [x] zulip (chat server)
+- [x] label-studio (data labeling)
+- [x] paperless-ngx (document management)
+- [x] flagsmith (feature flags)
+- [x] hyperkitty (mailing list archiver)
+- [x] ralph (asset management)
+- [x] plane (project tracker)
+- [x] posthog (analytics)
+- [x] sentry (error tracking)
+
+Flask web apps:
+- [x] superset (BI platform)
+- [x] redash (dashboarding)
+- [x] CTFd (CTF platform)
+- [x] flaskbb (forum)
+- [x] lemur (certificate manager)
+
+FastAPI web apps:
+- [x] mealie (recipe manager)
+- [x] dispatch (incident management)
+- [x] polar (billing platform)
+- [x] full-stack-fastapi-template
+
+Total: 25 web application benchmarks, all passing
 
 ## Q2: Fix Bugs Found in Analysis
 - [x] Fix exception type resolution in try/except (was hardcoded to `builtins.Exception`)
@@ -220,3 +287,14 @@ Total: 19 benchmark packages, all passing
 - **Enhanced PIRReconstructor**: blocks with `exceptionHandlers` now wrapped in `try:/except:` for correct exception round-tripping
 - **All 936 tests pass** via `gradle test -PallTiers` (73s, 0 failures)
 - Total: 936 tests (19 Tier-1, 403 Tier-2, 496 Tier-3 + 3 untagged + 15 benchmark assertions)
+
+### Session 12 (Massive Benchmark Expansion: 936 → 990 tests)
+- **Installed 15 web framework/utility packages**: flask, django, fastapi, starlette, werkzeug, jinja2, bottle, tornado, falcon, pyramid, sanic, aiohttp, celery, pydantic, sqlalchemy, marshmallow, httpx, httpcore, anyio, gunicorn, uvicorn
+- **Cloned 25 real-world web application projects** into `/home/sobol/data/python-ir/web-projects/`:
+  - Django (16): saleor, netbox, wagtail, taiga-back, django-oscar, django-rest-framework, healthchecks, zulip, label-studio, paperless-ngx, flagsmith, hyperkitty, ralph, plane, posthog, sentry
+  - Flask (5): superset, redash, CTFd, flaskbb, lemur
+  - FastAPI (4): mealie, dispatch, polar, full-stack-fastapi-template
+- **Created `WebAppBenchmarkTest.kt`**: new test class with `analyzeDir()` method for filesystem-based project analysis (vs installed package analysis)
+- **Added 29 new library benchmarks** to `BenchmarkTest.kt`: web frameworks (flask, django, fastapi, starlette, werkzeug, jinja2, tornado, falcon, bottle, pyramid, sanic, aiohttp, celery), data/ORM (pydantic, sqlalchemy, marshmallow), HTTP (httpx, httpcore), utils (yaml, mako, markdown, tqdm, pycparser, pyparsing, pathspec, typeguard, anyio, filelock, lxml)
+- **All 990 tests pass** via `gradle test -PallTiers` (~4 minutes, 0 failures)
+- Total: 990 tests (73 Tier-1 benchmarks [48 library + 25 webapp], 403 Tier-2, 496 Tier-3 + 3 untagged + 15 benchmark assertions)
