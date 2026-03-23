@@ -90,6 +90,7 @@ interface PIRFunction {
     val isStaticMethod: Boolean
     val isClassMethod: Boolean
     val isProperty: Boolean
+    /** Names of variables captured from enclosing scope (closure variables). Empty for non-nested functions. */
     val closureVars: List<String>
     val enclosingClass: PIRClass?
     val module: PIRModule
@@ -103,6 +104,7 @@ interface PIRParameter {
     val type: PIRType
     val kind: PIRParameterKind
     val hasDefault: Boolean
+    /** Constant default value, or null if no default or if the default is a non-constant expression. */
     val defaultValue: PIRValue?
     val index: Int
 }

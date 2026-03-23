@@ -13,7 +13,6 @@ from mypy.nodes import (
     AssignmentStmt,
     Decorator,
     OverloadedFuncDef,
-    Var,
     NameExpr,
     MemberExpr,
     Import,
@@ -69,8 +68,6 @@ from mypy.nodes import (
     ARG_OPT,
     ARG_STAR,
     ARG_STAR2,
-    ARG_NAMED,
-    ARG_NAMED_OPT,
 )
 from mypy.types import CallableType
 from pir_server.proto import pir_pb2
@@ -110,8 +107,6 @@ class AstSerializer:
                 for d in self._serialize_definitions(defn):
                     proto.defs.append(d)
             except Exception as e:
-                import sys
-
                 print(
                     f"WARNING: Failed to serialize definition in {self.module_name}: "
                     f"{type(e).__name__}: {e}",
@@ -265,25 +260,14 @@ class AstSerializer:
 
     def _serialize_block(self, block: Block) -> pir_pb2.MypyBlockProto:
         proto = pir_pb2.MypyBlockProto()
-        # Collect names of nested FuncDef/Decorator in this block
-        # so nested functions can exclude sibling names from closure_vars
-        sibling_func_names = set()
         for stmt in block.body:
-            func_def = (
-                self._unwrap_func(stmt)
-                if isinstance(stmt, (FuncDef, Decorator, OverloadedFuncDef))
-                else None
-            )
-            if func_def:
-                sibling_func_names.add(func_def.name)
-        for stmt in block.body:
-            s = self._serialize_stmt(stmt, sibling_func_names)
+            s = self._serialize_stmt(stmt)
             if s is not None:
                 proto.stmts.append(s)
         return proto
 
     def _serialize_stmt(
-        self, stmt, sibling_func_names: set[str] | None = None
+        self, stmt
     ) -> pir_pb2.MypyStmtProto | None:
         line = getattr(stmt, "line", -1)
         col = getattr(stmt, "column", 0)
@@ -405,12 +389,14 @@ class AstSerializer:
             if func_def:
                 func_proto = self._serialize_func_def(func_def)
                 # Populate closure_vars for nested function definitions
-                free_vars = self._collect_free_vars(func_def, sibling_func_names)
+                free_vars = self._collect_free_vars(func_def)
                 for fv in free_vars:
                     func_proto.closure_vars.append(fv)
                 proto.func_def.CopyFrom(func_proto)
         elif isinstance(stmt, ClassDef):
             proto.class_def.CopyFrom(self._serialize_class_def(stmt))
+        elif isinstance(stmt, NonlocalDecl):
+            return None
         elif isinstance(stmt, Block):
             # Inline block — serialize each statement
             # Return None and let caller handle
@@ -697,7 +683,7 @@ class AstSerializer:
         return None
 
     def _collect_free_vars(
-        self, func_def: FuncDef, sibling_func_names: set[str] | None = None
+        self, func_def: FuncDef
     ) -> list[str]:
         """Collect free variable names referenced in a nested function body.
 
@@ -706,7 +692,6 @@ class AstSerializer:
         - assigned locally (simple assignment targets)
         - global/nonlocal declarations
         - builtin names
-        - sibling nested function names (they're extracted separately)
         """
         param_names = set()
         for arg in func_def.arguments:

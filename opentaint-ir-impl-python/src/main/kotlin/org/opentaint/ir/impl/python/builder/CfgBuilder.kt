@@ -198,7 +198,7 @@ class CfgBuilder(
             stmt.hasPassStmt() -> { /* no-op */ }
             stmt.hasGlobalDecl() -> { /* no-op */ }
             stmt.hasFuncDef() -> visitNestedFuncDef(stmt.funcDef, stmt.line)
-            stmt.hasClassDef() -> { /* ClassDef inside function body — skip for now */ }
+            stmt.hasClassDef() -> { /* ClassDef inside function body — not supported */ }
         }
     }
 

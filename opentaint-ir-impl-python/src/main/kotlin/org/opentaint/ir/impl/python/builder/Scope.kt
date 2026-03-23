@@ -27,14 +27,6 @@ class ScopeStack {
 
     val current: Scope get() = scopes.last()
 
-    fun push() {
-        scopes.add(Scope())
-    }
-
-    fun pop(): Scope {
-        return scopes.removeLast()
-    }
-
     fun newTemp(): String = current.newTemp()
 
     fun resolveLocal(name: String): String = current.resolveLocal(name)

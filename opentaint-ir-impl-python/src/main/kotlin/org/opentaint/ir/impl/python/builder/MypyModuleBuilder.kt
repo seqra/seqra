@@ -29,9 +29,8 @@ class MypyModuleBuilder(
     private val diagnostics = mutableListOf<PIRDiagnostic>()
     private val typeConverter = TypeConverter()
 
-    private val tc = TypeConverter()
-    private val vc = ValueConverter(tc)
-    private val ic = InstructionConverter(tc, vc)
+    private val vc = ValueConverter(typeConverter)
+    private val ic = InstructionConverter(typeConverter, vc)
 
     fun build(): PIRModule {
         // Dummy module for back-references during construction
@@ -358,10 +357,8 @@ class MypyModuleBuilder(
      * Extract a nested FuncDef from within a function body, building it as a
      * module-level function (same pattern as lambdas).
      *
-     * Returns a qualified name that the caller can use to create a GlobalRef.
-     */
-    /**
      * Returns pair of (uniqueName, qualifiedName) for the extracted function.
+     * The caller can use the qualified name to create a GlobalRef.
      */
     fun extractNestedFunction(funcDef: MypyFuncDefProto, enclosingQualifiedName: String): Pair<String, String> {
         val idx = nestedFuncCounter++

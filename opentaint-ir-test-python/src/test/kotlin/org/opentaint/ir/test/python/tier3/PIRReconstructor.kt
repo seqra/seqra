@@ -33,6 +33,10 @@ class PIRReconstructor {
     private var nestedFuncCaptureMap: Map<String, List<String>> = emptyMap()
 
     fun reconstruct(func: PIRFunction): String {
+        currentEmittedFuncNames = emptySet()
+        currentCapturedVars = emptySet()
+        currentIsInnerWithEnv = false
+        nestedFuncCaptureMap = emptyMap()
         return reconstructSingle(func)
     }
 
