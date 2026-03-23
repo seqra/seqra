@@ -1,0 +1,995 @@
+syntax = "proto3";
+
+package opentaint.pir;
+
+option java_package = "org.opentaint.ir.impl.python.proto";
+option java_multiple_files = true;
+option java_outer_classname = "Pir";
+
+// ─── Service ────────────────────────────────────────────────
+
+service PIRService {
+  // Build an entire project. Returns raw mypy AST modules as a stream.
+  // The Kotlin side performs all CFG lowering.
+  rpc BuildProject(BuildProjectRequest) returns (stream MypyModuleProto);
+
+  // Build a single module (for incremental rebuilds).
+  rpc BuildModule(BuildModuleRequest) returns (MypyModuleProto);
+
+  // Execute a Python function with given args and return the result.
+  // Used by Tier 3 round-trip tests.
+  rpc ExecuteFunction(ExecuteFunctionRequest) returns (ExecuteFunctionResponse);
+
+  // Health check / readiness probe.
+  rpc Ping(PingRequest) returns (PingResponse);
+
+  // Graceful shutdown.
+  rpc Shutdown(ShutdownRequest) returns (ShutdownResponse);
+}
+
+// ─── RPC Messages ───────────────────────────────────────────
+
+message BuildProjectRequest {
+  repeated string sources = 1;
+  repeated string mypy_flags = 2;
+  string python_version = 3;
+  repeated string search_paths = 4;
+}
+
+message BuildModuleRequest {
+  string module_name = 1;
+  string source_path = 2;
+  repeated string mypy_flags = 3;
+  string python_version = 4;
+  repeated string search_paths = 5;
+}
+
+message ExecuteFunctionRequest {
+  string source_code = 1;
+  string function_name = 2;
+  string arguments_json = 3;
+}
+
+message ExecuteFunctionResponse {
+  string results_json = 1;
+}
+
+message PingRequest {}
+message PingResponse {
+  string version = 1;
+  string python_version = 2;
+  string mypy_version = 3;
+}
+
+message ShutdownRequest {}
+message ShutdownResponse {}
+
+// ─── Diagnostics ────────────────────────────────────────────
+
+enum PIRDiagnosticSeverity {
+  WARNING = 0;
+  ERROR = 1;
+}
+
+message PIRDiagnosticProto {
+  PIRDiagnosticSeverity severity = 1;
+  string message = 2;
+  string function_name = 3;   // Function where the issue occurred (empty for module-level)
+  string exception_type = 4;  // Python exception type that caused the failure
+}
+
+// ─── Entities ───────────────────────────────────────────────
+
+message PIRModuleProto {
+  string name = 1;
+  string path = 2;
+  repeated PIRClassProto classes = 3;
+  repeated PIRFunctionProto functions = 4;
+  repeated PIRFieldProto fields = 5;
+  PIRFunctionProto module_init = 6;
+  repeated string imports = 7;
+  repeated PIRDiagnosticProto diagnostics = 8;
+}
+
+message PIRClassProto {
+  string name = 1;
+  string qualified_name = 2;
+  repeated string base_classes = 3;
+  repeated PIRFunctionProto methods = 4;
+  repeated PIRFieldProto fields = 5;
+  repeated PIRClassProto nested_classes = 6;
+  repeated PIRPropertyProto properties = 7;
+  repeated PIRDecoratorProto decorators = 8;
+  bool is_abstract = 9;
+  bool is_dataclass = 10;
+  bool is_enum = 11;
+  repeated string mro = 12;
+}
+
+message PIRFunctionProto {
+  string name = 1;
+  string qualified_name = 2;
+  repeated PIRParameterProto parameters = 3;
+  PIRTypeProto return_type = 4;
+  PIRCFGProto cfg = 5;
+  repeated PIRDecoratorProto decorators = 6;
+  bool is_async = 7;
+  bool is_generator = 8;
+  bool is_static_method = 9;
+  bool is_class_method = 10;
+  bool is_property = 11;
+  repeated string closure_vars = 12;
+}
+
+message PIRParameterProto {
+  string name = 1;
+  PIRTypeProto type = 2;
+  ParameterKind kind = 3;
+  bool has_default = 4;
+  PIRValueProto default_value = 5;  // Default value (if has_default is true)
+}
+
+enum ParameterKind {
+  POSITIONAL_ONLY = 0;
+  POSITIONAL_OR_KEYWORD = 1;
+  VAR_POSITIONAL = 2;
+  KEYWORD_ONLY = 3;
+  VAR_KEYWORD = 4;
+}
+
+message PIRFieldProto {
+  string name = 1;
+  PIRTypeProto type = 2;
+  bool is_class_var = 3;
+  bool has_initializer = 4;
+}
+
+message PIRPropertyProto {
+  string name = 1;
+  PIRTypeProto type = 2;
+  bool has_getter = 3;
+  bool has_setter = 4;
+  bool has_deleter = 5;
+  string getter_name = 6;
+  string setter_name = 7;
+  string deleter_name = 8;
+}
+
+message PIRDecoratorProto {
+  string name = 1;
+  string qualified_name = 2;
+  repeated string arguments = 3;
+}
+
+// ─── Types ──────────────────────────────────────────────────
+
+message PIRTypeProto {
+  oneof kind {
+    PIRClassTypeProto class_type = 1;
+    PIRFunctionTypeProto function_type = 2;
+    PIRUnionTypeProto union_type = 3;
+    PIRTupleTypeProto tuple_type = 4;
+    PIRLiteralTypeProto literal_type = 5;
+    PIRAnyTypeProto any_type = 6;
+    PIRNeverTypeProto never_type = 7;
+    PIRNoneTypeProto none_type = 8;
+    PIRTypeVarTypeProto type_var_type = 9;
+  }
+}
+
+message PIRClassTypeProto {
+  string qualified_name = 1;
+  repeated PIRTypeProto type_args = 2;
+  bool is_optional = 3;
+}
+
+message PIRFunctionTypeProto {
+  repeated PIRTypeProto param_types = 1;
+  PIRTypeProto return_type = 2;
+}
+
+message PIRUnionTypeProto {
+  repeated PIRTypeProto members = 1;
+}
+
+message PIRTupleTypeProto {
+  repeated PIRTypeProto element_types = 1;
+  bool is_var_length = 2;
+}
+
+message PIRLiteralTypeProto {
+  string value = 1;
+  PIRTypeProto base_type = 2;
+}
+
+message PIRAnyTypeProto {}
+message PIRNeverTypeProto {}
+message PIRNoneTypeProto {}
+
+message PIRTypeVarTypeProto {
+  string name = 1;
+  repeated PIRTypeProto bounds = 2;
+}
+
+// ─── CFG ────────────────────────────────────────────────────
+
+message PIRCFGProto {
+  repeated PIRBasicBlockProto blocks = 1;
+  int32 entry_block = 2;
+  repeated int32 exit_blocks = 3;
+}
+
+message PIRBasicBlockProto {
+  int32 label = 1;
+  repeated PIRInstructionProto instructions = 2;
+  repeated int32 exception_handlers = 3;
+}
+
+// ─── Instructions ───────────────────────────────────────────
+
+message PIRInstructionProto {
+  int32 line_number = 1;
+  int32 col_offset = 2;
+
+  oneof inst {
+    PIRAssignProto assign = 10;
+    PIRLoadAttrProto load_attr = 11;
+    PIRStoreAttrProto store_attr = 12;
+    PIRLoadSubscriptProto load_subscript = 13;
+    PIRStoreSubscriptProto store_subscript = 14;
+    PIRLoadGlobalProto load_global = 15;
+    PIRStoreGlobalProto store_global = 16;
+    PIRLoadClosureProto load_closure = 17;
+    PIRStoreClosureProto store_closure = 18;
+
+    PIRBinOpProto bin_op = 20;
+    PIRUnaryOpProto unary_op = 21;
+    PIRCompareProto compare = 22;
+
+    PIRCallProto call = 30;
+
+    PIRBuildListProto build_list = 40;
+    PIRBuildTupleProto build_tuple = 41;
+    PIRBuildSetProto build_set = 42;
+    PIRBuildDictProto build_dict = 43;
+    PIRBuildSliceProto build_slice = 44;
+    PIRBuildStringProto build_string = 45;
+
+    PIRGetIterProto get_iter = 50;
+    PIRNextIterProto next_iter = 51;
+    PIRUnpackProto unpack = 52;
+
+    PIRGotoProto goto_inst = 60;
+    PIRBranchProto branch = 61;
+    PIRReturnProto return_inst = 62;
+    PIRRaiseProto raise_inst = 63;
+    PIRExceptHandlerProto except_handler = 64;
+
+    PIRYieldProto yield_inst = 70;
+    PIRYieldFromProto yield_from = 71;
+    PIRAwaitProto await_inst = 72;
+
+    PIRDeleteLocalProto delete_local = 80;
+    PIRDeleteAttrProto delete_attr = 81;
+    PIRDeleteSubscriptProto delete_subscript = 82;
+    PIRDeleteGlobalProto delete_global = 83;
+
+    PIRTypeCheckProto type_check = 90;
+    PIRUnreachableProto unreachable = 91;
+  }
+}
+
+// ─── Values ─────────────────────────────────────────────────
+
+message PIRValueProto {
+  oneof kind {
+    PIRLocalProto local = 1;
+    PIRParameterRefProto parameter = 2;
+    PIRConstProto const_val = 3;
+    PIRGlobalRefProto global_ref = 4;
+  }
+}
+
+message PIRLocalProto {
+  string name = 1;
+  PIRTypeProto type = 2;
+}
+
+message PIRParameterRefProto {
+  string name = 1;
+}
+
+message PIRConstProto {
+  oneof value {
+    int64 int_value = 1;
+    double float_value = 2;
+    string string_value = 3;
+    bool bool_value = 4;
+    bool none_value = 5;
+    bool ellipsis_value = 6;
+    bytes bytes_value = 7;
+    double complex_real = 8;
+  }
+  double complex_imag = 9;
+  PIRTypeProto type = 10;
+}
+
+message PIRGlobalRefProto {
+  string name = 1;
+  string module = 2;
+}
+
+// ─── Instruction Details ────────────────────────────────────
+
+message PIRAssignProto {
+  PIRValueProto target = 1;
+  PIRValueProto source = 2;
+}
+
+message PIRLoadAttrProto {
+  PIRValueProto target = 1;
+  PIRValueProto object = 2;
+  string attribute = 3;
+  PIRTypeProto type = 4;
+}
+
+message PIRStoreAttrProto {
+  PIRValueProto object = 1;
+  string attribute = 2;
+  PIRValueProto value = 3;
+}
+
+message PIRLoadSubscriptProto {
+  PIRValueProto target = 1;
+  PIRValueProto object = 2;
+  PIRValueProto index = 3;
+  PIRTypeProto type = 4;
+}
+
+message PIRStoreSubscriptProto {
+  PIRValueProto object = 1;
+  PIRValueProto index = 2;
+  PIRValueProto value = 3;
+}
+
+message PIRLoadGlobalProto {
+  PIRValueProto target = 1;
+  string name = 2;
+  string module = 3;
+}
+
+message PIRStoreGlobalProto {
+  string name = 1;
+  string module = 2;
+  PIRValueProto value = 3;
+}
+
+message PIRLoadClosureProto {
+  PIRValueProto target = 1;
+  string name = 2;
+  int32 depth = 3;
+}
+
+message PIRStoreClosureProto {
+  string name = 1;
+  int32 depth = 2;
+  PIRValueProto value = 3;
+}
+
+// ─── Arithmetic & Comparison ────────────────────────────────
+
+message PIRBinOpProto {
+  PIRValueProto target = 1;
+  PIRValueProto left = 2;
+  PIRValueProto right = 3;
+  BinaryOperator op = 4;
+}
+
+enum BinaryOperator {
+  ADD = 0;
+  SUB = 1;
+  MUL = 2;
+  DIV = 3;
+  FLOOR_DIV = 4;
+  MOD = 5;
+  POW = 6;
+  MAT_MUL = 7;
+  BIT_AND = 8;
+  BIT_OR = 9;
+  BIT_XOR = 10;
+  LSHIFT = 11;
+  RSHIFT = 12;
+}
+
+message PIRUnaryOpProto {
+  PIRValueProto target = 1;
+  PIRValueProto operand = 2;
+  UnaryOperator op = 3;
+}
+
+enum UnaryOperator {
+  NEG = 0;
+  POS = 1;
+  NOT = 2;
+  INVERT = 3;
+}
+
+message PIRCompareProto {
+  PIRValueProto target = 1;
+  PIRValueProto left = 2;
+  PIRValueProto right = 3;
+  CompareOperator op = 4;
+}
+
+enum CompareOperator {
+  EQ = 0;
+  NE = 1;
+  LT = 2;
+  LE = 3;
+  GT = 4;
+  GE = 5;
+  IS = 6;
+  IS_NOT = 7;
+  IN = 8;
+  NOT_IN = 9;
+}
+
+// ─── Calls ──────────────────────────────────────────────────
+
+message PIRCallProto {
+  PIRValueProto target = 1;
+  PIRValueProto callee = 2;
+  repeated PIRCallArgProto args = 3;
+  string resolved_callee = 4;
+}
+
+message PIRCallArgProto {
+  PIRValueProto value = 1;
+  CallArgKind kind = 2;
+  string keyword = 3;
+}
+
+enum CallArgKind {
+  POSITIONAL = 0;
+  KEYWORD = 1;
+  STAR = 2;
+  DOUBLE_STAR = 3;
+}
+
+// ─── Collection Builders ────────────────────────────────────
+
+message PIRBuildListProto {
+  PIRValueProto target = 1;
+  repeated PIRValueProto elements = 2;
+}
+
+message PIRBuildTupleProto {
+  PIRValueProto target = 1;
+  repeated PIRValueProto elements = 2;
+}
+
+message PIRBuildSetProto {
+  PIRValueProto target = 1;
+  repeated PIRValueProto elements = 2;
+}
+
+message PIRBuildDictProto {
+  PIRValueProto target = 1;
+  repeated PIRValueProto keys = 2;
+  repeated PIRValueProto values = 3;
+}
+
+message PIRBuildSliceProto {
+  PIRValueProto target = 1;
+  PIRValueProto lower = 2;
+  PIRValueProto upper = 3;
+  PIRValueProto step = 4;
+}
+
+message PIRBuildStringProto {
+  PIRValueProto target = 1;
+  repeated PIRValueProto parts = 2;
+}
+
+// ─── Iteration ──────────────────────────────────────────────
+
+message PIRGetIterProto {
+  PIRValueProto target = 1;
+  PIRValueProto iterable = 2;
+}
+
+message PIRNextIterProto {
+  PIRValueProto target = 1;
+  PIRValueProto iterator = 2;
+  int32 body_block = 3;
+  int32 exit_block = 4;
+}
+
+message PIRUnpackProto {
+  repeated PIRValueProto targets = 1;
+  PIRValueProto source = 2;
+  int32 star_index = 3;
+}
+
+// ─── Control Flow ───────────────────────────────────────────
+
+message PIRGotoProto {
+  int32 target_block = 1;
+}
+
+message PIRBranchProto {
+  PIRValueProto condition = 1;
+  int32 true_block = 2;
+  int32 false_block = 3;
+}
+
+message PIRReturnProto {
+  PIRValueProto value = 1;
+}
+
+message PIRRaiseProto {
+  PIRValueProto exception = 1;
+  PIRValueProto cause = 2;
+}
+
+message PIRExceptHandlerProto {
+  PIRValueProto target = 1;
+  repeated PIRTypeProto exception_types = 2;
+}
+
+// ─── Generators & Async ─────────────────────────────────────
+
+message PIRYieldProto {
+  PIRValueProto target = 1;
+  PIRValueProto value = 2;
+}
+
+message PIRYieldFromProto {
+  PIRValueProto target = 1;
+  PIRValueProto iterable = 2;
+}
+
+message PIRAwaitProto {
+  PIRValueProto target = 1;
+  PIRValueProto awaitable = 2;
+}
+
+// ─── Delete ─────────────────────────────────────────────────
+
+message PIRDeleteLocalProto {
+  PIRValueProto local = 1;
+}
+
+message PIRDeleteAttrProto {
+  PIRValueProto object = 1;
+  string attribute = 2;
+}
+
+message PIRDeleteSubscriptProto {
+  PIRValueProto object = 1;
+  PIRValueProto index = 2;
+}
+
+message PIRDeleteGlobalProto {
+  string name = 1;
+  string module = 2;
+}
+
+// ─── Misc ───────────────────────────────────────────────────
+
+message PIRTypeCheckProto {
+  PIRValueProto target = 1;
+  PIRValueProto value = 2;
+  PIRTypeProto type = 3;
+}
+
+message PIRUnreachableProto {}
+
+// ═══════════════════════════════════════════════════════════
+// Raw Mypy AST messages — used by BuildProjectAst RPC.
+// The Kotlin side performs CFG lowering from these AST nodes.
+// ═══════════════════════════════════════════════════════════
+
+// ─── Top-Level Module ──────────────────────────────────────
+
+message MypyModuleProto {
+  string name = 1;                            // Dotted module name (e.g. "click.core")
+  string path = 2;                            // Absolute file path
+  repeated MypyDefinitionProto defs = 3;      // Top-level definitions
+  repeated string imports = 4;                // Collected import strings
+  repeated string errors = 5;                 // Build errors (mypy errors for this module)
+}
+
+// ─── Definitions ───────────────────────────────────────────
+
+message MypyDefinitionProto {
+  oneof kind {
+    MypyClassDefProto class_def = 1;
+    MypyFuncDefProto func_def = 2;
+    MypyAssignmentStmtProto assignment = 3;
+    MypyDecoratorDefProto decorator = 4;       // Decorator wrapping a FuncDef
+  }
+}
+
+message MypyClassDefProto {
+  string name = 1;
+  string fullname = 2;
+  repeated string base_classes = 3;           // Fully qualified base class names
+  repeated string mro = 4;                    // Method Resolution Order
+  repeated MypyDefinitionProto body = 5;      // Class body (methods, fields, nested classes)
+  repeated MypyDecoratorInfoProto decorators = 6;
+  bool is_abstract = 7;
+  bool is_dataclass = 8;
+  bool is_enum = 9;
+}
+
+message MypyFuncDefProto {
+  string name = 1;
+  string fullname = 2;
+  repeated MypyArgumentProto arguments = 3;
+  PIRTypeProto return_type = 4;               // Reuse existing type proto
+  MypyBlockProto body = 5;                    // Raw statement body (NOT lowered to CFG)
+  bool is_async = 6;
+  bool is_generator = 7;
+  bool is_static = 8;
+  bool is_class = 9;
+  bool is_property = 10;
+  repeated string closure_vars = 11;
+  repeated MypyDecoratorInfoProto decorators = 12;
+  int32 line = 13;
+}
+
+message MypyArgumentProto {
+  string name = 1;
+  PIRTypeProto type = 2;
+  int32 kind = 3;                             // ARG_POS=0, ARG_OPT=1, ARG_STAR=2, ARG_STAR2=4, ARG_NAMED=5, ARG_NAMED_OPT=6
+  bool has_default = 4;
+  MypyExprProto default_value = 5;            // Optional default expression
+}
+
+message MypyDecoratorDefProto {
+  MypyFuncDefProto func = 1;
+  repeated MypyExprProto original_decorators = 2;
+  string name = 3;
+  string qualified_name = 4;
+}
+
+message MypyDecoratorInfoProto {
+  string name = 1;
+  string qualified_name = 2;
+  repeated string arguments = 3;
+}
+
+// ─── Blocks & Statements ──────────────────────────────────
+
+message MypyBlockProto {
+  repeated MypyStmtProto stmts = 1;
+}
+
+message MypyStmtProto {
+  int32 line = 1;
+  int32 col = 2;
+
+  oneof kind {
+    MypyAssignmentStmtProto assignment = 10;
+    MypyOperatorAssignmentStmtProto op_assignment = 11;
+    MypyExpressionStmtProto expression_stmt = 12;
+    MypyReturnStmtProto return_stmt = 13;
+    MypyIfStmtProto if_stmt = 14;
+    MypyWhileStmtProto while_stmt = 15;
+    MypyForStmtProto for_stmt = 16;
+    MypyTryStmtProto try_stmt = 17;
+    MypyWithStmtProto with_stmt = 18;
+    MypyRaiseStmtProto raise_stmt = 19;
+    MypyBreakStmtProto break_stmt = 20;
+    MypyContinueStmtProto continue_stmt = 21;
+    MypyDelStmtProto del_stmt = 22;
+    MypyAssertStmtProto assert_stmt = 23;
+    MypyPassStmtProto pass_stmt = 24;
+    MypyGlobalDeclProto global_decl = 25;
+    MypyFuncDefProto func_def = 26;
+    MypyClassDefProto class_def = 27;
+    MypyNonlocalDeclProto nonlocal_decl = 28;
+  }
+}
+
+message MypyNonlocalDeclProto {
+  repeated string names = 1;
+}
+
+message MypyAssignmentStmtProto {
+  repeated MypyExprProto lvalues = 1;
+  MypyExprProto rvalue = 2;
+  PIRTypeProto type_annotation = 3;
+}
+
+message MypyOperatorAssignmentStmtProto {
+  string op = 1;
+  MypyExprProto lvalue = 2;
+  MypyExprProto rvalue = 3;
+}
+
+message MypyExpressionStmtProto {
+  MypyExprProto expr = 1;
+}
+
+message MypyReturnStmtProto {
+  MypyExprProto expr = 1;
+}
+
+message MypyIfStmtProto {
+  repeated MypyExprProto conditions = 1;
+  repeated MypyBlockProto bodies = 2;
+  MypyBlockProto else_body = 3;
+}
+
+message MypyWhileStmtProto {
+  MypyExprProto condition = 1;
+  MypyBlockProto body = 2;
+  MypyBlockProto else_body = 3;
+}
+
+message MypyForStmtProto {
+  MypyExprProto index = 1;
+  MypyExprProto iterable = 2;
+  MypyBlockProto body = 3;
+  MypyBlockProto else_body = 4;
+}
+
+message MypyTryStmtProto {
+  MypyBlockProto body = 1;
+  repeated MypyExprProto types = 2;
+  repeated MypyExprProto vars = 3;
+  repeated MypyBlockProto handlers = 4;
+  MypyBlockProto else_body = 5;
+  MypyBlockProto finally_body = 6;
+}
+
+message MypyWithStmtProto {
+  repeated MypyExprProto exprs = 1;
+  repeated MypyExprProto targets = 2;
+  MypyBlockProto body = 3;
+  bool is_async = 4;
+}
+
+message MypyRaiseStmtProto {
+  MypyExprProto expr = 1;
+  MypyExprProto from_expr = 2;
+}
+
+message MypyBreakStmtProto {}
+message MypyContinueStmtProto {}
+message MypyPassStmtProto {}
+
+message MypyDelStmtProto {
+  MypyExprProto expr = 1;
+}
+
+message MypyAssertStmtProto {
+  MypyExprProto expr = 1;
+  MypyExprProto msg = 2;
+}
+
+message MypyGlobalDeclProto {
+  repeated string names = 1;
+}
+
+// ─── Expressions ───────────────────────────────────────────
+
+message MypyExprProto {
+  int32 line = 1;
+  int32 col = 2;
+  PIRTypeProto expr_type = 3;                 // Resolved mypy type
+
+  oneof kind {
+    MypyIntExprProto int_expr = 10;
+    MypyStrExprProto str_expr = 11;
+    MypyFloatExprProto float_expr = 12;
+    MypyBytesExprProto bytes_expr = 13;
+    MypyComplexExprProto complex_expr = 14;
+    MypyEllipsisExprProto ellipsis_expr = 15;
+
+    MypyNameExprProto name_expr = 20;
+    MypyMemberExprProto member_expr = 21;
+    MypyCallExprProto call_expr = 22;
+
+    MypyOpExprProto op_expr = 30;
+    MypyUnaryExprProto unary_expr = 31;
+    MypyComparisonExprProto comparison_expr = 32;
+
+    MypyIndexExprProto index_expr = 40;
+    MypySliceExprProto slice_expr = 41;
+
+    MypyListExprProto list_expr = 50;
+    MypyTupleExprProto tuple_expr = 51;
+    MypySetExprProto set_expr = 52;
+    MypyDictExprProto dict_expr = 53;
+
+    MypyConditionalExprProto conditional_expr = 60;
+    MypyStarExprProto star_expr = 61;
+
+    MypyYieldExprProto yield_expr = 70;
+    MypyYieldFromExprProto yield_from_expr = 71;
+    MypyAwaitExprProto await_expr = 72;
+
+    MypyAssignmentExprProto assignment_expr = 80;
+    MypyLambdaExprProto lambda_expr = 81;
+    MypySuperExprProto super_expr = 82;
+
+    MypyListComprehensionProto list_comprehension = 90;
+    MypySetComprehensionProto set_comprehension = 91;
+    MypyDictComprehensionProto dict_comprehension = 92;
+    MypyGeneratorExprProto generator_expr = 93;
+  }
+}
+
+// Literals
+message MypyIntExprProto {
+  int64 value = 1;
+  string str_value = 2;                       // For values outside int64 range
+}
+
+message MypyStrExprProto {
+  string value = 1;
+}
+
+message MypyFloatExprProto {
+  double value = 1;
+}
+
+message MypyBytesExprProto {
+  bytes value = 1;
+}
+
+message MypyComplexExprProto {
+  double real = 1;
+  double imag = 2;
+}
+
+message MypyEllipsisExprProto {}
+
+// Names & Attributes
+message MypyNameExprProto {
+  string name = 1;
+  string fullname = 2;
+  MypyNameKind name_kind = 3;
+}
+
+enum MypyNameKind {
+  NAME_LOCAL = 0;
+  NAME_GLOBAL = 1;
+  NAME_BUILTIN = 2;
+  NAME_PARAMETER = 3;
+}
+
+message MypyMemberExprProto {
+  MypyExprProto expr = 1;
+  string name = 2;
+  string fullname = 3;
+}
+
+message MypyCallExprProto {
+  MypyExprProto callee = 1;
+  repeated MypyCallArgProto args = 2;
+  string resolved_callee = 3;
+}
+
+message MypyCallArgProto {
+  MypyExprProto expr = 1;
+  int32 kind = 2;                             // ARG_POS=0, ARG_STAR=2, ARG_STAR2=4, ARG_NAMED=5, etc.
+  string name = 3;
+}
+
+// Operators
+message MypyOpExprProto {
+  string op = 1;
+  MypyExprProto left = 2;
+  MypyExprProto right = 3;
+}
+
+message MypyUnaryExprProto {
+  string op = 1;
+  MypyExprProto expr = 2;
+}
+
+message MypyComparisonExprProto {
+  repeated string operators = 1;
+  repeated MypyExprProto operands = 2;
+}
+
+// Subscript & Slice
+message MypyIndexExprProto {
+  MypyExprProto base = 1;
+  MypyExprProto index = 2;
+}
+
+message MypySliceExprProto {
+  MypyExprProto begin = 1;
+  MypyExprProto end = 2;
+  MypyExprProto stride = 3;
+}
+
+// Collections
+message MypyListExprProto {
+  repeated MypyExprProto items = 1;
+}
+
+message MypyTupleExprProto {
+  repeated MypyExprProto items = 1;
+}
+
+message MypySetExprProto {
+  repeated MypyExprProto items = 1;
+}
+
+message MypyDictExprProto {
+  repeated MypyExprProto keys = 1;
+  repeated MypyExprProto values = 2;
+}
+
+// Conditional
+message MypyConditionalExprProto {
+  MypyExprProto cond = 1;
+  MypyExprProto if_expr = 2;
+  MypyExprProto else_expr = 3;
+}
+
+message MypyStarExprProto {
+  MypyExprProto expr = 1;
+}
+
+// Generators/Async
+message MypyYieldExprProto {
+  MypyExprProto expr = 1;
+}
+
+message MypyYieldFromExprProto {
+  MypyExprProto expr = 1;
+}
+
+message MypyAwaitExprProto {
+  MypyExprProto expr = 1;
+}
+
+// Assignment expression (walrus)
+message MypyAssignmentExprProto {
+  MypyExprProto target = 1;
+  MypyExprProto value = 2;
+}
+
+// Lambda
+message MypyLambdaExprProto {
+  repeated MypyArgumentProto arguments = 1;
+  MypyBlockProto body = 2;
+  PIRTypeProto return_type = 3;
+}
+
+message MypySuperExprProto {}
+
+// Comprehensions
+message MypyListComprehensionProto {
+  MypyGeneratorExprProto generator = 1;
+}
+
+message MypySetComprehensionProto {
+  MypyGeneratorExprProto generator = 1;
+}
+
+message MypyDictComprehensionProto {
+  MypyExprProto key = 1;
+  MypyExprProto value = 2;
+  repeated MypyExprProto indices = 3;
+  repeated MypyExprProto sequences = 4;
+  repeated MypyCondListProto condlists = 5;
+}
+
+message MypyGeneratorExprProto {
+  MypyExprProto left_expr = 1;
+  repeated MypyExprProto indices = 2;
+  repeated MypyExprProto sequences = 3;
+  repeated MypyCondListProto condlists = 4;
+}
+
+message MypyCondListProto {
+  repeated MypyExprProto conditions = 1;
+}
