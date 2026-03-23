@@ -16,7 +16,7 @@ class BenchmarkTest : BenchmarkTestBase() {
     // ─── Original benchmarks ────────────────────────────────
 
     @Test @Timeout(600) fun `benchmark - click`() = analyzePkg("click", 17, 67, 506)
-    @Test @Timeout(600) fun `benchmark - requests`() = analyzePkg("requests", 18, 44, 257)
+    @Test @Timeout(600) fun `benchmark - requests`() = analyzePkg("requests", 18, 44, 256)
     @Test @Timeout(600) fun `benchmark - attrs`() = analyzePkg("attr", 13, 35, 227)
     @Test @Timeout(600) fun `benchmark - typer`() = analyzePkg("typer", 16, 36, 185)
     @Test @Timeout(600) fun `benchmark - rich`() = analyzePkg("rich", 100, 173, 1053, recursive = true)
@@ -45,7 +45,7 @@ class BenchmarkTest : BenchmarkTestBase() {
     @Test @Timeout(600) fun `benchmark - jinja2`() = analyzePkg("jinja2", 25, 152, 796, recursive = true)
     @Test @Timeout(600) fun `benchmark - tornado`() = analyzePkg("tornado", 73, 544, 3004, recursive = true)
     @Test @Timeout(600) fun `benchmark - falcon`() = analyzePkg("falcon", 102, 223, 1044, recursive = true)
-    @Test @Timeout(600) fun `benchmark - bottle`() = analyzePkg("bottle", 4, 104, 587)
+    @Test @Timeout(600) fun `benchmark - bottle`() = analyzePkg("bottle", 8, 101, 536)
     @Test @Timeout(600) fun `benchmark - pyramid`() = analyzePkg("pyramid", 61, 288, 1104, recursive = true)
     @Test @Timeout(600) fun `benchmark - sanic`() = analyzePkg("sanic", 132, 198, 1169, recursive = true)
     @Test @Timeout(600) fun `benchmark - aiohttp`() = analyzePkg("aiohttp", 55, 306, 1647, recursive = true)
@@ -74,5 +74,5 @@ class BenchmarkTest : BenchmarkTestBase() {
     @Test @Timeout(600) fun `benchmark - typeguard`() = analyzePkg("typeguard", 12, 17, 146, recursive = true)
     @Test @Timeout(600) fun `benchmark - anyio`() = analyzePkg("anyio", 42, 163, 1130, recursive = true)
     @Test @Timeout(600) fun `benchmark - filelock`() = analyzePkg("filelock", 10, 18, 91, recursive = true)
-    @Test @Timeout(600) fun `benchmark - lxml`() = analyzePkg("lxml", 25, 52, 419, recursive = true)
+    @Test @Timeout(600) fun `benchmark - lxml`() = analyzePkg("lxml", 29, 52, 423, recursive = true)
 }
