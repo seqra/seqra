@@ -10,25 +10,6 @@ import java.nio.file.Files
  * from inline Python sources.
  */
 abstract class PIRTestBase {
-
-    companion object {
-        /**
-         * Find the project root (where pir_server/ directory lives).
-         */
-        fun findProjectRoot(): String {
-            // Walk up from working directory looking for pir_server/
-            var dir = File(System.getProperty("user.dir"))
-            while (dir.parentFile != null) {
-                if (File(dir, "pir_server").isDirectory) {
-                    return dir.absolutePath
-                }
-                dir = dir.parentFile
-            }
-            // Fallback: assume CWD is the project root
-            return System.getProperty("user.dir")
-        }
-    }
-
     /**
      * Build a PIRClasspath from inline Python source code.
      * Writes the source to a temp file and analyzes it.
