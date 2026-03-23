@@ -186,33 +186,33 @@ def ct_mixed_types():
     // ─── Collection literal tests ──────────────────────────
 
     @Test fun `tuple literal produces BuildTuple`() {
-        val builds = insts("ct_tuple_literal").filterIsInstance<PIRBuildTuple>()
+        val builds = insts("ct_tuple_literal").filterAssignOf<PIRTupleExpr>()
         assertTrue(builds.isNotEmpty(), "Expected PIRBuildTuple for (1, 2, 3)")
     }
 
     @Test fun `empty tuple produces BuildTuple`() {
-        val builds = insts("ct_empty_tuple").filterIsInstance<PIRBuildTuple>()
+        val builds = insts("ct_empty_tuple").filterAssignOf<PIRTupleExpr>()
         assertTrue(builds.isNotEmpty(), "Expected PIRBuildTuple for ()")
     }
 
     @Test fun `nested list produces BuildList`() {
-        val builds = insts("ct_nested_literal").filterIsInstance<PIRBuildList>()
+        val builds = insts("ct_nested_literal").filterAssignOf<PIRListExpr>()
         assertTrue(builds.size >= 2,
             "Expected >= 2 PIRBuildList for nested lists, got ${builds.size}")
     }
 
     @Test fun `dict literal produces BuildDict`() {
-        val builds = insts("ct_dict_literal").filterIsInstance<PIRBuildDict>()
+        val builds = insts("ct_dict_literal").filterAssignOf<PIRDictExpr>()
         assertTrue(builds.isNotEmpty(), "Expected PIRBuildDict for dict literal")
     }
 
     @Test fun `set literal produces BuildSet`() {
-        val builds = insts("ct_set_literal").filterIsInstance<PIRBuildSet>()
+        val builds = insts("ct_set_literal").filterAssignOf<PIRSetExpr>()
         assertTrue(builds.isNotEmpty(), "Expected PIRBuildSet for set literal")
     }
 
     @Test fun `mixed type list produces BuildList`() {
-        val builds = insts("ct_mixed_types").filterIsInstance<PIRBuildList>()
+        val builds = insts("ct_mixed_types").filterAssignOf<PIRListExpr>()
         assertTrue(builds.isNotEmpty(), "Expected PIRBuildList for mixed type list")
     }
 

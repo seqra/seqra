@@ -73,39 +73,39 @@ def col_attr_store(obj: object) -> None:
         .cfg.blocks.flatMap { it.instructions }
 
     @Test fun `list literal`() {
-        val builds = insts("col_list").filterIsInstance<PIRBuildList>()
+        val builds = insts("col_list").filterAssignOf<PIRListExpr>()
         assertTrue(builds.isNotEmpty())
-        assertTrue(builds.any { it.elements.size == 3 })
+        assertTrue(builds.any { it.listExpr.elements.size == 3 })
     }
 
     @Test fun `tuple literal`() {
-        val builds = insts("col_tuple").filterIsInstance<PIRBuildTuple>()
+        val builds = insts("col_tuple").filterAssignOf<PIRTupleExpr>()
         assertTrue(builds.isNotEmpty())
     }
 
     @Test fun `set literal`() {
-        val builds = insts("col_set").filterIsInstance<PIRBuildSet>()
+        val builds = insts("col_set").filterAssignOf<PIRSetExpr>()
         assertTrue(builds.isNotEmpty())
     }
 
     @Test fun `dict literal`() {
-        val builds = insts("col_dict").filterIsInstance<PIRBuildDict>()
+        val builds = insts("col_dict").filterAssignOf<PIRDictExpr>()
         assertTrue(builds.isNotEmpty())
-        assertTrue(builds.any { it.keys.size == 2 })
+        assertTrue(builds.any { it.dictExpr.keys.size == 2 })
     }
 
     @Test fun `empty list`() {
-        val builds = insts("col_empty_list").filterIsInstance<PIRBuildList>()
-        assertTrue(builds.any { it.elements.isEmpty() })
+        val builds = insts("col_empty_list").filterAssignOf<PIRListExpr>()
+        assertTrue(builds.any { it.listExpr.elements.isEmpty() })
     }
 
     @Test fun `empty dict`() {
-        val builds = insts("col_empty_dict").filterIsInstance<PIRBuildDict>()
-        assertTrue(builds.any { it.keys.isEmpty() })
+        val builds = insts("col_empty_dict").filterAssignOf<PIRDictExpr>()
+        assertTrue(builds.any { it.dictExpr.keys.isEmpty() })
     }
 
     @Test fun `subscript load`() {
-        assertTrue(insts("col_subscript_load").any { it is PIRLoadSubscript })
+        assertTrue(insts("col_subscript_load").any { it.isAssignOf<PIRSubscriptExpr>() })
     }
 
     @Test fun `subscript store`() {
@@ -113,7 +113,7 @@ def col_attr_store(obj: object) -> None:
     }
 
     @Test fun `slice produces BuildSlice`() {
-        assertTrue(insts("col_slice").any { it is PIRBuildSlice })
+        assertTrue(insts("col_slice").any { it.isAssignOf<PIRSliceExpr>() })
     }
 
     @Test fun `tuple unpack`() {
@@ -141,7 +141,7 @@ def col_attr_store(obj: object) -> None:
     }
 
     @Test fun `load attr`() {
-        assertTrue(insts("col_attr_load").any { it is PIRLoadAttr })
+        assertTrue(insts("col_attr_load").any { it.isAssignOf<PIRAttrExpr>() })
     }
 
     @Test fun `store attr`() {

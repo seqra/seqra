@@ -46,16 +46,16 @@ def ws_nested():
 
     @Test
     fun `ws_basic - produces LoadAttr for __enter__`() {
-        val attrs = allOf<PIRLoadAttr>("ws_basic")
-        assertTrue(attrs.any { it.attribute == "__enter__" },
-            "Expected PIRLoadAttr with '__enter__', found: ${attrs.map { it.attribute }}")
+        val attrs = insts("ws_basic").filterAssignOf<PIRAttrExpr>()
+        assertTrue(attrs.any { it.attrExpr.attribute == "__enter__" },
+            "Expected PIRAttrExpr with '__enter__', found: ${attrs.map { it.attrExpr.attribute }}")
     }
 
     @Test
     fun `ws_basic - produces LoadAttr for __exit__`() {
-        val attrs = allOf<PIRLoadAttr>("ws_basic")
-        assertTrue(attrs.any { it.attribute == "__exit__" },
-            "Expected PIRLoadAttr with '__exit__', found: ${attrs.map { it.attribute }}")
+        val attrs = insts("ws_basic").filterAssignOf<PIRAttrExpr>()
+        assertTrue(attrs.any { it.attrExpr.attribute == "__exit__" },
+            "Expected PIRAttrExpr with '__exit__', found: ${attrs.map { it.attrExpr.attribute }}")
     }
 
     @Test
@@ -66,16 +66,16 @@ def ws_nested():
 
     @Test
     fun `ws_basic - has read attribute load`() {
-        val attrs = allOf<PIRLoadAttr>("ws_basic")
-        assertTrue(attrs.any { it.attribute == "read" },
-            "Expected PIRLoadAttr for 'read', found: ${attrs.map { it.attribute }}")
+        val attrs = insts("ws_basic").filterAssignOf<PIRAttrExpr>()
+        assertTrue(attrs.any { it.attrExpr.attribute == "read" },
+            "Expected PIRAttrExpr for 'read', found: ${attrs.map { it.attrExpr.attribute }}")
     }
 
     @Test
     fun `ws_no_target - produces __enter__ and __exit__`() {
-        val attrs = allOf<PIRLoadAttr>("ws_no_target")
-        assertTrue(attrs.any { it.attribute == "__enter__" }, "Expected __enter__ even without 'as'")
-        assertTrue(attrs.any { it.attribute == "__exit__" }, "Expected __exit__ even without 'as'")
+        val attrs = insts("ws_no_target").filterAssignOf<PIRAttrExpr>()
+        assertTrue(attrs.any { it.attrExpr.attribute == "__enter__" }, "Expected __enter__ even without 'as'")
+        assertTrue(attrs.any { it.attrExpr.attribute == "__exit__" }, "Expected __exit__ even without 'as'")
     }
 
     @Test
@@ -86,36 +86,36 @@ def ws_nested():
 
     @Test
     fun `ws_multiple - produces two __enter__ calls`() {
-        val attrs = allOf<PIRLoadAttr>("ws_multiple")
-        val enterAttrs = attrs.filter { it.attribute == "__enter__" }
+        val attrs = insts("ws_multiple").filterAssignOf<PIRAttrExpr>()
+        val enterAttrs = attrs.filter { it.attrExpr.attribute == "__enter__" }
         assertTrue(enterAttrs.size >= 2, "Expected >= 2 __enter__ for multiple with, got ${enterAttrs.size}")
     }
 
     @Test
     fun `ws_multiple - produces two __exit__ calls`() {
-        val attrs = allOf<PIRLoadAttr>("ws_multiple")
-        val exitAttrs = attrs.filter { it.attribute == "__exit__" }
+        val attrs = insts("ws_multiple").filterAssignOf<PIRAttrExpr>()
+        val exitAttrs = attrs.filter { it.attrExpr.attribute == "__exit__" }
         assertTrue(exitAttrs.size >= 2, "Expected >= 2 __exit__ for multiple with, got ${exitAttrs.size}")
     }
 
     @Test
     fun `ws_nested - produces two __enter__ calls`() {
-        val attrs = allOf<PIRLoadAttr>("ws_nested")
-        val enterAttrs = attrs.filter { it.attribute == "__enter__" }
+        val attrs = insts("ws_nested").filterAssignOf<PIRAttrExpr>()
+        val enterAttrs = attrs.filter { it.attrExpr.attribute == "__enter__" }
         assertTrue(enterAttrs.size >= 2, "Expected >= 2 __enter__ for nested with, got ${enterAttrs.size}")
     }
 
     @Test
     fun `ws_nested - produces two __exit__ calls`() {
-        val attrs = allOf<PIRLoadAttr>("ws_nested")
-        val exitAttrs = attrs.filter { it.attribute == "__exit__" }
+        val attrs = insts("ws_nested").filterAssignOf<PIRAttrExpr>()
+        val exitAttrs = attrs.filter { it.attrExpr.attribute == "__exit__" }
         assertTrue(exitAttrs.size >= 2, "Expected >= 2 __exit__ for nested with, got ${exitAttrs.size}")
     }
 
     @Test
     fun `ws_nested - has read on both file handles`() {
-        val attrs = allOf<PIRLoadAttr>("ws_nested")
-        val readAttrs = attrs.filter { it.attribute == "read" }
+        val attrs = insts("ws_nested").filterAssignOf<PIRAttrExpr>()
+        val readAttrs = attrs.filter { it.attrExpr.attribute == "read" }
         assertTrue(readAttrs.size >= 2, "Expected >= 2 read for nested with, got ${readAttrs.size}")
     }
 }

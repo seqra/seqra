@@ -154,10 +154,10 @@ def ae_yield_from(inner):
     // ─── Matrix multiply ───────────────────────────────────
 
     @Test
-    fun `mat mul produces PIRBinOp with MAT_MUL`() {
-        val binOps = instsOf<PIRBinOp>("ae_mat_mul")
-        assertTrue(binOps.any { it.op == PIRBinaryOperator.MAT_MUL },
-            "Expected PIRBinOp(MAT_MUL) for 'a @ b', got ops: ${binOps.map { it.op }}")
+    fun `mat mul produces PIRBinExpr with MAT_MUL`() {
+        val binOps = allInstructions(findFunc("ae_mat_mul")).filterAssignOf<PIRBinExpr>()
+        assertTrue(binOps.any { it.binExpr.op == PIRBinaryOperator.MAT_MUL },
+            "Expected PIRBinExpr(MAT_MUL) for 'a @ b', got ops: ${binOps.map { it.binExpr.op }}")
     }
 
     // ─── F-string tests ────────────────────────────────────
@@ -200,17 +200,17 @@ def ae_yield_from(inner):
     @Test
     fun `star list produces list building instructions`() {
         val allInsts = allInstructions(findFunc("ae_star_list"))
-        val hasBuildList = allInsts.any { it is PIRBuildList }
+        val hasBuildList = allInsts.any { it.isAssignOf<PIRListExpr>() }
         val hasCall = allInsts.any { it is PIRCall }
         assertTrue(hasBuildList || hasCall,
             "Expected PIRBuildList or PIRCall for [*a, *b]")
     }
 
     @Test
-    fun `double star dict produces PIRBuildDict`() {
-        val builds = instsOf<PIRBuildDict>("ae_double_star_dict")
+    fun `double star dict produces PIRDictExpr`() {
+        val builds = allInstructions(findFunc("ae_double_star_dict")).filterAssignOf<PIRDictExpr>()
         assertTrue(builds.isNotEmpty(),
-            "Expected PIRBuildDict for {**a, **b}")
+            "Expected PIRDictExpr for {**a, **b}")
     }
 
     // ─── Star in function call arguments ───────────────────
@@ -248,10 +248,10 @@ def ae_yield_from(inner):
     }
 
     @Test
-    fun `del slice contains PIRBuildSlice for range`() {
-        val slices = instsOf<PIRBuildSlice>("ae_del_slice")
+    fun `del slice contains PIRSliceExpr for range`() {
+        val slices = allInstructions(findFunc("ae_del_slice")).filterAssignOf<PIRSliceExpr>()
         assertTrue(slices.isNotEmpty(),
-            "Expected PIRBuildSlice for the 1:3 slice in 'del items[1:3]'")
+            "Expected PIRSliceExpr for the 1:3 slice in 'del items[1:3]'")
     }
 
     @Test
@@ -265,9 +265,9 @@ def ae_yield_from(inner):
 
     @Test
     fun `del nested attr loads intermediate attribute`() {
-        val loads = instsOf<PIRLoadAttr>("ae_del_nested_attr")
-        assertTrue(loads.any { it.attribute == "inner" },
-            "Expected PIRLoadAttr for 'obj.inner' before deleting '.attr'")
+        val loads = allInstructions(findFunc("ae_del_nested_attr")).filterAssignOf<PIRAttrExpr>()
+        assertTrue(loads.any { it.attrExpr.attribute == "inner" },
+            "Expected PIRAttrExpr for 'obj.inner' before deleting '.attr'")
     }
 
     // ─── Tuple return ──────────────────────────────────────
@@ -275,7 +275,7 @@ def ae_yield_from(inner):
     @Test
     fun `tuple return produces PIRBuildTuple and PIRReturn`() {
         val allInsts = allInstructions(findFunc("ae_tuple_return"))
-        val tuples = allInsts.filterIsInstance<PIRBuildTuple>()
+        val tuples = allInsts.filterAssignOf<PIRTupleExpr>()
         val returns = allInsts.filterIsInstance<PIRReturn>()
         assertTrue(tuples.isNotEmpty(),
             "Expected PIRBuildTuple for implicit tuple 'return a, b'")
@@ -310,10 +310,10 @@ def ae_yield_from(inner):
     }
 
     @Test
-    fun `assert chained comparison produces at least two PIRCompare`() {
-        val compares = instsOf<PIRCompare>("ae_assert_chained")
+    fun `assert chained comparison produces at least two PIRCompareExpr`() {
+        val compares = allInstructions(findFunc("ae_assert_chained")).filterAssignOf<PIRCompareExpr>()
         assertTrue(compares.size >= 2,
-            "Expected >= 2 PIRCompare for chained '0 < x < 100', got ${compares.size}")
+            "Expected >= 2 PIRCompareExpr for chained '0 < x < 100', got ${compares.size}")
     }
 
     // F-strings are lowered by mypy before reaching the IR, so PIRBuildString is NOT emitted.
@@ -364,11 +364,11 @@ def ae_yield_from(inner):
     @Test
     fun `augmented subscript produces LoadSubscript StoreSubscript and BinOp`() {
         val allInsts = allInstructions(findFunc("ae_augmented_subscript"))
-        assertTrue(allInsts.any { it is PIRLoadSubscript },
+        assertTrue(allInsts.any { it.isAssignOf<PIRSubscriptExpr>() },
             "Expected PIRLoadSubscript for reading items[0]")
         assertTrue(allInsts.any { it is PIRStoreSubscript },
             "Expected PIRStoreSubscript for writing items[0]")
-        assertTrue(allInsts.filterIsInstance<PIRBinOp>().any { it.op == PIRBinaryOperator.ADD },
+        assertTrue(allInsts.filterAssignOf<PIRBinExpr>().any { it.binExpr.op == PIRBinaryOperator.ADD },
             "Expected PIRBinOp(ADD) for += 1")
     }
 

@@ -92,7 +92,7 @@ def ftu_ignore_second(pairs: list) -> list:
     // ─── Pair unpacking ────────────────────────────────────
 
     @Test fun `pair unpack produces GetIter and NextIter`() {
-        assertTrue(insts("ftu_pair_unpack").any { it is PIRGetIter })
+        assertTrue(insts("ftu_pair_unpack").any { it.isAssignOf<PIRIterExpr>() })
         assertTrue(insts("ftu_pair_unpack").any { it is PIRNextIter })
     }
 
@@ -103,7 +103,7 @@ def ftu_ignore_second(pairs: list) -> list:
     }
 
     @Test fun `pair unpack has binop for addition`() {
-        val binOps = insts("ftu_pair_unpack").filterIsInstance<PIRBinOp>()
+        val binOps = insts("ftu_pair_unpack").filterAssignOf<PIRBinExpr>()
         assertTrue(binOps.isNotEmpty(), "Expected PIRBinOp for a + b")
     }
 
@@ -127,7 +127,7 @@ def ftu_ignore_second(pairs: list) -> list:
 
     @Test fun `dict items has GetIter and Unpack`() {
         val allInsts = insts("ftu_dict_items")
-        assertTrue(allInsts.any { it is PIRGetIter })
+        assertTrue(allInsts.any { it.isAssignOf<PIRIterExpr>() })
         assertTrue(allInsts.any { it is PIRUnpack },
             "Expected PIRUnpack for 'for k, v in d.items()'")
     }
@@ -162,7 +162,7 @@ def ftu_ignore_second(pairs: list) -> list:
     }
 
     @Test fun `single target has GetIter and NextIter`() {
-        assertTrue(insts("ftu_single_target").any { it is PIRGetIter })
+        assertTrue(insts("ftu_single_target").any { it.isAssignOf<PIRIterExpr>() })
         assertTrue(insts("ftu_single_target").any { it is PIRNextIter })
     }
 

@@ -217,7 +217,7 @@ def lec_lambda_chain(x: int) -> int:
 
     @Test fun `lambda in dict has BuildDict and calls`() {
         val allInsts = insts("lec_lambda_in_dict")
-        assertTrue(allInsts.any { it is PIRBuildDict }, "Expected PIRBuildDict for ops dict")
+        assertTrue(allInsts.any { it.isAssignOf<PIRDictExpr>() }, "Expected PIRBuildDict for ops dict")
         val calls = allInsts.filterIsInstance<PIRCall>()
         assertTrue(calls.isNotEmpty(), "Expected calls for ops['add'](3,4)")
     }

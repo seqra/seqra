@@ -201,8 +201,8 @@ class Priority(IntEnum):
             ?: cls.methods.find { it.name == "value" && it.isProperty }
         assertNotNull(getter, "value getter not found")
         val loadAttrs = getter!!.cfg.blocks.flatMap { it.instructions }
-            .filterIsInstance<PIRLoadAttr>()
-        assertTrue(loadAttrs.any { it.attribute == "_value" },
+            .filterAssignOf<PIRAttrExpr>()
+        assertTrue(loadAttrs.any { it.attrExpr.attribute == "_value" },
             "Getter body should load self._value")
     }
 

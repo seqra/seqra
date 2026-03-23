@@ -2,8 +2,6 @@ package org.opentaint.ir.api.python
 
 /**
  * Base for all PIR instructions.
- * Analogous to JIRInst, but PIR folds expressions into instructions.
- * All instruction types are sealed (exhaustive when in Kotlin API module).
  */
 sealed interface PIRInstruction {
     val lineNumber: Int
@@ -11,27 +9,80 @@ sealed interface PIRInstruction {
     fun <T> accept(visitor: PIRInstVisitor<T>): T
 }
 
-// ─── Assignment & Memory ────────────────────────────────────
+/**
+ * Base for all PIR expressions (right-hand sides of assignments).
+ * [PIRValue] subtypes (locals, constants, refs) are also expressions.
+ * Compound expressions (binary ops, comparisons, attribute loads, etc.) extend this.
+ */
+sealed interface PIRExpr
+
+// ─── Assignment (target = expr) ─────────────────────────────
 
 data class PIRAssign(
     val target: PIRValue,
-    val source: PIRValue,
+    val expr: PIRExpr,
     override val lineNumber: Int = -1,
     override val colOffset: Int = -1,
 ) : PIRInstruction {
+    /** Backwards-compat: the source value when the expression is a simple value copy. */
+    val source: PIRValue get() = expr as PIRValue
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitAssign(this)
 }
 
-data class PIRLoadAttr(
-    val target: PIRValue,
+
+
+// ─── Compound Expressions ───────────────────────────────────
+
+data class PIRBinExpr(
+    val left: PIRValue,
+    val right: PIRValue,
+    val op: PIRBinaryOperator,
+) : PIRExpr
+
+data class PIRUnaryExpr(
+    val operand: PIRValue,
+    val op: PIRUnaryOperator,
+) : PIRExpr
+
+data class PIRCompareExpr(
+    val left: PIRValue,
+    val right: PIRValue,
+    val op: PIRCompareOperator,
+) : PIRExpr
+
+data class PIRAttrExpr(
     val obj: PIRValue,
     val attribute: String,
-    val resultType: PIRType,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitLoadAttr(this)
+    val resultType: PIRType = PIRAnyType,
+) : PIRExpr
+
+data class PIRSubscriptExpr(
+    val obj: PIRValue,
+    val index: PIRValue,
+    val resultType: PIRType = PIRAnyType,
+) : PIRExpr
+
+data class PIRListExpr(val elements: List<PIRValue>) : PIRExpr
+data class PIRTupleExpr(val elements: List<PIRValue>) : PIRExpr
+data class PIRSetExpr(val elements: List<PIRValue>) : PIRExpr
+data class PIRDictExpr(val keys: List<PIRValue>, val values: List<PIRValue>) : PIRExpr
+data class PIRSliceExpr(val lower: PIRValue?, val upper: PIRValue?, val step: PIRValue?) : PIRExpr
+data class PIRStringExpr(val parts: List<PIRValue>) : PIRExpr
+data class PIRIterExpr(val iterable: PIRValue) : PIRExpr
+data class PIRTypeCheckExpr(val value: PIRValue, val checkType: PIRType) : PIRExpr
+
+enum class PIRBinaryOperator {
+    ADD, SUB, MUL, DIV, FLOOR_DIV, MOD, POW, MAT_MUL,
+    BIT_AND, BIT_OR, BIT_XOR, LSHIFT, RSHIFT,
 }
+
+enum class PIRUnaryOperator { NEG, POS, NOT, INVERT }
+
+enum class PIRCompareOperator {
+    EQ, NE, LT, LE, GT, GE, IS, IS_NOT, IN, NOT_IN,
+}
+
+// ─── Memory Store (side-effecting, no result) ───────────────
 
 data class PIRStoreAttr(
     val obj: PIRValue,
@@ -41,17 +92,6 @@ data class PIRStoreAttr(
     override val colOffset: Int = -1,
 ) : PIRInstruction {
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitStoreAttr(this)
-}
-
-data class PIRLoadSubscript(
-    val target: PIRValue,
-    val obj: PIRValue,
-    val index: PIRValue,
-    val resultType: PIRType,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitLoadSubscript(this)
 }
 
 data class PIRStoreSubscript(
@@ -64,16 +104,6 @@ data class PIRStoreSubscript(
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitStoreSubscript(this)
 }
 
-data class PIRLoadGlobal(
-    val target: PIRValue,
-    val name: String,
-    val module: String,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitLoadGlobal(this)
-}
-
 data class PIRStoreGlobal(
     val name: String,
     val module: String,
@@ -84,16 +114,6 @@ data class PIRStoreGlobal(
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitStoreGlobal(this)
 }
 
-data class PIRLoadClosure(
-    val target: PIRValue,
-    val name: String,
-    val depth: Int,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitLoadClosure(this)
-}
-
 data class PIRStoreClosure(
     val name: String,
     val depth: Int,
@@ -102,51 +122,6 @@ data class PIRStoreClosure(
     override val colOffset: Int = -1,
 ) : PIRInstruction {
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitStoreClosure(this)
-}
-
-// ─── Arithmetic & Comparison ────────────────────────────────
-
-data class PIRBinOp(
-    val target: PIRValue,
-    val left: PIRValue,
-    val right: PIRValue,
-    val op: PIRBinaryOperator,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitBinOp(this)
-}
-
-enum class PIRBinaryOperator {
-    ADD, SUB, MUL, DIV, FLOOR_DIV, MOD, POW, MAT_MUL,
-    BIT_AND, BIT_OR, BIT_XOR, LSHIFT, RSHIFT,
-}
-
-data class PIRUnaryOp(
-    val target: PIRValue,
-    val operand: PIRValue,
-    val op: PIRUnaryOperator,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitUnaryOp(this)
-}
-
-enum class PIRUnaryOperator { NEG, POS, NOT, INVERT }
-
-data class PIRCompare(
-    val target: PIRValue,
-    val left: PIRValue,
-    val right: PIRValue,
-    val op: PIRCompareOperator,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitCompare(this)
-}
-
-enum class PIRCompareOperator {
-    EQ, NE, LT, LE, GT, GE, IS, IS_NOT, IN, NOT_IN,
 }
 
 // ─── Call ───────────────────────────────────────────────────
@@ -170,75 +145,7 @@ data class PIRCallArg(
 
 enum class PIRCallArgKind { POSITIONAL, KEYWORD, STAR, DOUBLE_STAR }
 
-// ─── Collection Builders ────────────────────────────────────
-
-data class PIRBuildList(
-    val target: PIRValue,
-    val elements: List<PIRValue>,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitBuildList(this)
-}
-
-data class PIRBuildTuple(
-    val target: PIRValue,
-    val elements: List<PIRValue>,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitBuildTuple(this)
-}
-
-data class PIRBuildSet(
-    val target: PIRValue,
-    val elements: List<PIRValue>,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitBuildSet(this)
-}
-
-data class PIRBuildDict(
-    val target: PIRValue,
-    val keys: List<PIRValue>,
-    val values: List<PIRValue>,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitBuildDict(this)
-}
-
-data class PIRBuildSlice(
-    val target: PIRValue,
-    val lower: PIRValue?,
-    val upper: PIRValue?,
-    val step: PIRValue?,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitBuildSlice(this)
-}
-
-data class PIRBuildString(
-    val target: PIRValue,
-    val parts: List<PIRValue>,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitBuildString(this)
-}
-
 // ─── Iteration ──────────────────────────────────────────────
-
-data class PIRGetIter(
-    val target: PIRValue,
-    val iterable: PIRValue,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitGetIter(this)
-}
 
 data class PIRNextIter(
     val target: PIRValue,
@@ -375,18 +282,39 @@ data class PIRDeleteGlobal(
 
 // ─── Misc ───────────────────────────────────────────────────
 
-data class PIRTypeCheck(
-    val target: PIRValue,
-    val value: PIRValue,
-    val checkType: PIRType,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
-) : PIRInstruction {
-    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitTypeCheck(this)
-}
-
 data object PIRUnreachable : PIRInstruction {
     override val lineNumber: Int = -1
     override val colOffset: Int = -1
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitUnreachable(this)
 }
+
+// ─── Helper extensions for checking expression types ────────
+
+/** Check if this instruction is an assignment with a specific expression type. */
+inline fun <reified E : PIRExpr> PIRInstruction.isAssignOf(): Boolean =
+    this is PIRAssign && this.expr is E
+
+/** Get the expression from an assignment, cast to the expected type. Returns null if not matching. */
+inline fun <reified E : PIRExpr> PIRInstruction.assignExprOrNull(): E? =
+    (this as? PIRAssign)?.expr as? E
+
+/** Filter instructions for assignments with a specific expression type. */
+inline fun <reified E : PIRExpr> Iterable<PIRInstruction>.filterAssignOf(): List<PIRAssign> =
+    filterIsInstance<PIRAssign>().filter { it.expr is E }
+
+// ─── Typed accessor extensions for PIRAssign ────────────────
+// These allow `assign.binExpr`, `assign.compareExpr` etc. for convenient access.
+
+val PIRAssign.binExpr: PIRBinExpr get() = expr as PIRBinExpr
+val PIRAssign.unaryExpr: PIRUnaryExpr get() = expr as PIRUnaryExpr
+val PIRAssign.compareExpr: PIRCompareExpr get() = expr as PIRCompareExpr
+val PIRAssign.attrExpr: PIRAttrExpr get() = expr as PIRAttrExpr
+val PIRAssign.subscriptExpr: PIRSubscriptExpr get() = expr as PIRSubscriptExpr
+val PIRAssign.listExpr: PIRListExpr get() = expr as PIRListExpr
+val PIRAssign.tupleExpr: PIRTupleExpr get() = expr as PIRTupleExpr
+val PIRAssign.setExpr: PIRSetExpr get() = expr as PIRSetExpr
+val PIRAssign.dictExpr: PIRDictExpr get() = expr as PIRDictExpr
+val PIRAssign.sliceExpr: PIRSliceExpr get() = expr as PIRSliceExpr
+val PIRAssign.stringExpr: PIRStringExpr get() = expr as PIRStringExpr
+val PIRAssign.iterExpr: PIRIterExpr get() = expr as PIRIterExpr
+val PIRAssign.typeCheckExpr: PIRTypeCheckExpr get() = expr as PIRTypeCheckExpr

@@ -74,7 +74,7 @@ def cc_single_compare(x: int) -> bool:
     // ─── Simple chained comparison ─────────────────────────
 
     @Test fun `chained comparison a lt b lt c produces 2 compares`() {
-        val compares = insts("cc_simple").filterIsInstance<PIRCompare>()
+        val compares = insts("cc_simple").filterAssignOf<PIRCompareExpr>()
         assertEquals(2, compares.size,
             "Expected exactly 2 PIRCompare for 0 < x < 10, got ${compares.size}")
     }
@@ -88,15 +88,15 @@ def cc_single_compare(x: int) -> bool:
     }
 
     @Test fun `chained comparison compare ops are LT`() {
-        val compares = insts("cc_simple").filterIsInstance<PIRCompare>()
-        assertTrue(compares.all { it.op == PIRCompareOperator.LT },
+        val compares = insts("cc_simple").filterAssignOf<PIRCompareExpr>()
+        assertTrue(compares.all { it.compareExpr.op == PIRCompareOperator.LT },
             "Expected all comparisons to be LT for 0 < x < 10")
     }
 
     // ─── Triple chained ────────────────────────────────────
 
     @Test fun `triple chain produces 3 compares`() {
-        val compares = insts("cc_triple").filterIsInstance<PIRCompare>()
+        val compares = insts("cc_triple").filterAssignOf<PIRCompareExpr>()
         assertEquals(3, compares.size,
             "Expected 3 PIRCompare for 0 < x < 10 < 100, got ${compares.size}")
     }
@@ -111,29 +111,29 @@ def cc_single_compare(x: int) -> bool:
     // ─── Mixed operators ───────────────────────────────────
 
     @Test fun `mixed ops chain has LT and LE`() {
-        val compares = insts("cc_mixed_ops").filterIsInstance<PIRCompare>()
-        assertTrue(compares.any { it.op == PIRCompareOperator.LT },
+        val compares = insts("cc_mixed_ops").filterAssignOf<PIRCompareExpr>()
+        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.LT },
             "Expected LT for x < y")
-        assertTrue(compares.any { it.op == PIRCompareOperator.LE },
+        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.LE },
             "Expected LE for y <= 100")
     }
 
     @Test fun `equality chain produces EQ compares`() {
-        val compares = insts("cc_equality_chain").filterIsInstance<PIRCompare>()
+        val compares = insts("cc_equality_chain").filterAssignOf<PIRCompareExpr>()
         assertEquals(2, compares.size, "Expected 2 EQ compares for a == b == c")
-        assertTrue(compares.all { it.op == PIRCompareOperator.EQ })
+        assertTrue(compares.all { it.compareExpr.op == PIRCompareOperator.EQ })
     }
 
     @Test fun `inequality chain produces NE compares`() {
-        val compares = insts("cc_inequality_chain").filterIsInstance<PIRCompare>()
+        val compares = insts("cc_inequality_chain").filterAssignOf<PIRCompareExpr>()
         assertEquals(2, compares.size, "Expected 2 NE compares for a != b != c")
-        assertTrue(compares.all { it.op == PIRCompareOperator.NE })
+        assertTrue(compares.all { it.compareExpr.op == PIRCompareOperator.NE })
     }
 
     @Test fun `GE chain produces GE compares`() {
-        val compares = insts("cc_ge_chain").filterIsInstance<PIRCompare>()
+        val compares = insts("cc_ge_chain").filterAssignOf<PIRCompareExpr>()
         assertEquals(2, compares.size, "Expected 2 GE compares for 100 >= x >= 0")
-        assertTrue(compares.all { it.op == PIRCompareOperator.GE })
+        assertTrue(compares.all { it.compareExpr.op == PIRCompareOperator.GE })
     }
 
     // ─── Chained in control flow ───────────────────────────
@@ -144,7 +144,7 @@ def cc_single_compare(x: int) -> bool:
     }
 
     @Test fun `chained in if produces 2 compares with short-circuit`() {
-        val compares = insts("cc_in_if").filterIsInstance<PIRCompare>()
+        val compares = insts("cc_in_if").filterAssignOf<PIRCompareExpr>()
         assertEquals(2, compares.size, "Expected 2 compares in if")
         // Short-circuit: branches for chained comparison + if-statement
         val branches = insts("cc_in_if").filterIsInstance<PIRBranch>()
@@ -154,14 +154,14 @@ def cc_single_compare(x: int) -> bool:
 
     @Test fun `chained in while has loop structure`() {
         val allInsts = insts("cc_in_while")
-        assertTrue(allInsts.any { it is PIRCompare }, "Expected PIRCompare in while")
+        assertTrue(allInsts.any { it.isAssignOf<PIRCompareExpr>() }, "Expected PIRCompare in while")
         assertTrue(allInsts.any { it is PIRBranch }, "Expected PIRBranch in while")
     }
 
     // ─── Four operands ─────────────────────────────────────
 
     @Test fun `four operand chain produces 3 compares with short-circuit`() {
-        val compares = insts("cc_four_operands").filterIsInstance<PIRCompare>()
+        val compares = insts("cc_four_operands").filterAssignOf<PIRCompareExpr>()
         assertEquals(3, compares.size, "Expected 3 compares for a < b < c < d")
         // 4-operand chain: 2 short-circuit branches between comparisons
         val branches = insts("cc_four_operands").filterIsInstance<PIRBranch>()
@@ -172,9 +172,9 @@ def cc_single_compare(x: int) -> bool:
     // ─── Single compare (baseline) ─────────────────────────
 
     @Test fun `single compare produces 1 compare no BIT_AND`() {
-        val compares = insts("cc_single_compare").filterIsInstance<PIRCompare>()
-        val bitAnds = insts("cc_single_compare").filterIsInstance<PIRBinOp>()
-            .filter { it.op == PIRBinaryOperator.BIT_AND }
+        val compares = insts("cc_single_compare").filterAssignOf<PIRCompareExpr>()
+        val bitAnds = insts("cc_single_compare").filterAssignOf<PIRBinExpr>()
+            .filter { it.binExpr.op == PIRBinaryOperator.BIT_AND }
         assertEquals(1, compares.size, "Expected 1 compare for simple x > 0")
         assertEquals(0, bitAnds.size, "Expected 0 BIT_AND for simple compare")
     }
@@ -182,7 +182,7 @@ def cc_single_compare(x: int) -> bool:
     // ─── With function call ────────────────────────────────
 
     @Test fun `chained with function call produces call and 2 compares`() {
-        val compares = insts("cc_with_function_call").filterIsInstance<PIRCompare>()
+        val compares = insts("cc_with_function_call").filterAssignOf<PIRCompareExpr>()
         val calls = insts("cc_with_function_call").filterIsInstance<PIRCall>()
         assertEquals(2, compares.size, "Expected 2 compares for 0 < abs(x) < 50")
         assertTrue(calls.isNotEmpty(), "Expected PIRCall for abs(x)")
@@ -191,8 +191,8 @@ def cc_single_compare(x: int) -> bool:
     // ─── IS_NOT baseline ───────────────────────────────────
 
     @Test fun `is not None produces IS_NOT`() {
-        val compares = insts("cc_mixed_is").filterIsInstance<PIRCompare>()
-        assertTrue(compares.any { it.op == PIRCompareOperator.IS_NOT },
+        val compares = insts("cc_mixed_is").filterAssignOf<PIRCompareExpr>()
+        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.IS_NOT },
             "Expected IS_NOT for 'x is not None'")
     }
 

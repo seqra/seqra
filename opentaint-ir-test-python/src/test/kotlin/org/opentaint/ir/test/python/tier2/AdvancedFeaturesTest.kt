@@ -215,29 +215,29 @@ def af_isinstance_tuple(x: object) -> bool:
     // ─── Slice tests ───────────────────────────────────────
 
     @Test fun `slice with step produces BuildSlice`() {
-        val slices = insts("af_slice_step").filterIsInstance<PIRBuildSlice>()
+        val slices = insts("af_slice_step").filterAssignOf<PIRSliceExpr>()
         assertTrue(slices.isNotEmpty(), "Expected PIRBuildSlice for items[::2]")
     }
 
     @Test fun `slice reverse produces BuildSlice`() {
-        val slices = insts("af_slice_reverse").filterIsInstance<PIRBuildSlice>()
+        val slices = insts("af_slice_reverse").filterAssignOf<PIRSliceExpr>()
         assertTrue(slices.isNotEmpty(), "Expected PIRBuildSlice for items[::-1]")
     }
 
     @Test fun `complex slice produces BuildSlice`() {
-        val slices = insts("af_slice_complex").filterIsInstance<PIRBuildSlice>()
+        val slices = insts("af_slice_complex").filterAssignOf<PIRSliceExpr>()
         assertTrue(slices.isNotEmpty(), "Expected PIRBuildSlice for items[1:10:2]")
     }
 
     @Test fun `full slice produces BuildSlice`() {
-        val slices = insts("af_slice_none_bounds").filterIsInstance<PIRBuildSlice>()
+        val slices = insts("af_slice_none_bounds").filterAssignOf<PIRSliceExpr>()
         assertTrue(slices.isNotEmpty(), "Expected PIRBuildSlice for items[:]")
     }
 
     @Test fun `negative slice produces LoadSubscript or BuildSlice`() {
         val allInsts = insts("af_slice_negative")
-        val hasSlice = allInsts.any { it is PIRBuildSlice }
-        val hasSubscript = allInsts.any { it is PIRLoadSubscript }
+        val hasSlice = allInsts.any { it.isAssignOf<PIRSliceExpr>() }
+        val hasSubscript = allInsts.any { it.isAssignOf<PIRSubscriptExpr>() }
         assertTrue(hasSlice || hasSubscript,
             "Expected PIRBuildSlice or LoadSubscript for items[-3:]")
     }
@@ -272,7 +272,7 @@ def af_isinstance_tuple(x: object) -> bool:
     // ─── Dict splat tests ──────────────────────────────────
 
     @Test fun `dict splat produces BuildDict`() {
-        val builds = insts("af_dict_splat").filterIsInstance<PIRBuildDict>()
+        val builds = insts("af_dict_splat").filterAssignOf<PIRDictExpr>()
         assertTrue(builds.isNotEmpty(), "Expected PIRBuildDict for dict splat")
     }
 
@@ -294,14 +294,14 @@ def af_isinstance_tuple(x: object) -> bool:
     // ─── Augmented assignment tests ────────────────────────
 
     @Test fun `augmented all produces multiple BinOps`() {
-        val binOps = insts("af_augmented_all").filterIsInstance<PIRBinOp>()
+        val binOps = insts("af_augmented_all").filterAssignOf<PIRBinExpr>()
         assertTrue(binOps.size >= 6,
             "Expected >= 6 BinOps for 6 augmented assigns, got ${binOps.size}")
     }
 
     @Test fun `augmented includes multiple op types`() {
-        val ops = insts("af_augmented_all").filterIsInstance<PIRBinOp>()
-            .map { it.op }.toSet()
+        val ops = insts("af_augmented_all").filterAssignOf<PIRBinExpr>()
+            .map { it.binExpr.op }.toSet()
         assertTrue(ops.size >= 4,
             "Expected >= 4 different op types, got: $ops")
     }
@@ -310,7 +310,7 @@ def af_isinstance_tuple(x: object) -> bool:
 
     @Test fun `fstring complex produces BuildString or calls`() {
         val allInsts = insts("af_fstring_complex")
-        assertTrue(allInsts.any { it is PIRBuildString } || allInsts.any { it is PIRCall },
+        assertTrue(allInsts.any { it.isAssignOf<PIRStringExpr>() } || allInsts.any { it is PIRCall },
             "Expected PIRBuildString or calls for complex f-string")
     }
 

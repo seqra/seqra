@@ -185,7 +185,7 @@ def ecfc_except_as_in_loop(items: list) -> list:
 
     @Test fun `break in try has GetIter and Branch`() {
         val allInsts = insts("ecfc_break_in_try")
-        assertTrue(allInsts.any { it is PIRGetIter }, "Expected GetIter for for-loop")
+        assertTrue(allInsts.any { it.isAssignOf<PIRIterExpr>() }, "Expected GetIter for for-loop")
         assertTrue(allInsts.any { it is PIRBranch }, "Expected Branch for if condition")
     }
 
@@ -235,7 +235,7 @@ def ecfc_except_as_in_loop(items: list) -> list:
 
     @Test fun `try in loop with continue has loop and handler`() {
         val allInsts = insts("ecfc_try_in_loop_with_continue")
-        assertTrue(allInsts.any { it is PIRGetIter })
+        assertTrue(allInsts.any { it.isAssignOf<PIRIterExpr>() })
         assertTrue(allInsts.any { it is PIRExceptHandler })
     }
 
@@ -259,7 +259,7 @@ def ecfc_except_as_in_loop(items: list) -> list:
 
     @Test fun `try-except-else in loop has handler and loop`() {
         val allInsts = insts("ecfc_try_except_else_in_loop")
-        assertTrue(allInsts.any { it is PIRGetIter })
+        assertTrue(allInsts.any { it.isAssignOf<PIRIterExpr>() })
         assertTrue(allInsts.any { it is PIRExceptHandler })
     }
 
@@ -273,7 +273,7 @@ def ecfc_except_as_in_loop(items: list) -> list:
 
     @Test fun `try-finally in loop has loop structure`() {
         val allInsts = insts("ecfc_try_finally_in_loop")
-        assertTrue(allInsts.any { it is PIRGetIter })
+        assertTrue(allInsts.any { it.isAssignOf<PIRIterExpr>() })
     }
 
     // ─── Except with raise ─────────────────────────────────

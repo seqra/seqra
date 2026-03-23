@@ -423,7 +423,7 @@ def ci_no_return():
     fun `for loop has GetIter-NextIter and back edge`() {
         val f = func("ci_for_loop")
         val allInsts = f.cfg.blocks.flatMap { it.instructions }
-        assertTrue(allInsts.any { it is PIRGetIter }, "ci_for_loop: no PIRGetIter")
+        assertTrue(allInsts.any { it.isAssignOf<PIRIterExpr>() }, "ci_for_loop: no PIRGetIter")
         assertTrue(allInsts.any { it is PIRNextIter }, "ci_for_loop: no PIRNextIter")
 
         // NextIter should reference valid blocks
@@ -438,7 +438,7 @@ def ci_no_return():
     fun `nested loops have two iterator pairs`() {
         val f = func("ci_nested_loops")
         val allInsts = f.cfg.blocks.flatMap { it.instructions }
-        val getIters = allInsts.filterIsInstance<PIRGetIter>()
+        val getIters = allInsts.filterAssignOf<PIRIterExpr>()
         val nextIters = allInsts.filterIsInstance<PIRNextIter>()
         assertTrue(getIters.size >= 2, "ci_nested_loops: expected >= 2 GetIter, got ${getIters.size}")
         assertTrue(nextIters.size >= 2, "ci_nested_loops: expected >= 2 NextIter, got ${nextIters.size}")
@@ -498,9 +498,9 @@ def ci_no_return():
     @Test
     fun `with statement has enter and exit calls`() {
         val f = func("ci_with_stmt")
-        val loadAttrs = f.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRLoadAttr>()
-        val enterCall = loadAttrs.any { it.attribute == "__enter__" }
-        val exitCall = loadAttrs.any { it.attribute == "__exit__" }
+        val loadAttrs = f.cfg.blocks.flatMap { it.instructions }.filterAssignOf<PIRAttrExpr>()
+        val enterCall = loadAttrs.any { it.attrExpr.attribute == "__enter__" }
+        val exitCall = loadAttrs.any { it.attrExpr.attribute == "__exit__" }
         assertTrue(enterCall, "ci_with_stmt: no __enter__ load_attr found")
         assertTrue(exitCall, "ci_with_stmt: no __exit__ load_attr found")
     }

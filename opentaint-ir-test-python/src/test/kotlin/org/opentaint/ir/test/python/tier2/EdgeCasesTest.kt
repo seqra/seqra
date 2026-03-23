@@ -305,7 +305,7 @@ def ec_all_param_kinds(a: int, b: int = 0, *args, c: int = 0, **kwargs) -> int:
     }
 
     @Test fun `4-level nested loops produce 4 iterator pairs`() {
-        val getIters = insts("ec_deep_nested_loops").filterIsInstance<PIRGetIter>()
+        val getIters = insts("ec_deep_nested_loops").filterAssignOf<PIRIterExpr>()
         val nextIters = insts("ec_deep_nested_loops").filterIsInstance<PIRNextIter>()
         assertTrue(getIters.size >= 4, "Expected >= 4 GetIter, got ${getIters.size}")
         assertTrue(nextIters.size >= 4, "Expected >= 4 NextIter, got ${nextIters.size}")
@@ -365,7 +365,7 @@ def ec_all_param_kinds(a: int, b: int = 0, *args, c: int = 0, **kwargs) -> int:
     }
 
     @Test fun `for range has GetIter and NextIter`() {
-        assertTrue(insts("ec_for_range").any { it is PIRGetIter })
+        assertTrue(insts("ec_for_range").any { it.isAssignOf<PIRIterExpr>() })
         assertTrue(insts("ec_for_range").any { it is PIRNextIter })
     }
 
@@ -375,7 +375,7 @@ def ec_all_param_kinds(a: int, b: int = 0, *args, c: int = 0, **kwargs) -> int:
     }
 
     @Test fun `for in while produces both loop types`() {
-        assertTrue(insts("ec_for_in_while").any { it is PIRGetIter },
+        assertTrue(insts("ec_for_in_while").any { it.isAssignOf<PIRIterExpr>() },
             "Expected GetIter for inner for-loop")
         assertTrue(insts("ec_for_in_while").any { it is PIRBranch },
             "Expected Branch for outer while-loop")
@@ -384,8 +384,8 @@ def ec_all_param_kinds(a: int, b: int = 0, *args, c: int = 0, **kwargs) -> int:
     // ─── Expression edge case tests ────────────────────────
 
     @Test fun `negative number produces unary neg`() {
-        val unary = insts("ec_negative_number").filterIsInstance<PIRUnaryOp>()
-        assertTrue(unary.isEmpty() || unary.any { it.op == PIRUnaryOperator.NEG },
+        val unary = insts("ec_negative_number").filterAssignOf<PIRUnaryExpr>()
+        assertTrue(unary.isEmpty() || unary.any { it.unaryExpr.op == PIRUnaryOperator.NEG },
             "Negative literal may be const or UnaryOp(NEG)")
     }
 
@@ -393,32 +393,32 @@ def ec_all_param_kinds(a: int, b: int = 0, *args, c: int = 0, **kwargs) -> int:
         val allInsts = insts("ec_boolean_ops")
         // and/or use branches (short-circuit), not uses UnaryOp(NOT)
         val branches = allInsts.filterIsInstance<PIRBranch>()
-        val unary = allInsts.filterIsInstance<PIRUnaryOp>()
+        val unary = allInsts.filterAssignOf<PIRUnaryExpr>()
         assertTrue(branches.isNotEmpty() || unary.isNotEmpty(),
             "Expected branches (and/or) or UnaryOp (not)")
     }
 
     @Test fun `is None produces IS compare`() {
-        val compares = insts("ec_none_check").filterIsInstance<PIRCompare>()
-        assertTrue(compares.any { it.op == PIRCompareOperator.IS },
+        val compares = insts("ec_none_check").filterAssignOf<PIRCompareExpr>()
+        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.IS },
             "Expected IS comparison for 'x is None'")
     }
 
     @Test fun `is not None produces IS_NOT compare`() {
-        val compares = insts("ec_none_check_not").filterIsInstance<PIRCompare>()
-        assertTrue(compares.any { it.op == PIRCompareOperator.IS_NOT },
+        val compares = insts("ec_none_check_not").filterAssignOf<PIRCompareExpr>()
+        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.IS_NOT },
             "Expected IS_NOT comparison for 'x is not None'")
     }
 
     @Test fun `in check produces IN compare`() {
-        val compares = insts("ec_in_check").filterIsInstance<PIRCompare>()
-        assertTrue(compares.any { it.op == PIRCompareOperator.IN },
+        val compares = insts("ec_in_check").filterAssignOf<PIRCompareExpr>()
+        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.IN },
             "Expected IN comparison for 'x in items'")
     }
 
     @Test fun `not in check produces NOT_IN compare`() {
-        val compares = insts("ec_not_in_check").filterIsInstance<PIRCompare>()
-        assertTrue(compares.any { it.op == PIRCompareOperator.NOT_IN },
+        val compares = insts("ec_not_in_check").filterAssignOf<PIRCompareExpr>()
+        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.NOT_IN },
             "Expected NOT_IN comparison for 'x not in items'")
     }
 
@@ -427,7 +427,7 @@ def ec_all_param_kinds(a: int, b: int = 0, *args, c: int = 0, **kwargs) -> int:
     @Test fun `f-string produces PIRBuildString or equivalent`() {
         val allInsts = insts("ec_fstring")
         // f-strings might be lowered to PIRBuildString or a series of concatenations
-        val buildStrings = allInsts.filterIsInstance<PIRBuildString>()
+        val buildStrings = allInsts.filterAssignOf<PIRStringExpr>()
         val calls = allInsts.filterIsInstance<PIRCall>()
         assertTrue(buildStrings.isNotEmpty() || calls.isNotEmpty(),
             "Expected PIRBuildString or calls for f-string")
@@ -458,8 +458,8 @@ def ec_all_param_kinds(a: int, b: int = 0, *args, c: int = 0, **kwargs) -> int:
         val method = cp.findFunctionOrNull("__test__.ECClass.instance_method")
         assertNotNull(method)
         val loadAttrs = method!!.cfg.blocks.flatMap { it.instructions }
-            .filterIsInstance<PIRLoadAttr>()
-        assertTrue(loadAttrs.any { it.attribute == "x" },
+            .filterAssignOf<PIRAttrExpr>()
+        assertTrue(loadAttrs.any { it.attrExpr.attribute == "x" },
             "Expected load_attr for self.x")
     }
 

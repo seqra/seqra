@@ -91,9 +91,9 @@ def ap_chained_attr(obj) -> None:
     }
 
     @Test
-    fun `ap_augmented_add - produces PIRBinOp ADD`() {
-        assertTrue(allOf<PIRBinOp>("ap_augmented_add").any { it.op == PIRBinaryOperator.ADD },
-            "Expected PIRBinOp(ADD) for 'x += 5'")
+    fun `ap_augmented_add - produces PIRBinExpr ADD`() {
+        assertTrue(insts("ap_augmented_add").filterAssignOf<PIRBinExpr>().any { it.binExpr.op == PIRBinaryOperator.ADD },
+            "Expected PIRBinExpr(ADD) for 'x += 5'")
     }
 
     @Test
@@ -103,9 +103,9 @@ def ap_chained_attr(obj) -> None:
     }
 
     @Test
-    fun `ap_augmented_mul - produces PIRBinOp MUL`() {
-        assertTrue(allOf<PIRBinOp>("ap_augmented_mul").any { it.op == PIRBinaryOperator.MUL },
-            "Expected PIRBinOp(MUL) for 'x *= 3'")
+    fun `ap_augmented_mul - produces PIRBinExpr MUL`() {
+        assertTrue(insts("ap_augmented_mul").filterAssignOf<PIRBinExpr>().any { it.binExpr.op == PIRBinaryOperator.MUL },
+            "Expected PIRBinExpr(MUL) for 'x *= 3'")
     }
 
     @Test
@@ -128,8 +128,8 @@ def ap_chained_attr(obj) -> None:
 
     @Test
     fun `ap_nested_unpack - builds inner tuple`() {
-        assertTrue(allOf<PIRBuildTuple>("ap_nested_unpack").isNotEmpty(),
-            "Expected PIRBuildTuple for inner (1, 2)")
+        assertTrue(insts("ap_nested_unpack").filterAssignOf<PIRTupleExpr>().isNotEmpty(),
+            "Expected PIRTupleExpr for inner (1, 2)")
     }
 
     @Test
@@ -146,8 +146,8 @@ def ap_chained_attr(obj) -> None:
 
     @Test
     fun `ap_swap - builds tuple for RHS`() {
-        assertTrue(allOf<PIRBuildTuple>("ap_swap").isNotEmpty(),
-            "Expected PIRBuildTuple for '(b, a)' on RHS")
+        assertTrue(insts("ap_swap").filterAssignOf<PIRTupleExpr>().isNotEmpty(),
+            "Expected PIRTupleExpr for '(b, a)' on RHS")
     }
 
     @Test
@@ -188,8 +188,8 @@ def ap_chained_attr(obj) -> None:
 
     @Test
     fun `ap_chained_attr - loads intermediate attribute`() {
-        assertTrue(allOf<PIRLoadAttr>("ap_chained_attr").any { it.attribute == "a" },
-            "Expected PIRLoadAttr for 'obj.a'")
+        assertTrue(insts("ap_chained_attr").filterAssignOf<PIRAttrExpr>().any { it.attrExpr.attribute == "a" },
+            "Expected PIRAttrExpr for 'obj.a'")
     }
 
     @Test

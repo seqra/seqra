@@ -143,7 +143,7 @@ def cf_short_or(a: int, b: int) -> bool:
     }
 
     @Test fun `for loop produces GetIter and NextIter`() {
-        assertTrue(insts("cf_for").any { it is PIRGetIter })
+        assertTrue(insts("cf_for").any { it.isAssignOf<PIRIterExpr>() })
         assertTrue(insts("cf_for").any { it is PIRNextIter })
     }
 
@@ -158,7 +158,7 @@ def cf_short_or(a: int, b: int) -> bool:
     }
 
     @Test fun `nested loops produce two GetIter-NextIter pairs`() {
-        val getIters = insts("cf_nested_loops").filterIsInstance<PIRGetIter>()
+        val getIters = insts("cf_nested_loops").filterAssignOf<PIRIterExpr>()
         val nextIters = insts("cf_nested_loops").filterIsInstance<PIRNextIter>()
         assertTrue(getIters.size >= 2, "Expected 2 GetIter for nested loops, got ${getIters.size}")
         assertTrue(nextIters.size >= 2, "Expected 2 NextIter for nested loops, got ${nextIters.size}")

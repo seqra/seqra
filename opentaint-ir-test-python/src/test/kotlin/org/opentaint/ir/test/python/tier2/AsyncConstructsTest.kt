@@ -146,10 +146,10 @@ async def async_yield_multiple(items):
 
     @Test
     fun `async_for_loop - has iteration structure`() {
-        val getIters = allOf<PIRGetIter>("async_for_loop")
+        val getIters = insts("async_for_loop").filterAssignOf<PIRIterExpr>()
         val nextIters = allOf<PIRNextIter>("async_for_loop")
         assertTrue(getIters.isNotEmpty() || nextIters.isNotEmpty(),
-            "async for should produce iteration instructions (PIRGetIter/PIRNextIter)")
+            "async for should produce iteration instructions (PIRIterExpr/PIRNextIter)")
     }
 
     @Test
@@ -168,20 +168,20 @@ async def async_yield_multiple(items):
 
     @Test
     fun `async_with_mgr - has enter dunder calls`() {
-        val attrs = allOf<PIRLoadAttr>("async_with_mgr")
-        val hasAsyncEnter = attrs.any { it.attribute == "__aenter__" }
-        val hasSyncEnter = attrs.any { it.attribute == "__enter__" }
+        val attrs = insts("async_with_mgr").filterAssignOf<PIRAttrExpr>()
+        val hasAsyncEnter = attrs.any { it.attrExpr.attribute == "__aenter__" }
+        val hasSyncEnter = attrs.any { it.attrExpr.attribute == "__enter__" }
         assertTrue(hasAsyncEnter || hasSyncEnter,
-            "async with should produce __aenter__ or __enter__ LoadAttr, found: ${attrs.map { it.attribute }}")
+            "async with should produce __aenter__ or __enter__ PIRAttrExpr, found: ${attrs.map { it.attrExpr.attribute }}")
     }
 
     @Test
     fun `async_with_mgr - has exit dunder calls`() {
-        val attrs = allOf<PIRLoadAttr>("async_with_mgr")
-        val hasAsyncExit = attrs.any { it.attribute == "__aexit__" }
-        val hasSyncExit = attrs.any { it.attribute == "__exit__" }
+        val attrs = insts("async_with_mgr").filterAssignOf<PIRAttrExpr>()
+        val hasAsyncExit = attrs.any { it.attrExpr.attribute == "__aexit__" }
+        val hasSyncExit = attrs.any { it.attrExpr.attribute == "__exit__" }
         assertTrue(hasAsyncExit || hasSyncExit,
-            "async with should produce __aexit__ or __exit__ LoadAttr, found: ${attrs.map { it.attribute }}")
+            "async with should produce __aexit__ or __exit__ PIRAttrExpr, found: ${attrs.map { it.attrExpr.attribute }}")
     }
 
     // ─── 5. async generator (yield inside async def) ────────
@@ -257,7 +257,7 @@ async def async_yield_multiple(items):
     @Test
     fun `async_with_normal_code - has normal arithmetic and return`() {
         val all = insts("async_with_normal_code")
-        assertTrue(all.any { it is PIRBinOp }, "Expected arithmetic (PIRBinOp)")
+        assertTrue(all.any { it.isAssignOf<PIRBinExpr>() }, "Expected arithmetic (PIRBinOp)")
         assertTrue(all.any { it is PIRReturn }, "Expected PIRReturn")
     }
 
@@ -274,10 +274,10 @@ async def async_yield_multiple(items):
 
     @Test
     fun `await_in_loop - has iteration and PIRAwait`() {
-        val getIters = allOf<PIRGetIter>("await_in_loop")
+        val getIters = insts("await_in_loop").filterAssignOf<PIRIterExpr>()
         val nextIters = allOf<PIRNextIter>("await_in_loop")
         assertTrue(getIters.isNotEmpty() && nextIters.isNotEmpty(),
-            "for loop should produce PIRGetIter/PIRNextIter")
+            "for loop should produce PIRIterExpr/PIRNextIter")
         val awaits = allOf<PIRAwait>("await_in_loop")
         assertTrue(awaits.isNotEmpty(), "await inside for loop body should emit PIRAwait")
     }
@@ -286,11 +286,11 @@ async def async_yield_multiple(items):
 
     @Test
     fun `async_with_no_as - has enter and exit dunders without as target`() {
-        val attrs = allOf<PIRLoadAttr>("async_with_no_as")
-        val hasEnter = attrs.any { it.attribute == "__aenter__" || it.attribute == "__enter__" }
-        val hasExit = attrs.any { it.attribute == "__aexit__" || it.attribute == "__exit__" }
-        assertTrue(hasEnter, "async with (no as) should still produce enter dunder, found: ${attrs.map { it.attribute }}")
-        assertTrue(hasExit, "async with (no as) should still produce exit dunder, found: ${attrs.map { it.attribute }}")
+        val attrs = insts("async_with_no_as").filterAssignOf<PIRAttrExpr>()
+        val hasEnter = attrs.any { it.attrExpr.attribute == "__aenter__" || it.attrExpr.attribute == "__enter__" }
+        val hasExit = attrs.any { it.attrExpr.attribute == "__aexit__" || it.attrExpr.attribute == "__exit__" }
+        assertTrue(hasEnter, "async with (no as) should still produce enter dunder, found: ${attrs.map { it.attrExpr.attribute }}")
+        assertTrue(hasExit, "async with (no as) should still produce exit dunder, found: ${attrs.map { it.attrExpr.attribute }}")
     }
 
     // ─── Additional: async generator with multiple yields ───

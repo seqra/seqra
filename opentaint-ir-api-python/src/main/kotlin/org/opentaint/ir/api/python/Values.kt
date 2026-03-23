@@ -4,11 +4,10 @@ package org.opentaint.ir.api.python
  * A value used in instructions (operand or result).
  * Analogous to JIRValue / JIRImmediate / JIRRef.
  *
- * PIR merges JIR's Value+Expr distinction — there are no separate
- * "expression" objects. All computation is done in instructions
- * that produce values.
+ * Values are also expressions (PIRExpr), since they can appear as the
+ * right-hand side of PIRAssign instructions.
  */
-sealed interface PIRValue {
+sealed interface PIRValue : PIRExpr {
     val type: PIRType
 }
 

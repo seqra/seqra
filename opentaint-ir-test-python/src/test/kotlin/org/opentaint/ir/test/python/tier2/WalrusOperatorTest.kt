@@ -99,7 +99,7 @@ def w_in_assert(x: int) -> int:
 
     @Test fun `walrus reuse in expr assigns once and uses multiple times`() {
         val assigns = insts("w_reuse_in_expr").filterIsInstance<PIRAssign>()
-        val binOps = insts("w_reuse_in_expr").filterIsInstance<PIRBinOp>()
+        val binOps = insts("w_reuse_in_expr").filterAssignOf<PIRBinExpr>()
         assertTrue(assigns.isNotEmpty(), "Expected PIRAssign for walrus")
         assertTrue(binOps.size >= 2, "Expected >= 2 BinOps for n + n + n, got ${binOps.size}")
     }

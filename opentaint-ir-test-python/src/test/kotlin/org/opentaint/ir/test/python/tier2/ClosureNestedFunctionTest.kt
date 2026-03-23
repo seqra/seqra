@@ -329,7 +329,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `closure over loop - outer has iteration`() {
         val insts = allInstructions(findFunc("cnf_closure_over_loop"))
-        val hasIter = insts.any { it is PIRGetIter || it is PIRNextIter }
+        val hasIter = insts.any { it.isAssignOf<PIRIterExpr>() || it is PIRNextIter }
         assertTrue(hasIter, "should have for-loop iteration")
     }
 

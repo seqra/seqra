@@ -26,6 +26,13 @@ class InstructionConverter(
         )
     }
 
+    private fun v(proto: PIRValueProto) = valueConverter.convert(proto)
+    private fun t(proto: PIRTypeProto) = typeConverter.convert(proto)
+
+    /** Create a PIRAssign wrapping an expression. */
+    private fun assign(target: PIRValueProto, expr: PIRExpr, line: Int, col: Int) =
+        PIRAssign(v(target), expr, line, col)
+
     fun convertInstruction(proto: PIRInstructionProto): PIRInstruction {
         val line = proto.lineNumber
         val col = proto.colOffset
@@ -33,66 +40,59 @@ class InstructionConverter(
         return when (proto.instCase) {
             PIRInstructionProto.InstCase.ASSIGN -> {
                 val a = proto.assign
-                PIRAssign(valueConverter.convert(a.target), valueConverter.convert(a.source), line, col)
+                PIRAssign(v(a.target), v(a.source), line, col)
             }
             PIRInstructionProto.InstCase.LOAD_ATTR -> {
                 val la = proto.loadAttr
-                PIRLoadAttr(
-                    valueConverter.convert(la.target), valueConverter.convert(la.`object`),
-                    la.attribute, typeConverter.convert(la.type), line, col
-                )
+                assign(la.target, PIRAttrExpr(v(la.`object`), la.attribute, t(la.type)), line, col)
             }
             PIRInstructionProto.InstCase.STORE_ATTR -> {
                 val sa = proto.storeAttr
-                PIRStoreAttr(valueConverter.convert(sa.`object`), sa.attribute, valueConverter.convert(sa.value), line, col)
+                PIRStoreAttr(v(sa.`object`), sa.attribute, v(sa.value), line, col)
             }
             PIRInstructionProto.InstCase.LOAD_SUBSCRIPT -> {
                 val ls = proto.loadSubscript
-                PIRLoadSubscript(valueConverter.convert(ls.target), valueConverter.convert(ls.`object`), valueConverter.convert(ls.index), typeConverter.convert(ls.type), line, col)
+                assign(ls.target, PIRSubscriptExpr(v(ls.`object`), v(ls.index), t(ls.type)), line, col)
             }
             PIRInstructionProto.InstCase.STORE_SUBSCRIPT -> {
                 val ss = proto.storeSubscript
-                PIRStoreSubscript(valueConverter.convert(ss.`object`), valueConverter.convert(ss.index), valueConverter.convert(ss.value), line, col)
+                PIRStoreSubscript(v(ss.`object`), v(ss.index), v(ss.value), line, col)
             }
             PIRInstructionProto.InstCase.LOAD_GLOBAL -> {
                 val lg = proto.loadGlobal
-                PIRLoadGlobal(valueConverter.convert(lg.target), lg.name, lg.module, line, col)
+                // LoadGlobal → assign target = GlobalRef value
+                assign(lg.target, PIRGlobalRef(lg.name, lg.module), line, col)
             }
             PIRInstructionProto.InstCase.STORE_GLOBAL -> {
                 val sg = proto.storeGlobal
-                PIRStoreGlobal(sg.name, sg.module, valueConverter.convert(sg.value), line, col)
+                PIRStoreGlobal(sg.name, sg.module, v(sg.value), line, col)
             }
             PIRInstructionProto.InstCase.LOAD_CLOSURE -> {
                 val lc = proto.loadClosure
-                PIRLoadClosure(valueConverter.convert(lc.target), lc.name, lc.depth, line, col)
+                // LoadClosure → assign target = GlobalRef-like reference (closure name)
+                assign(lc.target, PIRGlobalRef(lc.name, ""), line, col)
             }
             PIRInstructionProto.InstCase.STORE_CLOSURE -> {
                 val sc = proto.storeClosure
-                PIRStoreClosure(sc.name, sc.depth, valueConverter.convert(sc.value), line, col)
+                PIRStoreClosure(sc.name, sc.depth, v(sc.value), line, col)
             }
             PIRInstructionProto.InstCase.BIN_OP -> {
                 val bo = proto.binOp
-                PIRBinOp(
-                    valueConverter.convert(bo.target), valueConverter.convert(bo.left),
-                    valueConverter.convert(bo.right), convertBinaryOp(bo.op), line, col
-                )
+                assign(bo.target, PIRBinExpr(v(bo.left), v(bo.right), convertBinaryOp(bo.op)), line, col)
             }
             PIRInstructionProto.InstCase.UNARY_OP -> {
                 val uo = proto.unaryOp
-                PIRUnaryOp(valueConverter.convert(uo.target), valueConverter.convert(uo.operand), convertUnaryOp(uo.op), line, col)
+                assign(uo.target, PIRUnaryExpr(v(uo.operand), convertUnaryOp(uo.op)), line, col)
             }
             PIRInstructionProto.InstCase.COMPARE -> {
                 val c = proto.compare
-                PIRCompare(
-                    valueConverter.convert(c.target), valueConverter.convert(c.left),
-                    valueConverter.convert(c.right), convertCompareOp(c.op), line, col
-                )
+                assign(c.target, PIRCompareExpr(v(c.left), v(c.right), convertCompareOp(c.op)), line, col)
             }
             PIRInstructionProto.InstCase.CALL -> {
                 val c = proto.call
                 PIRCall(
-                    target = if (c.hasTarget()) valueConverter.convert(c.target) else null,
-                    callee = valueConverter.convert(c.callee),
+                    target = if (c.hasTarget()) v(c.target) else null,
+                    callee = v(c.callee),
                     args = c.argsList.map { convertCallArg(it) },
                     resolvedCallee = c.resolvedCallee.ifEmpty { null },
                     lineNumber = line,
@@ -101,105 +101,103 @@ class InstructionConverter(
             }
             PIRInstructionProto.InstCase.BUILD_LIST -> {
                 val bl = proto.buildList
-                PIRBuildList(valueConverter.convert(bl.target), bl.elementsList.map { valueConverter.convert(it) }, line, col)
+                assign(bl.target, PIRListExpr(bl.elementsList.map { v(it) }), line, col)
             }
             PIRInstructionProto.InstCase.BUILD_TUPLE -> {
                 val bt = proto.buildTuple
-                PIRBuildTuple(valueConverter.convert(bt.target), bt.elementsList.map { valueConverter.convert(it) }, line, col)
+                assign(bt.target, PIRTupleExpr(bt.elementsList.map { v(it) }), line, col)
             }
             PIRInstructionProto.InstCase.BUILD_SET -> {
                 val bs = proto.buildSet
-                PIRBuildSet(valueConverter.convert(bs.target), bs.elementsList.map { valueConverter.convert(it) }, line, col)
+                assign(bs.target, PIRSetExpr(bs.elementsList.map { v(it) }), line, col)
             }
             PIRInstructionProto.InstCase.BUILD_DICT -> {
                 val bd = proto.buildDict
-                PIRBuildDict(valueConverter.convert(bd.target), bd.keysList.map { valueConverter.convert(it) }, bd.valuesList.map { valueConverter.convert(it) }, line, col)
+                assign(bd.target, PIRDictExpr(bd.keysList.map { v(it) }, bd.valuesList.map { v(it) }), line, col)
             }
             PIRInstructionProto.InstCase.BUILD_SLICE -> {
                 val bs = proto.buildSlice
-                PIRBuildSlice(
-                    valueConverter.convert(bs.target),
-                    if (bs.hasLower()) valueConverter.convert(bs.lower) else null,
-                    if (bs.hasUpper()) valueConverter.convert(bs.upper) else null,
-                    if (bs.hasStep()) valueConverter.convert(bs.step) else null,
-                    line, col
-                )
+                assign(bs.target, PIRSliceExpr(
+                    if (bs.hasLower()) v(bs.lower) else null,
+                    if (bs.hasUpper()) v(bs.upper) else null,
+                    if (bs.hasStep()) v(bs.step) else null,
+                ), line, col)
             }
             PIRInstructionProto.InstCase.BUILD_STRING -> {
                 val bs = proto.buildString
-                PIRBuildString(valueConverter.convert(bs.target), bs.partsList.map { valueConverter.convert(it) }, line, col)
+                assign(bs.target, PIRStringExpr(bs.partsList.map { v(it) }), line, col)
             }
             PIRInstructionProto.InstCase.GET_ITER -> {
                 val gi = proto.getIter
-                PIRGetIter(valueConverter.convert(gi.target), valueConverter.convert(gi.iterable), line, col)
+                assign(gi.target, PIRIterExpr(v(gi.iterable)), line, col)
             }
             PIRInstructionProto.InstCase.NEXT_ITER -> {
                 val ni = proto.nextIter
-                PIRNextIter(valueConverter.convert(ni.target), valueConverter.convert(ni.iterator), ni.bodyBlock, ni.exitBlock, line, col)
+                PIRNextIter(v(ni.target), v(ni.iterator), ni.bodyBlock, ni.exitBlock, line, col)
             }
             PIRInstructionProto.InstCase.UNPACK -> {
                 val u = proto.unpack
-                PIRUnpack(u.targetsList.map { valueConverter.convert(it) }, valueConverter.convert(u.source), u.starIndex, line, col)
+                PIRUnpack(u.targetsList.map { v(it) }, v(u.source), u.starIndex, line, col)
             }
             PIRInstructionProto.InstCase.GOTO_INST -> {
                 PIRGoto(proto.gotoInst.targetBlock, line, col)
             }
             PIRInstructionProto.InstCase.BRANCH -> {
                 val b = proto.branch
-                PIRBranch(valueConverter.convert(b.condition), b.trueBlock, b.falseBlock, line, col)
+                PIRBranch(v(b.condition), b.trueBlock, b.falseBlock, line, col)
             }
             PIRInstructionProto.InstCase.RETURN_INST -> {
                 val r = proto.returnInst
-                PIRReturn(if (r.hasValue()) valueConverter.convert(r.value) else null, line, col)
+                PIRReturn(if (r.hasValue()) v(r.value) else null, line, col)
             }
             PIRInstructionProto.InstCase.RAISE_INST -> {
                 val r = proto.raiseInst
                 PIRRaise(
-                    if (r.hasException()) valueConverter.convert(r.exception) else null,
-                    if (r.hasCause()) valueConverter.convert(r.cause) else null,
+                    if (r.hasException()) v(r.exception) else null,
+                    if (r.hasCause()) v(r.cause) else null,
                     line, col
                 )
             }
             PIRInstructionProto.InstCase.EXCEPT_HANDLER -> {
                 val eh = proto.exceptHandler
                 PIRExceptHandler(
-                    if (eh.hasTarget()) valueConverter.convert(eh.target) else null,
-                    eh.exceptionTypesList.map { typeConverter.convert(it) },
+                    if (eh.hasTarget()) v(eh.target) else null,
+                    eh.exceptionTypesList.map { t(it) },
                     line, col
                 )
             }
             PIRInstructionProto.InstCase.YIELD_INST -> {
                 val y = proto.yieldInst
                 PIRYield(
-                    if (y.hasTarget()) valueConverter.convert(y.target) else null,
-                    if (y.hasValue()) valueConverter.convert(y.value) else null,
+                    if (y.hasTarget()) v(y.target) else null,
+                    if (y.hasValue()) v(y.value) else null,
                     line, col
                 )
             }
             PIRInstructionProto.InstCase.YIELD_FROM -> {
                 val yf = proto.yieldFrom
                 PIRYieldFrom(
-                    if (yf.hasTarget()) valueConverter.convert(yf.target) else null,
-                    valueConverter.convert(yf.iterable), line, col
+                    if (yf.hasTarget()) v(yf.target) else null,
+                    v(yf.iterable), line, col
                 )
             }
             PIRInstructionProto.InstCase.AWAIT_INST -> {
                 val a = proto.awaitInst
                 PIRAwait(
-                    if (a.hasTarget()) valueConverter.convert(a.target) else null,
-                    valueConverter.convert(a.awaitable), line, col
+                    if (a.hasTarget()) v(a.target) else null,
+                    v(a.awaitable), line, col
                 )
             }
             PIRInstructionProto.InstCase.DELETE_LOCAL -> {
-                PIRDeleteLocal(valueConverter.convert(proto.deleteLocal.local), line, col)
+                PIRDeleteLocal(v(proto.deleteLocal.local), line, col)
             }
             PIRInstructionProto.InstCase.DELETE_ATTR -> {
                 val da = proto.deleteAttr
-                PIRDeleteAttr(valueConverter.convert(da.`object`), da.attribute, line, col)
+                PIRDeleteAttr(v(da.`object`), da.attribute, line, col)
             }
             PIRInstructionProto.InstCase.DELETE_SUBSCRIPT -> {
                 val ds = proto.deleteSubscript
-                PIRDeleteSubscript(valueConverter.convert(ds.`object`), valueConverter.convert(ds.index), line, col)
+                PIRDeleteSubscript(v(ds.`object`), v(ds.index), line, col)
             }
             PIRInstructionProto.InstCase.DELETE_GLOBAL -> {
                 val dg = proto.deleteGlobal
@@ -207,7 +205,7 @@ class InstructionConverter(
             }
             PIRInstructionProto.InstCase.TYPE_CHECK -> {
                 val tc = proto.typeCheck
-                PIRTypeCheck(valueConverter.convert(tc.target), valueConverter.convert(tc.value), typeConverter.convert(tc.type), line, col)
+                assign(tc.target, PIRTypeCheckExpr(v(tc.value), t(tc.type)), line, col)
             }
             PIRInstructionProto.InstCase.UNREACHABLE -> PIRUnreachable
             PIRInstructionProto.InstCase.INST_NOT_SET, null -> PIRUnreachable

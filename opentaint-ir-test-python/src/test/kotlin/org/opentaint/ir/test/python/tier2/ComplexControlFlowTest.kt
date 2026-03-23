@@ -91,7 +91,7 @@ def ccf_while_else(n: int) -> bool:
 
     @Test
     fun `ccf_try_in_loop - has for loop`() {
-        assertTrue(allOf<PIRGetIter>("ccf_try_in_loop").isNotEmpty(), "Expected PIRGetIter")
+        assertTrue(insts("ccf_try_in_loop").filterAssignOf<PIRIterExpr>().isNotEmpty(), "Expected PIRIterExpr")
         assertTrue(allOf<PIRNextIter>("ccf_try_in_loop").isNotEmpty(), "Expected PIRNextIter")
     }
 
@@ -108,7 +108,7 @@ def ccf_while_else(n: int) -> bool:
 
     @Test
     fun `ccf_loop_in_try - has for loop inside try`() {
-        assertTrue(allOf<PIRGetIter>("ccf_loop_in_try").isNotEmpty())
+        assertTrue(insts("ccf_loop_in_try").filterAssignOf<PIRIterExpr>().isNotEmpty())
         assertTrue(allOf<PIRNextIter>("ccf_loop_in_try").isNotEmpty())
     }
 
@@ -125,8 +125,8 @@ def ccf_while_else(n: int) -> bool:
 
     @Test
     fun `ccf_nested_for - has three GetIter`() {
-        assertTrue(allOf<PIRGetIter>("ccf_nested_for").size >= 3,
-            "Expected >= 3 PIRGetIter for triple-nested for")
+        assertTrue(insts("ccf_nested_for").filterAssignOf<PIRIterExpr>().size >= 3,
+            "Expected >= 3 PIRIterExpr for triple-nested for")
     }
 
     @Test
@@ -143,7 +143,7 @@ def ccf_while_else(n: int) -> bool:
 
     @Test
     fun `ccf_while_in_for - has for and while`() {
-        assertTrue(allOf<PIRGetIter>("ccf_while_in_for").isNotEmpty())
+        assertTrue(insts("ccf_while_in_for").filterAssignOf<PIRIterExpr>().isNotEmpty())
         assertTrue(allOf<PIRBranch>("ccf_while_in_for").isNotEmpty())
     }
 
@@ -155,8 +155,8 @@ def ccf_while_else(n: int) -> bool:
 
     @Test
     fun `ccf_multi_break - has nested loops`() {
-        assertTrue(allOf<PIRGetIter>("ccf_multi_break").size >= 2,
-            "Expected >= 2 PIRGetIter for nested loops")
+        assertTrue(insts("ccf_multi_break").filterAssignOf<PIRIterExpr>().size >= 2,
+            "Expected >= 2 PIRIterExpr for nested loops")
     }
 
     @Test
@@ -177,15 +177,15 @@ def ccf_while_else(n: int) -> bool:
 
     @Test
     fun `ccf_complex_condition - has GT, LT and EQ comparisons`() {
-        val compares = allOf<PIRCompare>("ccf_complex_condition")
-        assertTrue(compares.any { it.op == PIRCompareOperator.GT }, "Expected GT")
-        assertTrue(compares.any { it.op == PIRCompareOperator.LT }, "Expected LT")
-        assertTrue(compares.any { it.op == PIRCompareOperator.EQ }, "Expected EQ")
+        val compares = insts("ccf_complex_condition").filterAssignOf<PIRCompareExpr>()
+        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.GT }, "Expected GT")
+        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.LT }, "Expected LT")
+        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.EQ }, "Expected EQ")
     }
 
     @Test
     fun `ccf_loop_else - has for loop`() {
-        assertTrue(allOf<PIRGetIter>("ccf_loop_else").isNotEmpty())
+        assertTrue(insts("ccf_loop_else").filterAssignOf<PIRIterExpr>().isNotEmpty())
         assertTrue(allOf<PIRNextIter>("ccf_loop_else").isNotEmpty())
     }
 

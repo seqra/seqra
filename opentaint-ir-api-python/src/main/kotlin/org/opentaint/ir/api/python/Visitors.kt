@@ -2,29 +2,14 @@ package org.opentaint.ir.api.python
 
 /**
  * Visitor for PIR instructions.
- * ~35 visit methods — one per instruction type.
  */
 interface PIRInstVisitor<out T> {
     fun visitAssign(inst: PIRAssign): T
-    fun visitLoadAttr(inst: PIRLoadAttr): T
     fun visitStoreAttr(inst: PIRStoreAttr): T
-    fun visitLoadSubscript(inst: PIRLoadSubscript): T
     fun visitStoreSubscript(inst: PIRStoreSubscript): T
-    fun visitLoadGlobal(inst: PIRLoadGlobal): T
     fun visitStoreGlobal(inst: PIRStoreGlobal): T
-    fun visitLoadClosure(inst: PIRLoadClosure): T
     fun visitStoreClosure(inst: PIRStoreClosure): T
-    fun visitBinOp(inst: PIRBinOp): T
-    fun visitUnaryOp(inst: PIRUnaryOp): T
-    fun visitCompare(inst: PIRCompare): T
     fun visitCall(inst: PIRCall): T
-    fun visitBuildList(inst: PIRBuildList): T
-    fun visitBuildTuple(inst: PIRBuildTuple): T
-    fun visitBuildSet(inst: PIRBuildSet): T
-    fun visitBuildDict(inst: PIRBuildDict): T
-    fun visitBuildSlice(inst: PIRBuildSlice): T
-    fun visitBuildString(inst: PIRBuildString): T
-    fun visitGetIter(inst: PIRGetIter): T
     fun visitNextIter(inst: PIRNextIter): T
     fun visitUnpack(inst: PIRUnpack): T
     fun visitGoto(inst: PIRGoto): T
@@ -39,7 +24,6 @@ interface PIRInstVisitor<out T> {
     fun visitDeleteAttr(inst: PIRDeleteAttr): T
     fun visitDeleteSubscript(inst: PIRDeleteSubscript): T
     fun visitDeleteGlobal(inst: PIRDeleteGlobal): T
-    fun visitTypeCheck(inst: PIRTypeCheck): T
     fun visitUnreachable(inst: PIRUnreachable): T
 
     /**
@@ -49,25 +33,11 @@ interface PIRInstVisitor<out T> {
         fun defaultVisit(inst: PIRInstruction): T
 
         override fun visitAssign(inst: PIRAssign): T = defaultVisit(inst)
-        override fun visitLoadAttr(inst: PIRLoadAttr): T = defaultVisit(inst)
         override fun visitStoreAttr(inst: PIRStoreAttr): T = defaultVisit(inst)
-        override fun visitLoadSubscript(inst: PIRLoadSubscript): T = defaultVisit(inst)
         override fun visitStoreSubscript(inst: PIRStoreSubscript): T = defaultVisit(inst)
-        override fun visitLoadGlobal(inst: PIRLoadGlobal): T = defaultVisit(inst)
         override fun visitStoreGlobal(inst: PIRStoreGlobal): T = defaultVisit(inst)
-        override fun visitLoadClosure(inst: PIRLoadClosure): T = defaultVisit(inst)
         override fun visitStoreClosure(inst: PIRStoreClosure): T = defaultVisit(inst)
-        override fun visitBinOp(inst: PIRBinOp): T = defaultVisit(inst)
-        override fun visitUnaryOp(inst: PIRUnaryOp): T = defaultVisit(inst)
-        override fun visitCompare(inst: PIRCompare): T = defaultVisit(inst)
         override fun visitCall(inst: PIRCall): T = defaultVisit(inst)
-        override fun visitBuildList(inst: PIRBuildList): T = defaultVisit(inst)
-        override fun visitBuildTuple(inst: PIRBuildTuple): T = defaultVisit(inst)
-        override fun visitBuildSet(inst: PIRBuildSet): T = defaultVisit(inst)
-        override fun visitBuildDict(inst: PIRBuildDict): T = defaultVisit(inst)
-        override fun visitBuildSlice(inst: PIRBuildSlice): T = defaultVisit(inst)
-        override fun visitBuildString(inst: PIRBuildString): T = defaultVisit(inst)
-        override fun visitGetIter(inst: PIRGetIter): T = defaultVisit(inst)
         override fun visitNextIter(inst: PIRNextIter): T = defaultVisit(inst)
         override fun visitUnpack(inst: PIRUnpack): T = defaultVisit(inst)
         override fun visitGoto(inst: PIRGoto): T = defaultVisit(inst)
@@ -82,9 +52,30 @@ interface PIRInstVisitor<out T> {
         override fun visitDeleteAttr(inst: PIRDeleteAttr): T = defaultVisit(inst)
         override fun visitDeleteSubscript(inst: PIRDeleteSubscript): T = defaultVisit(inst)
         override fun visitDeleteGlobal(inst: PIRDeleteGlobal): T = defaultVisit(inst)
-        override fun visitTypeCheck(inst: PIRTypeCheck): T = defaultVisit(inst)
         override fun visitUnreachable(inst: PIRUnreachable): T = defaultVisit(inst)
     }
+}
+
+/**
+ * Visitor for PIR expressions (right-hand sides of PIRAssign).
+ */
+interface PIRExprVisitor<out T> {
+    // Compound expressions
+    fun visitBinExpr(expr: PIRBinExpr): T
+    fun visitUnaryExpr(expr: PIRUnaryExpr): T
+    fun visitCompareExpr(expr: PIRCompareExpr): T
+    fun visitAttrExpr(expr: PIRAttrExpr): T
+    fun visitSubscriptExpr(expr: PIRSubscriptExpr): T
+    fun visitListExpr(expr: PIRListExpr): T
+    fun visitTupleExpr(expr: PIRTupleExpr): T
+    fun visitSetExpr(expr: PIRSetExpr): T
+    fun visitDictExpr(expr: PIRDictExpr): T
+    fun visitSliceExpr(expr: PIRSliceExpr): T
+    fun visitStringExpr(expr: PIRStringExpr): T
+    fun visitIterExpr(expr: PIRIterExpr): T
+    fun visitTypeCheckExpr(expr: PIRTypeCheckExpr): T
+    // Values (also expressions)
+    fun visitValue(value: PIRValue): T
 }
 
 /**

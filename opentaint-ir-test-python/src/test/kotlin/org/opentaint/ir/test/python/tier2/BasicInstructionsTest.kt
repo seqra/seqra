@@ -64,8 +64,8 @@ def bi_list():
 
     @Test
     fun `binary operations produce PIRBinOp`() {
-        val binOps = insts("bi_add").filterIsInstance<PIRBinOp>()
-        Assertions.assertTrue(binOps.any { it.op == PIRBinaryOperator.ADD },
+        val binOps = insts("bi_add").filterAssignOf<PIRBinExpr>()
+        Assertions.assertTrue(binOps.any { it.binExpr.op == PIRBinaryOperator.ADD },
             "Expected ADD binary op, found: $binOps")
     }
 
@@ -84,7 +84,7 @@ def bi_list():
     @Test
     fun `for loop produces GetIter and NextIter`() {
         val allInsts = insts("bi_for_loop")
-        Assertions.assertTrue(allInsts.any { it is PIRGetIter }, "Expected PIRGetIter")
+        Assertions.assertTrue(allInsts.any { it.isAssignOf<PIRIterExpr>() }, "Expected PIRGetIter")
         Assertions.assertTrue(allInsts.any { it is PIRNextIter }, "Expected PIRNextIter")
     }
 
@@ -103,7 +103,7 @@ def bi_list():
 
     @Test
     fun `list literal produces PIRBuildList`() {
-        val builds = insts("bi_list").filterIsInstance<PIRBuildList>()
+        val builds = insts("bi_list").filterAssignOf<PIRListExpr>()
         Assertions.assertTrue(builds.isNotEmpty(), "Expected PIRBuildList instruction")
     }
 }
