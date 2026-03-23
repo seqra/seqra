@@ -1,14 +1,11 @@
 plugins {
-    kotlin("jvm")
+    id("kotlin-conventions")
 }
 
 dependencies {
-    testImplementation(project(":opentaint-ir-api-python"))
-    testImplementation(project(":opentaint-ir-impl-python"))
+    testImplementation(project(":python:opentaint-ir-api-python"))
+    testImplementation(project(":python:opentaint-ir-impl-python"))
 
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
-    testImplementation("org.assertj:assertj-core:3.25.3")
     testImplementation("com.google.code.gson:gson:2.10.1")
 
     // Needed for Tier 3 round-trip tests (ExecuteFunctionRequest/Response)

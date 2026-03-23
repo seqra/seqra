@@ -1,10 +1,12 @@
+import org.opentaint.common.KotlinDependency
+
 plugins {
-    kotlin("jvm")
-    id("com.google.protobuf")
+    id("kotlin-conventions")
+    id("com.google.protobuf") version "0.9.4"
 }
 
 dependencies {
-    api(project(":opentaint-ir-api-python"))
+    api(project(":python:opentaint-ir-api-python"))
 
     // gRPC + Protobuf
     implementation("io.grpc:grpc-kotlin-stub:1.4.1")
@@ -14,8 +16,7 @@ dependencies {
     implementation("com.google.protobuf:protobuf-kotlin:3.25.3")
     implementation("com.google.protobuf:protobuf-java:3.25.3")
 
-    // Coroutines (for gRPC-kotlin)
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.0")
+    implementation(KotlinDependency.Libs.kotlinx_coroutines_core)
 
     // Required for javax.annotation used by generated gRPC stubs
     compileOnly("org.apache.tomcat:annotations-api:6.0.53")
@@ -49,7 +50,7 @@ protobuf {
 sourceSets {
     main {
         proto {
-            srcDir("${rootProject.projectDir}/proto")
+            srcDir("${project.parent?.projectDir}/proto")
         }
     }
 }

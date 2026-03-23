@@ -6,3 +6,7 @@ include("opentaint-ir-api-storage")
 include("opentaint-ir-core")
 include("opentaint-ir-storage")
 include("opentaint-ir-approximations")
+
+include("python:opentaint-ir-api-python")
+include("python:opentaint-ir-impl-python")
+include("python:opentaint-ir-test-python")
