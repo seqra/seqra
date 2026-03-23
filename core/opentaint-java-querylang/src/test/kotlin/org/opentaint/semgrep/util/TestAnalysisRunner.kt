@@ -2,6 +2,8 @@ package org.opentaint.semgrep.util
 
 import kotlinx.coroutines.runBlocking
 import org.opentaint.config.ConfigLoader
+import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
+import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
@@ -99,10 +101,11 @@ class TestAnalysisRunner(
             val cls = cp.findClassOrNull(sample) ?: error("No sample in CP")
             val ep = cls.declaredMethods.singleOrNull { it.name == "entrypoint" }
                 ?: error("No entrypoint in $sample")
+            val startMethod = MethodWithContext(ep, EmptyMethodContext)
 
             val rulesProvider = rulesProvider(config, useDefaultConfig, hashSetOf(ep))
             setupEngine(rulesProvider).use { engine ->
-                engine.runAnalysis(listOf(ep), timeout = 1.minutes, cancellationTimeout = 10.seconds)
+                engine.runAnalysis(listOf(startMethod), timeout = 1.minutes, cancellationTimeout = 10.seconds)
 
                 val allVulnerabilities = engine.getVulnerabilities()
                 val vulnerabilities = engine.confirmVulnerabilities(
