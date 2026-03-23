@@ -4,6 +4,7 @@ import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Tag
 import org.opentaint.ir.api.python.*
+import org.opentaint.ir.api.python.PIRDiagnosticSeverity
 import org.opentaint.ir.impl.python.PIRClasspathImpl
 import org.opentaint.ir.test.python.PIRTestBase
 import java.io.File
@@ -25,14 +26,13 @@ class BenchmarkTest : PIRTestBase() {
 
     private fun analyzePkg(
         pythonModule: String,
-        maxFiles: Int,
         minModules: Int,
         minClasses: Int,
         minFunctions: Int,
         recursive: Boolean = false,
     ) {
         val pkgDir = findPackageDir(pythonModule)
-        val pyFiles = listPyFiles(pkgDir, maxFiles, recursive)
+        val pyFiles = listPyFiles(pkgDir, recursive)
         assertTrue(pyFiles.isNotEmpty(), "No .py files found in $pkgDir")
 
         val projectRoot = findProjectRoot()
@@ -59,6 +59,16 @@ class BenchmarkTest : PIRTestBase() {
             println("║ Blocks with exception handlers: ${stats.blocksWithHandlers}")
             println("║ Time: ${"%.1f".format(elapsed)}s")
             println("╚══════════════════════════════════════════════════════════════")
+
+            // Verify no loading errors
+            val errors = it.modules.flatMap { m -> m.diagnostics.filter { d -> d.severity == PIRDiagnosticSeverity.ERROR } }
+            if (errors.isNotEmpty()) {
+                println("║ ERRORS: ${errors.size}")
+                errors.take(10).forEach { e -> println("║   ${e.functionName}: ${e.message}") }
+            }
+            assertEquals(0, errors.size,
+                "$pythonModule: found ${errors.size} loading errors:\n" +
+                    errors.take(10).joinToString("\n") { "  ${it.functionName}: ${it.message}" })
 
             // Basic assertions
             assertTrue(stats.modules >= minModules,
@@ -132,208 +142,208 @@ class BenchmarkTest : PIRTestBase() {
     // ─── Existing benchmarks ─────────────────────────────────
 
     @Test
-    @Timeout(180)
-    fun `benchmark - click`() = analyzePkg("click", 8, 5, 5, 20)
+    @Timeout(600)
+    fun `benchmark - click`() = analyzePkg("click", 5, 5, 20)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - requests`() = analyzePkg("requests", 8, 5, 5, 20)
+    @Timeout(600)
+    fun `benchmark - requests`() = analyzePkg("requests", 5, 5, 20)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - attrs`() = analyzePkg("attr", 8, 5, 3, 10)
+    @Timeout(600)
+    fun `benchmark - attrs`() = analyzePkg("attr", 5, 3, 10)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - typer`() = analyzePkg("typer", 5, 3, 2, 5)
+    @Timeout(600)
+    fun `benchmark - typer`() = analyzePkg("typer", 3, 2, 5)
 
     // ─── New benchmarks ──────────────────────────────────────
 
     @Test
-    @Timeout(180)
-    fun `benchmark - rich`() = analyzePkg("rich", 12, 8, 10, 30, recursive = true)
+    @Timeout(600)
+    fun `benchmark - rich`() = analyzePkg("rich", 8, 10, 30, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - pygments`() = analyzePkg("pygments", 10, 7, 8, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - pygments`() = analyzePkg("pygments", 7, 8, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - urllib3`() = analyzePkg("urllib3", 10, 6, 5, 15, recursive = true)
+    @Timeout(600)
+    fun `benchmark - urllib3`() = analyzePkg("urllib3", 6, 5, 15, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - packaging`() = analyzePkg("packaging", 10, 5, 3, 15)
+    @Timeout(600)
+    fun `benchmark - packaging`() = analyzePkg("packaging", 5, 3, 15)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - cryptography`() = analyzePkg("cryptography", 10, 6, 1, 10, recursive = true)
+    @Timeout(600)
+    fun `benchmark - cryptography`() = analyzePkg("cryptography", 6, 1, 10, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - more-itertools`() = analyzePkg("more_itertools", 3, 2, 1, 5)
+    @Timeout(600)
+    fun `benchmark - more-itertools`() = analyzePkg("more_itertools", 2, 1, 5)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - idna`() = analyzePkg("idna", 8, 4, 2, 5)
+    @Timeout(600)
+    fun `benchmark - idna`() = analyzePkg("idna", 4, 2, 5)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - charset-normalizer`() = analyzePkg("charset_normalizer", 8, 5, 3, 10)
+    @Timeout(600)
+    fun `benchmark - charset-normalizer`() = analyzePkg("charset_normalizer", 5, 3, 10)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - markdown-it`() = analyzePkg("markdown_it", 10, 6, 3, 15, recursive = true)
+    @Timeout(600)
+    fun `benchmark - markdown-it`() = analyzePkg("markdown_it", 6, 3, 15, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - grpc`() = analyzePkg("grpc", 10, 6, 5, 15, recursive = true)
+    @Timeout(600)
+    fun `benchmark - grpc`() = analyzePkg("grpc", 6, 5, 15, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - google-protobuf`() = analyzePkg("google.protobuf", 10, 6, 5, 15, recursive = true)
+    @Timeout(600)
+    fun `benchmark - google-protobuf`() = analyzePkg("google.protobuf", 6, 5, 15, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - mypy`() = analyzePkg("mypy", 15, 10, 10, 40, recursive = true)
+    @Timeout(600)
+    fun `benchmark - mypy`() = analyzePkg("mypy", 10, 10, 40, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - shellingham`() = analyzePkg("shellingham", 7, 3, 1, 3)
+    @Timeout(600)
+    fun `benchmark - shellingham`() = analyzePkg("shellingham", 3, 1, 3)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - mdurl`() = analyzePkg("mdurl", 6, 3, 1, 5)
+    @Timeout(600)
+    fun `benchmark - mdurl`() = analyzePkg("mdurl", 3, 1, 5)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - markupsafe`() = analyzePkg("markupsafe", 2, 1, 1, 2)
+    @Timeout(600)
+    fun `benchmark - markupsafe`() = analyzePkg("markupsafe", 1, 1, 2)
 
     // certifi is a data-only package (no __file__ attribute), skip it
 
     // ─── Web framework libraries ─────────────────────────
 
     @Test
-    @Timeout(180)
-    fun `benchmark - flask`() = analyzePkg("flask", 20, 10, 5, 30)
+    @Timeout(600)
+    fun `benchmark - flask`() = analyzePkg("flask", 10, 5, 30)
 
     @Test
-    @Timeout(300)
-    fun `benchmark - django`() = analyzePkg("django", 50, 20, 1, 60, recursive = true)
+    @Timeout(600)
+    fun `benchmark - django`() = analyzePkg("django", 20, 1, 60, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - fastapi`() = analyzePkg("fastapi", 20, 10, 5, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - fastapi`() = analyzePkg("fastapi", 10, 5, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - starlette`() = analyzePkg("starlette", 20, 10, 5, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - starlette`() = analyzePkg("starlette", 10, 5, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - werkzeug`() = analyzePkg("werkzeug", 20, 10, 5, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - werkzeug`() = analyzePkg("werkzeug", 10, 5, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - jinja2`() = analyzePkg("jinja2", 20, 10, 5, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - jinja2`() = analyzePkg("jinja2", 10, 5, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - tornado`() = analyzePkg("tornado", 20, 10, 5, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - tornado`() = analyzePkg("tornado", 10, 5, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - falcon`() = analyzePkg("falcon", 30, 10, 1, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - falcon`() = analyzePkg("falcon", 10, 1, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - bottle`() = analyzePkg("bottle", 1, 1, 1, 10)
+    @Timeout(600)
+    fun `benchmark - bottle`() = analyzePkg("bottle", 1, 1, 10)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - pyramid`() = analyzePkg("pyramid", 20, 10, 5, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - pyramid`() = analyzePkg("pyramid", 10, 5, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - sanic`() = analyzePkg("sanic", 30, 10, 1, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - sanic`() = analyzePkg("sanic", 10, 1, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - aiohttp`() = analyzePkg("aiohttp", 20, 10, 5, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - aiohttp`() = analyzePkg("aiohttp", 10, 5, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - celery`() = analyzePkg("celery", 20, 10, 5, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - celery`() = analyzePkg("celery", 10, 5, 20, recursive = true)
 
     // ─── Data / Validation / ORM ─────────────────────────
 
     @Test
-    @Timeout(180)
-    fun `benchmark - pydantic`() = analyzePkg("pydantic", 20, 10, 5, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - pydantic`() = analyzePkg("pydantic", 10, 5, 20, recursive = true)
 
     @Test
-    @Timeout(300)
-    fun `benchmark - sqlalchemy`() = analyzePkg("sqlalchemy", 30, 15, 20, 60, recursive = true)
+    @Timeout(600)
+    fun `benchmark - sqlalchemy`() = analyzePkg("sqlalchemy", 15, 20, 60, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - marshmallow`() = analyzePkg("marshmallow", 12, 6, 3, 10, recursive = true)
+    @Timeout(600)
+    fun `benchmark - marshmallow`() = analyzePkg("marshmallow", 6, 3, 10, recursive = true)
 
     // ─── HTTP clients ────────────────────────────────────
 
     @Test
-    @Timeout(180)
-    fun `benchmark - httpx`() = analyzePkg("httpx", 20, 10, 5, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - httpx`() = analyzePkg("httpx", 10, 5, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - httpcore`() = analyzePkg("httpcore", 20, 10, 3, 10, recursive = true)
+    @Timeout(600)
+    fun `benchmark - httpcore`() = analyzePkg("httpcore", 10, 3, 10, recursive = true)
 
     // ─── Utility libraries ───────────────────────────────
 
     @Test
-    @Timeout(180)
-    fun `benchmark - yaml`() = analyzePkg("yaml", 15, 8, 5, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - yaml`() = analyzePkg("yaml", 8, 5, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - mako`() = analyzePkg("mako", 20, 10, 5, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - mako`() = analyzePkg("mako", 10, 5, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - markdown`() = analyzePkg("markdown", 20, 10, 5, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - markdown`() = analyzePkg("markdown", 10, 5, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - tqdm`() = analyzePkg("tqdm", 15, 8, 3, 10, recursive = true)
+    @Timeout(600)
+    fun `benchmark - tqdm`() = analyzePkg("tqdm", 8, 3, 10, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - pycparser`() = analyzePkg("pycparser", 15, 8, 5, 15, recursive = true)
+    @Timeout(600)
+    fun `benchmark - pycparser`() = analyzePkg("pycparser", 8, 5, 15, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - pyparsing`() = analyzePkg("pyparsing", 15, 8, 5, 15, recursive = true)
+    @Timeout(600)
+    fun `benchmark - pyparsing`() = analyzePkg("pyparsing", 8, 5, 15, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - pathspec`() = analyzePkg("pathspec", 15, 8, 3, 10, recursive = true)
+    @Timeout(600)
+    fun `benchmark - pathspec`() = analyzePkg("pathspec", 8, 3, 10, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - typeguard`() = analyzePkg("typeguard", 10, 5, 3, 10, recursive = true)
+    @Timeout(600)
+    fun `benchmark - typeguard`() = analyzePkg("typeguard", 5, 3, 10, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - anyio`() = analyzePkg("anyio", 20, 10, 5, 20, recursive = true)
+    @Timeout(600)
+    fun `benchmark - anyio`() = analyzePkg("anyio", 10, 5, 20, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - filelock`() = analyzePkg("filelock", 8, 4, 2, 5, recursive = true)
+    @Timeout(600)
+    fun `benchmark - filelock`() = analyzePkg("filelock", 4, 2, 5, recursive = true)
 
     @Test
-    @Timeout(180)
-    fun `benchmark - lxml`() = analyzePkg("lxml", 15, 8, 5, 15, recursive = true)
+    @Timeout(600)
+    fun `benchmark - lxml`() = analyzePkg("lxml", 8, 5, 15, recursive = true)
 
     // ─── Helpers ──────────────────────────────────────────
 
@@ -351,7 +361,7 @@ class BenchmarkTest : PIRTestBase() {
             return output
         }
 
-        fun listPyFiles(dir: String, maxFiles: Int, recursive: Boolean = false): List<String> {
+        fun listPyFiles(dir: String, recursive: Boolean = false): List<String> {
             val allFiles = if (recursive) {
                 File(dir).walk()
                     .filter { it.isFile && it.extension == "py" }
@@ -363,7 +373,7 @@ class BenchmarkTest : PIRTestBase() {
                     ?.sortedByDescending { if (it.name == "__init__.py") Long.MAX_VALUE else it.length() }
                     ?: emptyList()
             }
-            return allFiles.take(maxFiles).map { it.absolutePath }
+            return allFiles.map { it.absolutePath }
         }
     }
 
