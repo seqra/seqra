@@ -86,10 +86,8 @@ abstract class BenchmarkTestBase : PIRTestBase() {
     // ─── Core analysis ──────────────────────────────────────
 
     private fun createClasspath(pyFiles: List<String>): PIRClasspath {
-        val projectRoot = findProjectRoot()
         return PIRClasspathImpl.create(PIRSettings(
             sources = pyFiles,
-            pythonExecutable = createPythonWrapper(projectRoot),
             mypyFlags = listOf("--ignore-missing-imports"),
             rpcTimeout = java.time.Duration.ofSeconds(1200),
         ))
@@ -291,22 +289,10 @@ abstract class BenchmarkTestBase : PIRTestBase() {
 
     // ─── Helpers ────────────────────────────────────────────
 
-    private fun createPythonWrapper(projectRoot: String): String {
-        val wrapper = File.createTempFile("pir-python-", ".sh")
-        wrapper.deleteOnExit()
-        wrapper.writeText("""
-            #!/bin/bash
-            export PYTHONPATH="$projectRoot:${'$'}PYTHONPATH"
-            exec python3 "${'$'}@"
-        """.trimIndent())
-        wrapper.setExecutable(true)
-        return wrapper.absolutePath
-    }
-
     companion object {
         fun findPackageDir(pythonModule: String): String {
             val proc = ProcessBuilder(
-                "python3", "-c",
+                System.getenv("PIR_SERVER_PYTHON") ?: error("PIR_SERVER_PYTHON is not set"), "-c",
                 "import $pythonModule, os; print(os.path.dirname($pythonModule.__file__))"
             ).redirectErrorStream(true).start()
             val output = proc.inputStream.bufferedReader().readText().trim()

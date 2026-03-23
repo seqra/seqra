@@ -10,10 +10,14 @@ import java.util.concurrent.TimeUnit
  * Manages the Python pir_server subprocess lifecycle.
  */
 class PIRProcessManager(
-    private val pythonExecutable: String = "python3",
+    private val pythonExecutable: String,
     private val serverModule: String = "pir_server",
     private val startupTimeout: Duration = Duration.ofSeconds(30),
 ) : Closeable {
+
+    init {
+        require(pythonExecutable.isNotBlank()) { "pythonExecutable must not be blank" }
+    }
 
     private var process: Process? = null
     private var port: Int = -1

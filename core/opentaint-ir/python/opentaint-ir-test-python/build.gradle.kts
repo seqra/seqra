@@ -1,5 +1,23 @@
+import org.gradle.api.tasks.testing.Test
+import java.io.File
+
 plugins {
     id("kotlin-conventions")
+}
+
+val pirProject = project(":python")
+val pirServerPython = pirProject.layout.projectDirectory.file(".venv/bin/python").asFile.absolutePath
+val inheritedPythonPath = providers.environmentVariable("PYTHONPATH").orNull
+val pirPythonPath = listOf(
+    pirProject.projectDir.absolutePath,
+    inheritedPythonPath,
+).filterNotNull().filter { it.isNotBlank() }.joinToString(File.pathSeparator)
+
+tasks.withType<Test>().configureEach {
+    dependsOn(":python:setupPirServerVenv")
+    dependsOn(":python:setupPirBenchmarkDeps")
+    environment("PIR_SERVER_PYTHON", pirServerPython)
+    environment("PYTHONPATH", pirPythonPath)
 }
 
 dependencies {

@@ -43,28 +43,9 @@ abstract class PIRTestBase {
         file.writeText(source.trimIndent())
         file.deleteOnExit()
 
-        val projectRoot = findProjectRoot()
-
         return PIRClasspathImpl.create(PIRSettings(
             sources = listOf(file.absolutePath),
-            pythonExecutable = createPythonWrapper(projectRoot),
             mypyFlags = listOf("--ignore-missing-imports"),
         ))
-    }
-
-    /**
-     * Create a wrapper script that sets PYTHONPATH before invoking Python.
-     * This ensures the pir_server package is on the path.
-     */
-    private fun createPythonWrapper(projectRoot: String): String {
-        val wrapper = File.createTempFile("pir-python-", ".sh")
-        wrapper.deleteOnExit()
-        wrapper.writeText("""
-            #!/bin/bash
-            export PYTHONPATH="$projectRoot:${'$'}PYTHONPATH"
-            exec python3 "${'$'}@"
-        """.trimIndent())
-        wrapper.setExecutable(true)
-        return wrapper.absolutePath
     }
 }

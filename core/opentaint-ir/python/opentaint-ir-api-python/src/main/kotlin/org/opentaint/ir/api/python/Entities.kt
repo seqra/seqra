@@ -1,6 +1,14 @@
 package org.opentaint.ir.api.python
 
 import java.io.Closeable
+import java.time.Duration
+
+private const val PIR_SERVER_PYTHON_ENV = "PIR_SERVER_PYTHON"
+
+private fun defaultPirServerPythonExecutable(): String =
+    System.getenv(PIR_SERVER_PYTHON_ENV)
+        ?.takeIf { it.isNotBlank() }
+        ?: error("Environment variable $PIR_SERVER_PYTHON_ENV must point to a Python executable")
 
 /**
  * Top-level container for an analyzed Python project.
@@ -19,13 +27,13 @@ interface PIRClasspath : Closeable {
  */
 data class PIRSettings(
     val sources: List<String>,
-    val pythonExecutable: String = "python3",
+    val pythonExecutable: String = defaultPirServerPythonExecutable(),
     val pythonVersion: String? = null,
     val mypyFlags: List<String> = emptyList(),
     val searchPaths: List<String> = emptyList(),
     val serverModule: String = "pir_server",
-    val serverStartupTimeout: java.time.Duration = java.time.Duration.ofSeconds(30),
-    val rpcTimeout: java.time.Duration = java.time.Duration.ofSeconds(120),
+    val serverStartupTimeout: Duration = Duration.ofSeconds(30),
+    val rpcTimeout: Duration = Duration.ofSeconds(120),
     val embeddedServer: Boolean = true,
 )
 

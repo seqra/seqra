@@ -207,11 +207,8 @@ def rt_build_dict(keys: list, vals: list) -> dict:
         file.writeText(ALL_SOURCES)
         file.deleteOnExit()
 
-        val projectRoot = findProjectRoot()
-
         cp = PIRClasspathImpl.create(PIRSettings(
             sources = listOf(file.absolutePath),
-            pythonExecutable = createPythonWrapper(projectRoot),
             mypyFlags = listOf("--ignore-missing-imports"),
         ))
     }
@@ -219,21 +216,6 @@ def rt_build_dict(keys: list, vals: list) -> dict:
     @AfterAll
     fun tearDown() {
         cp.close()
-    }
-
-    /**
-     * Create a wrapper script that sets PYTHONPATH before invoking Python.
-     */
-    private fun createPythonWrapper(projectRoot: String): String {
-        val wrapper = File.createTempFile("pir-python-", ".sh")
-        wrapper.deleteOnExit()
-        wrapper.writeText("""
-            #!/bin/bash
-            export PYTHONPATH="$projectRoot:${'$'}PYTHONPATH"
-            exec python3 "${'$'}@"
-        """.trimIndent())
-        wrapper.setExecutable(true)
-        return wrapper.absolutePath
     }
 
     private fun executeFunction(

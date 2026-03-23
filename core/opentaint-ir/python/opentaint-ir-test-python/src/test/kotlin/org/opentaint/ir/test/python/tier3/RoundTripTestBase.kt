@@ -35,11 +35,8 @@ abstract class RoundTripTestBase : PIRTestBase() {
         file.writeText(allSources)
         file.deleteOnExit()
 
-        val projectRoot = findProjectRoot()
-
         cp = PIRClasspathImpl.create(PIRSettings(
             sources = listOf(file.absolutePath),
-            pythonExecutable = createPythonWrapper(projectRoot),
             mypyFlags = listOf("--ignore-missing-imports"),
         ))
     }
@@ -47,18 +44,6 @@ abstract class RoundTripTestBase : PIRTestBase() {
     @AfterAll
     fun tearDown() {
         cp.close()
-    }
-
-    private fun createPythonWrapper(projectRoot: String): String {
-        val wrapper = File.createTempFile("pir-python-", ".sh")
-        wrapper.deleteOnExit()
-        wrapper.writeText("""
-            #!/bin/bash
-            export PYTHONPATH="$projectRoot:${'$'}PYTHONPATH"
-            exec python3 "${'$'}@"
-        """.trimIndent())
-        wrapper.setExecutable(true)
-        return wrapper.absolutePath
     }
 
     protected fun executeFunction(
