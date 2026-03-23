@@ -14,7 +14,7 @@
 
 <p align="center">
   <a href="https://github.com/seqra/opentaint/releases"><img src="https://img.shields.io/github/release/seqra/opentaint.svg" alt="GitHub release"></a>
-  <a href="https://goreportcard.com/report/github.com/seqra/opentaint/v2"><img src="https://goreportcard.com/badge/github.com/seqra/opentaint/v2" alt="Go Report Card"></a>
+  <a href="https://goreportcard.com/report/github.com/seqra/opentaint/cli"><img src="https://goreportcard.com/badge/github.com/seqra/opentaint/cli" alt="Go Report Card"></a>
   <a href="LICENSE.md"><img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License: Apache 2.0"></a>
   <a href="https://golang.org/"><img src="https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go" alt="Go Version"></a>
   <a href="https://discord.gg/6BXDfbP4p9"><img src="https://img.shields.io/discord/1403357427176575036?logo=discord&label=Discord" alt="Discord"></a>
