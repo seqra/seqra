@@ -33,7 +33,7 @@ dependencies {
 }
 
 tasks.test {
-    if (project.hasProperty("allTiers")){
+    if (project.hasProperty("allTiers")) {
         dependsOn(setupWebProjects)
     }
 
