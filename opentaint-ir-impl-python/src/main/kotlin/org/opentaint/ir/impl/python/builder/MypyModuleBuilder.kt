@@ -24,6 +24,8 @@ class MypyModuleBuilder(
     val moduleName: String = astModule.name
     var lambdaCounter = 0
     val lambdaFunctions = mutableListOf<PIRFunctionProto>()
+    var nestedFuncCounter = 0
+    val nestedFunctions = mutableListOf<PIRFunctionProto>()
     private val diagnostics = mutableListOf<PIRDiagnostic>()
     private val typeConverter = TypeConverter()
 
@@ -67,9 +69,10 @@ class MypyModuleBuilder(
         // Build module_init CFG
         val moduleInit = buildModuleInit(dummyModule)
 
-        // Add lambda functions
+        // Add lambda and nested functions
         val lambdaFuncList = lambdaFunctions.map { convertLambdaFunction(it, dummyModule) }
-        val allFunctions = functions + lambdaFuncList
+        val nestedFuncList = nestedFunctions.map { convertLambdaFunction(it, dummyModule) }
+        val allFunctions = functions + lambdaFuncList + nestedFuncList
 
         return PIRModuleImpl(
             name = moduleName,
@@ -210,7 +213,7 @@ class MypyModuleBuilder(
 
         // Build CFG from raw AST body
         val cfgScope = ScopeStack()
-        val cfgBuilder = CfgBuilder(cfgScope, this)
+        val cfgBuilder = CfgBuilder(cfgScope, this, currentFunctionQualifiedName = qualifiedName)
         val cfgProto = try {
             if (funcDef.hasBody()) {
                 cfgBuilder.buildFunctionCfg(funcDef.body)
@@ -349,6 +352,79 @@ class MypyModuleBuilder(
         )
     }
 
+    // ─── Nested function extraction ─────────────────────
+
+    /**
+     * Extract a nested FuncDef from within a function body, building it as a
+     * module-level function (same pattern as lambdas).
+     *
+     * Returns a qualified name that the caller can use to create a GlobalRef.
+     */
+    /**
+     * Returns pair of (uniqueName, qualifiedName) for the extracted function.
+     */
+    fun extractNestedFunction(funcDef: MypyFuncDefProto, enclosingQualifiedName: String): Pair<String, String> {
+        val idx = nestedFuncCounter++
+        // Unique name avoids collisions between nested functions with same name in different outers
+        val uniqueName = "${funcDef.name}\$local$idx"
+        val qualifiedName = "$enclosingQualifiedName.${funcDef.name}"
+
+        // Build the nested function's CFG using a fresh CfgBuilder
+        val nestedScope = ScopeStack()
+        val nestedCfgBuilder = CfgBuilder(nestedScope, this, currentFunctionQualifiedName = qualifiedName)
+        val cfgProto = try {
+            if (funcDef.hasBody()) {
+                nestedCfgBuilder.buildFunctionCfg(funcDef.body)
+            } else {
+                emptyCfgProto()
+            }
+        } catch (e: Exception) {
+            diagnostics.add(PIRDiagnostic(
+                org.opentaint.ir.api.python.PIRDiagnosticSeverity.ERROR,
+                "Failed to build CFG for nested $qualifiedName: ${e.javaClass.simpleName}: ${e.message}",
+                funcDef.name,
+                e.javaClass.simpleName,
+            ))
+            emptyCfgProto()
+        }
+
+        val funcBuilder = PIRFunctionProto.newBuilder()
+            .setName(uniqueName)
+            .setQualifiedName(qualifiedName)
+            .setCfg(cfgProto)
+            .setIsAsync(funcDef.isAsync)
+            .setIsGenerator(funcDef.isGenerator)
+
+        // Parameters
+        for (arg in funcDef.argumentsList) {
+            val kind = when (arg.kind) {
+                2 -> ParameterKind.VAR_POSITIONAL
+                4 -> ParameterKind.VAR_KEYWORD
+                3, 5 -> ParameterKind.KEYWORD_ONLY
+                else -> ParameterKind.POSITIONAL_OR_KEYWORD
+            }
+            val paramBuilder = PIRParameterProto.newBuilder()
+                .setName(arg.name)
+                .setKind(kind)
+                .setHasDefault(arg.hasDefault)
+            if (arg.hasType()) paramBuilder.setType(arg.type)
+            funcBuilder.addParameters(paramBuilder)
+        }
+
+        // Return type
+        if (funcDef.hasReturnType()) {
+            funcBuilder.setReturnType(funcDef.returnType)
+        }
+
+        // Closure vars
+        for (cv in funcDef.closureVarsList) {
+            funcBuilder.addClosureVars(cv)
+        }
+
+        nestedFunctions.add(funcBuilder.build())
+        return Pair(uniqueName, qualifiedName)
+    }
+
     // ─── Helpers ─────────────────────────────────────────
 
     private fun convertLambdaFunction(proto: PIRFunctionProto, module: PIRModule): PIRFunction {
@@ -379,7 +455,7 @@ class MypyModuleBuilder(
             isStaticMethod = false,
             isClassMethod = false,
             isProperty = false,
-            closureVars = emptyList(),
+            closureVars = proto.closureVarsList,
             enclosingClass = null,
             module = module,
         )

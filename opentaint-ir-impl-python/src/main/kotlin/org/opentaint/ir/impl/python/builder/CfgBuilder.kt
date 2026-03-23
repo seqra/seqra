@@ -12,6 +12,7 @@ import org.opentaint.ir.impl.python.proto.*
 class CfgBuilder(
     val scope: ScopeStack,
     val moduleBuilder: MypyModuleBuilder? = null,
+    var currentFunctionQualifiedName: String = "",
 ) {
     val exprLowering = ExpressionLowering(this)
 
@@ -196,7 +197,8 @@ class CfgBuilder(
             stmt.hasAssertStmt() -> visitAssert(stmt.assertStmt, stmt.line)
             stmt.hasPassStmt() -> { /* no-op */ }
             stmt.hasGlobalDecl() -> { /* no-op */ }
-            // FuncDef/ClassDef inside function bodies — skip (handled at module level)
+            stmt.hasFuncDef() -> visitNestedFuncDef(stmt.funcDef, stmt.line)
+            stmt.hasClassDef() -> { /* ClassDef inside function body — skip for now */ }
         }
     }
 
@@ -777,6 +779,35 @@ class CfgBuilder(
                 }
             }
         }
+    }
+
+    // ─── Nested FuncDef ──────────────────────────────────
+
+    private fun visitNestedFuncDef(funcDef: MypyFuncDefProto, line: Int) {
+        val mb = moduleBuilder ?: return
+
+        // Extract the nested function as a module-level function (same pattern as lambdas)
+        val (uniqueName, _) = mb.extractNestedFunction(funcDef, currentFunctionQualifiedName)
+
+        // Emit assignment: funcname = GlobalRef(uniqueName)
+        // Use uniqueName to avoid collisions between inner functions with same name
+        val ref = PIRValueProto.newBuilder()
+            .setGlobalRef(
+                PIRGlobalRefProto.newBuilder()
+                    .setName(uniqueName)
+                    .setModule(mb.moduleName)
+            )
+            .build()
+        val targetName = scope.resolveLocal(funcDef.name)
+        val target = PIRValueProto.newBuilder()
+            .setLocal(PIRLocalProto.newBuilder().setName(targetName))
+            .build()
+        emit(
+            PIRInstructionProto.newBuilder()
+                .setLineNumber(line)
+                .setAssign(PIRAssignProto.newBuilder().setTarget(target).setSource(ref))
+                .build()
+        )
     }
 
     // ─── Assert ────────────────────────────────────────────

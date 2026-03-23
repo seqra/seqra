@@ -18,41 +18,110 @@ import org.opentaint.ir.api.python.*
  */
 class PIRReconstructor {
 
+    // Names of functions emitted as top-level defs (lambdas and nested functions).
+    // When reconstructing an outer function, assignments like `inner = inner` (GlobalRef)
+    // should be skipped since `inner` is already available from module scope.
+    private var currentEmittedFuncNames: Set<String> = emptySet()
+
+    // Captured variables for the current function being reconstructed.
+    // In inner functions: these vars are accessed via __env__['name']
+    // In outer functions: these vars are stored into __env__ dict
+    private var currentCapturedVars: Set<String> = emptySet()
+    // Whether the current function is an inner (nested) function that receives __env__
+    private var currentIsInnerWithEnv: Boolean = false
+    // Mapping: nested function name -> its closureVars (for outer function to know what to pass)
+    private var nestedFuncCaptureMap: Map<String, List<String>> = emptyMap()
+
     fun reconstruct(func: PIRFunction): String {
         return reconstructSingle(func)
     }
 
     /**
-     * Reconstruct a function along with any lambda functions it references.
+     * Reconstruct a function along with any lambda/nested functions it references.
      *
-     * Lambda expressions are lowered to synthetic `<lambda>$N` functions.
-     * This method scans for PIRGlobalRef values matching that pattern,
-     * looks up the corresponding PIRFunction in the classpath, and emits
-     * the lambda as a regular `def` with a sanitized name before the main function.
+     * Nested functions with captured variables use an __env__ dict pattern:
+     * - Inner function: receives __env__ as first parameter, reads/writes captured
+     *   vars via __env__['name']
+     * - Outer function: creates __env__ dict with captured vars, passes it to
+     *   inner function calls
      */
     fun reconstructWithLambdas(func: PIRFunction, cp: PIRClasspath): String {
         val sb = StringBuilder()
-        val lambdaRefs = collectLambdaRefs(func)
+        val lambdaRefs = collectLambdaRefs(func, func.module.name)
+        val emittedFuncNames = mutableSetOf<String>()
+        val captureMap = mutableMapOf<String, List<String>>()
 
-        // Reconstruct each referenced lambda as a top-level def
+        // Find referenced lambda/nested functions
+        val resolvedFuncs = mutableListOf<PIRFunction>()
         for (ref in lambdaRefs) {
-            val qualifiedName = "${func.module.name}.$ref"
-            val lambdaFunc = cp.findFunctionOrNull(qualifiedName)
+            var lambdaFunc = cp.findFunctionOrNull("${func.module.name}.$ref")
+            if (lambdaFunc == null) {
+                for (mod in cp.modules) {
+                    lambdaFunc = mod.functions.find { it.name == ref }
+                    if (lambdaFunc != null) break
+                }
+            }
             if (lambdaFunc != null) {
-                sb.append(reconstructSingle(lambdaFunc))
-                sb.appendLine()
+                resolvedFuncs.add(lambdaFunc)
+                emittedFuncNames.add(ref)
+                if (lambdaFunc.closureVars.isNotEmpty()) {
+                    captureMap[ref] = lambdaFunc.closureVars
+                }
             }
         }
 
-        // Reconstruct the main function
-        sb.append(reconstructSingle(func))
+        // Reconstruct each nested function
+        for (lambdaFunc in resolvedFuncs) {
+            val cvars = lambdaFunc.closureVars.toSet()
+            sb.append(reconstructSingle(lambdaFunc, emittedFuncNames,
+                capturedVars = cvars, isInner = cvars.isNotEmpty()))
+            sb.appendLine()
+        }
+
+        // Collect all captured vars across all nested functions
+        val allCaptured = captureMap.values.flatten().toSet()
+
+        // Build local-var-name -> captures map by scanning the outer CFG for
+        // assignments like: local_var = GlobalRef(nested_func_unique_name)
+        val localVarCaptureMap = mutableMapOf<String, List<String>>()
+        localVarCaptureMap.putAll(captureMap)  // funcName -> captures
+        for (block in func.cfg.blocks) {
+            for (inst in block.instructions) {
+                if (inst is PIRAssign && inst.source is PIRGlobalRef && inst.target is PIRLocal) {
+                    val refName = (inst.source as PIRGlobalRef).name
+                    val localName = (inst.target as PIRLocal).name
+                    if (refName in captureMap && localName != refName) {
+                        localVarCaptureMap[localName] = captureMap[refName]!!
+                    }
+                }
+            }
+        }
+
+        // Reconstruct the outer function
+        nestedFuncCaptureMap = localVarCaptureMap
+        sb.append(reconstructSingle(func, emittedFuncNames,
+            capturedVars = allCaptured, isInner = false))
+        nestedFuncCaptureMap = emptyMap()
         return sb.toString()
     }
 
-    private fun reconstructSingle(func: PIRFunction): String {
+    private fun reconstructSingle(
+        func: PIRFunction,
+        emittedFuncNames: Set<String> = emptySet(),
+        capturedVars: Set<String> = emptySet(),
+        isInner: Boolean = false,
+    ): String {
+        currentEmittedFuncNames = emittedFuncNames
+        currentCapturedVars = capturedVars
+        currentIsInnerWithEnv = isInner
         val sb = StringBuilder()
+
+        val paramNames = func.parameters.map { it.name }.toSet()
+
+        // Inner functions with captures get __env__ as first parameter
         val params = func.parameters.joinToString(", ") { it.name }
-        sb.appendLine("def ${sanitizeFuncName(func.name)}($params):")
+        val fullParams = if (isInner) "__env__, $params" else params
+        sb.appendLine("def ${sanitizeFuncName(func.name)}($fullParams):")
 
         val blocks = func.cfg.blocks
         if (blocks.isEmpty()) {
@@ -60,8 +129,18 @@ class PIRReconstructor {
             return sb.toString()
         }
 
-        // Collect all locals used (except parameters)
-        val paramNames = func.parameters.map { it.name }.toSet()
+        // Outer function with captures: create __env__ dict and seed with params
+        if (!isInner && capturedVars.isNotEmpty()) {
+            sb.appendLine("    __env__ = {}")
+            // Initialize __env__ with parameter values that are captured
+            for (cv in capturedVars.sorted()) {
+                if (cv in paramNames) {
+                    sb.appendLine("    __env__['$cv'] = $cv")
+                }
+            }
+        }
+
+        // Collect all locals used (except parameters, emitted function names, and captured vars)
         val locals = mutableSetOf<String>()
         for (block in blocks) {
             for (inst in block.instructions) {
@@ -69,14 +148,17 @@ class PIRReconstructor {
             }
         }
         locals.removeAll(paramNames)
-        locals.remove("") // remove empty names
+        locals.removeAll(emittedFuncNames)
+        if (isInner) {
+            locals.removeAll(capturedVars)  // Inner: captured vars live in __env__, not as locals
+        }
+        locals.remove("")
 
         // Declare locals
         for (local in locals.sorted()) {
             if (!local.startsWith("\$")) {
                 sb.appendLine("    $local = None")
             } else {
-                // Temp variables use a sanitized name
                 sb.appendLine("    ${sanitize(local)} = None")
             }
         }
@@ -123,22 +205,29 @@ class PIRReconstructor {
     }
 
     /**
-     * Collect all PIRGlobalRef names that look like lambda references (`<lambda>$N`).
+     * Collect all PIRGlobalRef names that are lambda or nested function references.
+     * Includes `<lambda>$N` patterns and any GlobalRef from the same module that
+     * corresponds to an extracted nested function.
      */
-    private fun collectLambdaRefs(func: PIRFunction): Set<String> {
+    private fun collectLambdaRefs(func: PIRFunction, moduleName: String = ""): Set<String> {
         val refs = mutableSetOf<String>()
         for (block in func.cfg.blocks) {
             for (inst in block.instructions) {
-                collectLambdaRefsFromInstruction(inst, refs)
+                collectLambdaRefsFromInstruction(inst, refs, moduleName)
             }
         }
         return refs
     }
 
-    private fun collectLambdaRefsFromInstruction(inst: PIRInstruction, refs: MutableSet<String>) {
+    private fun collectLambdaRefsFromInstruction(inst: PIRInstruction, refs: MutableSet<String>, moduleName: String) {
         fun checkValue(v: PIRValue) {
-            if (v is PIRGlobalRef && v.name.startsWith("<lambda>")) {
-                refs.add(v.name)
+            if (v is PIRGlobalRef) {
+                if (v.name.startsWith("<lambda>")) {
+                    refs.add(v.name)
+                } else if (v.module == moduleName) {
+                    // Same module GlobalRef — candidate nested function (verified during resolution)
+                    refs.add(v.name)
+                }
             }
         }
         when (inst) {
@@ -180,16 +269,53 @@ class PIRReconstructor {
 
     private fun reconstructInstruction(inst: PIRInstruction): List<String> {
         return when (inst) {
-            is PIRAssign -> listOf("${val_(inst.target)} = ${val_(inst.source)}")
+            is PIRAssign -> {
+                // Skip self-assignments for nested function references (inner = GlobalRef("inner"))
+                // but NOT lambda assignments (ident = GlobalRef("<lambda>$6")) where names differ
+                val srcRef = inst.source as? PIRGlobalRef
+                val tgtLocal = inst.target as? PIRLocal
+                val isSelfAssign = srcRef != null && tgtLocal != null
+                    && srcRef.name == tgtLocal.name && srcRef.name in currentEmittedFuncNames
+                if (isSelfAssign) {
+                    emptyList()
+                } else {
+                    val lines = mutableListOf("${val_(inst.target)} = ${val_(inst.source)}")
+                    // Outer function: also store to __env__ if target is a captured var
+                    if (!currentIsInnerWithEnv && inst.target is PIRLocal
+                        && (inst.target as PIRLocal).name in currentCapturedVars) {
+                        val name = (inst.target as PIRLocal).name
+                        lines.add("__env__['$name'] = $name")
+                    }
+                    lines
+                }
+            }
             is PIRBinOp -> listOf("${val_(inst.target)} = ${val_(inst.left)} ${binOp(inst.op)} ${val_(inst.right)}")
             is PIRUnaryOp -> listOf("${val_(inst.target)} = ${unaryOp(inst.op)}${val_(inst.operand)}")
             is PIRCompare -> listOf("${val_(inst.target)} = ${val_(inst.left)} ${cmpOp(inst.op)} ${val_(inst.right)}")
             is PIRCall -> {
                 val argsStr = inst.args.joinToString(", ") { callArg(it) }
-                val call = "${val_(inst.callee)}($argsStr)"
+                // Inject __env__ as first argument if callee is a nested function with captures
+                val calleeName = when (inst.callee) {
+                    is PIRLocal -> (inst.callee as PIRLocal).name
+                    is PIRGlobalRef -> (inst.callee as PIRGlobalRef).name
+                    else -> ""
+                }
+                val needsEnv = !currentIsInnerWithEnv && calleeName in nestedFuncCaptureMap
+                val fullArgs = if (needsEnv) {
+                    if (argsStr.isEmpty()) "__env__" else "__env__, $argsStr"
+                } else argsStr
+                val call = "${val_(inst.callee)}($fullArgs)"
                 val t = inst.target
-                if (t != null) listOf("${val_(t)} = $call")
-                else listOf(call)
+                val lines = mutableListOf<String>()
+                if (t != null) lines.add("${val_(t)} = $call")
+                else lines.add(call)
+                // After calling a nested function, read back captured vars from __env__
+                if (needsEnv) {
+                    for (cv in nestedFuncCaptureMap[calleeName] ?: emptyList()) {
+                        lines.add("$cv = __env__['$cv']")
+                    }
+                }
+                lines
             }
             is PIRLoadAttr -> listOf("${val_(inst.target)} = ${val_(inst.obj)}.${inst.attribute}")
             is PIRStoreAttr -> listOf("${val_(inst.obj)}.${inst.attribute} = ${val_(inst.value)}")
@@ -293,7 +419,13 @@ class PIRReconstructor {
 
     private fun val_(v: PIRValue): String {
         return when (v) {
-            is PIRLocal -> sanitize(v.name)
+            is PIRLocal -> {
+                if (currentIsInnerWithEnv && v.name in currentCapturedVars) {
+                    "__env__['${v.name}']"
+                } else {
+                    sanitize(v.name)
+                }
+            }
             is PIRParameterRef -> v.name
             is PIRIntConst -> v.value.toString()
             is PIRFloatConst -> v.value.toString()

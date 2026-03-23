@@ -453,4 +453,196 @@ def cnf_conditional_nested(flag):
                 "$name should have at least one PIRReturn")
         }
     }
+
+    // ═══════════════════════════════════════════════════════════════
+    // NEW: Nested functions are now extracted as module-level PIRFunctions
+    // Qualified name pattern: __test__.outer_name.inner_name
+    // ═══════════════════════════════════════════════════════════════
+
+    /** Finds a nested function by substring match on qualifiedName within module functions */
+    private fun findNestedFunc(pattern: String): PIRFunction? =
+        cp.modules.flatMap { it.functions }.firstOrNull { it.qualifiedName.contains(pattern) }
+
+    /** Finds all module functions matching a substring pattern */
+    private fun findAllNestedFuncs(pattern: String): List<PIRFunction> =
+        cp.modules.flatMap { it.functions }.filter { it.qualifiedName.contains(pattern) }
+
+    // ─── 18. Nested function IS extracted as a PIRFunction ────
+
+    @Test
+    fun `nested function inner is extracted as PIRFunction`() {
+        val inner = findNestedFunc("cnf_simple_nested.inner")
+        assertNotNull(inner, "inner should be extracted as a module-level PIRFunction")
+    }
+
+    @Test
+    fun `nested function reader is extracted as PIRFunction`() {
+        val reader = findNestedFunc("cnf_closure_read.reader")
+        assertNotNull(reader, "reader should be extracted as a module-level PIRFunction")
+    }
+
+    @Test
+    fun `nested function factory is extracted as PIRFunction`() {
+        val factory = findNestedFunc("cnf_returns_inner.factory")
+        assertNotNull(factory, "factory should be extracted as a module-level PIRFunction")
+    }
+
+    // ─── 19. Nested function has valid CFG with return ────────
+
+    @Test
+    fun `extracted inner function has valid CFG with return`() {
+        val inner = findNestedFunc("cnf_simple_nested.inner")!!
+        assertTrue(inner.cfg.blocks.isNotEmpty(), "inner should have non-empty CFG")
+        val rets = inner.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRReturn>()
+        assertTrue(rets.isNotEmpty(), "inner should have PIRReturn")
+    }
+
+    @Test
+    fun `extracted reader function has valid CFG with return`() {
+        val reader = findNestedFunc("cnf_closure_read.reader")!!
+        assertTrue(reader.cfg.blocks.isNotEmpty(), "reader should have non-empty CFG")
+        val rets = reader.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRReturn>()
+        assertTrue(rets.isNotEmpty(), "reader should have PIRReturn")
+    }
+
+    @Test
+    fun `extracted factory function has valid CFG with return`() {
+        val factory = findNestedFunc("cnf_returns_inner.factory")!!
+        assertTrue(factory.cfg.blocks.isNotEmpty(), "factory should have non-empty CFG")
+        val rets = factory.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRReturn>()
+        assertTrue(rets.isNotEmpty(), "factory should have PIRReturn")
+    }
+
+    // ─── 20. closureVars populated on nested funcs that capture ──
+
+    @Test
+    fun `closureVars contains value for reader that captures outer local`() {
+        val reader = findNestedFunc("cnf_closure_read.reader")!!
+        assertTrue(reader.closureVars.any { it.contains("value") },
+            "reader closureVars should contain 'value', got: ${reader.closureVars}")
+    }
+
+    @Test
+    fun `closureVars contains count for increment using nonlocal`() {
+        val increment = findNestedFunc("cnf_nonlocal_write.increment")!!
+        assertTrue(increment.closureVars.any { it.contains("count") },
+            "increment closureVars should contain 'count', got: ${increment.closureVars}")
+    }
+
+    @Test
+    fun `closureVars contains a and b for swap using nonlocal`() {
+        val swap = findNestedFunc("cnf_nonlocal_multiple.swap")!!
+        val vars = swap.closureVars
+        assertTrue(vars.any { it.contains("a") }, "swap closureVars should contain 'a', got: $vars")
+        assertTrue(vars.any { it.contains("b") }, "swap closureVars should contain 'b', got: $vars")
+    }
+
+    // ─── 21. Deeply nested functions are extracted ────────────
+
+    @Test
+    fun `triple nested - middle is extracted as PIRFunction`() {
+        val middle = findNestedFunc("cnf_triple_nested.middle")
+        assertNotNull(middle, "middle should be extracted from cnf_triple_nested")
+    }
+
+    @Test
+    fun `triple nested - deepest is extracted through double nesting`() {
+        val deepest = findNestedFunc("deepest")
+        assertNotNull(deepest, "deepest should be extracted even through double nesting")
+    }
+
+    @Test
+    fun `four-level nesting - level1 level2 level3 all extracted`() {
+        val level1 = findNestedFunc("cnf_deeply_nested.level1")
+        val level2 = findNestedFunc("level2")
+        val level3 = findNestedFunc("level3")
+        assertNotNull(level1, "level1 should be extracted")
+        assertNotNull(level2, "level2 should be extracted")
+        assertNotNull(level3, "level3 should be extracted")
+    }
+
+    // ─── 22. Qualified name has correct enclosing function prefix ──
+
+    @Test
+    fun `inner qualifiedName contains enclosing function cnf_simple_nested`() {
+        val inner = findNestedFunc("cnf_simple_nested.inner")!!
+        assertTrue(inner.qualifiedName.contains("cnf_simple_nested"),
+            "inner qualifiedName should contain 'cnf_simple_nested', got: ${inner.qualifiedName}")
+    }
+
+    @Test
+    fun `deepest qualifiedName contains enclosing function middle`() {
+        val deepest = findNestedFunc("deepest")!!
+        assertTrue(deepest.qualifiedName.contains("middle"),
+            "deepest qualifiedName should contain 'middle', got: ${deepest.qualifiedName}")
+    }
+
+    @Test
+    fun `middle qualifiedName contains enclosing function cnf_triple_nested`() {
+        val middle = findNestedFunc("cnf_triple_nested.middle")!!
+        assertTrue(middle.qualifiedName.contains("cnf_triple_nested"),
+            "middle qualifiedName should contain 'cnf_triple_nested', got: ${middle.qualifiedName}")
+    }
+
+    // ─── 23. Two inner functions from same outer both extracted ──
+
+    @Test
+    fun `two inner from cnf_two_inner - add_one and double both extracted`() {
+        val addOne = findNestedFunc("cnf_two_inner.add_one")
+        val double = findNestedFunc("cnf_two_inner.double")
+        assertNotNull(addOne, "add_one should be extracted from cnf_two_inner")
+        assertNotNull(double, "double should be extracted from cnf_two_inner")
+    }
+
+    @Test
+    fun `two inner from cnf_two_inner - both have valid CFGs with return`() {
+        val addOne = findNestedFunc("cnf_two_inner.add_one")!!
+        val double = findNestedFunc("cnf_two_inner.double")!!
+        assertTrue(addOne.cfg.blocks.isNotEmpty(), "add_one should have non-empty CFG")
+        assertTrue(double.cfg.blocks.isNotEmpty(), "double should have non-empty CFG")
+        assertTrue(addOne.cfg.blocks.flatMap { it.instructions }.any { it is PIRReturn },
+            "add_one should have PIRReturn")
+        assertTrue(double.cfg.blocks.flatMap { it.instructions }.any { it is PIRReturn },
+            "double should have PIRReturn")
+    }
+
+    @Test
+    fun `two inner from cnf_inner_calls_inner - helper and caller both extracted`() {
+        val helper = findNestedFunc("cnf_inner_calls_inner.helper")
+        val caller = findNestedFunc("cnf_inner_calls_inner.caller")
+        assertNotNull(helper, "helper should be extracted from cnf_inner_calls_inner")
+        assertNotNull(caller, "caller should be extracted from cnf_inner_calls_inner")
+    }
+
+    // ─── 24. Closure over loop variable ──────────────────────
+
+    @Test
+    fun `closure over loop - make is extracted as PIRFunction`() {
+        val make = findNestedFunc("cnf_closure_over_loop.make")
+        assertNotNull(make, "make should be extracted from cnf_closure_over_loop")
+    }
+
+    @Test
+    fun `closure over loop - make has val_i default parameter`() {
+        val make = findNestedFunc("cnf_closure_over_loop.make")!!
+        val paramNames = make.parameters.map { it.name }
+        assertTrue(paramNames.any { it.contains("val_i") },
+            "make should have val_i default parameter, got params: $paramNames")
+    }
+
+    // ─── 25. Nonlocal variables appear in closureVars ─────────
+
+    @Test
+    fun `nonlocal count - increment closureVars is non-empty`() {
+        val increment = findNestedFunc("cnf_nonlocal_write.increment")!!
+        assertTrue(increment.closureVars.isNotEmpty(),
+            "increment should have non-empty closureVars due to 'nonlocal count'")
+    }
+
+    @Test
+    fun `nonlocal a b - swap has at least two closureVars`() {
+        val swap = findNestedFunc("cnf_nonlocal_multiple.swap")!!
+        assertTrue(swap.closureVars.size >= 2,
+            "swap should have at least 2 closureVars for 'a' and 'b', got: ${swap.closureVars}")
+    }
 }

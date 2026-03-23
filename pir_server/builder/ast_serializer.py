@@ -34,6 +34,7 @@ from mypy.nodes import (
     AssertStmt,
     PassStmt,
     GlobalDecl,
+    NonlocalDecl,
     OperatorAssignmentStmt,
     IntExpr,
     StrExpr,
@@ -264,13 +265,26 @@ class AstSerializer:
 
     def _serialize_block(self, block: Block) -> pir_pb2.MypyBlockProto:
         proto = pir_pb2.MypyBlockProto()
+        # Collect names of nested FuncDef/Decorator in this block
+        # so nested functions can exclude sibling names from closure_vars
+        sibling_func_names = set()
         for stmt in block.body:
-            s = self._serialize_stmt(stmt)
+            func_def = (
+                self._unwrap_func(stmt)
+                if isinstance(stmt, (FuncDef, Decorator, OverloadedFuncDef))
+                else None
+            )
+            if func_def:
+                sibling_func_names.add(func_def.name)
+        for stmt in block.body:
+            s = self._serialize_stmt(stmt, sibling_func_names)
             if s is not None:
                 proto.stmts.append(s)
         return proto
 
-    def _serialize_stmt(self, stmt) -> pir_pb2.MypyStmtProto | None:
+    def _serialize_stmt(
+        self, stmt, sibling_func_names: set[str] | None = None
+    ) -> pir_pb2.MypyStmtProto | None:
         line = getattr(stmt, "line", -1)
         col = getattr(stmt, "column", 0)
         proto = pir_pb2.MypyStmtProto(line=line, col=col)
@@ -389,7 +403,12 @@ class AstSerializer:
         elif isinstance(stmt, (FuncDef, Decorator, OverloadedFuncDef)):
             func_def = self._unwrap_func(stmt)
             if func_def:
-                proto.func_def.CopyFrom(self._serialize_func_def(func_def))
+                func_proto = self._serialize_func_def(func_def)
+                # Populate closure_vars for nested function definitions
+                free_vars = self._collect_free_vars(func_def, sibling_func_names)
+                for fv in free_vars:
+                    func_proto.closure_vars.append(fv)
+                proto.func_def.CopyFrom(func_proto)
         elif isinstance(stmt, ClassDef):
             proto.class_def.CopyFrom(self._serialize_class_def(stmt))
         elif isinstance(stmt, Block):
@@ -676,6 +695,252 @@ class AstSerializer:
             if defn.items:
                 return self._unwrap_func(defn.items[0])
         return None
+
+    def _collect_free_vars(
+        self, func_def: FuncDef, sibling_func_names: set[str] | None = None
+    ) -> list[str]:
+        """Collect free variable names referenced in a nested function body.
+
+        Free variables are names used in the function body that are NOT:
+        - function parameters
+        - assigned locally (simple assignment targets)
+        - global/nonlocal declarations
+        - builtin names
+        - sibling nested function names (they're extracted separately)
+        """
+        param_names = set()
+        for arg in func_def.arguments:
+            if arg.variable:
+                param_names.add(arg.variable.name)
+
+        local_defs = set()
+        referenced = set()
+        nonlocal_names = set()
+
+        def _scan_expr(expr):
+            """Recursively collect NameExpr references from an expression."""
+            if expr is None:
+                return
+            if isinstance(expr, NameExpr):
+                referenced.add(expr.name)
+            elif isinstance(expr, MemberExpr):
+                _scan_expr(expr.expr)
+            elif isinstance(expr, (OpExpr, ComparisonExpr)):
+                if isinstance(expr, OpExpr):
+                    _scan_expr(expr.left)
+                    _scan_expr(expr.right)
+                elif isinstance(expr, ComparisonExpr):
+                    for op in expr.operands:
+                        _scan_expr(op)
+            elif isinstance(expr, UnaryExpr):
+                _scan_expr(expr.expr)
+            elif isinstance(expr, CallExpr):
+                _scan_expr(expr.callee)
+                for a in expr.args:
+                    _scan_expr(a)
+            elif isinstance(expr, IndexExpr):
+                _scan_expr(expr.base)
+                _scan_expr(expr.index)
+            elif isinstance(expr, (ListExpr, TupleExpr, SetExpr)):
+                for item in expr.items:
+                    _scan_expr(item)
+            elif isinstance(expr, DictExpr):
+                for k, v in zip(expr.keys, expr.values):
+                    _scan_expr(k)
+                    _scan_expr(v)
+            elif isinstance(expr, ConditionalExpr):
+                _scan_expr(expr.cond)
+                _scan_expr(expr.if_expr)
+                _scan_expr(expr.else_expr)
+            elif isinstance(expr, StarExpr):
+                _scan_expr(expr.expr)
+            elif isinstance(expr, AssignmentExpr):
+                _scan_expr(expr.target)
+                _scan_expr(expr.value)
+            elif isinstance(expr, SliceExpr):
+                _scan_expr(expr.begin_index)
+                _scan_expr(expr.end_index)
+                _scan_expr(expr.stride)
+            elif isinstance(expr, YieldExpr):
+                _scan_expr(expr.expr)
+            elif isinstance(expr, YieldFromExpr):
+                _scan_expr(expr.expr)
+            elif isinstance(expr, AwaitExpr):
+                _scan_expr(expr.expr)
+            elif isinstance(expr, LambdaExpr):
+                # Lambda captures its own scope; skip
+                pass
+            elif isinstance(
+                expr,
+                (
+                    ListComprehension,
+                    SetComprehension,
+                    DictionaryComprehension,
+                    GeneratorExpr,
+                ),
+            ):
+                # Comprehensions have their own scope; skip
+                pass
+
+        def _scan_stmt(stmt):
+            """Recursively collect local defs and referenced names from statements."""
+            if isinstance(stmt, AssignmentStmt):
+                for lv in stmt.lvalues:
+                    if isinstance(lv, NameExpr):
+                        local_defs.add(lv.name)
+                    elif isinstance(lv, (TupleExpr, ListExpr)):
+                        for item in lv.items:
+                            if isinstance(item, NameExpr):
+                                local_defs.add(item.name)
+                _scan_expr(stmt.rvalue)
+            elif isinstance(stmt, OperatorAssignmentStmt):
+                if isinstance(stmt.lvalue, NameExpr):
+                    local_defs.add(stmt.lvalue.name)
+                _scan_expr(stmt.rvalue)
+            elif isinstance(stmt, (FuncDef, Decorator, OverloadedFuncDef)):
+                # Nested function inside nested function — skip
+                pass
+            elif isinstance(stmt, ReturnStmt):
+                _scan_expr(stmt.expr)
+            elif isinstance(stmt, ExpressionStmt):
+                _scan_expr(stmt.expr)
+            elif isinstance(stmt, IfStmt):
+                for e in stmt.expr:
+                    _scan_expr(e)
+                for b in stmt.body:
+                    _scan_block(b)
+                if stmt.else_body:
+                    _scan_block(stmt.else_body)
+            elif isinstance(stmt, WhileStmt):
+                _scan_expr(stmt.expr)
+                _scan_block(stmt.body)
+                if stmt.else_body:
+                    _scan_block(stmt.else_body)
+            elif isinstance(stmt, ForStmt):
+                if isinstance(stmt.index, NameExpr):
+                    local_defs.add(stmt.index.name)
+                _scan_expr(stmt.expr)
+                _scan_block(stmt.body)
+                if stmt.else_body:
+                    _scan_block(stmt.else_body)
+            elif isinstance(stmt, WithStmt):
+                for target in stmt.target:
+                    if target and isinstance(target, NameExpr):
+                        local_defs.add(target.name)
+                for expr_node in stmt.expr:
+                    _scan_expr(expr_node)
+                _scan_block(stmt.body)
+            elif isinstance(stmt, TryStmt):
+                _scan_block(stmt.body)
+                for handler in stmt.handlers:
+                    _scan_block(handler)
+                if stmt.else_body:
+                    _scan_block(stmt.else_body)
+                if stmt.finally_body:
+                    _scan_block(stmt.finally_body)
+                for v in stmt.vars:
+                    if v and isinstance(v, NameExpr):
+                        local_defs.add(v.name)
+            elif isinstance(stmt, RaiseStmt):
+                _scan_expr(stmt.expr)
+                _scan_expr(stmt.from_expr)
+            elif isinstance(stmt, DelStmt):
+                _scan_expr(stmt.expr)
+            elif isinstance(stmt, AssertStmt):
+                _scan_expr(stmt.expr)
+                _scan_expr(stmt.msg)
+            elif isinstance(stmt, GlobalDecl):
+                pass  # global names are not free vars
+            elif isinstance(stmt, NonlocalDecl):
+                nonlocal_names.update(stmt.names)
+            # PassStmt, BreakStmt, ContinueStmt — no-op
+
+        def _scan_block(block):
+            if block and hasattr(block, "body"):
+                for s in block.body:
+                    _scan_stmt(s)
+
+        _scan_block(func_def.body)
+
+        # Free vars = referenced - params - locally defined
+        free = referenced - param_names - local_defs
+        # Remove common builtins
+        builtins_names = {
+            "True",
+            "False",
+            "None",
+            "print",
+            "len",
+            "range",
+            "int",
+            "str",
+            "float",
+            "bool",
+            "list",
+            "dict",
+            "set",
+            "tuple",
+            "type",
+            "super",
+            "isinstance",
+            "issubclass",
+            "hasattr",
+            "getattr",
+            "setattr",
+            "delattr",
+            "callable",
+            "iter",
+            "next",
+            "enumerate",
+            "zip",
+            "map",
+            "filter",
+            "sorted",
+            "reversed",
+            "sum",
+            "min",
+            "max",
+            "abs",
+            "all",
+            "any",
+            "repr",
+            "hash",
+            "id",
+            "input",
+            "open",
+            "chr",
+            "ord",
+            "hex",
+            "oct",
+            "bin",
+            "format",
+            "object",
+            "property",
+            "staticmethod",
+            "classmethod",
+            "ValueError",
+            "TypeError",
+            "RuntimeError",
+            "KeyError",
+            "IndexError",
+            "AttributeError",
+            "StopIteration",
+            "Exception",
+            "BaseException",
+            "NotImplementedError",
+            "AssertionError",
+            "OSError",
+            "IOError",
+            "FileNotFoundError",
+            "PermissionError",
+        }
+        free -= builtins_names
+        # Exclude sibling nested function names (they're extracted separately, not captured)
+        if sibling_func_names:
+            free -= sibling_func_names
+        # Add nonlocal names back (they ARE captured)
+        free |= nonlocal_names
+        return sorted(free)
 
     def _collect_imports(self) -> list[str]:
         imports = []
