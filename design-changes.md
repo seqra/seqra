@@ -117,3 +117,20 @@ This document tracks deviations from the original design and bugs discovered dur
 1. Python AST serializer: Changed `_serialize_definition()` to `_serialize_definitions()` returning a list, and for `OverloadedFuncDef` serialize ALL items (getter + setter + deleter), not just the first. Also pass `enclosing_class` through `_serialize_decorator_def`.
 2. Kotlin MypyModuleBuilder: After building all class methods, group property methods by name. Getter detected by `isProperty=true` flag, setter by having more params than getter (`self + value` vs `self`), deleter by same params as getter but appearing after it.
 **Files**: `pir_server/builder/ast_serializer.py`, `opentaint-ir-impl-python/src/main/kotlin/org/opentaint/ir/impl/python/builder/MypyModuleBuilder.kt`
+
+### DC-20: Local Function Extraction with Closure Variable Capture
+**Original design**: Nested functions inside function bodies were silently skipped by CfgBuilder. No PIRFunction was created for them.
+**Problem**: Code patterns like closures, factory functions, and local helpers were completely lost in the IR — the inner function's body was invisible, and calls to it were unresolved.
+**Fix**: Multi-component fix:
+1. **CfgBuilder**: Added `visitNestedFuncDef()` — when encountering a FuncDef statement, extracts it via `MypyModuleBuilder.extractNestedFunction()` and emits `local = GlobalRef(uniqueName)`.
+2. **MypyModuleBuilder**: Added `extractNestedFunction()` that builds a fresh CFG for the inner function, assigns a unique name (`funcName$localN`), and appends to `nestedFunctions` list (module-level, like lambdas).
+3. **Python AST serializer**: Added `_collect_free_vars()` that analyzes nested function bodies to identify captured variables (free variables not in params/locals/builtins). Populates `closure_vars` on the proto.
+4. **PIRReconstructor**: Implements env-dict pattern for closure variable passing:
+   - Inner functions with captures receive `__env__` dict as first parameter
+   - Captured variable reads/writes become `__env__['name']`
+   - Outer function creates `__env__ = {}`, seeds with captured params
+   - Call sites inject `__env__` as first arg for functions with captures
+   - After calls, reads back captured vars from `__env__` (for nonlocal writes)
+5. **Default parameter values**: Added `default_value` field to `PIRParameterProto` and `PIRParameter` API. `evalConstExpr()` evaluates constant AST expressions to PIRValueProto.
+**Limitations**: Multi-level nesting (function inside function inside function) not yet supported in round-trip reconstruction (5 tests).
+**Files**: `CfgBuilder.kt`, `MypyModuleBuilder.kt`, `PIRReconstructor.kt`, `ast_serializer.py`, `pir.proto`, `Entities.kt`, `PIRImplData.kt`
