@@ -935,9 +935,6 @@ class AstSerializer:
             "PermissionError",
         }
         free -= builtins_names
-        # Exclude sibling nested function names (they're extracted separately, not captured)
-        if sibling_func_names:
-            free -= sibling_func_names
         # Add nonlocal names back (they ARE captured)
         free |= nonlocal_names
         return sorted(free)

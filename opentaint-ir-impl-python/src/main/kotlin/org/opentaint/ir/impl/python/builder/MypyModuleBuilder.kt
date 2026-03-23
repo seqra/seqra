@@ -241,7 +241,7 @@ class MypyModuleBuilder(
                 else -> PIRParameterKind.POSITIONAL_OR_KEYWORD
             }
             val type = if (arg.hasType()) typeConverter.convert(arg.type) else PIRAnyType
-            PIRParameterImpl(arg.name, type, kind, arg.hasDefault, idx)
+            PIRParameterImpl(arg.name, type, kind, arg.hasDefault, null, idx)
         }
 
         val returnType = if (funcDef.hasReturnType()) {
@@ -408,6 +408,11 @@ class MypyModuleBuilder(
                 .setKind(kind)
                 .setHasDefault(arg.hasDefault)
             if (arg.hasType()) paramBuilder.setType(arg.type)
+            // Carry default value through for nested functions
+            if (arg.hasDefault && arg.hasDefaultValue()) {
+                val defaultVal = evalConstExpr(arg.defaultValue)
+                if (defaultVal != null) paramBuilder.setDefaultValue(defaultVal)
+            }
             funcBuilder.addParameters(paramBuilder)
         }
 
@@ -438,7 +443,8 @@ class MypyModuleBuilder(
                 else -> PIRParameterKind.POSITIONAL_OR_KEYWORD
             }
             val type = if (p.hasType()) typeConverter.convert(p.type) else PIRAnyType
-            PIRParameterImpl(p.name, type, kind, p.hasDefault, idx)
+            val defVal = if (p.hasDefaultValue()) vc.convert(p.defaultValue) else null
+            PIRParameterImpl(p.name, type, kind, p.hasDefault, defVal, idx)
         }
         val returnType = if (proto.hasReturnType()) typeConverter.convert(proto.returnType) else PIRAnyType
         val cfg = ic.convertCFG(proto.cfg)
@@ -459,6 +465,32 @@ class MypyModuleBuilder(
             enclosingClass = null,
             module = module,
         )
+    }
+
+    /** Try to evaluate a MypyExprProto to a constant PIRValueProto. Returns null for complex expressions. */
+    private fun evalConstExpr(expr: MypyExprProto): PIRValueProto? {
+        fun constVal(builder: PIRConstProto.Builder): PIRValueProto =
+            PIRValueProto.newBuilder().setConstVal(builder).build()
+        return when (expr.kindCase) {
+            MypyExprProto.KindCase.INT_EXPR ->
+                constVal(PIRConstProto.newBuilder().setIntValue(expr.intExpr.value))
+            MypyExprProto.KindCase.FLOAT_EXPR ->
+                constVal(PIRConstProto.newBuilder().setFloatValue(expr.floatExpr.value))
+            MypyExprProto.KindCase.STR_EXPR ->
+                constVal(PIRConstProto.newBuilder().setStringValue(expr.strExpr.value))
+            MypyExprProto.KindCase.BYTES_EXPR ->
+                constVal(PIRConstProto.newBuilder().setStringValue(expr.bytesExpr.value.toStringUtf8()))
+            MypyExprProto.KindCase.NAME_EXPR -> {
+                val name = expr.nameExpr.name
+                when (name) {
+                    "True" -> constVal(PIRConstProto.newBuilder().setBoolValue(true))
+                    "False" -> constVal(PIRConstProto.newBuilder().setBoolValue(false))
+                    "None" -> constVal(PIRConstProto.newBuilder().setNoneValue(true))
+                    else -> null
+                }
+            }
+            else -> null
+        }
     }
 
     private fun emptyCfgProto(): PIRCFGProto {

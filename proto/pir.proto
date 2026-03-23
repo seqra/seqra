@@ -126,6 +126,7 @@ message PIRParameterProto {
   PIRTypeProto type = 2;
   ParameterKind kind = 3;
   bool has_default = 4;
+  PIRValueProto default_value = 5;  // Default value (if has_default is true)
 }
 
 enum ParameterKind {

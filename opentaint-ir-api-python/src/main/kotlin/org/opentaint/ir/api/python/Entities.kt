@@ -103,6 +103,7 @@ interface PIRParameter {
     val type: PIRType
     val kind: PIRParameterKind
     val hasDefault: Boolean
+    val defaultValue: PIRValue?
     val index: Int
 }
 

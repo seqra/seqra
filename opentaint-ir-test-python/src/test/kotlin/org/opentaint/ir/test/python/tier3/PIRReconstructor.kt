@@ -119,7 +119,13 @@ class PIRReconstructor {
         val paramNames = func.parameters.map { it.name }.toSet()
 
         // Inner functions with captures get __env__ as first parameter
-        val params = func.parameters.joinToString(", ") { it.name }
+        val params = func.parameters.joinToString(", ") { p ->
+            if (p.hasDefault && p.defaultValue != null) {
+                "${p.name}=${val_(p.defaultValue!!)}"
+            } else {
+                p.name
+            }
+        }
         val fullParams = if (isInner) "__env__, $params" else params
         sb.appendLine("def ${sanitizeFuncName(func.name)}($fullParams):")
 

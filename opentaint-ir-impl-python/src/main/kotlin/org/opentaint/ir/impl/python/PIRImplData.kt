@@ -54,6 +54,7 @@ data class PIRParameterImpl(
     override val type: PIRType,
     override val kind: PIRParameterKind,
     override val hasDefault: Boolean,
+    override val defaultValue: PIRValue? = null,
     override val index: Int,
 ) : PIRParameter
 
