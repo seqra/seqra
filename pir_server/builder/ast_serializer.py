@@ -165,28 +165,13 @@ class AstSerializer:
                 for mro_item in class_def.info.mro:
                     proto.mro.append(mro_item.fullname)
             proto.is_abstract = class_def.info.is_abstract
-            # Detect dataclass
+            # is_dataclass and is_enum are computed on the Kotlin side from
+            # base_classes and decorators. Pass raw metadata flag only.
             if (
                 hasattr(class_def.info, "metadata")
                 and "dataclass" in class_def.info.metadata
             ):
                 proto.is_dataclass = True
-            elif any(
-                hasattr(d, "name") and d.name == "dataclass"
-                for d in getattr(class_def, "decorators", [])
-            ):
-                proto.is_dataclass = True
-            # Detect enum
-            for base in class_def.info.bases:
-                if hasattr(base, "type") and hasattr(base.type, "fullname"):
-                    if base.type.fullname in (
-                        "enum.Enum",
-                        "enum.IntEnum",
-                        "enum.Flag",
-                        "enum.IntFlag",
-                    ):
-                        proto.is_enum = True
-                        break
 
         # Class body
         for defn in class_def.defs.body:
@@ -198,8 +183,12 @@ class AstSerializer:
     def _serialize_func_def(
         self, func_def: FuncDef, enclosing_class: str | None = None
     ) -> pir_pb2.MypyFuncDefProto:
+        # Use mypy's native fullname when available, fall back to manual construction
+        native_fullname = getattr(func_def, "fullname", "") or ""
         if enclosing_class:
             fullname = f"{self.module_name}.{enclosing_class}.{func_def.name}"
+        elif native_fullname and "." in native_fullname:
+            fullname = native_fullname
         else:
             fullname = f"{self.module_name}.{func_def.name}"
 
@@ -266,9 +255,7 @@ class AstSerializer:
                 proto.stmts.append(s)
         return proto
 
-    def _serialize_stmt(
-        self, stmt
-    ) -> pir_pb2.MypyStmtProto | None:
+    def _serialize_stmt(self, stmt) -> pir_pb2.MypyStmtProto | None:
         line = getattr(stmt, "line", -1)
         col = getattr(stmt, "column", 0)
         proto = pir_pb2.MypyStmtProto(line=line, col=col)
@@ -387,16 +374,14 @@ class AstSerializer:
         elif isinstance(stmt, (FuncDef, Decorator, OverloadedFuncDef)):
             func_def = self._unwrap_func(stmt)
             if func_def:
-                func_proto = self._serialize_func_def(func_def)
-                # Populate closure_vars for nested function definitions
-                free_vars = self._collect_free_vars(func_def)
-                for fv in free_vars:
-                    func_proto.closure_vars.append(fv)
-                proto.func_def.CopyFrom(func_proto)
+                # closure_vars computed on Kotlin side via FreeVarAnalyzer
+                proto.func_def.CopyFrom(self._serialize_func_def(func_def))
         elif isinstance(stmt, ClassDef):
             proto.class_def.CopyFrom(self._serialize_class_def(stmt))
         elif isinstance(stmt, NonlocalDecl):
-            return None
+            proto.nonlocal_decl.CopyFrom(
+                pir_pb2.MypyNonlocalDeclProto(names=list(stmt.names))
+            )
         elif isinstance(stmt, Block):
             # Inline block — serialize each statement
             # Return None and let caller handle
@@ -475,13 +460,7 @@ class AstSerializer:
             if expr.node is not None:
                 fullname = getattr(expr.node, "fullname", "") or ""
             name_proto.fullname = fullname
-            # Determine kind
-            if expr.name in ("True", "False", "None"):
-                name_proto.name_kind = pir_pb2.NAME_BUILTIN
-            elif fullname and "." in fullname:
-                name_proto.name_kind = pir_pb2.NAME_GLOBAL
-            else:
-                name_proto.name_kind = pir_pb2.NAME_LOCAL
+            # name_kind classification computed on the Kotlin side
             proto.name_expr.CopyFrom(name_proto)
         elif isinstance(expr, MemberExpr):
             member_proto = pir_pb2.MypyMemberExprProto(
@@ -682,247 +661,7 @@ class AstSerializer:
                 return self._unwrap_func(defn.items[0])
         return None
 
-    def _collect_free_vars(
-        self, func_def: FuncDef
-    ) -> list[str]:
-        """Collect free variable names referenced in a nested function body.
-
-        Free variables are names used in the function body that are NOT:
-        - function parameters
-        - assigned locally (simple assignment targets)
-        - global/nonlocal declarations
-        - builtin names
-        """
-        param_names = set()
-        for arg in func_def.arguments:
-            if arg.variable:
-                param_names.add(arg.variable.name)
-
-        local_defs = set()
-        referenced = set()
-        nonlocal_names = set()
-
-        def _scan_expr(expr):
-            """Recursively collect NameExpr references from an expression."""
-            if expr is None:
-                return
-            if isinstance(expr, NameExpr):
-                referenced.add(expr.name)
-            elif isinstance(expr, MemberExpr):
-                _scan_expr(expr.expr)
-            elif isinstance(expr, (OpExpr, ComparisonExpr)):
-                if isinstance(expr, OpExpr):
-                    _scan_expr(expr.left)
-                    _scan_expr(expr.right)
-                elif isinstance(expr, ComparisonExpr):
-                    for op in expr.operands:
-                        _scan_expr(op)
-            elif isinstance(expr, UnaryExpr):
-                _scan_expr(expr.expr)
-            elif isinstance(expr, CallExpr):
-                _scan_expr(expr.callee)
-                for a in expr.args:
-                    _scan_expr(a)
-            elif isinstance(expr, IndexExpr):
-                _scan_expr(expr.base)
-                _scan_expr(expr.index)
-            elif isinstance(expr, (ListExpr, TupleExpr, SetExpr)):
-                for item in expr.items:
-                    _scan_expr(item)
-            elif isinstance(expr, DictExpr):
-                for k, v in zip(expr.keys, expr.values):
-                    _scan_expr(k)
-                    _scan_expr(v)
-            elif isinstance(expr, ConditionalExpr):
-                _scan_expr(expr.cond)
-                _scan_expr(expr.if_expr)
-                _scan_expr(expr.else_expr)
-            elif isinstance(expr, StarExpr):
-                _scan_expr(expr.expr)
-            elif isinstance(expr, AssignmentExpr):
-                _scan_expr(expr.target)
-                _scan_expr(expr.value)
-            elif isinstance(expr, SliceExpr):
-                _scan_expr(expr.begin_index)
-                _scan_expr(expr.end_index)
-                _scan_expr(expr.stride)
-            elif isinstance(expr, YieldExpr):
-                _scan_expr(expr.expr)
-            elif isinstance(expr, YieldFromExpr):
-                _scan_expr(expr.expr)
-            elif isinstance(expr, AwaitExpr):
-                _scan_expr(expr.expr)
-            elif isinstance(expr, LambdaExpr):
-                # Lambda captures its own scope; skip
-                pass
-            elif isinstance(
-                expr,
-                (
-                    ListComprehension,
-                    SetComprehension,
-                    DictionaryComprehension,
-                    GeneratorExpr,
-                ),
-            ):
-                # Comprehensions have their own scope; skip
-                pass
-
-        def _scan_stmt(stmt):
-            """Recursively collect local defs and referenced names from statements."""
-            if isinstance(stmt, AssignmentStmt):
-                for lv in stmt.lvalues:
-                    if isinstance(lv, NameExpr):
-                        local_defs.add(lv.name)
-                    elif isinstance(lv, (TupleExpr, ListExpr)):
-                        for item in lv.items:
-                            if isinstance(item, NameExpr):
-                                local_defs.add(item.name)
-                _scan_expr(stmt.rvalue)
-            elif isinstance(stmt, OperatorAssignmentStmt):
-                if isinstance(stmt.lvalue, NameExpr):
-                    local_defs.add(stmt.lvalue.name)
-                _scan_expr(stmt.rvalue)
-            elif isinstance(stmt, (FuncDef, Decorator, OverloadedFuncDef)):
-                # Nested function inside nested function — skip
-                pass
-            elif isinstance(stmt, ReturnStmt):
-                _scan_expr(stmt.expr)
-            elif isinstance(stmt, ExpressionStmt):
-                _scan_expr(stmt.expr)
-            elif isinstance(stmt, IfStmt):
-                for e in stmt.expr:
-                    _scan_expr(e)
-                for b in stmt.body:
-                    _scan_block(b)
-                if stmt.else_body:
-                    _scan_block(stmt.else_body)
-            elif isinstance(stmt, WhileStmt):
-                _scan_expr(stmt.expr)
-                _scan_block(stmt.body)
-                if stmt.else_body:
-                    _scan_block(stmt.else_body)
-            elif isinstance(stmt, ForStmt):
-                if isinstance(stmt.index, NameExpr):
-                    local_defs.add(stmt.index.name)
-                _scan_expr(stmt.expr)
-                _scan_block(stmt.body)
-                if stmt.else_body:
-                    _scan_block(stmt.else_body)
-            elif isinstance(stmt, WithStmt):
-                for target in stmt.target:
-                    if target and isinstance(target, NameExpr):
-                        local_defs.add(target.name)
-                for expr_node in stmt.expr:
-                    _scan_expr(expr_node)
-                _scan_block(stmt.body)
-            elif isinstance(stmt, TryStmt):
-                _scan_block(stmt.body)
-                for handler in stmt.handlers:
-                    _scan_block(handler)
-                if stmt.else_body:
-                    _scan_block(stmt.else_body)
-                if stmt.finally_body:
-                    _scan_block(stmt.finally_body)
-                for v in stmt.vars:
-                    if v and isinstance(v, NameExpr):
-                        local_defs.add(v.name)
-            elif isinstance(stmt, RaiseStmt):
-                _scan_expr(stmt.expr)
-                _scan_expr(stmt.from_expr)
-            elif isinstance(stmt, DelStmt):
-                _scan_expr(stmt.expr)
-            elif isinstance(stmt, AssertStmt):
-                _scan_expr(stmt.expr)
-                _scan_expr(stmt.msg)
-            elif isinstance(stmt, GlobalDecl):
-                pass  # global names are not free vars
-            elif isinstance(stmt, NonlocalDecl):
-                nonlocal_names.update(stmt.names)
-            # PassStmt, BreakStmt, ContinueStmt — no-op
-
-        def _scan_block(block):
-            if block and hasattr(block, "body"):
-                for s in block.body:
-                    _scan_stmt(s)
-
-        _scan_block(func_def.body)
-
-        # Free vars = referenced - params - locally defined
-        free = referenced - param_names - local_defs
-        # Remove common builtins
-        builtins_names = {
-            "True",
-            "False",
-            "None",
-            "print",
-            "len",
-            "range",
-            "int",
-            "str",
-            "float",
-            "bool",
-            "list",
-            "dict",
-            "set",
-            "tuple",
-            "type",
-            "super",
-            "isinstance",
-            "issubclass",
-            "hasattr",
-            "getattr",
-            "setattr",
-            "delattr",
-            "callable",
-            "iter",
-            "next",
-            "enumerate",
-            "zip",
-            "map",
-            "filter",
-            "sorted",
-            "reversed",
-            "sum",
-            "min",
-            "max",
-            "abs",
-            "all",
-            "any",
-            "repr",
-            "hash",
-            "id",
-            "input",
-            "open",
-            "chr",
-            "ord",
-            "hex",
-            "oct",
-            "bin",
-            "format",
-            "object",
-            "property",
-            "staticmethod",
-            "classmethod",
-            "ValueError",
-            "TypeError",
-            "RuntimeError",
-            "KeyError",
-            "IndexError",
-            "AttributeError",
-            "StopIteration",
-            "Exception",
-            "BaseException",
-            "NotImplementedError",
-            "AssertionError",
-            "OSError",
-            "IOError",
-            "FileNotFoundError",
-            "PermissionError",
-        }
-        free -= builtins_names
-        # Add nonlocal names back (they ARE captured)
-        free |= nonlocal_names
-        return sorted(free)
+    # _collect_free_vars logic migrated to Kotlin FreeVarAnalyzer
 
     def _collect_imports(self) -> list[str]:
         imports = []

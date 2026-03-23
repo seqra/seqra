@@ -688,7 +688,12 @@ message MypyStmtProto {
     MypyGlobalDeclProto global_decl = 25;
     MypyFuncDefProto func_def = 26;
     MypyClassDefProto class_def = 27;
+    MypyNonlocalDeclProto nonlocal_decl = 28;
   }
+}
+
+message MypyNonlocalDeclProto {
+  repeated string names = 1;
 }
 
 message MypyAssignmentStmtProto {

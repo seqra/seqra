@@ -21,6 +21,12 @@ class MypyModuleBuilder(
     private val astModule: MypyModuleProto,
     private val classpath: PIRClasspath? = null,
 ) {
+    companion object {
+        private val ENUM_BASE_CLASSES = setOf(
+            "enum.Enum", "enum.IntEnum", "enum.Flag", "enum.IntFlag",
+        )
+    }
+
     val moduleName: String = astModule.name
     var lambdaCounter = 0
     val lambdaFunctions = mutableListOf<PIRFunctionProto>()
@@ -166,6 +172,10 @@ class MypyModuleBuilder(
             properties.add(PIRPropertyImpl(propName, propType, getter, setter, deleter))
         }
 
+        // Compute flags from raw data (migrated from Python serializer)
+        val isEnum = classDef.baseClassesList.any { it in ENUM_BASE_CLASSES }
+        val isDataclass = classDef.isDataclass || decorators.any { it.name == "dataclass" }
+
         val cls = PIRClassImpl(
             name = classDef.name,
             qualifiedName = classDef.fullname.ifEmpty { "$moduleName.${classDef.name}" },
@@ -177,8 +187,8 @@ class MypyModuleBuilder(
             properties = properties,
             decorators = decorators,
             isAbstract = classDef.isAbstract,
-            isDataclass = classDef.isDataclass,
-            isEnum = classDef.isEnum,
+            isDataclass = isDataclass,
+            isEnum = isEnum,
             module = module,
         )
 
@@ -418,8 +428,12 @@ class MypyModuleBuilder(
             funcBuilder.setReturnType(funcDef.returnType)
         }
 
-        // Closure vars
-        for (cv in funcDef.closureVarsList) {
+        // Compute closure vars from body analysis (migrated from Python serializer)
+        val paramNames = funcDef.argumentsList.map { it.name }
+        val closureVars = if (funcDef.hasBody()) {
+            FreeVarAnalyzer.collectFreeVars(funcDef.body, paramNames)
+        } else emptyList()
+        for (cv in closureVars) {
             funcBuilder.addClosureVars(cv)
         }
 

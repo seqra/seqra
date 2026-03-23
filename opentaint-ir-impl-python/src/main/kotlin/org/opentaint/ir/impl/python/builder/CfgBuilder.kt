@@ -197,6 +197,7 @@ class CfgBuilder(
             stmt.hasAssertStmt() -> visitAssert(stmt.assertStmt, stmt.line)
             stmt.hasPassStmt() -> { /* no-op */ }
             stmt.hasGlobalDecl() -> { /* no-op */ }
+            stmt.hasNonlocalDecl() -> { /* no-op — nonlocal semantics handled via FreeVarAnalyzer */ }
             stmt.hasFuncDef() -> visitNestedFuncDef(stmt.funcDef, stmt.line)
             stmt.hasClassDef() -> { /* ClassDef inside function body — not supported */ }
         }
