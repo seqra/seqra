@@ -24,9 +24,9 @@ abstract class BenchmarkTestBase : PIRTestBase() {
      */
     protected fun analyzePkg(
         pythonModule: String,
-        minModules: Int,
-        minClasses: Int,
-        minFunctions: Int,
+        expectedModules: Int,
+        expectedClasses: Int,
+        expectedFunctions: Int,
         recursive: Boolean = false,
     ) {
         val pkgDir = findPackageDir(pythonModule)
@@ -34,7 +34,7 @@ abstract class BenchmarkTestBase : PIRTestBase() {
         assertTrue(pyFiles.isNotEmpty(), "No .py files found in $pkgDir")
 
         val cp = createClasspath(pyFiles)
-        verifyClasspath(pythonModule, pyFiles.size, cp, minModules, minClasses, minFunctions)
+        verifyClasspath(pythonModule, pyFiles.size, cp, expectedModules, expectedClasses, expectedFunctions)
     }
 
     /**
@@ -47,9 +47,9 @@ abstract class BenchmarkTestBase : PIRTestBase() {
     protected fun analyzeDir(
         projectName: String,
         sourceDir: String,
-        minModules: Int,
-        minClasses: Int,
-        minFunctions: Int,
+        expectedModules: Int,
+        expectedClasses: Int,
+        expectedFunctions: Int,
         expectedUnknownModules: Set<String> = emptySet(),
     ) {
         val dir = File(sourceDir)
@@ -80,7 +80,7 @@ abstract class BenchmarkTestBase : PIRTestBase() {
             return
         }
 
-        verifyClasspath(projectName, pyFiles.size, cp, minModules, minClasses, minFunctions, expectedUnknownModules)
+        verifyClasspath(projectName, pyFiles.size, cp, expectedModules, expectedClasses, expectedFunctions, expectedUnknownModules)
     }
 
     // ─── Core analysis ──────────────────────────────────────
@@ -99,9 +99,9 @@ abstract class BenchmarkTestBase : PIRTestBase() {
         name: String,
         fileCount: Int,
         cp: PIRClasspath,
-        minModules: Int = 1,
-        minClasses: Int = 0,
-        minFunctions: Int = 1,
+        expectedModules: Int,
+        expectedClasses: Int,
+        expectedFunctions: Int,
         expectedUnknownModules: Set<String> = emptySet(),
     ) {
         cp.use {
@@ -164,12 +164,12 @@ abstract class BenchmarkTestBase : PIRTestBase() {
             val wholeBuildFailed = "__build_errors__" in expectedUnknownModules
                 && "__build_errors__" in unknownNames
             if (!wholeBuildFailed) {
-                assertTrue(stats.modules >= minModules,
-                    "$name: expected >= $minModules modules, got ${stats.modules}")
-                assertTrue(stats.classes >= minClasses,
-                    "$name: expected >= $minClasses classes, got ${stats.classes}")
-                assertTrue(stats.functions >= minFunctions,
-                    "$name: expected >= $minFunctions functions, got ${stats.functions}")
+                assertEquals(expectedModules, stats.modules,
+                    "$name: module count mismatch")
+                assertEquals(expectedClasses, stats.classes,
+                    "$name: class count mismatch")
+                assertEquals(expectedFunctions, stats.functions,
+                    "$name: function count mismatch")
             }
 
             // No dangling edges
