@@ -1,0 +1,28 @@
+# Web application projects for Tier-1 benchmarks.
+# Format: name|commit|url
+# To set up:  gradle setupWebProjects
+CTFd|b5f0cf2b7f0e29f72c9227ea9bc08024230b4f06|https://github.com/CTFd/CTFd.git
+dispatch|dd2837e82a0bf5565b1b4b4b91ea30b7262d4061|https://github.com/Netflix/dispatch.git
+django-oscar|eeb5a7dd4af447f5fa9b08652e9a256bca326a56|https://github.com/django-oscar/django-oscar.git
+django-rest-framework|30d58a75eeef7097f97cdc9f171d2ec741b36d30|https://github.com/encode/django-rest-framework.git
+flagsmith|ffd2a11fac0d7589fcc07ece63760c2220a72cea|https://github.com/Flagsmith/flagsmith.git
+flaskbb|3df43f16854fba625d8d16498bda253b993677b1|https://github.com/flaskbb/flaskbb.git
+full-stack-fastapi-template|8bf00250399b18b03247a02518275de626c83238|https://github.com/fastapi/full-stack-fastapi-template.git
+healthchecks|44592a7d28cf5682115cadea2e1dc6aeef9087b4|https://github.com/healthchecks/healthchecks.git
+hyperkitty|df1592a0e00f4ff734d0d703d3c43795dfaabfcd|https://github.com/hyperkitty/hyperkitty.git
+label-studio|90e35b3f72718d479673ddd14f08c7975614af55|https://github.com/HumanSignal/label-studio.git
+lemur|3abfe0609a33a6d9f9104aeeb6d38cf5ecc7c986|https://github.com/Netflix/lemur.git
+mealie|3413c23f16ff80185a216e792ff5720a1191c1fb|https://github.com/mealie-recipes/mealie.git
+netbox|c3c7cf15b223d29bf5460f3bd407fb7adbcf7e27|https://github.com/netbox-community/netbox.git
+paperless-ngx|79def8a200fa857334dc9df1c989809f9b4bed45|https://github.com/paperless-ngx/paperless-ngx.git
+plane|1faf06c7553d2bbce59634ae96fb498495c46d62|https://github.com/makeplane/plane.git
+polar|ed1d96f436c12e5f72efbb5751a80c7341d42e31|https://github.com/polarsource/polar.git
+posthog|d2953186c204c01d86dd0ca893bdde45327b10d0|https://github.com/PostHog/posthog.git
+ralph|5d434a6f382f8b964a13cb6b6aac31b2be77c683|https://github.com/allegro/ralph.git
+redash|fc1b23fda7a55c61cfa911beb314ec532b7b1c4b|https://github.com/getredash/redash.git
+saleor|ecd205ffba06024e791a4eb71894a534e8fb5102|https://github.com/saleor/saleor.git
+sentry|db929a770fea7b4dc67c43421b5b8f48beeaf8da|https://github.com/getsentry/sentry.git
+superset|361afff798c1a16823586259f2704f6d0a65c657|https://github.com/apache/superset.git
+taiga-back|6eaad6e47a675169bd92c0a20a3db031b3500cb3|https://github.com/taigaio/taiga-back.git
+wagtail|ff889e88827f8458608e5e786601f89f3241b767|https://github.com/wagtail/wagtail.git
+zulip|e4a85fd7508fcde13c85790767839c5df77c5040|https://github.com/zulip/zulip.git
