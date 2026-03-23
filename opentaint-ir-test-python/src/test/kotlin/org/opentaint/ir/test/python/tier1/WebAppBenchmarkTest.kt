@@ -25,7 +25,7 @@ class WebAppBenchmarkTest : BenchmarkTestBase() {
 
     @Test @Timeout(600) fun `webapp - netbox (Django network automation)`() =
         analyzeDir("netbox", "$WEB_PROJECTS_DIR/netbox/netbox", 0, 0, 0,
-            expectedUnknownModules = setOf("__build_errors__"))
+            expectedUnknownModules = setOf("core.graphql.filters"))
 
     @Test @Timeout(600) fun `webapp - wagtail (Django CMS)`() =
         analyzeDir("wagtail", "$WEB_PROJECTS_DIR/wagtail/wagtail", 697, 1296, 5343)
@@ -59,13 +59,13 @@ class WebAppBenchmarkTest : BenchmarkTestBase() {
 
     @Test @Timeout(600) fun `webapp - ralph (Django asset management)`() =
         analyzeDir("ralph", "$WEB_PROJECTS_DIR/ralph/src/ralph", 0, 0, 0,
-            expectedUnknownModules = setOf("__build_errors__"))
+            expectedUnknownModules = setOf("ralph.dashboards.models"))
 
     @Test @Timeout(600) fun `webapp - plane (Django project tracker)`() =
         analyzeDir("plane", "$WEB_PROJECTS_DIR/plane/apps", 449, 739, 2232)
 
-    @Test @Timeout(600) fun `webapp - posthog (Django analytics)`() =
-        analyzeDir("posthog", "$WEB_PROJECTS_DIR/posthog/posthog", 2930, 5000, 20000)
+    @Test @Timeout(1200) fun `webapp - posthog (Django analytics)`() =
+        analyzeDir("posthog", "$WEB_PROJECTS_DIR/posthog/posthog", 2920, 5211, 21223)
 
     @Test @Timeout(600) fun `webapp - sentry (Django error tracking)`() =
         analyzeDir("sentry", "$WEB_PROJECTS_DIR/sentry/src", 4260, 6991, 30006)

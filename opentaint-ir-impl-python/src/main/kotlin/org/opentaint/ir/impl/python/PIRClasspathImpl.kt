@@ -98,6 +98,10 @@ class PIRClasspathImpl private constructor(
             .build()
 
         val iterator = stub.buildProject(request)
+        var count = 0
+        var unknownCount = 0
+        var lastLog = System.nanoTime()
+
         while (iterator.hasNext()) {
             val astModuleProto = iterator.next()
 
@@ -114,6 +118,7 @@ class PIRClasspathImpl private constructor(
                 val unknown = PIRUnknownModule(astModuleProto.name, this, diagnostics)
                 _modules.add(unknown)
                 modulesByName[unknown.name] = unknown
+                unknownCount++
                 continue
             }
 
@@ -122,7 +127,16 @@ class PIRClasspathImpl private constructor(
             _modules.add(module)
             modulesByName[module.name] = module
             indexModule(module)
+            count++
+
+            // Progress logging every 10 seconds
+            val now = System.nanoTime()
+            if (now - lastLog >= 10_000_000_000L) {
+                System.err.println("PIR: Built $count modules (${unknownCount} unknown)...")
+                lastLog = now
+            }
         }
+        System.err.println("PIR: Finished. $count modules built, $unknownCount unknown.")
     }
 
     private fun indexModule(module: PIRModule) {

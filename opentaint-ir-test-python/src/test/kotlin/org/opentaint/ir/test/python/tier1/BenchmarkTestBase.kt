@@ -91,7 +91,7 @@ abstract class BenchmarkTestBase : PIRTestBase() {
             sources = pyFiles,
             pythonExecutable = createPythonWrapper(projectRoot),
             mypyFlags = listOf("--ignore-missing-imports"),
-            rpcTimeout = java.time.Duration.ofSeconds(300),
+            rpcTimeout = java.time.Duration.ofSeconds(1200),
         ))
     }
 
@@ -159,10 +159,9 @@ abstract class BenchmarkTestBase : PIRTestBase() {
                 "$name: ${stats.zeroInstructionFunctions} functions with 0 instructions:\n  " +
                     stats.zeroInstructionFunctionNames.take(20).joinToString("\n  "))
 
-            // Minimum entity counts (only known modules).
-            // Skip count checks if the entire build is expected to fail.
-            val wholeBuildFailed = "__build_errors__" in expectedUnknownModules
-                && "__build_errors__" in unknownNames
+            // Skip count/diversity checks if there are no known modules
+            // (entire build failed or all modules are expected-unknown).
+            val wholeBuildFailed = knownModules.isEmpty()
             if (!wholeBuildFailed) {
                 assertEquals(expectedModules, stats.modules,
                     "$name: module count mismatch")

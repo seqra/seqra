@@ -102,16 +102,41 @@ class AstSerializer:
             name=self.module_name,
             path=self.tree.path or "",
         )
+        had_system_error = False
         for defn in self.tree.defs:
             try:
                 for d in self._serialize_definitions(defn):
                     proto.defs.append(d)
+            except SystemError as e:
+                # SystemError from protobuf C extension corrupts internal state.
+                # Rebuild proto from scratch with definitions collected so far.
+                print(
+                    f"WARNING: Failed to serialize definition in {self.module_name}: "
+                    f"{type(e).__name__}: {e}",
+                    file=sys.stderr,
+                )
+                had_system_error = True
             except Exception as e:
                 print(
                     f"WARNING: Failed to serialize definition in {self.module_name}: "
                     f"{type(e).__name__}: {e}",
                     file=sys.stderr,
                 )
+        if had_system_error:
+            # Rebuild proto to avoid corrupted C extension state
+            clean = pir_pb2.MypyModuleProto(
+                name=self.module_name,
+                path=self.tree.path or "",
+            )
+            try:
+                clean.ParseFromString(proto.SerializeToString())
+            except Exception:
+                # If even serialization fails, return a minimal module
+                clean = pir_pb2.MypyModuleProto(
+                    name=self.module_name,
+                    path=self.tree.path or "",
+                )
+            return clean
         proto.imports.extend(self._collect_imports())
         return proto
 
