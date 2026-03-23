@@ -100,6 +100,23 @@ class PIRClasspathImpl private constructor(
         val iterator = stub.buildProject(request)
         while (iterator.hasNext()) {
             val astModuleProto = iterator.next()
+
+            // Modules with build errors become UnknownModule
+            if (astModuleProto.errorsCount > 0) {
+                val diagnostics = astModuleProto.errorsList.map {
+                    org.opentaint.ir.api.python.PIRDiagnostic(
+                        org.opentaint.ir.api.python.PIRDiagnosticSeverity.ERROR,
+                        it,
+                        astModuleProto.name,
+                        "MypyBuildError",
+                    )
+                }
+                val unknown = PIRUnknownModule(astModuleProto.name, this, diagnostics)
+                _modules.add(unknown)
+                modulesByName[unknown.name] = unknown
+                continue
+            }
+
             val builder = MypyModuleBuilder(astModuleProto, this)
             val module = builder.build()
             _modules.add(module)

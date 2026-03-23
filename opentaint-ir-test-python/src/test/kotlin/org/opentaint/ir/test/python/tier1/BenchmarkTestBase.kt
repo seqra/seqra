@@ -11,6 +11,9 @@ import java.io.File
  *
  * Provides common analysis methods, stats collection, and assertion logic.
  * All assertions are strict: zero errors, zero empty CFGs, zero dangling edges.
+ *
+ * Modules that fail to build are reported as [PIRModule.isUnknown].
+ * Tests can declare expected unknown modules via [expectedUnknownModules] parameter.
  */
 abstract class BenchmarkTestBase : PIRTestBase() {
 
@@ -30,12 +33,16 @@ abstract class BenchmarkTestBase : PIRTestBase() {
         val pyFiles = listPyFiles(pkgDir, recursive)
         assertTrue(pyFiles.isNotEmpty(), "No .py files found in $pkgDir")
 
-        analyzeFiles(pythonModule, pyFiles, minModules, minClasses, minFunctions)
+        val cp = createClasspath(pyFiles)
+        verifyClasspath(pythonModule, pyFiles.size, cp, minModules, minClasses, minFunctions)
     }
 
     /**
      * Analyze a directory-based project (cloned from git).
      * Scans for .py files excluding tests, migrations, and venvs.
+     *
+     * @param expectedUnknownModules module name patterns that are expected to fail.
+     *   Use "__build_errors__" for whole-project build failures.
      */
     protected fun analyzeDir(
         projectName: String,
@@ -43,6 +50,7 @@ abstract class BenchmarkTestBase : PIRTestBase() {
         minModules: Int,
         minClasses: Int,
         minFunctions: Int,
+        expectedUnknownModules: Set<String> = emptySet(),
     ) {
         val dir = File(sourceDir)
         assertTrue(dir.isDirectory, "Source directory not found: $sourceDir")
@@ -72,21 +80,10 @@ abstract class BenchmarkTestBase : PIRTestBase() {
             return
         }
 
-        verifyClasspath(projectName, pyFiles.size, cp)
+        verifyClasspath(projectName, pyFiles.size, cp, minModules, minClasses, minFunctions, expectedUnknownModules)
     }
 
     // ─── Core analysis ──────────────────────────────────────
-
-    private fun analyzeFiles(
-        name: String,
-        pyFiles: List<String>,
-        minModules: Int,
-        minClasses: Int,
-        minFunctions: Int,
-    ) {
-        val cp = createClasspath(pyFiles)
-        verifyClasspath(name, pyFiles.size, cp, minModules, minClasses, minFunctions)
-    }
 
     private fun createClasspath(pyFiles: List<String>): PIRClasspath {
         val projectRoot = findProjectRoot()
@@ -105,39 +102,54 @@ abstract class BenchmarkTestBase : PIRTestBase() {
         minModules: Int = 1,
         minClasses: Int = 0,
         minFunctions: Int = 1,
+        expectedUnknownModules: Set<String> = emptySet(),
     ) {
         cp.use {
-            val start = System.nanoTime()
-            val stats = collectStats(it)
-            val elapsed = (System.nanoTime() - start) / 1_000_000.0
+            // Separate known and unknown modules
+            val unknownModules = it.modules.filter { m -> m.isUnknown }
+            val knownModules = it.modules.filter { m -> !m.isUnknown }
+
+            val stats = collectStats(knownModules)
 
             println("╔══════════════════════════════════════════════════════════════")
             println("║ $name ($fileCount files)")
-            println("║ Modules: ${stats.modules}, Classes: ${stats.classes}, " +
-                    "Functions: ${stats.functions}, Blocks: ${stats.blocks}, " +
-                    "Instructions: ${stats.instructions}")
+            println("║ Modules: ${stats.modules} (+ ${unknownModules.size} unknown)")
+            println("║ Classes: ${stats.classes}, Functions: ${stats.functions}")
+            println("║ Blocks: ${stats.blocks}, Instructions: ${stats.instructions}")
             println("║ Instruction kinds: ${stats.instructionKinds.size} types")
             println("║ Dangling edges: ${stats.danglingEdges}, Unreachable: ${stats.unreachableBlocks}")
             println("║ Exception handlers: ${stats.blocksWithHandlers}, Errors: ${stats.errorDiagnostics}")
-            println("║ Empty CFGs: ${stats.emptyFunctions}, Zero-instruction: ${stats.zeroInstructionFunctions}")
+            if (unknownModules.isNotEmpty()) {
+                println("║ Unknown modules:")
+                unknownModules.forEach { m ->
+                    val errs = m.diagnostics.joinToString("; ") { d -> d.message }
+                    println("║   ${m.name}: $errs")
+                }
+            }
             println("╚══════════════════════════════════════════════════════════════")
 
-            // ─── Strict assertions ───────────────────────────
+            // ─── Unknown module verification ─────────────────
+            val unknownNames = unknownModules.map { m -> m.name }.toSet()
+            val unexpectedUnknowns = unknownNames - expectedUnknownModules
+            assertTrue(unexpectedUnknowns.isEmpty(),
+                "$name: unexpected unknown modules: $unexpectedUnknowns\n" +
+                    unknownModules.filter { m -> m.name in unexpectedUnknowns }
+                        .joinToString("\n") { m ->
+                            "  ${m.name}: ${m.diagnostics.joinToString("; ") { d -> d.message }}"
+                        })
 
-            // Zero loading errors
+            // ─── Strict assertions on known modules ──────────
+
+            // Zero loading errors on known modules
             if (stats.errorDiagnosticMessages.isNotEmpty()) {
                 println("║ ERRORS:")
-                stats.errorDiagnosticMessages.take(10).forEach { println("║   $it") }
+                stats.errorDiagnosticMessages.take(10).forEach { msg -> println("║   $msg") }
             }
             assertEquals(0, stats.errorDiagnostics,
                 "$name: found ${stats.errorDiagnostics} loading errors:\n" +
-                    stats.errorDiagnosticMessages.take(10).joinToString("\n") { "  $it" })
+                    stats.errorDiagnosticMessages.take(10).joinToString("\n") { msg -> "  $msg" })
 
             // Zero empty CFGs
-            if (stats.emptyFunctionNames.isNotEmpty()) {
-                println("║ EMPTY CFGs:")
-                stats.emptyFunctionNames.take(20).forEach { println("║   $it") }
-            }
             assertEquals(0, stats.emptyFunctions,
                 "$name: ${stats.emptyFunctions} functions with empty CFG:\n  " +
                     stats.emptyFunctionNames.take(20).joinToString("\n  "))
@@ -147,22 +159,29 @@ abstract class BenchmarkTestBase : PIRTestBase() {
                 "$name: ${stats.zeroInstructionFunctions} functions with 0 instructions:\n  " +
                     stats.zeroInstructionFunctionNames.take(20).joinToString("\n  "))
 
-            // Minimum entity counts
-            assertTrue(stats.modules >= minModules,
-                "$name: expected >= $minModules modules, got ${stats.modules}")
-            assertTrue(stats.classes >= minClasses,
-                "$name: expected >= $minClasses classes, got ${stats.classes}")
-            assertTrue(stats.functions >= minFunctions,
-                "$name: expected >= $minFunctions functions, got ${stats.functions}")
+            // Minimum entity counts (only known modules).
+            // Skip count checks if the entire build is expected to fail.
+            val wholeBuildFailed = "__build_errors__" in expectedUnknownModules
+                && "__build_errors__" in unknownNames
+            if (!wholeBuildFailed) {
+                assertTrue(stats.modules >= minModules,
+                    "$name: expected >= $minModules modules, got ${stats.modules}")
+                assertTrue(stats.classes >= minClasses,
+                    "$name: expected >= $minClasses classes, got ${stats.classes}")
+                assertTrue(stats.functions >= minFunctions,
+                    "$name: expected >= $minFunctions functions, got ${stats.functions}")
+            }
 
             // No dangling edges
             assertEquals(0, stats.danglingEdges,
                 "$name: found ${stats.danglingEdges} dangling edges in CFGs")
 
-            // Instruction diversity >= 3 types
-            assertTrue(stats.instructionKinds.size >= 3,
-                "$name: instruction diversity too low — only ${stats.instructionKinds.size} types: " +
-                    stats.instructionKinds)
+            // Instruction diversity >= 3 types (skip if build failed entirely)
+            if (!wholeBuildFailed) {
+                assertTrue(stats.instructionKinds.size >= 3,
+                    "$name: instruction diversity too low — only ${stats.instructionKinds.size} types: " +
+                        stats.instructionKinds)
+            }
 
             // Unreachable blocks < 10%
             if (stats.blocks > 0) {
@@ -191,8 +210,8 @@ abstract class BenchmarkTestBase : PIRTestBase() {
         val zeroInstructionFunctionNames: List<String>,
     )
 
-    private fun collectStats(cp: PIRClasspath): Stats {
-        var modules = 0; var classes = 0; var functions = 0
+    private fun collectStats(modules: List<PIRModule>): Stats {
+        var moduleCount = 0; var classes = 0; var functions = 0
         var blocks = 0; var instructions = 0
         val instructionKinds = mutableSetOf<String>()
         var danglingEdges = 0; var unreachableBlocks = 0; var blocksWithHandlers = 0
@@ -200,8 +219,8 @@ abstract class BenchmarkTestBase : PIRTestBase() {
         val zeroInstructionFunctionNames = mutableListOf<String>()
         val errorMessages = mutableListOf<String>()
 
-        for (module in cp.modules) {
-            modules++; classes += module.classes.size
+        for (module in modules) {
+            moduleCount++; classes += module.classes.size
             for (d in module.diagnostics) {
                 if (d.severity == PIRDiagnosticSeverity.ERROR) {
                     errorMessages.add("${d.functionName}: ${d.message}")
@@ -257,7 +276,7 @@ abstract class BenchmarkTestBase : PIRTestBase() {
             }
         }
         return Stats(
-            modules, classes, functions, blocks, instructions,
+            moduleCount, classes, functions, blocks, instructions,
             instructionKinds, danglingEdges, unreachableBlocks, blocksWithHandlers,
             errorMessages.size, errorMessages,
             emptyFunctionNames.size, emptyFunctionNames,

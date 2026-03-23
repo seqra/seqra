@@ -43,6 +43,8 @@ enum class PIRDiagnosticSeverity { WARNING, ERROR }
 
 /**
  * A Python module (.py file).
+ * If [isUnknown] is true, this module failed to build (e.g. mypy error)
+ * and all collections are empty. The [diagnostics] list contains the error details.
  */
 interface PIRModule {
     val name: String
@@ -54,6 +56,7 @@ interface PIRModule {
     val imports: List<String>
     val classpath: PIRClasspath
     val diagnostics: List<PIRDiagnostic>
+    val isUnknown: Boolean get() = false
 }
 
 /**

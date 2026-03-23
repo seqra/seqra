@@ -124,3 +124,60 @@ class PIRCFGImpl(
         return blocksByLabel[label] ?: throw IllegalArgumentException("No block with label $label")
     }
 }
+
+// ─── Unknown Entity Implementations ────────────────────────
+// Returned when a module fails to build (e.g. mypy syntax error).
+// All collections are empty; lookups return further Unknown entities.
+
+private val EMPTY_CFG = PIRCFGImpl(emptyList(), 0, emptySet())
+
+class PIRUnknownModule(
+    override val name: String,
+    override val classpath: PIRClasspath,
+    override val diagnostics: List<PIRDiagnostic>,
+) : PIRModule {
+    override val path: String = ""
+    override val classes: List<PIRClass> = emptyList()
+    override val functions: List<PIRFunction> = emptyList()
+    override val fields: List<PIRField> = emptyList()
+    override val imports: List<String> = emptyList()
+    override val isUnknown: Boolean = true
+    override val moduleInit: PIRFunction = PIRUnknownFunction(
+        "__module_init__", "$name.__module_init__", this
+    )
+}
+
+class PIRUnknownClass(
+    override val name: String,
+    override val qualifiedName: String,
+    override val module: PIRModule,
+) : PIRClass {
+    override val baseClasses: List<String> = emptyList()
+    override val mro: List<String> = emptyList()
+    override val methods: List<PIRFunction> = emptyList()
+    override val fields: List<PIRField> = emptyList()
+    override val nestedClasses: List<PIRClass> = emptyList()
+    override val properties: List<PIRProperty> = emptyList()
+    override val decorators: List<PIRDecorator> = emptyList()
+    override val isAbstract: Boolean = false
+    override val isDataclass: Boolean = false
+    override val isEnum: Boolean = false
+}
+
+class PIRUnknownFunction(
+    override val name: String,
+    override val qualifiedName: String,
+    override val module: PIRModule,
+) : PIRFunction {
+    override val parameters: List<PIRParameter> = emptyList()
+    override val returnType: PIRType = PIRAnyType
+    override val cfg: PIRCFG = EMPTY_CFG
+    override val decorators: List<PIRDecorator> = emptyList()
+    override val isAsync: Boolean = false
+    override val isGenerator: Boolean = false
+    override val isStaticMethod: Boolean = false
+    override val isClassMethod: Boolean = false
+    override val isProperty: Boolean = false
+    override val closureVars: List<String> = emptyList()
+    override val enclosingClass: PIRClass? = null
+}

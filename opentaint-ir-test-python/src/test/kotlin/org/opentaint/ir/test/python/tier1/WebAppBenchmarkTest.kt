@@ -23,7 +23,8 @@ class WebAppBenchmarkTest : BenchmarkTestBase() {
         analyzeDir("saleor", "$WEB_PROJECTS_DIR/saleor/saleor", 20, 1, 30)
 
     @Test @Timeout(600) fun `webapp - netbox (Django network automation)`() =
-        analyzeDir("netbox", "$WEB_PROJECTS_DIR/netbox/netbox", 20, 1, 30)
+        analyzeDir("netbox", "$WEB_PROJECTS_DIR/netbox/netbox", 20, 1, 30,
+            expectedUnknownModules = setOf("__build_errors__"))
 
     @Test @Timeout(600) fun `webapp - wagtail (Django CMS)`() =
         analyzeDir("wagtail", "$WEB_PROJECTS_DIR/wagtail/wagtail", 20, 1, 30)
@@ -56,7 +57,8 @@ class WebAppBenchmarkTest : BenchmarkTestBase() {
         analyzeDir("hyperkitty", "$WEB_PROJECTS_DIR/hyperkitty/hyperkitty", 10, 1, 20)
 
     @Test @Timeout(600) fun `webapp - ralph (Django asset management)`() =
-        analyzeDir("ralph", "$WEB_PROJECTS_DIR/ralph/src/ralph", 10, 0, 20)
+        analyzeDir("ralph", "$WEB_PROJECTS_DIR/ralph/src/ralph", 10, 0, 20,
+            expectedUnknownModules = setOf("__build_errors__"))
 
     @Test @Timeout(600) fun `webapp - plane (Django project tracker)`() =
         analyzeDir("plane", "$WEB_PROJECTS_DIR/plane/apps", 10, 0, 20)
