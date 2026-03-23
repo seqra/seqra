@@ -10,7 +10,9 @@ from pir_server.executor import execute_function
 class PIRServiceServicer(pir_pb2_grpc.PIRServiceServicer):
     def BuildProject(self, request, context):
         """Stream MypyModuleProto messages (raw AST), one per module.
-        Kotlin side performs all CFG lowering."""
+        Kotlin side performs all CFG lowering.
+        On build errors, yields an error module with the error messages
+        instead of aborting the stream."""
         try:
             builder = ProjectBuilder(
                 sources=list(request.sources),
@@ -21,12 +23,15 @@ class PIRServiceServicer(pir_pb2_grpc.PIRServiceServicer):
             for module_proto in builder.build():
                 yield module_proto
         except Exception as e:
-            context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(f"Build failed: {e}")
             import traceback
 
             traceback.print_exc()
-            return
+            # Yield an error module so the Kotlin side sees the error as a diagnostic
+            error_module = pir_pb2.MypyModuleProto(
+                name="__build_errors__",
+                errors=[f"{type(e).__name__}: {e}"],
+            )
+            yield error_module
 
     # Keep BuildProjectAst as alias for backward compatibility
     def BuildProjectAst(self, request, context):

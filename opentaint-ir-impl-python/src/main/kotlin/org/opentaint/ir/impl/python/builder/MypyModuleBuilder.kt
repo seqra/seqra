@@ -39,6 +39,16 @@ class MypyModuleBuilder(
     private val ic = InstructionConverter(typeConverter, vc)
 
     fun build(): PIRModule {
+        // Propagate mypy build errors as diagnostics
+        for (error in astModule.errorsList) {
+            diagnostics.add(PIRDiagnostic(
+                org.opentaint.ir.api.python.PIRDiagnosticSeverity.ERROR,
+                error,
+                moduleName,
+                "MypyBuildError",
+            ))
+        }
+
         // Dummy module for back-references during construction
         val dummyModule = createDummyModule()
 

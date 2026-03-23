@@ -57,8 +57,19 @@ class ProjectBuilder:
 
         search_root = self._find_search_root(all_file_paths)
 
+        seen_modules: dict[str, str] = {}  # module_name -> first path
         for path in all_file_paths:
             mod_name = self._path_to_module(path, search_root)
+            if mod_name in seen_modules:
+                import sys
+
+                print(
+                    f"WARNING: Duplicate module '{mod_name}': "
+                    f"{path} (already: {seen_modules[mod_name]}), skipping",
+                    file=sys.stderr,
+                )
+                continue
+            seen_modules[mod_name] = path
             mypy_sources.append(mypy.build.BuildSource(path=path, module=mod_name))
 
         if not mypy_sources:
