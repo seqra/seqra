@@ -36,6 +36,10 @@ tasks.jar {
         include("**/*.java")
         include("**/*.kt")
     }
+
+    from(project.layout.projectDirectory.dir("src/main/python")) {
+        include("**/*.py")
+    }
 }
 
 tasks.withType<Jar> {

@@ -22,7 +22,7 @@ includeBuild("opentaint-configuration-rules") {
 
 includeBuild("opentaint-dataflow-core") {
     dependencySubstitution {
-        substituteProjects("org.opentaint.opentaint-dataflow-core", listOf("opentaint-dataflow", "opentaint-jvm-dataflow"))
+        substituteProjects("org.opentaint.opentaint-dataflow-core", listOf("opentaint-dataflow", "opentaint-jvm-dataflow", "opentaint-python-dataflow"))
     }
 }
 
@@ -37,6 +37,15 @@ includeBuild("opentaint-ir") {
             "opentaint-ir-storage",
         )
         substituteProjects("org.opentaint.ir", modules)
+
+        val pythonModules = listOf(
+            "opentaint-ir-api-python",
+            "opentaint-ir-impl-python"
+        )
+
+        for (module in pythonModules) {
+            substitute(module("org.opentaint.ir.python:$module")).using(project(":python:$module"))
+        }
     }
 }
 

@@ -1,8 +1,10 @@
 import OpentaintConfigDependency.opentaintConfig
 import OpentaintIrDependency.opentaint_ir_api_jvm
+import OpentaintIrDependency.opentaint_ir_api_python
 import OpentaintIrDependency.opentaint_ir_api_storage
 import OpentaintIrDependency.opentaint_ir_approximations
 import OpentaintIrDependency.opentaint_ir_core
+import OpentaintIrDependency.opentaint_ir_core_python
 import OpentaintIrDependency.opentaint_ir_storage
 import OpentaintProjectDependency.opentaintProject
 import OpentaintUtilDependency.opentaintUtilCli
@@ -52,6 +54,10 @@ dependencies {
     implementation(Libs.jdot)
 
     testCompileOnly(project("samples"))
+
+    testImplementation(opentaint_ir_api_python)
+    testImplementation(opentaint_ir_core_python)
+    testImplementation("org.opentaint.opentaint-dataflow-core:opentaint-python-dataflow")
 }
 
 val testSamples by configurations.creating
@@ -62,6 +68,7 @@ dependencies {
 
 tasks.withType<Test> {
     dependsOn(project("samples").tasks.withType<Jar>())
+    ensurePirEnvInitialized()
 
     doFirst {
         val resolvedTestSamples = testSamples.resolve()
@@ -69,6 +76,10 @@ tasks.withType<Test> {
         val testDependencies = resolvedTestSamples.filter { it.name != "samples.jar" }
         environment("TEST_SAMPLES_JAR", testSamplesJar.absolutePath)
         environment("TEST_DEPENDENCIES_JAR", testDependencies.joinToString(File.pathSeparator) { it.absolutePath })
+        val pirEnv = pirEnvironment()
+        pirEnv.forEach { (key, value) ->
+            environment(key, value)
+        }
     }
 }
 
@@ -130,6 +141,12 @@ fun analyzerEnvironment(): Map<String, Any> {
     return analyzerEnv
 }
 
+fun pirEnvironment(): Map<String, Any> {
+    val pirEnv = mutableMapOf<String, Any>()
+    setupOpentaintPirEnvironment(pirEnv)
+    return pirEnv
+}
+
 @Suppress("UNCHECKED_CAST")
 fun setupOpentaintSeEnvironment(analyzerEnv: MutableMap<String, Any>) {
     val initializer = findOpentaintSeEnvInitializer() ?: return
@@ -137,14 +154,34 @@ fun setupOpentaintSeEnvironment(analyzerEnv: MutableMap<String, Any>) {
     analyzerEnv += seEnv
 }
 
+
+val opentaintPirEnvKey = "opentaint.pir.env"
+
+@Suppress("UNCHECKED_CAST")
+fun setupOpentaintPirEnvironment(pirEnv: MutableMap<String, Any>) {
+    val initializer = findOpentaintPirEnvInitializer() ?: return
+    val env = initializer.extra.get(opentaintPirEnvKey) as Map<String, Any>
+    pirEnv += env
+}
+
 fun Task.ensureSeEnvInitialized() {
     val initializer = findOpentaintSeEnvInitializer() ?: return
+    dependsOn(initializer)
+}
+
+fun Task.ensurePirEnvInitialized() {
+    val initializer = findOpentaintPirEnvInitializer() ?: return
     dependsOn(initializer)
 }
 
 fun findOpentaintSeEnvInitializer(): Task? {
     val seProject = gradle.includedBuilds.find { it.name == "opentaint-jvm-sast-se" } ?: return null
     return seProject.resolveIncludedProjectTask(":setupAnalyzerEnvironment")
+}
+
+fun findOpentaintPirEnvInitializer(): Task? {
+    val pirProject = gradle.includedBuilds.find { it.name == "opentaint-ir" } ?: return null
+    return pirProject.resolveIncludedProjectTask(":python:setupPirEnvironment")
 }
 
 tasks.withType<Test> {

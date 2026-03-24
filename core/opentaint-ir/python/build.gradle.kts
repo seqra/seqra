@@ -1,15 +1,30 @@
+import org.gradle.api.DefaultTask
 import org.gradle.api.tasks.Exec
 
 plugins {
     id("kotlin-conventions")
 }
 
+val pirEnvironmentExtraKey = "opentaint.pir.env"
 val pirVenvDir = layout.projectDirectory.dir(".venv")
 val pirPyprojectFile = layout.projectDirectory.file("pyproject.toml")
 val pirVenvPython = pirVenvDir.file("bin/python")
 val pirBootstrapPython = providers.environmentVariable("PYTHON").orElse("python3")
 val pirInstallSpec = ".[dev]"
 val pirBenchmarksInstallSpec = ".[benchmarks]"
+val inheritedPythonPath = providers.environmentVariable("PYTHONPATH").orNull
+
+fun pirEnvironment(): Map<String, String> {
+    val pythonPath = listOf(
+        projectDir.absolutePath,
+        inheritedPythonPath,
+    ).filterNotNull().filter { it.isNotBlank() }.joinToString(File.pathSeparator)
+
+    return mapOf(
+        "PIR_SERVER_PYTHON" to pirVenvPython.asFile.absolutePath,
+        "PYTHONPATH" to pythonPath,
+    )
+}
 
 val createPirServerVenv = tasks.register<Exec>("createPirServerVenv") {
     group = "python"
@@ -71,4 +86,23 @@ tasks.register<Exec>("setupPirBenchmarkDeps") {
         "-e",
         pirBenchmarksInstallSpec,
     )
+}
+
+tasks.register<DefaultTask>("setupPirEnvironment") {
+    group = "python"
+    description = "Initializes the PIR server environment metadata."
+    dependsOn("setupPirServerVenv")
+    doFirst {
+        extra.set(pirEnvironmentExtraKey, pirEnvironment())
+    }
+}
+
+tasks.register<DefaultTask>("setupPirTestEnvironment") {
+    group = "python"
+    description = "Initializes the PIR test environment metadata, including benchmark dependencies."
+    dependsOn("setupPirEnvironment")
+    dependsOn("setupPirBenchmarkDeps")
+    doFirst {
+        extra.set(pirEnvironmentExtraKey, pirEnvironment())
+    }
 }
