@@ -36,6 +36,7 @@ import org.opentaint.util.analysis.ApplicationGraph
 
 class PIRAnalysisManager(cp: PIRClasspath) : PIRLanguageManager(cp), TaintAnalysisManager {
     override val factTypeChecker: FactTypeChecker = FactTypeChecker.Dummy
+    private val pirCallResolver = PIRCallResolver(cp)
 
     override fun getMethodAnalysisContext(
         methodEntryPoint: MethodEntryPoint,
@@ -45,7 +46,7 @@ class PIRAnalysisManager(cp: PIRClasspath) : PIRLanguageManager(cp), TaintAnalys
         contextForEmptyMethod: MethodAnalysisContext?,
     ): MethodAnalysisContext {
         val method = methodEntryPoint.method as PIRFunction
-        return PIRMethodAnalysisContext(methodEntryPoint, method, taintAnalysisContext)
+        return PIRMethodAnalysisContext(methodEntryPoint, method, taintAnalysisContext, pirCallResolver)
     }
 
     override fun getMethodCallResolver(
@@ -53,7 +54,7 @@ class PIRAnalysisManager(cp: PIRClasspath) : PIRLanguageManager(cp), TaintAnalys
         unitResolver: UnitResolver<CommonMethod>,
         runner: TaintAnalysisUnitRunner,
     ): MethodCallResolver =
-        PIRMethodCallResolver(PIRCallResolver(cp), runner)
+        PIRMethodCallResolver(pirCallResolver, runner)
 
     override fun getMethodStartFlowFunction(
         apManager: ApManager,
@@ -97,7 +98,7 @@ class PIRAnalysisManager(cp: PIRClasspath) : PIRLanguageManager(cp), TaintAnalys
         val ctx = analysisContext as PIRMethodAnalysisContext
         val config = ctx.taint.taintConfig as PIRTaintConfig
         val pirCall = statement as PIRCall
-        val callee = PIRCallResolver(cp).resolve(pirCall)
+        val callee = pirCallResolver.resolve(pirCall, ctx.method)
         return PIRMethodCallFlowFunction(
             pirCall, ctx.method, ctx, config, callee, apManager, returnValue
         )

@@ -345,6 +345,15 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
             )
         }
 
+        // Resolve callee qualified name: prefer CallExpr.resolvedCallee,
+        // fall back to MemberExpr.fullname for instance/class method calls
+        // where mypy doesn't set node.fullname on the CallExpr.
+        val resolvedCallee = expr.resolvedCallee.ifEmpty {
+            if (expr.callee.hasMemberExpr()) {
+                expr.callee.memberExpr.fullname
+            } else ""
+        }
+
         val target = cfgBuilder.newTempValue()
         cfgBuilder.emit(
             PIRInstructionProto.newBuilder()
@@ -354,7 +363,7 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
                         .setTarget(target)
                         .setCallee(callee)
                         .addAllArgs(args)
-                        .setResolvedCallee(expr.resolvedCallee)
+                        .setResolvedCallee(resolvedCallee)
                 )
                 .build()
         )

@@ -10,10 +10,11 @@ class PIRMethodAnalysisContext(
     override val methodEntryPoint: MethodEntryPoint,
     val method: PIRFunction,
     val taint: TaintAnalysisContext,
+    val callResolver: PIRCallResolver,
 ) : MethodAnalysisContext {
 
     override val methodCallFactMapper: MethodCallFactMapper
-        get() = PIRMethodCallFactMapper(this)
+        get() = PIRMethodCallFactMapper(this, callResolver)
 
     /** Map from PIRLocal names to integer indices (for AccessPathBase.LocalVar) */
     val localNameToIndex: Map<String, Int>

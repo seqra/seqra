@@ -24,7 +24,8 @@ class PIRMethodCallResolver(
         failureHandler: MethodAnalyzer.MethodCallResolutionFailureHandler,
     ) {
         val pirCall = location as PIRCall
-        val callee = callResolver.resolve(pirCall)
+        val callerMethod = (callerContext as PIRMethodAnalysisContext).method
+        val callee = callResolver.resolve(pirCall, callerMethod)
         if (callee == null) {
             val analyzer = runner.getMethodAnalyzer(callerContext.methodEntryPoint)
             analyzer.handleMethodCallResolutionFailure(callExpr, failureHandler)
@@ -41,7 +42,8 @@ class PIRMethodCallResolver(
         location: CommonInst,
     ): List<MethodWithContext> {
         val pirCall = location as PIRCall
-        val callee = callResolver.resolve(pirCall) ?: return emptyList()
+        val callerMethod = (callerContext as PIRMethodAnalysisContext).method
+        val callee = callResolver.resolve(pirCall, callerMethod) ?: return emptyList()
         return listOf(MethodWithContext(callee, EmptyMethodContext))
     }
 }

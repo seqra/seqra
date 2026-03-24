@@ -13,7 +13,7 @@ class ClassFeatureFlowTest : AnalysisTest() {
     // --- SimpleObject.py ---
 
     @Test
-    @Disabled("Class method call resolution not yet implemented")
+    @Disabled("Interprocedural analysis for instance method calls needs debugging")
     fun testClassMethodCall() = assertSinkReachable(
         source = Source("SimpleObject.source", "taint", PositionBase.Result),
         sink = Sink("SimpleObject.sink", "taint", PositionBase.Argument(0), "class"),
@@ -21,7 +21,7 @@ class ClassFeatureFlowTest : AnalysisTest() {
     )
 
     @Test
-    @Disabled("Class method return value tracking not yet implemented")
+    @Disabled("Interprocedural analysis for instance method calls needs debugging")
     fun testClassMethodReturn() = assertSinkReachable(
         source = Source("SimpleObject.source", "taint", PositionBase.Result),
         sink = Sink("SimpleObject.sink", "taint", PositionBase.Argument(0), "class"),
@@ -31,7 +31,7 @@ class ClassFeatureFlowTest : AnalysisTest() {
     // --- StaticMethod.py ---
 
     @Test
-    @Disabled("Static method call resolution not yet implemented")
+    @Disabled("Interprocedural analysis for static/class method calls needs debugging")
     fun testStaticMethodCall() = assertSinkReachable(
         source = Source("StaticMethod.source", "taint", PositionBase.Result),
         sink = Sink("StaticMethod.sink", "taint", PositionBase.Argument(0), "static"),
@@ -39,7 +39,7 @@ class ClassFeatureFlowTest : AnalysisTest() {
     )
 
     @Test
-    @Disabled("Classmethod call resolution not yet implemented")
+    @Disabled("Interprocedural analysis for static/class method calls needs debugging")
     fun testClassmethodCall() = assertSinkReachable(
         source = Source("StaticMethod.source", "taint", PositionBase.Result),
         sink = Sink("StaticMethod.sink", "taint", PositionBase.Argument(0), "static"),

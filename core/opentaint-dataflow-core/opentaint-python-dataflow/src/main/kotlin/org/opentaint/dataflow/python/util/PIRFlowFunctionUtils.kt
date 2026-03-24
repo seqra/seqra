@@ -67,4 +67,20 @@ object PIRFlowFunctionUtils {
         is PIRValue -> accessPathBase(expr, method, ctx)
         else -> null
     }
+
+    /**
+     * Returns the number of implicit parameters (self/cls) that are not present in call args.
+     *
+     * Instance methods have `self` as first parameter; classmethods have `cls`.
+     * Neither is passed explicitly in PIRCall.args — the receiver is only in
+     * the preceding PIRLoadAttr / PIRAttrExpr.
+     *
+     * Static methods and module-level functions have no implicit parameters.
+     */
+    fun implicitParamOffset(callee: PIRFunction): Int {
+        if (callee.enclosingClass == null) return 0  // Module-level function
+        if (callee.isStaticMethod) return 0
+        // Instance method or classmethod — skip first parameter (self/cls)
+        return 1
+    }
 }

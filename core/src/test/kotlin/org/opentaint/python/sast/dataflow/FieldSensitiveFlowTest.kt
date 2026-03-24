@@ -1,6 +1,5 @@
 package org.opentaint.python.sast.dataflow
 
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.python.rules.TaintRules.Sink
@@ -13,7 +12,6 @@ class FieldSensitiveFlowTest : AnalysisTest() {
     // --- ClassField.py ---
 
     @Test
-    @Disabled("Field sensitivity not yet implemented")
     fun testFieldSimpleRead() = assertSinkReachable(
         source = Source("ClassField.source", "taint", PositionBase.Result),
         sink = Sink("ClassField.sink", "taint", PositionBase.Argument(0), "field"),
@@ -21,7 +19,6 @@ class FieldSensitiveFlowTest : AnalysisTest() {
     )
 
     @Test
-    @Disabled("Field sensitivity not yet implemented")
     fun testFieldDifferentField() = assertSinkNotReachable(
         source = Source("ClassField.source", "taint", PositionBase.Result),
         sink = Sink("ClassField.sink", "taint", PositionBase.Argument(0), "field"),
@@ -29,7 +26,6 @@ class FieldSensitiveFlowTest : AnalysisTest() {
     )
 
     @Test
-    @Disabled("Field sensitivity not yet implemented")
     fun testFieldOverwrite() = assertSinkNotReachable(
         source = Source("ClassField.source", "taint", PositionBase.Result),
         sink = Sink("ClassField.sink", "taint", PositionBase.Argument(0), "field"),
@@ -39,7 +35,6 @@ class FieldSensitiveFlowTest : AnalysisTest() {
     // --- DictAccess.py ---
 
     @Test
-    @Disabled("Dict access tracking not yet implemented")
     fun testDictLiteral() = assertSinkReachable(
         source = Source("DictAccess.source", "taint", PositionBase.Result),
         sink = Sink("DictAccess.sink", "taint", PositionBase.Argument(0), "dict"),
@@ -47,7 +42,6 @@ class FieldSensitiveFlowTest : AnalysisTest() {
     )
 
     @Test
-    @Disabled("Dict access tracking not yet implemented")
     fun testDictAssign() = assertSinkReachable(
         source = Source("DictAccess.source", "taint", PositionBase.Result),
         sink = Sink("DictAccess.sink", "taint", PositionBase.Argument(0), "dict"),

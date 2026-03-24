@@ -73,16 +73,16 @@
 - [x] ChainedCall.py — call_chain_2, call_chain_3 (with module-level helpers)
 - [x] ArgumentPassing.py — call_arg_kill, call_multiple_args_positive, call_multiple_args_negative
 - [x] ReturnValue.py — return_assign_and_sink, return_safe_despite_tainted_input
-- [x] ClassField.py — field_simple_read, field_different_field, field_overwrite (disabled)
-- [x] DictAccess.py — dict_literal, dict_assign (disabled)
-- [x] SimpleObject.py — class_method_call, class_method_return (disabled)
-- [x] StaticMethod.py — static_method_call, classmethod_call (disabled)
+- [x] ClassField.py — field_simple_read, field_different_field, field_overwrite
+- [x] DictAccess.py — dict_literal, dict_assign
+- [x] SimpleObject.py — class_method_call, class_method_return (@Disabled)
+- [x] StaticMethod.py — static_method_call, classmethod_call (@Disabled)
 
 ### D2. Kotlin test classes created
 - [x] IntraproceduralFlowTest.kt — 11 tests, all pass
 - [x] InterproceduralFlowTest.kt — 10 tests, all pass
-- [x] FieldSensitiveFlowTest.kt — 5 tests, all @Disabled (field sensitivity not implemented)
-- [x] ClassFeatureFlowTest.kt — 4 tests, all @Disabled (class feature resolution not implemented)
+- [x] FieldSensitiveFlowTest.kt — 5 tests, all pass (field read, field write strong update, subscript, dict literal)
+- [x] ClassFeatureFlowTest.kt — 4 tests, all @Disabled (interprocedural analysis for class methods needs debugging)
 
 ### D3. Interprocedural fixes (discovered during test system expansion)
 - [x] I3. PIRLocal-as-parameter mapping: PIR represents parameter usage as PIRLocal, not PIRParameterRef.
@@ -91,6 +91,37 @@
 - [x] I4. Abstract taint mark detection: Inside callees, facts are abstracted (e.g. `var(0).*`).
   `factHasMark()` now checks both concrete match (`startsWithAccessor`) and abstract match
   (`isAbstract() && accessor !in exclusions`), enabling sink detection in callees.
+
+### E. Field Sensitivity & Class Method Resolution ✅ PARTIAL
+
+#### E1. Field sensitivity in sequent flow function
+- [x] PIRAssign + PIRAttrExpr: field read (`x = obj.attr`) with `readAccessor`/`rebase`
+- [x] PIRAssign + PIRSubscriptExpr: subscript read (`x = obj[i]`) with `ElementAccessor`
+- [x] PIRAssign + PIRDictExpr/PIRListExpr/PIRTupleExpr/PIRSetExpr: container literal taint propagation
+- [x] Strong update for StoreAttr and StoreSubscript (both ZeroToFact and FactToFact)
+- [x] Strong update with name-only FieldAccessor matching (`factStartsWithField`)
+- [x] Handle constant stores (e.g., `obj.data = "safe"`) — null valueBase doesn't short-circuit strong update
+
+#### E2. Self/cls parameter offset for class methods
+- [x] `PIRFlowFunctionUtils.implicitParamOffset(callee)` — returns 0 for module-level/static, 1 for instance/classmethod
+- [x] `PIRMethodCallFlowFunction.mapCallToStart` applies offset: `args[i]` → `Argument(i + offset)`
+- [x] `PIRMethodCallFactMapper.mapMethodCallToStartFlowFact` applies offset
+- [x] `PIRMethodCallFactMapper.mapMethodExitToReturnFlowFact` reverses offset: `Argument(i)` → `args[i - offset]`
+
+#### E3. Fallback call resolution for class/instance methods
+- [x] `PIRCallResolver.resolve(call, method)` — fallback when `resolvedCallee` is null
+  - Strategy 1: obj.type.typeName + attrName (for typed instance vars)
+  - Strategy 2: PIRGlobalRef.module.name + attrName (for class-level calls like `Util.transform()`)
+  - Strategy 3: Infer class from constructor call (`inferClassFromConstructor`)
+- [x] Updated `PIRMethodCallResolver`, `PIRAnalysisManager`, `PIRMethodCallFactMapper` to use fallback
+- [x] Root cause: mypy doesn't set `MemberExpr.node.fullname` on `CallExpr` for method calls;
+  `PIRCall.resolvedCallee` is null for `obj.method()` and `ClassName.method()` patterns
+
+#### E4. Class feature tests — DEFERRED (4 tests @Disabled)
+- Resolver fallback works (verified via diagnostic)
+- Interprocedural analysis for class methods still doesn't produce vulnerabilities
+- Suspected issue: framework's `resolveMethodCall` path vs `getMethodCallFlowFunction` path may have a subtle mismatch
+- Tests: testClassMethodCall, testClassMethodReturn, testStaticMethodCall, testClassmethodCall
 
 ### D4. Pass-through rules for builtins — DEFERRED
 

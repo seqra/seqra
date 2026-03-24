@@ -168,6 +168,9 @@ class PIRMethodCallFlowFunction(
      * A single fact can map to multiple callee parameters (e.g., f(x, x)).
      * Ensures callee argument indices don't exceed callee's parameter count
      * to avoid AccessPathBaseStorage crashes.
+     *
+     * For instance/class methods, call args don't include self/cls, so an offset
+     * is applied: args[i] maps to Argument(i + offset) in the callee.
      */
     private fun mapCallToStart(
         callerFact: FinalFactAp,
@@ -175,15 +178,17 @@ class PIRMethodCallFlowFunction(
         val base = callerFact.base
         val results = mutableListOf<Pair<AccessPathBase, FinalFactAp>>()
         val calleeParamCount = calleeMethod?.parameters?.size ?: 0
+        val offset = if (calleeMethod != null) PIRFlowFunctionUtils.implicitParamOffset(calleeMethod) else 0
 
         for ((i, arg) in callInst.args.withIndex()) {
+            val calleeArgIdx = i + offset
             // Skip if callee-side argument index exceeds formal parameter count
-            if (i >= calleeParamCount) break
+            if (calleeArgIdx >= calleeParamCount) break
 
             val argBase = PIRFlowFunctionUtils.accessPathBase(arg.value, method, ctx)
                 ?: continue
             if (base == argBase) {
-                val startBase = AccessPathBase.Argument(i)
+                val startBase = AccessPathBase.Argument(calleeArgIdx)
                 results.add(startBase to callerFact)
             }
         }
