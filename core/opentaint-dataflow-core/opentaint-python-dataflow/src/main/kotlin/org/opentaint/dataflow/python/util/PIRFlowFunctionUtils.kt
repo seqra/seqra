@@ -19,12 +19,32 @@ object PIRFlowFunctionUtils {
      * PIRConst → null (constants are not tracked)
      * PIRGlobalRef → null (not tracked for now)
      */
+    /**
+     * Maps a PIRValue to an AccessPathBase.
+     *
+     * PIRLocal whose name matches a method parameter → Argument(parameterIndex)
+     *   (PIR represents parameter usage in the body as PIRLocal, not PIRParameterRef,
+     *   but the dataflow framework expects parameters as Argument(i) so that
+     *   interprocedural summary edges align with caller subscriptions.)
+     * PIRLocal (non-parameter) → LocalVar(ctx.localIndex(name))
+     * PIRParameterRef → Argument(parameterIndex)
+     * PIRConst → null (constants are not tracked)
+     * PIRGlobalRef → null (not tracked for now)
+     */
     fun accessPathBase(
         value: PIRValue,
         method: PIRFunction,
         ctx: PIRMethodAnalysisContext,
     ): AccessPathBase? = when (value) {
-        is PIRLocal -> AccessPathBase.LocalVar(ctx.localIndex(value.name))
+        is PIRLocal -> {
+            // Check if this local name is actually a parameter name.
+            val param = method.parameters.firstOrNull { it.name == value.name }
+            if (param != null) {
+                AccessPathBase.Argument(param.index)
+            } else {
+                AccessPathBase.LocalVar(ctx.localIndex(value.name))
+            }
+        }
         is PIRParameterRef -> {
             val param = method.parameters.firstOrNull { it.name == value.name }
                 ?: error("Parameter not found: ${value.name} in ${method.qualifiedName}")

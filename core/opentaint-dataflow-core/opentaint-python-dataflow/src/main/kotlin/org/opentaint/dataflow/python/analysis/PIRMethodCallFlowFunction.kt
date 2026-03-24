@@ -209,7 +209,15 @@ class PIRMethodCallFlowFunction(
         ): AccessPathBase? = resolvePosition(pos.base, call, method, ctx)
 
         fun factHasMark(fact: FinalFactAp, mark: String): Boolean {
-            return fact.startsWithAccessor(TaintMarkAccessor(mark))
+            val accessor = TaintMarkAccessor(mark)
+            // Concrete case: fact explicitly starts with the taint mark accessor
+            if (fact.startsWithAccessor(accessor)) return true
+            // Abstract case: fact is abstracted (e.g. var(1).*) and the taint mark
+            // is not excluded — so the mark could be behind the abstraction point.
+            // This triggers the sink; the framework's exclusion-set refinement will
+            // later re-analyze with more precise facts if needed.
+            if (fact.isAbstract() && accessor !in fact.exclusions) return true
+            return false
         }
     }
 }

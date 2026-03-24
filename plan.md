@@ -50,8 +50,38 @@
 3. **ExclusionSet.Universe**: Source-generated facts must use `createAbstractAp(base, Universe)`, not `mostAbstractFinalAp(base)` (which creates with Empty exclusions).
 4. **No-op preconditions**: Created private objects `NoOpStartPrecondition`, `NoOpSequentPrecondition`, `NoOpCallPrecondition`.
 
-## Phase D: Test System Expansion (NEXT)
+## Phase D: Test System Expansion ✅ COMPLETE (core tests)
 
-- [ ] D1. Add P0 test cases
-- [ ] D2. Create new sample files for P1 cases
-- [ ] D3. Add pass-through rules for builtins
+### D1. Sample files created (flat layout under core/samples/src/main/python/)
+- [x] AssignmentFlow.py — assign_direct, assign_chain, assign_long_chain, assign_overwrite, assign_overwrite_other
+- [x] BranchFlow.py — branch_if_true, branch_if_else_both, branch_if_else_one, branch_overwrite_in_branch
+- [x] LoopFlow.py — loop_while_body, loop_for_body
+- [x] SimpleCall.py — call_simple, call_return, call_pass_through (with module-level helpers)
+- [x] ChainedCall.py — call_chain_2, call_chain_3 (with module-level helpers)
+- [x] ArgumentPassing.py — call_arg_kill, call_multiple_args_positive, call_multiple_args_negative
+- [x] ReturnValue.py — return_assign_and_sink, return_safe_despite_tainted_input
+- [x] ClassField.py — field_simple_read, field_different_field, field_overwrite (disabled)
+- [x] DictAccess.py — dict_literal, dict_assign (disabled)
+- [x] SimpleObject.py — class_method_call, class_method_return (disabled)
+- [x] StaticMethod.py — static_method_call, classmethod_call (disabled)
+
+### D2. Kotlin test classes created
+- [x] IntraproceduralFlowTest.kt — 11 tests, all pass
+- [x] InterproceduralFlowTest.kt — 10 tests, all pass
+- [x] FieldSensitiveFlowTest.kt — 5 tests, all @Disabled (field sensitivity not implemented)
+- [x] ClassFeatureFlowTest.kt — 4 tests, all @Disabled (class feature resolution not implemented)
+
+### D3. Interprocedural fixes (discovered during test system expansion)
+- [x] I3. PIRLocal-as-parameter mapping: PIR represents parameter usage as PIRLocal, not PIRParameterRef.
+  Fix: `PIRFlowFunctionUtils.accessPathBase()` now maps PIRLocal with parameter name → `Argument(i)`.
+  This ensures callee summary edges align with caller subscriptions (both use Argument(i) base).
+- [x] I4. Abstract taint mark detection: Inside callees, facts are abstracted (e.g. `var(0).*`).
+  `factHasMark()` now checks both concrete match (`startsWithAccessor`) and abstract match
+  (`isAbstract() && accessor !in exclusions`), enabling sink detection in callees.
+
+### D4. Pass-through rules for builtins
+- [ ] D4a. Add pass-through rules for str.upper, list.append, dict.get, etc.
+
+### D5. Ant Benchmark Adaptation
+- [ ] D5a. Create benchmark adaptation script
+- [ ] D5b. Adapt Phase 1 Ant benchmark cases
