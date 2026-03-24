@@ -49,6 +49,13 @@
 - [x] I1. Refactored: shared `handleAssignShared`/`handleReturnShared` with `mkCopy` lambda in SequentFlowFunction; shared `propagateFact` with `mkCallToReturnFact`/`mkCallToStartFact` lambdas in CallFlowFunction.
 - [x] I2. Fixed AccessPathBaseStorage crash. Root cause: PIRInstruction data classes used structural equality — `PIRReturn(value=null)` in `source()` and `sink()` were equal, making their `MethodEntryPoint`s collide in HashMap. Fix: added identity-based `equals`/`hashCode` overrides to all 20 PIRInstruction data classes. Also enabled full interprocedural analysis (CallToStartZeroFact, CallToStartZFact, CallToStartFFact) with bounds-checking in `mapCallToStart` and `mapMethodCallToStartFlowFact`.
 
+- [x] I3. Fixed factHasMark over-approximation. Previously `factHasMark` returned true for any abstract fact
+  where the taint mark wasn't excluded — an unsound over-approximation. Fix: Implemented `PIRFactRefinement` class
+  (mirrors JVM's `FinalFactReader`). Now `checkSinks` only reports vulnerabilities for **concrete** taint mark matches.
+  For abstract facts, it records the taint mark accessor as a refinement. `propagateFact` applies refinements to
+  output facts (both initial and final) via `refinement.refine()`, which unions the refinement into the exclusion set.
+  The framework then re-analyzes with more specific facts (e.g., `arg(0).![taint].*` instead of `arg(0).*`)
+
 ## Key Implementation Decisions Made During Implementation
 
 1. **No interprocedural call-to-start**: For the minimal prototype, source/sink/pass-through rules are applied at call-to-return only. CallToStart facts are not generated. This avoids the AccessPathBaseStorage crash when callee summaries flow back.
@@ -85,8 +92,24 @@
   `factHasMark()` now checks both concrete match (`startsWithAccessor`) and abstract match
   (`isAbstract() && accessor !in exclusions`), enabling sink detection in callees.
 
-### D4. Pass-through rules for builtins
-- [ ] D4a. Add pass-through rules for str.upper, list.append, dict.get, etc.
+### D4. Pass-through rules for builtins — DEFERRED
+
+**Analysis findings**: Python method calls like `data.upper()` are lowered to `PIRLoadAttr(target=$t0, obj=data, attr="upper")` + `PIRCall(target=$t1, callee=$t0, args=[], resolvedCallee="builtins.str.upper")`. The receiver (`data`) is **not** in the `PIRCall.args` list — it's only accessible via the preceding `PIRLoadAttr` instruction. This means simple `TaintRules.Pass` rules (which operate on `PositionBase.Argument(i)` / `PositionBase.Result`) cannot express "receiver → result" taint propagation for method calls.
+
+**Two approaches identified**:
+1. **Handle `PIRLoadAttr` in sequent flow function**: Propagate taint through attribute loads (`object → target`), treating LoadAttr as taint-transparent. Then add Call-level pass-through rules that map Arg(0) → Result for methods where implicit `self` carries taint. More general but requires two changes (sequent + rules).
+2. **Inject implicit receiver as argument**: Modify `PIRCallExprAdapter` or call flow function to detect method calls (callee from LoadAttr) and inject the receiver object as implicit Argument(0), shifting other args. More precise but more invasive to the instruction model.
+
+**Resolved callee naming convention**: Mypy resolves builtin methods to `builtins.str.upper`, `builtins.str.lower`, `builtins.str.strip`, `builtins.str.replace`, `builtins.str.encode`, `builtins.str.format`, `builtins.list.append`, etc. The `matchesCall` function supports suffix matching, so rules can use `str.upper` or the full path.
+
+**String concatenation** (`+`) is lowered to `PIRBinOp(ADD)`, not a call — pass-through rules won't help; requires sequent flow function handling of binary ops.
+
+**F-strings** are desugared by mypy to `str.format()` calls or concatenation before reaching PIR.
+
+- [ ] D4a. Handle `PIRLoadAttr` in sequent flow function (prerequisite)
+- [ ] D4b. Add pass-through rules for str methods (upper, lower, strip, replace, encode, format)
+- [ ] D4c. Handle `PIRBinOp(ADD)` for string concatenation taint propagation
+- [ ] D4d. Add pass-through rules for container methods (list.append, dict.get, etc.)
 
 ### D5. Ant Benchmark Adaptation
 - [ ] D5a. Create benchmark adaptation script

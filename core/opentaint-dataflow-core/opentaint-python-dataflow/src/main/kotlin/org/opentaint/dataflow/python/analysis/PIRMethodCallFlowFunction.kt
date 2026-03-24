@@ -55,8 +55,9 @@ class PIRMethodCallFlowFunction(
 
     override fun propagateZeroToFact(currentFactAp: FinalFactAp): Set<ZeroCallFact> =
         propagateFact(currentFactAp,
-            mkCallToReturnFact = { fact -> CallToReturnZFact(fact, null) },
-            mkCallToStartFact = { callerFact, startBase -> CallToStartZFact(callerFact, startBase, null) },
+            mkCallToReturnFact = { _: PIRFactRefinement, fact -> CallToReturnZFact(fact, null) },
+            mkCallToStartFact = { _: PIRFactRefinement, callerFact, startBase -> CallToStartZFact(callerFact, startBase, null) },
+            mkUnchanged = { @Suppress("UNCHECKED_CAST") (Unchanged as ZeroCallFact) },
         )
 
     override fun propagateFactToFact(
@@ -64,8 +65,13 @@ class PIRMethodCallFlowFunction(
         currentFactAp: FinalFactAp,
     ): Set<FactCallFact> =
         propagateFact(currentFactAp,
-            mkCallToReturnFact = { fact -> CallToReturnFFact(initialFactAp, fact, null) },
-            mkCallToStartFact = { callerFact, startBase -> CallToStartFFact(initialFactAp, callerFact, startBase, null) },
+            mkCallToReturnFact = { refinement, fact ->
+                CallToReturnFFact(refinement.refine(initialFactAp), refinement.refine(fact), null)
+            },
+            mkCallToStartFact = { refinement, callerFact, startBase ->
+                CallToStartFFact(refinement.refine(initialFactAp), refinement.refine(callerFact), startBase, null)
+            },
+            mkUnchanged = { @Suppress("UNCHECKED_CAST") (Unchanged as FactCallFact) },
         )
 
     override fun propagateNDFactToFact(
@@ -82,16 +88,19 @@ class PIRMethodCallFlowFunction(
      * [T] is the specific CallFact subtype ([ZeroCallFact] or [FactCallFact]).
      * [mkCallToReturnFact] creates a call-to-return fact from a rebased fact.
      * [mkCallToStartFact] creates a call-to-start fact from (callerFact, startBase).
+     * [mkUnchanged] creates the "unchanged" fact to keep in caller frame.
      */
     private inline fun <T : CallFact> propagateFact(
         currentFactAp: FinalFactAp,
-        mkCallToReturnFact: (FinalFactAp) -> T,
-        mkCallToStartFact: (FinalFactAp, AccessPathBase) -> T,
+        mkCallToReturnFact: (PIRFactRefinement, FinalFactAp) -> T,
+        mkCallToStartFact: (PIRFactRefinement, FinalFactAp, AccessPathBase) -> T,
+        mkUnchanged: () -> T,
     ): MutableSet<T> {
         val results = mutableSetOf<T>()
+        val refinement = PIRFactRefinement()
 
-        // 1. Check sink rules
-        checkSinks(currentFactAp)
+        // 1. Check sink rules (accumulates refinements for abstract facts)
+        checkSinks(currentFactAp, refinement)
 
         // 2. Apply pass-through rules
         for (pass in taintConfig.propagators) {
@@ -100,7 +109,7 @@ class PIRMethodCallFlowFunction(
                 val toBase = resolvePositionWithModifiers(pass.to, callInst, method, ctx)
                 if (fromBase != null && toBase != null && currentFactAp.base == fromBase) {
                     val newFact = currentFactAp.rebase(toBase)
-                    results.add(mkCallToReturnFact(newFact))
+                    results.add(mkCallToReturnFact(refinement, newFact))
                 }
             }
         }
@@ -109,30 +118,41 @@ class PIRMethodCallFlowFunction(
         if (calleeMethod != null) {
             val mappings = mapCallToStart(currentFactAp)
             for ((startBase, callerFact) in mappings) {
-                results.add(mkCallToStartFact(callerFact, startBase))
+                results.add(mkCallToStartFact(refinement, callerFact, startBase))
             }
         }
 
         // 4. Call-to-return: keep fact in caller frame
-        @Suppress("UNCHECKED_CAST")
-        results.add(Unchanged as T)
+        results.add(mkUnchanged())
 
         return results
     }
 
     // --- Helpers ---
 
-    private fun checkSinks(currentFactAp: FinalFactAp) {
+    /**
+     * Checks sink rules against the current fact.
+     * For concrete facts (taint mark explicitly present), reports vulnerability.
+     * For abstract facts (taint mark might be behind `*`), accumulates refinement
+     * so the framework will re-analyze with more specific facts.
+     */
+    private fun checkSinks(currentFactAp: FinalFactAp, refinement: PIRFactRefinement) {
         for (sink in taintConfig.sinks) {
             if (matchesCall(sink.function, callInst)) {
                 val sinkBase = resolvePosition(sink.pos, callInst, method, ctx)
                 if (sinkBase != null && currentFactAp.base == sinkBase) {
-                    if (factHasMark(currentFactAp, sink.mark)) {
+                    val accessor = TaintMarkAccessor(sink.mark)
+                    if (currentFactAp.startsWithAccessor(accessor)) {
+                        // Concrete match: taint mark is explicitly present
                         ctx.taint.taintSinkTracker.addUnconditionalVulnerability(
                             methodEntryPoint = ctx.methodEntryPoint,
                             statement = callInst,
                             rule = sink.toCommonSink(),
                         )
+                    } else if (currentFactAp.isAbstract() && accessor !in currentFactAp.exclusions) {
+                        // Abstract: mark might be behind `*`. Record refinement so
+                        // the framework re-analyzes with the mark made concrete.
+                        refinement.add(accessor)
                     }
                 }
             }
@@ -207,18 +227,6 @@ class PIRMethodCallFlowFunction(
             method: PIRFunction,
             ctx: PIRMethodAnalysisContext,
         ): AccessPathBase? = resolvePosition(pos.base, call, method, ctx)
-
-        fun factHasMark(fact: FinalFactAp, mark: String): Boolean {
-            val accessor = TaintMarkAccessor(mark)
-            // Concrete case: fact explicitly starts with the taint mark accessor
-            if (fact.startsWithAccessor(accessor)) return true
-            // Abstract case: fact is abstracted (e.g. var(1).*) and the taint mark
-            // is not excluded — so the mark could be behind the abstraction point.
-            // This triggers the sink; the framework's exclusion-set refinement will
-            // later re-analyze with more precise facts if needed.
-            if (fact.isAbstract() && accessor !in fact.exclusions) return true
-            return false
-        }
     }
 }
 
