@@ -124,6 +124,36 @@ public class LogInjectionSamples {
             seamLog.info("Login failed for user #{" + username + "}");
         }
 
+        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "seam-log-injection")
+        public void vulnerableSeamDebug() {
+            Map<String, String> params = FacesContext.getCurrentInstance()
+                    .getExternalContext()
+                    .getRequestParameterMap();
+
+            String input = params.get("data");
+            seamLog.debug("Debug data #{" + input + "}");
+        }
+
+        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "seam-log-injection")
+        public void vulnerableSeamError() {
+            Map<String, String> params = FacesContext.getCurrentInstance()
+                    .getExternalContext()
+                    .getRequestParameterMap();
+
+            String input = params.get("data");
+            seamLog.error("Error data #{" + input + "}");
+        }
+
+        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "seam-log-injection")
+        public void vulnerableSeamTrace() {
+            Map<String, String> params = FacesContext.getCurrentInstance()
+                    .getExternalContext()
+                    .getRequestParameterMap();
+
+            String input = params.get("data");
+            seamLog.trace("Trace data #{" + input + "}");
+        }
+
         /*
         @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "seam-log-injection")
         public void safeSeamLogging() {

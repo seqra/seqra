@@ -17,25 +17,39 @@ rules:
     pattern-sinks:
       - patterns:
           - pattern-either:
+
+              # ── java.io constructors ──────────────────────────────────────────
               - pattern: new java.io.FileReader($FILE, ...)
               - pattern: new java.io.FileWriter($FILE, ...)
               - pattern: new java.io.FileInputStream($FILE)
               - pattern: new java.io.FileOutputStream($FILE, ...)
               - pattern: new java.io.RandomAccessFile($FILE, ...)
+              - pattern: new java.io.PrintStream($FILE, ...)
+              - pattern: new java.io.PrintWriter($FILE, ...)
               - pattern: java.io.File.createTempFile(..., $FILE, ...)
 
+              # ── java.io.File instance methods ─────────────────────────────────
+              - pattern: (java.io.File $FILE).canExecute()
+              - pattern: (java.io.File $FILE).canRead()
+              - pattern: (java.io.File $FILE).canWrite()
               - pattern: (java.io.File $FILE).exists()
               - pattern: (java.io.File $FILE).isFile()
               - pattern: (java.io.File $FILE).isDirectory()
+              - pattern: (java.io.File $FILE).isHidden()
               - pattern: (java.io.File $FILE).delete()
               - pattern: (java.io.File $FILE).deleteOnExit()
               - pattern: (java.io.File $FILE).createNewFile()
               - pattern: (java.io.File $FILE).mkdir()
               - pattern: (java.io.File $FILE).mkdirs()
+              - pattern: (java.io.File $FILE).renameTo(...)
+              - pattern: (java.io.File $SRC).renameTo($FILE)
               - pattern: (java.io.File $FILE).setExecutable(...)
+              - pattern: (java.io.File $FILE).setLastModified(...)
               - pattern: (java.io.File $FILE).setReadable(...)
+              - pattern: (java.io.File $FILE).setReadOnly()
               - pattern: (java.io.File $FILE).setWritable(...)
 
+              # ── java.nio.file.Files ───────────────────────────────────────────
               - pattern: java.nio.file.Files.copy(..., (java.nio.file.Path $FILE), ...)
               - pattern: java.nio.file.Files.createDirectories($FILE, ...)
               - pattern: java.nio.file.Files.createDirectory($FILE, ...)
@@ -48,6 +62,8 @@ rules:
               - pattern: java.nio.file.Files.deleteIfExists($FILE)
               - pattern: java.nio.file.Files.exists($FILE, ...)
               - pattern: java.nio.file.Files.find($FILE, ...)
+              - pattern: java.nio.file.Files.getFileStore($FILE)
+              - pattern: java.nio.file.Files.lines($FILE, ...)
               - pattern: java.nio.file.Files.move(..., $FILE, ...)
               - pattern: java.nio.file.Files.newBufferedReader($FILE, ...)
               - pattern: java.nio.file.Files.newBufferedWriter($FILE, ...)
@@ -56,32 +72,102 @@ rules:
               - pattern: java.nio.file.Files.newInputStream($FILE, ...)
               - pattern: java.nio.file.Files.newOutputStream($FILE, ...)
               - pattern: java.nio.file.Files.notExists($FILE, ...)
+              - pattern: java.nio.file.Files.probeContentType($FILE)
               - pattern: java.nio.file.Files.readAllBytes($FILE, ...)
               - pattern: java.nio.file.Files.readAllLines($FILE, ...)
-              - pattern: java.nio.file.Files.readSymbolicPath($FILE, ...)
+              - pattern: java.nio.file.Files.readString($FILE, ...)
+              - pattern: java.nio.file.Files.readSymbolicLink($FILE, ...)
               - pattern: java.nio.file.Files.setLastModifiedTime($FILE, ...)
               - pattern: java.nio.file.Files.setOwner($FILE, ...)
               - pattern: java.nio.file.Files.setPosixFilePermissions($FILE, ...)
               - pattern: java.nio.file.Files.walk($FILE, ...)
               - pattern: java.nio.file.Files.walkFileTree($FILE, ...)
               - pattern: java.nio.file.Files.write($FILE, ...)
+              - pattern: java.nio.file.Files.writeString($FILE, ...)
 
+              # ── java.nio.channels ─────────────────────────────────────────────
+              # ANALYZER LIMITATION: Method name `open` causes "Unreachable" parser error.
+              # TODO: Re-enable when analyzer supports `open` as a method name in patterns.
+              # - pattern: java.nio.channels.FileChannel.open($FILE, ...)
+              # - pattern: java.nio.channels.AsynchronousFileChannel.open($FILE, ...)
+
+              # ── java.nio.file.FileSystems ─────────────────────────────────────
+              - pattern: java.nio.file.FileSystems.newFileSystem($FILE, ...)
+              - pattern: java.nio.file.FileSystems.getFileSystem($FILE)
+
+              # Note: SecureDirectoryStream patterns removed - generic interface types not supported
+
+              # ── java.lang ─────────────────────────────────────────────────────
+              - pattern: java.lang.ClassLoader.getSystemResource($FILE)
+              - pattern: java.lang.ClassLoader.getSystemResourceAsStream($FILE)
+              - pattern: java.lang.ClassLoader.getSystemResources($FILE)
+              - pattern: (java.lang.Module $M).getResourceAsStream($FILE)
+              - pattern: (java.lang.ProcessBuilder $PB).redirectOutput($FILE)
+              - pattern: (java.lang.ProcessBuilder $PB).redirectError($FILE)
+
+              # ── java.util ─────────────────────────────────────────────────────
+              - pattern: new java.util.logging.FileHandler($FILE, ...)
+              - pattern: new java.util.zip.ZipFile($FILE)
+
+              # ── javax.imageio ─────────────────────────────────────────────────
+              - pattern: new javax.imageio.stream.FileImageOutputStream($FILE)
+
+              # ── javax.servlet ─────────────────────────────────────────────────
+              - pattern: (javax.servlet.ServletContext $CTX).getResource($FILE)
+              - pattern: (javax.servlet.ServletContext $CTX).getResourceAsStream($FILE)
+
+              # ── javax.faces / jakarta.faces ───────────────────────────────────
+              - pattern: (javax.faces.context.ExternalContext $CTX).getResource($FILE)
+              - pattern: (javax.faces.context.ExternalContext $CTX).getResourceAsStream($FILE)
+              - pattern: (jakarta.faces.context.ExternalContext $CTX).getResource($FILE)
+              - pattern: (jakarta.faces.context.ExternalContext $CTX).getResourceAsStream($FILE)
+
+              # ── javax.xml.transform / javax.activation ────────────────────────
+              - pattern: new javax.xml.transform.StreamSource($FILE, ...)
+              - pattern: new javax.xml.transform.stream.StreamResult($FILE)
+              - pattern: new javax.activation.FileDataSource($FILE, ...)
+
+              # ── jakarta.activation ────────────────────────────────────────────
+              - pattern: new jakarta.activation.FileDataSource($FILE, ...)
+
+              # ── java.lang Class/ClassLoader resource methods ───────────────────
+              - patterns:
+                  - pattern-either:
+                      - pattern: (Class $C).$CLASS_FUNC($FILE)
+                      - pattern: (ClassLoader $CL).$CLASS_FUNC($FILE)
+                  - metavariable-pattern:
+                      metavariable: $CLASS_FUNC
+                      pattern-either:
+                        - pattern: getResourceAsStream
+                        - pattern: getResource
+                        - pattern: getResources
+                        - pattern: resources
+
+              # ── Apache Commons IO – FileUtils ─────────────────────────────────
               - pattern: org.apache.commons.io.FileUtils.cleanDirectory(..., $FILE, ...)
               - pattern: org.apache.commons.io.FileUtils.copyDirectory(..., $FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.copyDirectoryToDirectory(..., $FILE)
               - pattern: org.apache.commons.io.FileUtils.copyFile(..., $FILE, ...)
               - pattern: org.apache.commons.io.FileUtils.copyFileToDirectory(..., $FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.copyInputStreamToFile(..., $FILE)
+              - pattern: org.apache.commons.io.FileUtils.copyToDirectory(..., $FILE)
+              - pattern: org.apache.commons.io.FileUtils.copyToFile(..., $FILE)
+              - pattern: org.apache.commons.io.FileUtils.copyURLToFile(..., $FILE, ...)
               - pattern: org.apache.commons.io.FileUtils.delete($FILE)
               - pattern: org.apache.commons.io.FileUtils.deleteDirectory($FILE)
               - pattern: org.apache.commons.io.FileUtils.deleteQuietly($FILE)
               - pattern: org.apache.commons.io.FileUtils.forceDelete($FILE)
               - pattern: org.apache.commons.io.FileUtils.forceDeleteOnExit($FILE)
-              - pattern: org.apache.commons.io.FileUtils.forceMkDir($FILE)
-              - pattern: org.apache.commons.io.FileUtils.forceMkDirParent($FILE)
+              - pattern: org.apache.commons.io.FileUtils.forceMkdir($FILE)
+              - pattern: org.apache.commons.io.FileUtils.forceMkdirParent($FILE)
               - pattern: org.apache.commons.io.FileUtils.iterateFiles($FILE, ...)
               - pattern: org.apache.commons.io.FileUtils.iterateFilesAndDirs($FILE, ...)
               - pattern: org.apache.commons.io.FileUtils.listFiles($FILE, ...)
               - pattern: org.apache.commons.io.FileUtils.listFilesAndDirs($FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.moveDirectory(..., $FILE)
+              - pattern: org.apache.commons.io.FileUtils.moveDirectoryToDirectory(..., $FILE, ...)
               - pattern: org.apache.commons.io.FileUtils.moveFile(..., $FILE, ...)
+              - pattern: org.apache.commons.io.FileUtils.moveFileToDirectory(..., $FILE, ...)
               - pattern: org.apache.commons.io.FileUtils.moveToDirectory(..., $FILE, ...)
               - pattern: org.apache.commons.io.FileUtils.newOutputStream($FILE, ...)
               - pattern: org.apache.commons.io.FileUtils.openOutputStream($FILE, ...)
@@ -96,23 +182,186 @@ rules:
               - pattern: org.apache.commons.io.FileUtils.writeLines($FILE, ...)
               - pattern: org.apache.commons.io.FileUtils.writeStringToFile($FILE, ...)
 
-              - pattern: new org.springframework.core.io.ClassPathResource($FILE, ...)
-              - pattern: org.springframework.util.ResourceUtils.getFile($FILE, ...)
-              - pattern: org.springframework.util.FileSystemUtils.$FILE_SYSTEM_UTILS_METHOD(..., $FILE, ...)
-              - pattern: org.springframework.util.FileCopyUtils.$FILE_COPY_UTILS_METHOD(..., $FILE, ...)
-              - pattern: new org.springframework.core.io.FileSystemResource($FILE)
+              # ── Apache Commons IO – IOUtils, RandomAccessFileMode ─────────────
+              - pattern: org.apache.commons.io.IOUtils.copy(..., $FILE)
+              - pattern: org.apache.commons.io.IOUtils.resourceToString($FILE, ...)
+              - pattern: org.apache.commons.io.RandomAccessFileMode.create($FILE)
 
-              - pattern: new javax.xml.transform.StreamSource($FILE, ...)
-              - pattern: new javax.activation.FileDataSource($FILE, ...)
+              # ── Apache Commons IO – file.PathUtils ────────────────────────────
+              - pattern: org.apache.commons.io.file.PathUtils.copyFile(..., $FILE, ...)
+              - pattern: org.apache.commons.io.file.PathUtils.copyFileToDirectory(..., $FILE, ...)
+              - pattern: org.apache.commons.io.file.PathUtils.newOutputStream($FILE, ...)
+              - pattern: org.apache.commons.io.file.PathUtils.writeString($FILE, ...)
+
+              # ── Apache Commons IO – output writers ────────────────────────────
+              - pattern: new org.apache.commons.io.output.FileWriterWithEncoding($FILE, ...)
+              - pattern: new org.apache.commons.io.output.LockableFileWriter($FILE, ...)
+              - pattern: new org.apache.commons.io.output.XmlStreamWriter($FILE, ...)
+
+              # ── Apache Commons Net ────────────────────────────────────────────
+              - pattern: org.apache.commons.net.util.KeyManagerUtils.createClientKeyManager($FILE, ...)
+              - pattern: org.apache.commons.net.util.KeyManagerUtils.createClientKeyManager(..., $FILE, ...)
+
+              # ── Spring Framework – Resource constructors ──────────────────────
+              - pattern: new org.springframework.core.io.ClassPathResource($FILE, ...)
+              - pattern: new org.springframework.core.io.FileSystemResource($FILE, ...)
+              - pattern: new org.springframework.core.io.FileUrlResource($FILE, ...)
+              - pattern: new org.springframework.core.io.PathResource($FILE)
+
+              # ── Spring Framework – Resource/ResourceLoader methods ────────────
+              - pattern: (org.springframework.core.io.Resource $R).createRelative($FILE)
+              - pattern: (org.springframework.core.io.ResourceLoader $RL).getResource($FILE)
+
+              # ── Spring Framework – util classes ───────────────────────────────
+              - pattern: org.springframework.util.ResourceUtils.getFile($FILE, ...)
+              - pattern: org.springframework.util.FileCopyUtils.copyToByteArray($FILE)
+              - pattern: org.springframework.util.FileCopyUtils.$COPY_METHOD(..., $FILE, ...)
+              - pattern: org.springframework.util.FileSystemUtils.copyRecursively($FILE, ...)
+              - pattern: org.springframework.util.FileSystemUtils.copyRecursively(..., $FILE)
+              - pattern: org.springframework.util.FileSystemUtils.deleteRecursively($FILE)
+              - pattern: org.springframework.util.FileSystemUtils.$FS_METHOD(..., $FILE, ...)
+
+              # ── Guava (com.google.common.io.Files) ────────────────────────────
+              - pattern: com.google.common.io.Files.asByteSink($FILE, ...)
+              - pattern: com.google.common.io.Files.asCharSink($FILE, ...)
+              - pattern: com.google.common.io.Files.asCharSource($FILE, ...)
+              - pattern: com.google.common.io.Files.copy($FILE, ...)
+              - pattern: com.google.common.io.Files.newWriter($FILE, ...)
+              - pattern: com.google.common.io.Files.readLines($FILE, ...)
+              - pattern: com.google.common.io.Files.toByteArray($FILE)
+              - pattern: com.google.common.io.Files.toString($FILE, ...)
+              - pattern: com.google.common.io.Files.write(..., $FILE)
+
+              # ── Jackson (ObjectMapper with File) ──────────────────────────────
+              - pattern: (com.fasterxml.jackson.databind.ObjectMapper $M).readValue((java.io.File $FILE), ...)
+              - pattern: (com.fasterxml.jackson.databind.ObjectMapper $M).writeValue((java.io.File $FILE), ...)
+
+              # ── XStream ───────────────────────────────────────────────────────
+              - pattern: (com.thoughtworks.xstream.XStream $X).fromXML($FILE)
+
+              # ── Netty ─────────────────────────────────────────────────────────
+              - pattern: (io.netty.handler.codec.http.multipart.HttpPostRequestEncoder $E).addBodyFileUpload(..., $FILE, ...)
+              - pattern: new io.netty.handler.ssl.OpenSslServerContext($FILE, ...)
+              - pattern: io.netty.handler.ssl.SslContextBuilder.forServer($FILE, ...)
+              - pattern: io.netty.handler.ssl.SslContextBuilder.trustManager($FILE)
+              - pattern: io.netty.util.internal.PlatformDependent.createTempFile(..., $FILE)
+
+              # ── Undertow ──────────────────────────────────────────────────────
+              - pattern: (io.undertow.server.handlers.resource.PathResourceManager $M).getResource($FILE)
+
+              # ── zip4j ─────────────────────────────────────────────────────────
+              - pattern: new net.lingala.zip4j.ZipFile($FILE)
+              - pattern: (net.lingala.zip4j.ZipFile $Z).extractAll($FILE)
+
+              # ── ANTLR ─────────────────────────────────────────────────────────
+              - pattern: new org.antlr.runtime.ANTLRFileStream($FILE, ...)
+
+              # ── Kotlin stdlib (kotlin.io.FilesKt) ─────────────────────────────
               - patterns:
-                  - pattern-either:
-                      - pattern: (Class $C).$CLASS_FUNC($FILE)
-                      - pattern: (ClassLoader $CL).$CLASS_FUNC($FILE)
-                  - metavariable-pattern:
-                      metavariable: $CLASS_FUNC
-                      pattern-either:
-                        - pattern: getResourceAsStream
-                        - pattern: getResource
-                        - pattern: getResources
-                        - pattern: resources
+                  - pattern: kotlin.io.FilesKt.$KT_METHOD($FILE, ...)
+                  - metavariable-regex:
+                      metavariable: $KT_METHOD
+                      regex: (appendBytes|appendText|bufferedWriter|deleteRecursively|inputStream|outputStream|printWriter|readBytes|readText|writeBytes|writeText|writer)
+              - pattern: kotlin.io.FilesKt.copyRecursively(..., $FILE, ...)
+              - pattern: kotlin.io.FilesKt.copyTo(..., $FILE, ...)
+
+              # ── Apache CXF ───────────────────────────────────────────────────
+              - pattern: org.apache.cxf.common.classloader.ClassLoaderUtils.getResourceAsStream($FILE, ...)
+              - pattern: org.apache.cxf.common.jaxb.JAXBUtils.createFileCodeWriter($FILE, ...)
+              - pattern: org.apache.cxf.configuration.jsse.SSLUtils.loadFile($FILE)
+              - pattern: org.apache.cxf.helpers.FileUtils.delete($FILE, ...)
+              - pattern: org.apache.cxf.helpers.FileUtils.mkdir($FILE)
+              - pattern: org.apache.cxf.helpers.FileUtils.readLines($FILE)
+              - pattern: org.apache.cxf.helpers.FileUtils.removeDir($FILE)
+              - pattern: (org.apache.cxf.resource.ExtendedURIResolver $R).resolve(..., $FILE)
+              - pattern: new org.apache.cxf.resource.URIResolver($FILE, ...)
+              - pattern: (org.apache.cxf.resource.URIResolver $R).resolve($FILE, ...)
+              - pattern: org.apache.cxf.staxutils.StaxUtils.read($FILE)
+              - pattern: new org.apache.cxf.tools.corba.utils.FileOutputStreamFactory($FILE, ...)
+              - pattern: (org.apache.cxf.tools.corba.utils.OutputStreamFactory $F).createOutputStream($FILE, ...)
+              - pattern: new org.apache.cxf.tools.util.FileWriterUtil($FILE, ...)
+              - pattern: (org.apache.cxf.tools.util.FileWriterUtil $W).buildDir($FILE)
+              - pattern: (org.apache.cxf.tools.util.FileWriterUtil $W).getFileToWrite(..., $FILE, ...)
+              - pattern: (org.apache.cxf.tools.util.FileWriterUtil $W).getWriter(..., $FILE, ...)
+              - pattern: (org.apache.cxf.tools.util.OutputStreamCreator $C).createOutputStream($FILE)
+
+              # ── Apache Hadoop ─────────────────────────────────────────────────
+              - pattern: (org.apache.hadoop.fs.FileSystem $FS).rename(..., $FILE, ...)
+              - pattern: (org.apache.hadoop.fs.s3a.WriteOperationHelper $H).createPutObjectRequest(..., $FILE)
+
+              # ── Apache Ant ────────────────────────────────────────────────────
+              - pattern: new org.apache.tools.ant.AntClassLoader(..., $FILE, ...)
+              - pattern: (org.apache.tools.ant.AntClassLoader $CL).addPathComponent($FILE)
+              - pattern: (org.apache.tools.ant.DirectoryScanner $DS).setBasedir($FILE)
+              - pattern: (org.apache.tools.ant.taskdefs.Copy $C).setFile($FILE)
+              - pattern: (org.apache.tools.ant.taskdefs.Copy $C).setTodir($FILE)
+              - pattern: (org.apache.tools.ant.taskdefs.Copy $C).setTofile($FILE)
+              - pattern: (org.apache.tools.ant.taskdefs.Copy $C).addFileset($FILE)
+              - pattern: (org.apache.tools.ant.taskdefs.Expand $E).setDest($FILE)
+              - pattern: (org.apache.tools.ant.taskdefs.Expand $E).setSrc($FILE)
+              - pattern: (org.apache.tools.ant.taskdefs.Property $P).setFile($FILE)
+              - pattern: (org.apache.tools.ant.taskdefs.Property $P).setResource($FILE)
+
+              # ── AWS SDK S3 Transfer ───────────────────────────────────────────
+              # Note: Builder inner class patterns removed - analyzer cannot resolve inner class types
+              # in typed metavariables. Static methods on top-level classes still work.
+              - pattern: software.amazon.awssdk.transfer.s3.model.ResumableFileDownload.fromFile($FILE)
+              - pattern: (software.amazon.awssdk.transfer.s3.model.ResumableFileDownload $D).serializeToFile($FILE)
+              - pattern: software.amazon.awssdk.transfer.s3.model.ResumableFileUpload.fromFile($FILE)
+              - pattern: (software.amazon.awssdk.transfer.s3.model.ResumableFileUpload $U).serializeToFile($FILE)
+
+              # ── Hudson/Jenkins – FilePath ─────────────────────────────────────
+              - patterns:
+                  - pattern: (hudson.FilePath $FILE).$METHOD(...)
+                  - metavariable-regex:
+                      metavariable: $METHOD
+                      regex: (copyFrom|copyTo|copyToWithPermission|copyRecursiveTo|exists|renameTo|write|read|readToString|readFromOffset|tar|unzipFrom)
+              - pattern: (hudson.FilePath $FP).copyFrom($FILE)
+              - pattern: (hudson.FilePath $FP).copyRecursiveTo(..., $FILE, ...)
+              - pattern: (hudson.FilePath $FP).copyTo($FILE)
+              - pattern: (hudson.FilePath $FP).copyToWithPermission($FILE)
+              - pattern: new hudson.XmlFile(..., $FILE)
+
+              # ── Hudson/Jenkins – model ────────────────────────────────────────
+              - pattern: new hudson.model.DirectoryBrowserSupport(..., $FILE, ...)
+              - pattern: hudson.model.Items.load(..., $FILE)
+              # Note: UpdateCenter.UpdateCenterConfiguration pattern removed - inner class types not supported
+
+              # ── Hudson/Jenkins – scm ──────────────────────────────────────────
+              - pattern: (hudson.scm.ChangeLogParser $P).parse(..., $FILE, ...)
+              - pattern: (hudson.scm.SCM $S).checkout(..., $FILE, ...)
+              - pattern: (hudson.scm.SCM $S).compareRemoteRevisionWith(..., $FILE, ...)
+
+              # ── Hudson/Jenkins – util ─────────────────────────────────────────
+              - pattern: new hudson.util.AtomicFileWriter($FILE, ...)
+              - pattern: (hudson.util.ClasspathBuilder $CB).add($FILE)
+              - pattern: hudson.util.HttpResponses.staticResource($FILE)
+              - pattern: hudson.util.IOUtils.mkdirs($FILE)
+              - pattern: new hudson.util.StreamTaskListener($FILE, ...)
+              - patterns:
+                  - pattern: (hudson.util.TextFile $FILE).$METHOD(...)
+                  - metavariable-regex:
+                      metavariable: $METHOD
+                      regex: (delete|fastTail|head|lines|read|readTrim|write)
+
+              # ── Hudson/Jenkins – lifecycle, util.io, util.jna ─────────────────
+              - pattern: (hudson.lifecycle.Lifecycle $L).rewriteHudsonWar($FILE)
+              - pattern: new hudson.util.io.ReopenableFileOutputStream($FILE)
+              - pattern: new hudson.util.io.RewindableFileOutputStream($FILE)
+              # ANALYZER LIMITATION: Method name `open` causes "Unreachable" parser error.
+              # TODO: Re-enable when analyzer supports `open` as a method name in patterns.
+              # - pattern: (hudson.util.jna.GNUCLibrary $LIB).open($FILE, ...)
+              - pattern: (hudson.util.jna.Kernel32 $K).MoveFileExA(..., $FILE, ...)
+
+              # ── Other third-party ─────────────────────────────────────────────
+              - pattern: new org.codehaus.cargo.container.installer.ZipURLInstaller(..., $FILE, ...)
+              # ANALYZER LIMITATION: Method name `open` causes "Unreachable" parser error.
+              # TODO: Re-enable when analyzer supports `open` as a method name in patterns.
+              # - pattern: org.fusesource.leveldbjni.JniDBFactory.open($FILE, ...)
+              - pattern: (org.jboss.vfs.VirtualFile $VF).getChild($FILE)
+              - pattern: (org.kohsuke.stapler.StaplerResponse $R).serveFile(..., $FILE, ...)
+              - pattern: (org.kohsuke.stapler.StaplerResponse $R).serveLocalizedFile(..., $FILE, ...)
+              - pattern: new org.kohsuke.stapler.framework.io.LargeText($FILE, ...)
+              - pattern: (org.openjdk.jmh.runner.options.ChainedOptionsBuilder $B).result($FILE)
+
           - focus-metavariable: $FILE

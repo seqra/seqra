@@ -40,4 +40,39 @@ rules:
                   (ServletOutputStream $WRITER).$WRITE(..., $UNTRUSTED, ...)
               - pattern: |
                   (jakarta.servlet.jsp.JspWriter $WRITER).$WRITE(..., $UNTRUSTED, ...)
+              # JSF response writer/stream sinks
+              - pattern: |
+                  (javax.faces.context.ResponseWriter $WRITER).write($UNTRUSTED, ...)
+              - pattern: |
+                  (javax.faces.context.ResponseStream $STREAM).write($UNTRUSTED, ...)
+              - pattern: |
+                  (jakarta.faces.context.ResponseWriter $WRITER).write($UNTRUSTED, ...)
+              - pattern: |
+                  (jakarta.faces.context.ResponseStream $STREAM).write($UNTRUSTED, ...)
+              # Apache HttpComponents response entity sinks
+              - pattern: |
+                  (org.apache.hc.core5.http.HttpEntityContainer $CONTAINER).setEntity($UNTRUSTED)
+              - pattern: |
+                  (org.apache.http.HttpResponse $RESPONSE).setEntity($UNTRUSTED)
+              - pattern: |
+                  org.apache.http.util.EntityUtils.updateEntity($RESPONSE, $UNTRUSTED)
+              # Jenkins FormValidation respond
+              - pattern: |
+                  hudson.util.FormValidation.respond($KIND, $UNTRUSTED)
+          - focus-metavariable: $UNTRUSTED
+      # Jenkins FormValidation HTML markup sinks
+      - patterns:
+          - pattern: |
+              hudson.util.FormValidation.$METHOD($UNTRUSTED, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(errorWithMarkup|okWithMarkup|warningWithMarkup)$
+          - focus-metavariable: $UNTRUSTED
+      # Jenkins Stapler HTML response sinks
+      - patterns:
+          - pattern: |
+              org.kohsuke.stapler.HttpResponses.$METHOD($UNTRUSTED)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(html|literalHtml)$
           - focus-metavariable: $UNTRUSTED

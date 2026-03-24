@@ -8,23 +8,289 @@ rules:
       provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/ssrf/rule-SSRF.yml
     languages:
       - java
-    patterns:
-      - pattern-either:
-          - pattern: new URL($UNTRUSTED).$FUNC(...);
-          - pattern: (java.net.URL $URL).$FUNC(..., $UNTRUSTED, ...);
-          - pattern: URI.create($UNTRUSTED).toURL().$FUNC();
-          - pattern: new InetSocketAddress($UNTRUSTED, ...);
-          - pattern: java.sql.DriverManager.getConnection($UNTRUSTED, ...);
-          - pattern: (org.springframework.web.client.RestTemplate $T).$REQ((java.net.URI $UNTRUSTED), ...)
-          - pattern: (org.springframework.web.client.RestTemplate $T).$REQ((java.lang.String $UNTRUSTED), ...)
-      - metavariable-pattern:
-          metavariable: $FUNC
-          pattern-either:
-            - pattern: connect
-            - pattern: GetContent
-            - pattern: openConnection
-            - pattern: openStream
-            - pattern: getContent
+    pattern-either:
+
+      # ── java.net.URL methods ───────────────────────────────────────────
+      - patterns:
+          - pattern-either:
+              - pattern: new URL($UNTRUSTED).$FUNC(...)
+              - pattern: (java.net.URL $URL).$FUNC(..., $UNTRUSTED, ...)
+              - pattern: URI.create($UNTRUSTED).toURL().$FUNC()
+          - metavariable-pattern:
+              metavariable: $FUNC
+              pattern-either:
+                - pattern: connect
+                - pattern: GetContent
+                - pattern: openConnection
+                - pattern: openStream
+                - pattern: getContent
+
+      # ── java.net core ──────────────────────────────────────────────────
+      - pattern: new java.net.InetSocketAddress($UNTRUSTED, ...)
+      - pattern: java.sql.DriverManager.getConnection($UNTRUSTED, ...)
+      - pattern: new java.net.Socket($UNTRUSTED, ...)
+      - pattern: new java.net.DatagramPacket(..., (java.net.InetAddress $UNTRUSTED), ...)
+      - pattern: new java.net.DatagramPacket(..., (java.net.SocketAddress $UNTRUSTED))
+      - pattern: new java.net.DatagramPacket($B, $O, $L, (java.net.SocketAddress $UNTRUSTED))
+      - pattern: (java.net.DatagramPacket $P).setAddress($UNTRUSTED)
+      - pattern: (java.net.DatagramPacket $P).setSocketAddress($UNTRUSTED)
+      - pattern: (java.net.DatagramSocket $S).connect($UNTRUSTED, ...)
+      - pattern: new java.net.URLClassLoader($UNTRUSTED, ...)
+      - pattern: new java.net.URLClassLoader($NAME, $UNTRUSTED, ...)
+      - pattern: java.net.URLClassLoader.newInstance($UNTRUSTED, ...)
+
+      # ── java.net.http ──────────────────────────────────────────────────
+      - pattern: java.net.http.HttpRequest.newBuilder($UNTRUSTED)
+      - pattern: (java.net.http.HttpClient $C).send($UNTRUSTED, ...)
+      # ANALYZER LIMITATION: Inner class types not supported in typed metavariables.
+      # TODO: Re-enable when analyzer supports inner class types (HttpRequest.Builder).
+      # - pattern: (java.net.http.HttpRequest.Builder $B).uri($UNTRUSTED)
+
+      # ── OkHttp3 ────────────────────────────────────────────────────────
+      - pattern: (okhttp3.OkHttpClient $C).newCall($UNTRUSTED)
+      - pattern: (okhttp3.OkHttpClient $C).newWebSocket($UNTRUSTED, ...)
+      - pattern: new okhttp3.Request($UNTRUSTED)
+      # ANALYZER LIMITATION: Inner class types not supported in typed metavariables.
+      # TODO: Re-enable when analyzer supports inner class types (Request.Builder).
+      # - pattern: (okhttp3.Request.Builder $B).url($UNTRUSTED)
+
+      # ── Spring RestTemplate ────────────────────────────────────────────
+      - pattern: (org.springframework.web.client.RestTemplate $T).$REQ((java.net.URI $UNTRUSTED), ...)
+      - pattern: (org.springframework.web.client.RestTemplate $T).$REQ((java.lang.String $UNTRUSTED), ...)
+
+      # ── Spring RequestEntity ───────────────────────────────────────────
+      - pattern: new org.springframework.http.RequestEntity(..., (java.net.URI $UNTRUSTED), ...)
+      - patterns:
+          - pattern: org.springframework.http.RequestEntity.$METHOD($UNTRUSTED, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(delete|get|head|options|patch|post|put)$
+      - pattern: org.springframework.http.RequestEntity.method($M, $UNTRUSTED)
+
+      # ── Spring WebClient ───────────────────────────────────────────────
+      - pattern: org.springframework.web.reactive.function.client.WebClient.create($UNTRUSTED)
+      # ANALYZER LIMITATION: Inner class types not supported in typed metavariables.
+      # TODO: Re-enable when analyzer supports inner class types (WebClient.Builder).
+      # - pattern: (org.springframework.web.reactive.function.client.WebClient.Builder $B).baseUrl($UNTRUSTED)
+
+      # ── Spring DataSource ──────────────────────────────────────────────
+      - pattern: new org.springframework.jdbc.datasource.DriverManagerDataSource($UNTRUSTED, ...)
+      - pattern: (org.springframework.jdbc.datasource.AbstractDriverBasedDataSource $DS).setUrl($UNTRUSTED)
+      - pattern: (org.springframework.boot.jdbc.DataSourceBuilder $B).url($UNTRUSTED)
+
+      # ── Apache HttpClient 4.x constructors ─────────────────────────────
+      - pattern: new org.apache.http.client.methods.HttpDelete($UNTRUSTED)
+      - pattern: new org.apache.http.client.methods.HttpGet($UNTRUSTED)
+      - pattern: new org.apache.http.client.methods.HttpHead($UNTRUSTED)
+      - pattern: new org.apache.http.client.methods.HttpOptions($UNTRUSTED)
+      - pattern: new org.apache.http.client.methods.HttpPatch($UNTRUSTED)
+      - pattern: new org.apache.http.client.methods.HttpPost($UNTRUSTED)
+      - pattern: new org.apache.http.client.methods.HttpPut($UNTRUSTED)
+      - pattern: new org.apache.http.client.methods.HttpTrace($UNTRUSTED)
+
+      # ── Apache HttpClient 4.x methods ──────────────────────────────────
+      - pattern: (org.apache.http.client.methods.HttpRequestBase $R).setURI($UNTRUSTED)
+      - pattern: (org.apache.http.client.methods.HttpRequestWrapper $R).setURI($UNTRUSTED)
+      - patterns:
+          - pattern: org.apache.http.client.methods.RequestBuilder.$METHOD($UNTRUSTED)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(delete|get|head|options|patch|post|put|setUri|trace)$
+      - pattern: (org.apache.http.client.HttpClient $C).execute($UNTRUSTED, ...)
+      - pattern: (org.apache.http.impl.client.RequestWrapper $R).setURI($UNTRUSTED)
+
+      # ── Apache HttpClient 4.x fluent ───────────────────────────────────
+      - patterns:
+          - pattern: org.apache.http.client.fluent.Request.$METHOD($UNTRUSTED)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(Delete|Get|Head|Options|Patch|Post|Put|Trace)$
+
+      # ── Apache HttpClient 4.x message ──────────────────────────────────
+      - pattern: new org.apache.http.message.BasicHttpRequest($UNTRUSTED)
+      - pattern: new org.apache.http.message.BasicHttpRequest($METHOD, $UNTRUSTED, ...)
+      - pattern: new org.apache.http.message.BasicHttpEntityEnclosingRequest($UNTRUSTED)
+      - pattern: new org.apache.http.message.BasicHttpEntityEnclosingRequest($METHOD, $UNTRUSTED, ...)
+      - pattern: (org.apache.http.HttpRequestFactory $F).newHttpRequest($METHOD, $UNTRUSTED)
+
+      # ── Apache HttpComponents 5 - classic methods constructors ─────────
+      - pattern: new org.apache.hc.client5.http.classic.methods.HttpDelete($UNTRUSTED)
+      - pattern: new org.apache.hc.client5.http.classic.methods.HttpGet($UNTRUSTED)
+      - pattern: new org.apache.hc.client5.http.classic.methods.HttpHead($UNTRUSTED)
+      - pattern: new org.apache.hc.client5.http.classic.methods.HttpOptions($UNTRUSTED)
+      - pattern: new org.apache.hc.client5.http.classic.methods.HttpPatch($UNTRUSTED)
+      - pattern: new org.apache.hc.client5.http.classic.methods.HttpPost($UNTRUSTED)
+      - pattern: new org.apache.hc.client5.http.classic.methods.HttpPut($UNTRUSTED)
+      - pattern: new org.apache.hc.client5.http.classic.methods.HttpTrace($UNTRUSTED)
+      - pattern: new org.apache.hc.client5.http.classic.methods.HttpUriRequestBase($METHOD, $UNTRUSTED)
+
+      # ── Apache HttpComponents 5 - classic methods factory ──────────────
+      - patterns:
+          - pattern: org.apache.hc.client5.http.classic.methods.ClassicHttpRequests.$METHOD($UNTRUSTED, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(delete|get|head|options|patch|post|put|trace)$
+      - pattern: org.apache.hc.client5.http.classic.methods.ClassicHttpRequests.create($M, $UNTRUSTED, ...)
+
+      # ── Apache HttpComponents 5 - async methods ────────────────────────
+      - patterns:
+          - pattern: org.apache.hc.client5.http.async.methods.BasicHttpRequests.$METHOD($UNTRUSTED, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(delete|get|head|options|patch|post|put|trace)$
+      - pattern: org.apache.hc.client5.http.async.methods.BasicHttpRequests.create($M, $UNTRUSTED, ...)
+      - patterns:
+          - pattern: org.apache.hc.client5.http.async.methods.SimpleHttpRequests.$METHOD($UNTRUSTED, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(delete|get|head|options|patch|post|put|trace)$
+      - pattern: org.apache.hc.client5.http.async.methods.SimpleHttpRequests.create($M, $UNTRUSTED, ...)
+      - patterns:
+          - pattern: org.apache.hc.client5.http.async.methods.SimpleRequestBuilder.$METHOD($UNTRUSTED)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(delete|get|head|options|patch|post|put|trace)$
+      - pattern: new org.apache.hc.client5.http.async.methods.SimpleHttpRequest($M, $UNTRUSTED, ...)
+      - pattern: org.apache.hc.client5.http.async.methods.SimpleHttpRequest.create($M, $UNTRUSTED, ...)
+      - pattern: new org.apache.hc.client5.http.async.methods.ConfigurableHttpRequest($M, $UNTRUSTED, ...)
+
+      # ── Apache HttpComponents 5 - fluent ───────────────────────────────
+      - patterns:
+          - pattern: org.apache.hc.client5.http.fluent.Request.$METHOD($UNTRUSTED)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(delete|get|head|options|patch|post|put|trace)$
+      - pattern: org.apache.hc.client5.http.fluent.Request.create($M, $UNTRUSTED, ...)
+
+      # ── Apache HttpComponents 5 - core IO support ──────────────────────
+      - patterns:
+          - pattern: org.apache.hc.core5.http.io.support.ClassicRequestBuilder.$METHOD($UNTRUSTED)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(delete|get|head|options|patch|post|put|trace)$
+
+      # ── Apache HttpComponents 5 - core message ─────────────────────────
+      - pattern: new org.apache.hc.core5.http.message.BasicClassicHttpRequest($M, $UNTRUSTED, ...)
+      - pattern: new org.apache.hc.core5.http.message.BasicHttpRequest($M, $UNTRUSTED, ...)
+
+      # ── Apache HttpComponents 5 - core http ────────────────────────────
+      - pattern: (org.apache.hc.core5.http.HttpRequest $R).setUri($UNTRUSTED)
+      - pattern: (org.apache.hc.core5.http.HttpRequestFactory $F).newHttpRequest($M, $UNTRUSTED)
+
+      # ── Apache HttpComponents 5 - NIO support ──────────────────────────
+      - patterns:
+          - pattern: org.apache.hc.core5.http.nio.support.AsyncRequestBuilder.$METHOD($UNTRUSTED)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(delete|get|head|options|patch|post|put|trace)$
+      - pattern: new org.apache.hc.core5.http.nio.support.BasicRequestProducer($M, $UNTRUSTED, ...)
+
+      # ── Apache HttpComponents 5 - support ──────────────────────────────
+      - patterns:
+          - pattern: (org.apache.hc.core5.http.support.AbstractRequestBuilder $B).$METHOD($UNTRUSTED)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(setHttpHost|setUri)$
+      - patterns:
+          - pattern: org.apache.hc.core5.http.support.BasicRequestBuilder.$METHOD($UNTRUSTED)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(delete|get|head|options|patch|post|put|trace)$
+
+      # ── Apache HttpComponents 5 - bootstrap ────────────────────────────
+      - pattern: (org.apache.hc.core5.http.impl.bootstrap.HttpAsyncRequester $R).connect($UNTRUSTED, ...)
+      # ANALYZER LIMITATION: Inner class types not supported in typed metavariables.
+      # TODO: Re-enable when analyzer supports inner class types (BenchmarkConfig.Builder).
+      # - pattern: (org.apache.hc.core5.benchmark.BenchmarkConfig.Builder $B).setUri($UNTRUSTED)
+
+      # ── Netty ──────────────────────────────────────────────────────────
+      - pattern: (io.netty.bootstrap.Bootstrap $B).connect($UNTRUSTED, ...)
+      - pattern: (io.netty.channel.ChannelOutboundInvoker $C).connect($UNTRUSTED, ...)
+      - pattern: (io.netty.channel.DefaultChannelPipeline $P).connect($UNTRUSTED, ...)
+      - pattern: (io.netty.channel.ChannelDuplexHandler $H).connect($CTX, $UNTRUSTED, ...)
+      - pattern: (io.netty.channel.ChannelOutboundHandlerAdapter $H).connect($CTX, $UNTRUSTED, ...)
+      - pattern: new io.netty.handler.codec.http.DefaultFullHttpRequest($V, $M, $UNTRUSTED, ...)
+      - pattern: new io.netty.handler.codec.http.DefaultHttpRequest($V, $M, $UNTRUSTED)
+      - pattern: (io.netty.handler.codec.http.HttpRequest $R).setUri($UNTRUSTED)
+      - pattern: io.netty.util.internal.SocketUtils.connect($SOCKET, $UNTRUSTED, ...)
+      # ANALYZER LIMITATION: Inner class types not supported in typed metavariables.
+      # TODO: Re-enable when analyzer supports inner class types (Channel.Unsafe).
+      # - pattern: (io.netty.channel.Channel.Unsafe $U).connect($UNTRUSTED, ...)
+
+      # ── Database connection URLs ───────────────────────────────────────
+      - pattern: (com.zaxxer.hikari.HikariConfig $C).setJdbcUrl($UNTRUSTED)
+      - pattern: new com.zaxxer.hikari.HikariConfig($UNTRUSTED)
+      - pattern: org.jdbi.v3.core.Jdbi.create($UNTRUSTED, ...)
+      # ANALYZER LIMITATION: Method name `open` causes "Unreachable" parser error.
+      # TODO: Re-enable when analyzer supports `open` as a method name in patterns.
+      # - pattern: org.jdbi.v3.core.Jdbi.open($UNTRUSTED, ...)
+      - pattern: org.influxdb.InfluxDBFactory.connect($UNTRUSTED, ...)
+
+      # ── JAX-RS / Jakarta WS Client ────────────────────────────────────
+      - pattern: (javax.ws.rs.client.Client $C).target($UNTRUSTED)
+      - pattern: (jakarta.ws.rs.client.Client $C).target($UNTRUSTED)
+
+      # ── Eclipse Jetty HTTP Client ──────────────────────────────────────
+      - pattern: (org.eclipse.jetty.client.HttpClient $C).newRequest($UNTRUSTED)
+      - pattern: (org.eclipse.jetty.client.HttpClient $C).GET($UNTRUSTED)
+
+      # ── Play Framework WS Client ──────────────────────────────────────
+      - pattern: (play.libs.ws.WSClient $C).url($UNTRUSTED)
+      - pattern: (play.libs.ws.StandaloneWSClient $C).url($UNTRUSTED)
+
+      # ── JavaFX WebEngine ───────────────────────────────────────────────
+      - pattern: (javafx.scene.web.WebEngine $E).load($UNTRUSTED)
+
+      # ── JSch SSH ───────────────────────────────────────────────────────
+      - pattern: (com.jcraft.jsch.JSch $J).getSession($USER, $UNTRUSTED, ...)
+
+      # ── Apache Commons Net ─────────────────────────────────────────────
+      - pattern: (org.apache.commons.net.SocketClient $C).connect($UNTRUSTED, ...)
+
+      # ── Apache Commons IO ──────────────────────────────────────────────
+      - pattern: org.apache.commons.io.FileUtils.copyURLToFile($UNTRUSTED, ...)
+      - pattern: org.apache.commons.io.IOUtils.copy((java.net.URL $UNTRUSTED), ...)
+      - pattern: org.apache.commons.io.IOUtils.toByteArray($UNTRUSTED)
+      - pattern: org.apache.commons.io.IOUtils.toString($UNTRUSTED, ...)
+      - pattern: org.apache.commons.io.file.PathUtils.copyFile($UNTRUSTED, ...)
+      - pattern: org.apache.commons.io.file.PathUtils.copyFileToDirectory($UNTRUSTED, ...)
+      - pattern: new org.apache.commons.io.input.XmlStreamReader($UNTRUSTED)
+
+      # ── Kotlin ─────────────────────────────────────────────────────────
+      - pattern: kotlin.io.TextStreamsKt.readBytes($UNTRUSTED)
+      - pattern: kotlin.io.TextStreamsKt.readText($UNTRUSTED, ...)
+
+      # ── Activation (javax / jakarta) ───────────────────────────────────
+      - pattern: new javax.activation.URLDataSource($UNTRUSTED)
+      - pattern: new jakarta.activation.URLDataSource($UNTRUSTED)
+
+      # ── Jenkins / Hudson ───────────────────────────────────────────────
+      - pattern: new hudson.cli.FullDuplexHttpStream($UNTRUSTED, ...)
+      - pattern: hudson.model.DownloadService.loadJSON($UNTRUSTED)
+      - pattern: hudson.model.DownloadService.loadJSONHTML($UNTRUSTED)
+      - pattern: (hudson.FilePath $FP).installIfNecessaryFrom($UNTRUSTED, ...)
+      # ANALYZER LIMITATION: Inner class types not supported in typed metavariables.
+      # TODO: Re-enable when analyzer supports inner class types (UpdateCenter.UpdateCenterConfiguration).
+      # - pattern: (hudson.model.UpdateCenter.UpdateCenterConfiguration $C).download($J, $UNTRUSTED)
+
+      # ── Apache Commons Jelly ───────────────────────────────────────────
+      - pattern: new org.apache.commons.jelly.JellyContext((java.net.URL $UNTRUSTED), ...)
+      - pattern: new org.apache.commons.jelly.JellyContext($CTX, (java.net.URL $UNTRUSTED), ...)
+
+      # ── Apache CXF ─────────────────────────────────────────────────────
+      - pattern: org.apache.cxf.catalog.OASISCatalogManager.loadCatalog($UNTRUSTED)
+      - pattern: org.apache.cxf.common.classloader.ClassLoaderUtils.getURLClassLoader($UNTRUSTED, ...)
+
+      # ── Kohsuke Stapler ────────────────────────────────────────────────
+      - pattern: (org.kohsuke.stapler.StaplerResponse $R).reverseProxyTo($UNTRUSTED, ...)
+
+      # ── JSON Slurper (Jenkins) ─────────────────────────────────────────
+      - pattern: (net.sf.json.groovy.JsonSlurper $S).parse($UNTRUSTED)
+
+      # ── Retrofit ───────────────────────────────────────────────────────
+      # ANALYZER LIMITATION: Inner class types not supported in typed metavariables.
+      # TODO: Re-enable when analyzer supports inner class types (Retrofit.Builder).
+      # - pattern: (retrofit2.Retrofit.Builder $B).baseUrl($UNTRUSTED)
 
   - id: java-http-parameter-pollution-sinks
     options:

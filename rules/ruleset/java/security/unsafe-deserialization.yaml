@@ -265,3 +265,49 @@ rules:
                   XmlRpcClientConfigImpl $VAR = new org.apache.xmlrpc.client.XmlRpcClientConfigImpl();
                   ...
               - pattern: $VAR.setEnabledForExtensions(true);
+
+  - id: unsafe-deserialization-in-servlet-app
+    severity: ERROR
+    message: >-
+      Deserialization of untrusted data can lead to remote code execution.
+      Ensure that only trusted, validated data is deserialized.
+    metadata:
+      cwe:
+        - CWE-502
+      short-description: Unsafe deserialization of untrusted data
+      references:
+        - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/16-Testing_for_HTTP_Incoming_Requests
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/unsafe-deserialization-sinks.yaml#java-unsafe-deserialization-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$SINK'
+
+  - id: unsafe-deserialization-in-spring-app
+    severity: ERROR
+    message: >-
+      Deserialization of untrusted data can lead to remote code execution.
+      Ensure that only trusted, validated data is deserialized.
+    metadata:
+      cwe:
+        - CWE-502
+      short-description: Unsafe deserialization of untrusted data
+      references:
+        - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/16-Testing_for_HTTP_Incoming_Requests
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/unsafe-deserialization-sinks.yaml#java-unsafe-deserialization-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$SINK'

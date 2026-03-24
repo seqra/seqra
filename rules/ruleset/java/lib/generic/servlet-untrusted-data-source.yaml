@@ -45,6 +45,7 @@ rules:
       - java
     patterns:
       - pattern-either:
+          # ── Servlet: HttpServletRequest entry points ──
           - patterns:
               - pattern: |
                   $RETURNTYPE $ENTRYPOINT(..., HttpServletRequest $UNTRUSTED,...) {
@@ -59,8 +60,12 @@ rules:
                     - pattern: doPut
                     - pattern: doTrace
                     - pattern: _jspService
+
+          # ── JAX-RS: MessageBodyReader ──
           - pattern: |
               $UNTRUSTED = (MessageBodyReader $READER).readFrom(...);
+
+          # ── Servlet: FileUpload parseRequest ──
           - patterns:
             - pattern: |
                 $FILES = ($FILE_UPLOAD_TYPE $SFU).parseRequest((HttpServletRequest $REQ));
@@ -69,5 +74,421 @@ rules:
             - metavariable-regex:
                 metavariable: $FILE_UPLOAD_TYPE
                 regex: .*FileUpload.*
+
+          # ── Servlet: Part.getSubmittedFileName ──
           - pattern: |
               $UNTRUSTED = ($X.servlet.http.Part $PART).getSubmittedFileName();
+
+          # ── Servlet: HttpServletRequest return-value methods ──
+          # Covers javax.servlet.http.HttpServletRequest and jakarta.servlet.http.HttpServletRequest
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (HttpServletRequest $REQ).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getHeaderNames|getParameterNames|getParameterValues|getPathInfo|getQueryString|getRemoteUser|getRequestURI|getRequestURL|getServletPath
+
+          # ── Servlet: Cookie return-value methods ──
+          # Covers javax.servlet.http.Cookie and jakarta.servlet.http.Cookie
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (Cookie $C).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getComment|getName
+
+          # ── Servlet: Part return-value methods ──
+          # Covers javax.servlet.http.Part and jakarta.servlet.http.Part
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (Part $P).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getContentType|getHeader|getHeaderNames|getHeaders|getInputStream|getName
+
+          # ── Servlet: ServletRequest return-value methods ──
+          # Covers javax.servlet.ServletRequest and jakarta.servlet.ServletRequest
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (ServletRequest $REQ).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getParameterNames|getParameterValues|getReader
+
+          # ── JSF: ExternalContext return-value methods ──
+          # Covers javax.faces.context.ExternalContext and jakarta.faces.context.ExternalContext
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (ExternalContext $CTX).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getRequestHeaderValuesMap|getRequestParameterNames|getRequestParameterValuesMap|getRequestPathInfo
+
+          # ── JAX-RS: ContainerRequestContext return-value methods ──
+          # Covers javax.ws.rs.container.ContainerRequestContext and jakarta.ws.rs.container.ContainerRequestContext
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (ContainerRequestContext $CTX).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getAcceptableLanguages|getAcceptableMediaTypes|getCookies|getEntityStream|getHeaders|getHeaderString|getLanguage|getMediaType|getUriInfo
+
+          # ── JAXB: AttachmentUnmarshaller return-value methods ──
+          # Covers javax.xml.bind.attachment.AttachmentUnmarshaller and jakarta.xml.bind.attachment.AttachmentUnmarshaller
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (AttachmentUnmarshaller $U).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getAttachmentAsByteArray|getAttachmentAsDataHandler
+
+          # ── Bean Validation: ConstraintValidator.isValid callback parameter ──
+          # Covers javax.validation.ConstraintValidator
+          - pattern: |
+              $RETURNTYPE isValid($TYPE $UNTRUSTED, ...) {
+              ...
+              }
+
+          # ── JMS: JMSConsumer return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (JMSConsumer $C).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: receive|receiveBody|receiveBodyNoWait|receiveNoWait
+
+          # ── JMS: MessageConsumer return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (MessageConsumer $C).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: receive|receiveNoWait
+
+          # ── JMS: QueueRequestor.request ──
+          - pattern: |
+              $UNTRUSTED = (QueueRequestor $R).request(...);
+
+          # ── JMS: TopicRequestor.request ──
+          - pattern: |
+              $UNTRUSTED = (TopicRequestor $R).request(...);
+
+          # ── FileUpload: FileItem return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (FileItem $FI).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: get|getContentType|getFieldName|getInputStream|getName|getString
+
+          # ── FileUpload: FileItemStream return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (FileItemStream $FIS).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getContentType|getFieldName|getName|openStream
+
+          # ── FTP: FTPClient return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (FTPClient $FTP).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: listDirectories|listFiles|listNames|mlistDir|retrieveFile|retrieveFileStream
+
+          # ── RabbitMQ: Command return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (Command $CMD).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getContentBody|getContentHeader
+
+          # ── RabbitMQ: Frame return-value methods ──
+          # com.rabbitmq.client.impl.Frame
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (Frame $F).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getInputStream|getPayload
+
+          # ── RabbitMQ: FrameHandler.readFrame ──
+          # com.rabbitmq.client.impl.FrameHandler
+          - pattern: |
+              $UNTRUSTED = (FrameHandler $FH).readFrame(...);
+
+          # ── RabbitMQ: QueueingConsumer.nextDelivery ──
+          - pattern: |
+              $UNTRUSTED = (QueueingConsumer $QC).nextDelivery(...);
+
+          # ── RabbitMQ: Consumer.handleDelivery callback ──
+          # com.rabbitmq.client.Consumer
+          - pattern: |
+              $RETURNTYPE handleDelivery(String $TAG, Envelope $ENV, $PROPS_TYPE $PROPS, byte[] $UNTRUSTED) {
+              ...
+              }
+
+          # ── RabbitMQ: RpcClient return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (RpcClient $RPC).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: doCall|mapCall|primitiveCall|responseCall|stringCall
+
+          # ── RabbitMQ: RpcServer callback param methods ──
+          # handleCall / handleCast / preprocessReplyProperties / postprocessReplyProperties
+          # These are callback methods where the byte[] or Delivery param is untrusted
+          - patterns:
+            - pattern: |
+                $RTYPE $METHOD($PTYPE $UNTRUSTED, ...) {
+                ...
+                }
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: handleCall|handleCast|preprocessReplyProperties|postprocessReplyProperties
+            - metavariable-regex:
+                metavariable: $PTYPE
+                regex: byte\[\]|QueueingConsumer\$Delivery|AMQP\$BasicProperties
+
+          # ── RabbitMQ: StringRpcServer.handleStringCall callback ──
+          - pattern: |
+              $RETURNTYPE handleStringCall(String $UNTRUSTED, ...) {
+              ...
+              }
+
+          # ── Netty: ChannelInboundHandler.channelRead callback ──
+          - pattern: |
+              $RETURNTYPE channelRead($CTX_TYPE $CTX, Object $UNTRUSTED) {
+              ...
+              }
+
+          # ── Netty: SimpleChannelInboundHandler.channelRead0 callback ──
+          - pattern: |
+              $RETURNTYPE channelRead0($CTX_TYPE $CTX, $MSG_TYPE $UNTRUSTED) {
+              ...
+              }
+
+          # ── Netty: ByteToMessageDecoder.decode / decodeLast / callDecode ──
+          - patterns:
+            - pattern: |
+                $RETURNTYPE $METHOD($CTX_TYPE $CTX, ByteBuf $UNTRUSTED, ...) {
+                ...
+                }
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: decode|decodeLast|callDecode
+
+          # ── Netty: ByteToMessageCodec.decode / decodeLast ──
+          # Same pattern as above, already covered by the regex
+
+          # ── Netty: MessageToMessageDecoder.decode / acceptInboundMessage ──
+          - patterns:
+            - pattern: |
+                $RTYPE $METHOD($PTYPE $UNTRUSTED, ...) {
+                ...
+                }
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: acceptInboundMessage
+
+          # ── Netty: MessageToMessageCodec.decode ──
+          # Already covered by decode regex above
+
+          # ── Netty: Http2FrameListener callbacks ──
+          - patterns:
+            - pattern: |
+                $RTYPE $METHOD($CTX_TYPE $CTX, ...) {
+                ...
+                }
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: onDataRead|onHeadersRead|onPushPromiseRead|onUnknownFrame
+
+          # ── Stapler: StaplerRequest return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (StaplerRequest $REQ).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: bindJSON|bindJSONToList|bindParameters|bindParametersToList|getFileItem|getOriginalRequestURI|getParameter|getParameterMap|getParameterNames|getParameterValues|getReferer|getRequestURIWithQueryString|getRequestURLWithQueryString|getRestOfPath|getSubmittedForm
+
+          # ── Stapler: annotation-based parameter sources ──
+          # @QueryParameter, @JsonBody, @SubmittedForm annotated method parameters
+          - pattern: |
+              $RTYPE $MNAME(..., @QueryParameter $PTYPE $UNTRUSTED, ...) {
+              ...
+              }
+          - pattern: |
+              $RTYPE $MNAME(..., @JsonBody $PTYPE $UNTRUSTED, ...) {
+              ...
+              }
+          - pattern: |
+              $RTYPE $MNAME(..., @SubmittedForm $PTYPE $UNTRUSTED, ...) {
+              ...
+              }
+
+          # ── Stapler: @DataBoundConstructor parameter source ──
+          - pattern: |
+              @DataBoundConstructor
+              $RTYPE $CNAME(..., $PTYPE $UNTRUSTED, ...) {
+              ...
+              }
+
+          # ── Stapler: @DataBoundSetter parameter source ──
+          - pattern: |
+              @DataBoundSetter
+              $RETURNTYPE $MNAME($PTYPE $UNTRUSTED) {
+              ...
+              }
+
+          # ── Stapler: @JavaScriptMethod annotated methods (all params are untrusted) ──
+          # org.kohsuke.stapler.bind.JavaScriptMethod
+          - pattern: |
+              @JavaScriptMethod
+              $RTYPE $MNAME(..., $PTYPE $UNTRUSTED, ...) {
+              ...
+              }
+
+          # ── Stapler: Descriptor callbacks ──
+          # hudson.model.Descriptor.configure / newInstance
+          - patterns:
+            - pattern: |
+                $RTYPE $METHOD($PTYPE $UNTRUSTED, ...) {
+                ...
+                }
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: configure|newInstance
+            - metavariable-regex:
+                metavariable: $PTYPE
+                regex: StaplerRequest|JSONObject|net\.sf\.json\.JSONObject
+
+          # ── Stapler: hudson.Plugin callbacks ──
+          # hudson.Plugin.configure(StaplerRequest, JSONObject) / newInstance(StaplerRequest, JSONObject)
+          # Covered by Descriptor callback pattern above (same method+param signature)
+          # But we need explicit Plugin type reference for coverage matching
+          - patterns:
+            - pattern: |
+                $RTYPE $METHOD(StaplerRequest $UNTRUSTED, ...) {
+                ...
+                }
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: configure|newInstance
+
+          # ── Apache HTTP: HttpEntity.getContent ──
+          - pattern: |
+              $UNTRUSTED = (HttpEntity $E).getContent(...);
+
+          # ── Apache HTTP: HttpMessage.getParams ──
+          - pattern: |
+              $UNTRUSTED = (HttpMessage $M).getParams(...);
+
+          # ── Apache HTTP: HttpRequestHandler.handle callback (legacy) ──
+          - pattern: |
+              $RETURNTYPE handle(HttpRequest $UNTRUSTED, HttpResponse $RESP, HttpContext $CTX) {
+              ...
+              }
+
+          # ── Apache HTTP Core5: HttpRequestHandler.handle callback ──
+          - pattern: |
+              $RETURNTYPE handle(ClassicHttpRequest $UNTRUSTED, ClassicHttpResponse $RESP, HttpContext $CTX) {
+              ...
+              }
+
+          # ── Apache HTTP Core5: HttpServerRequestHandler.handle callback ──
+          # org.apache.hc.core5.http.io.HttpServerRequestHandler
+          - pattern: |
+              $RETURNTYPE handle(ClassicHttpRequest $UNTRUSTED, $TRIGGER_TYPE $TRIGGER, HttpContext $CTX) {
+              ...
+              }
+
+          # ── java.net: Socket.getInputStream ──
+          - pattern: |
+              $UNTRUSTED = (Socket $S).getInputStream(...);
+
+          # ── java.net.http: WebSocket.Listener.onText callback ──
+          # java.net.http.WebSocket$Listener
+          - pattern: |
+              $RTYPE onText($WS_TYPE $WS, CharSequence $UNTRUSTED, boolean $LAST) {
+              ...
+              }
+
+          # ── jsonwebtoken: SigningKeyResolver.resolveSigningKey callback ──
+          - pattern: |
+              $RTYPE resolveSigningKey($HEADER_TYPE $UNTRUSTED, ...) {
+              ...
+              }
+
+          # ── jsonwebtoken: SigningKeyResolverAdapter.resolveSigningKeyBytes callback ──
+          - pattern: |
+              $RTYPE resolveSigningKeyBytes($HEADER_TYPE $UNTRUSTED, ...) {
+              ...
+              }
+
+          # ── Shiro: AuthenticationToken.getCredentials ──
+          - pattern: |
+              $UNTRUSTED = (AuthenticationToken $T).getCredentials(...);
+
+          # ── XmlPull: XmlPullParser return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (XmlPullParser $P).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getName|getNamespace|getText
+
+          # ── Play: Http$Request.body ──
+          # play.mvc.Http$Request (inner class notation in coverage = Http$Request)
+          - pattern: |
+              $UNTRUSTED = (play.mvc.Http.Request $REQ).body(...);
+
+          # ── Play: Http$RequestHeader return-value methods ──
+          # play.mvc.Http$RequestHeader
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (play.mvc.Http.RequestHeader $REQ).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: cookie|cookies|getHeader|getHeaders|getQueryString|header|headers|host|path|queryString|remoteAddress|uri
+
+          # ── Ratpack: ratpack.http.Request and ratpack.core.http.Request return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (ratpack.http.Request $REQ).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getBody|getContentLength|getCookies|getPath|getQuery|getQueryParams|getRawUri|getUri|oneCookie
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (ratpack.core.http.Request $REQ).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getBody|getContentLength|getCookies|getPath|getQuery|getQueryParams|getRawUri|getUri|oneCookie
+
+          # ── Java stdlib: System.getProperty / getProperties (environment sources) ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = System.$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getProperty|getProperties
+
+          # ── Hudson/Jenkins: FilePath instance file-reading methods (file sources) ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (FilePath $FP).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: read|readFromOffset|readToString
+
+          # ── Hudson/Jenkins: FilePath static file-reading methods (file sources) ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = FilePath.$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: newInputStreamDenyingSymlinkAsNeeded|openInputStream

@@ -75,10 +75,57 @@ rules:
               - pattern: new org.jdbi.v3.core.statement.Script($H, $UNTRUSTED)
               - pattern: new org.jdbi.v3.core.statement.Update($H, $UNTRUSTED)
               - pattern: new org.jdbi.v3.core.statement.PreparedBatch($H, $UNTRUSTED)
+
+              # Hibernate SharedSessionContract (parent of Session, StatelessSession)
+              - pattern: (org.hibernate.SharedSessionContract $S).createQuery($UNTRUSTED, ...)
+              - pattern: (org.hibernate.SharedSessionContract $S).createSQLQuery($UNTRUSTED, ...)
+              # Hibernate QueryProducer
+              - pattern: (org.hibernate.query.QueryProducer $Q).createQuery($UNTRUSTED, ...)
+              - pattern: (org.hibernate.query.QueryProducer $Q).createNativeQuery($UNTRUSTED, ...)
+              - pattern: (org.hibernate.query.QueryProducer $Q).createSQLQuery($UNTRUSTED, ...)
+
+              # Spring NamedParameterJdbcOperations
+              - pattern: (org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations $O).$JDBC_TEMPLATE_METHOD($UNTRUSTED, ...)
+
+              # Spring jdbc.object constructors (SQL is the second argument)
+              - pattern: new org.springframework.jdbc.object.BatchSqlUpdate($DS, $UNTRUSTED, ...)
+              - pattern: new org.springframework.jdbc.object.MappingSqlQuery($DS, $UNTRUSTED, ...)
+              - pattern: new org.springframework.jdbc.object.MappingSqlQueryWithParameters($DS, $UNTRUSTED, ...)
+              - pattern: new org.springframework.jdbc.object.SqlCall($DS, $UNTRUSTED, ...)
+              - pattern: new org.springframework.jdbc.object.SqlFunction($DS, $UNTRUSTED, ...)
+              - pattern: new org.springframework.jdbc.object.SqlQuery($DS, $UNTRUSTED, ...)
+              - pattern: new org.springframework.jdbc.object.SqlUpdate($DS, $UNTRUSTED, ...)
+              - pattern: new org.springframework.jdbc.object.UpdatableSqlQuery($DS, $UNTRUSTED, ...)
+              # Spring jdbc.object RdbmsOperation.setSql
+              - pattern: (org.springframework.jdbc.object.RdbmsOperation $O).setSql($UNTRUSTED)
+
+              # java.sql.DatabaseMetaData
+              - pattern: (java.sql.DatabaseMetaData $M).getColumns($A, $B, $UNTRUSTED, ...)
+              - pattern: (java.sql.DatabaseMetaData $M).getPrimaryKeys($A, $B, $UNTRUSTED)
+
+              # MyBatis SqlRunner
+              - pattern: (org.apache.ibatis.jdbc.SqlRunner $R).$MYBATIS_METHOD($UNTRUSTED, ...)
+
+              # Couchbase Cluster
+              - pattern: (com.couchbase.client.java.Cluster $CLUSTER).$COUCHBASE_METHOD($UNTRUSTED, ...)
+
+              # Liquibase
+              - pattern: (liquibase.database.jvm.JdbcConnection $C).prepareStatement($UNTRUSTED)
+              - pattern: new liquibase.statement.core.RawSqlStatement($UNTRUSTED, ...)
+
+              # Alibaba Druid
+              - pattern: (com.alibaba.druid.sql.repository.SchemaRepository $R).console($UNTRUSTED)
+
           - metavariable-regex:
               metavariable: $SQLFUNC
               regex: execute|executeQuery|createQuery|executeUpdate|executeLargeUpdate|query|addBatch|nativeSQL|create|prepare|prepareStatement|prepareCall
           - metavariable-regex:
               metavariable: $JDBC_TEMPLATE_METHOD
-              regex: (query|queryForList|queryForMap|queryForRowSet|queryForInt|queryForLong|queryForObject|update|execute|insert|executeUpdate|batchUpdate)
+              regex: (query|queryForList|queryForMap|queryForRowSet|queryForInt|queryForLong|queryForObject|queryForStream|update|execute|insert|executeUpdate|batchUpdate)
+          - metavariable-regex:
+              metavariable: $MYBATIS_METHOD
+              regex: (delete|insert|run|selectAll|selectOne|update)
+          - metavariable-regex:
+              metavariable: $COUCHBASE_METHOD
+              regex: (analyticsQuery|query|queryStreaming)
           - focus-metavariable: $UNTRUSTED

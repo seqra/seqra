@@ -122,3 +122,17 @@ rules:
           - pattern: new java.beans.XMLDecoder($UNTRUSTED);
           - pattern: new java.beans.XMLDecoder($UNTRUSTED, $OWNER);
           - pattern: new java.beans.XMLDecoder($UNTRUSTED, $OWNER, $EXCEPTION_LISTENER);
+
+          # Saxon Xslt30Transformer (Argument[this] — transformer loaded with malicious XSLT)
+          - patterns:
+              - pattern: (net.sf.saxon.s9api.Xslt30Transformer $SINK).$METHOD(...)
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: ^(applyTemplates|callFunction|callTemplate|transform)$
+              - focus-metavariable: $SINK
+          # Saxon XsltTransformer (Argument[this])
+          - patterns:
+              - pattern: (net.sf.saxon.s9api.XsltTransformer $SINK).transform(...)
+              - focus-metavariable: $SINK
+          # Apache CXF XSLTUtils (Argument[0] — Templates tainted with malicious XSLT)
+          - pattern: org.apache.cxf.transform.XSLTUtils.transform($UNTRUSTED, ...)

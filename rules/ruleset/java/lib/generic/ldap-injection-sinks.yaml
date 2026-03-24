@@ -12,8 +12,17 @@ rules:
     pattern-sinks:
       - pattern: new javax.naming.ldap.LdapName(...)
       - pattern: (javax.naming.directory.Context $C).lookup(...)
-      - pattern: (javax.naming.Context $C).lookup(...)
-      - pattern: (com.unboundid.ldap.sdk.LDAPConnection $C).search($QUERY, ...)
+      - patterns:
+          - pattern: (javax.naming.Context $C).$METHOD(...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(lookup|listBindings|lookupLink)$
+      - patterns:
+          - pattern: (com.unboundid.ldap.sdk.LDAPConnection $C).$METHOD($QUERY, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(search|asyncSearch|searchForEntry)$
+      - pattern: (org.apache.directory.ldap.client.api.LdapConnection $C).search($QUERY, ...)
       - patterns:
           - pattern-either:
               - pattern: ($CTXTYPE $CTX).lookup(...)
@@ -27,14 +36,34 @@ rules:
                 - pattern: javax.naming.ldap.LdapContext
                 - pattern: javax.naming.event.EventDirContext
                 - pattern: com.sun.jndi.ldap.LdapCtx
+      # JNDI InitialContext.doLookup (static method, Argument[0])
+      - pattern: javax.naming.InitialContext.doLookup(...)
+      # Spring JNDI JndiTemplate.lookup (Argument[0])
+      - pattern: (org.springframework.jndi.JndiTemplate $T).lookup(...)
+      # Shiro JNDI JndiTemplate.lookup (Argument[0])
+      - pattern: (org.apache.shiro.jndi.JndiTemplate $T).lookup(...)
+      # JMX Connector patterns (jndi-injection kind)
+      - pattern: javax.management.remote.JMXConnectorFactory.connect($SINK, ...)
+      - pattern: (javax.management.remote.JMXConnector $SINK).connect(...)
+      # Spring LDAP (LdapTemplate/LdapOperations) extended methods
       - patterns:
           - pattern-either:
               - pattern: ($CTXTYPE $CTX).list($QUERY, ...)
               - pattern: ($CTXTYPE $CTX).lookup($QUERY, ...)
               - pattern: ($CTXTYPE $CTX).search($QUERY, ...)
               - pattern: ($CTXTYPE $CTX).search($NAME, $QUERY, ...)
+              - pattern: ($CTXTYPE $CTX).authenticate($QUERY, ...)
+              - pattern: ($CTXTYPE $CTX).find($QUERY, ...)
+              - pattern: ($CTXTYPE $CTX).findOne($QUERY, ...)
+              - pattern: ($CTXTYPE $CTX).searchForContext($QUERY, ...)
+              - pattern: ($CTXTYPE $CTX).searchForObject($QUERY, ...)
+              - pattern: ($CTXTYPE $CTX).findByDn($QUERY, ...)
+              - pattern: ($CTXTYPE $CTX).listBindings($QUERY, ...)
+              - pattern: ($CTXTYPE $CTX).lookupContext($QUERY, ...)
+              - pattern: ($CTXTYPE $CTX).rename($QUERY, ...)
           - metavariable-pattern:
               metavariable: $CTXTYPE
               pattern-either:
                 - pattern: org.springframework.ldap.core.LdapTemplate
                 - pattern: org.springframework.ldap.core.LdapOperations
+                - pattern: org.springframework.ldap.LdapOperations

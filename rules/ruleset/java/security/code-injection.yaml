@@ -480,3 +480,129 @@ rules:
           as: sink
       on:
         - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: jexl-injection-in-servlet-app
+    severity: ERROR
+    message: >-
+      Potential code injection: JEXL expression evaluation with user-controlled input.
+    metadata:
+      cwe:
+        - CWE-94
+      short-description: JEXL expression evaluation with user-controlled input
+      full-description: |-
+        Apache Commons JEXL (Java Expression Language) injection occurs when untrusted input is used
+        to create or evaluate a JEXL expression. Because JEXL can call arbitrary methods, access object
+        properties, and instantiate classes, an attacker who controls the expression string can achieve
+        remote code execution (RCE), data exfiltration, or bypass access controls.
+
+        To remediate this issue, never evaluate user input as a JEXL expression. Treat user input
+        strictly as data, not as code. If dynamic evaluation is required, use a strict whitelist of
+        allowed operations.
+      references:
+        - https://owasp.org/www-community/attacks/Expression_Language_Injection
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/command-injection-sinks.yaml#jexl-injection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$EXPR'
+
+  - id: jexl-injection-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential code injection: JEXL expression evaluation with user-controlled input.
+    metadata:
+      cwe:
+        - CWE-94
+      short-description: JEXL expression evaluation with user-controlled input
+      full-description: |-
+        Apache Commons JEXL (Java Expression Language) injection occurs when untrusted input is used
+        to create or evaluate a JEXL expression. Because JEXL can call arbitrary methods, access object
+        properties, and instantiate classes, an attacker who controls the expression string can achieve
+        remote code execution (RCE), data exfiltration, or bypass access controls.
+
+        To remediate this issue, never evaluate user input as a JEXL expression. Treat user input
+        strictly as data, not as code. If dynamic evaluation is required, use a strict whitelist of
+        allowed operations.
+      references:
+        - https://owasp.org/www-community/attacks/Expression_Language_Injection
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/command-injection-sinks.yaml#jexl-injection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$EXPR'
+
+  - id: mvel-injection-in-servlet-app
+    severity: ERROR
+    message: >-
+      Potential code injection: MVEL expression evaluation with user-controlled input.
+    metadata:
+      cwe:
+        - CWE-94
+      short-description: MVEL expression evaluation with user-controlled input
+      full-description: |-
+        MVEL (MVFLEX Expression Language) injection occurs when untrusted input is evaluated as
+        an MVEL expression. MVEL is a powerful expression language that supports method invocation,
+        property access, and scripting. If an attacker controls the expression string, they can
+        execute arbitrary code, read or modify sensitive data, or compromise the server.
+
+        To remediate this issue, never evaluate user input as an MVEL expression. Pre-compile
+        expressions from trusted sources only and pass user data as variables, not as code.
+      references:
+        - https://owasp.org/www-community/attacks/Expression_Language_Injection
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/code-injection-sinks.yaml#mvel-injection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$EXPR'
+
+  - id: mvel-injection-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential code injection: MVEL expression evaluation with user-controlled input.
+    metadata:
+      cwe:
+        - CWE-94
+      short-description: MVEL expression evaluation with user-controlled input
+      full-description: |-
+        MVEL (MVFLEX Expression Language) injection occurs when untrusted input is evaluated as
+        an MVEL expression. MVEL is a powerful expression language that supports method invocation,
+        property access, and scripting. If an attacker controls the expression string, they can
+        execute arbitrary code, read or modify sensitive data, or compromise the server.
+
+        To remediate this issue, never evaluate user input as an MVEL expression. Pre-compile
+        expressions from trusted sources only and pass user data as variables, not as code.
+      references:
+        - https://owasp.org/www-community/attacks/Expression_Language_Injection
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/code-injection-sinks.yaml#mvel-injection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$EXPR'

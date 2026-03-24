@@ -27,6 +27,8 @@ rules:
         - pattern: (org.apache.velocity.runtime.RuntimeSingleton $VELOCITY_RUNTIME).parse($UNTRUSTED, ...);
         - pattern: (org.apache.velocity.runtime.resource.util.StringResourceRepository $VELOCITY_REPO).putStringResource($_, $UNTRUSTED, ...);
         - pattern: (org.thymeleaf.ITemplateEngine $THYMELEAF).$THYMELEAF_SINK($UNTRUSTED, ...);
+        # Freemarker StringTemplateLoader: Argument[1] is the template content
+        - pattern: (freemarker.cache.StringTemplateLoader $LOADER).putTemplate($_, $UNTRUSTED, ...);
       - metavariable-pattern:
           metavariable: $THYMELEAF_SINK
           pattern-either:

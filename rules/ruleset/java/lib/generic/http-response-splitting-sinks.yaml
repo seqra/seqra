@@ -38,3 +38,9 @@ rules:
           - pattern: ($X.servlet.http.HttpServletResponseWrapper $WRP).setHeader("$KEY", $UNTRUSTED);
           - pattern: ($X.servlet.http.HttpServletResponseWrapper $WRP).addHeader("$KEY", $UNTRUSTED);
         - focus-metavariable: $UNTRUSTED
+      # JAX-RS ResponseBuilder.header (javax + jakarta)
+      - patterns:
+        - pattern-either:
+          - pattern: javax.ws.rs.core.Response.$M(...).header($NAME, $UNTRUSTED)
+          - pattern: jakarta.ws.rs.core.Response.$M(...).header($NAME, $UNTRUSTED)
+        - focus-metavariable: $UNTRUSTED

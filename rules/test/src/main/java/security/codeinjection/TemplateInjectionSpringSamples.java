@@ -17,6 +17,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+import freemarker.cache.StringTemplateLoader;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 
@@ -51,6 +52,28 @@ public class TemplateInjectionSpringSamples {
             } catch (Exception e) {
                 throw new ServletException(e);
             }
+        }
+    }
+
+    @Controller
+    @RequestMapping("/code-injection/ssti-stringloader")
+    public static class UnsafeStringTemplateLoaderController {
+
+        @PostMapping("/unsafe")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "ssti-in-spring-app")
+        protected void loadUnsafe(HttpServletRequest request, HttpServletResponse response) throws Exception {
+            String templateContent = request.getParameter("template");
+
+            // VULNERABLE: user-controlled template content loaded via StringTemplateLoader
+            StringTemplateLoader loader = new StringTemplateLoader();
+            loader.putTemplate("dynamic", templateContent);
+
+            Configuration cfg = new Configuration(Configuration.VERSION_2_3_32);
+            cfg.setTemplateLoader(loader);
+            Template t = cfg.getTemplate("dynamic");
+
+            response.setContentType("text/html;charset=UTF-8");
+            t.process(new HashMap<>(), response.getWriter());
         }
     }
 

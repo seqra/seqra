@@ -46,6 +46,7 @@ rules:
       - java
     patterns:
       - pattern-either:
+          # ── Spring MVC: annotated handler method parameters ──
           - patterns:
               - pattern: |
                   @$ANNOTATION(...)
@@ -65,9 +66,103 @@ rules:
                         - pattern: PatchMapping
                         - pattern: PostMapping
                         - pattern: PutMapping
+
+          # ── JAX-RS: MessageBodyReader ──
           - pattern: |
               $UNTRUSTED = (MessageBodyReader $READER).readFrom(...);
+
+          # ── Spring: WebUtils.getCookie ──
           - pattern: |
               Cookie $COOKIE = org.springframework.web.util.WebUtils.getCookie(...);
               ...
               $UNTRUSTED = $COOKIE.getValue();
+
+          # ── Spring Security: SavedRequest return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (SavedRequest $REQ).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getCookies|getHeaderNames|getHeaderValues|getParameterMap|getParameterValues|getRedirectUrl
+
+          # ── Spring: RestTemplate return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (RestTemplate $RT).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: exchange|getForEntity|postForEntity
+
+          # ── Spring: WebRequest return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (WebRequest $REQ).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getDescription|getHeader|getHeaderNames|getHeaderValues|getParameter|getParameterMap|getParameterNames|getParameterValues
+
+          # ── Spring: MultipartFile return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (MultipartFile $F).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getBytes|getContentType|getInputStream|getName|getOriginalFilename|getResource
+
+          # ── Spring: MultipartRequest return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (MultipartRequest $REQ).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getFile|getFileMap|getFileNames|getFiles|getMultiFileMap|getMultipartContentType
+
+          # ── Spring WebSocket: WebSocketHandler.handleMessage callback ──
+          - pattern: |
+              $RETURNTYPE handleMessage(WebSocketSession $SESSION, WebSocketMessage $UNTRUSTED) {
+              ...
+              }
+
+          # ── Spring WebSocket: WebSocketHandler.afterConnectionEstablished callback ──
+          - pattern: |
+              $RETURNTYPE afterConnectionEstablished(WebSocketSession $UNTRUSTED) {
+              ...
+              }
+
+          # ── Spring WebSocket: WebSocketHandler.afterConnectionClosed callback ──
+          - pattern: |
+              $RETURNTYPE afterConnectionClosed(WebSocketSession $UNTRUSTED, ...) {
+              ...
+              }
+
+          # ── Spring WebSocket: WebSocketHandler.handleTransportError callback ──
+          - pattern: |
+              $RETURNTYPE handleTransportError(WebSocketSession $UNTRUSTED, ...) {
+              ...
+              }
+
+          # ── Spring WebSocket: AbstractWebSocketHandler.handleTextMessage callback ──
+          - pattern: |
+              $RETURNTYPE handleTextMessage(WebSocketSession $SESSION, TextMessage $UNTRUSTED) {
+              ...
+              }
+
+          # ── Spring WebSocket: AbstractWebSocketHandler.handleBinaryMessage callback ──
+          - pattern: |
+              $RETURNTYPE handleBinaryMessage(WebSocketSession $SESSION, BinaryMessage $UNTRUSTED) {
+              ...
+              }
+
+          # ── Spring WebSocket: AbstractWebSocketHandler.handlePongMessage callback ──
+          - pattern: |
+              $RETURNTYPE handlePongMessage(WebSocketSession $SESSION, PongMessage $UNTRUSTED) {
+              ...
+              }
+
+          # ── Spring: UrlPathHelper return-value methods ──
+          - patterns:
+            - pattern: |
+                $UNTRUSTED = (UrlPathHelper $H).$METHOD(...);
+            - metavariable-regex:
+                metavariable: $METHOD
+                regex: getLookupPathForRequest|getOriginatingQueryString|getOriginatingRequestUri|getPathWithinApplication|getPathWithinServletMapping|getRequestUri|getResolvedLookupPath|getServletPath|resolveAndCacheLookupPath
