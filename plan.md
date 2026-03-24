@@ -1,5 +1,11 @@
 # Python Dataflow Implementation Plan
 
+## Knowledge Base
+
+- **`edges-knowledge.md`** — Edges, abstraction, and exclusion sets. Documents edge types (Z2Z, Z2F, F2F), access path structure, abstraction mechanism, exclusion sets, refinement via `FinalFactReader`, interprocedural edge flow, and lessons learned from implementation.
+
+> **Important**: `edges-knowledge.md` must be updated whenever we learn something new about the edge/abstraction/exclusion system. Always read it before working on flow functions, taint mark handling, or interprocedural analysis.
+
 ## Phase A: IR Fixes (Module 1-2) ✅ COMPLETE
 
 - [x] A1. Make `PIRExpr` extend `CommonExpr` (Instructions.kt)
