@@ -42,6 +42,27 @@ rules:
               - metavariable-regex:
                   metavariable: $EXEC
                   regex: (exec|loadLibrary|load)
+          # Apache Commons Exec - CommandLine.parse (static, Argument[0])
+          - pattern: org.apache.commons.exec.CommandLine.parse($UNTRUSTED, ...)
+          # Apache Commons Exec - CommandLine.addArguments (Argument[0])
+          - pattern: (org.apache.commons.exec.CommandLine $CL).addArguments($UNTRUSTED, ...)
+          # Apache Ant - Execute.runCommand (static, Argument[1])
+          - pattern: org.apache.tools.ant.taskdefs.Execute.runCommand($T, $UNTRUSTED)
+          # Hudson Launcher - launch/launchChannel (Argument[0])
+          - patterns:
+              - pattern: |
+                  (hudson.Launcher $L).$METHOD($UNTRUSTED, ...);
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (launch|launchChannel)
+          # ANALYZER LIMITATION: Inner class types not supported in typed metavariables.
+          # hudson.Launcher$ProcStarter.cmdAsSingleString/cmds (Argument[0])
+          # TODO: Re-enable when analyzer supports inner class types.
+          # - pattern: (hudson.Launcher$ProcStarter $PS).cmdAsSingleString($UNTRUSTED)
+          # - pattern: (hudson.Launcher$ProcStarter $PS).cmds($UNTRUSTED, ...)
+          # ProcessBuilder.directory (Argument[0] - sets working directory)
+          - pattern: |
+              (ProcessBuilder $PB).directory($UNTRUSTED);
 
   - id: java-expression-language-sinks
     options:
@@ -59,3 +80,75 @@ rules:
       - pattern: ($X.el.ELProcessor $P).eval(..., $EXPR, ...)
       - pattern: ($X.el.ELProcessor $P).getValue(..., $EXPR, ...)
       - pattern: ($X.el.ELProcessor $P).setValue(..., $EXPR, ...)
+
+  - id: jexl-injection-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: JEXL expression injection with user-controlled input
+    metadata:
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext
+    languages:
+      - java
+    pattern-either:
+      # JEXL 2/3 JexlEngine.createExpression/createScript (Argument[0])
+      - patterns:
+          - pattern: (org.apache.commons.$V.JexlEngine $E).$CREATE($EXPR, ...)
+          - metavariable-regex:
+              metavariable: $V
+              regex: jexl[23]
+          - metavariable-regex:
+              metavariable: $CREATE
+              regex: (createExpression|createScript)
+      # JEXL 2/3 JexlEngine.getProperty (last argument is JEXL expression)
+      - patterns:
+          - pattern: (org.apache.commons.$V.JexlEngine $E).getProperty(..., $EXPR)
+          - metavariable-regex:
+              metavariable: $V
+              regex: jexl[23]
+      # JEXL 2/3 JexlEngine.setProperty (expression in middle)
+      - patterns:
+          - pattern: (org.apache.commons.$V.JexlEngine $E).setProperty(..., $EXPR, ...)
+          - metavariable-regex:
+              metavariable: $V
+              regex: jexl[23]
+      # JEXL 2/3 Expression/JexlExpression.evaluate/callable (Argument[this] - tainted expression)
+      - patterns:
+          - pattern: (org.apache.commons.$V.$TYPE $EXPR).$METHOD(...)
+          - metavariable-regex:
+              metavariable: $V
+              regex: jexl[23]
+          - metavariable-regex:
+              metavariable: $TYPE
+              regex: ^(Expression|JexlExpression)$
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: (evaluate|callable)
+      # JEXL 2/3 Script/JexlScript.callable/execute (Argument[this] - tainted script)
+      - patterns:
+          - pattern: (org.apache.commons.$V.$TYPE $EXPR).$METHOD(...)
+          - metavariable-regex:
+              metavariable: $V
+              regex: jexl[23]
+          - metavariable-regex:
+              metavariable: $TYPE
+              regex: ^(Script|JexlScript)$
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: (callable|execute)
+      # ANALYZER LIMITATION: Inner class types not supported in typed metavariables.
+      # TODO: Re-enable when analyzer supports inner class types.
+      # JEXL 2: UnifiedJEXL$Expression.evaluate/prepare (Argument[this])
+      # - pattern: (org.apache.commons.jexl2.UnifiedJEXL.Expression $EXPR).evaluate(...)
+      # - pattern: (org.apache.commons.jexl2.UnifiedJEXL.Expression $EXPR).prepare(...)
+      # JEXL 2: UnifiedJEXL$Template.evaluate (Argument[this])
+      # - pattern: (org.apache.commons.jexl2.UnifiedJEXL.Template $EXPR).evaluate(...)
+      # JEXL 3: JxltEngine$Expression.evaluate/prepare (Argument[this])
+      # - pattern: (org.apache.commons.jexl3.JxltEngine.Expression $EXPR).evaluate(...)
+      # - pattern: (org.apache.commons.jexl3.JxltEngine.Expression $EXPR).prepare(...)
+      # JEXL 3: JxltEngine$Template.evaluate (Argument[this])
+      # - pattern: (org.apache.commons.jexl3.JxltEngine.Template $EXPR).evaluate(...)
+      # JEXL 3: JxltEngine$Expression.callable (Argument[this])
+      # - pattern: (org.apache.commons.jexl3.JxltEngine.Expression $EXPR).callable(...)
+      # JEXL 3: JxltEngine$Template.prepare (Argument[this])
+      # - pattern: (org.apache.commons.jexl3.JxltEngine.Template $EXPR).prepare(...)

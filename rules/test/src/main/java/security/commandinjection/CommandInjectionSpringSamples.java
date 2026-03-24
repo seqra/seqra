@@ -1,6 +1,7 @@
 package security.commandinjection;
 
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.InputStreamReader;
 
 import org.opentaint.sast.test.util.PositiveRuleSample;
@@ -40,6 +41,48 @@ public class CommandInjectionSpringSamples {
                 return "Error: " + e.getMessage();
             }
             return output.toString();
+        }
+    }
+
+    @RestController
+    public static class UnsafeProcessBuilderDirectoryController {
+
+        @GetMapping("/os-command-injection-in-spring/directory")
+        @PositiveRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection-in-spring-app")
+        public String unsafeDirectory(@RequestParam String dir) throws Exception {
+            // VULNERABLE: user-controlled working directory for process execution
+            ProcessBuilder pb = new ProcessBuilder("ls");
+            pb.directory(new File(dir));
+            Process process = pb.start();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()))) {
+                StringBuilder output = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append('\n');
+                }
+                return output.toString();
+            }
+        }
+    }
+
+    @RestController
+    public static class UnsafeProcessBuilderCommandController {
+
+        @GetMapping("/os-command-injection-in-spring/command")
+        @PositiveRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection-in-spring-app")
+        public String unsafeCommand(@RequestParam String cmd) throws Exception {
+            // VULNERABLE: user-controlled argument passed to ProcessBuilder.command
+            Process process = new ProcessBuilder().command("sh", "-c", cmd).start();
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(process.getInputStream()))) {
+                StringBuilder output = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append('\n');
+                }
+                return output.toString();
+            }
         }
     }
 

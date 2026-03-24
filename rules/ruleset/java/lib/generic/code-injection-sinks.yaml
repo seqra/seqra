@@ -50,6 +50,65 @@ rules:
           - pattern: (com.opensymphony.xwork2.util.ValueStack $P).findValue($INPUT,...);
           - pattern: (com.opensymphony.xwork2.util.ValueStack $P).setValue($INPUT,...);
           - pattern: (com.opensymphony.xwork2.util.ValueStack $P).setParameter($INPUT,...);
+          # ognl.Node.getValue/setValue (Argument[this] - tainted compiled expression)
+          - patterns:
+              - pattern: (ognl.Node $INPUT).$METHOD(...);
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (getValue|setValue)
+          # ognl.enhance.ExpressionAccessor.get/set (Argument[this])
+          - patterns:
+              - pattern: (ognl.enhance.ExpressionAccessor $INPUT).$METHOD(...);
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (get|set)
+          # org.apache.commons.ognl.Ognl.getValue/setValue (Argument[0])
+          - pattern: org.apache.commons.ognl.Ognl.getValue($INPUT,...);
+          - pattern: org.apache.commons.ognl.Ognl.setValue($INPUT,...);
+          # org.apache.commons.ognl.Node.getValue/setValue (Argument[this])
+          - patterns:
+              - pattern: (org.apache.commons.ognl.Node $INPUT).$METHOD(...);
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (getValue|setValue)
+          # org.apache.commons.ognl.enhance.ExpressionAccessor.get/set (Argument[this])
+          - patterns:
+              - pattern: (org.apache.commons.ognl.enhance.ExpressionAccessor $INPUT).$METHOD(...);
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (get|set)
+          # OgnlValueStack methods (Argument[0])
+          - patterns:
+              - pattern: (com.opensymphony.xwork2.ognl.OgnlValueStack $P).$METHOD($INPUT,...);
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (findString|findValue|getValue|getValueUsingOgnl|setParameter|setValue|tryFindValue|tryFindValueWhenExpressionIsNotNull|trySetValue)
+          # ActionSupport.getFormatted (Argument[0] and Argument[1])
+          - pattern: (com.opensymphony.xwork2.ActionSupport $P).getFormatted($INPUT,...);
+          - pattern: (com.opensymphony.xwork2.ActionSupport $P).getFormatted(...,$INPUT);
+          # TextProvider.getText (Argument[0])
+          - pattern: (com.opensymphony.xwork2.TextProvider $P).getText($INPUT,...);
+          # TextProvider.getText (Argument[1] - default value in some overloads)
+          - pattern: (com.opensymphony.xwork2.TextProvider $P).getText($A, $INPUT,...);
+          # TextProvider.hasKey (Argument[0])
+          - pattern: (com.opensymphony.xwork2.TextProvider $P).hasKey($INPUT);
+          # DEPENDENCY LIMITATION: LocalizedTextUtil removed in Struts 2.5.x (no test dependency available)
+          # LocalizedTextUtil.findText (Argument[1])
+          # - pattern: com.opensymphony.xwork2.util.LocalizedTextUtil.findText($A, $INPUT,...);
+          # LocalizedTextUtil.findText (Argument[3])
+          # - pattern: com.opensymphony.xwork2.util.LocalizedTextUtil.findText($A, $B, $C, $INPUT,...);
+          # ValidatorSupport.parse/getFieldValue (Argument[0])
+          - patterns:
+              - pattern: (com.opensymphony.xwork2.validator.validators.ValidatorSupport $P).$METHOD($INPUT,...);
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (parse|getFieldValue)
+          # StrutsBodyTagSupport.findPattern/findString (Argument[1])
+          - patterns:
+              - pattern: (org.apache.struts2.views.jsp.StrutsBodyTagSupport $P).$METHOD($A, $INPUT,...);
+              - metavariable-regex:
+                  metavariable: $METHOD
+                  regex: (findPattern|findString)
 
   - id: dangerous-groovy-shell
     options:
@@ -80,6 +139,11 @@ rules:
       - pattern: groovy.util.Eval.x($X, $UNTRUSTED)
       - pattern: groovy.util.Eval.xy($X, $Y, $UNTRUSTED)
       - pattern: groovy.util.Eval.xyz($X, $Y, $Z, $UNTRUSTED)
+      # groovy.text.TemplateEngine.createTemplate (Argument[0])
+      - pattern: (groovy.text.TemplateEngine $T).createTemplate($UNTRUSTED)
+      # CompilationUnit.compile (Argument[this] - tainted compilation unit)
+      - pattern: |
+          (org.codehaus.groovy.control.CompilationUnit $UNTRUSTED).compile(...);
 
   - id: dangerous-script-engine-eval
     options:
@@ -94,3 +158,45 @@ rules:
       - pattern: (javax.script.ScriptEngine $SE).eval($UNTRUSTED)
       - pattern: (javax.script.Invocable $INVC).invokeFunction(..., $UNTRUSTED)
       - pattern: (javax.script.Invocable $INVC).invokeMethod(..., $UNTRUSTED)
+
+  - id: mvel-injection-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: MVEL expression injection with user-controlled input
+    metadata:
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext
+    languages:
+      - java
+    pattern-either:
+      # MVEL.eval/evalToBoolean/evalToString/executeAllExpression/executeExpression/executeSetExpression (Argument[0])
+      - patterns:
+          - pattern: org.mvel2.MVEL.$METHOD($EXPR, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: (eval|evalToBoolean|evalToString|executeAllExpression|executeExpression|executeSetExpression)
+      # MVELRuntime.execute (Argument[1])
+      - pattern: org.mvel2.MVELRuntime.execute($H, $EXPR, ...)
+      # MvelScriptEngine.eval/evaluate (Argument[0])
+      - patterns:
+          - pattern: (org.mvel2.jsr223.MvelScriptEngine $E).$METHOD($EXPR, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: (eval|evaluate)
+      # TemplateRuntime.eval/execute (Argument[0])
+      - patterns:
+          - pattern: org.mvel2.templates.TemplateRuntime.$METHOD($EXPR, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: (eval|execute)
+      # MvelCompiledScript.eval (Argument[this] - tainted compiled script)
+      - pattern: (org.mvel2.jsr223.MvelCompiledScript $EXPR).eval(...)
+      # Accessor/CompiledAccExpression/CompiledExpression/ExecutableStatement getValue/getDirectValue (Argument[this])
+      - patterns:
+          - pattern: (org.mvel2.compiler.$TYPE $EXPR).$METHOD(...)
+          - metavariable-regex:
+              metavariable: $TYPE
+              regex: (Accessor|CompiledAccExpression|CompiledExpression|ExecutableStatement)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: (getValue|getDirectValue)

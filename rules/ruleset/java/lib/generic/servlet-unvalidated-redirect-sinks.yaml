@@ -12,6 +12,29 @@ rules:
     pattern-sinks:
       - pattern: (HttpServletResponse $RES).sendRedirect($URL);
       - pattern: (HttpServletResponse $RES).addHeader("Location", $URL);
+      # JAX-RS Response.seeOther / temporaryRedirect (javax + jakarta)
+      - pattern: $X.ws.rs.core.Response.seeOther($URL)
+      - pattern: $X.ws.rs.core.Response.temporaryRedirect($URL)
+      # java.awt.Desktop.browse
+      - pattern: (java.awt.Desktop $D).browse($URI)
+      # Jenkins Stapler redirect methods (single-arg)
+      - pattern: org.kohsuke.stapler.HttpResponses.redirectTo($URL)
+      - pattern: (org.kohsuke.stapler.StaplerResponse $RES).sendRedirect($URL)
+      - pattern: (org.kohsuke.stapler.StaplerResponse $RES).sendRedirect2($URL)
+      # Jenkins Stapler redirect methods (two-arg: status + url)
+      - patterns:
+        - pattern-either:
+          - pattern: org.kohsuke.stapler.HttpResponses.redirectTo($STATUS, $URL)
+          - pattern: (org.kohsuke.stapler.StaplerResponse $RES).sendRedirect($STATUS, $URL)
+        - focus-metavariable: $URL
+      # url-forward: ServletContext.getRequestDispatcher (javax + jakarta)
+      - pattern: ($X.servlet.ServletContext $CTX).getRequestDispatcher($URL)
+      # url-forward: PortletContext.getRequestDispatcher
+      - pattern: (javax.portlet.PortletContext $CTX).getRequestDispatcher($URL)
+      # url-forward: Jenkins Stapler forward
+      - patterns:
+        - pattern: (org.kohsuke.stapler.StaplerResponse $RES).forward($OBJ, $URL, $REQ)
+        - focus-metavariable: $URL
     pattern-sanitizers:
       - patterns:
         - pattern: $URL = (HttpServletRequest $REQ).getContextPath();

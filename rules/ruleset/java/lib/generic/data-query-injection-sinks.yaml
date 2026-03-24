@@ -17,6 +17,34 @@ rules:
           (javax.xml.xpath.XPath $XP).compile($UNTRUSTED, ...).evaluate(...)
       - pattern: |
           (javax.xml.xpath.XPath $XP).compile(...).evaluate($UNTRUSTED, ...)
+      # Apache CXF XPathUtils
+      - patterns:
+          - pattern: (org.apache.cxf.helpers.XPathUtils $XP).$METHOD($UNTRUSTED, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(getValue|getValueList|getValueNode|getValueString|isExist)$
+      # dom4j DocumentFactory (covers ProxyDocumentFactory via subtyping)
+      - patterns:
+          - pattern: (org.dom4j.DocumentFactory $F).$METHOD($UNTRUSTED, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(createPattern|createXPath|createXPathFilter)$
+      # dom4j DocumentHelper static methods (Argument[0])
+      - patterns:
+          - pattern: org.dom4j.DocumentHelper.$METHOD($UNTRUSTED, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(createPattern|createXPath|createXPathFilter|selectNodes)$
+      # dom4j DocumentHelper.sort (Argument[1] is the XPath expression)
+      - pattern: org.dom4j.DocumentHelper.sort($_, $UNTRUSTED, ...)
+      # dom4j Node methods (covers AbstractNode implementations via subtyping)
+      - patterns:
+          - pattern: (org.dom4j.Node $N).$METHOD($UNTRUSTED, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(createXPath|matches|numberValueOf|selectNodes|selectObject|selectSingleNode|valueOf)$
+      # dom4j Node.selectNodes 2-arg overload (Argument[1] is also XPath)
+      - pattern: (org.dom4j.Node $N).selectNodes($_, $UNTRUSTED)
 
   - id: java-mongodb-nosql-injection
     options:

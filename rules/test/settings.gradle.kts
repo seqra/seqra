@@ -1,4 +1,4 @@
-rootProject.name = "seqra-builtin-rules-test"
+rootProject.name = "opentaint-builtin-rules-test"
 
 includeBuild("../../core/opentaint-sast-test-util") {
     dependencySubstitution {

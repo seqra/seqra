@@ -67,6 +67,20 @@ public class DataQueryInjectionSpringSamples {
     }
 
     @Controller
+    public static class UnsafeXPathEvaluateExpressionController {
+
+        private final javax.xml.xpath.XPath xPath = javax.xml.xpath.XPathFactory.newInstance().newXPath();
+        private final org.w3c.dom.Document usersDoc = null; // simplified
+
+        @GetMapping("/data-query/xpath/spring/unsafe/evaluateExpression")
+        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "xpath-injection-in-spring-app")
+        public String unsafeEvaluateExpression(@RequestParam("xpath") String expression) throws Exception {
+            // VULNERABLE: user data passed directly as XPath expression
+            return String.valueOf(xPath.evaluateExpression(expression, usersDoc));
+        }
+    }
+
+    @Controller
     public static class UnsafeMongoController {
 
         private final com.mongodb.DB db = null; // simplified placeholder

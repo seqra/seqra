@@ -228,6 +228,40 @@ public class SsrfSamples {
         }
     }
 
+    // java-servlet-parameter-pollution - GetMethod constructor (Commons HttpClient 3.x)
+
+    @WebServlet("/ssrf/parameter-pollution/unsafe-getmethod")
+    public static class UnsafeGetMethodPollutionServlet extends HttpServlet {
+
+        @Override
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "java-servlet-parameter-pollution")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String key = request.getParameter("key");
+            String url = "https://example.com/getId?key=" + key;
+            org.apache.commons.httpclient.methods.GetMethod getMethod =
+                    new org.apache.commons.httpclient.methods.GetMethod(url);
+            response.getWriter().write("method: " + getMethod.getName());
+        }
+    }
+
+    // java-servlet-parameter-pollution - GetMethod.setQueryString (Commons HttpClient 3.x)
+
+    @WebServlet("/ssrf/parameter-pollution/unsafe-setquerystring")
+    public static class UnsafeSetQueryStringPollutionServlet extends HttpServlet {
+
+        @Override
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "java-servlet-parameter-pollution")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String key = request.getParameter("key");
+            org.apache.commons.httpclient.methods.GetMethod getMethod =
+                    new org.apache.commons.httpclient.methods.GetMethod("https://example.com/getId");
+            getMethod.setQueryString("key=" + key);
+            response.getWriter().write("method: " + getMethod.getName());
+        }
+    }
+
     @WebServlet("/ssrf/parameter-pollution/safe")
     public static class SafeParameterPollutionServlet extends HttpServlet {
 

@@ -12,6 +12,7 @@ import org.opentaint.sast.test.util.PositiveRuleSample;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.ModelAndView;
 import org.springframework.web.servlet.view.RedirectView;
 
 /**
@@ -34,6 +35,13 @@ public class UnvalidatedRedirectSpringSamples {
         public RedirectView unsafeRedirectView(@RequestParam("url") String url) {
             // VULNERABLE: unvalidated user-controlled URL in RedirectView
             return new RedirectView(url);
+        }
+
+        @GetMapping("/redirect/unsafe-model-and-view")
+        @PositiveRuleSample(value = "java/security/unvalidated-redirect.yaml", id = "unvalidated-redirect-in-spring-app")
+        public ModelAndView unsafeModelAndViewRedirect(@RequestParam("url") String url) {
+            // VULNERABLE: unvalidated user-controlled URL in ModelAndView redirect
+            return new ModelAndView("redirect:" + url);
         }
     }
 

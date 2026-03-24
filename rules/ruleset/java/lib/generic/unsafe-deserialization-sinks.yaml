@@ -52,3 +52,88 @@ rules:
           $Y = new org.yaml.snakeyaml.Yaml();
           ...
           $Y.load($YAML);
+
+  - id: java-unsafe-deserialization-sinks
+    options:
+      lib: true
+    severity: NOTE
+    message: Deserialization of untrusted data can lead to remote code execution.
+    metadata:
+      cwe: CWE-502
+    languages:
+      - java
+    mode: taint
+    pattern-sinks:
+      # Caucho Hessian - constructor sinks (practical detection for Argument[this])
+      - pattern: new com.caucho.hessian.io.HessianInput($SINK)
+      - pattern: new com.caucho.hessian.io.Hessian2Input($SINK)
+      # ANALYZER LIMITATION: Hessian2StreamingInput takes Hessian2Input as arg, not InputStream.
+      # Taint does not propagate through new Hessian2Input(is) to the Hessian2Input object.
+      # TODO: Re-enable when constructor taint propagation summaries are added.
+      # - pattern: new com.caucho.hessian.io.Hessian2StreamingInput($SINK)
+      # Caucho Burlap - constructor sink
+      - pattern: new com.caucho.burlap.io.BurlapInput($SINK)
+      # Alibaba/Dubbo repackaged Hessian - constructor sinks
+      - pattern: new com.alibaba.com.caucho.hessian.io.HessianInput($SINK)
+      - pattern: new com.alibaba.com.caucho.hessian.io.Hessian2Input($SINK)
+      # ANALYZER LIMITATION: Same as Caucho Hessian2StreamingInput above.
+      # TODO: Re-enable when constructor taint propagation summaries are added.
+      # - pattern: new com.alibaba.com.caucho.hessian.io.Hessian2StreamingInput($SINK)
+      # ANALYZER LIMITATION: Argument[this] method sinks require taint propagation through constructors.
+      # Covered by constructor patterns above for practical detection.
+      # TODO: Re-enable when constructor taint propagation summaries are added for Hessian/Burlap.
+      # - pattern: (com.caucho.hessian.io.AbstractHessianInput $SINK).readObject(...)
+      # - pattern: (com.caucho.hessian.io.Hessian2StreamingInput $SINK).readObject(...)
+      # - pattern: (com.caucho.burlap.io.BurlapInput $SINK).readObject(...)
+      # - pattern: (com.alibaba.com.caucho.hessian.io.AbstractHessianInput $SINK).readObject(...)
+      # - pattern: (com.alibaba.com.caucho.hessian.io.Hessian2StreamingInput $SINK).readObject(...)
+      # json-io (CedarSoftware) - constructor + static method
+      - pattern: new com.cedarsoftware.util.io.JsonReader($SINK, ...)
+      - patterns:
+          - pattern: com.cedarsoftware.util.io.JsonReader.jsonToJava($SINK, ...)
+          - focus-metavariable: $SINK
+      # ANALYZER LIMITATION: Argument[this] — covered by constructor pattern above.
+      # TODO: Re-enable when constructor taint propagation summaries are added for JsonReader.
+      # - pattern: (com.cedarsoftware.util.io.JsonReader $SINK).readObject(...)
+      # YamlBeans - constructor sink
+      - pattern: new com.esotericsoftware.yamlbeans.YamlReader($SINK, ...)
+      # ANALYZER LIMITATION: Argument[this] — covered by constructor pattern above.
+      # TODO: Re-enable when constructor taint propagation summaries are added for YamlReader.
+      # - pattern: (com.esotericsoftware.yamlbeans.YamlReader $SINK).read(...)
+      # Java Beans XMLDecoder - constructor sink
+      - pattern: new java.beans.XMLDecoder($SINK, ...)
+      # ANALYZER LIMITATION: Argument[this] — covered by constructor pattern above.
+      # TODO: Re-enable when constructor taint propagation summaries are added for XMLDecoder.
+      # - pattern: (java.beans.XMLDecoder $SINK).readObject(...)
+      # Apache Commons Lang SerializationUtils
+      - patterns:
+          - pattern: org.apache.commons.lang.SerializationUtils.deserialize($SINK)
+          - focus-metavariable: $SINK
+      - patterns:
+          - pattern: org.apache.commons.lang3.SerializationUtils.deserialize($SINK)
+          - focus-metavariable: $SINK
+      # Castor XML Unmarshaller (Argument[0..1])
+      - patterns:
+          - pattern: (org.exolab.castor.xml.Unmarshaller $X).unmarshal($SINK, ...)
+          - focus-metavariable: $SINK
+      - patterns:
+          - pattern: org.exolab.castor.xml.Unmarshaller.unmarshal($SINK, ...)
+          - focus-metavariable: $SINK
+      # JYaml (org.ho.yaml) - static methods
+      - patterns:
+          - pattern: org.ho.yaml.Yaml.$METHOD($SINK, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(load|loadStream|loadStreamOfType|loadType)$
+          - focus-metavariable: $SINK
+      # JYaml (org.ho.yaml) - instance methods
+      - patterns:
+          - pattern: (org.ho.yaml.YamlConfig $X).$METHOD($SINK, ...)
+          - metavariable-regex:
+              metavariable: $METHOD
+              regex: ^(load|loadStream|loadStreamOfType|loadType)$
+          - focus-metavariable: $SINK
+      # Jabsorb JSON-RPC deserializer
+      - patterns:
+          - pattern: (org.jabsorb.JSONSerializer $X).fromJSON($SINK)
+          - focus-metavariable: $SINK
