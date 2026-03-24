@@ -59,21 +59,21 @@
       <img src="public/opentaint-frame-dark-1.png" alt="OpenTaint scan output" width="720">
     </picture>
   </p>
-  </p>  <p align="center">
+  <p align="center">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-light-3.png">
       <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-dark-3.png">
       <img src="public/opentaint-frame-dark-3.png" alt="OpenTaint summary output" width="720">
     </picture>
   </p>
-  </p>  <p align="center">
+  <p align="center">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-light-4.png">
       <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-dark-4.png">
       <img src="public/opentaint-frame-dark-4.png" alt="OpenTaint summary output" width="720">
     </picture>
   </p>
-  </p>  <p align="center">
+  <p align="center">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-light-5.png">
       <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-dark-5.png">
@@ -142,7 +142,7 @@ Fully open source. CLI, GitHub Action, GitLab CI, rules — all included. [Apach
 
 ## What OpenTaint Catches
 
-OpenTaint tracks data from controller parameters through your webb application to dangerous sinks.
+OpenTaint tracks data from controller parameters through your web application to dangerous sinks.
 
 **SQL Injection via JdbcTemplate**
 
