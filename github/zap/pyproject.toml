@@ -1,0 +1,42 @@
+[project]
+name = "opentaint-zap-action"
+version = "0.1.0"
+description = "Action for OpenTaint and ZAP integration"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyyaml>=6.0.3",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.11.0",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
+    "SIM",
+    "S",
+    "RUF",
+]
+ignore = [
+    "E501",
+    "S603",
+    "S607",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

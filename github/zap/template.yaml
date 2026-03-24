@@ -1,0 +1,306 @@
+# ZAP Automation Framework Template
+# This template defines the base configuration for ZAP scans
+# The action will automatically generate CWE-specific contexts and scan jobs based on OpenTaint findings
+
+env:
+  # Define application contexts (at least one required)
+  # The first context will be used as the base for generated CWE contexts
+  contexts:
+    - name: openapi-import
+      urls:
+        - http://localhost:8081
+      includePaths: [ ]
+      excludePaths: [ ]
+  
+  # Global parameters for the automation framework
+  parameters:
+    failOnError: false
+    failOnWarning: false
+    continueOnFailure: true
+    progressToStdout: true
+
+jobs:
+  # 1. API Import (required)
+  # Import your API definition to discover endpoints
+  - type: openapi
+    parameters:
+      context: openapi-import
+      targetUrl: http://localhost:8081
+      apiUrl: http://localhost:8081/v3/api-docs
+  
+  # 2. Active Scan Configuration (optional but recommended)
+  - type: activeScan-config
+    parameters:
+      maxRuleDurationInMins: 0
+      maxScanDurationInMins: 0
+      maxAlertsPerRule: 0
+      threadPerHost: 40
+      handleAntiCSRFTokens: true
+      injectPluginIdInHeader: true
+    inputVectors:
+      urlQueryStringAndDataDrivenNodes:
+        enabled: true
+        addParam: false
+        odata: true
+      postData:
+        enabled: true
+        multiPartFormData: true
+        xml: true
+        json:
+          enabled: true
+          scanNullValues: false
+        googleWebToolkit: false
+        directWebRemoting: false
+      urlPath: true
+      httpHeaders:
+        enabled: true
+        allRequests: false
+      cookieData:
+        enabled: true
+        encodeCookieValues: false
+      scripts: true
+  
+  # 3. CWE-Specific Policies (at least one required)
+  # Define policies for each CWE you want to scan
+  # Policy names MUST follow format: policy-CWE-{number}
+  # The action will only scan for CWEs that have matching policies
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-22
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 6
+          threshold: MEDIUM
+          strength: INSANE
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-78
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 10048
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 40045
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 40048
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 90020
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 90037
+          threshold: MEDIUM
+          strength: INSANE
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-79
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 40012
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 40026
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 40031
+          threshold: MEDIUM
+          strength: INSANE
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-89
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 40018
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 40019
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 40020
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 40021
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 40022
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 40027
+          threshold: MEDIUM
+          strength: INSANE
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-94
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 40028
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 40032
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 90019
+          threshold: MEDIUM
+          strength: INSANE
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-113
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 40003
+          threshold: MEDIUM
+          strength: INSANE
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-117
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 40043
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 40047
+          threshold: MEDIUM
+          strength: INSANE
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-352
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 20012
+          threshold: MEDIUM
+          strength: INSANE
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-601
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 20019
+          threshold: MEDIUM
+          strength: INSANE
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-611
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 90023
+          threshold: MEDIUM
+          strength: INSANE
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-643
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 90021
+          threshold: MEDIUM
+          strength: INSANE
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-917
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 90025
+          threshold: MEDIUM
+          strength: INSANE
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-918
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 40046
+          threshold: MEDIUM
+          strength: INSANE
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-943
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 40033
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 90039
+          threshold: MEDIUM
+          strength: INSANE
+  - type: activeScan-policy
+    parameters:
+      name: policy-CWE-1336
+    policyDefinition:
+      defaultStrength: INSANE
+      defaultThreshold: 'OFF'
+      rules:
+        - id: 90035
+          threshold: MEDIUM
+          strength: INSANE
+        - id: 90036
+          threshold: MEDIUM
+          strength: INSANE
+  # 4. Report Jobs (optional - will be added automatically if missing)
+  # Reports are used for vulnerability confirmation and artifact upload
+  # reportDir will be automatically normalized to /zap/wrk/zap-output
+  
+  # JSON report (required for SARIF filtering)
+  - type: report
+    parameters:
+      template: traditional-json
+      reportDir: /zap/wrk/zap-output
+      reportFile: 'opentaint_zap_scan_results'
+      reportTitle: OpenTaint + ZAP Scan Report
+      reportDescription: Automated security scan results for filtering sarif
+    risks:
+      - high
+      - medium
+    confidences:
+      - high
+      - medium
+      - low
+
+  - type: report
+    parameters:
+      template: traditional-html
+      reportDir: /zap/wrk/zap-output
+      reportFile: '{{yyyy-MM-dd}}-ZAP-Report-[[site]]'
+      reportTitle: OpenTaint + ZAP scan results
+    risks:
+      - high
+      - medium
+    confidences:
+      - high
+      - medium
+      - low
+
+  # 5. exitStatus job
+  # Force the ZAP container to always exit with code 0, even on errors
+  # Without this, a non-zero code would fail the entire GitHub Action
+  - type: exitStatus
+    parameters:
+      okExitValue: 0
+      errorExitValue: 0
+      warnExitValue: 0
