@@ -1,12 +1,22 @@
 package org.opentaint.ir.api.python
 
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.cfg.CommonInstLocation
+
+interface PIRLocation : CommonInstLocation {
+    override val method: PIRFunction
+}
+
 /**
  * Base for all PIR instructions.
  */
-sealed interface PIRInstruction {
+sealed interface PIRInstruction: CommonInst {
     val lineNumber: Int
     val colOffset: Int
     fun <T> accept(visitor: PIRInstVisitor<T>): T
+
+    override val location: PIRLocation
+        get() = TODO("Not yet implemented")
 }
 
 /**

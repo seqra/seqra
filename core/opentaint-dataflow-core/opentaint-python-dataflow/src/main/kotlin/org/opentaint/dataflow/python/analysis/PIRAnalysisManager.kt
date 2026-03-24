@@ -4,10 +4,10 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.AnalysisRunner
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
+import org.opentaint.dataflow.ap.ifds.TaintAnalysisManager
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
-import org.opentaint.dataflow.ap.ifds.analysis.AnalysisManager
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
@@ -15,6 +15,7 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodCallSummaryHandler
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSideEffectSummaryHandler
 import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction
+import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisContext
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodStartPrecondition
@@ -26,7 +27,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.util.analysis.ApplicationGraph
 
-class PIRAnalysisManager : PIRLanguageManager(), AnalysisManager {
+class PIRAnalysisManager : PIRLanguageManager(), TaintAnalysisManager {
     override val factTypeChecker: FactTypeChecker
         get() = TODO("Not yet implemented")
 
@@ -34,6 +35,7 @@ class PIRAnalysisManager : PIRLanguageManager(), AnalysisManager {
         methodEntryPoint: MethodEntryPoint,
         graph: ApplicationGraph<CommonMethod, CommonInst>,
         callResolver: MethodCallResolver,
+        taintAnalysisContext: TaintAnalysisContext,
         contextForEmptyMethod: MethodAnalysisContext?
     ): MethodAnalysisContext {
         TODO("Not yet implemented")

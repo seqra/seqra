@@ -31,13 +31,22 @@ tasks {
     }
 }
 
+val pythonSamplesSourceSet = sourceSets.create("pythonSamples") {
+    resources.setSrcDirs(listOf("src/main/python"))
+}
+
+val pythonSamples by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = false
+}
+
 tasks.jar {
     from(sourceSets.main.get().allSource) {
         include("**/*.java")
         include("**/*.kt")
     }
 
-    from(project.layout.projectDirectory.dir("src/main/python")) {
+    from(pythonSamplesSourceSet.resources) {
         include("**/*.py")
     }
 }

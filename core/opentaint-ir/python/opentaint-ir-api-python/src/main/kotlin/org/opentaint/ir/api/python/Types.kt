@@ -1,5 +1,7 @@
 package org.opentaint.ir.api.python
 
+import org.opentaint.ir.api.common.CommonTypeName
+
 /**
  * PIR Type hierarchy — sealed for exhaustive `when` matching.
  * Analogous to JIRType but tailored for Python's type system.
@@ -12,7 +14,9 @@ package org.opentaint.ir.api.python
  * - Literal types (Literal[42])
  * - TypeVar for generics
  */
-sealed interface PIRType
+sealed interface PIRType : CommonTypeName {
+    override val typeName: String get() = toString()
+}
 
 /** A class/instance type. The most common type. */
 data class PIRClassType(

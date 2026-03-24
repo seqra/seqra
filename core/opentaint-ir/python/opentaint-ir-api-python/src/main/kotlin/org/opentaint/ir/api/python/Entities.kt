@@ -1,5 +1,9 @@
 package org.opentaint.ir.api.python
 
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.CommonMethodParameter
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.cfg.ControlFlowGraph
 import java.io.Closeable
 import java.time.Duration
 
@@ -89,11 +93,11 @@ interface PIRClass {
 /**
  * A Python function or method.
  */
-interface PIRFunction {
-    val name: String
+interface PIRFunction: CommonMethod {
+    override val name: String
     val qualifiedName: String
-    val parameters: List<PIRParameter>
-    val returnType: PIRType
+    override val parameters: List<PIRParameter>
+    override val returnType: PIRType
     val cfg: PIRCFG
     val decorators: List<PIRDecorator>
     val isAsync: Boolean
@@ -105,14 +109,16 @@ interface PIRFunction {
     val closureVars: List<String>
     val enclosingClass: PIRClass?
     val module: PIRModule
+
+    override fun flowGraph(): ControlFlowGraph<CommonInst> = error("Unsupported operation")
 }
 
 /**
  * A function parameter.
  */
-interface PIRParameter {
+interface PIRParameter: CommonMethodParameter {
     val name: String
-    val type: PIRType
+    override val type: PIRType
     val kind: PIRParameterKind
     val hasDefault: Boolean
     /** Constant default value, or null if no default or if the default is a non-constant expression. */
