@@ -1,6 +1,5 @@
 package org.opentaint.python.sast.dataflow
 
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.python.rules.TaintRules.Sink
@@ -13,7 +12,6 @@ class ClassFeatureFlowTest : AnalysisTest() {
     // --- SimpleObject.py ---
 
     @Test
-    @Disabled("Interprocedural analysis for instance method calls needs debugging")
     fun testClassMethodCall() = assertSinkReachable(
         source = Source("SimpleObject.source", "taint", PositionBase.Result),
         sink = Sink("SimpleObject.sink", "taint", PositionBase.Argument(0), "class"),
@@ -21,7 +19,6 @@ class ClassFeatureFlowTest : AnalysisTest() {
     )
 
     @Test
-    @Disabled("Interprocedural analysis for instance method calls needs debugging")
     fun testClassMethodReturn() = assertSinkReachable(
         source = Source("SimpleObject.source", "taint", PositionBase.Result),
         sink = Sink("SimpleObject.sink", "taint", PositionBase.Argument(0), "class"),
@@ -31,7 +28,6 @@ class ClassFeatureFlowTest : AnalysisTest() {
     // --- StaticMethod.py ---
 
     @Test
-    @Disabled("Interprocedural analysis for static/class method calls needs debugging")
     fun testStaticMethodCall() = assertSinkReachable(
         source = Source("StaticMethod.source", "taint", PositionBase.Result),
         sink = Sink("StaticMethod.sink", "taint", PositionBase.Argument(0), "static"),
@@ -39,7 +35,6 @@ class ClassFeatureFlowTest : AnalysisTest() {
     )
 
     @Test
-    @Disabled("Interprocedural analysis for static/class method calls needs debugging")
     fun testClassmethodCall() = assertSinkReachable(
         source = Source("StaticMethod.source", "taint", PositionBase.Result),
         sink = Sink("StaticMethod.sink", "taint", PositionBase.Argument(0), "static"),

@@ -348,10 +348,20 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
         // Resolve callee qualified name: prefer CallExpr.resolvedCallee,
         // fall back to MemberExpr.fullname for instance/class method calls
         // where mypy doesn't set node.fullname on the CallExpr.
-        val resolvedCallee = expr.resolvedCallee.ifEmpty {
+        var resolvedCallee = expr.resolvedCallee.ifEmpty {
             if (expr.callee.hasMemberExpr()) {
                 expr.callee.memberExpr.fullname
             } else ""
+        }
+        // Second fallback: resolve from receiver's expression type.
+        // For data.upper() where data:str, the receiver expr_type is ClassType("builtins.str"),
+        // so we construct "builtins.str.upper".
+        if (resolvedCallee.isEmpty() && expr.callee.hasMemberExpr()) {
+            val memberExpr = expr.callee.memberExpr
+            val receiverType = memberExpr.expr.exprType
+            if (receiverType.hasClassType()) {
+                resolvedCallee = "${receiverType.classType.qualifiedName}.${memberExpr.name}"
+            }
         }
 
         val target = cfgBuilder.newTempValue()

@@ -14,7 +14,12 @@ data class PIRModuleImpl(
     override val imports: List<String>,
     override val classpath: PIRClasspath,
     override val diagnostics: List<PIRDiagnostic> = emptyList(),
-) : PIRModule
+) : PIRModule {
+    // Break circular hashCode/toString: module → classes/functions → module
+    override fun equals(other: Any?): Boolean = this === other || (other is PIRModuleImpl && name == other.name && path == other.path)
+    override fun hashCode(): Int = name.hashCode() * 31 + path.hashCode()
+    override fun toString(): String = "PIRModule($name)"
+}
 
 data class PIRClassImpl(
     override val name: String,
@@ -30,7 +35,12 @@ data class PIRClassImpl(
     override val isDataclass: Boolean,
     override val isEnum: Boolean,
     override val module: PIRModule,
-) : PIRClass
+) : PIRClass {
+    // Break circular hashCode/toString: class → methods → function → enclosingClass → class
+    override fun equals(other: Any?): Boolean = this === other || (other is PIRClassImpl && qualifiedName == other.qualifiedName)
+    override fun hashCode(): Int = qualifiedName.hashCode()
+    override fun toString(): String = "PIRClass($qualifiedName)"
+}
 
 data class PIRFunctionImpl(
     override val name: String,
@@ -48,7 +58,12 @@ data class PIRFunctionImpl(
     // Mutable: set after construction to wire up circular class<->method reference
     override var enclosingClass: PIRClass?,
     override val module: PIRModule,
-) : PIRFunction
+) : PIRFunction {
+    // Break circular hashCode/toString: function → enclosingClass → methods → function
+    override fun equals(other: Any?): Boolean = this === other || (other is PIRFunctionImpl && qualifiedName == other.qualifiedName)
+    override fun hashCode(): Int = qualifiedName.hashCode()
+    override fun toString(): String = "PIRFunction($qualifiedName)"
+}
 
 data class PIRParameterImpl(
     override val name: String,

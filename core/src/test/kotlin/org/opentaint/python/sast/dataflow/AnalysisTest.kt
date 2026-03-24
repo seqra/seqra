@@ -11,6 +11,7 @@ import org.opentaint.dataflow.ifds.SingletonUnit
 import org.opentaint.dataflow.python.analysis.PIRAnalysisManager
 import org.opentaint.dataflow.python.graph.PIRApplicationGraph
 import org.opentaint.dataflow.python.rules.PIRTaintConfig
+import org.opentaint.dataflow.python.rules.PythonBuiltinPassRules
 import org.opentaint.dataflow.python.rules.TaintRules
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -76,11 +77,9 @@ abstract class AnalysisTest {
     }
 
     /**
-     * Pass rules for Python builtin entities (list/set/tuple/dict)
-     * */
-    val commonPathRules = listOf<TaintRules.Pass>(
-
-    )
+     * Pass rules for Python builtin entities (list/set/tuple/dict/str methods)
+     */
+    val commonPathRules: List<TaintRules.Pass> = PythonBuiltinPassRules.all
 
     private fun extractPythonSourcesFromJar(jarPath: Path, targetDir: Path) {
         JarFile(jarPath.toFile()).use { jar ->

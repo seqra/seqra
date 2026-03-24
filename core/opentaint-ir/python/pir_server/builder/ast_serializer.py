@@ -500,10 +500,34 @@ class AstSerializer:
                 callee=self._serialize_expr(expr.callee),
             )
             # Resolved callee
+            resolved = ""
             if hasattr(expr.callee, "node"):
                 node = expr.callee.node
                 if node is not None and hasattr(node, "fullname"):
-                    call_proto.resolved_callee = node.fullname or ""
+                    resolved = node.fullname or ""
+            # Fallback: for method calls (MemberExpr), resolve from receiver type
+            # or from the MemberExpr's own resolved type
+            if not resolved and isinstance(expr.callee, MemberExpr):
+                try:
+                    # Strategy 1: receiver's Instance type → type.fullname + method name
+                    receiver_type = self.types.get(expr.callee.expr)
+                    if receiver_type is not None:
+                        type_name = getattr(receiver_type, "type", None)
+                        if type_name is not None:
+                            resolved = f"{type_name.fullname}.{expr.callee.name}"
+                    # Strategy 2: MemberExpr type is CallableType → definition.fullname
+                    if not resolved:
+                        member_type = self.types.get(expr.callee)
+                        if member_type is not None:
+                            defn = getattr(member_type, "definition", None)
+                            if defn is not None:
+                                fn = getattr(defn, "fullname", "")
+                                if fn:
+                                    resolved = fn
+                except Exception:
+                    pass
+            if resolved:
+                call_proto.resolved_callee = resolved
             # Args
             for i, arg_expr in enumerate(expr.args):
                 kind = int(expr.arg_kinds[i].value)

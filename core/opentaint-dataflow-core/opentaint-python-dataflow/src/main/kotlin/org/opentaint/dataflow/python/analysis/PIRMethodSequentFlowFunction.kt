@@ -127,7 +127,17 @@ class PIRMethodSequentFlowFunction(
             return handleContainerLiteral(expr, assignTo, currentFactAp, mkCopy)
         }
 
-        // Case 5: Other compound expression — strong update on target, pass through otherwise
+        // Case 5: Binary expression — taint flows from either operand (e.g. string concatenation)
+        if (expr is PIRBinExpr) {
+            return handleBinExpr(expr, assignTo, currentFactAp, mkCopy)
+        }
+
+        // Case 6: String expression (f-string parts) — taint flows from any part
+        if (expr is PIRStringExpr) {
+            return handleStringExpr(expr, assignTo, currentFactAp, mkCopy)
+        }
+
+        // Case 7: Other compound expression — strong update on target, pass through otherwise
         return if (currentFactAp.base == assignTo) {
             emptySet()  // Strong update
         } else {
@@ -290,6 +300,65 @@ class PIRMethodSequentFlowFunction(
         } else {
             setOf(Sequent.Unchanged)
         }
+    }
+
+    // ==========================================================================
+    // Binary expression: target = left op right
+    // ==========================================================================
+
+    /**
+     * Binary expression: target = left op right
+     *
+     * For operations like string concatenation (ADD), if either operand is tainted,
+     * taint flows to the result. This is a broad rule — all binary ops propagate
+     * taint from either operand to result. For string concatenation this is correct;
+     * for arithmetic ops this is conservative but safe.
+     */
+    private inline fun handleBinExpr(
+        expr: PIRBinExpr,
+        assignTo: AccessPathBase,
+        currentFactAp: FinalFactAp,
+        mkCopy: (FinalFactAp) -> Sequent,
+    ): Set<Sequent> {
+        val leftBase = PIRFlowFunctionUtils.accessPathBase(expr.left, method, ctx)
+        val rightBase = PIRFlowFunctionUtils.accessPathBase(expr.right, method, ctx)
+
+        if (leftBase != null && currentFactAp.base == leftBase) {
+            return setOf(mkCopy(currentFactAp.rebase(assignTo)), Sequent.Unchanged)
+        }
+        if (rightBase != null && currentFactAp.base == rightBase) {
+            return setOf(mkCopy(currentFactAp.rebase(assignTo)), Sequent.Unchanged)
+        }
+
+        // Strong update on overwritten target
+        return if (currentFactAp.base == assignTo) emptySet() else setOf(Sequent.Unchanged)
+    }
+
+    // ==========================================================================
+    // String expression (f-string parts): target = f"... {part} ..."
+    // ==========================================================================
+
+    /**
+     * String expression: target = f"prefix {part1} ... {partN}"
+     *
+     * If any string part is tainted, taint flows to the result.
+     * This handles f-strings and other composite string constructions.
+     */
+    private inline fun handleStringExpr(
+        expr: PIRStringExpr,
+        assignTo: AccessPathBase,
+        currentFactAp: FinalFactAp,
+        mkCopy: (FinalFactAp) -> Sequent,
+    ): Set<Sequent> {
+        for (part in expr.parts) {
+            val partBase = PIRFlowFunctionUtils.accessPathBase(part, method, ctx) ?: continue
+            if (currentFactAp.base == partBase) {
+                return setOf(mkCopy(currentFactAp.rebase(assignTo)), Sequent.Unchanged)
+            }
+        }
+
+        // Strong update on overwritten target
+        return if (currentFactAp.base == assignTo) emptySet() else setOf(Sequent.Unchanged)
     }
 
     // ==========================================================================

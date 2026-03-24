@@ -104,9 +104,10 @@ class PIRMethodCallFlowFunction(
 
         // 2. Apply pass-through rules
         for (pass in taintConfig.propagators) {
-            if (matchesCall(pass.function, callInst)) {
+            if (matchesCallOrReceiver(pass.function)) {
                 val fromBase = resolvePositionWithModifiers(pass.from, callInst, method, ctx)
                 val toBase = resolvePositionWithModifiers(pass.to, callInst, method, ctx)
+
                 if (fromBase != null && toBase != null && currentFactAp.base == fromBase) {
                     val newFact = currentFactAp.rebase(toBase)
                     results.add(mkCallToReturnFact(refinement, newFact))
@@ -200,6 +201,65 @@ class PIRMethodCallFlowFunction(
         return results
     }
 
+    /**
+     * Instance-level call matching that also handles unresolved method calls.
+     * For calls where resolvedCallee is null (common for method calls like data.upper()),
+     * attempts to match by finding the defining PIRAttrExpr and constructing a
+     * candidate callee name from the receiver type and attribute name.
+     */
+    private fun matchesCallOrReceiver(ruleFunction: String): Boolean {
+        // Primary: exact match on resolvedCallee
+        val callee = callInst.resolvedCallee
+        if (callee != null) {
+            if (callee == ruleFunction || callee.endsWith(".$ruleFunction")) return true
+        }
+        // Fallback: match using the defining PIRAttrExpr's receiver type + attribute name.
+        // For data.upper(), the PIRAttrExpr has obj=data (type str) and attribute="upper".
+        // We construct candidates like "builtins.str.upper" and "str.upper".
+        val info = receiverInfo
+        if (info != null) {
+            val typeName = info.first  // e.g., "builtins.str" (may be empty if type unknown)
+            val attrName = info.second  // e.g., "upper"
+            if (typeName.isNotEmpty()) {
+                val candidate = "$typeName.$attrName"
+                if (candidate == ruleFunction || candidate.endsWith(".$ruleFunction")) return true
+                if (ruleFunction == candidate || ruleFunction.endsWith(".$candidate")) return true
+            }
+            // Fallback: match if the rule function ends with ".attrName"
+            // e.g., rule "builtins.str.upper" matches attribute "upper"
+            if (ruleFunction.endsWith(".$attrName")) return true
+        }
+        return false
+    }
+
+    /**
+     * Lazily computed receiver info: (receiverTypeName, attributeName) or null.
+     * Found by scanning for the PIRAssign + PIRAttrExpr that defines the call's callee.
+     */
+    private val receiverInfo: Pair<String, String>? by lazy {
+        val callee = callInst.callee
+        if (callee !is PIRLocal) return@lazy null
+        for (block in method.cfg.blocks) {
+            for (inst in block.instructions) {
+                if (inst is PIRAssign && inst.target is PIRLocal
+                    && (inst.target as PIRLocal).name == callee.name
+                    && inst.expr is PIRAttrExpr
+                ) {
+                    val attrExpr = inst.expr as PIRAttrExpr
+                    val attrName = attrExpr.attribute
+                    // Try obj type first
+                    val typeName = attrExpr.obj.type.typeName
+                    if (typeName.isNotEmpty() && typeName != "Any" && typeName != "any") {
+                        return@lazy typeName to attrName
+                    }
+                    // Fallback: return just the attribute name (rules can match on suffix)
+                    return@lazy "" to attrName
+                }
+            }
+        }
+        null
+    }
+
     companion object {
         fun matchesCall(ruleFunction: String, call: PIRCall): Boolean {
             val callee = call.resolvedCallee ?: return false
@@ -221,7 +281,12 @@ class PIRMethodCallFlowFunction(
                     PIRFlowFunctionUtils.accessPathBase(it, method, ctx)
                 }
             }
-            is PositionBase.This -> null
+            is PositionBase.This -> {
+                // In Python, PositionBase.This represents the method call receiver.
+                // e.g., for data.upper(), the receiver is `data`.
+                val receiver = PIRFlowFunctionUtils.findMethodCallReceiver(call, method)
+                receiver?.let { PIRFlowFunctionUtils.accessPathBase(it, method, ctx) }
+            }
             is PositionBase.ClassStatic -> null
             is PositionBase.AnyArgument -> null
         }
