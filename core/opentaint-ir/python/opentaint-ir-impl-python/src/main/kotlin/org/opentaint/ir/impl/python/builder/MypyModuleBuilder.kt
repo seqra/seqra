@@ -125,6 +125,20 @@ class MypyModuleBuilder(
 
     // ─── Class building ──────────────────────────────────
 
+    /**
+     * Wires PIRLocation onto every instruction in the function's CFG.
+     * Called after PIRFunctionImpl construction, similar to how enclosingClass is wired.
+     */
+    private fun wireInstructionLocations(function: PIRFunction) {
+        var index = 0
+        for (block in function.cfg.blocks.sortedBy { it.label }) {
+            for (inst in block.instructions) {
+                inst.location = PIRLocationImpl(function, index)
+                index++
+            }
+        }
+    }
+
     private fun buildClass(classDef: MypyClassDefProto, module: PIRModule): PIRClass {
         val methods = mutableListOf<PIRFunction>()
         val classFields = mutableListOf<PIRField>()
@@ -267,7 +281,7 @@ class MypyModuleBuilder(
             typeConverter.convert(funcDef.returnType)
         } else PIRAnyType
 
-        return PIRFunctionImpl(
+        val function = PIRFunctionImpl(
             name = funcDef.name,
             qualifiedName = qualifiedName,
             parameters = params,
@@ -285,6 +299,8 @@ class MypyModuleBuilder(
             enclosingClass = null,
             module = module,
         )
+        wireInstructionLocations(function)
+        return function
     }
 
     private fun buildDecoratedFunction(
@@ -353,7 +369,7 @@ class MypyModuleBuilder(
         }
 
         val pirCfg = ic.convertCFG(cfgProto)
-        return PIRFunctionImpl(
+        val function = PIRFunctionImpl(
             name = "__module_init__",
             qualifiedName = "$moduleName.__module_init__",
             parameters = emptyList(),
@@ -369,6 +385,8 @@ class MypyModuleBuilder(
             enclosingClass = null,
             module = module,
         )
+        wireInstructionLocations(function)
+        return function
     }
 
     // ─── Nested function extraction ─────────────────────
@@ -470,7 +488,7 @@ class MypyModuleBuilder(
         val returnType = if (proto.hasReturnType()) typeConverter.convert(proto.returnType) else PIRAnyType
         val cfg = ic.convertCFG(proto.cfg)
 
-        return PIRFunctionImpl(
+        val function = PIRFunctionImpl(
             name = proto.name,
             qualifiedName = proto.qualifiedName,
             parameters = params,
@@ -486,6 +504,8 @@ class MypyModuleBuilder(
             enclosingClass = null,
             module = module,
         )
+        wireInstructionLocations(function)
+        return function
     }
 
     /** Try to evaluate a MypyExprProto to a constant PIRValueProto. Returns null for complex expressions. */

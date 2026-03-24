@@ -8,6 +8,7 @@ import org.opentaint.dataflow.ap.ifds.TaintAnalysisManager
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
@@ -19,65 +20,70 @@ import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisContext
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodStartPrecondition
+import org.opentaint.dataflow.ap.ifds.trace.TaintRulePrecondition
+import org.opentaint.dataflow.ap.ifds.trace.TaintRulePrecondition.PassRuleCondition
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.python.PIRLanguageManager
+import org.opentaint.dataflow.python.rules.PIRTaintConfig
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
+import org.opentaint.ir.api.python.PIRCall
+import org.opentaint.ir.api.python.PIRClasspath
+import org.opentaint.ir.api.python.PIRFunction
 import org.opentaint.util.analysis.ApplicationGraph
 
-class PIRAnalysisManager : PIRLanguageManager(), TaintAnalysisManager {
-    override val factTypeChecker: FactTypeChecker
-        get() = TODO("Not yet implemented")
+class PIRAnalysisManager(cp: PIRClasspath) : PIRLanguageManager(cp), TaintAnalysisManager {
+    override val factTypeChecker: FactTypeChecker = FactTypeChecker.Dummy
 
     override fun getMethodAnalysisContext(
         methodEntryPoint: MethodEntryPoint,
         graph: ApplicationGraph<CommonMethod, CommonInst>,
         callResolver: MethodCallResolver,
         taintAnalysisContext: TaintAnalysisContext,
-        contextForEmptyMethod: MethodAnalysisContext?
+        contextForEmptyMethod: MethodAnalysisContext?,
     ): MethodAnalysisContext {
-        TODO("Not yet implemented")
+        val method = methodEntryPoint.method as PIRFunction
+        return PIRMethodAnalysisContext(methodEntryPoint, method, taintAnalysisContext)
     }
 
     override fun getMethodCallResolver(
         graph: ApplicationGraph<CommonMethod, CommonInst>,
         unitResolver: UnitResolver<CommonMethod>,
-        runner: TaintAnalysisUnitRunner
-    ): MethodCallResolver {
-        TODO("Not yet implemented")
-    }
+        runner: TaintAnalysisUnitRunner,
+    ): MethodCallResolver =
+        PIRMethodCallResolver(PIRCallResolver(cp), runner)
 
     override fun getMethodStartFlowFunction(
         apManager: ApManager,
-        analysisContext: MethodAnalysisContext
+        analysisContext: MethodAnalysisContext,
     ): MethodStartFlowFunction {
-        TODO("Not yet implemented")
+        val ctx = analysisContext as PIRMethodAnalysisContext
+        return PIRMethodStartFlowFunction(ctx, apManager)
     }
 
     override fun getMethodStartPrecondition(
         apManager: ApManager,
-        analysisContext: MethodAnalysisContext
-    ): MethodStartPrecondition {
-        TODO("Not yet implemented")
-    }
+        analysisContext: MethodAnalysisContext,
+    ): MethodStartPrecondition = NoOpStartPrecondition
 
     override fun getMethodSequentPrecondition(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
-        currentInst: CommonInst
-    ): MethodSequentPrecondition {
-        TODO("Not yet implemented")
-    }
+        currentInst: CommonInst,
+    ): MethodSequentPrecondition = NoOpSequentPrecondition
 
     override fun getMethodSequentFlowFunction(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
         currentInst: CommonInst,
-        generateTrace: Boolean
+        generateTrace: Boolean,
     ): MethodSequentFlowFunction {
-        TODO("Not yet implemented")
+        val ctx = analysisContext as PIRMethodAnalysisContext
+        return PIRMethodSequentFlowFunction(
+            currentInst as org.opentaint.ir.api.python.PIRInstruction, ctx.method, ctx, apManager
+        )
     }
 
     override fun getMethodCallFlowFunction(
@@ -86,9 +92,15 @@ class PIRAnalysisManager : PIRLanguageManager(), TaintAnalysisManager {
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
         statement: CommonInst,
-        generateTrace: Boolean
+        generateTrace: Boolean,
     ): MethodCallFlowFunction {
-        TODO("Not yet implemented")
+        val ctx = analysisContext as PIRMethodAnalysisContext
+        val config = ctx.taint.taintConfig as PIRTaintConfig
+        val pirCall = statement as PIRCall
+        val callee = PIRCallResolver(cp).resolve(pirCall)
+        return PIRMethodCallFlowFunction(
+            pirCall, ctx.method, ctx, config, callee, apManager, returnValue
+        )
     }
 
     override fun getMethodCallPrecondition(
@@ -96,46 +108,66 @@ class PIRAnalysisManager : PIRLanguageManager(), TaintAnalysisManager {
         analysisContext: MethodAnalysisContext,
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
-        statement: CommonInst
-    ): MethodCallPrecondition {
-        TODO("Not yet implemented")
-    }
+        statement: CommonInst,
+    ): MethodCallPrecondition = NoOpCallPrecondition
 
     override fun getMethodCallSummaryHandler(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
-        statement: CommonInst
+        statement: CommonInst,
     ): MethodCallSummaryHandler {
-        TODO("Not yet implemented")
+        val ctx = analysisContext as PIRMethodAnalysisContext
+        return PIRMethodCallSummaryHandler(
+            statement as PIRCall, ctx, factTypeChecker
+        )
     }
 
     override fun getMethodSideEffectSummaryHandler(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
         statement: CommonInst,
-        runner: AnalysisRunner
-    ): MethodSideEffectSummaryHandler {
-        TODO("Not yet implemented")
-    }
+        runner: AnalysisRunner,
+    ): MethodSideEffectSummaryHandler =
+        PIRMethodSideEffectSummaryHandler()
 
     override fun isReachable(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
         base: AccessPathBase,
-        statement: CommonInst
-    ): Boolean {
-        TODO("Not yet implemented")
-    }
+        statement: CommonInst,
+    ): Boolean = true
 
     override fun isValidMethodExitFact(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
-        fact: FinalFactAp
-    ): Boolean {
-        TODO("Not yet implemented")
+        fact: FinalFactAp,
+    ): Boolean = when (fact.base) {
+        is AccessPathBase.LocalVar -> false
+        is AccessPathBase.Return -> true
+        is AccessPathBase.Argument -> true  // Arguments can flow back (aliased)
+        is AccessPathBase.ClassStatic -> true
+        else -> false
     }
 
     override fun onInstructionReached(inst: CommonInst) {
-        TODO("Not yet implemented")
+        // No-op
     }
+}
+
+// --- No-op preconditions for minimal prototype ---
+
+private object NoOpStartPrecondition : MethodStartPrecondition {
+    override fun factPrecondition(fact: InitialFactAp): List<TaintRulePrecondition.Source> = emptyList()
+}
+
+private object NoOpSequentPrecondition : MethodSequentPrecondition {
+    override fun factPrecondition(fact: InitialFactAp): Set<MethodSequentPrecondition.SequentPrecondition> =
+        setOf(MethodSequentPrecondition.SequentPrecondition.Unchanged)
+}
+
+private object NoOpCallPrecondition : MethodCallPrecondition {
+    override fun factPrecondition(fact: InitialFactAp): List<MethodCallPrecondition.CallPrecondition> =
+        listOf(MethodCallPrecondition.CallPrecondition.Unchanged)
+    override fun resolvePassRuleCondition(precondition: PassRuleCondition): List<MethodCallPrecondition.PassRuleConditionFacts> =
+        emptyList()
 }

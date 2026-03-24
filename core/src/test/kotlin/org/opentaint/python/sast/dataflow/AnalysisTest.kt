@@ -128,7 +128,7 @@ abstract class AnalysisTest {
 
         @Suppress("UNCHECKED_CAST")
         val engine = TaintAnalysisUnitRunnerManager(
-            PIRAnalysisManager(),
+            PIRAnalysisManager(cp),
             ifdsGraph as ApplicationGraph<CommonMethod, CommonInst>,
             unitResolver = { SingletonUnit },
             apManager = TreeApManager(anyAccessorUnrollStrategy = AnyAccessorUnrollStrategy.AnyAccessorDisabled),
