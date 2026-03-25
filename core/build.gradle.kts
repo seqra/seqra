@@ -76,6 +76,10 @@ tasks.withType<Test> {
         val testDependencies = resolvedTestSamples.filter { it.name != "samples.jar" }
         environment("TEST_SAMPLES_JAR", testSamplesJar.absolutePath)
         environment("TEST_DEPENDENCIES_JAR", testDependencies.joinToString(File.pathSeparator) { it.absolutePath })
+
+        // Ant benchmark samples JAR
+        val antBenchmarkJar = project("samples").tasks.named<Jar>("antBenchmarkJar").get().archiveFile.get().asFile
+        environment("ANT_BENCHMARK_SAMPLES_JAR", antBenchmarkJar.absolutePath)
         val pirEnv = pirEnvironment()
         pirEnv.forEach { (key, value) ->
             environment(key, value)

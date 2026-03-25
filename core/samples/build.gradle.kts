@@ -48,6 +48,16 @@ tasks.jar {
 
     from(pythonSamplesSourceSet.resources) {
         include("**/*.py")
+        exclude("ant-benchmark/**")
+    }
+}
+
+// Separate JAR for Ant benchmark Python samples
+val antBenchmarkJar = tasks.register<Jar>("antBenchmarkJar") {
+    archiveBaseName.set("ant-benchmark-samples")
+    from(pythonSamplesSourceSet.resources) {
+        include("ant-benchmark/**/*.py")
+        include("ant-benchmark/benchmark-metadata.csv")
     }
 }
 

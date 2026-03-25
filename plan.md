@@ -173,9 +173,19 @@
 ### D5. Ant Benchmark Adaptation ✅ COMPLETE
 
 #### D5a. Benchmark runner
-- [x] `AntBenchmarkTest.kt` — parameterized test runner (592 single-file cases, configurable via `BENCHMARK_SUBSET`)
+- [x] `AntBenchmarkTest.kt` — parameterized test runner (606 single-file cases, configurable via `BENCHMARK_SUBSET`)
 - [x] `EntrySource` rule + `PIRMethodStartFlowFunction.propagateZero()` support
 - [x] Flat temp directory copy for PIR processing
+
+#### D5c. Migrate benchmark files into samples directory
+- [x] Copied 606 single-file benchmark .py files into `core/samples/src/main/python/ant-benchmark/` (flat directory)
+- [x] Generated `benchmark-metadata.csv` mapping filename → category path
+- [x] Added `antBenchmarkJar` task in `samples/build.gradle.kts` — separate JAR for benchmark files
+- [x] Main `samples.jar` excludes `ant-benchmark/` directory (no impact on existing tests)
+- [x] Wired `ANT_BENCHMARK_SAMPLES_JAR` env var in `core/build.gradle.kts`
+- [x] Rewrote `AntBenchmarkTest` to load from JAR instead of `~/data/` path
+- [x] No external dependency on `~/data/ant-application-security-testing-benchmark/` anymore
+- [x] Verified: accuracy=91 pass/56 fail/3 skip (unchanged), completeness=288 pass/151 fail/3 skip, all 606 cases run
 
 #### D5b. Benchmark improvements (this session)
 
