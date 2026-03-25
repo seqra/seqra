@@ -7,12 +7,22 @@ import (
 	"go/types"
 	"log"
 	"sort"
+	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/tools/go/ssa"
 	"golang.org/x/tools/go/ssa/ssautil"
 
 	pb "github.com/opentaint/go-ir/go-ssa-server/proto/goir"
 )
+
+// sanitizeUTF8 ensures a string is valid UTF-8 by replacing invalid bytes.
+func sanitizeUTF8(s string) string {
+	if utf8.ValidString(s) {
+		return s
+	}
+	return strings.ToValidUTF8(s, "\uFFFD")
+}
 
 type serializerStats struct {
 	packageCount     int
@@ -32,6 +42,9 @@ type serializer struct {
 	// All functions to serialize bodies for
 	allFunctions []*ssa.Function
 
+	// Tracks which functions have already been serialized as ProtoFunction
+	serializedFunctions map[*ssa.Function]bool
+
 	// Maps for value IDs within a function
 	funcValueIDs map[ssa.Value]int32
 
@@ -40,9 +53,10 @@ type serializer struct {
 
 func newSerializer(prog *ssa.Program, pkgs []*ssa.Package) *serializer {
 	s := &serializer{
-		prog: prog,
-		pkgs: pkgs,
-		ids:  newIDAllocator(),
+		prog:                prog,
+		pkgs:                pkgs,
+		ids:                 newIDAllocator(),
+		serializedFunctions: make(map[*ssa.Function]bool),
 	}
 	s.collectAll()
 	return s
@@ -98,11 +112,9 @@ func (s *serializer) collectAll() {
 		}
 	}
 
-	// Collect all functions reachable (includes anonymous functions)
+	// Collect all functions reachable (includes anonymous functions, instantiated generics)
 	for fn := range ssautil.AllFunctions(s.prog) {
-		if fn.Package() != nil {
-			s.collectFunction(fn)
-		}
+		s.collectFunction(fn)
 	}
 }
 
@@ -155,11 +167,11 @@ func (s *serializer) collectType(t types.Type) {
 	if _, ok := s.ids.typeIDs[t]; ok {
 		return // already collected
 	}
-	// Assign ID (which registers it)
+	// Assign ID first (prevents infinite recursion on cyclic types)
 	s.ids.typeID(t)
-	s.allTypes = append(s.allTypes, t)
 
-	// Recurse into sub-types
+	// Recurse into sub-types BEFORE adding ourselves to allTypes.
+	// This ensures dependencies are serialized before dependents (topological order).
 	switch ut := t.(type) {
 	case *types.Pointer:
 		s.collectType(ut.Elem())
@@ -211,6 +223,9 @@ func (s *serializer) collectType(t types.Type) {
 	case *types.TypeParam:
 		s.collectType(ut.Constraint())
 	}
+
+	// Add to allTypes AFTER sub-types (topological order)
+	s.allTypes = append(s.allTypes, t)
 }
 
 // ─── Streaming phase 1: Types ───────────────────────────────────────
@@ -378,6 +393,94 @@ func (s *serializer) streamPackages(stream pb.GoSSAService_BuildProgramServer) e
 		}
 		s.stats.packageCount++
 	}
+
+	// Stream external dependency packages that have referenced functions.
+	// These are packages not in s.pkgs but containing functions that got IDs
+	// (e.g. fmt.Println referenced from user code).
+	if err := s.streamExternalPackages(stream); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// streamExternalPackages serializes stub packages for external dependencies
+// that have functions or globals referenced by the user's code.
+func (s *serializer) streamExternalPackages(stream pb.GoSSAService_BuildProgramServer) error {
+	userPkgs := make(map[*ssa.Package]bool)
+	for _, pkg := range s.pkgs {
+		userPkgs[pkg] = true
+	}
+
+	// Track which external packages need to be sent
+	type extPkgData struct {
+		funcs   []*ssa.Function
+		globals []*ssa.Global
+	}
+	extPkgs := make(map[*ssa.Package]*extPkgData)
+
+	getOrCreate := func(pkg *ssa.Package) *extPkgData {
+		if d, ok := extPkgs[pkg]; ok {
+			return d
+		}
+		d := &extPkgData{}
+		extPkgs[pkg] = d
+		return d
+	}
+
+	// Collect unserialized functions
+	for fn := range s.ids.functionIDs {
+		if s.serializedFunctions[fn] {
+			continue
+		}
+		pkg := fn.Package()
+		if pkg != nil && !userPkgs[pkg] {
+			getOrCreate(pkg).funcs = append(getOrCreate(pkg).funcs, fn)
+		}
+	}
+
+	// Collect unserialized globals
+	serializedGlobals := make(map[*ssa.Global]bool)
+	for _, pkg := range s.pkgs {
+		for _, mem := range sortedMembers(pkg) {
+			if g, ok := mem.(*ssa.Global); ok {
+				serializedGlobals[g] = true
+			}
+		}
+	}
+	for g := range s.ids.globalIDs {
+		if serializedGlobals[g] {
+			continue
+		}
+		pkg := g.Package()
+		if pkg != nil && !userPkgs[pkg] {
+			getOrCreate(pkg).globals = append(getOrCreate(pkg).globals, g)
+		}
+	}
+
+	// Send external packages
+	for pkg, data := range extPkgs {
+		pp := &pb.ProtoPackage{
+			Id:         s.ids.packageID(pkg),
+			ImportPath: pkg.Pkg.Path(),
+			Name:       pkg.Pkg.Name(),
+		}
+		for _, fn := range data.funcs {
+			pf := s.serializeFunction(fn)
+			pp.Functions = append(pp.Functions, pf)
+			s.serializedFunctions[fn] = true
+		}
+		for _, g := range data.globals {
+			pp.Globals = append(pp.Globals, s.serializeGlobal(g))
+		}
+		if err := stream.Send(&pb.BuildProgramResponse{
+			Payload: &pb.BuildProgramResponse_PackageDef{PackageDef: pp},
+		}); err != nil {
+			return err
+		}
+		s.stats.packageCount++
+	}
+
 	return nil
 }
 
@@ -413,12 +516,68 @@ func (s *serializer) serializePackage(pkg *ssa.Package) *pb.ProtoPackage {
 		switch m := mem.(type) {
 		case *ssa.Function:
 			pp.Functions = append(pp.Functions, s.serializeFunction(m))
+			s.serializedFunctions[m] = true
 		case *ssa.Type:
 			pp.NamedTypes = append(pp.NamedTypes, s.serializeNamedType(pkg, m))
 		case *ssa.Global:
 			pp.Globals = append(pp.Globals, s.serializeGlobal(m))
 		case *ssa.NamedConst:
 			pp.Constants = append(pp.Constants, s.serializeConst(m))
+		}
+	}
+
+	// Serialize methods for all named types in this package.
+	// Methods are not package-level members in go-ssa, they are obtained
+	// from the method sets. We need to serialize them so the Kotlin side
+	// can resolve method IDs.
+	for _, mem := range sortedMembers(pkg) {
+		if t, ok := mem.(*ssa.Type); ok {
+			named := t.Object().(*types.TypeName)
+			// Value receiver methods
+			mset := s.prog.MethodSets.MethodSet(named.Type())
+			for i := 0; i < mset.Len(); i++ {
+				fn := s.prog.MethodValue(mset.At(i))
+				if fn != nil && !s.serializedFunctions[fn] {
+					pf := s.serializeFunction(fn)
+					pf.IsMethod = true
+					pp.Functions = append(pp.Functions, pf)
+					s.serializedFunctions[fn] = true
+				}
+			}
+			// Pointer receiver methods
+			pmset := s.prog.MethodSets.MethodSet(types.NewPointer(named.Type()))
+			for i := 0; i < pmset.Len(); i++ {
+				fn := s.prog.MethodValue(pmset.At(i))
+				if fn != nil && !s.serializedFunctions[fn] {
+					pf := s.serializeFunction(fn)
+					pf.IsMethod = true
+					pp.Functions = append(pp.Functions, pf)
+					s.serializedFunctions[fn] = true
+				}
+			}
+		}
+	}
+
+	// Serialize all remaining functions that belong to this package but
+	// are not package members (anonymous functions, instantiated generics, etc.).
+	// These are discovered via ssautil.AllFunctions and referenced by
+	// MakeClosure/Call instructions.
+	for _, fn := range s.allFunctions {
+		if !s.serializedFunctions[fn] && fn.Package() != nil && fn.Package() == pkg {
+			pf := s.serializeFunction(fn)
+			pp.Functions = append(pp.Functions, pf)
+			s.serializedFunctions[fn] = true
+		}
+	}
+
+	// Serialize package-less functions (instantiated generics) in the first package
+	if len(s.pkgs) > 0 && pkg == s.pkgs[0] {
+		for _, fn := range s.allFunctions {
+			if !s.serializedFunctions[fn] && fn.Package() == nil {
+				pf := s.serializeFunction(fn)
+				pp.Functions = append(pp.Functions, pf)
+				s.serializedFunctions[fn] = true
+			}
 		}
 	}
 
@@ -434,8 +593,8 @@ func (s *serializer) serializePackage(pkg *ssa.Package) *pb.ProtoPackage {
 func (s *serializer) serializeFunction(fn *ssa.Function) *pb.ProtoFunction {
 	pf := &pb.ProtoFunction{
 		Id:       s.ids.functionID(fn),
-		Name:     fn.Name(),
-		FullName: fn.String(),
+		Name:     sanitizeUTF8(fn.Name()),
+		FullName: sanitizeUTF8(fn.String()),
 		HasBody:  len(fn.Blocks) > 0,
 	}
 
@@ -478,7 +637,7 @@ func (s *serializer) serializeFunction(fn *ssa.Function) *pb.ProtoFunction {
 	// Flags
 	pf.IsExported = fn.Object() != nil && fn.Object().Exported()
 	pf.IsSynthetic = fn.Synthetic != ""
-	pf.SyntheticKind = fn.Synthetic
+	pf.SyntheticKind = sanitizeUTF8(fn.Synthetic)
 
 	// Closure
 	if fn.Parent() != nil {
@@ -1047,7 +1206,7 @@ func (s *serializer) constValueToProto(val constant.Value) *pb.ProtoConstValue {
 		b := constant.BoolVal(val)
 		return &pb.ProtoConstValue{Value: &pb.ProtoConstValue_BoolValue{BoolValue: b}}
 	case constant.String:
-		return &pb.ProtoConstValue{Value: &pb.ProtoConstValue_StringValue{StringValue: constant.StringVal(val)}}
+		return &pb.ProtoConstValue{Value: &pb.ProtoConstValue_StringValue{StringValue: sanitizeUTF8(constant.StringVal(val))}}
 	case constant.Int:
 		if v, ok := constant.Int64Val(val); ok {
 			return &pb.ProtoConstValue{Value: &pb.ProtoConstValue_IntValue{IntValue: v}}

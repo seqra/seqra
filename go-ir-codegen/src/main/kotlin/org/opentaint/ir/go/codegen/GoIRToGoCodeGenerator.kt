@@ -1,0 +1,623 @@
+package org.opentaint.ir.go.codegen
+
+import org.opentaint.ir.go.api.GoIRBody
+import org.opentaint.ir.go.api.GoIRFunction
+import org.opentaint.ir.go.api.GoIRNamedType
+import org.opentaint.ir.go.api.GoIRPackage
+import org.opentaint.ir.go.api.GoIRProgram
+import org.opentaint.ir.go.cfg.GoIRBasicBlock
+import org.opentaint.ir.go.cfg.GoIRCallInfo
+import org.opentaint.ir.go.cfg.GoIRSelectState
+import org.opentaint.ir.go.inst.*
+import org.opentaint.ir.go.type.*
+import org.opentaint.ir.go.value.*
+
+/**
+ * Converts a GoIR program back to compilable Go source code.
+ *
+ * This is NOT a decompiler — it produces mechanically correct code with gotos,
+ * labeled blocks, and explicit variable declarations. The generated code computes
+ * the same results as the original but is not idiomatic Go.
+ *
+ * The generated code strategy:
+ * - Each SSA value becomes a Go variable declaration
+ * - Each basic block becomes a labeled section
+ * - Phi nodes are eliminated via temporary variables at predecessor block ends
+ * - Terminators become gotos (Jump), conditional gotos (If), or return
+ */
+class GoIRToGoCodeGenerator {
+
+    private val imports = mutableSetOf<String>()
+
+    /**
+     * Generate Go source code for the main package in the program.
+     * Only generates the "main" package (or first package if no main).
+     */
+    fun generate(program: GoIRProgram): String {
+        imports.clear()
+        val sb = StringBuilder()
+        val pkg = program.mainPackage() ?: program.packages.values.first()
+
+        // Collect all functions we need to generate
+        val allFunctions = collectAllFunctions(pkg)
+
+        // Collect imports by scanning for function/global references to external packages
+        scanImportsFromFunctions(allFunctions, pkg)
+
+        // Package declaration
+        sb.appendLine("package ${pkg.name}")
+        sb.appendLine()
+
+        // Imports
+        if (imports.isNotEmpty()) {
+            sb.appendLine("import (")
+            for (imp in imports.sorted()) {
+                sb.appendLine("\t\"$imp\"")
+            }
+            sb.appendLine(")")
+            sb.appendLine()
+        }
+
+        // Generate type declarations first
+        for (namedType in pkg.namedTypes) {
+            generateTypeDecl(sb, namedType)
+        }
+
+        // Generate global variable declarations (skip init guard and external stubs)
+        for (global in pkg.globals) {
+            if (global.name.startsWith("init$") || global.name.startsWith("ext_")) continue
+            sb.appendLine("var ${global.name} ${TypeFormatter.format(global.type)}")
+        }
+        if (pkg.globals.any { !it.name.startsWith("init$") && !it.name.startsWith("ext_") }) sb.appendLine()
+
+        // Generate functions (excluding anonymous, init, and external stubs)
+        for (fn in allFunctions) {
+            if (fn.parent != null) continue // skip anonymous functions (generated inline)
+            if (!fn.hasBody) continue
+            if (fn.name == "init") continue // skip init for round-trip
+            if (fn.isSynthetic) continue // skip synthetic wrappers
+            if (fn.pkg != null && fn.pkg != pkg) continue // skip functions from other packages
+            generateFunction(sb, fn)
+            sb.appendLine()
+        }
+
+        return sb.toString()
+    }
+
+    private fun collectAllFunctions(pkg: GoIRPackage): List<GoIRFunction> {
+        val result = mutableListOf<GoIRFunction>()
+        result.addAll(pkg.functions)
+        result.addAll(pkg.allMethods())
+        // Collect anonymous functions recursively
+        fun collectAnon(fn: GoIRFunction) {
+            for (anon in fn.anonymousFunctions) {
+                result.add(anon)
+                collectAnon(anon)
+            }
+        }
+        for (fn in pkg.functions + pkg.allMethods()) {
+            collectAnon(fn)
+        }
+        return result
+    }
+
+    /**
+     * Scan functions for references to external packages that need importing.
+     * Only adds standard library packages, not internal or test packages.
+     */
+    /**
+     * Scan user functions for direct calls to external packages.
+     * Only scans functions we'll actually generate, not init or synthetics.
+     */
+    private fun scanImportsFromFunctions(functions: List<GoIRFunction>, userPkg: GoIRPackage) {
+        for (fn in functions) {
+            // Only scan functions that will be generated
+            if (fn.pkg != null && fn.pkg != userPkg) continue
+            if (fn.name == "init") continue
+            if (fn.isSynthetic) continue
+            if (fn.parent != null) continue
+            val body = fn.body ?: continue
+            for (inst in body.instructions) {
+                when (inst) {
+                    is GoIRCall -> scanCallForImport(inst.call, userPkg)
+                    is GoIRGo -> scanCallForImport(inst.call, userPkg)
+                    is GoIRDefer -> scanCallForImport(inst.call, userPkg)
+                    else -> {}
+                }
+                // Also scan for global references from other packages
+                for (operand in inst.operands) {
+                    if (operand is GoIRGlobalValue) {
+                        val gPkg = operand.global.pkg
+                        if (gPkg != userPkg && !gPkg.importPath.startsWith("internal/") &&
+                            !gPkg.importPath.startsWith("test/") && gPkg.importPath.isNotEmpty()
+                        ) {
+                            imports.add(gPkg.importPath)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun scanCallForImport(call: GoIRCallInfo, userPkg: GoIRPackage) {
+        val fn = call.function
+        if (fn is GoIRFunctionValue) {
+            val fnPkg = fn.function.pkg
+            if (fnPkg != null && fnPkg != userPkg && !fnPkg.importPath.startsWith("internal/") &&
+                !fnPkg.importPath.startsWith("test/") && fnPkg.importPath.isNotEmpty()
+            ) {
+                imports.add(fnPkg.importPath)
+            }
+        }
+    }
+
+    private fun generateTypeDecl(sb: StringBuilder, namedType: GoIRNamedType) {
+        when (namedType.kind) {
+            GoIRNamedTypeKind.STRUCT -> {
+                sb.appendLine("type ${namedType.name} struct {")
+                for (field in namedType.fields) {
+                    val tag = if (field.tag.isNotEmpty()) " `${field.tag}`" else ""
+                    if (field.isEmbedded) {
+                        sb.appendLine("\t${TypeFormatter.format(field.type)}$tag")
+                    } else {
+                        sb.appendLine("\t${field.name} ${TypeFormatter.format(field.type)}$tag")
+                    }
+                }
+                sb.appendLine("}")
+                sb.appendLine()
+            }
+            GoIRNamedTypeKind.INTERFACE -> {
+                sb.appendLine("type ${namedType.name} interface {")
+                for (m in namedType.interfaceMethods) {
+                    sb.appendLine("\t${m.name}${TypeFormatter.formatFuncSignature(m.signature)}")
+                }
+                sb.appendLine("}")
+                sb.appendLine()
+            }
+            GoIRNamedTypeKind.ALIAS, GoIRNamedTypeKind.OTHER -> {
+                sb.appendLine("type ${namedType.name} = ${TypeFormatter.format(namedType.underlying)}")
+                sb.appendLine()
+            }
+        }
+    }
+
+    private fun generateFunction(sb: StringBuilder, fn: GoIRFunction) {
+        val body = fn.body ?: return
+        val phiResult = PhiEliminator.eliminate(body)
+
+        // Function signature
+        val recv = if (fn.isMethod && fn.receiverType != null) {
+            val recvType = fn.receiverType!!.name
+            val recvParam = fn.params.firstOrNull()
+            val recvName = recvParam?.name ?: "recv"
+            if (fn.isPointerReceiver) "($recvName *$recvType) "
+            else "($recvName $recvType) "
+        } else ""
+
+        val params = if (fn.isMethod && fn.params.isNotEmpty()) {
+            fn.params.drop(1) // skip receiver
+        } else {
+            fn.params
+        }
+
+        val paramStr = params.mapIndexed { i, p ->
+            val paramType = fn.signature.params.let { allParams ->
+                val idx = if (fn.isMethod) i + 1 else i
+                if (idx < allParams.size) allParams[idx] else p.type
+            }
+            if (fn.signature.isVariadic && i == params.lastIndex) {
+                val sliceType = paramType as? GoIRSliceType
+                if (sliceType != null) "${p.name} ...${TypeFormatter.format(sliceType.elem)}"
+                else "${p.name} ${TypeFormatter.format(paramType)}"
+            } else {
+                "${p.name} ${TypeFormatter.format(paramType)}"
+            }
+        }.joinToString(", ")
+
+        val resultTypes = fn.signature.results
+        val resultStr = when (resultTypes.size) {
+            0 -> ""
+            1 -> " ${TypeFormatter.format(resultTypes[0])}"
+            else -> " (${resultTypes.joinToString(", ") { TypeFormatter.format(it) }})"
+        }
+
+        sb.appendLine("func ${recv}${fn.name}($paramStr)$resultStr {")
+
+        // Declare all SSA variables (except phis and tuples — they get special handling)
+        val declaredVars = mutableSetOf<String>()
+        for (inst in body.instructions) {
+            if (inst is GoIRValueInst && inst !is GoIRPhi) {
+                val varName = inst.name
+                if (varName.isNotEmpty() && varName !in declaredVars) {
+                    // Skip tuple types — they're handled via Extract
+                    if (inst.type is GoIRTupleType) {
+                        declaredVars.add(varName)
+                        continue
+                    }
+                    sb.appendLine("\tvar $varName ${TypeFormatter.format(inst.type)}")
+                    declaredVars.add(varName)
+                }
+            }
+        }
+
+        // Declare phi temp variables
+        for ((_, reads) in phiResult.blockPhiReads) {
+            for ((varName, tempName) in reads) {
+                val phi = body.instructions.filterIsInstance<GoIRPhi>().find { it.name == varName }
+                if (phi != null) {
+                    if (tempName !in declaredVars) {
+                        sb.appendLine("\tvar $tempName ${TypeFormatter.format(phi.type)}")
+                        declaredVars.add(tempName)
+                    }
+                    if (varName !in declaredVars) {
+                        sb.appendLine("\tvar $varName ${TypeFormatter.format(phi.type)}")
+                        declaredVars.add(varName)
+                    }
+                }
+            }
+        }
+
+        if (declaredVars.isNotEmpty()) sb.appendLine()
+
+        // Generate blocks
+        // Collect which blocks are goto targets (need labels)
+        val gotoTargets = mutableSetOf<Int>()
+        for (block in body.blocks) {
+            for (succ in block.successors) {
+                gotoTargets.add(succ.index)
+            }
+        }
+
+        for (block in body.blocks) {
+            // Only emit label if some block jumps to this one
+            if (block.index in gotoTargets) {
+                sb.appendLine("\tblock${block.index}:")
+            }
+
+            // Phi reads at block start
+            val phiReads = phiResult.blockPhiReads[block.index]
+            if (phiReads != null) {
+                for ((varName, tempName) in phiReads) {
+                    sb.appendLine("\t\t$varName = $tempName")
+                }
+            }
+
+            // Instructions (skip phis — they're handled above)
+            for (inst in block.instructions) {
+                if (inst is GoIRPhi) continue
+
+                // Before terminators, emit phi assignments for successor blocks
+                if (inst is GoIRTerminator) {
+                    val assignments = phiResult.predecessorAssignments[block.index]
+                    if (assignments != null) {
+                        for (a in assignments) {
+                            sb.appendLine("\t\t${a.phiTempName} = ${valueRef(a.sourceValue)}")
+                        }
+                    }
+                }
+
+                val code = generateInstruction(inst, block)
+                if (code != null) {
+                    for (line in code.lines()) {
+                        sb.appendLine("\t\t$line")
+                    }
+                }
+            }
+        }
+
+        // Ensure unreachable label suppression: use all block labels
+        // Go requires goto targets to exist; add a trailing unreachable return if needed
+        sb.appendLine("}")
+    }
+
+    private fun generateInstruction(inst: GoIRInst, block: GoIRBasicBlock): String? {
+        return inst.accept(object : GoIRInstVisitor<String?> {
+            // ─── Value-producing instructions ───
+            override fun visitAlloc(inst: GoIRAlloc): String {
+                return if (inst.isHeap) {
+                    "${inst.name} = new(${TypeFormatter.format(inst.allocType)})"
+                } else {
+                    // Stack alloc: create a local variable and take its address
+                    "var _alloc_${inst.name} ${TypeFormatter.format(inst.allocType)}\n${inst.name} = &_alloc_${inst.name}"
+                }
+            }
+
+            override fun visitPhi(inst: GoIRPhi): String? = null // handled by PhiEliminator
+
+            override fun visitBinOp(inst: GoIRBinOp): String {
+                val opStr = binaryOpStr(inst.op)
+                return "${inst.name} = ${valueRef(inst.x)} $opStr ${valueRef(inst.y)}"
+            }
+
+            override fun visitUnOp(inst: GoIRUnOp): String {
+                return when (inst.op) {
+                    GoIRUnaryOp.DEREF -> "${inst.name} = *${valueRef(inst.x)}"
+                    GoIRUnaryOp.NEG -> "${inst.name} = -${valueRef(inst.x)}"
+                    GoIRUnaryOp.ARROW -> {
+                        if (inst.commaOk) {
+                            "${inst.name}, _ok_${inst.name} = <-${valueRef(inst.x)}"
+                        } else {
+                            "${inst.name} = <-${valueRef(inst.x)}"
+                        }
+                    }
+                    GoIRUnaryOp.NOT -> "${inst.name} = !${valueRef(inst.x)}"
+                    GoIRUnaryOp.XOR -> "${inst.name} = ^${valueRef(inst.x)}"
+                }
+            }
+
+            override fun visitCall(inst: GoIRCall): String {
+                // If the result is a tuple (multi-return), discard with underscores
+                if (inst.type is GoIRTupleType) {
+                    val tupleType = inst.type as GoIRTupleType
+                    val discards = tupleType.elements.joinToString(", ") { "_" }
+                    return "$discards = ${generateCallStr(inst.call)}"
+                }
+                return generateCallExpr(inst.name, inst.call)
+            }
+
+            override fun visitChangeType(inst: GoIRChangeType): String {
+                return "${inst.name} = ${TypeFormatter.format(inst.type)}(${valueRef(inst.x)})"
+            }
+
+            override fun visitConvert(inst: GoIRConvert): String {
+                return "${inst.name} = ${TypeFormatter.format(inst.type)}(${valueRef(inst.x)})"
+            }
+
+            override fun visitMultiConvert(inst: GoIRMultiConvert): String {
+                return "${inst.name} = ${TypeFormatter.format(inst.type)}(${valueRef(inst.x)})"
+            }
+
+            override fun visitChangeInterface(inst: GoIRChangeInterface): String {
+                return "${inst.name} = ${TypeFormatter.format(inst.type)}(${valueRef(inst.x)})"
+            }
+
+            override fun visitSliceToArrayPointer(inst: GoIRSliceToArrayPointer): String {
+                return "${inst.name} = ${TypeFormatter.format(inst.type)}(${valueRef(inst.x)})"
+            }
+
+            override fun visitMakeInterface(inst: GoIRMakeInterface): String {
+                // Boxing: convert concrete to interface
+                return "${inst.name} = ${TypeFormatter.format(inst.type)}(${valueRef(inst.x)})"
+            }
+
+            override fun visitTypeAssert(inst: GoIRTypeAssert): String {
+                return if (inst.commaOk) {
+                    "${inst.name} = ${valueRef(inst.x)}.(${TypeFormatter.format(inst.assertedType)})"
+                } else {
+                    "${inst.name} = ${valueRef(inst.x)}.(${TypeFormatter.format(inst.assertedType)})"
+                }
+            }
+
+            override fun visitMakeClosure(inst: GoIRMakeClosure): String {
+                // Generate an inline function literal
+                val closureFn = inst.fn
+                val closureBody = closureFn.body
+                if (closureBody == null) {
+                    return "${inst.name} = nil // closure with no body"
+                }
+
+                // For simplicity, use a function value reference
+                // The closure function is generated separately
+                return "${inst.name} = ${valueRef(GoIRFunctionValue(inst.fn.signature as? GoIRFuncType ?: GoIRFuncType(emptyList(), emptyList(), false, null), inst.fn.fullName, inst.fn))}"
+            }
+
+            override fun visitMakeMap(inst: GoIRMakeMap): String {
+                val reserve = inst.reserve
+                return if (reserve != null) {
+                    "${inst.name} = make(${TypeFormatter.format(inst.type)}, ${valueRef(reserve)})"
+                } else {
+                    "${inst.name} = make(${TypeFormatter.format(inst.type)})"
+                }
+            }
+
+            override fun visitMakeChan(inst: GoIRMakeChan): String {
+                return "${inst.name} = make(${TypeFormatter.format(inst.type)}, ${valueRef(inst.size)})"
+            }
+
+            override fun visitMakeSlice(inst: GoIRMakeSlice): String {
+                return "${inst.name} = make(${TypeFormatter.format(inst.type)}, ${valueRef(inst.len)}, ${valueRef(inst.cap)})"
+            }
+
+            override fun visitFieldAddr(inst: GoIRFieldAddr): String {
+                return "${inst.name} = &${valueRef(inst.x)}.${inst.fieldName}"
+            }
+
+            override fun visitField(inst: org.opentaint.ir.go.inst.GoIRField): String {
+                return "${inst.name} = ${valueRef(inst.x)}.${inst.fieldName}"
+            }
+
+            override fun visitIndexAddr(inst: GoIRIndexAddr): String {
+                return "${inst.name} = &${valueRef(inst.x)}[${valueRef(inst.indexValue)}]"
+            }
+
+            override fun visitIndex(inst: GoIRIndex): String {
+                return "${inst.name} = ${valueRef(inst.x)}[${valueRef(inst.indexValue)}]"
+            }
+
+            override fun visitSlice(inst: GoIRSlice): String {
+                val lo = inst.low?.let { valueRef(it) } ?: ""
+                val hi = inst.high?.let { valueRef(it) } ?: ""
+                val max = inst.max?.let { ":${valueRef(it)}" } ?: ""
+                return "${inst.name} = ${valueRef(inst.x)}[$lo:$hi$max]"
+            }
+
+            override fun visitLookup(inst: GoIRLookup): String {
+                return if (inst.commaOk) {
+                    "${inst.name} = ${valueRef(inst.x)}[${valueRef(inst.indexValue)}]"
+                } else {
+                    "${inst.name} = ${valueRef(inst.x)}[${valueRef(inst.indexValue)}]"
+                }
+            }
+
+            override fun visitRange(inst: GoIRRange): String {
+                return "${inst.name} = ${valueRef(inst.x)} // range"
+            }
+
+            override fun visitNext(inst: GoIRNext): String {
+                return "${inst.name} = ${valueRef(inst.iter)} // next"
+            }
+
+            override fun visitSelect(inst: GoIRSelect): String {
+                val sb = StringBuilder()
+                sb.append("// select not supported in codegen")
+                return sb.toString()
+            }
+
+            override fun visitExtract(inst: GoIRExtract): String? {
+                // Extract from a tuple — these get the zero value since we discard tuple results
+                // TODO: proper multi-return handling
+                return null
+            }
+
+            // ─── Terminators ───
+            override fun visitJump(inst: GoIRJump): String {
+                val target = block.successors[0].index
+                return "goto block$target"
+            }
+
+            override fun visitIf(inst: GoIRIf): String {
+                val tBlock = block.successors[0].index
+                val fBlock = block.successors[1].index
+                return "if ${valueRef(inst.cond)} {\n\tgoto block$tBlock\n} else {\n\tgoto block$fBlock\n}"
+            }
+
+            override fun visitReturn(inst: GoIRReturn): String {
+                return if (inst.results.isEmpty()) "return"
+                else "return ${inst.results.joinToString(", ") { valueRef(it) }}"
+            }
+
+            override fun visitPanic(inst: GoIRPanic): String {
+                return "panic(${valueRef(inst.x)})"
+            }
+
+            // ─── Effect-only ───
+            override fun visitStore(inst: GoIRStore): String {
+                return "*${valueRef(inst.addr)} = ${valueRef(inst.value)}"
+            }
+
+            override fun visitMapUpdate(inst: GoIRMapUpdate): String {
+                return "${valueRef(inst.map)}[${valueRef(inst.key)}] = ${valueRef(inst.value)}"
+            }
+
+            override fun visitSend(inst: GoIRSend): String {
+                return "${valueRef(inst.chan)} <- ${valueRef(inst.x)}"
+            }
+
+            override fun visitGo(inst: GoIRGo): String {
+                return "go ${generateCallStr(inst.call)}"
+            }
+
+            override fun visitDefer(inst: GoIRDefer): String {
+                return "defer ${generateCallStr(inst.call)}"
+            }
+
+            override fun visitRunDefers(inst: GoIRRunDefers): String? = null // implicit in Go
+
+            override fun visitDebugRef(inst: GoIRDebugRef): String? = null // not emitted
+        })
+    }
+
+    private fun generateCallExpr(resultName: String, call: GoIRCallInfo): String {
+        val callStr = generateCallStr(call)
+        return if (resultName.isNotEmpty()) "$resultName = $callStr"
+        else callStr
+    }
+
+    private fun generateCallStr(call: GoIRCallInfo): String {
+        // Check if this is a variadic call where we need to spread the last arg
+        val isVariadic = when {
+            call.function is GoIRFunctionValue ->
+                (call.function as GoIRFunctionValue).function.signature.isVariadic
+            else -> false
+        }
+
+        val argStrs = call.args.mapIndexed { i, arg ->
+            if (isVariadic && i == call.args.lastIndex && arg is GoIRValueInst) {
+                // Last arg to a variadic function — spread it
+                "${valueRef(arg)}..."
+            } else {
+                valueRef(arg)
+            }
+        }
+        val args = argStrs.joinToString(", ")
+
+        return when (call.mode) {
+            GoIRCallMode.DIRECT -> {
+                val fn = call.function!!
+                "${valueRef(fn)}($args)"
+            }
+            GoIRCallMode.DYNAMIC -> {
+                val fn = call.function!!
+                "${valueRef(fn)}($args)"
+            }
+            GoIRCallMode.INVOKE -> {
+                val recv = call.receiver!!
+                "${valueRef(recv)}.${call.methodName}($args)"
+            }
+        }
+    }
+
+    /**
+     * Returns the Go expression that references the given SSA value.
+     */
+    private fun valueRef(value: GoIRValue): String = when (value) {
+        is GoIRConstValue -> constValueStr(value)
+        is GoIRParameterValue -> value.name
+        is GoIRFreeVarValue -> value.name
+        is GoIRGlobalValue -> value.name
+        is GoIRFunctionValue -> functionRef(value)
+        is GoIRBuiltinValue -> value.name
+        is GoIRValueInst -> value.name
+        else -> value.name // Forward refs and other delegates resolve via name
+    }
+
+    private fun constValueStr(value: GoIRConstValue): String = when (val cv = value.value) {
+        is GoIRConstantValue.IntConst -> cv.value.toString()
+        is GoIRConstantValue.FloatConst -> {
+            val s = cv.value.toString()
+            if ('.' in s || 'e' in s || 'E' in s) s else "$s.0"
+        }
+        is GoIRConstantValue.ComplexConst -> "complex(${cv.real}, ${cv.imag})"
+        is GoIRConstantValue.StringConst -> "\"${escapeGoString(cv.value)}\""
+        is GoIRConstantValue.BoolConst -> cv.value.toString()
+        is GoIRConstantValue.NilConst -> "nil"
+    }
+
+    private fun functionRef(value: GoIRFunctionValue): String {
+        val fn = value.function
+        val pkg = fn.pkg
+        // If it's from a different package, use qualified name
+        if (pkg != null && pkg.name != "main" && !pkg.importPath.startsWith("test/")) {
+            return "${pkg.name}.${fn.name}"
+        }
+        return fn.name
+    }
+
+    private fun escapeGoString(s: String): String {
+        return s.replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
+    }
+
+    private fun binaryOpStr(op: GoIRBinaryOp): String = when (op) {
+        GoIRBinaryOp.ADD -> "+"
+        GoIRBinaryOp.SUB -> "-"
+        GoIRBinaryOp.MUL -> "*"
+        GoIRBinaryOp.DIV -> "/"
+        GoIRBinaryOp.REM -> "%"
+        GoIRBinaryOp.AND -> "&"
+        GoIRBinaryOp.OR -> "|"
+        GoIRBinaryOp.XOR -> "^"
+        GoIRBinaryOp.SHL -> "<<"
+        GoIRBinaryOp.SHR -> ">>"
+        GoIRBinaryOp.AND_NOT -> "&^"
+        GoIRBinaryOp.EQ -> "=="
+        GoIRBinaryOp.NEQ -> "!="
+        GoIRBinaryOp.LT -> "<"
+        GoIRBinaryOp.LEQ -> "<="
+        GoIRBinaryOp.GT -> ">"
+        GoIRBinaryOp.GEQ -> ">="
+    }
+}

@@ -10,3 +10,16 @@ fun GoIRProgram.findFunctionByFullName(fullName: String): GoIRFunction? =
 
 fun GoIRProgram.findNamedTypeByFullName(fullName: String): GoIRNamedType? =
     allNamedTypes().find { it.fullName == fullName }
+
+/**
+ * Find a function by short name (e.g., "hello") within any package.
+ * Matches on the function's [GoIRFunction.name] property.
+ */
+fun GoIRProgram.findFunctionByName(name: String): GoIRFunction? =
+    allFunctions().find { it.name == name }
+
+/**
+ * Find a named type by short name (e.g., "Point") within any package.
+ */
+fun GoIRProgram.findNamedTypeByName(name: String): GoIRNamedType? =
+    allNamedTypes().find { it.name == name }

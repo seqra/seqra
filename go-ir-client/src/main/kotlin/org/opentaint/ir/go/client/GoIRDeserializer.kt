@@ -25,6 +25,14 @@ class GoIRDeserializer {
     private val constsById = mutableMapOf<Int, GoIRConstImpl>()
 
     private val errors = mutableListOf<String>()
+    private var stubPackage: GoIRPackageImpl? = null
+
+    private fun getOrCreateStubPackage(): GoIRPackageImpl {
+        return stubPackage ?: GoIRPackageImpl(
+            importPath = "_external_stubs_",
+            name = "_stubs_",
+        ).also { stubPackage = it }
+    }
 
     fun deserialize(responses: Iterator<BuildProgramResponse>): GoIRProgram {
         for (response in responses) {
@@ -81,7 +89,10 @@ class GoIRDeserializer {
             }
             ProtoTypeDefinition.TypeCase.INTERFACE_TYPE -> {
                 val methods = td.interfaceType.methodsList.map { m ->
-                    GoIRInterfaceMethodSig(m.name, resolveType(m.signatureTypeId) as GoIRFuncType)
+                    val sigType = resolveType(m.signatureTypeId)
+                    val funcType = sigType as? GoIRFuncType
+                        ?: GoIRFuncType(emptyList(), emptyList(), false, null) // placeholder for lazy refs
+                    GoIRInterfaceMethodSig(m.name, funcType)
                 }
                 val embeds = td.interfaceType.embedTypeIdsList.map { resolveType(it) }
                 GoIRInterfaceType(methods, embeds, null) // namedType linked later
@@ -148,9 +159,12 @@ class GoIRDeserializer {
 
             // Interface methods
             for (im in nt.interfaceMethodsList) {
+                val sigType = resolveType(im.signatureTypeId)
+                val funcType = sigType as? GoIRFuncType
+                    ?: GoIRFuncType(emptyList(), emptyList(), false, null)
                 namedType.addInterfaceMethod(GoIRInterfaceMethod(
                     name = im.name,
-                    signature = resolveType(im.signatureTypeId) as GoIRFuncType,
+                    signature = funcType,
                     enclosingInterface = namedType,
                 ))
             }
@@ -244,24 +258,24 @@ class GoIRDeserializer {
             ))
         }
 
-        // Build value map for this function's body
+        // Build value map for this function's body using a two-pass approach.
+        // First, create placeholder entries for ALL value-producing instructions
+        // so that forward references (e.g., phi edges referencing later blocks) resolve.
         val valueMap = mutableMapOf<Int, GoIRValue>()
 
-        // Register parameters as values
-        for (p in fn.params) {
-            // Parameters use param_index referencing, not value IDs
-        }
+        // Second pass: deserialize instructions (value refs may be forward or backward)
+        // We use a LazyValueMap that provides placeholders for forward references.
+        val lazyValueMap = LazyValueMap()
 
-        // Second pass: deserialize instructions
         for ((blockIdx, pb) in fb.blocksList.withIndex()) {
             val block = blocks[blockIdx]
             val instructions = mutableListOf<GoIRInst>()
 
             for (pi in pb.instructionsList) {
-                val inst = deserializeInstruction(pi, block, fn, valueMap)
+                val inst = deserializeInstruction(pi, block, fn, lazyValueMap)
                 instructions.add(inst)
                 if (pi.valueId > 0 && inst is GoIRValueInst) {
-                    valueMap[pi.valueId] = inst
+                    lazyValueMap.register(pi.valueId, inst)
                 }
             }
 
@@ -292,7 +306,7 @@ class GoIRDeserializer {
         pi: ProtoInstruction,
         block: GoIRBasicBlockImpl,
         fn: GoIRFunctionImpl,
-        valueMap: Map<Int, GoIRValue>,
+        valueMap: LazyValueMap,
     ): GoIRInst {
         val pos = positionFromProto(pi.position)
         val idx = pi.index
@@ -344,7 +358,7 @@ class GoIRDeserializer {
             )
             ProtoInstruction.InstCase.MAKE_CLOSURE -> {
                 val closureFn = functionsById[pi.makeClosure.fnId]
-                    ?: throw IllegalStateException("Unknown function ID: ${pi.makeClosure.fnId}")
+                    ?: error("Unknown function ID: ${pi.makeClosure.fnId} in MakeClosure within ${fn.fullName}")
                 GoIRMakeClosure(
                     idx, block, pos, closureFn,
                     pi.makeClosure.bindingsList.map { ref(it) }, type(pi.typeId), pi.name
@@ -449,13 +463,12 @@ class GoIRDeserializer {
     private fun valueRefFromProto(
         vr: ProtoValueRef,
         fn: GoIRFunctionImpl,
-        valueMap: Map<Int, GoIRValue>,
+        valueMap: LazyValueMap,
     ): GoIRValue {
         val type = resolveType(vr.typeId)
         return when (vr.refCase) {
             ProtoValueRef.RefCase.INST_VALUE_ID ->
                 valueMap[vr.instValueId]
-                    ?: throw IllegalStateException("Unknown value ID: ${vr.instValueId}")
             ProtoValueRef.RefCase.PARAM_INDEX ->
                 GoIRParameterValue(type, fn.params[vr.paramIndex].name, vr.paramIndex)
             ProtoValueRef.RefCase.FREE_VAR_INDEX ->
@@ -464,13 +477,49 @@ class GoIRDeserializer {
                 GoIRConstValue(type, constToName(vr.constVal), constValueFromProto(vr.constVal))
             ProtoValueRef.RefCase.GLOBAL_ID -> {
                 val global = globalsById[vr.globalId]
-                    ?: throw IllegalStateException("Unknown global ID: ${vr.globalId}")
-                GoIRGlobalValue(type, global.fullName, global)
+                if (global != null) {
+                    GoIRGlobalValue(type, global.fullName, global)
+                } else {
+                    // External global (e.g. from stdlib) not serialized — create stub
+                    val stubPkg = getOrCreateStubPackage()
+                    val stubGlobal = GoIRGlobalImpl(
+                        name = "ext_global_${vr.globalId}",
+                        fullName = "ext_global_${vr.globalId}",
+                        type = type,
+                        pkg = stubPkg,
+                        isExported = true,
+                        position = null,
+                    )
+                    globalsById[vr.globalId] = stubGlobal
+                    GoIRGlobalValue(type, stubGlobal.fullName, stubGlobal)
+                }
             }
             ProtoValueRef.RefCase.FUNCTION_ID -> {
                 val func = functionsById[vr.functionId]
-                    ?: throw IllegalStateException("Unknown function ID: ${vr.functionId}")
-                GoIRFunctionValue(type, func.fullName, func)
+                if (func != null) {
+                    GoIRFunctionValue(type, func.fullName, func)
+                } else {
+                    // External function (e.g. from stdlib) not serialized — create stub
+                    val stubName = "ext_fn_${vr.functionId}"
+                    val funcType = (type as? GoIRFuncType)
+                        ?: GoIRFuncType(emptyList(), emptyList(), false, null)
+                    val stubFunc = GoIRFunctionImpl(
+                        name = stubName,
+                        fullName = stubName,
+                        pkg = null,
+                        signature = funcType,
+                        params = emptyList(),
+                        freeVars = emptyList(),
+                        position = null,
+                        isMethod = false,
+                        isPointerReceiver = false,
+                        isExported = true,
+                        isSynthetic = true,
+                        syntheticKind = "external-stub",
+                    )
+                    functionsById[vr.functionId] = stubFunc
+                    GoIRFunctionValue(type, stubFunc.fullName, stubFunc)
+                }
             }
             ProtoValueRef.RefCase.BUILTIN_NAME ->
                 GoIRBuiltinValue(type, vr.builtinName)
@@ -481,7 +530,7 @@ class GoIRDeserializer {
     private fun callInfoFromProto(
         ci: ProtoCallInfo,
         fn: GoIRFunctionImpl,
-        valueMap: Map<Int, GoIRValue>,
+        valueMap: LazyValueMap,
     ): GoIRCallInfo {
         return GoIRCallInfo(
             mode = when (ci.mode) {
@@ -647,4 +696,43 @@ internal class GoIRLazyNamedTypeRef(
     val typeArgIds: List<Int>,
 ) {
     val displayName: String get() = "lazy#$namedTypeId"
+}
+
+/**
+ * A value map that supports forward references during instruction deserialization.
+ * When a value ID is not yet registered, it creates a [ForwardRefValue] placeholder
+ * that delegates to the actual value once it's resolved.
+ */
+internal class LazyValueMap {
+    private val resolved = mutableMapOf<Int, GoIRValue>()
+    private val forwardRefs = mutableMapOf<Int, ForwardRefValue>()
+
+    fun register(id: Int, value: GoIRValue) {
+        resolved[id] = value
+        // Resolve any forward references
+        forwardRefs[id]?.resolve(value)
+    }
+
+    operator fun get(id: Int): GoIRValue {
+        resolved[id]?.let { return it }
+        // Create a forward reference placeholder
+        return forwardRefs.getOrPut(id) { ForwardRefValue(id) }
+    }
+}
+
+/**
+ * Placeholder value for forward references in SSA (e.g., phi edges referencing
+ * values defined in later blocks). Delegates to the actual value once resolved.
+ */
+internal class ForwardRefValue(private val valueId: Int) : GoIRValue {
+    private var _delegate: GoIRValue? = null
+    private val delegate: GoIRValue
+        get() = _delegate ?: error("Forward reference to value ID $valueId was never resolved")
+
+    fun resolve(actual: GoIRValue) { _delegate = actual }
+
+    override val type: GoIRType get() = delegate.type
+    override val name: String get() = delegate.name
+    override fun <T> acceptValue(visitor: GoIRValueVisitor<T>): T = delegate.acceptValue(visitor)
+    override fun toString(): String = _delegate?.toString() ?: "ForwardRef($valueId)"
 }
