@@ -59,43 +59,51 @@
 - [x] Generics tests (5 tests) — type params, generic struct, comparable, interface constraint, generic method
 - [x] Diagnostic test (1 test) — dumps full program structure for debugging
 
-### P1.3 — Basic Benchmark (Strategy 1)
-- [ ] Benchmark infrastructure (BenchmarkProjectCache, metrics)
-- [ ] 5 real-world projects
+### P1.3 — Basic Benchmark (Strategy 1): DONE
+- [x] `BenchmarkProjectCache.kt` — project cloning and caching
+- [x] `BenchmarkResult` data class for metrics
+- [x] `RealWorldBenchmarkTest.kt` — 5 small/medium projects (logrus, cobra, testify, lo, websocket)
 
 ## Phase P2 — Extended Tests & Codegen
 
-### P2.1 — Annotation-Driven Tests
-- [ ] `GoIRAnnotationParser.kt`
-- [ ] `GoIRAnnotationVerifier.kt`
-- [ ] Annotated Go test files
+### P2.1 — Annotation-Driven Tests: DONE
+- [x] `GoIRAnnotationParser.kt` — parses `//@ inst(...)`, `//@ count(...)`, `//@ call(...)`, `//@ cfg(...)`, `//@ entity(...)` annotations
+- [x] `GoIRAnnotationVerifier.kt` — verifies annotations against built IR (instruction type, fields, counts, calls, CFG)
+- [x] `AnnotationDrivenTests.kt` — JUnit 5 `@TestFactory` that discovers and runs annotated Go files
+- [x] 13 annotated Go test files covering: arithmetic, bitwise, unary, pointers, structs, interfaces, control flow, closures, channels, slices, maps, conversions, panic/recover, range/iter
 
 ### P2.2 — Code Generator (go-ir-codegen): DONE
 - [x] `TypeFormatter.kt` — Go type string formatting (130 lines)
 - [x] `PhiEliminator.kt` — SSA phi node elimination (85 lines)
-- [x] `GoIRToGoCodeGenerator.kt` — IR→Go code generator (430 lines)
+- [x] `GoIRToGoCodeGenerator.kt` — IR→Go code generator (623 lines)
 
-### P2.3 — Round-Trip Tests (Strategy 3): 6 tests, ALL PASSING
-- [x] `RoundTripTests.kt` — test runner with `roundTrip()` helper
-- [x] arithmetic test — add, sub, mul, function composition
-- [x] if-else test — abs, max with conditional returns
-- [x] boolean logic test — isPositive, both with nested conditions
-- [x] for loop with accumulator — sumTo, factorial (tests phi elimination)
-- [x] nested if test — classify with multi-level branching
-- [x] multiple returns test — divide with early return
+### P2.3 — Round-Trip Tests (Strategy 3): 19 tests, ALL PASSING
+- [x] `RoundTripTests.kt` — 6 basic tests (arithmetic, if-else, boolean logic, for-loop, nested if, multiple returns)
+- [x] `RoundTripExtendedTests.kt` — 13 extended tests (bitwise, strings, nested loops, countdown, recursion, switch-if, early return, GCD, power, clamp, collatz, digit sum, isPrime)
 
 ## Phase P3 — Full Test Suite
 
-### P3.1 — Full Unit Tests
-- [ ] Expand to ~100 unit tests across all categories
+### P3.1 — Full Unit Tests: 96 tests, ALL PASSING
+- [x] Original 8 test classes (39 tests from P1.2)
+- [x] `AnnotationDrivenTests.kt` — 13 dynamic tests from annotated Go files
+- [x] `PointerMemoryTests.kt` — 5 tests (stack alloc, heap alloc, deref, composite lit, global access)
+- [x] `CollectionTests.kt` — 7 tests (make slice, index, slice expr, make map, map lookup, comma-ok, arrays)
+- [x] `TypeConversionTests.kt` — 6 tests (numeric convert, string-bytes, MakeInterface, type assert, comma-ok, ChangeType)
+- [x] `SSAPropertyTests.kt` — 7 tests (phi at loop header, phi at merge, unique names, entry block, phi ordering, sequential indices, exit blocks)
+- [x] `EntityTests.kt` — 11 tests (imports, exported/unexported, value/pointer receivers, struct fields, interface methods, embedded, globals, variadic, multi-return, anonymous functions)
+- [x] `AdvancedControlFlowTests.kt` — 7 tests (switch, nested loops, range with index, select, select with default, defer, goroutine)
 
-### P3.2 — Full Benchmark
-- [ ] 20 real-world projects
+### P3.2 — Full Benchmark: DONE
+- [x] 20 real-world projects configured in `RealWorldBenchmarkTest.kt`
+  - Small: logrus, cobra, websocket, lo, zap
+  - Medium: testify, viper, validator, golang-migrate, gin
+  - Larger: fiber, go-kit, redis, pgx
+  - Large: consul, prometheus, etcd, docker-cli, kubernetes client-go, caddy
 
-### P3.3 — Full Round-Trip & Fuzzing
-- [ ] 25 round-trip samples
-- [ ] Fuzz test harness generation
-- [ ] `FuzzRoundTripTests.kt`
+### P3.3 — Full Round-Trip & Fuzzing: DONE
+- [x] 19 round-trip tests across 2 test classes
+- [x] `FuzzRoundTripTests.kt` — 3 fuzz tests (arithmetic, control flow, loop accumulation)
+- [x] Fuzz harness: extracts function from reconstructed code, creates Go fuzz test module, runs `go test -fuzz`
 
 ## Bugs Found & Fixed During Testing
 
@@ -112,6 +120,7 @@
 | Go gRPC rejects non-UTF-8 strings from stdlib function names | Added `sanitizeUTF8()` for all string fields in serializer |
 | Codegen generated internal package imports from stdlib dependency tree | Changed import scanning to only include direct references from user functions |
 | ForwardRefValue not handled in codegen valueRef → outputs placeholder text | Changed default branch in `valueRef` to use `value.name` for forward ref delegation |
+| Annotation: go-ssa source positions for closures/interfaces may differ from Go source line | Use `//@ count(...)` for closure/interface counts instead of `//@ inst(...)` at specific lines |
 
 ## Progress Log
 
@@ -128,3 +137,7 @@
 | 2026-03-26 | P2.2 Code generator (go-ir-codegen) | DONE |
 | 2026-03-26 | P2.3 Round-trip tests (6 tests) | DONE |
 | 2026-03-26 | Bug fixes: 7 round-trip related bugs | DONE |
+| 2026-03-26 | P2.1 Annotation-driven tests (parser, verifier, 13 annotated files) | DONE |
+| 2026-03-26 | P3.1 Full unit tests (96 total, +57 new tests in 6 new test classes) | DONE |
+| 2026-03-26 | P3.3 Extended round-trip (19 total) + fuzz tests (3 tests) | DONE |
+| 2026-03-26 | P1.3 + P3.2 Benchmark infrastructure + 20 real-world projects | DONE |
