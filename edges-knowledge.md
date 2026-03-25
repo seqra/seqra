@@ -187,3 +187,12 @@ The JVM uses `FinalFactReader.containsPosition()` with `onMismatch` to accumulat
 
 ### Lesson 5: `rebase()` preserves access paths and exclusions
 `fact.rebase(newBase)` only changes the base, keeping accessors and exclusions intact. Safe to use for remapping between caller/callee frames.
+
+### Lesson 6: Nested function `resolvedCallee` is a short name
+Mypy sets `FuncDef.fullname` for nested functions to just the short name (e.g., `"process"` not `"Module.outer.process"`). But `MypyModuleBuilder.extractNestedFunction` indexes the function with the qualified name `"Module.outer.process"`. The fix: when `cp.findFunctionOrNull(resolvedCallee)` returns null and `resolvedCallee` has no dots, try `"${enclosingMethod.qualifiedName}.$resolvedCallee"`. This fallback must be applied in three places: `PIRCallResolver.resolve()`, `PIRApplicationGraph.callees()`, and `PIRLanguageManager.getCalleeMethod()`.
+
+### Lesson 7: `checkSinks` must use fallback matching
+The strict `matchesCall()` (companion method) returns false when `resolvedCallee` is null. For unresolved calls (common for builtins like `os.system`), the instance method `matchesCallOrReceiver()` provides fallback matching via attribute name suffix. Using `matchesCallOrReceiver()` in `checkSinks()` is essential for sink detection on unresolved method calls.
+
+### Lesson 8: Container-level taint for sink detection
+When a container literal like `[tainted, "b"]` creates taint, the element-level fact (`list.[element].![taint]/*`) has `ElementAccessor` before the taint mark. Sink checks that look for the taint mark at the start of the access path won't find it. Fix: also create a container-level fact without `ElementAccessor` (`list.![taint]/*`). This is an over-approximation but necessary for sink detection on whole-container arguments.

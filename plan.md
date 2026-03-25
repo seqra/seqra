@@ -170,6 +170,53 @@
 - [x] D4e. Default builtin pass-through rules (str methods, constructors, format args)
 - [x] D4f. Test: BuiltinPassThroughFlowTest (9 pass + 1 @Disabled)
 
-### D5. Ant Benchmark Adaptation
-- [ ] D5a. Create benchmark adaptation script
-- [ ] D5b. Adapt Phase 1 Ant benchmark cases
+### D5. Ant Benchmark Adaptation ✅ COMPLETE
+
+#### D5a. Benchmark runner
+- [x] `AntBenchmarkTest.kt` — parameterized test runner (592 single-file cases, configurable via `BENCHMARK_SUBSET`)
+- [x] `EntrySource` rule + `PIRMethodStartFlowFunction.propagateZero()` support
+- [x] Flat temp directory copy for PIR processing
+
+#### D5b. Benchmark improvements (this session)
+
+**Root cause analysis of failures**:
+1. **Nested function calls**: mypy sets `resolvedCallee` to short name (e.g. `"process"` not `"Module.outer.process"`). PIR indexes nested functions by qualified name. Fix: fallback resolution by prepending enclosing method's qualified name.
+2. **Sink matching for unresolved callees**: `checkSinks()` used strict `matchesCall()` which returns false when `resolvedCallee` is null. Fix: switched to `matchesCallOrReceiver()` which has attribute-name-based fallback.
+3. **Container-level taint**: Container literals and subscript stores only created element-level taint (`list.[element].![taint]/*`). Sink checks on the container itself couldn't see the taint mark. Fix: also create container-level taint (`list.![taint]/*`).
+
+**Changes**:
+- [x] `PIRCallResolver.resolve(call, method)` — nested function fallback: prepend enclosing method qualified name
+- [x] `PIRApplicationGraph.callees()` — same nested function fallback
+- [x] `PIRLanguageManager.getCalleeMethod()` — same nested function fallback
+- [x] `PIRMethodCallFlowFunction.checkSinks()` — use `matchesCallOrReceiver()` instead of strict `matchesCall()`
+- [x] `PIRMethodSequentFlowFunction.handleContainerLiteral()` — also propagate container-level taint (no ElementAccessor)
+- [x] `PIRMethodSequentFlowFunction.handleStoreSubscriptShared()` — same container-level taint
+- [x] `PythonBuiltinPassRules.collectionMutations` — `list.append`, `list.extend`, `list.insert`, `set.add`, `set.update`, `dict.update`, `dict.setdefault`
+- [x] `PythonBuiltinPassRules.collectionReads` — `dict.get`, `dict.pop`, `dict.values`, `dict.items`, `dict.copy`, `list.pop`, `list.copy`, `set.pop`, `set.copy`
+- [x] New test: `NestedCall.py` + 2 tests in `InterproceduralFlowTest` (nested_arg_to_sink, nested_return)
+
+**Benchmark results (accuracy)**:
+| Metric | Before | After | Delta |
+|--------|--------|-------|-------|
+| Pass | 83 | 91 | +8 |
+| Fail | 64 | 56 | -8 |
+| Skip | 3 | 3 | 0 |
+| Pass rate | 55.3% | 60.7% | +5.4pp |
+
+**Benchmark results (completeness/single_app_tracing)**:
+| Metric | Value |
+|--------|-------|
+| Pass | 290 |
+| Fail | 149 |
+| Skip | 3 |
+| Pass rate | 65.6% |
+
+**Remaining failure categories (accuracy, 56 failures)**:
+- Closure/free variables (return_value_passing, constructor_field, etc.) — 14 tests
+- Collection index precision / solver (array, list, map with indices) — 18 tests
+- Polymorphism/inheritance (nested class hierarchies) — 7 tests
+- Path sensitivity (dead branch elimination, match statement) — 7 tests
+- Async/await — 2 tests
+- enumerate/zip builtins — 2 tests
+- Exception flow — 1 test
+- Other (varargs *args, spread operator) — 5 tests

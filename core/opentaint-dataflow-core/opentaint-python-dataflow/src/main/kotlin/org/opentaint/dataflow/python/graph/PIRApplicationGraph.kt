@@ -10,8 +10,22 @@ class PIRApplicationGraph(
     override fun callees(node: PIRInstruction): Sequence<PIRFunction> {
         if (node !is PIRCall) return emptySequence()
         val calleeName = node.resolvedCallee ?: return emptySequence()
+
+        // Primary: direct lookup by qualified name
         val fn = cp.findFunctionOrNull(calleeName)
-        return if (fn != null) sequenceOf(fn) else emptySequence()
+        if (fn != null) return sequenceOf(fn)
+
+        // Fallback: for nested function calls, mypy may set resolvedCallee to just
+        // the short name (e.g. "process" instead of "Module.outer.process").
+        // Try prepending the enclosing method's qualified name.
+        if ("." !in calleeName) {
+            val enclosingMethod = node.location.method
+            val candidate = "${enclosingMethod.qualifiedName}.$calleeName"
+            val nested = cp.findFunctionOrNull(candidate)
+            if (nested != null) return sequenceOf(nested)
+        }
+
+        return emptySequence()
     }
 
     override fun callers(method: PIRFunction): Sequence<PIRInstruction> =

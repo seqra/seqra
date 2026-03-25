@@ -265,7 +265,11 @@ class PIRMethodSequentFlowFunction(
      * Container literal: target = {k: v, ...} / [v, ...] / (v, ...) / {v, ...}
      *
      * If any value in the container matches the current fact's base, propagate taint
-     * to target with ElementAccessor prepended. Dict keys are not tracked.
+     * to target with ElementAccessor prepended AND directly to target.
+     * The direct propagation (without ElementAccessor) is an intentional over-approximation:
+     * if any element is tainted, the whole container is considered tainted.
+     * This ensures sink detection on the container variable itself (e.g., taint_sink(list)).
+     * Dict keys are not tracked.
      */
     private inline fun handleContainerLiteral(
         expr: PIRExpr,
@@ -286,9 +290,13 @@ class PIRMethodSequentFlowFunction(
         for (valueExpr in valueExpressions) {
             val valueBase = PIRFlowFunctionUtils.accessPathBase(valueExpr, method, ctx) ?: continue
             if (currentFactAp.base == valueBase) {
-                val newFact = currentFactAp.rebase(assignTo)
+                // Element-level taint (precise)
+                val elementFact = currentFactAp.rebase(assignTo)
                     .prependAccessor(org.opentaint.dataflow.ap.ifds.ElementAccessor)
-                results.add(mkCopy(newFact))
+                results.add(mkCopy(elementFact))
+                // Container-level taint (over-approximate: whole container is tainted)
+                val containerFact = currentFactAp.rebase(assignTo)
+                results.add(mkCopy(containerFact))
                 results.add(Sequent.Unchanged)  // value keeps its taint
                 return results
             }
@@ -445,7 +453,8 @@ class PIRMethodSequentFlowFunction(
 
     /**
      * Shared logic for StoreSubscript (both ZeroToFact and FactToFact for adding taint).
-     * obj[index] = value: if fact is on value, propagate taint to obj's element.
+     * obj[index] = value: if fact is on value, propagate taint to obj's element
+     * AND to obj itself (over-approximate: whole container is tainted).
      * Also applies strong update when the current fact is on obj's element.
      */
     private inline fun handleStoreSubscriptShared(
@@ -460,8 +469,9 @@ class PIRMethodSequentFlowFunction(
         val accessor = org.opentaint.dataflow.ap.ifds.ElementAccessor
 
         if (valueBase != null && currentFactAp.base == valueBase) {
-            val newFact = currentFactAp.rebase(objBase).prependAccessor(accessor)
-            return setOf(mkCopy(newFact), Sequent.Unchanged)
+            val elementFact = currentFactAp.rebase(objBase).prependAccessor(accessor)
+            val containerFact = currentFactAp.rebase(objBase)
+            return setOf(mkCopy(elementFact), mkCopy(containerFact), Sequent.Unchanged)
         }
 
         if (currentFactAp.base == objBase && currentFactAp.startsWithAccessor(accessor)) {

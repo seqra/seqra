@@ -72,6 +72,22 @@ class InterproceduralFlowTest : AnalysisTest() {
         entryPointFunction = "ArgumentPassing.call_multiple_args_negative"
     )
 
+    // --- NestedCall.py ---
+
+    @Test
+    fun testNestedArgToSink() = assertSinkReachable(
+        source = Source("NestedCall.source", "taint", PositionBase.Result),
+        sink = Sink("NestedCall.sink", "taint", PositionBase.Argument(0), "nested"),
+        entryPointFunction = "NestedCall.nested_arg_to_sink"
+    )
+
+    @Test
+    fun testNestedReturn() = assertSinkReachable(
+        source = Source("NestedCall.source", "taint", PositionBase.Result),
+        sink = Sink("NestedCall.sink", "taint", PositionBase.Argument(0), "nested"),
+        entryPointFunction = "NestedCall.nested_return"
+    )
+
     // --- ReturnValue.py ---
 
     @Test

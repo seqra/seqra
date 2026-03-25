@@ -47,10 +47,23 @@ open class PIRLanguageManager(
 
     override fun getCalleeMethod(callExpr: CommonCallExpr): CommonMethod {
         val adapter = callExpr as PIRCallExprAdapter
-        val qualifiedName = adapter.pirCall.resolvedCallee
-            ?: error("Unresolved call: ${adapter.pirCall.callee}")
-        return cp.findFunctionOrNull(qualifiedName)
-            ?: error("Function not found: $qualifiedName")
+        val call = adapter.pirCall
+        val qualifiedName = call.resolvedCallee
+            ?: error("Unresolved call: ${call.callee}")
+
+        // Primary: direct lookup by qualified name
+        cp.findFunctionOrNull(qualifiedName)?.let { return it }
+
+        // Fallback: for nested function calls, mypy may set resolvedCallee to just
+        // the short name (e.g. "process" instead of "Module.outer.process").
+        // Try prepending the enclosing method's qualified name.
+        if ("." !in qualifiedName) {
+            val enclosingMethod = (call as PIRInstruction).location.method
+            val candidate = "${enclosingMethod.qualifiedName}.$qualifiedName"
+            cp.findFunctionOrNull(candidate)?.let { return it }
+        }
+
+        error("Function not found: $qualifiedName")
     }
 
     override val methodContextSerializer: MethodContextSerializer =

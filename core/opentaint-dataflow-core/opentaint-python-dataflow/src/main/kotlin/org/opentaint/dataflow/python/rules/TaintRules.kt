@@ -97,6 +97,38 @@ object PythonBuiltinPassRules {
         arg0ToResult("builtins.dict"),
     )
 
+    private fun arg0ToThis(function: String) = TaintRules.Pass(function, ARG0, THIS)
+
+    /** Collection mutation methods: arg(0) → receiver (taint flows into the collection) */
+    val collectionMutations: List<TaintRules.Pass> = listOf(
+        // list
+        arg0ToThis("builtins.list.append"),
+        arg0ToThis("builtins.list.extend"),
+        TaintRules.Pass("builtins.list.insert", PositionBaseWithModifiers.BaseOnly(PositionBase.Argument(1)), THIS),
+        // set
+        arg0ToThis("builtins.set.add"),
+        arg0ToThis("builtins.set.update"),
+        // dict
+        arg0ToThis("builtins.dict.update"),
+        arg0ToThis("builtins.dict.setdefault"),
+    )
+
+    /** Collection read methods: receiver → result (tainted container → tainted read) */
+    val collectionReads: List<TaintRules.Pass> = listOf(
+        // dict
+        receiverToResult("builtins.dict.get"),
+        receiverToResult("builtins.dict.pop"),
+        receiverToResult("builtins.dict.values"),
+        receiverToResult("builtins.dict.items"),
+        receiverToResult("builtins.dict.copy"),
+        // list
+        receiverToResult("builtins.list.pop"),
+        receiverToResult("builtins.list.copy"),
+        // set
+        receiverToResult("builtins.set.pop"),
+        receiverToResult("builtins.set.copy"),
+    )
+
     /** All default pass-through rules combined */
-    val all: List<TaintRules.Pass> = stringMethods + stringFormatArgs + constructors
+    val all: List<TaintRules.Pass> = stringMethods + stringFormatArgs + constructors + collectionMutations + collectionReads
 }

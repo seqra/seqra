@@ -26,7 +26,15 @@ class PIRCallResolver(private val cp: PIRClasspath) {
         // Primary: use resolvedCallee
         val qualifiedName = call.resolvedCallee
         if (qualifiedName != null) {
-            return cp.findFunctionOrNull(qualifiedName)
+            cp.findFunctionOrNull(qualifiedName)?.let { return it }
+
+            // Fallback for nested functions: mypy may set resolvedCallee to just
+            // the short name (e.g. "process" instead of "Module.outer.process").
+            // Try prepending the enclosing method's qualified name.
+            if ("." !in qualifiedName) {
+                val candidate = "${method.qualifiedName}.$qualifiedName"
+                cp.findFunctionOrNull(candidate)?.let { return it }
+            }
         }
 
         // Fallback: find the AttrExpr that loaded the callee

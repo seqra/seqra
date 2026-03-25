@@ -139,7 +139,7 @@ class PIRMethodCallFlowFunction(
      */
     private fun checkSinks(currentFactAp: FinalFactAp, refinement: PIRFactRefinement) {
         for (sink in taintConfig.sinks) {
-            if (matchesCall(sink.function, callInst)) {
+            if (matchesCallOrReceiver(sink.function)) {
                 val sinkBase = resolvePosition(sink.pos, callInst, method, ctx)
                 if (sinkBase != null && currentFactAp.base == sinkBase) {
                     val accessor = TaintMarkAccessor(sink.mark)
