@@ -220,3 +220,15 @@
 - enumerate/zip builtins — 2 tests
 - Exception flow — 1 test
 - Other (varargs *args, spread operator) — 5 tests
+
+**Priority tasks**
+- [x] Disable container-level taint (default `false`). Container stores now only produce element-level facts
+  (`s.[element].![taint]/*`), not container-level facts (`s.![taint]/*`). This is correct for the pipeline:
+  the downstream symbolic execution engine is index-sensitive.
+  - Fixed `checkSinks` with recursive `checkTaintMarkDeep`: strips `ElementAccessor`/`FieldAccessor` prefixes
+    to find taint marks behind container/field access paths (handles nested containers like
+    `s.[element].[element].![taint]/*`).
+  - Zero regression on accuracy benchmark (91 pass / 56 fail / 3 skip — same as before).
+- [ ] Implement closure/free variable support (~14 failing tests). Nested functions capture outer variables
+  via `PIRFunction.closureVars`. Need to map captured vars as implicit arguments in `mapCallToStart`.
+- [ ] Verify and implement polymorphic call (e.g. class inheritance) support. Consider adding more test cases for call resolution.

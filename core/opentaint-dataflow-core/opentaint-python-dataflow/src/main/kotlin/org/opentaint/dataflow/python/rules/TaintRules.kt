@@ -23,6 +23,14 @@ data class PIRTaintConfig(
     val sinks: List<TaintRules.Sink>,
     val propagators: List<TaintRules.Pass>,
     val entrySources: List<TaintRules.EntrySource> = emptyList(),
+    /**
+     * When true, container literals ([tainted, "b"]) and subscript stores (d["k"] = tainted)
+     * also propagate taint directly to the container variable (without ElementAccessor).
+     * This is an over-approximation: if any element is tainted, the whole container is
+     * considered tainted. Enables sink detection on whole-container arguments like
+     * `taint_sink(my_list)`, at the cost of some false positives.
+     */
+    val containerLevelTaint: Boolean = false,
 ): CommonTaintRulesProvider
 
 /**

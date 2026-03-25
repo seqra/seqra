@@ -131,6 +131,35 @@ class PIRMethodCallFlowFunction(
 
     // --- Helpers ---
 
+    private fun checkTaintMarkDeep(
+        factAp: FinalFactAp,
+        accessor: TaintMarkAccessor,
+        sink: TaintRules.Sink,
+        refinement: PIRFactRefinement,
+        depth: Int,
+    ) {
+        if (depth > 5) return
+        if (factAp.startsWithAccessor(accessor)) {
+            ctx.taint.taintSinkTracker.addUnconditionalVulnerability(
+                methodEntryPoint = ctx.methodEntryPoint,
+                statement = callInst,
+                rule = sink.toCommonSink(),
+            )
+            return
+        }
+        if (factAp.isAbstract() && accessor !in factAp.exclusions) {
+            refinement.add(accessor)
+            return
+        }
+        for (prefix in factAp.getStartAccessors()) {
+            if (prefix is org.opentaint.dataflow.ap.ifds.ElementAccessor || prefix is org.opentaint.dataflow.ap.ifds.FieldAccessor) {
+                val inner = factAp.readAccessor(prefix) ?: continue
+                checkTaintMarkDeep(inner, accessor, sink, refinement, depth + 1)
+            }
+        }
+    }
+
+
     /**
      * Checks sink rules against the current fact.
      * For concrete facts (taint mark explicitly present), reports vulnerability.
@@ -143,18 +172,7 @@ class PIRMethodCallFlowFunction(
                 val sinkBase = resolvePosition(sink.pos, callInst, method, ctx)
                 if (sinkBase != null && currentFactAp.base == sinkBase) {
                     val accessor = TaintMarkAccessor(sink.mark)
-                    if (currentFactAp.startsWithAccessor(accessor)) {
-                        // Concrete match: taint mark is explicitly present
-                        ctx.taint.taintSinkTracker.addUnconditionalVulnerability(
-                            methodEntryPoint = ctx.methodEntryPoint,
-                            statement = callInst,
-                            rule = sink.toCommonSink(),
-                        )
-                    } else if (currentFactAp.isAbstract() && accessor !in currentFactAp.exclusions) {
-                        // Abstract: mark might be behind `*`. Record refinement so
-                        // the framework re-analyzes with the mark made concrete.
-                        refinement.add(accessor)
-                    }
+                    checkTaintMarkDeep(currentFactAp, accessor, sink, refinement, 0)
                 }
             }
         }
