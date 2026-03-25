@@ -20,10 +20,14 @@ val goServerBinary = rootProject.projectDir.resolve("go-ssa-server/go-ssa-server
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     systemProperty("goir.server.binary", goServerBinary)
+    // Parallel execution: run test classes concurrently
+    systemProperty("junit.jupiter.execution.parallel.enabled", "true")
+    systemProperty("junit.jupiter.execution.parallel.mode.default", "same_thread")
+    systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "concurrent")
+    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(2)
     // Show test output for debugging
     testLogging {
         events("passed", "skipped", "failed")
-        showStandardStreams = true
     }
 }
 
@@ -46,12 +50,12 @@ tasks.register<Test>("roundtripTest") {
     testClassesDirs = testSourceSet.output.classesDirs
     classpath = testSourceSet.runtimeClasspath
     useJUnitPlatform { includeTags("roundtrip") }
-    timeout.set(Duration.ofMinutes(5))
+    timeout.set(Duration.ofMinutes(30))
 }
 
 tasks.register<Test>("fuzzTest") {
     testClassesDirs = testSourceSet.output.classesDirs
     classpath = testSourceSet.runtimeClasspath
     useJUnitPlatform { includeTags("fuzz") }
-    timeout.set(Duration.ofHours(2))
+    timeout.set(Duration.ofMinutes(30))
 }

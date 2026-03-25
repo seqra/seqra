@@ -223,7 +223,8 @@ class GoIRToGoCodeGenerator {
 
         sb.appendLine("func ${recv}${fn.name}($paramStr)$resultStr {")
 
-        // Declare all SSA variables (except phis and tuples — they get special handling)
+        // Declare all SSA variables at the top (except phis and tuples — they get special handling).
+        // All declarations MUST be before any labels/gotos to avoid "goto jumps over declaration".
         val declaredVars = mutableSetOf<String>()
         for (inst in body.instructions) {
             if (inst is GoIRValueInst && inst !is GoIRPhi) {
@@ -236,6 +237,14 @@ class GoIRToGoCodeGenerator {
                     }
                     sb.appendLine("\tvar $varName ${TypeFormatter.format(inst.type)}")
                     declaredVars.add(varName)
+                }
+            }
+            // Also pre-declare _alloc_ locals for stack Alloc instructions
+            if (inst is GoIRAlloc && !inst.isHeap) {
+                val allocName = "_alloc_${inst.name}"
+                if (allocName !in declaredVars) {
+                    sb.appendLine("\tvar $allocName ${TypeFormatter.format(inst.allocType)}")
+                    declaredVars.add(allocName)
                 }
             }
         }
@@ -317,8 +326,8 @@ class GoIRToGoCodeGenerator {
                 return if (inst.isHeap) {
                     "${inst.name} = new(${TypeFormatter.format(inst.allocType)})"
                 } else {
-                    // Stack alloc: create a local variable and take its address
-                    "var _alloc_${inst.name} ${TypeFormatter.format(inst.allocType)}\n${inst.name} = &_alloc_${inst.name}"
+                    // Stack alloc: _alloc_ var is pre-declared at function top, just take its address
+                    "${inst.name} = &_alloc_${inst.name}"
                 }
             }
 

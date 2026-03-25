@@ -121,6 +121,13 @@
 | Codegen generated internal package imports from stdlib dependency tree | Changed import scanning to only include direct references from user functions |
 | ForwardRefValue not handled in codegen valueRef → outputs placeholder text | Changed default branch in `valueRef` to use `value.name` for forward ref delegation |
 | Annotation: go-ssa source positions for closures/interfaces may differ from Go source line | Use `//@ count(...)` for closure/interface counts instead of `//@ inst(...)` at specific lines |
+| Codegen: `goto` jumps over `_alloc_` variable declarations in stack allocs | Pre-declare `_alloc_` locals at function top; `visitAlloc` only emits address-of assignment |
+
+## Phase Q — Quality (see quality-plan.md for details)
+
+### Q1 — Benchmark testing: pending
+### Q2 — Round-trip expansion: DONE (302 tests, 25s)
+### Q3 — Bug fixes: 1 codegen bug found and fixed
 
 ## Progress Log
 
@@ -141,3 +148,5 @@
 | 2026-03-26 | P3.1 Full unit tests (96 total, +57 new tests in 6 new test classes) | DONE |
 | 2026-03-26 | P3.3 Extended round-trip (19 total) + fuzz tests (3 tests) | DONE |
 | 2026-03-26 | P1.3 + P3.2 Benchmark infrastructure + 20 real-world projects | DONE |
+| 2026-03-26 | Q: Quality phase — BatchRoundTripRunner, parallel tests, 302 round-trip tests | DONE |
+| 2026-03-26 | Q: Fix codegen bug (goto over _alloc_ declarations) | DONE |
