@@ -1,0 +1,20 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# Go
+go-ssa-server/proto/goir/*.pb.go
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+/tmp/
