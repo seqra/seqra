@@ -245,14 +245,14 @@ class MustAliasSampleTest : BasicTestUtils() {
                 it.base == Argument(0) && it.accessors.singleFieldNamed(FIELD_VALUE)
             }
         }
-        assertTrue {
+        assertFalse {
             aValueAliases.any {
                 it.base == Argument(1) && it.accessors.singleFieldNamed(FIELD_VALUE)
             }
         }
 
         val bValueAliases = aa.valueApAliases(sink.callExpr.args[1], sink)
-        assertTrue {
+        assertFalse {
             bValueAliases.any {
                 it.base == Argument(0) && it.accessors.singleFieldNamed(FIELD_VALUE)
             }
@@ -399,7 +399,7 @@ class MustAliasSampleTest : BasicTestUtils() {
     @Test
     fun `test getter aliases this field`() {
         val method = findMethod(INTERPROC_SAMPLE, "testGetterAlias")
-        val aa = aaForMethod(method, interProcParams(depth = 1))
+        val aa = aaForMethod(method)
 
         val sink = method.findSinkCall("sinkOneValue")
         val apAliases = aa.sinkArgApAliases(sink)
@@ -414,7 +414,7 @@ class MustAliasSampleTest : BasicTestUtils() {
     @Test
     fun `test setter then getter`() {
         val method = findMethod(INTERPROC_SAMPLE, "testSetterThenGetter")
-        val aa = aaForMethod(method, interProcParams(depth = 1))
+        val aa = aaForMethod(method)
 
         val sink = method.findSinkCall("sinkOneValue")
         val apAliases = aa.sinkArgApAliases(sink)
@@ -425,7 +425,7 @@ class MustAliasSampleTest : BasicTestUtils() {
     @Test
     fun `test identity same-class call`() {
         val method = findMethod(INTERPROC_SAMPLE, "testIdentityCall")
-        val aa = aaForMethod(method, interProcParams(depth = 1))
+        val aa = aaForMethod(method)
 
         val sink = method.findSinkCall("sinkOneValue")
         val apAliases = aa.sinkArgApAliases(sink)
@@ -453,5 +453,137 @@ class MustAliasSampleTest : BasicTestUtils() {
         val apAliases = aa.sinkArgApAliases(sink)
 
         assertFalse { apAliases.any { it.isPlainBase(Argument(0)) } }
+    }
+
+    @Test
+    fun `test combined write arg then touch heap`() {
+        val method = findMethod(COMBINED_HEAP_SAMPLE, "writeArgThenTouchHeap")
+        val aa = aaForMethod(method)
+
+        val sink = method.findSinkCall("sinkOneValue")
+        val apAliases = aa.sinkArgApAliases(sink)
+
+        assertTrue { apAliases.any { it.isPlainBase(Argument(1)) } }
+        assertFalse {
+            apAliases.any {
+                it.base == Argument(0) && it.accessors.singleFieldNamed(FIELD_VALUE)
+            }
+        }
+    }
+
+    @Test
+    fun `test combined return argument field`() {
+        val method = findMethod(COMBINED_HEAP_SAMPLE, "returnArgField")
+        val aa = aaForMethod(method)
+
+        val sink = method.findSinkCall("sinkOneValue")
+        val apAliases = aa.sinkArgApAliases(sink)
+
+        assertTrue {
+            apAliases.any {
+                it.base == Argument(0) && it.accessors.singleFieldNamed(FIELD_VALUE)
+            }
+        }
+    }
+
+    @Test
+    fun `test combined return identity then write field`() {
+        val method = findMethod(COMBINED_HEAP_SAMPLE, "returnIdentityThenWriteField")
+        val aa = aaForMethod(method)
+
+        val sink = method.findSinkCall("sinkOneValue")
+        val apAliases = aa.sinkArgApAliases(sink)
+
+        assertTrue { apAliases.any { it.isPlainBase(Argument(1)) } }
+        assertTrue {
+            apAliases.any {
+                it.base == Argument(0) && it.accessors.singleFieldNamed(FIELD_VALUE)
+            }
+        }
+    }
+
+    @Test
+    fun `test combined fresh object carries returned arg`() {
+        val method = findMethod(COMBINED_HEAP_SAMPLE, "freshObjectCarriesReturnedArg")
+        val aa = aaForMethod(method)
+
+        val sink = method.findSinkCall("sinkOneValue")
+        val apAliases = aa.sinkArgApAliases(sink)
+
+        assertTrue { apAliases.any { it.isPlainBase(Argument(0)) } }
+    }
+
+    @Test
+    fun `test combined fresh object copies argument field`() {
+        val method = findMethod(COMBINED_HEAP_SAMPLE, "freshObjectCopiesArgumentField")
+        val aa = aaForMethod(method)
+
+        val sink = method.findSinkCall("sinkOneValue")
+        val apAliases = aa.sinkArgApAliases(sink)
+
+        assertTrue {
+            apAliases.any {
+                it.base == Argument(0) && it.accessors.singleFieldNamed(FIELD_VALUE)
+            }
+        }
+    }
+
+    @Test
+    fun `test combined pass through receiver then read field`() {
+        val method = findMethod(COMBINED_HEAP_SAMPLE, "passThroughReceiverThenReadField")
+        val aa = aaForMethod(method)
+
+        val sink = method.findSinkCall("sinkOneValue")
+        val apAliases = aa.sinkArgApAliases(sink)
+
+        assertTrue {
+            apAliases.any {
+                it.base == Argument(0) && it.accessors.singleFieldNamed(FIELD_VALUE)
+            }
+        }
+    }
+
+    @Test
+    fun `test combined nested write return and touch heap`() {
+        val method = findMethod(COMBINED_HEAP_SAMPLE, "nestedWriteReturnAndTouchHeap")
+        val aa = aaForMethod(method)
+
+        val sink = method.findSinkCall("sinkOneValue")
+        val apAliases = aa.sinkArgApAliases(sink)
+
+        assertTrue { apAliases.any { it.isPlainBase(Argument(1)) } }
+        assertFalse { apAliases.any { it.accessors.isNotEmpty() } }
+    }
+
+    @Test
+    fun `test combined overwrite field with fresh object`() {
+        val method = findMethod(COMBINED_HEAP_SAMPLE, "overwriteFieldWithFreshObject")
+        val aa = aaForMethod(method)
+
+        val sink = method.findSinkCall("sinkOneValue")
+        val apAliases = aa.sinkArgApAliases(sink)
+
+        assertFalse { apAliases.any { it.isPlainBase(Argument(1)) } }
+        assertTrue {
+            apAliases.any {
+                it.base == Argument(0) && it.accessors.singleFieldNamed(FIELD_VALUE)
+            }
+        }
+    }
+
+    @Test
+    fun `test combined return fresh box then alias field`() {
+        val method = findMethod(COMBINED_HEAP_SAMPLE, "returnFreshBoxThenAliasField")
+        val aa = aaForMethod(method)
+
+        val sink = method.findSinkCall("sinkOneValue")
+        val apAliases = aa.sinkArgApAliases(sink)
+
+        assertTrue { apAliases.any { it.isPlainBase(Argument(1)) } }
+        assertTrue {
+            apAliases.any {
+                it.base == Argument(0) && it.accessors.singleFieldNamed(FIELD_VALUE)
+            }
+        }
     }
 }

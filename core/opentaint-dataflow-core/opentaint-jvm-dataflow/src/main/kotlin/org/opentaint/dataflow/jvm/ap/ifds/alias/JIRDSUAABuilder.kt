@@ -90,7 +90,16 @@ sealed interface Stmt : Comparable<Stmt> {
 
     sealed interface NoCall: Stmt
 
-    data class Call(val method: JIRMethod, val lValue: RefValue.Local?, val instance: Value?, val args: List<Value>, override val originalIdx: Int) : Stmt
+    data class Call(val method: JIRMethod, val lValue: RefValue.Local?, val instance: Value?, val args: List<Value>, override val originalIdx: Int) : Stmt {
+        private val usedValuesValue = lazy { usedValues() }
+
+        private fun usedValues(): List<Value> {
+            if (instance == null) return args
+            return args + instance
+        }
+
+        fun getUsedValues() = usedValuesValue.value
+    }
 
     data class Copy(val lValue: RefValue.Local, val rValue: RefValue, override val originalIdx: Int): NoCall
     data class Assign(val lValue: RefValue.Local, val expr: Expr, override val originalIdx: Int) : NoCall

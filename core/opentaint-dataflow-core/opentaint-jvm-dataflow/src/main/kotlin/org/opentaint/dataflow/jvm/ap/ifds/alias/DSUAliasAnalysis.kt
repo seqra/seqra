@@ -22,6 +22,8 @@ class DSUAliasAnalysis(
     val rootMethodReachabilityInfo: JIRLocalVariableReachability,
     val mergeType: MergeType,
 ) {
+    private fun isMustAlias() = mergeType == MergeType.Must
+
     private val aliasManager = AAInfoManager()
     private val dsuMergeStrategy = DsuMergeStrategy(aliasManager)
 
@@ -214,13 +216,15 @@ class DSUAliasAnalysis(
         } else state
         if (stmt.cantMutateAliasedHeap()) return resultState
 
+        val instanceIndex = stmt.instance?.aliasInfo()?.index()
+
         val argAliases = IntOpenHashSet()
-        stmt.args.forEach { arg ->
+        stmt.getUsedValues().forEach { arg ->
             val info = arg.aliasInfo() ?: return@forEach
             val infoIndex = aliasManager.getOrAdd(info)
             resultState.forEachAliasInSet(infoIndex) { argAliases.add(it) }
         }
-        return resultState.invalidateOuterHeapAliases(argAliases)
+        return resultState.invalidateOuterHeapAliases(argAliases, instanceIndex)
     }
 
     private fun evalCall(
@@ -250,8 +254,11 @@ class DSUAliasAnalysis(
         return State.merge(aliasManager, dsuMergeStrategy, statesAfterCall, mergeType)
     }
 
-    private fun State.invalidateOuterHeapAliases(startInvalidAliases: IntOpenHashSet): State {
+    private fun State.invalidateOuterHeapAliases(startInvalidAliases: IntOpenHashSet, instance: Int?): State {
         val invalidAliases = collectTransitiveInvalidAliases(startInvalidAliases)
+
+        // keeping `this` aliases
+        instance?.let { invalidAliases.remove(it) }
 
         val invalidHeapAliases = IntOpenHashSet()
         invalidAliases.forEach {
@@ -413,7 +420,7 @@ class DSUAliasAnalysis(
         val heapAlias = heapAppender(obj).index()
 
         var resultState = state
-        if (!state.containsMultipleConcreteOrOuterLocations(instanceInfo)) {
+        if (isMustAlias() || !state.containsMultipleConcreteOrOuterLocations(instanceInfo)) {
             resultState = resultState.remove(heapAlias)
         }
 
