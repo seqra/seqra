@@ -231,4 +231,31 @@
   - Zero regression on accuracy benchmark (91 pass / 56 fail / 3 skip — same as before).
 - [ ] Implement closure/free variable support (~14 failing tests). Nested functions capture outer variables
   via `PIRFunction.closureVars`. Need to map captured vars as implicit arguments in `mapCallToStart`.
-- [ ] Verify and implement polymorphic call (e.g. class inheritance) support. Consider adding more test cases for call resolution.
+- [x] Verify polymorphic call (e.g. class inheritance) support — **INVESTIGATED, DEFERRED**.
+
+### Polymorphism Investigation Results
+
+**Root cause**: Almost all failing "polymorphism" / "class" benchmark tests define classes **inside the function body**
+(nested classes). These are completely skipped by `CfgBuilder.kt:202`: `stmt.hasClassDef() -> { /* ClassDef inside function body — not supported */ }`.
+
+**Failing test categories**:
+1. **Nested classes inside function bodies** (majority): `polymorphism_001_T`, `constructor_field_001-006_T`,
+   `field_len_001-005_T`, `constructor_object_sensitive_001-004_T` — Classes are never built as PIRClass objects,
+   their methods are never indexed, so constructor/method calls can't resolve.
+2. **Dynamic method binding** (`polymorphism_003_T`, `004_F`): `Sub.dynamic_call = dynamic_method` — requires
+   runtime attribute assignment tracking, infeasible for static analysis.
+3. **Metaclass injection** (`polymorphism_005_T`, `006_F`): `metaclass=Meta` with `__new__` injecting methods —
+   requires metaclass evaluation, infeasible for static analysis.
+4. **Module-level inheritance** (`inheritance_001_T`): `Parent.__init__` stores `taint_src` in `self.field`.
+   Requires constructor call resolution (`Parent(taint_src)` → `Parent.__init__`) + closure/free variable support
+   (already tracked separately).
+
+**What would be needed to fix**:
+- IR-level: Extract nested ClassDef from function bodies in CfgBuilder/MypyModuleBuilder (similar to `extractNestedFunction`)
+- Closure support: Most nested class methods capture outer function variables (e.g., `taint_src`)
+- Constructor resolution: `ClassName()` → `ClassName.__init__` call mapping
+- These are prerequisites that overlap with the closure/free variable task
+
+**Decision**: Deferred — too large in scope for current phase. The `_F` variants (false positive tests) already pass
+correctly because we don't over-report. The `_T` variants would require nested class extraction + closure support,
+which should be done together with the closure/free variable task.
