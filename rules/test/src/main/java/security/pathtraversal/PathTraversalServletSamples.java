@@ -287,6 +287,25 @@ public class PathTraversalServletSamples {
         }
     }
 
+    /**
+     * VULNERABLE: reads a user-controlled path and passes it to {@code Files.readSymbolicLink}.
+     */
+    @WebServlet("/pathtraversal/unsafe-read-symbolic-link")
+    public static class UnsafeReadSymbolicLinkServlet extends HttpServlet {
+
+        @Override
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+
+            String linkName = request.getParameter("link");
+            Path link = Paths.get(linkName);
+            Path target = Files.readSymbolicLink(link);
+
+            response.getWriter().write("Target: " + target.toString());
+        }
+    }
+
     // ── Negative tests: temp-file/temp-directory APIs with untrusted prefix/suffix ──────────
 
     /**
