@@ -183,6 +183,40 @@ public class PathTraversalSpringSamples {
         }
     }
 
+    // ── Negative tests: temp-file/temp-directory APIs with untrusted prefix/suffix ──────────
+
+    @RestController
+    @RequestMapping("/spring-pathtraversal")
+    public static class SafeTempFileController {
+
+        /**
+         * SAFE: {@code Files.createTempFile(prefix, suffix)} — the JDK rejects
+         * separators in prefix/suffix, so user input here cannot traverse directories.
+         */
+        @GetMapping("/safe-create-temp-file")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
+        public ResponseEntity<String> safeCreateTempFile(
+                @RequestParam("prefix") String prefix,
+                @RequestParam("suffix") String suffix) throws IOException {
+
+            Path tempFile = Files.createTempFile(prefix, suffix);
+            return ResponseEntity.ok("Created: " + tempFile.toString());
+        }
+
+        /**
+         * SAFE: {@code Files.createTempDirectory(prefix)} — same JDK validation
+         * prevents directory traversal via the prefix.
+         */
+        @GetMapping("/safe-create-temp-directory")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
+        public ResponseEntity<String> safeCreateTempDirectory(
+                @RequestParam("prefix") String prefix) throws IOException {
+
+            Path tempDir = Files.createTempDirectory(prefix);
+            return ResponseEntity.ok("Created: " + tempDir.toString());
+        }
+    }
+
     private static ResponseEntity<ByteArrayResource> streamPath(Path path) throws IOException {
         byte[] data = Files.readAllBytes(path);
         ByteArrayResource resource = new ByteArrayResource(data);
