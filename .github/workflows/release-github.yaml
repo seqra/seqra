@@ -102,10 +102,7 @@ jobs:
         run: |
           RELEASE_VERSION="${{ steps.manual_release.outputs.new-version || steps.version.outputs.new_release_version }}"
           RELEASE_TAG="github/v$(echo "$RELEASE_VERSION" | sed 's/^v//')"
-          RELEASE_ID=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" -q '.id')
-          gh api -X PATCH "repos/$GITHUB_REPOSITORY/releases/$RELEASE_ID" \
-            -F draft=false \
-            -f make_latest=false
+          gh release edit "$RELEASE_TAG" --draft=false --latest=false
 
       - name: Update floating version tags
         if: ${{ steps.manual_release.outputs.new-version != '' || steps.version.outputs.new_release_published == 'true' }}
