@@ -132,8 +132,84 @@ All 20 projects pass. Per-test timeout of 5 minutes. Fresh Go server per project
 - [x] 20 new multi-return + cross-function tests in RoundTripMultiFuncTests
 - [x] All 525 tests pass with 0 failures
 
-### QI2.2 — Extend benchmarks to 50 web app projects: PENDING
-- [ ] Add real-world web applications built on Gin, Echo, Fiber, Chi, gorilla/mux
-- [ ] Include e-commerce, REST API, CRUD, microservice examples
-- [ ] Target: 50 total benchmark projects (currently 20)
-- [ ] Use `downloadBenchmarks` Gradle task for pre-caching
+### QI2.2 — Extend benchmarks to 50 web app projects: ✅ DONE (50/50 pass)
+- [x] Added 30 real-world web applications (Gin, Fiber, REST APIs, e-commerce, CMS, CI/CD)
+- [x] Fixed version suffix stripping: only strip `/vN` when 3+ path segments (avoids breaking `miniflux/v2`)
+- [x] All 50 benchmark projects pass with 0 errors, 0 sanity violations
+- [x] Largest project: casdoor — 1,704 pkgs, 55K functions, 6.5M instructions in 74s
+
+#### New Web App Benchmark Results (30 projects)
+
+| # | Project | Pkgs | Funcs | Insts | Blocks | Server(ms) |
+|---|---------|------|-------|-------|--------|------------|
+| 21 | zhashkevych/todo-app | 337 | 14,913 | 960K | 92K | 10,180 |
+| 22 | cheatsnake/shadify | 246 | 11,283 | 1,367K | 70K | 24,242 |
+| 23 | mrusme/journalist | 577 | 27,628 | 2,762K | 149K | 37,027 |
+| 24 | bagashiz/go-pos | 401 | 16,952 | 1,134K | 102K | 12,743 |
+| 25 | CareyWang/MyUrls | 285 | 12,878 | 946K | 79K | 9,649 |
+| 26 | barats/ohUrlShortener | 327 | 13,878 | 1,623K | 87K | 15,161 |
+| 27 | koddr/tutorial-go-fiber-rest-api | 335 | 15,008 | 1,796K | 97K | 28,108 |
+| 28 | wpcodevo/golang-fiber-jwt | 327 | 14,111 | 1,665K | 89K | 27,595 |
+| 29 | snykk/go-rest-boilerplate | 197 | 8,802 | 657K | 54K | 6,150 |
+| 30 | bitcav/nitr | 319 | 13,116 | 1,501K | 82K | 25,100 |
+| 31 | jwma/jump-jump | 326 | 14,256 | 949K | 89K | 10,270 |
+| 32 | restuwahyu13/go-rest-api | 334 | 13,407 | 995K | 83K | 10,663 |
+| 33 | GolangLessons/url-shortener | 268 | 12,263 | 800K | 75K | 8,013 |
+| 34 | Mamin78/Parham-Food-BackEnd | 310 | 12,680 | 910K | 74K | 9,096 |
+| 35 | sirini/goapi | 327 | 16,047 | 1,685K | 99K | 28,482 |
+| 36 | rasadov/EcommerceAPI | 572 | 19,628 | 1,264K | 115K | 14,808 |
+| 37 | zacscoding/gin-rest-api-example | 443 | 17,406 | 931K | 105K | 10,459 |
+| 38 | wa8n/wblog | 363 | 20,142 | 1,790K | 139K | 16,329 |
+| 39 | gbrayhan/microservices-go | 338 | 13,776 | 1,057K | 86K | 10,760 |
+| 40 | netlify/gocommerce | 495 | 16,980 | 1,003K | 92K | 11,160 |
+| 41 | quangdangfit/goshop | 605 | 25,828 | 1,454K | 131K | 19,578 |
+| 42 | benbjohnson/wtf | 299 | 12,872 | 891K | 75K | 9,618 |
+| 43 | go-sonic/sonic | 646 | 21,555 | 1,452K | 132K | 16,608 |
+| 44 | gotify/server | 418 | 18,810 | 1,135K | 102K | 14,773 |
+| 45 | shurco/litecart | 348 | 25,307 | 2,526K | 162K | 34,263 |
+| 46 | ArtalkJS/Artalk | 695 | 24,996 | 2,217K | 148K | 36,077 |
+| 47 | go-kratos/kratos | 429 | 15,659 | 1,024K | 87K | 10,099 |
+| 48 | miniflux/v2 | 446 | 17,129 | 2,210K | 113K | 31,169 |
+| 49 | casdoor/casdoor | 1,704 | 55,606 | 6,482K | 295K | 73,651 |
+| 50 | woodpecker-ci/woodpecker (server) | 871 | 34,288 | 1,787K | 183K | 24,979 |
+
+#### Aggregate Stats (all 50 projects)
+- **Total functions analyzed**: ~820K
+- **Total instructions**: ~72M
+- **Total time**: ~23 minutes (sequential, single-threaded)
+
+## Quality improvement 3.0
+
+Target: ~100 more round-trip tests covering heap/collection/interface/closure/goroutine/defer features.
+
+### QI3.1 — Heap manipulation round-trip tests: PENDING
+- [ ] Struct field reads/writes
+- [ ] Array/slice element access
+- [ ] Pointer dereference chains
+- [ ] Nested struct field access
+
+### QI3.2 — Collections round-trip tests: PENDING
+- [ ] Map create, insert, lookup, delete
+- [ ] Slice append, copy, range
+- [ ] Multi-dimensional slices
+
+### QI3.3 — Interfaces/virtual calls round-trip tests: PENDING
+- [ ] Interface method dispatch
+- [ ] Type assertions
+- [ ] Type switches
+- [ ] Empty interface (any)
+
+### QI3.4 — Anonymous functions/closures round-trip tests: PENDING
+- [ ] Closures capturing variables
+- [ ] Closures as arguments
+- [ ] Immediately-invoked closures
+
+### QI3.5 — Goroutines/async round-trip tests: PENDING
+- [ ] Channel send/receive
+- [ ] Select statements
+- [ ] Goroutine launch (go keyword)
+
+### QI3.6 — Defer round-trip tests: PENDING
+- [ ] Basic defer
+- [ ] Defer with closures
+- [ ] Multiple defers (LIFO order)
