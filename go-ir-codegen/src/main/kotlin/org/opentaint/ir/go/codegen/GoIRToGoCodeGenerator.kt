@@ -177,9 +177,31 @@ class GoIRToGoCodeGenerator {
         }
     }
 
+    /**
+     * Pre-compute Extract mapping for multi-return calls.
+     *
+     * For each Call whose register has a GoIRTupleType, we find all Extract
+     * instructions that reference that register and build:
+     *   tupleRegName -> sortedMap(extractIndex -> extractRegName)
+     *
+     * This lets visitCall emit `x, y = f(a, b)` and visitExtract return null.
+     */
+    private fun buildExtractMap(body: GoIRBody): Map<String, Map<Int, String>> {
+        val result = mutableMapOf<String, MutableMap<Int, String>>()
+        for (inst in body.instructions) {
+            if (inst is GoIRAssignInst && inst.expr is GoIRExtractExpr) {
+                val extract = inst.expr as GoIRExtractExpr
+                val tupleName = extract.tuple.name
+                result.getOrPut(tupleName) { mutableMapOf() }[extract.extractIndex] = inst.register.name
+            }
+        }
+        return result
+    }
+
     private fun generateFunction(sb: StringBuilder, fn: GoIRFunction) {
         val body = fn.body ?: return
         val phiResult = PhiEliminator.eliminate(body)
+        val extractMap = buildExtractMap(body)
 
         // Function signature
         val recv = if (fn.isMethod && fn.receiverType != null) {
@@ -312,7 +334,7 @@ class GoIRToGoCodeGenerator {
                     }
                 }
 
-                val code = generateInstruction(inst, block)
+                val code = generateInstruction(inst, block, extractMap)
                 if (code != null) {
                     for (line in code.lines()) {
                         sb.appendLine("\t\t$line")
@@ -324,7 +346,7 @@ class GoIRToGoCodeGenerator {
         sb.appendLine("}")
     }
 
-    private fun generateInstruction(inst: GoIRInst, block: GoIRBasicBlock): String? {
+    private fun generateInstruction(inst: GoIRInst, block: GoIRBasicBlock, extractMap: Map<String, Map<Int, String>>): String? {
         return inst.accept(object : GoIRInstVisitor<String?> {
             override fun visitAssign(inst: GoIRAssignInst): String? {
                 val name = inst.register.name
@@ -460,11 +482,14 @@ class GoIRToGoCodeGenerator {
             override fun visitPhi(inst: GoIRPhi): String? = null // handled by PhiEliminator
 
             override fun visitCall(inst: GoIRCall): String {
-                // If the result is a tuple (multi-return), discard with underscores
+                // If the result is a tuple (multi-return), use extract targets as LHS
                 if (inst.register.type is GoIRTupleType) {
                     val tupleType = inst.register.type as GoIRTupleType
-                    val discards = tupleType.elements.joinToString(", ") { "_" }
-                    return "$discards = ${generateCallStr(inst.call)}"
+                    val extracts = extractMap[inst.register.name]
+                    val lhs = tupleType.elements.indices.joinToString(", ") { idx ->
+                        extracts?.get(idx) ?: "_"
+                    }
+                    return "$lhs = ${generateCallStr(inst.call)}"
                 }
                 return generateCallExpr(inst.register.name, inst.call)
             }

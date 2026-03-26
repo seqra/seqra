@@ -185,3 +185,17 @@ This document tracks deviations from the original design (in go-ir-impl/*.md) th
 **Problem**: Some SSA registers are never referenced in the generated code (e.g. unused phi results, dead code paths, registers only used in debug refs). Go's `declared and not used` rule rejects the generated code.
 
 **Fix**: After declaring all `var` statements, emit `_ = varName` for each declared variable to suppress Go's unused variable check. Tuple-typed registers (skipped in declarations) are excluded from the suppression list.
+
+## 22. Codegen: multi-return function calls silently discarded results
+
+**Original design**: `visitCall` for tuple-typed results emitted `_, _ = f(a, b)`, discarding all values. `visitExtract` returned `null`, so Extract instructions were silently skipped.
+
+**Problem**: Multi-return calls like `q, r := divmod(17, 5)` produced SSA:
+```
+t0 = call divmod(a, b)   // tuple (int, int)
+t1 = extract t0 #0       // q
+t2 = extract t0 #1       // r
+```
+The codegen emitted `_, _ = divmod(a, b)` for the call and nothing for the extracts.
+
+**Fix**: Pre-compute an extract map: scan all Extract expressions and build `tupleRegName -> {index -> extractRegName}`. When emitting a tuple-producing Call, use the extract target names as the LHS: `t1, t2 = divmod(a, b)`. Individual Extract instructions still return null (they're covered by the grouped Call).

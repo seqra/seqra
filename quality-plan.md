@@ -124,12 +124,13 @@ All 20 projects pass. Per-test timeout of 5 minutes. Fresh Go server per project
 
 ## Quality improvement 2.0
 
-### QI2.1 — Add round-trip cases to 500: ✅ DONE
-- [x] Target: 500 total round-trip tests (was 302, now **500**)
-- [x] 5 new test files: struct/pointer, function, advanced flow, numeric, tricky SSA patterns
+### QI2.1 — Add round-trip cases to 500+: ✅ DONE (525 tests)
+- [x] Target: 500+ total round-trip tests (was 302, now **525**)
+- [x] 6 new test files: struct/pointer, function, advanced flow, numeric, tricky SSA, multi-func
 - [x] Fixed codegen bug: "declared and not used" for unused SSA registers — emit `_ = var` suppressions
-- [x] Removed 5 multi-return tests (codegen limitation with tuple/Extract)
-- [x] All 500 tests pass with 0 failures
+- [x] Fixed codegen bug: multi-return calls discarded results — pre-compute extract map, emit grouped LHS
+- [x] 20 new multi-return + cross-function tests in RoundTripMultiFuncTests
+- [x] All 525 tests pass with 0 failures
 
 ### QI2.2 — Extend benchmarks to 50 web app projects: PENDING
 - [ ] Add real-world web applications built on Gin, Echo, Fiber, Chi, gorilla/mux
