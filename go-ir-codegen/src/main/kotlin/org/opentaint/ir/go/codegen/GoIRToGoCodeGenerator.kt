@@ -221,27 +221,27 @@ class GoIRToGoCodeGenerator {
 
         // Declare all SSA register variables at the top.
         // All declarations MUST be before any labels/gotos to avoid "goto jumps over declaration".
-        val declaredVars = mutableSetOf<String>()
+        val seenNames = mutableSetOf<String>()        // all register names (including skipped tuples)
+        val actuallyDeclared = mutableSetOf<String>()  // names that got a `var` declaration
         for (inst in body.instructions) {
             if (inst is GoIRDefInst) {
                 val reg = inst.register
-                if (reg.name.isNotEmpty() && reg.name !in declaredVars) {
+                if (reg.name.isNotEmpty() && reg.name !in seenNames) {
+                    seenNames.add(reg.name)
                     // Skip tuple types — they're handled via Extract
-                    if (reg.type is GoIRTupleType) {
-                        declaredVars.add(reg.name)
-                        continue
-                    }
+                    if (reg.type is GoIRTupleType) continue
                     sb.appendLine("\tvar ${reg.name} ${TypeFormatter.format(reg.type)}")
-                    declaredVars.add(reg.name)
+                    actuallyDeclared.add(reg.name)
                 }
                 // Also pre-declare _alloc_ locals for stack Alloc expressions
                 if (inst is GoIRAssignInst && inst.expr is GoIRAllocExpr) {
                     val allocExpr = inst.expr as GoIRAllocExpr
                     if (!allocExpr.isHeap) {
                         val allocName = "_alloc_${reg.name}"
-                        if (allocName !in declaredVars) {
+                        if (allocName !in seenNames) {
                             sb.appendLine("\tvar $allocName ${TypeFormatter.format(allocExpr.allocType)}")
-                            declaredVars.add(allocName)
+                            seenNames.add(allocName)
+                            actuallyDeclared.add(allocName)
                         }
                     }
                 }
@@ -253,19 +253,27 @@ class GoIRToGoCodeGenerator {
             for ((varName, tempName) in reads) {
                 val phi = body.instructions.filterIsInstance<GoIRPhi>().find { it.register.name == varName }
                 if (phi != null) {
-                    if (tempName !in declaredVars) {
+                    if (tempName !in seenNames) {
                         sb.appendLine("\tvar $tempName ${TypeFormatter.format(phi.register.type)}")
-                        declaredVars.add(tempName)
+                        seenNames.add(tempName)
+                        actuallyDeclared.add(tempName)
                     }
-                    if (varName !in declaredVars) {
+                    if (varName !in seenNames) {
                         sb.appendLine("\tvar $varName ${TypeFormatter.format(phi.register.type)}")
-                        declaredVars.add(varName)
+                        seenNames.add(varName)
+                        actuallyDeclared.add(varName)
                     }
                 }
             }
         }
 
-        if (declaredVars.isNotEmpty()) sb.appendLine()
+        // Suppress "declared and not used" errors for SSA registers that may not be
+        // referenced in the generated code (e.g. unused phi results, dead code paths).
+        for (v in actuallyDeclared) {
+            sb.appendLine("\t_ = $v")
+        }
+
+        if (actuallyDeclared.isNotEmpty()) sb.appendLine()
 
         // Generate blocks
         // Collect which blocks are goto targets (need labels)

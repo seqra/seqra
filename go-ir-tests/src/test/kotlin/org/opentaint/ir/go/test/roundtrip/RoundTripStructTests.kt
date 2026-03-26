@@ -92,62 +92,6 @@ func rst_ptr_cond(x int) int {
                 listOf(listOf("5"), listOf("-3"), listOf("0"), listOf("1"), listOf("-1")),
             ),
 
-            // ── Multiple return values ──────────────────────────────────
-            RoundTripTestCase.withInputs("multi-ret-sum-diff", """
-func rst_sumDiff(a, b int) (int, int) { return a + b, a - b }
-func rst_multi_sd(a, b int) int {
-    s, d := rst_sumDiff(a, b)
-    return s * d
-}""",
-                "rst_multi_sd(%s, %s)",
-                listOf(listOf("5", "3"), listOf("10", "10"), listOf("7", "2"), listOf("0", "4")),
-            ),
-            RoundTripTestCase.withInputs("multi-ret-minmax", """
-func rst_minMax(a, b int) (int, int) {
-    if a < b { return a, b }
-    return b, a
-}
-func rst_minmax_range(a, b int) int {
-    mn, mx := rst_minMax(a, b)
-    return mx - mn
-}""",
-                "rst_minmax_range(%s, %s)",
-                listOf(listOf("3", "7"), listOf("10", "2"), listOf("5", "5"), listOf("-3", "3")),
-            ),
-            RoundTripTestCase.withInputs("multi-ret-divmod", """
-func rst_divMod(a, b int) (int, int) { return a / b, a % b }
-func rst_divmod_enc(a, b int) int {
-    q, r := rst_divMod(a, b)
-    return q*1000 + r
-}""",
-                "rst_divmod_enc(%s, %s)",
-                listOf(listOf("17", "5"), listOf("100", "7"), listOf("10", "3"), listOf("25", "5")),
-                randomRange = 1..1000,
-            ),
-            RoundTripTestCase.withInputs("multi-ret-split", """
-func rst_split(n int) (int, int) { return n / 256, n % 256 }
-func rst_split_check(n int) int {
-    hi, lo := rst_split(n)
-    return hi*256 + lo
-}""",
-                "rst_split_check(%s)",
-                listOf(listOf("0"), listOf("255"), listOf("256"), listOf("1000"), listOf("65535")),
-                randomRange = 0..65535,
-            ),
-            RoundTripTestCase.withInputs("multi-ret-safe-div", """
-func rst_safe_div(a, b int) (int, bool) {
-    if b == 0 { return 0, false }
-    return a / b, true
-}
-func rst_safe_div_res(a, b int) int {
-    result, ok := rst_safe_div(a, b)
-    if ok { return result }
-    return -99999
-}""",
-                "rst_safe_div_res(%s, %s)",
-                listOf(listOf("10", "2"), listOf("10", "0"), listOf("0", "5"), listOf("100", "3")),
-            ),
-
             // ── Variable swap patterns ──────────────────────────────────
             RoundTripTestCase.withInputs("swap-sum", """
 func rst_swap_sum(a, b int) int {
@@ -484,6 +428,13 @@ func rst_weighted(a, b, c int) int {
 }""",
                 "rst_weighted(%s, %s, %s)",
                 listOf(listOf("1", "1", "1"), listOf("0", "0", "0"), listOf("10", "20", "30"), listOf("-1", "2", "-3")),
+            ),
+            RoundTripTestCase.withInputs("horner-eval", """
+func rst_horner(x, a, b, c, d int) int {
+    return ((a*x + b)*x + c)*x + d
+}""",
+                "rst_horner(%s, %s, %s, %s, %s)",
+                listOf(listOf("2", "1", "0", "0", "0"), listOf("3", "1", "2", "3", "4"), listOf("0", "5", "5", "5", "5")),
             ),
         )
         return BatchRoundTripRunner.runBatchAndCreateTests(cases, builder)

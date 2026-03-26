@@ -177,3 +177,11 @@ This document tracks deviations from the original design (in go-ir-impl/*.md) th
 - `GoIRExpr` — sealed interface with 24 expression data classes (computation only, no instruction metadata)
 - `GoIRValueInst` removed entirely; `GoIRInstVisitor` reduced from 37 to 14 methods
 - Operands reference `GoIRRegister` objects, never instruction objects
+
+## 21. Codegen: unused SSA register variables cause Go compile errors
+
+**Original design**: All SSA register variables are declared at function top with `var tN type`.
+
+**Problem**: Some SSA registers are never referenced in the generated code (e.g. unused phi results, dead code paths, registers only used in debug refs). Go's `declared and not used` rule rejects the generated code.
+
+**Fix**: After declaring all `var` statements, emit `_ = varName` for each declared variable to suppress Go's unused variable check. Tuple-typed registers (skipped in declarations) are excluded from the suppression list.
