@@ -1,6 +1,5 @@
 package org.opentaint.ir.go.test.roundtrip
 
-import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.TestFactory
@@ -80,9 +79,6 @@ func cv_kmToMi(km int) int { return km * 621 / 1000 }
 func cv_miToKm(mi int) int { return mi * 1609 / 1000 }""",
                 "fmt.Println(cv_kmToMi(100)); fmt.Println(cv_miToKm(62))"),
         )
-        val result = BatchRoundTripRunner.runBatch(cases, builder)
-        return cases.map { c -> DynamicTest.dynamicTest(c.name) {
-            assertThat(result.reconstructedOutputs[c.name]).isEqualTo(result.originalOutputs[c.name])
-        }}
+        return BatchRoundTripRunner.runBatchAndCreateTests(cases, builder)
     }
 }

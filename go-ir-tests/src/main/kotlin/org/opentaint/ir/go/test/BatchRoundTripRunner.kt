@@ -1,5 +1,6 @@
 package org.opentaint.ir.go.test
 
+import org.junit.jupiter.api.DynamicTest
 import org.opentaint.ir.go.codegen.GoIRToGoCodeGenerator
 
 /**
@@ -11,8 +12,7 @@ import org.opentaint.ir.go.codegen.GoIRToGoCodeGenerator
  *
  * Usage in test class:
  * 1. Define test cases via [RoundTripTestCase]
- * 2. Call [runBatch] once in @BeforeAll or lazily
- * 3. Each @Test asserts its case from the result map
+ * 2. Call [runBatchAndCreateTests] in @TestFactory — returns `List<DynamicTest>` with verbose failure messages
  */
 object BatchRoundTripRunner {
 
@@ -24,6 +24,33 @@ object BatchRoundTripRunner {
         /** Full reconstructed source code (for debugging) */
         val reconstructedCode: String,
     )
+
+    /**
+     * Convenience: runs batch and returns JUnit [DynamicTest]s with verbose failure messages.
+     *
+     * This replaces the repeated boilerplate pattern in each test class:
+     * ```
+     * val result = BatchRoundTripRunner.runBatch(cases, builder)
+     * return cases.map { case -> DynamicTest.dynamicTest(case.name) {
+     *     assertThat(result.reconstructedOutputs[case.name]).isEqualTo(...)
+     * }}
+     * ```
+     */
+    fun runBatchAndCreateTests(
+        cases: List<RoundTripTestCase>,
+        builder: GoIRTestBuilder,
+    ): List<DynamicTest> {
+        val result = runBatch(cases, builder)
+        return cases.map { case ->
+            DynamicTest.dynamicTest(case.name) {
+                val expected = result.originalOutputs[case.name]
+                val actual = result.reconstructedOutputs[case.name]
+                if (expected != actual) {
+                    throw AssertionError(formatMismatch(case.name, expected, actual, result.reconstructedCode))
+                }
+            }
+        }
+    }
 
     /**
      * Merges all test cases into one Go program, runs original and reconstructed,
@@ -48,6 +75,47 @@ object BatchRoundTripRunner {
         val reconstructedMap = parseTaggedOutput(reconstructedOutput, cases)
 
         return BatchResult(originalMap, reconstructedMap, reconstructedCode)
+    }
+
+    /**
+     * Formats a verbose line-by-line diff of expected vs actual output for a test case.
+     */
+    private fun formatMismatch(
+        caseName: String,
+        expected: String?,
+        actual: String?,
+        reconstructedCode: String,
+    ): String {
+        val sb = StringBuilder()
+        sb.appendLine("Round-trip mismatch for '$caseName'")
+        sb.appendLine()
+
+        val expectedLines = expected?.lines() ?: emptyList()
+        val actualLines = actual?.lines() ?: emptyList()
+        val maxLines = maxOf(expectedLines.size, actualLines.size)
+
+        sb.appendLine("  Line-by-line comparison (expected | actual):")
+        sb.appendLine("  ${"─".repeat(60)}")
+        for (i in 0 until maxLines) {
+            val exp = expectedLines.getOrElse(i) { "<missing>" }
+            val act = actualLines.getOrElse(i) { "<missing>" }
+            val marker = if (exp == act) " " else ">"
+            sb.appendLine("  $marker %-4d  %-25s │ %s".format(i + 1, exp, act))
+        }
+        sb.appendLine("  ${"─".repeat(60)}")
+
+        val diffCount = (0 until maxLines).count { i ->
+            expectedLines.getOrElse(i) { "" } != actualLines.getOrElse(i) { "" }
+        }
+        sb.appendLine("  $diffCount of $maxLines lines differ")
+        sb.appendLine()
+        sb.appendLine("  Reconstructed code:")
+        sb.appendLine("  ${"─".repeat(60)}")
+        reconstructedCode.lines().forEachIndexed { i, line ->
+            sb.appendLine("  %4d │ %s".format(i + 1, line))
+        }
+        sb.appendLine("  ${"─".repeat(60)}")
+        return sb.toString()
     }
 
     private fun buildBatchSource(cases: List<RoundTripTestCase>): String {

@@ -1,6 +1,5 @@
 package org.opentaint.ir.go.test.roundtrip
 
-import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.TestFactory
@@ -66,13 +65,6 @@ func rt_distsq(x1, y1, x2, y2 int) int {
             RoundTripTestCase("madd", "func rt_madd(a, b, c int) int { return a*b + c }",
                 "fmt.Println(rt_madd(3,4,5)); fmt.Println(rt_madd(0,10,7)); fmt.Println(rt_madd(-2,3,10)); fmt.Println(rt_madd(1,1,1))"),
         )
-        val result = BatchRoundTripRunner.runBatch(cases, builder)
-        return cases.map { case ->
-            DynamicTest.dynamicTest(case.name) {
-                assertThat(result.reconstructedOutputs[case.name])
-                    .withFailMessage { "Mismatch for '${case.name}'!\nOrig: ${result.originalOutputs[case.name]}\nRecon: ${result.reconstructedOutputs[case.name]}\nCode:\n${result.reconstructedCode}" }
-                    .isEqualTo(result.originalOutputs[case.name])
-            }
-        }
+        return BatchRoundTripRunner.runBatchAndCreateTests(cases, builder)
     }
 }

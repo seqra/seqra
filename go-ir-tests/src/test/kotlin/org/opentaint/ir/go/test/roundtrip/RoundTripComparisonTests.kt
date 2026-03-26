@@ -1,6 +1,5 @@
 package org.opentaint.ir.go.test.roundtrip
 
-import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.TestFactory
@@ -69,11 +68,6 @@ func rt_clamp(x, lo, hi int) int {
     return x
 }""", "fmt.Println(rt_clamp(5,0,10)); fmt.Println(rt_clamp(-5,0,10)); fmt.Println(rt_clamp(15,0,10)); fmt.Println(rt_clamp(0,0,10))"),
         )
-        val result = BatchRoundTripRunner.runBatch(cases, builder)
-        return cases.map { case ->
-            DynamicTest.dynamicTest(case.name) {
-                assertThat(result.reconstructedOutputs[case.name]).isEqualTo(result.originalOutputs[case.name])
-            }
-        }
+        return BatchRoundTripRunner.runBatchAndCreateTests(cases, builder)
     }
 }

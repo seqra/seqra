@@ -1,6 +1,5 @@
 package org.opentaint.ir.go.test.roundtrip
 
-import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.TestFactory
@@ -111,9 +110,6 @@ func mi_popcount(n int) int {
     for _, n := range []int{0, 1, 2, 3, 7, 8, 15, 16, 255, 256, 1023, 1024} { fmt.Println(mi_popcount(n)) }
 """),
         )
-        val result = BatchRoundTripRunner.runBatch(cases, builder)
-        return cases.map { c -> DynamicTest.dynamicTest(c.name) {
-            assertThat(result.reconstructedOutputs[c.name]).isEqualTo(result.originalOutputs[c.name])
-        }}
+        return BatchRoundTripRunner.runBatchAndCreateTests(cases, builder)
     }
 }

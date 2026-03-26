@@ -1,6 +1,5 @@
 package org.opentaint.ir.go.test.roundtrip
 
-import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.TestFactory
@@ -123,11 +122,6 @@ func lp_countPrimes(n int) int {
     return c
 }""", "fmt.Println(lp_countPrimes(10)); fmt.Println(lp_countPrimes(20)); fmt.Println(lp_countPrimes(50))"),
         )
-        val result = BatchRoundTripRunner.runBatch(cases, builder)
-        return cases.map { case ->
-            DynamicTest.dynamicTest(case.name) {
-                assertThat(result.reconstructedOutputs[case.name]).isEqualTo(result.originalOutputs[case.name])
-            }
-        }
+        return BatchRoundTripRunner.runBatchAndCreateTests(cases, builder)
     }
 }

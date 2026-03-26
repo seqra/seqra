@@ -6,6 +6,26 @@ import org.opentaint.ir.go.proto.GoSSAServiceGrpc
 import java.nio.file.Path
 
 /**
+ * Timing breakdown for a single IR build.
+ */
+data class BuildTimings(
+    /** Total wall-clock time including gRPC overhead */
+    val totalMs: Long,
+    /** Time spent on the Go server (SSA build + serialization), from the Summary message */
+    val serverBuildMs: Long,
+    /** Time spent deserializing the gRPC stream on the Kotlin side */
+    val deserializeMs: Long,
+)
+
+/**
+ * Result of an IR build, containing both the program and timing info.
+ */
+data class BuildResult(
+    val program: GoIRProgram,
+    val timings: BuildTimings,
+)
+
+/**
  * High-level API for loading Go IR from Go source code.
  */
 class GoIRClient : AutoCloseable {
@@ -22,7 +42,22 @@ class GoIRClient : AutoCloseable {
         instantiateGenerics: Boolean = true,
         sanityCheck: Boolean = true,
         includeStdlib: Boolean = false,
-    ): GoIRProgram {
+    ): GoIRProgram = buildFromDirWithTimings(dir, *patterns,
+        instantiateGenerics = instantiateGenerics,
+        sanityCheck = sanityCheck,
+        includeStdlib = includeStdlib,
+    ).program
+
+    /**
+     * Build IR from a directory, returning both the program and detailed timings.
+     */
+    fun buildFromDirWithTimings(
+        dir: Path,
+        vararg patterns: String,
+        instantiateGenerics: Boolean = true,
+        sanityCheck: Boolean = true,
+        includeStdlib: Boolean = false,
+    ): BuildResult {
         val request = BuildProgramRequest.newBuilder()
             .addAllPatterns(patterns.toList())
             .setWorkingDir(dir.toAbsolutePath().toString())
@@ -31,8 +66,23 @@ class GoIRClient : AutoCloseable {
             .setIncludeStdlib(includeStdlib)
             .build()
 
+        val totalStart = System.nanoTime()
         val responses = stub.buildProgram(request)
-        return GoIRDeserializer().deserialize(responses)
+        val deserializer = GoIRDeserializer()
+        val deserializeStart = System.nanoTime()
+        val program = deserializer.deserialize(responses)
+        val deserializeMs = (System.nanoTime() - deserializeStart) / 1_000_000
+        val totalMs = (System.nanoTime() - totalStart) / 1_000_000
+        val serverBuildMs = deserializer.serverBuildTimeMs
+
+        return BuildResult(
+            program = program,
+            timings = BuildTimings(
+                totalMs = totalMs,
+                serverBuildMs = serverBuildMs,
+                deserializeMs = deserializeMs,
+            ),
+        )
     }
 
     /**

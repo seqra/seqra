@@ -1,6 +1,5 @@
 package org.opentaint.ir.go.test.roundtrip
 
-import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.TestFactory
@@ -166,11 +165,6 @@ func cf_between(x, lo, hi int) bool {
     return true
 }""", "fmt.Println(cf_between(5,1,10)); fmt.Println(cf_between(0,1,10)); fmt.Println(cf_between(11,1,10)); fmt.Println(cf_between(1,1,10)); fmt.Println(cf_between(10,1,10))"),
         )
-        val result = BatchRoundTripRunner.runBatch(cases, builder)
-        return cases.map { case ->
-            DynamicTest.dynamicTest(case.name) {
-                assertThat(result.reconstructedOutputs[case.name]).isEqualTo(result.originalOutputs[case.name])
-            }
-        }
+        return BatchRoundTripRunner.runBatchAndCreateTests(cases, builder)
     }
 }

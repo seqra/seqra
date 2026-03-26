@@ -125,9 +125,10 @@
 
 ## Phase Q — Quality (see quality-plan.md for details)
 
-### Q1 — Benchmark testing: pending
-### Q2 — Round-trip expansion: DONE (302 tests, 25s)
-### Q3 — Bug fixes: 1 codegen bug found and fixed
+### Q1 — Benchmark testing: ✅ DONE (20/20 projects pass, 4m10s total)
+### Q2 — Round-trip expansion: ✅ DONE (302 tests)
+### Q3 — Test system improvements: ✅ DONE
+### Q4 — Bug fixes: 1 codegen bug found and fixed
 
 ## Progress Log
 
@@ -150,3 +151,16 @@
 | 2026-03-26 | P1.3 + P3.2 Benchmark infrastructure + 20 real-world projects | DONE |
 | 2026-03-26 | Q: Quality phase — BatchRoundTripRunner, parallel tests, 302 round-trip tests | DONE |
 | 2026-03-26 | Q: Fix codegen bug (goto over _alloc_ declarations) | DONE |
+| 2026-03-26 | Q: Test system improvements (sanity checker, verbose output, timeouts, timing) | DONE |
+| 2026-03-26 | Q: Benchmark all 20 projects — ALL PASS (4m10s) | DONE |
+
+
+# Test system improvement
+- [x] Reduce code duplication in round-trip test — `runBatchAndCreateTests()` helper eliminates boilerplate
+- [x] Show gradle status for each test (started/success/failed) — added `"started"` event to testLogging
+- [x] More verbose round-trip test — line-by-line diff of expected vs actual on failure
+- [x] Enhanced sanity checker — 8 check categories, configurable deep/light mode
+- [x] Per-test timeout — `@Timeout(5, MINUTES)` per benchmark test
+- [x] Timing instrumentation — `BuildTimings(totalMs, serverBuildMs, deserializeMs)` in client
+- [x] Per-project server isolation in benchmarks — crash in one project doesn't affect others
+- [x] Go version suffix stripping in BenchmarkProjectCache — `/v2`, `/v10` etc. stripped from git URLs

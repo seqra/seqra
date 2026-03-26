@@ -16,6 +16,22 @@ object BenchmarkProjectCache {
     }
 
     /**
+     * Strips Go major version suffix from module paths (e.g. "foo/bar/v2" -> "foo/bar").
+     * Go modules with major version >= 2 append "/vN" to the module path, but
+     * the git repository URL doesn't include this suffix.
+     */
+    private fun stripGoVersionSuffix(module: String): String {
+        val lastSlash = module.lastIndexOf('/')
+        if (lastSlash >= 0) {
+            val suffix = module.substring(lastSlash + 1)
+            if (suffix.matches(Regex("v\\d+"))) {
+                return module.substring(0, lastSlash)
+            }
+        }
+        return module
+    }
+
+    /**
      * Ensure the project is checked out at the specified commit.
      * Returns the directory of the project.
      */
@@ -24,22 +40,24 @@ object BenchmarkProjectCache {
         val dir = cacheDir.resolve(dirName)
 
         if (!Files.exists(dir)) {
-            // Clone
+            // Strip version suffix for git URL
+            val repoPath = stripGoVersionSuffix(project.module)
+            val cloneUrl = "https://${repoPath}.git"
+
             val clone = ProcessBuilder(
-                "git", "clone", "--depth", "1", "https://${project.module}.git", dir.toString()
+                "git", "clone", "--depth", "1", cloneUrl, dir.toString()
             )
                 .redirectErrorStream(true)
                 .start()
             val output = clone.inputStream.readAllBytes().decodeToString()
-            val ok = clone.waitFor(120, TimeUnit.SECONDS)
+            val ok = clone.waitFor(180, TimeUnit.SECONDS)
             check(ok && clone.exitValue() == 0) {
-                "Failed to clone ${project.module}:\n$output"
+                "Failed to clone ${project.module} (url=$cloneUrl):\n$output"
             }
         }
 
         // Checkout the pinned commit (if not shallow or already at that commit)
         if (project.commitHash.isNotEmpty()) {
-            // Try fetch and checkout; if shallow clone, just use HEAD
             try {
                 val fetch = ProcessBuilder("git", "fetch", "--depth", "1", "origin", project.commitHash)
                     .directory(dir.toFile())

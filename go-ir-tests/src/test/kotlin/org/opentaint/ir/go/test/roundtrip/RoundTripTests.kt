@@ -1,6 +1,5 @@
 package org.opentaint.ir.go.test.roundtrip
 
-import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.DynamicTest
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.TestFactory
@@ -41,9 +40,6 @@ func b_classify(x int) int {
 func b_divide(a, b int) int { if b == 0 { return 0 }; return a / b }""",
                 "fmt.Println(b_divide(10,3)); fmt.Println(b_divide(10,0)); fmt.Println(b_divide(100,5)); fmt.Println(b_divide(-15,3))"),
         )
-        val result = BatchRoundTripRunner.runBatch(cases, builder)
-        return cases.map { c -> DynamicTest.dynamicTest(c.name) {
-            assertThat(result.reconstructedOutputs[c.name]).isEqualTo(result.originalOutputs[c.name])
-        }}
+        return BatchRoundTripRunner.runBatchAndCreateTests(cases, builder)
     }
 }

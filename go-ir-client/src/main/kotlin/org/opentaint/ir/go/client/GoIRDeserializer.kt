@@ -27,6 +27,10 @@ class GoIRDeserializer {
     private val errors = mutableListOf<String>()
     private var stubPackage: GoIRPackageImpl? = null
 
+    /** Time reported by the Go server for SSA build + serialization (ms). */
+    var serverBuildTimeMs: Long = 0L
+        private set
+
     private fun getOrCreateStubPackage(): GoIRPackageImpl {
         return stubPackage ?: GoIRPackageImpl(
             importPath = "_external_stubs_",
@@ -44,7 +48,8 @@ class GoIRDeserializer {
                 BuildProgramResponse.PayloadCase.FUNCTION_BODY ->
                     deserializeFunctionBody(response.functionBody)
                 BuildProgramResponse.PayloadCase.SUMMARY -> {
-                    // Summary is the last message — nothing to do
+                    val summary = response.summary
+                    serverBuildTimeMs = summary.buildTimeMs
                 }
                 BuildProgramResponse.PayloadCase.ERROR -> {
                     val err = response.error

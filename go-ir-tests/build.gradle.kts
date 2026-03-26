@@ -25,9 +25,13 @@ tasks.withType<Test>().configureEach {
     systemProperty("junit.jupiter.execution.parallel.mode.default", "same_thread")
     systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "concurrent")
     maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(2)
-    // Show test output for debugging
+    // Show test output for debugging (started/passed/failed/skipped)
     testLogging {
-        events("passed", "skipped", "failed")
+        events("started", "passed", "skipped", "failed")
+        showStandardStreams = false
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
     }
 }
 
@@ -43,13 +47,18 @@ tasks.register<Test>("benchmarkTest") {
     testClassesDirs = testSourceSet.output.classesDirs
     classpath = testSourceSet.runtimeClasspath
     useJUnitPlatform { includeTags("benchmark") }
-    timeout.set(Duration.ofMinutes(30))
+    timeout.set(Duration.ofMinutes(60))
+    // Larger heap for real-world projects (some produce 100k+ functions)
+    jvmArgs("-Xmx8g", "-Xms1g")
+    // Run sequentially — one project at a time to avoid OOM
+    maxParallelForks = 1
 }
 
 tasks.register<Test>("roundtripTest") {
     testClassesDirs = testSourceSet.output.classesDirs
     classpath = testSourceSet.runtimeClasspath
     useJUnitPlatform { includeTags("roundtrip") }
+    jvmArgs("-Xmx4g")
     timeout.set(Duration.ofMinutes(30))
 }
 
