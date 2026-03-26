@@ -1,0 +1,206 @@
+name: 'OpenTaint + ZAP Security Scan'
+description: 'Run OpenTaint SAST analysis and ZAP dynamic testing with automatic vulnerability confirmation'
+
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  mode:
+    description: 'Scan mode: "full" (for single branch) or "differential" (for pr)'
+    required: false
+    default: 'full'
+  template:
+    description: 'Path to ZAP automation template YAML file'
+    required: false
+    default: 'template.yaml'
+  target:
+    description: 'Target URL for ZAP dynamic scan'
+    required: true
+  context-name:
+    description: 'Context name to use from template (default is first context)'
+    required: false
+  artifact-name:
+    description: 'Name of the uploaded artifact'
+    required: false
+    default: 'opentaint-zap-scan-results'
+  upload-sarif:
+    description: 'Upload confirmed SARIF to GitHub Security alerts'
+    required: false
+    default: 'true'
+
+  # OpenTaint-specific inputs
+  project-root:
+    description: 'Relative path under $GITHUB_WORKSPACE to the root of the analyzed project'
+    required: false
+    default: '.'
+  opentaint-version:
+    description: 'OpenTaint version selector: latest, v<major>, v<major>.<minor>, or exact v<major>.<minor>.<patch>'
+    required: false
+    default: 'v0'
+  rules-path:
+    description: 'Paths to custom OpenTaint rules directories (comma-separated)'
+    required: false
+    default: ''
+  opentaint-timeout:
+    description: 'OpenTaint scan timeout'
+    required: false
+    default: '15m'
+
+  # ZAP-specific inputs
+  zap-docker-image:
+    description: 'The Docker image to be used for ZAP'
+    required: false
+    default: 'ghcr.io/zaproxy/zaproxy:stable'
+  zap-docker-env-vars:
+    description: 'The env vars that should be passed to the Docker container running ZAP'
+    required: false
+    default: ''
+  zap-cmd-options:
+    description: 'Additional command line options to start ZAP with'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@v7
+
+    - name: Create scan results directory
+      shell: bash
+      run: |
+        mkdir -p scan-results/base
+        mkdir -p scan-results/current
+        mkdir -p zap-output
+        chmod 777 zap-output
+
+    - name: Run OpenTaint scan (current branch)
+      uses: seqra/opentaint/github@github/v0
+      with:
+        project-root: ${{ inputs.project-root }}
+        upload-sarif: 'false'
+        artifact-name: 'opentaint-sarif-current'
+        opentaint-version: ${{ inputs.opentaint-version }}
+        rules-path: ${{ inputs.rules-path }}
+        timeout: ${{ inputs.opentaint-timeout }}
+        verbosity: 'info'
+        severity: 'warning,error'
+
+    - name: Download OpenTaint SARIF artifact (current)
+      uses: actions/download-artifact@v4
+      with:
+        name: 'opentaint-sarif-current'
+        path: scan-results/current
+
+    - name: Checkout base branch
+      if: inputs.mode == 'differential'
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.base_ref }}
+        path: base-branch-checkout
+
+    - name: Run OpenTaint scan (base branch)
+      if: inputs.mode == 'differential'
+      uses: seqra/opentaint/github@github/v0
+      with:
+        project-root: base-branch-checkout/${{ inputs.project-root }}
+        upload-sarif: 'false'
+        artifact-name: 'opentaint-sarif-base'
+        opentaint-version: ${{ inputs.opentaint-version }}
+        rules-path: ${{ inputs.rules-path }}
+        timeout: ${{ inputs.opentaint-timeout }}
+        verbosity: 'info'
+        severity: 'warning,error'
+
+    - name: Download OpenTaint SARIF artifact (base)
+      if: inputs.mode == 'differential'
+      uses: actions/download-artifact@v4
+      with:
+        name: 'opentaint-sarif-base'
+        path: scan-results/base
+
+    - name: Delete temporary OpenTaint artifacts
+      uses: geekyeggo/delete-artifact@v5
+      with:
+        name: |
+          opentaint-sarif-current
+          opentaint-sarif-base
+        failOnError: false
+
+    - name: Install python dependencies
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        uv sync
+
+    - name: Generate ZAP automation configuration
+      shell: bash
+      run: |
+        BASE_SARIF_ARG=""
+        if [ "${{ inputs.mode }}" = "differential" ]; then
+          BASE_SARIF_ARG="--base-sarif ${{ github.workspace }}/scan-results/base/opentaint.sarif"
+        fi
+        
+        CONTEXT_ARG=""
+        if [ -n "${{ inputs.context-name }}" ]; then
+          CONTEXT_ARG="--context-name ${{ inputs.context-name }}"
+        fi
+        
+        cd ${{ github.action_path }}
+        uv run python gen_auto.py \
+          --sarif ${{ github.workspace }}/scan-results/current/opentaint.sarif \
+          $BASE_SARIF_ARG \
+          --template ${{ github.workspace }}/${{ inputs.template }} \
+          --target ${{ inputs.target }} \
+          --output ${{ github.workspace }}/scan-results/zap-automation.yaml \
+          $CONTEXT_ARG
+
+    - name: Run ZAP automated scan
+      uses: zaproxy/action-af@v0.2.0
+      with:
+        plan: 'scan-results/zap-automation.yaml'
+        docker_name: ${{ inputs.zap-docker-image }}
+        docker_env_vars: ${{ inputs.zap-docker-env-vars }}
+        cmd_options: ${{ inputs.zap-cmd-options }}
+
+    - name: Filter SARIF by confirmed vulnerabilities
+      id: filter-sarif
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}
+        uv run python filter_sarif.py \
+          --sarif ${{ github.workspace }}/scan-results/current/opentaint.sarif \
+          --report ${{ github.workspace }}/zap-output/opentaint_zap_scan_results.json \
+          --output ${{ github.workspace }}/scan-results/validated.sarif \
+          --verbose
+
+    - name: Upload SARIF to GitHub Security
+      if: inputs.upload-sarif == 'true'
+      uses: github/codeql-action/upload-sarif@v4
+      with:
+        sarif_file: scan-results/validated.sarif
+        category: opentaint-zap-scan
+
+    - name: Prepare artifact files
+      if: always()
+      shell: bash
+      run: |
+        mkdir -p artifact-upload
+        
+        if [ "${{ inputs.mode }}" = "differential" ]; then
+          cp scan-results/current/filtered-opentaint.sarif artifact-upload/opentaint.sarif 2>/dev/null || true
+        else
+          cp scan-results/current/opentaint.sarif artifact-upload/opentaint.sarif 2>/dev/null || true
+        fi
+        cp scan-results/validated.sarif artifact-upload/ 2>/dev/null || true
+        cp scan-results/zap-automation.yaml artifact-upload/ || true
+        cp -r zap-output/* artifact-upload/ 2>/dev/null || true
+
+    - name: Upload scan results artifact
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: ${{ inputs.artifact-name }}
+        path: artifact-upload/
+        retention-days: 30

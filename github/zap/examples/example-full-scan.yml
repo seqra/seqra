@@ -1,0 +1,69 @@
+name: OpenTaint + ZAP Security Scan (Full Mode)
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Build application
+        run: ./gradlew build -x test
+
+      - name: Start Spring Boot application
+        run: |
+          ./gradlew bootRun > app.log 2>&1 &
+          echo $! > app.pid
+          
+          # Wait for application to be ready
+          echo "Waiting for application to start..."
+          for i in {1..30}; do
+            if curl -s http://localhost:8081/v3/api-docs > /dev/null; then
+              echo "Application is ready!"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+          
+          if ! curl -s http://localhost:8081/v3/api-docs > /dev/null; then
+            echo "Application failed to start"
+            cat app.log
+            exit 1
+          fi
+
+      - name: Run OpenTaint + ZAP security scan
+        uses: seqra/opentaint/github/zap@v0
+        with:
+          mode: 'full'
+          template: 'template.yaml'
+          target: 'http://localhost:8081'
+          artifact-name: 'opentaint-zap-scan-results'
+          upload-sarif: 'true'
+          zap-cmd-options: '-addonupdate -addoninstall ascanrulesBeta -addoninstall pscanrulesBeta'
+
+      - name: Stop application
+        if: always()
+        run: |
+          if [ -f app.pid ]; then
+            kill $(cat app.pid) || true
+            rm app.pid
+          fi
