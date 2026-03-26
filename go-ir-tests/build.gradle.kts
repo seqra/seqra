@@ -81,65 +81,84 @@ val benchmarkCacheDir = project.findProperty("goir.benchmark.cache")?.toString()
 
 tasks.register("downloadBenchmarks") {
     group = "verification"
-    description = "Pre-download all benchmark Go projects for offline testing"
+    description = "Pre-download all benchmark Go projects at pinned commits for offline testing"
 
-    val modules = listOf(
-        "github.com/sirupsen/logrus",
-        "github.com/spf13/cobra",
-        "github.com/gorilla/websocket",
-        "github.com/samber/lo",
-        "github.com/uber-go/zap",
-        "github.com/stretchr/testify",
-        "github.com/spf13/viper",
-        "github.com/go-playground/validator/v10",
-        "github.com/golang-migrate/migrate/v4",
-        "github.com/gin-gonic/gin",
-        "github.com/gofiber/fiber/v2",
-        "github.com/go-kit/kit",
-        "github.com/redis/go-redis/v9",
-        "github.com/jackc/pgx/v5",
-        "github.com/hashicorp/consul",
-        "github.com/prometheus/prometheus",
-        "github.com/etcd-io/etcd",
-        "github.com/docker/cli",
-        "github.com/kubernetes/client-go",
-        "github.com/caddyserver/caddy/v2",
+    // module -> commitHash (pinned for reproducibility)
+    val projects = mapOf(
+        "github.com/sirupsen/logrus" to "9f0600962f750e07df31280b76cfe3fcebda5fdf",
+        "github.com/spf13/cobra" to "61968e893eee2f27696c2fbc8e34fa5c4afaf7c4",
+        "github.com/gorilla/websocket" to "e064f32e3674d9d79a8fd417b5bc06fa5c6cad8f",
+        "github.com/samber/lo" to "a17e3ac882581ddf4503a27762b355b7c7961eb2",
+        "github.com/uber-go/zap" to "0ab0d5aae5986395e2ca497385d977ccd7cdfc5e",
+        "github.com/stretchr/testify" to "5f80e4aef7bee125b7e9c0b620edf25f6fc93350",
+        "github.com/spf13/viper" to "528f7416c4b56a4948673984b190bf8713f0c3c4",
+        "github.com/go-playground/validator/v10" to "b9f1d79d745213827cf712628dfe29211507b011",
+        "github.com/golang-migrate/migrate/v4" to "2bd822b3aad4e86f3028324a5b754fc6b4ea54a1",
+        "github.com/gin-gonic/gin" to "d3ffc9985281dcf4d3bef604cce4e662b1a327a6",
+        "github.com/gofiber/fiber/v2" to "fb4206c367d60cd68807cdcd57cd5b5d012779cb",
+        "github.com/go-kit/kit" to "78fbbceece7bbcf073bee814a7772f4397ea756c",
+        "github.com/redis/go-redis/v9" to "f37dbd0bc1c4756f6a45298c6c888920b5139593",
+        "github.com/jackc/pgx/v5" to "4e4eaedb47b7b3cfba0a1b0a9e6a3f015764f046",
+        "github.com/hashicorp/consul" to "09e1f7ca476842857d4b4f091506441b1e31ec68",
+        "github.com/prometheus/prometheus" to "729cde895370e11428cb1cbf52f4a71406b7c530",
+        "github.com/etcd-io/etcd" to "8dfd8288b27ec0d841ad0356f9fdc767bd86d2c2",
+        "github.com/docker/cli" to "9637f1b3648f835005b71c9e11a10dc980f8e47b",
+        "github.com/kubernetes/client-go" to "b5cc94ef3b2fa553a6b69d6c7c6fc8e5c90c02ce",
+        "github.com/caddyserver/caddy/v2" to "e98ed6232d65790d27bacd13fb49fa5474b9ec93",
     )
 
     doLast {
         val cacheDir = file(benchmarkCacheDir)
         cacheDir.mkdirs()
-        println("Downloading ${modules.size} benchmark projects to: $cacheDir")
+        println("Downloading ${projects.size} benchmark projects to: $cacheDir")
 
-        for (module in modules) {
+        for ((module, commitHash) in projects) {
             val dirName = module.replace("/", "_")
             val targetDir = cacheDir.resolve(dirName)
             if (targetDir.exists()) {
-                println("  CACHED: $module -> $targetDir")
+                println("  CACHED: $module @ ${commitHash.take(8)} -> $targetDir")
                 continue
             }
             // Strip Go version suffix (e.g. /v2, /v10) for git URL
             val repoPath = module.replace(Regex("/v\\d+$"), "")
             val cloneUrl = "https://$repoPath.git"
-            println("  CLONE:  $module ($cloneUrl) -> $targetDir")
-            val proc = ProcessBuilder("git", "clone", "--depth", "1", cloneUrl, targetDir.absolutePath)
+            println("  CLONE:  $module @ ${commitHash.take(8)} -> $targetDir")
+            // Clone then checkout pinned commit
+            val clone = ProcessBuilder("git", "clone", "--depth", "1", cloneUrl, targetDir.absolutePath)
                 .redirectErrorStream(true)
                 .start()
-            val output = proc.inputStream.readAllBytes().decodeToString()
-            val ok = proc.waitFor(180, TimeUnit.SECONDS)
-            if (!ok || proc.exitValue() != 0) {
-                println("    FAILED: $output")
+            val cloneOutput = clone.inputStream.readAllBytes().decodeToString()
+            val cloneOk = clone.waitFor(180, TimeUnit.SECONDS)
+            if (!cloneOk || clone.exitValue() != 0) {
+                println("    CLONE FAILED: $cloneOutput")
                 targetDir.deleteRecursively()
-            } else {
-                println("    OK")
+                continue
             }
+            // Fetch and checkout the pinned commit
+            if (commitHash.isNotEmpty()) {
+                val fetch = ProcessBuilder("git", "fetch", "--depth", "1", "origin", commitHash)
+                    .directory(targetDir)
+                    .redirectErrorStream(true)
+                    .start()
+                fetch.inputStream.readAllBytes() // drain
+                fetch.waitFor(60, TimeUnit.SECONDS)
+
+                val checkout = ProcessBuilder("git", "checkout", commitHash)
+                    .directory(targetDir)
+                    .redirectErrorStream(true)
+                    .start()
+                checkout.inputStream.readAllBytes() // drain
+                checkout.waitFor(30, TimeUnit.SECONDS)
+            }
+            println("    OK")
         }
         println("Done. Set GOIR_BENCHMARK_CACHE=$cacheDir to use in tests.")
     }
 }
 
-// Pass cache dir to benchmark tests via system property + env
+// benchmarkTest depends on downloadBenchmarks — projects must be pre-downloaded
 tasks.named<Test>("benchmarkTest") {
+    dependsOn("downloadBenchmarks")
     systemProperty("goir.benchmark.cache", benchmarkCacheDir)
     environment("GOIR_BENCHMARK_CACHE", benchmarkCacheDir)
 }
