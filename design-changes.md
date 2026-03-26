@@ -161,3 +161,19 @@ This document tracks deviations from the original design (in go-ir-impl/*.md) th
 **Problem**: Gradle 9.x Kotlin plugin uses `compilerOptions { jvmTarget.set(...) }` API instead.
 
 **Fix**: Updated all build scripts to use the new `compilerOptions` API.
+
+## 20. GoExpr/Assign refactoring — instructions no longer implement GoIRValue
+
+**Original design**: Value-producing instructions (GoIRAlloc, GoIRBinOp, GoIRCall, etc.) implemented both `GoIRInst` and `GoIRValue` (via `GoIRValueInst`). Other instructions referenced these instruction objects directly as operands.
+
+**Problem**: Instructions-as-values creates a confusing dual identity and prevents clean separation between computation and storage. Referencing instruction objects as operands creates tight coupling.
+
+**Fix**: Introduced a three-layer model:
+- `GoIRRegister(type, name)` — an SSA register (implements GoIRValue), the indirection layer between instructions
+- `GoIRDefInst` — sealed interface for value-defining instructions, with a `register: GoIRRegister` field
+  - `GoIRAssignInst(register, expr: GoIRExpr)` — wraps 24 expression types
+  - `GoIRPhi(register, edges)` — phi instruction (kept separate, not an expression)
+  - `GoIRCall(register, callInfo)` — call instruction (kept separate, not an expression)
+- `GoIRExpr` — sealed interface with 24 expression data classes (computation only, no instruction metadata)
+- `GoIRValueInst` removed entirely; `GoIRInstVisitor` reduced from 37 to 14 methods
+- Operands reference `GoIRRegister` objects, never instruction objects

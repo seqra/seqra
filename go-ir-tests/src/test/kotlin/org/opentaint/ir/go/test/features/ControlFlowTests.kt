@@ -4,7 +4,9 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.opentaint.ir.go.ext.findFunctionByName
+import org.opentaint.ir.go.ext.findExpressions
 import org.opentaint.ir.go.ext.findInstructions
+import org.opentaint.ir.go.expr.*
 import org.opentaint.ir.go.inst.*
 import org.opentaint.ir.go.test.GoIRSanityChecker
 import org.opentaint.ir.go.test.GoIRTestBuilder
@@ -90,9 +92,9 @@ class ControlFlowTests {
         val fn = prog.findFunctionByName("sumSlice")!!
 
         // Range loop generates Range instruction
-        val ranges = fn.findInstructions<GoIRRange>()
+        val ranges = fn.findExpressions<GoIRRangeExpr>()
         // go-ssa may or may not use Range depending on lowering, but Next should appear
-        val nexts = fn.findInstructions<GoIRNext>()
+        val nexts = fn.findExpressions<GoIRNextExpr>()
         // At least some loop control flow should exist
         val phis = fn.findInstructions<GoIRPhi>()
         assertThat(phis.size + ranges.size + nexts.size).isGreaterThan(0)

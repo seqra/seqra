@@ -1,7 +1,5 @@
 package org.opentaint.ir.go.value
 
-import org.opentaint.ir.go.inst.GoIRValueInst
-
 interface GoIRValueVisitor<out T> {
     fun visitConst(value: GoIRConstValue): T
     fun visitParameter(value: GoIRParameterValue): T
@@ -9,7 +7,7 @@ interface GoIRValueVisitor<out T> {
     fun visitGlobal(value: GoIRGlobalValue): T
     fun visitFunction(value: GoIRFunctionValue): T
     fun visitBuiltin(value: GoIRBuiltinValue): T
-    fun visitValueInst(value: GoIRValueInst): T
+    fun visitRegister(value: GoIRRegister): T
 
     interface Default<out T> : GoIRValueVisitor<T> {
         fun defaultVisitValue(value: GoIRValue): T
@@ -20,6 +18,6 @@ interface GoIRValueVisitor<out T> {
         override fun visitGlobal(value: GoIRGlobalValue) = defaultVisitValue(value)
         override fun visitFunction(value: GoIRFunctionValue) = defaultVisitValue(value)
         override fun visitBuiltin(value: GoIRBuiltinValue) = defaultVisitValue(value)
-        override fun visitValueInst(value: GoIRValueInst) = defaultVisitValue(value)
+        override fun visitRegister(value: GoIRRegister) = defaultVisitValue(value)
     }
 }

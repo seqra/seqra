@@ -4,8 +4,8 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.opentaint.ir.go.ext.findFunctionByName
-import org.opentaint.ir.go.ext.findInstructions
-import org.opentaint.ir.go.inst.*
+import org.opentaint.ir.go.ext.findExpressions
+import org.opentaint.ir.go.expr.*
 import org.opentaint.ir.go.test.GoIRSanityChecker
 import org.opentaint.ir.go.test.GoIRTestBuilder
 import org.opentaint.ir.go.test.GoIRTestExtension
@@ -24,7 +24,7 @@ class TypeConversionTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("toFloat")!!
-        val converts = fn.findInstructions<GoIRConvert>()
+        val converts = fn.findExpressions<GoIRConvertExpr>()
         assertThat(converts).hasSize(1)
 
         GoIRSanityChecker.check(prog).assertNoErrors()
@@ -38,7 +38,7 @@ class TypeConversionTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("toBytes")!!
-        val converts = fn.findInstructions<GoIRConvert>()
+        val converts = fn.findExpressions<GoIRConvertExpr>()
         assertThat(converts).hasSize(1)
 
         GoIRSanityChecker.check(prog).assertNoErrors()
@@ -55,7 +55,7 @@ class TypeConversionTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("box")!!
-        val makeIfaces = fn.findInstructions<GoIRMakeInterface>()
+        val makeIfaces = fn.findExpressions<GoIRMakeInterfaceExpr>()
         assertThat(makeIfaces).hasSize(1)
 
         GoIRSanityChecker.check(prog).assertNoErrors()
@@ -72,7 +72,7 @@ class TypeConversionTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("unbox")!!
-        val asserts = fn.findInstructions<GoIRTypeAssert>()
+        val asserts = fn.findExpressions<GoIRTypeAssertExpr>()
         assertThat(asserts).hasSize(1)
         assertThat(asserts[0].commaOk).isFalse()
 
@@ -93,7 +93,7 @@ class TypeConversionTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("tryUnbox")!!
-        val asserts = fn.findInstructions<GoIRTypeAssert>()
+        val asserts = fn.findExpressions<GoIRTypeAssertExpr>()
         assertThat(asserts).hasSize(1)
         assertThat(asserts[0].commaOk).isTrue()
 
@@ -112,8 +112,8 @@ class TypeConversionTests {
         val fn = prog.findFunctionByName("convert")!!
         assertThat(fn.hasBody).isTrue()
         // Either Convert or ChangeType depending on go-ssa analysis
-        val converts = fn.findInstructions<GoIRConvert>()
-        val changes = fn.findInstructions<GoIRChangeType>()
+        val converts = fn.findExpressions<GoIRConvertExpr>()
+        val changes = fn.findExpressions<GoIRChangeTypeExpr>()
         assertThat(converts.size + changes.size).isGreaterThan(0)
 
         GoIRSanityChecker.check(prog).assertNoErrors()

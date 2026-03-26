@@ -4,6 +4,7 @@ import org.opentaint.ir.go.api.*
 import org.opentaint.ir.go.cfg.GoIRBasicBlock
 import org.opentaint.ir.go.cfg.GoIRCallInfo
 import org.opentaint.ir.go.cfg.GoIRSelectState
+import org.opentaint.ir.go.expr.*
 import org.opentaint.ir.go.impl.*
 import org.opentaint.ir.go.inst.*
 import org.opentaint.ir.go.proto.*
@@ -264,11 +265,6 @@ class GoIRDeserializer {
         }
 
         // Build value map for this function's body using a two-pass approach.
-        // First, create placeholder entries for ALL value-producing instructions
-        // so that forward references (e.g., phi edges referencing later blocks) resolve.
-        val valueMap = mutableMapOf<Int, GoIRValue>()
-
-        // Second pass: deserialize instructions (value refs may be forward or backward)
         // We use a LazyValueMap that provides placeholders for forward references.
         val lazyValueMap = LazyValueMap()
 
@@ -279,8 +275,9 @@ class GoIRDeserializer {
             for (pi in pb.instructionsList) {
                 val inst = deserializeInstruction(pi, block, fn, lazyValueMap)
                 instructions.add(inst)
-                if (pi.valueId > 0 && inst is GoIRValueInst) {
-                    lazyValueMap.register(pi.valueId, inst)
+                // Register the GoIRRegister (not the instruction!) in the value map
+                if (pi.valueId > 0 && inst is GoIRDefInst) {
+                    lazyValueMap.register(pi.valueId, inst.register)
                 }
             }
 
@@ -317,129 +314,126 @@ class GoIRDeserializer {
         val idx = pi.index
 
         fun ref(vr: ProtoValueRef): GoIRValue = valueRefFromProto(vr, fn, valueMap)
-        fun optRef(vr: ProtoValueRef?): GoIRValue? = vr?.let { ref(it) }
         fun type(id: Int): GoIRType = resolveType(id)
 
+        // Helper to create a register + assign instruction for expression-based instructions
+        fun assign(expr: GoIRExpr): GoIRAssignInst {
+            val reg = GoIRRegister(type(pi.typeId), pi.name)
+            return GoIRAssignInst(idx, block, pos, reg, expr)
+        }
+
         return when (pi.instCase) {
-            ProtoInstruction.InstCase.ALLOC -> GoIRAlloc(
-                idx, block, pos, type(pi.alloc.allocTypeId), pi.alloc.heap,
-                pi.alloc.comment.ifEmpty { null }, type(pi.typeId), pi.name
+            // ─── Expression-based (wrapped in GoIRAssignInst) ───
+            ProtoInstruction.InstCase.ALLOC -> assign(
+                GoIRAllocExpr(type(pi.alloc.allocTypeId), pi.alloc.heap, pi.alloc.comment.ifEmpty { null })
             )
-            ProtoInstruction.InstCase.PHI -> GoIRPhi(
-                idx, block, pos, pi.phi.edgesList.map { ref(it) },
-                pi.phi.comment.ifEmpty { null }, type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.BIN_OP -> assign(
+                GoIRBinOpExpr(binOpFromProto(pi.binOp.op), ref(pi.binOp.x), ref(pi.binOp.y))
             )
-            ProtoInstruction.InstCase.BIN_OP -> GoIRBinOp(
-                idx, block, pos, binOpFromProto(pi.binOp.op),
-                ref(pi.binOp.x), ref(pi.binOp.y), type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.UN_OP -> assign(
+                GoIRUnOpExpr(unOpFromProto(pi.unOp.op), ref(pi.unOp.x), pi.unOp.commaOk)
             )
-            ProtoInstruction.InstCase.UN_OP -> GoIRUnOp(
-                idx, block, pos, unOpFromProto(pi.unOp.op),
-                ref(pi.unOp.x), pi.unOp.commaOk, type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.CHANGE_TYPE -> assign(
+                GoIRChangeTypeExpr(ref(pi.changeType.x))
             )
-            ProtoInstruction.InstCase.CALL -> GoIRCall(
-                idx, block, pos, callInfoFromProto(pi.call.call, fn, valueMap),
-                type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.CONVERT -> assign(
+                GoIRConvertExpr(ref(pi.convert.x))
             )
-            ProtoInstruction.InstCase.CHANGE_TYPE -> GoIRChangeType(
-                idx, block, pos, ref(pi.changeType.x), type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.MULTI_CONVERT -> assign(
+                GoIRMultiConvertExpr(ref(pi.multiConvert.x), type(pi.multiConvert.fromTypeId), type(pi.multiConvert.toTypeId))
             )
-            ProtoInstruction.InstCase.CONVERT -> GoIRConvert(
-                idx, block, pos, ref(pi.convert.x), type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.CHANGE_INTERFACE -> assign(
+                GoIRChangeInterfaceExpr(ref(pi.changeInterface.x))
             )
-            ProtoInstruction.InstCase.MULTI_CONVERT -> GoIRMultiConvert(
-                idx, block, pos, ref(pi.multiConvert.x),
-                type(pi.multiConvert.fromTypeId), type(pi.multiConvert.toTypeId),
-                type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.SLICE_TO_ARRAY_POINTER -> assign(
+                GoIRSliceToArrayPointerExpr(ref(pi.sliceToArrayPointer.x))
             )
-            ProtoInstruction.InstCase.CHANGE_INTERFACE -> GoIRChangeInterface(
-                idx, block, pos, ref(pi.changeInterface.x), type(pi.typeId), pi.name
-            )
-            ProtoInstruction.InstCase.SLICE_TO_ARRAY_POINTER -> GoIRSliceToArrayPointer(
-                idx, block, pos, ref(pi.sliceToArrayPointer.x), type(pi.typeId), pi.name
-            )
-            ProtoInstruction.InstCase.MAKE_INTERFACE -> GoIRMakeInterface(
-                idx, block, pos, ref(pi.makeInterface.x), type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.MAKE_INTERFACE -> assign(
+                GoIRMakeInterfaceExpr(ref(pi.makeInterface.x))
             )
             ProtoInstruction.InstCase.MAKE_CLOSURE -> {
                 val closureFn = functionsById[pi.makeClosure.fnId]
                     ?: error("Unknown function ID: ${pi.makeClosure.fnId} in MakeClosure within ${fn.fullName}")
-                GoIRMakeClosure(
-                    idx, block, pos, closureFn,
-                    pi.makeClosure.bindingsList.map { ref(it) }, type(pi.typeId), pi.name
-                )
+                assign(GoIRMakeClosureExpr(closureFn, pi.makeClosure.bindingsList.map { ref(it) }))
             }
-            ProtoInstruction.InstCase.MAKE_MAP -> GoIRMakeMap(
-                idx, block, pos,
-                if (pi.makeMap.hasReserve) ref(pi.makeMap.reserve) else null,
-                type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.MAKE_MAP -> assign(
+                GoIRMakeMapExpr(if (pi.makeMap.hasReserve) ref(pi.makeMap.reserve) else null)
             )
-            ProtoInstruction.InstCase.MAKE_CHAN -> GoIRMakeChan(
-                idx, block, pos, ref(pi.makeChan.size), type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.MAKE_CHAN -> assign(
+                GoIRMakeChanExpr(ref(pi.makeChan.size))
             )
-            ProtoInstruction.InstCase.MAKE_SLICE -> GoIRMakeSlice(
-                idx, block, pos, ref(pi.makeSlice.len), ref(pi.makeSlice.cap),
-                type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.MAKE_SLICE -> assign(
+                GoIRMakeSliceExpr(ref(pi.makeSlice.len), ref(pi.makeSlice.cap))
             )
-            ProtoInstruction.InstCase.FIELD_ADDR -> GoIRFieldAddr(
-                idx, block, pos, ref(pi.fieldAddr.x), pi.fieldAddr.fieldIndex,
-                pi.fieldAddr.fieldName, type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.FIELD_ADDR -> assign(
+                GoIRFieldAddrExpr(ref(pi.fieldAddr.x), pi.fieldAddr.fieldIndex, pi.fieldAddr.fieldName)
             )
-            ProtoInstruction.InstCase.FIELD -> org.opentaint.ir.go.inst.GoIRField(
-                idx, block, pos, ref(pi.field.x), pi.field.fieldIndex,
-                pi.field.fieldName, type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.FIELD -> assign(
+                GoIRFieldExpr(ref(pi.field.x), pi.field.fieldIndex, pi.field.fieldName)
             )
-            ProtoInstruction.InstCase.INDEX_ADDR -> GoIRIndexAddr(
-                idx, block, pos, ref(pi.indexAddr.x), ref(pi.indexAddr.index),
-                type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.INDEX_ADDR -> assign(
+                GoIRIndexAddrExpr(ref(pi.indexAddr.x), ref(pi.indexAddr.index))
             )
-            ProtoInstruction.InstCase.INDEX_INST -> GoIRIndex(
-                idx, block, pos, ref(pi.indexInst.x), ref(pi.indexInst.index),
-                type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.INDEX_INST -> assign(
+                GoIRIndexExpr(ref(pi.indexInst.x), ref(pi.indexInst.index))
             )
-            ProtoInstruction.InstCase.SLICE_INST -> GoIRSlice(
-                idx, block, pos, ref(pi.sliceInst.x),
-                if (pi.sliceInst.hasLow) ref(pi.sliceInst.low) else null,
-                if (pi.sliceInst.hasHigh) ref(pi.sliceInst.high) else null,
-                if (pi.sliceInst.hasMax) ref(pi.sliceInst.max) else null,
-                type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.SLICE_INST -> assign(
+                GoIRSliceExpr(
+                    ref(pi.sliceInst.x),
+                    if (pi.sliceInst.hasLow) ref(pi.sliceInst.low) else null,
+                    if (pi.sliceInst.hasHigh) ref(pi.sliceInst.high) else null,
+                    if (pi.sliceInst.hasMax) ref(pi.sliceInst.max) else null,
+                )
             )
-            ProtoInstruction.InstCase.LOOKUP -> GoIRLookup(
-                idx, block, pos, ref(pi.lookup.x), ref(pi.lookup.index),
-                pi.lookup.commaOk, type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.LOOKUP -> assign(
+                GoIRLookupExpr(ref(pi.lookup.x), ref(pi.lookup.index), pi.lookup.commaOk)
             )
-            ProtoInstruction.InstCase.TYPE_ASSERT -> GoIRTypeAssert(
-                idx, block, pos, ref(pi.typeAssert.x), type(pi.typeAssert.assertedTypeId),
-                pi.typeAssert.commaOk, type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.TYPE_ASSERT -> assign(
+                GoIRTypeAssertExpr(ref(pi.typeAssert.x), type(pi.typeAssert.assertedTypeId), pi.typeAssert.commaOk)
             )
-            ProtoInstruction.InstCase.RANGE_INST -> GoIRRange(
-                idx, block, pos, ref(pi.rangeInst.x), type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.RANGE_INST -> assign(
+                GoIRRangeExpr(ref(pi.rangeInst.x))
             )
-            ProtoInstruction.InstCase.NEXT -> GoIRNext(
-                idx, block, pos, ref(pi.next.iter), pi.next.isString, type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.NEXT -> assign(
+                GoIRNextExpr(ref(pi.next.iter), pi.next.isString)
             )
-            ProtoInstruction.InstCase.SELECT_INST -> GoIRSelect(
-                idx, block, pos,
-                pi.selectInst.statesList.map { st ->
-                    GoIRSelectState(
-                        chanDirFromProto(st.direction), ref(st.chan),
-                        if (st.hasSend) ref(st.send) else null,
-                        positionFromProto(st.position),
-                    )
-                },
-                pi.selectInst.blocking, type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.SELECT_INST -> assign(
+                GoIRSelectExpr(
+                    pi.selectInst.statesList.map { st ->
+                        GoIRSelectState(
+                            chanDirFromProto(st.direction), ref(st.chan),
+                            if (st.hasSend) ref(st.send) else null,
+                            positionFromProto(st.position),
+                        )
+                    },
+                    pi.selectInst.blocking,
+                )
             )
-            ProtoInstruction.InstCase.EXTRACT -> GoIRExtract(
-                idx, block, pos, ref(pi.extract.tuple), pi.extract.extractIndex,
-                type(pi.typeId), pi.name
+            ProtoInstruction.InstCase.EXTRACT -> assign(
+                GoIRExtractExpr(ref(pi.extract.tuple), pi.extract.extractIndex)
             )
-            // Effect-only
+
+            // ─── Phi (separate instruction, not an expression) ───
+            ProtoInstruction.InstCase.PHI -> {
+                val reg = GoIRRegister(type(pi.typeId), pi.name)
+                GoIRPhi(idx, block, pos, reg, pi.phi.edgesList.map { ref(it) }, pi.phi.comment.ifEmpty { null })
+            }
+
+            // ─── Call (separate instruction, not an expression) ───
+            ProtoInstruction.InstCase.CALL -> {
+                val reg = GoIRRegister(type(pi.typeId), pi.name)
+                GoIRCall(idx, block, pos, reg, callInfoFromProto(pi.call.call, fn, valueMap))
+            }
+
+            // ─── Terminators ───
             ProtoInstruction.InstCase.JUMP -> GoIRJump(idx, block, pos)
             ProtoInstruction.InstCase.IF_INST -> GoIRIf(idx, block, pos, ref(pi.ifInst.cond))
             ProtoInstruction.InstCase.RETURN_INST -> GoIRReturn(
                 idx, block, pos, pi.returnInst.resultsList.map { ref(it) }
             )
             ProtoInstruction.InstCase.PANIC_INST -> GoIRPanic(idx, block, pos, ref(pi.panicInst.x))
+
+            // ─── Effect-only ───
             ProtoInstruction.InstCase.STORE -> GoIRStore(
                 idx, block, pos, ref(pi.store.addr), ref(pi.store.`val`)
             )
@@ -707,6 +701,9 @@ internal class GoIRLazyNamedTypeRef(
  * A value map that supports forward references during instruction deserialization.
  * When a value ID is not yet registered, it creates a [ForwardRefValue] placeholder
  * that delegates to the actual value once it's resolved.
+ *
+ * In the new model, registered values are always [GoIRRegister] instances
+ * (not instruction objects).
  */
 internal class LazyValueMap {
     private val resolved = mutableMapOf<Int, GoIRValue>()

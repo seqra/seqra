@@ -4,11 +4,9 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.opentaint.ir.go.ext.findFunctionByName
-import org.opentaint.ir.go.ext.findInstructions
+import org.opentaint.ir.go.ext.findExpressions
 import org.opentaint.ir.go.ext.findNamedTypeByName
-import org.opentaint.ir.go.inst.GoIRChangeInterface
-import org.opentaint.ir.go.inst.GoIRMakeInterface
-import org.opentaint.ir.go.inst.GoIRTypeAssert
+import org.opentaint.ir.go.expr.*
 import org.opentaint.ir.go.test.GoIRSanityChecker
 import org.opentaint.ir.go.test.GoIRTestBuilder
 import org.opentaint.ir.go.test.GoIRTestExtension
@@ -75,7 +73,7 @@ class InterfaceTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("assertDog")!!
-        val asserts = fn.findInstructions<GoIRTypeAssert>()
+        val asserts = fn.findExpressions<GoIRTypeAssertExpr>()
         assertThat(asserts).isNotEmpty()
 
         GoIRSanityChecker.check(prog).assertNoErrors()
@@ -95,7 +93,7 @@ class InterfaceTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("tryCat")!!
-        val asserts = fn.findInstructions<GoIRTypeAssert>()
+        val asserts = fn.findExpressions<GoIRTypeAssertExpr>()
         assertThat(asserts).isNotEmpty()
         assertThat(asserts.any { it.commaOk }).isTrue()
 
@@ -115,7 +113,7 @@ class InterfaceTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("wrap")!!
-        val makeIfaces = fn.findInstructions<GoIRMakeInterface>()
+        val makeIfaces = fn.findExpressions<GoIRMakeInterfaceExpr>()
         assertThat(makeIfaces).isNotEmpty()
 
         GoIRSanityChecker.check(prog).assertNoErrors()

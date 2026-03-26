@@ -3,6 +3,8 @@ package org.opentaint.ir.go.test.features
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.opentaint.ir.go.expr.*
+import org.opentaint.ir.go.ext.findExpressions
 import org.opentaint.ir.go.ext.findFunctionByName
 import org.opentaint.ir.go.ext.findInstructions
 import org.opentaint.ir.go.inst.*
@@ -26,7 +28,7 @@ class CollectionTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("f")!!
-        val makeSlices = fn.findInstructions<GoIRMakeSlice>()
+        val makeSlices = fn.findExpressions<GoIRMakeSliceExpr>()
         assertThat(makeSlices).hasSize(1)
 
         GoIRSanityChecker.check(prog).assertNoErrors()
@@ -41,13 +43,13 @@ class CollectionTests {
         """.trimIndent())
 
         val readFn = prog.findFunctionByName("read")!!
-        val indices = readFn.findInstructions<GoIRIndex>()
+        val indices = readFn.findExpressions<GoIRIndexExpr>()
         // go-ssa may use Index or IndexAddr
-        val indexAddrs = readFn.findInstructions<GoIRIndexAddr>()
+        val indexAddrs = readFn.findExpressions<GoIRIndexAddrExpr>()
         assertThat(indices.size + indexAddrs.size).isGreaterThan(0)
 
         val writeFn = prog.findFunctionByName("write")!!
-        val writeIndexAddrs = writeFn.findInstructions<GoIRIndexAddr>()
+        val writeIndexAddrs = writeFn.findExpressions<GoIRIndexAddrExpr>()
         assertThat(writeIndexAddrs).isNotEmpty()
 
         GoIRSanityChecker.check(prog).assertNoErrors()
@@ -61,7 +63,7 @@ class CollectionTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("subSlice")!!
-        val slices = fn.findInstructions<GoIRSlice>()
+        val slices = fn.findExpressions<GoIRSliceExpr>()
         assertThat(slices).hasSize(1)
 
         GoIRSanityChecker.check(prog).assertNoErrors()
@@ -77,7 +79,7 @@ class CollectionTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("f")!!
-        val makeMaps = fn.findInstructions<GoIRMakeMap>()
+        val makeMaps = fn.findExpressions<GoIRMakeMapExpr>()
         assertThat(makeMaps).hasSize(1)
 
         GoIRSanityChecker.check(prog).assertNoErrors()
@@ -92,7 +94,7 @@ class CollectionTests {
         """.trimIndent())
 
         val getFn = prog.findFunctionByName("get")!!
-        val lookups = getFn.findInstructions<GoIRLookup>()
+        val lookups = getFn.findExpressions<GoIRLookupExpr>()
         assertThat(lookups).hasSize(1)
 
         val setFn = prog.findFunctionByName("set")!!
@@ -113,7 +115,7 @@ class CollectionTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("getOk")!!
-        val lookups = fn.findInstructions<GoIRLookup>()
+        val lookups = fn.findExpressions<GoIRLookupExpr>()
         assertThat(lookups).hasSize(1)
         assertThat(lookups[0].commaOk).isTrue()
 

@@ -1,7 +1,6 @@
 package org.opentaint.ir.go.codegen
 
 import org.opentaint.ir.go.api.GoIRBody
-import org.opentaint.ir.go.cfg.GoIRBasicBlock
 import org.opentaint.ir.go.inst.GoIRPhi
 import org.opentaint.ir.go.value.GoIRValue
 
@@ -57,8 +56,8 @@ object PhiEliminator {
             // Collect phi reads for this block
             val reads = mutableListOf<Pair<String, String>>()
             for (phi in phis) {
-                val tempName = "_phi_${phi.name}"
-                reads.add(phi.name to tempName)
+                val tempName = "_phi_${phi.register.name}"
+                reads.add(phi.register.name to tempName)
             }
             blockPhiReads[block.index] = reads
 
@@ -68,10 +67,10 @@ object PhiEliminator {
                 val assignments = predAssignments.getOrPut(pred.index) { mutableListOf() }
                 for (phi in phis) {
                     if (predIdx < phi.edges.size) {
-                        val tempName = "_phi_${phi.name}"
+                        val tempName = "_phi_${phi.register.name}"
                         assignments.add(
                             PhiAssignment(
-                                phiVarName = phi.name,
+                                phiVarName = phi.register.name,
                                 phiTempName = tempName,
                                 sourceValue = phi.edges[predIdx],
                             )

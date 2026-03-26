@@ -79,8 +79,8 @@ class SSAPropertyTests {
 
         val fn = prog.findFunctionByName("complex")!!
         val body = fn.body!!
-        val names = body.instructions.filterIsInstance<GoIRValueInst>()
-            .map { it.name }
+        val names = body.instructions.filterIsInstance<GoIRDefInst>()
+            .map { it.register.name }
             .filter { it.isNotEmpty() }
 
         // All names should be unique (SSA property)

@@ -120,3 +120,17 @@ All 20 projects pass. Per-test timeout of 5 minutes. Fresh Go server per project
 | 2026-03-26 | Fixed BenchmarkProjectCache Go version suffix stripping | DONE |
 | 2026-03-26 | Per-project server isolation in benchmarks (crash resilience) | DONE |
 | 2026-03-26 | All 20 benchmark projects pass | DONE |
+
+
+## Quality improvement 2.0
+
+### QI2.1 — Add round-trip cases to 500: PENDING
+- [ ] Target: 500 total round-trip tests (currently 302)
+- [ ] Focus on tricky cases: closures, goroutines, channels, select, defer, recover, generics, multi-return, complex types
+- [ ] Use new `RoundTripTestCase.withInputs()` format for all new tests
+
+### QI2.2 — Extend benchmarks to 50 web app projects: PENDING
+- [ ] Add real-world web applications built on Gin, Echo, Fiber, Chi, gorilla/mux
+- [ ] Include e-commerce, REST API, CRUD, microservice examples
+- [ ] Target: 50 total benchmark projects (currently 20)
+- [ ] Use `downloadBenchmarks` Gradle task for pre-caching

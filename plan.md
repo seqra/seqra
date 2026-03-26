@@ -164,3 +164,34 @@
 - [x] Timing instrumentation — `BuildTimings(totalMs, serverBuildMs, deserializeMs)` in client
 - [x] Per-project server isolation in benchmarks — crash in one project doesn't affect others
 - [x] Go version suffix stripping in BenchmarkProjectCache — `/v2`, `/v10` etc. stripped from git URLs
+
+## Improvement 2.0
+
+### I2.1 — GoExpr/Assign refactoring: ✅ DONE
+- [x] Created `GoIRExpr` sealed interface + 24 expression data classes in `go-ir-api/expr/` package
+- [x] Created `GoIRExprVisitor` with 24 visit methods + Default interface
+- [x] Added `GoIRRegister(type, name)` value — SSA register that stores instruction results
+- [x] Added `GoIRDefInst` sealed interface (parent of Assign/Phi/Call) with `register: GoIRRegister`
+- [x] `GoIRAssignInst(register, expr)` wraps 24 expression types
+- [x] `GoIRPhi(register, edges)` and `GoIRCall(register, callInfo)` remain separate instructions
+- [x] Removed 26 old `GoIRValueInst` data classes; instruction visitor reduced from 37 to 14 methods
+- [x] Updated `GoIRDeserializer` — registers GoIRRegister (not instructions) in value map
+- [x] Updated `GoIRToGoCodeGenerator` — uses nested expr visitor inside `visitAssign`
+- [x] Updated `GoIRSanityChecker` — checks register names instead of value inst names
+- [x] Updated `GoIRAnnotationVerifier` — maps expr class names back to old names for compatibility
+- [x] Added `findExpressions<T>()` and `findAssignments<T>()` extension functions
+- [x] Updated all 10 test files for new model
+- [x] All 418 tests pass (96 unit + 302 round-trip + 20 benchmark)
+
+### I2.2 — Readable test inputs: ✅ DONE
+- [x] Added `RoundTripTestCase.withInputs(name, functions, callExpr, inputs, randomRange, extraRandomInputs)`
+- [x] Uses `Random(42)` for deterministic random inputs (10 extra inputs per test by default)
+- [x] Converted `RoundTripArithmeticTests` to use new `withInputs` format (each test now has 13+ inputs)
+- [x] Old `RoundTripTestCase(name, functions, mainBody)` constructor remains for backward compatibility
+
+### I2.3 — Gradle benchmark download task: ✅ DONE
+- [x] Added `downloadBenchmarks` Gradle task: `gradle :go-ir-tests:downloadBenchmarks`
+- [x] Pre-downloads all 20 benchmark projects to `build/benchmark-cache/`
+- [x] Cache dir configurable via `-Pgoir.benchmark.cache=/path` or `GOIR_BENCHMARK_CACHE` env var
+- [x] `benchmarkTest` task automatically passes cache dir to tests via system property + env
+

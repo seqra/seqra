@@ -4,10 +4,10 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.opentaint.ir.go.ext.findFunctionByName
+import org.opentaint.ir.go.ext.findExpressions
 import org.opentaint.ir.go.ext.findInstructions
 import org.opentaint.ir.go.ext.findNamedTypeByName
-import org.opentaint.ir.go.inst.GoIRAlloc
-import org.opentaint.ir.go.inst.GoIRFieldAddr
+import org.opentaint.ir.go.expr.*
 import org.opentaint.ir.go.inst.GoIRStore
 import org.opentaint.ir.go.test.GoIRSanityChecker
 import org.opentaint.ir.go.test.GoIRTestBuilder
@@ -49,7 +49,7 @@ class StructTests {
         val fn = prog.findFunctionByName("getX")!!
         assertThat(fn.hasBody).isTrue()
 
-        val fieldAddrs = fn.findInstructions<GoIRFieldAddr>()
+        val fieldAddrs = fn.findExpressions<GoIRFieldAddrExpr>()
         assertThat(fieldAddrs).isNotEmpty()
         assertThat(fieldAddrs.any { it.fieldName == "X" }).isTrue()
 
@@ -90,7 +90,7 @@ class StructTests {
         assertThat(fn.hasBody).isTrue()
 
         // Should have alloc for the struct
-        val allocs = fn.findInstructions<GoIRAlloc>()
+        val allocs = fn.findExpressions<GoIRAllocExpr>()
         assertThat(allocs).isNotEmpty()
 
         // Should have stores for field values

@@ -5,15 +5,29 @@ import org.opentaint.ir.go.api.GoIRGlobal
 import org.opentaint.ir.go.type.GoIRType
 
 /**
- * Base sealed interface for all IR values.
+ * Base interface for all IR values.
  * A value is anything that can be used as an operand of an instruction.
- * Value-producing instructions also implement this via GoIRValueInst.
  */
 interface GoIRValue {
     val type: GoIRType
     val name: String
 
     fun <T> acceptValue(visitor: GoIRValueVisitor<T>): T
+}
+
+/**
+ * An SSA register — a named, typed storage location that holds the result of a
+ * value-defining instruction (GoIRAssignInst, GoIRPhi, GoIRCall).
+ *
+ * Other instructions reference registers, never instruction objects directly.
+ * Each register is defined by exactly one instruction.
+ */
+data class GoIRRegister(
+    override val type: GoIRType,
+    override val name: String,
+) : GoIRValue {
+    override fun <T> acceptValue(visitor: GoIRValueVisitor<T>): T = visitor.visitRegister(this)
+    override fun toString(): String = name
 }
 
 /** Sealed interface for constant value representations. */

@@ -4,7 +4,9 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.opentaint.ir.go.ext.findFunctionByName
+import org.opentaint.ir.go.ext.findExpressions
 import org.opentaint.ir.go.ext.findInstructions
+import org.opentaint.ir.go.expr.*
 import org.opentaint.ir.go.inst.*
 import org.opentaint.ir.go.test.GoIRSanityChecker
 import org.opentaint.ir.go.test.GoIRTestBuilder
@@ -26,7 +28,7 @@ class ChannelGoroutineTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("makeCh")!!
-        val makeChans = fn.findInstructions<GoIRMakeChan>()
+        val makeChans = fn.findExpressions<GoIRMakeChanExpr>()
         assertThat(makeChans).isNotEmpty()
 
         GoIRSanityChecker.check(prog).assertNoErrors()
@@ -58,7 +60,7 @@ class ChannelGoroutineTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("recvVal")!!
-        val unops = fn.findInstructions<GoIRUnOp>()
+        val unops = fn.findExpressions<GoIRUnOpExpr>()
         val recvs = unops.filter {
             it.op == org.opentaint.ir.go.type.GoIRUnaryOp.ARROW
         }
@@ -117,7 +119,7 @@ class ChannelGoroutineTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("selectCh")!!
-        val selects = fn.findInstructions<GoIRSelect>()
+        val selects = fn.findExpressions<GoIRSelectExpr>()
         assertThat(selects).isNotEmpty()
         assertThat(selects[0].states).hasSizeGreaterThanOrEqualTo(2)
 

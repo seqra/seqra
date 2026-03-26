@@ -10,7 +10,10 @@ import java.util.concurrent.TimeUnit
  */
 object BenchmarkProjectCache {
     private val cacheDir: Path by lazy {
-        val dir = Path.of(System.getProperty("goir.benchmark.cache", "/tmp/goir-benchmark"))
+        // Allow override via env var (set by Gradle downloadBenchmarks task) or system property
+        val envPath = System.getenv("GOIR_BENCHMARK_CACHE")
+        val propPath = System.getProperty("goir.benchmark.cache")
+        val dir = Path.of(envPath ?: propPath ?: "/tmp/goir-benchmark")
         Files.createDirectories(dir)
         dir
     }

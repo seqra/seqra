@@ -4,7 +4,9 @@ import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.opentaint.ir.go.ext.findFunctionByName
+import org.opentaint.ir.go.ext.findExpressions
 import org.opentaint.ir.go.ext.findInstructions
+import org.opentaint.ir.go.expr.*
 import org.opentaint.ir.go.inst.*
 import org.opentaint.ir.go.test.GoIRSanityChecker
 import org.opentaint.ir.go.test.GoIRTestBuilder
@@ -94,7 +96,7 @@ class AdvancedControlFlowTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("fanIn")!!
-        val selects = fn.findInstructions<GoIRSelect>()
+        val selects = fn.findExpressions<GoIRSelectExpr>()
         assertThat(selects).hasSize(1)
         assertThat(selects[0].states).hasSizeGreaterThanOrEqualTo(2)
 
@@ -116,7 +118,7 @@ class AdvancedControlFlowTests {
         """.trimIndent())
 
         val fn = prog.findFunctionByName("tryRecv")!!
-        val selects = fn.findInstructions<GoIRSelect>()
+        val selects = fn.findExpressions<GoIRSelectExpr>()
         assertThat(selects).hasSize(1)
         assertThat(selects[0].isBlocking).isFalse()
 

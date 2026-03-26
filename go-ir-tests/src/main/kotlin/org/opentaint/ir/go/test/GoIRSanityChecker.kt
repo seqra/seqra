@@ -200,21 +200,21 @@ object GoIRSanityChecker {
                 if (phi.edges.size != block.predecessors.size) {
                     errors += SanityViolation(
                         "ssa",
-                        "$fnName: Block ${block.index} Phi '${phi.name}' has ${phi.edges.size} edges but ${block.predecessors.size} predecessors"
+                        "$fnName: Block ${block.index} Phi '${phi.register.name}' has ${phi.edges.size} edges but ${block.predecessors.size} predecessors"
                     )
                 }
             }
         }
 
-        // Check unique value names within a function (SSA property)
+        // Check unique register names within a function (SSA property)
         val valueNames = mutableMapOf<String, Int>()
         for (inst in body.instructions) {
-            if (inst is GoIRValueInst && inst.name.isNotEmpty()) {
-                val prev = valueNames.put(inst.name, inst.index)
+            if (inst is GoIRDefInst && inst.register.name.isNotEmpty()) {
+                val prev = valueNames.put(inst.register.name, inst.index)
                 if (prev != null) {
                     warnings += SanityViolation(
                         "ssa",
-                        "$fnName: Duplicate value name '${inst.name}' at indices $prev and ${inst.index}"
+                        "$fnName: Duplicate register name '${inst.register.name}' at indices $prev and ${inst.index}"
                     )
                 }
             }
@@ -456,7 +456,7 @@ object GoIRSanityChecker {
     /**
      * Verify operand validity:
      * - Operand values should have non-null types
-     * - GoIRValueInst operands that reference other instructions should reference instructions in the same function
+     * - GoIRRegister operands should reference registers defined in this function
      * - GoIRFunctionValue should reference a valid function
      */
     private fun checkOperandValidity(
@@ -465,7 +465,13 @@ object GoIRSanityChecker {
         warnings: MutableList<SanityViolation>,
     ) {
         val fnName = body.function.fullName
-        val validInstIndices = body.instructions.map { it.index }.toSet()
+        // Build set of register names defined in this function
+        val definedRegisters = mutableSetOf<String>()
+        for (inst in body.instructions) {
+            if (inst is GoIRDefInst) {
+                definedRegisters.add(inst.register.name)
+            }
+        }
 
         for (inst in body.instructions) {
             for ((opIdx, operand) in inst.operands.withIndex()) {
@@ -485,12 +491,12 @@ object GoIRSanityChecker {
                     )
                 }
 
-                // If operand is a value instruction, it should be in this function
-                if (operand is GoIRValueInst) {
-                    if (operand.index !in validInstIndices) {
+                // If operand is a register, it should be defined in this function
+                if (operand is GoIRRegister) {
+                    if (operand.name !in definedRegisters) {
                         errors += SanityViolation(
                             "operand",
-                            "$fnName: Inst ${inst.index} operand $opIdx references instruction ${operand.index} which is not in this function"
+                            "$fnName: Inst ${inst.index} operand $opIdx references register '${operand.name}' which is not defined in this function"
                         )
                     }
                 }
