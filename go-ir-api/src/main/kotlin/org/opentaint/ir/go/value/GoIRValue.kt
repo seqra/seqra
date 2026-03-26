@@ -23,7 +23,7 @@ interface GoIRValue {
  * Each register is defined by exactly one instruction.
  */
 data class GoIRRegister(
-    override val type: GoIRType,
+    override var type: GoIRType,
     override val name: String,
 ) : GoIRValue {
     override fun <T> acceptValue(visitor: GoIRValueVisitor<T>): T = visitor.visitRegister(this)

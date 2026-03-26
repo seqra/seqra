@@ -54,7 +54,7 @@ data class GoIRChanType(val elem: GoIRType, val direction: GoIRChanDirection) : 
 
 data class GoIRStructType(
     val fields: List<GoIRStructField>,
-    val namedType: GoIRNamedType?,
+    var namedType: GoIRNamedType?,
 ) : GoIRType {
     override val displayName: String get() =
         namedType?.fullName ?: "struct{${fields.joinToString("; ") { "${it.name} ${it.type.displayName}" }}}"
@@ -70,7 +70,7 @@ data class GoIRStructField(
 data class GoIRInterfaceType(
     val methods: List<GoIRInterfaceMethodSig>,
     val embeds: List<GoIRType>,
-    val namedType: GoIRNamedType?,
+    var namedType: GoIRNamedType?,
 ) : GoIRType {
     override val displayName: String get() =
         namedType?.fullName ?: "interface{...}"
@@ -99,8 +99,8 @@ data class GoIRFuncType(
 }
 
 data class GoIRNamedTypeRef(
-    val namedType: GoIRNamedType,
-    val typeArgs: List<GoIRType>,
+    var namedType: GoIRNamedType,
+    var typeArgs: List<GoIRType>,
 ) : GoIRType {
     override val displayName: String get() =
         if (typeArgs.isEmpty()) namedType.fullName

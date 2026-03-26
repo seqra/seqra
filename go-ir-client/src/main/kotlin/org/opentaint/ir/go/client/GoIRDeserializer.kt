@@ -19,6 +19,9 @@ class GoIRDeserializer {
     // ID resolution maps populated during deserialization
     private val typesById = mutableMapOf<Int, GoIRType>()
     private val lazyNamedTypeRefs = mutableMapOf<Int, GoIRLazyNamedTypeRef>() // type ID -> lazy ref
+    private val registerTypeIds = mutableListOf<Pair<GoIRRegister, Int>>() // register + original typeId for re-resolution
+    private val rawTypeDefinitions = mutableListOf<ProtoTypeDefinition>() // raw proto type defs for re-resolution
+    private val placeholderNamedTypes = mutableMapOf<Int, GoIRNamedTypeImpl>() // namedTypeId -> placeholder
     private val packagesById = mutableMapOf<Int, GoIRPackageImpl>()
     private val functionsById = mutableMapOf<Int, GoIRFunctionImpl>()
     private val namedTypesById = mutableMapOf<Int, GoIRNamedTypeImpl>()
@@ -40,6 +43,7 @@ class GoIRDeserializer {
     }
 
     fun deserialize(responses: Iterator<BuildProgramResponse>): GoIRProgram {
+        val deferredBodies = mutableListOf<ProtoFunctionBody>()
         for (response in responses) {
             when (response.payloadCase) {
                 BuildProgramResponse.PayloadCase.TYPE_DEF ->
@@ -47,7 +51,7 @@ class GoIRDeserializer {
                 BuildProgramResponse.PayloadCase.PACKAGE_DEF ->
                     deserializePackage(response.packageDef)
                 BuildProgramResponse.PayloadCase.FUNCTION_BODY ->
-                    deserializeFunctionBody(response.functionBody)
+                    deferredBodies.add(response.functionBody) // defer until after type resolution
                 BuildProgramResponse.PayloadCase.SUMMARY -> {
                     val summary = response.summary
                     serverBuildTimeMs = summary.buildTimeMs
@@ -63,7 +67,16 @@ class GoIRDeserializer {
             }
         }
 
-        // Resolve cross-references
+        // Resolve named type references — needed before deserializing function bodies
+        // so that types like *MyStruct resolve to the correct named type, not a placeholder.
+        resolveNamedTypeRefs()
+
+        // Now deserialize function bodies with correct types
+        for (fb in deferredBodies) {
+            deserializeFunctionBody(fb)
+        }
+
+        // Resolve remaining cross-references (methods, imports, etc.)
         resolveReferences()
 
         // Build program
@@ -74,6 +87,7 @@ class GoIRDeserializer {
     // ─── Types ──────────────────────────────────────────────────────
 
     private fun deserializeType(td: ProtoTypeDefinition) {
+        rawTypeDefinitions.add(td)
         val type = when (td.typeCase) {
             ProtoTypeDefinition.TypeCase.BASIC ->
                 GoIRBasicType(basicKindFromProto(td.basic.kind))
@@ -113,10 +127,29 @@ class GoIRDeserializer {
                 )
             }
             ProtoTypeDefinition.TypeCase.NAMED_REF -> {
-                // Store as placeholder — will be resolved after named types are loaded
-                lazyNamedTypeRefs[td.id] = GoIRLazyNamedTypeRef(td.namedRef.namedTypeId, td.namedRef.typeArgIdsList.toList())
-                // Use a sentinel that will be replaced during resolution
-                GoIRBasicType(GoIRBasicTypeKind.INT)
+                // Create a placeholder named type that will be filled in during resolution
+                val namedTypeId = td.namedRef.namedTypeId
+                val typeArgIds = td.namedRef.typeArgIdsList.toList()
+                lazyNamedTypeRefs[td.id] = GoIRLazyNamedTypeRef(namedTypeId, typeArgIds)
+                // Check if named type is already available (it might be if sent before)
+                val named = namedTypesById[namedTypeId]
+                if (named != null) {
+                    val typeArgs = typeArgIds.map { resolveType(it) }
+                    GoIRNamedTypeRef(named, typeArgs)
+                } else {
+                    // Create placeholder with a stub named type — will be resolved later
+                    val placeholder = placeholderNamedTypes.getOrPut(namedTypeId) {
+                        GoIRNamedTypeImpl(
+                            name = "?$namedTypeId",
+                            fullName = "?$namedTypeId",
+                            pkg = getOrCreateStubPackage(),
+                            underlying = GoIRBasicType(GoIRBasicTypeKind.INT),
+                            kind = GoIRNamedTypeKind.STRUCT,
+                            position = null,
+                        )
+                    }
+                    GoIRNamedTypeRef(placeholder, emptyList())
+                }
             }
             ProtoTypeDefinition.TypeCase.TYPE_PARAM ->
                 GoIRTypeParamType(td.typeParam.name, td.typeParam.index, resolveType(td.typeParam.constraintTypeId))
@@ -149,6 +182,15 @@ class GoIRDeserializer {
                 position = positionFromProto(nt.position),
             )
             namedTypesById[nt.id] = namedType
+
+            // Link the underlying struct/interface type back to this named type
+            val underlying = namedType.underlying
+            if (underlying is GoIRStructType && underlying.namedType == null) {
+                underlying.namedType = namedType
+            }
+            if (underlying is GoIRInterfaceType && underlying.namedType == null) {
+                underlying.namedType = namedType
+            }
 
             // Fields
             for (fd in nt.fieldsList) {
@@ -319,6 +361,7 @@ class GoIRDeserializer {
         // Helper to create a register + assign instruction for expression-based instructions
         fun assign(expr: GoIRExpr): GoIRAssignInst {
             val reg = GoIRRegister(type(pi.typeId), pi.name)
+            registerTypeIds.add(reg to pi.typeId)
             return GoIRAssignInst(idx, block, pos, reg, expr)
         }
 
@@ -416,12 +459,14 @@ class GoIRDeserializer {
             // ─── Phi (separate instruction, not an expression) ───
             ProtoInstruction.InstCase.PHI -> {
                 val reg = GoIRRegister(type(pi.typeId), pi.name)
+                registerTypeIds.add(reg to pi.typeId)
                 GoIRPhi(idx, block, pos, reg, pi.phi.edgesList.map { ref(it) }, pi.phi.comment.ifEmpty { null })
             }
 
             // ─── Call (separate instruction, not an expression) ───
             ProtoInstruction.InstCase.CALL -> {
                 val reg = GoIRRegister(type(pi.typeId), pi.name)
+                registerTypeIds.add(reg to pi.typeId)
                 GoIRCall(idx, block, pos, reg, callInfoFromProto(pi.call.call, fn, valueMap))
             }
 
@@ -548,13 +593,63 @@ class GoIRDeserializer {
 
     // ─── Reference resolution ───────────────────────────────────────
 
-    private fun resolveReferences() {
-        // Resolve lazy named type refs
+    /**
+     * Phase 1: Resolve named type references.
+     * Called BEFORE function body deserialization so that types are correct.
+     *
+     * During initial type deserialization, NAMED_REF types may reference named types
+     * that haven't been loaded yet (from packages). We create placeholder GoIRNamedTypeRef
+     * objects with stub named types. Now that packages are loaded, we:
+     * 1. Replace placeholders with real named types in existing GoIRNamedTypeRef objects
+     * 2. Re-deserialize all types to rebuild composite types (pointers, slices, etc.)
+     */
+    private fun resolveNamedTypeRefs() {
+        // Step 1: Update placeholder GoIRNamedTypeRef objects to point to real named types
         for ((typeId, lazyRef) in lazyNamedTypeRefs) {
             val named = namedTypesById[lazyRef.namedTypeId]
             if (named != null) {
-                val typeArgs = lazyRef.typeArgIds.map { resolveType(it) }
-                typesById[typeId] = GoIRNamedTypeRef(named, typeArgs)
+                val existing = typesById[typeId]
+                if (existing is GoIRNamedTypeRef) {
+                    // Update in-place — all references to this object will see the real named type
+                    existing.namedType = named
+                    existing.typeArgs = lazyRef.typeArgIds.map { resolveType(it) }
+                } else {
+                    typesById[typeId] = GoIRNamedTypeRef(named, lazyRef.typeArgIds.map { resolveType(it) })
+                }
+            }
+        }
+
+        // Step 2: Re-deserialize all types to rebuild composites (Pointer, Slice, etc.)
+        // that reference now-resolved named types
+        val savedTypeDefs = rawTypeDefinitions.toList()
+        rawTypeDefinitions.clear()
+        for (td in savedTypeDefs) {
+            deserializeType(td)
+        }
+        // Re-apply named ref resolution (re-deserialization may have overwritten entries)
+        for ((typeId, lazyRef) in lazyNamedTypeRefs) {
+            val named = namedTypesById[lazyRef.namedTypeId]
+            if (named != null) {
+                val existing = typesById[typeId]
+                if (existing is GoIRNamedTypeRef) {
+                    existing.namedType = named
+                    existing.typeArgs = lazyRef.typeArgIds.map { resolveType(it) }
+                } else {
+                    typesById[typeId] = GoIRNamedTypeRef(named, lazyRef.typeArgIds.map { resolveType(it) })
+                }
+            }
+        }
+    }
+
+    /**
+     * Phase 2: Resolve remaining cross-references (methods, imports, etc.)
+     */
+    private fun resolveReferences() {
+        // Re-resolve register types (captured during function body deserialization)
+        for ((reg, typeId) in registerTypeIds) {
+            val resolved = resolveType(typeId)
+            if (resolved != reg.type) {
+                reg.type = resolved
             }
         }
 
@@ -576,11 +671,25 @@ class GoIRDeserializer {
         }
     }
 
+    // (rebuildType removed — type re-resolution is handled by re-deserializing all type defs)
+
     // ─── Helpers ────────────────────────────────────────────────────
 
     private fun resolveType(id: Int): GoIRType {
         if (id == 0) return GoIRBasicType(GoIRBasicTypeKind.INT) // fallback for unset
-        return typesById[id] ?: GoIRBasicType(GoIRBasicTypeKind.INT) // fallback
+        val cached = typesById[id]
+        // If the type was a NAMED_REF placeholder (stored as INT), check if we can resolve it now
+        if (cached is GoIRBasicType && cached.kind == GoIRBasicTypeKind.INT && id in lazyNamedTypeRefs) {
+            val lazyRef = lazyNamedTypeRefs[id]!!
+            val named = namedTypesById[lazyRef.namedTypeId]
+            if (named != null) {
+                val typeArgs = lazyRef.typeArgIds.map { resolveType(it) }
+                val resolved = GoIRNamedTypeRef(named, typeArgs)
+                typesById[id] = resolved
+                return resolved
+            }
+        }
+        return cached ?: GoIRBasicType(GoIRBasicTypeKind.INT) // fallback
     }
 
     companion object {
