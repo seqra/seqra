@@ -1,9 +1,11 @@
 import OpentaintConfigDependency.opentaintConfig
+import OpentaintIrDependency.opentaint_ir_api_go
 import OpentaintIrDependency.opentaint_ir_api_jvm
 import OpentaintIrDependency.opentaint_ir_api_python
 import OpentaintIrDependency.opentaint_ir_api_storage
 import OpentaintIrDependency.opentaint_ir_approximations
 import OpentaintIrDependency.opentaint_ir_core
+import OpentaintIrDependency.opentaint_ir_core_go
 import OpentaintIrDependency.opentaint_ir_core_python
 import OpentaintIrDependency.opentaint_ir_storage
 import OpentaintProjectDependency.opentaintProject
@@ -57,6 +59,8 @@ dependencies {
 
     testImplementation(opentaint_ir_api_python)
     testImplementation(opentaint_ir_core_python)
+    testImplementation(opentaint_ir_api_go)
+    testImplementation(opentaint_ir_core_go)
     testImplementation("org.opentaint.opentaint-dataflow-core:opentaint-python-dataflow")
 }
 

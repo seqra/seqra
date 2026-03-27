@@ -40,6 +40,15 @@ val pythonSamples by configurations.creating {
     isCanBeResolved = false
 }
 
+val goSamplesSourceSet = sourceSets.create("goSamples") {
+    resources.setSrcDirs(listOf("src/main/go"))
+}
+
+val goSamples by configurations.creating {
+    isCanBeConsumed = false
+    isCanBeResolved = false
+}
+
 tasks.jar {
     from(sourceSets.main.get().allSource) {
         include("**/*.java")
@@ -49,6 +58,10 @@ tasks.jar {
     from(pythonSamplesSourceSet.resources) {
         include("**/*.py")
         exclude("ant-benchmark/**")
+    }
+
+    from(goSamplesSourceSet.resources) {
+        include("**/*.go")
     }
 }
 

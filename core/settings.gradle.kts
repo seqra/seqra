@@ -46,6 +46,15 @@ includeBuild("opentaint-ir") {
         for (module in pythonModules) {
             substitute(module("org.opentaint.ir.python:$module")).using(project(":python:$module"))
         }
+
+        val goModules = listOf(
+            "go-ir-api",
+            "go-ir-client"
+        )
+
+        for (module in goModules) {
+            substitute(module("org.opentaint.ir.go:$module")).using(project(":go:$module"))
+        }
     }
 }
 
