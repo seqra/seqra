@@ -22,7 +22,7 @@ tasks.withType<Test>().configureEach {
     // Show test output for debugging (started/passed/failed/skipped)
     testLogging {
         events("started", "passed", "skipped", "failed")
-        showStandardStreams = false
+        showStandardStreams = true
         showExceptions = true
         showCauses = true
         showStackTraces = true

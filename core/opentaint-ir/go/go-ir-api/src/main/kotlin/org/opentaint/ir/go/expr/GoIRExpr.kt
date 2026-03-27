@@ -25,6 +25,7 @@ sealed interface GoIRExpr: CommonExpr {
 // ─── Allocation ─────────────────────────────────────────────────────
 
 data class GoIRAllocExpr(
+    override var type: GoIRType,
     val allocType: GoIRType,
     val isHeap: Boolean,
     val comment: String?,
@@ -36,6 +37,7 @@ data class GoIRAllocExpr(
 // ─── Arithmetic / logic ─────────────────────────────────────────────
 
 data class GoIRBinOpExpr(
+    override var type: GoIRType,
     val op: GoIRBinaryOp,
     val x: GoIRValue,
     val y: GoIRValue,
@@ -45,6 +47,7 @@ data class GoIRBinOpExpr(
 }
 
 data class GoIRUnOpExpr(
+    override var type: GoIRType,
     val op: GoIRUnaryOp,
     val x: GoIRValue,
     val commaOk: Boolean,
@@ -56,6 +59,7 @@ data class GoIRUnOpExpr(
 // ─── Type conversions ───────────────────────────────────────────────
 
 data class GoIRChangeTypeExpr(
+    override var type: GoIRType,
     val x: GoIRValue,
 ) : GoIRExpr {
     override val operands: List<GoIRValue> get() = listOf(x)
@@ -63,6 +67,7 @@ data class GoIRChangeTypeExpr(
 }
 
 data class GoIRConvertExpr(
+    override var type: GoIRType,
     val x: GoIRValue,
 ) : GoIRExpr {
     override val operands: List<GoIRValue> get() = listOf(x)
@@ -70,6 +75,7 @@ data class GoIRConvertExpr(
 }
 
 data class GoIRMultiConvertExpr(
+    override var type: GoIRType,
     val x: GoIRValue,
     val fromType: GoIRType,
     val toType: GoIRType,
@@ -79,6 +85,7 @@ data class GoIRMultiConvertExpr(
 }
 
 data class GoIRChangeInterfaceExpr(
+    override var type: GoIRType,
     val x: GoIRValue,
 ) : GoIRExpr {
     override val operands: List<GoIRValue> get() = listOf(x)
@@ -86,6 +93,7 @@ data class GoIRChangeInterfaceExpr(
 }
 
 data class GoIRSliceToArrayPointerExpr(
+    override var type: GoIRType,
     val x: GoIRValue,
 ) : GoIRExpr {
     override val operands: List<GoIRValue> get() = listOf(x)
@@ -95,6 +103,7 @@ data class GoIRSliceToArrayPointerExpr(
 // ─── Interface / type assertion ─────────────────────────────────────
 
 data class GoIRMakeInterfaceExpr(
+    override var type: GoIRType,
     val x: GoIRValue,
 ) : GoIRExpr {
     override val operands: List<GoIRValue> get() = listOf(x)
@@ -102,6 +111,7 @@ data class GoIRMakeInterfaceExpr(
 }
 
 data class GoIRTypeAssertExpr(
+    override var type: GoIRType,
     val x: GoIRValue,
     val assertedType: GoIRType,
     val commaOk: Boolean,
@@ -113,6 +123,7 @@ data class GoIRTypeAssertExpr(
 // ─── Closures ───────────────────────────────────────────────────────
 
 data class GoIRMakeClosureExpr(
+    override var type: GoIRType,
     val fn: GoIRFunction,
     val bindings: List<GoIRValue>,
 ) : GoIRExpr {
@@ -123,6 +134,7 @@ data class GoIRMakeClosureExpr(
 // ─── Container construction ─────────────────────────────────────────
 
 data class GoIRMakeMapExpr(
+    override var type: GoIRType,
     val reserve: GoIRValue?,
 ) : GoIRExpr {
     override val operands: List<GoIRValue> get() = listOfNotNull(reserve)
@@ -130,6 +142,7 @@ data class GoIRMakeMapExpr(
 }
 
 data class GoIRMakeChanExpr(
+    override var type: GoIRType,
     val size: GoIRValue,
 ) : GoIRExpr {
     override val operands: List<GoIRValue> get() = listOf(size)
@@ -137,6 +150,7 @@ data class GoIRMakeChanExpr(
 }
 
 data class GoIRMakeSliceExpr(
+    override var type: GoIRType,
     val len: GoIRValue,
     val cap: GoIRValue,
 ) : GoIRExpr {
@@ -147,6 +161,7 @@ data class GoIRMakeSliceExpr(
 // ─── Field access ───────────────────────────────────────────────────
 
 data class GoIRFieldAddrExpr(
+    override var type: GoIRType,
     val x: GoIRValue,
     val fieldIndex: Int,
     val fieldName: String,
@@ -156,6 +171,7 @@ data class GoIRFieldAddrExpr(
 }
 
 data class GoIRFieldExpr(
+    override var type: GoIRType,
     val x: GoIRValue,
     val fieldIndex: Int,
     val fieldName: String,
@@ -167,6 +183,7 @@ data class GoIRFieldExpr(
 // ─── Indexing ───────────────────────────────────────────────────────
 
 data class GoIRIndexAddrExpr(
+    override var type: GoIRType,
     val x: GoIRValue,
     val indexValue: GoIRValue,
 ) : GoIRExpr {
@@ -175,6 +192,7 @@ data class GoIRIndexAddrExpr(
 }
 
 data class GoIRIndexExpr(
+    override var type: GoIRType,
     val x: GoIRValue,
     val indexValue: GoIRValue,
 ) : GoIRExpr {
@@ -183,6 +201,7 @@ data class GoIRIndexExpr(
 }
 
 data class GoIRSliceExpr(
+    override var type: GoIRType,
     val x: GoIRValue,
     val low: GoIRValue?,
     val high: GoIRValue?,
@@ -193,6 +212,7 @@ data class GoIRSliceExpr(
 }
 
 data class GoIRLookupExpr(
+    override var type: GoIRType,
     val x: GoIRValue,
     val indexValue: GoIRValue,
     val commaOk: Boolean,
@@ -204,6 +224,7 @@ data class GoIRLookupExpr(
 // ─── Iteration ──────────────────────────────────────────────────────
 
 data class GoIRRangeExpr(
+    override var type: GoIRType,
     val x: GoIRValue,
 ) : GoIRExpr {
     override val operands: List<GoIRValue> get() = listOf(x)
@@ -211,6 +232,7 @@ data class GoIRRangeExpr(
 }
 
 data class GoIRNextExpr(
+    override var type: GoIRType,
     val iter: GoIRValue,
     val isString: Boolean,
 ) : GoIRExpr {
@@ -221,6 +243,7 @@ data class GoIRNextExpr(
 // ─── Channels ───────────────────────────────────────────────────────
 
 data class GoIRSelectExpr(
+    override var type: GoIRType,
     val states: List<GoIRSelectState>,
     val isBlocking: Boolean,
 ) : GoIRExpr {
@@ -232,6 +255,7 @@ data class GoIRSelectExpr(
 // ─── Tuple extraction ───────────────────────────────────────────────
 
 data class GoIRExtractExpr(
+    override var type: GoIRType,
     val tuple: GoIRValue,
     val extractIndex: Int,
 ) : GoIRExpr {

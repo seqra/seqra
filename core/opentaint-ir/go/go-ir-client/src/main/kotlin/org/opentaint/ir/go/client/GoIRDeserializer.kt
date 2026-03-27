@@ -20,6 +20,7 @@ class GoIRDeserializer {
     private val typesById = mutableMapOf<Int, GoIRType>()
     private val lazyNamedTypeRefs = mutableMapOf<Int, GoIRLazyNamedTypeRef>() // type ID -> lazy ref
     private val registerTypeIds = mutableListOf<Pair<GoIRRegister, Int>>() // register + original typeId for re-resolution
+    private val exprTypeIds = mutableListOf<Pair<GoIRExpr, Int>>() // expr + original typeId for re-resolution
     private val rawTypeDefinitions = mutableListOf<ProtoTypeDefinition>() // raw proto type defs for re-resolution
     private val placeholderNamedTypes = mutableMapOf<Int, GoIRNamedTypeImpl>() // namedTypeId -> placeholder
     private val packagesById = mutableMapOf<Int, GoIRPackageImpl>()
@@ -358,69 +359,72 @@ class GoIRDeserializer {
         fun type(id: Int): GoIRType = resolveType(id)
 
         // Helper to create a register + assign instruction for expression-based instructions
+        val exprType = type(pi.typeId)
         fun assign(expr: GoIRExpr): GoIRAssignInst {
-            val reg = GoIRRegister(type(pi.typeId), pi.name)
+            val reg = GoIRRegister(exprType, pi.name)
             registerTypeIds.add(reg to pi.typeId)
+            exprTypeIds.add(expr to pi.typeId)
             return GoIRAssignInst(loc, reg, expr)
         }
 
         return when (pi.instCase) {
             // ─── Expression-based (wrapped in GoIRAssignInst) ───
             ProtoInstruction.InstCase.ALLOC -> assign(
-                GoIRAllocExpr(type(pi.alloc.allocTypeId), pi.alloc.heap, pi.alloc.comment.ifEmpty { null })
+                GoIRAllocExpr(exprType, type(pi.alloc.allocTypeId), pi.alloc.heap, pi.alloc.comment.ifEmpty { null })
             )
             ProtoInstruction.InstCase.BIN_OP -> assign(
-                GoIRBinOpExpr(binOpFromProto(pi.binOp.op), ref(pi.binOp.x), ref(pi.binOp.y))
+                GoIRBinOpExpr(exprType, binOpFromProto(pi.binOp.op), ref(pi.binOp.x), ref(pi.binOp.y))
             )
             ProtoInstruction.InstCase.UN_OP -> assign(
-                GoIRUnOpExpr(unOpFromProto(pi.unOp.op), ref(pi.unOp.x), pi.unOp.commaOk)
+                GoIRUnOpExpr(exprType, unOpFromProto(pi.unOp.op), ref(pi.unOp.x), pi.unOp.commaOk)
             )
             ProtoInstruction.InstCase.CHANGE_TYPE -> assign(
-                GoIRChangeTypeExpr(ref(pi.changeType.x))
+                GoIRChangeTypeExpr(exprType, ref(pi.changeType.x))
             )
             ProtoInstruction.InstCase.CONVERT -> assign(
-                GoIRConvertExpr(ref(pi.convert.x))
+                GoIRConvertExpr(exprType, ref(pi.convert.x))
             )
             ProtoInstruction.InstCase.MULTI_CONVERT -> assign(
-                GoIRMultiConvertExpr(ref(pi.multiConvert.x), type(pi.multiConvert.fromTypeId), type(pi.multiConvert.toTypeId))
+                GoIRMultiConvertExpr(exprType, ref(pi.multiConvert.x), type(pi.multiConvert.fromTypeId), type(pi.multiConvert.toTypeId))
             )
             ProtoInstruction.InstCase.CHANGE_INTERFACE -> assign(
-                GoIRChangeInterfaceExpr(ref(pi.changeInterface.x))
+                GoIRChangeInterfaceExpr(exprType, ref(pi.changeInterface.x))
             )
             ProtoInstruction.InstCase.SLICE_TO_ARRAY_POINTER -> assign(
-                GoIRSliceToArrayPointerExpr(ref(pi.sliceToArrayPointer.x))
+                GoIRSliceToArrayPointerExpr(exprType, ref(pi.sliceToArrayPointer.x))
             )
             ProtoInstruction.InstCase.MAKE_INTERFACE -> assign(
-                GoIRMakeInterfaceExpr(ref(pi.makeInterface.x))
+                GoIRMakeInterfaceExpr(exprType, ref(pi.makeInterface.x))
             )
             ProtoInstruction.InstCase.MAKE_CLOSURE -> {
                 val closureFn = functionsById[pi.makeClosure.fnId]
                     ?: error("Unknown function ID: ${pi.makeClosure.fnId} in MakeClosure within ${fn.fullName}")
-                assign(GoIRMakeClosureExpr(closureFn, pi.makeClosure.bindingsList.map { ref(it) }))
+                assign(GoIRMakeClosureExpr(exprType, closureFn, pi.makeClosure.bindingsList.map { ref(it) }))
             }
             ProtoInstruction.InstCase.MAKE_MAP -> assign(
-                GoIRMakeMapExpr(if (pi.makeMap.hasReserve) ref(pi.makeMap.reserve) else null)
+                GoIRMakeMapExpr(exprType, if (pi.makeMap.hasReserve) ref(pi.makeMap.reserve) else null)
             )
             ProtoInstruction.InstCase.MAKE_CHAN -> assign(
-                GoIRMakeChanExpr(ref(pi.makeChan.size))
+                GoIRMakeChanExpr(exprType, ref(pi.makeChan.size))
             )
             ProtoInstruction.InstCase.MAKE_SLICE -> assign(
-                GoIRMakeSliceExpr(ref(pi.makeSlice.len), ref(pi.makeSlice.cap))
+                GoIRMakeSliceExpr(exprType, ref(pi.makeSlice.len), ref(pi.makeSlice.cap))
             )
             ProtoInstruction.InstCase.FIELD_ADDR -> assign(
-                GoIRFieldAddrExpr(ref(pi.fieldAddr.x), pi.fieldAddr.fieldIndex, pi.fieldAddr.fieldName)
+                GoIRFieldAddrExpr(exprType, ref(pi.fieldAddr.x), pi.fieldAddr.fieldIndex, pi.fieldAddr.fieldName)
             )
             ProtoInstruction.InstCase.FIELD -> assign(
-                GoIRFieldExpr(ref(pi.field.x), pi.field.fieldIndex, pi.field.fieldName)
+                GoIRFieldExpr(exprType, ref(pi.field.x), pi.field.fieldIndex, pi.field.fieldName)
             )
             ProtoInstruction.InstCase.INDEX_ADDR -> assign(
-                GoIRIndexAddrExpr(ref(pi.indexAddr.x), ref(pi.indexAddr.index))
+                GoIRIndexAddrExpr(exprType, ref(pi.indexAddr.x), ref(pi.indexAddr.index))
             )
             ProtoInstruction.InstCase.INDEX_INST -> assign(
-                GoIRIndexExpr(ref(pi.indexInst.x), ref(pi.indexInst.index))
+                GoIRIndexExpr(exprType, ref(pi.indexInst.x), ref(pi.indexInst.index))
             )
             ProtoInstruction.InstCase.SLICE_INST -> assign(
                 GoIRSliceExpr(
+                    exprType,
                     ref(pi.sliceInst.x),
                     if (pi.sliceInst.hasLow) ref(pi.sliceInst.low) else null,
                     if (pi.sliceInst.hasHigh) ref(pi.sliceInst.high) else null,
@@ -428,19 +432,20 @@ class GoIRDeserializer {
                 )
             )
             ProtoInstruction.InstCase.LOOKUP -> assign(
-                GoIRLookupExpr(ref(pi.lookup.x), ref(pi.lookup.index), pi.lookup.commaOk)
+                GoIRLookupExpr(exprType, ref(pi.lookup.x), ref(pi.lookup.index), pi.lookup.commaOk)
             )
             ProtoInstruction.InstCase.TYPE_ASSERT -> assign(
-                GoIRTypeAssertExpr(ref(pi.typeAssert.x), type(pi.typeAssert.assertedTypeId), pi.typeAssert.commaOk)
+                GoIRTypeAssertExpr(exprType, ref(pi.typeAssert.x), type(pi.typeAssert.assertedTypeId), pi.typeAssert.commaOk)
             )
             ProtoInstruction.InstCase.RANGE_INST -> assign(
-                GoIRRangeExpr(ref(pi.rangeInst.x))
+                GoIRRangeExpr(exprType, ref(pi.rangeInst.x))
             )
             ProtoInstruction.InstCase.NEXT -> assign(
-                GoIRNextExpr(ref(pi.next.iter), pi.next.isString)
+                GoIRNextExpr(exprType, ref(pi.next.iter), pi.next.isString)
             )
             ProtoInstruction.InstCase.SELECT_INST -> assign(
                 GoIRSelectExpr(
+                    exprType,
                     pi.selectInst.statesList.map { st ->
                         GoIRSelectState(
                             chanDirFromProto(st.direction), ref(st.chan),
@@ -452,7 +457,7 @@ class GoIRDeserializer {
                 )
             )
             ProtoInstruction.InstCase.EXTRACT -> assign(
-                GoIRExtractExpr(ref(pi.extract.tuple), pi.extract.extractIndex)
+                GoIRExtractExpr(exprType, ref(pi.extract.tuple), pi.extract.extractIndex)
             )
 
             // ─── Phi (separate instruction, not an expression) ───
@@ -652,6 +657,14 @@ class GoIRDeserializer {
             }
         }
 
+        // Re-resolve expression types
+        for ((expr, typeId) in exprTypeIds) {
+            val resolved = resolveType(typeId)
+            if (resolved != expr.type) {
+                expr.updateType(resolved)
+            }
+        }
+
         // Resolve method references on named types
         for (nt in namedTypesById.values) {
             nt.resolveMethods(functionsById)
@@ -667,6 +680,36 @@ class GoIRDeserializer {
         // Resolve function cross-references
         for (fn in functionsById.values) {
             fn.resolveReferences(functionsById, namedTypesById)
+        }
+    }
+
+    /** Mutation helper for deserialization — updates the mutable [type] property on concrete expr classes. */
+    private fun GoIRExpr.updateType(newType: GoIRType) {
+        when (this) {
+            is GoIRAllocExpr -> type = newType
+            is GoIRBinOpExpr -> type = newType
+            is GoIRUnOpExpr -> type = newType
+            is GoIRChangeTypeExpr -> type = newType
+            is GoIRConvertExpr -> type = newType
+            is GoIRMultiConvertExpr -> type = newType
+            is GoIRChangeInterfaceExpr -> type = newType
+            is GoIRSliceToArrayPointerExpr -> type = newType
+            is GoIRMakeInterfaceExpr -> type = newType
+            is GoIRTypeAssertExpr -> type = newType
+            is GoIRMakeClosureExpr -> type = newType
+            is GoIRMakeMapExpr -> type = newType
+            is GoIRMakeChanExpr -> type = newType
+            is GoIRMakeSliceExpr -> type = newType
+            is GoIRFieldAddrExpr -> type = newType
+            is GoIRFieldExpr -> type = newType
+            is GoIRIndexAddrExpr -> type = newType
+            is GoIRIndexExpr -> type = newType
+            is GoIRSliceExpr -> type = newType
+            is GoIRLookupExpr -> type = newType
+            is GoIRRangeExpr -> type = newType
+            is GoIRNextExpr -> type = newType
+            is GoIRSelectExpr -> type = newType
+            is GoIRExtractExpr -> type = newType
         }
     }
 
