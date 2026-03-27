@@ -17,30 +17,28 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 
+import freemarker.core.TemplateClassResolver;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 
 /**
- * Spring MVC samples for ssti-in-spring.
+ * Spring MVC samples for ssti.
  */
 public class TemplateInjectionSpringSamples {
-
     @Controller
     @RequestMapping("/code-injection/ssti-spring")
-    public static class UnsafeTemplateController {
+    public static class UnsafeTemplateControllerWithResolver {
 
-        @Autowired
-        private Configuration freemarkerConfiguration;
-
-        @PostMapping("/unsafe")
+        @PostMapping("/unsafe-resolver")
         @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "ssti")
-        protected void previewUnsafe(HttpServletRequest request, HttpServletResponse response) throws ServletException {
-            // Attacker controls the entire template content
+        protected void previewUnsafeWithResolver(HttpServletRequest request, HttpServletResponse response) throws ServletException {
             String templateSource = request.getParameter("messageTemplate");
 
+            Configuration cfg = new Configuration(Configuration.VERSION_2_3_32);
+
             try {
-                // VULNERABLE: compiling a template directly from user input
-                Template t = new Template("userTemplate", new StringReader(templateSource), freemarkerConfiguration);
+                // UNSAFE: Configuration has not ALLOWS_NOTHING_RESOLVER set
+                Template t = new Template("userTemplate", new StringReader(templateSource), cfg);
 
                 Map<String, Object> model = new HashMap<>();
                 model.put("username", request.getParameter("username"));
@@ -56,25 +54,22 @@ public class TemplateInjectionSpringSamples {
 
     @Controller
     @RequestMapping("/code-injection/ssti-spring")
-    public static class SafeTemplateServlet extends HttpServlet {
+    public static class SafeTemplateControllerWithResolver {
 
-        @Autowired
-        private Configuration freemarkerConfiguration;
-
-        @PostMapping("/safe")
+        @PostMapping("/safe-resolver")
         @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "ssti")
-        protected void previewSafe(HttpServletRequest request, HttpServletResponse response) throws ServletException {
-            try {
-                // Use only server-controlled template names (e.g., stored on disk)
-                String templateName = "message.ftl";
-                Template t = freemarkerConfiguration.getTemplate(templateName);
+        protected void previewSafeWithResolver(HttpServletRequest request, HttpServletResponse response) throws ServletException {
+            String templateSource = request.getParameter("messageTemplate");
 
-                String username = request.getParameter("username");
-                String messageText = request.getParameter("messageText");
+            Configuration cfg = new Configuration(Configuration.VERSION_2_3_32);
+            cfg.setNewBuiltinClassResolver(TemplateClassResolver.ALLOWS_NOTHING_RESOLVER);
+
+            try {
+                // SAFE: Configuration has ALLOWS_NOTHING_RESOLVER set
+                Template t = new Template("userTemplate", new StringReader(templateSource), cfg);
 
                 Map<String, Object> model = new HashMap<>();
-                model.put("username", username);
-                model.put("messageText", messageText);
+                model.put("username", request.getParameter("username"));
 
                 response.setContentType("text/html;charset=UTF-8");
                 Writer writer = response.getWriter();
