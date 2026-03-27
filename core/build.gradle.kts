@@ -73,6 +73,7 @@ dependencies {
 tasks.withType<Test> {
     dependsOn(project("samples").tasks.withType<Jar>())
     ensurePirEnvInitialized()
+    ensureGoEnvInitialized()
 
     doFirst {
         val resolvedTestSamples = testSamples.resolve()
@@ -84,10 +85,9 @@ tasks.withType<Test> {
         // Ant benchmark samples JAR
         val antBenchmarkJar = project("samples").tasks.named<Jar>("antBenchmarkJar").get().archiveFile.get().asFile
         environment("ANT_BENCHMARK_SAMPLES_JAR", antBenchmarkJar.absolutePath)
-        val pirEnv = pirEnvironment()
-        pirEnv.forEach { (key, value) ->
-            environment(key, value)
-        }
+
+        pirEnvironment().forEach { (key, value) -> environment(key, value) }
+        goEnvironment().forEach { (key, value) -> environment(key, value) }
     }
 }
 
@@ -190,6 +190,33 @@ fun findOpentaintSeEnvInitializer(): Task? {
 fun findOpentaintPirEnvInitializer(): Task? {
     val pirProject = gradle.includedBuilds.find { it.name == "opentaint-ir" } ?: return null
     return pirProject.resolveIncludedProjectTask(":python:setupPirEnvironment")
+}
+
+// ─── Go environment ─────────────────────────────────────────────────
+
+val opentaintGoEnvKey = "opentaint.go.env"
+
+fun goEnvironment(): Map<String, Any> {
+    val goEnv = mutableMapOf<String, Any>()
+    setupOpentaintGoEnvironment(goEnv)
+    return goEnv
+}
+
+@Suppress("UNCHECKED_CAST")
+fun setupOpentaintGoEnvironment(goEnv: MutableMap<String, Any>) {
+    val initializer = findOpentaintGoEnvInitializer() ?: return
+    val env = initializer.extra.get(opentaintGoEnvKey) as Map<String, Any>
+    goEnv += env
+}
+
+fun Task.ensureGoEnvInitialized() {
+    val initializer = findOpentaintGoEnvInitializer() ?: return
+    dependsOn(initializer)
+}
+
+fun findOpentaintGoEnvInitializer(): Task? {
+    val irProject = gradle.includedBuilds.find { it.name == "opentaint-ir" } ?: return null
+    return irProject.resolveIncludedProjectTask(":go:setupGoEnvironment")
 }
 
 tasks.withType<Test> {

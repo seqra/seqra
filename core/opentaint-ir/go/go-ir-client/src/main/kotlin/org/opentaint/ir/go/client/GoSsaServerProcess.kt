@@ -10,10 +10,10 @@ import java.util.concurrent.TimeUnit
  * Manages the go-ssa-server subprocess lifecycle.
  */
 class GoSsaServerProcess(
-    private val serverBinaryPath: String = System.getProperty(
-        "goir.server.binary",
-        "go-ssa-server" // hope it's on PATH
-    ),
+    private val serverBinaryPath: String =
+        System.getProperty("goir.server.binary")
+            ?: System.getenv("GOIR_SERVER_BINARY")
+            ?: "go-ssa-server", // hope it's on PATH
 ) : AutoCloseable {
     private var process: Process? = null
     private var channel: ManagedChannel? = null

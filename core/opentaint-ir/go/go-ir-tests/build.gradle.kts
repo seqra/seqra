@@ -12,10 +12,13 @@ dependencies {
     runtimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
 }
 
-// Resolve Go server binary path
-val goServerBinary = project.parent!!.projectDir.resolve("go-ssa-server/go-ssa-server").absolutePath
+// Resolve Go server binary path from the parent project's environment
+val goProject = project(":go")
+val goServerBinary = goProject.layout.projectDirectory
+    .dir("go-ssa-server").file("go-ssa-server").asFile.absolutePath
 
 tasks.withType<Test>().configureEach {
+    dependsOn(":go:buildGoServer")
     useJUnitPlatform()
     systemProperty("goir.server.binary", goServerBinary)
 
