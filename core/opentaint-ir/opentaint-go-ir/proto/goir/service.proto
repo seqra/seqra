@@ -1,0 +1,639 @@
+syntax = "proto3";
+package goir;
+option go_package = "github.com/opentaint/go-ir/go-ssa-server/proto/goir";
+option java_package = "org.opentaint.ir.go.proto";
+option java_multiple_files = true;
+
+// ─── Service ────────────────────────────────────────────────────────
+
+service GoSSAService {
+    rpc BuildProgram(BuildProgramRequest) returns (stream BuildProgramResponse);
+    rpc Ping(PingRequest) returns (PingResponse);
+}
+
+// ─── Request Messages ───────────────────────────────────────────────
+
+message PingRequest {}
+
+message PingResponse {
+    string version = 1;
+    string go_version = 2;
+}
+
+message BuildProgramRequest {
+    repeated string patterns = 1;
+    bool instantiate_generics = 2;
+    bool sanity_check = 3;
+    bool include_debug_refs = 4;
+    string gopath = 5;
+    string goroot = 6;
+    repeated string build_tags = 7;
+    string working_dir = 8;
+    bool include_dependencies = 9;
+    bool include_stdlib = 10;
+}
+
+// ─── Response Stream ────────────────────────────────────────────────
+
+message BuildProgramResponse {
+    oneof payload {
+        ProtoTypeDefinition type_def = 1;
+        ProtoPackage package_def = 2;
+        ProtoFunctionBody function_body = 3;
+        ProtoBuildSummary summary = 4;
+        ProtoError error = 5;
+    }
+}
+
+message ProtoError {
+    string message = 1;
+    string package_path = 2;
+    string function_name = 3;
+    bool fatal = 4;
+}
+
+message ProtoBuildSummary {
+    int32 package_count = 1;
+    int32 function_count = 2;
+    int32 type_count = 3;
+    int32 instruction_count = 4;
+    int64 build_time_ms = 5;
+}
+
+// ─── Types ──────────────────────────────────────────────────────────
+
+message ProtoTypeDefinition {
+    int32 id = 1;
+    oneof type {
+        ProtoBasicType basic = 2;
+        ProtoPointerType pointer = 3;
+        ProtoArrayType array = 4;
+        ProtoSliceType slice = 5;
+        ProtoMapType map_type = 6;
+        ProtoChanType chan_type = 7;
+        ProtoStructType struct_type = 8;
+        ProtoInterfaceType interface_type = 9;
+        ProtoFuncType func_type = 10;
+        ProtoNamedTypeRef named_ref = 11;
+        ProtoTypeParam type_param = 12;
+        ProtoTupleType tuple = 13;
+        ProtoUnsafePointerType unsafe_pointer = 14;
+    }
+}
+
+message ProtoBasicType {
+    ProtoBasicTypeKind kind = 1;
+}
+
+enum ProtoBasicTypeKind {
+    BASIC_UNKNOWN = 0;
+    BASIC_BOOL = 1;
+    BASIC_INT = 2;
+    BASIC_INT8 = 3;
+    BASIC_INT16 = 4;
+    BASIC_INT32 = 5;
+    BASIC_INT64 = 6;
+    BASIC_UINT = 7;
+    BASIC_UINT8 = 8;
+    BASIC_UINT16 = 9;
+    BASIC_UINT32 = 10;
+    BASIC_UINT64 = 11;
+    BASIC_FLOAT32 = 12;
+    BASIC_FLOAT64 = 13;
+    BASIC_COMPLEX64 = 14;
+    BASIC_COMPLEX128 = 15;
+    BASIC_STRING = 16;
+    BASIC_UINTPTR = 17;
+    BASIC_UNTYPED_BOOL = 18;
+    BASIC_UNTYPED_INT = 19;
+    BASIC_UNTYPED_RUNE = 20;
+    BASIC_UNTYPED_FLOAT = 21;
+    BASIC_UNTYPED_COMPLEX = 22;
+    BASIC_UNTYPED_STRING = 23;
+    BASIC_UNTYPED_NIL = 24;
+}
+
+message ProtoPointerType {
+    int32 elem_type_id = 1;
+}
+
+message ProtoArrayType {
+    int32 elem_type_id = 1;
+    int64 length = 2;
+}
+
+message ProtoSliceType {
+    int32 elem_type_id = 1;
+}
+
+message ProtoMapType {
+    int32 key_type_id = 1;
+    int32 value_type_id = 2;
+}
+
+message ProtoChanType {
+    int32 elem_type_id = 1;
+    ProtoChanDirection direction = 2;
+}
+
+enum ProtoChanDirection {
+    CHAN_SEND_RECV = 0;
+    CHAN_SEND_ONLY = 1;
+    CHAN_RECV_ONLY = 2;
+}
+
+message ProtoStructType {
+    repeated ProtoStructField fields = 1;
+    int32 named_type_id = 2;
+}
+
+message ProtoStructField {
+    string name = 1;
+    int32 type_id = 2;
+    int32 index = 3;
+    bool embedded = 4;
+    bool exported = 5;
+    string tag = 6;
+}
+
+message ProtoInterfaceType {
+    repeated ProtoInterfaceMethod methods = 1;
+    repeated int32 embed_type_ids = 2;
+    int32 named_type_id = 3;
+}
+
+message ProtoInterfaceMethod {
+    string name = 1;
+    int32 signature_type_id = 2;
+}
+
+message ProtoFuncType {
+    repeated int32 param_type_ids = 1;
+    repeated int32 result_type_ids = 2;
+    bool variadic = 3;
+    int32 recv_type_id = 4;
+}
+
+message ProtoNamedTypeRef {
+    int32 named_type_id = 1;
+    repeated int32 type_arg_ids = 2;
+}
+
+message ProtoTypeParam {
+    string name = 1;
+    int32 index = 2;
+    int32 constraint_type_id = 3;
+}
+
+message ProtoTupleType {
+    repeated int32 element_type_ids = 1;
+}
+
+message ProtoUnsafePointerType {}
+
+// ─── Packages ───────────────────────────────────────────────────────
+
+message ProtoPackage {
+    int32 id = 1;
+    string import_path = 2;
+    string name = 3;
+    repeated int32 import_ids = 4;
+    repeated ProtoNamedType named_types = 5;
+    repeated ProtoFunction functions = 6;
+    repeated ProtoGlobal globals = 7;
+    repeated ProtoConst constants = 8;
+    int32 init_function_id = 9;
+}
+
+message ProtoNamedType {
+    int32 id = 1;
+    string name = 2;
+    string full_name = 3;
+    int32 underlying_type_id = 4;
+    ProtoNamedTypeKind kind = 5;
+    repeated ProtoFieldDecl fields = 6;
+    repeated int32 method_ids = 7;
+    repeated int32 pointer_method_ids = 8;
+    repeated ProtoInterfaceMethodDecl interface_methods = 9;
+    repeated int32 embedded_interface_ids = 10;
+    repeated ProtoTypeParamDecl type_params = 11;
+    ProtoPosition position = 12;
+}
+
+enum ProtoNamedTypeKind {
+    NAMED_TYPE_STRUCT = 0;
+    NAMED_TYPE_INTERFACE = 1;
+    NAMED_TYPE_ALIAS = 2;
+    NAMED_TYPE_OTHER = 3;
+}
+
+message ProtoFieldDecl {
+    string name = 1;
+    int32 type_id = 2;
+    int32 index = 3;
+    bool embedded = 4;
+    bool exported = 5;
+    string tag = 6;
+}
+
+message ProtoInterfaceMethodDecl {
+    string name = 1;
+    int32 signature_type_id = 2;
+}
+
+message ProtoTypeParamDecl {
+    string name = 1;
+    int32 index = 2;
+    int32 constraint_type_id = 3;
+}
+
+message ProtoFunction {
+    int32 id = 1;
+    string name = 2;
+    string full_name = 3;
+    int32 package_id = 4;
+    int32 signature_type_id = 5;
+    bool is_method = 6;
+    int32 receiver_type_id = 7;
+    bool is_pointer_receiver = 8;
+    repeated ProtoParam params = 9;
+    repeated ProtoFreeVar free_vars = 10;
+    bool is_exported = 11;
+    bool is_synthetic = 12;
+    string synthetic_kind = 13;
+    int32 parent_function_id = 14;
+    repeated int32 anon_function_ids = 15;
+    repeated ProtoTypeParamDecl type_params = 16;
+    bool has_body = 17;
+    ProtoPosition position = 18;
+}
+
+message ProtoParam {
+    string name = 1;
+    int32 type_id = 2;
+    int32 index = 3;
+}
+
+message ProtoFreeVar {
+    string name = 1;
+    int32 type_id = 2;
+    int32 index = 3;
+}
+
+message ProtoGlobal {
+    int32 id = 1;
+    string name = 2;
+    string full_name = 3;
+    int32 type_id = 4;
+    bool is_exported = 5;
+    ProtoPosition position = 6;
+}
+
+message ProtoConst {
+    int32 id = 1;
+    string name = 2;
+    string full_name = 3;
+    int32 type_id = 4;
+    ProtoConstValue value = 5;
+    bool is_exported = 6;
+    ProtoPosition position = 7;
+}
+
+message ProtoConstValue {
+    oneof value {
+        int64 int_value = 1;
+        double float_value = 2;
+        string string_value = 3;
+        bool bool_value = 4;
+        ProtoComplexValue complex_value = 5;
+        bool nil_value = 6;
+    }
+}
+
+message ProtoComplexValue {
+    double real = 1;
+    double imag = 2;
+}
+
+message ProtoPosition {
+    string filename = 1;
+    int32 line = 2;
+    int32 column = 3;
+}
+
+// ─── Function Bodies ────────────────────────────────────────────────
+
+message ProtoFunctionBody {
+    int32 function_id = 1;
+    repeated ProtoBasicBlock blocks = 2;
+    int32 recover_block_index = 3;
+}
+
+message ProtoBasicBlock {
+    int32 index = 1;
+    string label = 2;
+    repeated ProtoInstruction instructions = 3;
+    repeated int32 pred_indices = 4;
+    repeated int32 succ_indices = 5;
+    int32 idom_index = 6;
+    repeated int32 dominee_indices = 7;
+}
+
+// ─── Instructions ───────────────────────────────────────────────────
+
+message ProtoInstruction {
+    int32 index = 1;
+    int32 value_id = 2;
+    int32 type_id = 3;
+    string name = 4;
+    ProtoPosition position = 5;
+
+    oneof inst {
+        // Value-producing
+        ProtoAllocInst alloc = 10;
+        ProtoPhiInst phi = 11;
+        ProtoBinOpInst bin_op = 12;
+        ProtoUnOpInst un_op = 13;
+        ProtoCallInst call = 14;
+        ProtoChangeTypeInst change_type = 15;
+        ProtoConvertInst convert = 16;
+        ProtoMultiConvertInst multi_convert = 17;
+        ProtoChangeInterfaceInst change_interface = 18;
+        ProtoSliceToArrayPointerInst slice_to_array_pointer = 19;
+        ProtoMakeInterfaceInst make_interface = 20;
+        ProtoMakeClosureInst make_closure = 21;
+        ProtoMakeMapInst make_map = 22;
+        ProtoMakeChanInst make_chan = 23;
+        ProtoMakeSliceInst make_slice = 24;
+        ProtoFieldAddrInst field_addr = 25;
+        ProtoFieldInst field = 26;
+        ProtoIndexAddrInst index_addr = 27;
+        ProtoIndexInst index_inst = 28;
+        ProtoSliceInst slice_inst = 29;
+        ProtoLookupInst lookup = 30;
+        ProtoTypeAssertInst type_assert = 31;
+        ProtoRangeInst range_inst = 32;
+        ProtoNextInst next = 33;
+        ProtoSelectInst select_inst = 34;
+        ProtoExtractInst extract = 35;
+        // Effect-only
+        ProtoJumpInst jump = 40;
+        ProtoIfInst if_inst = 41;
+        ProtoReturnInst return_inst = 42;
+        ProtoPanicInst panic_inst = 43;
+        ProtoStoreInst store = 44;
+        ProtoMapUpdateInst map_update = 45;
+        ProtoSendInst send = 46;
+        ProtoGoInst go_inst = 47;
+        ProtoDeferInst defer_inst = 48;
+        ProtoRunDefersInst run_defers = 49;
+        ProtoDebugRefInst debug_ref = 50;
+    }
+}
+
+message ProtoValueRef {
+    oneof ref {
+        int32 inst_value_id = 1;
+        int32 param_index = 2;
+        int32 free_var_index = 3;
+        ProtoConstValue const_val = 4;
+        int32 global_id = 5;
+        int32 function_id = 6;
+        string builtin_name = 7;
+    }
+    int32 type_id = 8;
+}
+
+// ─── Specific Instruction Messages ──────────────────────────────────
+
+message ProtoAllocInst {
+    int32 alloc_type_id = 1;
+    bool heap = 2;
+    string comment = 3;
+}
+
+message ProtoPhiInst {
+    repeated ProtoValueRef edges = 1;
+    string comment = 2;
+}
+
+message ProtoBinOpInst {
+    ProtoBinaryOp op = 1;
+    ProtoValueRef x = 2;
+    ProtoValueRef y = 3;
+}
+
+enum ProtoBinaryOp {
+    BIN_ADD = 0;
+    BIN_SUB = 1;
+    BIN_MUL = 2;
+    BIN_DIV = 3;
+    BIN_REM = 4;
+    BIN_AND = 5;
+    BIN_OR = 6;
+    BIN_XOR = 7;
+    BIN_SHL = 8;
+    BIN_SHR = 9;
+    BIN_AND_NOT = 10;
+    BIN_EQ = 11;
+    BIN_NEQ = 12;
+    BIN_LT = 13;
+    BIN_LEQ = 14;
+    BIN_GT = 15;
+    BIN_GEQ = 16;
+}
+
+message ProtoUnOpInst {
+    ProtoUnaryOp op = 1;
+    ProtoValueRef x = 2;
+    bool comma_ok = 3;
+}
+
+enum ProtoUnaryOp {
+    UN_NOT = 0;
+    UN_NEG = 1;
+    UN_XOR = 2;
+    UN_DEREF = 3;
+    UN_ARROW = 4;
+}
+
+message ProtoCallInst {
+    ProtoCallInfo call = 1;
+}
+
+message ProtoCallInfo {
+    ProtoCallMode mode = 1;
+    ProtoValueRef function = 2;
+    ProtoValueRef receiver = 3;
+    string method_name = 4;
+    int32 method_signature_type_id = 5;
+    repeated ProtoValueRef args = 6;
+    int32 result_type_id = 7;
+}
+
+enum ProtoCallMode {
+    CALL_DIRECT = 0;
+    CALL_DYNAMIC = 1;
+    CALL_INVOKE = 2;
+}
+
+message ProtoChangeTypeInst {
+    ProtoValueRef x = 1;
+}
+
+message ProtoConvertInst {
+    ProtoValueRef x = 1;
+}
+
+message ProtoMultiConvertInst {
+    ProtoValueRef x = 1;
+    int32 from_type_id = 2;
+    int32 to_type_id = 3;
+}
+
+message ProtoChangeInterfaceInst {
+    ProtoValueRef x = 1;
+}
+
+message ProtoSliceToArrayPointerInst {
+    ProtoValueRef x = 1;
+}
+
+message ProtoMakeInterfaceInst {
+    ProtoValueRef x = 1;
+}
+
+message ProtoMakeClosureInst {
+    int32 fn_id = 1;
+    repeated ProtoValueRef bindings = 2;
+}
+
+message ProtoMakeMapInst {
+    ProtoValueRef reserve = 1;
+    bool has_reserve = 2;
+}
+
+message ProtoMakeChanInst {
+    ProtoValueRef size = 1;
+}
+
+message ProtoMakeSliceInst {
+    ProtoValueRef len = 1;
+    ProtoValueRef cap = 2;
+}
+
+message ProtoFieldAddrInst {
+    ProtoValueRef x = 1;
+    int32 field_index = 2;
+    string field_name = 3;
+}
+
+message ProtoFieldInst {
+    ProtoValueRef x = 1;
+    int32 field_index = 2;
+    string field_name = 3;
+}
+
+message ProtoIndexAddrInst {
+    ProtoValueRef x = 1;
+    ProtoValueRef index = 2;
+}
+
+message ProtoIndexInst {
+    ProtoValueRef x = 1;
+    ProtoValueRef index = 2;
+}
+
+message ProtoSliceInst {
+    ProtoValueRef x = 1;
+    ProtoValueRef low = 2;
+    ProtoValueRef high = 3;
+    ProtoValueRef max = 4;
+    bool has_low = 5;
+    bool has_high = 6;
+    bool has_max = 7;
+}
+
+message ProtoLookupInst {
+    ProtoValueRef x = 1;
+    ProtoValueRef index = 2;
+    bool comma_ok = 3;
+}
+
+message ProtoTypeAssertInst {
+    ProtoValueRef x = 1;
+    int32 asserted_type_id = 2;
+    bool comma_ok = 3;
+}
+
+message ProtoRangeInst {
+    ProtoValueRef x = 1;
+}
+
+message ProtoNextInst {
+    ProtoValueRef iter = 1;
+    bool is_string = 2;
+}
+
+message ProtoSelectInst {
+    repeated ProtoSelectState states = 1;
+    bool blocking = 2;
+}
+
+message ProtoSelectState {
+    ProtoChanDirection direction = 1;
+    ProtoValueRef chan = 2;
+    ProtoValueRef send = 3;
+    bool has_send = 4;
+    ProtoPosition position = 5;
+}
+
+message ProtoExtractInst {
+    ProtoValueRef tuple = 1;
+    int32 extract_index = 2;
+}
+
+message ProtoJumpInst {}
+
+message ProtoIfInst {
+    ProtoValueRef cond = 1;
+}
+
+message ProtoReturnInst {
+    repeated ProtoValueRef results = 1;
+}
+
+message ProtoPanicInst {
+    ProtoValueRef x = 1;
+}
+
+message ProtoStoreInst {
+    ProtoValueRef addr = 1;
+    ProtoValueRef val = 2;
+}
+
+message ProtoMapUpdateInst {
+    ProtoValueRef map = 1;
+    ProtoValueRef key = 2;
+    ProtoValueRef value = 3;
+}
+
+message ProtoSendInst {
+    ProtoValueRef chan = 1;
+    ProtoValueRef x = 2;
+}
+
+message ProtoGoInst {
+    ProtoCallInfo call = 1;
+}
+
+message ProtoDeferInst {
+    ProtoCallInfo call = 1;
+}
+
+message ProtoRunDefersInst {}
+
+message ProtoDebugRefInst {
+    ProtoValueRef x = 1;
+    bool is_addr = 2;
+}
