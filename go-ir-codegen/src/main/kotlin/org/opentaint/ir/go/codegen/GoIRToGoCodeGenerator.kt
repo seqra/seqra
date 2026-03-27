@@ -202,17 +202,43 @@ class GoIRToGoCodeGenerator {
     /**
      * Generate an anonymous function (closure) as an inline Go func literal.
      * The closure's freeVars are bound to the provided [bindings].
+     *
+     * Key challenge: SSA registers inside the closure body may have names (t0, t1, ...)
+     * that collide with the outer scope names used in freeVar bindings. To avoid this,
+     * we rename colliding closure-internal registers with a `_c` prefix.
      */
     private fun generateInlineClosure(fn: GoIRFunction, bindings: List<GoIRValue>): String {
         val body = fn.body ?: return "nil /* closure body unavailable */"
         val phiResult = PhiEliminator.eliminate(body)
         val extractMap = buildExtractMap(body)
 
-        // Build a mapping from freeVar name to the binding expression
+        // Build a mapping from freeVar name to the binding expression from the outer scope
         val freeVarBindings = mutableMapOf<String, String>()
+        val bindingTargetNames = mutableSetOf<String>() // outer names used in bindings
         for ((i, fv) in fn.freeVars.withIndex()) {
             if (i < bindings.size) {
-                freeVarBindings[fv.name] = valueRef(bindings[i])
+                val outerRef = valueRef(bindings[i])
+                freeVarBindings[fv.name] = outerRef
+                bindingTargetNames.add(outerRef)
+            }
+        }
+
+        // Collect all register names inside the closure body
+        val closureRegNames = mutableSetOf<String>()
+        for (inst in body.instructions) {
+            if (inst is GoIRDefInst) closureRegNames.add(inst.register.name)
+        }
+
+        // Build rename map: closure registers whose names collide with binding targets
+        // E.g. if outer binding has "x -> t0" and closure has register t0, rename it to _ct0
+        val closureRenameMap = mutableMapOf<String, String>()
+        for (regName in closureRegNames) {
+            if (regName in bindingTargetNames) {
+                var newName = "_c$regName"
+                while (newName in closureRegNames || newName in bindingTargetNames || newName in closureRenameMap.values) {
+                    newName = "_$newName"
+                }
+                closureRenameMap[regName] = newName
             }
         }
 
@@ -239,26 +265,27 @@ class GoIRToGoCodeGenerator {
         val csb = StringBuilder()
         csb.append("func($paramStr)$resultStr {\n")
 
-        // Collect param names for this closure
+        // Collect param names for this closure (includes free vars — they're substituted, not declared)
         val closureParamNames = params.map { it.name }.toMutableSet()
         closureParamNames.addAll(fn.freeVars.map { it.name })
 
-        // Declare SSA registers
+        // Declare SSA registers (using renamed names where needed)
         val seenNames = mutableSetOf<String>()
         val actuallyDeclared = mutableSetOf<String>()
         for (inst in body.instructions) {
             if (inst is GoIRDefInst) {
                 val reg = inst.register
-                if (reg.name.isNotEmpty() && reg.name !in seenNames && reg.name !in closureParamNames) {
-                    seenNames.add(reg.name)
+                val regName = closureRenameMap[reg.name] ?: reg.name
+                if (regName.isNotEmpty() && regName !in seenNames && reg.name !in closureParamNames) {
+                    seenNames.add(regName)
                     if (reg.type is GoIRTupleType) continue
-                    csb.appendLine("\t\tvar ${reg.name} ${TypeFormatter.format(reg.type)}")
-                    actuallyDeclared.add(reg.name)
+                    csb.appendLine("\t\tvar $regName ${TypeFormatter.format(reg.type)}")
+                    actuallyDeclared.add(regName)
                 }
                 if (inst is GoIRAssignInst && inst.expr is GoIRAllocExpr) {
                     val allocExpr = inst.expr as GoIRAllocExpr
                     if (!allocExpr.isHeap) {
-                        val allocName = "_alloc_${reg.name}"
+                        val allocName = "_alloc_$regName"
                         if (allocName !in seenNames) {
                             csb.appendLine("\t\tvar $allocName ${TypeFormatter.format(allocExpr.allocType)}")
                             seenNames.add(allocName)
@@ -270,10 +297,12 @@ class GoIRToGoCodeGenerator {
         }
         for ((_, reads) in phiResult.blockPhiReads) {
             for ((varName, tempName) in reads) {
+                val renamedVar = closureRenameMap[varName] ?: varName
+                val renamedTemp = closureRenameMap[tempName] ?: tempName
                 val phi = body.instructions.filterIsInstance<GoIRPhi>().find { it.register.name == varName }
                 if (phi != null) {
-                    if (tempName !in seenNames) { csb.appendLine("\t\tvar $tempName ${TypeFormatter.format(phi.register.type)}"); seenNames.add(tempName); actuallyDeclared.add(tempName) }
-                    if (varName !in seenNames && varName !in closureParamNames) { csb.appendLine("\t\tvar $varName ${TypeFormatter.format(phi.register.type)}"); seenNames.add(varName); actuallyDeclared.add(varName) }
+                    if (renamedTemp !in seenNames) { csb.appendLine("\t\tvar $renamedTemp ${TypeFormatter.format(phi.register.type)}"); seenNames.add(renamedTemp); actuallyDeclared.add(renamedTemp) }
+                    if (renamedVar !in seenNames && varName !in closureParamNames) { csb.appendLine("\t\tvar $renamedVar ${TypeFormatter.format(phi.register.type)}"); seenNames.add(renamedVar); actuallyDeclared.add(renamedVar) }
                 }
             }
         }
@@ -284,35 +313,51 @@ class GoIRToGoCodeGenerator {
         val gotoTargets = mutableSetOf<Int>()
         for (block in body.blocks) { for (succ in block.successors) { gotoTargets.add(succ.index) } }
 
-        // We need to generate code using freeVarBindings for free var references
-        // Store current bindings for the closure generation
+        // Store both freeVar bindings and register rename map for the closure generation
         closureFreeVarBindings = freeVarBindings
+        closureRegisterRenames = closureRenameMap
 
         for (block in body.blocks) {
             if (block.index in gotoTargets) csb.appendLine("\t\tblock${block.index}:")
             val phiReads = phiResult.blockPhiReads[block.index]
-            if (phiReads != null) { for ((varName, tempName) in phiReads) { csb.appendLine("\t\t\t$varName = $tempName") } }
+            if (phiReads != null) {
+                for ((varName, tempName) in phiReads) {
+                    val renamedVar = closureRenameMap[varName] ?: varName
+                    val renamedTemp = closureRenameMap[tempName] ?: tempName
+                    csb.appendLine("\t\t\t$renamedVar = $renamedTemp")
+                }
+            }
             for (inst in block.instructions) {
                 if (inst is GoIRPhi) continue
                 if (inst is GoIRTerminator) {
                     val assignments = phiResult.predecessorAssignments[block.index]
-                    if (assignments != null) { for (a in assignments) { csb.appendLine("\t\t\t${a.phiTempName} = ${valueRef(a.sourceValue)}") } }
+                    if (assignments != null) { for (a in assignments) {
+                        val renamedPhi = closureRenameMap[a.phiTempName] ?: a.phiTempName
+                        csb.appendLine("\t\t\t$renamedPhi = ${valueRef(a.sourceValue)}")
+                    } }
                 }
-                val code = generateInstruction(inst, block, extractMap)
+                val code = generateInstruction(inst, block, extractMap, body)
                 if (code != null) { for (line in code.lines()) { csb.appendLine("\t\t\t$line") } }
             }
         }
 
         closureFreeVarBindings = null
+        closureRegisterRenames = null
         csb.append("\t}")
         return csb.toString()
     }
 
     // When generating closure bodies, freeVar references are substituted
     private var closureFreeVarBindings: Map<String, String>? = null
+    // When generating closure bodies, some register names are renamed to avoid collisions
+    private var closureRegisterRenames: Map<String, String>? = null
+    // Deferred call strings, collected during function code generation.
+    // At RunDefers, they are emitted in LIFO order as direct calls (not as `defer`).
+    private val deferredCalls = mutableListOf<String>()
 
     private fun generateFunction(sb: StringBuilder, fn: GoIRFunction) {
         val body = fn.body ?: return
+        deferredCalls.clear()
         val phiResult = PhiEliminator.eliminate(body)
         val extractMap = buildExtractMap(body)
 
@@ -408,6 +453,23 @@ class GoIRToGoCodeGenerator {
             }
         }
 
+        // Declare range iteration helper variables (_rcoll_, _ridx_, _rkeys_ for map iteration)
+        for (inst in body.instructions) {
+            if (inst is GoIRAssignInst && inst.expr is GoIRRangeExpr) {
+                val rangeExpr = inst.expr as GoIRRangeExpr
+                val iterName = inst.register.name
+                val collType = rangeExpr.x.type
+                sb.appendLine("\tvar _rcoll_$iterName ${TypeFormatter.format(collType)}")
+                actuallyDeclared.add("_rcoll_$iterName")
+                sb.appendLine("\tvar _ridx_$iterName int")
+                actuallyDeclared.add("_ridx_$iterName")
+                if (collType is GoIRMapType) {
+                    sb.appendLine("\tvar _rkeys_$iterName []${TypeFormatter.format(collType.key)}")
+                    actuallyDeclared.add("_rkeys_$iterName")
+                }
+            }
+        }
+
         // Suppress "declared and not used" errors for SSA registers that may not be
         // referenced in the generated code (e.g. unused phi results, dead code paths).
         for (v in actuallyDeclared) {
@@ -453,7 +515,7 @@ class GoIRToGoCodeGenerator {
                     }
                 }
 
-                val code = generateInstruction(inst, block, extractMap)
+                val code = generateInstruction(inst, block, extractMap, body)
                 if (code != null) {
                     for (line in code.lines()) {
                         sb.appendLine("\t\t$line")
@@ -465,10 +527,39 @@ class GoIRToGoCodeGenerator {
         sb.appendLine("}")
     }
 
-    private fun generateInstruction(inst: GoIRInst, block: GoIRBasicBlock, extractMap: Map<String, Map<Int, String>>): String? {
+    /** Apply closure register rename if active. */
+    private fun renameReg(name: String): String = closureRegisterRenames?.get(name) ?: name
+
+    /**
+     * Format a type for use in a type conversion expression: Type(value).
+     * Wraps in parentheses when the type string starts with `<-` (receive-only channel)
+     * to avoid Go's parsing ambiguity: `<-chan int(x)` is parsed as `<-(chan int(x))`.
+     */
+    private fun typeForConversion(type: GoIRType): String {
+        val formatted = TypeFormatter.format(type)
+        return if (formatted.startsWith("<-")) "($formatted)" else formatted
+    }
+
+    /**
+     * Find the collection type for a Range iterator.
+     * Given a value reference to the Range result register, find the Range instruction
+     * and return the type of its collection operand.
+     */
+    private fun findRangeCollectionType(body: GoIRBody, iterValue: GoIRValue): GoIRType? {
+        val iterName = iterValue.name
+        for (inst in body.instructions) {
+            if (inst is GoIRAssignInst && inst.register.name == iterName && inst.expr is GoIRRangeExpr) {
+                return (inst.expr as GoIRRangeExpr).x.type
+            }
+        }
+        return null
+    }
+
+    private fun generateInstruction(inst: GoIRInst, block: GoIRBasicBlock, extractMap: Map<String, Map<Int, String>>, body: GoIRBody? = null): String? {
         return inst.accept(object : GoIRInstVisitor<String?> {
             override fun visitAssign(inst: GoIRAssignInst): String? {
-                val name = inst.register.name
+                val rawName = inst.register.name
+                val name = renameReg(rawName)
                 val regType = inst.register.type
                 return inst.expr.accept(object : GoIRExprVisitor<String?> {
                     override fun visitAlloc(expr: GoIRAllocExpr): String {
@@ -490,9 +581,9 @@ class GoIRToGoCodeGenerator {
                             GoIRUnaryOp.NEG -> "$name = -${valueRef(expr.x)}"
                             GoIRUnaryOp.ARROW -> {
                                 if (expr.commaOk && regType is GoIRTupleType) {
-                                    val extracts = extractMap[name]
-                                    val valName = extracts?.get(0) ?: "_"
-                                    val okName = extracts?.get(1) ?: "_"
+                                    val extracts = extractMap[rawName]
+                                    val valName = extracts?.get(0)?.let { renameReg(it) } ?: "_"
+                                    val okName = extracts?.get(1)?.let { renameReg(it) } ?: "_"
                                     "$valName, $okName = <-${valueRef(expr.x)}"
                                 } else {
                                     "$name = <-${valueRef(expr.x)}"
@@ -504,34 +595,46 @@ class GoIRToGoCodeGenerator {
                     }
 
                     override fun visitChangeType(expr: GoIRChangeTypeExpr): String {
-                        return "$name = ${TypeFormatter.format(regType)}(${valueRef(expr.x)})"
+                        return "$name = ${typeForConversion(regType)}(${valueRef(expr.x)})"
                     }
 
                     override fun visitConvert(expr: GoIRConvertExpr): String {
-                        return "$name = ${TypeFormatter.format(regType)}(${valueRef(expr.x)})"
+                        return "$name = ${typeForConversion(regType)}(${valueRef(expr.x)})"
                     }
 
                     override fun visitMultiConvert(expr: GoIRMultiConvertExpr): String {
-                        return "$name = ${TypeFormatter.format(regType)}(${valueRef(expr.x)})"
+                        return "$name = ${typeForConversion(regType)}(${valueRef(expr.x)})"
                     }
 
                     override fun visitChangeInterface(expr: GoIRChangeInterfaceExpr): String {
-                        return "$name = ${TypeFormatter.format(regType)}(${valueRef(expr.x)})"
+                        return "$name = ${typeForConversion(regType)}(${valueRef(expr.x)})"
                     }
 
                     override fun visitSliceToArrayPointer(expr: GoIRSliceToArrayPointerExpr): String {
-                        return "$name = ${TypeFormatter.format(regType)}(${valueRef(expr.x)})"
+                        return "$name = ${typeForConversion(regType)}(${valueRef(expr.x)})"
                     }
 
                     override fun visitMakeInterface(expr: GoIRMakeInterfaceExpr): String {
-                        return "$name = ${TypeFormatter.format(regType)}(${valueRef(expr.x)})"
+                        // MakeInterface wraps a concrete value into an interface.
+                        // For zero-size structs, Go SSA may represent the value as nil.
+                        // We need to create an actual struct zero-value to get a non-nil interface.
+                        val inner = expr.x
+                        val innerType = inner.type
+                        if (inner is GoIRConstValue && inner.value is GoIRConstantValue.NilConst) {
+                            // Nil concrete value — generate zero-value literal for the concrete type
+                            val zeroVal = zeroValueLiteral(innerType)
+                            if (zeroVal != null) {
+                                return "$name = ${typeForConversion(regType)}($zeroVal)"
+                            }
+                        }
+                        return "$name = ${typeForConversion(regType)}(${valueRef(expr.x)})"
                     }
 
                     override fun visitTypeAssert(expr: GoIRTypeAssertExpr): String {
                         if (expr.commaOk && regType is GoIRTupleType) {
-                            val extracts = extractMap[name]
-                            val valName = extracts?.get(0) ?: "_"
-                            val okName = extracts?.get(1) ?: "_"
+                            val extracts = extractMap[rawName]
+                            val valName = extracts?.get(0)?.let { renameReg(it) } ?: "_"
+                            val okName = extracts?.get(1)?.let { renameReg(it) } ?: "_"
                             return "$valName, $okName = ${valueRef(expr.x)}.(${TypeFormatter.format(expr.assertedType)})"
                         }
                         return "$name = ${valueRef(expr.x)}.(${TypeFormatter.format(expr.assertedType)})"
@@ -588,44 +691,99 @@ class GoIRToGoCodeGenerator {
 
                     override fun visitLookup(expr: GoIRLookupExpr): String {
                         if (expr.commaOk && regType is GoIRTupleType) {
-                            val extracts = extractMap[name]
-                            val valName = extracts?.get(0) ?: "_"
-                            val okName = extracts?.get(1) ?: "_"
+                            val extracts = extractMap[rawName]
+                            val valName = extracts?.get(0)?.let { renameReg(it) } ?: "_"
+                            val okName = extracts?.get(1)?.let { renameReg(it) } ?: "_"
                             return "$valName, $okName = ${valueRef(expr.x)}[${valueRef(expr.indexValue)}]"
                         }
                         return "$name = ${valueRef(expr.x)}[${valueRef(expr.indexValue)}]"
                     }
 
                     override fun visitRange(expr: GoIRRangeExpr): String {
-                        // Range creates an "iterator" — in codegen, we store the collection
-                        // and use it with a tracking index. The _range_ prefix is a
-                        // convention the next handler uses.
-                        return "$name = ${valueRef(expr.x)} // range iterator"
+                        // Range creates an iterator over a collection.
+                        // We store the collection in _rcoll_NAME and prepare iteration state.
+                        val collType = expr.x.type
+                        val collName = "_rcoll_$name"
+                        val sb = StringBuilder()
+                        when (collType) {
+                            is GoIRMapType -> {
+                                // For maps: store the map, collect keys, init index
+                                sb.appendLine("$collName = ${valueRef(expr.x)}")
+                                sb.appendLine("_rkeys_$name = make([]${TypeFormatter.format(collType.key)}, 0, len($collName))")
+                                sb.appendLine("for _rk_ := range $collName { _rkeys_$name = append(_rkeys_$name, _rk_) }")
+                                sb.append("_ridx_$name = 0")
+                            }
+                            is GoIRSliceType, is GoIRArrayType -> {
+                                sb.appendLine("$collName = ${valueRef(expr.x)}")
+                                sb.append("_ridx_$name = 0")
+                            }
+                            is GoIRBasicType -> {
+                                // String range
+                                sb.appendLine("$collName = ${valueRef(expr.x)}")
+                                sb.append("_ridx_$name = 0")
+                            }
+                            else -> {
+                                sb.append("$collName = ${valueRef(expr.x)} // range (unknown collection type)")
+                            }
+                        }
+                        return sb.toString()
                     }
 
                     override fun visitNext(expr: GoIRNextExpr): String {
-                        // Next produces (ok, key, value) tuple.
-                        // In goto-based codegen, the caller extracts ok/key/value and
-                        // branches on ok. We use a hidden index variable incremented each
-                        // time next is called to simulate iteration.
-                        //
-                        // The extract map will pull ok/key/value from this tuple name.
-                        // We generate: _idx_NAME++; if _idx_NAME <= len(iter) then ok=true
-                        // This is handled by the SSA control-flow: the If on extract#0 (ok)
-                        // does the loop exit. We just need the extracts to work.
-                        //
-                        // Simplest approach: mark tuple and let extracts be handled individually.
-                        // The ok/key/value are used via the standard extract map.
-                        // For now, emit a comment — the actual iteration is driven by the
-                        // SSA control flow (range/next/if-ok pattern).
-                        return "// next: iteration step for ${valueRef(expr.iter)}"
+                        // Next advances the iterator, producing (ok, key, value) tuple.
+                        // The extract map tells us which registers receive ok/key/value.
+                        val iterName = valueRef(expr.iter)
+                        val collName = "_rcoll_$iterName"
+                        val extracts = extractMap[rawName]
+                        val okName = extracts?.get(0)?.let { renameReg(it) } ?: "_rok_$name"
+                        val keyName = extracts?.get(1)?.let { renameReg(it) }
+                        val valName = extracts?.get(2)?.let { renameReg(it) }
+
+                        // Determine collection type from the Range expr's collection
+                        val rangeCollType = body?.let { findRangeCollectionType(it, expr.iter) }
+
+                        val sb = StringBuilder()
+                        when (rangeCollType) {
+                            is GoIRMapType -> {
+                                sb.appendLine("$okName = _ridx_$iterName < len(_rkeys_$iterName)")
+                                sb.appendLine("if $okName {")
+                                if (keyName != null) sb.appendLine("\t$keyName = _rkeys_$iterName[_ridx_$iterName]")
+                                if (valName != null) {
+                                    val kRef = keyName ?: "_rkeys_${iterName}[_ridx_$iterName]"
+                                    sb.appendLine("\t$valName = $collName[$kRef]")
+                                }
+                                sb.appendLine("\t_ridx_${iterName}++")
+                                sb.append("}")
+                            }
+                            is GoIRSliceType, is GoIRArrayType -> {
+                                sb.appendLine("$okName = _ridx_$iterName < len($collName)")
+                                sb.appendLine("if $okName {")
+                                if (keyName != null) sb.appendLine("\t$keyName = _ridx_$iterName")
+                                if (valName != null) sb.appendLine("\t$valName = $collName[_ridx_$iterName]")
+                                sb.appendLine("\t_ridx_${iterName}++")
+                                sb.append("}")
+                            }
+                            is GoIRBasicType -> {
+                                // String range — iterate by runes
+                                sb.appendLine("$okName = _ridx_$iterName < len($collName)")
+                                sb.appendLine("if $okName {")
+                                if (keyName != null) sb.appendLine("\t$keyName = _ridx_$iterName")
+                                if (valName != null) sb.appendLine("\t$valName = int32($collName[_ridx_$iterName])")
+                                sb.appendLine("\t_ridx_${iterName}++")
+                                sb.append("}")
+                            }
+                            else -> {
+                                sb.append("// next: unsupported range collection type")
+                            }
+                        }
+                        return sb.toString()
                     }
 
                     override fun visitSelect(expr: GoIRSelectExpr): String {
                         // Select produces (index, recvOk, recv...) tuple.
                         // Generate a Go select statement.
                         val sb = StringBuilder()
-                        val extracts = extractMap[name]
+                        val extracts = extractMap[rawName]
                         sb.append("// select (codegen: simplified)")
                         return sb.toString()
                     }
@@ -648,11 +806,11 @@ class GoIRToGoCodeGenerator {
                     }
                     val extracts = extractMap[inst.register.name]
                     val lhs = tupleType.elements.indices.joinToString(", ") { idx ->
-                        extracts?.get(idx) ?: "_"
+                        extracts?.get(idx)?.let { renameReg(it) } ?: "_"
                     }
                     return "$lhs = ${generateCallStr(inst.call)}"
                 }
-                return generateCallExpr(inst.register.name, inst.call)
+                return generateCallExpr(renameReg(inst.register.name), inst.call)
             }
 
             // ─── Terminators ───
@@ -693,11 +851,21 @@ class GoIRToGoCodeGenerator {
                 return "go ${generateCallStr(inst.call)}"
             }
 
-            override fun visitDefer(inst: GoIRDefer): String {
-                return "defer ${generateCallStr(inst.call)}"
+            override fun visitDefer(inst: GoIRDefer): String? {
+                // Don't emit `defer` — collect the call for later LIFO execution at RunDefers
+                deferredCalls.add(generateCallStr(inst.call))
+                return null
             }
 
-            override fun visitRunDefers(inst: GoIRRunDefers): String? = null // implicit in Go
+            override fun visitRunDefers(inst: GoIRRunDefers): String? {
+                if (deferredCalls.isEmpty()) return null
+                // Execute deferred calls in LIFO order (last defer first)
+                val sb = StringBuilder()
+                for (i in deferredCalls.indices.reversed()) {
+                    sb.appendLine(deferredCalls[i])
+                }
+                return sb.toString().trimEnd()
+            }
 
             override fun visitDebugRef(inst: GoIRDebugRef): String? = null // not emitted
         })
@@ -714,13 +882,21 @@ class GoIRToGoCodeGenerator {
         val isVariadic = when {
             call.function is GoIRFunctionValue ->
                 (call.function as GoIRFunctionValue).function.signature.isVariadic
+            // Builtin append is always variadic
+            call.function is GoIRBuiltinValue && (call.function as GoIRBuiltinValue).name == "append" ->
+                true
             else -> false
         }
 
         val argStrs = call.args.mapIndexed { i, arg ->
-            if (isVariadic && i == call.args.lastIndex && arg is GoIRRegister) {
-                // Last arg to a variadic function — spread it
-                "${valueRef(arg)}..."
+            if (isVariadic && i == call.args.lastIndex) {
+                // Last arg to a variadic function — spread it if it's a slice
+                val argType = arg.type
+                if (argType is GoIRSliceType) {
+                    "${valueRef(arg)}..."
+                } else {
+                    valueRef(arg)
+                }
             } else {
                 valueRef(arg)
             }
@@ -752,16 +928,23 @@ class GoIRToGoCodeGenerator {
         if (bindings != null && value is GoIRFreeVarValue) {
             return bindings[value.name] ?: value.name
         }
-        return when (value) {
-            is GoIRConstValue -> constValueStr(value)
+        // When generating closure bodies, apply register renames to avoid collisions
+        val renames = closureRegisterRenames
+        val baseName = when (value) {
+            is GoIRConstValue -> return constValueStr(value)
             is GoIRParameterValue -> value.name
             is GoIRFreeVarValue -> value.name
-            is GoIRGlobalValue -> value.name
-            is GoIRFunctionValue -> functionRef(value)
-            is GoIRBuiltinValue -> value.name
+            is GoIRGlobalValue -> return value.name
+            is GoIRFunctionValue -> return functionRef(value)
+            is GoIRBuiltinValue -> return value.name
             is GoIRRegister -> value.name
-            else -> value.name // Forward refs and other delegates resolve via name
+            else -> value.name
         }
+        // Apply closure register rename if active
+        if (renames != null) {
+            return renames[baseName] ?: baseName
+        }
+        return baseName
     }
 
     private fun constValueStr(value: GoIRConstValue): String = when (val cv = value.value) {
@@ -792,6 +975,36 @@ class GoIRToGoCodeGenerator {
             .replace("\n", "\\n")
             .replace("\r", "\\r")
             .replace("\t", "\\t")
+    }
+
+    /**
+     * Generate a Go zero-value literal for a type.
+     * Used when MakeInterface receives a nil const for zero-size structs.
+     * Returns null if we can't generate a safe literal.
+     */
+    private fun zeroValueLiteral(type: GoIRType): String? {
+        return when (type) {
+            is GoIRStructType -> {
+                val named = type.namedType
+                if (named != null) "${named.name}{}" else "struct{}{}"
+            }
+            is GoIRNamedTypeRef -> {
+                val named = type.namedType
+                if (named != null) "${named.name}{}" else null
+            }
+            is GoIRPointerType -> "new(${TypeFormatter.format(type.elem)})"
+            is GoIRBasicType -> when (type.kind) {
+                GoIRBasicTypeKind.INT, GoIRBasicTypeKind.INT8, GoIRBasicTypeKind.INT16,
+                GoIRBasicTypeKind.INT32, GoIRBasicTypeKind.INT64,
+                GoIRBasicTypeKind.UINT, GoIRBasicTypeKind.UINT8, GoIRBasicTypeKind.UINT16,
+                GoIRBasicTypeKind.UINT32, GoIRBasicTypeKind.UINT64 -> "0"
+                GoIRBasicTypeKind.FLOAT32, GoIRBasicTypeKind.FLOAT64 -> "0.0"
+                GoIRBasicTypeKind.BOOL -> "false"
+                GoIRBasicTypeKind.STRING -> "\"\""
+                else -> null
+            }
+            else -> null
+        }
     }
 
     private fun binaryOpStr(op: GoIRBinaryOp): String = when (op) {

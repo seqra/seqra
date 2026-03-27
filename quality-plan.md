@@ -120,6 +120,13 @@ All 20 projects pass. Per-test timeout of 5 minutes. Fresh Go server per project
 | 2026-03-26 | Fixed BenchmarkProjectCache Go version suffix stripping | DONE |
 | 2026-03-26 | Per-project server isolation in benchmarks (crash resilience) | DONE |
 | 2026-03-26 | All 20 benchmark projects pass | DONE |
+| 2026-03-27 | Fixed closure codegen: free var binding name collisions | DONE |
+| 2026-03-27 | Fixed MakeInterface nil for zero-size structs | DONE |
+| 2026-03-27 | Implemented Range/Next codegen for map/slice/channel iteration | DONE |
+| 2026-03-27 | Fixed defer with named returns: RunDefers as direct LIFO calls | DONE |
+| 2026-03-27 | Fixed receive-only channel type conversion ambiguity | DONE |
+| 2026-03-27 | Added 30 new round-trip tests (struct, slice/map, closure/iface, chan/defer/range) | DONE |
+| 2026-03-27 | All 631 round-trip tests pass, 0 failures, 0 regressions | DONE |
 
 
 ## Quality improvement 2.0
@@ -185,18 +192,17 @@ Target: ~76 more round-trip tests → total **601 round-trip tests** (was 525).
 6 new test files added, all using codegen-safe constructs (no struct types, slices, maps,
 closures, interfaces, channels, or defer — codegen can't reconstruct these from SSA).
 
-### Codegen Limitations Discovered
-The codegen (IR → Go source) cannot reconstruct:
-- Struct type declarations / field access via named structs
-- Slice/map operations (`make`, `append`, `delete`, `range` on dynamic types)
-- Closures / anonymous functions (SSA generates `$1` references)
-- Interface types / virtual dispatch / type assertions
-- Channel operations / goroutines / select
-- Defer statements
-- Function parameter names that collide with SSA temps (`t0`, `t1`, ...)
-
-These features are correctly represented in the IR (50 benchmark projects prove this).
-The codegen limitation only affects round-trip tests, not IR quality.
+### Codegen Limitations Discovered (QI3.0) — MOST NOW FIXED in QI4.0
+The codegen (IR → Go source) had limitations that prevented round-trip testing of:
+- ~~Struct type declarations / field access via named structs~~ **FIXED** (named type resolution)
+- ~~Slice/map operations~~ **FIXED** (make, append, range all work)
+- ~~Closures / anonymous functions~~ **FIXED** (inline closure codegen with free var binding)
+- ~~Interface types / virtual dispatch / type assertions~~ **FIXED** (MakeInterface zero-value fix)
+- ~~Channel operations / goroutines~~ **FIXED** (send/recv/goroutine/range all work)
+- ~~Defer statements~~ **FIXED** (RunDefers as direct LIFO calls)
+- ~~Function parameter names that collide with SSA temps~~ **FIXED** (param name dedup)
+- ~~Range/Next iteration~~ **FIXED** (map/slice/channel range with helper variables)
+- Select statements — still a comment placeholder (uncommon in round-trip tests)
 
 ### QI3.1 — Heap/pointer/array tests: ✅ DONE (16 tests)
 - [x] `RoundTripHeapTests.kt` — pointer deref/modify/accumulate, fixed-size arrays, dot product, min/max, bubble sort
@@ -215,3 +221,34 @@ The codegen limitation only affects round-trip tests, not IR quality.
 
 ### QI3.6 — Error-handling/cleanup tests: ✅ DONE (12 tests)
 - [x] `RoundTripDeferTests.kt` — guard returns, error codes, validation chains, rollback/checkpoint, multi-return checks
+
+## Quality improvement 4.0 — Codegen Fixes ✅ DONE
+
+**Major codegen overhaul**: fixed all previously-documented "limitations" so the IR→Go source
+round-trip now covers structs, closures, interfaces, channels, goroutines, defer, and range iteration.
+
+### Total round-trip tests: **631** (was 601), 0 failures, 0 regressions
+
+### Codegen Fixes Applied
+
+| # | Bug | Root Cause | Fix |
+|---|-----|-----------|-----|
+| 1 | Closure free var name collision | Closure body registers (t0, t1) collide with outer free var bindings | Rename colliding closure registers with `_c` prefix |
+| 2 | MakeInterface nil for zero-size structs | Go SSA uses nil const for zero-size struct values | Generate zero-value literal (e.g. `StructName{}`) instead of nil |
+| 3 | Range/Next iteration broken | Codegen emitted comments instead of actual iteration code | Implemented map/slice/channel range via `_rcoll_`/`_ridx_`/`_rkeys_` helper variables |
+| 4 | Defer with named returns wrong | RunDefers was ignored; defers ran after return value was already captured | Emit deferred calls directly (LIFO) at RunDefers instead of using `defer` keyword |
+| 5 | Receive-only channel type conversion | `<-chan int(x)` parsed as receive, not type conversion | Wrap `<-chan` types in parentheses for conversions: `(<-chan int)(x)` |
+| 6 | Recursive closure random range too large | `fib(n)` with n=-1000..1000 causes exponential recursion | Limited random range to 0..20 for fibonacci tests |
+
+### New Test Files (30 tests)
+
+| Category | File | Tests | Status |
+|----------|------|-------|--------|
+| Struct types/methods | RoundTripStructRealTests.kt | 6 | ✅ |
+| Slice/map operations | RoundTripSliceMapRealTests.kt | 8 | ✅ |
+| Closures/interfaces | RoundTripClosureIfaceRealTests.kt | 8 | ✅ |
+| Chan/defer/goroutine/range | RoundTripChanDeferRealTests.kt | 8 | ✅ |
+
+### Remaining Codegen Gaps
+- **Select statements**: SSA `select` produces a tuple; codegen emits a comment placeholder. Uncommon in test code.
+- **String range by rune**: Basic byte-level iteration is supported but multi-byte rune iteration may be inaccurate.
