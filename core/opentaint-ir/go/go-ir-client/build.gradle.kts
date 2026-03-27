@@ -1,17 +1,17 @@
 plugins {
-    alias(libs.plugins.kotlin.jvm)
-    alias(libs.plugins.protobuf)
+    id("kotlin-conventions")
+    id("com.google.protobuf") version "0.9.4"
 }
 
 dependencies {
-    api(project(":go-ir-api"))
-    implementation(libs.grpc.netty)
-    implementation(libs.grpc.protobuf)
-    implementation(libs.grpc.stub)
-    implementation(libs.grpc.kotlin.stub)
-    implementation(libs.protobuf.java)
-    implementation(libs.protobuf.kotlin)
-    implementation(libs.coroutines.core)
+    api(project(":go:go-ir-api"))
+    implementation("io.grpc:grpc-netty-shaded:1.69.0")
+    implementation("io.grpc:grpc-protobuf:1.69.0")
+    implementation("io.grpc:grpc-stub:1.69.0")
+    implementation("io.grpc:grpc-kotlin-stub:1.4.1")
+    implementation("com.google.protobuf:protobuf-java:4.29.3")
+    implementation("com.google.protobuf:protobuf-kotlin:4.29.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.1")
 }
 
 protobuf {
@@ -42,13 +42,13 @@ protobuf {
 sourceSets {
     main {
         proto {
-            srcDir("${rootProject.projectDir}/proto")
+            srcDir("${project.parent?.projectDir}/proto")
         }
     }
 }
 
 tasks.register<Exec>("buildGoServer") {
-    workingDir = file("${rootProject.projectDir}/go-ssa-server")
+    workingDir = file("${project.parent?.projectDir}/go-ssa-server")
     commandLine("go", "build", "-o",
         "${project.layout.buildDirectory.get().asFile}/go-ssa-server",
         "./cmd/go-ssa-server")

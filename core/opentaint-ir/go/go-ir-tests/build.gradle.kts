@@ -2,30 +2,26 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 
 plugins {
-    alias(libs.plugins.kotlin.jvm)
+    id("kotlin-conventions")
 }
 
 dependencies {
-    implementation(project(":go-ir-api"))
-    implementation(project(":go-ir-client"))
-    implementation(project(":go-ir-codegen"))
+    implementation(project(":go:go-ir-api"))
+    implementation(project(":go:go-ir-client"))
+    implementation(project(":go:go-ir-codegen"))
     // Test infra classes (in src/main) need JUnit API at compile time
-    implementation(libs.junit.jupiter)
-    implementation(libs.assertj.core)
-    runtimeOnly(libs.junit.platform.launcher)
+    implementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    implementation("org.assertj:assertj-core:3.27.3")
+    runtimeOnly("org.junit.platform:junit-platform-launcher:1.11.4")
 }
 
 // Resolve Go server binary path
-val goServerBinary = rootProject.projectDir.resolve("go-ssa-server/go-ssa-server").absolutePath
+val goServerBinary = project.parent!!.projectDir.resolve("go-ssa-server/go-ssa-server").absolutePath
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     systemProperty("goir.server.binary", goServerBinary)
-    // Parallel execution: run test classes concurrently
-    systemProperty("junit.jupiter.execution.parallel.enabled", "true")
-    systemProperty("junit.jupiter.execution.parallel.mode.default", "same_thread")
-    systemProperty("junit.jupiter.execution.parallel.mode.classes.default", "concurrent")
-    maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(2)
+
     // Show test output for debugging (started/passed/failed/skipped)
     testLogging {
         events("started", "passed", "skipped", "failed")
@@ -38,7 +34,7 @@ tasks.withType<Test>().configureEach {
 
 tasks.test {
     useJUnitPlatform {
-        excludeTags("benchmark", "roundtrip", "fuzz")
+        excludeTags("benchmark", "roundtrip")
     }
 }
 
@@ -48,11 +44,9 @@ tasks.register<Test>("benchmarkTest") {
     testClassesDirs = testSourceSet.output.classesDirs
     classpath = testSourceSet.runtimeClasspath
     useJUnitPlatform { includeTags("benchmark") }
-    timeout.set(Duration.ofMinutes(60))
+
     // Larger heap for real-world projects (some produce 100k+ functions)
     jvmArgs("-Xmx8g", "-Xms1g")
-    // Run sequentially — one project at a time to avoid OOM
-    maxParallelForks = 1
 }
 
 tasks.register<Test>("roundtripTest") {
@@ -60,14 +54,6 @@ tasks.register<Test>("roundtripTest") {
     classpath = testSourceSet.runtimeClasspath
     useJUnitPlatform { includeTags("roundtrip") }
     jvmArgs("-Xmx4g")
-    timeout.set(Duration.ofMinutes(30))
-}
-
-tasks.register<Test>("fuzzTest") {
-    testClassesDirs = testSourceSet.output.classesDirs
-    classpath = testSourceSet.runtimeClasspath
-    useJUnitPlatform { includeTags("fuzz") }
-    timeout.set(Duration.ofMinutes(30))
 }
 
 // ─── Benchmark project download task ────────────────────────────────

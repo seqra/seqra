@@ -4,7 +4,6 @@ import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 
 /**
@@ -13,7 +12,7 @@ import java.util.concurrent.TimeUnit
 class GoSsaServerProcess(
     private val serverBinaryPath: String = System.getProperty(
         "goir.server.binary",
-        findDefaultBinary()
+        "go-ssa-server" // hope it's on PATH
     ),
 ) : AutoCloseable {
     private var process: Process? = null
@@ -65,27 +64,5 @@ class GoSsaServerProcess(
         }
         channel = null
         process = null
-    }
-
-    companion object {
-        fun findDefaultBinary(): String {
-            // Check system property first
-            System.getProperty("goir.server.binary")?.let { return it }
-
-            // Try to find in common locations
-            val candidates = listOf(
-                "go-ssa-server/go-ssa-server",
-                "../go-ssa-server/go-ssa-server",
-                "build/go-ssa-server",
-            )
-            for (c in candidates) {
-                val path = Path.of(c)
-                if (path.toFile().exists() && path.toFile().canExecute()) {
-                    return path.toAbsolutePath().toString()
-                }
-            }
-
-            return "go-ssa-server" // hope it's on PATH
-        }
     }
 }

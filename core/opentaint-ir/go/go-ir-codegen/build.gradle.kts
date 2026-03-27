@@ -1,7 +1,7 @@
 plugins {
-    alias(libs.plugins.kotlin.jvm)
+    id("kotlin-conventions")
 }
 
 dependencies {
-    api(project(":go-ir-api"))
+    api(project(":go:go-ir-api"))
 }

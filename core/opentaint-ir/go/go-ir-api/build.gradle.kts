@@ -1,5 +1,3 @@
 plugins {
-    alias(libs.plugins.kotlin.jvm)
+    id("kotlin-conventions")
 }
-
-// Pure Kotlin API module — no external dependencies
