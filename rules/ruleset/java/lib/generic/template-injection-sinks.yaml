@@ -8,27 +8,65 @@ rules:
       provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext
     languages:
       - java
-    patterns:
-      - pattern-either:
-        - pattern: new freemarker.template.Template(..., $UNTRUSTED, ...);
-        - pattern: |
-            $C = (freemarker.template.Configuration $CFG).getTemplate($UNTRUSTED);
-            ...
-            $C.process(...)
-        - pattern: (com.mitchellbosecke.pebble.PebbleEngine $PEBBLE).getLiteralTemplate($UNTRUSTED, ...);
-        - pattern: (com.mitchellbosecke.pebble.PebbleEngine $PEBBLE).getTemplate($UNTRUSTED, ...);
-        - pattern: (com.hubspot.jinjava.Jinjava $JINJAVA).render($UNTRUSTED, ...);
-        - pattern: (com.hubspot.jinjava.Jinjava $JINJAVA).renderForResult($UNTRUSTED, ...);
-        - pattern: (org.apache.velocity.app.Velocity $VELOCITY).evaluate($_, $_, $_, $UNTRUSTED, ...);
-        - pattern: (org.apache.velocity.app.Velocity $VELOCITY).mergeTemplate($_, $_, $UNTRUSTED, ...);
-        - pattern: (org.apache.velocity.app.VelocityEngine $VELOCITY_ENGINE).evaluate($_, $_, $_, $UNTRUSTED, ...);
-        - pattern: (org.apache.velocity.app.VelocityEngine $VELOCITY_ENGINE).mergeTemplate($_, $_, $UNTRUSTED, ...);
-        - pattern: (org.apache.velocity.runtime.RuntimeServices $VELOCITY_RUNTIME).evaluate($_, $_, $_, $UNTRUSTED, ...);
-        - pattern: (org.apache.velocity.runtime.RuntimeSingleton $VELOCITY_RUNTIME).parse($UNTRUSTED, ...);
-        - pattern: (org.apache.velocity.runtime.resource.util.StringResourceRepository $VELOCITY_REPO).putStringResource($_, $UNTRUSTED, ...);
-        - pattern: (org.thymeleaf.ITemplateEngine $THYMELEAF).$THYMELEAF_SINK($UNTRUSTED, ...);
-      - metavariable-pattern:
-          metavariable: $THYMELEAF_SINK
-          pattern-either:
-            - pattern: process
-            - pattern: processThrottled
+    pattern-either:
+      # ── Freemarker ────────────────────────────────
+      - patterns:
+          - pattern: |
+              (freemarker.template.Template $TEMPLATE).process(...);
+          - pattern-either:
+              - pattern-inside: |
+                  $CFG = new freemarker.template.Configuration(...);
+                  ...
+              - pattern-inside: |
+                  $CFG = (javax.servlet.ServletContext $CTX).getAttribute(...);
+                  ...
+          - pattern-not-inside: |
+                (freemarker.template.Configuration $CFG).setNewBuiltinClassResolver(freemarker.core.TemplateClassResolver.ALLOWS_NOTHING_RESOLVER);
+                ...
+          - pattern-either:
+              - pattern-inside: |
+                  $TEMPLATE = new freemarker.template.Template($_, $UNTRUSTED, (freemarker.template.Configuration $CFG), ...);
+                  ...
+              - pattern-inside: |
+                  $TEMPLATE = new freemarker.template.Template($_, $_, $UNTRUSTED, (freemarker.template.Configuration $CFG), ...);
+                  ...
+              - pattern-inside: |
+                  $TEMPLATE = (freemarker.template.Configuration $CFG).getTemplate($UNTRUSTED);
+                  ...
+      - pattern: |
+          $TEMPLATE = new freemarker.template.Template($_, $UNTRUSTED);
+          ...
+          (freemarker.template.Template $TEMPLATE).process(...)
+      - pattern: (freemarker.cache.StringTemplateLoader $LOADER).putTemplate($_, $UNTRUSTED, ...);
+      # ── Pebble ────────────────────────────────────
+      - pattern: (com.mitchellbosecke.pebble.PebbleEngine $PEBBLE).getLiteralTemplate($UNTRUSTED, ...);
+      - pattern: (com.mitchellbosecke.pebble.PebbleEngine $PEBBLE).getTemplate($UNTRUSTED, ...);
+      # ── Jinjava ───────────────────────────────────
+      - pattern: (com.hubspot.jinjava.Jinjava $JINJAVA).render($UNTRUSTED, ...);
+      - pattern: (com.hubspot.jinjava.Jinjava $JINJAVA).renderForResult($UNTRUSTED, ...);
+      # ── Velocity (static) ─────────────────────────
+      - pattern: (org.apache.velocity.app.Velocity $VELOCITY).evaluate($_, $_, $_, $UNTRUSTED, ...);
+      - pattern: (org.apache.velocity.app.Velocity $VELOCITY).mergeTemplate($_, $_, $UNTRUSTED, ...);
+      # ── VelocityEngine (instance) ─────────────────
+      - patterns:
+          - pattern-either:
+              - pattern: (org.apache.velocity.app.VelocityEngine $ENGINE).evaluate($_, $_, $_, $UNTRUSTED, ...);
+              - pattern: (org.apache.velocity.app.VelocityEngine $ENGINE).mergeTemplate($_, $_, $UNTRUSTED, ...);
+          - pattern-inside: |
+              $ENGINE = new org.apache.velocity.app.VelocityEngine(...);
+              ...
+          - pattern-not-inside: (org.apache.velocity.app.VelocityEngine $ENGINE).setProperty("runtime.introspector.uberspect", "org.apache.velocity.util.introspection.SecureUberspector"); ...
+          - pattern-not-inside: (org.apache.velocity.app.VelocityEngine $ENGINE).setProperty("introspector.uberspect.class", "org.apache.velocity.util.introspection.SecureUberspector"); ...
+      # ── Velocity Runtime ──────────────────────────
+      - pattern: (org.apache.velocity.runtime.RuntimeServices $VELOCITY_RUNTIME).evaluate($_, $_, $_, $UNTRUSTED, ...);
+      - pattern: (org.apache.velocity.runtime.RuntimeServices $VELOCITY_RUNTIME).parse($UNTRUSTED, ...);
+      - pattern: (org.apache.velocity.runtime.RuntimeSingleton $VELOCITY_RUNTIME).parse($UNTRUSTED, ...);
+      - pattern: (org.apache.velocity.runtime.resource.util.StringResourceRepository $VELOCITY_REPO).putStringResource($_, $UNTRUSTED, ...);
+      # ── Thymeleaf ─────────────────────────────────
+      - patterns:
+          - pattern: (org.thymeleaf.ITemplateEngine $THYMELEAF).$PROCESS($UNTRUSTED, ...);
+          - metavariable-pattern:
+              metavariable: $PROCESS
+              pattern-either:
+                - pattern: process
+                - pattern: processThrottled
