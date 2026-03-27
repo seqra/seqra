@@ -47,9 +47,51 @@ sourceSets {
     }
 }
 
+val goRootDir = project.parent!!.projectDir
+val goServerDir = goRootDir.resolve("go-ssa-server")
+val goProtoDir = goRootDir.resolve("proto")
+val goServerBinary = goServerDir.resolve("go-ssa-server")
+val goModulePath = "github.com/opentaint/go-ir/go-ssa-server"
+val protocGenGoVersion = "v1.36.1"
+val protocGenGoGrpcVersion = "v1.5.1"
+
 tasks.register<Exec>("buildGoServer") {
-    workingDir = file("${project.parent?.projectDir}/go-ssa-server")
-    commandLine("go", "build", "-o",
-        "${project.layout.buildDirectory.get().asFile}/go-ssa-server",
-        "./cmd/go-ssa-server")
+    workingDir = goServerDir
+
+    inputs.files(
+        fileTree(goServerDir) {
+            include("**/*.go")
+            include("go.mod")
+            include("go.sum")
+        },
+        fileTree(goProtoDir) {
+            include("**/*.proto")
+        }
+    )
+    outputs.file(goServerBinary)
+    outputs.dir(goServerDir.resolve("proto"))
+
+    commandLine(
+        "bash",
+        "-lc",
+        """
+        set -euo pipefail
+        GO_BIN_DIR="${'$'}PWD/.gradle-go-bin"
+        export GOBIN="${'$'}GO_BIN_DIR"
+        export PATH="${'$'}GO_BIN_DIR:${'$'}PATH"
+
+        go install google.golang.org/protobuf/cmd/protoc-gen-go@$protocGenGoVersion
+        go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@$protocGenGoGrpcVersion
+
+        protoc \
+          -I "$goProtoDir" \
+          --go_out=. \
+          --go_opt=module=$goModulePath \
+          --go-grpc_out=. \
+          --go-grpc_opt=module=$goModulePath \
+          "$goProtoDir/goir/service.proto"
+
+        go build -o "$goServerBinary" ./cmd/go-ssa-server
+        """.trimIndent()
+    )
 }

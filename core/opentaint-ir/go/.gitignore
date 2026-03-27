@@ -12,6 +12,7 @@ build/
 # Go
 go-ssa-server/proto/goir/*.pb.go
 go-ssa-server/go-ssa-server
+go-ssa-server/.gradle-go-bin
 
 # OS
 .DS_Store
