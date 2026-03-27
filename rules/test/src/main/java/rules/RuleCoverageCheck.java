@@ -35,7 +35,7 @@ public class RuleCoverageCheck {
     public static void main(String[] args) throws Exception {
         Path projectRoot = Paths.get("..").toRealPath();
         Path rulesRoot = projectRoot.resolve("ruleset");
-        Path testsRoot = projectRoot.resolve("test").resolve("src").resolve("main").resolve("java").resolve("security");
+        Path testsRoot = projectRoot.resolve("test");
 
         List<String> errors = new ArrayList<>();
 
