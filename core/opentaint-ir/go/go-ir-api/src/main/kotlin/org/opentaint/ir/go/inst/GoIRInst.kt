@@ -1,25 +1,36 @@
 package org.opentaint.ir.go.inst
 
+import org.opentaint.ir.go.api.GoIRBody
 import org.opentaint.ir.go.api.GoIRPosition
 import org.opentaint.ir.go.cfg.GoIRBasicBlock
 import org.opentaint.ir.go.cfg.GoIRCallInfo
 import org.opentaint.ir.go.expr.GoIRExpr
-import org.opentaint.ir.go.type.GoIRType
 import org.opentaint.ir.go.value.GoIRRegister
 import org.opentaint.ir.go.value.GoIRValue
+
+data class GoInstLocation(
+    val functionBody: GoIRBody,
+    val index: Int,
+    val blockIndex: Int,
+    val position: GoIRPosition?
+)
 
 /**
  * Base interface for all IR instructions.
  * Every instruction belongs to a basic block and has a unique index within its function.
  */
 sealed interface GoIRInst {
-    val index: Int
-    val block: GoIRBasicBlock
-    val position: GoIRPosition?
+    val location: GoInstLocation
     val operands: List<GoIRValue>
 
     fun <T> accept(visitor: GoIRInstVisitor<T>): T
 }
+
+val GoIRInst.index: Int get() = location.index
+
+val GoIRInst.block: GoIRBasicBlock get() = location.functionBody.blocks[location.blockIndex]
+
+val GoIRInst.position: GoIRPosition? get() = location.position
 
 /**
  * A value-defining instruction: an instruction that writes its result into a [GoIRRegister].
@@ -45,9 +56,7 @@ sealed interface GoIRBranching : GoIRTerminator
  * This covers 24 expression kinds (alloc, binop, unop, conversions, field access, etc.).
  */
 data class GoIRAssignInst(
-    override val index: Int,
-    override val block: GoIRBasicBlock,
-    override val position: GoIRPosition?,
+    override val location: GoInstLocation,
     override val register: GoIRRegister,
     val expr: GoIRExpr,
 ) : GoIRDefInst {
@@ -60,9 +69,7 @@ data class GoIRAssignInst(
  * Each edge corresponds to a predecessor block; edge[i] is the value from predecessor[i].
  */
 data class GoIRPhi(
-    override val index: Int,
-    override val block: GoIRBasicBlock,
-    override val position: GoIRPosition?,
+    override val location: GoInstLocation,
     override val register: GoIRRegister,
     val edges: List<GoIRValue>,
     val comment: String?,
@@ -75,9 +82,7 @@ data class GoIRPhi(
  * Call instruction: invokes a function and stores the result into [register].
  */
 data class GoIRCall(
-    override val index: Int,
-    override val block: GoIRBasicBlock,
-    override val position: GoIRPosition?,
+    override val location: GoInstLocation,
     override val register: GoIRRegister,
     val call: GoIRCallInfo,
 ) : GoIRDefInst {
@@ -88,18 +93,14 @@ data class GoIRCall(
 // ─── Terminators ────────────────────────────────────────────────────
 
 data class GoIRJump(
-    override val index: Int,
-    override val block: GoIRBasicBlock,
-    override val position: GoIRPosition?,
+    override val location: GoInstLocation,
 ) : GoIRBranching {
     override val operands: List<GoIRValue> get() = emptyList()
     override fun <T> accept(visitor: GoIRInstVisitor<T>): T = visitor.visitJump(this)
 }
 
 data class GoIRIf(
-    override val index: Int,
-    override val block: GoIRBasicBlock,
-    override val position: GoIRPosition?,
+    override val location: GoInstLocation,
     val cond: GoIRValue,
 ) : GoIRBranching {
     override val operands: List<GoIRValue> get() = listOf(cond)
@@ -107,9 +108,7 @@ data class GoIRIf(
 }
 
 data class GoIRReturn(
-    override val index: Int,
-    override val block: GoIRBasicBlock,
-    override val position: GoIRPosition?,
+    override val location: GoInstLocation,
     val results: List<GoIRValue>,
 ) : GoIRTerminator {
     override val operands: List<GoIRValue> get() = results
@@ -117,9 +116,7 @@ data class GoIRReturn(
 }
 
 data class GoIRPanic(
-    override val index: Int,
-    override val block: GoIRBasicBlock,
-    override val position: GoIRPosition?,
+    override val location: GoInstLocation,
     val x: GoIRValue,
 ) : GoIRTerminator {
     override val operands: List<GoIRValue> get() = listOf(x)
@@ -129,9 +126,7 @@ data class GoIRPanic(
 // ─── Effect-only instructions ───────────────────────────────────────
 
 data class GoIRStore(
-    override val index: Int,
-    override val block: GoIRBasicBlock,
-    override val position: GoIRPosition?,
+    override val location: GoInstLocation,
     val addr: GoIRValue,
     val value: GoIRValue,
 ) : GoIRInst {
@@ -140,9 +135,7 @@ data class GoIRStore(
 }
 
 data class GoIRMapUpdate(
-    override val index: Int,
-    override val block: GoIRBasicBlock,
-    override val position: GoIRPosition?,
+    override val location: GoInstLocation,
     val map: GoIRValue,
     val key: GoIRValue,
     val value: GoIRValue,
@@ -152,9 +145,7 @@ data class GoIRMapUpdate(
 }
 
 data class GoIRSend(
-    override val index: Int,
-    override val block: GoIRBasicBlock,
-    override val position: GoIRPosition?,
+    override val location: GoInstLocation,
     val chan: GoIRValue,
     val x: GoIRValue,
 ) : GoIRInst {
@@ -163,9 +154,7 @@ data class GoIRSend(
 }
 
 data class GoIRGo(
-    override val index: Int,
-    override val block: GoIRBasicBlock,
-    override val position: GoIRPosition?,
+    override val location: GoInstLocation,
     val call: GoIRCallInfo,
 ) : GoIRInst {
     override val operands: List<GoIRValue> get() = call.allOperands()
@@ -173,9 +162,7 @@ data class GoIRGo(
 }
 
 data class GoIRDefer(
-    override val index: Int,
-    override val block: GoIRBasicBlock,
-    override val position: GoIRPosition?,
+    override val location: GoInstLocation,
     val call: GoIRCallInfo,
 ) : GoIRInst {
     override val operands: List<GoIRValue> get() = call.allOperands()
@@ -183,18 +170,14 @@ data class GoIRDefer(
 }
 
 data class GoIRRunDefers(
-    override val index: Int,
-    override val block: GoIRBasicBlock,
-    override val position: GoIRPosition?,
+    override val location: GoInstLocation,
 ) : GoIRInst {
     override val operands: List<GoIRValue> get() = emptyList()
     override fun <T> accept(visitor: GoIRInstVisitor<T>): T = visitor.visitRunDefers(this)
 }
 
 data class GoIRDebugRef(
-    override val index: Int,
-    override val block: GoIRBasicBlock,
-    override val position: GoIRPosition?,
+    override val location: GoInstLocation,
     val x: GoIRValue,
     val isAddr: Boolean,
 ) : GoIRInst {

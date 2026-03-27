@@ -2,6 +2,7 @@ package org.opentaint.ir.go.test.features
 
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.opentaint.ir.go.inst.index
 import org.opentaint.ir.go.test.GoIRTestBuilder
 import org.opentaint.ir.go.test.GoIRTestExtension
 

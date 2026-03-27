@@ -3,6 +3,7 @@ package org.opentaint.ir.go.cfg
 import org.opentaint.ir.go.inst.GoIRInst
 import org.opentaint.ir.go.inst.GoIRInstRef
 import org.opentaint.ir.go.inst.GoIRPhi
+import org.opentaint.ir.go.inst.index
 
 /**
  * A basic block in the CFG, defined by its index, label, instructions, and edges.

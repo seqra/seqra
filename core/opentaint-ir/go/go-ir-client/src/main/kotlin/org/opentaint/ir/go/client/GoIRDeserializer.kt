@@ -306,6 +306,10 @@ class GoIRDeserializer {
             ))
         }
 
+        // Create body early — GoIRBodyImpl.instructions is lazy, so it reads blocks later
+        val recoverBlock = if (fb.recoverBlockIndex >= 0) blocks[fb.recoverBlockIndex] else null
+        val body = GoIRBodyImpl(fn, blocks, recoverBlock)
+
         // Build value map for this function's body using a two-pass approach.
         // We use a LazyValueMap that provides placeholders for forward references.
         val lazyValueMap = LazyValueMap()
@@ -315,7 +319,8 @@ class GoIRDeserializer {
             val instructions = mutableListOf<GoIRInst>()
 
             for (pi in pb.instructionsList) {
-                val inst = deserializeInstruction(pi, block, fn, lazyValueMap)
+                val loc = GoInstLocation(body, pi.index, blockIdx, positionFromProto(pi.position))
+                val inst = deserializeInstruction(pi, loc, fn, lazyValueMap)
                 instructions.add(inst)
                 // Register the GoIRRegister (not the instruction!) in the value map
                 if (pi.valueId > 0 && inst is GoIRDefInst) {
@@ -340,21 +345,15 @@ class GoIRDeserializer {
             block.resolveDominees(blocks)
         }
 
-        // Create body
-        val recoverBlock = if (fb.recoverBlockIndex >= 0) blocks[fb.recoverBlockIndex] else null
-        val body = GoIRBodyImpl(fn, blocks, recoverBlock)
         fn.setBody(body)
     }
 
     private fun deserializeInstruction(
         pi: ProtoInstruction,
-        block: GoIRBasicBlockImpl,
+        loc: GoInstLocation,
         fn: GoIRFunctionImpl,
         valueMap: LazyValueMap,
     ): GoIRInst {
-        val pos = positionFromProto(pi.position)
-        val idx = pi.index
-
         fun ref(vr: ProtoValueRef): GoIRValue = valueRefFromProto(vr, fn, valueMap)
         fun type(id: Int): GoIRType = resolveType(id)
 
@@ -362,7 +361,7 @@ class GoIRDeserializer {
         fun assign(expr: GoIRExpr): GoIRAssignInst {
             val reg = GoIRRegister(type(pi.typeId), pi.name)
             registerTypeIds.add(reg to pi.typeId)
-            return GoIRAssignInst(idx, block, pos, reg, expr)
+            return GoIRAssignInst(loc, reg, expr)
         }
 
         return when (pi.instCase) {
@@ -460,43 +459,43 @@ class GoIRDeserializer {
             ProtoInstruction.InstCase.PHI -> {
                 val reg = GoIRRegister(type(pi.typeId), pi.name)
                 registerTypeIds.add(reg to pi.typeId)
-                GoIRPhi(idx, block, pos, reg, pi.phi.edgesList.map { ref(it) }, pi.phi.comment.ifEmpty { null })
+                GoIRPhi(loc, reg, pi.phi.edgesList.map { ref(it) }, pi.phi.comment.ifEmpty { null })
             }
 
             // ─── Call (separate instruction, not an expression) ───
             ProtoInstruction.InstCase.CALL -> {
                 val reg = GoIRRegister(type(pi.typeId), pi.name)
                 registerTypeIds.add(reg to pi.typeId)
-                GoIRCall(idx, block, pos, reg, callInfoFromProto(pi.call.call, fn, valueMap))
+                GoIRCall(loc, reg, callInfoFromProto(pi.call.call, fn, valueMap))
             }
 
             // ─── Terminators ───
-            ProtoInstruction.InstCase.JUMP -> GoIRJump(idx, block, pos)
-            ProtoInstruction.InstCase.IF_INST -> GoIRIf(idx, block, pos, ref(pi.ifInst.cond))
+            ProtoInstruction.InstCase.JUMP -> GoIRJump(loc)
+            ProtoInstruction.InstCase.IF_INST -> GoIRIf(loc, ref(pi.ifInst.cond))
             ProtoInstruction.InstCase.RETURN_INST -> GoIRReturn(
-                idx, block, pos, pi.returnInst.resultsList.map { ref(it) }
+                loc, pi.returnInst.resultsList.map { ref(it) }
             )
-            ProtoInstruction.InstCase.PANIC_INST -> GoIRPanic(idx, block, pos, ref(pi.panicInst.x))
+            ProtoInstruction.InstCase.PANIC_INST -> GoIRPanic(loc, ref(pi.panicInst.x))
 
             // ─── Effect-only ───
             ProtoInstruction.InstCase.STORE -> GoIRStore(
-                idx, block, pos, ref(pi.store.addr), ref(pi.store.`val`)
+                loc, ref(pi.store.addr), ref(pi.store.`val`)
             )
             ProtoInstruction.InstCase.MAP_UPDATE -> GoIRMapUpdate(
-                idx, block, pos, ref(pi.mapUpdate.map), ref(pi.mapUpdate.key), ref(pi.mapUpdate.value)
+                loc, ref(pi.mapUpdate.map), ref(pi.mapUpdate.key), ref(pi.mapUpdate.value)
             )
             ProtoInstruction.InstCase.SEND -> GoIRSend(
-                idx, block, pos, ref(pi.send.chan), ref(pi.send.x)
+                loc, ref(pi.send.chan), ref(pi.send.x)
             )
             ProtoInstruction.InstCase.GO_INST -> GoIRGo(
-                idx, block, pos, callInfoFromProto(pi.goInst.call, fn, valueMap)
+                loc, callInfoFromProto(pi.goInst.call, fn, valueMap)
             )
             ProtoInstruction.InstCase.DEFER_INST -> GoIRDefer(
-                idx, block, pos, callInfoFromProto(pi.deferInst.call, fn, valueMap)
+                loc, callInfoFromProto(pi.deferInst.call, fn, valueMap)
             )
-            ProtoInstruction.InstCase.RUN_DEFERS -> GoIRRunDefers(idx, block, pos)
+            ProtoInstruction.InstCase.RUN_DEFERS -> GoIRRunDefers(loc)
             ProtoInstruction.InstCase.DEBUG_REF -> GoIRDebugRef(
-                idx, block, pos, ref(pi.debugRef.x), pi.debugRef.isAddr
+                loc, ref(pi.debugRef.x), pi.debugRef.isAddr
             )
             else -> throw IllegalStateException("Unknown instruction type: ${pi.instCase}")
         }

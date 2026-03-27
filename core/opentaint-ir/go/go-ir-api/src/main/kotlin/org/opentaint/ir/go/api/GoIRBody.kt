@@ -5,6 +5,7 @@ import org.opentaint.ir.go.cfg.GoIRBlockGraph
 import org.opentaint.ir.go.cfg.GoIRInstGraph
 import org.opentaint.ir.go.inst.GoIRInst
 import org.opentaint.ir.go.inst.GoIRInstRef
+import org.opentaint.ir.go.inst.index
 
 /**
  * The body of a function: basic blocks + instructions + CFG views.

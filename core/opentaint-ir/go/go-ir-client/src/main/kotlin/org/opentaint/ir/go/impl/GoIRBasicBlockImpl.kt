@@ -3,6 +3,7 @@ package org.opentaint.ir.go.impl
 import org.opentaint.ir.go.cfg.GoIRBasicBlock
 import org.opentaint.ir.go.inst.GoIRInst
 import org.opentaint.ir.go.inst.GoIRInstRef
+import org.opentaint.ir.go.inst.index
 
 class GoIRBasicBlockImpl(
     override val index: Int,

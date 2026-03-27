@@ -3,7 +3,7 @@ package org.opentaint.ir.go.ext
 
 import org.opentaint.ir.go.cfg.GoIRInstGraph
 import org.opentaint.ir.go.inst.GoIRInst
-import org.opentaint.ir.go.inst.GoIRInstRef
+import org.opentaint.ir.go.inst.index
 
 /**
  * Iterate instructions in BFS order from entry.

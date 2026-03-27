@@ -2,7 +2,12 @@ package org.opentaint.ir.go.impl
 
 import org.opentaint.ir.go.api.GoIRBody
 import org.opentaint.ir.go.cfg.GoIRInstGraph
-import org.opentaint.ir.go.inst.*
+import org.opentaint.ir.go.inst.GoIRInst
+import org.opentaint.ir.go.inst.GoIRInstRef
+import org.opentaint.ir.go.inst.GoIRPanic
+import org.opentaint.ir.go.inst.GoIRReturn
+import org.opentaint.ir.go.inst.block
+import org.opentaint.ir.go.inst.index
 
 class GoIRInstGraphImpl(override val body: GoIRBody) : GoIRInstGraph {
     override val instructions: List<GoIRInst> = body.instructions

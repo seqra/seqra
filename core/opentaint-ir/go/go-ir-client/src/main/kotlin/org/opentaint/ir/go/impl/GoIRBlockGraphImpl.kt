@@ -5,6 +5,7 @@ import org.opentaint.ir.go.cfg.GoIRBasicBlock
 import org.opentaint.ir.go.cfg.GoIRBlockGraph
 import org.opentaint.ir.go.inst.GoIRInst
 import org.opentaint.ir.go.inst.GoIRInstRef
+import org.opentaint.ir.go.inst.index
 
 class GoIRBlockGraphImpl(override val body: GoIRBody) : GoIRBlockGraph {
     override val blocks: List<GoIRBasicBlock> get() = body.blocks
