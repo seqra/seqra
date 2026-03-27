@@ -8,6 +8,7 @@ import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunner.LambdaResolvedEvent
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver.MethodCallResolutionResult
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLambdaTracker
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
@@ -46,7 +47,7 @@ class JIRMethodCallResolver(
         callerContext: MethodAnalysisContext,
         callExpr: CommonCallExpr,
         location: CommonInst
-    ): List<MethodWithContext> {
+    ): List<MethodCallResolutionResult> {
         jIRDowncast<JIRCallExpr>(callExpr)
         jIRDowncast<JIRInst>(location)
         jIRDowncast<JIRMethodAnalysisContext>(callerContext)
@@ -107,7 +108,7 @@ class JIRMethodCallResolver(
         callerContext: JIRMethodAnalysisContext,
         callExpr: JIRCallExpr,
         location: JIRInst
-    ): List<MethodWithContext> {
+    ): List<MethodCallResolutionResult> {
         val callees = callResolver.resolve(callExpr, location, callerContext)
         return callees.flatMap { resolvedCallee ->
             resolvedJirMethodCalls(callerContext, resolvedCallee)
@@ -117,19 +118,19 @@ class JIRMethodCallResolver(
     private fun resolvedJirMethodCalls(
         callerContext: JIRMethodAnalysisContext,
         resolvedCallee: JIRCallResolver.MethodResolutionResult
-    ): List<MethodWithContext> =
+    ): List<MethodCallResolutionResult> =
         when (resolvedCallee) {
             JIRCallResolver.MethodResolutionResult.MethodResolutionFailed -> {
-                emptyList()
+                listOf(MethodCallResolutionResult.ResolutionFailure)
             }
 
             is JIRCallResolver.MethodResolutionResult.ConcreteMethod -> {
-                listOf(resolvedCallee.method)
+                listOf(MethodCallResolutionResult.ResolvedMethod(resolvedCallee.method))
             }
 
             is JIRCallResolver.MethodResolutionResult.Lambda -> {
                 resolvedCallee.withLambdaProxy(callerContext, { resolvedJirMethodCalls(callerContext, it) }) {
-                    val resolvedLambdas = mutableListOf<MethodWithContext>()
+                    val resolvedLambdas = mutableListOf<MethodCallResolutionResult>()
                     lambdaTracker.forEachRegisteredLambda(
                         resolvedCallee.method,
                         object : JIRLambdaTracker.LambdaSubscriber {
@@ -140,11 +141,12 @@ class JIRMethodCallResolver(
                                 val methodImpl = lambdaClass.findMethodOrNull(method.name, method.description)
                                     ?: error("Lambda class $lambdaClass has no lambda method $method")
 
-                                resolvedLambdas += MethodWithContext(methodImpl, EmptyMethodContext)
+                                resolvedLambdas += MethodCallResolutionResult.ResolvedMethod(MethodWithContext(methodImpl, EmptyMethodContext))
                             }
                         }
                     )
-                    resolvedLambdas
+
+                    resolvedLambdas.ifEmpty { listOf(MethodCallResolutionResult.ResolutionFailure) }
                 }
             }
         }

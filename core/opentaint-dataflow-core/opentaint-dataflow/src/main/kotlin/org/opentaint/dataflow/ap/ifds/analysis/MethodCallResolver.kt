@@ -18,5 +18,10 @@ interface MethodCallResolver {
         callerContext: MethodAnalysisContext,
         callExpr: CommonCallExpr,
         location: CommonInst
-    ): List<MethodWithContext>
+    ): List<MethodCallResolutionResult>
+
+    sealed interface MethodCallResolutionResult {
+        object ResolutionFailure : MethodCallResolutionResult
+        data class ResolvedMethod(val method: MethodWithContext) : MethodCallResolutionResult
+    }
 }

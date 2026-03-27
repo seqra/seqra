@@ -56,6 +56,7 @@ import org.opentaint.ir.api.common.cfg.CommonValue
 import java.util.BitSet
 import java.util.LinkedList
 import java.util.Objects
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver.MethodCallResolutionResult
 import kotlin.collections.plusAssign
 
 class MethodTraceResolver(
@@ -713,7 +714,6 @@ class MethodTraceResolver(
             )
             val callees by lazy {
                 runner.methodCallResolver.resolvedMethodCalls(analysisContext, statementCall, statement)
-                    .flatMap { methodEntryPoints(it) }
             }
 
             val callEdges = mutableListOf<List<ActionOrUnchanged<PartiallyResolvedCallAction>>>()
@@ -754,7 +754,15 @@ class MethodTraceResolver(
                 return
             }
 
-            val callActions = mergeCallActionsCombinations(callEdges, callees)
+            val resolvedMethods by lazy {
+                callees.mapNotNull {
+                    when (it) {
+                        is MethodCallResolutionResult.ResolvedMethod -> it.method
+                        MethodCallResolutionResult.ResolutionFailure -> null
+                    }
+                }
+            }
+            val callActions = mergeCallActionsCombinations(callEdges, resolvedMethods)
             val resolvedCallActions = resolveCallActions(preconditionFunction, statement, callActions)
             addPredecessorAction(resolvedCallActions, entry, statement)
         } else {
@@ -822,7 +830,7 @@ class MethodTraceResolver(
     private fun callFactPrecondition(
         preconditionFunction: MethodCallPrecondition,
         fact: InitialFactAp,
-        callees: List<MethodEntryPoint>,
+        callees: List<MethodCallResolutionResult>,
     ): List<CallPrecondition> = buildList {
         val preconditions = preconditionFunction.factPrecondition(fact)
 
@@ -842,22 +850,24 @@ class MethodTraceResolver(
     private fun processCallPreconditionFacts(
         preconditionFunction: MethodCallPrecondition,
         precondition: MethodCallPrecondition.PreconditionFactsForInitialFact,
-        callees: List<MethodEntryPoint>,
+        callees: List<MethodCallResolutionResult>,
     ): MethodCallPrecondition.PreconditionFactsForInitialFact {
+        val resolutionFailure by lazy { callees.any { it is MethodCallResolutionResult.ResolutionFailure } }
+
         val processedPreconditions = precondition.preconditionFacts.flatMapTo(hashSetOf()) { preconditionFact ->
             when (preconditionFact) {
                 is CallPreconditionFact.UnresolvedCallSkip -> listOf(preconditionFact)
                 is CallPreconditionFact.CallToReturnTaintRule -> listOf(preconditionFact)
 
                 is CallPreconditionFact.CallToStart -> {
-                    if (callees.isNotEmpty()) {
-                        return@flatMapTo listOf(preconditionFact)
+                    if (resolutionFailure) {
+                        preconditionFunction.factPreconditionResolutionFailure(
+                            precondition.initialFact,
+                            preconditionFact.startFactBase
+                        ) + preconditionFact
+                    } else {
+                        listOf(preconditionFact)
                     }
-
-                    preconditionFunction.factPreconditionResolutionFailure(
-                        precondition.initialFact,
-                        preconditionFact.startFactBase
-                    )
                 }
             }
         }.toList()
@@ -979,7 +989,7 @@ class MethodTraceResolver(
 
     private fun mergeCallActionsCombinations(
         callActions: List<List<ActionOrUnchanged<PartiallyResolvedCallAction>>>,
-        callees: List<MethodEntryPoint>,
+        callees: List<MethodWithContext>,
     ): List<PartialCallEdgeCombination> {
         val result = mutableListOf<PartialCallEdgeCombination>()
         callActions.cartesianProductMapTo { actions ->
@@ -991,7 +1001,7 @@ class MethodTraceResolver(
 
     private fun mergeCallActions(
         aouGroup: Array<ActionOrUnchanged<PartiallyResolvedCallAction>>,
-        resolveMethodCallees: () -> List<MethodEntryPoint>
+        resolveMethodCallees: () -> List<MethodWithContext>
     ): List<PartialCallEdgeCombination> {
         val unchanged = hashSetOf<TraceEdge>()
         val rules = hashSetOf<PartiallyResolvedCallAction.CallRule>()
@@ -1013,10 +1023,6 @@ class MethodTraceResolver(
         }
 
         val mergedRules = mergeCallRules(rules)
-
-        if (summary.isEmpty() && unresolvedSkips.isEmpty()) {
-            return listOf(PartialCallEdgeCombination(unchanged, primary = null, mergedRules))
-        }
 
         val mergedCallSummaries = mergeCallSummaries(summary, unresolvedSkips, resolveMethodCallees())
             ?: return listOf(PartialCallEdgeCombination(unchanged, primary = null, mergedRules))
@@ -1066,19 +1072,21 @@ class MethodTraceResolver(
     private fun mergeCallSummaries(
         callSummaries: Set<PartiallyResolvedCallAction.Call2Start>,
         unresolvedCallSkips: Set<PartiallyResolvedCallAction.UnresolvedCallSkip>,
-        callees: List<MethodEntryPoint>,
-    ): Set<PartiallyResolvedMergedPrimaryCallAction>? {
-        if (callees.isEmpty()) {
-            if (unresolvedCallSkips.isEmpty()) return null
+        callees: List<MethodWithContext>,
+    ): Set<PartiallyResolvedMergedPrimaryCallAction>? = buildSet {
+        if (callSummaries.isNotEmpty()) {
+            callees.forEach { callee ->
+                methodEntryPoints(callee).forEach {
+                    this += MergedPrimaryCall2StartAction(it, callSummaries)
+                }
+            }
+        }
 
+        if (unresolvedCallSkips.isNotEmpty()) {
             val skippedEdges = unresolvedCallSkips.mapTo(hashSetOf()) { it.currentEdge }
-            return setOf(MergedPrimaryUnresolvedCallSkip(UnresolvedCallSkip(skippedEdges, skippedEdges)))
+            this += MergedPrimaryUnresolvedCallSkip(UnresolvedCallSkip(skippedEdges, skippedEdges))
         }
-
-        return callees.mapTo(hashSetOf()) {
-            MergedPrimaryCall2StartAction(it, callSummaries)
-        }
-    }
+    }.ifEmpty { null }
 
     private sealed interface PartiallyResolvedCallAction {
         data class CallRule(
