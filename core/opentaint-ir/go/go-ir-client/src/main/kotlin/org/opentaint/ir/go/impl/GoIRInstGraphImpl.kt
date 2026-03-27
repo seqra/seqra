@@ -47,15 +47,15 @@ class GoIRInstGraphImpl(override val body: GoIRBody) : GoIRInstGraph {
         predMap[inst.index]?.map { instructions[it] } ?: emptyList()
 
     override fun next(inst: GoIRInst): GoIRInst? {
-        val blockInstrs = inst.block.instructions
-        val pos = blockInstrs.indexOfFirst { it.index == inst.index }
-        return if (pos >= 0 && pos < blockInstrs.size - 1) blockInstrs[pos + 1] else null
+        val block = inst.block as GoIRBasicBlockImpl
+        val localPos = inst.index - block.blockStartIndex
+        return if (localPos < block.instructions.size - 1) block.inst(inst.index + 1) else null
     }
 
     override fun previous(inst: GoIRInst): GoIRInst? {
-        val blockInstrs = inst.block.instructions
-        val pos = blockInstrs.indexOfFirst { it.index == inst.index }
-        return if (pos > 0) blockInstrs[pos - 1] else null
+        val block = inst.block as GoIRBasicBlockImpl
+        val localPos = inst.index - block.blockStartIndex
+        return if (localPos > 0) block.inst(inst.index - 1) else null
     }
 
     override fun successors(ref: GoIRInstRef) =

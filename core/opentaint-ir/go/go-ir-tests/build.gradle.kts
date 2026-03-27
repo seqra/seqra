@@ -1,6 +1,3 @@
-import java.time.Duration
-import java.util.concurrent.TimeUnit
-
 plugins {
     id("kotlin-conventions")
 }

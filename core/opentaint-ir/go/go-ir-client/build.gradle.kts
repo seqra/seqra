@@ -1,3 +1,5 @@
+import org.gradle.api.tasks.compile.JavaCompile
+
 plugins {
     id("kotlin-conventions")
     id("com.google.protobuf") version "0.9.4"
@@ -45,6 +47,10 @@ sourceSets {
             srcDir("${project.parent?.projectDir}/proto")
         }
     }
+}
+
+tasks.named<JavaCompile>("compileJava") {
+    options.compilerArgs.remove("-Werror")
 }
 
 val goRootDir = project.parent!!.projectDir
