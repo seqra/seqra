@@ -1,5 +1,8 @@
 package org.opentaint.ir.go.inst
 
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.cfg.CommonInstLocation
 import org.opentaint.ir.go.api.GoIRBody
 import org.opentaint.ir.go.api.GoIRPosition
 import org.opentaint.ir.go.cfg.GoIRBasicBlock
@@ -13,14 +16,16 @@ data class GoInstLocation(
     val index: Int,
     val blockIndex: Int,
     val position: GoIRPosition?
-)
+) : CommonInstLocation {
+    override val method: CommonMethod get() = functionBody.function
+}
 
 /**
  * Base interface for all IR instructions.
  * Every instruction belongs to a basic block and has a unique index within its function.
  */
-sealed interface GoIRInst {
-    val location: GoInstLocation
+sealed interface GoIRInst: CommonInst {
+    override val location: GoInstLocation
     val operands: List<GoIRValue>
 
     fun <T> accept(visitor: GoIRInstVisitor<T>): T

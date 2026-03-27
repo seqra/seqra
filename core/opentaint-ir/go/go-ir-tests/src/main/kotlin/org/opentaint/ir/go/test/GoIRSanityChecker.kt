@@ -1,7 +1,6 @@
 package org.opentaint.ir.go.test
 
 import org.opentaint.ir.go.api.*
-import org.opentaint.ir.go.cfg.*
 import org.opentaint.ir.go.inst.*
 import org.opentaint.ir.go.value.*
 
@@ -309,12 +308,12 @@ object GoIRSanityChecker {
 
         // For each instruction, verify successor/predecessor relationships
         for (inst in body.instructions) {
-            val succs = instGraph.successors(inst)
-            val preds = instGraph.predecessors(inst)
+            val succs = instGraph.successorsList(inst)
+            val preds = instGraph.predecessorsList(inst)
 
             // Successor/predecessor duality
             for (succ in succs) {
-                val succPreds = instGraph.predecessors(succ)
+                val succPreds = instGraph.predecessorsList(succ)
                 if (inst !in succPreds) {
                     errors += SanityViolation(
                         "inst-graph",
@@ -323,7 +322,7 @@ object GoIRSanityChecker {
                 }
             }
             for (pred in preds) {
-                val predSuccs = instGraph.successors(pred)
+                val predSuccs = instGraph.successorsList(pred)
                 if (inst !in predSuccs) {
                     errors += SanityViolation(
                         "inst-graph",
@@ -367,7 +366,7 @@ object GoIRSanityChecker {
         for (inst in body.instructions) {
             val ref = GoIRInstRef(inst.index)
             val succsByRef = instGraph.successors(ref)
-            val succsByInst = instGraph.successors(inst).map { GoIRInstRef(it.index) }
+            val succsByInst = instGraph.successorsList(inst).map { GoIRInstRef(it.index) }
             if (succsByRef != succsByInst) {
                 errors += SanityViolation(
                     "inst-graph",

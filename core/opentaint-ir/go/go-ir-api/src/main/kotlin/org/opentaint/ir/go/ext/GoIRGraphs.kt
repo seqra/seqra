@@ -19,7 +19,7 @@ fun GoIRInstGraph.bfsOrder(): List<GoIRInst> {
     while (queue.isNotEmpty()) {
         val current = queue.removeFirst()
         result.add(current)
-        for (succ in successors(current)) {
+        for (succ in successorsList(current)) {
             if (visited.add(succ.index)) {
                 queue.add(succ)
             }
@@ -38,7 +38,7 @@ fun GoIRInstGraph.dfsPostorder(): List<GoIRInst> {
 
     fun dfs(inst: GoIRInst) {
         if (!visited.add(inst.index)) return
-        for (succ in successors(inst)) {
+        for (succ in successorsList(inst)) {
             dfs(succ)
         }
         result.add(inst)

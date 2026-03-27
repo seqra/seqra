@@ -1,14 +1,17 @@
 package org.opentaint.ir.go.type
 
+import org.opentaint.ir.api.common.CommonTypeName
 import org.opentaint.ir.go.api.GoIRNamedType
 
 /**
  * Base sealed interface for all Go IR types.
  * Enables exhaustive `when` matching.
  */
-sealed interface GoIRType {
+sealed interface GoIRType: CommonTypeName {
     /** Human-readable type string (e.g., "*int", "map[string]int") */
     val displayName: String
+
+    override val typeName: String get() = displayName
 }
 
 data class GoIRBasicType(val kind: GoIRBasicTypeKind) : GoIRType {

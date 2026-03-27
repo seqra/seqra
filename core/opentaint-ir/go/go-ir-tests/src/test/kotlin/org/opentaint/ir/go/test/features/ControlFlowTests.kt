@@ -164,13 +164,13 @@ class ControlFlowTests {
 
         // Each exit has no successors
         for (exit in instGraph.exits) {
-            assertThat(instGraph.successors(exit)).isEmpty()
+            assertThat(instGraph.successorsList(exit)).isEmpty()
         }
 
         // Non-exit non-terminator instructions have at least one successor
         for (inst in body.instructions) {
             if (inst !is GoIRTerminator) {
-                assertThat(instGraph.successors(inst))
+                assertThat(instGraph.successorsList(inst))
                     .withFailMessage("Non-terminator inst#${inst.index} should have successors")
                     .isNotEmpty()
             }

@@ -1,8 +1,11 @@
 package org.opentaint.ir.go.expr
 
+import org.opentaint.ir.api.common.cfg.CommonExpr
 import org.opentaint.ir.go.api.GoIRFunction
 import org.opentaint.ir.go.cfg.GoIRSelectState
-import org.opentaint.ir.go.type.*
+import org.opentaint.ir.go.type.GoIRBinaryOp
+import org.opentaint.ir.go.type.GoIRType
+import org.opentaint.ir.go.type.GoIRUnaryOp
 import org.opentaint.ir.go.value.GoIRValue
 
 /**
@@ -10,8 +13,12 @@ import org.opentaint.ir.go.value.GoIRValue
  * An expression represents a computation that produces a value.
  * Expressions appear inside [org.opentaint.ir.go.inst.GoIRAssignInst] as the right-hand side.
  */
-sealed interface GoIRExpr {
+sealed interface GoIRExpr: CommonExpr {
+    val type: GoIRType
     val operands: List<GoIRValue>
+
+    override val typeName: String get() = type.typeName
+
     fun <T> accept(visitor: GoIRExprVisitor<T>): T
 }
 

@@ -1,5 +1,6 @@
 package org.opentaint.ir.go.cfg
 
+import org.opentaint.ir.api.common.cfg.ControlFlowGraph
 import org.opentaint.ir.go.api.GoIRBody
 import org.opentaint.ir.go.inst.GoIRInst
 import org.opentaint.ir.go.inst.GoIRInstRef
@@ -11,21 +12,25 @@ import org.opentaint.ir.go.inst.GoIRInstRef
  * the next instruction in the block. The terminator instruction's successors are
  * the first instructions of the successor blocks.
  */
-interface GoIRInstGraph {
+interface GoIRInstGraph: ControlFlowGraph<GoIRInst> {
     val body: GoIRBody
 
     /** All instructions in program order */
-    val instructions: List<GoIRInst>
+    override val instructions: List<GoIRInst>
 
     /** Entry instruction (first instruction of entry block) */
     val entry: GoIRInst
 
+    override val entries: List<GoIRInst> get() = listOf(entry)
+
     /** Instructions with no successors (Return, Panic) */
-    val exits: List<GoIRInst>
+    override val exits: List<GoIRInst>
 
     // Navigation by instruction
-    fun successors(inst: GoIRInst): List<GoIRInst>
-    fun predecessors(inst: GoIRInst): List<GoIRInst>
+    fun successorsList(inst: GoIRInst): List<GoIRInst>
+    override fun successors(node: GoIRInst): Set<GoIRInst> = successorsList(node).toSet()
+    fun predecessorsList(inst: GoIRInst): List<GoIRInst>
+    override fun predecessors(node: GoIRInst): Set<GoIRInst> = predecessorsList(node).toSet()
     fun next(inst: GoIRInst): GoIRInst?
     fun previous(inst: GoIRInst): GoIRInst?
 

@@ -45,10 +45,10 @@ class GoIRInstGraphImpl(override val body: GoIRBody) : GoIRInstGraph {
         this.predMap = preds
     }
 
-    override fun successors(inst: GoIRInst): List<GoIRInst> =
+    override fun successorsList(inst: GoIRInst): List<GoIRInst> =
         succMap[inst.index]?.map { instructions[it] } ?: emptyList()
 
-    override fun predecessors(inst: GoIRInst): List<GoIRInst> =
+    override fun predecessorsList(inst: GoIRInst): List<GoIRInst> =
         predMap[inst.index]?.map { instructions[it] } ?: emptyList()
 
     override fun next(inst: GoIRInst): GoIRInst? {

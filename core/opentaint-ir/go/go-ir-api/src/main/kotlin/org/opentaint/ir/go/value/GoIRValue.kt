@@ -1,5 +1,6 @@
 package org.opentaint.ir.go.value
 
+import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.go.api.GoIRFunction
 import org.opentaint.ir.go.api.GoIRGlobal
 import org.opentaint.ir.go.type.GoIRType
@@ -8,9 +9,11 @@ import org.opentaint.ir.go.type.GoIRType
  * Base interface for all IR values.
  * A value is anything that can be used as an operand of an instruction.
  */
-interface GoIRValue {
+interface GoIRValue: CommonValue {
     val type: GoIRType
     val name: String
+
+    override val typeName: String get() = type.typeName
 
     fun <T> acceptValue(visitor: GoIRValueVisitor<T>): T
 }
