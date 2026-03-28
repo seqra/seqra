@@ -460,7 +460,7 @@ class GoIRDeserializer {
         // Helper to create a register + assign instruction for expression-based instructions
         val exprType = type(pi.typeId)
         fun assign(expr: GoIRExpr): GoIRAssignInst {
-            val reg = GoIRRegister(exprType, pi.index, pi.name)
+            val reg = valueMap[pi.valueId]
             registerTypeIds.add(reg to pi.typeId)
             exprTypeIds.add(expr to pi.typeId)
             return GoIRAssignInst(loc, reg, expr)
@@ -561,14 +561,14 @@ class GoIRDeserializer {
 
             // ─── Phi (separate instruction, not an expression) ───
             ProtoInstruction.InstCase.PHI -> {
-                val reg = GoIRRegister(type(pi.typeId), pi.index, pi.name)
+                val reg = valueMap[pi.valueId]
                 registerTypeIds.add(reg to pi.typeId)
                 GoIRPhi(loc, reg, pi.phi.edgesList.map { ref(it) }, pi.phi.comment.ifEmpty { null })
             }
 
             // ─── Call (separate instruction, not an expression) ───
             ProtoInstruction.InstCase.CALL -> {
-                val reg = GoIRRegister(type(pi.typeId), pi.index, pi.name)
+                val reg = valueMap[pi.valueId]
                 registerTypeIds.add(reg to pi.typeId)
                 GoIRCall(loc, reg, callInfoFromProto(pi.call.call, fn, valueMap))
             }
