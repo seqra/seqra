@@ -37,8 +37,6 @@ My suggestion is:
 
 Write all your findings into go-dataflow-test-system.md
 
-OK, WE ARE HERE. We have initial design proposal and test-system proposal
-
 Now let's define implementation details.
 
 1. Divide logic by modules, describe changes into every module
@@ -46,3 +44,19 @@ Now let's define implementation details.
 3. Plan required pass rules for std library
 
 Write all your findings into go-dataflow-implementation-details.md. 
+
+OK, WE ARE HERE. We have designed all we need and cant start implementing things.
+
+Implement designed modules/changes.
+
+Write plan.md with tasks. Include implementation and test steps.
+Track progress in plan.md file.
+
+If you see a new task (e.g. you need to fix compilation failure) add it to the plan and then start working on it.
+Always read plan.md before going to the next task
+Use git to fix progress in the VCS
+
+The result success criteria:
+1. We have a dataflow analyzer implementation
+2. We have full test system
+3. All tests passed

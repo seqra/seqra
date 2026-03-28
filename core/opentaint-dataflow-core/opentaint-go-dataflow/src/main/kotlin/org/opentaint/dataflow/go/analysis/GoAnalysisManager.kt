@@ -19,66 +19,70 @@ import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisContext
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodStartPrecondition
+import org.opentaint.dataflow.go.GoCallExpr
 import org.opentaint.dataflow.go.GoLanguageManager
+import org.opentaint.dataflow.go.GoMethodCallFactMapper
+import org.opentaint.dataflow.go.graph.GoApplicationGraph
+import org.opentaint.dataflow.go.rules.GoTaintConfig
+import org.opentaint.dataflow.go.rules.GoTaintRulesProvider
+import org.opentaint.dataflow.go.trace.GoMethodCallPrecondition
+import org.opentaint.dataflow.go.trace.GoMethodSequentPrecondition
+import org.opentaint.dataflow.go.trace.GoMethodStartPrecondition
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.go.api.GoIRProgram
+import org.opentaint.ir.go.inst.GoIRInst
+import org.opentaint.ir.go.value.GoIRValue
 import org.opentaint.util.analysis.ApplicationGraph
 
-class GoAnalysisManager(val cp: GoIRProgram) : GoLanguageManager(), TaintAnalysisManager {
+/**
+ * Central factory that wires all Go dataflow analysis components together.
+ */
+class GoAnalysisManager(cp: GoIRProgram) : GoLanguageManager(cp), TaintAnalysisManager {
+
+    override val factTypeChecker: FactTypeChecker = FactTypeChecker.Dummy
+
     override fun getMethodAnalysisContext(
         methodEntryPoint: MethodEntryPoint,
         graph: ApplicationGraph<CommonMethod, CommonInst>,
         callResolver: MethodCallResolver,
         taintAnalysisContext: TaintAnalysisContext,
-        contextForEmptyMethod: MethodAnalysisContext?
+        contextForEmptyMethod: MethodAnalysisContext?,
     ): MethodAnalysisContext {
-        TODO("Not yet implemented")
+        val config = taintAnalysisContext.taintConfig as GoTaintConfig
+        val rulesProvider = GoTaintRulesProvider(config)
+        return GoMethodAnalysisContext(methodEntryPoint, taintAnalysisContext, rulesProvider)
     }
-
-    override val factTypeChecker: FactTypeChecker
-        get() = TODO("Not yet implemented")
 
     override fun getMethodCallResolver(
         graph: ApplicationGraph<CommonMethod, CommonInst>,
         unitResolver: UnitResolver<CommonMethod>,
-        runner: TaintAnalysisUnitRunner
+        runner: TaintAnalysisUnitRunner,
     ): MethodCallResolver {
-        TODO("Not yet implemented")
+        val goGraph = graph as GoApplicationGraph
+        return GoMethodCallResolver(goGraph.callResolver, runner)
     }
 
     override fun getMethodStartFlowFunction(
         apManager: ApManager,
-        analysisContext: MethodAnalysisContext
-    ): MethodStartFlowFunction {
-        TODO("Not yet implemented")
-    }
-
-    override fun getMethodStartPrecondition(
-        apManager: ApManager,
-        analysisContext: MethodAnalysisContext
-    ): MethodStartPrecondition {
-        TODO("Not yet implemented")
-    }
-
-    override fun getMethodSequentPrecondition(
-        apManager: ApManager,
         analysisContext: MethodAnalysisContext,
-        currentInst: CommonInst
-    ): MethodSequentPrecondition {
-        TODO("Not yet implemented")
+    ): MethodStartFlowFunction {
+        return GoMethodStartFlowFunction(apManager, analysisContext as GoMethodAnalysisContext)
     }
 
     override fun getMethodSequentFlowFunction(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
         currentInst: CommonInst,
-        generateTrace: Boolean
+        generateTrace: Boolean,
     ): MethodSequentFlowFunction {
-        TODO("Not yet implemented")
+        return GoMethodSequentFlowFunction(
+            apManager, analysisContext as GoMethodAnalysisContext,
+            currentInst as GoIRInst, generateTrace
+        )
     }
 
     override fun getMethodCallFlowFunction(
@@ -87,9 +91,50 @@ class GoAnalysisManager(val cp: GoIRProgram) : GoLanguageManager(), TaintAnalysi
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
         statement: CommonInst,
-        generateTrace: Boolean
+        generateTrace: Boolean,
     ): MethodCallFlowFunction {
-        TODO("Not yet implemented")
+        return GoMethodCallFlowFunction(
+            apManager, analysisContext as GoMethodAnalysisContext,
+            returnValue as? GoIRValue,
+            callExpr as GoCallExpr,
+            statement as GoIRInst,
+            generateTrace,
+        )
+    }
+
+    override fun getMethodCallSummaryHandler(
+        apManager: ApManager,
+        analysisContext: MethodAnalysisContext,
+        statement: CommonInst,
+    ): MethodCallSummaryHandler {
+        return GoMethodCallSummaryHandler(
+            apManager, analysisContext as GoMethodAnalysisContext,
+            statement as GoIRInst
+        )
+    }
+
+    override fun getMethodSideEffectSummaryHandler(
+        apManager: ApManager,
+        analysisContext: MethodAnalysisContext,
+        statement: CommonInst,
+        runner: AnalysisRunner,
+    ): MethodSideEffectSummaryHandler {
+        return GoMethodSideEffectHandler()
+    }
+
+    override fun getMethodStartPrecondition(
+        apManager: ApManager,
+        analysisContext: MethodAnalysisContext,
+    ): MethodStartPrecondition {
+        return GoMethodStartPrecondition()
+    }
+
+    override fun getMethodSequentPrecondition(
+        apManager: ApManager,
+        analysisContext: MethodAnalysisContext,
+        currentInst: CommonInst,
+    ): MethodSequentPrecondition {
+        return GoMethodSequentPrecondition()
     }
 
     override fun getMethodCallPrecondition(
@@ -97,46 +142,30 @@ class GoAnalysisManager(val cp: GoIRProgram) : GoLanguageManager(), TaintAnalysi
         analysisContext: MethodAnalysisContext,
         returnValue: CommonValue?,
         callExpr: CommonCallExpr,
-        statement: CommonInst
-    ): MethodCallPrecondition {
-        TODO("Not yet implemented")
-    }
-
-    override fun getMethodCallSummaryHandler(
-        apManager: ApManager,
-        analysisContext: MethodAnalysisContext,
-        statement: CommonInst
-    ): MethodCallSummaryHandler {
-        TODO("Not yet implemented")
-    }
-
-    override fun getMethodSideEffectSummaryHandler(
-        apManager: ApManager,
-        analysisContext: MethodAnalysisContext,
         statement: CommonInst,
-        runner: AnalysisRunner
-    ): MethodSideEffectSummaryHandler {
-        TODO("Not yet implemented")
+    ): MethodCallPrecondition {
+        return GoMethodCallPrecondition()
     }
 
     override fun isReachable(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
         base: AccessPathBase,
-        statement: CommonInst
+        statement: CommonInst,
     ): Boolean {
-        TODO("Not yet implemented")
+        // In SSA form, all defined registers are reachable at their use points
+        return true
     }
 
     override fun isValidMethodExitFact(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
-        fact: FinalFactAp
+        fact: FinalFactAp,
     ): Boolean {
-        TODO("Not yet implemented")
+        return GoMethodCallFactMapper.isValidMethodExitFact(fact)
     }
 
     override fun onInstructionReached(inst: CommonInst) {
-        TODO("Not yet implemented")
+        // No-op for MVP
     }
 }

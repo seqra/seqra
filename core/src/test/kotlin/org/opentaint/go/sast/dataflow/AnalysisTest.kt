@@ -7,6 +7,8 @@ import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase.Argument
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase.Result
 import org.opentaint.dataflow.go.analysis.GoAnalysisManager
 import org.opentaint.dataflow.go.graph.GoApplicationGraph
 import org.opentaint.dataflow.go.rules.GoTaintConfig
@@ -39,6 +41,10 @@ abstract class AnalysisTest {
     lateinit var cp: GoIRProgram
     lateinit var client: GoIRClient
 
+    // Standard source/sink rules
+    val stdSource = TaintRules.Source("test.source", "taint", Result)
+    val stdSink = TaintRules.Sink("test.sink", "taint", Argument(0), "test-id")
+
     @BeforeAll
     fun setup() {
         val jarPath = System.getenv("TEST_SAMPLES_JAR")
@@ -61,7 +67,7 @@ abstract class AnalysisTest {
     }
 
     private fun createClasspath(): GoIRProgram {
-        return client.buildFromDir(sourcesDir)
+        return client.buildFromDir(sourcesDir, "./...")
     }
 
     private fun extractGoSourcesFromJar(jarPath: Path, targetDir: Path) {
@@ -78,37 +84,41 @@ abstract class AnalysisTest {
         }
     }
 
-    val commonPathRules = listOf<TaintRules.Pass>(
+    open val commonPassRules: List<TaintRules.Pass> = emptyList()
 
-    )
+    // Convenience: standard assertion with default rules
+    fun assertReachable(fn: String) = assertSinkReachable(stdSource, stdSink, fn)
+    fun assertNotReachable(fn: String) = assertSinkNotReachable(stdSource, stdSink, fn)
 
     fun assertSinkReachable(
         source: TaintRules.Source,
         sink: TaintRules.Sink,
-        entryPointFunction: String
+        entryPointFunction: String,
     ) {
         val vulnerabilities = runAnalysis(source, sink, entryPointFunction)
-        assertTrue(vulnerabilities.isNotEmpty(), "Sink was not reached")
+        assertTrue(vulnerabilities.isNotEmpty(), "Sink was not reached in $entryPointFunction")
     }
 
     fun assertSinkNotReachable(
         source: TaintRules.Source,
         sink: TaintRules.Sink,
-        entryPointFunction: String
+        entryPointFunction: String,
     ) {
         val vulnerabilities = runAnalysis(source, sink, entryPointFunction)
-        assertTrue(vulnerabilities.isEmpty(), "Sink should not be reached")
+        assertTrue(vulnerabilities.isEmpty(), "Sink should not be reached in $entryPointFunction")
     }
-    
+
     fun runAnalysis(
         source: TaintRules.Source,
         sink: TaintRules.Sink,
         entryPointFunction: String,
+        extraPassRules: List<TaintRules.Pass> = emptyList(),
     ): List<TaintSinkTracker.TaintVulnerability> {
         val entryPoint = cp.findFunctionByFullName(entryPointFunction)
-            ?: error("Entry point not found")
+            ?: error("Entry point not found: $entryPointFunction")
 
-        val config = GoTaintConfig(listOf(source), listOf(sink), commonPathRules)
+        val allPassRules = commonPassRules + extraPassRules
+        val config = GoTaintConfig(listOf(source), listOf(sink), allPassRules)
 
         val ifdsGraph = GoApplicationGraph(cp)
 
