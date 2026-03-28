@@ -20,3 +20,21 @@ Your task is:
 Read /home/sobol/IdeaProjects/opentaint/edges-knowledge.md
 
 Write all your findings into go-dataflow-design.md
+
+OK, WE ARE HERE. We have initial design proposal
+
+Now let's design test system for our analysis engine.
+Currently we have 2 simple test cases, but we need much more.
+
+My suggestion is:
+1. Adapt test cases from `~/data/ant-application-security-testing-benchmark/sast-go`
+   Copy test cases into our samples dir, performing required rewritings
+   Consider this as a list of test cases for various language features
+
+2. Generate test cases for various data flow features:
+   - Interprocedural flow, interfaces
+   - Field sensitivity, arrays
+   - Collections
+   - etc.
+
+Write all your findings into go-dataflow-test-system.md
