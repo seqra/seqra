@@ -1,15 +1,109 @@
 package org.opentaint.ir.go.client
 
-import org.opentaint.ir.go.api.*
-import org.opentaint.ir.go.cfg.GoIRBasicBlock
+import com.google.protobuf.type
+import org.opentaint.ir.go.api.GoIRFreeVar
+import org.opentaint.ir.go.api.GoIRInterfaceMethod
+import org.opentaint.ir.go.api.GoIRParameter
+import org.opentaint.ir.go.api.GoIRPosition
+import org.opentaint.ir.go.api.GoIRProgram
 import org.opentaint.ir.go.cfg.GoIRCallInfo
 import org.opentaint.ir.go.cfg.GoIRSelectState
-import org.opentaint.ir.go.expr.*
-import org.opentaint.ir.go.impl.*
-import org.opentaint.ir.go.inst.*
-import org.opentaint.ir.go.proto.*
-import org.opentaint.ir.go.type.*
-import org.opentaint.ir.go.value.*
+import org.opentaint.ir.go.expr.GoIRAllocExpr
+import org.opentaint.ir.go.expr.GoIRBinOpExpr
+import org.opentaint.ir.go.expr.GoIRChangeInterfaceExpr
+import org.opentaint.ir.go.expr.GoIRChangeTypeExpr
+import org.opentaint.ir.go.expr.GoIRConvertExpr
+import org.opentaint.ir.go.expr.GoIRExpr
+import org.opentaint.ir.go.expr.GoIRExtractExpr
+import org.opentaint.ir.go.expr.GoIRFieldAddrExpr
+import org.opentaint.ir.go.expr.GoIRFieldExpr
+import org.opentaint.ir.go.expr.GoIRIndexAddrExpr
+import org.opentaint.ir.go.expr.GoIRIndexExpr
+import org.opentaint.ir.go.expr.GoIRLookupExpr
+import org.opentaint.ir.go.expr.GoIRMakeChanExpr
+import org.opentaint.ir.go.expr.GoIRMakeClosureExpr
+import org.opentaint.ir.go.expr.GoIRMakeInterfaceExpr
+import org.opentaint.ir.go.expr.GoIRMakeMapExpr
+import org.opentaint.ir.go.expr.GoIRMakeSliceExpr
+import org.opentaint.ir.go.expr.GoIRMultiConvertExpr
+import org.opentaint.ir.go.expr.GoIRNextExpr
+import org.opentaint.ir.go.expr.GoIRRangeExpr
+import org.opentaint.ir.go.expr.GoIRSelectExpr
+import org.opentaint.ir.go.expr.GoIRSliceExpr
+import org.opentaint.ir.go.expr.GoIRSliceToArrayPointerExpr
+import org.opentaint.ir.go.expr.GoIRTypeAssertExpr
+import org.opentaint.ir.go.expr.GoIRUnOpExpr
+import org.opentaint.ir.go.impl.GoIRBasicBlockImpl
+import org.opentaint.ir.go.impl.GoIRBodyImpl
+import org.opentaint.ir.go.impl.GoIRConstImpl
+import org.opentaint.ir.go.impl.GoIRFunctionImpl
+import org.opentaint.ir.go.impl.GoIRGlobalImpl
+import org.opentaint.ir.go.impl.GoIRNamedTypeImpl
+import org.opentaint.ir.go.impl.GoIRPackageImpl
+import org.opentaint.ir.go.impl.GoIRProgramImpl
+import org.opentaint.ir.go.inst.GoIRAssignInst
+import org.opentaint.ir.go.inst.GoIRCall
+import org.opentaint.ir.go.inst.GoIRDebugRef
+import org.opentaint.ir.go.inst.GoIRDefer
+import org.opentaint.ir.go.inst.GoIRGo
+import org.opentaint.ir.go.inst.GoIRIf
+import org.opentaint.ir.go.inst.GoIRInst
+import org.opentaint.ir.go.inst.GoIRJump
+import org.opentaint.ir.go.inst.GoIRMapUpdate
+import org.opentaint.ir.go.inst.GoIRPanic
+import org.opentaint.ir.go.inst.GoIRPhi
+import org.opentaint.ir.go.inst.GoIRReturn
+import org.opentaint.ir.go.inst.GoIRRunDefers
+import org.opentaint.ir.go.inst.GoIRSend
+import org.opentaint.ir.go.inst.GoIRStore
+import org.opentaint.ir.go.inst.GoInstLocation
+import org.opentaint.ir.go.proto.BuildProgramResponse
+import org.opentaint.ir.go.proto.ProtoBasicTypeKind
+import org.opentaint.ir.go.proto.ProtoBinaryOp
+import org.opentaint.ir.go.proto.ProtoCallInfo
+import org.opentaint.ir.go.proto.ProtoCallMode
+import org.opentaint.ir.go.proto.ProtoChanDirection
+import org.opentaint.ir.go.proto.ProtoConstValue
+import org.opentaint.ir.go.proto.ProtoFunction
+import org.opentaint.ir.go.proto.ProtoFunctionBody
+import org.opentaint.ir.go.proto.ProtoInstruction
+import org.opentaint.ir.go.proto.ProtoNamedTypeKind
+import org.opentaint.ir.go.proto.ProtoPackage
+import org.opentaint.ir.go.proto.ProtoPosition
+import org.opentaint.ir.go.proto.ProtoTypeDefinition
+import org.opentaint.ir.go.proto.ProtoUnaryOp
+import org.opentaint.ir.go.proto.ProtoValueRef
+import org.opentaint.ir.go.type.GoIRArrayType
+import org.opentaint.ir.go.type.GoIRBasicType
+import org.opentaint.ir.go.type.GoIRBasicTypeKind
+import org.opentaint.ir.go.type.GoIRBinaryOp
+import org.opentaint.ir.go.type.GoIRCallMode
+import org.opentaint.ir.go.type.GoIRChanDirection
+import org.opentaint.ir.go.type.GoIRChanType
+import org.opentaint.ir.go.type.GoIRFuncType
+import org.opentaint.ir.go.type.GoIRInterfaceMethodSig
+import org.opentaint.ir.go.type.GoIRInterfaceType
+import org.opentaint.ir.go.type.GoIRMapType
+import org.opentaint.ir.go.type.GoIRNamedTypeKind
+import org.opentaint.ir.go.type.GoIRNamedTypeRef
+import org.opentaint.ir.go.type.GoIRPointerType
+import org.opentaint.ir.go.type.GoIRSliceType
+import org.opentaint.ir.go.type.GoIRStructField
+import org.opentaint.ir.go.type.GoIRStructType
+import org.opentaint.ir.go.type.GoIRTupleType
+import org.opentaint.ir.go.type.GoIRType
+import org.opentaint.ir.go.type.GoIRTypeParamType
+import org.opentaint.ir.go.type.GoIRUnaryOp
+import org.opentaint.ir.go.type.GoIRUnsafePointerType
+import org.opentaint.ir.go.value.GoIRBuiltinValue
+import org.opentaint.ir.go.value.GoIRConstValue
+import org.opentaint.ir.go.value.GoIRConstantValue
+import org.opentaint.ir.go.value.GoIRFreeVarValue
+import org.opentaint.ir.go.value.GoIRFunctionValue
+import org.opentaint.ir.go.value.GoIRGlobalValue
+import org.opentaint.ir.go.value.GoIRParameterValue
+import org.opentaint.ir.go.value.GoIRRegister
+import org.opentaint.ir.go.value.GoIRValue
 
 /**
  * Deserializes a stream of BuildProgramResponse messages into a GoIRProgram.
@@ -313,7 +407,16 @@ class GoIRDeserializer {
 
         // Build value map for this function's body using a two-pass approach.
         // We use a LazyValueMap that provides placeholders for forward references.
-        val lazyValueMap = LazyValueMap()
+        val lazyValueMap = ValueMap()
+
+        fb.blocksList.forEach { block ->
+            block.instructionsList.forEach { pi ->
+                if (pi.valueId < 0) return@forEach
+
+                val reg = GoIRRegister(resolveType(pi.typeId), pi.index, pi.name)
+                lazyValueMap.register(pi.valueId, reg)
+            }
+        }
 
         for ((blockIdx, pb) in fb.blocksList.withIndex()) {
             val block = blocks[blockIdx]
@@ -323,10 +426,6 @@ class GoIRDeserializer {
                 val loc = GoInstLocation(body, pi.index, blockIdx, positionFromProto(pi.position))
                 val inst = deserializeInstruction(pi, loc, fn, lazyValueMap)
                 instructions.add(inst)
-                // Register the GoIRRegister (not the instruction!) in the value map
-                if (pi.valueId > 0 && inst is GoIRDefInst) {
-                    lazyValueMap.register(pi.valueId, inst.register)
-                }
             }
 
             block.setInstructions(instructions)
@@ -353,7 +452,7 @@ class GoIRDeserializer {
         pi: ProtoInstruction,
         loc: GoInstLocation,
         fn: GoIRFunctionImpl,
-        valueMap: LazyValueMap,
+        valueMap: ValueMap,
     ): GoIRInst {
         fun ref(vr: ProtoValueRef): GoIRValue = valueRefFromProto(vr, fn, valueMap)
         fun type(id: Int): GoIRType = resolveType(id)
@@ -361,7 +460,7 @@ class GoIRDeserializer {
         // Helper to create a register + assign instruction for expression-based instructions
         val exprType = type(pi.typeId)
         fun assign(expr: GoIRExpr): GoIRAssignInst {
-            val reg = GoIRRegister(exprType, pi.name)
+            val reg = GoIRRegister(exprType, pi.index, pi.name)
             registerTypeIds.add(reg to pi.typeId)
             exprTypeIds.add(expr to pi.typeId)
             return GoIRAssignInst(loc, reg, expr)
@@ -462,14 +561,14 @@ class GoIRDeserializer {
 
             // ─── Phi (separate instruction, not an expression) ───
             ProtoInstruction.InstCase.PHI -> {
-                val reg = GoIRRegister(type(pi.typeId), pi.name)
+                val reg = GoIRRegister(type(pi.typeId), pi.index, pi.name)
                 registerTypeIds.add(reg to pi.typeId)
                 GoIRPhi(loc, reg, pi.phi.edgesList.map { ref(it) }, pi.phi.comment.ifEmpty { null })
             }
 
             // ─── Call (separate instruction, not an expression) ───
             ProtoInstruction.InstCase.CALL -> {
-                val reg = GoIRRegister(type(pi.typeId), pi.name)
+                val reg = GoIRRegister(type(pi.typeId), pi.index, pi.name)
                 registerTypeIds.add(reg to pi.typeId)
                 GoIRCall(loc, reg, callInfoFromProto(pi.call.call, fn, valueMap))
             }
@@ -511,7 +610,7 @@ class GoIRDeserializer {
     private fun valueRefFromProto(
         vr: ProtoValueRef,
         fn: GoIRFunctionImpl,
-        valueMap: LazyValueMap,
+        valueMap: ValueMap,
     ): GoIRValue {
         val type = resolveType(vr.typeId)
         return when (vr.refCase) {
@@ -578,7 +677,7 @@ class GoIRDeserializer {
     private fun callInfoFromProto(
         ci: ProtoCallInfo,
         fn: GoIRFunctionImpl,
-        valueMap: LazyValueMap,
+        valueMap: ValueMap,
     ): GoIRCallInfo {
         return GoIRCallInfo(
             mode = when (ci.mode) {
@@ -848,44 +947,14 @@ internal class GoIRLazyNamedTypeRef(
     val displayName: String get() = "lazy#$namedTypeId"
 }
 
-/**
- * A value map that supports forward references during instruction deserialization.
- * When a value ID is not yet registered, it creates a [ForwardRefValue] placeholder
- * that delegates to the actual value once it's resolved.
- *
- * In the new model, registered values are always [GoIRRegister] instances
- * (not instruction objects).
- */
-internal class LazyValueMap {
-    private val resolved = mutableMapOf<Int, GoIRValue>()
-    private val forwardRefs = mutableMapOf<Int, ForwardRefValue>()
+class ValueMap {
+    private val registers = mutableMapOf<Int, GoIRRegister>()
 
-    fun register(id: Int, value: GoIRValue) {
-        resolved[id] = value
-        // Resolve any forward references
-        forwardRefs[id]?.resolve(value)
+    fun register(id: Int, reg: GoIRRegister) {
+        registers[id] = reg
     }
 
-    operator fun get(id: Int): GoIRValue {
-        resolved[id]?.let { return it }
-        // Create a forward reference placeholder
-        return forwardRefs.getOrPut(id) { ForwardRefValue(id) }
+    operator fun get(id: Int): GoIRRegister {
+        return registers[id] ?: error("Register for value $id not registered")
     }
-}
-
-/**
- * Placeholder value for forward references in SSA (e.g., phi edges referencing
- * values defined in later blocks). Delegates to the actual value once resolved.
- */
-internal class ForwardRefValue(private val valueId: Int) : GoIRValue {
-    private var _delegate: GoIRValue? = null
-    private val delegate: GoIRValue
-        get() = _delegate ?: error("Forward reference to value ID $valueId was never resolved")
-
-    fun resolve(actual: GoIRValue) { _delegate = actual }
-
-    override val type: GoIRType get() = delegate.type
-    override val name: String get() = delegate.name
-    override fun <T> acceptValue(visitor: GoIRValueVisitor<T>): T = delegate.acceptValue(visitor)
-    override fun toString(): String = _delegate?.toString() ?: "ForwardRef($valueId)"
 }

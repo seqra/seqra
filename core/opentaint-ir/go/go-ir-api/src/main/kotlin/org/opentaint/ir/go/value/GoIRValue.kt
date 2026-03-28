@@ -27,6 +27,7 @@ interface GoIRValue: CommonValue {
  */
 data class GoIRRegister(
     override var type: GoIRType,
+    val index: Int,
     override val name: String,
 ) : GoIRValue {
     override fun <T> acceptValue(visitor: GoIRValueVisitor<T>): T = visitor.visitRegister(this)
