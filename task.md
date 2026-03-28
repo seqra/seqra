@@ -21,8 +21,6 @@ Read /home/sobol/IdeaProjects/opentaint/edges-knowledge.md
 
 Write all your findings into go-dataflow-design.md
 
-OK, WE ARE HERE. We have initial design proposal
-
 Now let's design test system for our analysis engine.
 Currently we have 2 simple test cases, but we need much more.
 
@@ -38,3 +36,13 @@ My suggestion is:
    - etc.
 
 Write all your findings into go-dataflow-test-system.md
+
+OK, WE ARE HERE. We have initial design proposal and test-system proposal
+
+Now let's define implementation details.
+
+1. Divide logic by modules, describe changes into every module
+2. Align initially proposed dataflow design with planned test system requirements
+3. Plan required pass rules for std library
+
+Write all your findings into go-dataflow-implementation-details.md. 
