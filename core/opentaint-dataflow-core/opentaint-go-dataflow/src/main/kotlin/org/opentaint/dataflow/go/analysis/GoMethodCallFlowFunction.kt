@@ -53,28 +53,13 @@ class GoMethodCallFlowFunction(
         return result
     }
 
-    override fun propagateZeroToFact(currentFactAp: FinalFactAp): Set<ZeroCallFact> {
-        val result = mutableSetOf<ZeroCallFact>()
-
-        // Apply source rules (same as zero-to-zero)
-        result.add(CallToReturnZeroFact)
-        result.add(CallToStartZeroFact)
-        applySourceRules(result)
-
-        // Check sinks for this fact
-        applyZeroToFactSinkRules(currentFactAp, result)
-
-        // Apply pass-through rules for this fact
-        applyZeroToFactPassRules(currentFactAp, result)
-
-        // Map fact to callee
-        mapZeroFactToCallee(currentFactAp, result)
-
-        // Fact survives call (call-to-return)
-        val traceInfo = if (generateTrace) TraceInfo.Flow else null
-        result.add(CallToReturnZFact(currentFactAp, traceInfo))
-
-        return result
+    override fun propagateZeroToFact(currentFactAp: FinalFactAp): Set<ZeroCallFact> = buildSet {
+        propagateFact(
+            factAp = currentFactAp,
+            skipCall = { this += Unchanged },
+            addCallToReturn = { factAp, trace -> this += CallToReturnZFact(factAp, trace) },
+            addCallToStart = { callerFact, startBase, trace -> this += CallToStartZFact(callerFact, startBase, trace) },
+        )
     }
 
     // ── Fact propagation ─────────────────────────────────────────────
@@ -82,32 +67,17 @@ class GoMethodCallFlowFunction(
     override fun propagateFactToFact(
         initialFactAp: InitialFactAp,
         currentFactAp: FinalFactAp,
-    ): Set<FactCallFact> {
-        val result = mutableSetOf<FactCallFact>()
-
-        val isRelevant = GoMethodCallFactMapper.factIsRelevantToMethodCall(
-            returnValue as? CommonValue, callExpr, currentFactAp
+    ): Set<FactCallFact> = buildSet {
+        propagateFact(
+            factAp = currentFactAp,
+            skipCall = { this += Unchanged },
+            addCallToReturn = { factAp, trace ->
+                this += CallToReturnFFact(initialFactAp.replaceExclusions(factAp.exclusions), factAp, trace)
+            },
+            addCallToStart = { callerFact, startBase, trace ->
+                this += CallToStartFFact(initialFactAp.replaceExclusions(callerFact.exclusions), callerFact, startBase, trace)
+            },
         )
-
-        if (!isRelevant) {
-            result.add(Unchanged)
-            return result
-        }
-
-        // 1. Sink rules
-        applySinkRules(initialFactAp, currentFactAp, result)
-
-        // 2. Pass-through rules
-        applyPassRules(initialFactAp, currentFactAp, result)
-
-        // 3. Map fact to callee (call-to-start)
-        mapFactToCallee(initialFactAp, currentFactAp, result)
-
-        // 4. Fact survives call (call-to-return)
-        val traceInfo = if (generateTrace) TraceInfo.Flow else null
-        result.add(CallToReturnFFact(initialFactAp, currentFactAp, traceInfo))
-
-        return result
     }
 
     override fun propagateNDFactToFact(
@@ -117,97 +87,40 @@ class GoMethodCallFlowFunction(
         return setOf(Unchanged)
     }
 
-    // ── Zero-to-fact helpers (for propagateZeroToFact) ─────────────────
+    // ── Shared propagation logic (like JVM's propagateFact) ──────────
 
-    private fun applyZeroToFactSinkRules(
-        currentFactAp: FinalFactAp,
-        result: MutableSet<ZeroCallFact>,
+    /**
+     * Unified fact propagation logic shared between zero-to-fact and fact-to-fact.
+     * Mirrors JVM's `propagateFact` pattern with lambdas for edge creation.
+     */
+    private fun propagateFact(
+        factAp: FinalFactAp,
+        skipCall: () -> Unit,
+        addCallToReturn: (FinalFactAp, TraceInfo) -> Unit,
+        addCallToStart: (callerFact: FinalFactAp, startBase: AccessPathBase, TraceInfo) -> Unit,
     ) {
-        val name = calleeName ?: return
-        val sinkRules = rulesProvider.sinkRulesForCall(name)
-
-        for (rule in sinkRules) {
-            val sinkArgBase = GoFlowFunctionUtils.resolvePosition(rule.pos)
-            val callerArgBase = when (sinkArgBase) {
-                is AccessPathBase.Argument -> {
-                    val argIdx = sinkArgBase.idx
-                    if (argIdx < callInfo.args.size) {
-                        GoFlowFunctionUtils.accessPathBase(callInfo.args[argIdx], method)
-                    } else null
-                }
-                is AccessPathBase.This -> {
-                    callInfo.receiver?.let { GoFlowFunctionUtils.accessPathBase(it, method) }
-                }
-                else -> null
-            } ?: continue
-
-            if (currentFactAp.base != callerArgBase) continue
-
-            val markAccessor = TaintMarkAccessor(rule.mark)
-            if (currentFactAp.startsWithAccessor(markAccessor)) {
-                context.taint.taintSinkTracker.addVulnerability(
-                    methodEntryPoint = context.methodEntryPoint,
-                    facts = emptySet(),
-                    statement = statement,
-                    rule = rule,
-                )
-            }
+        // 0. Relevance check
+        if (!GoMethodCallFactMapper.factIsRelevantToMethodCall(
+                returnValue as? CommonValue, callExpr, factAp
+            )
+        ) {
+            skipCall()
+            return
         }
-    }
 
-    private fun applyZeroToFactPassRules(
-        currentFactAp: FinalFactAp,
-        result: MutableSet<ZeroCallFact>,
-    ) {
-        val name = calleeName ?: return
-        val passRules = rulesProvider.passRulesForCall(name)
-        if (passRules.isEmpty()) return
-
-        for (rule in passRules) {
-            val (fromBase, _) = GoFlowFunctionUtils.resolvePositionWithModifiers(rule.from)
-            val (toBase, toAccessors) = GoFlowFunctionUtils.resolvePositionWithModifiers(rule.to)
-
-            val callerFromBase = mapPositionToCallerBase(fromBase) ?: continue
-            if (currentFactAp.base != callerFromBase) continue
-
-            val callerToBase = mapPositionToCallerBase(toBase) ?: continue
-
-            var newFact = currentFactAp.rebase(callerToBase)
-            for (accessor in toAccessors) {
-                newFact = newFact.prependAccessor(accessor)
-            }
-
-            val traceInfo = if (generateTrace) TraceInfo.Flow else null
-            result.add(CallToReturnZFact(newFact, traceInfo))
-        }
-    }
-
-    private fun mapZeroFactToCallee(
-        currentFactAp: FinalFactAp,
-        result: MutableSet<ZeroCallFact>,
-    ) {
         val traceInfo = if (generateTrace) TraceInfo.Flow else null
 
-        for ((i, arg) in callInfo.args.withIndex()) {
-            val argBase = GoFlowFunctionUtils.accessPathBaseFromValue(arg)
-            if (argBase != null && currentFactAp.base == argBase) {
-                result.add(CallToStartZFact(currentFactAp, AccessPathBase.Argument(i), traceInfo))
-            }
-        }
+        // 1. Sink rules
+        applySinkRules(factAp, addCallToReturn)
 
-        if (callInfo.receiver != null) {
-            val recvBase = GoFlowFunctionUtils.accessPathBaseFromValue(callInfo.receiver!!)
-            if (recvBase != null && currentFactAp.base == recvBase) {
-                result.add(CallToStartZFact(currentFactAp, AccessPathBase.This, traceInfo))
-            }
-        }
+        // 2. Map fact to callee + pass-through rules
+        mapFactToCalleeOrApplyPass(factAp, addCallToReturn, addCallToStart)
 
-        if (currentFactAp.base is AccessPathBase.ClassStatic) {
-            result.add(CallToStartZFact(currentFactAp, AccessPathBase.ClassStatic, traceInfo))
-        }
+        // 3. Fact survives call (call-to-return)
+        addCallToReturn(factAp, TraceInfo.Flow)
     }
 
-    // ── Source rule application ───────────────────────────────────────
+    // ── Source rule application (zero-to-zero only) ──────────────────
 
     private fun applySourceRules(result: MutableSet<ZeroCallFact>) {
         val name = calleeName ?: return
@@ -243,98 +156,104 @@ class GoMethodCallFlowFunction(
     // ── Sink rule application ────────────────────────────────────────
 
     private fun applySinkRules(
-        initialFactAp: InitialFactAp,
         currentFactAp: FinalFactAp,
-        result: MutableSet<FactCallFact>,
+        addCallToReturn: (FinalFactAp, TraceInfo) -> Unit,
     ) {
         val name = calleeName ?: return
         val sinkRules = rulesProvider.sinkRulesForCall(name)
 
         for (rule in sinkRules) {
             val sinkArgBase = GoFlowFunctionUtils.resolvePosition(rule.pos)
-
-            val callerArgBase = when (sinkArgBase) {
-                is AccessPathBase.Argument -> {
-                    val argIdx = sinkArgBase.idx
-                    if (argIdx < callInfo.args.size) {
-                        GoFlowFunctionUtils.accessPathBase(callInfo.args[argIdx], method)
-                    } else null
-                }
-                is AccessPathBase.This -> {
-                    callInfo.receiver?.let { GoFlowFunctionUtils.accessPathBase(it, method) }
-                }
-                else -> null
-            } ?: continue
+            val callerArgBase = mapPositionToCallerBase(sinkArgBase) ?: continue
 
             if (currentFactAp.base != callerArgBase) continue
 
-            if (checkFactMark(currentFactAp, rule.mark, initialFactAp, result)) {
+            val markAccessor = TaintMarkAccessor(rule.mark)
+            if (currentFactAp.startsWithAccessor(markAccessor)) {
                 context.taint.taintSinkTracker.addVulnerability(
                     methodEntryPoint = context.methodEntryPoint,
-                    facts = setOf(initialFactAp),
+                    facts = emptySet(),
                     statement = statement,
                     rule = rule,
                 )
+            } else if (currentFactAp.isAbstract() && !currentFactAp.exclusions.contains(markAccessor)) {
+                // Trigger refinement
+                val refinedFact = currentFactAp.exclude(markAccessor)
+                addCallToReturn(refinedFact, TraceInfo.Flow)
             }
+        }
+    }
+
+    // ── Map fact to callee + pass-through rules ──────────────────────
+
+    private fun mapFactToCalleeOrApplyPass(
+        factAp: FinalFactAp,
+        addCallToReturn: (FinalFactAp, TraceInfo) -> Unit,
+        addCallToStart: (callerFact: FinalFactAp, startBase: AccessPathBase, TraceInfo) -> Unit,
+    ) {
+        val isInvoke = callInfo.receiver != null
+        val argOffset = if (isInvoke) 1 else 0
+
+        // Map receiver → Argument(0) for INVOKE calls
+        if (isInvoke) {
+            val recvBase = GoFlowFunctionUtils.accessPathBaseFromValue(callInfo.receiver!!)
+            if (recvBase != null && factAp.base == recvBase) {
+                applyPassRulesOrCallToStart(factAp, AccessPathBase.Argument(0), addCallToReturn, addCallToStart)
+            }
+        }
+
+        // Map arguments → Argument(i + argOffset)
+        for ((i, arg) in callInfo.args.withIndex()) {
+            val argBase = GoFlowFunctionUtils.accessPathBaseFromValue(arg)
+            if (argBase != null && factAp.base == argBase) {
+                applyPassRulesOrCallToStart(factAp, AccessPathBase.Argument(i + argOffset), addCallToReturn, addCallToStart)
+            }
+        }
+
+        // ClassStatic passes through
+        if (factAp.base is AccessPathBase.ClassStatic) {
+            addCallToStart(factAp, AccessPathBase.ClassStatic, TraceInfo.Flow)
         }
     }
 
     /**
-     * Check if a fact carries a specific taint mark.
-     * For concrete facts: taint mark is the first accessor.
-     * For abstract facts: triggers refinement via exclusion set.
+     * For a fact mapped to a callee argument, either apply pass-through rules
+     * (producing call-to-return edges) or forward to the callee (call-to-start).
      */
-    private fun checkFactMark(
-        fact: FinalFactAp,
-        mark: String,
-        initialFact: InitialFactAp?,
-        result: MutableSet<FactCallFact>,
-    ): Boolean {
-        val markAccessor = TaintMarkAccessor(mark)
-
-        if (fact.startsWithAccessor(markAccessor)) return true
-
-        if (fact.isAbstract() && !fact.exclusions.contains(markAccessor)) {
-            val refinedFact = fact.exclude(markAccessor)
-            if (initialFact != null) {
-                result.add(CallToReturnFFact(initialFact, refinedFact, null))
-            }
-            return false
-        }
-
-        return false
-    }
-
-    // ── Pass-through rule application ────────────────────────────────
-
-    private fun applyPassRules(
-        initialFactAp: InitialFactAp,
-        currentFactAp: FinalFactAp,
-        result: MutableSet<FactCallFact>,
+    private fun applyPassRulesOrCallToStart(
+        callerFactAp: FinalFactAp,
+        startFactBase: AccessPathBase,
+        addCallToReturn: (FinalFactAp, TraceInfo) -> Unit,
+        addCallToStart: (callerFact: FinalFactAp, startBase: AccessPathBase, TraceInfo) -> Unit,
     ) {
-        val name = calleeName ?: return
-        val passRules = rulesProvider.passRulesForCall(name)
-        if (passRules.isEmpty()) return
+        val name = calleeName
+        val passRules = if (name != null) rulesProvider.passRulesForCall(name) else emptyList()
 
         for (rule in passRules) {
             val (fromBase, _) = GoFlowFunctionUtils.resolvePositionWithModifiers(rule.from)
             val (toBase, toAccessors) = GoFlowFunctionUtils.resolvePositionWithModifiers(rule.to)
 
             val callerFromBase = mapPositionToCallerBase(fromBase) ?: continue
-            if (currentFactAp.base != callerFromBase) continue
+            if (callerFactAp.base != callerFromBase) continue
 
             val callerToBase = mapPositionToCallerBase(toBase) ?: continue
 
-            var newFact = currentFactAp.rebase(callerToBase)
+            var newFact = callerFactAp.rebase(callerToBase)
             for (accessor in toAccessors) {
                 newFact = newFact.prependAccessor(accessor)
             }
 
-            val traceInfo = if (generateTrace) TraceInfo.Flow else null
-            result.add(CallToReturnFFact(initialFactAp, newFact, traceInfo))
+            addCallToReturn(newFact, TraceInfo.Flow)
         }
+
+        // Always also forward to callee (pass rules are summaries, callee is still entered)
+        addCallToStart(callerFactAp, startFactBase, TraceInfo.Flow)
     }
 
+    /**
+     * Maps a rule position (Argument/This/Return) to the corresponding
+     * caller-side AccessPathBase.
+     */
     private fun mapPositionToCallerBase(posBase: AccessPathBase): AccessPathBase? {
         return when (posBase) {
             is AccessPathBase.Return -> {
@@ -350,37 +269,6 @@ class GoMethodCallFlowFunction(
                 callInfo.receiver?.let { GoFlowFunctionUtils.accessPathBase(it, method) }
             }
             else -> null
-        }
-    }
-
-    // ── Map fact to callee (call-to-start) ───────────────────────────
-
-    private fun mapFactToCallee(
-        initialFactAp: InitialFactAp,
-        currentFactAp: FinalFactAp,
-        result: MutableSet<FactCallFact>,
-    ) {
-        val traceInfo = if (generateTrace) TraceInfo.Flow else null
-
-        // Map arguments → callee's Argument(i)
-        for ((i, arg) in callInfo.args.withIndex()) {
-            val argBase = GoFlowFunctionUtils.accessPathBaseFromValue(arg)
-            if (argBase != null && currentFactAp.base == argBase) {
-                result.add(CallToStartFFact(initialFactAp, currentFactAp, AccessPathBase.Argument(i), traceInfo))
-            }
-        }
-
-        // Map receiver → callee's This
-        if (callInfo.receiver != null) {
-            val recvBase = GoFlowFunctionUtils.accessPathBaseFromValue(callInfo.receiver!!)
-            if (recvBase != null && currentFactAp.base == recvBase) {
-                result.add(CallToStartFFact(initialFactAp, currentFactAp, AccessPathBase.This, traceInfo))
-            }
-        }
-
-        // ClassStatic passes through
-        if (currentFactAp.base is AccessPathBase.ClassStatic) {
-            result.add(CallToStartFFact(initialFactAp, currentFactAp, AccessPathBase.ClassStatic, traceInfo))
         }
     }
 }

@@ -29,6 +29,8 @@ object GoMethodCallFactMapper : MethodCallFactMapper {
         val goInst = callStatement as GoIRInst
         val callInfo = GoFlowFunctionUtils.extractCallInfo(goInst) ?: return emptyList()
         val method = goInst.location.functionBody.function
+        val isInvoke = callInfo.receiver != null
+        val argOffset = if (isInvoke) 1 else 0
 
         return when (factAp.base) {
             is AccessPathBase.Return -> {
@@ -38,17 +40,29 @@ object GoMethodCallFactMapper : MethodCallFactMapper {
             }
             is AccessPathBase.Argument -> {
                 val idx = (factAp.base as AccessPathBase.Argument).idx
-                if (idx < callInfo.args.size) {
-                    val argBase = GoFlowFunctionUtils.accessPathBase(callInfo.args[idx], method)
+                if (isInvoke && idx == 0) {
+                    // Argument(0) in callee = receiver for INVOKE calls
+                    val receiver = callInfo.receiver!!
+                    val recvBase = GoFlowFunctionUtils.accessPathBase(receiver, method)
                         ?: return emptyList()
-                    listOf(factAp.rebase(argBase))
-                } else emptyList()
+                    listOf(factAp.rebase(recvBase))
+                } else {
+                    val argIdx = idx - argOffset
+                    if (argIdx >= 0 && argIdx < callInfo.args.size) {
+                        val argBase = GoFlowFunctionUtils.accessPathBase(callInfo.args[argIdx], method)
+                            ?: return emptyList()
+                        listOf(factAp.rebase(argBase))
+                    } else emptyList()
+                }
             }
             is AccessPathBase.This -> {
-                val receiver = callInfo.receiver ?: return emptyList()
-                val recvBase = GoFlowFunctionUtils.accessPathBase(receiver, method)
-                    ?: return emptyList()
-                listOf(factAp.rebase(recvBase))
+                // Not used in Go convention; kept for safety
+                if (isInvoke) {
+                    val receiver = callInfo.receiver!!
+                    val recvBase = GoFlowFunctionUtils.accessPathBase(receiver, method)
+                        ?: return emptyList()
+                    listOf(factAp.rebase(recvBase))
+                } else emptyList()
             }
             is AccessPathBase.ClassStatic -> listOf(factAp)
             is AccessPathBase.Constant -> listOf(factAp)
@@ -64,6 +78,8 @@ object GoMethodCallFactMapper : MethodCallFactMapper {
         val goInst = callStatement as GoIRInst
         val callInfo = GoFlowFunctionUtils.extractCallInfo(goInst) ?: return emptyList()
         val method = goInst.location.functionBody.function
+        val isInvoke = callInfo.receiver != null
+        val argOffset = if (isInvoke) 1 else 0
 
         return when (factAp.base) {
             is AccessPathBase.Return -> {
@@ -73,17 +89,27 @@ object GoMethodCallFactMapper : MethodCallFactMapper {
             }
             is AccessPathBase.Argument -> {
                 val idx = (factAp.base as AccessPathBase.Argument).idx
-                if (idx < callInfo.args.size) {
-                    val argBase = GoFlowFunctionUtils.accessPathBase(callInfo.args[idx], method)
+                if (isInvoke && idx == 0) {
+                    val receiver = callInfo.receiver!!
+                    val recvBase = GoFlowFunctionUtils.accessPathBase(receiver, method)
                         ?: return emptyList()
-                    listOf(factAp.rebase(argBase))
-                } else emptyList()
+                    listOf(factAp.rebase(recvBase))
+                } else {
+                    val argIdx = idx - argOffset
+                    if (argIdx >= 0 && argIdx < callInfo.args.size) {
+                        val argBase = GoFlowFunctionUtils.accessPathBase(callInfo.args[argIdx], method)
+                            ?: return emptyList()
+                        listOf(factAp.rebase(argBase))
+                    } else emptyList()
+                }
             }
             is AccessPathBase.This -> {
-                val receiver = callInfo.receiver ?: return emptyList()
-                val recvBase = GoFlowFunctionUtils.accessPathBase(receiver, method)
-                    ?: return emptyList()
-                listOf(factAp.rebase(recvBase))
+                if (isInvoke) {
+                    val receiver = callInfo.receiver!!
+                    val recvBase = GoFlowFunctionUtils.accessPathBase(receiver, method)
+                        ?: return emptyList()
+                    listOf(factAp.rebase(recvBase))
+                } else emptyList()
             }
             is AccessPathBase.ClassStatic -> listOf(factAp)
             is AccessPathBase.Constant -> listOf(factAp)
@@ -102,20 +128,23 @@ object GoMethodCallFactMapper : MethodCallFactMapper {
     ) {
         val goCallExpr = callExpr as GoCallExpr
         val callInfo = goCallExpr.callInfo
+        val isInvoke = callInfo.receiver != null
+        val argOffset = if (isInvoke) 1 else 0
 
-        // Map receiver → This
-        if (callInfo.receiver != null) {
+        // Map receiver → Argument(0) for INVOKE calls
+        if (isInvoke) {
             val receiverBase = GoFlowFunctionUtils.accessPathBaseFromValue(callInfo.receiver!!)
             if (receiverBase != null && factAp.base == receiverBase) {
-                onMappedFact(factAp.rebase(AccessPathBase.This), AccessPathBase.This)
+                onMappedFact(factAp.rebase(AccessPathBase.Argument(0)), AccessPathBase.Argument(0))
             }
         }
 
-        // Map arguments → Argument(i)
+        // Map arguments → Argument(i + argOffset)
         for ((i, arg) in callInfo.args.withIndex()) {
             val argBase = GoFlowFunctionUtils.accessPathBaseFromValue(arg)
             if (argBase != null && factAp.base == argBase) {
-                onMappedFact(factAp.rebase(AccessPathBase.Argument(i)), AccessPathBase.Argument(i))
+                val calleeBase = AccessPathBase.Argument(i + argOffset)
+                onMappedFact(factAp.rebase(calleeBase), calleeBase)
             }
         }
 
@@ -133,18 +162,21 @@ object GoMethodCallFactMapper : MethodCallFactMapper {
     ) {
         val goCallExpr = callExpr as GoCallExpr
         val callInfo = goCallExpr.callInfo
+        val isInvoke = callInfo.receiver != null
+        val argOffset = if (isInvoke) 1 else 0
 
-        if (callInfo.receiver != null) {
+        if (isInvoke) {
             val receiverBase = GoFlowFunctionUtils.accessPathBaseFromValue(callInfo.receiver!!)
             if (receiverBase != null && fact.base == receiverBase) {
-                onMappedFact(fact.rebase(AccessPathBase.This), AccessPathBase.This)
+                onMappedFact(fact.rebase(AccessPathBase.Argument(0)), AccessPathBase.Argument(0))
             }
         }
 
         for ((i, arg) in callInfo.args.withIndex()) {
             val argBase = GoFlowFunctionUtils.accessPathBaseFromValue(arg)
             if (argBase != null && fact.base == argBase) {
-                onMappedFact(fact.rebase(AccessPathBase.Argument(i)), AccessPathBase.Argument(i))
+                val calleeBase = AccessPathBase.Argument(i + argOffset)
+                onMappedFact(fact.rebase(calleeBase), calleeBase)
             }
         }
 

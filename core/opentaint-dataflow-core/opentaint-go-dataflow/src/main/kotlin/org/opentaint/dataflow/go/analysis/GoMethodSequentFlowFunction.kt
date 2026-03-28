@@ -39,7 +39,15 @@ class GoMethodSequentFlowFunction(
         initialFactAp: InitialFactAp,
         currentFactAp: FinalFactAp,
     ): Set<Sequent> {
-        return propagate(initialFactAp, currentFactAp)
+        // Synchronize exclusions before propagation — the framework may pass
+        // initialFactAp and currentFactAp with different exclusion sets when
+        // the initial fact was created from a different refinement path.
+        val syncedInitial = if (initialFactAp.exclusions != currentFactAp.exclusions) {
+            initialFactAp.replaceExclusions(currentFactAp.exclusions)
+        } else {
+            initialFactAp
+        }
+        return propagate(syncedInitial, currentFactAp)
     }
 
     override fun propagateNDFactToFact(
@@ -222,11 +230,22 @@ class GoMethodSequentFlowFunction(
     ): Set<Sequent> {
         val result = mutableSetOf<Sequent>(Sequent.Unchanged)
 
-        for (retVal in inst.results) {
-            val retBase = GoFlowFunctionUtils.accessPathBase(retVal, method) ?: continue
+        if (inst.results.size == 1) {
+            // Single return value: direct mapping to Return (no tuple field)
+            val retBase = GoFlowFunctionUtils.accessPathBase(inst.results[0], method) ?: return result
             if (currentFact.base == retBase) {
                 val exitFact = currentFact.rebase(AccessPathBase.Return)
                 result.add(makeEdge(initialFact, exitFact))
+            }
+        } else {
+            // Multi-return: map each return value to Return.$i (tuple field accessor)
+            for ((i, retVal) in inst.results.withIndex()) {
+                val retBase = GoFlowFunctionUtils.accessPathBase(retVal, method) ?: continue
+                if (currentFact.base == retBase) {
+                    val tupleAccessor = GoFlowFunctionUtils.tupleFieldAccessor(i, retVal.type)
+                    val exitFact = currentFact.rebase(AccessPathBase.Return).prependAccessor(tupleAccessor)
+                    result.add(makeEdge(initialFact, exitFact))
+                }
             }
         }
 
@@ -329,7 +348,13 @@ class GoMethodSequentFlowFunction(
     private fun makeEdge(initialFact: InitialFactAp?, newFact: FinalFactAp): Sequent {
         val traceInfo = if (generateTrace) MethodSequentFlowFunction.TraceInfo.Flow else null
         return if (initialFact != null) {
-            Sequent.FactToFact(initialFact, newFact, traceInfo)
+            // Synchronize exclusions: the framework requires initialAp.exclusions == finalAp.exclusions
+            val syncedInitial = if (initialFact.exclusions != newFact.exclusions) {
+                initialFact.replaceExclusions(newFact.exclusions)
+            } else {
+                initialFact
+            }
+            Sequent.FactToFact(syncedInitial, newFact, traceInfo)
         } else {
             Sequent.ZeroToFact(newFact, traceInfo)
         }

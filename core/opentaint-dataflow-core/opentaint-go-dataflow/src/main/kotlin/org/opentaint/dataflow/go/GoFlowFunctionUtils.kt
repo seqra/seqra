@@ -126,8 +126,11 @@ object GoFlowFunctionUtils {
             is GoIRRangeExpr -> singleOperandAccess(expr.x, method)
             is GoIRNextExpr -> singleOperandAccess(expr.iter, method)
 
-            // Tuple extract (multi-return)
-            is GoIRExtractExpr -> singleOperandAccess(expr.tuple, method)
+            // Tuple extract (multi-return): index-sensitive
+            is GoIRExtractExpr -> {
+                val base = accessPathBase(expr.tuple, method) ?: return null
+                Access.RefAccess(base, tupleFieldAccessor(expr.extractIndex, expr.type))
+            }
 
             // Binary op: string concat preserves taint, arithmetic doesn't
             is GoIRBinOpExpr -> {
@@ -191,6 +194,10 @@ object GoFlowFunctionUtils {
     }
 
     // ── Field accessor helpers ───────────────────────────────────────
+
+    fun tupleFieldAccessor(index: Int, elementType: GoIRType): FieldAccessor {
+        return FieldAccessor("tuple", "\$$index", elementType.displayName)
+    }
 
     fun fieldAccessor(expr: GoIRFieldExpr): FieldAccessor {
         val structTypeName = resolveStructTypeName(expr.x.type)
