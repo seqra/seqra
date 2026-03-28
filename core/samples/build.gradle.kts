@@ -62,6 +62,7 @@ tasks.jar {
 
     from(goSamplesSourceSet.resources) {
         include("**/*.go")
+        include("**/*.mod")
     }
 }
 

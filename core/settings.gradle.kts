@@ -22,7 +22,15 @@ includeBuild("opentaint-configuration-rules") {
 
 includeBuild("opentaint-dataflow-core") {
     dependencySubstitution {
-        substituteProjects("org.opentaint.opentaint-dataflow-core", listOf("opentaint-dataflow", "opentaint-jvm-dataflow", "opentaint-python-dataflow"))
+        substituteProjects(
+            "org.opentaint.opentaint-dataflow-core",
+            listOf(
+                "opentaint-dataflow",
+                "opentaint-jvm-dataflow",
+                "opentaint-python-dataflow",
+                "opentaint-go-dataflow",
+            )
+        )
     }
 }
 

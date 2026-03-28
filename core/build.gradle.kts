@@ -62,6 +62,7 @@ dependencies {
     testImplementation(opentaint_ir_api_go)
     testImplementation(opentaint_ir_core_go)
     testImplementation("org.opentaint.opentaint-dataflow-core:opentaint-python-dataflow")
+    testImplementation("org.opentaint.opentaint-dataflow-core:opentaint-go-dataflow")
 }
 
 val testSamples by configurations.creating
