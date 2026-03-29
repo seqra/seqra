@@ -41,7 +41,9 @@ interface GoIRFunction: CommonMethod {
     // Generics
     val typeParams: List<GoIRTypeParamDecl>
 
-    override val parameters: List<CommonMethodParameter> get() = params
+    override val parameters: List<CommonMethodParameter> get() =
+        if (freeVars.isEmpty()) params
+        else params + freeVars.map { GoIRParameter(it.name, it.type, params.size + it.index) }
     override val returnType: CommonTypeName get() = signature.results.first()
     override fun flowGraph(): ControlFlowGraph<CommonInst> =
         body?.instGraph ?: error("Function $name has no body")

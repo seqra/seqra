@@ -15,7 +15,6 @@ class DeferTest : AnalysisTest() {
 
     @Test fun deferLoop001T() = assertReachable("test.deferLoop001T")
 
-    @Disabled("Free-var capture propagation not yet implemented")
     @Test fun deferClosure001T() = assertReachable("test.deferClosure001T")
     @Test fun deferClosure002F() = assertNotReachable("test.deferClosure002F")
 

@@ -92,7 +92,12 @@ object GoFlowFunctionUtils {
             // Index/element access
             is GoIRIndexExpr -> {
                 val base = accessPathBase(expr.x, method) ?: return null
-                Access.RefAccess(base, ElementAccessor)
+                // String indexing (s[i]) reads a byte — treat as simple taint propagation
+                if (isStringType(expr.x.type)) {
+                    Access.Simple(base)
+                } else {
+                    Access.RefAccess(base, ElementAccessor)
+                }
             }
             is GoIRIndexAddrExpr -> {
                 val base = accessPathBase(expr.x, method) ?: return null
@@ -115,7 +120,11 @@ object GoFlowFunctionUtils {
             // Pointer ops
             is GoIRUnOpExpr -> when (expr.op) {
                 GoIRUnaryOp.DEREF -> singleOperandAccess(expr.x, method)
-                GoIRUnaryOp.ARROW -> singleOperandAccess(expr.x, method)
+                GoIRUnaryOp.ARROW -> {
+                    // Channel receive: <-ch reads element from channel
+                    val base = accessPathBase(expr.x, method) ?: return null
+                    Access.RefAccess(base, ElementAccessor)
+                }
                 else -> null // NOT, NEG, XOR — kills taint
             }
 
@@ -223,6 +232,14 @@ object GoFlowFunctionUtils {
     fun findDefInst(register: GoIRRegister, method: GoIRFunction): GoIRDefInst? {
         val body = method.body ?: return null
         return body.instructions.getOrNull(register.index) as? GoIRDefInst
+    }
+
+    /**
+     * Traces a register back to a MakeClosureExpr, if it was defined by one.
+     */
+    fun findMakeClosureExpr(register: GoIRRegister, method: GoIRFunction): GoIRMakeClosureExpr? {
+        val defInst = findDefInst(register, method) ?: return null
+        return (defInst as? GoIRAssignInst)?.expr as? GoIRMakeClosureExpr
     }
 
     // ── Call info extraction ─────────────────────────────────────────

@@ -14,25 +14,22 @@ class ClosureTest : AnalysisTest() {
     @Test fun anonFuncDirect002F() = assertNotReachable("test.anonFuncDirect002F")
 
     // Closures that capture variables via MakeClosureExpr bindings → free vars
-    @Disabled("Free-var capture propagation not yet implemented")
     @Test fun closure001T() = assertReachable("test.closure001T")
     @Test fun closure002F() = assertNotReachable("test.closure002F")
-    @Disabled("Free-var capture propagation not yet implemented")
     @Test fun closureModify001T() = assertReachable("test.closureModify001T")
     // Conservative: closure side-effects not tracked
-    @Disabled("Free-var capture propagation not yet implemented")
     @Test fun closureModify002F() = assertReachable("test.closureModify002F")
 
-    // Closure returned from function
-    @Disabled("Free-var capture propagation not yet implemented")
+    // Closure returned from function — closure created in callee, then called in outer scope
+    @Disabled("Closure returned from callee: MakeClosureExpr not visible at dynamic call site")
     @Test fun closureReturn001T() = assertReachable("test.closureReturn001T")
     @Test fun closureReturn002F() = assertNotReachable("test.closureReturn002F")
 
-    // Higher-order functions (DYNAMIC call mode — unresolved)
-    @Disabled("DYNAMIC call mode resolution not yet implemented")
+    // Higher-order functions — function parameter called dynamically
+    @Disabled("DYNAMIC call on function parameter: cannot resolve without interprocedural value tracking")
     @Test fun higherOrder001T() = assertReachable("test.higherOrder001T")
     @Test fun higherOrder002F() = assertNotReachable("test.higherOrder002F")
-    @Disabled("DYNAMIC call mode resolution not yet implemented")
+    @Disabled("DYNAMIC call on function parameter: cannot resolve without interprocedural value tracking")
     @Test fun higherOrder003T() = assertReachable("test.higherOrder003T")
     @Test fun higherOrder004F() = assertNotReachable("test.higherOrder004F")
 }

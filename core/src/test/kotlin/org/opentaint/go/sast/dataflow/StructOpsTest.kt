@@ -20,9 +20,8 @@ class StructOpsTest : AnalysisTest() {
     @Test fun structReturn001T() = assertReachable("test.structReturn001T")
     @Test fun structReturn002F() = assertNotReachable("test.structReturn002F")
 
-    // Nested struct modification
-    // Nested struct field through interprocedural call: multi-level field access path
-    @Disabled("Nested struct field access through function calls not yet tracked")
+    // Nested struct modification — multi-level field chain through interprocedural calls
+    @Disabled("Nested struct field: multi-level accessor chain through interproc not tracked")
     @Test fun nestedStructMod001T() = assertReachable("test.nestedStructMod001T")
     @Test fun nestedStructMod002F() = assertNotReachable("test.nestedStructMod002F")
     @Test fun nestedStructMod003F() = assertNotReachable("test.nestedStructMod003F")

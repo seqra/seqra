@@ -30,9 +30,8 @@ class TypeOpsTest : AnalysisTest() {
     @Test fun typeAssert001T() = assertSinkReachable(anySource, stdSink, "test.typeAssert001T")
     @Test fun typeAssert002F() = assertSinkNotReachable(anySource, stdSink, "test.typeAssert002F")
 
-    // Type assertion with comma-ok
-    // Type assertion with comma-ok produces tuple (value, ok) — needs tuple extract index sensitivity for non-call tuples
-    @Disabled("Type assertion comma-ok tuple extract not yet implemented")
+    // Type assertion with comma-ok (tuple extraction) — abstract refinement doesn't propagate target fact for non-call tuples
+    @Disabled("CommaOk type assertion tuple extraction: abstract refinement path incomplete")
     @Test fun typeAssertOk001T() = assertSinkReachable(anySource, stdSink, "test.typeAssertOk001T")
     @Test fun typeAssertOk002F() = assertSinkNotReachable(anySource, stdSink, "test.typeAssertOk002F")
 

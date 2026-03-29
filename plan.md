@@ -172,6 +172,59 @@ Multiple sub-causes:
 
 ---
 
+## Phase 14: Fix disabled tests + add more test cases
+
+### 14a: Channel support — DONE ✓
+- [x] Handle `GoIRSend` in sequent flow function — `ch <- x` modeled as `ch.element = x` (weak update)
+- [x] Fix channel receive (`GoIRUnOpExpr.ARROW`) — read `ElementAccessor` from channel
+- [x] Enabled 4 tests: channel001T, bufferedChan001T, chanArg001T, goroutineShared001T
+- [x] selectStmt001T, goroutineChan001T remain disabled (DYNAMIC go call + select)
+
+### 14b: Closure/free-var capture — DONE ✓
+- [x] DYNAMIC call resolution: trace register to `MakeClosureExpr.fn` in `GoCallResolver`
+- [x] Map bindings to callee free-var positions: `GoMethodCallFlowFunction.mapFactToCalleeOrApplyPass`
+- [x] Exit-to-return mapping for free-var arguments: `GoMethodCallFactMapper`
+- [x] `GoIRFunction.parameters` extended to include free vars (fixes `AccessPathBaseStorage` sizing)
+- [x] `GoCallExpr.enclosingMethod` added for closure tracing
+- [x] Enabled 5 tests: closure001T, closureModify001T/002F, deferClosure001T, combClosureField001T
+- [x] 4 remain disabled: closureReturn001T, higherOrder001T/003T, combDeepChain001T
+      (need interprocedural value tracking — closure created in callee, returned to caller)
+
+### 14c: String indexing — DONE ✓
+- [x] `GoIRIndexExpr` on string types uses `singleOperandAccess` instead of `ElementAccessor`
+- [x] Enabled: stringIndex001T
+
+### 14d: Abstract refinement improvement — DONE ✓
+- [x] `handleRefAssign` abstract path now generates target fact alongside exclusion refinement
+- [x] No regressions introduced
+
+### 14e: Remaining disabled (still disabled — deeper issues)
+- Map iteration (3): forRangeMap001T, mapIter001T, mapKeyTaint001T — needs NextExpr→ElementAccessor bridge
+- Map comma-ok (1): mapCommaOk001T — needs element+tuple accessor chain
+- Map struct (1): mapStruct001T — needs field composition through map element
+- CommaOk type assert (1): typeAssertOk001T — needs type assert tuple extraction
+- INVOKE wrappers (4): polymorphism001T/002F, interfaceViaFunc001T/002F — wrapper param mismatch
+- Embedding (3): embeddedField001T, embeddedMethod001T, embeddedDeep001T — promoted field resolution
+- Nested struct (1): nestedStructMod001T — multi-level field chain
+- Slice of structs (1): sliceOfStructs001T — element+field accessor composition
+- Select (1): selectStmt001T — GoIRSelectExpr not modeled
+- DYNAMIC closures (5): closureReturn001T, closureNested001T, higherOrder001T/003T,
+  combDeepChain001T, goroutineChan001T — interprocedural value tracking needed
+
+### 14f: New test cases — DONE ✓
+- [x] Created 6 new Go test files with 54 test functions:
+  - `channel_patterns.go` — 10 tests (channel direction, multi-send, pass-through, loop)
+  - `closure_patterns.go` — 10 tests (capture, two-vars, nested, assign, slice)
+  - `multi_return_patterns.go` — 8 tests (swap, chain, func, ignore)
+  - `struct_patterns.go` — 10 tests (literal, multi-field, func return, ptr deref, reassign)
+  - `sanitization_patterns.go` — 8 tests (conditional, return, chain, reassign)
+  - `pointer_patterns.go` — 8 tests (alias, field, func, deref)
+- [x] Created 6 new Kotlin test classes
+
+### Phase 14 results: 334 PASS / 0 FAIL / 22 DISABLED (356 total)
+
+---
+
 ## Progress Log
 
 | Date | Action | Status |
@@ -189,6 +242,12 @@ Multiple sub-causes:
 | 2026-03-29 | Phase 13d: Fix 2 — exclusion mismatch + shared propagateFact + INVOKE mapping (35+ tests fixed) | Done |
 | 2026-03-29 | Phase 13d: Adjusted test expectations (5 conservative FP) + disabled 31 unimplemented | Done |
 | 2026-03-29 | Phase 13d: Final results: **273 PASS / 0 FAIL / 31 DISABLED** | Done |
+| 2026-03-29 | Phase 14a: Channel support — GoIRSend + ARROW receive (4 tests fixed) | Done |
+| 2026-03-29 | Phase 14b: Closure/free-var — DYNAMIC resolution + binding mapping (5 tests fixed) | Done |
+| 2026-03-29 | Phase 14c: String indexing — string GoIRIndexExpr as simple access (1 test fixed) | Done |
+| 2026-03-29 | Phase 14d: Abstract refinement — target fact on RefAccess read | Done |
+| 2026-03-29 | Phase 14f: Added 54 new tests (6 Go files, 6 Kotlin test classes) | Done |
+| 2026-03-29 | Phase 14 results: **334 PASS / 0 FAIL / 22 DISABLED** (356 total) | Done |
 
 ---
 

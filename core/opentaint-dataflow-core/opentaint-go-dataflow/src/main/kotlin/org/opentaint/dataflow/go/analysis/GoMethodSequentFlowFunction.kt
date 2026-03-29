@@ -64,6 +64,7 @@ class GoMethodSequentFlowFunction(
             is GoIRReturn -> handleReturn(initialFact, currentFact, currentInst)
             is GoIRPhi -> handlePhi(initialFact, currentFact, currentInst)
             is GoIRMapUpdate -> handleMapUpdate(initialFact, currentFact, currentInst)
+            is GoIRSend -> handleSend(initialFact, currentFact, currentInst)
             else              -> setOf(Sequent.Unchanged)
         }
     }
@@ -151,6 +152,9 @@ class GoMethodSequentFlowFunction(
                 // Abstract: trigger refinement by adding accessor to exclusion set
                 val refinedFact = currentFact.exclude(rhsAccess.accessor)
                 result.add(makeEdge(initialFact, refinedFact))
+                // Also propagate an abstract fact on the target (the read value is unknown but tainted)
+                val targetFact = currentFact.rebase(toBase)
+                result.add(makeEdge(initialFact, targetFact))
             }
         }
 
@@ -295,6 +299,28 @@ class GoMethodSequentFlowFunction(
 
         if (currentFact.base == valueBase) {
             val newFact = currentFact.rebase(mapBase).prependAccessor(ElementAccessor)
+            result.add(makeEdge(initialFact, newFact))
+        }
+
+        return result
+    }
+
+    // ── Channel Send ──────────────────────────────────────────────────
+
+    private fun handleSend(
+        initialFact: InitialFactAp?,
+        currentFact: FinalFactAp,
+        inst: GoIRSend,
+    ): Set<Sequent> {
+        val result = mutableSetOf<Sequent>(Sequent.Unchanged) // weak update: channel may hold multiple values
+        val chanBase = GoFlowFunctionUtils.accessPathBase(inst.chan, method)
+            ?: return setOf(Sequent.Unchanged)
+        val valueBase = GoFlowFunctionUtils.accessPathBase(inst.x, method)
+            ?: return setOf(Sequent.Unchanged)
+
+        // ch <- x  ==>  ch.element = x (weak update)
+        if (currentFact.base == valueBase) {
+            val newFact = currentFact.rebase(chanBase).prependAccessor(ElementAccessor)
             result.add(makeEdge(initialFact, newFact))
         }
 

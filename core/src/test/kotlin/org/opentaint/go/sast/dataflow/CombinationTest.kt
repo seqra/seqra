@@ -10,7 +10,6 @@ class CombinationTest : AnalysisTest() {
     @Test fun combStructInterface001T() = assertReachable("test.combStructInterface001T")
     @Test fun combStructInterface002F() = assertNotReachable("test.combStructInterface002F")
 
-    @Disabled("Free-var capture propagation not yet implemented")
     @Test fun combClosureField001T() = assertReachable("test.combClosureField001T")
     @Test fun combClosureField002F() = assertNotReachable("test.combClosureField002F")
 
@@ -26,7 +25,7 @@ class CombinationTest : AnalysisTest() {
     @Test fun combNestedFunc001T() = assertReachable("test.combNestedFunc001T")
     @Test fun combNestedFunc002F() = assertNotReachable("test.combNestedFunc002F")
 
-    @Disabled("Free-var capture propagation not yet implemented")
+    @Disabled("Closure returned from callee: MakeClosureExpr not visible at dynamic call site")
     @Test fun combDeepChain001T() = assertReachable("test.combDeepChain001T")
     @Test fun combDeepChain002F() = assertNotReachable("test.combDeepChain002F")
 

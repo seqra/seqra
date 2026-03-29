@@ -36,6 +36,7 @@ open class GoLanguageManager(val cp: GoIRProgram) : LanguageManager {
     override fun getCallExpr(inst: CommonInst): CommonCallExpr? {
         val goInst = inst as GoIRInst
         val callInfo = GoFlowFunctionUtils.extractCallInfo(goInst) ?: return null
+        val enclosingMethod = goInst.location.functionBody.function
 
         val callee = when (callInfo.mode) {
             GoIRCallMode.DIRECT -> (callInfo.function as? GoIRFunctionValue)?.function
@@ -43,9 +44,9 @@ open class GoLanguageManager(val cp: GoIRProgram) : LanguageManager {
         }
 
         return if (callInfo.receiver != null) {
-            GoInstanceCallExpr(callInfo, callee, callInfo.receiver as CommonValue)
+            GoInstanceCallExpr(callInfo, callee, callInfo.receiver as CommonValue, enclosingMethod)
         } else {
-            GoCallExpr(callInfo, callee)
+            GoCallExpr(callInfo, callee, enclosingMethod)
         }
     }
 

@@ -7,9 +7,7 @@ import kotlin.test.Test
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class StringOpsTest : AnalysisTest() {
 
-    // String indexing (s[i]) uses GoIRIndexExpr which reads ElementAccessor from string;
-    // taint on the string as a whole doesn't carry ElementAccessor, so read fails.
-    @Disabled("String byte indexing taint propagation requires element-level string model")
+    // String indexing (s[i]) — simple propagation from whole string
     @Test fun stringIndex001T() = assertReachable("test.stringIndex001T")
     @Test fun stringIndex002F() = assertNotReachable("test.stringIndex002F")
 

@@ -9,12 +9,16 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.*
 import org.opentaint.dataflow.go.GoCallExpr
+import org.opentaint.dataflow.go.GoCallResolver
 import org.opentaint.dataflow.go.GoFlowFunctionUtils
 import org.opentaint.dataflow.go.GoMethodCallFactMapper
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.go.api.GoIRFunction
 import org.opentaint.ir.go.cfg.GoIRCallInfo
+import org.opentaint.ir.go.expr.GoIRMakeClosureExpr
 import org.opentaint.ir.go.inst.GoIRInst
+import org.opentaint.ir.go.type.GoIRCallMode
+import org.opentaint.ir.go.value.GoIRRegister
 import org.opentaint.ir.go.value.GoIRValue
 
 /**
@@ -210,10 +214,33 @@ class GoMethodCallFlowFunction(
             }
         }
 
+        // Map closure bindings → free-var arguments for DYNAMIC calls
+        if (callInfo.mode == GoIRCallMode.DYNAMIC) {
+            val closureExpr = findClosureExpr()
+            if (closureExpr != null) {
+                val paramCount = closureExpr.fn.params.size
+                for ((i, binding) in closureExpr.bindings.withIndex()) {
+                    val bindingBase = GoFlowFunctionUtils.accessPathBase(binding, method)
+                    if (bindingBase != null && factAp.base == bindingBase) {
+                        val freeVarArgBase = AccessPathBase.Argument(paramCount + i)
+                        applyPassRulesOrCallToStart(factAp, freeVarArgBase, addCallToReturn, addCallToStart)
+                    }
+                }
+            }
+        }
+
         // ClassStatic passes through
         if (factAp.base is AccessPathBase.ClassStatic) {
             addCallToStart(factAp, AccessPathBase.ClassStatic, TraceInfo.Flow)
         }
+    }
+
+    /**
+     * For DYNAMIC calls, trace the function value back to a MakeClosureExpr.
+     */
+    private fun findClosureExpr(): GoIRMakeClosureExpr? {
+        val funcValue = callInfo.function as? GoIRRegister ?: return null
+        return GoFlowFunctionUtils.findMakeClosureExpr(funcValue, method)
     }
 
     /**

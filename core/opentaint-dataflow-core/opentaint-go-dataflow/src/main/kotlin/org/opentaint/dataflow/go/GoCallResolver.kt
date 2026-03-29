@@ -11,6 +11,7 @@ import org.opentaint.ir.go.type.GoIRNamedTypeKind
 import org.opentaint.ir.go.type.GoIRNamedTypeRef
 import org.opentaint.ir.go.type.GoIRType
 import org.opentaint.ir.go.value.GoIRFunctionValue
+import org.opentaint.ir.go.value.GoIRRegister
 
 /**
  * Low-level call resolver for Go. Handles DIRECT, INVOKE, and DYNAMIC call modes.
@@ -28,13 +29,30 @@ class GoCallResolver(val cp: GoIRProgram) {
         return when (call.mode) {
             GoIRCallMode.DIRECT -> resolveDirect(call)
             GoIRCallMode.INVOKE -> resolveInvoke(call)
-            GoIRCallMode.DYNAMIC -> emptyList() // MVP: unresolved
+            GoIRCallMode.DYNAMIC -> resolveDynamic(call, location)
         }
     }
 
     private fun resolveDirect(call: GoIRCallInfo): List<GoIRFunction> {
         val funcValue = call.function as? GoIRFunctionValue ?: return emptyList()
         return listOf(funcValue.function)
+    }
+
+    private fun resolveDynamic(call: GoIRCallInfo, location: GoIRInst): List<GoIRFunction> {
+        // Trace the called function value back to its defining instruction.
+        // If it was produced by MakeClosureExpr, resolve to the closure's function.
+        val funcValue = call.function
+        if (funcValue is GoIRFunctionValue) {
+            return listOf(funcValue.function)
+        }
+        if (funcValue is GoIRRegister) {
+            val method = location.location.functionBody.function
+            val closure = GoFlowFunctionUtils.findMakeClosureExpr(funcValue, method)
+            if (closure != null) {
+                return listOf(closure.fn)
+            }
+        }
+        return emptyList()
     }
 
     private fun resolveInvoke(call: GoIRCallInfo): List<GoIRFunction> {
