@@ -84,25 +84,45 @@ class GoCallResolver(val cp: GoIRProgram) {
         val concreteTypes = allTypes.filter { it.kind != GoIRNamedTypeKind.INTERFACE }
 
         return interfaces.associate { iface ->
-            val requiredMethods = collectInterfaceMethodNames(iface)
+            val requiredMethods = collectInterfaceMethodSignatures(iface)
             val implementors = if (requiredMethods.isEmpty()) {
                 emptyList() // empty interface matches everything — skip for performance
             } else {
                 concreteTypes.filter { concrete ->
-                    val concreteMethods = concrete.allMethods().map { it.name }.toSet()
-                    concreteMethods.containsAll(requiredMethods)
+                    requiredMethods.all { (name, ifaceParamCount) ->
+                        concrete.allMethods().any { m ->
+                            m.name == name && methodParamCount(m) == ifaceParamCount
+                        }
+                    }
                 }
             }
             iface.fullName to implementors
         }
     }
 
-    private fun collectInterfaceMethodNames(iface: GoIRNamedType): Set<String> {
-        val methods = mutableSetOf<String>()
-        iface.interfaceMethods.mapTo(methods) { it.name }
+    /**
+     * Collects interface method signatures as (name, paramCount) pairs.
+     * paramCount is the number of parameters EXCLUDING the receiver
+     * (i.e., the interface method signature's params).
+     */
+    private fun collectInterfaceMethodSignatures(iface: GoIRNamedType): Set<Pair<String, Int>> {
+        val methods = mutableSetOf<Pair<String, Int>>()
+        for (m in iface.interfaceMethods) {
+            methods.add(m.name to m.signature.params.size)
+        }
         for (embed in iface.embeddedInterfaces) {
-            methods += collectInterfaceMethodNames(embed)
+            methods += collectInterfaceMethodSignatures(embed)
         }
         return methods
+    }
+
+    /**
+     * Returns the number of non-receiver parameters of a concrete method.
+     * For methods (isMethod=true), params includes the receiver as first element,
+     * so non-receiver param count = params.size - 1.
+     * For non-method functions, it's just params.size.
+     */
+    private fun methodParamCount(fn: GoIRFunction): Int {
+        return if (fn.isMethod) fn.params.size - 1 else fn.params.size
     }
 }

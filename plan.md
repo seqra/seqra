@@ -198,13 +198,21 @@ Multiple sub-causes:
 - [x] `handleRefAssign` abstract path now generates target fact alongside exclusion refinement
 - [x] No regressions introduced
 
-### 14e: Remaining disabled (still disabled — deeper issues)
-- Map iteration (3): forRangeMap001T, mapIter001T, mapKeyTaint001T — needs NextExpr→ElementAccessor bridge
-- Map comma-ok (1): mapCommaOk001T — needs element+tuple accessor chain
-- Map struct (1): mapStruct001T — needs field composition through map element
-- CommaOk type assert (1): typeAssertOk001T — needs type assert tuple extraction
-- INVOKE wrappers (4): polymorphism001T/002F, interfaceViaFunc001T/002F — wrapper param mismatch
-- Embedding (3): embeddedField001T, embeddedMethod001T, embeddedDeep001T — promoted field resolution
+### 14e: INVOKE dispatch fix — DONE ✓
+- [x] Root cause: `buildInterfaceImplementorsMap` matched types by method NAME only, not signature
+  → `CombTainted.Process()` (0 params) was matched as implementor of `IDProcessor.Process(data string)`
+  → Callee had 1 parameter but facts used `Argument(1)`, crashing `AccessPathBaseStorage`
+- [x] Fix: changed structural typing to match method name AND param count (excluding receiver)
+  → `collectInterfaceMethodSignatures` collects `(name, paramCount)` pairs
+  → `methodParamCount` computes non-receiver param count
+- [x] Enabled 4 tests: polymorphism001T/002F, interfaceViaFunc001T/002F — all PASS
+
+### 14f: Remaining disabled (18 tests — deeper issues)
+- Map iteration (3): forRangeMap001T, mapIter001T, mapKeyTaint001T — NextExpr→ElementAccessor
+- Map comma-ok (1): mapCommaOk001T — element+tuple accessor chain
+- Map struct (1): mapStruct001T — field composition through map element
+- CommaOk type assert (1): typeAssertOk001T — type assert tuple extraction
+- Embedding (3): embeddedField001T, embeddedMethod001T, embeddedDeep001T — promoted fields
 - Nested struct (1): nestedStructMod001T — multi-level field chain
 - Slice of structs (1): sliceOfStructs001T — element+field accessor composition
 - Select (1): selectStmt001T — GoIRSelectExpr not modeled
@@ -221,7 +229,7 @@ Multiple sub-causes:
   - `pointer_patterns.go` — 8 tests (alias, field, func, deref)
 - [x] Created 6 new Kotlin test classes
 
-### Phase 14 results: 334 PASS / 0 FAIL / 22 DISABLED (356 total)
+### Phase 14 results: 338 PASS / 0 FAIL / 18 DISABLED (356 total)
 
 ---
 
@@ -248,6 +256,8 @@ Multiple sub-causes:
 | 2026-03-29 | Phase 14d: Abstract refinement — target fact on RefAccess read | Done |
 | 2026-03-29 | Phase 14f: Added 54 new tests (6 Go files, 6 Kotlin test classes) | Done |
 | 2026-03-29 | Phase 14 results: **334 PASS / 0 FAIL / 22 DISABLED** (356 total) | Done |
+| 2026-03-29 | Phase 14e: INVOKE dispatch — signature-aware structural typing (4 tests fixed) | Done |
+| 2026-03-29 | Phase 14 final: **338 PASS / 0 FAIL / 18 DISABLED** (356 total) | Done |
 
 ---
 
