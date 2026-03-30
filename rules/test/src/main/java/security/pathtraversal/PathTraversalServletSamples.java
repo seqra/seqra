@@ -288,6 +288,96 @@ public class PathTraversalServletSamples {
     }
 
     /**
+     * VULNERABLE: reads a user-controlled path and passes it to {@code Files.readSymbolicLink}.
+     */
+    @WebServlet("/pathtraversal/unsafe-read-symbolic-link")
+    public static class UnsafeReadSymbolicLinkServlet extends HttpServlet {
+
+        @Override
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+
+            String linkName = request.getParameter("link");
+            Path link = Paths.get(linkName);
+            Path target = Files.readSymbolicLink(link);
+
+            response.getWriter().write("Target: " + target.toString());
+        }
+    }
+
+    // ── Negative tests: temp-file/temp-directory APIs with untrusted prefix/suffix ──────────
+
+    /**
+     * SAFE: {@code Files.createTempFile(prefix, suffix)} only accepts String prefix and suffix.
+     * The JDK rejects suffixes containing the platform file separator (e.g. "/" on Linux),
+     * throwing {@code IllegalArgumentException} — so user input in these positions
+     * cannot cause path traversal.
+     */
+    @WebServlet("/pathtraversal/safe-files-create-temp-file-prefix-suffix")
+    public static class SafeFilesCreateTempFilePrefixSuffixServlet extends HttpServlet {
+
+        @Override
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+
+            String prefix = request.getParameter("prefix");
+            String suffix = request.getParameter("suffix");
+
+            // SAFE: prefix/suffix are validated by the JDK — cannot traverse directories
+            Path tempFile = Files.createTempFile(prefix, suffix);
+
+            response.getWriter().write("Created: " + tempFile.toString());
+        }
+    }
+
+    /**
+     * SAFE: {@code Files.createTempDirectory(prefix)} only accepts a String prefix.
+     * The JDK rejects prefixes containing the platform file separator,
+     * so user input in this position cannot cause path traversal.
+     */
+    @WebServlet("/pathtraversal/safe-files-create-temp-directory-prefix")
+    public static class SafeFilesCreateTempDirectoryPrefixServlet extends HttpServlet {
+
+        @Override
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+
+            String prefix = request.getParameter("prefix");
+
+            // SAFE: prefix is validated by the JDK — cannot traverse directories
+            Path tempDir = Files.createTempDirectory(prefix);
+
+            response.getWriter().write("Created: " + tempDir.toString());
+        }
+    }
+
+    /**
+     * SAFE: {@code File.createTempFile(prefix, suffix)} (2-arg form) creates in the
+     * default temp directory. The JDK rejects prefixes/suffixes containing the platform
+     * file separator, so user input cannot cause path traversal.
+     */
+    @WebServlet("/pathtraversal/safe-file-create-temp-file-prefix-suffix")
+    public static class SafeFileCreateTempFilePrefixSuffixServlet extends HttpServlet {
+
+        @Override
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+
+            String prefix = request.getParameter("prefix");
+            String suffix = request.getParameter("suffix");
+
+            // SAFE: prefix/suffix are validated by the JDK — cannot traverse directories
+            File tempFile = File.createTempFile(prefix, suffix);
+
+            response.getWriter().write("Created: " + tempFile.getAbsolutePath());
+        }
+    }
+
+    /**
      * Helper method to stream a java.io.File to the servlet response as octet-stream.
      */
     private static void streamFile(HttpServletResponse response, File file) throws IOException {
