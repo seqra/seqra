@@ -42,7 +42,20 @@ Expected agent workflow:
 10. Steps 7-10 are repeated until agent decides that all vulnerabilities discovered.
 
 Analyze current analyzer impl and requirements and propose the following documents:
-1. pattern-rules.md: design of all thing related to pattern rules
-2. approximations-config.md: all things related to approximations
-3. agent-pipeline.md: whole pipeline for the agent to work with rules, common scenarios
+1. agent-mode/info/pattern-rules.md: design of all thing related to pattern rules
+2. agent-mode/info/approximations-config.md: all things related to approximations
+3. agent-mode/info/agent-pipeline.md: whole pipeline for the agent to work with rules, common scenarios
 
+OK, WE ARE HERE. We have all initial requirements collected
+
+Consider we have opentaint installed on PATH and want to use it from the agent via skills.
+We need to design the following things:
+1. Changes in the opentaint that are required to match expected agent workflow
+2. All opentaint operations must be available via Go CLI (implemented in Go or proxied to the Analyzer CLI)
+   - Consider code-based approximations. Opetaint CLI must have an API to take approximation source code and compile it to further use it in the analysis.
+3. Skills that can be used via agent. 
+   - Skills must include all the required examples
+   - For the rule-test skill we must provide simple sample test project
+4. Meta prompt to run agent wrt expected workflow using skills. 
+
+Write all your findings into `agent-mode/design/agent-mode-design.md`. 
