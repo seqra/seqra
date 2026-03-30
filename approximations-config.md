@@ -44,21 +44,7 @@ passThrough:
     copy:
       - from: <position>
         to: <position>
-    assign:
-      - to: <position>
-        mark: <mark-name>
-    clean:
-      - position: <position>
-        mark: <mark-name>
 ```
-
-Other top-level keys (all optional, same schema structure):
-- `entryPoint:` — marks methods as analysis entry points
-- `source:` — marks methods as taint sources
-- `sink:` — marks methods as taint sinks
-- `cleaner:` — marks methods as taint removers
-- `methodExitSource:` / `methodExitSink:` / `methodEntrySink:` — positional variants
-- `staticFieldSource:` — marks static fields as taint sources
 
 ### Function Name Matching
 
@@ -109,13 +95,14 @@ signature:
 
 Positions describe where taint lives on a method's interface:
 
-| Position | Meaning |
-|----------|---------|
-| `this` | The receiver object (`this` reference) |
-| `arg(0)`, `arg(1)`, ... | Method arguments (0-indexed) |
-| `arg(*)` | All arguments (expanded to individual arg rules) |
-| `result` | The method's return value |
-| `[*]` | Array element access (appended to a base position) |
+| Position                                      | Meaning                                            |
+|-----------------------------------------------|----------------------------------------------------|
+| `this`                                        | The receiver object (`this` reference)             |
+| `arg(0)`, `arg(1)`, ...                       | Method arguments (0-indexed)                       |
+| `arg(*)`                                      | All arguments (expanded to individual arg rules)   |
+| `result`                                      | The method's return value                          |
+| `[*]`                                         | Array element access (appended to a base position) |
+| `.<fqn class name>#<field name>$<firld type>` | Field access (appended to a base position)         |
 
 #### Internal State Tracking (Rule Storage)
 
@@ -154,26 +141,6 @@ copy:
 ```
 
 Copies all taint marks from `from` position to `to` position. The most common action.
-
-#### `assign` — Create Taint
-
-```yaml
-assign:
-  - to: result
-    mark: tainted
-```
-
-Unconditionally assigns a taint mark to a position. Used in source rules.
-
-#### `clean` — Remove Taint
-
-```yaml
-clean:
-  - position: arg(0)
-    mark: tainted
-```
-
-Removes a specific taint mark from a position. Used in cleaner/sanitizer rules.
 
 ### Conditions
 
