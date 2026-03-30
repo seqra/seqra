@@ -276,7 +276,7 @@ jobs:
             github_token=${{ secrets.SEQRA_GITHUB_TOKEN }}
           build-args: |
             OPENTAINT_OWNER=${{ github.repository_owner }}
-            SEQRA_BUILD_FLAGS=-s -w -X github.com/${{ github.repository_owner }}/opentaint/internal/version.Version=${{ steps.release_version.outputs.RELEASE_VERSION }}
+            OPENTAINT_BUILD_FLAGS=-s -w -X github.com/${{ github.repository_owner }}/opentaint/internal/version.Version=${{ steps.release_version.outputs.RELEASE_VERSION }}
       -
         name: Update floating version tags
         if: ${{ steps.release_version.outputs.status == 'succeeded' }}
