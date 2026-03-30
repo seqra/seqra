@@ -86,20 +86,20 @@ The split into `withoutRules` / `withRules` reduces the agent's effort — it ca
 **Kotlin CLI flag**: `--external-methods-output <path>` (optional, new flag on `ProjectAnalyzerRunner`)
 **Go CLI flag**: `--external-methods <path>` (optional, new flag on `scan` command, proxied to Kotlin CLI)
 
-### 1.2 Allow `--config` + `--semgrep-rule-set` Together
+### 1.2 Allow `--approximations-config` + `--semgrep-rule-set` Together
 
-**Problem**: These flags are mutually exclusive (`check(options.customConfig == null)` in `ProjectAnalyzer.preloadRules()`). The agent needs both:
+**Problem**: `--config` and `--semgrep-rule-set` are mutually exclusive (`check(options.customConfig == null)` in `ProjectAnalyzer.preloadRules()`). The agent needs both:
 - `--semgrep-rule-set` for pattern rules (sources, sinks, vulnerability patterns)
-- `--config` for YAML propagation rules (passThrough, cleaner, custom sources/sinks)
+- `--approximations-config` for YAML propagation rules (passThrough)
 
-**Required change**: When both are provided, load Semgrep rules as the pattern-matching layer and use the custom config to **override** the default propagation config.
+**Required change**: Rename the existing `--config` flag to `--approximations-config` to clarify its purpose. When both `--approximations-config` and `--semgrep-rule-set` are provided, load Semgrep rules as the pattern-matching layer and use the custom config to **override** the default propagation config.
 
 **Implementation**: In `ProjectAnalyzer.preloadRules()`, add a fourth branch:
 
 ```kotlin
-if (options.semgrepRuleSet.isNotEmpty() && options.customConfig != null) {
+if (options.semgrepRuleSet.isNotEmpty() && options.approximationsConfig != null) {
     val semgrepRules = loadSemgrepRules(...)
-    val customConfig = loadSerializedTaintConfig(options.customConfig)
+    val customConfig = loadSerializedTaintConfig(options.approximationsConfig)
     return PreloadedRules.SemgrepRulesWithCustomConfig(semgrepRules, customConfig)
 }
 ```
@@ -111,13 +111,16 @@ In `loadTaintConfig()`, the new `SemgrepRulesWithCustomConfig` case should:
 
 The agent's custom config intentionally overrides the default config — when the agent provides rules for a method, it means the agent has determined the correct behavior and the default should be replaced, not merged. Using EXTEND would mix the agent's corrections with the (possibly wrong) defaults, defeating the purpose.
 
-**Go CLI**: Expose `--config <path>` flag on the `scan` command, proxy to `--config` on the Kotlin CLI. Remove the mutual exclusion.
+**Note**: Despite the YAML config schema supporting a `cleaner` section, the analyzer currently cannot use sanitizers from the config. The `--approximations-config` is used exclusively for `passThrough` rules.
+
+**Kotlin CLI**: Rename `--config` to `--approximations-config`.
+**Go CLI**: Expose `--approximations-config <path>` flag on the `scan` command.
 
 ### 1.3 Custom Code-Based Approximations via CLI
 
 **Problem**: There is no way to pass custom approximation source code via CLI. The agent needs to provide code-based approximations for complex methods (lambdas, async, callbacks).
 
-**Required change**: The `--approximations <dir>` flag on `scan` accepts a directory of Java source files. The CLI automatically compiles them during scan and passes the resulting `.class` files to the analyzer.
+**Required change**: The `--dataflow-approximations <dir>` flag on `scan` accepts a directory of Java source files. The CLI automatically compiles them during scan and passes the resulting `.class` files to the analyzer.
 
 **Design**: Custom approximations are **dataflow approximations** — they go through the same `useDataflowApproximation` path as the built-in ones (Stream, CompletableFuture, etc.), not through the separate `useOpentaintApproximations` / environment variable mechanism.
 
@@ -132,7 +135,6 @@ private fun approximationFiles(options: Options): List<File> {
     if (options.useDataflowApproximation) {
         result += listOfNotNull(dataflowApproximationsPath?.toFile())
     }
-    // Custom approximations loaded AFTER built-in, so they override
     result += options.customApproximationPaths.map { it.toFile() }
     return result
 }
@@ -140,16 +142,16 @@ private fun approximationFiles(options: Options): List<File> {
 
 No changes needed to `installApproximations()` or `createCpWithApproximations()` — they already consume whatever `approximationFiles()` returns. The `Approximations` feature indexes `@Approximate` annotations from all paths uniformly.
 
-Note: If a custom approximation targets the same class as a built-in one, the `ApproximationIndexer`'s bijection `require()` assertions need to be relaxed to allow replacement (custom wins, with a warning log).
+**Conflict behavior**: If a custom approximation targets the same class as a built-in one, the `ApproximationIndexer`'s bijection `require()` assertions will fire and **report an error**. This is intentional — the agent must not silently override built-in approximations. If the agent needs different behavior for a class that already has a built-in approximation, this indicates a design problem that should be escalated, not silently resolved.
 
-**Kotlin CLI flag**: `--approximations <path>` (repeatable, accepts directories of compiled `.class` files)
-**Go CLI flag**: `--approximations <dir>` on `scan`, accepts source directory, compiles automatically (see 1.4)
+**Kotlin CLI flag**: `--dataflow-approximations <path>` (repeatable, accepts directories of compiled `.class` files)
+**Go CLI flag**: `--dataflow-approximations <dir>` on `scan`, accepts source directory, compiles automatically (see 1.4)
 
 ### 1.4 Automatic Approximation Compilation During Scan
 
 **Problem**: The agent writes Java source files for approximations. These need to be compiled to `.class` files before the analyzer can use them. This should be seamless.
 
-**Design**: The Go CLI's `--approximations <dir>` flag:
+**Design**: The Go CLI's `--dataflow-approximations <dir>` flag:
 
 1. Scans the directory for `.java` files
 2. If `.java` files are found, compiles them automatically:
@@ -158,7 +160,7 @@ Note: If a custom approximation targets the same class as a built-in one, the `A
    - Resolves additional classpath from the target project's dependencies (from `project.yaml`)
    - Runs: `javac -source 8 -target 8 -cp <analyzer.jar>:<project-deps> -d <temp-output-dir> <sources>`
 3. If compilation fails, reports errors to the agent and aborts scan
-4. If compilation succeeds, passes the compiled `.class` directory to the analyzer via `--approximations`
+4. If compilation succeeds, passes the compiled `.class` directory to the analyzer via `--dataflow-approximations`
 5. If only `.class` files are found (no `.java`), passes them directly (pre-compiled)
 
 **Why this is better than a separate command**: The agent writes source → runs scan → gets results. One command. No intermediate compile step to manage. If compilation fails, the error is reported in the context of the scan attempt.
@@ -193,11 +195,89 @@ opentaint test-rules <test-project-path-or-project.yaml> \
 3. Parse and display `test-result.json` summary
 4. Exit with non-zero code if any `falsePositive` or `falseNegative` entries exist
 
+### 1.6 Rule ID Filter
+
+**Problem**: The agent creates its own rules and may reference built-in library rules. When running analysis, the agent wants to execute **only its rules** (plus the referenced built-in library rules they depend on), without all other built-in security rules firing and producing noise.
+
+**Current state**: The `--semgrep-rule-severity` flag filters rules by severity. There is no way to filter by rule ID. When `--ruleset builtin --ruleset ./agent-rules` is used, ALL rules from both rulesets are active.
+
+**Required change**: Add a `--semgrep-rule-id` filter flag (repeatable) that restricts which rules are active. Only rules matching the provided IDs will execute. Library rules (`options.lib: true`) referenced by active rules via `refs` are automatically included — they don't need to be listed explicitly.
+
+**Kotlin CLI flag**: `--semgrep-rule-id <id>` (repeatable)
+**Go CLI flag**: `--rule-id <id>` (repeatable, on `scan` command)
+
+**Example**:
+```bash
+# Only run the agent's custom rule (which refs built-in library rules)
+opentaint scan ./opentaint-project/project.yaml \
+  -o ./results/report.sarif \
+  --ruleset builtin \
+  --ruleset ./agent-rules \
+  --rule-id my-vulnerability
+```
+
+**Implementation**: In `SemgrepRuleLoader`, after loading all rules, apply the ID filter:
+1. Collect the set of active rule IDs from `--semgrep-rule-id` flags
+2. If the set is non-empty, filter `rulesWithMeta` to keep only rules whose ID is in the set
+3. For join-mode rules in the active set, recursively resolve `refs` and include all referenced library rules
+4. All other rules are excluded (not loaded into the analyzer)
+
+If `--semgrep-rule-id` is not provided, all loaded rules are active (current behavior preserved).
+
+### 1.7 Test Project Bootstrap Command
+
+**Problem**: Creating a test project for rule testing requires setting up a Gradle project with the correct `opentaint-sast-test-util` dependency. The agent needs to know how to obtain this JAR and wire it into the build script. This is error-prone.
+
+**Required change**: Add an `init-test-project` command to the Go CLI that bootstraps a ready-to-use test project.
+
+**Go CLI**:
+```
+opentaint init-test-project <output-dir> \
+  [--dependency <maven-coord>] ...    # additional maven dependencies for test code
+```
+
+**Behavior**:
+1. Creates the directory structure:
+   ```
+   <output-dir>/
+   ├── build.gradle.kts
+   ├── settings.gradle.kts
+   ├── libs/
+   │   └── opentaint-sast-test-util.jar
+   └── src/main/java/test/
+       └── .gitkeep
+   ```
+2. Downloads `opentaint-sast-test-util.jar` from the same artifact source as the analyzer (GitHub releases, tiered resolution: bundled > install > cache). Alternatively, extracts it from the `opentaint-analyzer.jar` if bundled inside.
+3. Generates `build.gradle.kts` referencing the local JAR:
+   ```kotlin
+   plugins { java }
+   java {
+       sourceCompatibility = JavaVersion.VERSION_1_8
+       targetCompatibility = JavaVersion.VERSION_1_8
+   }
+   repositories { mavenCentral() }
+   dependencies {
+       compileOnly(files("libs/opentaint-sast-test-util.jar"))
+       // User-requested dependencies:
+       compileOnly("javax.servlet:javax.servlet-api:4.0.1")
+   }
+   ```
+4. Generates `settings.gradle.kts` with a project name derived from the directory.
+5. Prints next steps:
+   ```
+   Test project created at ./agent-test-project
+   
+   Next steps:
+     1. Add test samples in src/main/java/test/
+     2. Build: opentaint compile ./agent-test-project -o ./agent-test-compiled
+     3. Test: opentaint test-rules ./agent-test-compiled/project.yaml --ruleset <rules> -o ./test-output
+   ```
+
 ---
 
 ## 2. Go CLI API Design
 
-All agent operations flow through the Go CLI (`opentaint`). The design adds 1 new command and 3 new flags to existing commands.
+All agent operations flow through the Go CLI (`opentaint`). The design adds 3 new commands and 4 new flags to existing commands.
 
 ### 2.1 Complete Command Reference (Existing + New)
 
@@ -225,9 +305,10 @@ opentaint scan <project-path-or-project.yaml> \
   -o <report.sarif> \
   [--ruleset builtin] \
   [--ruleset <path>] \
-  [--config <path>]               ★ YAML propagation config (overrides defaults)
-  [--approximations <dir>]        ★ approximation source/class dir (auto-compiles .java)
-  [--external-methods <path>]     ★ output external methods list
+  [--rule-id <id>]                       ★ filter: only run these rule IDs
+  [--approximations-config <path>]       ★ YAML passThrough config (overrides defaults)
+  [--dataflow-approximations <dir>]      ★ approximation source/class dir (auto-compiles .java)
+  [--external-methods <path>]            ★ output external methods list
   [--timeout <duration>] \
   [--max-memory <size>] \
   [--severity <levels>] \
@@ -235,9 +316,10 @@ opentaint scan <project-path-or-project.yaml> \
 ```
 
 Flag interactions:
-- `--ruleset` and `--config` can be used together (engine change 1.2)
-- `--approximations` accepts `.java` source dir (auto-compiled) or `.class` dir (passed directly)
+- `--ruleset` and `--approximations-config` can be used together (engine change 1.2)
+- `--dataflow-approximations` accepts `.java` source dir (auto-compiled) or `.class` dir (passed directly)
 - `--external-methods` requires an output path; produces the YAML file alongside SARIF
+- `--rule-id` restricts which rules are active; referenced library rules are included automatically
 
 #### `opentaint test-rules` ★ NEW
 Run rule tests against a test project.
@@ -265,6 +347,15 @@ Rule Tests Summary:
   - disabled:        1
 ```
 
+#### `opentaint init-test-project` ★ NEW
+Bootstrap a test project for rule testing.
+```
+opentaint init-test-project <output-dir> \
+  [--dependency <maven-coord>] ...
+```
+
+Downloads `opentaint-sast-test-util.jar`, generates `build.gradle.kts` and directory structure.
+
 #### `opentaint summary` (existing)
 Print SARIF results.
 ```
@@ -279,18 +370,20 @@ opentaint summary <report.sarif> \
 The `AnalyzerBuilder` in `command_builder.go` needs new methods for the new flags:
 
 ```go
-func (b *AnalyzerBuilder) SetConfig(configPath string) *AnalyzerBuilder
-func (b *AnalyzerBuilder) AddApproximations(approxPath string) *AnalyzerBuilder
+func (b *AnalyzerBuilder) SetApproximationsConfig(configPath string) *AnalyzerBuilder
+func (b *AnalyzerBuilder) AddDataflowApproximations(approxPath string) *AnalyzerBuilder
 func (b *AnalyzerBuilder) SetExternalMethodsOutput(path string) *AnalyzerBuilder
 func (b *AnalyzerBuilder) SetDebugRunRuleTests(enabled bool) *AnalyzerBuilder
+func (b *AnalyzerBuilder) AddRuleIdFilter(ruleId string) *AnalyzerBuilder
 ```
 
 These translate to:
 | Go CLI flag | Analyzer CLI flag |
 |---|---|
-| `--config <path>` | `--config <path>` |
-| `--approximations <path>` | `--approximations <path>` (compiled classes dir) |
+| `--approximations-config <path>` | `--approximations-config <path>` |
+| `--dataflow-approximations <path>` | `--dataflow-approximations <path>` (compiled classes dir) |
 | `--external-methods <path>` | `--external-methods-output <path>` |
+| `--rule-id <id>` | `--semgrep-rule-id <id>` |
 | (test-rules command) | `--debug-run-rule-tests` |
 
 ---
@@ -379,10 +472,10 @@ The agent discovers entry points itself — no special CLI command is needed. Th
    - **Sink**: Where is the data dangerous? (SQL query, command exec, file path, HTML output, etc.)
    - **Sanitizers**: What makes the data safe? (encoding, escaping, parameterized queries, etc.)
 
-2. Check if existing library rules cover the source/sink:
+2. Check if existing built-in library rules cover the source/sink:
    - Sources: `rules/ruleset/java/lib/generic/` and `rules/ruleset/java/lib/spring/`
    - Sinks: Same directories
-   - If covered, skip to step 4 (join-mode composition)
+   - If covered, skip to step 4 (join-mode composition referencing built-in rules)
 
 3. If new source/sink patterns are needed, create library rules:
 
@@ -447,7 +540,7 @@ The agent discovers entry points itself — no special CLI command is needed. Th
            - 'source.$UNTRUSTED -> sink.$UNTRUSTED'
    ```
 
-   You can also reference built-in library rules:
+   You can reference built-in library rules — they will be auto-included when the agent's rule is active:
    ```yaml
    refs:
      - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
@@ -470,6 +563,17 @@ The agent discovers entry points itself — no special CLI command is needed. Th
          - pattern: Cipher.getInstance("DES")
    ```
 
+6. When running analysis, use `--rule-id` to activate only the agent's rules:
+   ```bash
+   opentaint scan ./opentaint-project/project.yaml \
+     -o ./results/report.sarif \
+     --ruleset builtin --ruleset ./agent-rules \
+     --rule-id my-vulnerability \
+     --rule-id weak-crypto
+   ```
+
+   Library rules referenced via `refs` in join-mode rules are auto-included. No need to list them in `--rule-id`.
+
 **Constraints**:
 - Rule IDs must be globally unique
 - Library rules must have `options.lib: true` and `severity: NOTE`
@@ -483,51 +587,21 @@ The agent discovers entry points itself — no special CLI command is needed. Th
 
 **Instructions**:
 
-1. Create a test project directory with this structure:
-   ```
-   agent-test-project/
-   ├── build.gradle.kts
-   └── src/main/java/
-       └── test/
-           └── MyVulnTest.java
+1. Bootstrap a test project:
+   ```bash
+   opentaint init-test-project ./agent-test-project \
+     --dependency "javax.servlet:javax.servlet-api:4.0.1"
    ```
 
-2. Create `build.gradle.kts`:
-   ```kotlin
-   plugins {
-       java
-   }
+   This creates the directory structure with `build.gradle.kts`, `settings.gradle.kts`, and the `opentaint-sast-test-util.jar` in `libs/`. Add more `--dependency` flags for additional libraries your test code needs (e.g., Spring, JDBC drivers).
 
-   java {
-       sourceCompatibility = JavaVersion.VERSION_1_8
-       targetCompatibility = JavaVersion.VERSION_1_8
-   }
-
-   repositories {
-       mavenCentral()
-   }
-
-   dependencies {
-       // The test annotation library — extract from opentaint-analyzer.jar
-       // or reference the published artifact
-       compileOnly(files("libs/opentaint-sast-test-util.jar"))
-
-       // Dependencies needed by your test samples
-       compileOnly("javax.servlet:javax.servlet-api:4.0.1")
-       // Add more as needed for your test code
-   }
-   ```
-
-   Note: The `opentaint-sast-test-util.jar` containing `@PositiveRuleSample` and `@NegativeRuleSample` annotations is bundled inside `opentaint-analyzer.jar`. Extract it or use the published Maven artifact `org.opentaint:opentaint-sast-test-util`.
-
-3. Create test samples (`src/main/java/test/MyVulnTest.java`):
+2. Create test samples in `src/main/java/test/MyVulnTest.java`:
    ```java
    package test;
 
    import org.opentaint.sast.test.util.PositiveRuleSample;
    import org.opentaint.sast.test.util.NegativeRuleSample;
    import javax.servlet.http.HttpServletRequest;
-   import javax.servlet.http.HttpServletResponse;
    import java.sql.Connection;
    import java.sql.Statement;
 
@@ -556,19 +630,19 @@ The agent discovers entry points itself — no special CLI command is needed. Th
    - `value`: Path to the rule YAML file, relative to the ruleset root
    - `id`: The rule ID within that file
 
-4. Build the test project:
+3. Build the test project:
    ```bash
    opentaint compile ./agent-test-project -o ./agent-test-compiled
    ```
 
-5. Run rule tests:
+4. Run rule tests:
    ```bash
    opentaint test-rules ./agent-test-compiled/project.yaml \
      --ruleset ./agent-rules \
      -o ./test-output
    ```
 
-6. Check results in `./test-output/test-result.json`:
+5. Check results in `./test-output/test-result.json`:
    ```json
    {
      "success": [
@@ -584,12 +658,12 @@ The agent discovers entry points itself — no special CLI command is needed. Th
    }
    ```
 
-7. If tests fail:
+6. If tests fail:
    - `falseNegative` (positive sample didn't trigger): Rule patterns too narrow, or missing source/sink patterns
    - `falsePositive` (negative sample triggered): Rule patterns too broad, need `pattern-not` or sanitizer exclusion
    - `skipped` (rule not found): Check that `value` path and `id` in annotations match the rule file
 
-8. Fix the rule or test samples and repeat from step 4.
+7. Fix the rule or test samples and repeat from step 3.
 
 ### 3.5 Skill: `run-analysis`
 
@@ -597,31 +671,40 @@ The agent discovers entry points itself — no special CLI command is needed. Th
 
 **Instructions**:
 
-1. Run analysis with pattern rules and optional YAML config:
+1. Run analysis with the agent's rules:
    ```bash
    opentaint scan ./opentaint-project/project.yaml \
      -o ./results/report.sarif \
      --ruleset builtin \
      --ruleset ./agent-rules \
+     --rule-id my-vulnerability \
      --external-methods ./results/external-methods.yaml \
-     --config ./agent-config/custom-propagators.yaml \
      --timeout 900s \
      --severity warning,error
+   ```
+
+   If you have custom passThrough config:
+   ```bash
+   opentaint scan ./opentaint-project/project.yaml \
+     -o ./results/report.sarif \
+     --ruleset builtin --ruleset ./agent-rules \
+     --rule-id my-vulnerability \
+     --approximations-config ./agent-config/custom-propagators.yaml \
+     --external-methods ./results/external-methods.yaml
    ```
 
    If you have approximation source files:
    ```bash
    opentaint scan ./opentaint-project/project.yaml \
      -o ./results/report.sarif \
-     --ruleset builtin \
-     --ruleset ./agent-rules \
-     --external-methods ./results/external-methods.yaml \
-     --config ./agent-config/custom-propagators.yaml \
-     --approximations ./agent-approximations/src \
-     --timeout 900s
+     --ruleset builtin --ruleset ./agent-rules \
+     --rule-id my-vulnerability \
+     --approximations-config ./agent-config/custom-propagators.yaml \
+     --dataflow-approximations ./agent-approximations/src \
+     --external-methods ./results/external-methods.yaml
    ```
 
-   The `--approximations` flag accepts a directory. If it contains `.java` files, the CLI auto-compiles them using `opentaint-analyzer.jar` as the classpath (which contains `@Approximate`, `OpentaintNdUtil`, `ArgumentTypeContext`) plus the target project's dependencies. Compilation errors are reported before analysis starts.
+   The `--dataflow-approximations` flag accepts a directory. If it contains `.java` files, the CLI auto-compiles them using `opentaint-analyzer.jar` as the classpath (which contains `@Approximate`, `OpentaintNdUtil`, `ArgumentTypeContext`) plus the target project's dependencies. Compilation errors are reported before analysis starts.
 
 2. View results summary:
    ```bash
@@ -655,13 +738,13 @@ For each finding in the SARIF report:
 
    **FALSE POSITIVE (FP) — fixable via Rule**: The trace is invalid due to over-broad pattern matching.
    - The sink pattern is too broad (matches safe methods)
-   - A sanitizer is not recognized
+   - A sanitizer is not recognized by the pattern
    - The source pattern matches non-attacker-controlled data
    - Action: Add `pattern-not`, `pattern-not-inside`, `pattern-sanitizers`, or narrow `metavariable-regex`. Update tests. Re-run.
 
    **FALSE POSITIVE (FP) — fixable via Approximation** (non-preferred): The trace is invalid due to imprecise taint propagation modeling.
-   - A library method is modeled as propagating taint when it actually sanitizes or transforms data in a safe way
-   - Action: Override the approximation or add a cleaner rule. Re-run.
+   - A library method is modeled as propagating taint when it actually transforms data in a way that neutralizes the threat
+   - Action: Override the passThrough approximation to remove the incorrect propagation. Re-run.
 
 3. **For external methods list** (FN discovery):
 
@@ -669,24 +752,20 @@ For each finding in the SARIF report:
 
    **PROPAGATOR**: The method passes taint from input to output.
    - Example: `DataWrapper#getValue()` — taint on `this` flows to `result`
-   - Action: Create a `passThrough` YAML rule
+   - Action: Create a `passThrough` YAML rule via `--approximations-config`
 
    **TRANSFORMER with lambdas**: The method invokes callbacks/lambdas.
    - Example: `ReactiveStream#map(Function)` — taint flows through the function
-   - Action: Create a code-based approximation
+   - Action: Create a code-based approximation via `--dataflow-approximations`
 
-   **SANITIZER**: The method sanitizes taint.
-   - Example: `HtmlEncoder#encode(String)` — result is safe
-   - Action: Create a `cleaner` YAML rule
-
-   **NEUTRAL**: The method is irrelevant to taint flow (logging, metrics, etc.)
+   **NEUTRAL**: The method is irrelevant to taint flow (logging, metrics, sanitizers, etc.)
    - Action: Skip — the default call-to-return passthrough is correct
 
    The `withRules` section can be reviewed if specific traces look suspicious (existing rules may be incorrect or incomplete).
 
 ### 3.7 Skill: `create-yaml-config`
 
-**Purpose**: Create YAML propagation rules (passThrough, cleaner) for library methods.
+**Purpose**: Create YAML propagation rules (passThrough) for library methods.
 
 **Instructions**:
 
@@ -756,14 +835,6 @@ For each finding in the SARIF report:
            to: result
    ```
 
-   **Cleaner rule** (sanitizer):
-   ```yaml
-   cleaner:
-     - function: com.example.security.Sanitizer#sanitize
-       cleans:
-         - pos: result
-   ```
-
    **Conditional propagation**:
    ```yaml
    passThrough:
@@ -782,7 +853,8 @@ For each finding in the SARIF report:
    opentaint scan ./opentaint-project/project.yaml \
      -o ./results/report.sarif \
      --ruleset builtin --ruleset ./agent-rules \
-     --config ./agent-config/custom-propagators.yaml
+     --rule-id my-vulnerability \
+     --approximations-config ./agent-config/custom-propagators.yaml
    ```
 
 **Constraints**:
@@ -790,7 +862,8 @@ For each finding in the SARIF report:
 - Position values: `this`, `result`, `arg(0)`, `arg(1)`, ..., `arg(*)`, `any(classifier)`
 - Position modifiers (YAML list): `.[*]` (array element), `.ClassName#fieldName#fieldType` (field access), `.<rule-storage>` (synthetic internal state)
 - `overrides: true` (default) means the rule applies to subclasses too
-- Custom config rules **override** the default config when passed via `--config`
+- Custom config rules **override** the default config when passed via `--approximations-config`
+- Only `passThrough` rules are supported; the analyzer cannot use sanitizers from the config
 
 ### 3.8 Skill: `create-approximation`
 
@@ -841,27 +914,29 @@ For each finding in the SARIF report:
    - `OpentaintNdUtil.nextBool()` for non-deterministic branching (models both success and failure paths)
    - Java 8 source compatibility
    - One approximation class per target class (strict bijection)
+   - Must NOT target a class that already has a built-in approximation (will error)
 
 2. Use with analysis — compilation is automatic:
    ```bash
    opentaint scan ./opentaint-project/project.yaml \
      -o ./results/report.sarif \
      --ruleset builtin --ruleset ./agent-rules \
-     --approximations ./agent-approximations/src
+     --rule-id my-vulnerability \
+     --dataflow-approximations ./agent-approximations/src
    ```
 
-   The `--approximations` flag detects `.java` files and auto-compiles them using:
+   The `--dataflow-approximations` flag detects `.java` files and auto-compiles them using:
    - `opentaint-analyzer.jar` as classpath (contains `@Approximate`, `OpentaintNdUtil`, `ArgumentTypeContext`)
    - Target project's dependencies from `project.yaml` (so `javac` can resolve the library being approximated)
 
    If compilation fails, errors are reported before analysis starts.
+   If a custom approximation targets a class that already has a built-in approximation, the analyzer reports an error and aborts.
 
 **When to use code-based approximations vs YAML config**:
 - Lambda/callback invocation → code-based (YAML cannot model lambda calls)
 - Non-deterministic branching (async paths) → code-based (`OpentaintNdUtil.nextBool()`)
 - Complex internal state with multiple method interactions → code-based (more expressive)
 - Simple from→to propagation → YAML passThrough (simpler, faster to write)
-- Sanitizer/cleaner → YAML cleaner (no need for code)
 
 ### 3.9 Skill: `generate-poc`
 
@@ -928,15 +1003,17 @@ and minimizing false positives and false negatives.
 
 You can:
 - Generate pattern rules (YAML) defining vulnerability patterns (sources, sinks, sanitizers)
-- Generate YAML propagation config (passThrough, cleaner) for library methods
+- Generate YAML passThrough config for library methods
 - Generate code-based approximations (Java stubs) for complex methods with lambdas/callbacks
 - Test rules against sample code
 - Run analysis and interpret results
-- Override any existing approximation or propagation rule
+- Override existing passThrough rules via --approximations-config
 
 You cannot:
 - Modify framework support (Spring detection is automatic)
 - Change the analysis algorithm itself
+- Add sanitizers via YAML config (sanitizers are handled via pattern rules only)
+- Override built-in code-based approximations (will error on conflict)
 
 ## Available Skills
 
@@ -947,7 +1024,7 @@ Load these skills as needed during your workflow:
 - `test-rule` — Test rules with annotated samples
 - `run-analysis` — Run OpenTaint and collect results
 - `analyze-findings` — Interpret SARIF findings and external methods list
-- `create-yaml-config` — Create YAML propagation/cleaner rules
+- `create-yaml-config` — Create YAML passThrough rules
 - `create-approximation` — Create code-based approximations for complex methods
 - `generate-poc` — Generate proof-of-concept for confirmed vulnerabilities
 
@@ -976,15 +1053,18 @@ Load these skills as needed during your workflow:
 
 4. For each relevant vulnerability class (SQLi, XSS, command injection, path traversal, etc.):
 
-   a. Load `create-rule` skill. Check if built-in rules cover it (`--ruleset builtin`).
+   a. Load `create-rule` skill. Check if built-in rules cover it.
 
-   b. If custom rules are needed, create them in `./agent-rules/`:
+   b. Create rules in `./agent-rules/`:
       - Library rules in `./agent-rules/java/lib/`
       - Security rules in `./agent-rules/java/security/`
+      - Reference built-in library rules where applicable
 
-   c. Load `test-rule` skill. Create test samples and verify:
-      - Create `./agent-test-project/` with annotated test methods
-      - Both `@PositiveRuleSample` (must fire) and `@NegativeRuleSample` (must not fire)
+   c. Load `test-rule` skill. Bootstrap and test:
+      ```bash
+      opentaint init-test-project ./agent-test-project --dependency "javax.servlet:javax.servlet-api:4.0.1"
+      ```
+      - Add `@PositiveRuleSample` and `@NegativeRuleSample` test methods
       - Run: `opentaint test-rules ./agent-test-compiled/project.yaml --ruleset ./agent-rules -o ./test-output`
       - Fix until `test-result.json` shows zero failures
 
@@ -995,6 +1075,7 @@ Load these skills as needed during your workflow:
    opentaint scan ./opentaint-project/project.yaml \
      -o ./results/report.sarif \
      --ruleset builtin --ruleset ./agent-rules \
+     --rule-id my-vulnerability \
      --external-methods ./results/external-methods.yaml
    ```
 
@@ -1012,13 +1093,13 @@ Load these skills as needed during your workflow:
    - Re-run tests, then goto step 5
 
    **If FALSE POSITIVE (fixable via approximation)** (non-preferred):
-   - Load `create-yaml-config` skill or `create-approximation` skill
-   - Override the imprecise approximation
+   - Load `create-yaml-config` skill
+   - Override the passThrough approximation to remove incorrect propagation
    - Goto step 5
 
 7. For each entry in `external-methods.yaml` (focus on `withoutRules` section):
 
-   Classify the method (propagator / transformer / sanitizer / neutral):
+   Classify the method (propagator / transformer / neutral):
 
    **If PROPAGATOR** (simple taint flow):
    - Load `create-yaml-config` skill
@@ -1030,12 +1111,7 @@ Load these skills as needed during your workflow:
    - Create approximation source file in `./agent-approximations/src/`
    - Goto step 5
 
-   **If SANITIZER**:
-   - Load `create-yaml-config` skill
-   - Create cleaner rule
-   - Goto step 5
-
-   **If NEUTRAL** (logging, metrics, irrelevant):
+   **If NEUTRAL** (logging, metrics, sanitizers, irrelevant):
    - Skip — default passthrough is correct
 
 ### Phase 4: Finalization
@@ -1052,7 +1128,7 @@ Load these skills as needed during your workflow:
     - `vulnerabilities.md` — confirmed vulnerabilities with PoCs
     - `opentaint-analysis-plan.md` — analysis log
     - `./agent-rules/` — custom pattern rules
-    - `./agent-config/` — custom YAML propagation rules (if any)
+    - `./agent-config/` — custom YAML passThrough rules (if any)
     - `./agent-approximations/src/` — custom code-based approximation sources (if any)
 
 ## Working Directory Layout
@@ -1067,12 +1143,13 @@ Load these skills as needed during your workflow:
 │   └── java/
 │       ├── security/              # Executable security rules
 │       └── lib/                   # Reusable library rules
-├── agent-config/                  # Agent-created YAML propagation config
+├── agent-config/                  # Agent-created YAML passThrough config
 │   └── custom-propagators.yaml
 ├── agent-approximations/          # Agent-created code-based approximations
 │   └── src/                       # Java source files (auto-compiled by CLI)
-├── agent-test-project/            # Test project for rule validation
+├── agent-test-project/            # Test project (bootstrapped via init-test-project)
 │   ├── build.gradle.kts
+│   ├── libs/opentaint-sast-test-util.jar
 │   └── src/main/java/test/
 └── results/                       # Analysis outputs
     ├── report.sarif
@@ -1088,7 +1165,7 @@ When fixing FN:
 
 When fixing FP:
 1. Rule fix via `pattern-not` / `pattern-sanitizers` (preferred, scoped to one rule)
-2. Approximation override (non-preferred, affects all rules globally)
+2. PassThrough override (non-preferred, affects all rules globally)
 
 ## Iteration Strategy
 
@@ -1101,56 +1178,15 @@ When fixing FP:
 
 ---
 
-## Appendix A: Sample Test Project Template
+## Appendix A: Sample Test Project Bootstrap
 
-A minimal test project the agent can copy and adapt for testing custom rules.
+```bash
+# Bootstrap test project with servlet API dependency
+opentaint init-test-project ./agent-test-project \
+  --dependency "javax.servlet:javax.servlet-api:4.0.1"
 
-### Directory Structure
-```
-agent-test-project/
-├── build.gradle.kts
-├── settings.gradle.kts
-└── src/
-    └── main/
-        └── java/
-            └── test/
-                └── SampleTest.java
-```
-
-### `build.gradle.kts`
-```kotlin
-plugins {
-    java
-}
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
-}
-
-repositories {
-    mavenCentral()
-}
-
-dependencies {
-    // Test annotations — bundled in opentaint-analyzer.jar
-    // Extract opentaint-sast-test-util classes or use published artifact
-    compileOnly(files("libs/opentaint-sast-test-util.jar"))
-
-    // Common dependencies for test samples
-    compileOnly("javax.servlet:javax.servlet-api:4.0.1")
-    compileOnly("org.springframework:spring-web:6.1.0")
-    compileOnly("org.springframework:spring-webmvc:6.1.0")
-}
-```
-
-### `settings.gradle.kts`
-```kotlin
-rootProject.name = "agent-test-project"
-```
-
-### `src/main/java/test/SampleTest.java`
-```java
+# Add test samples
+cat > ./agent-test-project/src/main/java/test/SampleTest.java << 'EOF'
 package test;
 
 import org.opentaint.sast.test.util.PositiveRuleSample;
@@ -1158,31 +1194,22 @@ import org.opentaint.sast.test.util.NegativeRuleSample;
 
 public class SampleTest {
 
-    // This method MUST trigger the rule (positive = vulnerability exists)
     @PositiveRuleSample(value = "java/security/my-rule.yaml", id = "my-rule-id")
     public void vulnerableMethod() {
         // Write code that demonstrates the vulnerability pattern
     }
 
-    // This method MUST NOT trigger the rule (negative = safe code)
     @NegativeRuleSample(value = "java/security/my-rule.yaml", id = "my-rule-id")
     public void safeMethod() {
         // Write code that is safe (sanitized, parameterized, etc.)
     }
 }
-```
+EOF
 
-### Build & Test Commands
-```bash
-# 1. Build the test project
+# Build and test
 opentaint compile ./agent-test-project -o ./agent-test-compiled
-
-# 2. Run rule tests
 opentaint test-rules ./agent-test-compiled/project.yaml \
-  --ruleset ./agent-rules \
-  -o ./test-output
-
-# 3. Check results
+  --ruleset ./agent-rules -o ./test-output
 cat ./test-output/test-result.json
 ```
 
