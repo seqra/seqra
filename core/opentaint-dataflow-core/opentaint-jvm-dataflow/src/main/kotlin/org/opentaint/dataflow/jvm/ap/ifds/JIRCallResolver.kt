@@ -124,10 +124,6 @@ class JIRCallResolver(
             val classMethod = constraint.type.findMethodOrNull(baseMethod.name, baseMethod.description)
                 ?: return@mapNotNullTo null
 
-            if (constraint.exactType) {
-                if (!classMethod.isValidConcreteMethod()) return@mapNotNullTo null
-            }
-
             classMethod to constraint
         }
 
@@ -140,7 +136,9 @@ class JIRCallResolver(
         val methods = hashSetOf<Pair<JIRMethod, TypeConstraintInfo>>()
         for ((method, constraint) in classMethods) {
             if (constraint.exactType) {
-                methods += method to constraint
+                if (method.isValidConcreteMethod()) {
+                    methods += method to constraint
+                }
                 continue
             }
 
@@ -171,6 +169,12 @@ class JIRCallResolver(
 
         methodsWithContext.mapTo(result) {
             MethodResolutionResult.ConcreteMethod(it)
+        }
+
+        val baseMethodIsUnknown = unitResolver.resolve(baseMethod) == UnknownUnit
+        val allMethodsAreExact = classMethods.all { it.first.isValidConcreteMethod() && it.second.exactType }
+        if (!allMethodsAreExact && baseMethodIsUnknown) {
+            result += MethodResolutionResult.MethodResolutionFailed
         }
 
         return result

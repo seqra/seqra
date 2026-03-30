@@ -143,9 +143,10 @@ class ProjectAnalyzer(
                 ?: return result
 
             logger.info { "Start SE for project: ${project.sourceRoot}" }
+            val seOptions = SastSeAnalyzer.SeOptions(options.symbolicExecutionTimeout, options.experimentalAAInterProcCallDepth)
             val verifiedTraces = seAnalyzer.analyzeTraces(
                 cp, projectClasses.projectLocationsUnsafe, analyzer.ifdsEngine,
-                traces, options.symbolicExecutionTimeout
+                traces, seOptions
             )
             logger.info { "Finish SE for project: ${project.sourceRoot}" }
 

@@ -4,6 +4,8 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.TestInstance
+import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
+import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
@@ -130,6 +132,7 @@ abstract class AnalysisTest : BasicTestUtils() {
         val cls = cp.findClassOrNull(entryPointClass) ?: error("Class $entryPointClass not found in CP")
         val ep = cls.declaredMethods.singleOrNull { it.name == entryPointMethod }
             ?: error("No $entryPointMethod method in $entryPointClass")
+        val startMethod = MethodWithContext(ep, EmptyMethodContext)
 
         val taintConfig = TaintConfiguration(cp)
         taintConfig.loadConfig(config)
@@ -159,7 +162,7 @@ abstract class AnalysisTest : BasicTestUtils() {
         )
 
         return engine.use { eng ->
-            eng.runAnalysis(listOf(ep), timeout = 1.minutes, cancellationTimeout = 10.seconds)
+            eng.runAnalysis(listOf(startMethod), timeout = 1.minutes, cancellationTimeout = 10.seconds)
 
             val allVulnerabilities = eng.getVulnerabilities()
             val confirmed = eng.confirmVulnerabilities(

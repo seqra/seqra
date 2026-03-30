@@ -512,7 +512,7 @@ class AccessGraph(
 
                 is FactTypeChecker.FilterResult.FilterNext -> {
                     val successor = getStateSuccessor(initial, accessor)
-                    val allNextRejected = filterNextNodes(successor, status.filter)
+                    val allNextRejected = filterNextNodes(successor, status.filter, BitSet())
                     if (allNextRejected) {
                         rejectedAccessors.add(accessor)
                     }
@@ -534,11 +534,13 @@ class AccessGraph(
     private fun filterNextNodes(
         node: NodeMarker,
         filter: FactTypeChecker.FactApFilter,
+        visited: BitSet,
     ): Boolean {
         // final node can be an abstraction point
         if (node == final) return false
 
         var allSuccessorsRejected = true
+
         stateSuccessors(node).forEach { accessor ->
             val accessorObj = with(manager) { accessor.accessor }
             when (val status = filter.check(accessorObj)) {
@@ -550,7 +552,12 @@ class AccessGraph(
 
                 is FactTypeChecker.FilterResult.FilterNext -> {
                     val successor = getStateSuccessor(node, accessor)
-                    val allNextRejected = filterNextNodes(successor, status.filter)
+                    if (visited.get(successor)) return@forEach
+
+                    visited.set(successor)
+                    val allNextRejected = filterNextNodes(successor, status.filter, visited)
+                    visited.clear(successor)
+
                     if (!allNextRejected) {
                         allSuccessorsRejected = false
                     }

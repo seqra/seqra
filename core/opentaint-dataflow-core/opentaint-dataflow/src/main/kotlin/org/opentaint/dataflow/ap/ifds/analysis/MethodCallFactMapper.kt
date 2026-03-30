@@ -25,6 +25,7 @@ interface MethodCallFactMapper {
     fun mapMethodCallToStartFlowFact(
         callee: CommonMethod,
         callExpr: CommonCallExpr,
+        returnValue: CommonValue?,
         factAp: FinalFactAp,
         checker: FactTypeChecker,
         onMappedFact: (FinalFactAp, AccessPathBase) -> Unit
@@ -33,6 +34,7 @@ interface MethodCallFactMapper {
     fun mapMethodCallToStartFlowFact(
         callee: CommonMethod,
         callExpr: CommonCallExpr,
+        returnValue: CommonValue?,
         fact: InitialFactAp,
         onMappedFact: (InitialFactAp, AccessPathBase) -> Unit
     )

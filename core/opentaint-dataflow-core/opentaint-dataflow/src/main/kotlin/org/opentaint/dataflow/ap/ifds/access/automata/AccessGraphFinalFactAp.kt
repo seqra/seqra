@@ -64,6 +64,8 @@ data class AccessGraphFinalFactAp(
 
             return newGraph?.let { Delta(it) }
         }
+
+        override fun isAbstract(): Boolean = access.initialNodeIsFinal()
     }
 
     override fun delta(other: InitialFactAp): List<FinalFactAp.Delta> {

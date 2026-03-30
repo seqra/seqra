@@ -24,11 +24,11 @@ import org.opentaint.dataflow.configuration.jvm.PositionResolver
 import org.opentaint.dataflow.configuration.jvm.TypeMatches
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionValue
+import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAllocInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasApInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasInfo
-import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRRefType
@@ -48,11 +48,10 @@ import org.opentaint.ir.api.jvm.ext.isAssignable
 class JIRBasicAtomEvaluator(
     private val negated: Boolean,
     private val positionResolver: PositionResolver<CallPositionValue>,
-    private val analysisContext: JIRMethodAnalysisContext,
+    private val typeChecker: JIRFactTypeChecker,
+    private val aliasAnalysis: JIRLocalAliasAnalysis?,
     private val statement: CommonInst,
 ) : ConditionVisitor<Boolean> {
-    private val typeChecker get() = analysisContext.factTypeChecker
-
     override fun visit(condition: Not): Boolean = error("Non-atomic condition")
     override fun visit(condition: And): Boolean = error("Non-atomic condition")
     override fun visit(condition: Or): Boolean = error("Non-atomic condition")
@@ -291,7 +290,7 @@ class JIRBasicAtomEvaluator(
     }
 
     private inline fun resolveLocalVarValue(lv: JIRLocalVar, matchArrayValue: Boolean, body: (List<AliasInfo>) -> Unit) {
-        val aa = analysisContext.aliasAnalysis ?: return
+        val aa = aliasAnalysis ?: return
 
         val base = AccessPathBase.LocalVar(lv.index)
         if (!matchArrayValue) {

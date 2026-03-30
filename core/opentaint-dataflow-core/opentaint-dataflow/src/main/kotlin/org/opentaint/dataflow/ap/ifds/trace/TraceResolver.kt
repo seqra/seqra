@@ -61,17 +61,24 @@ class TraceResolver(
         ) = successors[node]?.filter { it.kind == kind && it.statement == statement && it.summary == trace }.orEmpty()
     }
 
-    sealed interface TraceNode
+    sealed interface TraceNode {
+        val location: CommonMethod
+    }
 
     sealed interface EntryPointToStartTraceNode : TraceNode
 
     data class CallTraceNode(val statement: CommonInst, val methodEntryPoint: MethodEntryPoint) :
-        EntryPointToStartTraceNode
-
-    data class EntryPointTraceNode(val method: CommonMethod) : EntryPointToStartTraceNode
+        EntryPointToStartTraceNode {
+        override val location: CommonMethod
+            get() = methodEntryPoint.method
+    }
+    data class EntryPointTraceNode(override val location: CommonMethod) : EntryPointToStartTraceNode
 
     sealed interface SourceToSinkTraceNode : TraceNode {
         val methodEntryPoint: MethodEntryPoint
+
+        override val location: CommonMethod
+            get() = methodEntryPoint.method
     }
 
     data class SimpleTraceNode(
@@ -359,7 +366,7 @@ class TraceResolver(
             if (currentNode != null) return currentNode
 
             val fullTraces = manager.withMethodRunner(trace.method) {
-                resolveIntraProceduralFullTrace(trace.method, trace, cancellation)
+                resolveIntraProceduralFullTrace(trace.method, trace, cancellation, collapseUnchangedNodes = true)
             }
 
             val resultNodes = mutableListOf<InterProceduralTraceNode>()

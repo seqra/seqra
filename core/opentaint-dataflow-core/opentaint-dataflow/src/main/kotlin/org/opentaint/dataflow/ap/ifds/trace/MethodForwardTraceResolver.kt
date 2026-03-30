@@ -16,6 +16,7 @@ import org.opentaint.dataflow.ap.ifds.analysis.AnalysisManager
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.ZeroCallFact
+import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver.MethodCallResolutionResult
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallSummaryHandler.SummaryEdge
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
@@ -229,14 +230,17 @@ class MethodForwardTraceResolver(
             analysisContext, callExpr, callerEdge.statement
         )
 
-        if (methodCalls.isEmpty()) {
-            // If no callees resolved propagate as call-to-return
-            val stubFact = MethodCallFlowFunction.CallToReturnZFact(callerFact, traceInfo = null)
-            propagateZeroCallFact(callExpr, callerEdge, stubFact)
-        } else {
-            for (method in methodCalls) {
-                for (ep in methodEntryPoints(method)) {
-                    handleMethodCall(ep, callerEdge, callerFact, startFactBase)
+        for (method in methodCalls) {
+            when (method) {
+                is MethodCallResolutionResult.ResolvedMethod -> {
+                    for (ep in methodEntryPoints(method.method)) {
+                        handleMethodCall(ep, callerEdge, callerFact, startFactBase)
+                    }
+                }
+
+                MethodCallResolutionResult.ResolutionFailure -> {
+                    val stubFact = MethodCallFlowFunction.CallToReturnZFact(callerFact, traceInfo = null)
+                    propagateZeroCallFact(callExpr, callerEdge, stubFact)
                 }
             }
         }

@@ -15,6 +15,7 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.ReversedApNode
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.foldRight
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
+import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.util.IdentityHashMap
@@ -123,6 +124,7 @@ class AccessTree(
         override fun getStartAccessors(): Set<Accessor> = emptySet()
         override fun getAllAccessors(): Set<Accessor> = emptySet()
         override fun readAccessor(accessor: Accessor): FinalFactAp.Delta? = null
+        override fun isAbstract(): Boolean = true
     }
 
     data class NodeAccessTreeDelta(
@@ -140,6 +142,8 @@ class AccessTree(
 
         override fun readAccessor(accessor: Accessor): FinalFactAp.Delta? =
             node.getChild(apManager, accessor)?.let { NodeAccessTreeDelta(apManager, it) }
+
+        override fun isAbstract(): Boolean = node.isAbstract
     }
 
     override fun delta(other: InitialFactAp): List<FinalFactAp.Delta> {
@@ -376,6 +380,13 @@ class AccessTree(
                 is ElementAccessor -> create(elementAccess = limitElementAccess(limit = SUBSEQUENT_ARRAY_ELEMENTS_LIMIT))
                 is FieldAccessor -> addParentFieldAccess(accessor)
                 is ClassStaticAccessor -> create(accessor, this)
+                is ValueAccessor -> {
+                    if (accessors?.any { it !is TaintMarkAccessor } == true) {
+                        return null
+                    }
+
+                    create(accessor, this)
+                }
 
                 is TaintMarkAccessor -> {
                     if (this == finalNode || this == abstractNode || this == abstractFinalNode) {

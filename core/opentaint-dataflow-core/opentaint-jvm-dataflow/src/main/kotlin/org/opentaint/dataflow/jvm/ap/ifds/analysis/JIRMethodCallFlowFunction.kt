@@ -181,6 +181,58 @@ class JIRMethodCallFlowFunction(
         )
     }
 
+    override fun propagateZeroToZeroResolutionFailure(): Set<MethodCallFlowFunction.ZeroCallFailureFact> = setOf(CallToReturnZeroFact)
+
+    override fun propagateZeroToFactResolutionFailure(currentFactAp: FinalFactAp, startFactBase: AccessPathBase) = buildSet {
+        applyPassRulesOrCallSkip(
+            factAp = currentFactAp,
+            addSideEffectRequirement = { factReader ->
+                check(!factReader.hasRefinement) { "Can't refine Zero fact" }
+            },
+            addCallToReturn = { factReader, factAp, trace ->
+                check(!factReader.hasRefinement) { "Can't refine Zero fact" }
+                this += CallToReturnZFact(factAp, trace)
+            },
+        )
+    }
+
+    override fun propagateFactToFactResolutionFailure(
+        initialFactAp: InitialFactAp,
+        currentFactAp: FinalFactAp,
+        startFactBase: AccessPathBase
+    ): Set<MethodCallFlowFunction.FactCallFailureFact> = buildSet {
+        applyPassRulesOrCallSkip(
+            factAp = currentFactAp,
+            addSideEffectRequirement = { factReader ->
+                this += SideEffectRequirement(factReader.refineFact(initialFactAp.replaceExclusions(ExclusionSet.Empty)))
+            },
+            addCallToReturn = { factReader, factAp, trace ->
+                this += CallToReturnFFact(
+                    factReader.refineFact(initialFactAp),
+                    factReader.refineFact(factAp),
+                    trace
+                )
+            },
+        )
+    }
+
+    override fun propagateNDFactToFactResolutionFailure(
+        initialFacts: Set<InitialFactAp>,
+        currentFactAp: FinalFactAp,
+        startFactBase: AccessPathBase
+    ) = buildSet {
+        applyPassRulesOrCallSkip(
+            factAp = currentFactAp,
+            addSideEffectRequirement = { factReader ->
+                check(!factReader.hasRefinement) { "Can't refine NDF2F edge" }
+            },
+            addCallToReturn = { factReader, factAp, trace ->
+                check(!factReader.hasRefinement) { "Can't refine NDF2F edge" }
+                this += CallToReturnNonDistributiveFact(initialFacts, factAp, trace)
+            },
+        )
+    }
+
     private fun propagateFact(
         initialFacts: Set<InitialFactAp>,
         exclusion: ExclusionSet,
@@ -233,12 +285,13 @@ class JIRMethodCallFlowFunction(
         )
 
         JIRMethodCallFactMapper.mapMethodCallToStartFlowFact(
-            callExpr.callee,
-            callExpr,
-            factAp,
-            analysisContext.factTypeChecker
+            callee = callExpr.callee,
+            callExpr = callExpr,
+            returnValue = null,
+            factAp = factAp,
+            checker = analysisContext.factTypeChecker,
         ) { callerFact, startFactBase ->
-            applyPassRulesOrCallToStart(
+            applyCleanersOrCallToStart(
                 conditionRewriter,
                 factReader, callerFact, startFactBase,
                 addCallToReturn, addCallToStart, addUnchecked
@@ -250,7 +303,7 @@ class JIRMethodCallFlowFunction(
         }
     }
 
-    private fun applyPassRulesOrCallToStart(
+    private fun applyCleanersOrCallToStart(
         conditionRewriter: JIRMarkAwareConditionRewriter,
         originalFactReader: FinalFactReader,
         unmappedCallerFactAp: FinalFactAp,
@@ -284,6 +337,8 @@ class JIRMethodCallFlowFunction(
             cleaner
         )
 
+        originalFactReader.updateRefinement(listOf(conditionFactReader))
+
         for (cleanerResult in cleanerResults) {
             val factReaderAfterCleaner = cleanerResult.fact
             if (factReaderAfterCleaner == null) {
@@ -297,9 +352,7 @@ class JIRMethodCallFlowFunction(
             propagateCleanedFact(
                 method,
                 factReaderAfterCleaner,
-                simpleConditionEvaluator,
                 originalFactReader,
-                conditionFactReader,
                 addCallToReturn,
                 startFactBase,
                 addCallToStart
@@ -310,47 +363,12 @@ class JIRMethodCallFlowFunction(
     private fun propagateCleanedFact(
         method: JIRMethod,
         factReaderAfterCleaner: FinalFactReader,
-        simpleConditionEvaluator: JIRSimpleFactAwareConditionEvaluator,
         originalFactReader: FinalFactReader,
-        conditionFactReader: FinalFactReader,
         addCallToReturn: (FinalFactReader, FinalFactAp, TraceInfo) -> Unit,
         startFactBase: AccessPathBase,
         addCallToStart: (factReader: FinalFactReader, callerFactAp: FinalFactAp, startFactBase: AccessPathBase, TraceInfo) -> Unit
     ) {
-        val typeResolver = JIRMethodPositionBaseTypeResolver(method)
-        val passEvaluator = TaintPassActionEvaluator(
-            apManager, analysisContext.factTypeChecker, factReaderAfterCleaner, typeResolver
-        )
-
-        val passThroughFacts = applyPassThrough(
-            config,
-            method,
-            statement,
-            fact = factReaderAfterCleaner.factAp,
-            simpleConditionEvaluator,
-            passEvaluator
-        )
-
-        originalFactReader.updateRefinement(listOf(conditionFactReader))
         originalFactReader.updateRefinement(listOf(factReaderAfterCleaner))
-
-        passThroughFacts.onSome { evaluatedPass ->
-            evaluatedPass.forEach { evp ->
-                val rewrittenFacts = summaryRewriter.rewriteSummaryFact(evp.fact)
-                for ((unrefinedFact, factRefinement) in rewrittenFacts) {
-                    val fact = factRefinement.refineFact(unrefinedFact)
-                    factReaderAfterCleaner.updateRefinement(factRefinement)
-
-                    val mappedFact = fact.mapExitToReturnFact() ?: continue
-
-                    val trace = TraceInfo.Rule(evp.rule, evp.action)
-
-                    mappedFact.forEachFactWithAliases(originalFactReader.factAp) {
-                        addCallToReturn(factReaderAfterCleaner, it, trace)
-                    }
-                }
-            }
-        }
 
         val cleanedFact = factReaderAfterCleaner.factAp
         check(cleanedFact.base == startFactBase)
@@ -588,6 +606,83 @@ class JIRMethodCallFlowFunction(
         }
     }
 
+    private fun applyPassRulesOrCallSkip(
+        factAp: FinalFactAp,
+        addCallToReturn: (FinalFactReader, FinalFactAp, TraceInfo?) -> Unit,
+        addSideEffectRequirement: (FinalFactReader) -> Unit,
+    ) {
+        val factReader = FinalFactReader(factAp, apManager)
+
+        unresolvedCallDefaultFactPropagation(factReader, factAp, addCallToReturn)
+
+        val method = callExpr.callee
+        val conditionRewriter = JIRMarkAwareConditionRewriter(
+            CallPositionToJIRValueResolver(callExpr, returnValue),
+            analysisContext, statement
+        )
+
+        JIRMethodCallFactMapper.mapMethodCallToStartFlowFact(
+            callee = method,
+            callExpr = callExpr,
+            returnValue = null,
+            factAp = factAp,
+            checker = analysisContext.factTypeChecker
+        ) { callerFact, startFactBase ->
+            val passFactReader = FinalFactReader(callerFact.rebase(startFactBase), apManager)
+
+            val conditionEvaluator = JIRFactAwareConditionEvaluator(
+                listOf(passFactReader),
+                markAfterAnyFieldResolver = null // we don't expect such marks in pass rules
+            )
+            val simpleConditionEvaluator = JIRSimpleFactAwareConditionEvaluator(conditionRewriter, conditionEvaluator)
+            val typeResolver = JIRMethodPositionBaseTypeResolver(method)
+            val passEvaluator = TaintPassActionEvaluator(
+                apManager, analysisContext.factTypeChecker, passFactReader, typeResolver
+            )
+
+            val passThroughFacts = applyPassThrough(
+                config,
+                method,
+                statement,
+                fact = passFactReader.factAp,
+                simpleConditionEvaluator,
+                passEvaluator
+            )
+
+            passThroughFacts.onSome { evaluatedPass ->
+                evaluatedPass.forEach { evp ->
+                    val rewrittenFacts = summaryRewriter.rewriteSummaryFact(evp.fact)
+                    for ((unrefinedFact, factRefinement) in rewrittenFacts) {
+                        val fact = factRefinement.refineFact(unrefinedFact)
+                        passFactReader.updateRefinement(factRefinement)
+
+                        val mappedFact = fact.mapExitToReturnFact() ?: continue
+
+                        val trace = TraceInfo.Rule(evp.rule, evp.action)
+
+                        mappedFact.forEachFactWithAliases(factAp) {
+                            addCallToReturn(passFactReader, it, trace)
+                        }
+                    }
+                }
+            }
+
+            factReader.updateRefinement(passFactReader)
+        }
+
+        if (factReader.hasRefinement) {
+            addSideEffectRequirement(factReader)
+        }
+    }
+
+    private fun unresolvedCallDefaultFactPropagation(
+        factReader: FinalFactReader,
+        factAp: FinalFactAp,
+        addCallToReturn: (FinalFactReader, FinalFactAp, TraceInfo?) -> Unit,
+    ) {
+        addCallToReturn(factReader, factAp, null)
+    }
+
     private fun FinalFactAp.mapExitToReturnFact(): FinalFactAp? =
         JIRMethodCallFactMapper.mapMethodExitToReturnFlowFact(statement, this, analysisContext.factTypeChecker)
             .singleOrNull()
@@ -599,10 +694,11 @@ class JIRMethodCallFlowFunction(
     private fun FinalFactReader.toConditionFactReaders(): List<FinalFactReader> {
         val conditionFactReaders = mutableListOf<FinalFactReader>()
         JIRMethodCallFactMapper.mapMethodCallToStartFlowFact(
-            callExpr.callee,
-            callExpr,
-            factAp,
-            analysisContext.factTypeChecker
+            callee = callExpr.callee,
+            callExpr = callExpr,
+            returnValue = null,
+            factAp = factAp,
+            checker = analysisContext.factTypeChecker
         ) { callerFact, startFactBase ->
             conditionFactReaders += FinalFactReader(callerFact.rebase(startFactBase), apManager)
         }

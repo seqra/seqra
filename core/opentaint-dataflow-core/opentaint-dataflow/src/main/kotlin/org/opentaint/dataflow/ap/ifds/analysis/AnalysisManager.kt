@@ -12,6 +12,7 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodStartPrecondition
+import org.opentaint.dataflow.graph.MethodInstGraph
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
@@ -34,6 +35,14 @@ interface AnalysisManager: LanguageManager {
         unitResolver: UnitResolver<CommonMethod>,
         runner: TaintAnalysisUnitRunner
     ): MethodCallResolver
+
+    fun getMethodInstGraph(
+        graph: ApplicationGraph<CommonMethod, CommonInst>,
+        analysisContext: MethodAnalysisContext,
+        method: CommonMethod,
+    ): MethodInstGraph
+
+    fun getMethodEntrypointResolver(graph: ApplicationGraph<CommonMethod, CommonInst>): MethodEntrypointResolver
 
     fun getMethodStartFlowFunction(
         apManager: ApManager,
@@ -81,18 +90,19 @@ interface AnalysisManager: LanguageManager {
         statement: CommonInst,
     ): MethodCallSummaryHandler
 
-    fun getMethodSummaryEdgeProcessor(
-        apManager: ApManager,
-        analysisContext: MethodAnalysisContext,
-        statement: CommonInst
-    ): MethodSummaryEdgeProcessor? = null
-
     fun getMethodSideEffectSummaryHandler(
         apManager: ApManager,
         analysisContext: MethodAnalysisContext,
         statement: CommonInst,
         runner: AnalysisRunner
     ): MethodSideEffectSummaryHandler
+
+    fun getEdgePostProcessor(
+        apManager: ApManager,
+        analysisContext: MethodAnalysisContext,
+        graph: MethodInstGraph,
+        statement: CommonInst
+    ): MethodEdgePostProcessor? = null
 
     fun isReachable(
         apManager: ApManager,

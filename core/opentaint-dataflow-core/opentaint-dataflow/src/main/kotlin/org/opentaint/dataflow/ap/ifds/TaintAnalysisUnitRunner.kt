@@ -111,14 +111,14 @@ class TaintAnalysisUnitRunner(
         tabulationAlgorithm()
     }
 
-    fun submitStartMethods(startMethods: List<CommonMethod>) {
+    fun submitStartMethods(startMethods: List<MethodWithContext>) {
         for (method in startMethods) {
             addStart(method)
         }
     }
 
-    private fun addStart(method: CommonMethod) {
-        require(unitResolver.resolve(method) == unit)
+    private fun addStart(method: MethodWithContext) {
+        require(unitResolver.resolve(method.method) == unit)
         addStartMethodEvent(method)
     }
 
@@ -187,7 +187,7 @@ class TaintAnalysisUnitRunner(
                     event.processMethodSummary()
                 }
 
-                is CommonMethod -> {
+                is MethodWithContext -> {
                     handleStartMethodEvent(event)
                 }
 
@@ -204,7 +204,7 @@ class TaintAnalysisUnitRunner(
         }
     }
 
-    private fun addStartMethodEvent(method: CommonMethod) = addUnprocessedAnyEvent(method)
+    private fun addStartMethodEvent(method: MethodWithContext) = addUnprocessedAnyEvent(method)
 
     private fun addUnprocessedEvent(event: ExternalInputFact) = addUnprocessedAnyEvent(event)
     private fun addUnprocessedEvent(edge: MethodAnalyzer) = addUnprocessedAnyEvent(edge)
@@ -221,9 +221,10 @@ class TaintAnalysisUnitRunner(
         workList.trySend(event)
     }
 
-    private fun handleStartMethodEvent(method: CommonMethod) {
-        for (start in graph.methodGraph(method).entryPoints()) {
-            val methodEntryPoint = MethodEntryPoint(EmptyMethodContext, start)
+    private fun handleStartMethodEvent(method: MethodWithContext) {
+        val epResolver = analysisManager.getMethodEntrypointResolver(graph)
+        for (start in epResolver.resolveEntryPoints(method.method, method.ctx)) {
+            val methodEntryPoint = MethodEntryPoint(method.ctx, start)
             val methodAnalyzers = methodAnalyzers(methodEntryPoint)
             methodAnalyzers.add(this, methodEntryPoint)
 
@@ -427,11 +428,12 @@ class TaintAnalysisUnitRunner(
     fun resolveIntraProceduralFullTrace(
         methodEntryPoint: MethodEntryPoint,
         summaryTrace: MethodTraceResolver.SummaryTrace,
-        cancellation: ProcessingCancellation
+        cancellation: ProcessingCancellation,
+        collapseUnchangedNodes: Boolean,
     ): List<MethodTraceResolver.FullTrace> {
         val methodRunners = methodAnalyzers(methodEntryPoint)
         val runner = methodRunners.getAnalyzer(methodEntryPoint)
-        return runner.resolveIntraProceduralFullTrace(summaryTrace, cancellation)
+        return runner.resolveIntraProceduralFullTrace(summaryTrace, cancellation, collapseUnchangedNodes)
     }
 
     fun resolveIntraProceduralForwardFullTrace(

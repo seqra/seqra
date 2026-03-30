@@ -14,11 +14,18 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 
 class JIRMarkAwareConditionRewriter(
     positionResolver: PositionResolver<CallPositionValue>,
-    analysisContext: JIRMethodAnalysisContext,
+    factTypeChecker: JIRFactTypeChecker,
+    aliasAnalysis: JIRLocalAliasAnalysis?,
     statement: CommonInst,
 ) {
-    private val positiveAtomEvaluator = JIRBasicAtomEvaluator(negated = false, positionResolver, analysisContext, statement)
-    private val negativeAtomEvaluator = JIRBasicAtomEvaluator(negated = true, positionResolver, analysisContext, statement)
+    private val positiveAtomEvaluator = JIRBasicAtomEvaluator(negated = false, positionResolver, factTypeChecker, aliasAnalysis, statement)
+    private val negativeAtomEvaluator = JIRBasicAtomEvaluator(negated = true, positionResolver, factTypeChecker, aliasAnalysis, statement)
+
+    constructor(
+        positionResolver: PositionResolver<CallPositionValue>,
+        context: JIRMethodAnalysisContext,
+        statement: CommonInst
+    ) : this(positionResolver, context.factTypeChecker, context.aliasAnalysis, statement)
 
     fun rewrite(condition: Condition): ExprOrConstant =
         rewriteCondition(condition)

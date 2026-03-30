@@ -15,6 +15,7 @@ import org.opentaint.dataflow.ap.ifds.FactTypeChecker.FilterResult
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.jvm.util.JIRHierarchyInfo
 import org.opentaint.ir.api.common.CommonType
@@ -23,6 +24,7 @@ import org.opentaint.ir.api.jvm.JIRBoundedWildcard
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRPrimitiveType
 import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.JIRTypeVariable
@@ -96,6 +98,14 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
                         AccessorFilter(actualElementType, isLocalCheck)
                     )
                 }
+
+                ValueAccessor -> {
+                    return if (actualType is JIRPrimitiveType) {
+                        FilterResult.Accept
+                    } else {
+                        FilterResult.Reject
+                    }
+                }
             }
         }
     }
@@ -156,6 +166,10 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
             ElementAccessor -> {
                 val prevAccessors = accessPath.subList(0, accessPath.size - 1)
                 accessorActualType(prevAccessors)?.ifArrayGetElementType
+            }
+            ValueAccessor -> {
+                val prevAccessors = accessPath.subList(0, accessPath.size - 1)
+                accessorActualType(prevAccessors)
             }
 
             is TaintMarkAccessor, FinalAccessor, AnyAccessor, is ClassStaticAccessor -> null

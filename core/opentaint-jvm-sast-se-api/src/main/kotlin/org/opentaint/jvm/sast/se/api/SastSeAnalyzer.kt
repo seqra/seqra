@@ -11,8 +11,14 @@ interface SastSeAnalyzer<Engine, Vuln> {
         projectLocations: Set<RegisteredLocation>,
         ifdsEngine: Engine,
         ifdsTraces: List<Vuln>,
-        timeout: Duration
+        options: SeOptions,
     ): List<Vuln>
+
+    data class SeOptions(
+        val timeout: Duration,
+        val experimentalAAInterProcCallDepth: Int = 0,
+        val useApproximations: Boolean = false,
+    )
 
     companion object {
         private val logger = object : KLogging() {}.logger

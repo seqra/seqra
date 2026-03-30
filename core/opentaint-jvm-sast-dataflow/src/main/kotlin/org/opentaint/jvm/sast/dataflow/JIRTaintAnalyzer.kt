@@ -7,11 +7,14 @@ import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
+import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
+import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
@@ -60,7 +63,8 @@ class JIRTaintAnalyzer(
     private val ifdsAnalysisGraph by lazy {
         val usages = runBlocking { cp.usagesExt() }
         val mainGraph = JApplicationGraphImpl(cp, usages)
-        JIRSafeApplicationGraph(mainGraph)
+        val explicitExceptionsOnlyGraph = JExplicitExceptionsOnlyApplicationGraph(mainGraph)
+        JIRSafeApplicationGraph(explicitExceptionsOnlyGraph)
     }
 
     val ifdsEngine by lazy { createIfdsEngine() }
@@ -77,6 +81,7 @@ class JIRTaintAnalyzer(
             is AnyAccessor,
             is FinalAccessor,
             is TaintMarkAccessor -> false
+            is ValueAccessor -> error("Unexpected accessor to unroll: $accessor")
         }
     }
 
@@ -115,7 +120,8 @@ class JIRTaintAnalyzer(
         val analysisStart = TimeSource.Monotonic.markNow()
 
         val analysisTimeout = options.ifdsTimeout * 0.95 // Reserve 5% of time for report creation
-        runCatching { ifdsEngine.runAnalysis(entryPoints, timeout = analysisTimeout, cancellationTimeout = 30.seconds) }
+        val startMethods = entryPoints.map { MethodWithContext(it, EmptyMethodContext) }
+        runCatching { ifdsEngine.runAnalysis(startMethods, timeout = analysisTimeout, cancellationTimeout = 30.seconds) }
             .onFailure { logger.error(it) { "Ifds engine failed" } }
 
         if (options.debugOptions?.enableIfdsCoverage == true) {

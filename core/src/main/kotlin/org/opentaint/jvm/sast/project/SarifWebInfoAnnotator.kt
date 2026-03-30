@@ -124,7 +124,7 @@ abstract class SarifWebInfoAnnotator(
     private fun collectRelevantMethod(node: TraceResolver.TraceNode, methods: MutableSet<CommonMethod>) {
         methods += when (node) {
             is TraceResolver.CallTraceNode -> node.methodEntryPoint.method
-            is TraceResolver.EntryPointTraceNode -> node.method
+            is TraceResolver.EntryPointTraceNode -> node.location
             is TraceResolver.SourceToSinkTraceNode -> node.methodEntryPoint.method
         }
     }

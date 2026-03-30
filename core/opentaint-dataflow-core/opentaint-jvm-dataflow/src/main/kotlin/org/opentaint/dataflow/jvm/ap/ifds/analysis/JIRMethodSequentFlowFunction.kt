@@ -423,7 +423,11 @@ class JIRMethodSequentFlowFunction(
 
         // Assign can't overwrite fact
         if (assignTo != factAp.base) {
-            unchanged(factAp)
+            if (accessor !is ElementAccessor) {
+                unchanged(factAp)
+            } else {
+                propagateFact(factAp)
+            }
         }
     }
 
