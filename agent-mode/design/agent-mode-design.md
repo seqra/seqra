@@ -224,7 +224,39 @@ opentaint scan ./opentaint-project/project.yaml \
 
 If `--semgrep-rule-id` is not provided, all loaded rules are active (current behavior preserved).
 
-### 1.7 Test Project Bootstrap Command
+### 1.7 Builtin Rules Path Command
+
+**Problem**: The agent needs to read built-in rules (to understand existing sources/sinks/patterns, to reference them via `refs`, and to decide whether custom rules are needed). Rules are a separate artifact (`opentaint-rules.tar.gz`) resolved via a 3-tier path system (bundled > install > cache) and downloaded lazily. The agent has no way to discover where the rules directory is on disk.
+
+**Required change**: Add a `rules-path` command to the Go CLI that prints the resolved filesystem path to the built-in rules directory, downloading the rules if not already present.
+
+**Go CLI**:
+```
+opentaint rules-path
+```
+
+**Behavior**:
+1. Resolves the rules path using the same 3-tier logic as `scan --ruleset builtin`
+2. If rules are not present on disk, downloads `opentaint-rules.tar.gz` from GitHub Releases and extracts
+3. Prints the absolute path to stdout (e.g., `/home/user/.opentaint/install/lib/rules`)
+4. Exit code 0 on success
+
+**Usage by the agent**:
+```bash
+# Get the rules path
+RULES_DIR=$(opentaint rules-path)
+
+# Read builtin rules to understand available sources/sinks
+ls $RULES_DIR/java/lib/generic/
+cat $RULES_DIR/java/lib/generic/servlet-untrusted-data-source.yaml
+
+# Read builtin security rules to check coverage
+ls $RULES_DIR/java/security/
+```
+
+**Implementation**: New command in `cli/cmd/rules_path.go`. Reuses `utils.GetRulesPath()` and the existing download logic from `scan.go:214-224`.
+
+### 1.8 Test Project Bootstrap Command
 
 **Problem**: Creating a test project for rule testing requires setting up a Gradle project with the correct `opentaint-sast-test-util` dependency. The agent needs to know how to obtain this JAR and wire it into the build script. This is error-prone.
 
@@ -277,7 +309,7 @@ opentaint init-test-project <output-dir> \
 
 ## 2. Go CLI API Design
 
-All agent operations flow through the Go CLI (`opentaint`). The design adds 3 new commands and 4 new flags to existing commands.
+All agent operations flow through the Go CLI (`opentaint`). The design adds 4 new commands and 4 new flags to existing commands.
 
 ### 2.1 Complete Command Reference (Existing + New)
 
@@ -346,6 +378,14 @@ Rule Tests Summary:
   - skipped:         0
   - disabled:        1
 ```
+
+#### `opentaint rules-path` ★ NEW
+Print the resolved filesystem path to built-in rules (downloads if needed).
+```
+opentaint rules-path
+```
+
+Prints absolute path to stdout. The agent uses this to read built-in rule YAML files.
 
 #### `opentaint init-test-project` ★ NEW
 Bootstrap a test project for rule testing.
@@ -472,10 +512,21 @@ The agent discovers entry points itself — no special CLI command is needed. Th
    - **Sink**: Where is the data dangerous? (SQL query, command exec, file path, HTML output, etc.)
    - **Sanitizers**: What makes the data safe? (encoding, escaping, parameterized queries, etc.)
 
-2. Check if existing built-in library rules cover the source/sink:
-   - Sources: `rules/ruleset/java/lib/generic/` and `rules/ruleset/java/lib/spring/`
+2. Read built-in rules to check existing coverage:
+   ```bash
+   RULES_DIR=$(opentaint rules-path)
+   # List available source/sink library rules
+   ls $RULES_DIR/java/lib/generic/
+   ls $RULES_DIR/java/lib/spring/
+   # Read specific rules to understand their patterns and IDs
+   cat $RULES_DIR/java/lib/generic/servlet-untrusted-data-source.yaml
+   cat $RULES_DIR/java/lib/generic/jdbc-sql-sink.yaml
+   # List existing security rules to check what's already covered
+   ls $RULES_DIR/java/security/
+   ```
+   - Sources: `$RULES_DIR/java/lib/generic/` and `$RULES_DIR/java/lib/spring/`
    - Sinks: Same directories
-   - If covered, skip to step 4 (join-mode composition referencing built-in rules)
+   - If existing rules cover the needed source/sink, skip to step 4 (join-mode composition referencing built-in rules)
 
 3. If new source/sink patterns are needed, create library rules:
 
@@ -1053,7 +1104,12 @@ Load these skills as needed during your workflow:
 
 4. For each relevant vulnerability class (SQLi, XSS, command injection, path traversal, etc.):
 
-   a. Load `create-rule` skill. Check if built-in rules cover it.
+   a. Load `create-rule` skill. Read built-in rules to check coverage:
+      ```bash
+      RULES_DIR=$(opentaint rules-path)
+      ls $RULES_DIR/java/security/       # existing security rules
+      ls $RULES_DIR/java/lib/generic/    # available source/sink libraries
+      ```
 
    b. Create rules in `./agent-rules/`:
       - Library rules in `./agent-rules/java/lib/`
