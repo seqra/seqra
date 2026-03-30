@@ -16,11 +16,12 @@ import javax.servlet.http.HttpServletResponse;
 import org.opentaint.sast.test.util.NegativeRuleSample;
 import org.opentaint.sast.test.util.PositiveRuleSample;
 
+import freemarker.core.TemplateClassResolver;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 
 /**
- * Servlet-based samples for ssti-in-servlet.
+ * Servlet-based samples for ssti.
  */
 public class SstiServletSamples {
 
@@ -72,6 +73,33 @@ public class SstiServletSamples {
                 Map<String, Object> model = new HashMap<>();
                 model.put("username", username);
                 model.put("messageText", messageText);
+
+                response.setContentType("text/html;charset=UTF-8");
+                Writer writer = response.getWriter();
+                t.process(model, writer);
+            } catch (Exception e) {
+                throw new ServletException(e);
+            }
+        }
+    }
+
+    @WebServlet("/code-injection/servlet/safe-resolver")
+    public static class SafeTemplateServletWithResolver extends HttpServlet {
+
+        @Override
+        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "ssti")
+        protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String templateSource = request.getParameter("messageTemplate");
+
+            Configuration cfg = new Configuration(Configuration.VERSION_2_3_32);
+            cfg.setNewBuiltinClassResolver(TemplateClassResolver.ALLOWS_NOTHING_RESOLVER);
+
+            try {
+                // SAFE: Configuration has ALLOWS_NOTHING_RESOLVER set
+                Template t = new Template("userTemplate", new StringReader(templateSource), cfg);
+
+                Map<String, Object> model = new HashMap<>();
+                model.put("username", request.getParameter("username"));
 
                 response.setContentType("text/html;charset=UTF-8");
                 Writer writer = response.getWriter();
