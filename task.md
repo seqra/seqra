@@ -67,8 +67,6 @@ Let's start with project `/home/sobol/data/Stirling-PDF/seqra-project/project.ya
 
 Write all your findings into `agent-mode/test/agent-mode-test.md`.
 
-OK, WE ARE HERE. We have all initial design proposal and tests proposal.
-
 No we need to understand implementation details:
 1. Which modules/files will be modified and how
 2. Projects structure: where skills and meta-prompt will be located
@@ -76,3 +74,13 @@ No we need to understand implementation details:
 4. How we can test implementation without CLI installation in PATH
 
 Write all your findings into `agent-mode/impl/agent-mode-impl.md`.
+
+OK, WE ARE HERE. We have all required design done.
+
+Now we can implement things. Use `agent-mode/plan.md` to track implementation process. 
+Track all tasks status. If you have a new task (e.g. fix failing test) add it to the plan before start working on it.
+Use git to fix project state after each task completed.
+
+1. Make all planned changes into analyzer and CLI
+2. Write skills and meta-prompt
+3. Verify everything works using tests
