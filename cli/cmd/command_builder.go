@@ -62,6 +62,7 @@ type AnalyzerBuilder struct {
 	dataflowApproximations     []string
 	trackExternalMethods       bool
 	debugFactReachabilitySarif bool
+	runRuleTests             bool
 }
 
 func (a *AnalyzerBuilder) SetProject(projectPath string) *AnalyzerBuilder {
@@ -164,6 +165,11 @@ func (a *AnalyzerBuilder) EnableDebugFactReachabilitySarif() *AnalyzerBuilder {
 	return a
 }
 
+func (a *AnalyzerBuilder) EnableRunRuleTests() *AnalyzerBuilder {
+	a.runRuleTests = true
+	return a
+}
+
 func (a *AnalyzerBuilder) BuildNativeCommand() []string {
 	// For native execution, create a temporary logs directory
 	tempLogsDir, err := os.MkdirTemp("", "opentaint-*")
@@ -251,6 +257,10 @@ func (a *AnalyzerBuilder) BuildNativeCommand() []string {
 
 	if a.debugFactReachabilitySarif {
 		flags = append(flags, "--debug-fact-reachability-sarif")
+	}
+
+	if a.runRuleTests {
+		flags = append(flags, "--debug-run-rule-tests")
 	}
 
 	return append(command, flags...)
