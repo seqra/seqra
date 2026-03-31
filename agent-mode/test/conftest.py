@@ -341,8 +341,16 @@ def sarif_rule_ids(data: dict) -> set:
 
 
 def sarif_findings_for_rule(data: dict, rule_id: str) -> list:
-    """Get findings for a specific rule ID."""
-    return [r for r in sarif_results(data) if r["ruleId"] == rule_id]
+    """Get findings for a specific rule ID.
+
+    Matches both exact ID and semgrep-style dot-separated ID (e.g.
+    'stirling-path-traversal' matches 'java.security.stirling-path-traversal').
+    """
+    return [
+        r
+        for r in sarif_results(data)
+        if r["ruleId"] == rule_id or r["ruleId"].endswith("." + rule_id)
+    ]
 
 
 def load_external_methods(path: Path) -> dict:
@@ -375,3 +383,69 @@ def write_text(path: Path, content: str):
     """Write a text file."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content)
+
+
+import re
+
+
+def parse_analyzer_timing(output: str) -> dict:
+    """
+    Parse timing information from CLI/analyzer output.
+
+    Looks for patterns like:
+      - "Compiling project model" (Go CLI spinner phase)
+      - "Analyzing project" (Go CLI spinner phase)
+      - "Start IFDS analysis" / "Finish IFDS analysis" (analyzer log)
+      - "Analysis done in <duration>" (IFDS elapsed)
+      - "Start SARIF report generation" / "Finish SARIF report"
+      - "Start vulnerability confirmation"
+      - "Start trace generation" / "Finish trace generation"
+
+    Returns a dict with discovered timing info (best-effort, may be empty
+    if the analyzer doesn't log at info level to stdout).
+    """
+    timing = {}
+
+    # Look for IFDS analysis elapsed time: "Analysis done in 12.345s" or "Analysis done in 1m 23s" etc.
+    m = re.search(r"Analysis done in (.+?)$", output, re.MULTILINE)
+    if m:
+        timing["ifds_elapsed"] = m.group(1).strip()
+
+    # Count phase markers
+    phases = [
+        ("ifds_start", r"Start IFDS analysis"),
+        ("ifds_finish", r"Finish IFDS analysis"),
+        ("sarif_start", r"Start SARIF report generation"),
+        ("sarif_finish", r"Finish SARIF report"),
+        ("vuln_confirm", r"Start vulnerability confirmation"),
+        ("trace_gen_start", r"Start trace generation"),
+        ("trace_gen_finish", r"Finish trace generation"),
+        ("se_start", r"Start SE for project"),
+        ("se_finish", r"Finish SE for project"),
+    ]
+    for key, pattern in phases:
+        if re.search(pattern, output):
+            timing[key] = True
+
+    # Total vulnerabilities count
+    m = re.search(r"Total vulnerabilities:\s*(\d+)", output)
+    if m:
+        timing["total_vulnerabilities"] = int(m.group(1))
+
+    return timing
+
+
+def print_timing_breakdown(label: str, result: "CLIResult"):
+    """Print a timing breakdown from CLI output if available."""
+    timing = parse_analyzer_timing(result.stdout + result.stderr)
+    if timing:
+        parts = []
+        if "ifds_elapsed" in timing:
+            parts.append(f"IFDS: {timing['ifds_elapsed']}")
+        if "total_vulnerabilities" in timing:
+            parts.append(f"vulns: {timing['total_vulnerabilities']}")
+        detected_phases = [k for k, v in timing.items() if v is True]
+        if detected_phases:
+            parts.append(f"phases: {', '.join(detected_phases)}")
+        if parts:
+            print(f"  [timing:{label}] {' | '.join(parts)}")

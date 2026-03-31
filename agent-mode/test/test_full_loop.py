@@ -26,6 +26,7 @@ from conftest import (
     count_external_methods,
     write_text,
     write_yaml,
+    print_timing_breakdown,
     FIXTURES_DIR,
     BUILTIN_RULES_DIR,
     STIRLING_PROJECT_DIR,
@@ -128,7 +129,7 @@ rules:
       refs:
         - rule: java/lib/stirling-source.yaml#stirling-multipart-file-source
           as: source
-        - rule: java/lib/generic/path-traversal-sinks.yaml#java-path-traversal-sink
+        - rule: java/lib/generic/path-traversal-sinks.yaml#java-path-traversal-sinks
           as: sink
       on:
         - 'source.$UNTRUSTED -> sink.$UNTRUSTED'
@@ -154,11 +155,16 @@ rules:
             timeout=600,
         )
         result.assert_ok("Initial scan failed")
+        print_timing_breakdown("initial-scan", result)
         _phase_time("Phase 3 complete (initial scan)")
 
         sarif_data = load_sarif(sarif_path)
         findings = sarif_findings_for_rule(sarif_data, "stirling-path-traversal")
         print(f"Phase 3: Initial scan found {len(findings)} path-traversal findings")
+        assert len(findings) > 0, (
+            "Expected path-traversal findings from initial scan but got 0. "
+            "Check that the join rule's sink ref matches the builtin sink rule ID."
+        )
 
         for f in findings[:5]:
             locs = f.get("locations", [{}])
@@ -248,6 +254,8 @@ rules:
                     severity=["note", "warning", "error"],
                     timeout=600,
                 )
+
+                print_timing_breakdown("rescan-with-approx", result2)
 
                 if result2.ok:
                     sarif_data_2 = load_sarif(sarif_path_2)
