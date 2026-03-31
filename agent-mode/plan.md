@@ -89,6 +89,29 @@ Refer to `agent-mode/impl/agent-mode-impl.md` for the full design.
 
 ---
 
+## Phase E: CLI Testing and Fixes
+
+### E1: Revert ruleIdAllow to match full rule ID only — [ ]
+- `SemgrepRuleLoader.kt` — remove `shortRuleId` fallback, keep only `info.ruleId` match
+- Full rule ID format is `<ruleSetRelativePath>:<ruleId>`, e.g. `java/security/path-traversal:path-traversal`
+
+### E2: Skip external method tracking for static fact base — [ ]
+- `JIRMethodCallFlowFunction.kt` — filter out `AccessPathBase.ClassStatic` (i.e. `<static>`) before reporting to tracker
+- Static facts are class-level state, not part of taint propagation through method calls
+
+### E3: Update skills with full rule ID format — [ ]
+- `agent/skills/create-rule.md` — document full ID format `<ruleSetPath>:<id>`, how to discover IDs
+- `agent/skills/run-analysis.md` — update `--rule-id` examples with full IDs
+- `agent/skills/test-rule.md` — clarify annotation `id` field vs full rule ID
+
+### E4: Rebuild analyzer and CLI, retest — [ ]
+- Rebuild `projectAnalyzerJar`
+- Test `opentaint scan --rule-id` with full ID format
+- Verify external methods output no longer contains `<static>` entries
+- Run pytest suite
+
+---
+
 ## Git Commits
 
 | Commit | Tasks | Description |
