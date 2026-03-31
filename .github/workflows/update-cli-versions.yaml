@@ -143,7 +143,7 @@ jobs:
 
           git checkout -B "$BRANCH"
           git add cli/internal/globals/versions.yaml
-          git commit -m "chore(cli): Update bundled dependency versions"
+          git commit -m "fix(cli): Update bundled dependency versions"
           git push --force origin "$BRANCH"
 
           printf '%s\n' \
@@ -160,7 +160,7 @@ jobs:
             gh pr edit "$EXISTING_PR" --body-file /tmp/pr-body.md
           else
             gh pr create \
-              --title "chore(cli): Update bundled dependency versions" \
+              --title "fix(cli): Update bundled dependency versions" \
               --body-file /tmp/pr-body.md \
               --base main
           fi
