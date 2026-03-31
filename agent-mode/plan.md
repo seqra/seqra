@@ -134,10 +134,11 @@ Refer to `agent-mode/impl/agent-mode-impl.md` for the full design.
 - Currently no per-step timing — hard to tell which phase is slow when test times out
 - Add `time.time()` checkpoints and print elapsed time after each phase
 - Helps investigate performance bottlenecks without requiring an actual agent
+- **Note**: add timing to all other tests
 
 ### F4: Run all tests via CLI, write test report — [ ]
 - Run full pytest suite using the Go CLI binary (after F1)
-- Write results to `agent-mode/test-status.md` with table: feature | test name | scenario | status
+- Write results to `agent-mode/test-status.md` with table: feature | test name | scenario | status | time
 - Must cover: build, rules, approximations, external methods, full loop
 
 ---
