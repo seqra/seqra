@@ -58,6 +58,11 @@ type AnalyzerBuilder struct {
 	ruleLoadTracePath        string
 	jarPath                  string
 	maxMemory                string
+	ruleIDs                  []string
+	approximationsConfig     string
+	dataflowApproximations   []string
+	externalMethodsOutput    string
+	runRuleTests             bool
 }
 
 func (a *AnalyzerBuilder) SetProject(projectPath string) *AnalyzerBuilder {
@@ -135,6 +140,31 @@ func (a *AnalyzerBuilder) SetMaxMemory(maxMemory string) *AnalyzerBuilder {
 	return a
 }
 
+func (a *AnalyzerBuilder) AddRuleID(ruleID string) *AnalyzerBuilder {
+	a.ruleIDs = append(a.ruleIDs, ruleID)
+	return a
+}
+
+func (a *AnalyzerBuilder) SetApproximationsConfig(configPath string) *AnalyzerBuilder {
+	a.approximationsConfig = configPath
+	return a
+}
+
+func (a *AnalyzerBuilder) AddDataflowApproximations(approxPath string) *AnalyzerBuilder {
+	a.dataflowApproximations = append(a.dataflowApproximations, approxPath)
+	return a
+}
+
+func (a *AnalyzerBuilder) SetExternalMethodsOutput(outputPath string) *AnalyzerBuilder {
+	a.externalMethodsOutput = outputPath
+	return a
+}
+
+func (a *AnalyzerBuilder) EnableRunRuleTests() *AnalyzerBuilder {
+	a.runRuleTests = true
+	return a
+}
+
 func (a *AnalyzerBuilder) BuildNativeCommand() []string {
 	// For native execution, create a temporary logs directory
 	tempLogsDir, err := os.MkdirTemp("", "opentaint-*")
@@ -202,6 +232,26 @@ func (a *AnalyzerBuilder) BuildNativeCommand() []string {
 
 	if a.ruleLoadTracePath != "" {
 		flags = append(flags, "--semgrep-rule-load-trace", a.ruleLoadTracePath)
+	}
+
+	for _, ruleID := range a.ruleIDs {
+		flags = append(flags, "--semgrep-rule-id", ruleID)
+	}
+
+	if a.approximationsConfig != "" {
+		flags = append(flags, "--approximations-config", a.approximationsConfig)
+	}
+
+	for _, approxPath := range a.dataflowApproximations {
+		flags = append(flags, "--dataflow-approximations", approxPath)
+	}
+
+	if a.externalMethodsOutput != "" {
+		flags = append(flags, "--external-methods-output", a.externalMethodsOutput)
+	}
+
+	if a.runRuleTests {
+		flags = append(flags, "--debug-run-rule-tests")
 	}
 
 	return append(command, flags...)

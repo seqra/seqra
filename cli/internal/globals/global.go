@@ -57,10 +57,12 @@ type Github struct {
 
 type Analyzer struct {
 	Version string `mapstructure:"version"`
+	JarPath string `mapstructure:"jar_path"`
 }
 
 type Autobuilder struct {
 	Version string `mapstructure:"version"`
+	JarPath string `mapstructure:"jar_path"`
 }
 
 type Rules struct {

@@ -139,6 +139,14 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVar(&globals.Config.SkipVerify, "skip-verify", false, "Skip SHA256 checksum verification of downloaded artifacts")
 	_ = viper.BindPFlag("skip-verify", rootCmd.PersistentFlags().Lookup("skip-verify"))
+
+	rootCmd.PersistentFlags().StringVar(&globals.Config.Analyzer.JarPath, "analyzer-jar", "", "Path to analyzer JAR (dev override, skips download)")
+	_ = rootCmd.PersistentFlags().MarkHidden("analyzer-jar")
+	_ = viper.BindPFlag("analyzer.jar_path", rootCmd.PersistentFlags().Lookup("analyzer-jar"))
+
+	rootCmd.PersistentFlags().StringVar(&globals.Config.Autobuilder.JarPath, "autobuilder-jar", "", "Path to autobuilder JAR (dev override, skips download)")
+	_ = rootCmd.PersistentFlags().MarkHidden("autobuilder-jar")
+	_ = viper.BindPFlag("autobuilder.jar_path", rootCmd.PersistentFlags().Lookup("autobuilder-jar"))
 }
 
 // initConfig reads in config file and ENV variables if set.

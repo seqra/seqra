@@ -30,6 +30,10 @@ var (
 	Severity                  []string
 	Ruleset                   []string
 	DryRunScan                bool
+	RuleID                    []string
+	ApproximationsConfig      string
+	DataflowApproximations    []string
+	ExternalMethodsOutput     string
 )
 
 type RulesetType struct {
@@ -96,6 +100,11 @@ func init() {
 	_ = scanCmd.PersistentFlags().MarkHidden("code-flow-limit")
 	_ = viper.BindPFlag("scan.code_flow_limit", scanCmd.Flags().Lookup("code-flow-limit"))
 	scanCmd.Flags().BoolVar(&DryRunScan, "dry-run", false, "Validate inputs and show what would run without compiling or scanning")
+
+	scanCmd.Flags().StringArrayVar(&RuleID, "rule-id", nil, "Filter active rules by ID (repeatable)")
+	scanCmd.Flags().StringVar(&ApproximationsConfig, "approximations-config", "", "YAML passThrough approximations config (OVERRIDE mode)")
+	scanCmd.Flags().StringArrayVar(&DataflowApproximations, "dataflow-approximations", nil, "Directory of compiled approximation class files (repeatable)")
+	scanCmd.Flags().StringVar(&ExternalMethodsOutput, "external-methods", "", "Output path for skipped external methods YAML list")
 }
 
 func scan(cmd *cobra.Command) {
@@ -276,6 +285,21 @@ func scan(cmd *cobra.Command) {
 	if maxMemory != "" {
 		nativeBuilder.SetMaxMemory(maxMemory)
 	}
+	for _, ruleID := range RuleID {
+		nativeBuilder.AddRuleID(ruleID)
+	}
+	if ApproximationsConfig != "" {
+		absApproxConfig := log.AbsPathOrExit(ApproximationsConfig, "approximations-config")
+		nativeBuilder.SetApproximationsConfig(absApproxConfig)
+	}
+	for _, approxPath := range DataflowApproximations {
+		absApproxPath := log.AbsPathOrExit(approxPath, "dataflow-approximations")
+		nativeBuilder.AddDataflowApproximations(absApproxPath)
+	}
+	if ExternalMethodsOutput != "" {
+		absExtMethodsPath := log.AbsPathOrExit(ExternalMethodsOutput, "external-methods")
+		nativeBuilder.SetExternalMethodsOutput(absExtMethodsPath)
+	}
 
 	analyzerJarPath, err := ensureAnalyzerAvailable()
 	if err != nil {
@@ -378,6 +402,10 @@ func setupSemgrepRuleLoadTrace() string {
 }
 
 func ensureAnalyzerAvailable() (string, error) {
+	if globals.Config.Analyzer.JarPath != "" {
+		return globals.Config.Analyzer.JarPath, nil
+	}
+
 	analyzerJarPath, err := utils.GetAnalyzerJarPath(globals.Config.Analyzer.Version)
 	if err != nil {
 		return "", fmt.Errorf("failed to construct path to the analyzer: %w", err)
