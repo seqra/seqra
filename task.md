@@ -50,15 +50,13 @@ Consider we have opentaint installed on PATH and want to use it from the agent v
 We need to design the following things:
 1. Changes in the opentaint that are required to match expected agent workflow
 2. All opentaint operations must be available via Go CLI (implemented in Go or proxied to the Analyzer CLI)
-   - Consider code-based approximations. Opetaint CLI must have an API to take approximation source code and compile it to further use it in the analysis.
+   - Consider code-based approximations. Opentaint CLI must have an API to take approximation source code and compile it to further use it in the analysis.
 3. Skills that can be used via agent. 
    - Skills must include all the required examples
    - For the rule-test skill we must provide simple sample test project
 4. Meta prompt to run agent wrt expected workflow using skills. 
 
 Write all your findings into `agent-mode/design/agent-mode-design.md`. 
-
-OK, WE ARE HERE. We have all initial design proposal
 
 No we need to design the test pipeline.
 Let's start with project `/home/sobol/data/Stirling-PDF/seqra-project/project.yaml`
@@ -68,3 +66,13 @@ Let's start with project `/home/sobol/data/Stirling-PDF/seqra-project/project.ya
 4. Check external methods extraction
 
 Write all your findings into `agent-mode/test/agent-mode-test.md`.
+
+OK, WE ARE HERE. We have all initial design proposal and tests proposal.
+
+No we need to understand implementation details:
+1. Which modules/files will be modified and how
+2. Projects structure: where skills and meta-prompt will be located
+3. How skills and meta prompt will be accessible via agent? How we distribute them and provide to the end user
+4. How we can test implementation without CLI installation in PATH
+
+Write all your findings into `agent-mode/impl/agent-mode-impl.md`.
