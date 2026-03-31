@@ -12,7 +12,7 @@ rules:
       refs:
         - rule: java/lib/stirling-source.yaml#stirling-multipart-file-source
           as: source
-        - rule: java/lib/generic/path-traversal-sinks.yaml#java-path-traversal-sink
+        - rule: java/lib/generic/path-traversal-sinks.yaml#java-path-traversal-sinks
           as: sink
       on:
         - 'source.$UNTRUSTED -> sink.$UNTRUSTED'

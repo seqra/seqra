@@ -13,6 +13,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var (
+	testRulesRuleset   []string
+	testRulesOutputDir string
+	testRulesTimeout   time.Duration
+	testRulesMaxMemory string
+	testRulesRuleID    []string
+)
+
 var agentTestRulesCmd = &cobra.Command{
 	Use:   "test-rules <project-model>",
 	Short: "Run rule tests against annotated test samples",
@@ -25,7 +33,29 @@ var agentTestRulesCmd = &cobra.Command{
 			out.Fatalf("Project model not found: %s", nativeProjectPath)
 		}
 
-		// Ensure rules are available
+		// Validate max-memory
+		maxMemory, err := utils.ParseMemoryValue(testRulesMaxMemory)
+		if err != nil {
+			out.Fatalf("Invalid --max-memory value: %s", err)
+		}
+
+		// Resolve output directory
+		outputDir := testRulesOutputDir
+		if outputDir == "" {
+			tmpDir, err := os.MkdirTemp("", "opentaint-test-rules-*")
+			if err != nil {
+				out.Fatalf("Failed to create temp dir: %s", err)
+			}
+			outputDir = tmpDir
+			defer os.RemoveAll(tmpDir)
+		} else {
+			outputDir = log.AbsPathOrExit(outputDir, "output")
+			if err := os.MkdirAll(outputDir, 0755); err != nil {
+				out.Fatalf("Failed to create output directory: %s", err)
+			}
+		}
+
+		// Ensure builtin rules are available
 		rulesPath, err := utils.GetRulesPath(globals.Config.Rules.Version)
 		if err != nil {
 			out.Fatalf("Failed to resolve rules path: %s", err)
@@ -41,22 +71,31 @@ var agentTestRulesCmd = &cobra.Command{
 			}
 		}
 
-		outputDir, err := os.MkdirTemp("", "opentaint-test-rules-*")
-		if err != nil {
-			out.Fatalf("Failed to create temp dir: %s", err)
+		timeoutSeconds := int64(testRulesTimeout / time.Second)
+		if timeoutSeconds <= 0 {
+			timeoutSeconds = 600
 		}
-		defer os.RemoveAll(outputDir)
 
 		builder := NewAnalyzerBuilder().
 			SetProject(nativeProjectPath).
 			SetOutputDir(outputDir).
 			SetSarifFileName("test-results.sarif").
-			SetIfdsAnalysisTimeout(int64(600)).
+			SetIfdsAnalysisTimeout(timeoutSeconds).
 			AddRuleSet(rulesPath).
 			EnableRunRuleTests()
 
-		// Add user rulesets from scan-level flags if present
-		for _, ruleID := range RuleID {
+		if maxMemory != "" {
+			builder.SetMaxMemory(maxMemory)
+		}
+
+		// Add user rulesets
+		for _, rs := range testRulesRuleset {
+			absPath := log.AbsPathOrExit(rs, "ruleset")
+			builder.AddRuleSet(absPath)
+		}
+
+		// Add rule ID filters
+		for _, ruleID := range testRulesRuleID {
 			builder.AddRuleID(ruleID)
 		}
 
@@ -76,7 +115,6 @@ var agentTestRulesCmd = &cobra.Command{
 			out.Fatalf("Failed to resolve Java: %s", err)
 		}
 
-		_ = time.Second // ensure time import used
 		if err := scanProject(builder, javaRunner); err != nil {
 			out.Fatalf("Rule tests failed: %s", err)
 		}
@@ -87,4 +125,10 @@ var agentTestRulesCmd = &cobra.Command{
 
 func init() {
 	agentCmd.AddCommand(agentTestRulesCmd)
+
+	agentTestRulesCmd.Flags().StringArrayVar(&testRulesRuleset, "ruleset", nil, "Additional ruleset path (repeatable)")
+	agentTestRulesCmd.Flags().StringVarP(&testRulesOutputDir, "output", "o", "", "Output directory for test results (test-result.json)")
+	agentTestRulesCmd.Flags().DurationVar(&testRulesTimeout, "timeout", 600*time.Second, "Timeout for analysis")
+	agentTestRulesCmd.Flags().StringVar(&testRulesMaxMemory, "max-memory", "8G", "Maximum memory for the analyzer (e.g., 8G)")
+	agentTestRulesCmd.Flags().StringArrayVar(&testRulesRuleID, "rule-id", nil, "Filter active rules by ID (repeatable)")
 }
