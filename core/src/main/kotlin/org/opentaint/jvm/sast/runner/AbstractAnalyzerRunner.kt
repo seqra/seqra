@@ -78,7 +78,6 @@ abstract class AbstractAnalyzerRunner : CliWithLogger() {
         val project = runCatching { Project.load(project) }
             .onFailure {
                 logger.error(it) { "Incorrect project configuration" }
-                return
             }
             .getOrThrow()
 
@@ -96,6 +95,7 @@ abstract class AbstractAnalyzerRunner : CliWithLogger() {
             logger.info { "Finish analysis for project: ${project.sourceRoot}" }
         } catch (ex: Throwable) {
             logger.error(ex) { "Fail analysis for project: ${project.sourceRoot}" }
+            throw ex
         }
 
         project.subProjects.forEach {

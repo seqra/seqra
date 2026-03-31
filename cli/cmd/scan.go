@@ -292,10 +292,6 @@ func scan(cmd *cobra.Command) {
 		absApproxConfig := log.AbsPathOrExit(ApproximationsConfig, "approximations-config")
 		nativeBuilder.SetApproximationsConfig(absApproxConfig)
 	}
-	for _, approxPath := range DataflowApproximations {
-		absApproxPath := log.AbsPathOrExit(approxPath, "dataflow-approximations")
-		nativeBuilder.AddDataflowApproximations(absApproxPath)
-	}
 	if ExternalMethodsOutput != "" {
 		absExtMethodsPath := log.AbsPathOrExit(ExternalMethodsOutput, "external-methods")
 		nativeBuilder.SetExternalMethodsOutput(absExtMethodsPath)
@@ -306,6 +302,16 @@ func scan(cmd *cobra.Command) {
 		out.Fatalf("Native scan preparation failed: %s", err)
 	}
 	nativeBuilder.SetJarPath(analyzerJarPath)
+
+	// Process --dataflow-approximations: auto-compile .java sources if needed
+	for _, approxPath := range DataflowApproximations {
+		absApproxPath := log.AbsPathOrExit(approxPath, "dataflow-approximations")
+		compiledPath, compileErr := compileApproximationsIfNeeded(absApproxPath, analyzerJarPath, absProjectModelPath)
+		if compileErr != nil {
+			out.Fatalf("Approximation compilation failed: %s", compileErr)
+		}
+		nativeBuilder.AddDataflowApproximations(compiledPath)
+	}
 
 	analyzerJavaRunner := java.NewJavaRunner().
 		WithSkipVerify(globals.Config.SkipVerify).
