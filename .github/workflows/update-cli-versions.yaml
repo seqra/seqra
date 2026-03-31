@@ -1,0 +1,166 @@
+name: Update CLI Versions
+
+on:
+  workflow_dispatch:
+    inputs:
+      analyzer_version:
+        description: 'Analyzer version tag (e.g. analyzer/2026.03.19.adeb616). Leave empty for latest.'
+        required: false
+        type: string
+      autobuilder_version:
+        description: 'Autobuilder version tag (e.g. autobuilder/2026.03.19.adeb616). Leave empty for latest.'
+        required: false
+        type: string
+      rules_version:
+        description: 'Rules version tag (e.g. rules/v0.1.0). Leave empty for latest.'
+        required: false
+        type: string
+
+  workflow_run:
+    workflows:
+      - Publish Analyzer
+      - Publish Autobuilder
+      - Release Rules
+    branches: [main]
+    types: [completed]
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Resolve versions
+        id: versions
+        run: |
+          set -euo pipefail
+
+          ANALYZER="${{ inputs.analyzer_version }}"
+          if [ -z "$ANALYZER" ]; then
+            ANALYZER=$(git tag -l "analyzer/[0-9]*" --sort=-creatordate | head -1)
+          fi
+
+          AUTOBUILDER="${{ inputs.autobuilder_version }}"
+          if [ -z "$AUTOBUILDER" ]; then
+            AUTOBUILDER=$(git tag -l "autobuilder/[0-9]*" --sort=-creatordate | head -1)
+          fi
+
+          RULES="${{ inputs.rules_version }}"
+          if [ -z "$RULES" ]; then
+            RULES=$(git tag -l "rules/v[0-9]*.[0-9]*.[0-9]*" --sort=-v:refname | head -1)
+          fi
+
+          if [ -z "$ANALYZER" ] || [ -z "$AUTOBUILDER" ] || [ -z "$RULES" ]; then
+            echo "::error::Failed to resolve versions (analyzer=${ANALYZER:-<empty>}, autobuilder=${AUTOBUILDER:-<empty>}, rules=${RULES:-<empty>})"
+            exit 1
+          fi
+
+          echo "analyzer=$ANALYZER" >> "$GITHUB_OUTPUT"
+          echo "autobuilder=$AUTOBUILDER" >> "$GITHUB_OUTPUT"
+          echo "rules=$RULES" >> "$GITHUB_OUTPUT"
+
+          echo "Resolved versions:"
+          echo "  Analyzer:    $ANALYZER"
+          echo "  Autobuilder: $AUTOBUILDER"
+          echo "  Rules:       $RULES"
+
+      - name: Read current versions
+        id: current
+        run: |
+          set -euo pipefail
+          echo "analyzer=$(grep '^analyzer:' cli/internal/globals/versions.yaml | awk '{print $2}' | tr -d '\"')" >> "$GITHUB_OUTPUT"
+          echo "autobuilder=$(grep '^autobuilder:' cli/internal/globals/versions.yaml | awk '{print $2}' | tr -d '\"')" >> "$GITHUB_OUTPUT"
+          echo "rules=$(grep '^rules:' cli/internal/globals/versions.yaml | awk '{print $2}' | tr -d '\"')" >> "$GITHUB_OUTPUT"
+
+      - name: Check for changes
+        id: diff
+        run: |
+          set -euo pipefail
+          CHANGES=""
+
+          if [ "${{ steps.versions.outputs.analyzer }}" != "${{ steps.current.outputs.analyzer }}" ]; then
+            CHANGES="${CHANGES}- **analyzer**: \`${{ steps.current.outputs.analyzer }}\` → \`${{ steps.versions.outputs.analyzer }}\`"$'\n'
+          fi
+          if [ "${{ steps.versions.outputs.autobuilder }}" != "${{ steps.current.outputs.autobuilder }}" ]; then
+            CHANGES="${CHANGES}- **autobuilder**: \`${{ steps.current.outputs.autobuilder }}\` → \`${{ steps.versions.outputs.autobuilder }}\`"$'\n'
+          fi
+          if [ "${{ steps.versions.outputs.rules }}" != "${{ steps.current.outputs.rules }}" ]; then
+            CHANGES="${CHANGES}- **rules**: \`${{ steps.current.outputs.rules }}\` → \`${{ steps.versions.outputs.rules }}\`"$'\n'
+          fi
+
+          if [ -z "$CHANGES" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "All versions are up to date"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+            echo "summary<<$EOF" >> "$GITHUB_OUTPUT"
+            echo "$CHANGES" >> "$GITHUB_OUTPUT"
+            echo "$EOF" >> "$GITHUB_OUTPUT"
+            echo "Changes detected:"
+            echo "$CHANGES"
+          fi
+
+      - name: Update versions.yaml
+        if: steps.diff.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          sed -i 's|^analyzer: .*|analyzer: "${{ steps.versions.outputs.analyzer }}"|' cli/internal/globals/versions.yaml
+          sed -i 's|^autobuilder: .*|autobuilder: "${{ steps.versions.outputs.autobuilder }}"|' cli/internal/globals/versions.yaml
+          sed -i 's|^rules: .*|rules: "${{ steps.versions.outputs.rules }}"|' cli/internal/globals/versions.yaml
+
+          echo "Updated versions.yaml:"
+          cat cli/internal/globals/versions.yaml
+
+      - name: Create or update pull request
+        if: steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHANGES_SUMMARY: ${{ steps.diff.outputs.summary }}
+        run: |
+          set -euo pipefail
+
+          BRANCH="chore/update-cli-versions"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -B "$BRANCH"
+          git add cli/internal/globals/versions.yaml
+          git commit -m "chore(cli): Update bundled dependency versions"
+          git push --force origin "$BRANCH"
+
+          printf '%s\n' \
+            "## Updated dependency versions" \
+            "" \
+            "$CHANGES_SUMMARY" \
+            "" \
+            "_Automated by the Update CLI Versions workflow._" \
+            > /tmp/pr-body.md
+
+          EXISTING_PR=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' 2>/dev/null || true)
+          if [ -n "$EXISTING_PR" ]; then
+            echo "Updated existing PR #$EXISTING_PR"
+            gh pr edit "$EXISTING_PR" --body-file /tmp/pr-body.md
+          else
+            gh pr create \
+              --title "chore(cli): Update bundled dependency versions" \
+              --body-file /tmp/pr-body.md \
+              --base main
+          fi
