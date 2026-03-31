@@ -1,0 +1,18 @@
+rules:
+  - id: stirling-path-traversal
+    severity: ERROR
+    message: >-
+      User-uploaded file name flows to file system operation without sanitization
+    metadata:
+      cwe: CWE-22
+      short-description: Path Traversal via uploaded file name
+    languages: [java]
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/stirling-source.yaml#stirling-multipart-file-source
+          as: source
+        - rule: java/lib/generic/path-traversal-sinks.yaml#java-path-traversal-sink
+          as: sink
+      on:
+        - 'source.$UNTRUSTED -> sink.$UNTRUSTED'

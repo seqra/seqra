@@ -46,8 +46,6 @@ Analyze current analyzer impl and requirements and propose the following documen
 2. agent-mode/info/approximations-config.md: all things related to approximations
 3. agent-mode/info/agent-pipeline.md: whole pipeline for the agent to work with rules, common scenarios
 
-OK, WE ARE HERE. We have all initial requirements collected
-
 Consider we have opentaint installed on PATH and want to use it from the agent via skills.
 We need to design the following things:
 1. Changes in the opentaint that are required to match expected agent workflow
@@ -59,3 +57,14 @@ We need to design the following things:
 4. Meta prompt to run agent wrt expected workflow using skills. 
 
 Write all your findings into `agent-mode/design/agent-mode-design.md`. 
+
+OK, WE ARE HERE. We have all initial design proposal
+
+No we need to design the test pipeline.
+Let's start with project `/home/sobol/data/Stirling-PDF/seqra-project/project.yaml`
+1. We need to test various project build scenarios
+2. Check that rule generations pipeline works
+3. Check approximations (including code based) generation/override
+4. Check external methods extraction
+
+Write all your findings into `agent-mode/test/agent-mode-test.md`.
