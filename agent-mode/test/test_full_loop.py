@@ -13,6 +13,7 @@ Simulates the complete agent workflow on Stirling-PDF:
 
 import json
 import shutil
+import time
 import pytest
 from pathlib import Path
 from conftest import (
@@ -64,6 +65,11 @@ class TestFullAgentLoop:
     ):
         """Full end-to-end agent loop on Stirling-PDF."""
         ws = self._setup_workspace(tmp_output)
+        t0 = time.time()
+
+        def _phase_time(label):
+            elapsed = time.time() - t0
+            print(f"  [{elapsed:6.1f}s] {label}")
 
         # ── Phase 1: Source Discovery (simulated) ─────────────────────
         controllers = [
@@ -73,6 +79,7 @@ class TestFullAgentLoop:
             "stirling.software.SPDF.controller.api.security.*",
         ]
         print(f"Phase 1: Discovered {len(controllers)} controller groups")
+        _phase_time("Phase 1 complete (source discovery)")
 
         # ── Phase 2: Create Rule ──────────────────────────────────────
 
@@ -128,6 +135,7 @@ rules:
 """,
         )
         print("Phase 2b-c: Created custom rules")
+        _phase_time("Phase 2 complete (rule creation)")
 
         # ── Phase 3: Initial Scan ─────────────────────────────────────
 
@@ -146,6 +154,7 @@ rules:
             timeout=600,
         )
         result.assert_ok("Initial scan failed")
+        _phase_time("Phase 3 complete (initial scan)")
 
         sarif_data = load_sarif(sarif_path)
         findings = sarif_findings_for_rule(sarif_data, "stirling-path-traversal")
@@ -189,6 +198,7 @@ rules:
                 print(
                     f"    {m['method']} ({m['callSites']} call sites, positions: {m['factPositions']})"
                 )
+        _phase_time("Phase 3b complete (external methods analysis)")
 
         # ── Phase 4: Create Approximation and Rescan ──────────────────
         # Approximations are ONLY for external methods (from withoutRules).
@@ -261,4 +271,6 @@ rules:
                             f"  Delta: {delta_findings:+d} findings, {delta_methods:+d} newly modeled methods"
                         )
 
-        print("\n=== Full agent loop completed ===")
+        _phase_time("Phase 4 complete (approximation + rescan)")
+        total = time.time() - t0
+        print(f"\n=== Full agent loop completed in {total:.1f}s ===")
