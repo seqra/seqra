@@ -132,7 +132,9 @@ class TestScanWithRuleIdFilter:
             project_path=str(stirling_project),
             output=str(sarif_path),
             rulesets=["builtin", str(custom_rules)],
-            rule_ids=["stirling-path-traversal"],
+            rule_ids=[
+                "java/security/stirling-path-traversal.yaml:stirling-path-traversal"
+            ],
             severity=["note", "warning", "error"],
             timeout=600,
         )
@@ -350,7 +352,9 @@ class TestScanStirlingWithCustomRule:
             project_path=str(stirling_project),
             output=str(sarif_path),
             rulesets=["builtin", str(custom_rules)],
-            rule_ids=["stirling-path-traversal"],
+            rule_ids=[
+                "java/security/stirling-path-traversal.yaml:stirling-path-traversal"
+            ],
             severity=["note", "warning", "error"],
             timeout=600,
         )

@@ -24,6 +24,7 @@ config.local.*
 
 **/.gradle
 **/build
+core/**/bin/
 
 # Ignore all hidden files and directories
 .*

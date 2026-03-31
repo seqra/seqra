@@ -91,24 +91,25 @@ Refer to `agent-mode/impl/agent-mode-impl.md` for the full design.
 
 ## Phase E: CLI Testing and Fixes
 
-### E1: Revert ruleIdAllow to match full rule ID only — [ ]
-- `SemgrepRuleLoader.kt` — remove `shortRuleId` fallback, keep only `info.ruleId` match
-- Full rule ID format is `<ruleSetRelativePath>:<ruleId>`, e.g. `java/security/path-traversal:path-traversal`
+### E1: Revert ruleIdAllow to match full rule ID only — [x]
+- `SemgrepRuleLoader.kt` — removed `shortRuleId` fallback, keep only `info.ruleId` match
+- Full rule ID format is `<ruleSetRelativePath>:<ruleId>`, e.g. `java/security/path-traversal.yaml:path-traversal`
 
-### E2: Skip external method tracking for static fact base — [ ]
-- `JIRMethodCallFlowFunction.kt` — filter out `AccessPathBase.ClassStatic` (i.e. `<static>`) before reporting to tracker
-- Static facts are class-level state, not part of taint propagation through method calls
+### E2: Skip external method tracking for static fact base — [x]
+- `JIRMethodCallFlowFunction.kt` — added `startFactBase !is AccessPathBase.ClassStatic` guard
+- External methods YAML reduced from ~10,643 to ~2,246 lines (no `<static>` entries)
 
-### E3: Update skills with full rule ID format — [ ]
-- `agent/skills/create-rule.md` — document full ID format `<ruleSetPath>:<id>`, how to discover IDs
-- `agent/skills/run-analysis.md` — update `--rule-id` examples with full IDs
-- `agent/skills/test-rule.md` — clarify annotation `id` field vs full rule ID
+### E3: Update skills with full rule ID format — [x]
+- `agent/skills/create-rule.md` — documented full ID format `<path.yaml>:<id>`, how to discover IDs
+- `agent/skills/run-analysis.md` — updated `--rule-id` examples with full IDs
+- `agent/skills/test-rule.md` — clarified annotation `id` field vs full rule ID
 
-### E4: Rebuild analyzer and CLI, retest — [ ]
-- Rebuild `projectAnalyzerJar`
-- Test `opentaint scan --rule-id` with full ID format
-- Verify external methods output no longer contains `<static>` entries
-- Run pytest suite
+### E4: Rebuild analyzer and CLI, retest — [x]
+- Rebuilt `projectAnalyzerJar` + Go CLI binary
+- CLI scan with `--rule-id java/security/path-traversal.yaml:path-traversal` → 20 findings
+- External methods output confirmed clean (0 `<static>` entries)
+- Updated test expectations: full rule IDs, fact position format (`<this>`, `arg(N)`, `ret`)
+- All pytest tests pass (29 passed, 1 skipped, 5 pre-existing failures excluded)
 
 ---
 
@@ -121,3 +122,4 @@ Refer to `agent-mode/impl/agent-mode-impl.md` for the full design.
 | 6d445b36 | B1-B4 | Phase B: Go CLI agent-mode features |
 | 8734ae31 | C1-C2 | Phase C: Skills and meta-prompt |
 | 7d094862 | D1 | Fix conftest JAR resolution order |
+| 4e06427b | E-plan | Add Phase E tasks to plan |
