@@ -201,7 +201,7 @@ Refer to `agent-mode/impl/agent-mode-impl.md` for the full design.
 - `resolveTestUtilJar()` tier 1/2 won't find the JAR in release archives
 - **Priority: HIGH**
 
-### H3: Fix short rule IDs in skill docs — [ ]
+### H3: Fix short rule IDs in skill docs — [x]
 - `agent/skills/create-yaml-config.md:101` — uses `--rule-id my-vulnerability` instead of full format `java/security/my-vuln.yaml:my-vulnerability`
 - `agent/skills/create-approximation.md:66` — same issue
 - Inconsistent with the documented full rule ID format in `create-rule.md` and `run-analysis.md`

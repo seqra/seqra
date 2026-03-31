@@ -63,7 +63,7 @@ javac -source 8 -target 8 \
 opentaint scan ./opentaint-project/project.yaml \
   -o ./results/report.sarif \
   --ruleset builtin --ruleset ./agent-rules \
-  --rule-id my-vulnerability \
+  --rule-id java/security/my-vuln.yaml:my-vulnerability \
   --dataflow-approximations ./agent-approximations/classes
 ```
 

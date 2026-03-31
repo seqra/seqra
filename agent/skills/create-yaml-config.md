@@ -98,7 +98,7 @@ passThrough:
 opentaint scan ./opentaint-project/project.yaml \
   -o ./results/report.sarif \
   --ruleset builtin --ruleset ./agent-rules \
-  --rule-id my-vulnerability \
+  --rule-id java/security/my-vuln.yaml:my-vulnerability \
   --approximations-config ./agent-config/custom-propagators.yaml
 ```
 
