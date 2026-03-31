@@ -12,12 +12,16 @@ Run OpenTaint analysis on the target project and collect results.
 
 ### Basic analysis
 
+The `--rule-id` flag requires the **full rule ID** in the format `<ruleSetRelativePath>:<shortId>`.
+Example: for a rule file at `agent-rules/java/security/my-vuln.yaml` with `id: my-vulnerability`,
+the full ID is `java/security/my-vuln.yaml:my-vulnerability`.
+
 ```bash
 opentaint scan ./opentaint-project/project.yaml \
   -o ./results/report.sarif \
   --ruleset builtin \
   --ruleset ./agent-rules \
-  --rule-id my-vulnerability \
+  --rule-id java/security/my-vuln.yaml:my-vulnerability \
   --external-methods ./results/external-methods.yaml
 ```
 
@@ -27,7 +31,7 @@ opentaint scan ./opentaint-project/project.yaml \
 opentaint scan ./opentaint-project/project.yaml \
   -o ./results/report.sarif \
   --ruleset builtin --ruleset ./agent-rules \
-  --rule-id my-vulnerability \
+  --rule-id java/security/my-vuln.yaml:my-vulnerability \
   --approximations-config ./agent-config/custom-propagators.yaml \
   --external-methods ./results/external-methods.yaml
 ```
@@ -38,7 +42,7 @@ opentaint scan ./opentaint-project/project.yaml \
 opentaint scan ./opentaint-project/project.yaml \
   -o ./results/report.sarif \
   --ruleset builtin --ruleset ./agent-rules \
-  --rule-id my-vulnerability \
+  --rule-id java/security/my-vuln.yaml:my-vulnerability \
   --dataflow-approximations ./agent-approximations/classes \
   --external-methods ./results/external-methods.yaml
 ```
@@ -63,7 +67,7 @@ Two files to collect:
 | Flag | Purpose |
 |------|---------|
 | `--ruleset` | Rule directory (repeatable). Use `builtin` for built-in rules |
-| `--rule-id` | Enable only specific rules by ID (repeatable) |
+| `--rule-id` | Enable only specific rules by full ID `<path>:<id>` (repeatable) |
 | `--approximations-config` | YAML passThrough config (OVERRIDE mode) |
 | `--dataflow-approximations` | Directory of compiled approximation class files |
 | `--external-methods` | Output path for skipped external methods YAML |

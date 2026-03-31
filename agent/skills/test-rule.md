@@ -77,8 +77,12 @@ Read `test-result.json` in the output directory:
 
 ## Annotation Fields
 
-- `value`: Path to rule YAML file, relative to ruleset root
-- `id`: Rule ID within that file
+- `value`: Path to rule YAML file, relative to ruleset root (e.g. `java/security/my-vuln.yaml`)
+- `id`: Short rule ID within that file (the `id` field from the YAML, e.g. `my-vulnerability`)
+
+**Note**: The annotation `id` field uses the **short** rule ID (as written in the YAML file).
+This is different from `--rule-id` in `opentaint scan`, which requires the **full** rule ID
+in the format `<ruleSetRelativePath>:<shortId>` (e.g. `java/security/my-vuln.yaml:my-vulnerability`).
 
 ## Troubleshooting
 

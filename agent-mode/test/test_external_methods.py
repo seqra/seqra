@@ -98,8 +98,8 @@ class TestExternalMethodsBasic:
                 )
 
                 for pos in entry["factPositions"]:
-                    assert pos == "this" or pos == "result" or pos.startswith("arg("), (
-                        f"Invalid fact position: {pos}"
+                    assert pos == "<this>" or pos == "ret" or pos.startswith("arg("), (
+                        f"Invalid fact position: {pos} — expected '<this>', 'ret', or 'arg(N)'"
                     )
 
 

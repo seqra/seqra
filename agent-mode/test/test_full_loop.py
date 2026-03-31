@@ -138,7 +138,9 @@ rules:
             project_path=str(stirling_project),
             output=str(sarif_path),
             rulesets=["builtin", str(ws["rules"])],
-            rule_ids=["stirling-path-traversal"],
+            rule_ids=[
+                "java/security/stirling-path-traversal.yaml:stirling-path-traversal"
+            ],
             external_methods=str(ext_methods_path),
             severity=["note", "warning", "error"],
             timeout=600,
@@ -202,8 +204,8 @@ rules:
                 for pos in positions:
                     if pos.startswith("arg("):
                         copies.append({"from": pos, "to": "result"})
-                    elif pos == "this":
-                        copies.append({"from": "this", "to": "result"})
+                    elif pos == "<this>":
+                        copies.append({"from": "<this>", "to": "result"})
 
                 if copies:
                     pass_through_rules.append(
@@ -228,7 +230,9 @@ rules:
                     project_path=str(stirling_project),
                     output=str(sarif_path_2),
                     rulesets=["builtin", str(ws["rules"])],
-                    rule_ids=["stirling-path-traversal"],
+                    rule_ids=[
+                        "java/security/stirling-path-traversal.yaml:stirling-path-traversal"
+                    ],
                     approximations_config=str(config_file),
                     external_methods=str(ext_methods_path_2),
                     severity=["note", "warning", "error"],
