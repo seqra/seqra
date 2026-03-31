@@ -1,10 +1,14 @@
 package org.opentaint.jvm.sast.project
 
+import com.charleskorn.kaml.Yaml
+import com.charleskorn.kaml.YamlConfiguration
+import com.charleskorn.kaml.encodeToStream
+import kotlinx.serialization.Serializable
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
-import org.opentaint.dataflow.ap.ifds.taint.ExternalMethodResults
 import org.opentaint.dataflow.ap.ifds.taint.ExternalMethodTracker
+import org.opentaint.dataflow.ap.ifds.taint.SkippedExternalMethods
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
@@ -136,8 +140,8 @@ class ProjectAnalyzer(
 
         // Write external methods YAML output if requested
         if (externalMethodTracker != null && options.externalMethodsOutput != null) {
-            val results = externalMethodTracker.getResults()
-            writeExternalMethodsYaml(options.externalMethodsOutput!!, results)
+            val skippedMethods = externalMethodTracker.getSkippedMethods()
+            writeExternalMethodsYaml(options.externalMethodsOutput!!, skippedMethods)
         }
     }
 
@@ -246,20 +250,14 @@ class ProjectAnalyzer(
         generator.generateSarif(output, reachableFacts)
     }
 
-    private fun writeExternalMethodsYaml(outputPath: Path, results: ExternalMethodResults) {
-        outputPath.outputStream().bufferedWriter().use { writer ->
-            fun writeRecords(label: String, records: List<org.opentaint.dataflow.ap.ifds.taint.ExternalMethodRecord>) {
-                writer.write("$label:\n")
-                for (record in records) {
-                    writer.write("  - method: \"${record.method}\"\n")
-                    writer.write("    signature: \"${record.signature}\"\n")
-                    writer.write("    factPositions: [${record.factPositions.sorted().joinToString(", ") { "\"$it\"" }}]\n")
-                    writer.write("    callSites: ${record.callSites}\n")
-                }
-            }
+    private fun writeExternalMethodsYaml(outputPath: Path, skippedMethods: SkippedExternalMethods) {
+        val serializable = SerializedSkippedExternalMethods(
+            withoutRules = skippedMethods.withoutRules.map { it.toSerialized() },
+            withRules = skippedMethods.withRules.map { it.toSerialized() },
+        )
 
-            writeRecords("withoutRules", results.withoutRules)
-            writeRecords("withRules", results.withRules)
+        outputPath.outputStream().use { stream ->
+            skippedMethodsYaml.encodeToStream(serializable, stream)
         }
 
         logger.info { "Wrote external methods to $outputPath" }
@@ -267,5 +265,31 @@ class ProjectAnalyzer(
 
     companion object {
         private val logger = object : KLogging() {}.logger
+
+        private val skippedMethodsYaml = Yaml(
+            configuration = YamlConfiguration(encodeDefaults = true)
+        )
     }
 }
+
+@Serializable
+private data class SerializedSkippedExternalMethods(
+    val withoutRules: List<SerializedExternalMethodRecord>,
+    val withRules: List<SerializedExternalMethodRecord>,
+)
+
+@Serializable
+private data class SerializedExternalMethodRecord(
+    val method: String,
+    val signature: String,
+    val factPositions: List<String>,
+    val callSites: Int,
+)
+
+private fun org.opentaint.dataflow.ap.ifds.taint.ExternalMethodRecord.toSerialized() =
+    SerializedExternalMethodRecord(
+        method = method,
+        signature = signature,
+        factPositions = factPositions.sorted(),
+        callSites = callSites,
+    )

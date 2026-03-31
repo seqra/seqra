@@ -21,7 +21,7 @@ import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
-import org.opentaint.dataflow.ap.ifds.taint.ExternalMethodResults
+import org.opentaint.dataflow.ap.ifds.taint.SkippedExternalMethods
 import org.opentaint.dataflow.ap.ifds.taint.ExternalMethodTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisContext
 import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisUnitStorage
@@ -172,8 +172,8 @@ class TaintAnalysisUnitRunnerManager(
         return vulnerabilities
     }
 
-    fun getExternalMethodResults(): ExternalMethodResults? {
-        return externalMethodTracker?.getResults()
+    fun getSkippedExternalMethods(): SkippedExternalMethods? {
+        return externalMethodTracker?.getSkippedMethods()
     }
 
     fun resolveVulnerabilityTraces(
