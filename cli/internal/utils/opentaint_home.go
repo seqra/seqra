@@ -174,15 +174,6 @@ func resolveArtifactPath(def globals.ArtifactDef) (string, error) {
 	return tiers[len(tiers)-1].Path, nil
 }
 
-// GetBundledAgentPath returns the path to the bundled agent directory (lib/agent/) next to the binary.
-// Returns empty string if the path cannot be determined.
-func GetBundledAgentPath() string {
-	if dir := exeDir(); dir != "" {
-		return filepath.Join(dir, "lib", "agent")
-	}
-	return ""
-}
-
 func GetAutobuilderJarPath(version string) (string, error) {
 	return resolveArtifactPath(globals.ArtifactByKind("autobuilder").WithVersion(version))
 }
