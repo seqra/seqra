@@ -16,40 +16,33 @@ This document translates the design in `agent-mode/design/agent-mode-design.md` 
 3. [Go CLI Changes](#3-go-cli-changes)
    - 3.1 [New Flags on `scan` Command](#31-new-flags-on-scan-command)
    - 3.2 [Approximation Auto-Compilation](#32-approximation-auto-compilation)
-   - 3.3 [`test-rules` Command](#33-test-rules-command)
-   - 3.4 [`rules-path` Command](#34-rules-path-command)
-   - 3.5 [`init-test-project` Command](#35-init-test-project-command)
-   - 3.6 [Hidden Dev Flags](#36-hidden-dev-flags)
-   - 3.7 [AnalyzerBuilder Extensions](#37-analyzerbuilder-extensions)
+   - 3.3 [`opentaint agent` Command Group](#33-opentaint-agent-command-group)
+   - 3.4 [Hidden Dev Flags](#34-hidden-dev-flags)
+   - 3.5 [AnalyzerBuilder Extensions](#35-analyzerbuilder-extensions)
 4. [Skills and Meta-Prompt Location](#4-skills-and-meta-prompt-location)
-   - 4.1 [File Layout](#41-file-layout)
-   - 4.2 [Bundling Into CLI Distribution](#42-bundling-into-cli-distribution)
-   - 4.3 [Runtime Access](#43-runtime-access)
-   - 4.4 [Agent Integration Patterns](#44-agent-integration-patterns)
-5. [Distribution](#5-distribution)
-   - 5.1 [Packaging Skills and Meta-Prompt](#51-packaging-skills-and-meta-prompt)
-   - 5.2 [Release Pipeline Changes](#52-release-pipeline-changes)
-   - 5.3 [User-Facing Installation](#53-user-facing-installation)
-6. [Testing Without CLI on PATH](#6-testing-without-cli-on-path)
-   - 6.1 [Hidden `--analyzer-jar` / `--autobuilder-jar` Flags](#61-hidden---analyzer-jar----autobuilder-jar-flags)
-   - 6.2 [Environment Variables](#62-environment-variables)
-   - 6.3 [Python Test Infrastructure (conftest.py)](#63-python-test-infrastructure-conftestpy)
-   - 6.4 [Local Dev Workflow](#64-local-dev-workflow)
-7. [Implementation Order](#7-implementation-order)
-8. [File Change Summary](#8-file-change-summary)
+   - 4.1 [Source Layout](#41-source-layout)
+   - 4.2 [Bundling and Distribution](#42-bundling-and-distribution)
+   - 4.3 [Runtime Access (Direct File Read)](#43-runtime-access-direct-file-read)
+5. [Testing Without CLI on PATH](#5-testing-without-cli-on-path)
+   - 5.1 [Hidden `--analyzer-jar` / `--autobuilder-jar` Flags](#51-hidden---analyzer-jar----autobuilder-jar-flags)
+   - 5.2 [Environment Variables](#52-environment-variables)
+   - 5.3 [Python Test Infrastructure (conftest.py)](#53-python-test-infrastructure-conftestpy)
+   - 5.4 [Local Dev Workflow](#54-local-dev-workflow)
+6. [Implementation Order](#6-implementation-order)
+7. [File Change Summary](#7-file-change-summary)
 
 ---
 
 ## 1. Implementation Overview
 
-The implementation spans two main codebases (Kotlin analyzer, Go CLI) plus a new `agent-mode/skills/` directory for agent-consumable content. The work divides into:
+The implementation spans two main codebases (Kotlin analyzer, Go CLI) plus a new `agent/` directory for distributable agent artifacts (skills, meta-prompt). The `agent-mode/` directory remains for design docs and tests only — it is not distributed.
 
 | Area | Scope | Effort |
 |------|-------|--------|
 | Kotlin analyzer | 4 features: external methods tracker, rule ID filter, combined config+rules, custom approximations path | Medium-Large |
-| Go CLI | 4 new flags on `scan`, 3 new commands, hidden dev flags, auto-compilation logic | Medium |
-| Skills + Meta-prompt | 9 skill files + 1 meta-prompt, bundled into CLI distribution | Small |
-| Distribution | Release pipeline changes to bundle `lib/skills/` | Small |
+| Go CLI | 4 new flags on `scan`, `opentaint agent` command group (5 subcommands), hidden dev flags, auto-compilation logic | Medium |
+| Skills + Meta-prompt | 9 skill files + 1 meta-prompt in `agent/`, bundled into CLI distribution | Small |
+| Distribution | Release pipeline changes to bundle `lib/agent/` | Small |
 | Test infrastructure | Already built in Phase 3; needs hidden flag support | Small |
 
 ---
@@ -74,28 +67,31 @@ data class ExternalMethodRecord(
     val method: String,           // "com.example.Foo#bar"
     val signature: String,        // JVM-style: "(Ljava/lang/String;)V"
     val factPositions: Set<String>, // "this", "arg(0)", "arg(1)", "result"
-    val hasPassRules: Boolean,    // true if config has passThrough rules for this method
+    val passRulesApplied: Boolean, // true if passThrough rules were actually applied for this method
 )
 
 class ExternalMethodTracker {
     // Dedup key: method+signature+factPosition
     private val seen = ConcurrentHashMap.newKeySet<String>()
     
-    // Per-method aggregation: method+signature → (factPositions, hasPassRules, callSiteCount)
+    // Per-method aggregation: method+signature → (factPositions, passRulesApplied, callSiteCount)
     private val records = ConcurrentHashMap<String, ExternalMethodAggregation>()
 
     fun report(
         method: String,
         signature: String,
         factPosition: String,
-        hasPassRules: Boolean,
+        passRulesApplied: Boolean,
     ) {
         val key = "$method|$signature|$factPosition"
         if (!seen.add(key)) return
         
         records.computeIfAbsent("$method|$signature") {
-            ExternalMethodAggregation(method, signature, hasPassRules)
-        }.addFactPosition(factPosition)
+            ExternalMethodAggregation(method, signature, passRulesApplied)
+        }.apply {
+            addFactPosition(factPosition)
+            if (passRulesApplied) markPassRulesApplied()
+        }
     }
 
     fun reportCallSite(method: String, signature: String) {
@@ -110,7 +106,7 @@ class ExternalMethodTracker {
         
         for (agg in records.values) {
             val record = agg.toRecord()
-            if (record.hasPassRules) withRules.add(record) else withoutRules.add(record)
+            if (record.passRulesApplied) withRules.add(record) else withoutRules.add(record)
         }
         
         return ExternalMethodResults(
@@ -136,24 +132,31 @@ class ExternalMethodTracker {
 
 #### Integration point in `JIRMethodCallFlowFunction`
 
-The key insertion point is `applyPassRulesOrCallSkip()` at line 617:
+The key insertion point is `applyPassRulesOrCallSkip()`. The existing code already computes whether pass-through rules were applied via `passThroughFacts.onSome { ... }` (line 651). We use this result directly — no separate lookup needed.
 
 ```kotlin
 // EXISTING: line 617
 val method = callExpr.callee
 
-// NEW: report external method to tracker
+// EXISTING: lines 642-649
+val passThroughFacts = applyPassThrough(
+    config, method, statement,
+    fact = passFactReader.factAp,
+    simpleConditionEvaluator, passEvaluator
+)
+
+// NEW: report to tracker using the actual applyPassThrough result
 val tracker = analysisContext.taint.externalMethodTracker
 if (tracker != null) {
     val methodName = "${method.declaringClass.name}#${method.name}"
     val signature = method.jvmSignature
     val factPosition = resolveFactPosition(factAp)  // "this", "arg(0)", etc.
-    val hasPassRules = config.hasPassRulesFor(method)
-    tracker.report(methodName, signature, factPosition, hasPassRules)
+    val passRulesApplied = passThroughFacts.isSome
+    tracker.report(methodName, signature, factPosition, passRulesApplied)
 }
 ```
 
-The `resolveFactPosition` helper maps `FinalFactAp` base to a human-readable position string. The `hasPassRulesFor` method checks if `TaintRulesProvider` has any passThrough rules matching this method (the same lookup `applyPassThrough` does, but returning boolean).
+The `resolveFactPosition` helper maps `FinalFactAp` base to a human-readable position string. The `passRulesApplied` boolean comes directly from checking whether `applyPassThrough` returned `Some` (rules matched and were applied) vs `None` (no matching rules). This is more accurate than checking whether rules *exist* for the method — it reflects whether rules actually *fired* for the given fact position.
 
 #### Output format
 
@@ -183,54 +186,45 @@ Serialization uses `kaml` (already a dependency) or `snakeyaml` — consistent w
 
 ### 2.2 Rule ID Filter
 
-**Goal**: Filter loaded rules by ID, keeping only specified rules + their transitive `refs` dependencies.
+**Goal**: Filter loaded rules by ID. Same mechanism as the existing severity filter.
 
 #### Modified files
 
 | File | Change |
 |------|--------|
-| `core/opentaint-java-querylang/.../SemgrepRuleLoader.kt` | Add `ruleIdFilter` parameter to `loadRules()`, implement ID-based filtering with recursive `refs` resolution |
+| `core/opentaint-java-querylang/.../SemgrepRuleLoader.kt` | Add `ruleIdFilter` parameter to `loadRules()`, add ID check to `skip()` predicate |
 | `core/src/main/kotlin/.../project/ProjectAnalysisOptions.kt` | Add `semgrepRuleId: List<String> = emptyList()` field |
 | `core/src/main/kotlin/.../runner/ProjectAnalyzerRunner.kt` | Add `--semgrep-rule-id` Clikt option, wire to `ProjectAnalysisOptions` |
-| `core/src/main/kotlin/.../runner/AbstractAnalyzerRunner.kt` | Alternative location if the flag should also affect `TestProjectAnalyzer` |
 
 #### Implementation in `SemgrepRuleLoader.loadRules()`
 
-Current signature (line 106):
+The existing `loadRules()` (line 106) already has a `skip()` predicate that filters by severity and library/disabled status:
+
 ```kotlin
-fun loadRules(severity: List<Severity> = emptyList()): RuleLoadResult
+fun loadRules(severity: List<Severity> = emptyList()): RuleLoadResult {
+    fun Rule<*>.skip(): Boolean =
+        info.isDisabled || info.isLibraryRule || !ruleSeverityAllow(this, severity)
 ```
 
-New signature:
+The rule ID filter works the same way — just another predicate in `skip()`:
+
 ```kotlin
 fun loadRules(
     severity: List<Severity> = emptyList(),
     ruleIdFilter: List<String> = emptyList(),
-): RuleLoadResult
-```
-
-After loading all rules and applying severity filter, if `ruleIdFilter` is non-empty:
-
-```kotlin
-if (ruleIdFilter.isNotEmpty()) {
-    val requestedIds = ruleIdFilter.toSet()
-    // 1. Find directly requested rules
-    val directMatches = allRules.filter { it.id in requestedIds }
-    // 2. Recursively resolve refs (join-mode rules reference library rules)
-    val resolvedIds = mutableSetOf<String>()
-    fun resolveRefs(rule: Rule<*>) {
-        if (!resolvedIds.add(rule.id)) return
-        rule.refs?.forEach { ref ->
-            allRules.find { it.ruleFile == ref }?.let { resolveRefs(it) }
-        }
-    }
-    directMatches.forEach { resolveRefs(it) }
-    // 3. Keep only resolved set
-    allRules = allRules.filter { it.id in resolvedIds }
+): RuleLoadResult {
+    fun Rule<*>.skip(): Boolean =
+        info.isDisabled || info.isLibraryRule
+            || !ruleSeverityAllow(this, severity)
+            || !ruleIdAllow(this, ruleIdFilter)
+    // ... rest unchanged
 }
+
+private fun ruleIdAllow(rule: Rule<*>, ruleIdFilter: List<String>): Boolean =
+    ruleIdFilter.isEmpty() || rule.id in ruleIdFilter
 ```
 
-The `refs` field is already parsed by `SemgrepRuleLoader` — it references other YAML files relative to the ruleset root. Library rules (`options.lib: true`) are normally auto-included but with an ID filter they'd be dropped unless explicitly resolved.
+Library rules (`isLibraryRule = true`) are already excluded by the existing `skip()` logic — they are loaded but not run directly. They only participate when referenced by join-mode rules. The ID filter does not need to walk `refs` because the existing rule resolution pipeline already handles library rule inclusion for join-mode rules independently of the skip filter.
 
 ---
 
@@ -446,7 +440,7 @@ func init() {
     
     // NEW
     scanCmd.Flags().StringArrayVar(&RuleId, "rule-id", nil, 
-        "Filter rules by ID (repeatable). Library rules referenced via 'refs' are auto-included")
+        "Filter active rules by ID (repeatable)")
     scanCmd.Flags().StringVar(&ApproximationsConfig, "approximations-config", "", 
         "Path to YAML passThrough approximations config (OVERRIDE mode)")
     scanCmd.Flags().StringVar(&DataflowApproximations, "dataflow-approximations", "", 
@@ -544,19 +538,135 @@ func compileApproximationsIfNeeded(approxDir string, projectPath string) string 
 
 ---
 
-### 3.3 `test-rules` Command
+### 3.3 `opentaint agent` Command Group
 
-**New file**: `cli/cmd/test_rules.go`
+All agent-related commands are grouped under `opentaint agent`:
+
+| Command | Purpose |
+|---------|---------|
+| `opentaint agent skills` | Print resolved path to bundled skill files |
+| `opentaint agent prompt` | Print resolved path to the meta-prompt file |
+| `opentaint agent rules-path` | Print resolved path to builtin rules (downloads on demand) |
+| `opentaint agent test-rules` | Run rule tests against annotated test samples |
+| `opentaint agent init-test-project` | Bootstrap a rule test project with build.gradle.kts and test utility JAR |
+
+#### Parent command
+
+**New file**: `cli/cmd/agent.go`
 
 ```go
 package cmd
 
 import "github.com/spf13/cobra"
 
+var agentCmd = &cobra.Command{
+    Use:   "agent",
+    Short: "Agent mode commands: skills, prompts, rule testing",
+}
+
+func init() {
+    rootCmd.AddCommand(agentCmd)
+}
+```
+
+#### `opentaint agent skills`
+
+**New file**: `cli/cmd/agent_skills.go`
+
+```go
+package cmd
+
+var agentSkillsCmd = &cobra.Command{
+    Use:   "skills",
+    Short: "Print the resolved path to bundled agent skill files",
+    Args:  cobra.NoArgs,
+    Run: func(cmd *cobra.Command, args []string) {
+        skillsDir, err := utils.GetAgentPath("skills")
+        if err != nil {
+            out.Fatalf("Skills not found: %v", err)
+        }
+        fmt.Println(skillsDir)
+    },
+}
+
+func init() {
+    agentCmd.AddCommand(agentSkillsCmd)
+}
+```
+
+#### `opentaint agent prompt`
+
+**New file**: `cli/cmd/agent_prompt.go`
+
+```go
+package cmd
+
+var agentPromptCmd = &cobra.Command{
+    Use:   "prompt",
+    Short: "Print the resolved path to the agent meta-prompt",
+    Args:  cobra.NoArgs,
+    Run: func(cmd *cobra.Command, args []string) {
+        promptPath, err := utils.GetAgentPath("meta-prompt.md")
+        if err != nil {
+            out.Fatalf("Meta-prompt not found: %v", err)
+        }
+        fmt.Println(promptPath)
+    },
+}
+
+func init() {
+    agentCmd.AddCommand(agentPromptCmd)
+}
+```
+
+#### `opentaint agent rules-path`
+
+**New file**: `cli/cmd/agent_rules_path.go`
+
+```go
+package cmd
+
+var agentRulesPathCmd = &cobra.Command{
+    Use:   "rules-path",
+    Short: "Print the resolved path to builtin rules",
+    Args:  cobra.NoArgs,
+    Run: func(cmd *cobra.Command, args []string) {
+        version := globals.Config.Rules.Version
+        if version == "" {
+            version = globals.RulesBindVersion
+        }
+        
+        rulesPath, err := utils.GetRulesPath(version)
+        if err != nil {
+            err = ensureArtifactAvailable("rules", version, rulesPath, downloadRules)
+            if err != nil {
+                out.Fatalf("Failed to resolve rules: %v", err)
+            }
+            rulesPath, _ = utils.GetRulesPath(version)
+        }
+        
+        fmt.Println(rulesPath)
+    },
+}
+
+func init() {
+    agentCmd.AddCommand(agentRulesPathCmd)
+}
+```
+
+Reuses `utils.GetRulesPath()` and download logic already present in `scan.go:214-224`. Downloads rules on demand (same 3-tier resolution: bundled > install > cache).
+
+#### `opentaint agent test-rules`
+
+**New file**: `cli/cmd/agent_test_rules.go`
+
+```go
+package cmd
+
 var TestRulesRuleset string
 var TestRulesOutput string
 
-var testRulesCmd = &cobra.Command{
+var agentTestRulesCmd = &cobra.Command{
     Use:   "test-rules <project-path-or-project.yaml>",
     Short: "Run rule tests against annotated test samples",
     Args:  cobra.ExactArgs(1),
@@ -596,69 +706,23 @@ var testRulesCmd = &cobra.Command{
 }
 
 func init() {
-    rootCmd.AddCommand(testRulesCmd)
-    testRulesCmd.Flags().StringVar(&TestRulesRuleset, "ruleset", "", "Path to rules directory")
-    testRulesCmd.Flags().StringVarP(&TestRulesOutput, "output", "o", "", "Output directory")
-    _ = testRulesCmd.MarkFlagRequired("output")
+    agentCmd.AddCommand(agentTestRulesCmd)
+    agentTestRulesCmd.Flags().StringVar(&TestRulesRuleset, "ruleset", "", "Path to rules directory")
+    agentTestRulesCmd.Flags().StringVarP(&TestRulesOutput, "output", "o", "", "Output directory")
+    _ = agentTestRulesCmd.MarkFlagRequired("output")
 }
 ```
 
----
+#### `opentaint agent init-test-project`
 
-### 3.4 `rules-path` Command
-
-**New file**: `cli/cmd/rules_path.go`
+**New file**: `cli/cmd/agent_init_test_project.go`
 
 ```go
 package cmd
-
-import "github.com/spf13/cobra"
-
-var rulesPathCmd = &cobra.Command{
-    Use:   "rules-path",
-    Short: "Print the resolved path to builtin rules",
-    Args:  cobra.NoArgs,
-    Run: func(cmd *cobra.Command, args []string) {
-        version := globals.Config.Rules.Version
-        if version == "" {
-            version = globals.RulesBindVersion
-        }
-        
-        rulesPath, err := utils.GetRulesPath(version)
-        if err != nil {
-            // Download if not found
-            err = ensureArtifactAvailable("rules", version, rulesPath, downloadRules)
-            if err != nil {
-                out.Fatalf("Failed to resolve rules: %v", err)
-            }
-            rulesPath, _ = utils.GetRulesPath(version)
-        }
-        
-        fmt.Println(rulesPath)
-    },
-}
-
-func init() {
-    rootCmd.AddCommand(rulesPathCmd)
-}
-```
-
-**Pattern**: Reuses `utils.GetRulesPath()` and download logic already present in `scan.go:214-224`. The command downloads rules on demand (same 3-tier resolution: bundled > install > cache).
-
----
-
-### 3.5 `init-test-project` Command
-
-**New file**: `cli/cmd/init_test_project.go`
-
-```go
-package cmd
-
-import "github.com/spf13/cobra"
 
 var InitTestProjectDeps []string
 
-var initTestProjectCmd = &cobra.Command{
+var agentInitTestProjectCmd = &cobra.Command{
     Use:   "init-test-project <output-dir>",
     Short: "Bootstrap a rule test project with build.gradle.kts and test utility JAR",
     Args:  cobra.ExactArgs(1),
@@ -682,19 +746,13 @@ var initTestProjectCmd = &cobra.Command{
 }
 
 func init() {
-    rootCmd.AddCommand(initTestProjectCmd)
-    initTestProjectCmd.Flags().StringArrayVar(&InitTestProjectDeps, "dependency", nil,
+    agentCmd.AddCommand(agentInitTestProjectCmd)
+    agentInitTestProjectCmd.Flags().StringArrayVar(&InitTestProjectDeps, "dependency", nil,
         "Maven dependency coordinates to add (e.g., 'javax.servlet:javax.servlet-api:4.0.1')")
 }
 ```
 
-The `opentaint-sast-test-util.jar` needs to be available. Options:
-
-1. **Bundle in CLI distribution** alongside analyzer/autobuilder JARs (simplest — add to `lib/`)
-2. **Download on demand** from a GitHub release (like other artifacts)
-3. **Extract from analyzer JAR** (it's included as a dependency)
-
-**Recommended**: Option 1 — bundle as `lib/opentaint-sast-test-util.jar`. It's tiny (just 2 annotation classes). Add it to the release workflow's "Download bundled artifacts" step.
+The `opentaint-sast-test-util.jar` is bundled in the CLI distribution as `lib/opentaint-sast-test-util.jar`. It's tiny (just 2 annotation classes). The release workflow's "Download bundled artifacts" step fetches it alongside the analyzer and autobuilder JARs.
 
 Generated `build.gradle.kts`:
 ```kotlin
@@ -718,9 +776,32 @@ dependencies {
 }
 ```
 
+#### Resolution logic
+
+**File**: `cli/internal/utils/opentaint_home.go`
+
+```go
+// GetAgentPath resolves a path within the bundled agent directory.
+// Checks bundled tier (exe-dir/lib/agent/) then install tier (~/.opentaint/install/lib/agent/).
+func GetAgentPath(subpath string) (string, error) {
+    exeDir := getExeDir()
+    bundled := filepath.Join(exeDir, "lib", "agent", subpath)
+    if _, err := os.Stat(bundled); err == nil {
+        return bundled, nil
+    }
+    
+    install := filepath.Join(OpentaintHome(), "install", "lib", "agent", subpath)
+    if _, err := os.Stat(install); err == nil {
+        return install, nil
+    }
+    
+    return "", fmt.Errorf("agent resource '%s' not found; reinstall opentaint or run 'opentaint pull'", subpath)
+}
+```
+
 ---
 
-### 3.6 Hidden Dev Flags
+### 3.4 Hidden Dev Flags
 
 **File**: `cli/cmd/root.go`
 
@@ -787,7 +868,7 @@ func resolveAnalyzerJar() string {
 
 ---
 
-### 3.7 AnalyzerBuilder Extensions
+### 3.5 AnalyzerBuilder Extensions
 
 **File**: `cli/cmd/command_builder.go`
 
@@ -867,33 +948,30 @@ func (a *AnalyzerBuilder) BuildNativeCommand() []string {
 
 ## 4. Skills and Meta-Prompt Location
 
-### 4.1 File Layout
+### 4.1 Source Layout
 
-Skills and meta-prompt are Markdown files placed in the source repository and bundled into the CLI distribution:
+Skills and meta-prompt are Markdown files in a dedicated `agent/` directory at the repository root. This directory contains **distributable artifacts only** — design docs and tests remain in `agent-mode/`.
 
 ```
-agent-mode/
-├── skills/
+opentaint/
+├── agent/                              # Distributable agent artifacts
 │   ├── meta-prompt.md                  # The system prompt for the agent
-│   ├── build-project.md                # Skill 3.1
-│   ├── discover-entry-points.md        # Skill 3.2
-│   ├── create-rule.md                  # Skill 3.3
-│   ├── test-rule.md                    # Skill 3.4
-│   ├── run-analysis.md                 # Skill 3.5
-│   ├── analyze-findings.md             # Skill 3.6
-│   ├── create-yaml-config.md           # Skill 3.7
-│   ├── create-approximation.md         # Skill 3.8
-│   └── generate-poc.md                 # Skill 3.9
-├── design/
-│   └── agent-mode-design.md            # (existing)
-├── impl/
-│   └── agent-mode-impl.md             # (this document)
-├── info/
-│   ├── pattern-rules.md               # (existing)
-│   ├── approximations-config.md       # (existing)
-│   └── agent-pipeline.md              # (existing)
-└── test/
-    └── ...                            # (existing test pipeline)
+│   └── skills/                         # Individual skill files
+│       ├── build-project.md            # Skill 3.1
+│       ├── discover-entry-points.md    # Skill 3.2
+│       ├── create-rule.md              # Skill 3.3
+│       ├── test-rule.md                # Skill 3.4
+│       ├── run-analysis.md             # Skill 3.5
+│       ├── analyze-findings.md         # Skill 3.6
+│       ├── create-yaml-config.md       # Skill 3.7
+│       ├── create-approximation.md     # Skill 3.8
+│       └── generate-poc.md             # Skill 3.9
+├── agent-mode/                         # Design docs and tests (NOT distributed)
+│   ├── design/
+│   ├── impl/
+│   ├── info/
+│   └── test/
+└── ...
 ```
 
 Each skill file is a self-contained Markdown document with:
@@ -905,207 +983,74 @@ Each skill file is a self-contained Markdown document with:
 
 The meta-prompt (`meta-prompt.md`) is the top-level system prompt that references skills by name and defines the 4-phase agent workflow.
 
-### 4.2 Bundling Into CLI Distribution
+### 4.2 Bundling and Distribution
 
-Skills are bundled like rules — as a directory in the CLI distribution archive.
+Skills are bundled into the CLI distribution archive as `lib/agent/`, following the same pattern as rules.
 
-**Option A (Recommended): Bundle as `lib/skills/`**
-
-The GoReleaser `files` directive in `cli/.goreleaser.yaml` already includes `lib/**`. Skills would be placed at:
+**Archive layout**:
 
 ```
-cli/lib/skills/
-├── meta-prompt.md
-├── build-project.md
-├── ...
-└── generate-poc.md
+opentaint_linux_amd64.tar.gz
+├── opentaint                           # Go binary
+└── lib/
+    ├── opentaint-project-analyzer.jar
+    ├── opentaint-project-auto-builder.jar
+    ├── opentaint-sast-test-util.jar    # NEW
+    ├── rules/                          # Extracted rules
+    └── agent/                          # NEW
+        ├── meta-prompt.md
+        └── skills/
+            ├── build-project.md
+            ├── create-rule.md
+            ├── test-rule.md
+            ├── run-analysis.md
+            ├── analyze-findings.md
+            ├── create-yaml-config.md
+            ├── create-approximation.md
+            ├── discover-entry-points.md
+            └── generate-poc.md
 ```
 
-During the release workflow, skills are copied from `agent-mode/skills/` to `cli/lib/skills/` before GoReleaser runs — same pattern as rules (`opentaint-rules.tar.gz` → `cli/lib/rules/`).
+All three archive variants (`cli`, `default`, `full`) include agent files.
 
 **Release workflow change** (`.github/workflows/release-cli.yaml`):
 
+Add step after "Download bundled artifacts":
+
 ```yaml
-- name: Copy skills to lib
+- name: Bundle agent skills and prompt
   run: |
-    mkdir -p cli/lib/skills
-    cp agent-mode/skills/*.md cli/lib/skills/
+    mkdir -p cli/lib/agent/skills
+    cp agent/meta-prompt.md cli/lib/agent/
+    cp agent/skills/*.md cli/lib/agent/skills/
+
+- name: Bundle test utility JAR
+  run: |
+    # Download from analyzer release (built alongside the analyzer)
+    cp opentaint-sast-test-util.jar cli/lib/
 ```
 
-This is the simplest approach and requires no separate versioning or release pipeline for skills.
+No changes to installation scripts needed. The `install.sh`/`install.ps1` scripts download and extract the archive — agent files and test-util JAR come along automatically.
 
-**Option B: Separate artifact (`opentaint-skills.tar.gz`)**
-
-Like rules, skills could be versioned and released independently. This adds complexity (separate release pipeline, version tracking in `versions.yaml`, download-on-demand logic) but enables independent skill updates. 
-
-**Recommendation**: Start with Option A. Skills are updated infrequently and coupling them to CLI releases is acceptable. If skill iteration velocity increases, migrate to Option B later.
-
-### 4.3 Runtime Access
-
-**New Go CLI command**: `opentaint skills-path`
-
-**New file**: `cli/cmd/skills_path.go`
-
-```go
-package cmd
-
-import (
-    "fmt"
-    "github.com/spf13/cobra"
-)
-
-var skillsPathCmd = &cobra.Command{
-    Use:   "skills-path",
-    Short: "Print the resolved path to bundled agent skills",
-    Args:  cobra.NoArgs,
-    Run: func(cmd *cobra.Command, args []string) {
-        // Skills are always bundled — no download needed
-        skillsDir := resolveSkillsDir()
-        fmt.Println(skillsDir)
-    },
-}
-
-func init() {
-    rootCmd.AddCommand(skillsPathCmd)
-}
-```
-
-**Resolution logic** (in `cli/internal/utils/opentaint_home.go`):
-
-```go
-func GetSkillsPath() (string, error) {
-    // Only bundled tier — skills are always shipped with the CLI
-    exeDir := getExeDir()
-    bundled := filepath.Join(exeDir, "lib", "skills")
-    if _, err := os.Stat(bundled); err == nil {
-        return bundled, nil
-    }
-    
-    // Install tier
-    install := filepath.Join(OpentaintHome(), "install", "lib", "skills")
-    if _, err := os.Stat(install); err == nil {
-        return install, nil
-    }
-    
-    return "", fmt.Errorf("skills not found; reinstall opentaint or run 'opentaint pull'")
-}
-```
-
-### 4.4 Agent Integration Patterns
-
-Agents consume skills in three ways:
-
-#### Pattern 1: Direct file read
+### 4.3 Runtime Access (Direct File Read)
 
 The agent reads skill files directly from the filesystem. The meta-prompt instructs:
 
 ```markdown
 ## Setup
-1. Run `opentaint skills-path` to get the skills directory
-2. Read `<skills-path>/meta-prompt.md` for the overall workflow
-3. Read individual skill files as needed during each phase
+1. Run `opentaint agent skills` to get the skills directory path
+2. Run `opentaint agent prompt` to get the meta-prompt file path
+3. Read the meta-prompt for the overall workflow
+4. Read individual skill files as needed during each phase
 ```
 
-This works with any agent framework (Cursor, Cline, Aider, custom).
-
-#### Pattern 2: MCP tool integration
-
-For agents using MCP (Model Context Protocol), skills can be exposed as MCP resources. The `.mcprules-*` files at the repo root already define agent modes — a new `.mcprules-agent` file could reference skills:
-
-```yaml
-mode: agent
-instructions:
-  general:
-    - "Read skills from the opentaint skills directory"
-    - "Follow the meta-prompt workflow"
-skills_path: "opentaint skills-path"
-```
-
-This is a future extension — not in scope for initial implementation.
-
-#### Pattern 3: Embedded in agent prompt
-
-For one-shot integrations, the meta-prompt can be directly embedded as the agent's system prompt. The `opentaint skills-path` command lets the caller resolve the path programmatically:
-
-```bash
-SKILLS=$(opentaint skills-path)
-META_PROMPT=$(cat "$SKILLS/meta-prompt.md")
-# Pass $META_PROMPT as system prompt to the LLM agent
-```
+This works with any agent framework (Cursor, Cline, Aider, custom). The agent resolves paths via CLI commands and reads files using its native file-read capabilities.
 
 ---
 
-## 5. Distribution
+## 5. Testing Without CLI on PATH
 
-### 5.1 Packaging Skills and Meta-Prompt
-
-Skills ship as part of the CLI distribution in `lib/skills/`:
-
-```
-opentaint_linux_amd64.tar.gz
-├── opentaint              # Go binary
-└── lib/
-    ├── opentaint-project-analyzer.jar
-    ├── opentaint-project-auto-builder.jar
-    ├── opentaint-sast-test-util.jar     # NEW
-    ├── rules/                           # Extracted rules
-    └── skills/                          # NEW
-        ├── meta-prompt.md
-        ├── build-project.md
-        ├── create-rule.md
-        ├── test-rule.md
-        ├── run-analysis.md
-        ├── analyze-findings.md
-        ├── create-yaml-config.md
-        ├── create-approximation.md
-        ├── discover-entry-points.md
-        └── generate-poc.md
-```
-
-All three archive variants (`cli`, `default`, `full`) include skills.
-
-### 5.2 Release Pipeline Changes
-
-**File**: `.github/workflows/release-cli.yaml`
-
-Add step after "Download bundled artifacts":
-
-```yaml
-- name: Bundle skills
-  run: |
-    mkdir -p cli/lib/skills
-    cp agent-mode/skills/*.md cli/lib/skills/
-
-- name: Bundle test utility JAR
-  run: |
-    # Download from analyzer release (it's built alongside the analyzer)
-    # Or build it: cd core && ./gradlew :opentaint-sast-test-util:jar
-    cp core/opentaint-sast-test-util/build/libs/opentaint-sast-test-util.jar cli/lib/
-```
-
-**Alternative for test-util JAR**: Publish it as a separate GitHub release asset alongside the analyzer, then download it in the release workflow. This is cleaner but requires a change to `publish-analyzer.yaml`.
-
-### 5.3 User-Facing Installation
-
-No changes to installation scripts needed. The `install.sh`/`install.ps1` scripts download and extract the archive — skills and test-util JAR come along automatically.
-
-Users access skills via:
-
-```bash
-# Print skills directory
-opentaint skills-path
-
-# Print rules directory
-opentaint rules-path
-
-# Both are resolved from the installation layout
-```
-
----
-
-## 6. Testing Without CLI on PATH
-
-### 6.1 Hidden `--analyzer-jar` / `--autobuilder-jar` Flags
+### 5.1 Hidden `--analyzer-jar` / `--autobuilder-jar` Flags
 
 When `opentaint` IS on PATH but JARs haven't been downloaded (no `~/.opentaint`), the hidden flags allow pointing directly to locally-built JARs:
 
@@ -1117,7 +1062,7 @@ opentaint scan /path/to/project.yaml \
 
 This skips the 3-tier resolution entirely.
 
-### 6.2 Environment Variables
+### 5.2 Environment Variables
 
 Via viper's env binding (prefix `OPENTAINT_`, `_` separator):
 
@@ -1129,7 +1074,7 @@ export OPENTAINT_AUTOBUILDER_JAR=/home/sobol/IdeaProjects/opentaint/core/opentai
 opentaint scan /path/to/project.yaml -o report.sarif
 ```
 
-### 6.3 Python Test Infrastructure (`conftest.py`)
+### 5.3 Python Test Infrastructure (`conftest.py`)
 
 The test infrastructure already handles the "no CLI on PATH" case with a dual-mode strategy:
 
@@ -1150,18 +1095,18 @@ The test infrastructure already handles the "no CLI on PATH" case with a dual-mo
 | `--external-methods <path>` | `--external-methods-output <path>` |
 | `--severity <s>` | `--semgrep-rule-severity=<s>` |
 
-**Limitation in JAR mode**: Commands with no JAR equivalent (`rules-path`, `init-test-project`, `skills-path`) return hardcoded results or skip:
+**Limitation in JAR mode**: Agent subcommands (`opentaint agent rules-path`, `opentaint agent init-test-project`, `opentaint agent skills`) have no JAR equivalent. They return hardcoded results or skip:
 
 ```python
-def rules_path(self) -> CLIResult:
+def agent_rules_path(self) -> CLIResult:
     if self.has_cli:
-        return self._run(["rules-path"])
+        return self._run(["agent", "rules-path"])
     # Fallback: return known path in dev environment
     return CLIResult(0, str(BUILTIN_RULES_DIR), "", [])
 
-def init_test_project(self, output_dir, dependencies=None) -> CLIResult:
+def agent_init_test_project(self, output_dir, dependencies=None) -> CLIResult:
     if self.has_cli:
-        args = ["init-test-project", str(output_dir)]
+        args = ["agent", "init-test-project", str(output_dir)]
         for dep in (dependencies or []):
             args += ["--dependency", dep]
         return self._run(args)
@@ -1171,7 +1116,7 @@ def init_test_project(self, output_dir, dependencies=None) -> CLIResult:
 
 **For `--dataflow-approximations` in JAR mode**: The auto-compilation step (which the Go CLI does) must be done manually. The test infrastructure should detect `.java` files and compile them before passing the compiled directory to the JAR. This is already handled in the test fixture setup.
 
-### 6.4 Local Dev Workflow
+### 5.4 Local Dev Workflow
 
 #### Option 1: Build Go CLI locally + use hidden flags
 
@@ -1182,10 +1127,15 @@ cd cli && go build -o opentaint .
 # Build analyzer (if needed)
 cd core && ./gradlew :projectAnalyzerJar
 
-# Run with direct JAR paths
+# Run scan with direct JAR paths
 ./cli/opentaint scan /path/to/project.yaml \
     --analyzer-jar ./core/build/libs/opentaint-jvm-sast.jar \
     -o report.sarif
+
+# Agent commands work too
+./cli/opentaint agent rules-path
+./cli/opentaint agent test-rules ./test-project/project.yaml \
+    --ruleset ./agent-rules -o ./test-output
 ```
 
 #### Option 2: Direct JAR mode (no Go CLI)
@@ -1226,7 +1176,7 @@ Both paths are relative to `OPENTAINT_ROOT` (3 levels up from `conftest.py`).
 
 ---
 
-## 7. Implementation Order
+## 6. Implementation Order
 
 Recommended sequence based on dependency analysis:
 
@@ -1252,19 +1202,20 @@ A1-A4 are sequential (pipeline). A5, A6, A7 are independent of each other and of
 | B2 | Add `AnalyzerBuilder` extensions | `command_builder.go` | — |
 | B3 | Add new flags to `scan` command | `scan.go` | B2 |
 | B4 | Implement approximation auto-compilation | `compile_approximations.go` (new) | B2 |
-| B5 | Implement `rules-path` command | `rules_path.go` (new) | — |
-| B6 | Implement `test-rules` command | `test_rules.go` (new) | B2 |
-| B7 | Implement `init-test-project` command | `init_test_project.go` (new) | — |
-| B8 | Implement `skills-path` command | `skills_path.go` (new) | — |
+| B5 | Implement `opentaint agent` parent command | `agent.go` (new) | — |
+| B6 | Implement `opentaint agent rules-path` | `agent_rules_path.go` (new) | B5 |
+| B7 | Implement `opentaint agent test-rules` | `agent_test_rules.go` (new) | B2, B5 |
+| B8 | Implement `opentaint agent init-test-project` | `agent_init_test_project.go` (new) | B5 |
+| B9 | Implement `opentaint agent skills` + `opentaint agent prompt` | `agent_skills.go`, `agent_prompt.go` (new) | B5 |
 
-B1, B5, B7, B8 are independent. B2 must precede B3, B4, B6.
+B1, B5 are independent starting points. B2 must precede B3, B4, B7. B5 must precede B6-B9.
 
 ### Phase C: Skills and Meta-Prompt
 
 | # | Task | Files | Depends On |
 |---|------|-------|------------|
-| C1 | Write 9 skill files | `agent-mode/skills/*.md` | A, B (need final CLI flag names) |
-| C2 | Write meta-prompt | `agent-mode/skills/meta-prompt.md` | C1 |
+| C1 | Write 9 skill files | `agent/skills/*.md` | A, B (need final CLI flag names) |
+| C2 | Write meta-prompt | `agent/meta-prompt.md` | C1 |
 | C3 | Update release workflow | `.github/workflows/release-cli.yaml` | C1 |
 | C4 | Publish test-util JAR as release asset | `.github/workflows/publish-analyzer.yaml` | — |
 
@@ -1278,30 +1229,32 @@ B1, B5, B7, B8 are independent. B2 must precede B3, B4, B6.
 
 ---
 
-## 8. File Change Summary
+## 7. File Change Summary
 
-### New Files (14)
+### New Files (17)
 
 | File | Purpose |
 |------|---------|
 | `core/.../taint/ExternalMethodTracker.kt` | External method collection during analysis |
+| `cli/cmd/agent.go` | `opentaint agent` parent command |
+| `cli/cmd/agent_skills.go` | `opentaint agent skills` subcommand |
+| `cli/cmd/agent_prompt.go` | `opentaint agent prompt` subcommand |
+| `cli/cmd/agent_rules_path.go` | `opentaint agent rules-path` subcommand |
+| `cli/cmd/agent_test_rules.go` | `opentaint agent test-rules` subcommand |
+| `cli/cmd/agent_init_test_project.go` | `opentaint agent init-test-project` subcommand |
 | `cli/cmd/compile_approximations.go` | Auto-compile .java approximations to .class |
-| `cli/cmd/test_rules.go` | `opentaint test-rules` command |
-| `cli/cmd/rules_path.go` | `opentaint rules-path` command |
-| `cli/cmd/init_test_project.go` | `opentaint init-test-project` command |
-| `cli/cmd/skills_path.go` | `opentaint skills-path` command |
-| `agent-mode/skills/meta-prompt.md` | Agent system prompt |
-| `agent-mode/skills/build-project.md` | Skill: build project |
-| `agent-mode/skills/discover-entry-points.md` | Skill: discover entry points |
-| `agent-mode/skills/create-rule.md` | Skill: create pattern rules |
-| `agent-mode/skills/test-rule.md` | Skill: test rules |
-| `agent-mode/skills/run-analysis.md` | Skill: run analysis |
-| `agent-mode/skills/analyze-findings.md` | Skill: analyze SARIF findings |
-| `agent-mode/skills/create-yaml-config.md` | Skill: create YAML passThrough config |
-| `agent-mode/skills/create-approximation.md` | Skill: create code-based approximations |
-| `agent-mode/skills/generate-poc.md` | Skill: generate proof-of-concept |
+| `agent/meta-prompt.md` | Agent system prompt |
+| `agent/skills/build-project.md` | Skill: build project |
+| `agent/skills/discover-entry-points.md` | Skill: discover entry points |
+| `agent/skills/create-rule.md` | Skill: create pattern rules |
+| `agent/skills/test-rule.md` | Skill: test rules |
+| `agent/skills/run-analysis.md` | Skill: run analysis |
+| `agent/skills/analyze-findings.md` | Skill: analyze SARIF findings |
+| `agent/skills/create-yaml-config.md` | Skill: create YAML passThrough config |
+| `agent/skills/create-approximation.md` | Skill: create code-based approximations |
+| `agent/skills/generate-poc.md` | Skill: generate proof-of-concept |
 
-### Modified Files (16)
+### Modified Files (15)
 
 | File | Change Summary |
 |------|----------------|
@@ -1318,6 +1271,5 @@ B1, B5, B7, B8 are independent. B2 must precede B3, B4, B6.
 | `cli/cmd/scan.go` | 4 new flags: `--rule-id`, `--approximations-config`, `--dataflow-approximations`, `--external-methods` |
 | `cli/cmd/command_builder.go` | 5 new `AnalyzerBuilder` methods + fields |
 | `cli/internal/globals/global.go` | `JarPath` fields in `Analyzer`/`Autobuilder` config structs |
-| `cli/internal/utils/opentaint_home.go` | `GetSkillsPath()` function |
-| `.github/workflows/release-cli.yaml` | Bundle skills + test-util JAR |
-| `.github/workflows/publish-analyzer.yaml` | Publish test-util JAR as release asset |
+| `cli/internal/utils/opentaint_home.go` | `GetAgentPath()` function |
+| `.github/workflows/release-cli.yaml` | Bundle agent files + test-util JAR |
