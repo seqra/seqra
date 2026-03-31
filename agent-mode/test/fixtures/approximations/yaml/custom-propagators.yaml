@@ -1,0 +1,37 @@
+# Custom passThrough rules for external library methods encountered by the engine.
+#
+# IMPORTANT: Approximations (both YAML and code-based) are ONLY applicable to
+# external methods — library classes whose source code is NOT part of the project.
+# Project classes with source code are analyzed directly by the engine.
+#
+# These methods would appear in the external-methods.yaml output under
+# withoutRules, indicating the engine has no propagation model for them.
+
+passThrough:
+  # org.apache.pdfbox.pdmodel.PDDocument#getPage — taint on this flows to result
+  # PDFBox is an external dependency of Stirling-PDF
+  - function: org.apache.pdfbox.pdmodel.PDDocument#getPage
+    copy:
+      - from: this
+        to: result
+
+  # org.apache.pdfbox.text.PDFTextStripper#getText — taint on arg(0) flows to result
+  # Extracts text from a tainted document
+  - function: org.apache.pdfbox.text.PDFTextStripper#getText
+    copy:
+      - from: arg(0)
+        to: result
+
+  # com.fasterxml.jackson.databind.ObjectMapper#readValue — taint flows through deserialization
+  # Jackson is an external dependency
+  - function: com.fasterxml.jackson.databind.ObjectMapper#readValue
+    copy:
+      - from: arg(0)
+        to: result
+
+  # org.jsoup.Jsoup#parse — taint on arg(0) flows to result
+  # Jsoup is an external dependency used for HTML parsing
+  - function: org.jsoup.Jsoup#parse
+    copy:
+      - from: arg(0)
+        to: result
