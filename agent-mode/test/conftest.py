@@ -46,8 +46,8 @@ def _find_analyzer_jar() -> Optional[Path]:
             return p
 
     candidates = [
-        OPENTAINT_ROOT / "core" / "build" / "libs" / "opentaint-jvm-sast.jar",
         OPENTAINT_ROOT / "core" / "build" / "libs" / "opentaint-project-analyzer.jar",
+        OPENTAINT_ROOT / "core" / "build" / "libs" / "opentaint-jvm-sast.jar",
     ]
     for c in candidates:
         if c.exists():
