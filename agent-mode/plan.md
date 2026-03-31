@@ -189,11 +189,15 @@ Refer to `agent-mode/impl/agent-mode-impl.md` for the full design.
 
 ## Phase H: Discovered Issues (from design-vs-implementation comparison)
 
-### H1: Release pipeline — bundle agent files — [ ]
-- `.github/workflows/release-cli.yaml` — add step to copy `agent/` to `cli/lib/agent/`
-- Without this, `opentaint agent skills` and `opentaint agent prompt` fail in released builds
-- `GetBundledAgentPath()` returns `<exe-dir>/lib/agent` which won't exist in release archives
-- **Priority: HIGH**
+### H1: ~~Release pipeline — bundle agent files~~ → Embed agent files in binary — [x]
+- Agent files (~28KB) embedded in Go binary via `go:generate` + `go:embed`
+- New package `cli/internal/agent/` with `GetPath()`:
+  - Tier 1: bundled `<exe-dir>/lib/agent/` (release archives)
+  - Tier 2: extract from embedded FS to `~/.opentaint/agent/` (go install, dev builds)
+  - SHA-256 content hash marker for staleness detection
+- Removed `GetBundledAgentPath()` from `opentaint_home.go`
+- Updated `agent_prompt.go` and `agent_skills.go` to use `agent.GetPath()`
+- Works with: `go install`, released builds, dev builds
 
 ### H2: Release pipeline — bundle test-util JAR — [ ]
 - `.github/workflows/release-cli.yaml` — add step to build/download `opentaint-sast-test-util.jar` to `cli/lib/`
@@ -207,12 +211,10 @@ Refer to `agent-mode/impl/agent-mode-impl.md` for the full design.
 - Inconsistent with the documented full rule ID format in `create-rule.md` and `run-analysis.md`
 - **Priority: MEDIUM**
 
-### H4: Agent path resolution — single-tier only — [ ]
-- Design specified bundled + install tiers for `GetAgentPath()`
-- Implementation (`GetBundledAgentPath()`) only checks `<exe-dir>/lib/agent/`
-- No install-tier fallback at `~/.opentaint/install/lib/agent/`
-- Minor impact — only matters if agent files distributed separately from CLI binary
-- **Priority: LOW**
+### H4: ~~Agent path resolution — single-tier only~~ — [x]
+- Superseded by H1: agent files are now embedded in binary and extracted on demand
+- Two-tier resolution: bundled (release) → embedded extraction (`~/.opentaint/agent/`)
+- No longer depends on external file distribution
 
 ### H5: Env var naming mismatch in docs — [ ]
 - Design docs say `OPENTAINT_ANALYZER_JAR` / `OPENTAINT_AUTOBUILDER_JAR`
