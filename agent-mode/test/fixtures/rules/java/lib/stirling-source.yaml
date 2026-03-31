@@ -1,0 +1,10 @@
+rules:
+  - id: stirling-multipart-file-source
+    options:
+      lib: true
+    severity: NOTE
+    message: Untrusted multipart file data from Spring controller
+    languages: [java]
+    patterns:
+      - pattern: |
+          $RETURNTYPE $METHOD(..., @RequestParam MultipartFile $UNTRUSTED, ...) { ... }
