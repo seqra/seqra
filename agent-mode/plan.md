@@ -115,31 +115,29 @@ Refer to `agent-mode/impl/agent-mode-impl.md` for the full design.
 
 ## Phase F: Test Infrastructure and Missing Features
 
-### F1: Refactor tests to use Go CLI only — [ ]
-- Currently `conftest.py` has two modes: Go CLI and direct JAR invocation
-- Remove direct JAR mode entirely — all tests must go through `opentaint` CLI
-- `conftest.py` should find the local CLI binary at `cli/bin/opentaint` (dev mode)
-- Pass `--analyzer-jar` and `--autobuilder-jar` hidden flags when using local builds
-- Remove `_find_analyzer_jar()`, `_find_autobuilder_jar()`, `_find_java()` — CLI handles all of this
-- Simplify `OpenTaintCLI`: single code path per method, no `if self.has_cli` branching
+### F1: Refactor tests to use Go CLI only — [x]
+- Removed dual-mode (Go CLI + direct JAR) from `conftest.py`
+- All tests now require the Go CLI binary at `cli/bin/opentaint` (dev mode)
+- Hidden `--analyzer-jar` / `--autobuilder-jar` flags auto-detected for local builds
+- Removed `_find_java()`, `has_cli` branching, direct JAR invocation code paths
+- Fixed CLI scan path: auto-strip `project.yaml` from file paths (CLI expects directory)
 
-### F2: `opentaint agent init-test-project` command — [ ]
-- Designed in impl doc (B8) but never implemented
-- Currently tests that depend on it skip with `pytest.skip("init-test-project not available")`
-- Affected tests: `test_init_test_project`, `test_rule_test_all_pass`, `test_rule_test_detects_false_negative`
-- Implementation: `cli/cmd/agent_init_test_project.go` — bootstrap Gradle project with test-util JAR
+### F2: `opentaint agent init-test-project` command — [x]
+- New file: `cli/cmd/agent_init_test_project.go`
+- Creates directory structure, copies test-util JAR, generates `build.gradle.kts` and `settings.gradle.kts`
+- Supports `--dependency` flag for Maven coordinates
+- Resolves test-util JAR from bundled, install, or dev build tiers
+- `test_init_test_project` now passes (was previously skipping)
 
-### F3: Add timing instrumentation to full loop test — [ ]
-- `test_full_loop.py::test_full_agent_loop` runs 2 scans + rule creation + approximation creation
-- Currently no per-step timing — hard to tell which phase is slow when test times out
-- Add `time.time()` checkpoints and print elapsed time after each phase
-- Helps investigate performance bottlenecks without requiring an actual agent
-- **Note**: add timing to all other tests
+### F3: Add timing instrumentation to all tests — [x]
+- Added pytest hooks (`pytest_runtest_setup`/`pytest_runtest_teardown`) for per-test timing
+- Added per-phase `time.time()` checkpoints to `test_full_agent_loop`
+- All test output now includes `[timing]` lines with elapsed seconds
 
-### F4: Run all tests via CLI, write test report — [ ]
-- Run full pytest suite using the Go CLI binary (after F1)
-- Write results to `agent-mode/test-status.md` with table: feature | test name | scenario | status | time
-- Must cover: build, rules, approximations, external methods, full loop
+### F4: Run all tests via CLI, write test report — [x]
+- Full suite: 31 passed, 3 failed (all pre-existing), 0 skipped
+- Report written to `agent-mode/test-status.md`
+- Pre-existing failures: analyzer exit code 0 on approximation errors (2 tests), autobuilder JAR not built (1 test)
 
 ---
 
@@ -153,3 +151,9 @@ Refer to `agent-mode/impl/agent-mode-impl.md` for the full design.
 | 8734ae31 | C1-C2 | Phase C: Skills and meta-prompt |
 | 7d094862 | D1 | Fix conftest JAR resolution order |
 | 4e06427b | E-plan | Add Phase E tasks to plan |
+| 67b9276f | E1-E4 | Phase E: Filter static facts, update rule ID format in skills/tests |
+| 7c3f94ed | F-plan | Add Phase F to plan |
+| 195d23a9 | F1 | Refactor tests to CLI-only mode |
+| 592f2667 | F2 | Implement opentaint agent init-test-project command |
+| 63c84b96 | F3 | Add timing instrumentation to all tests |
+| (pending) | F4 | Fix CLI scan path, run full suite, write test report |
