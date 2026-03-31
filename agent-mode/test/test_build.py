@@ -148,7 +148,5 @@ class TestErrorHandling:
 
     def test_scan_missing_output_flag(self, cli: OpenTaintCLI, stirling_project: Path):
         """Scan without -o flag should fail (it's required)."""
-        if not cli.has_cli:
-            pytest.skip("Requires Go CLI for flag validation")
         result = cli.run([cli.cli_path, "scan", str(stirling_project)])
         result.assert_failed("Scan should require -o flag")
