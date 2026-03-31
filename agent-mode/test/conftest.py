@@ -12,12 +12,31 @@ import os
 import shutil
 import subprocess
 import tempfile
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
 import pytest
 import yaml
+
+
+# ─── Timing ──────────────────────────────────────────────────────────────────
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_setup(item):
+    """Record start time before each test."""
+    item._start_time = time.time()
+
+
+@pytest.hookimpl(trylast=True)
+def pytest_runtest_teardown(item, nextitem):
+    """Print elapsed time after each test."""
+    start = getattr(item, "_start_time", None)
+    if start is not None:
+        elapsed = time.time() - start
+        print(f"\n  [timing] {item.nodeid}: {elapsed:.1f}s")
 
 
 # ─── Paths ───────────────────────────────────────────────────────────────────
