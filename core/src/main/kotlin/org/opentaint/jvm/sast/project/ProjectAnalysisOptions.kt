@@ -13,6 +13,8 @@ data class ProjectAnalysisOptions(
     val semgrepRuleSet: List<Path> = emptyList(),
     val semgrepRuleLoadTrace: Path? = null,
     val semgrepSeverity: List<Severity> = emptyList(),
+    val semgrepRuleId: List<String> = emptyList(),
+    val externalMethodsOutput: Path? = null,
     val cwe: List<Int> = emptyList(),
     val useSymbolicExecution: Boolean = false,
     val symbolicExecutionTimeout: Duration = Duration.ZERO,

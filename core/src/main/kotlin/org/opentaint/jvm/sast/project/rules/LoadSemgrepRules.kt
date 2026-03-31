@@ -18,7 +18,7 @@ private val logger = object : KLogging() {}.logger
 
 fun ProjectAnalysisOptions.loadSemgrepRules(): SemgrepRuleLoader.RuleLoadResult {
     val trace = SemgrepLoadTrace()
-    val semgrepRules = parseSemgrepRules(semgrepRuleSet, semgrepSeverity, trace)
+    val semgrepRules = parseSemgrepRules(semgrepRuleSet, semgrepSeverity, semgrepRuleId, trace)
 
     val compressedTrace by lazy { trace.compressed() }
     semgrepRuleLoadTrace?.let { traceFile ->
@@ -41,6 +41,7 @@ fun ProjectAnalysisOptions.loadSemgrepRules(): SemgrepRuleLoader.RuleLoadResult 
 private fun parseSemgrepRules(
     semgrepRulesPath: List<Path>,
     semgrepSeverity: List<Severity>,
+    semgrepRuleId: List<String>,
     semgrepTrace: SemgrepLoadTrace
 ): SemgrepRuleLoader.RuleLoadResult {
     val loader = SemgrepRuleLoader()
@@ -53,7 +54,7 @@ private fun parseSemgrepRules(
         }
     }
 
-    val loadedRules = loader.loadRules(semgrepSeverity)
+    val loadedRules = loader.loadRules(semgrepSeverity, semgrepRuleId)
 
     logger.info { "Total loaded ${loadedRules.rulesWithMeta.sumOf { it.first.size }} rules" }
 

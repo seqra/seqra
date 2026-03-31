@@ -21,6 +21,8 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.automata.AutomataApManager
 import org.opentaint.dataflow.ap.ifds.access.cactus.CactusApManager
 import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
+import org.opentaint.dataflow.ap.ifds.taint.ExternalMethodResults
+import org.opentaint.dataflow.ap.ifds.taint.ExternalMethodTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction.TraceSummaryEdge
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
@@ -58,6 +60,7 @@ class JIRTaintAnalyzer(
     val projectClasses: ClassLocationChecker,
     val options: TaintAnalyzerOptions,
     val analysisUnit: JIRUnitResolver = PackageUnitResolver(projectClasses),
+    private val externalMethodTracker: ExternalMethodTracker? = null,
 ): AutoCloseable {
 
     private val ifdsAnalysisGraph by lazy {
@@ -111,8 +114,13 @@ class JIRTaintAnalyzer(
         taintConfig,
         summarySerializationContext,
         apManager,
-        options.debugOptions?.taintRulesStatsSamplingPeriod
+        options.debugOptions?.taintRulesStatsSamplingPeriod,
+        externalMethodTracker,
     )
+
+    fun getExternalMethodResults(): ExternalMethodResults? {
+        return ifdsEngine.getExternalMethodResults()
+    }
 
     private fun analyzeTaintWithIfdsEngine(
         entryPoints: List<JIRMethod>,

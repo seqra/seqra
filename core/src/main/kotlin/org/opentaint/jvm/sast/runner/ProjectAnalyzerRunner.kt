@@ -11,6 +11,7 @@ import com.github.ajalt.clikt.parameters.types.int
 import com.github.ajalt.clikt.parameters.types.path
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
 import org.opentaint.jvm.sast.dataflow.DebugOptions
+import org.opentaint.jvm.sast.dataflow.DataFlowApproximationLoader
 import org.opentaint.jvm.sast.project.ProjectAnalysisOptions
 import org.opentaint.jvm.sast.project.ProjectAnalyzer
 import org.opentaint.jvm.sast.project.SarifGenerationOptions
@@ -31,8 +32,10 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
     private val symbolicExecutionTimeout: Int by option(help = "Symbolic execution timeout in seconds")
         .int().default(60)
 
-    private val config: Path? by option(help = "User defined analysis configuration")
-        .file()
+    private val approximationsConfig: Path? by option(
+        "--approximations-config", "--config",
+        help = "YAML passThrough approximations config (OVERRIDE mode)"
+    ).file()
 
     private val semgrepRuleSet: List<Path> by option(help = "Semgrep YAML rule file or directory containing YAML rules")
         .path()
@@ -40,6 +43,16 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
 
     private val semgrepRuleSeverity: List<Severity> by option(help = "Rule severity")
         .choice(Severity.entries.associateBy { it.name.lowercase() }).multiple()
+
+    private val semgrepRuleId: List<String> by option(help = "Filter active rules by ID")
+        .multiple()
+
+    private val externalMethodsOutput: Path? by option(help = "Output path for external methods YAML list")
+        .newFile()
+
+    private val dataflowApproximations: List<Path> by option(help = "Directory of compiled approximation class files")
+        .path()
+        .multiple()
 
     private val semgrepRuleLoadTrace: Path? by option(help = "Output file for Semgrep rules loader trace")
         .newFile()
@@ -81,10 +94,12 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
         )
 
         val options = ProjectAnalysisOptions(
-            customConfig = config,
+            customConfig = approximationsConfig,
             semgrepRuleSet = semgrepRuleSet,
             semgrepSeverity = semgrepRuleSeverity,
+            semgrepRuleId = semgrepRuleId,
             semgrepRuleLoadTrace = semgrepRuleLoadTrace,
+            externalMethodsOutput = externalMethodsOutput,
             cwe = cwe,
             useSymbolicExecution = useSymbolicExecution,
             symbolicExecutionTimeout = symbolicExecutionTimeout.seconds,
@@ -95,6 +110,9 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
             experimentalAAInterProcCallDepth = experimentalAAInterProcCallDepth,
             debugOptions = debugOptions,
             sarifGenerationOptions = sarifOptions,
+            approximationOptions = DataFlowApproximationLoader.Options(
+                customApproximationPaths = dataflowApproximations,
+            ),
         )
 
         if (!debugOptions.runRuleTests) {

@@ -20,6 +20,7 @@ object DataFlowApproximationLoader {
     data class Options(
         val useDataflowApproximation: Boolean = true,
         val useOpentaintApproximations: Boolean = false,
+        val customApproximationPaths: List<Path> = emptyList(),
     )
 
     private const val APPROXIMATIONS_PATH = "/opentaint-dataflow-approximations"
@@ -58,6 +59,11 @@ object DataFlowApproximationLoader {
         if (options.useOpentaintApproximations) {
             result += approximationPaths.presentPaths.map { File(it) }
         }
+
+        // Custom approximation paths appended AFTER built-in ones.
+        // If a custom approximation targets the same class as a built-in,
+        // the ApproximationIndexer's bijection require() will throw.
+        result += options.customApproximationPaths.map { it.toFile() }
 
         return result
     }

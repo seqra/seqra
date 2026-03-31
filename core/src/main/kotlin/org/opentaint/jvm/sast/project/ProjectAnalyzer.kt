@@ -3,6 +3,8 @@ package org.opentaint.jvm.sast.project
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.ap.ifds.taint.ExternalMethodResults
+import org.opentaint.dataflow.ap.ifds.taint.ExternalMethodTracker
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.loadSerializedTaintConfig
@@ -28,6 +30,7 @@ import org.opentaint.jvm.sast.util.locationChecker
 import org.opentaint.project.Project
 import org.opentaint.semgrep.pattern.RuleMetadata
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
+import org.opentaint.semgrep.pattern.createTaintConfig
 import java.io.OutputStream
 import java.nio.file.Path
 import kotlin.io.path.div
@@ -55,21 +58,29 @@ class ProjectAnalyzer(
     private sealed interface PreloadedRules {
         data class SemgrepRules(val rules: List<TaintRuleFromSemgrep>) : PreloadedRules
         data class Custom(val config: SerializedTaintConfig) : PreloadedRules
+        data class SemgrepRulesWithCustomConfig(
+            val rules: List<TaintRuleFromSemgrep>,
+            val config: SerializedTaintConfig,
+        ) : PreloadedRules
         data object DefaultRules : PreloadedRules
     }
 
     private fun preloadRules(): PreloadedRules {
-        if (options.semgrepRuleSet.isNotEmpty()) {
-            check(options.customConfig == null) { "Unsupported custom config" }
-
-            val loadedRules = options.loadSemgrepRules()
-            ruleMetadatas += loadedRules.rulesWithMeta.map { it.second }
-            return PreloadedRules.SemgrepRules(loadedRules.rulesWithMeta.map { it.first })
-        }
-
         val customConfig = options.customConfig?.let { cfg ->
             cfg.inputStream().use { cfgStream ->
                 loadSerializedTaintConfig(cfgStream)
+            }
+        }
+
+        if (options.semgrepRuleSet.isNotEmpty()) {
+            val loadedRules = options.loadSemgrepRules()
+            ruleMetadatas += loadedRules.rulesWithMeta.map { it.second }
+            val rules = loadedRules.rulesWithMeta.map { it.first }
+
+            return if (customConfig != null) {
+                PreloadedRules.SemgrepRulesWithCustomConfig(rules, customConfig)
+            } else {
+                PreloadedRules.SemgrepRules(rules)
             }
         }
 
@@ -83,6 +94,20 @@ class ProjectAnalyzer(
     private fun loadTaintConfig(cp: JIRClasspath, rules: PreloadedRules): TaintRulesProvider = when (rules) {
         is PreloadedRules.SemgrepRules -> {
             rules.rules.semgrepRulesWithDefaultConfig(cp)
+        }
+
+        is PreloadedRules.SemgrepRulesWithCustomConfig -> {
+            // Load default pass-through rules, override with custom config, then layer semgrep rules
+            val defaultPassRules = loadDefaultConfig()
+            val config = TaintConfiguration(cp)
+            config.loadConfig(defaultPassRules)
+            // Custom config overrides default (OVERRIDE mode via JIRCombinedTaintRulesProvider)
+            val customTaintConfig = TaintConfiguration(cp).apply { loadConfig(rules.config) }
+            rules.rules.forEach { config.loadConfig(it.createTaintConfig()) }
+
+            val baseRules = JIRTaintRulesProvider(config)
+            val customRules = JIRTaintRulesProvider(customTaintConfig)
+            JIRCombinedTaintRulesProvider(baseRules, customRules)
         }
 
         is PreloadedRules.Custom -> {
@@ -104,8 +129,16 @@ class ProjectAnalyzer(
     }
 
     private fun ProjectAnalysisContext.runAnalyzer(entryPoints: List<JIRMethod>, rules: PreloadedRules) {
-        val analysisResult = runAnalyzerWithTraceResolver(entryPoints, rules)
+        val externalMethodTracker = if (options.externalMethodsOutput != null) ExternalMethodTracker() else null
+
+        val analysisResult = runAnalyzerWithTraceResolver(entryPoints, rules, externalMethodTracker)
         generateReportFromAnalysisResult(analysisResult)
+
+        // Write external methods YAML output if requested
+        if (externalMethodTracker != null && options.externalMethodsOutput != null) {
+            val results = externalMethodTracker.getResults()
+            writeExternalMethodsYaml(options.externalMethodsOutput!!, results)
+        }
     }
 
     private data class AnalysisResult(
@@ -116,7 +149,8 @@ class ProjectAnalyzer(
 
     private fun ProjectAnalysisContext.runAnalyzerWithTraceResolver(
         entryPoints: List<JIRMethod>,
-        rules: PreloadedRules
+        rules: PreloadedRules,
+        externalMethodTracker: ExternalMethodTracker? = null,
     ): AnalysisResult {
         val loadedConfig = loadTaintConfig(cp, rules)
         val config = analysisConfig(loadedConfig)
@@ -125,6 +159,7 @@ class ProjectAnalyzer(
             cp, config,
             projectClasses = projectClasses.locationChecker(),
             options = options.taintAnalyzerOptions(),
+            externalMethodTracker = externalMethodTracker,
         ).use { analyzer ->
             logger.info { "Start IFDS analysis for project: ${project.sourceRoot}" }
             val traces = analyzer.analyzeWithIfds(entryPoints)
@@ -209,6 +244,25 @@ class ProjectAnalyzer(
             sourceFileResolver, JIRSarifTraits(cp)
         )
         generator.generateSarif(output, reachableFacts)
+    }
+
+    private fun writeExternalMethodsYaml(outputPath: Path, results: ExternalMethodResults) {
+        outputPath.outputStream().bufferedWriter().use { writer ->
+            fun writeRecords(label: String, records: List<org.opentaint.dataflow.ap.ifds.taint.ExternalMethodRecord>) {
+                writer.write("$label:\n")
+                for (record in records) {
+                    writer.write("  - method: \"${record.method}\"\n")
+                    writer.write("    signature: \"${record.signature}\"\n")
+                    writer.write("    factPositions: [${record.factPositions.sorted().joinToString(", ") { "\"$it\"" }}]\n")
+                    writer.write("    callSites: ${record.callSites}\n")
+                }
+            }
+
+            writeRecords("withoutRules", results.withoutRules)
+            writeRecords("withRules", results.withRules)
+        }
+
+        logger.info { "Wrote external methods to $outputPath" }
     }
 
     companion object {
