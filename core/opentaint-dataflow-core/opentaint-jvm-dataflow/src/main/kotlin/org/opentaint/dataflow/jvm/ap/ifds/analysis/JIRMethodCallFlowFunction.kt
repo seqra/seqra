@@ -650,11 +650,14 @@ class JIRMethodCallFlowFunction(
             )
 
             // Report to external method tracker if enabled
-            analysisContext.taint.externalMethodTracker?.let { tracker ->
-                val methodName = "${method.enclosingClass.name}#${method.name}"
-                val methodDesc = method.description
-                val factPosition = startFactBase.toString()
-                tracker.report(methodName, methodDesc, factPosition, passThroughFacts.isSome)
+            // Skip static facts — they represent class-level state, not taint propagation through method calls
+            if (startFactBase !is AccessPathBase.ClassStatic) {
+                analysisContext.taint.externalMethodTracker?.let { tracker ->
+                    val methodName = "${method.enclosingClass.name}#${method.name}"
+                    val methodDesc = method.description
+                    val factPosition = startFactBase.toString()
+                    tracker.report(methodName, methodDesc, factPosition, passThroughFacts.isSome)
+                }
             }
 
             passThroughFacts.onSome { evaluatedPass ->

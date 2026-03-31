@@ -86,7 +86,9 @@ class TestYAMLApproximationsConfig:
             project_path=str(stirling_project),
             output=str(sarif_path),
             rulesets=["builtin", str(custom_rules)],
-            rule_ids=["stirling-path-traversal"],
+            rule_ids=[
+                "java/security/stirling-path-traversal.yaml:stirling-path-traversal"
+            ],
             approximations_config=str(config_path),
             severity=["note", "warning", "error"],
             timeout=600,
@@ -253,7 +255,9 @@ class TestCombinedApproximations:
             project_path=str(stirling_project),
             output=str(sarif_path),
             rulesets=["builtin", str(custom_rules)],
-            rule_ids=["stirling-path-traversal"],
+            rule_ids=[
+                "java/security/stirling-path-traversal.yaml:stirling-path-traversal"
+            ],
             approximations_config=str(yaml_config),
             dataflow_approximations=str(java_approx),
             severity=["note", "warning", "error"],
@@ -285,7 +289,9 @@ class TestCombinedApproximations:
             project_path=str(stirling_project),
             output=str(sarif_no_approx),
             rulesets=["builtin", str(custom_rules)],
-            rule_ids=["stirling-path-traversal"],
+            rule_ids=[
+                "java/security/stirling-path-traversal.yaml:stirling-path-traversal"
+            ],
             severity=["note", "warning", "error"],
             timeout=600,
         )
@@ -297,7 +303,9 @@ class TestCombinedApproximations:
             project_path=str(stirling_project),
             output=str(sarif_with_approx),
             rulesets=["builtin", str(custom_rules)],
-            rule_ids=["stirling-path-traversal"],
+            rule_ids=[
+                "java/security/stirling-path-traversal.yaml:stirling-path-traversal"
+            ],
             approximations_config=str(yaml_config),
             severity=["note", "warning", "error"],
             timeout=600,

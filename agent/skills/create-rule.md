@@ -110,12 +110,21 @@ refs:
 
 ### 6. Run analysis with specific rules
 
+The `--rule-id` flag requires the **full rule ID** in the format `<ruleSetRelativePath>:<shortId>`.
+The `ruleSetRelativePath` is the path to the YAML file relative to its ruleset root, **including** the `.yaml` extension.
+
 ```bash
+# Full rule ID = "java/security/my-vuln.yaml" (relative path with .yaml) + ":" + "my-vulnerability" (id from YAML)
 opentaint scan ./opentaint-project/project.yaml \
   -o ./results/report.sarif \
   --ruleset builtin --ruleset ./agent-rules \
-  --rule-id my-vulnerability
+  --rule-id java/security/my-vuln.yaml:my-vulnerability
 ```
+
+To discover full rule IDs, read the rule YAML file:
+- The `id` field in the YAML gives the short ID
+- The file path relative to the ruleset root (with `.yaml` extension) gives the prefix
+- Combine as `<relativePath>:<id>`, e.g. `java/security/path-traversal.yaml:path-traversal`
 
 ## Constraints
 
@@ -124,6 +133,7 @@ opentaint scan ./opentaint-project/project.yaml \
 - Source/sink metavariable names must match across `refs` and `on` clauses
 - The `rule:` path in `refs` is relative to the ruleset root
 - Rule IDs must be globally unique
+- `--rule-id` requires the **full** rule ID (`<path.yaml>:<id>`), not just the short ID
 - Library rules referenced via `refs` in join-mode rules are auto-included by `--rule-id`
 - For simple structural patterns (no dataflow), omit `mode:` (uses default mode)
 
