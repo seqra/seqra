@@ -1,9 +1,10 @@
 """
 Shared fixtures and helpers for agent-mode tests.
 
-Handles two execution modes:
-1. Go CLI mode: when `opentaint` is on PATH (production)
-2. Direct JAR mode: when running against locally-built JARs (development)
+All tests use the Go CLI binary (`opentaint`). In development mode, the binary
+is located at `cli/bin/opentaint` relative to the repo root, and hidden
+`--analyzer-jar` / `--autobuilder-jar` flags are passed automatically to point
+at locally-built JARs.
 """
 
 import json
@@ -28,67 +29,79 @@ FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 BUILTIN_RULES_DIR = OPENTAINT_ROOT / "rules" / "ruleset"
 
 
+# ─── CLI Resolution ──────────────────────────────────────────────────────────
+
+
+def _find_cli_binary() -> str:
+    """
+    Find the opentaint CLI binary. Resolution order:
+    1. OPENTAINT_CLI env var
+    2. Local dev build at cli/bin/opentaint
+    3. opentaint on PATH
+    """
+    env_cli = os.environ.get("OPENTAINT_CLI")
+    if env_cli:
+        p = Path(env_cli)
+        if p.exists():
+            return str(p)
+
+    dev_binary = OPENTAINT_ROOT / "cli" / "bin" / "opentaint"
+    if dev_binary.exists():
+        return str(dev_binary)
+
+    on_path = shutil.which("opentaint")
+    if on_path:
+        return on_path
+
+    pytest.exit(
+        "opentaint CLI binary not found. Build it with: cd cli && go build -o ./bin/opentaint .",
+        returncode=1,
+    )
+
+
+def _find_local_jar(env_var: str, candidates: list) -> Optional[str]:
+    """Find a locally-built JAR by env var or candidate paths."""
+    env_jar = os.environ.get(env_var)
+    if env_jar:
+        p = Path(env_jar)
+        if p.exists():
+            return str(p)
+
+    for c in candidates:
+        if c.exists():
+            return str(c)
+    return None
+
+
+def _find_analyzer_jar() -> Optional[str]:
+    """Find locally-built analyzer JAR for --analyzer-jar hidden flag."""
+    return _find_local_jar(
+        "OPENTAINT_ANALYZER_JAR",
+        [
+            OPENTAINT_ROOT
+            / "core"
+            / "build"
+            / "libs"
+            / "opentaint-project-analyzer.jar",
+        ],
+    )
+
+
+def _find_autobuilder_jar() -> Optional[str]:
+    """Find locally-built autobuilder JAR for --autobuilder-jar hidden flag."""
+    return _find_local_jar(
+        "OPENTAINT_AUTOBUILDER_JAR",
+        [
+            OPENTAINT_ROOT
+            / "autobuilder"
+            / "build"
+            / "libs"
+            / "opentaint-project-auto-builder.jar",
+        ],
+    )
+
+
 # ─── CLI Abstraction ─────────────────────────────────────────────────────────
-
-
-def _find_opentaint_cli() -> Optional[str]:
-    """Check if opentaint is on PATH."""
-    return shutil.which("opentaint")
-
-
-def _find_analyzer_jar() -> Optional[Path]:
-    """Find locally-built analyzer JAR."""
-    # Check environment variable first
-    env_jar = os.environ.get("OPENTAINT_ANALYZER_JAR")
-    if env_jar:
-        p = Path(env_jar)
-        if p.exists():
-            return p
-
-    candidates = [
-        OPENTAINT_ROOT / "core" / "build" / "libs" / "opentaint-project-analyzer.jar",
-        OPENTAINT_ROOT / "core" / "build" / "libs" / "opentaint-jvm-sast.jar",
-    ]
-    for c in candidates:
-        if c.exists():
-            return c
-    return None
-
-
-def _find_autobuilder_jar() -> Optional[Path]:
-    """Find locally-built autobuilder JAR."""
-    env_jar = os.environ.get("OPENTAINT_AUTOBUILDER_JAR")
-    if env_jar:
-        p = Path(env_jar)
-        if p.exists():
-            return p
-
-    candidates = [
-        OPENTAINT_ROOT
-        / "autobuilder"
-        / "build"
-        / "libs"
-        / "opentaint-project-auto-builder.jar",
-    ]
-    for c in candidates:
-        if c.exists():
-            return c
-    return None
-
-
-def _find_java() -> str:
-    """Find Java 21 (analyzer requires it)."""
-    # Check JAVA_HOME first
-    java_home = os.environ.get("JAVA_HOME")
-    if java_home:
-        java = Path(java_home) / "bin" / "java"
-        if java.exists():
-            return str(java)
-    # Fall back to PATH
-    java = shutil.which("java")
-    if java:
-        return java
-    raise RuntimeError("Java not found. Set JAVA_HOME or add java to PATH.")
 
 
 @dataclass
@@ -122,22 +135,25 @@ class CLIResult:
 @dataclass
 class OpenTaintCLI:
     """
-    Abstraction over the opentaint CLI.
+    Abstraction over the opentaint Go CLI binary.
 
-    Supports two modes:
-    - Go CLI: uses `opentaint` binary from PATH
-    - Direct JAR: uses `java -jar analyzer.jar` for scan, `java -jar autobuilder.jar` for compile
+    All commands go through the CLI. In dev mode, hidden --analyzer-jar and
+    --autobuilder-jar flags are passed to point at locally-built JARs.
     """
 
-    cli_path: Optional[str] = None
-    analyzer_jar: Optional[Path] = None
-    autobuilder_jar: Optional[Path] = None
-    java_path: str = "java"
+    cli_path: str = ""
+    analyzer_jar: Optional[str] = None
+    autobuilder_jar: Optional[str] = None
     timeout: int = 600  # seconds
 
-    @property
-    def has_cli(self) -> bool:
-        return self.cli_path is not None
+    def _base_cmd(self) -> list:
+        """Return the base command with hidden JAR flags if set."""
+        cmd = [self.cli_path]
+        if self.analyzer_jar:
+            cmd.extend(["--analyzer-jar", self.analyzer_jar])
+        if self.autobuilder_jar:
+            cmd.extend(["--autobuilder-jar", self.autobuilder_jar])
+        return cmd
 
     def run(
         self, args: list, timeout: Optional[int] = None, env: Optional[dict] = None
@@ -172,63 +188,21 @@ class OpenTaintCLI:
         max_memory: str = "8G",
         extra_flags: list = None,
     ) -> CLIResult:
-        """Run opentaint scan (or direct analyzer JAR invocation)."""
-
-        if self.has_cli:
-            cmd = [self.cli_path, "scan", project_path, "-o", output]
-            for rs in rulesets or ["builtin"]:
-                cmd.extend(["--ruleset", rs])
-            for rid in rule_ids or []:
-                cmd.extend(["--rule-id", rid])
-            if approximations_config:
-                cmd.extend(["--approximations-config", approximations_config])
-            if dataflow_approximations:
-                cmd.extend(["--dataflow-approximations", dataflow_approximations])
-            if external_methods:
-                cmd.extend(["--external-methods", external_methods])
-            for sev in severity or ["warning", "error"]:
-                cmd.extend(["--severity", sev])
-            cmd.extend(["--timeout", f"{timeout}s", "--max-memory", max_memory])
-            cmd.extend(extra_flags or [])
-            return self.run(cmd, timeout=timeout + 60)
-
-        # Direct JAR invocation
-        assert self.analyzer_jar, "No analyzer JAR found"
-        output_dir = str(Path(output).parent)
-        sarif_name = Path(output).name
-        cmd = [
-            self.java_path,
-            f"-Xmx{max_memory}",
-            "-Dorg.opentaint.ir.impl.storage.defaultBatchSize=2000",
-            "-Djdk.util.jar.enableMultiRelease=false",
-            "-jar",
-            str(self.analyzer_jar),
-            "--project",
-            project_path,
-            "--output-dir",
-            output_dir,
-            "--sarif-file-name",
-            sarif_name,
-            f"--ifds-analysis-timeout={timeout}",
-            "--verbosity=info",
-        ]
-        for rs in rulesets or []:
-            if rs == "builtin":
-                cmd.extend(["--semgrep-rule-set", str(BUILTIN_RULES_DIR)])
-            else:
-                cmd.extend(["--semgrep-rule-set", rs])
+        """Run opentaint scan."""
+        cmd = self._base_cmd() + ["scan", project_path, "-o", output]
+        for rs in rulesets or ["builtin"]:
+            cmd.extend(["--ruleset", rs])
         for rid in rule_ids or []:
-            cmd.extend(["--semgrep-rule-id", rid])
+            cmd.extend(["--rule-id", rid])
         if approximations_config:
-            cmd.extend(["--config", approximations_config])
-        if external_methods:
-            cmd.extend(["--external-methods-output", external_methods])
-        for sev in severity or ["warning", "error"]:
-            cmd.extend([f"--semgrep-rule-severity={sev}"])
-        # Note: --dataflow-approximations needs auto-compile in Go CLI;
-        # for direct JAR, pass pre-compiled classes directory
+            cmd.extend(["--approximations-config", approximations_config])
         if dataflow_approximations:
             cmd.extend(["--dataflow-approximations", dataflow_approximations])
+        if external_methods:
+            cmd.extend(["--external-methods", external_methods])
+        for sev in severity or ["warning", "error"]:
+            cmd.extend(["--severity", sev])
+        cmd.extend(["--timeout", f"{timeout}s", "--max-memory", max_memory])
         cmd.extend(extra_flags or [])
         return self.run(cmd, timeout=timeout + 60)
 
@@ -240,35 +214,12 @@ class OpenTaintCLI:
         timeout: int = 300,
         max_memory: str = "8G",
     ) -> CLIResult:
-        """Run opentaint test-rules (or direct JAR with --debug-run-rule-tests)."""
-
-        if self.has_cli:
-            cmd = [self.cli_path, "test-rules", project_path]
-            for rs in rulesets:
-                cmd.extend(["--ruleset", rs])
-            cmd.extend(["-o", output_dir])
-            cmd.extend(["--timeout", f"{timeout}s", "--max-memory", max_memory])
-            return self.run(cmd, timeout=timeout + 60)
-
-        # Direct JAR invocation
-        assert self.analyzer_jar, "No analyzer JAR found"
-        cmd = [
-            self.java_path,
-            f"-Xmx{max_memory}",
-            "-Dorg.opentaint.ir.impl.storage.defaultBatchSize=2000",
-            "-Djdk.util.jar.enableMultiRelease=false",
-            "-jar",
-            str(self.analyzer_jar),
-            "--project",
-            project_path,
-            "--output-dir",
-            output_dir,
-            "--debug-run-rule-tests",
-            f"--ifds-analysis-timeout={timeout}",
-            "--verbosity=info",
-        ]
+        """Run opentaint agent test-rules."""
+        cmd = self._base_cmd() + ["agent", "test-rules", project_path]
         for rs in rulesets:
-            cmd.extend(["--semgrep-rule-set", rs])
+            cmd.extend(["--ruleset", rs])
+        cmd.extend(["-o", output_dir])
+        cmd.extend(["--timeout", f"{timeout}s", "--max-memory", max_memory])
         return self.run(cmd, timeout=timeout + 60)
 
     def compile(
@@ -277,53 +228,24 @@ class OpenTaintCLI:
         output_dir: str,
         timeout: int = 300,
     ) -> CLIResult:
-        """Run opentaint compile (or direct autobuilder JAR invocation)."""
-
-        if self.has_cli:
-            cmd = [self.cli_path, "compile", project_path, "-o", output_dir]
-            return self.run(cmd, timeout=timeout + 60)
-
-        # Direct JAR invocation
-        assert self.autobuilder_jar, "No autobuilder JAR found"
-        cmd = [
-            self.java_path,
-            "-Xmx1G",
-            "-jar",
-            str(self.autobuilder_jar),
-            "--project-root-dir",
-            project_path,
-            "--result-dir",
-            output_dir,
-            "--build",
-            "portable",
-            "--verbosity=info",
-        ]
+        """Run opentaint compile."""
+        cmd = self._base_cmd() + ["compile", project_path, "-o", output_dir]
         return self.run(cmd, timeout=timeout + 60)
 
     def rules_path(self) -> CLIResult:
-        """Run opentaint rules-path."""
-        if self.has_cli:
-            return self.run([self.cli_path, "rules-path"])
-        # Fall back to known builtin path
-        return CLIResult(
-            0, str(BUILTIN_RULES_DIR), "", ["echo", str(BUILTIN_RULES_DIR)]
-        )
+        """Run opentaint agent rules-path."""
+        return self.run(self._base_cmd() + ["agent", "rules-path"])
 
     def init_test_project(
         self,
         output_dir: str,
         dependencies: list = None,
     ) -> CLIResult:
-        """Run opentaint init-test-project."""
-        if self.has_cli:
-            cmd = [self.cli_path, "init-test-project", output_dir]
-            for dep in dependencies or []:
-                cmd.extend(["--dependency", dep])
-            return self.run(cmd)
-        # Fallback: not available without Go CLI
-        return CLIResult(
-            1, "", "init-test-project not available in direct JAR mode", []
-        )
+        """Run opentaint agent init-test-project."""
+        cmd = self._base_cmd() + ["agent", "init-test-project", output_dir]
+        for dep in dependencies or []:
+            cmd.extend(["--dependency", dep])
+        return self.run(cmd)
 
 
 # ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -333,10 +255,9 @@ class OpenTaintCLI:
 def cli() -> OpenTaintCLI:
     """Provide an OpenTaintCLI instance configured for the current environment."""
     return OpenTaintCLI(
-        cli_path=_find_opentaint_cli(),
+        cli_path=_find_cli_binary(),
         analyzer_jar=_find_analyzer_jar(),
         autobuilder_jar=_find_autobuilder_jar(),
-        java_path=_find_java(),
     )
 
 
