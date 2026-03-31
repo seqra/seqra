@@ -51,7 +51,7 @@ class ExternalMethodTracker {
      * Get the aggregated results, split into methods without and with pass-through rules applied.
      * Both lists are sorted by call site count (descending) for agent prioritization.
      */
-    fun getResults(): ExternalMethodResults {
+    fun getSkippedMethods(): SkippedExternalMethods {
         val withoutRules = mutableListOf<ExternalMethodRecord>()
         val withRules = mutableListOf<ExternalMethodRecord>()
 
@@ -64,7 +64,7 @@ class ExternalMethodTracker {
             }
         }
 
-        return ExternalMethodResults(
+        return SkippedExternalMethods(
             withoutRules = withoutRules.sortedByDescending { it.callSites },
             withRules = withRules.sortedByDescending { it.callSites },
         )
@@ -87,7 +87,7 @@ data class ExternalMethodRecord(
  * [withoutRules] — methods where no pass-through rules fired (dataflow fact killed).
  * [withRules] — methods where pass-through rules were applied.
  */
-data class ExternalMethodResults(
+data class SkippedExternalMethods(
     val withoutRules: List<ExternalMethodRecord>,
     val withRules: List<ExternalMethodRecord>,
 )
