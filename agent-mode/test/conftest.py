@@ -207,7 +207,15 @@ class OpenTaintCLI:
         max_memory: str = "8G",
         extra_flags: list = None,
     ) -> CLIResult:
-        """Run opentaint scan."""
+        """Run opentaint scan.
+
+        The CLI expects a directory path (it looks for project.yaml inside).
+        If project_path points to a project.yaml file, the parent directory is used.
+        """
+        # CLI expects directory, not project.yaml file path
+        p = Path(project_path)
+        if p.name == "project.yaml" and p.is_file():
+            project_path = str(p.parent)
         cmd = self._base_cmd() + ["scan", project_path, "-o", output]
         for rs in rulesets or ["builtin"]:
             cmd.extend(["--ruleset", rs])
@@ -233,7 +241,14 @@ class OpenTaintCLI:
         timeout: int = 300,
         max_memory: str = "8G",
     ) -> CLIResult:
-        """Run opentaint agent test-rules."""
+        """Run opentaint agent test-rules.
+
+        The CLI expects a directory path (it looks for project.yaml inside).
+        If project_path points to a project.yaml file, the parent directory is used.
+        """
+        p = Path(project_path)
+        if p.name == "project.yaml" and p.is_file():
+            project_path = str(p.parent)
         cmd = self._base_cmd() + ["agent", "test-rules", project_path]
         for rs in rulesets:
             cmd.extend(["--ruleset", rs])
