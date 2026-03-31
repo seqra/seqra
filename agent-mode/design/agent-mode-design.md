@@ -224,7 +224,62 @@ opentaint scan ./opentaint-project/project.yaml \
 
 If `--semgrep-rule-id` is not provided, all loaded rules are active (current behavior preserved).
 
-### 1.7 Builtin Rules Path Command
+### 1.7 Hidden Local JAR Path Flags (Development)
+
+**Problem**: The CLI resolves analyzer and autobuilder JARs via a 3-tier path system (bundled > install > cache), tied to a version string embedded at compile time. For development, this means the CLI is unusable without publishing the JARs to GitHub Releases. Developers building the analyzer locally cannot test through the CLI.
+
+**Current state**: Hidden `--analyzer-version` and `--autobuilder-version` flags exist but only change the version tag used for resolution/download — they still require the JAR to be published.
+
+**Required change**: Add hidden flags that accept a direct filesystem path to the JAR, bypassing version-based resolution entirely.
+
+**New hidden persistent flags on root command** (`root.go`):
+
+| Flag | Type | Viper Key | Description |
+|---|---|---|---|
+| `--analyzer-jar` | string | `analyzer.jar` | Direct path to analyzer JAR (bypasses version resolution) |
+| `--autobuilder-jar` | string | `autobuilder.jar` | Direct path to autobuilder JAR (bypasses version resolution) |
+
+**Implementation in `scan.go`**:
+```go
+func ensureAnalyzerAvailable() (string, error) {
+    // Direct path takes priority — skip all resolution and download
+    if directPath := globals.Config.Analyzer.Jar; directPath != "" {
+        if _, err := os.Stat(directPath); err != nil {
+            return "", fmt.Errorf("analyzer JAR not found at %s", directPath)
+        }
+        return directPath, nil
+    }
+    // Fall back to version-based resolution
+    analyzerJarPath, err := utils.GetAnalyzerJarPath(globals.Config.Analyzer.Version)
+    // ...existing logic...
+}
+```
+
+Identical pattern in `compile.go` for `ensureAutobuilderAvailable()`.
+
+**Usage**:
+```bash
+# Use locally-built analyzer
+opentaint scan ./project -o report.sarif \
+  --analyzer-jar ./core/build/libs/opentaint-project-analyzer.jar
+
+# Use locally-built autobuilder
+opentaint compile ./project -o ./opentaint-project \
+  --autobuilder-jar ./autobuilder/build/libs/opentaint-project-auto-builder.jar
+
+# Both
+opentaint scan ./project -o report.sarif \
+  --analyzer-jar /path/to/local/analyzer.jar \
+  --autobuilder-jar /path/to/local/autobuilder.jar
+
+# Via environment variables (viper binding)
+export OPENTAINT_ANALYZER_JAR=/path/to/local/analyzer.jar
+opentaint scan ./project -o report.sarif
+```
+
+**Note**: These flags are hidden (not shown in `--help`) — they are for development use only. When set, no download is attempted.
+
+### 1.8 Builtin Rules Path Command
 
 **Problem**: The agent needs to read built-in rules (to understand existing sources/sinks/patterns, to reference them via `refs`, and to decide whether custom rules are needed). Rules are a separate artifact (`opentaint-rules.tar.gz`) resolved via a 3-tier path system (bundled > install > cache) and downloaded lazily. The agent has no way to discover where the rules directory is on disk.
 
