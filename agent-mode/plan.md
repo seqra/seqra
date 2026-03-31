@@ -187,6 +187,47 @@ Refer to `agent-mode/impl/agent-mode-impl.md` for the full design.
 
 ---
 
+## Phase H: Discovered Issues (from design-vs-implementation comparison)
+
+### H1: Release pipeline — bundle agent files — [ ]
+- `.github/workflows/release-cli.yaml` — add step to copy `agent/` to `cli/lib/agent/`
+- Without this, `opentaint agent skills` and `opentaint agent prompt` fail in released builds
+- `GetBundledAgentPath()` returns `<exe-dir>/lib/agent` which won't exist in release archives
+- **Priority: HIGH**
+
+### H2: Release pipeline — bundle test-util JAR — [ ]
+- `.github/workflows/release-cli.yaml` — add step to build/download `opentaint-sast-test-util.jar` to `cli/lib/`
+- Without this, `opentaint agent init-test-project` fails in released builds
+- `resolveTestUtilJar()` tier 1/2 won't find the JAR in release archives
+- **Priority: HIGH**
+
+### H3: Fix short rule IDs in skill docs — [ ]
+- `agent/skills/create-yaml-config.md:101` — uses `--rule-id my-vulnerability` instead of full format `java/security/my-vuln.yaml:my-vulnerability`
+- `agent/skills/create-approximation.md:66` — same issue
+- Inconsistent with the documented full rule ID format in `create-rule.md` and `run-analysis.md`
+- **Priority: MEDIUM**
+
+### H4: Agent path resolution — single-tier only — [ ]
+- Design specified bundled + install tiers for `GetAgentPath()`
+- Implementation (`GetBundledAgentPath()`) only checks `<exe-dir>/lib/agent/`
+- No install-tier fallback at `~/.opentaint/install/lib/agent/`
+- Minor impact — only matters if agent files distributed separately from CLI binary
+- **Priority: LOW**
+
+### H5: Env var naming mismatch in docs — [ ]
+- Design docs say `OPENTAINT_ANALYZER_JAR` / `OPENTAINT_AUTOBUILDER_JAR`
+- Actual viper binding uses `OPENTAINT_ANALYZER_JAR_PATH` / `OPENTAINT_AUTOBUILDER_JAR_PATH`
+- Update `agent-mode/impl/agent-mode-impl.md` section 5.2 to match actual env var names
+- **Priority: LOW**
+
+### H6: Pre-existing analyzer exit code issues — [ ]
+- `test_approximation_compilation_failure` — analyzer still exits 0 on some approximation loading errors
+- `test_duplicate_approximation_errors` — same root cause (bijection violation swallowed)
+- G4 fix addressed `runProjectAnalysisRecursively` but approximation loading errors in `installApproximations()` may not propagate
+- **Priority: LOW**
+
+---
+
 ## Git Commits
 
 | Commit | Tasks | Description |
