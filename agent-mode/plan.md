@@ -195,6 +195,9 @@ Refer to `agent-mode/impl/agent-mode-impl.md` for the full design.
 - Tests that check `result.stderr` for error messages find nothing
 - **Fix**: Consider whether `out.Fatalf()` should write to stderr, or update tests to check both stdout and stderr for error content
 
+### G8: Tests needs better timing breakdown - [ ] 
+- **Severity**: Low
+- **Fix**: Consider analyzing output or something, to breakdown timing on compilation and analysis time. Also break analysis time on phases
 ---
 
 ## Git Commits
