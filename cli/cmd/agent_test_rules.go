@@ -47,7 +47,8 @@ var agentTestRulesCmd = &cobra.Command{
 				out.Fatalf("Failed to create temp dir: %s", err)
 			}
 			outputDir = tmpDir
-			defer os.RemoveAll(tmpDir)
+			// Note: temp dir is NOT cleaned up so results remain accessible to the agent.
+			// The agent should always specify -o to control the output location.
 		} else {
 			outputDir = log.AbsPathOrExit(outputDir, "output")
 			if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -119,7 +120,9 @@ var agentTestRulesCmd = &cobra.Command{
 			out.Fatalf("Rule tests failed: %s", err)
 		}
 
-		fmt.Println("Rule tests completed successfully")
+		fmt.Printf("Rule tests completed successfully\n")
+		fmt.Printf("Results directory: %s\n", outputDir)
+		fmt.Printf("Test results:     %s\n", filepath.Join(outputDir, "test-result.json"))
 	},
 }
 

@@ -17,7 +17,7 @@ Example: for a rule file at `agent-rules/java/security/my-vuln.yaml` with `id: m
 the full ID is `java/security/my-vuln.yaml:my-vulnerability`.
 
 ```bash
-opentaint scan ./opentaint-project/project.yaml \
+opentaint scan ./opentaint-project \
   -o ./results/report.sarif \
   --ruleset builtin \
   --ruleset ./agent-rules \
@@ -28,7 +28,7 @@ opentaint scan ./opentaint-project/project.yaml \
 ### With custom passThrough config
 
 ```bash
-opentaint scan ./opentaint-project/project.yaml \
+opentaint scan ./opentaint-project \
   -o ./results/report.sarif \
   --ruleset builtin --ruleset ./agent-rules \
   --rule-id java/security/my-vuln.yaml:my-vulnerability \
@@ -39,7 +39,7 @@ opentaint scan ./opentaint-project/project.yaml \
 ### With code-based approximations
 
 ```bash
-opentaint scan ./opentaint-project/project.yaml \
+opentaint scan ./opentaint-project \
   -o ./results/report.sarif \
   --ruleset builtin --ruleset ./agent-rules \
   --rule-id java/security/my-vuln.yaml:my-vulnerability \
@@ -76,6 +76,7 @@ Two files to collect:
 
 ## Notes
 
+- The scan path is the **directory** containing `project.yaml`, not the path to `project.yaml` itself (e.g. `./opentaint-project`, not `./opentaint-project/project.yaml`)
 - `--rule-id` enables only the specified rules; library rules referenced via join-mode `refs` are auto-included
 - `--approximations-config` uses OVERRIDE mode: custom rules replace (not extend) default config for matching methods
 - `--dataflow-approximations` accepts a directory of compiled `.class` files

@@ -24,7 +24,24 @@ Examine directory contents:
 opentaint compile /path/to/project -o ./opentaint-project
 ```
 
-### 2b. Pre-compiled artifacts (manual project model)
+### 2b. If `opentaint compile` fails — manual build + `opentaint project`
+
+If the autobuilder cannot build the project, build it manually first, then create the project model:
+
+1. **Build the project manually**:
+```bash
+# Gradle
+./gradlew build -x test
+
+# Maven
+mvn package -DskipTests
+```
+
+2. **Create the project model with `opentaint project`**:
+
+> **CRITICAL**: Always specify `--package` to restrict analysis to project code only.
+> Without `--package`, the analyzer will attempt to analyze ALL classes including third-party
+> libraries, and will hang or run for hours.
 
 ```bash
 opentaint project \
@@ -32,6 +49,18 @@ opentaint project \
   --source-root /path/to/src \
   --classpath /path/to/app.jar \
   --package com.example.app
+```
+
+For multi-module projects, use multiple `--classpath` and `--package` flags:
+
+```bash
+opentaint project \
+  --output ./opentaint-project \
+  --source-root /path/to/project \
+  --classpath /path/to/module1/build/libs/module1.jar \
+  --classpath /path/to/module2/build/libs/module2.jar \
+  --package com.example.module1 \
+  --package com.example.module2
 ```
 
 ### 3. Verify
@@ -44,4 +73,5 @@ Check that `./opentaint-project/project.yaml` exists and is non-empty.
 - **Java version mismatch**: Set `JAVA_HOME` to the version required by the project
 - **Compilation errors**: Check the autobuilder log, fix build issues, retry
 - **Missing dependencies**: Ensure all submodules are initialized (`git submodule update --init`)
-- **Fallback**: If autobuilder fails, build the project manually, then use `opentaint project` with the compiled artifacts
+- **Autobuilder fails**: Build the project manually (see 2b above), then use `opentaint project` with the compiled artifacts
+- **Analysis hangs**: You likely forgot `--package` — the analyzer is processing third-party libraries. Re-run `opentaint project` with `--package` to restrict to project code
