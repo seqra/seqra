@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/seqra/opentaint/internal/testutil"
 	"github.com/seqra/opentaint/internal/utils"
 	"github.com/spf13/cobra"
 )
@@ -106,6 +107,11 @@ func resolveTestUtilJar() (string, error) {
 			}
 			dir = filepath.Dir(dir)
 		}
+	}
+
+	// Tier 4: Extract from embedded binary
+	if extracted, err := testutil.ExtractJar(); err == nil {
+		return extracted, nil
 	}
 
 	return "", fmt.Errorf(

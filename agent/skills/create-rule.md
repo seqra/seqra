@@ -115,7 +115,7 @@ The `ruleSetRelativePath` is the path to the YAML file relative to its ruleset r
 
 ```bash
 # Full rule ID = "java/security/my-vuln.yaml" (relative path with .yaml) + ":" + "my-vulnerability" (id from YAML)
-opentaint scan ./opentaint-project/project.yaml \
+opentaint scan ./opentaint-project \
   -o ./results/report.sarif \
   --ruleset builtin --ruleset ./agent-rules \
   --rule-id java/security/my-vuln.yaml:my-vulnerability

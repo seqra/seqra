@@ -39,23 +39,38 @@ Read the trace:
 
 ### 3. Process external methods list (FN discovery)
 
-Focus on `withoutRules` section first. For each method:
+The external methods list shows where the analyzer **killed dataflow facts** because it had no model
+for the method. When a tainted value passes through an unmodeled method, the analyzer conservatively
+drops the taint — causing false negatives.
 
-**PROPAGATOR**: Method passes taint from input to output.
-- Example: `DataWrapper#getValue()` -- taint on `this` flows to `result`
-- **Action**: Create `passThrough` YAML rule (create-yaml-config skill)
+Focus on `withoutRules` section first. **Prioritize generic data-flow propagators** over
+vulnerability-specific methods. The most common cause of killed facts is mundane collection/utility
+methods, not the vulnerability-relevant operations themselves.
 
-**TRANSFORMER with lambdas**: Method invokes callbacks/lambdas.
-- Example: `ReactiveStream#map(Function)` -- taint flows through the function
+**HIGH PRIORITY — Generic propagators** (affect ALL vulnerability types):
+- Collection operations: `List.add`/`List.get`, `Map.put`/`Map.get`, `Set.add`/`Set.iterator`
+- String operations: `StringBuilder.append`/`toString`, `StringBuffer.append`
+- Wrapper/DTO getters/setters: `Container.getValue`, `Pair.getFirst`
+- Stream/iterator methods: `Iterator.next`, `Stream.collect`
+- **Action**: Create `passThrough` YAML rules (create-yaml-config skill)
+
+**MEDIUM PRIORITY — Lambda/callback methods**:
+- Example: `ReactiveStream#map(Function)` — taint flows through the function
+- Example: `CompletableFuture#thenApply(Function)` — async propagation
 - **Action**: Create code-based approximation (create-approximation skill)
 
+**LOW PRIORITY — Vulnerability-specific methods**:
+- These are usually already modeled in built-in rules. Only add if missing.
+- **Action**: Check built-in coverage first
+
 **NEUTRAL**: Irrelevant to taint flow (logging, metrics, sanitizers).
-- **Action**: Skip -- default call-to-return passthrough is correct
+- **Action**: Skip — default call-to-return passthrough is correct
 
 ### 4. Batch processing
 
 - Group external methods by package/library
-- Check built-in coverage first
+- **Start with generic propagators** (collections, strings, wrappers) — they affect all rules
+- Check built-in coverage first (many common libraries already have approximations)
 - Generate comprehensive rules per library
 - Re-run after each batch, check for regressions
 
