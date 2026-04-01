@@ -230,6 +230,46 @@ Refer to `agent-mode/impl/agent-mode-impl.md` for the full design.
 
 ---
 
+## Phase I: Skill Fixes and Clarifications
+
+### I1: Test-util JAR not bundled — `init-test-project` broken after `go install` — [ ]
+- `resolveTestUtilJar()` checks bundled, install, and dev-build tiers — none exist after `go install`
+- Options: (a) download from GitHub releases on demand (like analyzer JAR), or (b) embed in binary (it's a JAR though, likely too large), or (c) add a GitHub release download fallback tier to `resolveTestUtilJar()`
+- **Priority: HIGH**
+
+### I2: `test-rule.md` — unclear where to find test results — [ ]
+- Skill says "Read `test-result.json` in the output directory" but doesn't clarify which directory
+- When `-o` is omitted, results go to a temp dir that is immediately cleaned up (`defer os.RemoveAll`)
+- Fix: update skill to always specify `-o ./agent-test-results` so agent knows the path
+- Also clarify the exact result file path: `<output-dir>/test-result.json`
+- **Priority: HIGH**
+
+### I3: `scan` command expects directory, not `project.yaml` path — [ ]
+- All skills/meta-prompt use `opentaint scan ./opentaint-project/project.yaml` but CLI expects the **directory** containing `project.yaml`
+- CLI checks `os.Stat(filepath.Join(absUserProjectRoot, "project.yaml"))` — passing the file path results in looking for `project.yaml/project.yaml`
+- Fix: change all scan examples in skills and meta-prompt from `./opentaint-project/project.yaml` to `./opentaint-project`
+- Files to fix: `run-analysis.md` (3 examples), `create-yaml-config.md`, `create-approximation.md`, `create-rule.md`, `meta-prompt.md`
+- **Priority: HIGH**
+
+### I4: `analyze-findings.md` — clarify external methods represent missed *fact propagations*, not just vulnerability-relevant methods — [ ]
+- Current text says "PROPAGATOR: Method passes taint from input to output" — agent interprets this as searching only for vulnerability-relevant methods (e.g. `statement.executeQuery` for SQLi)
+- The actual purpose: external methods list shows where the analyzer **killed dataflow facts** because it had no model. Many of these are generic collection/utility methods (e.g. `List.add`/`List.get`, `Map.put`/`Map.get`, `StringBuilder.append`) that propagate taint regardless of vulnerability type
+- Fix: clarify that the agent should prioritize **generic data-flow propagators** (collections, builders, wrappers) over vulnerability-specific methods, and give concrete examples
+- **Priority: HIGH**
+
+### I5: `build-project.md` — add manual build fallback with `opentaint project` and `--package` warning — [ ]
+- If `opentaint compile` fails, the agent should try building the project manually (e.g. `./gradlew build`, `mvn package`) and then use `opentaint project` with the compiled artifacts
+- When using `opentaint project`, the `--package` flag is **mandatory** — without it the analyzer will attempt to analyze all classes including third-party libraries and will hang or run for hours
+- Add clear warning: "CRITICAL: Always specify `--package` to restrict analysis to project code only"
+- **Priority: HIGH**
+
+### I6: Update meta-prompt scan example to use directory path — [ ]
+- `meta-prompt.md:37` uses `opentaint scan ./opentaint-project/project.yaml` — same bug as I3
+- Fix alongside I3
+- **Priority: HIGH** (part of I3)
+
+---
+
 ## Git Commits
 
 | Commit | Tasks | Description |
