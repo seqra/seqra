@@ -37,13 +37,13 @@ Read the trace:
 - Library method modeled as propagating taint when it actually neutralizes the threat
 - **Action**: Override passThrough approximation. Re-run.
 
-### 3. Process external methods list (FN discovery)
+### 3. Process external methods (FN discovery)
 
-The external methods list shows where the analyzer **killed dataflow facts** because it had no model
-for the method. When a tainted value passes through an unmodeled method, the analyzer conservatively
-drops the taint — causing false negatives.
+The `--external-methods` flag produces two files:
+- **`<name>-without-rules.yaml`** — Methods where the analyzer **killed dataflow facts** (no approximation model). **This is where false negatives come from.** Focus here.
+- **`<name>-with-rules.yaml`** — Methods with existing approximation rules (already modeled, typically no action needed).
 
-Focus on `withoutRules` section first. **Prioritize generic data-flow propagators** over
+Read `external-methods-without-rules.yaml`. **Prioritize generic data-flow propagators** over
 vulnerability-specific methods. The most common cause of killed facts is mundane collection/utility
 methods, not the vulnerability-relevant operations themselves.
 

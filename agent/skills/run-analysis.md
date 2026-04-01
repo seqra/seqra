@@ -55,12 +55,13 @@ opentaint summary ./results/report.sarif --show-findings
 
 ## Outputs
 
-Two files to collect:
+Three files to collect:
 
-1. **`./results/report.sarif`** -- Vulnerability findings with code flow traces
-2. **`./results/external-methods.yaml`** -- External methods split into:
-   - `withoutRules`: Methods where no pass-through rules fired (dataflow killed)
-   - `withRules`: Methods where pass-through rules were applied
+1. **`./results/report.sarif`** — Vulnerability findings with code flow traces
+2. **`./results/external-methods-without-rules.yaml`** — Methods where no pass-through rules fired (**dataflow facts killed here — these cause false negatives**)
+3. **`./results/external-methods-with-rules.yaml`** — Methods where pass-through rules were applied (already modeled, typically no action needed)
+
+The `--external-methods` flag specifies the **base path**. The analyzer derives two filenames by appending `-without-rules` and `-with-rules` before the `.yaml` extension.
 
 ## Key Flags
 

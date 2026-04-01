@@ -40,13 +40,13 @@ Execute these four phases in order. Iterate phases 2-4 until the external method
      --rule-id <your-rule-ids> \
      --external-methods ./results/external-methods.yaml
    ```
-2. Collect both `report.sarif` and `external-methods.yaml`
+2. Collect `report.sarif`, `external-methods-without-rules.yaml` (taint-killing methods), and `external-methods-with-rules.yaml` (already modeled)
 
 ### Phase 4: Results Interpretation and Iteration
 
 1. **Analyze findings** (read `analyze-findings.md`)
    - Classify each SARIF finding as TP, FP (rule fix), or FP (approximation fix)
-   - Process external methods list for FN discovery
+   - Read `external-methods-without-rules.yaml` for FN discovery (these are the methods that kill taint)
 
 2. **For true positives**: Generate PoC (read `generate-poc.md`), document in `vulnerabilities.md`
 
@@ -80,7 +80,8 @@ Execute these four phases in order. Iterate phases 2-4 until the external method
   agent-test-project/        # Rule test project
   results/
     report.sarif
-    external-methods.yaml
+    external-methods-without-rules.yaml
+    external-methods-with-rules.yaml
 ```
 
 ## Decision Guide
