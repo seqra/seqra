@@ -2,12 +2,12 @@
 Suite 4: External Methods Extraction
 
 Tests:
-4.1  Scan with --external-methods produces a YAML file
-4.2  External methods file has correct structure (withoutRules/withRules)
-4.3  External methods contain expected fields (method, signature, factPositions, callSites)
-4.4  withoutRules list is non-empty for a real project
-4.5  withRules list contains known standard library methods
-4.6  Scan with custom approximations reduces withoutRules count
+4.1  Scan with --external-methods produces two YAML files (without-rules / with-rules)
+4.2  External methods files have correct structure (methods list with method, signature, factPositions, callSites)
+4.3  External methods contain expected fields
+4.4  without-rules list is non-empty for a real project
+4.5  with-rules list contains known standard library methods
+4.6  Scan with custom approximations reduces without-rules count
 4.7  External methods extraction alongside SARIF output
 """
 
@@ -19,6 +19,7 @@ from conftest import (
     sarif_results,
     load_external_methods,
     count_external_methods,
+    external_methods_exist,
     FIXTURES_DIR,
     BUILTIN_RULES_DIR,
 )
@@ -45,7 +46,9 @@ class TestExternalMethodsBasic:
             timeout=600,
         )
         result.assert_ok("Scan with --external-methods failed")
-        assert ext_methods_path.exists(), "External methods file not produced"
+        assert external_methods_exist(ext_methods_path), (
+            "External methods files not produced"
+        )
 
     @pytest.mark.slow
     @pytest.mark.new_feature
@@ -53,7 +56,7 @@ class TestExternalMethodsBasic:
         self, cli: OpenTaintCLI, stirling_project: Path, tmp_output: Path
     ):
         """
-        External methods file has two sections: withoutRules and withRules.
+        External methods are split into two files (-without-rules.yaml and -with-rules.yaml).
         Each entry has: method, signature, factPositions, callSites.
         """
         sarif_path = tmp_output / "report.sarif"
@@ -253,7 +256,9 @@ class TestExternalMethodsAlongsideSarif:
         result.assert_ok()
 
         assert sarif_path.exists(), "SARIF report not produced"
-        assert ext_methods_path.exists(), "External methods file not produced"
+        assert external_methods_exist(ext_methods_path), (
+            "External methods files not produced"
+        )
 
         sarif_data = load_sarif(sarif_path)
         ext_data = load_external_methods(ext_methods_path)
