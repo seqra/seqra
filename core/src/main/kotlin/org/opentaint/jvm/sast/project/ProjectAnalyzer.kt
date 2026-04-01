@@ -250,17 +250,37 @@ class ProjectAnalyzer(
         generator.generateSarif(output, reachableFacts)
     }
 
+    /**
+     * Writes external methods to two separate files derived from [outputPath]:
+     *  - `<name>-without-rules.yaml` — methods with NO approximation rules (taint killed)
+     *  - `<name>-with-rules.yaml` — methods with existing approximation rules
+     *
+     * For example, `external-methods.yaml` produces
+     * `external-methods-without-rules.yaml` and `external-methods-with-rules.yaml`.
+     */
     private fun writeExternalMethodsYaml(outputPath: Path, skippedMethods: SkippedExternalMethods) {
-        val serializable = SerializedSkippedExternalMethods(
-            withoutRules = skippedMethods.withoutRules.map { it.toSerialized() },
-            withRules = skippedMethods.withRules.map { it.toSerialized() },
-        )
+        val baseName = outputPath.fileName.toString().removeSuffix(".yaml").removeSuffix(".yml")
+        val parent = outputPath.parent ?: outputPath.fileSystem.getPath(".")
 
-        outputPath.outputStream().use { stream ->
-            skippedMethodsYaml.encodeToStream(serializable, stream)
+        val withoutRulesPath = parent.resolve("$baseName-without-rules.yaml")
+        val withRulesPath = parent.resolve("$baseName-with-rules.yaml")
+
+        val withoutRulesSerialized = skippedMethods.withoutRules.map { it.toSerialized() }
+        val withRulesSerialized = skippedMethods.withRules.map { it.toSerialized() }
+
+        withoutRulesPath.outputStream().use { stream ->
+            skippedMethodsYaml.encodeToStream(
+                SerializedExternalMethodRecordList(methods = withoutRulesSerialized), stream,
+            )
+        }
+        withRulesPath.outputStream().use { stream ->
+            skippedMethodsYaml.encodeToStream(
+                SerializedExternalMethodRecordList(methods = withRulesSerialized), stream,
+            )
         }
 
-        logger.info { "Wrote external methods to $outputPath" }
+        logger.info { "Wrote external methods without rules to $withoutRulesPath (${withoutRulesSerialized.size} entries)" }
+        logger.info { "Wrote external methods with rules to $withRulesPath (${withRulesSerialized.size} entries)" }
     }
 
     companion object {
@@ -273,9 +293,8 @@ class ProjectAnalyzer(
 }
 
 @Serializable
-private data class SerializedSkippedExternalMethods(
-    val withoutRules: List<SerializedExternalMethodRecord>,
-    val withRules: List<SerializedExternalMethodRecord>,
+private data class SerializedExternalMethodRecordList(
+    val methods: List<SerializedExternalMethodRecord>,
 )
 
 @Serializable

@@ -104,7 +104,7 @@ func init() {
 	scanCmd.Flags().StringArrayVar(&RuleID, "rule-id", nil, "Filter active rules by ID (repeatable)")
 	scanCmd.Flags().StringVar(&ApproximationsConfig, "approximations-config", "", "YAML passThrough approximations config (OVERRIDE mode)")
 	scanCmd.Flags().StringArrayVar(&DataflowApproximations, "dataflow-approximations", nil, "Directory of compiled approximation class files (repeatable)")
-	scanCmd.Flags().StringVar(&ExternalMethodsOutput, "external-methods", "", "Output path for skipped external methods YAML list")
+	scanCmd.Flags().StringVar(&ExternalMethodsOutput, "external-methods", "", "Base path for external methods YAML output (produces <name>-without-rules.yaml and <name>-with-rules.yaml)")
 }
 
 func scan(cmd *cobra.Command) {

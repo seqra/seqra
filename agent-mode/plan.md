@@ -267,6 +267,21 @@ Refer to `agent-mode/impl/agent-mode-impl.md` for the full design.
 - Fixed `meta-prompt.md` line 37: `./opentaint-project/project.yaml` → `./opentaint-project`
 - Part of I3 fix
 
+### I7: Split external methods output into two files — [x]
+- **Problem**: Agent sees both `withoutRules` and `withRules` in a single file and doesn't understand only `withoutRules` contains taint-killing methods
+- **Kotlin**: Rewrote `writeExternalMethodsYaml()` in `ProjectAnalyzer.kt` to derive two filenames from the base path:
+  - `<name>-without-rules.yaml` — methods with NO approximation rules (taint killed here)
+  - `<name>-with-rules.yaml` — methods with existing approximation rules
+  - Each file has a `methods:` top-level key with the list of records
+  - Removed `SerializedSkippedExternalMethods` (combined wrapper), added `SerializedExternalMethodRecordList`
+- **Go CLI**: Updated `--external-methods` flag help text to document two-file output
+- **Skills**: Updated `run-analysis.md` (Outputs section), `analyze-findings.md` (Section 3), `meta-prompt.md` (Phase 3, Phase 4, directory layout)
+- **Tests**: Updated `conftest.py`:
+  - `load_external_methods()` now derives two paths from base, reads both files, recombines into legacy dict
+  - Added `external_methods_exist()` helper
+  - Updated `test_external_methods.py` and `test_full_loop.py` to use `external_methods_exist()` instead of `.exists()`
+- All 6 external methods tests pass, full loop test passes
+
 ---
 
 ## Git Commits

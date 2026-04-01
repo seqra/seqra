@@ -353,16 +353,57 @@ def sarif_findings_for_rule(data: dict, rule_id: str) -> list:
     ]
 
 
-def load_external_methods(path: Path) -> dict:
-    """Load and validate an external methods YAML file."""
-    assert path.exists(), f"External methods file not found: {path}"
-    with open(path) as f:
-        data = yaml.safe_load(f)
-    assert isinstance(data, dict), "External methods file must be a YAML mapping"
-    assert "withoutRules" in data or "withRules" in data, (
-        "Missing withoutRules/withRules sections"
+def _derive_external_methods_paths(base_path: Path) -> tuple:
+    """Derive the two external methods file paths from the base path.
+
+    Given ``base_path`` = ``results/external-methods.yaml``, returns:
+      (``results/external-methods-without-rules.yaml``,
+       ``results/external-methods-with-rules.yaml``)
+    """
+    stem = base_path.stem  # e.g. "external-methods"
+    parent = base_path.parent
+    return (
+        parent / f"{stem}-without-rules.yaml",
+        parent / f"{stem}-with-rules.yaml",
     )
-    return data
+
+
+def load_external_methods(base_path: Path) -> dict:
+    """Load and validate external methods from the two split files.
+
+    The analyzer writes two files derived from the ``--external-methods``
+    path:  ``<name>-without-rules.yaml`` and ``<name>-with-rules.yaml``.
+    This helper recombines them into the legacy dict format for convenience::
+
+        {"withoutRules": [...], "withRules": [...]}
+    """
+    wo_path, wr_path = _derive_external_methods_paths(base_path)
+
+    without_rules = []
+    with_rules = []
+
+    if wo_path.exists():
+        with open(wo_path) as f:
+            wo_data = yaml.safe_load(f)
+        if isinstance(wo_data, dict):
+            without_rules = wo_data.get("methods", [])
+
+    if wr_path.exists():
+        with open(wr_path) as f:
+            wr_data = yaml.safe_load(f)
+        if isinstance(wr_data, dict):
+            with_rules = wr_data.get("methods", [])
+
+    assert wo_path.exists() or wr_path.exists(), (
+        f"Neither external methods file found: {wo_path}, {wr_path}"
+    )
+    return {"withoutRules": without_rules, "withRules": with_rules}
+
+
+def external_methods_exist(base_path: Path) -> bool:
+    """Check if at least one of the external methods split files exists."""
+    wo_path, wr_path = _derive_external_methods_paths(base_path)
+    return wo_path.exists() or wr_path.exists()
 
 
 def count_external_methods(data: dict) -> tuple:

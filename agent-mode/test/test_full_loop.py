@@ -24,6 +24,7 @@ from conftest import (
     sarif_findings_for_rule,
     load_external_methods,
     count_external_methods,
+    external_methods_exist,
     write_text,
     write_yaml,
     print_timing_breakdown,
@@ -187,7 +188,7 @@ rules:
 
         priority_methods = []
         wo_count, wr_count = 0, 0
-        if ext_methods_path.exists():
+        if external_methods_exist(ext_methods_path):
             ext_data = load_external_methods(ext_methods_path)
             wo_count, wr_count = count_external_methods(ext_data)
             print(
@@ -266,7 +267,7 @@ rules:
                         f"Phase 4: Rescan found {len(findings_2)} findings (was {len(findings)})"
                     )
 
-                    if ext_methods_path_2.exists():
+                    if external_methods_exist(ext_methods_path_2):
                         ext_data_2 = load_external_methods(ext_methods_path_2)
                         wo2, wr2 = count_external_methods(ext_data_2)
                         print(
