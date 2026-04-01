@@ -10,6 +10,8 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodCallSummaryHandler
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallSummaryHandler.SummaryEdge
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.Sequent
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
+import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
+import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 
 class JIRMethodCallSummaryHandler(
@@ -49,6 +51,23 @@ class JIRMethodCallSummaryHandler(
                 analysisContext.aliasAnalysis?.forEachAliasAfterCallStatement(statement, summaryFactAp) { aliased ->
                     result += handleSummaryEdge(initialFactRefinement, aliased)
                 }
+            }
+
+            val relevantBases = statement.operands.filterIsInstance<JIRImmediate>()
+                .mapNotNull { MethodFlowFunctionUtils.accessPathBase(it) }
+
+            val (aliasedFacts, _) =
+                FactUtils.splitFactMultipleBases(
+                    analysisContext.aliasAnalysis,
+                    statement,
+                    relevantBases,
+                    summaryFactAp,
+                    false
+                )
+
+            aliasedFacts.forEach { (fact, alias) ->
+                val restored = FactUtils.rewriteForAlias(fact, alias)
+                result += handleSummaryEdge(initialFactRefinement, restored)
             }
 
             handleSummaryEdge(initialFactRefinement, summaryFactAp)
