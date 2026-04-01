@@ -26,6 +26,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionRewriter
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodPositionBaseTypeResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSimpleFactAwareConditionEvaluator
+import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyCleaner
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyPassThrough
 import org.opentaint.dataflow.jvm.ap.ifds.TaintConfigUtils.applyRuleWithAssumptions
@@ -243,9 +244,26 @@ class JIRMethodCallFlowFunction(
         addCallToStart: (factReader: FinalFactReader, callerFact: FinalFactAp, startFactBase: AccessPathBase, TraceInfo) -> Unit,
         addUnchecked: (MethodCallFlowFunction.CallFact) -> Unit,
     ) {
-        if (!JIRMethodCallFactMapper.factIsRelevantToMethodCall(returnValue, callExpr, factAp)) {
+        val relevantBases = callExpr.operands.mapNotNull { MethodFlowFunctionUtils.accessPathBase(it) }
+
+        val (aliasedFacts, irrelevantFacts) =
+            FactUtils.splitFactMultipleBases(analysisContext.aliasAnalysis, statement, relevantBases, factAp, true)
+
+        var fixedFactAp: FinalFactAp? = null
+
+        aliasedFacts.forEach { (fact, _) ->
+            if (JIRMethodCallFactMapper.factIsRelevantToMethodCall(returnValue, callExpr, fact))
+                fixedFactAp = fact
+        }
+
+        if (fixedFactAp == null) {
             skipCall()
             return
+        }
+
+        irrelevantFacts.forEach { fact ->
+            val reader = FinalFactReader(fact, apManager)
+            addCallToReturn(reader, fact, TraceInfo.Flow)
         }
 
         val conditionRewriter = JIRMarkAwareConditionRewriter(
@@ -253,7 +271,7 @@ class JIRMethodCallFlowFunction(
             analysisContext, statement
         )
 
-        val factReader = FinalFactReader(factAp, apManager)
+        val factReader = FinalFactReader(fixedFactAp, apManager)
 
         val markAfterAnyFieldResolver = createMarkAfterFieldsResolver(
             analysisContext.methodEntryPoint, initialFacts
@@ -288,7 +306,7 @@ class JIRMethodCallFlowFunction(
             callee = callExpr.callee,
             callExpr = callExpr,
             returnValue = null,
-            factAp = factAp,
+            factAp = fixedFactAp,
             checker = analysisContext.factTypeChecker,
         ) { callerFact, startFactBase ->
             applyCleanersOrCallToStart(

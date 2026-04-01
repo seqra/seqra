@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.jvm.ap.ifds.alias
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.graph.CompactGraph
 import org.opentaint.dataflow.graph.MethodInstGraph
@@ -27,7 +28,6 @@ class JIRIntraProcAliasAnalysis(
     private val callResolver: JIRCallResolver,
     private val languageManager: JIRLanguageManager,
     private val params: JIRLocalAliasAnalysis.Params,
-    private val mergeType: MergeType,
 ) {
     companion object {
         private const val HEAP_CHAIN_LIMIT = 5
@@ -58,9 +58,9 @@ class JIRIntraProcAliasAnalysis(
         override fun buildMethodJig(entryPoint: JIRInst): JIRInstGraph = getJIG(entryPoint)
     }
 
-    fun compute(localVariableReachability: JIRLocalVariableReachability): JIRLocalAliasAnalysis.MethodAliasInfo {
+    fun computeMay(localVariableReachability: JIRLocalVariableReachability): JIRLocalAliasAnalysis.MethodAliasInfo {
         val jig = getJIG(entryPoint)
-        val daa = DSUAliasAnalysis(CallResolver(), localVariableReachability, mergeType).analyze(jig)
+        val daa = DSUAliasAnalysis(CallResolver(), localVariableReachability, MergeType.May).analyze(jig)
 
         val aliasBeforeStatement = Array(jig.statements.size) { i ->
             resolveLocalVar(daa.statesBeforeStmt[i], localVariableReachability, i)
@@ -71,6 +71,21 @@ class JIRIntraProcAliasAnalysis(
         }
 
         return compressAliasInfo(aliasBeforeStatement, aliasAfterStatement)
+    }
+
+    fun computeMust(localVariableReachability: JIRLocalVariableReachability): JIRLocalAliasAnalysis.MethodMustAliasInfo {
+        val jig = getJIG(entryPoint)
+        val daa = DSUAliasAnalysis(CallResolver(), localVariableReachability, MergeType.Must).analyze(jig)
+
+        val aliasBeforeStatement = Array(jig.statements.size) { i ->
+            resolveAccessPathBase(daa.statesBeforeStmt[i], localVariableReachability, i)
+        }
+
+        val aliasAfterStatement = Array(jig.statements.size) { i ->
+            resolveAccessPathBase(daa.statesAfterStmt[i], localVariableReachability, i)
+        }
+
+        return compressMustAliasInfo(aliasBeforeStatement, aliasAfterStatement)
     }
 
     private fun compressAliasInfo(
@@ -85,11 +100,54 @@ class JIRIntraProcAliasAnalysis(
         return JIRLocalAliasAnalysis.MethodAliasInfo(compressedBefore, compressedAfter)
     }
 
+    private fun compressMustAliasInfo(
+        aliasBeforeStatement: Array<Object2ObjectOpenHashMap<AccessPathBase, List<AliasInfo>>>,
+        aliasAfterStatement: Array<Object2ObjectOpenHashMap<AccessPathBase, List<AliasInfo>>>
+    ): JIRLocalAliasAnalysis.MethodMustAliasInfo {
+        val compressedBefore = arrayOfNulls<Object2ObjectOpenHashMap<AccessPathBase, Array<Any>>>(aliasBeforeStatement.size)
+        val compressedAfter = arrayOfNulls<Object2ObjectOpenHashMap<AccessPathBase, Array<Any>>>(aliasAfterStatement.size)
+
+        compress(aliasBeforeStatement, compressedBefore, reference = null, referenceCompressed = null)
+        compress(aliasAfterStatement, compressedAfter, aliasBeforeStatement, compressedBefore)
+        return JIRLocalAliasAnalysis.MethodMustAliasInfo(compressedBefore, compressedAfter)
+    }
+
     private fun compress(
         statementInfo: Array<Int2ObjectOpenHashMap<List<AliasInfo>>>,
         compressed: Array<Int2ObjectOpenHashMap<Array<Any>>?>,
         reference: Array<Int2ObjectOpenHashMap<List<AliasInfo>>>?,
         referenceCompressed: Array<Int2ObjectOpenHashMap<Array<Any>>?>?
+    ) {
+        for (i in statementInfo.indices) {
+            val current = statementInfo[i]
+            if (current.isEmpty()) continue
+
+            if (i > 0 && statementInfo[i - 1] == current) {
+                compressed[i] = compressed[i - 1]
+                continue
+            }
+
+            if (reference != null) {
+                if (reference[i] == current) {
+                    compressed[i] = referenceCompressed!![i]
+                }
+
+                if (i > 0 && reference[i - 1] == current) {
+                    compressed[i] = referenceCompressed!![i - 1]
+                    continue
+                }
+            }
+
+            val unwrapped = JIRLocalAliasAnalysis.unwrapAllInfo(current)
+            compressed[i] = unwrapped
+        }
+    }
+
+    private fun compress(
+        statementInfo: Array<Object2ObjectOpenHashMap<AccessPathBase, List<AliasInfo>>>,
+        compressed: Array<Object2ObjectOpenHashMap<AccessPathBase, Array<Any>>?>,
+        reference: Array<Object2ObjectOpenHashMap<AccessPathBase, List<AliasInfo>>>?,
+        referenceCompressed: Array<Object2ObjectOpenHashMap<AccessPathBase, Array<Any>>?>?
     ) {
         for (i in statementInfo.indices) {
             val current = statementInfo[i]
@@ -138,6 +196,35 @@ class JIRIntraProcAliasAnalysis(
             locals.forEach { local ->
                 val id = ((local as LocalAlias.SimpleLoc).loc as Local).idx
                 result[id] = converted
+            }
+        }
+        return result
+    }
+
+    private fun AccessPathBase.isMustRelevantBase() =
+        this is AccessPathBase.LocalVar || this is AccessPathBase.Argument || this is AccessPathBase.This
+
+    private fun resolveAccessPathBase(
+        daa: ConnectedAliases,
+        reachableLocals: JIRLocalVariableReachability,
+        instIdx: Int
+    ): Object2ObjectOpenHashMap<AccessPathBase, List<AliasInfo>> {
+        val result = Object2ObjectOpenHashMap<AccessPathBase, List<AliasInfo>>()
+        daa.aliasGroups.forEach { (_, group) ->
+            val converted = group
+                .flatMap { it.convertToAliasInfo(daa.aliasGroups, depth = 0) }
+                .filter { it !is AliasApInfo || reachableLocals.isReachable(it.base, instIdx) }
+                .distinct()
+
+            // size == 1 means only local was converted to AliasInfo; not really meaningful
+            if (converted.size <= 1) return@forEach
+
+            val bases = converted.filterIsInstance<AliasApInfo>()
+                .filter { it.base.isMustRelevantBase() && it.accessors.isEmpty() }
+                .map { it.base }
+
+            bases.forEach { base ->
+                result[base] = converted
             }
         }
         return result
