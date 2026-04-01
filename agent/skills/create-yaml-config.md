@@ -95,7 +95,7 @@ passThrough:
 ### 3. Run with config
 
 ```bash
-opentaint scan ./opentaint-project/project.yaml \
+opentaint scan ./opentaint-project \
   -o ./results/report.sarif \
   --ruleset builtin --ruleset ./agent-rules \
   --rule-id java/security/my-vuln.yaml:my-vulnerability \

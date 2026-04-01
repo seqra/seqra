@@ -60,14 +60,17 @@ opentaint compile ./agent-test-project -o ./agent-test-compiled
 
 ### 4. Run rule tests
 
+**Always specify `-o`** so results are written to a known location:
+
 ```bash
 opentaint agent test-rules ./agent-test-compiled \
+  -o ./agent-test-results \
   --ruleset builtin --ruleset ./agent-rules
 ```
 
 ### 5. Interpret results
 
-Read `test-result.json` in the output directory:
+Read `./agent-test-results/test-result.json`:
 
 - **success**: Test passed (positive triggered, negative didn't)
 - **falseNegative**: Positive sample did NOT trigger -> rule patterns too narrow

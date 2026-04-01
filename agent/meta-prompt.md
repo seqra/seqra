@@ -34,7 +34,7 @@ Execute these four phases in order. Iterate phases 2-4 until the external method
 
 1. **Run analysis** (read `run-analysis.md`)
    ```bash
-   opentaint scan ./opentaint-project/project.yaml \
+   opentaint scan ./opentaint-project \
      -o ./results/report.sarif \
      --ruleset builtin --ruleset ./agent-rules \
      --rule-id <your-rule-ids> \
