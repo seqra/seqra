@@ -323,36 +323,58 @@ func scan(cmd *cobra.Command) {
 		out.Fatalf("Failed to resolve Java for analyzer: %s", err)
 	}
 
+	var analyzerFail *analyzerError
+	var scanCmdErr *java.JavaCommandError
 	if err := out.RunWithSpinner("Analyzing project", func() error {
-		return scanProject(nativeBuilder, analyzerJavaRunner)
+		var scanErr error
+		scanCmdErr, scanErr = scanProject(nativeBuilder, analyzerJavaRunner)
+		return scanErr
 	}); err != nil {
 		out.Fatalf("Native scan has failed: %s", err)
 	}
+	analyzerFail = classifyAnalyzerError(scanCmdErr)
 
+	// Always attempt to print summary information — even when the analyzer
+	// failed, partial SARIF and rule-load-trace files may have been written.
 	report, err := validation.ValidateSarifOutput(absSarifReportPath)
 	if err != nil {
 		output.LogInfof("Scan output validation failed: %v", err)
-		out.Fatalf("There was a problem during the scan step, check the full logs: %s", globals.LogPath)
+		if analyzerFail == nil {
+			// Analyzer reported success but produced no valid SARIF — treat as failure.
+			out.Error(fmt.Sprintf("There was a problem during the scan step, check the full logs: %s", globals.LogPath))
+			analyzerFail = &analyzerError{exitCode: 1, message: "scan output validation failed"}
+		}
 	}
 
 	out.Blank()
 
 	el, err := validation.ValidateRuleLoadTraceOutput(absSemgrepRuleLoadTracePath)
 	if err != nil {
-		out.Fatalf("Failed to validate rule load trace output: %s", err)
+		output.LogInfof("Rule load trace validation failed: %v", err)
+		if analyzerFail == nil {
+			out.Error(fmt.Sprintf("Failed to validate rule load trace output: %s", err))
+			analyzerFail = &analyzerError{exitCode: 1, message: "rule load trace validation failed"}
+		}
 	}
-	ruleLoadTraceSummary := load_trace.CollectRuleLoadTraceSummary(el, nonBuiltinRulesetPaths)
 
-	res := load_trace.CollectRulesetLoadErrorsSummary(ruleLoadTraceSummary)
-	ruleLoadErrorsResult := &res
+	if el != nil {
+		ruleLoadTraceSummary := load_trace.CollectRuleLoadTraceSummary(el, nonBuiltinRulesetPaths)
 
-	sarifSummary := sarif.GenerateSummary(report)
-	load_trace.PrintRuleStatisticsTree(out, ruleLoadErrorsResult, absSemgrepRuleLoadTracePath, sarifSummary)
+		res := load_trace.CollectRulesetLoadErrorsSummary(ruleLoadTraceSummary)
+		ruleLoadErrorsResult := &res
 
-	load_trace.PrintSyntaxErrorReport(out, ruleLoadTraceSummary)
+		var sarifSummary sarif.Summary
+		if report != nil {
+			sarifSummary = sarif.GenerateSummary(report)
+		}
+		load_trace.PrintRuleStatisticsTree(out, ruleLoadErrorsResult, absSemgrepRuleLoadTracePath, sarifSummary)
 
-	// Process the generated SARIF report if it exists
-	printSarifSummary(report, absSarifReportPath)
+		load_trace.PrintSyntaxErrorReport(out, ruleLoadTraceSummary)
+	}
+
+	if report != nil {
+		printSarifSummary(report, absSarifReportPath)
+	}
 
 	if SarifReportPath == "" {
 		utils.RemoveIfExistsOrExit(absSarifReportPath)
@@ -367,6 +389,10 @@ func scan(cmd *cobra.Command) {
 		} else {
 			output.LogDebugf("Removed temporary directory: %s", filepath.Dir(absProjectModelPath))
 		}
+	}
+
+	if analyzerFail != nil {
+		os.Exit(analyzerFail.exitCode)
 	}
 }
 
@@ -426,7 +452,7 @@ func ensureAnalyzerAvailable() (string, error) {
 	return analyzerJarPath, nil
 }
 
-func scanProject(analyzerBuilder *AnalyzerBuilder, javaRunner java.JavaRunner) error {
+func scanProject(analyzerBuilder *AnalyzerBuilder, javaRunner java.JavaRunner) (*java.JavaCommandError, error) {
 	analyzerCommand := analyzerBuilder.BuildNativeCommand()
 
 	commandSucceeded := func(err error) bool {
@@ -436,8 +462,6 @@ func scanProject(analyzerBuilder *AnalyzerBuilder, javaRunner java.JavaRunner) e
 		}
 		return true
 	}
-	// Execute the command using JavaRunner
-	err := javaRunner.ExecuteJavaCommand(analyzerCommand, commandSucceeded)
 
-	return err
+	return javaRunner.ExecuteJavaCommand(analyzerCommand, commandSucceeded)
 }

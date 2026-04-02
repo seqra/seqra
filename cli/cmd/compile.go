@@ -175,10 +175,14 @@ func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPat
 		return true
 	}
 	// Execute the command using JavaRunner
-	err = javaRunner.ExecuteJavaCommand(autobuilderCommand, commandSucceeded)
+	cmdErr, err := javaRunner.ExecuteJavaCommand(autobuilderCommand, commandSucceeded)
 	if err != nil {
 		output.LogInfof("Native compilation has failed: %s", err)
 		return fmt.Errorf("native compilation has failed: %w", err)
+	}
+	if cmdErr != nil {
+		output.LogInfof("Native compilation has failed: %s", cmdErr)
+		return fmt.Errorf("native compilation has failed: %w", cmdErr)
 	}
 
 	return nil

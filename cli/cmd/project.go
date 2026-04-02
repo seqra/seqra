@@ -165,9 +165,12 @@ func (c *JavaAutobuilderConfig) runAutobuilder() error {
 		return true
 	}
 
-	err = javaRunner.ExecuteJavaCommand(autobuilderCommand, commandSucceeded)
+	cmdErr, err := javaRunner.ExecuteJavaCommand(autobuilderCommand, commandSucceeded)
 	if err != nil {
 		return fmt.Errorf("native autobuilder execution failed: %w", err)
+	}
+	if cmdErr != nil {
+		return fmt.Errorf("native autobuilder execution failed: %w", cmdErr)
 	}
 
 	config, err := validation.ValidateProjectModelOutput(c.outputDir)
