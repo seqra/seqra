@@ -133,15 +133,16 @@ class ProjectAnalyzer(
     }
 
     private fun ProjectAnalysisContext.runAnalyzer(entryPoints: List<JIRMethod>, rules: PreloadedRules) {
-        val externalMethodTracker = if (options.externalMethodsOutput != null) ExternalMethodTracker() else null
+        val externalMethodsOutput = options.externalMethodsOutput
+        val externalMethodTracker = if (externalMethodsOutput != null) ExternalMethodTracker() else null
 
         val analysisResult = runAnalyzerWithTraceResolver(entryPoints, rules, externalMethodTracker)
         generateReportFromAnalysisResult(analysisResult)
 
         // Write external methods YAML output if requested
-        if (externalMethodTracker != null && options.externalMethodsOutput != null) {
+        if (externalMethodTracker != null && externalMethodsOutput != null) {
             val skippedMethods = externalMethodTracker.getSkippedMethods()
-            writeExternalMethodsYaml(options.externalMethodsOutput!!, skippedMethods)
+            writeExternalMethodsYaml(externalMethodsOutput, skippedMethods)
         }
     }
 

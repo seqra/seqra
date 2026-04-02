@@ -21,7 +21,6 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.automata.AutomataApManager
 import org.opentaint.dataflow.ap.ifds.access.cactus.CactusApManager
 import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
-import org.opentaint.dataflow.ap.ifds.taint.SkippedExternalMethods
 import org.opentaint.dataflow.ap.ifds.taint.ExternalMethodTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction.TraceSummaryEdge
@@ -117,10 +116,6 @@ class JIRTaintAnalyzer(
         options.debugOptions?.taintRulesStatsSamplingPeriod,
         externalMethodTracker,
     )
-
-    fun getSkippedExternalMethods(): SkippedExternalMethods? {
-        return ifdsEngine.getSkippedExternalMethods()
-    }
 
     private fun analyzeTaintWithIfdsEngine(
         entryPoints: List<JIRMethod>,
