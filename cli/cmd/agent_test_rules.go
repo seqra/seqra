@@ -116,13 +116,21 @@ var agentTestRulesCmd = &cobra.Command{
 			out.Fatalf("Failed to resolve Java: %s", err)
 		}
 
-		if err := scanProject(builder, javaRunner); err != nil {
+		cmdErr, err := scanProject(builder, javaRunner)
+		if err != nil {
 			out.Fatalf("Rule tests failed: %s", err)
+		}
+		analyzerFail := classifyAnalyzerError(cmdErr)
+
+		// Always print output paths so the agent can inspect partial results
+		fmt.Printf("Results directory: %s\n", outputDir)
+		fmt.Printf("Test results:     %s\n", filepath.Join(outputDir, "test-result.json"))
+
+		if analyzerFail != nil {
+			os.Exit(analyzerFail.exitCode)
 		}
 
 		fmt.Printf("Rule tests completed successfully\n")
-		fmt.Printf("Results directory: %s\n", outputDir)
-		fmt.Printf("Test results:     %s\n", filepath.Join(outputDir, "test-result.json"))
 	},
 }
 
