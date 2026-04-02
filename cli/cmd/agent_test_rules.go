@@ -24,7 +24,16 @@ var (
 var agentTestRulesCmd = &cobra.Command{
 	Use:   "test-rules <project-model>",
 	Short: "Run rule tests against annotated test samples",
-	Args:  cobra.ExactArgs(1),
+	Long: `Run rule tests against annotated test samples in the given project model.
+
+Exit codes:
+  0    All rule tests passed
+  1    General failure (configuration or infrastructure error)
+  252  Unhandled analyzer exception
+  253  Out of memory (try increasing --max-memory)
+  254  Analysis timed out (try increasing --timeout)
+  255  Project configuration error`,
+	Args: cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		projectPath := log.AbsPathOrExit(args[0], "project-model")
 		nativeProjectPath := filepath.Join(projectPath, "project.yaml")

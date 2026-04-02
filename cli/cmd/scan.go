@@ -73,6 +73,14 @@ var scanCmd = &cobra.Command{
 
 Arguments:
   project  - Path to a project or a project model (required)
+
+Exit codes:
+  0    Analysis completed successfully
+  1    General failure (compilation, configuration, or infrastructure error)
+  252  Unhandled analyzer exception
+  253  Out of memory (try increasing --max-memory)
+  254  Analysis timed out (try increasing --timeout or --max-memory)
+  255  Project configuration error
 `,
 	Annotations: map[string]string{"PrintConfig": "true"},
 	Run: func(cmd *cobra.Command, args []string) {
