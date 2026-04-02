@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.encodeToStream
 import mu.KLogging
+import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
@@ -54,7 +55,9 @@ class TestProjectAnalyzer(
         val disabled: List<TestSampleInfo>,
     )
 
-    fun analyze() {
+    private var status: ProjectAnalysisStatus = ProjectAnalysisStatus.OK
+
+    fun analyze(): ProjectAnalysisStatus {
         val results = projectAnalysisContexts.map { (module, ctx) ->
             val testSetName = ctx.project.sourceRoot?.let { srcRoot ->
                 module.moduleSourceRoot?.relativeTo(srcRoot)?.toString()
@@ -65,6 +68,8 @@ class TestProjectAnalyzer(
         }
 
         writeTestResult(results.joinResults())
+
+        return status
     }
 
     private fun ProjectAnalysisContext.allProjectTestSamples(testSetName: String): List<TestSample> {
@@ -126,7 +131,9 @@ class TestProjectAnalyzer(
 
         val results = mutableListOf<Pair<TestSample, List<VulnerabilityWithTrace>>>()
         for ((sample, rules) in testWithRule) {
-            val analysisResult = analyzeTestSample(rules, sample)
+            val (analysisResult, analysisStatus) = analyzeTestSample(rules, sample)
+
+            status = maxOf(status, analysisStatus.toProjectStatus())
             results += sample to analysisResult
         }
 
@@ -178,7 +185,7 @@ class TestProjectAnalyzer(
     private fun ProjectAnalysisContext.analyzeTestSample(
         rules: List<TaintRuleFromSemgrep>,
         sample: TestSample
-    ): List<VulnerabilityWithTrace> {
+    ): Pair<List<VulnerabilityWithTrace>, TaintAnalysisUnitRunnerManager.Status> {
         val loadedConfig = rules.semgrepRulesWithDefaultConfig(cp)
         val config = analysisConfig(loadedConfig)
 

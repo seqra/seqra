@@ -13,6 +13,7 @@ import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Sev
 import org.opentaint.jvm.sast.dataflow.DebugOptions
 import org.opentaint.jvm.sast.dataflow.DataFlowApproximationLoader
 import org.opentaint.jvm.sast.project.ProjectAnalysisOptions
+import org.opentaint.jvm.sast.project.ProjectAnalysisStatus
 import org.opentaint.jvm.sast.project.ProjectAnalyzer
 import org.opentaint.jvm.sast.project.SarifGenerationOptions
 import org.opentaint.jvm.sast.project.TestProjectAnalyzer
@@ -78,9 +79,9 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
     private val experimentalAAInterProcCallDepth: Int by option(help = "Experimental options: inter-proc alias analysis call depth")
         .int().default(1)
 
-    override fun analyzeProject(project: Project, analyzerOutputDir: Path, debugOptions: DebugOptions) {
+    override fun analyzeProject(project: Project, analyzerOutputDir: Path, debugOptions: DebugOptions): ProjectAnalysisStatus {
         if (project.modules.isEmpty()) {
-            return
+            return ProjectAnalysisStatus.OK
         }
 
         val sarifOptions = SarifGenerationOptions(
@@ -115,7 +116,7 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
             ),
         )
 
-        if (!debugOptions.runRuleTests) {
+        return if (!debugOptions.runRuleTests) {
             val projectAnalyzer = ProjectAnalyzer(project, analyzerOutputDir, options)
             projectAnalyzer.analyze()
         } else {

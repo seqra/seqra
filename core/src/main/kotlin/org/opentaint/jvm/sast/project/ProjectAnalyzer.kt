@@ -49,11 +49,11 @@ class ProjectAnalyzer(
 ) {
     private val ruleMetadatas = mutableListOf<RuleMetadata>()
 
-    fun analyze() {
+    fun analyze(): ProjectAnalysisStatus {
         val rules = preloadRules()
         val projectAnalysisContext = initializeProjectAnalysisContext(project, options)
 
-        projectAnalysisContext.use {
+        return projectAnalysisContext.use {
             val entryPoints = it.selectProjectEntryPoints(options)
             it.runAnalyzer(entryPoints, rules)
         }
@@ -132,7 +132,7 @@ class ProjectAnalyzer(
         }
     }
 
-    private fun ProjectAnalysisContext.runAnalyzer(entryPoints: List<JIRMethod>, rules: PreloadedRules) {
+    private fun ProjectAnalysisContext.runAnalyzer(entryPoints: List<JIRMethod>, rules: PreloadedRules): ProjectAnalysisStatus {
         val externalMethodsOutput = options.externalMethodsOutput
         val externalMethodTracker = if (externalMethodsOutput != null) ExternalMethodTracker() else null
 
@@ -144,9 +144,12 @@ class ProjectAnalyzer(
             val skippedMethods = externalMethodTracker.getSkippedMethods()
             writeExternalMethodsYaml(externalMethodsOutput, skippedMethods)
         }
+
+        return analysisResult.status.toProjectStatus()
     }
 
     private data class AnalysisResult(
+        val status: TaintAnalysisUnitRunnerManager.Status,
         val traces: List<VulnerabilityWithTrace>,
         val seVerifiedTraces: List<VulnerabilityWithTrace>? = null,
         val debugStatementsWithFact: Map<CommonInst, Set<FinalFactAp>>? = null
@@ -167,10 +170,10 @@ class ProjectAnalyzer(
             externalMethodTracker = externalMethodTracker,
         ).use { analyzer ->
             logger.info { "Start IFDS analysis for project: ${project.sourceRoot}" }
-            val traces = analyzer.analyzeWithIfds(entryPoints)
+            val (traces, status) = analyzer.analyzeWithIfds(entryPoints)
             logger.info { "Finish IFDS analysis for project: ${project.sourceRoot}" }
 
-            var result = AnalysisResult(traces)
+            var result = AnalysisResult(status, traces)
 
             if (options.debugOptions?.factReachabilitySarif == true) {
                 val stmtsWithFact = analyzer.statementsWithFacts()

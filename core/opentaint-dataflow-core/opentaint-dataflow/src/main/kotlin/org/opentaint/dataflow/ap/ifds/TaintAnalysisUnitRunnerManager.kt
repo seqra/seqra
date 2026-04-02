@@ -48,6 +48,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -62,6 +63,17 @@ class TaintAnalysisUnitRunnerManager(
     private val taintRulesStatsSamplingPeriod: Int?,
     private val externalMethodTracker: ExternalMethodTracker? = null,
 ): AnalysisUnitRunnerManager, AutoCloseable {
+    enum class Status {
+        OK, EXCEPTION, TIMEOUT, OOM
+    }
+
+    val status = AtomicReference<Status>(Status.OK)
+
+    private fun updateFailureStatus(status: Status) {
+        if (status == Status.OK) return
+        this.status.compareAndSet(Status.OK, status)
+    }
+
     private val runnerForUnit = ConcurrentHashMap<UnitType, TaintAnalysisUnitRunner>()
     private val unitStorage = ConcurrentHashMap<UnitType, TaintAnalysisUnitStorage>()
     private val methodDependencies = ConcurrentHashMap<CommonMethod, MutableSet<UnitType>>()
@@ -98,6 +110,7 @@ class TaintAnalysisUnitRunnerManager(
     private val analysisMemoryManager = MemoryManager(OOM_DETECTION_THRESHOLD, apManager.refManager()) {
         logger.error { "Running low on memory, stopping analysis" }
         analysisCompletion.complete(Unit)
+        updateFailureStatus(Status.OOM)
     }
 
     fun storeSummaries() {
@@ -144,6 +157,7 @@ class TaintAnalysisUnitRunnerManager(
                 }
 
                 if (timeoutFailure == null) {
+                    updateFailureStatus(Status.TIMEOUT)
                     logger.warn { "Ifds analysis timeout" }
                 }
             } finally {
@@ -183,6 +197,7 @@ class TaintAnalysisUnitRunnerManager(
         val traceResolverCancellation = ProcessingCancellation()
         val traceResolverMemoryManager = MemoryManager(TRACE_GENERATION_MEMORY_THRESHOLD, apManager.refManager()) {
             traceResolverCancellation.cancel()
+            updateFailureStatus(Status.OOM)
             logger.error { "Running low on memory, stopping trace resolution" }
         }
 
@@ -266,6 +281,7 @@ class TaintAnalysisUnitRunnerManager(
         val vulnConfirmCancellation = ProcessingCancellation()
         val vulnConfirmMemoryManager = MemoryManager(TRACE_GENERATION_MEMORY_THRESHOLD, apManager.refManager()) {
             vulnConfirmCancellation.cancel()
+            updateFailureStatus(Status.OOM)
             logger.error { "Running low on memory, stopping vulnerability confirmation" }
         }
 
@@ -369,6 +385,7 @@ class TaintAnalysisUnitRunnerManager(
         val exceptionHandler = CoroutineExceptionHandler { _, exception ->
             logger.error { "Got exception from runner for unit $unit, stopping analysis" }
             analysisCompletion.completeExceptionally(exception)
+            updateFailureStatus(Status.EXCEPTION)
         }
 
         val job = analyzerScope.launch(exceptionHandler) { runner.runLoop() }

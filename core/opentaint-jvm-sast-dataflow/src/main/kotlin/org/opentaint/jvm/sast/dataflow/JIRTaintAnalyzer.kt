@@ -13,6 +13,7 @@ import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
+import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager.Status
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
@@ -71,7 +72,7 @@ class JIRTaintAnalyzer(
 
     val ifdsEngine by lazy { createIfdsEngine() }
 
-    fun analyzeWithIfds(entryPoints: List<JIRMethod>): List<VulnerabilityWithTrace> {
+    fun analyzeWithIfds(entryPoints: List<JIRMethod>): Pair<List<VulnerabilityWithTrace>, Status> {
         return analyzeTaintWithIfdsEngine(entryPoints)
     }
 
@@ -119,7 +120,7 @@ class JIRTaintAnalyzer(
 
     private fun analyzeTaintWithIfdsEngine(
         entryPoints: List<JIRMethod>,
-    ): List<VulnerabilityWithTrace> {
+    ): Pair<List<VulnerabilityWithTrace>, Status> {
         val analysisStart = TimeSource.Monotonic.markNow()
 
         val analysisTimeout = options.ifdsTimeout * 0.95 // Reserve 5% of time for report creation
@@ -173,7 +174,7 @@ class JIRTaintAnalyzer(
         val traceResolutionTimeout = options.ifdsTimeout - analysisStart.elapsedNow()
         if (!traceResolutionTimeout.isPositive()) {
             logger.warn { "No time remaining for trace resolution" }
-            return emptyList()
+            return emptyList<VulnerabilityWithTrace>() to Status.TIMEOUT
         }
 
         val vulnerabilitiesWithTraces = ifdsEngine.generateTraces(entryPoints, vulnerabilities, traceResolutionTimeout)
@@ -184,7 +185,7 @@ class JIRTaintAnalyzer(
             val delta = vulnerabilitiesWithTraces.size - filteredVulnerabilities.size
             logger.info { "Filter out $delta vulnerabilities without traces" }
         }
-        return filteredVulnerabilities
+        return filteredVulnerabilities to ifdsEngine.status.get()
     }
 
     private object InnerCallTraceResolveStrategy : TraceResolver.InnerCallTraceResolveStrategy {
