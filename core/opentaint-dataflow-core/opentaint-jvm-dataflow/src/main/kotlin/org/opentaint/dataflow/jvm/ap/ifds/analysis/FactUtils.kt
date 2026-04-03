@@ -98,7 +98,7 @@ object FactUtils {
         val aliases = aliasAnalysis?.getMustAliases(statement, relevantBase).orEmpty()
         var irrelevantFacts = listOf(fact)
         val aliasedFacts = mutableListOf<AliasedFact>()
-        // hack for uniform calls in fieldWrite
+        // hack for uniform calls
         if (includeOriginal) aliasedFacts.add(AliasedFact(fact, null))
 
         aliases.forEach { alias ->

@@ -53,21 +53,8 @@ class JIRMethodCallSummaryHandler(
                 }
             }
 
-            val relevantBases = statement.operands.filterIsInstance<JIRImmediate>()
-                .mapNotNull { MethodFlowFunctionUtils.accessPathBase(it) }
-
-            val (aliasedFacts, _) =
-                FactUtils.splitFactMultipleBases(
-                    analysisContext.aliasAnalysis,
-                    statement,
-                    relevantBases,
-                    summaryFactAp,
-                    false
-                )
-
-            aliasedFacts.forEach { (fact, alias) ->
-                val restored = FactUtils.rewriteForAlias(fact, alias)
-                result += handleSummaryEdge(initialFactRefinement, restored)
+            analysisContext.aliasAnalysis?.forEachMustAlias(statement, summaryFactAp) { fact ->
+                result += handleSummaryEdge(initialFactRefinement, fact)
             }
 
             handleSummaryEdge(initialFactRefinement, summaryFactAp)
