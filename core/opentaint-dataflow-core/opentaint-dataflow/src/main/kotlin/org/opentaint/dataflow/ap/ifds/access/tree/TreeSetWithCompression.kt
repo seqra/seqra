@@ -1,17 +1,23 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageSize
-import org.opentaint.dataflow.util.SoftReferenceManager
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode as AccessTreeNode
 
-open class TreeSetWithCompression(maxInstIdx: Int, refManager: SoftReferenceManager) {
+open class TreeSetWithCompression(maxInstIdx: Int, val manager: TreeApManager) {
     val edges = arrayOfNulls<AccessTreeNode?>(instructionStorageSize(maxInstIdx))
 
-    private val interner = AccessTreeSoftInterner(refManager)
+    private val interner = AccessTreeSoftInterner(manager)
     private var operationsBeforeIntern = INTERN_RATE
-    private var maxTreeSize = 0
+    private var maxTreeSize = 0L
+
+    fun internIfRequired(node: AccessTreeNode): AccessTreeNode {
+        if (node.size < SIZE_TO_FORCE_INTERN) return node
+        return interner.intern(node)
+    }
 
     fun intern(idx: Int): Unit = interner.internImpl(
+        manager.cancellation,
         lastUpdated = edges[idx],
         size = edges.size,
         maxNodeSize = maxTreeSize,
@@ -24,10 +30,11 @@ open class TreeSetWithCompression(maxInstIdx: Int, refManager: SoftReferenceMana
 
     companion object {
         inline fun AccessTreeSoftInterner.internImpl(
+            cancellation: Cancellation,
             lastUpdated: AccessTreeNode?,
             size: Int,
-            maxNodeSize: Int,
-            updateMaxNodeSize: (Int) -> Unit,
+            maxNodeSize: Long,
+            updateMaxNodeSize: (Long) -> Unit,
             decOperations: () -> Int,
             resetOperation: () -> Unit,
             crossinline getNode: (Int) -> AccessTreeNode?,
@@ -42,12 +49,13 @@ open class TreeSetWithCompression(maxInstIdx: Int, refManager: SoftReferenceMana
             withInterner { interner, cache ->
                 for (i in 0 until size) {
                     val node = getNode(i) ?: continue
-                    setNode(i, node.internNodes(interner, cache))
+                    setNode(i, node.internNodes(interner, cache, cancellation))
                 }
             }
         }
 
         const val MIN_SIZE_TO_INTERN = 100
+        const val SIZE_TO_FORCE_INTERN = 100_000
         private const val INTERN_RATE = 100
     }
 }

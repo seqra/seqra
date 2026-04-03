@@ -120,7 +120,7 @@ private class MethodTaintedSummariesMergingStorage(
     val initialAccess: AccessPath.AccessNode?
 ) {
     private var exclusion: ExclusionSet? = null
-    private val treeStorage = MergingTreeSummaryStorage(apManager.refManager)
+    private val treeStorage = MergingTreeSummaryStorage(apManager)
 
     fun add(exitAccess: AccessTreeNode, addedEx: ExclusionSet): Boolean {
         val currentExclusion = exclusion

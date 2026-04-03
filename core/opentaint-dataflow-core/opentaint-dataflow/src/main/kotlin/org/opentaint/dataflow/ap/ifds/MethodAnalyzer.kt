@@ -24,9 +24,8 @@ import org.opentaint.dataflow.ap.ifds.trace.MethodForwardTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.MethodForwardTraceResolver.RelevantFactFilter
 import org.opentaint.dataflow.ap.ifds.trace.MethodForwardTraceResolver.TraceGraph
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
-import org.opentaint.dataflow.ap.ifds.trace.ProcessingCancellation
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.util.cartesianProductMapTo
-import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonAssignInst
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -126,7 +125,7 @@ interface MethodAnalyzer {
 
     fun resolveIntraProceduralFullTrace(
         summaryTrace: MethodTraceResolver.SummaryTrace,
-        cancellation: ProcessingCancellation,
+        cancellation: Cancellation,
         collapseUnchangedNodes: Boolean,
     ): List<MethodTraceResolver.FullTrace>
 
@@ -170,6 +169,7 @@ class NormalMethodAnalyzer(
     private val apManager: ApManager get() = runner.apManager
     private val analysisManager get() = runner.analysisManager
     private val methodCallResolver get() = runner.methodCallResolver
+    private val cancellation: Cancellation = runner.manager.cancellation
 
     private var zeroInitialFactProcessed: Boolean = false
     private val initialFacts = apManager.initialFactAbstraction(methodEntryPoint.statement)
@@ -798,6 +798,8 @@ class NormalMethodAnalyzer(
         sideEffectSummaries: List<SideEffectSummary.FactSideEffectSummary>
     ) {
         for (sub in summarySubs) {
+            if (!cancellation.isActive()) return
+
             val handler = analysisManager.getMethodSideEffectSummaryHandler(
                 apManager, analysisContext,
                 sub.currentEdge.statement,
@@ -819,6 +821,8 @@ class NormalMethodAnalyzer(
         sideEffectSummaries: List<SideEffectSummary.FactSideEffectSummary>
     ) {
         for (sub in summarySubs) {
+            if (!cancellation.isActive()) return
+
             val handler = analysisManager.getMethodSideEffectSummaryHandler(
                 apManager, analysisContext,
                 sub.currentEdge.statement,
@@ -893,6 +897,8 @@ class NormalMethodAnalyzer(
         )
 
         for (methodSummary in applicableSummaries) {
+            if (!cancellation.isActive()) return
+
             val sequentialFacts = when (methodSummary) {
                 is ZeroToZero -> handler.handleZeroToZero(summaryFact = null)
                 is ZeroToFact -> handler.handleZeroToZero(methodSummary.factAp)
@@ -910,6 +916,8 @@ class NormalMethodAnalyzer(
         val applicableSummaries = methodSummaries.filter { isApplicableExitToReturnEdge(it) }
 
         for (sub in summarySubs) {
+            if (!cancellation.isActive()) return
+
             val handler = analysisManager.getMethodCallSummaryHandler(
                 apManager, analysisContext, sub.currentEdge.statement
             )
@@ -945,6 +953,8 @@ class NormalMethodAnalyzer(
         val applicableSummaries = methodSummaries.filter { isApplicableExitToReturnEdge(it) }
 
         for (sub in summarySubs) {
+            if (!cancellation.isActive()) return
+
             val handler = analysisManager.getMethodCallSummaryHandler(
                 apManager, analysisContext, sub.currentEdge.statement
             )
@@ -980,6 +990,8 @@ class NormalMethodAnalyzer(
         val applicableSummaries = methodSummaries.filter { isApplicableExitToReturnEdge(it) }
 
         for (sub in summarySubs) {
+            if (!cancellation.isActive()) return
+
             val handler = analysisManager.getMethodCallSummaryHandler(
                 apManager, analysisContext, sub.currentEdge.statement
             )
@@ -1054,12 +1066,16 @@ class NormalMethodAnalyzer(
 
         val summaries = methodSummaries.groupByTo(hashMapOf()) { getSummaryInitialFact(it) }
         for ((summaryInitialFact, summaryEdges) in summaries) {
+            if (!cancellation.isActive()) return
+
             val summaryEdgeEffects = MethodSummaryEdgeApplicationUtils.tryApplySummaryEdge(
                 methodInitialFact, summaryInitialFact
             )
 
             for (summaryEdgeEffect in summaryEdgeEffects) {
                 for (methodSummary in summaryEdges) {
+                    if (!cancellation.isActive()) return
+
                     val sf = handleSummary(currentEdgeFactAp, summaryEdgeEffect, methodSummary)
                     handleSequentFact(currentEdge, sf)
                 }
@@ -1079,6 +1095,8 @@ class NormalMethodAnalyzer(
         val applicableSummaries = methodSummaries.filter { isApplicableExitToReturnEdge(it) }
 
         for (sub in summarySubs) {
+            if (!cancellation.isActive()) return
+
             val currentEdge = sub.subEdge()
 
             val handler = analysisManager.getMethodCallSummaryHandler(
@@ -1107,6 +1125,8 @@ class NormalMethodAnalyzer(
         val methodInitialFact = currentEdgeFactAp.rebase(methodInitialFactBase)
 
         nextSummary@for (summaryEdge in methodSummaries) {
+            if (!cancellation.isActive()) return
+
             val requiredFacts = mutableListOf<InitialFactAp>()
             for (summaryInitialFact in summaryEdge.initialFacts) {
                 if (!methodInitialFact.matchNDInitial(summaryInitialFact)) {
@@ -1118,6 +1138,7 @@ class NormalMethodAnalyzer(
 
             val requiredInitials = mutableListOf<List<Set<InitialFactAp>>>()
             for (requiredFact in requiredFacts) {
+
                 val searcher = object : MethodAnalyzerEdgeSearcher(
                     edges, apManager, analysisManager, analysisContext, methodInstGraph
                 ) {
@@ -1141,6 +1162,8 @@ class NormalMethodAnalyzer(
             }
 
             requiredInitials.cartesianProductMapTo { initialFactGroup ->
+                if (!cancellation.isActive()) return
+
                 val ndSummaryInitial = initialFactGroup.flatMapTo(hashSetOf()) { it }
 
                 val sf = when (currentEdge) {
@@ -1245,7 +1268,7 @@ class NormalMethodAnalyzer(
 
     override fun resolveIntraProceduralFullTrace(
         summaryTrace: MethodTraceResolver.SummaryTrace,
-        cancellation: ProcessingCancellation,
+        cancellation: Cancellation,
         collapseUnchangedNodes: Boolean,
     ): List<MethodTraceResolver.FullTrace> {
         val resolver = MethodTraceResolver(runner, analysisContext, edges, methodInstGraph)
@@ -1446,7 +1469,7 @@ class EmptyMethodAnalyzer(
 
     override fun resolveIntraProceduralFullTrace(
         summaryTrace: MethodTraceResolver.SummaryTrace,
-        cancellation: ProcessingCancellation,
+        cancellation: Cancellation,
         collapseUnchangedNodes: Boolean,
     ): List<MethodTraceResolver.FullTrace> {
         TODO("Not yet implemented")

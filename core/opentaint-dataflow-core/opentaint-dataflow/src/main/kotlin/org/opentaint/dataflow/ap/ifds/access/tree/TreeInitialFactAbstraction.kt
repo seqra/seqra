@@ -17,7 +17,7 @@ class TreeInitialFactAbstraction(
     private val apManager: TreeApManager
 ): InitialFactAbstraction {
     private val initialFacts = MethodSameMarkInitialFact(hashMapOf())
-    private val interner = AccessTreeSoftInterner(apManager.refManager)
+    private val interner = AccessTreeSoftInterner(apManager)
 
     override fun addAbstractedInitialFact(
         factAp: FinalFactAp,
@@ -130,7 +130,7 @@ class TreeInitialFactAbstraction(
 
     private fun AccessTreeNode.addReversedApParents(ap: ReversedApNode): AccessTreeNode? =
         ap.foldRight(this) { accessor, node ->
-            node.addParentIfPossible(accessor) ?: return null
+            node.addParentIfPossible(accessor, apManager.cancellation) ?: return null
         }
 
     data class AbstractionState(
@@ -236,7 +236,7 @@ class TreeInitialFactAbstraction(
 
             if (addedInitial == null) return null
 
-            this.added = updatedAddedNode
+            this.added = internIfRequired(interner, updatedAddedNode)
 
             intern(interner)
 
@@ -244,6 +244,11 @@ class TreeInitialFactAbstraction(
         }
 
         private var operationsBeforeIntern = INTERN_RATE
+
+        private fun internIfRequired(interner: AccessTreeSoftInterner, node: AccessTreeNode): AccessTreeNode {
+            if (node.size < SIZE_TO_FORCE_INTERN) return node
+            return interner.intern(node)
+        }
 
         private fun intern(interner: AccessTreeSoftInterner) {
             val current = added ?: return
@@ -308,6 +313,7 @@ class TreeInitialFactAbstraction(
 
     companion object {
         private const val INTERN_RATE = 100
-        private const val INTERN_SIZE_REQUIREMENT = 10_000
+        private const val INTERN_SIZE_REQUIREMENT = 1_000
+        private const val SIZE_TO_FORCE_INTERN = 100_000
     }
 }

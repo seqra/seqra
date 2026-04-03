@@ -10,15 +10,18 @@ import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.ReversedApNode
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.foldRight
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
-import org.opentaint.dataflow.ap.ifds.ValueAccessor
+import org.opentaint.dataflow.util.Cancellation
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.util.IdentityHashMap
+import java.util.Optional
+import kotlin.jvm.optionals.getOrNull
 
 class AccessTree(
     private val apManager: TreeApManager,
@@ -52,7 +55,7 @@ class AccessTree(
         access.getChild(apManager, accessor)?.let { AccessTree(apManager, base, it, exclusions) }
 
     override fun prependAccessor(accessor: Accessor): FinalFactAp =
-        AccessTree(apManager, base, access.addParent(accessor), exclusions)
+        AccessTree(apManager, base, access.addParent(accessor, apManager.cancellation), exclusions)
 
     override fun clearAccessor(accessor: Accessor): FinalFactAp? {
         val newAccess = access.clearChild(accessor).takeIf { !it.isEmpty } ?: return null
@@ -186,7 +189,8 @@ class AccessTree(
         when (val d = delta as AccessTreeDelta) {
             EmptyAccessTreeDelta -> return this
             is NodeAccessTreeDelta -> {
-                val concatenatedAccess = access.concatToLeafAbstractNodes(typeChecker, d.node) ?: return null
+                val concatenatedAccess = access.concatToLeafAbstractNodes(typeChecker, d.node, apManager.cancellation)
+                    ?: return null
                 return AccessTree(apManager, base, concatenatedAccess, exclusions)
             }
         }
@@ -230,7 +234,7 @@ class AccessTree(
         @JvmField val accessorNodes: Array<AccessNode>?,
     ) {
         @JvmField val hash: Long
-        @JvmField val size: Int
+        @JvmField val size: Long
         @JvmField val maxDepth: Int
         @JvmField val containsStatic: Boolean
 
@@ -269,7 +273,7 @@ class AccessTree(
         }
 
         init {
-            var size = 1
+            var size = 1L
             if (accessorNodes != null) {
                 size += accessorNodes.sumOf { it.size }
             }
@@ -367,18 +371,21 @@ class AccessTree(
 
             if (!apManager.anyAccessorUnrollStrategy.unrollAccessor(accessor)) return null
 
-            val childWithAny = anyAccessorNode.addParentIfPossible(AnyAccessor)
+            val childWithAny = anyAccessorNode.addParentIfPossible(AnyAccessor, apManager.cancellation)
             val unrolled = childWithAny?.mergeAdd(anyAccessorNode) ?: anyAccessorNode
             return unrolled
         }
 
-        fun addParentIfPossible(accessor: Accessor): AccessNode? {
+        fun addParentIfPossible(
+            accessor: Accessor,
+            cancellation: Cancellation
+        ): AccessNode? {
             if (containsStatic) return null
 
             return when (accessor) {
                 is FinalAccessor -> null
                 is ElementAccessor -> create(elementAccess = limitElementAccess(limit = SUBSEQUENT_ARRAY_ELEMENTS_LIMIT))
-                is FieldAccessor -> addParentFieldAccess(accessor)
+                is FieldAccessor -> addParentFieldAccess(accessor, cancellation)
                 is ClassStaticAccessor -> create(accessor, this)
                 is ValueAccessor -> {
                     if (accessors?.any { it !is TaintMarkAccessor } == true) {
@@ -400,8 +407,8 @@ class AccessTree(
             }
         }
 
-        fun addParent(accessor: Accessor): AccessNode =
-            addParentIfPossible(accessor)
+        fun addParent(accessor: Accessor, cancellation: Cancellation): AccessNode =
+            addParentIfPossible(accessor, cancellation)
                 ?: error("Impossible accessor")
 
         fun removeAbstraction(): AccessNode =
@@ -441,9 +448,12 @@ class AccessTree(
             return result.mergeAdd(collapsedElementAccess)
         }
 
-        private fun addParentFieldAccess(newRootField: FieldAccessor): AccessNode {
+        private fun addParentFieldAccess(
+            newRootField: FieldAccessor,
+            cancellation: Cancellation
+        ): AccessNode {
             val filteredNodes = mutableListOf<Pair<FieldAccessor, AccessNode>>()
-            val limitedThis = limitFieldAccess(newRootField, filteredNodes)
+            val limitedThis = limitFieldAccess(newRootField, filteredNodes, cancellation)
 
             val resultNode = if (limitedThis != null) {
                 create(newRootField, limitedThis)
@@ -453,22 +463,6 @@ class AccessTree(
 
             return resultNode.bulkMergeAddAccessors(filteredNodes)
                 .also { check(!it.isEmpty) { "Empty node after field normalization" } }
-        }
-
-        private fun limitFieldAccess(
-            newRootField: FieldAccessor,
-            filteredNodes: MutableList<in Pair<FieldAccessor, AccessNode>>
-        ): AccessNode? {
-            val limitedNode = transformAccessors { accessor, node ->
-                if (accessor is FieldAccessor && accessor == newRootField) {
-                    filteredNodes += accessor to node
-                    null
-                } else {
-                    node.limitFieldAccess(newRootField, filteredNodes)
-                }
-            }
-
-            return limitedNode.takeIf { !it.isEmpty }
         }
 
         fun clearChild(accessor: Accessor): AccessNode = when (accessor) {
@@ -651,34 +645,44 @@ class AccessTree(
             }
         }
 
-        fun concatToLeafAbstractNodes(typeChecker: FactTypeChecker, other: AccessNode): AccessNode? =
-            concatToLeafAbstractNodes(
-                typeChecker, other, mutableListOf(), SUBSEQUENT_ARRAY_ELEMENTS_LIMIT,
+        fun concatToLeafAbstractNodes(
+            typeChecker: FactTypeChecker,
+            other: AccessNode,
+            cancellation: Cancellation
+        ): AccessNode? {
+            val filteredOther = FilteredNode.create(other, cancellation)
+
+            return concatToLeafAbstractNodes(
+                typeChecker, filteredOther, mutableListOf(), SUBSEQUENT_ARRAY_ELEMENTS_LIMIT, cancellation,
             )
+        }
 
         fun internNodes(
             interner: AccessTreeInterner,
-            cache: IdentityHashMap<AccessNode, AccessNode>
-        ): AccessNode = internNodesWithCache(interner, cache)
+            cache: IdentityHashMap<AccessNode, AccessNode>,
+            cancellation: Cancellation,
+        ): AccessNode = internNodesWithCache(interner, cache, cancellation)
 
         private fun internNodesWithCache(
             interner: AccessTreeInterner,
-            cache: IdentityHashMap<AccessNode, AccessNode>
+            cache: IdentityHashMap<AccessNode, AccessNode>,
+            cancellation: Cancellation,
         ): AccessNode {
             cache[this]?.let { return it }
-            return internNodesDeep(interner, cache).also {
+            return internNodesDeep(interner, cache, cancellation).also {
                 cache[this] = it
             }
         }
 
         private fun internNodesDeep(
             interner: AccessTreeInterner,
-            cache: IdentityHashMap<AccessNode, AccessNode>
+            cache: IdentityHashMap<AccessNode, AccessNode>,
+            cancellation: Cancellation,
         ): AccessNode {
             if (interned) return this
 
             fun transformNode(@Suppress("unused") accessor: Accessor, node: AccessNode): AccessNode =
-                node.internNodesWithCache(interner, cache)
+                node.internNodesWithCache(interner, cache, cancellation)
 
             val nodeWithAccessorNodesInterned = transformAccessors(::transformNode)
             val internedNode = nodeWithAccessorNodesInterned.markInterned()
@@ -694,16 +698,108 @@ class AccessTree(
             accessorNodes = accessorNodes
         )
 
+        private class FilteredNode(
+            val node: AccessNode,
+            val allNodeAccessors: IdentityHashMap<AccessNode, Set<Accessor>>,
+            val cache: IdentityHashMap<AccessNode, MutableMap<Accessor, Optional<Pair<AccessNode, List<Pair<FieldAccessor, AccessNode>>>>>>,
+            val typeFilterCache: IdentityHashMap<AccessNode, MutableMap<FactTypeChecker.FactApFilter, Optional<AccessNode>>>,
+            val cancellation: Cancellation,
+        ) {
+            private fun updateNode(node: AccessNode) = FilteredNode(node, allNodeAccessors, cache, typeFilterCache, cancellation)
+
+            fun filterTypes(typeChecker: FactTypeChecker, path: List<Accessor>): FilteredNode? {
+                val filter = typeChecker.accessPathFilter(path)
+
+                val nodeCache = typeFilterCache.getOrPut(node, ::hashMapOf)
+                val filterCache = nodeCache[filter]
+                if (filterCache != null) {
+                    val filteredNode = filterCache.getOrNull()
+                        ?: return null
+
+                    return updateNode(filteredNode)
+                }
+
+                val filteredNode = node.filterAccessNode(filter)
+
+                if (filteredNode == null) {
+                    nodeCache[filter] = Optional.empty()
+                    return null
+                }
+
+                nodeCache[filter] = Optional.of(filteredNode)
+
+                return updateNode(filteredNode)
+            }
+
+            fun limitFieldAccess(
+                accessor: FieldAccessor,
+                filteredNodes: MutableList<in Pair<FieldAccessor, AccessNode>>
+            ): FilteredNode? {
+                val nodeAccessors = allNodeAccessors[node]
+                if (nodeAccessors != null && !nodeAccessors.contains(accessor)) return this
+
+                val nodeCache = cache.getOrPut(node, ::hashMapOf)
+                val accessorResult = nodeCache[accessor]
+                if (accessorResult != null) {
+                    val unpackedResult = accessorResult.getOrNull()
+                        ?: return null
+
+                    filteredNodes += unpackedResult.second
+                    return updateNode(unpackedResult.first)
+                }
+
+                val extractedNodes = mutableListOf<Pair<FieldAccessor, AccessNode>>()
+                val filteredNode = node.limitFieldAccess(accessor, extractedNodes, cancellation)
+                if (filteredNode == null) {
+                    nodeCache[accessor] = Optional.empty()
+                    return null
+                }
+
+                if (nodeAccessors != null) {
+                    allNodeAccessors[filteredNode] = nodeAccessors - accessor
+                }
+
+                nodeCache[accessor] = Optional.of(filteredNode to extractedNodes)
+
+                filteredNodes += extractedNodes
+                return updateNode(filteredNode)
+            }
+
+            companion object {
+                fun create(node: AccessNode, cancellation: Cancellation): FilteredNode {
+                    val internedNode = node.internNodes(AccessTreeInterner(), IdentityHashMap(), cancellation)
+                    val allAccessors = IdentityHashMap<AccessNode, Set<Accessor>>()
+                    collectAllAccessors(internedNode, allAccessors)
+                    return FilteredNode(internedNode, allAccessors, IdentityHashMap(), IdentityHashMap(), cancellation)
+                }
+
+                private fun collectAllAccessors(node: AccessNode, cache: IdentityHashMap<AccessNode, Set<Accessor>>): Set<Accessor> {
+                    cache[node]?.let { return it }
+
+                    val allAccessors = hashSetOf<Accessor>()
+                    node.forEachAccessor { accessor, child ->
+                        allAccessors.add(accessor)
+                        allAccessors += collectAllAccessors(child, cache)
+                    }
+
+                    cache[node] = allAccessors
+                    return allAccessors
+                }
+            }
+        }
+
         private fun concatToLeafAbstractNodes(
             typeChecker: FactTypeChecker,
-            other: AccessNode?,
+            other: FilteredNode?,
             path: MutableList<Accessor>,
             subsequentArrayElementLimit: Int,
+            cancellation: Cancellation,
         ): AccessNode? {
+            cancellation.checkpoint()
+
             val concatNode = if (isAbstract && other != null) {
-                val filter = typeChecker.accessPathFilter(path)
-                other.filterAccessNode(filter)
-                    ?.limitElementAccess(limit = subsequentArrayElementLimit)
+                other.filterTypes(typeChecker, path)
+                    ?.node?.limitElementAccess(limit = subsequentArrayElementLimit)
             } else null
 
             val nestedAccessors = mutableListOf<Pair<Accessor, AccessNode>>()
@@ -723,7 +819,7 @@ class AccessTree(
 
                 path.add(accessor)
                 val concatenatedNode = node.concatToLeafAbstractNodes(
-                    typeChecker, filteredOther, path, newSubsequentArrayLimit,
+                    typeChecker, filteredOther, path, newSubsequentArrayLimit, cancellation,
                 )
                 path.removeLast()
 
@@ -880,15 +976,50 @@ class AccessTree(
             return create(isAbstract, isFinal, newAccessors.first, newAccessors.second)
         }
 
+        private fun limitFieldAccess(
+            newRootField: FieldAccessor,
+            filteredNodes: MutableList<in Pair<FieldAccessor, AccessNode>>,
+            cancellation: Cancellation,
+        ): AccessNode? {
+            val cache = IdentityHashMap<AccessNode, AccessNode>()
+            return limitFieldAccessCached(newRootField, filteredNodes, cache, cancellation)
+        }
+
+        private fun limitFieldAccessCached(
+            newRootField: FieldAccessor,
+            filteredNodes: MutableList<in Pair<FieldAccessor, AccessNode>>,
+            cache: IdentityHashMap<AccessNode, AccessNode>,
+            cancellation: Cancellation,
+        ): AccessNode? {
+            cache[this]?.let { return it }
+
+            cancellation.checkpoint()
+
+            val result = transformAccessorsNonEmpty { accessor, node ->
+                if (accessor is FieldAccessor && accessor == newRootField) {
+                    filteredNodes += accessor to node
+                    null
+                } else {
+                    node.limitFieldAccessCached(newRootField, filteredNodes, cache, cancellation)
+                }
+            }
+
+            cache[this] = result
+            return result
+        }
+
         fun removeAllAccessorChains(
             accessors: Set<Accessor>,
             chainLengthToRemove: Int,
             cache: IdentityHashMap<AccessNode, AccessNode>,
+            cancellation: Cancellation,
         ): AccessNode {
             cache[this]?.let { return it }
 
+            cancellation.checkpoint()
+
             val removedNodes = mutableListOf<AccessNode>()
-            val node = removeAllAccessorChains(accessors, removedNodes, chainLengthToRemove, 0, cache)
+            val node = removeAllAccessorChains(accessors, removedNodes, chainLengthToRemove, 0, cache, cancellation)
             val mergedRemovedNode = removedNodes.reduceOrNull { acc, node -> acc.mergeAdd(node) }
 
             val result = if (mergedRemovedNode == null) {
@@ -907,18 +1038,19 @@ class AccessTree(
             chainLengthToRemove: Int,
             currentChainLength: Int,
             cache: IdentityHashMap<AccessNode, AccessNode>,
+            cancellation: Cancellation,
         ): AccessNode? {
             if (currentChainLength == chainLengthToRemove) {
-                val node = removeAllAccessorChains(accessors, chainLengthToRemove, cache)
+                val node = removeAllAccessorChains(accessors, chainLengthToRemove, cache, cancellation)
                 removedNodes += node
                 return null
             }
 
             return transformAccessorsNonEmpty { accessor, node ->
-                val transformed = node.removeAllAccessorChains(accessors, chainLengthToRemove, cache)
+                val transformed = node.removeAllAccessorChains(accessors, chainLengthToRemove, cache, cancellation)
                 if (accessor !in accessors) return@transformAccessorsNonEmpty transformed
 
-                transformed.removeAllAccessorChains(accessors, removedNodes, chainLengthToRemove, currentChainLength + 1, cache)
+                transformed.removeAllAccessorChains(accessors, removedNodes, chainLengthToRemove, currentChainLength + 1, cache, cancellation)
             }
         }
 

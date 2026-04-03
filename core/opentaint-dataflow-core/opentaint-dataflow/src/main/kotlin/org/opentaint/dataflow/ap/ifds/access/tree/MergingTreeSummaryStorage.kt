@@ -4,10 +4,9 @@ import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorGraph
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner
-import org.opentaint.dataflow.util.SoftReferenceManager
 import java.util.IdentityHashMap
 
-class MergingTreeSummaryStorage(manager: SoftReferenceManager) {
+class MergingTreeSummaryStorage(val manager: TreeApManager) {
     private var edges: AccessNode? = null
     private var edgesDelta: AccessNode? = null
 
@@ -26,11 +25,11 @@ class MergingTreeSummaryStorage(manager: SoftReferenceManager) {
 
         if (modifiedEdges.size > COMPRESSION_THRESHOLD) {
             interner.withInterner { interner, cache ->
-                val currentInterned = modifiedEdges.internNodes(interner, cache)
+                val currentInterned = modifiedEdges.internNodes(interner, cache, manager.cancellation)
                 val compressed = currentInterned.compressNode(AccessorInterner())
 
                 if (compressed !== currentInterned) {
-                    val interned = compressed.internNodes(interner, cache)
+                    val interned = compressed.internNodes(interner, cache, manager.cancellation)
                     edges = interned
                     edgesDelta = interned
                     return true
@@ -50,8 +49,8 @@ class MergingTreeSummaryStorage(manager: SoftReferenceManager) {
         edgesDelta = null
 
         return interner.withInterner { interner, cache ->
-            edges = edges?.internNodes(interner, cache)
-            delta.internNodes(interner, cache)
+            edges = edges?.internNodes(interner, cache, manager.cancellation)
+            delta.internNodes(interner, cache, manager.cancellation)
         }
     }
 
@@ -61,7 +60,9 @@ class MergingTreeSummaryStorage(manager: SoftReferenceManager) {
         var result = this
         for (component in components) {
             if (component.size < 2) continue
-            result = result.removeAllAccessorChains(component, chainLengthToRemove = 2, IdentityHashMap())
+            result = result.removeAllAccessorChains(
+                component, chainLengthToRemove = 2, IdentityHashMap(), manager.cancellation
+            )
         }
         if (this === result) return this
 

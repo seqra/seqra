@@ -18,9 +18,9 @@ import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.trace.MethodForwardTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.MethodForwardTraceResolver.RelevantFactFilter
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
-import org.opentaint.dataflow.ap.ifds.trace.ProcessingCancellation
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.util.concurrentReadSafeForEach
 import java.util.PriorityQueue
 import java.util.concurrent.atomic.LongAdder
@@ -428,7 +428,7 @@ class TaintAnalysisUnitRunner(
     fun resolveIntraProceduralFullTrace(
         methodEntryPoint: MethodEntryPoint,
         summaryTrace: MethodTraceResolver.SummaryTrace,
-        cancellation: ProcessingCancellation,
+        cancellation: Cancellation,
         collapseUnchangedNodes: Boolean,
     ): List<MethodTraceResolver.FullTrace> {
         val methodRunners = methodAnalyzers(methodEntryPoint)

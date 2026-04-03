@@ -28,7 +28,6 @@ import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerabilityWithEndFactRequirement
 import org.opentaint.dataflow.ap.ifds.trace.ParallelProcessingContext
-import org.opentaint.dataflow.ap.ifds.trace.ProcessingCancellation
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityChecker
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityChecker.VerifiedVulnerability
@@ -38,6 +37,7 @@ import org.opentaint.dataflow.configuration.CommonTaintRulesProvider
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.util.MemoryManager
 import org.opentaint.dataflow.util.SoftReferenceManager
 import org.opentaint.dataflow.util.percentToString
@@ -63,6 +63,8 @@ class TaintAnalysisUnitRunnerManager(
     private val taintRulesStatsSamplingPeriod: Int?,
     private val externalMethodTracker: ExternalMethodTracker? = null,
 ): AnalysisUnitRunnerManager, AutoCloseable {
+    override val cancellation: Cancellation = apManager.cancellation
+
     enum class Status {
         OK, EXCEPTION, TIMEOUT, OOM
     }
@@ -110,6 +112,7 @@ class TaintAnalysisUnitRunnerManager(
     private val analysisMemoryManager = MemoryManager(OOM_DETECTION_THRESHOLD, apManager.refManager()) {
         logger.error { "Running low on memory, stopping analysis" }
         analysisCompletion.complete(Unit)
+        cancellation.cancel()
         updateFailureStatus(Status.OOM)
     }
 
@@ -125,6 +128,8 @@ class TaintAnalysisUnitRunnerManager(
         timeout: Duration,
         cancellationTimeout: Duration
     ) = analysisMemoryManager.runWithMemoryManager {
+        cancellation.activate()
+
         val timeStart = TimeSource.Monotonic.markNow()
 
         val unitStartMethods = startMethods.groupBy { unitResolver.resolve(it.method) }.filterKeys { it != UnknownUnit }
@@ -193,18 +198,17 @@ class TaintAnalysisUnitRunnerManager(
         cancellationTimeout: Duration
     ): List<VulnerabilityWithTrace> {
         if (vulnerabilities.isEmpty()) return emptyList()
+        cancellation.activate()
 
-        val traceResolverCancellation = ProcessingCancellation()
         val traceResolverMemoryManager = MemoryManager(TRACE_GENERATION_MEMORY_THRESHOLD, apManager.refManager()) {
-            traceResolverCancellation.cancel()
+            cancellation.cancel()
             updateFailureStatus(Status.OOM)
             logger.error { "Running low on memory, stopping trace resolution" }
         }
 
         return traceResolverMemoryManager.runWithMemoryManager {
             resolveVulnerabilityTracesWithCancellation(
-                entryPoints, vulnerabilities, resolverParams, timeout, cancellationTimeout,
-                traceResolverCancellation
+                entryPoints, vulnerabilities, resolverParams, timeout, cancellationTimeout
             )
         }
     }
@@ -215,9 +219,8 @@ class TaintAnalysisUnitRunnerManager(
         resolverParams: TraceResolver.Params,
         timeout: Duration,
         cancellationTimeout: Duration,
-        traceResolverCancellation: ProcessingCancellation
     ): List<VulnerabilityWithTrace> {
-        val traceResolver = TraceResolver(entryPoints, this, resolverParams, traceResolverCancellation)
+        val traceResolver = TraceResolver(entryPoints, this, resolverParams, cancellation)
         val traceResolutionContext = object : ParallelProcessingContext<TaintVulnerability, VulnerabilityWithTrace>(
             analyzerDispatcher, name = "Trace resolution", vulnerabilities
         ) {
@@ -252,7 +255,7 @@ class TaintAnalysisUnitRunnerManager(
         }
 
         return traceResolutionContext.processAll(
-            progressScope, timeout, cancellationTimeout, traceResolverCancellation
+            progressScope, timeout, cancellationTimeout, cancellation
         ) { vulnerability ->
             val trace = traceResolver.resolveTrace(vulnerability)
             VulnerabilityWithTrace(vulnerability, trace)
@@ -265,6 +268,8 @@ class TaintAnalysisUnitRunnerManager(
         timeout: Duration,
         cancellationTimeout: Duration
     ): List<TaintVulnerability> {
+        cancellation.activate()
+
         val confirmed = mutableListOf<TaintVulnerability>()
         val unconfirmedVulnerabilities = mutableListOf<TaintVulnerabilityWithEndFactRequirement>()
 
@@ -278,9 +283,8 @@ class TaintAnalysisUnitRunnerManager(
 
         if (unconfirmedVulnerabilities.isEmpty()) return confirmed
 
-        val vulnConfirmCancellation = ProcessingCancellation()
         val vulnConfirmMemoryManager = MemoryManager(TRACE_GENERATION_MEMORY_THRESHOLD, apManager.refManager()) {
-            vulnConfirmCancellation.cancel()
+            cancellation.cancel()
             updateFailureStatus(Status.OOM)
             logger.error { "Running low on memory, stopping vulnerability confirmation" }
         }
@@ -288,7 +292,6 @@ class TaintAnalysisUnitRunnerManager(
         val checkedVulnerabilities = vulnConfirmMemoryManager.runWithMemoryManager {
             confirmVulnerabilitiesWithCancellation(
                 entryPoints, unconfirmedVulnerabilities, timeout, cancellationTimeout,
-                vulnConfirmCancellation
             )
         }
 
@@ -313,9 +316,8 @@ class TaintAnalysisUnitRunnerManager(
         vulnerabilities: List<TaintVulnerabilityWithEndFactRequirement>,
         timeout: Duration,
         cancellationTimeout: Duration,
-        vulnConfirmCancellation: ProcessingCancellation,
     ): List<VerifiedVulnerability> {
-        val checker = VulnerabilityChecker(entryPoints, this, vulnConfirmCancellation)
+        val checker = VulnerabilityChecker(entryPoints, this, cancellation)
         val vulnConfirmationContext =
             object : ParallelProcessingContext<TaintVulnerabilityWithEndFactRequirement, VerifiedVulnerability>(
                 analyzerDispatcher, name = "Vulnerability confirmation", vulnerabilities
@@ -328,7 +330,7 @@ class TaintAnalysisUnitRunnerManager(
             }
 
         return vulnConfirmationContext.processAll(
-            progressScope, timeout, cancellationTimeout, vulnConfirmCancellation
+            progressScope, timeout, cancellationTimeout, cancellation
         ) { checker.verifyVulnerability(it) }
     }
 
@@ -383,6 +385,10 @@ class TaintAnalysisUnitRunnerManager(
         )
 
         val exceptionHandler = CoroutineExceptionHandler { _, exception ->
+            if (exception is Cancellation.Cancelled) {
+                logger.error { "Cancelled: $unit, stopping analysis" }
+                return@CoroutineExceptionHandler
+            }
             logger.error { "Got exception from runner for unit $unit, stopping analysis" }
             analysisCompletion.completeExceptionally(exception)
             updateFailureStatus(Status.EXCEPTION)

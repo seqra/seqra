@@ -2,30 +2,36 @@ package org.opentaint.dataflow.ap.ifds.access.tree
 
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.common.CommonFinalFactList
+import org.opentaint.dataflow.ap.ifds.access.tree.TreeSetWithCompression.Companion.SIZE_TO_FORCE_INTERN
 import org.opentaint.dataflow.ap.ifds.access.tree.TreeSetWithCompression.Companion.internImpl
-import org.opentaint.dataflow.util.SoftReferenceManager
 
 class TreeFinalFactList(
     override val apManager: TreeApManager
 ) : CommonFinalFactList<AccessTree.AccessNode>(), TreeFinalApAccess {
-    override val storage: AccessStorage<AccessTree.AccessNode> = TreeNodeListStorage(apManager.refManager)
+    override val storage: AccessStorage<AccessTree.AccessNode> = TreeNodeListStorage(apManager)
 
-    private class TreeNodeListStorage(refManager: SoftReferenceManager) : AccessStorage<AccessTree.AccessNode> {
+    private class TreeNodeListStorage(val apManager: TreeApManager) : AccessStorage<AccessTree.AccessNode> {
         private val storage = mutableListOf<AccessTree.AccessNode>()
 
         override fun add(fact: AccessTree.AccessNode) {
-            storage.add(fact)
+            storage.add(internIfRequired(fact))
             intern()
         }
 
         override fun get(idx: Int): AccessTree.AccessNode = storage[idx]
         override fun removeLast(): AccessTree.AccessNode = storage.removeLast()
 
-        private val interner = AccessTreeSoftInterner(refManager)
+        private val interner = AccessTreeSoftInterner(apManager)
         private var operationsBeforeIntern = INTERN_RATE
-        private var maxTreeSize = 0
+        private var maxTreeSize = 0L
+
+        fun internIfRequired(node: AccessTree.AccessNode): AccessTree.AccessNode {
+            if (node.size < SIZE_TO_FORCE_INTERN) return node
+            return interner.intern(node)
+        }
 
         fun intern(): Unit = interner.internImpl(
+            apManager.cancellation,
             lastUpdated = storage.last(),
             size = storage.size,
             maxNodeSize = maxTreeSize,

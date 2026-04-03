@@ -24,12 +24,14 @@ import org.opentaint.dataflow.ap.ifds.access.FactSideEffectSummariesApStorage
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.util.SoftReferenceManager
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 class TreeApManager(
     override val anyAccessorUnrollStrategy: AnyAccessorUnrollStrategy,
     val refManager: SoftReferenceManager = SoftReferenceManager(),
+    override val cancellation: Cancellation = Cancellation(),
 ) : ApManager {
     override fun initialFactAbstraction(methodInitialStatement: CommonInst): InitialFactAbstraction =
         TreeInitialFactAbstraction(this)

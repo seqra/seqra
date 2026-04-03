@@ -21,7 +21,7 @@ class MethodTreeAccessPathSubscription(
     override val apManager: TreeApManager,
 ) : CommonAPSub<AccessPath.AccessNode?, AccessTree.AccessNode>(),
     TreeInitialApAccess, TreeFinalApAccess {
-    private val interner: AccessTreeSoftInterner = AccessTreeSoftInterner(apManager.refManager)
+    private val interner: AccessTreeSoftInterner = AccessTreeSoftInterner(apManager)
 
     override fun createZ2FSubStorage(callerEp: CommonInst): Z2FSubStorage<AccessPath.AccessNode?, AccessTree.AccessNode> =
         SummaryEdgeFactTreeSubscriptionStorage(apManager)

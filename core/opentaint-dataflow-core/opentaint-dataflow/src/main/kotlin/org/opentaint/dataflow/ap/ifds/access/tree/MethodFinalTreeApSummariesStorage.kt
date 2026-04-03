@@ -11,7 +11,7 @@ class MethodFinalTreeApSummariesStorage(
     override fun createStorage(): Storage<AccessTree.AccessNode> = MethodZeroToFactSummaryEdgeStorage(apManager)
 
     private class MethodZeroToFactSummaryEdgeStorage(val apManager: TreeApManager): Storage<AccessTree.AccessNode> {
-        private val treeStorage = MergingTreeSummaryStorage(apManager.refManager)
+        private val treeStorage = MergingTreeSummaryStorage(apManager)
 
         override fun add(edges: List<AccessTree.AccessNode>, added: MutableList<Z2FBBuilder<AccessTree.AccessNode>>) {
             edges.forEach { treeStorage.add(it) }

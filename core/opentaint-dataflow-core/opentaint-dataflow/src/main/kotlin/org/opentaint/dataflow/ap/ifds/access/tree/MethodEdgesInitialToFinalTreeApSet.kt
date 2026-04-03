@@ -6,7 +6,6 @@ import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges
 import org.opentaint.dataflow.ap.ifds.access.common.CommonF2FSet
-import org.opentaint.dataflow.util.SoftReferenceManager
 import org.opentaint.dataflow.util.collectToListWithPostProcess
 import org.opentaint.ir.api.common.cfg.CommonInst
 
@@ -33,7 +32,7 @@ class MethodEdgesInitialToFinalTreeApSet(
             final: AccessWithExclusion<AccessTree.AccessNode>,
         ): AccessWithExclusion<AccessTree.AccessNode>? {
             val storage = sameInitialAccessEdges.getOrPut(initial) {
-                EdgeNonUniverseExclusionMergingStorage(maxInstIdx, languageManager, apManager.refManager)
+                EdgeNonUniverseExclusionMergingStorage(maxInstIdx, languageManager, apManager)
             }
 
             return storage.add(statement, final)
@@ -67,8 +66,8 @@ class MethodEdgesInitialToFinalTreeApSet(
     private class EdgeNonUniverseExclusionMergingStorage(
         maxInstIdx: Int,
         private val languageManager: LanguageManager,
-        refManager: SoftReferenceManager,
-    ): TreeSetWithCompression(maxInstIdx, refManager) {
+        manager: TreeApManager,
+    ): TreeSetWithCompression(maxInstIdx, manager) {
         private val exclusions = arrayOfNulls<ExclusionSet>(MethodAnalyzerEdges.instructionStorageSize(maxInstIdx))
 
         fun add(
@@ -80,7 +79,7 @@ class MethodEdgesInitialToFinalTreeApSet(
 
             if (currentExclusion == null) {
                 exclusions[edgeSetIdx] = accessWithExclusion.exclusion
-                edges[edgeSetIdx] = accessWithExclusion.access
+                edges[edgeSetIdx] = internIfRequired(accessWithExclusion.access)
                 return accessWithExclusion
             }
 
@@ -95,7 +94,7 @@ class MethodEdgesInitialToFinalTreeApSet(
                 return AccessWithExclusion(mergedAccess, mergedExclusion)
             }
 
-            edges[edgeSetIdx] = mergedAccess
+            edges[edgeSetIdx] = internIfRequired(mergedAccess)
             intern(edgeSetIdx)
 
             return AccessWithExclusion(mergedAccess, mergedExclusion)

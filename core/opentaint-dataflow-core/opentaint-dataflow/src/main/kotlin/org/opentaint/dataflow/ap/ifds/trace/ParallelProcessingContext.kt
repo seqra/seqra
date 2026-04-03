@@ -13,6 +13,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import mu.KotlinLogging
+import org.opentaint.dataflow.util.Cancellation
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicInteger
@@ -79,7 +80,7 @@ abstract class ParallelProcessingContext<T, R : Any>(
         progressScope: CoroutineScope,
         timeout: Duration,
         cancellationTimeout: Duration,
-        cancellation: ProcessingCancellation,
+        cancellation: Cancellation,
         body: (T) -> R
     ): List<R> {
         val completion = processAllWithCompletion(body)
