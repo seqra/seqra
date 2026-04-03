@@ -1,0 +1,17 @@
+rules:
+  - id: i98
+    languages:
+      - java
+    severity: ERROR
+    message: cleanedMethod
+    patterns:
+      - pattern: |
+          $A = new CleanableData();
+          ...
+          return $A.getInfo();
+      - pattern-not-inside: |
+          $A = new CleanableData();
+          ...
+          $A.cleanData();
+          ...
+          return $A.getInfo();
