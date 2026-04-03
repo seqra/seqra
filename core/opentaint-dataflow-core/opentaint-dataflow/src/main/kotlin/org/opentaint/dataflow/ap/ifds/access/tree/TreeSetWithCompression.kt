@@ -49,7 +49,7 @@ open class TreeSetWithCompression(maxInstIdx: Int, val manager: TreeApManager) {
             withInterner { interner, cache ->
                 for (i in 0 until size) {
                     val node = getNode(i) ?: continue
-                    setNode(i, node.internNodes(interner, cache))
+                    setNode(i, node.internNodes(interner, cache, cancellation))
                 }
             }
         }
