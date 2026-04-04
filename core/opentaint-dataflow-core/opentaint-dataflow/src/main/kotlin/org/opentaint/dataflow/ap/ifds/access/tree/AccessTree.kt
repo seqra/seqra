@@ -24,6 +24,8 @@ import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isT
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.util.forEachInt
+import org.opentaint.dataflow.util.forEachIntEntry
+import org.opentaint.dataflow.util.getOrCreate
 import java.io.DataInputStream
 import java.io.DataOutputStream
 import java.util.IdentityHashMap
@@ -538,10 +540,14 @@ class AccessTree(
         private fun bulkMergeAddAccessors(accessors: List<IntObjectImmutablePair<AccessNode>>): AccessNode {
             if (accessors.isEmpty()) return this
 
-            val uniqueAccessors = mutableListOf<IntObjectImmutablePair<AccessNode>>()
-            val groupedUniqueAccessors = accessors.groupByTo(hashMapOf(), { it.firstInt() }, { it.second() })
+            val groupedUniqueAccessors = Int2ObjectOpenHashMap<MutableList<AccessNode>>()
+            accessors.forEach { accessorWithNode ->
+                val group = groupedUniqueAccessors.getOrCreate(accessorWithNode.leftInt(), ::mutableListOf)
+                group.add(accessorWithNode.right())
+            }
 
-            for ((accessor, nodes) in groupedUniqueAccessors) {
+            val uniqueAccessors = mutableListOf<IntObjectImmutablePair<AccessNode>>()
+            groupedUniqueAccessors.forEachIntEntry { accessor, nodes ->
                 val mergedNodes = nodes.reduce { acc, node -> acc.mergeAdd(node) }
                 uniqueAccessors.add(IntObjectImmutablePair(accessor, mergedNodes))
             }
