@@ -1,22 +1,29 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.ExclusionSet.Empty
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
-import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAbstraction
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.ReversedApNode
+import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.createNodeFromReversedAp
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.foldRight
+import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode.Companion.create
+import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode.Companion.createAbstractNodeFromReversedAp
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.FINAL_ACCESSOR_IDX
+import org.opentaint.dataflow.util.forEachInt
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode as AccessTreeNode
 
 class TreeInitialFactAbstraction(
     private val apManager: TreeApManager
 ): InitialFactAbstraction {
-    private val initialFacts = MethodSameMarkInitialFact(hashMapOf())
+    private val initialFacts = MethodSameMarkInitialFact(apManager, hashMapOf())
     private val interner = AccessTreeSoftInterner(apManager)
 
     override fun addAbstractedInitialFact(
@@ -42,9 +49,14 @@ class TreeInitialFactAbstraction(
 
         val facts = initialFacts.getOrPut(factAp.base)
 
-        val excludedAccessors = when (val ex = factAp.exclusions) {
-            Empty -> emptySet()
-            is ExclusionSet.Concrete -> ex.set
+        val excludedAccessors = IntOpenHashSet()
+        when (val ex = factAp.exclusions) {
+            is ExclusionSet.Concrete -> ex.set.forEach {
+                with(apManager) { excludedAccessors.add(it.idx) }
+            }
+            Empty -> {
+                // do nothing
+            }
             ExclusionSet.Universe -> error("Unexpected universe exclusion")
         }
 
@@ -67,13 +79,13 @@ class TreeInitialFactAbstraction(
 
             val unrollRequests = mutableListOf<AnyAccessorUnrollRequest>()
             abstractAccessPath(facts.analyzed, concreteFactAccess, unrollRequests) { abstractAccess ->
-                val initialAbstractAccessNode = AccessPath.AccessNode.createNodeFromReversedAp(abstractAccess)
+                val initialAbstractAccessNode = apManager.createNodeFromReversedAp(abstractAccess)
                 val initialAbstractAp = AccessPath(apManager, concreteFactBase, initialAbstractAccessNode, Empty)
 
-                val apAccess = AccessTreeNode.createAbstractNodeFromReversedAp(abstractAccess)
+                val apAccess = apManager.createAbstractNodeFromReversedAp(abstractAccess)
                 val ap = AccessTree(apManager, concreteFactBase, apAccess, Empty)
 
-                facts.addAnalyzedInitialFact(initialAbstractAccessNode, exclusions = emptySet())
+                facts.addAnalyzedInitialFact(initialAbstractAccessNode, exclusions = IntOpenHashSet())
                 abstractFacts.add(initialAbstractAp to ap)
             }
 
@@ -92,27 +104,29 @@ class TreeInitialFactAbstraction(
 
         val newFacts = mutableListOf<AccessTreeNode>()
         for (unrollRequest in unrollRequests) {
-            for (accessor in unrollRequest.accessors) {
-                if (!unrollStrategy.unrollAccessor(accessor)) continue
+            unrollRequest.accessors.forEachInt { accessor ->
+
+                val accessorInstance = with(apManager) { accessor.accessor }
+                if (!unrollStrategy.unrollAccessor(accessorInstance)) return@forEachInt
 
                 val accessorFilter = unrollRequest.currentAp.createFilter(typeChecker)
-                val accessorStatus = accessorFilter.check(accessor)
+                val accessorStatus = accessorFilter.check(accessorInstance)
                 when (accessorStatus) {
                     is FactTypeChecker.FilterResult.Accept,
                     is FactTypeChecker.FilterResult.FilterNext -> {
                         // accept
                     }
 
-                    is FactTypeChecker.FilterResult.Reject -> continue
+                    is FactTypeChecker.FilterResult.Reject -> return@forEachInt
                 }
 
                 val prefix = ReversedApNode(accessor, unrollRequest.currentAp)
 
                 val nodeFilter = prefix.createFilter(typeChecker)
-                val filteredNode = unrollRequest.node.filterAccessNode(nodeFilter) ?: continue
+                val filteredNode = unrollRequest.node.filterAccessNode(nodeFilter) ?: return@forEachInt
 
                 newFacts += filteredNode.addReversedApParents(prefix)
-                    ?: continue
+                    ?: return@forEachInt
             }
         }
 
@@ -124,13 +138,17 @@ class TreeInitialFactAbstraction(
 
     private fun ReversedApNode?.createFilter(typeChecker: FactTypeChecker): FactTypeChecker.FactApFilter {
         val accessors = mutableListOf<Accessor>()
-        foldRight(Unit) { accessor, _ -> accessors.add(accessor) }
+        foldRight(Unit) { accessor, _ ->
+            with(apManager) {
+                accessors.add(accessor.accessor)
+            }
+        }
         return typeChecker.accessPathFilter(accessors.asReversed())
     }
 
     private fun AccessTreeNode.addReversedApParents(ap: ReversedApNode): AccessTreeNode? =
         ap.foldRight(this) { accessor, node ->
-            node.addParentIfPossible(accessor, apManager.cancellation) ?: return null
+            node.addParentIfPossible(accessor) ?: return null
         }
 
     data class AbstractionState(
@@ -142,7 +160,7 @@ class TreeInitialFactAbstraction(
     data class AnyAccessorUnrollRequest(
         val currentAp: ReversedApNode?,
         val node: AccessTreeNode,
-        val accessors: List<Accessor>,
+        val accessors: IntOpenHashSet,
     )
 
     private inline fun abstractAccessPath(
@@ -171,8 +189,8 @@ class TreeInitialFactAbstraction(
             }
 
             if (state.added.isFinal) {
-                val node = AccessTreeNode.create()
-                abstractAccessPath(state.analyzedTrieRoot, FinalAccessor, node, state.currentAp, unprocessed, createAbstractAp)
+                val node = apManager.create()
+                abstractAccessPath(state.analyzedTrieRoot, FINAL_ACCESSOR_IDX, node, state.currentAp, unprocessed, createAbstractAp)
             }
 
             state.added.forEachAccessor { accessor, node ->
@@ -183,7 +201,7 @@ class TreeInitialFactAbstraction(
 
     private inline fun abstractAccessPath(
         analyzedTrieRoot: AccessPathTrieNode,
-        accessor: Accessor,
+        accessor: AccessorIdx,
         addedNode: AccessTreeNode,
         currentAp: ReversedApNode?,
         unprocessed: MutableList<AbstractionState>,
@@ -218,20 +236,24 @@ class TreeInitialFactAbstraction(
         unprocessed += AbstractionState(node, addedNode, apWithAccessor)
     }
 
-    private class MethodSameMarkInitialFact(val facts: MutableMap<AccessPathBase, MethodSameBaseInitialFact>) {
+    private class MethodSameMarkInitialFact(
+        val manager: TreeApManager,
+        val facts: MutableMap<AccessPathBase, MethodSameBaseInitialFact>
+    ) {
         fun getOrPut(base: AccessPathBase): MethodSameBaseInitialFact = facts.getOrPut(base) {
-            MethodSameBaseInitialFact(added = null, AccessPathTrieNode.empty())
+            MethodSameBaseInitialFact(manager, added = null, AccessPathTrieNode.empty())
         }
     }
 
     private class MethodSameBaseInitialFact(
+        val manager: TreeApManager,
         private var added: AccessTreeNode?,
         val analyzed: AccessPathTrieNode
     ) {
-        fun allAddedFacts(): AccessTreeNode = added ?: AccessTreeNode.create()
+        fun allAddedFacts(): AccessTreeNode = added ?: manager.create()
 
         fun addInitialFact(ap: AccessTreeNode, interner: AccessTreeSoftInterner): AccessTreeNode? {
-            val currentNode = added ?: AccessTreeNode.create()
+            val currentNode = added ?: manager.create()
             val (updatedAddedNode, addedInitial) = currentNode.mergeAddDelta(ap)
 
             if (addedInitial == null) return null
@@ -260,29 +282,33 @@ class TreeInitialFactAbstraction(
             added = interner.intern(current)
         }
 
-        fun addAnalyzedInitialFact(ap: AccessPath.AccessNode?, exclusions: Set<Accessor>): Boolean =
+        fun addAnalyzedInitialFact(ap: AccessPath.AccessNode?, exclusions: IntOpenHashSet): Boolean =
             AccessPathTrieNode.add(analyzed, ap, exclusions)
     }
 
     class AccessPathTrieNode {
-        private var children: MutableMap<Accessor, AccessPathTrieNode>? = null
-        private var terminals: MutableSet<Accessor>? = null
-        private var unrolled: MutableSet<Accessor>? = null
+        private var children: Int2ObjectOpenHashMap<AccessPathTrieNode>? = null
+        private var terminals: IntOpenHashSet? = null
+        private var unrolled: IntOpenHashSet? = null
 
-        fun exclusions(): MutableSet<Accessor>? = terminals
+        fun exclusions(): IntOpenHashSet? = terminals
 
-        fun child(accessor: Accessor): AccessPathTrieNode? =
+        fun child(accessor: AccessorIdx): AccessPathTrieNode? =
             children?.get(accessor)
 
-        private fun getTerminals(): MutableSet<Accessor> =
-            terminals ?: hashSetOf<Accessor>().also { terminals = it }
+        private fun getTerminals(): IntOpenHashSet =
+            terminals ?: IntOpenHashSet().also { terminals = it }
 
-        private fun getChildren(): MutableMap<Accessor, AccessPathTrieNode> =
-            children ?: hashMapOf<Accessor, AccessPathTrieNode>().also { children = it }
+        private fun getChildren(): Int2ObjectOpenHashMap<AccessPathTrieNode> =
+            children ?: Int2ObjectOpenHashMap<AccessPathTrieNode>().also { children = it }
 
-        fun unrollAccessors(accessors: Set<Accessor>): List<Accessor> {
-            val current = unrolled ?: hashSetOf<Accessor>().also { unrolled = it }
-            return accessors.filter { current.add(it) }
+        fun unrollAccessors(accessors: IntOpenHashSet): IntOpenHashSet {
+            val current = unrolled ?: IntOpenHashSet().also { unrolled = it }
+            val result = IntOpenHashSet()
+            accessors.forEachInt {
+                if (current.add(it)) result.add(it)
+            }
+            return result
         }
 
         companion object {
@@ -291,7 +317,7 @@ class TreeInitialFactAbstraction(
             fun add(
                 initialRoot: AccessPathTrieNode,
                 initialAccess: AccessPath.AccessNode?,
-                exclusions: Set<Accessor>
+                exclusions: IntOpenHashSet,
             ): Boolean {
                 var trieNode = initialRoot
                 var access = initialAccess

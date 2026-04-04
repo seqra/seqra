@@ -10,7 +10,7 @@ class AccessTreeSoftInterner(
     private var cache: Reference<AccessTreeInterner>? = null
 
     fun intern(node: AccessNode): AccessNode =
-        node.internNodes(getOrCreateInterner(), IdentityHashMap(), apManager.cancellation)
+        node.internNodes(getOrCreateInterner(), IdentityHashMap())
 
     inline fun <T> withInterner(body: (AccessTreeInterner, IdentityHashMap<AccessNode, AccessNode>) -> T): T =
         body(getOrCreateInterner(), IdentityHashMap())

@@ -1,9 +1,9 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
-import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode
-import org.opentaint.dataflow.ap.ifds.access.util.AccessorGraph
-import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner
+import org.opentaint.dataflow.graph.IntGraph
+import org.opentaint.dataflow.util.toIntSet
+import java.util.BitSet
 import java.util.IdentityHashMap
 
 class MergingTreeSummaryStorage(val manager: TreeApManager) {
@@ -25,11 +25,11 @@ class MergingTreeSummaryStorage(val manager: TreeApManager) {
 
         if (modifiedEdges.size > COMPRESSION_THRESHOLD) {
             interner.withInterner { interner, cache ->
-                val currentInterned = modifiedEdges.internNodes(interner, cache, manager.cancellation)
-                val compressed = currentInterned.compressNode(AccessorInterner())
+                val currentInterned = modifiedEdges.internNodes(interner, cache)
+                val compressed = currentInterned.compressNode()
 
                 if (compressed !== currentInterned) {
-                    val interned = compressed.internNodes(interner, cache, manager.cancellation)
+                    val interned = compressed.internNodes(interner, cache)
                     edges = interned
                     edgesDelta = interned
                     return true
@@ -49,33 +49,34 @@ class MergingTreeSummaryStorage(val manager: TreeApManager) {
         edgesDelta = null
 
         return interner.withInterner { interner, cache ->
-            edges = edges?.internNodes(interner, cache, manager.cancellation)
-            delta.internNodes(interner, cache, manager.cancellation)
+            edges = edges?.internNodes(interner, cache)
+            delta.internNodes(interner, cache)
         }
     }
 
-    private fun AccessNode.compressNode(interner: AccessorInterner): AccessNode {
-        val components = connectedAccessorComponents(interner)
+    private fun AccessNode.compressNode(): AccessNode {
+        val components = connectedAccessorComponents()
 
         var result = this
         for (component in components) {
-            if (component.size < 2) continue
+            if (component.cardinality() < 2) continue
+
             result = result.removeAllAccessorChains(
-                component, chainLengthToRemove = 2, IdentityHashMap(), manager.cancellation
+                component.toIntSet(), chainLengthToRemove = 2, IdentityHashMap(), manager.cancellation
             )
         }
         if (this === result) return this
 
-        return result.compressNode(interner)
+        return result.compressNode()
     }
 
-    private fun AccessNode.connectedAccessorComponents(interner: AccessorInterner): List<Set<Accessor>> {
-        val graph = AccessorGraph(interner)
+    private fun AccessNode.connectedAccessorComponents(): List<BitSet> {
+        val graph = IntGraph()
         buildAccessorGraph(graph, IdentityHashMap())
-        return graph.nonTrivialConnectedComponents()
+        return graph.nonTrivialSccs()
     }
 
-    private fun AccessNode.buildAccessorGraph(graph: AccessorGraph, visited: IdentityHashMap<AccessNode, Unit>) {
+    private fun AccessNode.buildAccessorGraph(graph: IntGraph, visited: IdentityHashMap<AccessNode, Unit>) {
         if (visited.put(this, Unit) != null) return
 
         forEachAccessor { outer, node ->

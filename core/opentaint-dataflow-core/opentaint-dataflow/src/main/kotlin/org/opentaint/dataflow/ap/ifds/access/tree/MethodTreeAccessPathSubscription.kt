@@ -1,16 +1,18 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
-import org.opentaint.dataflow.ap.ifds.Accessor
-import org.opentaint.dataflow.ap.ifds.FinalAccessor
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.common.CommonAPSub
 import org.opentaint.dataflow.ap.ifds.access.common.CommonFactEdgeSubBuilder
 import org.opentaint.dataflow.ap.ifds.access.common.CommonFactNDEdgeSubBuilder
 import org.opentaint.dataflow.ap.ifds.access.common.CommonZeroEdgeSubBuilder
 import org.opentaint.dataflow.ap.ifds.access.common.ndf2f.DefaultNDF2FSubStorage
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.FINAL_ACCESSOR_IDX
 import org.opentaint.dataflow.util.PersistentBitSet.Companion.emptyPersistentBitSet
 import org.opentaint.dataflow.util.SoftReferenceManager
 import org.opentaint.dataflow.util.forEach
+import org.opentaint.dataflow.util.getOrCreate
 import org.opentaint.dataflow.util.getOrCreateIndex
 import org.opentaint.dataflow.util.object2IntMap
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -86,7 +88,7 @@ private class SummaryEdgeNDFactSubStorage(
         }
 
         override fun collect(dst: MutableList<AccessTree.AccessNode>, summaryInitialFact: AccessPath.AccessNode?) {
-            val filteredExitAp = current?.filterStartsWith(apManager, summaryInitialFact) ?: return
+            val filteredExitAp = current?.filterStartsWith(summaryInitialFact) ?: return
             dst.add(filteredExitAp)
         }
 
@@ -173,7 +175,7 @@ private class SummaryEdgeFactAbstractTreeSubscriptionStorage(
             relevantIndices?.forEach { storageIdx ->
                 val callerExitAp = storageFinalFacts[storageIdx]
 
-                val filteredExitAp = callerExitAp.filterStartsWith(apManager, summaryInitialFact)
+                val filteredExitAp = callerExitAp.filterStartsWith(summaryInitialFact)
                     ?: return@forEach
 
                 dst.add(filteredExitAp, storageInitialFacts[storageIdx])
@@ -234,16 +236,16 @@ private abstract class AccessTreeIndex(private val refManager: SoftReferenceMana
 
 private class AccessTreeIndexImpl {
     private class Node {
-        private var children: MutableMap<Accessor, Node>? = null
+        private var children: Int2ObjectOpenHashMap<Node>? = null
         val index = BitSet()
 
-        private fun getChildren(): MutableMap<Accessor, Node> =
-            children ?: hashMapOf<Accessor, Node>().also { children = it }
+        private fun getChildren(): Int2ObjectOpenHashMap<Node> =
+            children ?: Int2ObjectOpenHashMap<Node>().also { children = it }
 
-        fun getOrCreateChild(accessor: Accessor): Node =
-            getChildren().getOrPut(accessor, ::Node)
+        fun getOrCreateChild(accessor: AccessorIdx): Node =
+            getChildren().getOrCreate(accessor, ::Node)
 
-        fun findChild(accessor: Accessor): Node? = children?.get(accessor)
+        fun findChild(accessor: AccessorIdx): Node? = children?.get(accessor)
     }
 
     private val root = Node()
@@ -256,7 +258,7 @@ private class AccessTreeIndexImpl {
             indexNode.index.set(idx)
 
             if (treeNode.isFinal) {
-                val indexChild = indexNode.getOrCreateChild(FinalAccessor)
+                val indexChild = indexNode.getOrCreateChild(FINAL_ACCESSOR_IDX)
                 indexChild.index.set(idx)
             }
 
@@ -301,7 +303,7 @@ private class SummaryEdgeFactTreeSubscriptionStorage(
         dst: MutableList<CommonZeroEdgeSubBuilder<AccessTree.AccessNode>>,
         summaryInitialFact: AccessPath.AccessNode?,
     ) {
-        callerPathEdgeFactAp?.filterStartsWith(apManager, summaryInitialFact)?.let {
+        callerPathEdgeFactAp?.filterStartsWith(summaryInitialFact)?.let {
             dst += ZeroEdgeSubBuilder(apManager).setNode(it)
         }
     }

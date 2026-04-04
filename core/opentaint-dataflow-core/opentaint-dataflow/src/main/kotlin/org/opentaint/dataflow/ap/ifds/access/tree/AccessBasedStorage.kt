@@ -1,11 +1,14 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
-import kotlinx.collections.immutable.persistentHashMapOf
-import org.opentaint.dataflow.ap.ifds.Accessor
-import org.opentaint.dataflow.ap.ifds.FinalAccessor
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.FINAL_ACCESSOR_IDX
+import org.opentaint.dataflow.util.forEachEntry
+import org.opentaint.dataflow.util.forEachInt
+import org.opentaint.dataflow.util.getOrCreate
+import org.opentaint.dataflow.util.int2ObjectMap
 
 abstract class AccessBasedStorage<S : AccessBasedStorage<S>> {
-    private var children = persistentHashMapOf<Accessor, S>()
+    private val children = int2ObjectMap<S>()
 
     abstract fun createStorage(): S
 
@@ -16,7 +19,7 @@ abstract class AccessBasedStorage<S : AccessBasedStorage<S>> {
         }
 
         var storage = this
-        for (accessor in access) {
+        access.toList().forEachInt { accessor ->
             storage = storage.getOrCreateChild(accessor)
         }
 
@@ -35,7 +38,7 @@ abstract class AccessBasedStorage<S : AccessBasedStorage<S>> {
         nodes.add(this as S)
 
         if (pattern.isFinal) {
-            children[FinalAccessor]?.let { nodes.add(it) }
+            children[FINAL_ACCESSOR_IDX]?.let { nodes.add(it) }
         }
 
         pattern.forEachAccessor { accessor, accessorPattern ->
@@ -45,10 +48,10 @@ abstract class AccessBasedStorage<S : AccessBasedStorage<S>> {
 
     open fun collectNodesContainsAccessor(
         pattern: AccessTree.AccessNode,
-        accessor: Accessor,
+        accessor: AccessorIdx,
         nodes: MutableList<S>
     ) {
-        children[accessor]?.collectNodesContains(pattern, nodes)
+        children.get(accessor)?.collectNodesContains(pattern, nodes)
     }
 
     fun allNodes(): Sequence<S> {
@@ -59,14 +62,15 @@ abstract class AccessBasedStorage<S : AccessBasedStorage<S>> {
             val storage = unprocessedStorages.removeLast()
             @Suppress("UNCHECKED_CAST")
             storages.add(storage as S)
-            unprocessedStorages.addAll(storage.children.values)
+
+            storage.children.forEachEntry { _, s ->
+                unprocessedStorages.add(s)
+            }
         }
 
         return storages.asSequence()
     }
 
-    private fun getOrCreateChild(accessor: Accessor): S =
-        children.getOrElse(accessor) {
-            createStorage().also { children = children.put(accessor, it) }
-        }
+    private fun getOrCreateChild(accessor: AccessorIdx): S =
+        children.getOrCreate(accessor) { createStorage() }
 }

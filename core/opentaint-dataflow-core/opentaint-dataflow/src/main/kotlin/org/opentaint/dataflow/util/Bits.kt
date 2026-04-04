@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.util
 
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import it.unimi.dsi.fastutil.ints.IntSet
 import java.util.BitSet
 
@@ -78,8 +79,10 @@ fun IntSet.toBitSet(): BitSet {
     return result
 }
 
-fun BitSet.toSet(): Set<Int> {
-    val result = mutableSetOf<Int>()
+fun BitSet.toSet(): Set<Int> = toIntSet()
+
+fun BitSet.toIntSet(): IntOpenHashSet {
+    val result = IntOpenHashSet()
     forEach { element -> result.add(element) }
     return result
 }

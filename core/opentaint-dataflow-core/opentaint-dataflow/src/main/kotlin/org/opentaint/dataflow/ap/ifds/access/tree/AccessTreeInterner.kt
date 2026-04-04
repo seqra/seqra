@@ -27,9 +27,6 @@ class AccessTreeInterner {
         private inline fun <reified T> Array<out T>?.contentIdentityEquals(other: Array<out T>?): Boolean =
             contentEqualsOp(other) { a, b -> a === b }
 
-        private inline fun <reified T> Array<out T>?.contentEquals(other: Array<out T>?): Boolean =
-            contentEqualsOp(other) { a, b -> a == b }
-
         private inline fun <reified T> Array<out T>?.contentEqualsOp(
             other: Array<out T>?,
             areEqual: (T, T) -> Boolean
