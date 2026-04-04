@@ -24,12 +24,21 @@ class AccessTreeInterner {
             return a.accessorNodes.contentIdentityEquals(b.accessorNodes)
         }
 
-        private inline fun <reified T> Array<out T>?.contentIdentityEquals(other: Array<out T>?): Boolean {
+        private inline fun <reified T> Array<out T>?.contentIdentityEquals(other: Array<out T>?): Boolean =
+            contentEqualsOp(other) { a, b -> a === b }
+
+        private inline fun <reified T> Array<out T>?.contentEquals(other: Array<out T>?): Boolean =
+            contentEqualsOp(other) { a, b -> a == b }
+
+        private inline fun <reified T> Array<out T>?.contentEqualsOp(
+            other: Array<out T>?,
+            areEqual: (T, T) -> Boolean
+        ): Boolean {
             if (this === other) return true
             if (this == null || other == null) return false
             if (this.size != other.size) return false
             for (i in 0 until size) {
-                if (this[i] !== other[i]) return false
+                if (!areEqual(this[i], other[i])) return false
             }
             return true
         }
