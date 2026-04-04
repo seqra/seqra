@@ -72,7 +72,7 @@ class AccessTree(
 
     override fun filterFact(filter: FactTypeChecker.FactCompatibilityFilter): FinalFactAp? {
         if (filter is FactTypeChecker.AlwaysCompatibleFilter) return this
-        val filteredAccess = access.filterAccessNode(filter) ?: return null
+        val filteredAccess = access.filterAccessNode(filter, apManager.cancellation) ?: return null
         return AccessTree(apManager, base, filteredAccess, exclusions)
     }
 
@@ -623,9 +623,33 @@ class AccessTree(
             return result.takeIf { !it.isEmpty }
         }
 
-        fun filterAccessNode(checker: FactTypeChecker.FactCompatibilityFilter): AccessNode? {
+        fun filterAccessNode(
+            checker: FactTypeChecker.FactCompatibilityFilter,
+            cancellation: Cancellation,
+        ): AccessNode? {
+            val interned = internNodes(AccessTreeInterner(), IdentityHashMap(), cancellation)
+            return interned.filterAccessNodeCached(checker, IdentityHashMap())
+        }
+
+        fun filterAccessNodeCached(
+            checker: FactTypeChecker.FactCompatibilityFilter,
+            cache: IdentityHashMap<AccessNode, AccessNode>
+        ): AccessNode? {
+           cache[this]?.let { return it }
+
+            val result = filterAccessNodeBody(checker, cache)
+                ?: return null
+
+            cache[this] = result
+            return result
+        }
+
+        fun filterAccessNodeBody(
+            checker: FactTypeChecker.FactCompatibilityFilter,
+            cache: IdentityHashMap<AccessNode, AccessNode>,
+        ): AccessNode? {
             return transformAccessorsNonEmpty { accessor, node ->
-                val checkedNode = node.filterAccessNode(checker)
+                val checkedNode = node.filterAccessNodeCached(checker, cache)
                     ?: return@transformAccessorsNonEmpty null
 
                 if (!checkedNode.isAbstract) {
