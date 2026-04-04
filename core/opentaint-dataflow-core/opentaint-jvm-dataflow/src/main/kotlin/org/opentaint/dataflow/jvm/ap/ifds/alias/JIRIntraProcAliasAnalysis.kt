@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.jvm.ap.ifds.alias
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
+import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.graph.CompactGraph
 import org.opentaint.dataflow.graph.MethodInstGraph
@@ -29,6 +30,7 @@ class JIRIntraProcAliasAnalysis(
     private val params: JIRLocalAliasAnalysis.Params,
 ) {
     companion object {
+        private val logger = object : KLogging() {}.logger
         private const val HEAP_CHAIN_LIMIT = 5
     }
 
@@ -57,9 +59,30 @@ class JIRIntraProcAliasAnalysis(
         override fun buildMethodJig(entryPoint: JIRInst): JIRInstGraph = getJIG(entryPoint)
     }
 
-    fun compute(localVariableReachability: JIRLocalVariableReachability): JIRLocalAliasAnalysis.MethodAliasInfo {
+    fun compute(
+        localVariableReachability: JIRLocalVariableReachability
+    ): JIRLocalAliasAnalysis.MethodAliasInfo =
+        withAnalysisCancellation(
+            timeLimit = params.aliasAnalysisTimeLimit,
+            body = { compute(it, localVariableReachability) },
+            onAnalysisCancelled = {
+                logger.error {
+                    "Alias analysis for ${entryPoint.location.method} exceed ${params.aliasAnalysisTimeLimit}"
+                }
+
+                JIRLocalAliasAnalysis.MethodAliasInfo(
+                    aliasBeforeStatement = null,
+                    aliasAfterStatement = null
+                )
+            }
+        )
+
+    private fun compute(
+        cancellation: AnalysisCancellation,
+        localVariableReachability: JIRLocalVariableReachability
+    ): JIRLocalAliasAnalysis.MethodAliasInfo {
         val jig = getJIG(entryPoint)
-        val daa = DSUAliasAnalysis(CallResolver(), localVariableReachability).analyze(jig)
+        val daa = DSUAliasAnalysis(CallResolver(), localVariableReachability, cancellation).analyze(jig)
 
         val aliasBeforeStatement = Array(jig.statements.size) { i ->
             resolveLocalVar(daa.statesBeforeStmt[i], localVariableReachability, i)
