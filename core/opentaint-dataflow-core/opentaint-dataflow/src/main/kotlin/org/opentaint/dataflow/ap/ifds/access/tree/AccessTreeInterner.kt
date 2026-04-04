@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
 import it.unimi.dsi.fastutil.Hash
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenCustomHashMap
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode
 
@@ -34,8 +35,13 @@ class AccessTreeInterner {
         }
     }
 
-    private val cache = Object2ObjectOpenCustomHashMap<AccessNode, AccessNode>(InternStrategy)
+    private val cache = Long2ObjectOpenHashMap<Object2ObjectOpenCustomHashMap<AccessNode, AccessNode>>()
 
-    fun intern(node: AccessNode): AccessNode =
-        cache.putIfAbsent(node, node) ?: node
+    fun intern(node: AccessNode): AccessNode {
+        val bucket = cache.computeIfAbsent(node.hash) {
+            Object2ObjectOpenCustomHashMap<AccessNode, AccessNode>(InternStrategy)
+        }
+
+        return bucket.putIfAbsent(node, node) ?: node
+    }
 }
