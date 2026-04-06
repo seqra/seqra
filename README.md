@@ -87,12 +87,11 @@
 
 ## Why OpenTaint
 
-AI-generated code is scaling codebases fast. Pattern matchers can't keep up — too many false positives, too many missed vulnerabilities. Enterprise taint analyzers that actually work are paywalled.
+AI generates production code faster than today's security tooling can keep up with. AI-generated code looks production-ready — yet it buries vulnerabilities in data flows structurally hard to catch — untrusted input winding through framework abstractions, cross-controller interactions with persistence layers, and async code. At the rate AI produces it, humans can't review this code at the depth it requires. The tools meant to help aren't keeping up either — pattern matching engines flag syntax but lose the trail across boundaries, LLM agents cost more with every file and still give different answers each run, and enterprise analyzers that go deeper gate the analysis behind a paywall with rule sets that don't cover your stack. The more AI writes code, the more you need formal analysis underneath.
 
-- **Finds what pattern matchers miss.** Inter-procedural dataflow engine tracks untrusted data across function boundaries, persistence layers, aliases, and async code — 100+ rules across 20+ vulnerability classes, out of the box.
-- **Deterministic by design.** Formal analysis produces the same results every run. CI pipelines and AI agents get reproducible findings they can act on — no flaky scans, no hallucinated vulnerabilities.
-- **Rules that read like code.** Taint rules use Semgrep-compatible YAML with real code patterns — no proprietary DSL to learn.
-- **Open source, batteries included.** Engine, CLI, GitHub Action, GitLab CI, rules — all included. Apache 2.0 and MIT licensed.
+- **Finds what pattern matching engines miss.** Inter-procedural dataflow engine tracks untrusted data across function boundaries, persistence layers, aliases, and async code — 100+ rules across 20+ vulnerability classes, out of the box.
+- **One finding becomes total coverage.** AI security agents find vulnerabilities humans miss — but burn tokens on every file and still can't guarantee coverage. Code-native rules turn their findings into leverage — every vulnerability an agent uncovers can be enacted as a rule, and the agent can write it itself. The engine applies it across the entire codebase, deterministically, in minutes of CPU.
+- **Open source, batteries included.** Engine, rules, CI integrations — the entire stack, including the deep analysis, ships under Apache 2.0 and MIT. No paid tier to unlock taint tracking. No vendor lock-in on your rule library.
 
 ## Quick Start
 

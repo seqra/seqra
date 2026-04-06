@@ -27,21 +27,23 @@
 
 ## About OpenTaint
 
-AI-generated code is scaling codebases fast. Pattern matching scanners can't keep up — they produce too many false positives. Enterprise taint analyzers that actually work are paywalled. And AI agents, while great at writing code and reviewing it for security, still give no formal guarantees.
+AI generates production code faster than today's security tooling can keep up with. AI-generated code looks production-ready — yet it buries vulnerabilities in data flows structurally hard to catch — untrusted input winding through framework abstractions, cross-controller interactions with persistence layers, and async code. At the rate AI produces it, humans can't review this code at the depth it requires. The tools meant to help aren't keeping up either — pattern matching engines flag syntax but lose the trail across boundaries, LLM agents cost more with every file and still give different answers each run, and enterprise analyzers that go deeper gate the analysis behind a paywall with rule sets that don't cover your stack. The more AI writes code, the more you need formal analysis underneath.
 
-### Real taint analysis, not just pattern matching
+### Finds what pattern matching engines miss
 
-OpenTaint runs an IFDS-with-abduction engine — formal inter-procedural dataflow analysis. It tracks untrusted data from HTTP inputs to dangerous APIs across endpoints, persistence layers, object fields, aliased references, and async code. That includes complex multi-hop attack paths — cross-endpoint flows, data through persistence layers, stored injections — at monorepo scale.
+OpenTaint runs an IFDS-with-abduction engine — formal inter-procedural dataflow analysis. It tracks untrusted data from HTTP inputs to dangerous APIs across endpoints, persistence layers, object fields, aliased references, and async code. That includes complex multi-hop attack paths — cross-endpoint flows, data through persistence layers, stored injections — at monorepo scale. 100+ rules across 20+ vulnerability classes, out of the box.
 
 Currently models Spring data flow and the full Boot ecosystem, analyzing Java and Kotlin at bytecode level. More languages ahead.
 
-### Deterministic analysis underneath AI
+### One finding becomes total coverage
+
+AI security agents find vulnerabilities humans miss — but they burn tokens on every file, give different answers each run, and still can't guarantee they caught everything. Code-native rules turn their findings into leverage. Every vulnerability an agent uncovers can be enacted as a rule — a source, a sink, and the data flow between them — and the agent can write it itself. The engine applies that rule across the entire codebase, deterministically, in minutes of CPU. When a match turns out to be a false positive, a sanitizer is added to the rule — the refinement propagates to every match, permanently. One agent discovery compounds into total coverage.
 
 Because the analysis is formal, its results are reproducible — agents can operate on them without adding uncertainty. Rules read like code, not a proprietary DSL, so both humans and agents write and tune them the same way. The engine translates those rules into full taint configurations: sources, sinks, sanitizers, propagators, taint marks.
 
-### Open source, not paywalled
+### Open source, batteries included
 
-Engine, CLI, GitHub Action, GitLab CI, rules — all included under [Apache 2.0](../LICENSE.md) and [MIT](../cli/LICENSE).
+Engine, CLI, GitHub Action, GitLab CI, rules — the entire stack, including the deep analysis, ships under [Apache 2.0](../LICENSE.md) and [MIT](../cli/LICENSE). No paid tier to unlock taint tracking. No vendor lock-in on your rule library. Semgrep gates its taint engine behind a paid Pro tier. CodeQL is free for open source but requires GHAS for private repos. The deep analysis should be free — and it is.
 
 ---
 
