@@ -24,16 +24,17 @@ import (
 )
 
 var (
-	UserProjectPath           string
-	SarifReportPath           string
-	SemgrepCompatibilitySarif bool
-	Severity                  []string
-	Ruleset                   []string
-	DryRunScan                bool
-	RuleID                    []string
-	ApproximationsConfig      string
-	DataflowApproximations    []string
-	ExternalMethodsOutput     string
+	UserProjectPath               string
+	SarifReportPath               string
+	SemgrepCompatibilitySarif     bool
+	Severity                      []string
+	Ruleset                       []string
+	DryRunScan                    bool
+	RuleID                        []string
+	ApproximationsConfig          string
+	DataflowApproximations        []string
+	ExternalMethodsOutput         string
+	DebugFactReachabilitySarif    bool
 )
 
 type RulesetType struct {
@@ -113,6 +114,7 @@ func init() {
 	scanCmd.Flags().StringVar(&ApproximationsConfig, "approximations-config", "", "YAML passThrough approximations config (OVERRIDE mode)")
 	scanCmd.Flags().StringArrayVar(&DataflowApproximations, "dataflow-approximations", nil, "Directory of compiled approximation class files (repeatable)")
 	scanCmd.Flags().StringVar(&ExternalMethodsOutput, "external-methods", "", "Base path for external methods YAML output (produces <name>-without-rules.yaml and <name>-with-rules.yaml)")
+	scanCmd.Flags().BoolVar(&DebugFactReachabilitySarif, "debug-fact-reachability-sarif", false, "Generate SARIF with fact reachability info (debug; use with a single rule only)")
 }
 
 func scan(cmd *cobra.Command) {
@@ -303,6 +305,9 @@ func scan(cmd *cobra.Command) {
 	if ExternalMethodsOutput != "" {
 		absExtMethodsPath := log.AbsPathOrExit(ExternalMethodsOutput, "external-methods")
 		nativeBuilder.SetExternalMethodsOutput(absExtMethodsPath)
+	}
+	if DebugFactReachabilitySarif {
+		nativeBuilder.EnableDebugFactReachabilitySarif()
 	}
 
 	analyzerJarPath, err := ensureAnalyzerAvailable()

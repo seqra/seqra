@@ -62,6 +62,7 @@ type AnalyzerBuilder struct {
 	approximationsConfig     string
 	dataflowApproximations   []string
 	externalMethodsOutput    string
+	debugFactReachabilitySarif bool
 	runRuleTests             bool
 }
 
@@ -160,6 +161,11 @@ func (a *AnalyzerBuilder) SetExternalMethodsOutput(outputPath string) *AnalyzerB
 	return a
 }
 
+func (a *AnalyzerBuilder) EnableDebugFactReachabilitySarif() *AnalyzerBuilder {
+	a.debugFactReachabilitySarif = true
+	return a
+}
+
 func (a *AnalyzerBuilder) EnableRunRuleTests() *AnalyzerBuilder {
 	a.runRuleTests = true
 	return a
@@ -248,6 +254,10 @@ func (a *AnalyzerBuilder) BuildNativeCommand() []string {
 
 	if a.externalMethodsOutput != "" {
 		flags = append(flags, "--external-methods-output", a.externalMethodsOutput)
+	}
+
+	if a.debugFactReachabilitySarif {
+		flags = append(flags, "--debug-fact-reachability-sarif")
 	}
 
 	if a.runRuleTests {
