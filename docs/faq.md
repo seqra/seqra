@@ -2,7 +2,7 @@
 
 **What is OpenTaint?**
 
-OpenTaint is an open source taint analysis engine built for the AI coding era. It performs inter-procedural dataflow analysis on Java and Kotlin bytecode — cross-endpoint flow tracking, persistence layer modelling, alias analysis, and asynchronous code analysis — using code-native rules to find real vulnerabilities in web applications. No paywall, no pattern-matching compromises.
+OpenTaint is an open source taint analysis engine built for the AI coding era. It performs inter-procedural dataflow analysis on Java and Kotlin bytecode — cross-endpoint flow tracking, persistence layer modelling, alias analysis, and asynchronous code analysis. Code-native rules find real vulnerabilities in web applications. Finds what pattern matching engines miss, enacts what AI agents discover as permanent rules, scales where neither can alone.
 
 **What vulnerabilities does OpenTaint detect?**
 
@@ -14,19 +14,19 @@ Rules that look like code. Readable, writable, and tunable by humans and AI agen
 
 **Why not just use an AI agent for security scanning?**
 
-AI agents offer no formal guarantees. Run the same prompt twice and you may get different results — no determinism, no reproducibility. OpenTaint provides deterministic inter-procedural dataflow analysis with stable, reproducible findings. AI agents can read and write OpenTaint's code-native rules, so you get the best of both: AI flexibility with formal analysis underneath.
+AI agents offer no formal guarantees. Run the same prompt twice and you may get different results — no determinism, no reproducibility. An LLM agent scanning a large codebase burns through token budgets and still can't guarantee full coverage. OpenTaint scans the same codebase in minutes of CPU compute — deterministically. AI agents can read and write OpenTaint's code-native rules, so you get the best of both: AI flexibility with formal analysis underneath.
 
 **What languages and frameworks are supported?**
 
-Java and Kotlin, analyzed at the bytecode level to precisely understand inheritance, generics, and library interactions. Deep Spring Boot framework ecosystem support including Spring MVC, Spring Data, and related libraries. More languages ahead.
+Java and Kotlin, analyzed at the bytecode level to precisely understand inheritance, generics, and library interactions. Deep Spring Boot support including Spring MVC, Spring Data, and related libraries. More languages ahead.
 
 **How does OpenTaint compare to Semgrep?**
 
-Both tools perform inter-procedural analysis. OpenTaint goes further: it tracks data across endpoint boundaries and through persistence layers, catching stored injections and multi-step attack paths that basic inter-procedural analysis cannot reach. Rules use a code-native format that the engine translates into complete taint configurations. Semgrep rule syntax is supported as a migration path.
+Semgrep's open-source engine does pattern matching. Its Pro engine adds taint analysis behind a paid tier. OpenTaint ships full inter-procedural dataflow analysis — cross-endpoint flows, persistence layers, stored injections — under Apache 2.0. Rules use a code-native format that the engine translates into complete taint configurations. Semgrep rule syntax is supported as a migration path.
 
 **How does OpenTaint compare to CodeQL?**
 
-OpenTaint delivers enterprise-grade dataflow analysis without a specialized query language, proprietary licensing, or a paywall. Code-native rules mean you write what you know — code — and get full taint analysis out of the box.
+CodeQL requires learning QL — a specialized query language that AI agents can't easily write. OpenTaint delivers formal inter-procedural dataflow analysis with code-native rules any developer or AI agent can read, write, and refine. No proprietary licensing, no paywall. Full taint analysis out of the box.
 
 **Is OpenTaint free to use?**
 
