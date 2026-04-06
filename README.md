@@ -9,7 +9,7 @@
 <h3 align="center">The open source taint analysis engine for the AI era</h3>
 
 <p align="center">
-  Enterprise-grade dataflow analysis with code-native rules — no paywall, no pattern-matching compromises.
+  Formal inter-procedural taint analysis — finds what pattern matching engines miss, enacts what AI agents discover as permanent rules, scales what neither can alone.
 </p>
 
 <p align="center">
@@ -87,11 +87,15 @@
 
 ## Why OpenTaint
 
-AI generates production code faster than today's security tooling can keep up with. AI-generated code looks production-ready — yet it buries vulnerabilities in data flows structurally hard to catch — untrusted input winding through framework abstractions, cross-controller interactions with persistence layers, and async code. At the rate AI produces it, humans can't review this code at the depth it requires. The tools meant to help aren't keeping up either — pattern matching engines flag syntax but lose the trail across boundaries, LLM agents cost more with every file and still give different answers each run, and enterprise analyzers that go deeper gate the analysis behind a paywall with rule sets that don't cover your stack. The more AI writes code, the more you need formal analysis underneath.
+AI generates production code faster than today's security tooling can keep up with. AI-generated code looks production-ready — yet it buries vulnerabilities in data flows structurally hard to catch — untrusted input winding through framework abstractions, cross-controller interactions with persistence layers, and async code.
+
+At the rate AI produces it, humans can't review this code at the depth it requires. The tools meant to help aren't keeping up either — pattern matching engines flag syntax but lose the trail across boundaries, LLM agents cost more with every file and still give different answers each run, and enterprise analyzers that go deeper gate the analysis behind a paywall with rule sets that don't cover your stack.
+
+The more AI writes code, the more you need formal analysis underneath.
 
 - **Finds what pattern matching engines miss.** Inter-procedural dataflow engine tracks untrusted data across function boundaries, persistence layers, aliases, and async code — 100+ rules across 20+ vulnerability classes, out of the box.
-- **One finding becomes total coverage.** AI security agents find vulnerabilities humans miss — but burn tokens on every file and still can't guarantee coverage. Code-native rules turn their findings into leverage — every vulnerability an agent uncovers can be enacted as a rule, and the agent can write it itself. The engine applies it across the entire codebase, deterministically, in minutes of CPU.
-- **Open source, batteries included.** Engine, rules, CI integrations — the entire stack, including the deep analysis, ships under Apache 2.0 and MIT. No paid tier to unlock taint tracking. No vendor lock-in on your rule library.
+- **One finding becomes total coverage.** AI security agents find vulnerabilities humans miss — but burn tokens on every file and still can't guarantee they caught everything. Code-native rules turn their findings into leverage — every vulnerability an agent uncovers can be enacted as a rule, and the agent can write it itself. The engine applies it across the entire codebase, deterministically, in minutes of CPU.
+- **Open source, batteries included.** Engine, rules, CI integrations — the entire stack, including the deep analysis, ships under Apache 2.0 and MIT. No paid tier to unlock taint tracking. Your rules live in your repo.
 
 ## Quick Start
 
@@ -128,7 +132,7 @@ For more options, see [Installation](docs/README.md#installation) and [Usage](do
 
 ## Documentation
 
-For detailed guides on installation, usage, configuration, CI/CD integration, and more — see the **[Documentation](docs/README.md)**.
+Full guides — installation, usage, configuration, CI/CD integration: **[Documentation](docs/README.md)**.
 
 ## Support
 
