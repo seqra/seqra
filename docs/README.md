@@ -33,7 +33,7 @@ The tools meant to help aren't keeping up either — pattern matching engines ca
 
 The more AI writes code, the more you need formal methods underneath.
 
-### Finds what pattern matching engines miss
+### Find what pattern matching engines miss
 
 The engine runs IFDS-with-abduction — formal inter-procedural dataflow analysis. It tracks untrusted data from HTTP inputs to dangerous APIs across endpoints, persistence layers, object fields, aliased references, and async code. That includes multi-hop attack paths — cross-endpoint flows, stored injections, data through object fields and aliases — at monorepo scale. 100+ rules across 20+ vulnerability classes.
 

@@ -93,7 +93,7 @@ LLM security agents find vulnerabilities humans miss, burn tokens on every file,
 
 The more AI writes code, the more you need formal methods underneath.
 
-- **Finds what pattern matching engines miss.** The inter-procedural dataflow engine tracks untrusted data across function boundaries, persistence layers, aliases, and async code.
+- **Find what pattern matching engines miss.** The inter-procedural dataflow engine tracks untrusted data across function boundaries, persistence layers, aliases, and async code.
 - **One finding becomes total coverage.** Code-native rules let you enact every uncovered vulnerability as a rule with the engine applying it across the entire codebase, deterministically, in minutes of CPU.
 - **Open source, batteries included.** Engine, rules, CI integrations — the entire stack ships under Apache 2.0 and MIT. No paid tier to unlock taint tracking, no gates on writing your own rules.
 
