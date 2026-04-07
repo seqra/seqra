@@ -88,8 +88,10 @@
 ## Why OpenTaint
 
 AI generates production code faster than today's security tooling can keep up with.
-AI security agents find vulnerabilities humans miss, burn tokens on every file, and still can't guarantee they catch everything.
-The more AI writes code, the more you need formal analysis underneath.
+
+LLM security agents find vulnerabilities humans miss, burn tokens on every file, and still can't guarantee they catch everything.
+
+The more AI writes code, the more you need formal methods underneath.
 
 - **Finds what pattern matching engines miss.** The inter-procedural dataflow engine tracks untrusted data across function boundaries, persistence layers, aliases, and async code.
 - **One finding becomes total coverage.** Code-native rules let you enact every uncovered vulnerability as a rule with the engine applying it across the entire codebase, deterministically, in minutes of CPU.
