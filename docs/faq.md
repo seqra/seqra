@@ -2,7 +2,7 @@
 
 **What is OpenTaint?**
 
-OpenTaint is an open source taint analysis engine built for the AI coding era. It performs inter-procedural dataflow analysis on Java and Kotlin bytecode — cross-endpoint flow tracking, persistence layer modelling, alias analysis, and asynchronous code analysis. Code-native rules find real vulnerabilities in web applications. Finds what pattern matching engines miss, enacts what AI agents discover as permanent rules, scales where neither can alone.
+OpenTaint is an open source taint analysis engine built for the AI coding era. It performs inter-procedural dataflow analysis on Java and Kotlin bytecode — cross-endpoint flow tracking, persistence layer modelling, alias analysis, and asynchronous code analysis. Code-native rules find real vulnerabilities in web applications. Finds what pattern matching engines miss, enacts what LLM agents discover as permanent rules, scales where neither can alone.
 
 **What vulnerabilities does OpenTaint detect?**
 
@@ -12,9 +12,9 @@ OpenTaint detects 20+ vulnerability types including SQL injection, XSS, SSRF, Sp
 
 Rules that look like code. Readable, writable, and tunable by humans and AI agents alike. The engine translates each rule into a full taint configuration — sources, sinks, sanitizers, and propagators connected by typed taint marks. When a rule produces a false positive, you refine the rule directly. No query language to learn, no black box to work around.
 
-**Why not just use an AI agent for security scanning?**
+**Why not just use an LLM agent for security scanning?**
 
-AI agents offer no formal guarantees. Run the same prompt twice and you may get different results — no determinism, no reproducibility. An LLM agent scanning a large codebase burns through token budgets and still can't guarantee full coverage. OpenTaint scans the same codebase in minutes of CPU compute — deterministically. AI agents can read and write OpenTaint's code-native rules, so you get the best of both: AI flexibility with formal analysis underneath.
+LLM agents offer no formal guarantees. Run the same prompt twice and you may get different results — no determinism, no reproducibility. An LLM agent scanning a large codebase burns through token budgets and still can't guarantee full coverage. OpenTaint scans the same codebase in minutes of CPU compute — deterministically. AI agents can read and write OpenTaint's code-native rules, so you get the best of both: AI flexibility with formal analysis underneath.
 
 **What languages and frameworks are supported?**
 
