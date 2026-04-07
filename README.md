@@ -9,7 +9,7 @@
 <h3 align="center">The open source taint analysis engine for the AI era</h3>
 
 <p align="center">
-  Enterprise-grade dataflow analysis with code-native rules — no paywall, no pattern-matching compromises.
+  Formal inter-procedural taint analysis — finds what pattern matching engines miss, enacts what LLM agents discover as rules, scales where neither can alone.
 </p>
 
 <p align="center">
@@ -87,13 +87,22 @@
 
 ## Why OpenTaint
 
-- **AI agent-ready.** Agents operate the rules, the CLI, the output. Scan code, triage findings, fix vulnerabilities, refine rules.
-- **Cutting-edge dataflow analysis.** Inter-procedural taint tracking across endpoints, persistence layers, aliases, and async code.
-- **Enterprise-grade, finds real trophies.** Powerful, precise, and performant at scale. Catches exploitable vulnerabilities.
-- **Rules that read like code.** Write and refine taint rules the same way you write application code — or let your AI agent do it.
-- **Open source, batteries included.** Engine, CLI, GitHub Action, GitLab CI, rules. Apache 2.0 and MIT licensed.
+AI generates production code faster than today's security tooling can keep up with.
+
+LLM security agents find vulnerabilities humans miss, burn tokens on every file, and still can't guarantee they catch everything.
+
+The more AI writes code, the more you need formal methods underneath.
+
+- **Find what pattern matching engines miss.** The inter-procedural dataflow engine tracks untrusted data across function boundaries, persistence layers, aliases, and async code.
+- **One finding becomes total coverage.** Code-native rules let you enact every uncovered vulnerability as a rule with the engine applying it across the entire codebase, deterministically, in minutes of CPU.
+- **Open source, batteries included.** Engine, rules, CI integrations — the entire stack ships under Apache 2.0 and MIT. No paid tier to unlock taint tracking, no gates on writing your own rules.
 
 ## Quick Start
+
+**Install script (Linux/macOS)**
+```
+curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
+```
 
 **Install via Homebrew (Linux/macOS):**
 ```bash
@@ -103,11 +112,6 @@ brew install --cask seqra/tap/opentaint
 **Install script (Windows PowerShell)**
 ```
 irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1 | iex
-```
-
-**Install script (Linux/macOS)**
-```
-curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
 ```
 
 **Scan your project:**
@@ -122,157 +126,19 @@ docker run --rm -v $(pwd):/project -v $(pwd):/output \
   opentaint scan --output /output/results.sarif /project
 ```
 
-For more options, see [Installation](#installation) and [Usage](#usage).
-
----
-
-## About OpenTaint
-
-AI-generated code is scaling codebases fast. Pattern matchers produce too many false positives. Enterprise taint analyzers that work are paywalled. AI agents in a security role give no formal guarantees.
-
-OpenTaint does real inter-procedural taint analysis. IFDS-with-abduction engine. Tracks untrusted data from HTTP inputs to dangerous APIs — across endpoints, persistence layers, object fields, aliased references, async code. Models Spring data flow, the full Boot ecosystem. Java and Kotlin at bytecode level. More languages ahead.
-
-Enterprise-grade. Powerful, precise, performant at scale. Handles large monorepo codebases. Tracks complex multi-hop attack paths — cross-endpoint flows, data through persistence layers, stored injections.
-
-Rules look like code. Humans and AI agents read, write, and tune them — no proprietary DSL. The engine translates rules into full taint configurations: sources, sinks, sanitizers, propagators, taint marks.
-
-Fully open source. CLI, GitHub Action, GitLab CI, rules — all included. [Apache 2.0](LICENSE.md) and [MIT](cli/LICENSE) licensed.
-
----
-
-## What OpenTaint Catches
-
-OpenTaint tracks data from controller parameters through your web application to dangerous sinks.
-
-**SQL Injection via JdbcTemplate**
-
-```java
-@GetMapping("/users/search")
-public List<User> searchUsers(@RequestParam String name) {
-    String sql = "SELECT * FROM users WHERE name = '" + name + "'";
-    return jdbcTemplate.query(sql, userRowMapper);
-}
-```
-
-OpenTaint reports: `sql-injection-in-spring-app` at `GET /users/search` — untrusted input flows to SQL query.
-
-**XSS in Controller Response**
-
-```java
-@GetMapping("/greet")
-@ResponseBody
-public String greet(@RequestParam String name) {
-    return "<h1>Hello, " + name + "!</h1>";
-}
-```
-
-OpenTaint reports: `xss-in-spring-app` at `GET /greet` — user input returned without HTML escaping.
-
-**SSRF via RestTemplate**
-
-```java
-@GetMapping("/fetch")
-public String fetchUrl(@RequestParam String url) {
-    return restTemplate.getForObject(url, String.class);
-}
-```
-
-OpenTaint reports: `ssrf-in-spring-app` at `GET /fetch` — user-controlled URL passed to HTTP client.
-
-Each finding includes the HTTP endpoint, making it easy to understand your application's attack surface.
-
----
-
-## Installation
-
-| Method | Command |
-|--------|---------|
-| **Homebrew** (Linux/macOS) | `brew install --cask seqra/tap/opentaint` |
-| **Install script** (Linux/macOS) | `curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh \| bash` |
-| **Install script** (Windows PowerShell) | `irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1 \| iex` |
-| **Install script** (Windows CMD) | `curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.cmd -o install.cmd && install.cmd && del install.cmd` |
-| **Docker** | See [Quick Start](#quick-start) or [Docker docs](docs/docker.md) |
-| **Binary** | [Download from releases](https://github.com/seqra/opentaint/releases/latest) |
-
-Release archives come in three variants: **`opentaint-full`** (binary + JARs + rules + JRE), **`opentaint`** (binary + JARs + rules), and **`opentaint-cli`** (binary only). Homebrew and install scripts default to `full`.
-
-For detailed instructions, see [Installation Guide](docs/installation.md).
-
-
-## Usage
-
-```bash
-opentaint scan --output results.sarif /path/to/project    # Scan project
-opentaint summary --show-findings results.sarif           # View results
-opentaint summary --show-findings --verbose-flow --show-code-snippets results.sarif  # Full detail
-```
-
-| Command | Description |
-|---------|-------------|
-| `opentaint scan` | Analyze projects (auto-detects Maven/Gradle) |
-| `opentaint compile` | Build project model separately |
-| `opentaint project` | Create model from precompiled JARs |
-| `opentaint summary` | View SARIF results |
-| `opentaint pull` | Download dependencies |
-| `opentaint update` | Update to latest version |
-| `opentaint prune` | Remove stale downloaded artifacts |
-
-**Options:** `--max-memory 16G`, `--timeout 5m`, `--severity error`, `--config config.yaml`
-
-For detailed usage, see [Usage Guide](docs/usage.md).
-
----
-
-## Configuration
-
-```yaml
-scan:
-  timeout: 15m
-  max_memory: 16G
-log:
-  verbosity: info  # info, debug
-  color: auto      # auto, always, never
-```
-
-Or use environment variables: `OPENTAINT_SCAN_TIMEOUT=30m`, `OPENTAINT_SCAN_MAX_MEMORY=16G`
-
-For detailed configuration, see [Configuration Guide](docs/configuration.md).
-
-
-## CI/CD Integration
-
-- **GitHub Actions:** [seqra/opentaint/github](https://github.com/seqra/opentaint/tree/main/github)
-- **GitLab CI:** [seqra/opentaint/gitlab](https://github.com/seqra/opentaint/tree/main/gitlab)
-
----
-
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| Build fails | Ensure `mvn compile` or `gradle build` works; set `JAVA_HOME` |
-| Out of memory | Use `--max-memory 16G` |
-| Timeout | Use `--timeout 20m` |
-| Re-download deps | `opentaint prune --yes && opentaint pull` |
-| Debug | Use `--verbosity debug` |
-
-For detailed troubleshooting, see [Troubleshooting Guide](docs/troubleshooting.md).
+For more options, see [Installation](docs/README.md#installation) and [Usage](docs/README.md#usage).
 
 ---
 
 ## Documentation
 
-For comprehensive guides on all features, see the full [Documentation](docs/README.md).
-
----
+Full guides — installation, usage, configuration, CI/CD integration: **[Documentation](docs/README.md)**.
 
 ## Support
 
 - **Issues:** [GitHub Issues](https://github.com/seqra/opentaint/issues)
 - **Community:** [Discord](https://discord.gg/6BXDfbP4p9)
 - **Email:** [seqradev@gmail.com](mailto:seqradev@gmail.com)
-- **FAQ:** [FAQ](docs/faq.md)
-
 
 ## License
 
