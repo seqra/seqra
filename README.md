@@ -9,7 +9,7 @@
 <h3 align="center">The open source taint analysis engine for the AI era</h3>
 
 <p align="center">
-  Formal inter-procedural taint analysis — finds what pattern matching engines miss, enacts what AI agents discover as permanent rules, scales where neither can alone.
+  Formal inter-procedural taint analysis — finds what pattern matching engines miss, enacts what AI agents discover as rules, scales where neither can alone.
 </p>
 
 <p align="center">
