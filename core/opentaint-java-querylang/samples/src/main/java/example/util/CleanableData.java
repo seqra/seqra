@@ -1,4 +1,4 @@
-package issues.i98;
+package example.util;
 
 public class CleanableData {
     public String info;
@@ -9,7 +9,5 @@ public class CleanableData {
 
     public void cleanData() { }
 
-    public String getInfo() {
-        return info;
-    }
+    public void sendInfo() { }
 }
