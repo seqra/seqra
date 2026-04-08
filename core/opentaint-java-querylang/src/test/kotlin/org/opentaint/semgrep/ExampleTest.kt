@@ -196,6 +196,9 @@ class ExampleTest : SampleBasedTest() {
     fun `test array example`() = runTest<example.ArrayExample>()
 
     @Test
+    fun `test must alias examples`() = runTest<example.MustAliasExample>()
+
+    @Test
     fun `test join with taint and matching left`() = runTest<example.JoinWithTaintAndMatchingLeft>()
 
     @Test

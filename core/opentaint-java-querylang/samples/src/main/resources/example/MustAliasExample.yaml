@@ -1,5 +1,5 @@
 rules:
-  - id: i98
+  - id: example-Rule
     languages:
       - java
     severity: ERROR
@@ -8,10 +8,10 @@ rules:
       - pattern: |
           $A = new CleanableData();
           ...
-          return $A.getInfo();
+          $A.sendInfo();
       - pattern-not-inside: |
           $A = new CleanableData();
           ...
           $A.cleanData();
           ...
-          return $A.getInfo();
+          $A.sendInfo();
