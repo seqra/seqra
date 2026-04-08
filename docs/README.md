@@ -48,7 +48,7 @@ The entire system is designed to work with AI agents. Formal analysis produces r
 ### Open source, batteries included
 
 
-Engine, CLI, GitHub Action, GitLab CI, rules — the entire stack, including the deep analysis, is released under [Apache 2.0](../LICENSE.md) and [MIT](../cli/LICENSE). No paid tier to unlock taint tracking. No vendor lock-in on your rule library. Other tools make you pay for it — Semgrep gates taint tracking behind a paid Pro tier, CodeQL requires GHAS for private repos. The deep analysis should be free — and it is.
+Engine, CLI, GitHub Action, GitLab CI, rules — the entire stack, including the deep analysis, is released under [Apache 2.0](../LICENSE.md) and [MIT](../cli/LICENSE). No paid tier to unlock taint tracking. No vendor lock-in on your rule library. Other tools make you pay for it — Semgrep gates inter-procedural taint tracking behind a paid Pro tier, CodeQL requires GHAS for private repos. The deep analysis should be free — and it is.
 
 ---
 
