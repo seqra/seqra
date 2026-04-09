@@ -6,6 +6,7 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
+import org.opentaint.config.ConfigLoader
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Simple
@@ -13,6 +14,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintPassAc
 import org.opentaint.semgrep.pattern.conversion.taint.anyFunction
 import org.opentaint.semgrep.pattern.conversion.taint.base
 import org.opentaint.semgrep.util.SampleBasedTest
+import kotlin.collections.orEmpty
 import kotlin.test.Test
 
 @TestInstance(PER_CLASS)
@@ -196,7 +198,10 @@ class ExampleTest : SampleBasedTest() {
     fun `test array example`() = runTest<example.ArrayExample>()
 
     @Test
-    fun `test must alias examples`() = runTest<example.MustAliasExample>()
+    fun `test must alias examples`() = runTest<example.MustAliasExample> { cfg ->
+        val config = ConfigLoader.getConfig()?.passThrough.orEmpty()
+        cfg.copy(passThrough = cfg.passThrough.orEmpty() + config)
+    }
 
     @Test
     fun `test join with taint and matching left`() = runTest<example.JoinWithTaintAndMatchingLeft>()

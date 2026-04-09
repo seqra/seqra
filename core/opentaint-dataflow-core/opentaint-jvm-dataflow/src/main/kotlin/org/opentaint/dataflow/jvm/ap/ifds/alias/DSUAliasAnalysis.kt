@@ -216,15 +216,13 @@ class DSUAliasAnalysis(
         } else state
         if (stmt.cantMutateAliasedHeap()) return resultState
 
-        val instanceIndex = stmt.instance?.aliasInfo()?.index()
-
         val argAliases = IntOpenHashSet()
-        stmt.getUsedValues().forEach { arg ->
+        stmt.args.forEach { arg ->
             val info = arg.aliasInfo() ?: return@forEach
             val infoIndex = aliasManager.getOrAdd(info)
             resultState.forEachAliasInSet(infoIndex) { argAliases.add(it) }
         }
-        return resultState.invalidateOuterHeapAliases(argAliases, instanceIndex)
+        return resultState.invalidateOuterHeapAliases(argAliases)
     }
 
     private fun evalCall(
@@ -254,11 +252,8 @@ class DSUAliasAnalysis(
         return State.merge(aliasManager, dsuMergeStrategy, statesAfterCall, mergeType)
     }
 
-    private fun State.invalidateOuterHeapAliases(startInvalidAliases: IntOpenHashSet, instance: Int?): State {
+    private fun State.invalidateOuterHeapAliases(startInvalidAliases: IntOpenHashSet): State {
         val invalidAliases = collectTransitiveInvalidAliases(startInvalidAliases)
-
-        // keeping `this` aliases
-        instance?.let { invalidAliases.remove(it) }
 
         val invalidHeapAliases = IntOpenHashSet()
         invalidAliases.forEach {
