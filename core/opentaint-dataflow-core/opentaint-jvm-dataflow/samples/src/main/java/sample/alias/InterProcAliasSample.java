@@ -2,34 +2,25 @@ package sample.alias;
 
 import java.util.Collections;
 import java.util.List;
+import sample.AliasSettings;
+import sample.BaseSample;
 
-public class InterProcAliasSample {
+public class InterProcAliasSample extends BaseSample {
 
-    Object field;
-
-    Object getField() {
-        return this.field;
-    }
-
-    void setField(Object val) {
-        this.field = val;
-    }
-
+    @AliasSettings(interProcDepth = 1)
     void testGetterAlias() {
         Object result = getField();
         sinkOneValue(result);
     }
 
+    @AliasSettings(interProcDepth = 1)
     void testSetterThenGetter(Object src) {
         setField(src);
         Object result = getField();
         sinkOneValue(result);
     }
 
-    static Object identity(Object x) {
-        return x;
-    }
-
+    @AliasSettings(interProcDepth = 1)
     static void testIdentityCall(Object src) {
         Object result = identity(src);
         sinkOneValue(result);
@@ -47,6 +38,4 @@ public class InterProcAliasSample {
         Object dst = arr[0];
         sinkOneValue(dst);
     }
-
-    static void sinkOneValue(Object v) { }
 }

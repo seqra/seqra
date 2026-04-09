@@ -1,19 +1,8 @@
 package sample.alias;
 
-public class HeapAliasSample {
+import sample.BaseSample;
 
-    static class Box {
-        Object value;
-    }
-
-    static class Nested {
-        Box box;
-    }
-
-    static class Node {
-        Node next;
-        Object data;
-    }
+public class HeapAliasSample extends BaseSample  {
 
     static void readArgField(Box box) {
         Object dst = box.value;
@@ -112,7 +101,4 @@ public class HeapAliasSample {
         Object dst = b2.value;
         sinkOneValue(dst);
     }
-
-    static void sinkOneValue(Object v) { }
-    static void sinkTwoValues(Object v1, Object v2) { }
 }

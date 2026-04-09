@@ -1,0 +1,17 @@
+rules:
+  - id: example-Rule
+    languages:
+      - java
+    severity: ERROR
+    message: cleanedMethod
+    patterns:
+      - pattern: |
+          $A = new CleanableData();
+          ...
+          $A.sendInfo();
+      - pattern-not-inside: |
+          $A = new CleanableData();
+          ...
+          $A.cleanData();
+          ...
+          $A.sendInfo();

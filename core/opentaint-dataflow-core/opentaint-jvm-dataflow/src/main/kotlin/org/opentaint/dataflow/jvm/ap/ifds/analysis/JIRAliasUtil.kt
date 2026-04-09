@@ -22,6 +22,19 @@ fun JIRLocalAliasAnalysis.forEachAliasAtStatement(statement: JIRInst, fact: Fina
         .forEach { alias -> applyAlias(fact, alias, body) }
 }
 
+fun JIRLocalAliasAnalysis.getMustAliases(
+    statement: JIRInst,
+    relevantBase: AccessPathBase
+): List<AliasApInfo> {
+    return findMustAlias(relevantBase, statement).orEmpty()
+        .filterIsInstance<AliasApInfo>()
+        .filterNot { alias -> alias.base is AccessPathBase.Constant }
+}
+
+fun JIRLocalAliasAnalysis.forEachMustAlias(statement: JIRInst, fact: FinalFactAp, body: (FinalFactAp) -> Unit) {
+    getMustAliases(statement, fact.base).forEach { alias -> applyAlias(fact, alias, body) }
+}
+
 fun JIRLocalAliasAnalysis.forEachAliasAfterStatement(statement: JIRInst, fact: FinalFactAp, body: (FinalFactAp) -> Unit) {
     val base = fact.base as? AccessPathBase.LocalVar ?: return
     val aliases = findAliasAfterStatement(base, statement) ?: return

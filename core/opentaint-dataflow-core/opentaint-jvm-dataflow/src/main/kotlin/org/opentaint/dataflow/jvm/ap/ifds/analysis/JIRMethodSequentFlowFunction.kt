@@ -17,6 +17,7 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction.TraceIn
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.VulnerabilityTriggerPosition
 import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.jvm.ap.ifds.CalleePositionToJIRValueResolver
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionRewriter
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils
 import org.opentaint.dataflow.jvm.ap.ifds.MethodFlowFunctionUtils.accessPathBase
@@ -548,14 +549,24 @@ class JIRMethodSequentFlowFunction(
 
         val accessor = accessors.first()
 
-        if (!factAp.mayRemoveAfterWrite(instance, accessor)) {
+        var fixedFact: FinalFactAp? = null
+
+        val (aliased, irrelevant) =
+            FactUtils.splitFactByBaseMustAlias(analysisContext.aliasAnalysis, currentInst, instance, factAp, true)
+
+        aliased.forEach { (fact, _) ->
+            if (fact.mayRemoveAfterWrite(instance, accessor))
+                fixedFact = fact
+        }
+
+        if (fixedFact == null) {
             // Fact is irrelevant to current writing
             unchanged(factAp)
             return
         }
 
-        if (factAp.isAbstract() && accessor !in factAp.exclusions) {
-            val nonAbstractAp = factAp.removeAbstraction()
+        if (fixedFact.isAbstract() && accessor !in fixedFact.exclusions) {
+            val nonAbstractAp = fixedFact.removeAbstraction()
             if (nonAbstractAp != null) {
                 fieldWrite(
                     instance, accessors, assignFrom, nonAbstractAp,
@@ -563,15 +574,26 @@ class JIRMethodSequentFlowFunction(
                 )
             }
 
-            propagateAbstractFactWithFieldExcluded(factAp, accessor, propagateFactWithAccessorExclude)
+            propagateAbstractFactWithFieldExcluded(fixedFact, accessor, propagateFactWithAccessorExclude)
 
             return
         }
 
-        check(factAp.startsWithAccessor(accessor))
+        irrelevant.forEach { fact -> propagateFact(fact) }
+        aliased.forEach { (fact, alias) ->
+            check(fact.startsWithAccessor(accessor))
 
-        val newAp = factAp.clearField(accessor) ?: return
-        propagateFact(newAp)
+            val hasElementAccessor = alias?.accessors.orEmpty().any { it is JIRLocalAliasAnalysis.AliasAccessor.Array }
+            val newAp =
+                // todo hack: keep fact on the array elements
+                if (hasElementAccessor) fact
+                else fact.clearField(accessor)
+
+            newAp?.let {
+                val restoredFact = FactUtils.rewriteForAlias(it, alias)
+                propagateFact(restoredFact)
+            }
+        }
     }
 
     private fun propagateAbstractFactWithFieldExcluded(
