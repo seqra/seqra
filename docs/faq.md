@@ -22,7 +22,7 @@ Java and Kotlin, analyzed at the bytecode level to precisely understand inherita
 
 **How does OpenTaint compare to Semgrep?**
 
-Semgrep's open-source engine does pattern matching. Its Pro engine adds taint analysis behind a paid tier. OpenTaint ships full inter-procedural dataflow analysis — cross-endpoint flows, persistence layers, stored injections — under Apache 2.0. Rules use a code-native format that the engine translates into complete taint configurations. Semgrep rule syntax is supported as a migration path.
+Semgrep's open-source engine includes intra-procedural taint analysis — it tracks data within a single function. Its Pro engine adds inter-procedural taint analysis behind a paid tier. OpenTaint ships full inter-procedural dataflow analysis — cross-endpoint flows, persistence layers, stored injections — under Apache 2.0. Rules use a code-native format that the engine translates into complete taint configurations. Semgrep rule syntax is supported as a migration path.
 
 **How does OpenTaint compare to CodeQL?**
 
