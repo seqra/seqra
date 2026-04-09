@@ -3,6 +3,7 @@ package example;
 import base.RuleSample;
 import base.RuleSet;
 import example.util.CleanableData;
+import java.util.Map;
 
 @RuleSet("example/MustAliasExample.yaml")
 public abstract class MustAliasExample implements RuleSample {
@@ -59,6 +60,21 @@ public abstract class MustAliasExample implements RuleSample {
             CleanableData obj = new CleanableData();
             doNothing(obj);
             obj.sendInfo();
+        }
+    }
+
+    protected Map<Integer, CleanableData> dataMap;
+
+    protected void putData(CleanableData data) {
+        dataMap.put(0, data);
+    }
+
+    static class PositiveMapFlowTaint extends MustAliasExample {
+        @Override
+        public void entrypoint() {
+            CleanableData obj = new CleanableData();
+            putData(obj);
+            dataMap.get(0).sendInfo();
         }
     }
 }
