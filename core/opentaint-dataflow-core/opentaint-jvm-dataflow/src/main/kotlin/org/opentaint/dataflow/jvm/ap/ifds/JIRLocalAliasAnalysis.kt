@@ -39,7 +39,7 @@ class JIRLocalAliasAnalysis(
         instIdx: Int, base: AccessPathBase.LocalVar
     ): List<AliasInfo>? =
         alias[instIdx]?.getOrDefault(base.idx, null)?.filter {
-            it !is AliasApInfo || it.accessors.isNotEmpty() || it.base != base
+            it !is AccessPathBase || it != base
         }?.map { it.wrapAliasInfo() }
 
     private fun getAccessPathBaseAliases(
@@ -47,7 +47,7 @@ class JIRLocalAliasAnalysis(
         instIdx: Int, base: AccessPathBase
     ): List<AliasInfo>? =
         alias[instIdx]?.getOrDefault(base, null)?.filter {
-            it !is AliasApInfo || it.accessors.isNotEmpty() || it.base != base
+            it !is AccessPathBase || it != base
         }?.map { it.wrapAliasInfo() }
 
     fun findMustAlias(base: AccessPathBase, statement: CommonInst): List<AliasInfo>? {
