@@ -49,6 +49,8 @@
   <img src="../../logos/gitlab-logo.svg" alt="GitLab" height="60">
 </p>
 
+<p align="center"><i>Spring 앱을 위한 가장 철저한 taint 분석 엔진</i></p>
+
 <p align="center"><b>로드맵</b></p>
 <p align="center">
   <img src="../../logos/python-logo.svg" alt="Python" height="60">&nbsp;&nbsp;&nbsp;&nbsp;

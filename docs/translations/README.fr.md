@@ -49,6 +49,8 @@
   <img src="../../logos/gitlab-logo.svg" alt="GitLab" height="60">
 </p>
 
+<p align="center"><i>Le moteur d'analyse de taint le plus complet pour les applications Spring</i></p>
+
 <p align="center"><b>Feuille de route</b></p>
 <p align="center">
   <img src="../../logos/python-logo.svg" alt="Python" height="60">&nbsp;&nbsp;&nbsp;&nbsp;

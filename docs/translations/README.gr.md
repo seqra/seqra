@@ -49,6 +49,8 @@
   <img src="../../logos/gitlab-logo.svg" alt="GitLab" height="60">
 </p>
 
+<p align="center"><i>Η πιο ενδελεχής μηχανή ανάλυσης taint για εφαρμογές Spring</i></p>
+
 <p align="center"><b>Χάρτης πορείας</b></p>
 <p align="center">
   <img src="../../logos/python-logo.svg" alt="Python" height="60">&nbsp;&nbsp;&nbsp;&nbsp;

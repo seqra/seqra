@@ -49,6 +49,8 @@
   <img src="../../logos/gitlab-logo.svg" alt="GitLab" height="60">
 </p>
 
+<p align="center"><i>最全面的 Spring 应用 taint 分析引擎</i></p>
+
 <p align="center"><b>路线图</b></p>
 <p align="center">
   <img src="../../logos/python-logo.svg" alt="Python" height="60">&nbsp;&nbsp;&nbsp;&nbsp;

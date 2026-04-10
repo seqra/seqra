@@ -49,6 +49,8 @@
   <img src="../../logos/gitlab-logo.svg" alt="GitLab" height="60">
 </p>
 
+<p align="center"><i>Spring অ্যাপের জন্য সবচেয়ে পুঙ্খানুপুঙ্খ টেইন্ট বিশ্লেষণ ইঞ্জিন</i></p>
+
 <p align="center"><b>রোডম্যাপ</b></p>
 <p align="center">
   <img src="../../logos/python-logo.svg" alt="Python" height="60">&nbsp;&nbsp;&nbsp;&nbsp;

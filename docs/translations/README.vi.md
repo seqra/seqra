@@ -49,6 +49,8 @@
   <img src="../../logos/gitlab-logo.svg" alt="GitLab" height="60">
 </p>
 
+<p align="center"><i>Công cụ phân tích taint kỹ lưỡng nhất cho ứng dụng Spring</i></p>
+
 <p align="center"><b>Lộ trình phát triển</b></p>
 <p align="center">
   <img src="../../logos/python-logo.svg" alt="Python" height="60">&nbsp;&nbsp;&nbsp;&nbsp;
