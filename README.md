@@ -21,32 +21,43 @@
 </p>
 
 <p align="center">
+  <a href="README.md">English</a> | <a href="docs/translations/README.zh.md">简体中文</a> | <a href="docs/translations/README.zht.md">繁體中文</a> | <a href="docs/translations/README.ko.md">한국어</a> | <a href="docs/translations/README.de.md">Deutsch</a> | <a href="docs/translations/README.es.md">Español</a> | <a href="docs/translations/README.fr.md">Français</a> | <a href="docs/translations/README.it.md">Italiano</a> | <a href="docs/translations/README.da.md">Dansk</a> | <a href="docs/translations/README.ja.md">日本語</a> | <a href="docs/translations/README.pl.md">Polski</a> | <a href="docs/translations/README.ru.md">Русский</a> | <a href="docs/translations/README.bs.md">Bosanski</a> | <a href="docs/translations/README.ar.md">العربية</a> | <a href="docs/translations/README.no.md">Norsk</a> | <a href="docs/translations/README.br.md">Português (Brasil)</a> | <a href="docs/translations/README.th.md">ไทย</a> | <a href="docs/translations/README.tr.md">Türkçe</a> | <a href="docs/translations/README.ua.md">Українська</a> | <a href="docs/translations/README.bn.md">বাংলা</a> | <a href="docs/translations/README.gr.md">Ελληνικά</a> | <a href="docs/translations/README.vi.md">Tiếng Việt</a>
+</p>
+
+<p align="center">
+<a href="http://opentaint.org/">
+<a href="http://opentaint.org/">
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-light-2.png">
   <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-dark-2.png">
-  <img src="public/opentaint-frame-dark-2.png" alt="OpenTaint summary output" width="720">
+  <img src="public/opentaint-frame-dark-2.png" alt="OpenTaint summary output">
 </picture>
+</a>
+</a>
+</p>
 
 <p align="center"><b>Supported technologies and integrations</b></p>
 <p align="center">
-  <img src="logos/java-logo.svg" alt="Java" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="logos/kotlin-logo.svg" alt="Kotlin" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="logos/spring-boot-logo.svg" alt="Spring" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="logos/java-logo.svg" alt="Java" height="60">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="logos/kotlin-logo.svg" alt="Kotlin" height="60">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="logos/spring-boot-logo.svg" alt="Spring" height="60">&nbsp;&nbsp;&nbsp;&nbsp;
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="logos/github-logo-dark.svg">
     <source media="(prefers-color-scheme: light)" srcset="logos/github-logo-light.svg">
-    <img src="logos/github-logo-light.svg" alt="GitHub" height="40">
+    <img src="logos/github-logo-light.svg" alt="GitHub" height="60">
   </picture>&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="logos/gitlab-logo.svg" alt="GitLab" height="40">
+  <img src="logos/gitlab-logo.svg" alt="GitLab" height="60">
 </p>
+
+<p align="center"><i>The most thorough taint analysis engine for Spring apps</i></p>
 
 <p align="center"><b>Roadmap</b></p>
 <p align="center">
-  <img src="logos/python-logo.svg" alt="Python" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="logos/go-logo.svg" alt="Go" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="logos/csharp-logo.svg" alt="C#" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="logos/javascript-logo.svg" alt="JavaScript" height="40">&nbsp;&nbsp;&nbsp;&nbsp;
-  <img src="logos/typescript-logo.svg" alt="TypeScript" height="40">
+  <img src="logos/python-logo.svg" alt="Python" height="60">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="logos/go-logo.svg" alt="Go" height="60">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="logos/csharp-logo.svg" alt="C#" height="60">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="logos/javascript-logo.svg" alt="JavaScript" height="60">&nbsp;&nbsp;&nbsp;&nbsp;
+  <img src="logos/typescript-logo.svg" alt="TypeScript" height="60">
 </p>
 
 <div align="center">
@@ -56,28 +67,28 @@
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-light-1.png">
       <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-dark-1.png">
-      <img src="public/opentaint-frame-dark-1.png" alt="OpenTaint scan output" width="720">
+      <img src="public/opentaint-frame-dark-1.png" alt="OpenTaint scan output">
     </picture>
   </p>
   <p align="center">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-light-3.png">
       <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-dark-3.png">
-      <img src="public/opentaint-frame-dark-3.png" alt="OpenTaint summary output" width="720">
+      <img src="public/opentaint-frame-dark-3.png" alt="OpenTaint summary output">
     </picture>
   </p>
   <p align="center">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-light-4.png">
       <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-dark-4.png">
-      <img src="public/opentaint-frame-dark-4.png" alt="OpenTaint summary output" width="720">
+      <img src="public/opentaint-frame-dark-4.png" alt="OpenTaint summary output">
     </picture>
   </p>
   <p align="center">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="public/opentaint-frame-light-5.png">
       <source media="(prefers-color-scheme: light)" srcset="public/opentaint-frame-dark-5.png">
-      <img src="public/opentaint-frame-dark-5.png" alt="OpenTaint summary output" width="720">
+      <img src="public/opentaint-frame-dark-5.png" alt="OpenTaint summary output">
     </picture>
   </p>
 </details>
