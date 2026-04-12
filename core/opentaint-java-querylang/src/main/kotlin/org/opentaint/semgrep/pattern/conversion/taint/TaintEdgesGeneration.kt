@@ -363,10 +363,16 @@ private fun MetaVarCtx.typeNameMetaVars(typeName: TypeNamePattern, metaVars: Bit
         }
 
         TypeNamePattern.AnyType,
-        is TypeNamePattern.ClassName,
-        is TypeNamePattern.PrimitiveName,
-        is TypeNamePattern.FullyQualified -> {
+        is TypeNamePattern.PrimitiveName -> {
             // no metavars
+        }
+
+        is TypeNamePattern.ClassName -> {
+            typeName.typeArgs.forEach { typeNameMetaVars(it, metaVars) }
+        }
+
+        is TypeNamePattern.FullyQualified -> {
+            typeName.typeArgs.forEach { typeNameMetaVars(it, metaVars) }
         }
     }
 }
