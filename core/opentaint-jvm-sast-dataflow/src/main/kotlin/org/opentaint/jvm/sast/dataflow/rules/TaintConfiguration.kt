@@ -699,6 +699,8 @@ class TaintConfiguration(cp: JIRClasspath) {
         val falsePositions = hashSetOf<Position>()
 
         val normalizedTypeIs = typeIs.normalizeAnyName()
+        val hasTypeArgs = normalizedTypeIs is ClassPattern && normalizedTypeIs.typeArgs.isNotEmpty()
+
         for (pos in position) {
             val posTypeName = when (pos) {
                 is Argument -> method.parameters[pos.index].type.typeName
@@ -708,11 +710,16 @@ class TaintConfiguration(cp: JIRClasspath) {
                 is ClassStatic -> continue
             }
 
-            if (normalizedTypeIs.match(posTypeName)) return mkTrue()
+            if (normalizedTypeIs.match(posTypeName)) {
+                if (!hasTypeArgs) return mkTrue()
+                // Has type args: don't short-circuit, fall through to deferred evaluation
+                continue
+            }
 
             if (pos is This) {
                 if (method.enclosingClass.allSuperHierarchySequence.any { normalizedTypeIs.match(it.name) }) {
-                    return mkTrue()
+                    if (!hasTypeArgs) return mkTrue()
+                    continue
                 }
 
                 if (method.isConstructor || method.isFinal) {

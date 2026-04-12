@@ -11,15 +11,17 @@ import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
 import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicAtomEvaluator
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.JIRTypedMethod
 
 class JIRMarkAwareConditionRewriter(
     positionResolver: PositionResolver<CallPositionValue>,
     factTypeChecker: JIRFactTypeChecker,
     aliasAnalysis: JIRLocalAliasAnalysis?,
     statement: CommonInst,
+    typedMethod: JIRTypedMethod? = null,
 ) {
-    private val positiveAtomEvaluator = JIRBasicAtomEvaluator(negated = false, positionResolver, factTypeChecker, aliasAnalysis, statement)
-    private val negativeAtomEvaluator = JIRBasicAtomEvaluator(negated = true, positionResolver, factTypeChecker, aliasAnalysis, statement)
+    private val positiveAtomEvaluator = JIRBasicAtomEvaluator(negated = false, positionResolver, factTypeChecker, aliasAnalysis, statement, typedMethod)
+    private val negativeAtomEvaluator = JIRBasicAtomEvaluator(negated = true, positionResolver, factTypeChecker, aliasAnalysis, statement, typedMethod)
 
     constructor(
         positionResolver: PositionResolver<CallPositionValue>,
