@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithGenericTypeArgs
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithGenericTypeArgs
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          $RET $METHOD(Map<String, Object> $M, ...) {
+              ...
+          }
