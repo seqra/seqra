@@ -709,9 +709,15 @@ private fun MethodSignature?.unify(
     metaVarInfo: ResolvedMetaVarInfo,
 ): MethodSignature? {
     if (this == null) return other
+    val unifiedReturnType = when {
+        this.returnType == null -> other.returnType
+        other.returnType == null -> this.returnType
+        else -> unifyTypeName(this.returnType, other.returnType, metaVarInfo)
+    }
     return MethodSignature(
         methodName.unify(other.methodName, metaVarInfo) ?: return null,
         enclosingClassName.unify(other.enclosingClassName, metaVarInfo) ?: return null,
+        returnType = unifiedReturnType,
     )
 }
 

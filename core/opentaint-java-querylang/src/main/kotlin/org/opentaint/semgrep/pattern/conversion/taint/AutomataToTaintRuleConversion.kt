@@ -502,6 +502,11 @@ private fun MethodSignature.notEvaluatedSignature(evaluated: MethodSignature): M
             MethodEnclosingClassName.anyClassName
         } else {
             enclosingClassName
+        },
+        returnType = if (returnType == evaluated.returnType) {
+            null
+        } else {
+            returnType
         }
     )
 }
@@ -561,6 +566,25 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
         }
     }
 
+    // Convert return type to signature matcher (must apply to all builder paths)
+    val returnType = signature.returnType
+    if (returnType != null) {
+        val returnTypeFormula = typeMatcher(returnType, semgrepRuleTrace)
+        val returnTypeMatcher = when (returnTypeFormula) {
+            null -> null
+            is MetaVarConstraintFormula.Constraint -> returnTypeFormula.constraint
+            else -> null
+        }
+        if (returnTypeMatcher != null) {
+            for (builder in buildersWithMethodName) {
+                builder.signature = SerializedSignatureMatcher.Partial(
+                    params = null,
+                    `return` = returnTypeMatcher
+                )
+            }
+        }
+    }
+
     val classSignatureMatcherFormula = typeMatcher(signature.enclosingClassName.name, semgrepRuleTrace)
     if (classSignatureMatcherFormula == null) return signature to buildersWithMethodName
 
@@ -610,25 +634,6 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
             builder.copy().apply {
                 enclosingClassPackage = cp
                 enclosingClassName = cn
-            }
-        }
-    }
-
-    // Convert return type to signature matcher
-    val returnType = signature.returnType
-    if (returnType != null) {
-        val returnTypeFormula = typeMatcher(returnType, semgrepRuleTrace)
-        val returnTypeMatcher = when (returnTypeFormula) {
-            null -> null
-            is MetaVarConstraintFormula.Constraint -> returnTypeFormula.constraint
-            else -> null
-        }
-        if (returnTypeMatcher != null) {
-            for (builder in buildersWithClass) {
-                builder.signature = SerializedSignatureMatcher.Partial(
-                    params = null,
-                    `return` = returnTypeMatcher
-                )
             }
         }
     }

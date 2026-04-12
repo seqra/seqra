@@ -9,7 +9,7 @@ import kotlin.test.Test
 @TestInstance(PER_CLASS)
 class TypeAwarePatternTest : SampleBasedTest() {
     @Test
-    fun `test generic type args in method parameter`() = runTest<example.RuleWithGenericTypeArgs>()
+    fun `test generic type args in method parameter`() = runTest<example.RuleWithGenericTypeArgs>(EXPECT_STATE_VAR)
 
     @Test
     fun `test array return type matching`() = runTest<example.RuleWithArrayReturnType>()
