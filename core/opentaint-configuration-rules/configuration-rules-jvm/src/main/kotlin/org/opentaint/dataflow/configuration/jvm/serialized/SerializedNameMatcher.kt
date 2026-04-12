@@ -18,7 +18,8 @@ sealed interface SerializedTypeNameMatcher {
     @Serializable
     data class ClassPattern(
         val `package`: SerializedSimpleNameMatcher,
-        val `class`: SerializedSimpleNameMatcher
+        val `class`: SerializedSimpleNameMatcher,
+        val typeArgs: List<SerializedTypeNameMatcher> = emptyList()
     ) : SerializedTypeNameMatcher
 
     @Serializable
