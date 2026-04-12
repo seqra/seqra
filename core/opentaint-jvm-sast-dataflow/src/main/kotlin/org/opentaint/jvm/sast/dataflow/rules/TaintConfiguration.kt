@@ -79,6 +79,7 @@ import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRTypedMethod
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.JIRType
@@ -92,7 +93,7 @@ import org.opentaint.jvm.sast.dataflow.matchedAnnotations
 import org.opentaint.jvm.util.typename
 import java.util.concurrent.atomic.AtomicInteger
 
-class TaintConfiguration(cp: JIRClasspath) {
+class TaintConfiguration(private val cp: JIRClasspath) {
     private val patternManager = PatternManager()
     private val hierarchyInfo = JIRHierarchyInfo(cp)
     private val objectTypeName = cp.objectClass.typename
@@ -259,22 +260,33 @@ class TaintConfiguration(cp: JIRClasspath) {
         }
     }
 
-    private fun SerializedTypeNameMatcher.matchType(type: JIRType): Boolean = when {
-        // No type args on matcher → fall back to erased name matching (backward compat)
-        this is ClassPattern && typeArgs.isEmpty() -> match(type.typeName)
-
-        // Has type args → structural comparison against JIRClassType
-        this is ClassPattern && type is JIRClassType -> {
-            match(type.typeName) &&
-            typeArgs.size == type.typeArguments.size &&
-            typeArgs.zip(type.typeArguments).all { (matcher, arg) -> matcher.matchType(arg) }
+    private fun SerializedTypeNameMatcher.matchType(type: JIRType): Boolean {
+        // Use erased class name for matching (typeName may include generic params like "Map<String, Object>")
+        val erasedName = when (type) {
+            is JIRClassType -> type.jIRClass.name
+            is JIRArrayType -> type.elementType.let { el ->
+                if (el is JIRClassType) el.jIRClass.name + "[]" else type.typeName
+            }
+            else -> type.typeName
         }
 
-        // Array matching
-        this is SerializedTypeNameMatcher.Array && type is JIRArrayType -> element.matchType(type.elementType)
+        return when {
+            // No type args on matcher → fall back to erased name matching (backward compat)
+            this is ClassPattern && typeArgs.isEmpty() -> match(erasedName)
 
-        // Default: erased matching
-        else -> match(type.typeName)
+            // Has type args → structural comparison against JIRClassType
+            this is ClassPattern && type is JIRClassType -> {
+                match(erasedName) &&
+                typeArgs.size == type.typeArguments.size &&
+                typeArgs.zip(type.typeArguments).all { (matcher, arg) -> matcher.matchType(arg) }
+            }
+
+            // Array matching
+            this is SerializedTypeNameMatcher.Array && type is JIRArrayType -> element.matchType(type.elementType)
+
+            // Default: erased matching
+            else -> match(erasedName)
+        }
     }
 
     private fun SerializedSimpleNameMatcher.match(name: String): Boolean = when (this) {
@@ -712,7 +724,23 @@ class TaintConfiguration(cp: JIRClasspath) {
 
             if (normalizedTypeIs.match(posTypeName)) {
                 if (!hasTypeArgs) return mkTrue()
-                // Has type args: don't short-circuit, fall through to deferred evaluation
+                // Has type args: try eager generic check for Argument/Result positions
+                if (pos is Argument || pos is Result) {
+                    val typedMethod = resolveTypedMethod(method)
+                    if (typedMethod != null) {
+                        val typedType = when (pos) {
+                            is Argument -> typedMethod.parameters.getOrNull(pos.index)?.type
+                            Result -> typedMethod.returnType
+                            else -> null
+                        }
+                        if (typedType != null) {
+                            if (normalizedTypeIs.matchType(typedType)) return mkTrue()
+                            falsePositions.add(pos)
+                            continue
+                        }
+                    }
+                }
+                // For This or when typed method unavailable: defer to evaluator
                 continue
             }
 
@@ -737,6 +765,11 @@ class TaintConfiguration(cp: JIRClasspath) {
             else -> emptyList()
         }
         return mkOr(nonFalsePositions.map { TypeMatchesPattern(it, matcher, typeArgs) })
+    }
+
+    private fun resolveTypedMethod(method: JIRMethod): JIRTypedMethod? {
+        val classType = cp.typeOf(method.enclosingClass) as? JIRClassType ?: return null
+        return classType.declaredMethods.find { it.method == method }
     }
 
     private fun SerializedTaintAssignAction.resolveWithArray(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignMark> =
