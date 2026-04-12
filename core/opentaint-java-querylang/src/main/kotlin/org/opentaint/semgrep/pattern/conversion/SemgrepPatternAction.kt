@@ -103,6 +103,7 @@ sealed interface SemgrepPatternAction {
     data class MethodSignature(
         val methodName: SignatureName,
         val params: ParamConstraint.Partial,
+        val returnType: TypeNamePattern? = null,
         val modifiers: List<SignatureModifier>,
         val enclosingClassMetavar: String?,
         val enclosingClassConstraints: List<ClassConstraint>,
