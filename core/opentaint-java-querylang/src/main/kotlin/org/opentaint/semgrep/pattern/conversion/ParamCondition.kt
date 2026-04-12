@@ -6,13 +6,13 @@ import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureMo
 @Serializable
 sealed interface TypeNamePattern {
     @Serializable
-    data class FullyQualified(val name: String) : TypeNamePattern {
-        override fun toString(): String = name
+    data class FullyQualified(val name: String, val typeArgs: List<TypeNamePattern> = emptyList()) : TypeNamePattern {
+        override fun toString(): String = if (typeArgs.isEmpty()) name else "$name<${typeArgs.joinToString(", ")}>"
     }
 
     @Serializable
-    data class ClassName(val name: String) : TypeNamePattern {
-        override fun toString(): String = "*.$name"
+    data class ClassName(val name: String, val typeArgs: List<TypeNamePattern> = emptyList()) : TypeNamePattern {
+        override fun toString(): String = if (typeArgs.isEmpty()) "*.$name" else "*.$name<${typeArgs.joinToString(", ")}>"
     }
 
     @Serializable
