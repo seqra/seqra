@@ -76,9 +76,12 @@ import org.opentaint.dataflow.configuration.jvm.simplify
 import org.opentaint.dataflow.jvm.util.JIRHierarchyInfo
 import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
 import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.api.jvm.ext.allSuperHierarchySequence
@@ -254,6 +257,24 @@ class TaintConfiguration(cp: JIRClasspath) {
             val nameWithoutArrayModifier = name.removeSuffix("[]")
             name != nameWithoutArrayModifier && element.matchNormalizedTypeName(nameWithoutArrayModifier)
         }
+    }
+
+    private fun SerializedTypeNameMatcher.matchType(type: JIRType): Boolean = when {
+        // No type args on matcher → fall back to erased name matching (backward compat)
+        this is ClassPattern && typeArgs.isEmpty() -> match(type.typeName)
+
+        // Has type args → structural comparison against JIRClassType
+        this is ClassPattern && type is JIRClassType -> {
+            match(type.typeName) &&
+            typeArgs.size == type.typeArguments.size &&
+            typeArgs.zip(type.typeArguments).all { (matcher, arg) -> matcher.matchType(arg) }
+        }
+
+        // Array matching
+        this is SerializedTypeNameMatcher.Array && type is JIRArrayType -> element.matchType(type.elementType)
+
+        // Default: erased matching
+        else -> match(type.typeName)
     }
 
     private fun SerializedSimpleNameMatcher.match(name: String): Boolean = when (this) {
@@ -704,7 +725,11 @@ class TaintConfiguration(cp: JIRClasspath) {
             ?: return mkTrue()
 
         val nonFalsePositions = position.filter { it !in falsePositions }
-        return mkOr(nonFalsePositions.map { TypeMatchesPattern(it, matcher) })
+        val typeArgs = when (val typeIs = normalizedTypeIs) {
+            is ClassPattern -> typeIs.typeArgs
+            else -> emptyList()
+        }
+        return mkOr(nonFalsePositions.map { TypeMatchesPattern(it, matcher, typeArgs) })
     }
 
     private fun SerializedTaintAssignAction.resolveWithArray(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignMark> =
