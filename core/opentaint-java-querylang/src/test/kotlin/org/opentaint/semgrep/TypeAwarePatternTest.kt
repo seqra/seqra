@@ -17,6 +17,9 @@ class TypeAwarePatternTest : SampleBasedTest() {
     @Test
     fun `test concrete return type matching`() = runTest<example.RuleWithConcreteReturnType>()
 
+    @Test
+    fun `test generic return type with metavar type arg`() = runTest<example.RuleWithGenericReturnType>()
+
     @AfterAll
     fun close() {
         closeRunner()
