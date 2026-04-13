@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.ints.IntObjectImmutablePair
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
+import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
@@ -1431,6 +1432,14 @@ class AccessTree(
                 val cutNodes = Array(suffixSize) { IntArrayList() }
                 findCutNodes(nodeManager, suffixSize, isFinal, suffixAccessors, predecessors, cutNodes)
 
+                val rootId = nodeManager.nodeId(rootNode)
+                val cutNodeReplacement = rootNode.manager.create(isAbstract = true)
+
+                return rebuildExtractedTrees(
+                    nodeManager, rootId, cutNodeReplacement,
+                    suffixAccessors, suffixSize, suffix, isFinal,
+                    cutNodes, predecessors,
+                )
             }
 
             private fun AccessNode.isReversedRoot(isFinal: Boolean): Boolean =
@@ -1520,90 +1529,119 @@ class AccessTree(
                     node.removeAbstraction()
                 }
 
-            /**
-             * Stage 4: For each suffix match level, rebuild a complete tree by walking
-             * predecessors upward from the extracted nodes to the root.
-             *
-             * For the "no match" level (suffixSize), rebuild from root using split remainders.
-             */
             private fun rebuildExtractedTrees(
+                nodeManager: NodeManager,
                 rootId: Int,
+                cutNodeReplacement: AccessNode,
                 suffixAccessors: IntArrayList,
                 suffixSize: Int,
+                fullSuffix: AccessPath.AccessNode,
                 isFinal: Boolean,
-                splitNodes: Array<AccessNode?>,
-                extracted: Array<Int2ObjectOpenHashMap<AccessNode>>,
+                cutNodeIds: Array<IntArrayList>,
                 predecessors: Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<BitSet>>,
-                apManager: TreeApManager,
-                nodeManager: NodeManager,
             ): List<Pair<AccessNode, AccessPath.AccessNode?>> {
                 val result = mutableListOf<Pair<AccessNode, AccessPath.AccessNode?>>()
 
-                // Levels 0..suffixSize: rebuild each group from extracted nodes
-                for (k in 0..suffixSize) {
-                    val nodesForLevel = extracted.get(k) ?: continue
-                    val subTree = rebuildFromExtractedNodes(rootId, nodesForLevel, predecessors, splitNodes)
+                var nextSuffix: AccessPath.AccessNode? = fullSuffix
+                val blockedEdges = LongOpenHashSet()
+                for (k in 0 until suffixSize) {
+                    val levelSuffix = nextSuffix ?: error("Suffix size exceeded")
+                    nextSuffix = levelSuffix.next
 
-                    if (subTree == null) continue
+                    val nodeIds = cutNodeIds[k]
+                    if (nodeIds.isEmpty) continue
 
-                    val remainingSuffix = buildRemainingSuffix(apManager, suffixAccessors, k, suffixSize, isFinal)
-                    result.add(subTree to remainingSuffix)
+                    val subTree = rebuildFromCutNodes(rootId, nodeIds, cutNodeReplacement, predecessors, blockedEdges)
+                            ?: continue
+
+                    result.add(subTree to levelSuffix)
+
+                    val accessor = levelSuffix.accessor
+                    nodeIds.forEachInt { nodeId ->
+                        blockedEdges.add(encodeEdge(nodeId, accessor))
+                    }
                 }
 
-                // No-match remainder: rebuild tree from root with split remainders
-                val remainder = rebuildRemainderTree(rootId, splitNodes, nodeManager)
+                val rootNode = nodeManager.allNodes[rootId]
+                val remainder = removeAllSuffixOccurrences(
+                    rootNode, suffixAccessors, suffixSize, isFinal, IdentityHashMap()
+                )
                 if (remainder != null) {
-                    val fullSuffix = buildRemainingSuffix(apManager, suffixAccessors, suffixSize, suffixSize, isFinal)
-                    result.add(remainder to fullSuffix)
+                    result.add(remainder to null)
                 }
 
                 return result
             }
 
-            /**
-             * Walks predecessors upward from extracted nodes to rebuild a tree rooted at [rootId].
-             */
-            /**
-             * Walks predecessors upward from extracted nodes to rebuild a tree rooted at [rootId].
-             * Only follows edges that still exist in the [originalNodes] 
-             * (not removed by same-or-better-level extractions at the parent).
-             */
-            private fun rebuildFromExtractedNodes(
+            private fun encodeEdge(nodeId: Int, accessor: Int): Long =
+                (nodeId.toLong() shl Int.SIZE_BITS) or (accessor.toLong() and 0xFFFFFFFFL)
+
+            private fun removeAllSuffixOccurrences(
+                node: AccessNode,
+                suffixAccessors: IntArrayList,
+                suffixSize: Int,
+                isFinal: Boolean,
+                cache: IdentityHashMap<AccessNode, Optional<AccessNode>>,
+            ): AccessNode? {
+                cache[node]?.let { return it.getOrNull() }
+
+                var current = removeSuffixTail(node, 0, suffixAccessors, suffixSize, isFinal)
+                if (current == null) {
+                    cache[node] = Optional.empty()
+                    return null
+                }
+
+                val newAccessors = transformAccessors(current.accessors, current.accessorNodes) { _, child ->
+                    removeAllSuffixOccurrences(child, suffixAccessors, suffixSize, isFinal, cache)
+                }
+
+                if (newAccessors != null) {
+                    current = current.manager.create(
+                        current.isAbstract, current.isFinal, newAccessors.first, newAccessors.second
+                    )
+                }
+
+                val result = current.takeUnless { it.isEmpty }
+                cache[node] = Optional.ofNullable(result)
+                return result
+            }
+
+            private fun rebuildFromCutNodes(
                 rootId: Int,
-                extractedNodes: Int2ObjectOpenHashMap<AccessNode>,
+                cutPointIds: IntArrayList,
+                cutPointNode: AccessNode,
                 predecessors: Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<BitSet>>,
-                splitNodes: Array<AccessNode?>,
+                blockedEdges: LongOpenHashSet,
             ): AccessNode? {
                 var currentLevel = Int2ObjectOpenHashMap<AccessNode>()
-                extractedNodes.forEachIntEntry { nodeId, node ->
-                    currentLevel.put(nodeId, node)
+                cutPointIds.forEachInt { nodeId ->
+                    currentLevel.put(nodeId, cutPointNode)
                 }
 
                 while (true) {
-                    if (currentLevel.containsKey(rootId)) {
-                        if (currentLevel.size == 1) return currentLevel.get(rootId)
+                    if (currentLevel.size == 1) {
+                        val rootNode = currentLevel.get(rootId)
+                        if (rootNode != null) {
+                            return rootNode
+                        }
                     }
 
                     val nextLevel = Int2ObjectOpenHashMap<AccessNode>()
 
                     currentLevel.forEachIntEntry { childId, childSubTree ->
                         if (childId == rootId) {
-                            mergeInto(nextLevel, rootId, childSubTree)
+                            nextLevel.mergeValueNode(rootId, childSubTree)
                             return@forEachIntEntry
                         }
 
-                        val childPredecessors = predecessors.get(childId) ?: return@forEachIntEntry
+                        val childPredecessors = predecessors.get(childId)
+                            ?: return@forEachIntEntry
 
                         childPredecessors.forEachIntEntry { accessor, parentIds ->
                             val edge = create(accessor, childSubTree)
                             parentIds.forEach { parentId ->
-                                // Only follow if the parent's remainder still has this edge.
-                                // Edges removed by better-match extractions are skipped.
-                                // Edges removed by this or worse levels: also skipped,
-                                // but that's OK since they'll be rebuilt by their own level.
-                                val parentRemainder = splitNodes[parentId]
-                                if (parentRemainder != null && parentRemainder.getNodeByAccessor(accessor) != null) {
-                                    mergeInto(nextLevel, parentId, edge)
+                                if (!blockedEdges.contains(encodeEdge(parentId, accessor))) {
+                                    nextLevel.mergeValueNode(parentId, edge)
                                 }
                             }
                         }
@@ -1614,84 +1652,11 @@ class AccessTree(
                 }
             }
 
-            private fun mergeInto(
-                level: Int2ObjectOpenHashMap<AccessNode>,
-                nodeId: Int,
-                node: AccessNode
+            private fun Int2ObjectOpenHashMap<AccessNode>.mergeValueNode(
+                nodeId: Int, node: AccessNode
             ) {
-                val existing = level.get(nodeId)
-                level.put(nodeId, if (existing != null) existing.mergeAdd(node) else node)
-            }
-
-            /**
-             * Rebuilds the tree from root using split remainders.
-             * Each node is replaced with its [splitNodes] version (which may have had edges removed).
-             */
-            private fun rebuildRemainderTree(
-                rootId: Int,
-                splitNodes: Array<AccessNode?>,
-                nodeManager: NodeManager,
-            ): AccessNode? {
-                val cache = IdentityHashMap<AccessNode, AccessNode?>()
-                val rootRemainder = splitNodes[rootId] ?: return null
-                return rebuildRemainderNode(rootRemainder, splitNodes, nodeManager, cache)
-            }
-
-            private fun rebuildRemainderNode(
-                originalNode: AccessNode,
-                splitNodes: Array<AccessNode?>,
-                nodeManager: NodeManager,
-                cache: IdentityHashMap<AccessNode, AccessNode?>,
-            ): AccessNode? {
-                if (cache.containsKey(originalNode)) return cache[originalNode]
-
-                val nodeId = nodeManager.nodeIndex[originalNode]
-                // If tracked by nodeManager, use its split remainder
-                val node = if (nodeId != null) splitNodes[nodeId] ?: run {
-                    cache[originalNode] = null
-                    return null
-                } else originalNode
-
-                val newAccessors = transformAccessors(node.accessors, node.accessorNodes) { _, child ->
-                    rebuildRemainderNode(child, splitNodes, nodeManager, cache)
-                }
-
-                val result = if (newAccessors != null) {
-                    node.manager.create(node.isAbstract, node.isFinal, newAccessors.first, newAccessors.second)
-                } else {
-                    node
-                }
-
-                val finalResult = result.takeUnless { it.isEmpty }
-                cache[originalNode] = finalResult
-                return finalResult
-            }
-
-            /**
-             * Builds the remaining (unmatched) suffix as an [AccessPath.AccessNode] linked list.
-             * [suffixLength] is 0 for full match (returns null), up to suffixSize for no match.
-             * The unmatched portion is `suffixAccessors[0..suffixLength-1]`.
-             * For suffixLength == suffixSize (no match), also appends FINAL if applicable.
-             */
-            private fun buildRemainingSuffix(
-                apManager: TreeApManager,
-                suffixAccessors: IntArrayList,
-                suffixLength: Int,
-                suffixSize: Int,
-                isFinal: Boolean
-            ): AccessPath.AccessNode? {
-                if (suffixLength == 0) return null
-
-                // Start with FINAL only for the full-suffix (no match) case
-                var node: AccessPath.AccessNode? = if (isFinal && suffixLength == suffixSize) {
-                    AccessPath.AccessNode(apManager, FINAL_ACCESSOR_IDX, null)
-                } else {
-                    null
-                }
-                for (i in suffixLength - 1 downTo 0) {
-                    node = AccessPath.AccessNode(apManager, suffixAccessors.getInt(i), node)
-                }
-                return node
+                val existing = this.get(nodeId)
+                this.put(nodeId, existing?.mergeAdd(node) ?: node)
             }
 
             private fun matchWrtReversedSuffix(
