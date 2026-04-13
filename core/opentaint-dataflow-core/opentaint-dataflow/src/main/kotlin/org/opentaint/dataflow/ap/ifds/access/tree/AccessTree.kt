@@ -1430,14 +1430,107 @@ class AccessTree(
                 val nodeMatch = Int2ObjectOpenHashMap<BitSet>()
 
                 for ((i, node) in nodeManager.allNodes.withIndex()) {
-                    val isRoot = if (isFinal) node.isFinal else node.isAbstract
-                    if (!isRoot) continue
+                    if (!node.isReversedRoot(isFinal)) continue
 
                     matchWrtReversedSuffix(i, suffixAccessors, suffixSize, predecessors, nodeMatch)
                 }
 
                 // todo
                 return emptyList()
+                val splitNodes: Array<AccessNode?> = nodeManager.allNodes.toTypedArray()
+                val extracted = Array(suffixSize + 1) { Int2ObjectOpenHashMap<AccessNode>() }
+
+                splitNodesForSuffixMatch(
+                    nodeMatch, splitNodes, suffixAccessors, suffixSize, isFinal, extracted
+                )
+            private fun AccessNode.isReversedRoot(isFinal: Boolean): Boolean =
+                if (isFinal) this.isFinal else this.isAbstract
+
+            private fun splitNodesForSuffixMatch(
+                nodeMatch: Int2ObjectOpenHashMap<BitSet>,
+                splitNodes: Array<AccessNode?>,
+                suffixAccessors: IntArrayList,
+                suffixSize: Int,
+                isFinal: Boolean,
+                extracted: Array<Int2ObjectOpenHashMap<AccessNode>>,
+            ) {
+                for (k in 0..suffixSize) {
+                    val levelExtracted = extracted[k]
+
+                    nodeMatch.forEachIntEntry { nodeId, matches ->
+                        if (!matches.get(k)) return@forEachIntEntry
+                        val node = splitNodes[nodeId] ?: return@forEachIntEntry
+
+                        if (k == suffixSize) {
+                            if (!node.isReversedRoot(isFinal)) return@forEachIntEntry
+
+                            val extractedNode = node.manager.create(isAbstract = !isFinal, isFinal = isFinal)
+                            levelExtracted.put(nodeId, extractedNode)
+
+                            splitNodes[nodeId] = clearSuffixEnd(node, isFinal)
+                        } else {
+                            val accessorToMatch = suffixAccessors.getInt(k)
+                            val child = node.getNodeByAccessor(accessorToMatch)
+                                ?: return@forEachIntEntry
+
+                            val extractedChild = if (k == 0) {
+                                // Level 0 (full match): extract the original child as-is.
+                                // The full suffix path is the result.
+                                child
+                            } else {
+                                // Level k > 0: remove deeper suffix matches from the child
+                                // to avoid double-counting with better-match levels.
+                                removeSuffixTail(
+                                    child, k + 1, suffixAccessors, suffixSize, isFinal
+                                )
+                            }
+
+                            if (extractedChild != null && !extractedChild.isEmpty) {
+                                val childWithAccessor = create(accessorToMatch, extractedChild)
+                                levelExtracted.put(nodeId, childWithAccessor)
+                            }
+
+                            splitNodes[nodeId] = node.clearChild(accessorToMatch)
+                        }
+                    }
+                }
+            }
+
+            private fun removeSuffixTail(
+                node: AccessNode,
+                suffixLevel: Int,
+                suffixAccessors: IntArrayList,
+                suffixSize: Int,
+                isFinal: Boolean,
+            ): AccessNode? {
+                if (suffixLevel == suffixSize) {
+                    val result = clearSuffixEnd(node, isFinal)
+                    return result.takeUnless { it.isEmpty }
+                }
+
+                val accessorToMatch = suffixAccessors.getInt(suffixLevel)
+                val child = node.getNodeByAccessor(accessorToMatch)
+                    ?: return node
+
+                val cleanedChild = removeSuffixTail(
+                    child, suffixLevel + 1, suffixAccessors, suffixSize, isFinal
+                )
+
+                var cleanedNode = node.clearChild(accessorToMatch)
+                if (cleanedChild != null) {
+                    val childWithAccessor = create(accessorToMatch, cleanedChild)
+                    cleanedNode = cleanedNode.mergeAdd(childWithAccessor)
+                }
+
+                return cleanedNode.takeUnless { it.isEmpty }
+            }
+
+            private fun clearSuffixEnd(node: AccessNode, isFinal: Boolean): AccessNode =
+                if (isFinal) {
+                    node.clearChild(FINAL_ACCESSOR_IDX)
+                } else {
+                    node.removeAbstraction()
+                }
             }
 
             private fun matchWrtReversedSuffix(
