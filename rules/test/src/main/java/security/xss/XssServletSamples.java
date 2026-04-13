@@ -74,4 +74,23 @@ public class XssServletSamples {
             out.println("</html>");
         }
     }
+
+    /**
+     * Unsafe servlet with JSON content type — positive for INFO rule.
+     * The ERROR rule should NOT fire (safe content type excludes it).
+     */
+    @WebServlet("/potential-xss-in-servlet-app/unsafe-json")
+    public static class UnsafeJsonInfoServlet extends HttpServlet {
+
+        @Override
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "potential-xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+
+            response.setContentType("application/json;charset=UTF-8");
+            PrintWriter out = response.getWriter();
+            String name = request.getParameter("name");
+            out.println("{\"greeting\": \"Hello, " + name + "\"}");
+        }
+    }
 }
