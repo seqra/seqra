@@ -178,8 +178,11 @@ class TaintRuleGenerationCtx(
     }
 
     private fun stateMarkName(varName: MetavarAtom, state: State): Mark.GeneratedMark? =
-        state.register.assignedVars[varName]?.let { stateMarkName(varName, it) }
-
-    private fun stateMarkName(varName: MetavarAtom, varValue: Int): Mark.GeneratedMark =
-        prefix.metaVarState(varName, varValue)
+        state.register.assignedVars[varName]?.let { stateMarkName(varName, it, prefix) }
 }
+
+fun State.stateMarkName(varName: MetavarAtom, prefix: RuleUniqueMarkPrefix): Mark.GeneratedMark? =
+    register.assignedVars[varName]?.let { stateMarkName(varName, it, prefix) }
+
+fun stateMarkName(varName: MetavarAtom, varValue: Int, prefix: RuleUniqueMarkPrefix): Mark.GeneratedMark =
+    prefix.metaVarState(varName, varValue)

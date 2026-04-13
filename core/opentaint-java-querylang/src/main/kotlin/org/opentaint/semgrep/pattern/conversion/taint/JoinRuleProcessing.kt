@@ -2,7 +2,9 @@ package org.opentaint.semgrep.pattern.conversion.taint
 
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
 import org.opentaint.semgrep.pattern.GeneratedTaintMark
 import org.opentaint.semgrep.pattern.Mark
@@ -150,10 +152,27 @@ private fun RuleConversionCtx.convertCompositionLeftMatchingRule(
             edges = r.edges + r.edgesToFinalAccept,
             edgesToFinalAccept = emptyList()
         )
-        TaintRuleGenerationCtx(
-            RuleUniqueMarkPrefix(ruleId, idx),
-            taintEdgesWithAssign, compositionStrategy = null
-        )
+
+        val prefix = RuleUniqueMarkPrefix(ruleId, idx)
+
+        val compositionAnyOnFinal = object : TaintRuleGenerationCtx.CompositionStrategy {
+            private val finalStates = r.automata.finalAcceptStates
+
+            override fun stateAssign(
+                state: TaintRegisterStateAutomata.State,
+                varName: MetavarAtom,
+                pos: PositionBaseWithModifiers
+            ): List<SerializedTaintAssignAction>? {
+                if (state !in finalStates) return null
+
+                val markName = state.stateMarkName(varName, prefix)
+                    ?: return emptyList()
+
+                return listOf(markName.mkAssignMark(pos.addAny()))
+            }
+        }
+
+        TaintRuleGenerationCtx(prefix, taintEdgesWithAssign, compositionAnyOnFinal)
     }
 
     val leftRules = leftCtx.mapNotNull {
@@ -173,6 +192,15 @@ private fun RuleConversionCtx.convertCompositionLeftMatchingRule(
     }
 
     return leftRules to leftFinalMarks
+}
+
+private fun PositionBaseWithModifiers.addAny(): PositionBaseWithModifiers {
+    return when(this) {
+        is PositionBaseWithModifiers.BaseOnly ->
+            PositionBaseWithModifiers.WithModifiers(base, listOf(PositionModifier.AnyField))
+        is PositionBaseWithModifiers.WithModifiers ->
+            PositionBaseWithModifiers.WithModifiers(base, modifiers + PositionModifier.AnyField)
+    }
 }
 
 private fun RuleConversionCtx.convertCompositionRightMatchingRule(
@@ -202,9 +230,12 @@ private fun RuleConversionCtx.convertCompositionRightMatchingRule(
                 val value = state.register.assignedVars[varName]
                 if (value != initialStateId) return null
 
+                // will this create too many identical objects?
+                val posAnyField = pos.addAny()
+
                 return serializedConditionOr(
                     leftFinalMarks.map {
-                        it.mkContainsMark(pos)
+                        it.mkContainsMark(posAnyField)
                     }
                 )
             }
