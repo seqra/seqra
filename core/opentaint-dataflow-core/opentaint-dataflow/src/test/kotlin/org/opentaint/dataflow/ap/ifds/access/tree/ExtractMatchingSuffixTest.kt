@@ -526,4 +526,295 @@ class ExtractMatchingSuffixTest {
         assertEquals(tree, result[0].first)
         assertRoundTrip(tree, result)
     }
+
+    @Test
+    fun cutPointIsRoot() {
+        // Tree: a → b → *, suffix: a.b
+        // The root node IS the cut point (suffix[0]=a matches root's edge).
+        // Full match consumes the entire tree.
+        val tree = buildPath(a, b)
+        val suffix = buildSuffix(a, b)
+        val result = tree.extractMatchingSuffix(suffix)
+
+        assertEquals(1, result.size)
+        assertEquals(manager.abstractNode, result[0].first)
+        assertEquals(suffix, result[0].second)
+        assertRoundTrip(tree, result)
+    }
+
+    @Test
+    fun cutPointIsRootWithSiblings() {
+        // Tree: {a → b → *, c → *}, suffix: a.b
+        // Root is the cut point for suffix[0]=a. Path c.* doesn't match.
+        val tree = buildTree(intArrayOf(a, b), intArrayOf(c))
+        val suffix = buildSuffix(a, b)
+        val result = tree.extractMatchingSuffix(suffix)
+
+        val fullMatch = result.find { it.second == suffix }
+        assertTrue(fullMatch != null, "Expected full match")
+        assertEquals(manager.abstractNode, fullMatch.first)
+
+        val remainder = result.find { it.second == null }
+        assertTrue(remainder != null, "Expected remainder for c.*")
+        assertEquals(buildPath(c), remainder.first)
+
+        assertRoundTrip(tree, result)
+    }
+
+    @Test
+    fun tripleDiamondOnlyOneBranchMatches() {
+        // Three paths merge into same shared node, suffix matches only one branch:
+        //   a → c → e → *
+        //   b → c → e → *   (c→e→* shared)
+        //   a → d → e → *
+        // Suffix: c.e
+        // a.c.e.* and b.c.e.* fully match. a.d.e.* does NOT match c.e.
+        val tree = buildTree(intArrayOf(a, c, e), intArrayOf(b, c, e), intArrayOf(a, d, e))
+        val suffix = buildSuffix(c, e)
+        val result = tree.extractMatchingSuffix(suffix)
+
+        val fullMatch = result.find { it.second == suffix }
+        assertTrue(fullMatch != null, "Expected full match")
+        val expectedPrefix = buildTree(intArrayOf(a), intArrayOf(b))
+        assertEquals(expectedPrefix, fullMatch.first, "Both a.* and b.* should be in prefix")
+
+        assertRoundTrip(tree, result)
+    }
+
+    @Test
+    fun twoFullMatchesDifferentPrefixLengths() {
+        // Two independent paths both fully match the suffix but at different depths:
+        //   a → c → d → *   (prefix = a.*)
+        //   b → e → c → d → *   (prefix = b.e.*)
+        // Both should be in the same full-match group.
+        val tree = buildTree(intArrayOf(a, c, d), intArrayOf(b, e, c, d))
+        val suffix = buildSuffix(c, d)
+        val result = tree.extractMatchingSuffix(suffix)
+
+        val fullMatch = result.find { it.second == suffix }
+        assertTrue(fullMatch != null, "Expected full match")
+        val expectedPrefix = buildTree(intArrayOf(a), intArrayOf(b, e))
+        assertEquals(expectedPrefix, fullMatch.first)
+
+        assertEquals(1, result.size, "All paths fully match")
+        assertRoundTrip(tree, result)
+    }
+
+    @Test
+    fun independentPathsMatchAtDifferentDepths() {
+        // Two completely independent sub-trees, each matching the suffix at different depths:
+        //   a → b → c → *    (suffix b.c matches at depth 1)
+        //   d → e → b → c → * (suffix b.c matches at depth 2)
+        // Both should fully match with different prefixes.
+        val tree = buildTree(intArrayOf(a, b, c), intArrayOf(d, e, b, c))
+        val suffix = buildSuffix(b, c)
+        val result = tree.extractMatchingSuffix(suffix)
+
+        val fullMatch = result.find { it.second == suffix }
+        assertTrue(fullMatch != null, "Expected full match")
+        val expectedPrefix = buildTree(intArrayOf(a), intArrayOf(d, e))
+        assertEquals(expectedPrefix, fullMatch.first)
+
+        assertEquals(1, result.size, "All paths fully match, no remainder")
+        assertRoundTrip(tree, result)
+    }
+
+    @Test
+    fun multiplePartialMatchLevelsOnIndependentPaths() {
+        // Tree: {a → b → c → *, d → c → *, e → *}
+        // Suffix: a.b.c
+        // a.b.c.* → full match (level 0)
+        // d.c.*   → partial: 'c' matches suffix[2], so matched suffix = c
+        // e.*     → no match
+        val tree = buildTree(intArrayOf(a, b, c), intArrayOf(d, c), intArrayOf(e))
+        val suffix = buildSuffix(a, b, c)
+        val result = tree.extractMatchingSuffix(suffix)
+
+        val fullMatch = result.find { it.second == suffix }
+        assertTrue(fullMatch != null, "Expected full match for a.b.c.*")
+        assertEquals(manager.abstractNode, fullMatch.first)
+
+        // d.c.* partially matches 'c'
+        val partialSuffix = buildSuffix(c)
+        val partialMatch = result.find { it.second == partialSuffix }
+        assertTrue(partialMatch != null, "Expected partial match for d.c.*")
+        assertEquals(buildPath(d), partialMatch.first)
+
+        // e.* → remainder
+        val remainder = result.find { it.second == null }
+        assertTrue(remainder != null, "Expected remainder for e.*")
+        assertEquals(buildPath(e), remainder.first)
+
+        assertRoundTrip(tree, result)
+    }
+
+    @Test
+    fun suffixMatchAtBranchingLeaf() {
+        // Node that is both a cut point AND has non-matching children:
+        //   a → b → *   (b is abstract leaf)
+        //   a → b → c → * (b also has child c)
+        // Suffix: b
+        // a.b.* fully matches. a.b.c.* does NOT match 'b' — 'c' isn't in suffix.
+        val tree = buildTree(intArrayOf(a, b), intArrayOf(a, b, c))
+        val suffix = buildSuffix(b)
+        val result = tree.extractMatchingSuffix(suffix)
+
+        val fullMatch = result.find { it.second == suffix }
+        assertTrue(fullMatch != null, "Expected full match")
+        assertEquals(buildPath(a), fullMatch.first)
+
+        // a.b.c.* should be in remainder
+        val remainder = result.find { it.second == null }
+        assertTrue(remainder != null, "Expected remainder for a.b.c.*")
+        assertEquals(buildPath(a, b, c), remainder.first)
+
+        assertRoundTrip(tree, result)
+    }
+
+    @Test
+    fun deepSharedPrefixDivergingAtSuffixMatch() {
+        // Long shared prefix, then branches diverge at the suffix match point:
+        //   a → b → c → d → e → *   (suffix d.e matches)
+        //   a → b → c → d → a → *   (d matches suffix[0], but 'a' != 'e')
+        //   a → b → c → a → *       (no match)
+        val tree = buildTree(
+            intArrayOf(a, b, c, d, e),
+            intArrayOf(a, b, c, d, a),
+            intArrayOf(a, b, c, a),
+        )
+        val suffix = buildSuffix(d, e)
+        val result = tree.extractMatchingSuffix(suffix)
+
+        val fullMatch = result.find { it.second == suffix }
+        assertTrue(fullMatch != null, "Expected full match")
+        assertEquals(buildPath(a, b, c), fullMatch.first)
+
+        assertRoundTrip(tree, result)
+    }
+
+    @Test
+    fun suffixMatchesEverySinglePath() {
+        // Every path ends with the suffix. No remainder expected.
+        //   a → c → d → *
+        //   b → c → d → *
+        //   e → c → d → *
+        val tree = buildTree(intArrayOf(a, c, d), intArrayOf(b, c, d), intArrayOf(e, c, d))
+        val suffix = buildSuffix(c, d)
+        val result = tree.extractMatchingSuffix(suffix)
+
+        val fullMatch = result.find { it.second == suffix }
+        assertTrue(fullMatch != null, "Expected full match")
+        val expectedPrefix = buildTree(intArrayOf(a), intArrayOf(b), intArrayOf(e))
+        assertEquals(expectedPrefix, fullMatch.first)
+
+        val remainder = result.find { it.second == null }
+        assertNull(remainder, "No remainder expected")
+
+        assertEquals(1, result.size)
+        assertRoundTrip(tree, result)
+    }
+
+    @Test
+    fun doubleDiamondWithPartialAndFullMatch() {
+        // Two diamonds stacked:
+        //   a → b → d → *
+        //   a → c → d → *
+        //   a → b → e → *
+        //   a → c → e → *
+        //   (d→* and e→* shared across b and c branches)
+        // Suffix: b.d
+        // a.b.d.* fully matches. a.c.d.* partial (matched 'd'). a.b.e.* and a.c.e.* no match.
+        val tree = buildTree(
+            intArrayOf(a, b, d),
+            intArrayOf(a, c, d),
+            intArrayOf(a, b, e),
+            intArrayOf(a, c, e),
+        )
+        val suffix = buildSuffix(b, d)
+        val result = tree.extractMatchingSuffix(suffix)
+
+        val fullMatch = result.find { it.second == suffix }
+        assertTrue(fullMatch != null, "Expected full match for a.b.d.*")
+        assertEquals(buildPath(a), fullMatch.first)
+
+        // a.c.d.* partial match: matched 'd'
+        val partialSuffix = buildSuffix(d)
+        val partialMatch = result.find { it.second == partialSuffix }
+        assertTrue(partialMatch != null, "Expected partial match for a.c.d.*")
+        assertEquals(buildPath(a, c), partialMatch.first)
+
+        // a.b.e.* and a.c.e.* → remainder
+        val remainder = result.find { it.second == null }
+        assertTrue(remainder != null, "Expected remainder")
+        val expectedRemainder = buildTree(intArrayOf(a, b, e), intArrayOf(a, c, e))
+        assertEquals(expectedRemainder, remainder.first)
+
+        assertRoundTrip(tree, result)
+    }
+
+    @Test
+    fun sharedSubtreePartialAndFullMatchDifferentParents() {
+        // Shared subtree reached via matching and non-matching parents:
+        //   a → b → c → *
+        //   a → d → c → *   (c→* shared)
+        //   a → e → *
+        // Suffix: b.c
+        // a.b.c.* fully matches. a.d.c.* partially matches (c). a.e.* no match.
+        val tree = buildTree(intArrayOf(a, b, c), intArrayOf(a, d, c), intArrayOf(a, e))
+        val suffix = buildSuffix(b, c)
+        val result = tree.extractMatchingSuffix(suffix)
+
+        val fullMatch = result.find { it.second == suffix }
+        assertTrue(fullMatch != null, "Expected full match")
+        assertEquals(buildPath(a), fullMatch.first)
+
+        // a.d.c.* partial (matched c)
+        val cSuffix = buildSuffix(c)
+        val partialMatch = result.find { it.second == cSuffix }
+        assertTrue(partialMatch != null, "Expected partial match for c")
+        assertEquals(buildPath(a, d), partialMatch.first)
+
+        // a.e.* in remainder
+        val remainder = result.find { it.second == null }
+        assertTrue(remainder != null, "Expected remainder")
+        assertEquals(buildPath(a, e), remainder.first)
+
+        assertRoundTrip(tree, result)
+    }
+
+    @Test
+    fun chainOfPartialMatches() {
+        // Tree with paths matching at various suffix levels:
+        //   a → b → c → d → *   (full match for b.c.d)
+        //   a → e → c → d → *   (partial: c.d matches, but e≠b)
+        //   a → e → d → *       (partial: d matches, but nothing more)
+        //   a → e → a → *       (no match)
+        val tree = buildTree(
+            intArrayOf(a, b, c, d),
+            intArrayOf(a, e, c, d),
+            intArrayOf(a, e, d),
+            intArrayOf(a, e, a),
+        )
+        val suffix = buildSuffix(b, c, d)
+        val result = tree.extractMatchingSuffix(suffix)
+
+        // Full match
+        val fullMatch = result.find { it.second == suffix }
+        assertTrue(fullMatch != null, "Expected full match")
+        assertEquals(buildPath(a), fullMatch.first)
+
+        // a.e.c.d.* partial (matched c.d)
+        val cdSuffix = buildSuffix(c, d)
+        val cdMatch = result.find { it.second == cdSuffix }
+        assertTrue(cdMatch != null, "Expected partial match for c.d")
+        assertEquals(buildPath(a, e), cdMatch.first)
+
+        // a.e.d.* — d matches suffix[2]=d, so partial (matched d).
+        // BUT: the shared d→* node is also reached via c.d path.
+        // Since d-node is dominated by a better match (c.d at level 1),
+        // a.e.d.* goes to remainder instead of a separate partial group.
+        // The actual behavior depends on DAG sharing — verify via round-trip.
+
+        assertRoundTrip(tree, result)
+    }
 }
