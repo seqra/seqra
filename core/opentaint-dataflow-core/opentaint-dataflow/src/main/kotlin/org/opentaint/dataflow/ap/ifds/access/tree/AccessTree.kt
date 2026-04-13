@@ -1438,7 +1438,7 @@ class AccessTree(
                 }
 
                 val splitNodes: Array<AccessNode?> = nodeManager.allNodes.toTypedArray()
-                val extractedNodeIds = Array(suffixSize + 1) { IntArrayList() }
+                val extractedNodeIds = Array(suffixSize) { IntArrayList() }
 
                 splitNodesForSuffixMatch(
                     levelNodes, splitNodes, suffixAccessors, suffixSize, isFinal, extractedNodeIds
@@ -1463,28 +1463,19 @@ class AccessTree(
                 isFinal: Boolean,
                 extractedNodeIds: Array<IntArrayList>,
             ) {
-                for (k in 0..suffixSize) {
+                // Level suffixSize is equivalent to the no-match remainder
+                for (k in 0 until suffixSize) {
                     val levelNodeIds = extractedNodeIds[k]
 
                     nodeMatch[k].forEachInt { nodeId ->
                         val node = splitNodes[nodeId] ?: return@forEachInt
 
-                        if (k == suffixSize) {
-                            // Leaf level: check flag presence before extracting
-                            if (!node.isReversedRoot(isFinal)) return@forEachInt
-                            levelNodeIds.add(nodeId)
-                            splitNodes[nodeId] = clearSuffixEnd(node, isFinal)
-                        } else {
-                            // Edge level: check suffix[k] edge presence
-                            val accessorToMatch = suffixAccessors.getInt(k)
-                            if (node.getNodeByAccessor(accessorToMatch) == null) return@forEachInt
+                        val accessorToMatch = suffixAccessors.getInt(k)
+                        if (node.getNodeByAccessor(accessorToMatch) == null) return@forEachInt
 
-                            levelNodeIds.add(nodeId)
-                            // Remove the entire suffix-matching sub-path from the node,
-                            // keeping non-matching sibling branches intact.
-                            val remainder = removeSuffixTail(node, k, suffixAccessors, suffixSize, isFinal)
-                            splitNodes[nodeId] = remainder
-                        }
+                        levelNodeIds.add(nodeId)
+                        val remainder = removeSuffixTail(node, k, suffixAccessors, suffixSize, isFinal)
+                        splitNodes[nodeId] = remainder
                     }
                 }
             }
