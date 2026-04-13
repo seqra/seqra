@@ -1428,6 +1428,22 @@ class AccessTree(
                 val isFinal = suffixAccessors.getInt(suffixAccessors.lastIndex) == FINAL_ACCESSOR_IDX
                 val suffixSize = if (isFinal) suffixAccessors.size - 1 else suffixAccessors.size
 
+                val cutNodes = Array(suffixSize) { IntArrayList() }
+                findCutNodes(nodeManager, suffixSize, isFinal, suffixAccessors, predecessors, cutNodes)
+
+            }
+
+            private fun AccessNode.isReversedRoot(isFinal: Boolean): Boolean =
+                if (isFinal) this.isFinal else this.isAbstract
+
+            private fun findCutNodes(
+                nodeManager: NodeManager,
+                suffixSize: Int,
+                isFinal: Boolean,
+                suffixAccessors: IntArrayList,
+                predecessors: Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<BitSet>>,
+                cutNodeIds: Array<IntArrayList>
+            ) {
                 val nodeLevel = Int2IntOpenHashMap()
                 val levelNodes = Array(suffixSize + 1) { IntOpenHashSet() }
 
@@ -1437,33 +1453,21 @@ class AccessTree(
                     matchWrtReversedSuffix(i, suffixAccessors, suffixSize, predecessors, nodeLevel, levelNodes)
                 }
 
-                val splitNodes: Array<AccessNode?> = nodeManager.allNodes.toTypedArray()
-                val extractedNodeIds = Array(suffixSize) { IntArrayList() }
-
-                splitNodesForSuffixMatch(
-                    levelNodes, splitNodes, suffixAccessors, suffixSize, isFinal, extractedNodeIds
-                )
-
-                // Stage 4: Rebuild trees
-                val rootId = nodeManager.nodeId(rootNode)
-                return rebuildExtractedTrees(
-                    rootId, suffixAccessors, suffixSize, isFinal,
-                    extractedNodeIds, predecessors, suffix.manager, nodeManager
+                findCutNodesIgnoringDominated(
+                    nodeManager, levelNodes, suffixAccessors, suffixSize, isFinal, cutNodeIds
                 )
             }
 
-            private fun AccessNode.isReversedRoot(isFinal: Boolean): Boolean =
-                if (isFinal) this.isFinal else this.isAbstract
-
-            private fun splitNodesForSuffixMatch(
+            private fun findCutNodesIgnoringDominated(
+                nodeManager: NodeManager,
                 nodeMatch: Array<IntOpenHashSet>,
-                splitNodes: Array<AccessNode?>,
                 suffixAccessors: IntArrayList,
                 suffixSize: Int,
                 isFinal: Boolean,
                 extractedNodeIds: Array<IntArrayList>,
             ) {
-                // Level suffixSize is equivalent to the no-match remainder
+                val splitNodes: Array<AccessNode?> = nodeManager.allNodes.toTypedArray()
+
                 for (k in 0 until suffixSize) {
                     val levelNodeIds = extractedNodeIds[k]
 
