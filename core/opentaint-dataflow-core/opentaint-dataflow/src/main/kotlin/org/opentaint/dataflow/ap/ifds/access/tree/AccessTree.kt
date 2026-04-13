@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
+import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.ints.IntObjectImmutablePair
@@ -1427,19 +1428,20 @@ class AccessTree(
                 val isFinal = suffixAccessors.getInt(suffixAccessors.lastIndex) == FINAL_ACCESSOR_IDX
                 val suffixSize = if (isFinal) suffixAccessors.size - 1 else suffixAccessors.size
 
-                val nodeMatch = Int2ObjectOpenHashMap<BitSet>()
+                val nodeLevel = Int2IntOpenHashMap()
+                val levelNodes = Array(suffixSize + 1) { IntOpenHashSet() }
 
                 for ((i, node) in nodeManager.allNodes.withIndex()) {
                     if (!node.isReversedRoot(isFinal)) continue
 
-                    matchWrtReversedSuffix(i, suffixAccessors, suffixSize, predecessors, nodeMatch)
+                    matchWrtReversedSuffix(i, suffixAccessors, suffixSize, predecessors, nodeLevel, levelNodes)
                 }
 
                 val splitNodes: Array<AccessNode?> = nodeManager.allNodes.toTypedArray()
                 val extractedNodeIds = Array(suffixSize + 1) { IntArrayList() }
 
                 splitNodesForSuffixMatch(
-                    nodeMatch, splitNodes, suffixAccessors, suffixSize, isFinal, extractedNodeIds
+                    levelNodes, splitNodes, suffixAccessors, suffixSize, isFinal, extractedNodeIds
                 )
 
                 // Stage 4: Rebuild trees
@@ -1454,7 +1456,7 @@ class AccessTree(
                 if (isFinal) this.isFinal else this.isAbstract
 
             private fun splitNodesForSuffixMatch(
-                nodeMatch: Int2ObjectOpenHashMap<BitSet>,
+                nodeMatch: Array<IntOpenHashSet>,
                 splitNodes: Array<AccessNode?>,
                 suffixAccessors: IntArrayList,
                 suffixSize: Int,
@@ -1464,22 +1466,18 @@ class AccessTree(
                 for (k in 0..suffixSize) {
                     val levelNodeIds = extractedNodeIds[k]
 
-                    nodeMatch.forEachIntEntry { nodeId, matches ->
-                        if (!matches.get(k)) return@forEachIntEntry
-                        // Skip nodes already extracted at a better (lower) level.
-                        // They are part of a longer suffix chain handled by that level.
-                        if (hasBetterMatch(matches, k)) return@forEachIntEntry
-                        val node = splitNodes[nodeId] ?: return@forEachIntEntry
+                    nodeMatch[k].forEachInt { nodeId ->
+                        val node = splitNodes[nodeId] ?: return@forEachInt
 
                         if (k == suffixSize) {
                             // Leaf level: check flag presence before extracting
-                            if (!node.isReversedRoot(isFinal)) return@forEachIntEntry
+                            if (!node.isReversedRoot(isFinal)) return@forEachInt
                             levelNodeIds.add(nodeId)
                             splitNodes[nodeId] = clearSuffixEnd(node, isFinal)
                         } else {
                             // Edge level: check suffix[k] edge presence
                             val accessorToMatch = suffixAccessors.getInt(k)
-                            if (node.getNodeByAccessor(accessorToMatch) == null) return@forEachIntEntry
+                            if (node.getNodeByAccessor(accessorToMatch) == null) return@forEachInt
 
                             levelNodeIds.add(nodeId)
                             // Remove the entire suffix-matching sub-path from the node,
@@ -1519,9 +1517,6 @@ class AccessTree(
 
                 return cleanedNode.takeUnless { it.isEmpty }
             }
-
-            private fun hasBetterMatch(matches: BitSet, k: Int): Boolean =
-                k > 0 && matches.previousSetBit(k - 1) >= 0
 
             private fun clearSuffixEnd(node: AccessNode, isFinal: Boolean): AccessNode =
                 if (isFinal) {
@@ -1709,10 +1704,18 @@ class AccessTree(
                 suffix: IntArrayList,
                 suffixLength: Int,
                 predecessors: Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<BitSet>>,
-                nodeMatch: Int2ObjectOpenHashMap<BitSet>,
+                nodeLevel: Int2IntOpenHashMap,
+                levelNodes: Array<IntOpenHashSet>,
             ) {
-                val nodeMatches = nodeMatch.getOrCreate(nodeId, ::BitSet)
-                nodeMatches.add(suffixLength)
+                val currentLevel = nodeLevel.getOrDefault(nodeId, Int.MAX_VALUE)
+                if (currentLevel > suffixLength) {
+                    if (currentLevel != Int.MAX_VALUE) {
+                        levelNodes[currentLevel].remove(nodeId)
+                    }
+
+                    nodeLevel.put(nodeId, suffixLength)
+                    levelNodes[suffixLength].add(nodeId)
+                }
 
                 if (suffixLength == 0) return
 
@@ -1728,7 +1731,7 @@ class AccessTree(
                     ?: return
 
                 accessorPredecessors.forEach {
-                    matchWrtReversedSuffix(it, suffix, suffixLength - 1, predecessors, nodeMatch)
+                    matchWrtReversedSuffix(it, suffix, suffixLength - 1, predecessors, nodeLevel, levelNodes)
                 }
             }
 
