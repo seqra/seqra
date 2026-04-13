@@ -23,11 +23,14 @@ import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isS
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isTaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.util.Cancellation
+import org.opentaint.dataflow.util.add
+import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.forEachInt
 import org.opentaint.dataflow.util.forEachIntEntry
 import org.opentaint.dataflow.util.getOrCreate
 import java.io.DataInputStream
 import java.io.DataOutputStream
+import java.util.BitSet
 import java.util.IdentityHashMap
 import java.util.Optional
 import kotlin.jvm.optionals.getOrNull
@@ -1386,6 +1389,102 @@ class AccessTree(
                         else -> create(accessor, node)
                     }
                 }
+
+            fun AccessNode.extractMatchingSuffix(
+                suffix: AccessPath.AccessNode?
+            ): List<Pair<AccessNode, AccessPath.AccessNode?>> {
+                if (suffix == null) return listOf(this to null)
+
+                val interned = internNodes(AccessTreeInterner(), IdentityHashMap())
+                return extractMatchingSuffix(interned, NodeManager(), suffix)
+            }
+
+            private class NodeManager {
+                val allNodes = mutableListOf<AccessNode>()
+                val nodeIndex = IdentityHashMap<AccessNode, Int>()
+
+                fun nodeId(node: AccessNode): Int {
+                    val nextIdx = allNodes.size
+                    val nodeIndex = nodeIndex.putIfAbsent(node, nextIdx)
+                    if (nodeIndex != null) return nodeIndex
+
+                    allNodes.add(node)
+                    return nextIdx
+                }
+            }
+
+            private fun extractMatchingSuffix(
+                rootNode: AccessNode,
+                nodeManager: NodeManager,
+                suffix: AccessPath.AccessNode
+            ): List<Pair<AccessNode, AccessPath.AccessNode?>> {
+                val predecessors = Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<BitSet>>()
+
+                rootNode.buildPredecessors(predecessors, BitSet(), nodeManager)
+
+                val suffixAccessors = suffix.toList()
+
+                val isFinal = suffixAccessors.getInt(suffixAccessors.lastIndex) == FINAL_ACCESSOR_IDX
+                val suffixSize = if (isFinal) suffixAccessors.size - 1 else suffixAccessors.size
+
+                val nodeMatch = Int2ObjectOpenHashMap<BitSet>()
+
+                for ((i, node) in nodeManager.allNodes.withIndex()) {
+                    val isRoot = if (isFinal) node.isFinal else node.isAbstract
+                    if (!isRoot) continue
+
+                    matchWrtReversedSuffix(i, suffixAccessors, suffixSize, predecessors, nodeMatch)
+                }
+
+                // todo
+                return emptyList()
+            }
+
+            private fun matchWrtReversedSuffix(
+                nodeId: Int,
+                suffix: IntArrayList,
+                suffixLength: Int,
+                predecessors: Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<BitSet>>,
+                nodeMatch: Int2ObjectOpenHashMap<BitSet>,
+            ) {
+                val nodeMatches = nodeMatch.getOrCreate(nodeId, ::BitSet)
+                nodeMatches.add(suffixLength)
+
+                if (suffixLength == 0) return
+
+                val accessor = suffix.getInt(suffixLength - 1)
+                if (accessor == FINAL_ACCESSOR_IDX) {
+                    error("Impossible")
+                }
+
+                val nodePredecessors = predecessors.get(nodeId)
+                    ?: return
+
+                val accessorPredecessors = nodePredecessors.get(accessor)
+                    ?: return
+
+                accessorPredecessors.forEach {
+                    matchWrtReversedSuffix(it, suffix, suffixLength - 1, predecessors, nodeMatch)
+                }
+            }
+
+            private fun AccessNode.buildPredecessors(
+                predecessors: Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<BitSet>>,
+                visited: BitSet,
+                nodeManager: NodeManager,
+            ) {
+                val nodeId = nodeManager.nodeId(this)
+                if (!visited.add(nodeId)) return
+
+                forEachAccessor { i, node ->
+                    val childId = nodeManager.nodeId(node)
+                    val nodePredecessors = predecessors.getOrCreate(childId, ::Int2ObjectOpenHashMap)
+                    val nodeIPredecessors = nodePredecessors.getOrCreate(i, ::BitSet)
+                    nodeIPredecessors.add(nodeId)
+
+                    node.buildPredecessors(predecessors, visited, nodeManager)
+                }
+            }
         }
     }
 }
