@@ -1563,9 +1563,11 @@ class AccessTree(
                 }
 
                 val rootNode = nodeManager.allNodes[rootId]
-                val remainder = removeAllSuffixOccurrences(
-                    rootNode, suffixAccessors, suffixSize, isFinal, IdentityHashMap()
-                )
+                var remainder: AccessNode? = rootNode
+                for ((prefix, matchedSuffix) in result) {
+                    if (remainder == null) break
+                    remainder = subtractWithSuffix(remainder, prefix, matchedSuffix)
+                }
                 if (remainder != null) {
                     result.add(remainder to null)
                 }
@@ -1576,34 +1578,49 @@ class AccessTree(
             private fun encodeEdge(nodeId: Int, accessor: Int): Long =
                 (nodeId.toLong() shl Int.SIZE_BITS) or (accessor.toLong() and 0xFFFFFFFFL)
 
-            private fun removeAllSuffixOccurrences(
-                node: AccessNode,
-                suffixAccessors: IntArrayList,
-                suffixSize: Int,
-                isFinal: Boolean,
-                cache: IdentityHashMap<AccessNode, Optional<AccessNode>>,
+            private fun subtractWithSuffix(
+                from: AccessNode,
+                prefix: AccessNode,
+                suffix: AccessPath.AccessNode?
             ): AccessNode? {
-                cache[node]?.let { return it.getOrNull() }
+                var current = from
 
-                var current = removeSuffixTail(node, 0, suffixAccessors, suffixSize, isFinal)
-                if (current == null) {
-                    cache[node] = Optional.empty()
-                    return null
+                if (prefix.isAbstract) {
+                    current = subtractSuffixChain(current, suffix) ?: return null
                 }
 
-                val newAccessors = transformAccessors(current.accessors, current.accessorNodes) { _, child ->
-                    removeAllSuffixOccurrences(child, suffixAccessors, suffixSize, isFinal, cache)
+                prefix.forEachAccessor { accessor, prefixChild ->
+                    val fromChild = current.getNodeByAccessor(accessor) ?: return@forEachAccessor
+                    val remaining = subtractWithSuffix(fromChild, prefixChild, suffix)
+
+                    current = current.clearChild(accessor)
+                    if (remaining != null) {
+                        current = current.mergeAdd(create(accessor, remaining))
+                    }
                 }
 
-                if (newAccessors != null) {
-                    current = current.manager.create(
-                        current.isAbstract, current.isFinal, newAccessors.first, newAccessors.second
-                    )
+                return current.takeUnless { it.isEmpty }
+            }
+
+            private fun subtractSuffixChain(
+                from: AccessNode,
+                suffix: AccessPath.AccessNode?
+            ): AccessNode? {
+                if (suffix == null) {
+                    val result = from.removeAbstraction()
+                    return result.takeUnless { it.isEmpty }
                 }
 
-                val result = current.takeUnless { it.isEmpty }
-                cache[node] = Optional.ofNullable(result)
-                return result
+                val accessor = suffix.accessor
+                val fromChild = from.getNodeByAccessor(accessor) ?: return from
+                val remaining = subtractSuffixChain(fromChild, suffix.next)
+
+                var current = from.clearChild(accessor)
+                if (remaining != null) {
+                    current = current.mergeAdd(create(accessor, remaining))
+                }
+
+                return current.takeUnless { it.isEmpty }
             }
 
             private fun rebuildFromCutNodes(
