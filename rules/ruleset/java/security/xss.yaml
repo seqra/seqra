@@ -2,6 +2,40 @@ rules:
   - id: xss-in-servlet-app
     severity: ERROR
     message: >-
+      XSS: writing user input directly to an HTML response. The response content type is set to
+      text/html, making this directly exploitable in a browser.
+    metadata:
+      cwe: CWE-79
+      short-description: Cross-site scripting (XSS) in HTML response
+      full-description: |-
+        Cross-Site Scripting (XSS) is a class of vulnerabilities that allows an attacker to inject malicious
+        client-side code (usually JavaScript) into web pages viewed by other users.
+        This finding is reported at ERROR severity because the servlet explicitly sets
+        the response content type to text/html, confirming that the browser will render the response
+        as HTML and execute any injected scripts.
+
+        To remediate, apply context-appropriate output encoding (e.g., HTML-escape with
+        `StringEscapeUtils.escapeHtml4()` or `HtmlUtils.htmlEscape()`) before writing user input
+        to the response.
+      references:
+        - https://owasp.org/www-community/attacks/xss/
+      provenance:
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/xss/no-direct-response-writer.yaml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/servlet-xss-html-response-sinks.yaml#java-servlet-xss-html-response-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: potential-xss-in-servlet-app
+    severity: INFO
+    message: >-
       Potential XSS: writing user input directly to a web page.
     metadata:
       cwe: CWE-79
@@ -136,6 +170,43 @@ rules:
 
   - id: xss-in-spring-app
     severity: ERROR
+    message: >-
+      XSS: writing user input directly to an HTML response. The response content type is set to
+      text/html, making this directly exploitable in a browser.
+    metadata:
+      cwe: CWE-79
+      short-description: Cross-site scripting (XSS) in HTML response
+      full-description: |-
+        Cross-Site Scripting (XSS) is a class of vulnerabilities that allows an attacker to inject malicious
+        client-side code (usually JavaScript) into web pages viewed by other users.
+        This finding is reported at ERROR severity because the response content type is determined
+        to be text/html, confirming that the browser will render the response as HTML and execute
+        any injected scripts.
+
+        In Spring applications, this occurs when a handler method writes untrusted input
+        directly to HttpServletResponse with an HTML content type, or returns untrusted data
+        from a handler annotated with produces = "text/html".
+
+        To remediate, apply context-appropriate output encoding (e.g., `HtmlUtils.htmlEscape()`)
+        before writing user input to the response.
+      references:
+        - https://owasp.org/www-community/attacks/xss/
+      provenance:
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/injection/tainted-html-string.yaml
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/spring/spring-xss-html-response-sinks.yaml#spring-xss-html-response-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: potential-xss-in-spring-app
+    severity: INFO
     message: >-
       Potential XSS: writing user input directly to a web page.
     metadata:

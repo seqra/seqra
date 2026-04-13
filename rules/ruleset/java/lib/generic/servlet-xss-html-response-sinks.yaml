@@ -1,0 +1,67 @@
+rules:
+  - id: java-servlet-xss-html-response-sink
+    options:
+      lib: true
+    severity: NOTE
+    message: Direct write of unvalidated user input into a response without safe content type
+    metadata:
+      provenance:
+        - https://github.com/github/codeql/blob/main/java/ql/lib/semmle/code/java/security/XSS.qll
+    languages:
+      - java
+    mode: taint
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: Encode.forHtml(...)
+          - pattern: (PolicyFactory $POLICY).sanitize(...)
+          - pattern: (AntiSamy $AS).scan(...)
+          - pattern: JSoup.clean(...)
+          - pattern: HtmlUtils.htmlEscape(...)
+          - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(...)
+          - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(...)
+          - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(...)
+          - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(...)
+
+    # Servlet spec defaults to text/html when no content type is set.
+    # Writer/OutputStream is XSS-vulnerable unless a safe content type
+    # (application/json, text/plain, etc.) is explicitly set on the response.
+    pattern-sinks:
+      - patterns:
+          - pattern-not-inside: |
+              $R.setContentType("application/json");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("application/json;charset=UTF-8");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("application/json; charset=UTF-8");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("text/plain");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("text/plain;charset=UTF-8");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("text/plain; charset=UTF-8");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("application/pdf");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("application/octet-stream");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("application/xml");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("application/xml;charset=UTF-8");
+              ...
+          - pattern-either:
+              - pattern: |
+                  (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
+              - pattern: |
+                  (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
+              - pattern: |
+                  (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
+          - focus-metavariable: $UNTRUSTED

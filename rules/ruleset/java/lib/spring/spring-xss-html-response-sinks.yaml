@@ -1,0 +1,210 @@
+rules:
+  - id: spring-xss-html-response-sink
+    options:
+      lib: true
+    severity: NOTE
+    message: Return of unvalidated user input from a Spring handler vulnerable to XSS
+    metadata:
+      provenance:
+        - https://github.com/github/codeql/blob/main/java/ql/lib/semmle/code/java/frameworks/spring/SpringHttp.qll
+    languages:
+      - java
+    mode: taint
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: Encode.forHtml(...)
+          - pattern: (PolicyFactory $POLICY).sanitize(...)
+          - pattern: (AntiSamy $AS).scan(...)
+          - pattern: JSoup.clean(...)
+          - pattern: HtmlUtils.htmlEscape(...)
+          - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(...)
+          - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(...)
+          - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(...)
+          - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(...)
+
+    pattern-sinks:
+      # ── Spring @ResponseBody String return ─────────────────────────────────
+      # StringHttpMessageConverter accepts text/* including text/html.
+      # When the browser sends Accept: text/html, a String return is rendered
+      # as HTML unless produces constrains to a safe content type.
+
+      # 1a. String return — no produces (dangerous default: content negotiation)
+      - patterns:
+          - pattern-inside: |
+              @$ANNOTATION(...)
+              String $METHOD(...) {
+                ...
+              }
+          - metavariable-pattern:
+              metavariable: $ANNOTATION
+              patterns:
+                - pattern-either:
+                    - pattern: RequestMapping
+                    - pattern: DeleteMapping
+                    - pattern: GetMapping
+                    - pattern: PatchMapping
+                    - pattern: PostMapping
+                    - pattern: PutMapping
+          - pattern-not-inside: |
+              @$A(..., produces = "application/json", ...)
+              String $M(...) { ... }
+          - pattern-not-inside: |
+              @$A(..., produces = MediaType.APPLICATION_JSON_VALUE, ...)
+              String $M(...) { ... }
+          - pattern-not-inside: |
+              @$A(..., produces = "text/plain", ...)
+              String $M(...) { ... }
+          - pattern-not-inside: |
+              @$A(..., produces = MediaType.TEXT_PLAIN_VALUE, ...)
+              String $M(...) { ... }
+          - pattern-not-inside: |
+              @$A(..., produces = "application/pdf", ...)
+              String $M(...) { ... }
+          - pattern-not-inside: |
+              @$A(..., produces = "application/octet-stream", ...)
+              String $M(...) { ... }
+          - pattern: return $UNTRUSTED;
+          - focus-metavariable: $UNTRUSTED
+
+      # 1b. ResponseEntity<String> return — same converter, same risk
+      - patterns:
+          - pattern-inside: |
+              @$ANNOTATION(...)
+              ResponseEntity<String> $METHOD(...) {
+                ...
+              }
+          - metavariable-pattern:
+              metavariable: $ANNOTATION
+              patterns:
+                - pattern-either:
+                    - pattern: RequestMapping
+                    - pattern: DeleteMapping
+                    - pattern: GetMapping
+                    - pattern: PatchMapping
+                    - pattern: PostMapping
+                    - pattern: PutMapping
+          - pattern-not-inside: |
+              @$A(..., produces = "application/json", ...)
+              ResponseEntity<String> $M(...) { ... }
+          - pattern-not-inside: |
+              @$A(..., produces = MediaType.APPLICATION_JSON_VALUE, ...)
+              ResponseEntity<String> $M(...) { ... }
+          - pattern: return $UNTRUSTED;
+          - focus-metavariable: $UNTRUSTED
+
+      # 1c. Raw ResponseEntity return (no type param) — body type unknown
+      - patterns:
+          - pattern-inside: |
+              @$ANNOTATION(...)
+              ResponseEntity $METHOD(...) {
+                ...
+              }
+          - metavariable-pattern:
+              metavariable: $ANNOTATION
+              patterns:
+                - pattern-either:
+                    - pattern: RequestMapping
+                    - pattern: DeleteMapping
+                    - pattern: GetMapping
+                    - pattern: PatchMapping
+                    - pattern: PostMapping
+                    - pattern: PutMapping
+          - pattern-not-inside: |
+              @$A(..., produces = "application/json", ...)
+              ResponseEntity $M(...) { ... }
+          - pattern-not-inside: |
+              @$A(..., produces = MediaType.APPLICATION_JSON_VALUE, ...)
+              ResponseEntity $M(...) { ... }
+          - pattern: return $UNTRUSTED;
+          - focus-metavariable: $UNTRUSTED
+
+      # ── Direct response writer with HTML content type ──────────────────────
+      # Servlet API: setContentType / setHeader / addHeader
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  $R.setContentType("text/html");
+                  ...
+              - pattern-inside: |
+                  $R.setContentType("text/html;charset=UTF-8");
+                  ...
+              - pattern-inside: |
+                  $R.setContentType("text/html; charset=UTF-8");
+                  ...
+              - pattern-inside: |
+                  $R.setContentType("text/html;charset=utf-8");
+                  ...
+              - pattern-inside: |
+                  $R.setContentType("text/html; charset=utf-8");
+                  ...
+              - pattern-inside: |
+                  $R.setContentType("text/html;charset=ISO-8859-1");
+                  ...
+              - pattern-inside: |
+                  $R.setContentType("text/html; charset=ISO-8859-1");
+                  ...
+              - pattern-inside: |
+                  $R.setHeader("Content-Type", "text/html");
+                  ...
+              - pattern-inside: |
+                  $R.setHeader("Content-Type", "text/html;charset=UTF-8");
+                  ...
+              - pattern-inside: |
+                  $R.setHeader("Content-Type", "text/html; charset=UTF-8");
+                  ...
+              - pattern-inside: |
+                  $R.addHeader("Content-Type", "text/html");
+                  ...
+              - pattern-inside: |
+                  $R.addHeader("Content-Type", "text/html;charset=UTF-8");
+                  ...
+              - pattern-inside: |
+                  $R.addHeader("Content-Type", "text/html; charset=UTF-8");
+                  ...
+          - pattern-either:
+              - pattern: |
+                  (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
+              - pattern: |
+                  (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
+              - pattern: |
+                  (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
+          - focus-metavariable: $UNTRUSTED
+
+      # ── produces = "text/html" — explicit HTML ────────────────────────────
+      - patterns:
+          - pattern-inside: |
+              @$ANNOTATION(..., produces = "text/html", ...)
+              $RETURNTYPE $METHOD(...) {
+                ...
+              }
+          - metavariable-pattern:
+              metavariable: $ANNOTATION
+              patterns:
+                - pattern-either:
+                    - pattern: RequestMapping
+                    - pattern: DeleteMapping
+                    - pattern: GetMapping
+                    - pattern: PatchMapping
+                    - pattern: PostMapping
+                    - pattern: PutMapping
+          - pattern: return $UNTRUSTED;
+          - focus-metavariable: $UNTRUSTED
+
+      - patterns:
+          - pattern-inside: |
+              @$ANNOTATION(..., produces = MediaType.TEXT_HTML_VALUE, ...)
+              $RETURNTYPE $METHOD(...) {
+                ...
+              }
+          - metavariable-pattern:
+              metavariable: $ANNOTATION
+              patterns:
+                - pattern-either:
+                    - pattern: RequestMapping
+                    - pattern: DeleteMapping
+                    - pattern: GetMapping
+                    - pattern: PatchMapping
+                    - pattern: PostMapping
+                    - pattern: PutMapping
+          - pattern: return $UNTRUSTED;
+          - focus-metavariable: $UNTRUSTED
