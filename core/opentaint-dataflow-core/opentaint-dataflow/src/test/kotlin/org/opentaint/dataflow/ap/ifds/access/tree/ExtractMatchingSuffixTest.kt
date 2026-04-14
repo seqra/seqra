@@ -20,6 +20,12 @@ class ExtractMatchingSuffixTest {
     private val c: AccessorIdx
     private val d: AccessorIdx
     private val e: AccessorIdx
+    private val f: AccessorIdx
+    private val g: AccessorIdx
+    private val h: AccessorIdx
+    private val i: AccessorIdx
+    private val j: AccessorIdx
+    private val k: AccessorIdx
 
     init {
         with(manager) {
@@ -28,6 +34,12 @@ class ExtractMatchingSuffixTest {
             c = FieldAccessor("", "c", "").idx
             d = FieldAccessor("", "d", "").idx
             e = FieldAccessor("", "e", "").idx
+            f = FieldAccessor("", "f", "").idx
+            g = FieldAccessor("", "g", "").idx
+            h = FieldAccessor("", "h", "").idx
+            i = FieldAccessor("", "i", "").idx
+            j = FieldAccessor("", "j", "").idx
+            k = FieldAccessor("", "k", "").idx
         }
     }
 
@@ -814,6 +826,84 @@ class ExtractMatchingSuffixTest {
         // Since d-node is dominated by a better match (c.d at level 1),
         // a.e.d.* goes to remainder instead of a separate partial group.
         // The actual behavior depends on DAG sharing — verify via round-trip.
+
+        assertRoundTrip(tree, result)
+    }
+
+    @Test
+    fun realWorldPartialMatchesThroughSameRootEdge() {
+        // Models the real bug: suffix = a.b
+        // Paths through a→b (full match): a.b.*, a.b.c.d.*, a.b.c.e.*
+        // Paths ending with a→...→b (partial match on 'b'): a.c.d.b.*, a.c.e.b.*
+        // Paths not matching at all: a.c.f.*
+        //
+        // The level-0 cut is at root (removing edge 'a'). All partial-match
+        // paths also go through 'a', so they MUST NOT be blocked.
+        val tree = buildTree(
+            intArrayOf(a, b),
+            intArrayOf(a, b, c, d),
+            intArrayOf(a, b, c, e),
+            intArrayOf(a, c, d, b),
+            intArrayOf(a, c, e, b),
+            intArrayOf(a, c, f),
+        )
+        val suffix = buildSuffix(a, b)
+        val result = tree.extractMatchingSuffix(suffix)
+
+        // Full match: prefix = *, matched suffix = a.b
+        val fullMatch = result.find { it.second == suffix }
+        assertTrue(fullMatch != null, "Expected full match for a.b")
+
+        // Partial matches for 'b': a.c.d.b and a.c.e.b end with 'b'
+        val partialB = buildSuffix(b)
+        val bMatch = result.find { it.second == partialB }
+        assertTrue(bMatch != null, "Expected partial match for 'b' " +
+                "(a.c.d.b.* and a.c.e.b.* should be extracted)")
+
+        // a.c.f.* has no suffix match — should be in remainder
+        val remainder = result.find { it.second == null }
+        assertTrue(remainder != null, "Expected remainder for non-matching paths")
+
+        assertRoundTrip(tree, result)
+    }
+
+    @Test
+    fun realWorldLargeTreeExtraction() {
+        // Simplified version of the real case:
+        // root → a → b → ...  (a.b.* = direct match)
+        // root → a → c → X → b → ...  (ending in ...b.* = partial on 'b')
+        // root → a → c → X → Y → Z → b → ...  (deeper ending in b.*)
+        // root → a → d → ...  (no match)
+        // Suffix: a.b
+        //
+        // After extraction, partial matches through a.c.*.b.* must NOT be lost.
+        val tree = buildTree(
+            intArrayOf(a, b),
+            intArrayOf(a, b, c, d),
+            intArrayOf(a, b, c, e),
+            intArrayOf(a, b, d, e),
+            intArrayOf(a, c, d, b),
+            intArrayOf(a, c, e, b),
+            intArrayOf(a, c, e, f, g, b),
+            intArrayOf(a, c, d, e),
+            intArrayOf(a, d, e),
+            intArrayOf(a, d, f),
+        )
+        val suffix = buildSuffix(a, b)
+        val result = tree.extractMatchingSuffix(suffix)
+
+        // Full match exists
+        val fullMatch = result.find { it.second == suffix }
+        assertTrue(fullMatch != null, "Expected full match")
+
+        // Partial match for 'b' exists
+        val partialB = buildSuffix(b)
+        val bMatch = result.find { it.second == partialB }
+        assertTrue(bMatch != null, "Expected partial match for 'b'")
+
+        // Remainder exists (a.d.e.*, a.d.f.*, a.c.d.e.* don't end with 'b')
+        val remainder = result.find { it.second == null }
+        assertTrue(remainder != null, "Expected remainder")
 
         assertRoundTrip(tree, result)
     }

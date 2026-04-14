@@ -1,11 +1,9 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
-import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.ints.IntObjectImmutablePair
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
-import it.unimi.dsi.fastutil.longs.LongOpenHashSet
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
@@ -25,14 +23,11 @@ import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isS
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isTaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.util.Cancellation
-import org.opentaint.dataflow.util.add
-import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.forEachInt
 import org.opentaint.dataflow.util.forEachIntEntry
 import org.opentaint.dataflow.util.getOrCreate
 import java.io.DataInputStream
 import java.io.DataOutputStream
-import java.util.BitSet
 import java.util.IdentityHashMap
 import java.util.Optional
 import kotlin.jvm.optionals.getOrNull
@@ -1398,99 +1393,174 @@ class AccessTree(
                 if (suffix == null) return listOf(this to null)
 
                 val interned = internNodes(AccessTreeInterner(), IdentityHashMap())
-                return extractMatchingSuffix(interned, NodeManager(), suffix)
+                return extractMatchingSuffixInternal(interned, suffix)
             }
 
-            private class NodeManager {
-                val allNodes = mutableListOf<AccessNode>()
-                val nodeIndex = IdentityHashMap<AccessNode, Int>()
-
-                fun nodeId(node: AccessNode): Int {
-                    val nextIdx = allNodes.size
-                    val nodeIndex = nodeIndex.putIfAbsent(node, nextIdx)
-                    if (nodeIndex != null) return nodeIndex
-
-                    allNodes.add(node)
-                    return nextIdx
-                }
-            }
-
-            private fun extractMatchingSuffix(
+            private fun extractMatchingSuffixInternal(
                 rootNode: AccessNode,
-                nodeManager: NodeManager,
                 suffix: AccessPath.AccessNode
             ): List<Pair<AccessNode, AccessPath.AccessNode?>> {
-                val predecessors = Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<BitSet>>()
-
-                rootNode.buildPredecessors(predecessors, BitSet(), nodeManager)
-
                 val suffixAccessors = suffix.toList()
-
                 val isFinal = suffixAccessors.getInt(suffixAccessors.lastIndex) == FINAL_ACCESSOR_IDX
                 val suffixSize = if (isFinal) suffixAccessors.size - 1 else suffixAccessors.size
-
-                val cutNodes = Array(suffixSize) { IntArrayList() }
-                findCutNodes(nodeManager, suffixSize, isFinal, suffixAccessors, predecessors, cutNodes)
-
-                val rootId = nodeManager.nodeId(rootNode)
                 val cutNodeReplacement = rootNode.manager.create(isAbstract = true)
 
-                return rebuildExtractedTrees(
-                    nodeManager, rootId, cutNodeReplacement,
-                    suffixSize, suffix,
-                    cutNodes, predecessors,
+                return extractGreedySuffixPasses(
+                    rootNode,
+                    cutNodeReplacement,
+                    suffix,
+                    suffixAccessors,
+                    suffixSize,
+                    isFinal,
                 )
             }
 
-            private fun AccessNode.isReversedRoot(isFinal: Boolean): Boolean =
-                if (isFinal) this.isFinal else this.isAbstract
-
-            private fun findCutNodes(
-                nodeManager: NodeManager,
+            private fun extractGreedySuffixPasses(
+                rootNode: AccessNode,
+                cutNodeReplacement: AccessNode,
+                fullSuffix: AccessPath.AccessNode,
+                suffixAccessors: IntArrayList,
                 suffixSize: Int,
                 isFinal: Boolean,
-                suffixAccessors: IntArrayList,
-                predecessors: Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<BitSet>>,
-                cutNodeIds: Array<IntArrayList>
-            ) {
-                val nodeLevel = Int2IntOpenHashMap()
-                val levelNodes = Array(suffixSize + 1) { IntOpenHashSet() }
+            ): List<Pair<AccessNode, AccessPath.AccessNode?>> {
+                val result = mutableListOf<Pair<AccessNode, AccessPath.AccessNode?>>()
+                var remainder: AccessNode? = rootNode
+                var levelSuffix: AccessPath.AccessNode? = fullSuffix
 
-                for ((i, node) in nodeManager.allNodes.withIndex()) {
-                    if (!node.isReversedRoot(isFinal)) continue
+                for (suffixLevel in 0 until suffixSize) {
+                    val currentRemainder = remainder ?: break
+                    val currentSuffix = levelSuffix ?: error("Suffix size exceeded")
 
-                    matchWrtReversedSuffix(i, suffixAccessors, suffixSize, predecessors, nodeLevel, levelNodes)
+                    val extractedPrefix = extractFixedSuffixPrefixes(
+                        currentRemainder,
+                        suffixLevel,
+                        suffixAccessors,
+                        suffixSize,
+                        isFinal,
+                        cutNodeReplacement,
+                    )
+
+                    if (extractedPrefix != null) {
+                        result.add(extractedPrefix to currentSuffix)
+                        remainder = removeFixedSuffixOccurrences(
+                            currentRemainder,
+                            suffixLevel,
+                            suffixAccessors,
+                            suffixSize,
+                            isFinal,
+                        )
+                    }
+
+                    levelSuffix = currentSuffix.next
                 }
 
-                findCutNodesIgnoringDominated(
-                    nodeManager, levelNodes, suffixAccessors, suffixSize, isFinal, cutNodeIds
-                )
+                if (remainder != null) {
+                    result.add(remainder to null)
+                }
+
+                return result
             }
 
-            private fun findCutNodesIgnoringDominated(
-                nodeManager: NodeManager,
-                nodeMatch: Array<IntOpenHashSet>,
+            private fun extractFixedSuffixPrefixes(
+                node: AccessNode,
+                suffixLevel: Int,
                 suffixAccessors: IntArrayList,
                 suffixSize: Int,
                 isFinal: Boolean,
-                extractedNodeIds: Array<IntArrayList>,
-            ) {
-                val splitNodes: Array<AccessNode?> = nodeManager.allNodes.toTypedArray()
+                replacement: AccessNode,
+                cache: IdentityHashMap<AccessNode, AccessNode?> = IdentityHashMap(),
+            ): AccessNode? {
+                if (cache.containsKey(node)) {
+                    return cache[node]
+                }
 
-                for (k in 0 until suffixSize) {
-                    val levelNodeIds = extractedNodeIds[k]
+                var extracted: AccessNode? = null
+                if (matchesSuffixTail(node, suffixLevel, suffixAccessors, suffixSize, isFinal)) {
+                    extracted = replacement
+                }
 
-                    nodeMatch[k].forEachInt { nodeId ->
-                        val node = splitNodes[nodeId] ?: return@forEachInt
+                node.forEachAccessor { accessor, child ->
+                    val extractedChild = extractFixedSuffixPrefixes(
+                        child,
+                        suffixLevel,
+                        suffixAccessors,
+                        suffixSize,
+                        isFinal,
+                        replacement,
+                        cache,
+                    ) ?: return@forEachAccessor
 
-                        val accessorToMatch = suffixAccessors.getInt(k)
-                        if (node.getNodeByAccessor(accessorToMatch) == null) return@forEachInt
+                    val extractedEdge = create(accessor, extractedChild)
+                    extracted = extracted?.mergeAdd(extractedEdge) ?: extractedEdge
+                }
 
-                        levelNodeIds.add(nodeId)
-                        val remainder = removeSuffixTail(node, k, suffixAccessors, suffixSize, isFinal)
-                        splitNodes[nodeId] = remainder
+                cache[node] = extracted
+                return extracted
+            }
+
+            private fun removeFixedSuffixOccurrences(
+                node: AccessNode,
+                suffixLevel: Int,
+                suffixAccessors: IntArrayList,
+                suffixSize: Int,
+                isFinal: Boolean,
+                cache: IdentityHashMap<AccessNode, AccessNode?> = IdentityHashMap(),
+            ): AccessNode? {
+                if (cache.containsKey(node)) {
+                    return cache[node]
+                }
+
+                val matchedHere = matchesSuffixTail(node, suffixLevel, suffixAccessors, suffixSize, isFinal)
+
+                var current: AccessNode? = node
+                if (matchedHere) {
+                    current = removeSuffixTail(node, suffixLevel, suffixAccessors, suffixSize, isFinal)
+                }
+
+                if (current == null) {
+                    cache[node] = null
+                    return null
+                }
+
+                var modified = matchedHere
+                var rebuilt = current.manager.create(current.isAbstract, current.isFinal)
+                current.forEachAccessor { accessor, child ->
+                    val cleanedChild = removeFixedSuffixOccurrences(
+                        child,
+                        suffixLevel,
+                        suffixAccessors,
+                        suffixSize,
+                        isFinal,
+                        cache,
+                    )
+
+                    if (cleanedChild !== child) {
+                        modified = true
+                    }
+                    if (cleanedChild != null) {
+                        rebuilt = rebuilt.mergeAdd(create(accessor, cleanedChild))
                     }
                 }
+
+                val result = if (modified) rebuilt.takeUnless { it.isEmpty } else current
+                cache[node] = result
+                return result
+            }
+
+            private fun matchesSuffixTail(
+                node: AccessNode,
+                suffixLevel: Int,
+                suffixAccessors: IntArrayList,
+                suffixSize: Int,
+                isFinal: Boolean,
+            ): Boolean {
+                if (suffixLevel == suffixSize) {
+                    return if (isFinal) node.isFinal else node.isAbstract
+                }
+
+                val accessor = suffixAccessors.getInt(suffixLevel)
+                val child = node.getNodeByAccessor(accessor) ?: return false
+                return matchesSuffixTail(child, suffixLevel + 1, suffixAccessors, suffixSize, isFinal)
             }
 
             private fun removeSuffixTail(
@@ -1528,205 +1598,6 @@ class AccessTree(
                 } else {
                     node.removeAbstraction()
                 }
-
-            private fun rebuildExtractedTrees(
-                nodeManager: NodeManager,
-                rootId: Int,
-                cutNodeReplacement: AccessNode,
-                suffixSize: Int,
-                fullSuffix: AccessPath.AccessNode,
-                cutNodeIds: Array<IntArrayList>,
-                predecessors: Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<BitSet>>,
-            ): List<Pair<AccessNode, AccessPath.AccessNode?>> {
-                val result = mutableListOf<Pair<AccessNode, AccessPath.AccessNode?>>()
-
-                var nextSuffix: AccessPath.AccessNode? = fullSuffix
-                val blockedEdges = LongOpenHashSet()
-                for (k in 0 until suffixSize) {
-                    val levelSuffix = nextSuffix ?: error("Suffix size exceeded")
-                    nextSuffix = levelSuffix.next
-
-                    val nodeIds = cutNodeIds[k]
-                    if (nodeIds.isEmpty) continue
-
-                    val subTree = rebuildFromCutNodes(rootId, nodeIds, cutNodeReplacement, predecessors, blockedEdges)
-                            ?: continue
-
-                    result.add(subTree to levelSuffix)
-
-                    val accessor = levelSuffix.accessor
-                    nodeIds.forEachInt { nodeId ->
-                        blockedEdges.add(encodeEdge(nodeId, accessor))
-                    }
-                }
-
-                val rootNode = nodeManager.allNodes[rootId]
-                var remainder: AccessNode? = rootNode
-                for ((prefix, matchedSuffix) in result) {
-                    if (remainder == null) break
-                    remainder = subtractWithSuffix(remainder, prefix, matchedSuffix)
-                }
-                if (remainder != null) {
-                    result.add(remainder to null)
-                }
-
-                return result
-            }
-
-            private fun encodeEdge(nodeId: Int, accessor: Int): Long =
-                (nodeId.toLong() shl Int.SIZE_BITS) or (accessor.toLong() and 0xFFFFFFFFL)
-
-            private fun subtractWithSuffix(
-                from: AccessNode,
-                prefix: AccessNode,
-                suffix: AccessPath.AccessNode?
-            ): AccessNode? {
-                var current = from
-
-                if (prefix.isAbstract) {
-                    current = subtractSuffixChain(current, suffix) ?: return null
-                }
-
-                prefix.forEachAccessor { accessor, prefixChild ->
-                    val fromChild = current.getNodeByAccessor(accessor) ?: return@forEachAccessor
-                    val remaining = subtractWithSuffix(fromChild, prefixChild, suffix)
-
-                    current = current.clearChild(accessor)
-                    if (remaining != null) {
-                        current = current.mergeAdd(create(accessor, remaining))
-                    }
-                }
-
-                return current.takeUnless { it.isEmpty }
-            }
-
-            private fun subtractSuffixChain(
-                from: AccessNode,
-                suffix: AccessPath.AccessNode?
-            ): AccessNode? {
-                if (suffix == null) {
-                    val result = from.removeAbstraction()
-                    return result.takeUnless { it.isEmpty }
-                }
-
-                val accessor = suffix.accessor
-                val fromChild = from.getNodeByAccessor(accessor) ?: return from
-                val remaining = subtractSuffixChain(fromChild, suffix.next)
-
-                var current = from.clearChild(accessor)
-                if (remaining != null) {
-                    current = current.mergeAdd(create(accessor, remaining))
-                }
-
-                return current.takeUnless { it.isEmpty }
-            }
-
-            private fun rebuildFromCutNodes(
-                rootId: Int,
-                cutPointIds: IntArrayList,
-                cutPointNode: AccessNode,
-                predecessors: Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<BitSet>>,
-                blockedEdges: LongOpenHashSet,
-            ): AccessNode? {
-                var currentLevel = Int2ObjectOpenHashMap<AccessNode>()
-                cutPointIds.forEachInt { nodeId ->
-                    currentLevel.put(nodeId, cutPointNode)
-                }
-
-                while (true) {
-                    if (currentLevel.size == 1) {
-                        val rootNode = currentLevel.get(rootId)
-                        if (rootNode != null) {
-                            return rootNode
-                        }
-                    }
-
-                    val nextLevel = Int2ObjectOpenHashMap<AccessNode>()
-
-                    currentLevel.forEachIntEntry { childId, childSubTree ->
-                        if (childId == rootId) {
-                            nextLevel.mergeValueNode(rootId, childSubTree)
-                            return@forEachIntEntry
-                        }
-
-                        val childPredecessors = predecessors.get(childId)
-                            ?: return@forEachIntEntry
-
-                        childPredecessors.forEachIntEntry { accessor, parentIds ->
-                            val edge = create(accessor, childSubTree)
-                            parentIds.forEach { parentId ->
-                                if (!blockedEdges.contains(encodeEdge(parentId, accessor))) {
-                                    nextLevel.mergeValueNode(parentId, edge)
-                                }
-                            }
-                        }
-                    }
-
-                    if (nextLevel.isEmpty()) return null
-                    currentLevel = nextLevel
-                }
-            }
-
-            private fun Int2ObjectOpenHashMap<AccessNode>.mergeValueNode(
-                nodeId: Int, node: AccessNode
-            ) {
-                val existing = this.get(nodeId)
-                this.put(nodeId, existing?.mergeAdd(node) ?: node)
-            }
-
-            private fun matchWrtReversedSuffix(
-                nodeId: Int,
-                suffix: IntArrayList,
-                suffixLength: Int,
-                predecessors: Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<BitSet>>,
-                nodeLevel: Int2IntOpenHashMap,
-                levelNodes: Array<IntOpenHashSet>,
-            ) {
-                val currentLevel = nodeLevel.getOrDefault(nodeId, Int.MAX_VALUE)
-                if (currentLevel > suffixLength) {
-                    if (currentLevel != Int.MAX_VALUE) {
-                        levelNodes[currentLevel].remove(nodeId)
-                    }
-
-                    nodeLevel.put(nodeId, suffixLength)
-                    levelNodes[suffixLength].add(nodeId)
-                }
-
-                if (suffixLength == 0) return
-
-                val accessor = suffix.getInt(suffixLength - 1)
-                if (accessor == FINAL_ACCESSOR_IDX) {
-                    error("Impossible")
-                }
-
-                val nodePredecessors = predecessors.get(nodeId)
-                    ?: return
-
-                val accessorPredecessors = nodePredecessors.get(accessor)
-                    ?: return
-
-                accessorPredecessors.forEach {
-                    matchWrtReversedSuffix(it, suffix, suffixLength - 1, predecessors, nodeLevel, levelNodes)
-                }
-            }
-
-            private fun AccessNode.buildPredecessors(
-                predecessors: Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<BitSet>>,
-                visited: BitSet,
-                nodeManager: NodeManager,
-            ) {
-                val nodeId = nodeManager.nodeId(this)
-                if (!visited.add(nodeId)) return
-
-                forEachAccessor { i, node ->
-                    val childId = nodeManager.nodeId(node)
-                    val nodePredecessors = predecessors.getOrCreate(childId, ::Int2ObjectOpenHashMap)
-                    val nodeIPredecessors = nodePredecessors.getOrCreate(i, ::BitSet)
-                    nodeIPredecessors.add(nodeId)
-
-                    node.buildPredecessors(predecessors, visited, nodeManager)
-                }
-            }
         }
     }
 }
