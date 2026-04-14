@@ -20,6 +20,16 @@ interface FactReader {
     fun containsPositionWithTaintMark(position: PositionAccess, mark: TaintMark): Boolean =
         containsPosition(position.withSuffix(taintedPosSuffix(mark)))
 
+    fun containsAnyPositionWithTaintMark(position: PositionAccess, mark: TaintMark): Boolean {
+        val tmAccessor = TaintMarkAccessor(mark.name)
+
+        val requiredPosition = position.withSuffix(listOf(tmAccessor))
+        val positionWithTaintMark = containsAnyPosition(requiredPosition) ?: return false
+
+        val finalPositionWithTaintMark = positionWithTaintMark.withSuffix(listOf(FinalAccessor))
+        return containsPosition(finalPositionWithTaintMark)
+    }
+
     private fun taintedPosSuffix(mark: TaintMark) = listOf(TaintMarkAccessor(mark.name), FinalAccessor)
 }
 

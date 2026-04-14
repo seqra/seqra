@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.jvm.ap.ifds.trace
 
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
@@ -8,6 +9,9 @@ import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.jvm.AssignAction
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
+import org.opentaint.dataflow.configuration.jvm.ContainsMarkOnAnyField
+import org.opentaint.dataflow.configuration.jvm.PositionAccessor
+import org.opentaint.dataflow.configuration.jvm.PositionWithAccess
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationSource
 import org.opentaint.dataflow.configuration.jvm.TaintMark
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionExpr
@@ -58,6 +62,10 @@ private fun ContainsMark.preconditionFact(apManager: ApManager): InitialFactAp {
     return createPositionWithTaintMark(apManager, position.resolveAp(), mark)
 }
 
+private fun ContainsMarkOnAnyField.preconditionFact(apManager: ApManager): InitialFactAp {
+    return createPositionWithTaintMark(apManager, PositionAccess.Complex(position.resolveAp(), AnyAccessor), mark)
+}
+
 private fun createPositionWithTaintMark(
     apManager: ApManager,
     position: PositionAccess,
@@ -89,7 +97,8 @@ fun JIRMarkAwareConditionExpr.preconditionDnf(
     }
 
     is JIRMarkAwareConditionExpr.ContainsMarkOnAnyFieldLiteral -> {
-        TODO("ContainsMarkOnAnyField is not supported for non-sink rule preconditions")
+        val preconditionFact = condition.preconditionFact(apManager)
+        mapFacts(preconditionFact).map { PreconditionCube(setOf(it)) }
     }
 
     is JIRMarkAwareConditionExpr.Or -> args.flatMap { it.preconditionDnf(apManager, mapFacts) }

@@ -372,13 +372,18 @@ class TaintSourceActionPreconditionEvaluator(
         rule: TaintConfigurationItem,
         action: AssignAction,
     ): Maybe<List<Pair<TaintConfigurationItem, AssignAction>>> {
-        val variable = when (action) {
-            is AssignMark -> action.position
-            is AssignMarkAnyField -> action.barePosition
-        }.resolveAp()
-
-        if (!factReader.containsPositionWithTaintMark(variable, action.mark)) return Maybe.none()
-        return Maybe.some(listOf(rule to action))
+        when (action) {
+            is AssignMark -> {
+                val variable = action.position.resolveAp()
+                if (!factReader.containsPositionWithTaintMark(variable, action.mark)) return Maybe.none()
+                return Maybe.some(listOf(rule to action))
+            }
+            is AssignMarkAnyField -> {
+                val variable = action.barePosition.resolveAp()
+                if (!factReader.containsAnyPositionWithTaintMark(variable, action.mark)) return Maybe.none()
+                return Maybe.some(listOf(rule to action))
+            }
+        }
     }
 }
 
