@@ -1,6 +1,5 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
-import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.LanguageManager
@@ -23,18 +22,14 @@ class MethodEdgesInitialToFinalTreeApSet(
     override fun mostAbstractPattern(base: AccessPathBase): AccessPath.AccessNode? = null
 
     private inner class TaintedFactAccessEdgeStorage : ApStorage<AccessPath.AccessNode?, AccessTree.AccessNode> {
-        private val sameInitialAccessEdges =
-            Object2ObjectOpenHashMap<AccessPath.AccessNode?, EdgeNonUniverseExclusionMergingStorage>()
+        private val sameInitialAccessEdges = IF2FFStorage(maxInstIdx, languageManager, apManager)
 
         override fun add(
             statement: CommonInst,
             initial: AccessPath.AccessNode?,
             final: AccessWithExclusion<AccessTree.AccessNode>,
         ): AccessWithExclusion<AccessTree.AccessNode>? {
-            val storage = sameInitialAccessEdges.getOrPut(initial) {
-                EdgeNonUniverseExclusionMergingStorage(maxInstIdx, languageManager, apManager)
-            }
-
+            val storage = sameInitialAccessEdges.getOrCreateNode(initial).current
             return storage.add(statement, final)
         }
 
@@ -43,10 +38,10 @@ class MethodEdgesInitialToFinalTreeApSet(
             statement: CommonInst,
             finalPattern: AccessPath.AccessNode?,
         ) {
-            sameInitialAccessEdges.forEach { (initial, storage) ->
+            sameInitialAccessEdges.forEachNode(apManager) { initial, storage ->
                 collectToListWithPostProcess(
                     dst,
-                    { storage.allApAtStatement(it, statement) },
+                    { storage.current.allApAtStatement(it, statement) },
                     { initial to it }
                 )
             }
@@ -58,9 +53,19 @@ class MethodEdgesInitialToFinalTreeApSet(
             initial: AccessPath.AccessNode?,
             finalPattern: AccessPath.AccessNode?,
         ) {
-            val storage = sameInitialAccessEdges[initial] ?: return
+            val storage = sameInitialAccessEdges.find(initial)?.current ?: return
             storage.allApAtStatement(dst, statement)
         }
+    }
+
+    private class IF2FFStorage(
+        val maxInstIdx: Int,
+        private val languageManager: LanguageManager,
+        val manager: TreeApManager,
+    ) : AccessBasedStorage<IF2FFStorage>() {
+        val current = EdgeNonUniverseExclusionMergingStorage(maxInstIdx, languageManager, manager)
+
+        override fun createStorage(): IF2FFStorage = IF2FFStorage(maxInstIdx, languageManager, manager)
     }
 
     private class EdgeNonUniverseExclusionMergingStorage(
