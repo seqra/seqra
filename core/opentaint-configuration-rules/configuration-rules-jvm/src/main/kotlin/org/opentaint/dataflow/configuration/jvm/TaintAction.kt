@@ -16,10 +16,21 @@ data class CopyMark(
     val to: Position,
 ) : Action
 
+sealed interface AssignAction : Action, CommonTaintAssignAction {
+    val mark: TaintMark
+}
+
 data class AssignMark(
-    val mark: TaintMark,
+    override val mark: TaintMark,
     val position: Position,
-) : Action, CommonTaintAssignAction
+) : AssignAction
+
+data class AssignMarkAnyField(
+    override val mark: TaintMark,
+    val barePosition: Position,
+) : AssignAction {
+    val positionWithAny: Position = PositionWithAccess(barePosition, PositionAccessor.AnyFieldAccessor)
+}
 
 data class RemoveAllMarks(
     val position: Position,

@@ -17,6 +17,7 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.CallToStar
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.SideEffectRequirement
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.TraceInfo
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.Unchanged
+import org.opentaint.dataflow.configuration.jvm.AssignAction
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
 import org.opentaint.dataflow.configuration.jvm.TaintMethodSource
@@ -595,9 +596,9 @@ class JIRMethodCallFlowFunction(
 
     private inline fun applySourceAction(
         rule: TaintConfigurationItem,
-        actions: List<AssignMark>,
+        actions: List<AssignAction>,
         sourceEvaluator: TaintSourceActionEvaluator,
-        createFinalFact: (FinalFactAp, AssignMark) -> Unit,
+        createFinalFact: (FinalFactAp, AssignAction) -> Unit,
     ) {
         for (action in actions) {
             sourceEvaluator.evaluate(rule, action).onSome { facts ->

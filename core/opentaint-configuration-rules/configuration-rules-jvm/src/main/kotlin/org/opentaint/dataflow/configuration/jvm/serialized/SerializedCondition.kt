@@ -184,6 +184,11 @@ sealed interface SerializedCondition {
         val className: SerializedTypeNameMatcher,
         val fieldName: SerializedSimpleNameMatcher
     ): SerializedCondition
+
+    data class ContainsMarkAnyField(
+        val tainted: String,
+        val pos: PositionBaseWithModifiers,
+    ) : SerializedCondition
 }
 
 class TrueConditionSerializer : KSerializer<SerializedCondition.True> {

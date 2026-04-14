@@ -14,6 +14,7 @@ import org.opentaint.dataflow.configuration.jvm.ConstantStringValue
 import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.configuration.jvm.ConstantValue
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
+import org.opentaint.dataflow.configuration.jvm.ContainsMarkOnAnyField
 import org.opentaint.dataflow.configuration.jvm.IsConstant
 import org.opentaint.dataflow.configuration.jvm.IsNull
 import org.opentaint.dataflow.configuration.jvm.IsStaticField
@@ -57,6 +58,10 @@ class JIRBasicAtomEvaluator(
     override fun visit(condition: Or): Boolean = error("Non-atomic condition")
 
     override fun visit(condition: ContainsMark): Boolean {
+        error("This visitor does not support condition $condition. Use FactAwareConditionEvaluator instead")
+    }
+
+    override fun visit(condition: ContainsMarkOnAnyField): Boolean {
         error("This visitor does not support condition $condition. Use FactAwareConditionEvaluator instead")
     }
 

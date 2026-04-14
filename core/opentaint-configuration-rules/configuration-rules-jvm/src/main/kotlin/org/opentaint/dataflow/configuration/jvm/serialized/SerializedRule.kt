@@ -11,12 +11,12 @@ sealed interface SerializedItem {
 
 sealed interface SourceRule: SerializedItem {
     val condition: SerializedCondition?
-    val taint: List<SerializedTaintAssignAction>
+    val taint: List<SerializedAssignAction>
 }
 
 sealed interface SinkRule : SerializedItem {
     val condition: SerializedCondition?
-    val trackFactsReachAnalysisEnd: List<SerializedTaintAssignAction>?
+    val trackFactsReachAnalysisEnd: List<SerializedAssignAction>?
     val id: String?
     val meta: SinkMetaData?
 }
@@ -39,7 +39,7 @@ sealed interface SerializedRule: SerializedItem {
         override val signature: SerializedSignatureMatcher? = null,
         override val overrides: Boolean = true,
         override val condition: SerializedCondition? = null,
-        override val taint: List<SerializedTaintAssignAction>,
+        override val taint: List<SerializedAssignAction>,
         override val info: ItemInfo? = null
     ) : SourceRule, SerializedRule
 
@@ -49,7 +49,7 @@ sealed interface SerializedRule: SerializedItem {
         override val signature: SerializedSignatureMatcher? = null,
         override val overrides: Boolean = true,
         override val condition: SerializedCondition? = null,
-        override val taint: List<SerializedTaintAssignAction>,
+        override val taint: List<SerializedAssignAction>,
         override val info: ItemInfo? = null
     ) : SourceRule, SerializedRule
 
@@ -81,7 +81,7 @@ sealed interface SerializedRule: SerializedItem {
         override val signature: SerializedSignatureMatcher? = null,
         override val overrides: Boolean = true,
         override val condition: SerializedCondition? = null,
-        override val trackFactsReachAnalysisEnd: List<SerializedTaintAssignAction>? = null,
+        override val trackFactsReachAnalysisEnd: List<SerializedAssignAction>? = null,
         override val id: String? = null,
         private val cwe: List<Int>? = null, // todo: remove
         private val note: String? = null,
@@ -95,7 +95,7 @@ sealed interface SerializedRule: SerializedItem {
         override val signature: SerializedSignatureMatcher? = null,
         override val overrides: Boolean = true,
         override val condition: SerializedCondition? = null,
-        override val trackFactsReachAnalysisEnd: List<SerializedTaintAssignAction>? = null,
+        override val trackFactsReachAnalysisEnd: List<SerializedAssignAction>? = null,
         override val id: String? = null,
         private val cwe: List<Int>? = null, // todo: remove
         private val note: String? = null,
@@ -109,7 +109,7 @@ sealed interface SerializedRule: SerializedItem {
         override val signature: SerializedSignatureMatcher? = null,
         override val overrides: Boolean = true,
         override val condition: SerializedCondition? = null,
-        override val trackFactsReachAnalysisEnd: List<SerializedTaintAssignAction>? = null,
+        override val trackFactsReachAnalysisEnd: List<SerializedAssignAction>? = null,
         override val id: String? = null,
         private val cwe: List<Int>? = null, // todo: remove
         private val note: String? = null,
@@ -123,7 +123,7 @@ sealed interface SerializedRule: SerializedItem {
         override val signature: SerializedSignatureMatcher? = null,
         override val overrides: Boolean = true,
         override val condition: SerializedCondition? = null,
-        override val taint: List<SerializedTaintAssignAction>,
+        override val taint: List<SerializedAssignAction>,
         override val info: ItemInfo? = null
     ) : SourceRule, SerializedRule
 }

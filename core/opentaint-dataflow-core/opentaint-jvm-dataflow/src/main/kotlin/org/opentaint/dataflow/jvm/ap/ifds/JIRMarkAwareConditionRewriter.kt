@@ -3,12 +3,12 @@ package org.opentaint.dataflow.jvm.ap.ifds
 import org.opentaint.dataflow.configuration.jvm.And
 import org.opentaint.dataflow.configuration.jvm.Condition
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
+import org.opentaint.dataflow.configuration.jvm.ContainsMarkOnAnyField
 import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionExpr.Literal
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
-import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicAtomEvaluator
 import org.opentaint.ir.api.common.cfg.CommonInst
 

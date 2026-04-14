@@ -14,7 +14,9 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.jvm.Action
 import org.opentaint.dataflow.configuration.jvm.Argument
+import org.opentaint.dataflow.configuration.jvm.AssignAction
 import org.opentaint.dataflow.configuration.jvm.AssignMark
+import org.opentaint.dataflow.configuration.jvm.AssignMarkAnyField
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
 import org.opentaint.dataflow.configuration.jvm.Condition
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
@@ -345,15 +347,18 @@ class TaintPassActionPreconditionEvaluator(
 }
 
 interface SourceActionEvaluator<T> {
-    fun evaluate(rule: TaintConfigurationItem, action: AssignMark): Maybe<List<T>>
+    fun evaluate(rule: TaintConfigurationItem, action: AssignAction): Maybe<List<T>>
 }
 
 class TaintSourceActionEvaluator(
     private val apManager: ApManager,
     private val exclusion: ExclusionSet,
 ) : SourceActionEvaluator<FinalFactAp> {
-    override fun evaluate(rule: TaintConfigurationItem, action: AssignMark): Maybe<List<FinalFactAp>> {
-        val variable = action.position.resolveAp()
+    override fun evaluate(rule: TaintConfigurationItem, action: AssignAction): Maybe<List<FinalFactAp>> {
+        val variable = when (action) {
+            is AssignMark -> action.position
+            is AssignMarkAnyField -> action.positionWithAny
+        }.resolveAp()
 
         val fact = apManager.mkAccessPath(variable, exclusion, action.mark.name)
         return Maybe.from(listOf(fact))
@@ -362,12 +367,15 @@ class TaintSourceActionEvaluator(
 
 class TaintSourceActionPreconditionEvaluator(
     private val factReader: InitialFactReader,
-) : SourceActionEvaluator<Pair<TaintConfigurationItem, AssignMark>> {
+) : SourceActionEvaluator<Pair<TaintConfigurationItem, AssignAction>> {
     override fun evaluate(
         rule: TaintConfigurationItem,
-        action: AssignMark,
-    ): Maybe<List<Pair<TaintConfigurationItem, AssignMark>>> {
-        val variable = action.position.resolveAp()
+        action: AssignAction,
+    ): Maybe<List<Pair<TaintConfigurationItem, AssignAction>>> {
+        val variable = when (action) {
+            is AssignMark -> action.position
+            is AssignMarkAnyField -> action.barePosition
+        }.resolveAp()
 
         if (!factReader.containsPositionWithTaintMark(variable, action.mark)) return Maybe.none()
         return Maybe.some(listOf(rule to action))

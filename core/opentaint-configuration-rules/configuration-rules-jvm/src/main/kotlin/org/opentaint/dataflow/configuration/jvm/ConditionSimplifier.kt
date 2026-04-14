@@ -54,6 +54,7 @@ object ConditionSimplifier : ConditionVisitor<Condition> {
     override fun visit(condition: ConstantGt): Condition = condition
     override fun visit(condition: ConstantMatches): Condition = condition
     override fun visit(condition: ContainsMark): Condition = condition
+    override fun visit(condition: ContainsMarkOnAnyField): Condition = condition
     override fun visit(condition: ConstantTrue): Condition = condition
     override fun visit(condition: TypeMatches): Condition = condition
     override fun visit(condition: TypeMatchesPattern): Condition = condition

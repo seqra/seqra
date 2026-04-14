@@ -9,6 +9,7 @@ import org.opentaint.dataflow.configuration.jvm.ConstantLt
 import org.opentaint.dataflow.configuration.jvm.ConstantMatches
 import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
+import org.opentaint.dataflow.configuration.jvm.ContainsMarkOnAnyField
 import org.opentaint.dataflow.configuration.jvm.IsConstant
 import org.opentaint.dataflow.configuration.jvm.IsNull
 import org.opentaint.dataflow.configuration.jvm.IsStaticField
@@ -30,6 +31,7 @@ interface ConditionRewriter : ConditionVisitor<Condition> {
     override fun visit(condition: ConstantGt): Condition = condition
     override fun visit(condition: ConstantMatches): Condition = condition
     override fun visit(condition: ContainsMark): Condition = condition
+    override fun visit(condition: ContainsMarkOnAnyField): Condition = condition
     override fun visit(condition: TypeMatches): Condition = condition
     override fun visit(condition: TypeMatchesPattern): Condition = condition
     override fun visit(condition: IsStaticField): Condition = condition

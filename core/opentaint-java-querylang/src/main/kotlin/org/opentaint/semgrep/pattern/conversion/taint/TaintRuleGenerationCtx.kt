@@ -2,6 +2,7 @@ package org.opentaint.semgrep.pattern.conversion.taint
 
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
@@ -27,7 +28,7 @@ class TaintRuleGenerationCtx(
 
     interface CompositionStrategy {
         fun stateContains(state: State, varName: MetavarAtom, pos: PositionBaseWithModifiers): SerializedCondition? = null
-        fun stateAssign(state: State, varName: MetavarAtom, pos: PositionBaseWithModifiers): List<SerializedTaintAssignAction>? = null
+        fun stateAssign(state: State, varName: MetavarAtom, pos: PositionBaseWithModifiers): List<SerializedAssignAction>? = null
         fun stateClean(state: State, stateBefore: State, varName: MetavarAtom?, pos: PositionBaseWithModifiers?): List<SerializedTaintCleanAction>? = null
         fun stateAccessedMarks(state: State, varName: MetavarAtom): Set<Mark.GeneratedMark>? = null
     }
@@ -45,7 +46,7 @@ class TaintRuleGenerationCtx(
         varName: MetavarAtom,
         state: State,
         position: PositionBaseWithModifiers
-    ): List<SerializedTaintAssignAction> {
+    ): List<SerializedAssignAction> {
         compositionStrategy?.stateAssign(state, varName, position)?.let { return it }
 
         val markName = stateMarkName(varName, state)

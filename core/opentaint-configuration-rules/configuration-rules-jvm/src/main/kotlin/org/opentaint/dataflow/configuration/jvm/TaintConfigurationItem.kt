@@ -14,40 +14,40 @@ sealed interface TaintConfigurationItem : CommonTaintConfigurationItem {
 
 sealed interface TaintConfigurationSource : TaintConfigurationItem, CommonTaintConfigurationSource {
     val condition: Condition
-    val actionsAfter: List<AssignMark>
+    val actionsAfter: List<AssignAction>
 }
 
 data class TaintEntryPointSource(
     val method: CommonMethod,
     override val condition: Condition,
-    override val actionsAfter: List<AssignMark>,
+    override val actionsAfter: List<AssignAction>,
     override val info: ItemInfo?,
 ) : TaintConfigurationSource
 
 data class TaintMethodSource(
     val method: CommonMethod,
     override val condition: Condition,
-    override val actionsAfter: List<AssignMark>,
+    override val actionsAfter: List<AssignAction>,
     override val info: ItemInfo?,
 ) : TaintConfigurationSource
 
 data class TaintMethodExitSource(
     val method: CommonMethod,
     override val condition: Condition,
-    override val actionsAfter: List<AssignMark>,
+    override val actionsAfter: List<AssignAction>,
     override val info: ItemInfo?,
 ) : TaintConfigurationSource
 
 data class TaintStaticFieldSource(
     val field: JIRField,
     override val condition: Condition,
-    override val actionsAfter: List<AssignMark>,
+    override val actionsAfter: List<AssignAction>,
     override val info: ItemInfo?,
 ) : TaintConfigurationSource
 
 sealed interface TaintConfigurationSink : TaintConfigurationItem, CommonTaintConfigurationSink {
     val condition: Condition
-    val trackFactsReachAnalysisEnd: List<AssignMark>
+    val trackFactsReachAnalysisEnd: List<AssignAction>
 }
 
 data class TaintSinkMeta(
@@ -59,7 +59,7 @@ data class TaintSinkMeta(
 data class TaintMethodSink(
     val method: CommonMethod,
     override val condition: Condition,
-    override val trackFactsReachAnalysisEnd: List<AssignMark>,
+    override val trackFactsReachAnalysisEnd: List<AssignAction>,
     override val id: String,
     override val meta: TaintSinkMeta,
     override val info: ItemInfo?,
@@ -68,7 +68,7 @@ data class TaintMethodSink(
 data class TaintMethodExitSink(
     val method: CommonMethod,
     override val condition: Condition,
-    override val trackFactsReachAnalysisEnd: List<AssignMark>,
+    override val trackFactsReachAnalysisEnd: List<AssignAction>,
     override val id: String,
     override val meta: CommonTaintConfigurationSinkMeta,
     override val info: ItemInfo?,
@@ -77,7 +77,7 @@ data class TaintMethodExitSink(
 data class TaintMethodEntrySink(
     val method: CommonMethod,
     override val condition: Condition,
-    override val trackFactsReachAnalysisEnd: List<AssignMark>,
+    override val trackFactsReachAnalysisEnd: List<AssignAction>,
     override val id: String,
     override val meta: CommonTaintConfigurationSinkMeta,
     override val info: ItemInfo?,

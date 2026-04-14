@@ -5,11 +5,14 @@ import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.jvm.Argument
+import org.opentaint.dataflow.configuration.jvm.AssignAction
 import org.opentaint.dataflow.configuration.jvm.AssignMark
+import org.opentaint.dataflow.configuration.jvm.AssignMarkAnyField
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
 import org.opentaint.dataflow.configuration.jvm.Condition
 import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
+import org.opentaint.dataflow.configuration.jvm.ContainsMarkOnAnyField
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.Position
 import org.opentaint.dataflow.configuration.jvm.PositionAccessor
@@ -27,7 +30,6 @@ import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
 import org.opentaint.dataflow.configuration.jvm.This
 import org.opentaint.dataflow.jvm.ap.ifds.taint.ConditionRewriter
-import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.taint.resolveBaseAp
 import org.opentaint.ir.api.common.CommonMethod
@@ -57,8 +59,11 @@ class SpringRuleProvider(
         return rule.copy(actionsAfter = actions)
     }
 
-    private fun taintObjectFields(method: JIRMethod, assign: AssignMark): List<AssignMark> {
-        val base = assign.position.resolveBaseAp()
+    private fun taintObjectFields(method: JIRMethod, assign: AssignAction): List<AssignAction> {
+        val base = when (assign) {
+            is AssignMark -> assign.position.resolveBaseAp()
+            is AssignMarkAnyField -> assign.positionWithAny.resolveBaseAp()
+        }
         if (base !is AccessPathBase.Argument) return listOf(assign)
 
         val paramTypeName = method.parameters.getOrNull(base.idx)?.type
@@ -69,7 +74,10 @@ class SpringRuleProvider(
         // todo: better handling of suspend functions
         if (paramTypeName.isKotlinContinuation()) return emptyList()
 
-        val allFieldsPosition = PositionWithAccess(assign.position, PositionAccessor.AnyFieldAccessor)
+        val allFieldsPosition = when (assign) {
+            is AssignMark -> PositionWithAccess(assign.position, PositionAccessor.AnyFieldAccessor)
+            is AssignMarkAnyField -> assign.positionWithAny
+        }
         val allFieldsAssign = AssignMark(assign.mark, allFieldsPosition)
 
         return listOf(assign, allFieldsAssign)

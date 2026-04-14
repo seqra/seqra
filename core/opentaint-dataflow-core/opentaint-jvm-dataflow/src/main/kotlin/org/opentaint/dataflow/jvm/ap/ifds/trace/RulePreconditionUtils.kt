@@ -5,6 +5,7 @@ import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.configuration.jvm.AssignAction
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationSource
@@ -23,8 +24,8 @@ fun <R: TaintConfigurationSource> evaluateSourceRulePrecondition(
     rule: R,
     sourcePreconditionEvaluator: TaintSourceActionPreconditionEvaluator,
     conditionRewriter: JIRMarkAwareConditionRewriter,
-    mkSource: (R, Set<AssignMark>) -> Unit,
-    mkPass: (R, Set<AssignMark>, JIRMarkAwareConditionExpr) -> Unit,
+    mkSource: (R, Set<AssignAction>) -> Unit,
+    mkPass: (R, Set<AssignAction>, JIRMarkAwareConditionExpr) -> Unit,
 ) {
     val assignedMarks = rule.actionsAfter.maybeFlatMap {
         sourcePreconditionEvaluator.evaluate(rule, it)

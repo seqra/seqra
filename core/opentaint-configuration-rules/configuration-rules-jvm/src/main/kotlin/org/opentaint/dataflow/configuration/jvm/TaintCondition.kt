@@ -15,6 +15,7 @@ interface ConditionVisitor<out R> {
     fun visit(condition: ConstantGt): R
     fun visit(condition: ConstantMatches): R
     fun visit(condition: ContainsMark): R
+    fun visit(condition: ContainsMarkOnAnyField): R
     fun visit(condition: TypeMatches): R
     fun visit(condition: TypeMatchesPattern): R
     fun visit(condition: IsStaticField): R
@@ -89,6 +90,17 @@ data class ConstantMatches(
 
 @Suppress("EqualsOrHashCode")
 data class ContainsMark(
+    val position: Position,
+    val mark: TaintMark,
+) : Condition {
+    override fun <R> accept(conditionVisitor: ConditionVisitor<R>): R = conditionVisitor.visit(this)
+
+    private val hash = Objects.hash(position, mark)
+    override fun hashCode(): Int = hash
+}
+
+@Suppress("EqualsOrHashCode")
+data class ContainsMarkOnAnyField(
     val position: Position,
     val mark: TaintMark,
 ) : Condition {

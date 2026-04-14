@@ -5,7 +5,9 @@ import kotlinx.collections.immutable.persistentHashMapOf
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.jvm.Action
 import org.opentaint.dataflow.configuration.jvm.Argument
+import org.opentaint.dataflow.configuration.jvm.AssignAction
 import org.opentaint.dataflow.configuration.jvm.AssignMark
+import org.opentaint.dataflow.configuration.jvm.AssignMarkAnyField
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
 import org.opentaint.dataflow.configuration.jvm.Condition
 import org.opentaint.dataflow.configuration.jvm.ConditionNameMatcher
@@ -18,6 +20,7 @@ import org.opentaint.dataflow.configuration.jvm.ConstantMatches
 import org.opentaint.dataflow.configuration.jvm.ConstantStringValue
 import org.opentaint.dataflow.configuration.jvm.ConstantTrue
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
+import org.opentaint.dataflow.configuration.jvm.ContainsMarkOnAnyField
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.CopyMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
@@ -53,6 +56,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedAction
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationConstraint
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationParamMatcher
@@ -64,6 +68,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameM
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Pattern
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Simple
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAnyFieldAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintPassAction
@@ -448,6 +453,7 @@ class TaintConfiguration(cp: JIRClasspath) {
         condition.collectAnyArgumentClassifiers(classifiers)
         actions.forEach {
             when (it) {
+                is SerializedTaintAssignAnyFieldAction -> it.posAnyField.collectAnyArgumentClassifiers(classifiers)
                 is SerializedTaintAssignAction -> it.pos.collectAnyArgumentClassifiers(classifiers)
                 is SerializedTaintCleanAction -> it.pos.collectAnyArgumentClassifiers(classifiers)
                 is SerializedTaintPassAction -> {
@@ -504,6 +510,7 @@ class TaintConfiguration(cp: JIRClasspath) {
         is SerializedCondition.IsType -> pos.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.IsStaticField -> pos.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.ParamAnnotated -> pos.collectAnyArgumentClassifiers(classifiers)
+        is SerializedCondition.ContainsMarkAnyField -> pos.collectAnyArgumentClassifiers(classifiers)
         is SerializedCondition.ClassAnnotated,
         is SerializedCondition.MethodAnnotated,
         is SerializedCondition.MethodNameMatches,
@@ -667,6 +674,12 @@ class TaintConfiguration(cp: JIRClasspath) {
         is SerializedCondition.ClassNameMatches -> {
             className.match(method.enclosingClass.name).asCondition()
         }
+
+        is SerializedCondition.ContainsMarkAnyField -> mkOr(
+            pos.resolvePosition(method, ctx)
+                .flatMap { it.resolveArrayPosition(method) }
+                .map { ContainsMarkOnAnyField(it, taintMark(tainted)) }
+        )
     }
 
     private fun Boolean.asCondition(): Condition = if (this) mkTrue() else mkFalse()
@@ -707,15 +720,36 @@ class TaintConfiguration(cp: JIRClasspath) {
         return mkOr(nonFalsePositions.map { TypeMatchesPattern(it, matcher) })
     }
 
-    private fun SerializedTaintAssignAction.resolveWithArray(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignMark> =
-        pos.resolvePositionWithAnnotationConstraint(method, ctx, annotatedWith?.asAnnotationConstraint())
-            .flatMap { it.resolveArrayPosition(method) }
-            .map { AssignMark(taintMark(kind), it) }
+    private fun SerializedAssignAction.resolveWithArray(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignAction> {
+        val (pos, ctr) = when (this) {
+            is SerializedTaintAssignAction -> pos to ::AssignMark
+            is SerializedTaintAssignAnyFieldAction -> posAnyField to ::AssignMarkAnyField
+        }
+        return createAssignWithArray(method, ctx, pos, ctr)
+    }
 
-    private fun SerializedTaintAssignAction.resolveNoArray(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignMark> =
+    private fun SerializedAssignAction.resolveNoArray(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignAction> {
+        val (pos, ctr) = when (this) {
+            is SerializedTaintAssignAction -> pos to ::AssignMark
+            is SerializedTaintAssignAnyFieldAction -> posAnyField to ::AssignMarkAnyField
+        }
+        return createAssignNoArray(method, ctx, pos, ctr)
+    }
+
+    private fun SerializedAssignAction.createAssignWithArray(
+        method: JIRMethod, ctx: AnyArgSpecializationCtx, pos: PositionBaseWithModifiers,
+        ctr: (TaintMark, Position) -> AssignAction
+    ): List<AssignAction> =
         pos.resolvePositionWithAnnotationConstraint(method, ctx, annotatedWith?.asAnnotationConstraint())
             .flatMap { it.resolveArrayPosition(method) }
-            .map { AssignMark(taintMark(kind), it) }
+            .map { ctr(taintMark(kind), it) }
+
+    private fun SerializedAssignAction.createAssignNoArray(
+        method: JIRMethod, ctx: AnyArgSpecializationCtx, pos: PositionBaseWithModifiers,
+        ctr: (TaintMark, Position) -> AssignAction
+    ): List<AssignAction> =
+        pos.resolvePositionWithAnnotationConstraint(method, ctx, annotatedWith?.asAnnotationConstraint())
+            .map { ctr(taintMark(kind), it) }
 
     private fun Position.resolveArrayPosition(method: JIRMethod): List<Position> = when (this) {
         is ClassStatic -> listOf(this)

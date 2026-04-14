@@ -2,6 +2,8 @@ package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
+import org.opentaint.dataflow.configuration.jvm.AssignMark
+import org.opentaint.dataflow.configuration.jvm.AssignMarkAnyField
 import org.opentaint.dataflow.configuration.jvm.Position
 import org.opentaint.dataflow.configuration.jvm.RemoveMark
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
@@ -56,7 +58,12 @@ class JIRMethodCallRuleBasedSummaryRewriter(
             val simplifiedCondition = conditionRewriter.rewrite(sourceRule.condition)
             if (simplifiedCondition.isFalse) continue
 
-            val positions = sourceRule.actionsAfter.mapTo(hashSetOf()) { it.position }
+            val positions = sourceRule.actionsAfter.mapTo(hashSetOf()) {
+                when (it) {
+                    is AssignMark -> it.position
+                    is AssignMarkAnyField -> it.barePosition // TODO
+                }
+            }
             result += UserRuleDefinedAction(sourceRule, positions, ruleInfo.relevantTaintMarks)
         }
 

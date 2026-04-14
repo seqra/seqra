@@ -1,9 +1,8 @@
 package org.opentaint.semgrep.util
 
 import base.RuleSample
-import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta.Severity
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SourceRule
@@ -92,7 +91,7 @@ abstract class SampleBasedTest(
         )
     }
 
-    private fun List<SerializedItem?>?.getAssigns(): List<SerializedTaintAssignAction> =
+    private fun List<SerializedItem?>?.getAssigns(): List<SerializedAssignAction> =
         this?.mapNotNull { rule ->
             when (rule) {
                 is SourceRule -> rule.taint

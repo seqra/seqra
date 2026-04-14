@@ -2,6 +2,7 @@ package org.opentaint.semgrep.pattern.conversion.taint
 
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationParamMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationParamStringMatcher
@@ -17,6 +18,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Pattern
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Simple
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAnyFieldAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
@@ -150,11 +152,16 @@ private data class EvaluatedEdgeCondition(
 
 private fun generateEndSink(
     cond: SerializedCondition,
-    afterSinkActions: List<SerializedTaintAssignAction>,
+    afterSinkActions: List<SerializedAssignAction>,
     id: String,
     meta: SinkMetaData,
 ): List<SinkRule> {
-    val endActions = afterSinkActions.map { it.copy(pos = it.pos.rewriteAsEndPosition()) }
+    val endActions = afterSinkActions.map {
+        when (it) {
+            is SerializedTaintAssignAction -> it.copy(pos = it.pos.rewriteAsEndPosition())
+            is SerializedTaintAssignAnyFieldAction -> it.copy(posAnyField = it.posAnyField.rewriteAsEndPosition())
+        }
+    }
     return generateMethodEndRule(
         cond = cond,
         generateWithoutMatchedEp = { f, endCondition ->
@@ -194,6 +201,7 @@ private fun SerializedCondition.rewriteAsEndCondition(): SerializedCondition = w
     is SerializedCondition.IsNull -> copy(isNull = isNull.rewriteAsEndPosition())
     is SerializedCondition.ConstantMatches -> copy(pos = pos.rewriteAsEndPosition())
     is SerializedCondition.ContainsMark -> copy(pos = pos.rewriteAsEndPosition())
+    is SerializedCondition.ContainsMarkAnyField -> copy(pos = pos.rewriteAsEndPosition())
     is SerializedCondition.IsConstant -> copy(isConstant = isConstant.rewriteAsEndPosition())
     is SerializedCondition.IsType -> copy(pos = pos.rewriteAsEndPosition())
     is SerializedCondition.ParamAnnotated -> copy(pos = pos.rewriteAsEndPosition())
@@ -221,10 +229,15 @@ private fun PositionBase.rewriteAsEndPosition(): PositionBase = when (this) {
 
 private fun generateMethodEndSource(
     cond: SerializedCondition,
-    actions: List<SerializedTaintAssignAction>,
+    actions: List<SerializedAssignAction>,
     info: UserRuleFromSemgrepInfo,
 ): List<SerializedRule.MethodExitSource> {
-    val endActions = actions.map { it.copy(pos = it.pos.rewriteAsEndPosition()) }
+    val endActions = actions.map {
+        when (it) {
+            is SerializedTaintAssignAction -> it.copy(pos = it.pos.rewriteAsEndPosition())
+            is SerializedTaintAssignAnyFieldAction -> it.copy(posAnyField = it.posAnyField.rewriteAsEndPosition())
+        }
+    }
     return generateMethodEndRule(
         cond = cond,
         generateWithoutMatchedEp = { f, endCond ->
@@ -349,7 +362,7 @@ fun TaintRuleGenerationCtx.generateTaintRules(ctx: RuleConversionCtx): List<Seri
 private fun TaintRuleGenerationCtx.buildStateAssignAction(
     state: State,
     edgeCondition: EvaluatedEdgeCondition
-): List<SerializedTaintAssignAction> {
+): List<SerializedAssignAction> {
     val requiredVariables = state.register.assignedVars.keys
     val result = requiredVariables.flatMapTo(mutableListOf()) { varName ->
         val varPosition = edgeCondition.accessedVarPosition[varName] ?: return@flatMapTo emptyList()

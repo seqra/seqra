@@ -1,10 +1,10 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
+import org.opentaint.dataflow.configuration.jvm.ContainsMarkOnAnyField
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionExpr.And
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionExpr.Literal
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionExpr.Or
-import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.util.cartesianProductMapTo
 
 sealed interface JIRMarkAwareConditionExpr {

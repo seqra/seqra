@@ -3,8 +3,8 @@ package org.opentaint.semgrep.pattern.conversion.taint
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
 import org.opentaint.semgrep.pattern.GeneratedTaintMark
 import org.opentaint.semgrep.pattern.Mark
@@ -162,13 +162,13 @@ private fun RuleConversionCtx.convertCompositionLeftMatchingRule(
                 state: TaintRegisterStateAutomata.State,
                 varName: MetavarAtom,
                 pos: PositionBaseWithModifiers
-            ): List<SerializedTaintAssignAction>? {
+            ): List<SerializedAssignAction>? {
                 if (state !in finalStates) return null
 
                 val markName = state.stateMarkName(varName, prefix)
                     ?: return emptyList()
 
-                return listOf(markName.mkAssignMark(pos.addAny()))
+                return listOf(markName.mkAssignMarkAnyField(pos))
             }
         }
 
@@ -230,12 +230,9 @@ private fun RuleConversionCtx.convertCompositionRightMatchingRule(
                 val value = state.register.assignedVars[varName]
                 if (value != initialStateId) return null
 
-                // will this create too many identical objects?
-                val posAnyField = pos.addAny()
-
                 return serializedConditionOr(
                     leftFinalMarks.map {
-                        it.mkContainsMark(posAnyField)
+                        it.mkContainsMarkOnAny(pos)
                     }
                 )
             }
