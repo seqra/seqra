@@ -1437,7 +1437,7 @@ class AccessTree(
 
                 return rebuildExtractedTrees(
                     nodeManager, rootId, cutNodeReplacement,
-                    suffixAccessors, suffixSize, suffix, isFinal,
+                    suffixSize, suffix,
                     cutNodes, predecessors,
                 )
             }
@@ -1533,10 +1533,8 @@ class AccessTree(
                 nodeManager: NodeManager,
                 rootId: Int,
                 cutNodeReplacement: AccessNode,
-                suffixAccessors: IntArrayList,
                 suffixSize: Int,
                 fullSuffix: AccessPath.AccessNode,
-                isFinal: Boolean,
                 cutNodeIds: Array<IntArrayList>,
                 predecessors: Int2ObjectOpenHashMap<Int2ObjectOpenHashMap<BitSet>>,
             ): List<Pair<AccessNode, AccessPath.AccessNode?>> {
