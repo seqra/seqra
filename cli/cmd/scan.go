@@ -61,6 +61,15 @@ func (m ScanMode) String() string {
 	}
 }
 
+// scanConfig holds the resolved paths and flags for a scan invocation.
+type scanConfig struct {
+	mode             ScanMode
+	absProjectModel  string // absolute path to the project model (cached or staging)
+	projectCachePath string // cache dir for this project (empty for explicit model / dry-run)
+	stagingDir       string // staging dir path (empty when not compiling or dry-run)
+	needsCompilation bool   // true when compilation is needed before scanning
+}
+
 // scanCmd represents the scan command
 var scanCmd = &cobra.Command{
 	Use:   "scan [source-path]",
@@ -108,72 +117,19 @@ func init() {
 }
 
 func scan(cmd *cobra.Command) {
-	var absProjectModelPath string
-	var tempLogsDir string
-	var projectCachePath string
-
-	userProjectPath := UserProjectPath
-	userProjectPath = filepath.Clean(userProjectPath)
+	userProjectPath := filepath.Clean(UserProjectPath)
 	absUserProjectRoot := log.AbsPathOrExit(userProjectPath, "project path")
-
-	tempProjectModel := false
-	var tempProjectModelPath string
-
-	cleanupStaging := func() {
-		if tempLogsDir != "" {
-			utils.CleanupStagingDir(tempLogsDir)
-		}
-	}
 
 	if !utils.IsSupportedArch() {
 		out.Fatalf("Unsupported architecture found: %s! Only arm64 and amd64 are supported.", utils.GetArch())
 	}
 
-	// Resolve scan mode
-	var scanMode ScanMode
-	if ProjectModelPath != "" {
-		// Explicit project model provided: scan directly, skip compilation
-		scanMode = Scan
-		absProjectModelPath = log.AbsPathOrExit(filepath.Clean(ProjectModelPath), "project model path")
-	} else if DryRunScan {
-		tempProjectModel = true
-		scanMode = CompileAndScan
-		tempProjectModelPath = filepath.Join(os.TempDir(), dryRunScanProjectModelPath)
-		absProjectModelPath = tempProjectModelPath
-	} else {
-		var cerr error
-		projectCachePath, cerr = utils.GetProjectCachePath(absUserProjectRoot)
-		if cerr != nil {
-			out.Fatalf("Failed to create model cache directory: %s", cerr)
-		}
+	cfg := resolveScanConfig(absUserProjectRoot)
+	absProjectModelPath := cfg.absProjectModel
 
-		// Reuse cached model if it exists and --recompile is not set
-		cachedModelReused := false
-		cachedModelPath := utils.CachedProjectModelPath(projectCachePath)
-		if !Recompile {
-			if _, serr := os.Stat(filepath.Join(cachedModelPath, "project.yaml")); serr == nil {
-				cachedModelReused = true
-				scanMode = Scan
-				absProjectModelPath = cachedModelPath
-				output.LogDebugf("Reusing cached model at: %s", absProjectModelPath)
-			}
-		}
-
-		// No cached model or --recompile: compile into staging
-		if !cachedModelReused {
-			// Check if another process is already compiling
-			if utils.HasStagingDir(projectCachePath) {
-				out.Fatalf("Compilation already in progress for this project. Wait for it to finish, or use --project-model to scan an existing model.")
-			}
-			tempProjectModel = true
-			scanMode = CompileAndScan
-			stagingDir, serr := utils.CreateStagingDir(projectCachePath)
-			if serr != nil {
-				out.Fatalf("Failed to create staging directory: %s", serr)
-			}
-			tempProjectModelPath = filepath.Join(stagingDir, "project-model")
-			absProjectModelPath = tempProjectModelPath
-			tempLogsDir = stagingDir
+	cleanupStaging := func() {
+		if cfg.stagingDir != "" {
+			utils.CleanupStagingDir(cfg.stagingDir)
 		}
 	}
 
@@ -209,7 +165,7 @@ func scan(cmd *cobra.Command) {
 	localSemanticVersion := version.GetVersion()
 
 	var sourceRoot string
-	if !tempProjectModel {
+	if !cfg.needsCompilation {
 		if parsedSourceRoot, err := project.GetSourceRoot(absProjectModelPath); err != nil {
 			out.Fatalf("Failed to parse sourceRoot from project.yaml: %v", err)
 		} else {
@@ -229,7 +185,7 @@ func scan(cmd *cobra.Command) {
 	}
 
 	// Display scan information in tree format
-	printScanInfo(cmd, scanMode, projectCachePath, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot, absProjectModelPath, absRuleSetPaths)
+	printScanInfo(cmd, cfg, absSemgrepRuleLoadTracePath, absUserProjectRoot, absRuleSetPaths)
 
 	var nonBuiltinRulesetPaths []string
 	for _, r := range absRuleSetPaths {
@@ -238,15 +194,9 @@ func scan(cmd *cobra.Command) {
 		}
 	}
 
-	maxMemory, err := validation.ValidateScanInputs(absUserProjectRoot, absProjectModelPath, absSarifReportPath, nonBuiltinRulesetPaths, Severity, globals.Config.Scan.MaxMemory, scanMode == Scan)
+	maxMemory, err := validation.ValidateScanInputs(absUserProjectRoot, absProjectModelPath, absSarifReportPath, nonBuiltinRulesetPaths, Severity, globals.Config.Scan.MaxMemory, cfg.mode == Scan)
 	if err != nil {
 		out.Fatalf("Input validation failed: %s", err)
-	}
-
-	if !tempProjectModel {
-		if err := utils.EnsureParentDir(absSarifReportPath); err != nil {
-			out.Fatalf("Failed to create output directory: %s", err)
-		}
 	}
 
 	if DryRunScan {
@@ -266,7 +216,7 @@ func scan(cmd *cobra.Command) {
 		}
 	}
 
-	if tempProjectModel {
+	if cfg.needsCompilation {
 		autobuilderJarPath, err := ensureAutobuilderAvailable()
 		if err != nil {
 			out.Fatalf("Native compile preparation failed: %s", err)
@@ -283,7 +233,7 @@ func scan(cmd *cobra.Command) {
 		}
 
 		if err := out.RunWithSpinner("Compiling project model", func() error {
-			return compile(absUserProjectRoot, tempProjectModelPath, autobuilderJarPath, compileJavaRunner, Internal)
+			return compile(absUserProjectRoot, cfg.absProjectModel, autobuilderJarPath, compileJavaRunner, Internal)
 		}); err != nil {
 			cleanupStaging()
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
@@ -293,12 +243,12 @@ func scan(cmd *cobra.Command) {
 		out.Blank()
 
 		// Promote staging to cache
-		if projectCachePath != "" {
-			if err := utils.PromoteStagingToCache(projectCachePath, tempLogsDir); err != nil {
+		if cfg.projectCachePath != "" {
+			if err := utils.PromoteStagingToCache(cfg.projectCachePath, cfg.stagingDir); err != nil {
 				output.LogInfof("Failed to promote staging to cache: %v", err)
 			} else {
-				tempLogsDir = "" // staging dir no longer exists
-				absProjectModelPath = utils.CachedProjectModelPath(projectCachePath)
+				cfg.stagingDir = "" // staging dir no longer exists
+				absProjectModelPath = utils.CachedProjectModelPath(cfg.projectCachePath)
 				output.LogDebugf("Model cached at: %s", absProjectModelPath)
 			}
 		}
@@ -309,11 +259,11 @@ func scan(cmd *cobra.Command) {
 			sarifReportName = filepath.Base(absSarifReportPath)
 		}
 
-		if err := utils.EnsureParentDir(absSarifReportPath); err != nil {
-			out.Fatalf("Failed to create output directory: %s", err)
-		}
-
 		printCompileSummary(absProjectModelPath)
+	}
+
+	if err := utils.EnsureParentDir(absSarifReportPath); err != nil {
+		out.Fatalf("Failed to create output directory: %s", err)
 	}
 
 	// Update builder with native paths for native execution
@@ -394,20 +344,72 @@ func scan(cmd *cobra.Command) {
 	suggest("To view findings run", fmt.Sprintf("opentaint summary --show-findings %s", absSarifReportPath))
 }
 
-func printScanInfo(cmd *cobra.Command, mode ScanMode, projectCachePath string, absSemgrepRuleLoadTracePath string, tempProjectModel bool, absUserProjectRoot string, absProjectModelPath string, absRuleSetPaths []RulesetType) {
-	sb := out.Section(mode.String())
+func resolveScanConfig(absUserProjectRoot string) scanConfig {
+	if ProjectModelPath != "" {
+		return scanConfig{
+			mode:            Scan,
+			absProjectModel: log.AbsPathOrExit(filepath.Clean(ProjectModelPath), "project model path"),
+		}
+	}
+
+	if DryRunScan {
+		dryRunPath := filepath.Join(os.TempDir(), dryRunScanProjectModelPath)
+		return scanConfig{
+			mode:             CompileAndScan,
+			absProjectModel:  dryRunPath,
+			needsCompilation: true,
+		}
+	}
+
+	projectCachePath, err := utils.GetProjectCachePath(absUserProjectRoot)
+	if err != nil {
+		out.Fatalf("Failed to create model cache directory: %s", err)
+	}
+
+	cachedModelPath := utils.CachedProjectModelPath(projectCachePath)
+	if !Recompile {
+		if _, serr := os.Stat(filepath.Join(cachedModelPath, "project.yaml")); serr == nil {
+			output.LogDebugf("Reusing cached model at: %s", cachedModelPath)
+			return scanConfig{
+				mode:             Scan,
+				absProjectModel:  cachedModelPath,
+				projectCachePath: projectCachePath,
+			}
+		}
+	}
+
+	if utils.HasStagingDir(projectCachePath) {
+		out.Fatalf("Compilation already in progress for this project. Wait for it to finish, or use --project-model to scan an existing model.")
+	}
+
+	stagingDir, serr := utils.CreateStagingDir(projectCachePath)
+	if serr != nil {
+		out.Fatalf("Failed to create staging directory: %s", serr)
+	}
+
+	return scanConfig{
+		mode:             CompileAndScan,
+		absProjectModel:  filepath.Join(stagingDir, "project-model"),
+		projectCachePath: projectCachePath,
+		stagingDir:       stagingDir,
+		needsCompilation: true,
+	}
+}
+
+func printScanInfo(cmd *cobra.Command, cfg scanConfig, absSemgrepRuleLoadTracePath string, absUserProjectRoot string, absRuleSetPaths []RulesetType) {
+	sb := out.Section(cfg.mode.String())
 	addConfigFields(cmd, sb)
 	if globals.Config.Log.Verbosity == "debug" {
 		sb.Field("Rule load trace", absSemgrepRuleLoadTracePath)
 		sb.Line()
 	}
-	if tempProjectModel {
+	if cfg.needsCompilation {
 		sb.Field("Project", absUserProjectRoot)
-		if projectCachePath != "" {
-			sb.Field("Project model", utils.CachedProjectModelPath(projectCachePath))
+		if cfg.projectCachePath != "" {
+			sb.Field("Project model", utils.CachedProjectModelPath(cfg.projectCachePath))
 		}
 	} else {
-		sb.Field("Project model", absProjectModelPath)
+		sb.Field("Project model", cfg.absProjectModel)
 	}
 	for _, r := range absRuleSetPaths {
 		if r.Builtin {
