@@ -195,7 +195,7 @@ jobs:
       - name: Run opentaint scan on pre-compiled model without --output
         working-directory: cli
         run: |
-          ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} portable-project
+          ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --project-model portable-project
 
       - name: Verify SARIF placed inside provided project-model
         working-directory: cli
