@@ -88,8 +88,8 @@ func CreateStagingDir(cacheDir string) (string, error) {
 
 // PromoteStagingToCache moves the compiled project-model/ from the staging
 // directory into the cache, replacing any existing cached model.
-// Concurrent compilations are prevented by HasStagingDir, so it is safe
-// to remove and replace the existing project-model/ directory.
+// HasStagingDir provides best-effort detection of concurrent compilations
+// (not a lock), so in practice only one process promotes at a time.
 func PromoteStagingToCache(cacheDir, stagingPath string) error {
 	srcPM := filepath.Join(stagingPath, projectModelDir)
 	destPM := filepath.Join(cacheDir, projectModelDir)
@@ -110,8 +110,9 @@ func PromoteStagingToCache(cacheDir, stagingPath string) error {
 	return nil
 }
 
-// HasStagingDir checks whether any .staging-* directory exists in cacheDir,
-// indicating that another process is currently compiling a model.
+// HasStagingDir checks whether any .staging-* directory exists in cacheDir.
+// This is a best-effort heuristic (not a lock) for detecting in-progress
+// compilations; a TOCTOU race is possible but unlikely for a CLI tool.
 func HasStagingDir(cacheDir string) bool {
 	entries, err := os.ReadDir(cacheDir)
 	if err != nil {
