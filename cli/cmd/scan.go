@@ -31,6 +31,7 @@ var (
 	Ruleset                   []string
 	DryRunScan                bool
 	Recompile                 bool
+	ScanLogFile               string
 )
 
 type RulesetType struct {
@@ -114,6 +115,7 @@ func init() {
 	scanCmd.Flags().BoolVar(&DryRunScan, "dry-run", false, "Validate inputs and show what would run without compiling or scanning")
 	scanCmd.Flags().BoolVar(&Recompile, "recompile", false, "Force recompilation even if a cached project model exists")
 	scanCmd.Flags().StringVar(&ProjectModelPath, "project-model", "", "Path to a pre-compiled project model (skips compilation)")
+	scanCmd.Flags().StringVar(&ScanLogFile, "log-file", "", "Path to the log file (default: <cache-dir>/logs/<timestamp>.log)")
 }
 
 func scan(cmd *cobra.Command) {
@@ -125,6 +127,16 @@ func scan(cmd *cobra.Command) {
 	}
 
 	cfg := resolveScanConfig(absUserProjectRoot)
+
+	// Activate logging
+	logCachePath := cfg.projectCachePath
+	if logCachePath == "" && ProjectModelPath != "" {
+		logCachePath, _ = utils.GetProjectCachePath(absUserProjectRoot)
+	}
+	if !DryRunScan {
+		activateLogging(ScanLogFile, logCachePath)
+	}
+
 	absProjectModelPath := cfg.absProjectModel
 
 	cleanupStaging := func() {
