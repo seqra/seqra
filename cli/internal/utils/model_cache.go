@@ -69,9 +69,8 @@ func StableProjectModelPath(cacheDir string) string {
 // Returns the path to the staging directory (e.g. <cacheDir>/.staging-<pid>-<timestamp>/).
 // The staging directory contains a project-model/ subdirectory ready for compilation output.
 func CreateStagingDir(cacheDir string) (string, error) {
-	name := fmt.Sprintf(".staging-%d-%d", os.Getpid(), time.Now().UnixNano())
-	stagingPath := filepath.Join(cacheDir, name)
-	if err := os.MkdirAll(stagingPath, 0o755); err != nil {
+	stagingPath, err := os.MkdirTemp(cacheDir, ".staging-")
+	if err != nil {
 		return "", fmt.Errorf("failed to create staging directory: %w", err)
 	}
 	return stagingPath, nil
