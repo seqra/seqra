@@ -239,7 +239,10 @@ Examples:
 		// Activate logging — derive cache slug from --output path
 		if !DryRunProject {
 			outputAbs := log.AbsPathOrExit(filepath.Clean(OutputDir), "output")
-			cachePath, _ := utils.GetProjectCachePath(outputAbs)
+			cachePath, err := utils.GetProjectCachePath(outputAbs)
+			if err != nil {
+				output.LogInfof("Failed to resolve project cache path for logging: %v", err)
+			}
 			activateLogging(ProjectLogFile, cachePath)
 		}
 

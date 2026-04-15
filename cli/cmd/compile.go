@@ -47,7 +47,10 @@ Arguments:
 
 		// Activate logging
 		if !DryRunCompile {
-			cachePath, _ := utils.GetProjectCachePath(absProjectRoot)
+			cachePath, err := utils.GetProjectCachePath(absProjectRoot)
+			if err != nil {
+				output.LogInfof("Failed to resolve project cache path for logging: %v", err)
+			}
 			activateLogging(CompileLogFile, cachePath)
 		}
 

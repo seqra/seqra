@@ -95,6 +95,12 @@ opentaint compile --output ./my-project-model /path/to/project
 opentaint scan --project-model ./my-project-model
 ```
 
+| Flag | Description |
+|------|-------------|
+| `--output`, `-o` | Path to the result project model (required) |
+| `--dry-run` | Validate inputs and show what would run without compiling |
+| `--log-file` | Path to the log file (default: `<cache-dir>/logs/<timestamp>.log`) |
+
 ### opentaint summary
 
 View findings from a SARIF report.
@@ -115,6 +121,16 @@ opentaint project --output ./project-model --source-root /path/to/source \
 
 opentaint scan --project-model ./project-model
 ```
+
+| Flag | Description |
+|------|-------------|
+| `--output`, `-o` | Output directory for project.yaml (required) |
+| `--source-root` | Source root directory (required) |
+| `--classpath` | Classpath entries — classes or JAR files (required) |
+| `--package` | Project packages (required) |
+| `--dependency` | Project dependencies — JAR files |
+| `--dry-run` | Validate inputs and show what would run without generating project model |
+| `--log-file` | Path to the log file (default: `<cache-dir>/logs/<timestamp>.log`) |
 
 ## Model Caching
 
