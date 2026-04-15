@@ -64,8 +64,8 @@ def bi_list():
 
     @Test
     fun `binary operations produce PIRBinOp`() {
-        val binOps = insts("bi_add").filterAssignOf<PIRBinExpr>()
-        Assertions.assertTrue(binOps.any { it.binExpr.op == PIRBinaryOperator.ADD },
+        val binOps = insts("bi_add").filterAssignOf<PIRBinaryExpr>()
+        Assertions.assertTrue(binOps.any { it.binaryExpr is PIRAddExpr },
             "Expected ADD binary op, found: $binOps")
     }
 

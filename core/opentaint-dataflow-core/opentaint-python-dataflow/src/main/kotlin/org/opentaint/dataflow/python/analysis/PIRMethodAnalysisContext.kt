@@ -61,7 +61,7 @@ private class LocalNameCollector(
     private fun visitExpr(expr: PIRExpr) {
         when (expr) {
             is PIRValue -> visit(expr)
-            is PIRBinExpr -> { visit(expr.left); visit(expr.right) }
+            is PIRBinaryExpr -> { visit(expr.left); visit(expr.right) }
             is PIRUnaryExpr -> visit(expr.operand)
             is PIRCompareExpr -> { visit(expr.left); visit(expr.right) }
             is PIRAttrExpr -> visit(expr.obj)

@@ -57,24 +57,57 @@ data class PIRAssign(
 
 
 
-// ─── Compound Expressions ───────────────────────────────────
+// ─── Binary Expressions ────────────────────────────────────
 
-data class PIRBinExpr(
-    val left: PIRValue,
-    val right: PIRValue,
-    val op: PIRBinaryOperator,
-) : PIRExpr
+sealed interface PIRBinaryExpr : PIRExpr {
+    val left: PIRValue
+    val right: PIRValue
+}
 
-data class PIRUnaryExpr(
-    val operand: PIRValue,
-    val op: PIRUnaryOperator,
-) : PIRExpr
+data class PIRAddExpr(override val left: PIRValue, override val right: PIRValue) : PIRBinaryExpr
+data class PIRSubExpr(override val left: PIRValue, override val right: PIRValue) : PIRBinaryExpr
+data class PIRMulExpr(override val left: PIRValue, override val right: PIRValue) : PIRBinaryExpr
+data class PIRDivExpr(override val left: PIRValue, override val right: PIRValue) : PIRBinaryExpr
+data class PIRFloorDivExpr(override val left: PIRValue, override val right: PIRValue) : PIRBinaryExpr
+data class PIRModExpr(override val left: PIRValue, override val right: PIRValue) : PIRBinaryExpr
+data class PIRPowExpr(override val left: PIRValue, override val right: PIRValue) : PIRBinaryExpr
+data class PIRMatMulExpr(override val left: PIRValue, override val right: PIRValue) : PIRBinaryExpr
+data class PIRBitAndExpr(override val left: PIRValue, override val right: PIRValue) : PIRBinaryExpr
+data class PIRBitOrExpr(override val left: PIRValue, override val right: PIRValue) : PIRBinaryExpr
+data class PIRBitXorExpr(override val left: PIRValue, override val right: PIRValue) : PIRBinaryExpr
+data class PIRLShiftExpr(override val left: PIRValue, override val right: PIRValue) : PIRBinaryExpr
+data class PIRRShiftExpr(override val left: PIRValue, override val right: PIRValue) : PIRBinaryExpr
 
-data class PIRCompareExpr(
-    val left: PIRValue,
-    val right: PIRValue,
-    val op: PIRCompareOperator,
-) : PIRExpr
+// ─── Unary Expressions ─────────────────────────────────────
+
+sealed interface PIRUnaryExpr : PIRExpr {
+    val operand: PIRValue
+}
+
+data class PIRNegExpr(override val operand: PIRValue) : PIRUnaryExpr
+data class PIRPosExpr(override val operand: PIRValue) : PIRUnaryExpr
+data class PIRNotExpr(override val operand: PIRValue) : PIRUnaryExpr
+data class PIRInvertExpr(override val operand: PIRValue) : PIRUnaryExpr
+
+// ─── Compare Expressions ───────────────────────────────────
+
+sealed interface PIRCompareExpr : PIRExpr {
+    val left: PIRValue
+    val right: PIRValue
+}
+
+data class PIREqExpr(override val left: PIRValue, override val right: PIRValue) : PIRCompareExpr
+data class PIRNeExpr(override val left: PIRValue, override val right: PIRValue) : PIRCompareExpr
+data class PIRLtExpr(override val left: PIRValue, override val right: PIRValue) : PIRCompareExpr
+data class PIRLeExpr(override val left: PIRValue, override val right: PIRValue) : PIRCompareExpr
+data class PIRGtExpr(override val left: PIRValue, override val right: PIRValue) : PIRCompareExpr
+data class PIRGeExpr(override val left: PIRValue, override val right: PIRValue) : PIRCompareExpr
+data class PIRIsExpr(override val left: PIRValue, override val right: PIRValue) : PIRCompareExpr
+data class PIRIsNotExpr(override val left: PIRValue, override val right: PIRValue) : PIRCompareExpr
+data class PIRInExpr(override val left: PIRValue, override val right: PIRValue) : PIRCompareExpr
+data class PIRNotInExpr(override val left: PIRValue, override val right: PIRValue) : PIRCompareExpr
+
+// ─── Other Expressions ─────────────────────────────────────
 
 data class PIRAttrExpr(
     val obj: PIRValue,
@@ -96,17 +129,6 @@ data class PIRSliceExpr(val lower: PIRValue?, val upper: PIRValue?, val step: PI
 data class PIRStringExpr(val parts: List<PIRValue>) : PIRExpr
 data class PIRIterExpr(val iterable: PIRValue) : PIRExpr
 data class PIRTypeCheckExpr(val value: PIRValue, val checkType: PIRType) : PIRExpr
-
-enum class PIRBinaryOperator {
-    ADD, SUB, MUL, DIV, FLOOR_DIV, MOD, POW, MAT_MUL,
-    BIT_AND, BIT_OR, BIT_XOR, LSHIFT, RSHIFT,
-}
-
-enum class PIRUnaryOperator { NEG, POS, NOT, INVERT }
-
-enum class PIRCompareOperator {
-    EQ, NE, LT, LE, GT, GE, IS, IS_NOT, IN, NOT_IN,
-}
 
 // ─── Memory Store (side-effecting, no result) ───────────────
 
@@ -354,7 +376,7 @@ inline fun <reified E : PIRExpr> Iterable<PIRInstruction>.filterAssignOf(): List
 // ─── Typed accessor extensions for PIRAssign ────────────────
 // These allow `assign.binExpr`, `assign.compareExpr` etc. for convenient access.
 
-val PIRAssign.binExpr: PIRBinExpr get() = expr as PIRBinExpr
+val PIRAssign.binaryExpr: PIRBinaryExpr get() = expr as PIRBinaryExpr
 val PIRAssign.unaryExpr: PIRUnaryExpr get() = expr as PIRUnaryExpr
 val PIRAssign.compareExpr: PIRCompareExpr get() = expr as PIRCompareExpr
 val PIRAssign.attrExpr: PIRAttrExpr get() = expr as PIRAttrExpr

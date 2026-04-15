@@ -132,7 +132,7 @@ class PIRMethodSequentFlowFunction(
         }
 
         // Case 5: Binary expression — taint flows from either operand (e.g. string concatenation)
-        if (expr is PIRBinExpr) {
+        if (expr is PIRBinaryExpr) {
             return handleBinExpr(expr, assignTo, currentFactAp, mkCopy)
         }
 
@@ -328,7 +328,7 @@ class PIRMethodSequentFlowFunction(
      * for arithmetic ops this is conservative but safe.
      */
     private inline fun handleBinExpr(
-        expr: PIRBinExpr,
+        expr: PIRBinaryExpr,
         assignTo: AccessPathBase,
         currentFactAp: FinalFactAp,
         mkCopy: (FinalFactAp) -> Sequent,

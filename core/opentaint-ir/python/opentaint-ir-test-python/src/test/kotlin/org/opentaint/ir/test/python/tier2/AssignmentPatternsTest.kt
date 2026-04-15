@@ -92,7 +92,7 @@ def ap_chained_attr(obj) -> None:
 
     @Test
     fun `ap_augmented_add - produces PIRBinExpr ADD`() {
-        assertTrue(insts("ap_augmented_add").filterAssignOf<PIRBinExpr>().any { it.binExpr.op == PIRBinaryOperator.ADD },
+        assertTrue(insts("ap_augmented_add").filterAssignOf<PIRBinaryExpr>().any { it.binaryExpr is PIRAddExpr },
             "Expected PIRBinExpr(ADD) for 'x += 5'")
     }
 
@@ -104,7 +104,7 @@ def ap_chained_attr(obj) -> None:
 
     @Test
     fun `ap_augmented_mul - produces PIRBinExpr MUL`() {
-        assertTrue(insts("ap_augmented_mul").filterAssignOf<PIRBinExpr>().any { it.binExpr.op == PIRBinaryOperator.MUL },
+        assertTrue(insts("ap_augmented_mul").filterAssignOf<PIRBinaryExpr>().any { it.binaryExpr is PIRMulExpr },
             "Expected PIRBinExpr(MUL) for 'x *= 3'")
     }
 

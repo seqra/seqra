@@ -155,9 +155,9 @@ def ae_yield_from(inner):
 
     @Test
     fun `mat mul produces PIRBinExpr with MAT_MUL`() {
-        val binOps = allInstructions(findFunc("ae_mat_mul")).filterAssignOf<PIRBinExpr>()
-        assertTrue(binOps.any { it.binExpr.op == PIRBinaryOperator.MAT_MUL },
-            "Expected PIRBinExpr(MAT_MUL) for 'a @ b', got ops: ${binOps.map { it.binExpr.op }}")
+        val binOps = allInstructions(findFunc("ae_mat_mul")).filterAssignOf<PIRBinaryExpr>()
+        assertTrue(binOps.any { it.binaryExpr is PIRMatMulExpr },
+            "Expected PIRBinExpr(MAT_MUL) for 'a @ b', got ops: ${binOps.map { it.binaryExpr }}")
     }
 
     // ─── F-string tests ────────────────────────────────────
@@ -368,7 +368,7 @@ def ae_yield_from(inner):
             "Expected PIRLoadSubscript for reading items[0]")
         assertTrue(allInsts.any { it is PIRStoreSubscript },
             "Expected PIRStoreSubscript for writing items[0]")
-        assertTrue(allInsts.filterAssignOf<PIRBinExpr>().any { it.binExpr.op == PIRBinaryOperator.ADD },
+        assertTrue(allInsts.filterAssignOf<PIRBinaryExpr>().any { it.binaryExpr is PIRAddExpr },
             "Expected PIRBinOp(ADD) for += 1")
     }
 

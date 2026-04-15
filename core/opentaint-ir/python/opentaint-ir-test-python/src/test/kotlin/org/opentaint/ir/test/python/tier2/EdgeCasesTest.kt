@@ -385,7 +385,7 @@ def ec_all_param_kinds(a: int, b: int = 0, *args, c: int = 0, **kwargs) -> int:
 
     @Test fun `negative number produces unary neg`() {
         val unary = insts("ec_negative_number").filterAssignOf<PIRUnaryExpr>()
-        assertTrue(unary.isEmpty() || unary.any { it.unaryExpr.op == PIRUnaryOperator.NEG },
+        assertTrue(unary.isEmpty() || unary.any { it.unaryExpr is PIRNegExpr },
             "Negative literal may be const or UnaryOp(NEG)")
     }
 
@@ -400,25 +400,25 @@ def ec_all_param_kinds(a: int, b: int = 0, *args, c: int = 0, **kwargs) -> int:
 
     @Test fun `is None produces IS compare`() {
         val compares = insts("ec_none_check").filterAssignOf<PIRCompareExpr>()
-        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.IS },
+        assertTrue(compares.any { it.compareExpr is PIRIsExpr },
             "Expected IS comparison for 'x is None'")
     }
 
     @Test fun `is not None produces IS_NOT compare`() {
         val compares = insts("ec_none_check_not").filterAssignOf<PIRCompareExpr>()
-        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.IS_NOT },
+        assertTrue(compares.any { it.compareExpr is PIRIsNotExpr },
             "Expected IS_NOT comparison for 'x is not None'")
     }
 
     @Test fun `in check produces IN compare`() {
         val compares = insts("ec_in_check").filterAssignOf<PIRCompareExpr>()
-        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.IN },
+        assertTrue(compares.any { it.compareExpr is PIRInExpr },
             "Expected IN comparison for 'x in items'")
     }
 
     @Test fun `not in check produces NOT_IN compare`() {
         val compares = insts("ec_not_in_check").filterAssignOf<PIRCompareExpr>()
-        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.NOT_IN },
+        assertTrue(compares.any { it.compareExpr is PIRNotInExpr },
             "Expected NOT_IN comparison for 'x not in items'")
     }
 

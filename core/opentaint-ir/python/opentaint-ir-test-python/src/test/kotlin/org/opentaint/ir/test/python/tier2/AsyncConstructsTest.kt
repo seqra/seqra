@@ -257,7 +257,7 @@ async def async_yield_multiple(items):
     @Test
     fun `async_with_normal_code - has normal arithmetic and return`() {
         val all = insts("async_with_normal_code")
-        assertTrue(all.any { it.isAssignOf<PIRBinExpr>() }, "Expected arithmetic (PIRBinOp)")
+        assertTrue(all.any { it.isAssignOf<PIRBinaryExpr>() }, "Expected arithmetic (PIRBinOp)")
         assertTrue(all.any { it is PIRReturn }, "Expected PIRReturn")
     }
 

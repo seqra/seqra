@@ -242,7 +242,7 @@ class PIRReconstructor {
         }
         fun checkExpr(expr: PIRExpr) {
             when (expr) {
-                is PIRBinExpr -> { checkValue(expr.left); checkValue(expr.right) }
+                is PIRBinaryExpr -> { checkValue(expr.left); checkValue(expr.right) }
                 is PIRUnaryExpr -> checkValue(expr.operand)
                 is PIRCompareExpr -> { checkValue(expr.left); checkValue(expr.right) }
                 is PIRAttrExpr -> checkValue(expr.obj)
@@ -380,9 +380,9 @@ class PIRReconstructor {
     private fun reconstructAssign(inst: PIRAssign): List<String> {
         val target = val_(inst.target)
         val exprLines = when (val expr = inst.expr) {
-            is PIRBinExpr -> listOf("$target = ${val_(expr.left)} ${binOp(expr.op)} ${val_(expr.right)}")
-            is PIRUnaryExpr -> listOf("$target = ${unaryOp(expr.op)}${val_(expr.operand)}")
-            is PIRCompareExpr -> listOf("$target = ${val_(expr.left)} ${cmpOp(expr.op)} ${val_(expr.right)}")
+            is PIRBinaryExpr -> listOf("$target = ${val_(expr.left)} ${binOp(expr)} ${val_(expr.right)}")
+            is PIRUnaryExpr -> listOf("$target = ${unaryOp(expr)}${val_(expr.operand)}")
+            is PIRCompareExpr -> listOf("$target = ${val_(expr.left)} ${cmpOp(expr)} ${val_(expr.right)}")
             is PIRAttrExpr -> listOf("$target = ${val_(expr.obj)}.${expr.attribute}")
             is PIRSubscriptExpr -> listOf("$target = ${val_(expr.obj)}[${val_(expr.index)}]")
             is PIRListExpr -> {
@@ -476,40 +476,40 @@ class PIRReconstructor {
             .replace("\$", "_")
     }
 
-    private fun binOp(op: PIRBinaryOperator): String = when (op) {
-        PIRBinaryOperator.ADD -> "+"
-        PIRBinaryOperator.SUB -> "-"
-        PIRBinaryOperator.MUL -> "*"
-        PIRBinaryOperator.DIV -> "/"
-        PIRBinaryOperator.FLOOR_DIV -> "//"
-        PIRBinaryOperator.MOD -> "%"
-        PIRBinaryOperator.POW -> "**"
-        PIRBinaryOperator.MAT_MUL -> "@"
-        PIRBinaryOperator.BIT_AND -> "&"
-        PIRBinaryOperator.BIT_OR -> "|"
-        PIRBinaryOperator.BIT_XOR -> "^"
-        PIRBinaryOperator.LSHIFT -> "<<"
-        PIRBinaryOperator.RSHIFT -> ">>"
+    private fun binOp(expr: PIRBinaryExpr): String = when (expr) {
+        is PIRAddExpr -> "+"
+        is PIRSubExpr -> "-"
+        is PIRMulExpr -> "*"
+        is PIRDivExpr -> "/"
+        is PIRFloorDivExpr -> "//"
+        is PIRModExpr -> "%"
+        is PIRPowExpr -> "**"
+        is PIRMatMulExpr -> "@"
+        is PIRBitAndExpr -> "&"
+        is PIRBitOrExpr -> "|"
+        is PIRBitXorExpr -> "^"
+        is PIRLShiftExpr -> "<<"
+        is PIRRShiftExpr -> ">>"
     }
 
-    private fun unaryOp(op: PIRUnaryOperator): String = when (op) {
-        PIRUnaryOperator.NEG -> "-"
-        PIRUnaryOperator.POS -> "+"
-        PIRUnaryOperator.NOT -> "not "
-        PIRUnaryOperator.INVERT -> "~"
+    private fun unaryOp(expr: PIRUnaryExpr): String = when (expr) {
+        is PIRNegExpr -> "-"
+        is PIRPosExpr -> "+"
+        is PIRNotExpr -> "not "
+        is PIRInvertExpr -> "~"
     }
 
-    private fun cmpOp(op: PIRCompareOperator): String = when (op) {
-        PIRCompareOperator.EQ -> "=="
-        PIRCompareOperator.NE -> "!="
-        PIRCompareOperator.LT -> "<"
-        PIRCompareOperator.LE -> "<="
-        PIRCompareOperator.GT -> ">"
-        PIRCompareOperator.GE -> ">="
-        PIRCompareOperator.IS -> "is"
-        PIRCompareOperator.IS_NOT -> "is not"
-        PIRCompareOperator.IN -> "in"
-        PIRCompareOperator.NOT_IN -> "not in"
+    private fun cmpOp(expr: PIRCompareExpr): String = when (expr) {
+        is PIREqExpr -> "=="
+        is PIRNeExpr -> "!="
+        is PIRLtExpr -> "<"
+        is PIRLeExpr -> "<="
+        is PIRGtExpr -> ">"
+        is PIRGeExpr -> ">="
+        is PIRIsExpr -> "is"
+        is PIRIsNotExpr -> "is not"
+        is PIRInExpr -> "in"
+        is PIRNotInExpr -> "not in"
     }
 
     private fun callArg(arg: PIRCallArg): String = when (arg.kind) {
@@ -522,7 +522,7 @@ class PIRReconstructor {
     private fun collectLocals(inst: PIRInstruction, locals: MutableSet<String>) {
         fun collectExprLocals(expr: PIRExpr) {
             when (expr) {
-                is PIRBinExpr -> { collectLocalFromValue(expr.left, locals); collectLocalFromValue(expr.right, locals) }
+                is PIRBinaryExpr -> { collectLocalFromValue(expr.left, locals); collectLocalFromValue(expr.right, locals) }
                 is PIRUnaryExpr -> collectLocalFromValue(expr.operand, locals)
                 is PIRCompareExpr -> { collectLocalFromValue(expr.left, locals); collectLocalFromValue(expr.right, locals) }
                 is PIRAttrExpr -> collectLocalFromValue(expr.obj, locals)

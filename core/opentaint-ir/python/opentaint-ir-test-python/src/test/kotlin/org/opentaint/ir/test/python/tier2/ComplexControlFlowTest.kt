@@ -178,9 +178,9 @@ def ccf_while_else(n: int) -> bool:
     @Test
     fun `ccf_complex_condition - has GT, LT and EQ comparisons`() {
         val compares = insts("ccf_complex_condition").filterAssignOf<PIRCompareExpr>()
-        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.GT }, "Expected GT")
-        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.LT }, "Expected LT")
-        assertTrue(compares.any { it.compareExpr.op == PIRCompareOperator.EQ }, "Expected EQ")
+        assertTrue(compares.any { it.compareExpr is PIRGtExpr }, "Expected GT")
+        assertTrue(compares.any { it.compareExpr is PIRLtExpr }, "Expected LT")
+        assertTrue(compares.any { it.compareExpr is PIREqExpr }, "Expected EQ")
     }
 
     @Test

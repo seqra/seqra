@@ -294,14 +294,14 @@ def af_isinstance_tuple(x: object) -> bool:
     // ─── Augmented assignment tests ────────────────────────
 
     @Test fun `augmented all produces multiple BinOps`() {
-        val binOps = insts("af_augmented_all").filterAssignOf<PIRBinExpr>()
+        val binOps = insts("af_augmented_all").filterAssignOf<PIRBinaryExpr>()
         assertTrue(binOps.size >= 6,
             "Expected >= 6 BinOps for 6 augmented assigns, got ${binOps.size}")
     }
 
     @Test fun `augmented includes multiple op types`() {
-        val ops = insts("af_augmented_all").filterAssignOf<PIRBinExpr>()
-            .map { it.binExpr.op }.toSet()
+        val ops = insts("af_augmented_all").filterAssignOf<PIRBinaryExpr>()
+            .map { it.binaryExpr::class }.toSet()
         assertTrue(ops.size >= 4,
             "Expected >= 4 different op types, got: $ops")
     }

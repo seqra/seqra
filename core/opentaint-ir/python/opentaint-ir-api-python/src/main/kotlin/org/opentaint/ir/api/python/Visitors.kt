@@ -60,10 +60,37 @@ interface PIRInstVisitor<out T> {
  * Visitor for PIR expressions (right-hand sides of PIRAssign).
  */
 interface PIRExprVisitor<out T> {
-    // Compound expressions
-    fun visitBinExpr(expr: PIRBinExpr): T
-    fun visitUnaryExpr(expr: PIRUnaryExpr): T
-    fun visitCompareExpr(expr: PIRCompareExpr): T
+    // Binary expressions
+    fun visitAddExpr(expr: PIRAddExpr): T
+    fun visitSubExpr(expr: PIRSubExpr): T
+    fun visitMulExpr(expr: PIRMulExpr): T
+    fun visitDivExpr(expr: PIRDivExpr): T
+    fun visitFloorDivExpr(expr: PIRFloorDivExpr): T
+    fun visitModExpr(expr: PIRModExpr): T
+    fun visitPowExpr(expr: PIRPowExpr): T
+    fun visitMatMulExpr(expr: PIRMatMulExpr): T
+    fun visitBitAndExpr(expr: PIRBitAndExpr): T
+    fun visitBitOrExpr(expr: PIRBitOrExpr): T
+    fun visitBitXorExpr(expr: PIRBitXorExpr): T
+    fun visitLShiftExpr(expr: PIRLShiftExpr): T
+    fun visitRShiftExpr(expr: PIRRShiftExpr): T
+    // Unary expressions
+    fun visitNegExpr(expr: PIRNegExpr): T
+    fun visitPosExpr(expr: PIRPosExpr): T
+    fun visitNotExpr(expr: PIRNotExpr): T
+    fun visitInvertExpr(expr: PIRInvertExpr): T
+    // Compare expressions
+    fun visitEqExpr(expr: PIREqExpr): T
+    fun visitNeExpr(expr: PIRNeExpr): T
+    fun visitLtExpr(expr: PIRLtExpr): T
+    fun visitLeExpr(expr: PIRLeExpr): T
+    fun visitGtExpr(expr: PIRGtExpr): T
+    fun visitGeExpr(expr: PIRGeExpr): T
+    fun visitIsExpr(expr: PIRIsExpr): T
+    fun visitIsNotExpr(expr: PIRIsNotExpr): T
+    fun visitInExpr(expr: PIRInExpr): T
+    fun visitNotInExpr(expr: PIRNotInExpr): T
+    // Other expressions
     fun visitAttrExpr(expr: PIRAttrExpr): T
     fun visitSubscriptExpr(expr: PIRSubscriptExpr): T
     fun visitListExpr(expr: PIRListExpr): T

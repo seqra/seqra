@@ -88,15 +88,15 @@ class InstructionConverter(
             }
             PIRInstructionProto.InstCase.BIN_OP -> {
                 val bo = proto.binOp
-                assign(bo.target, PIRBinExpr(v(bo.left), v(bo.right), convertBinaryOp(bo.op)))
+                assign(bo.target, convertBinaryOp(bo.left, bo.right, bo.op))
             }
             PIRInstructionProto.InstCase.UNARY_OP -> {
                 val uo = proto.unaryOp
-                assign(uo.target, PIRUnaryExpr(v(uo.operand), convertUnaryOp(uo.op)))
+                assign(uo.target, convertUnaryOp(uo.operand, uo.op))
             }
             PIRInstructionProto.InstCase.COMPARE -> {
                 val c = proto.compare
-                assign(c.target, PIRCompareExpr(v(c.left), v(c.right), convertCompareOp(c.op)))
+                assign(c.target, convertCompareOp(c.left, c.right, c.op))
             }
             PIRInstructionProto.InstCase.CALL -> {
                 val c = proto.call
@@ -233,42 +233,57 @@ class InstructionConverter(
         )
     }
 
-    private fun convertBinaryOp(op: BinaryOperator): PIRBinaryOperator = when (op) {
-        BinaryOperator.ADD -> PIRBinaryOperator.ADD
-        BinaryOperator.SUB -> PIRBinaryOperator.SUB
-        BinaryOperator.MUL -> PIRBinaryOperator.MUL
-        BinaryOperator.DIV -> PIRBinaryOperator.DIV
-        BinaryOperator.FLOOR_DIV -> PIRBinaryOperator.FLOOR_DIV
-        BinaryOperator.MOD -> PIRBinaryOperator.MOD
-        BinaryOperator.POW -> PIRBinaryOperator.POW
-        BinaryOperator.MAT_MUL -> PIRBinaryOperator.MAT_MUL
-        BinaryOperator.BIT_AND -> PIRBinaryOperator.BIT_AND
-        BinaryOperator.BIT_OR -> PIRBinaryOperator.BIT_OR
-        BinaryOperator.BIT_XOR -> PIRBinaryOperator.BIT_XOR
-        BinaryOperator.LSHIFT -> PIRBinaryOperator.LSHIFT
-        BinaryOperator.RSHIFT -> PIRBinaryOperator.RSHIFT
-        BinaryOperator.UNRECOGNIZED -> PIRBinaryOperator.ADD
+    private fun convertBinaryOp(left: PIRValueProto, right: PIRValueProto, op: BinaryOperator): PIRBinaryExpr {
+        val l = v(left)
+        val r = v(right)
+
+        return when (op) {
+            BinaryOperator.ADD -> PIRAddExpr(l, r)
+            BinaryOperator.SUB -> PIRSubExpr(l, r)
+            BinaryOperator.MUL -> PIRMulExpr(l, r)
+            BinaryOperator.DIV -> PIRDivExpr(l, r)
+            BinaryOperator.FLOOR_DIV -> PIRFloorDivExpr(l, r)
+            BinaryOperator.MOD -> PIRModExpr(l, r)
+            BinaryOperator.POW -> PIRPowExpr(l, r)
+            BinaryOperator.MAT_MUL -> PIRMatMulExpr(l, r)
+            BinaryOperator.BIT_AND -> PIRBitAndExpr(l, r)
+            BinaryOperator.BIT_OR -> PIRBitOrExpr(l, r)
+            BinaryOperator.BIT_XOR -> PIRBitXorExpr(l, r)
+            BinaryOperator.LSHIFT -> PIRLShiftExpr(l, r)
+            BinaryOperator.RSHIFT -> PIRRShiftExpr(l, r)
+            BinaryOperator.UNRECOGNIZED -> PIRAddExpr(l, r)
+        }
     }
 
-    private fun convertUnaryOp(op: UnaryOperator): PIRUnaryOperator = when (op) {
-        UnaryOperator.NEG -> PIRUnaryOperator.NEG
-        UnaryOperator.POS -> PIRUnaryOperator.POS
-        UnaryOperator.NOT -> PIRUnaryOperator.NOT
-        UnaryOperator.INVERT -> PIRUnaryOperator.INVERT
-        UnaryOperator.UNRECOGNIZED -> PIRUnaryOperator.NEG
+    private fun convertUnaryOp(operandProto: PIRValueProto, op: UnaryOperator): PIRUnaryExpr {
+        val operand = v(operandProto)
+
+        return when (op) {
+            UnaryOperator.NEG -> PIRNegExpr(operand)
+            UnaryOperator.POS -> PIRPosExpr(operand)
+            UnaryOperator.NOT -> PIRNotExpr(operand)
+            UnaryOperator.INVERT -> PIRInvertExpr(operand)
+            UnaryOperator.UNRECOGNIZED -> PIRNegExpr(operand)
+        }
     }
 
-    private fun convertCompareOp(op: CompareOperator): PIRCompareOperator = when (op) {
-        CompareOperator.EQ -> PIRCompareOperator.EQ
-        CompareOperator.NE -> PIRCompareOperator.NE
-        CompareOperator.LT -> PIRCompareOperator.LT
-        CompareOperator.LE -> PIRCompareOperator.LE
-        CompareOperator.GT -> PIRCompareOperator.GT
-        CompareOperator.GE -> PIRCompareOperator.GE
-        CompareOperator.IS -> PIRCompareOperator.IS
-        CompareOperator.IS_NOT -> PIRCompareOperator.IS_NOT
-        CompareOperator.IN -> PIRCompareOperator.IN
-        CompareOperator.NOT_IN -> PIRCompareOperator.NOT_IN
-        CompareOperator.UNRECOGNIZED -> PIRCompareOperator.EQ
+    private fun convertCompareOp(leftProto: PIRValueProto, rightProto: PIRValueProto, op: CompareOperator): PIRCompareExpr {
+        val l = v(leftProto)
+        val r = v(rightProto)
+
+        return when (op) {
+            CompareOperator.EQ -> PIREqExpr(l, r)
+            CompareOperator.NE -> PIRNeExpr(l, r)
+            CompareOperator.LT -> PIRLtExpr(l, r)
+            CompareOperator.LE -> PIRLeExpr(l, r)
+            CompareOperator.GT -> PIRGtExpr(l, r)
+            CompareOperator.GE -> PIRGeExpr(l, r)
+            CompareOperator.IS -> PIRIsExpr(l, r)
+            CompareOperator.IS_NOT -> PIRIsNotExpr(l, r)
+            CompareOperator.IN -> PIRInExpr(l, r)
+            CompareOperator.NOT_IN -> PIRNotInExpr(l, r)
+            CompareOperator.UNRECOGNIZED -> PIREqExpr(l, r)
+        }
     }
+
 }

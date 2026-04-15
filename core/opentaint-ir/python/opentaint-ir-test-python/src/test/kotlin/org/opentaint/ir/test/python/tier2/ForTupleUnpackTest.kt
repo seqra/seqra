@@ -103,7 +103,7 @@ def ftu_ignore_second(pairs: list) -> list:
     }
 
     @Test fun `pair unpack has binop for addition`() {
-        val binOps = insts("ftu_pair_unpack").filterAssignOf<PIRBinExpr>()
+        val binOps = insts("ftu_pair_unpack").filterAssignOf<PIRBinaryExpr>()
         assertTrue(binOps.isNotEmpty(), "Expected PIRBinOp for a + b")
     }
 
