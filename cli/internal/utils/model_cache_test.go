@@ -69,7 +69,7 @@ func TestGetModelCacheDir(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	expected := filepath.Join(home, ".opentaint", "models")
+	expected := filepath.Join(home, ".opentaint", "cache")
 	if dir != expected {
 		t.Errorf("GetModelCacheDir() = %q, want %q", dir, expected)
 	}
@@ -98,8 +98,8 @@ func TestGetProjectCachePath(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Should be under ~/.opentaint/models/
-	modelsDir := filepath.Join(home, ".opentaint", "models")
+	// Should be under ~/.opentaint/cache/
+	modelsDir := filepath.Join(home, ".opentaint", "cache")
 	if !strings.HasPrefix(cachePath, modelsDir) {
 		t.Errorf("cache path %q should be under %q", cachePath, modelsDir)
 	}

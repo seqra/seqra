@@ -347,7 +347,7 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 	t.Run("cached model is prunable", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
-		modelsDir := filepath.Join(home, ".opentaint", "models", "my-project-a1b2c3d4")
+		modelsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
 		createTestFile(t, filepath.Join(modelsDir, "project-model", "project.yaml"), 50)
 
 		result, err := ScanForStaleArtifacts(false)
@@ -368,7 +368,7 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 	t.Run("stale staging dir is prunable", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
-		modelsDir := filepath.Join(home, ".opentaint", "models", "my-project-a1b2c3d4")
+		modelsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
 		stagingDir := filepath.Join(modelsDir, ".staging-12345-9999")
 		createTestFile(t, filepath.Join(stagingDir, "project-model", "project.yaml"), 50)
 
@@ -390,7 +390,7 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 	t.Run("empty models dir produces no stale", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
-		modelsDir := filepath.Join(home, ".opentaint", "models")
+		modelsDir := filepath.Join(home, ".opentaint", "cache")
 		if err := os.MkdirAll(modelsDir, 0o755); err != nil {
 			t.Fatal(err)
 		}
