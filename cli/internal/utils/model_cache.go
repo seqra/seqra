@@ -111,14 +111,40 @@ func PromoteStagingToCache(cacheDir, stagingPath string) error {
 		return fmt.Errorf("failed to swap symlink: %w", err)
 	}
 
-	// 4. Remove old timestamped dir if it differs
-	if oldTarget != "" && oldTarget != targetName {
-		_ = os.RemoveAll(filepath.Join(cacheDir, oldTarget))
+	// 4. Clean up old generations, keeping at most 1 previous version.
+	// The previous version (oldTarget) is kept for concurrent readers that
+	// may still reference it. Only remove generations older than that.
+	if err := cleanOldGenerations(cacheDir, targetName, oldTarget); err != nil {
+		// Non-fatal: old generations will be cleaned up by prune
+		_ = err
 	}
 
 	// 5. Remove the now-empty staging dir
 	_ = os.Remove(stagingPath)
 
+	return nil
+}
+
+// cleanOldGenerations removes timestamped model directories older than the
+// current and previous generation. This implements generational retention (N=1):
+// the current version and the immediately previous version are kept to allow
+// concurrent readers to finish, while anything older is removed.
+func cleanOldGenerations(cacheDir, currentTarget, previousTarget string) error {
+	entries, err := os.ReadDir(cacheDir)
+	if err != nil {
+		return err
+	}
+	prefix := projectModelDir + "-"
+	for _, entry := range entries {
+		name := entry.Name()
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		if name == currentTarget || name == previousTarget {
+			continue
+		}
+		_ = os.RemoveAll(filepath.Join(cacheDir, name))
+	}
 	return nil
 }
 

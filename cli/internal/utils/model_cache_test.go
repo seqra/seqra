@@ -213,7 +213,7 @@ func TestPromoteStagingToCache(t *testing.T) {
 	}
 }
 
-func TestPromoteStagingToCache_ReplacesExisting(t *testing.T) {
+func TestPromoteStagingToCache_GenerationalRetention(t *testing.T) {
 	cacheDir := t.TempDir()
 
 	// First promotion
@@ -225,10 +225,9 @@ func TestPromoteStagingToCache_ReplacesExisting(t *testing.T) {
 	if err := PromoteStagingToCache(cacheDir, staging1); err != nil {
 		t.Fatal(err)
 	}
+	target1, _ := os.Readlink(filepath.Join(cacheDir, "project-model"))
 
-	oldTarget, _ := os.Readlink(filepath.Join(cacheDir, "project-model"))
-
-	// Second promotion
+	// Second promotion — previous (target1) should be kept
 	staging2, err := CreateStagingDir(cacheDir)
 	if err != nil {
 		t.Fatal(err)
@@ -237,20 +236,18 @@ func TestPromoteStagingToCache_ReplacesExisting(t *testing.T) {
 	if err := PromoteStagingToCache(cacheDir, staging2); err != nil {
 		t.Fatal(err)
 	}
+	target2, _ := os.Readlink(filepath.Join(cacheDir, "project-model"))
 
-	newTarget, _ := os.Readlink(filepath.Join(cacheDir, "project-model"))
-
-	// Symlink should point to new target
-	if oldTarget == newTarget {
+	if target1 == target2 {
 		t.Error("symlink should point to different target after second promotion")
 	}
 
-	// Old timestamped dir should be removed
-	if _, err := os.Stat(filepath.Join(cacheDir, oldTarget)); !os.IsNotExist(err) {
-		t.Error("old timestamped dir should be removed")
+	// Previous generation (target1) should still exist (N=1 retention)
+	if _, err := os.Stat(filepath.Join(cacheDir, target1)); os.IsNotExist(err) {
+		t.Error("previous generation should be kept for concurrent readers")
 	}
 
-	// New content should be accessible
+	// New content should be accessible through symlink
 	data, err := os.ReadFile(filepath.Join(cacheDir, "project-model", "project.yaml"))
 	if err != nil {
 		t.Fatalf("failed to read through symlink: %v", err)
@@ -258,6 +255,38 @@ func TestPromoteStagingToCache_ReplacesExisting(t *testing.T) {
 	if len(data) != 20 {
 		t.Errorf("expected 20 bytes from second promotion, got %d", len(data))
 	}
+
+	// Third promotion — oldest (target1) should now be removed
+	staging3, err := CreateStagingDir(cacheDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	createTestFile(t, filepath.Join(staging3, "project-model", "project.yaml"), 30)
+	if err := PromoteStagingToCache(cacheDir, staging3); err != nil {
+		t.Fatal(err)
+	}
+	target3, _ := os.Readlink(filepath.Join(cacheDir, "project-model"))
+
+	// Oldest generation (target1) should be removed
+	if _, err := os.Stat(filepath.Join(cacheDir, target1)); !os.IsNotExist(err) {
+		t.Error("oldest generation should be removed after third promotion")
+	}
+
+	// Previous generation (target2) should still exist
+	if _, err := os.Stat(filepath.Join(cacheDir, target2)); os.IsNotExist(err) {
+		t.Error("previous generation should be kept")
+	}
+
+	// Current generation (target3) accessible through symlink
+	data, err = os.ReadFile(filepath.Join(cacheDir, "project-model", "project.yaml"))
+	if err != nil {
+		t.Fatalf("failed to read through symlink: %v", err)
+	}
+	if len(data) != 30 {
+		t.Errorf("expected 30 bytes from third promotion, got %d", len(data))
+	}
+
+	_ = target3
 }
 
 func TestCleanupStagingDir(t *testing.T) {

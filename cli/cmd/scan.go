@@ -30,6 +30,7 @@ var (
 	Severity                  []string
 	Ruleset                   []string
 	DryRunScan                bool
+	Recompile                 bool
 )
 
 type RulesetType struct {
@@ -100,6 +101,7 @@ func init() {
 	_ = scanCmd.PersistentFlags().MarkHidden("code-flow-limit")
 	_ = viper.BindPFlag("scan.code_flow_limit", scanCmd.Flags().Lookup("code-flow-limit"))
 	scanCmd.Flags().BoolVar(&DryRunScan, "dry-run", false, "Validate inputs and show what would run without compiling or scanning")
+	scanCmd.Flags().BoolVar(&Recompile, "recompile", false, "Force recompilation even if a cached project model exists")
 }
 
 func scan(cmd *cobra.Command) {
@@ -131,9 +133,9 @@ func scan(cmd *cobra.Command) {
 		scanMode = Scan
 		absProjectModelPath = absUserProjectRoot
 	} else if errors.Is(err, os.ErrNotExist) {
-		tempProjectModel = true
-		scanMode = CompileAndScan
 		if DryRunScan {
+			tempProjectModel = true
+			scanMode = CompileAndScan
 			tempProjectModelPath = filepath.Join(os.TempDir(), dryRunScanProjectModelPath)
 			absProjectModelPath = tempProjectModelPath
 		} else {
@@ -142,13 +144,29 @@ func scan(cmd *cobra.Command) {
 			if cerr != nil {
 				out.Fatalf("Failed to create model cache directory: %s", cerr)
 			}
-			stagingDir, serr := utils.CreateStagingDir(projectCachePath)
-			if serr != nil {
-				out.Fatalf("Failed to create staging directory: %s", serr)
+
+			// Reuse cached model if it exists and --recompile is not set
+			cachedModelPath := utils.StableProjectModelPath(projectCachePath)
+			if !Recompile {
+				if _, serr := os.Stat(filepath.Join(cachedModelPath, "project.yaml")); serr == nil {
+					scanMode = Scan
+					absProjectModelPath = cachedModelPath
+					output.LogDebugf("Reusing cached model at: %s", cachedModelPath)
+				}
 			}
-			tempProjectModelPath = filepath.Join(stagingDir, "project-model")
-			absProjectModelPath = tempProjectModelPath
-			tempLogsDir = stagingDir
+
+			// No cached model or --recompile: compile into staging
+			if scanMode != Scan {
+				tempProjectModel = true
+				scanMode = CompileAndScan
+				stagingDir, serr := utils.CreateStagingDir(projectCachePath)
+				if serr != nil {
+					out.Fatalf("Failed to create staging directory: %s", serr)
+				}
+				tempProjectModelPath = filepath.Join(stagingDir, "project-model")
+				absProjectModelPath = tempProjectModelPath
+				tempLogsDir = stagingDir
+			}
 		}
 	} else {
 		out.Fatalf("Unexpected error occurred while checking the project: %s", err)
