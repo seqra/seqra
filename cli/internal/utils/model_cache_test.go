@@ -141,3 +141,138 @@ func TestGetProjectCachePath_SymlinksResolved(t *testing.T) {
 		t.Errorf("symlink and real path should resolve to same cache path: %q vs %q", path1, path2)
 	}
 }
+
+func TestCreateStagingDir(t *testing.T) {
+	cacheDir := t.TempDir()
+
+	stagingPath, err := CreateStagingDir(cacheDir)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Should be under cacheDir
+	if !strings.HasPrefix(stagingPath, cacheDir) {
+		t.Errorf("staging path %q should be under %q", stagingPath, cacheDir)
+	}
+
+	// Directory name should start with .staging-
+	dirName := filepath.Base(stagingPath)
+	if !strings.HasPrefix(dirName, ".staging-") {
+		t.Errorf("expected .staging- prefix, got %q", dirName)
+	}
+
+	// Should contain project-model subdir
+	pmDir := filepath.Join(stagingPath, "project-model")
+	info, err := os.Stat(pmDir)
+	if err != nil {
+		t.Fatalf("project-model dir not created: %v", err)
+	}
+	if !info.IsDir() {
+		t.Error("expected directory")
+	}
+}
+
+func TestPromoteStagingToCache(t *testing.T) {
+	cacheDir := t.TempDir()
+
+	// Create a staging dir with content
+	stagingPath, err := CreateStagingDir(cacheDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Add a file to project-model to simulate compilation output
+	createTestFile(t, filepath.Join(stagingPath, "project-model", "project.yaml"), 10)
+
+	// Promote
+	err = PromoteStagingToCache(cacheDir, stagingPath)
+	if err != nil {
+		t.Fatalf("PromoteStagingToCache() error = %v", err)
+	}
+
+	// project-model symlink should exist and point to a timestamped dir
+	symlinkPath := filepath.Join(cacheDir, "project-model")
+	target, err := os.Readlink(symlinkPath)
+	if err != nil {
+		t.Fatalf("expected symlink at %s: %v", symlinkPath, err)
+	}
+	if !strings.HasPrefix(target, "project-model-") {
+		t.Errorf("symlink target should start with project-model-, got %q", target)
+	}
+
+	// The file should be accessible through the symlink
+	data, err := os.ReadFile(filepath.Join(symlinkPath, "project.yaml"))
+	if err != nil {
+		t.Fatalf("failed to read through symlink: %v", err)
+	}
+	if len(data) != 10 {
+		t.Errorf("expected 10 bytes, got %d", len(data))
+	}
+
+	// Staging dir should be cleaned up
+	if _, err := os.Stat(stagingPath); !os.IsNotExist(err) {
+		t.Error("staging dir should be removed after promotion")
+	}
+}
+
+func TestPromoteStagingToCache_ReplacesExisting(t *testing.T) {
+	cacheDir := t.TempDir()
+
+	// First promotion
+	staging1, err := CreateStagingDir(cacheDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	createTestFile(t, filepath.Join(staging1, "project-model", "project.yaml"), 10)
+	if err := PromoteStagingToCache(cacheDir, staging1); err != nil {
+		t.Fatal(err)
+	}
+
+	oldTarget, _ := os.Readlink(filepath.Join(cacheDir, "project-model"))
+
+	// Second promotion
+	staging2, err := CreateStagingDir(cacheDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	createTestFile(t, filepath.Join(staging2, "project-model", "project.yaml"), 20)
+	if err := PromoteStagingToCache(cacheDir, staging2); err != nil {
+		t.Fatal(err)
+	}
+
+	newTarget, _ := os.Readlink(filepath.Join(cacheDir, "project-model"))
+
+	// Symlink should point to new target
+	if oldTarget == newTarget {
+		t.Error("symlink should point to different target after second promotion")
+	}
+
+	// Old timestamped dir should be removed
+	if _, err := os.Stat(filepath.Join(cacheDir, oldTarget)); !os.IsNotExist(err) {
+		t.Error("old timestamped dir should be removed")
+	}
+
+	// New content should be accessible
+	data, err := os.ReadFile(filepath.Join(cacheDir, "project-model", "project.yaml"))
+	if err != nil {
+		t.Fatalf("failed to read through symlink: %v", err)
+	}
+	if len(data) != 20 {
+		t.Errorf("expected 20 bytes from second promotion, got %d", len(data))
+	}
+}
+
+func TestCleanupStagingDir(t *testing.T) {
+	cacheDir := t.TempDir()
+
+	stagingPath, err := CreateStagingDir(cacheDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	createTestFile(t, filepath.Join(stagingPath, "project-model", "file.txt"), 5)
+
+	CleanupStagingDir(stagingPath)
+
+	if _, err := os.Stat(stagingPath); !os.IsNotExist(err) {
+		t.Error("staging dir should be removed after cleanup")
+	}
+}
