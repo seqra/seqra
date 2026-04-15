@@ -149,7 +149,8 @@ jobs:
           ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif ../project-root
 
       - name: Clean up cached models before default-output tests
-        run: rm -rf ~/.opentaint/models
+        working-directory: cli
+        run: ./opentaint prune --yes ${{ steps.github-token.outputs.arg }}
 
       - name: Run opentaint scan with default output (CompileAndScan)
         working-directory: cli
