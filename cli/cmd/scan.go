@@ -146,9 +146,11 @@ func scan(cmd *cobra.Command) {
 			}
 
 			// Reuse cached model if it exists and --recompile is not set
+			cachedModelReused := false
 			cachedModelPath := utils.StableProjectModelPath(projectCachePath)
 			if !Recompile {
 				if _, serr := os.Stat(filepath.Join(cachedModelPath, "project.yaml")); serr == nil {
+					cachedModelReused = true
 					scanMode = Scan
 					// Resolve symlink to pin to a specific generation, protecting
 					// against concurrent symlink swaps from other processes.
@@ -162,7 +164,7 @@ func scan(cmd *cobra.Command) {
 			}
 
 			// No cached model or --recompile: compile into staging
-			if scanMode != Scan {
+			if !cachedModelReused {
 				// Check if another process is already compiling
 				if utils.HasStagingDir(projectCachePath) {
 					out.Fatalf("Compilation already in progress for this project. Wait for it to finish, or use --project-model to scan an existing model.")
