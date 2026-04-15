@@ -109,7 +109,7 @@ opentaint prune
 
 ### Clearing the Model Cache
 
-To remove all cached project models (stored in `~/.opentaint/models/`):
+To remove all cached project models (stored in `~/.opentaint/cache/`):
 
 ```bash
 opentaint prune

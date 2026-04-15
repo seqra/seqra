@@ -72,7 +72,7 @@ Use [CodeChecker](https://github.com/Ericsson/codechecker) for advanced result m
 
 Automatically detects Maven/Gradle projects, builds them, and performs security analysis. The source path defaults to the current directory when omitted.
 
-On the first run, the compiled project model is cached in `~/.opentaint/models/`. Subsequent scans of the same project reuse the cached model, skipping compilation entirely.
+On the first run, the compiled project model is cached in `~/.opentaint/cache/`. Subsequent scans of the same project reuse the cached model, skipping compilation entirely.
 
 | Flag | Description |
 |------|-------------|
@@ -84,6 +84,7 @@ On the first run, the compiled project model is cached in `~/.opentaint/models/`
 | `--severity` | Severity levels to report (default: `warning`, `error`) |
 | `--ruleset` | YAML rules file or directory (default: `builtin`) |
 | `--dry-run` | Validate inputs and show what would run without compiling or scanning |
+| `--log-file` | Path to the log file (default: `<cache-dir>/logs/<timestamp>.log`) |
 
 ### opentaint compile
 
@@ -117,7 +118,7 @@ opentaint scan --project-model ./project-model
 
 ## Model Caching
 
-When `opentaint scan` compiles a project, the resulting project model is cached in `~/.opentaint/models/`. The cache directory name is derived from the project path (e.g. `my-project-a1b2c3d4`).
+When `opentaint scan` compiles a project, the resulting project model is cached in `~/.opentaint/cache/`. The cache directory name is derived from the project path (e.g. `my-project-a1b2c3d4`).
 
 On subsequent scans of the same project, the cached model is reused automatically — compilation is skipped entirely. This makes repeated scans significantly faster.
 
