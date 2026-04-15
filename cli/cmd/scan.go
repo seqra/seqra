@@ -206,7 +206,7 @@ func scan(cmd *cobra.Command) {
 	}
 
 	// Display scan information in tree format
-	printScanInfo(cmd, scanMode, absProjectModelPath, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot, absRuleSetPaths)
+	printScanInfo(cmd, scanMode, projectCachePath, absSemgrepRuleLoadTracePath, tempProjectModel, absUserProjectRoot, absProjectModelPath, absRuleSetPaths)
 
 	var nonBuiltinRulesetPaths []string
 	for _, r := range absRuleSetPaths {
@@ -268,11 +268,30 @@ func scan(cmd *cobra.Command) {
 			out.Fatalf("Native compile has failed: %s", err)
 		}
 		out.Blank()
-		printCompileSummary(tempProjectModelPath)
+
+		// Promote staging to cache via symlink swap
+		if projectCachePath != "" {
+			if err := utils.PromoteStagingToCache(projectCachePath, tempLogsDir); err != nil {
+				output.LogInfof("Failed to promote staging to cache: %v", err)
+			} else {
+				tempLogsDir = "" // staging dir no longer exists
+				stableModelPath := utils.StableProjectModelPath(projectCachePath)
+				absProjectModelPath = stableModelPath
+				output.LogDebugf("Model cached at: %s", stableModelPath)
+			}
+		}
+
+		// Recompute SARIF path against the promoted model path
+		if SarifReportPath == "" {
+			absSarifReportPath = utils.DefaultSarifReportPath(absProjectModelPath)
+			sarifReportName = filepath.Base(absSarifReportPath)
+		}
 
 		if err := utils.EnsureParentDir(absSarifReportPath); err != nil {
 			out.Fatalf("Failed to create output directory: %s", err)
 		}
+
+		printCompileSummary(absProjectModelPath)
 	}
 
 	// Update builder with native paths for native execution
@@ -350,21 +369,10 @@ func scan(cmd *cobra.Command) {
 	// Process the generated SARIF report if it exists
 	printSarifSummary(report, absSarifReportPath)
 
-	// Promote staging to cache via symlink swap (CompileAndScan, non-dry-run)
-	if tempProjectModel && projectCachePath != "" {
-		if err := utils.PromoteStagingToCache(projectCachePath, tempLogsDir); err != nil {
-			output.LogInfof("Failed to promote staging to cache: %v", err)
-		} else {
-			stableModelPath := utils.StableProjectModelPath(projectCachePath)
-			absSarifReportPath = utils.DefaultSarifReportPath(stableModelPath)
-			output.LogDebugf("Model cached at: %s", stableModelPath)
-		}
-	}
-
 	suggest("To view findings run", fmt.Sprintf("opentaint summary --show-findings %s", absSarifReportPath))
 }
 
-func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string, absSemgrepRuleLoadTracePath string, tempProjectModel bool, absUserProjectRoot string, absRuleSetPaths []RulesetType) {
+func printScanInfo(cmd *cobra.Command, mode ScanMode, projectCachePath string, absSemgrepRuleLoadTracePath string, tempProjectModel bool, absUserProjectRoot string, absProjectModelPath string, absRuleSetPaths []RulesetType) {
 	sb := out.Section(mode.String())
 	addConfigFields(cmd, sb)
 	if globals.Config.Log.Verbosity == "debug" {
@@ -372,8 +380,10 @@ func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string
 		sb.Line()
 	}
 	if tempProjectModel {
-		sb.Field("Project", absUserProjectRoot).
-			Field("Project model (staging)", absProjectModelPath)
+		sb.Field("Project", absUserProjectRoot)
+		if projectCachePath != "" {
+			sb.Field("Project model", utils.StableProjectModelPath(projectCachePath))
+		}
 	} else {
 		sb.Field("Project model", absProjectModelPath)
 	}
