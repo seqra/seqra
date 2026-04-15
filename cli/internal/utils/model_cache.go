@@ -148,6 +148,21 @@ func cleanOldGenerations(cacheDir, currentTarget, previousTarget string) error {
 	return nil
 }
 
+// HasStagingDir checks whether any .staging-* directory exists in cacheDir,
+// indicating that another process is currently compiling a model.
+func HasStagingDir(cacheDir string) bool {
+	entries, err := os.ReadDir(cacheDir)
+	if err != nil {
+		return false
+	}
+	for _, entry := range entries {
+		if entry.IsDir() && strings.HasPrefix(entry.Name(), ".staging-") {
+			return true
+		}
+	}
+	return false
+}
+
 // CleanupStagingDir removes a staging directory and all its contents.
 // Used when compilation fails and the staging output is not needed.
 func CleanupStagingDir(stagingPath string) {

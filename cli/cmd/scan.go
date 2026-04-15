@@ -163,6 +163,10 @@ func scan(cmd *cobra.Command) {
 
 			// No cached model or --recompile: compile into staging
 			if scanMode != Scan {
+				// Check if another process is already compiling
+				if utils.HasStagingDir(projectCachePath) {
+					out.Fatalf("Compilation already in progress for this project. Wait for it to finish, or use --project-model to scan an existing model.")
+				}
 				tempProjectModel = true
 				scanMode = CompileAndScan
 				stagingDir, serr := utils.CreateStagingDir(projectCachePath)
