@@ -25,7 +25,7 @@ Identifies artifacts that are no longer needed:
 - Redundant downloads when bundled artifacts are available
 - Stale install-tier artifacts (~/.opentaint/install/) after a opentaint upgrade
 
-By default, log files are kept. Use --include-logs to also prune them.`,
+By default, log files are kept. Use --include-logs to also prune them from project cache directories.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		result, err := utils.ScanForStaleArtifacts(pruneIncLogs)
 		if err != nil {

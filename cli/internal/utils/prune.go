@@ -95,8 +95,8 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 		name := entry.Name()
 		fullPath := filepath.Join(opentaintHome, name)
 
-		// Skip special files, hidden files, and log directory
-		if name == "logs" || strings.HasPrefix(name, ".") {
+		// Skip special files, hidden files, and cache directory
+		if name == "cache" || strings.HasPrefix(name, ".") {
 			continue
 		}
 
@@ -200,19 +200,30 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 		}
 	}
 
-	// Scan for logs if requested
+	// Scan for logs inside project cache directories if requested
 	if includeLogs {
-		logsDir := filepath.Join(opentaintHome, "logs")
-		if info, err := os.Stat(logsDir); err == nil && info.IsDir() {
-			size, _ := dirSize(logsDir)
-			if size > 0 {
-				result.Stale = append(result.Stale, StaleArtifact{
-					Path: logsDir,
-					Size: size,
-					Kind: StaleKindLog,
-				})
-				result.TotalSize += size
-				result.TotalCount++
+		cacheDir, _ := GetModelCacheDirPath()
+		if info, err := os.Stat(cacheDir); err == nil && info.IsDir() {
+			cacheEntries, err := os.ReadDir(cacheDir)
+			if err == nil {
+				for _, cacheEntry := range cacheEntries {
+					if !cacheEntry.IsDir() {
+						continue
+					}
+					logsDir := filepath.Join(cacheDir, cacheEntry.Name(), "logs")
+					if info, err := os.Stat(logsDir); err == nil && info.IsDir() {
+						size, _ := dirSize(logsDir)
+						if size > 0 {
+							result.Stale = append(result.Stale, StaleArtifact{
+								Path: logsDir,
+								Size: size,
+								Kind: StaleKindLog,
+							})
+							result.TotalSize += size
+							result.TotalCount++
+						}
+					}
+				}
 			}
 		}
 	}
