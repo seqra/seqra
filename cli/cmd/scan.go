@@ -114,6 +114,12 @@ func scan(cmd *cobra.Command) {
 	tempProjectModel := false
 	var tempProjectModelPath string
 
+	cleanupStaging := func() {
+		if tempLogsDir != "" {
+			utils.CleanupStagingDir(tempLogsDir)
+		}
+	}
+
 	if !utils.IsSupportedArch() {
 		out.Fatalf("Unsupported architecture found: %s! Only arm64 and amd64 are supported.", utils.GetArch())
 	}
@@ -171,8 +177,7 @@ func scan(cmd *cobra.Command) {
 	if SarifReportPath != "" {
 		absSarifReportPath = log.AbsPathOrExit(SarifReportPath, "output")
 	} else {
-		// Default: place SARIF inside project-model/sources/
-		absSarifReportPath = filepath.Join(absProjectModelPath, "sources", "opentaint.sarif")
+		absSarifReportPath = utils.DefaultSarifReportPath(absProjectModelPath)
 	}
 
 	sarifReportName := filepath.Base(absSarifReportPath)
@@ -255,9 +260,7 @@ func scan(cmd *cobra.Command) {
 		if err := out.RunWithSpinner("Compiling project model", func() error {
 			return compile(absUserProjectRoot, tempProjectModelPath, autobuilderJarPath, compileJavaRunner, Internal)
 		}); err != nil {
-			if tempLogsDir != "" {
-				utils.CleanupStagingDir(tempLogsDir)
-			}
+			cleanupStaging()
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
 			out.InteractiveBlank()
 			out.Fatalf("Native compile has failed: %s", err)
@@ -312,9 +315,7 @@ func scan(cmd *cobra.Command) {
 	if err := out.RunWithSpinner("Analyzing project", func() error {
 		return scanProject(nativeBuilder, analyzerJavaRunner)
 	}); err != nil {
-		if tempLogsDir != "" {
-			utils.CleanupStagingDir(tempLogsDir)
-		}
+		cleanupStaging()
 		out.Fatalf("Native scan has failed: %s", err)
 	}
 
@@ -348,9 +349,9 @@ func scan(cmd *cobra.Command) {
 		if err := utils.PromoteStagingToCache(projectCachePath, tempLogsDir); err != nil {
 			output.LogInfof("Failed to promote staging to cache: %v", err)
 		} else {
-			// After promotion, the SARIF is accessible via the stable symlink
-			absSarifReportPath = filepath.Join(projectCachePath, "project-model", "sources", "opentaint.sarif")
-			output.LogDebugf("Model cached at: %s", filepath.Join(projectCachePath, "project-model"))
+			stableModelPath := utils.StableProjectModelPath(projectCachePath)
+			absSarifReportPath = utils.DefaultSarifReportPath(stableModelPath)
+			output.LogDebugf("Model cached at: %s", stableModelPath)
 		}
 	}
 

@@ -44,8 +44,8 @@ func TestDeleteArtifacts(t *testing.T) {
 	})
 }
 
-func TestScanForStaleArtifacts(t *testing.T) {
-	// Save and restore globals
+func setupPruneTestGlobals(t *testing.T) {
+	t.Helper()
 	origAnalyzer := globals.AnalyzerBindVersion
 	origAutobuilder := globals.AutobuilderBindVersion
 	origRules := globals.RulesBindVersion
@@ -56,11 +56,14 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		globals.RulesBindVersion = origRules
 		globals.DefaultJavaVersion = origJava
 	})
-
 	globals.AnalyzerBindVersion = "1.0.0"
 	globals.AutobuilderBindVersion = "1.0.0"
 	globals.RulesBindVersion = "v1.0.0"
 	globals.DefaultJavaVersion = 21
+}
+
+func TestScanForStaleArtifacts(t *testing.T) {
+	setupPruneTestGlobals(t)
 
 	t.Run("empty home", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
@@ -339,22 +342,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 }
 
 func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
-	// Save and restore globals
-	origAnalyzer := globals.AnalyzerBindVersion
-	origAutobuilder := globals.AutobuilderBindVersion
-	origRules := globals.RulesBindVersion
-	origJava := globals.DefaultJavaVersion
-	t.Cleanup(func() {
-		globals.AnalyzerBindVersion = origAnalyzer
-		globals.AutobuilderBindVersion = origAutobuilder
-		globals.RulesBindVersion = origRules
-		globals.DefaultJavaVersion = origJava
-	})
-
-	globals.AnalyzerBindVersion = "1.0.0"
-	globals.AutobuilderBindVersion = "1.0.0"
-	globals.RulesBindVersion = "v1.0.0"
-	globals.DefaultJavaVersion = 21
+	setupPruneTestGlobals(t)
 
 	t.Run("cached model is prunable", func(t *testing.T) {
 		home := t.TempDir()

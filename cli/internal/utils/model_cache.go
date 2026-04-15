@@ -53,6 +53,18 @@ func GetProjectCachePath(projectPath string) (string, error) {
 
 const projectModelDir = "project-model"
 
+// DefaultSarifReportPath returns the default SARIF report location for a given
+// project model path: <projectModelPath>/sources/opentaint.sarif
+func DefaultSarifReportPath(projectModelPath string) string {
+	return filepath.Join(projectModelPath, "sources", "opentaint.sarif")
+}
+
+// StableProjectModelPath returns the stable symlink path for the project model
+// within a cache directory: <cacheDir>/project-model
+func StableProjectModelPath(cacheDir string) string {
+	return filepath.Join(cacheDir, projectModelDir)
+}
+
 // CreateStagingDir creates a staging directory inside cacheDir for isolated compilation.
 // Returns the path to the staging directory (e.g. <cacheDir>/.staging-<pid>-<timestamp>/).
 // The staging directory contains a project-model/ subdirectory ready for compilation output.
