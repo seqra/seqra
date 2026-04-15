@@ -92,7 +92,7 @@ func init() {
 
 	scanCmd.Flags().BoolVar(&SemgrepCompatibilitySarif, "semgrep-compatibility-sarif", true, "Use Semgrep compatible ruleId")
 	scanCmd.Flags().StringVarP(&SarifReportPath, "output", "o", "", "Path to the SARIF-report output file")
-	_ = scanCmd.MarkFlagRequired("output")
+
 	scanCmd.Flags().StringArrayVar(&Severity, "severity", []string{"warning", "error"}, "Report findings only from rules matching the supplied severity level. By default only warning and error rules are run (note, warning, error)")
 	scanCmd.Flags().StringVar(&globals.Config.Scan.MaxMemory, "max-memory", "8G", "Maximum memory for the analyzer (e.g., 1024m, 8G, 81920k, 83886080)")
 	_ = viper.BindPFlag("scan.max_memory", scanCmd.Flags().Lookup("max-memory"))
@@ -104,7 +104,8 @@ func init() {
 
 func scan(cmd *cobra.Command) {
 	var absProjectModelPath string
-	var tempLogsDir string // Store the temp directory name for cleanup
+	var tempLogsDir string
+	var projectCachePath string
 
 	userProjectPath := UserProjectPath
 	userProjectPath = filepath.Clean(userProjectPath)
@@ -128,14 +129,21 @@ func scan(cmd *cobra.Command) {
 		scanMode = CompileAndScan
 		if DryRunScan {
 			tempProjectModelPath = filepath.Join(os.TempDir(), dryRunScanProjectModelPath)
+			absProjectModelPath = tempProjectModelPath
 		} else {
-			tempLogsDir, err = os.MkdirTemp("", "opentaint-*")
-			if err != nil {
-				out.Fatalf("Failed to create temporary directory: %s", err)
+			var cerr error
+			projectCachePath, cerr = utils.GetProjectCachePath(absUserProjectRoot)
+			if cerr != nil {
+				out.Fatalf("Failed to create model cache directory: %s", cerr)
 			}
-			tempProjectModelPath = filepath.Join(tempLogsDir, "project-model")
+			stagingDir, serr := utils.CreateStagingDir(projectCachePath)
+			if serr != nil {
+				out.Fatalf("Failed to create staging directory: %s", serr)
+			}
+			tempProjectModelPath = filepath.Join(stagingDir, "project-model")
+			absProjectModelPath = tempProjectModelPath
+			tempLogsDir = stagingDir
 		}
-		absProjectModelPath = tempProjectModelPath
 	} else {
 		out.Fatalf("Unexpected error occurred while checking the project: %s", err)
 	}
@@ -163,7 +171,8 @@ func scan(cmd *cobra.Command) {
 	if SarifReportPath != "" {
 		absSarifReportPath = log.AbsPathOrExit(SarifReportPath, "output")
 	} else {
-		absSarifReportPath = filepath.Join(os.TempDir(), "opentaint-scan.sarif.temp")
+		// Default: place SARIF inside project-model/sources/
+		absSarifReportPath = filepath.Join(absProjectModelPath, "sources", "opentaint.sarif")
 	}
 
 	sarifReportName := filepath.Base(absSarifReportPath)
@@ -246,6 +255,9 @@ func scan(cmd *cobra.Command) {
 		if err := out.RunWithSpinner("Compiling project model", func() error {
 			return compile(absUserProjectRoot, tempProjectModelPath, autobuilderJarPath, compileJavaRunner, Internal)
 		}); err != nil {
+			if tempLogsDir != "" {
+				utils.CleanupStagingDir(tempLogsDir)
+			}
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
 			out.InteractiveBlank()
 			out.Fatalf("Native compile has failed: %s", err)
@@ -328,20 +340,18 @@ func scan(cmd *cobra.Command) {
 	// Process the generated SARIF report if it exists
 	printSarifSummary(report, absSarifReportPath)
 
-	if SarifReportPath == "" {
-		utils.RemoveIfExistsOrExit(absSarifReportPath)
-	} else {
-		suggest("To view findings run", fmt.Sprintf("opentaint summary --show-findings %s", absSarifReportPath))
-	}
-
-	// Clean up temporary directory if it was created
-	if tempProjectModel && tempLogsDir != "" {
-		if err := os.RemoveAll(filepath.Dir(absProjectModelPath)); err != nil {
-			output.LogInfof("Failed to remove temporary directory %s: %v", filepath.Dir(absProjectModelPath), err)
+	// Promote staging to cache via symlink swap (CompileAndScan, non-dry-run)
+	if tempProjectModel && projectCachePath != "" {
+		if err := utils.PromoteStagingToCache(projectCachePath, tempLogsDir); err != nil {
+			output.LogInfof("Failed to promote staging to cache: %v", err)
 		} else {
-			output.LogDebugf("Removed temporary directory: %s", filepath.Dir(absProjectModelPath))
+			// After promotion, the SARIF is accessible via the stable symlink
+			absSarifReportPath = filepath.Join(projectCachePath, "project-model", "sources", "opentaint.sarif")
+			output.LogDebugf("Model cached at: %s", filepath.Join(projectCachePath, "project-model"))
 		}
 	}
+
+	suggest("To view findings run", fmt.Sprintf("opentaint summary --show-findings %s", absSarifReportPath))
 }
 
 func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string, absSemgrepRuleLoadTracePath string, tempProjectModel bool, absUserProjectRoot string, absRuleSetPaths []RulesetType) {
@@ -353,7 +363,7 @@ func printScanInfo(cmd *cobra.Command, mode ScanMode, absProjectModelPath string
 	}
 	if tempProjectModel {
 		sb.Field("Project", absUserProjectRoot).
-			Field("Temporary project model", absProjectModelPath)
+			Field("Project model (staging)", absProjectModelPath)
 	} else {
 		sb.Field("Project model", absProjectModelPath)
 	}
