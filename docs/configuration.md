@@ -53,7 +53,7 @@ export OPENTAINT_LOG_VERBOSITY=debug
 export OPENTAINT_LOG_COLOR=always
 export OPENTAINT_JAVA_VERSION=23
 
-opentaint scan --output results.sarif /path/to/project
+opentaint scan /path/to/project
 ```
 
 ## Priority Order
@@ -78,5 +78,5 @@ scan:
 Then use it with every scan:
 
 ```bash
-opentaint scan --config ~/.opentaint/config.yaml --output results.sarif /path/to/project
+opentaint scan --config ~/.opentaint/config.yaml /path/to/project
 ```

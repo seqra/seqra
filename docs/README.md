@@ -118,7 +118,8 @@ For detailed instructions, see [Installation Guide](installation.md).
 ## Usage
 
 ```bash
-opentaint scan --output results.sarif /path/to/project    # Scan project
+opentaint scan                                            # Scan current directory
+opentaint scan --output results.sarif                     # Scan with explicit output path
 opentaint summary --show-findings results.sarif           # View results
 opentaint summary --show-findings --verbose-flow --show-code-snippets results.sarif  # Full detail
 ```
@@ -131,9 +132,9 @@ opentaint summary --show-findings --verbose-flow --show-code-snippets results.sa
 | `opentaint summary` | View SARIF results |
 | `opentaint pull` | Download dependencies |
 | `opentaint update` | Update to latest version |
-| `opentaint prune` | Remove stale downloaded artifacts |
+| `opentaint prune` | Remove stale artifacts and cached models |
 
-**Options:** `--max-memory 16G`, `--timeout 5m`, `--severity error`, `--config config.yaml`
+**Options:** `--max-memory 16G`, `--timeout 5m`, `--severity error`, `--recompile`, `--config config.yaml`
 
 For detailed usage, see [Usage Guide](usage.md).
 
@@ -171,6 +172,7 @@ For detailed configuration, see [Configuration Guide](configuration.md).
 | Out of memory | Use `--max-memory 16G` |
 | Timeout | Use `--timeout 20m` |
 | Re-download deps | `opentaint prune --yes && opentaint pull` |
+| Stale cached model | Use `--recompile` to force recompilation |
 | Debug | Use `--verbosity debug` |
 
 For detailed troubleshooting, see [Troubleshooting Guide](troubleshooting.md).

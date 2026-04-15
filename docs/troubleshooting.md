@@ -20,7 +20,7 @@ opentaint project --output ./project-model --source-root /path/to/source \
   --classpath target/myapp.jar --package com.example
 
 # Scan the project model
-opentaint scan --output results.sarif ./project-model
+opentaint scan --project-model ./project-model
 ```
 
 ## Dependency Download Issues
@@ -52,7 +52,7 @@ If compilation fails due to Java version mismatch, set `JAVA_HOME` to match your
 
 ```bash
 export JAVA_HOME=/path/to/java-17
-opentaint scan --output results.sarif /path/to/project
+opentaint scan /path/to/project
 ```
 
 ## Memory and Performance
@@ -62,7 +62,7 @@ opentaint scan --output results.sarif /path/to/project
 For large projects, increase the analyzer memory:
 
 ```bash
-opentaint scan --max-memory 16G --output results.sarif /path/to/project
+opentaint scan --max-memory 16G /path/to/project
 ```
 
 ### Analysis Timeout
@@ -70,7 +70,7 @@ opentaint scan --max-memory 16G --output results.sarif /path/to/project
 For complex projects that take longer to analyze:
 
 ```bash
-opentaint scan --timeout 20m --output results.sarif /path/to/project
+opentaint scan --timeout 20m /path/to/project
 ```
 
 ### Persistent Memory Settings
@@ -83,12 +83,44 @@ scan:
   timeout: 20m
 ```
 
+## Model Cache
+
+### Stale Cached Model
+
+If you've changed your project's source code and want to re-analyze, force recompilation:
+
+```bash
+opentaint scan --recompile /path/to/project
+```
+
+### "Compilation already in progress" Error
+
+This means another `opentaint scan` is currently compiling the same project. Wait for it to finish, or scan a different model directly:
+
+```bash
+opentaint scan --project-model /path/to/model
+```
+
+If the previous process crashed and left a stale staging directory, prune cached models:
+
+```bash
+opentaint prune
+```
+
+### Clearing the Model Cache
+
+To remove all cached project models (stored in `~/.opentaint/models/`):
+
+```bash
+opentaint prune
+```
+
 ## Logs and Debugging
 
 ### Enable Verbose Logging
 
 ```bash
-opentaint scan --verbosity debug --output results.sarif /path/to/project
+opentaint scan --verbosity debug /path/to/project
 ```
 
 ### Common Log Locations
