@@ -150,8 +150,14 @@ func scan(cmd *cobra.Command) {
 			if !Recompile {
 				if _, serr := os.Stat(filepath.Join(cachedModelPath, "project.yaml")); serr == nil {
 					scanMode = Scan
-					absProjectModelPath = cachedModelPath
-					output.LogDebugf("Reusing cached model at: %s", cachedModelPath)
+					// Resolve symlink to pin to a specific generation, protecting
+					// against concurrent symlink swaps from other processes.
+					if resolved, rerr := filepath.EvalSymlinks(cachedModelPath); rerr == nil {
+						absProjectModelPath = resolved
+					} else {
+						absProjectModelPath = cachedModelPath
+					}
+					output.LogDebugf("Reusing cached model at: %s", absProjectModelPath)
 				}
 			}
 
@@ -294,8 +300,15 @@ func scan(cmd *cobra.Command) {
 			} else {
 				tempLogsDir = "" // staging dir no longer exists
 				stableModelPath := utils.StableProjectModelPath(projectCachePath)
-				absProjectModelPath = stableModelPath
-				output.LogDebugf("Model cached at: %s", stableModelPath)
+				// Resolve symlink to the actual timestamped directory so that
+				// concurrent scans each pin to their own model and SARIF path,
+				// unaffected by later symlink swaps from other processes.
+				if resolved, rerr := filepath.EvalSymlinks(stableModelPath); rerr == nil {
+					absProjectModelPath = resolved
+				} else {
+					absProjectModelPath = stableModelPath
+				}
+				output.LogDebugf("Model cached at: %s", absProjectModelPath)
 			}
 		}
 
