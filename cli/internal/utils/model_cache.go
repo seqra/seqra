@@ -11,13 +11,22 @@ import (
 
 var nonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)
 
-// GetModelCacheDir returns ~/.opentaint/models/, creating it if needed.
-func GetModelCacheDir() (string, error) {
+// GetModelCacheDirPath returns ~/.opentaint/models/ without creating it.
+// Use this when you only need to read/check the directory (e.g. prune scanning).
+func GetModelCacheDirPath() (string, error) {
 	opentaintHome, err := GetOpentaintHome()
 	if err != nil {
 		return "", err
 	}
-	modelsDir := filepath.Join(opentaintHome, "models")
+	return filepath.Join(opentaintHome, modelsCacheDir), nil
+}
+
+// GetModelCacheDir returns ~/.opentaint/models/, creating it if needed.
+func GetModelCacheDir() (string, error) {
+	modelsDir, err := GetModelCacheDirPath()
+	if err != nil {
+		return "", err
+	}
 	if err := os.MkdirAll(modelsDir, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create models directory: %w", err)
 	}
@@ -50,7 +59,10 @@ func GetProjectCachePath(projectPath string) (string, error) {
 	return cachePath, nil
 }
 
-const projectModelDir = "project-model"
+const (
+	projectModelDir = "project-model"
+	modelsCacheDir  = "models"
+)
 
 // DefaultSarifReportPath returns the default SARIF report location for a given
 // project model path: <projectModelPath>/sources/opentaint.sarif

@@ -179,7 +179,7 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 	}
 
 	// Scan for cached compilation models
-	modelsDir := filepath.Join(opentaintHome, "models")
+	modelsDir, _ := GetModelCacheDirPath()
 	if info, err := os.Stat(modelsDir); err == nil && info.IsDir() {
 		modelEntries, err := os.ReadDir(modelsDir)
 		if err == nil {
