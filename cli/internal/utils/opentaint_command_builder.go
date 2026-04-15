@@ -37,14 +37,28 @@ func NewCompileCommand(projectPath string) *OpentaintCommandBuilder {
 }
 
 // NewScanCommand creates a new CommandBuilder for the scan command.
-func NewScanCommand(projectPath string) *OpentaintCommandBuilder {
+// sourcePath is the path to the project sources (positional argument).
+// If empty, no positional argument is added.
+func NewScanCommand(sourcePath string) *OpentaintCommandBuilder {
+	var args []string
+	if sourcePath != "" {
+		args = []string{sourcePath}
+	}
 	return &OpentaintCommandBuilder{
 		command:    "opentaint scan",
-		args:       []string{projectPath},
+		args:       args,
 		flags:      make(map[string]string),
 		arrayFlags: make(map[string][]string),
 		boolFlags:  make(map[string]bool),
 	}
+}
+
+// WithProjectModel sets the project-model flag.
+func (cb *OpentaintCommandBuilder) WithProjectModel(path string) *OpentaintCommandBuilder {
+	if path != "" {
+		cb.flags["project-model"] = path
+	}
+	return cb
 }
 
 // WithOutput sets the output path flag.
@@ -214,7 +228,8 @@ func BuildScanCommandFromCompile(projectPath, projectModelPath string) string {
 	// Suggest output path based on project path
 	outputPath := filepath.Join(projectPath, "opentaint.sarif")
 
-	return NewScanCommand(projectModelPath).
+	return NewScanCommand("").
+		WithProjectModel(projectModelPath).
 		WithOutput(outputPath).
 		Build()
 }

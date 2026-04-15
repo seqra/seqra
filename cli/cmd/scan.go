@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -25,6 +24,7 @@ import (
 
 var (
 	UserProjectPath           string
+	ProjectModelPath          string
 	SarifReportPath           string
 	SemgrepCompatibilitySarif bool
 	Severity                  []string
@@ -63,13 +63,15 @@ func (m ScanMode) String() string {
 
 // scanCmd represents the scan command
 var scanCmd = &cobra.Command{
-	Use:   "scan [project]",
+	Use:   "scan [source-path]",
 	Short: "Scan your Java or Kotlin project",
 	Args:  cobra.MaximumNArgs(1),
 	Long: `This command automatically detects Java/Kotlin build systems, builds the project, and analyzes it
 
 Arguments:
-  project  - Path to a project or a project model (default: current directory)
+  source-path  - Path to the project sources (default: current directory)
+
+Use --project-model to scan a pre-compiled project model instead of compiling from sources.
 `,
 	Annotations: map[string]string{"PrintConfig": "true"},
 	Run: func(cmd *cobra.Command, args []string) {
@@ -102,6 +104,7 @@ func init() {
 	_ = viper.BindPFlag("scan.code_flow_limit", scanCmd.Flags().Lookup("code-flow-limit"))
 	scanCmd.Flags().BoolVar(&DryRunScan, "dry-run", false, "Validate inputs and show what would run without compiling or scanning")
 	scanCmd.Flags().BoolVar(&Recompile, "recompile", false, "Force recompilation even if a cached project model exists")
+	scanCmd.Flags().StringVar(&ProjectModelPath, "project-model", "", "Path to a pre-compiled project model (skips compilation)")
 }
 
 func scan(cmd *cobra.Command) {
@@ -126,56 +129,52 @@ func scan(cmd *cobra.Command) {
 		out.Fatalf("Unsupported architecture found: %s! Only arm64 and amd64 are supported.", utils.GetArch())
 	}
 
-	// Resolve project type
+	// Resolve scan mode
 	var scanMode ScanMode
-	output.LogDebugf("Trying to define %v is a project model or a project", absUserProjectRoot)
-	if _, err := os.Stat(filepath.Join(absUserProjectRoot, "project.yaml")); err == nil {
+	if ProjectModelPath != "" {
+		// Explicit project model provided: scan directly, skip compilation
 		scanMode = Scan
-		absProjectModelPath = absUserProjectRoot
-	} else if errors.Is(err, os.ErrNotExist) {
-		if DryRunScan {
-			tempProjectModel = true
-			scanMode = CompileAndScan
-			tempProjectModelPath = filepath.Join(os.TempDir(), dryRunScanProjectModelPath)
-			absProjectModelPath = tempProjectModelPath
-		} else {
-			var cerr error
-			projectCachePath, cerr = utils.GetProjectCachePath(absUserProjectRoot)
-			if cerr != nil {
-				out.Fatalf("Failed to create model cache directory: %s", cerr)
-			}
+		absProjectModelPath = log.AbsPathOrExit(filepath.Clean(ProjectModelPath), "project model path")
+	} else if DryRunScan {
+		tempProjectModel = true
+		scanMode = CompileAndScan
+		tempProjectModelPath = filepath.Join(os.TempDir(), dryRunScanProjectModelPath)
+		absProjectModelPath = tempProjectModelPath
+	} else {
+		var cerr error
+		projectCachePath, cerr = utils.GetProjectCachePath(absUserProjectRoot)
+		if cerr != nil {
+			out.Fatalf("Failed to create model cache directory: %s", cerr)
+		}
 
-			// Reuse cached model if it exists and --recompile is not set
-			cachedModelReused := false
-			cachedModelPath := utils.CachedProjectModelPath(projectCachePath)
-			if !Recompile {
-				if _, serr := os.Stat(filepath.Join(cachedModelPath, "project.yaml")); serr == nil {
-					cachedModelReused = true
-					scanMode = Scan
-					absProjectModelPath = cachedModelPath
-					output.LogDebugf("Reusing cached model at: %s", absProjectModelPath)
-				}
-			}
-
-			// No cached model or --recompile: compile into staging
-			if !cachedModelReused {
-				// Check if another process is already compiling
-				if utils.HasStagingDir(projectCachePath) {
-					out.Fatalf("Compilation already in progress for this project. Wait for it to finish, or use --project-model to scan an existing model.")
-				}
-				tempProjectModel = true
-				scanMode = CompileAndScan
-				stagingDir, serr := utils.CreateStagingDir(projectCachePath)
-				if serr != nil {
-					out.Fatalf("Failed to create staging directory: %s", serr)
-				}
-				tempProjectModelPath = filepath.Join(stagingDir, "project-model")
-				absProjectModelPath = tempProjectModelPath
-				tempLogsDir = stagingDir
+		// Reuse cached model if it exists and --recompile is not set
+		cachedModelReused := false
+		cachedModelPath := utils.CachedProjectModelPath(projectCachePath)
+		if !Recompile {
+			if _, serr := os.Stat(filepath.Join(cachedModelPath, "project.yaml")); serr == nil {
+				cachedModelReused = true
+				scanMode = Scan
+				absProjectModelPath = cachedModelPath
+				output.LogDebugf("Reusing cached model at: %s", absProjectModelPath)
 			}
 		}
-	} else {
-		out.Fatalf("Unexpected error occurred while checking the project: %s", err)
+
+		// No cached model or --recompile: compile into staging
+		if !cachedModelReused {
+			// Check if another process is already compiling
+			if utils.HasStagingDir(projectCachePath) {
+				out.Fatalf("Compilation already in progress for this project. Wait for it to finish, or use --project-model to scan an existing model.")
+			}
+			tempProjectModel = true
+			scanMode = CompileAndScan
+			stagingDir, serr := utils.CreateStagingDir(projectCachePath)
+			if serr != nil {
+				out.Fatalf("Failed to create staging directory: %s", serr)
+			}
+			tempProjectModelPath = filepath.Join(stagingDir, "project-model")
+			absProjectModelPath = tempProjectModelPath
+			tempLogsDir = stagingDir
+		}
 	}
 
 	var absRuleSetPaths = []RulesetType{}

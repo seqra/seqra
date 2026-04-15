@@ -47,7 +47,8 @@ func TestNewCompileCommand(t *testing.T) {
 func TestNewScanCommand(t *testing.T) {
 	tests := []struct {
 		name                 string
-		projectPath          string
+		sourcePath           string
+		projectModel         string
 		outputPath           string
 		timeout              time.Duration
 		rulesetPath          []string
@@ -58,10 +59,11 @@ func TestNewScanCommand(t *testing.T) {
 		expectTimeout        bool
 		expectScanType       bool
 		expectSemgrep        bool
+		expectProjectModel   bool
 	}{
 		{
-			name:                 "basic scan command",
-			projectPath:          "/path/to/project",
+			name:                 "basic scan command with source path",
+			sourcePath:           "/path/to/project",
 			outputPath:           "/path/to/output.sarif",
 			timeout:              defaultTimeout,
 			semgrepCompatibility: true,
@@ -72,8 +74,18 @@ func TestNewScanCommand(t *testing.T) {
 			expectSemgrep:        false,
 		},
 		{
+			name:                 "scan with project model",
+			projectModel:         "/path/to/model",
+			outputPath:           "/path/to/output.sarif",
+			timeout:              defaultTimeout,
+			semgrepCompatibility: true,
+			scanType:             "native",
+			compileType:          "native",
+			expectProjectModel:   true,
+		},
+		{
 			name:                 "scan with custom timeout",
-			projectPath:          "/path/to/project",
+			sourcePath:           "/path/to/project",
 			outputPath:           "/path/to/output.sarif",
 			timeout:              1200 * time.Second,
 			semgrepCompatibility: true,
@@ -85,7 +97,7 @@ func TestNewScanCommand(t *testing.T) {
 		},
 		{
 			name:                 "scan with ruleset",
-			projectPath:          "/path/to/project",
+			sourcePath:           "/path/to/project",
 			outputPath:           "/path/to/output.sarif",
 			timeout:              defaultTimeout,
 			rulesetPath:          []string{"/path/to/ruleset"},
@@ -101,7 +113,8 @@ func TestNewScanCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := NewScanCommand(tt.projectPath).
+			cmd := NewScanCommand(tt.sourcePath).
+				WithProjectModel(tt.projectModel).
 				WithOutput(tt.outputPath).
 				WithTimeout(tt.timeout).
 				WithRuleset(tt.rulesetPath).
@@ -115,10 +128,10 @@ func TestNewScanCommand(t *testing.T) {
 			if !contains(cmd, "opentaint scan") {
 				t.Errorf("Command should contain 'opentaint scan'")
 			}
-			if !contains(cmd, tt.projectPath) {
-				t.Errorf("Command should contain project path: %s", tt.projectPath)
+			if tt.sourcePath != "" && !contains(cmd, tt.sourcePath) {
+				t.Errorf("Command should contain source path: %s", tt.sourcePath)
 			}
-			if !contains(cmd, "--output") || !contains(cmd, tt.outputPath) {
+			if tt.outputPath != "" && (!contains(cmd, "--output") || !contains(cmd, tt.outputPath)) {
 				t.Errorf("Command should contain output flag and path")
 			}
 
@@ -131,6 +144,12 @@ func TestNewScanCommand(t *testing.T) {
 			}
 			if tt.expectSemgrep && !contains(cmd, "--semgrep-compatibility-sarif=false") {
 				t.Errorf("Command should contain --semgrep-compatibility-sarif=false")
+			}
+			if tt.expectProjectModel && !contains(cmd, "--project-model") {
+				t.Errorf("Command should contain --project-model flag")
+			}
+			if tt.expectProjectModel && !contains(cmd, tt.projectModel) {
+				t.Errorf("Command should contain project model path: %s", tt.projectModel)
 			}
 		})
 	}
