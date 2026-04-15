@@ -92,8 +92,8 @@ func PromoteStagingToCache(cacheDir, stagingPath string) error {
 		return fmt.Errorf("failed to move staging model to cache: %w", err)
 	}
 
-	// Remove the now-empty staging dir
-	_ = os.Remove(stagingPath)
+	// Remove the staging dir and any leftover files (e.g. build logs)
+	_ = os.RemoveAll(stagingPath)
 
 	return nil
 }

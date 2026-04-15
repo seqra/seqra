@@ -246,6 +246,29 @@ func TestPromoteStagingToCache_ReplacesExisting(t *testing.T) {
 	}
 }
 
+func TestPromoteStagingToCache_CleansLeftoverFiles(t *testing.T) {
+	cacheDir := t.TempDir()
+
+	stagingPath, err := CreateStagingDir(cacheDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Compilation output
+	createTestFile(t, filepath.Join(stagingPath, "project-model", "project.yaml"), 10)
+	// Leftover file outside project-model/ (e.g. build log)
+	createTestFile(t, filepath.Join(stagingPath, "build.log"), 100)
+
+	err = PromoteStagingToCache(cacheDir, stagingPath)
+	if err != nil {
+		t.Fatalf("PromoteStagingToCache() error = %v", err)
+	}
+
+	// Staging dir should be fully removed despite leftover files
+	if _, err := os.Stat(stagingPath); !os.IsNotExist(err) {
+		t.Errorf("staging dir should be removed after promotion, but still exists")
+	}
+}
+
 func TestCleanupStagingDir(t *testing.T) {
 	cacheDir := t.TempDir()
 
