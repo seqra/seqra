@@ -8,7 +8,7 @@ import (
 func TestSwitchableWriter_WritesInitial(t *testing.T) {
 	var buf bytes.Buffer
 	sw := NewSwitchableWriter(&buf)
-	sw.Write([]byte("hello"))
+	_, _ = sw.Write([]byte("hello"))
 	if buf.String() != "hello" {
 		t.Fatalf("expected 'hello', got %q", buf.String())
 	}
@@ -17,9 +17,9 @@ func TestSwitchableWriter_WritesInitial(t *testing.T) {
 func TestSwitchableWriter_SwapRedirects(t *testing.T) {
 	var buf1, buf2 bytes.Buffer
 	sw := NewSwitchableWriter(&buf1)
-	sw.Write([]byte("before"))
+	_, _ = sw.Write([]byte("before"))
 	sw.Swap(&buf2)
-	sw.Write([]byte("after"))
+	_, _ = sw.Write([]byte("after"))
 	if buf1.String() != "before" {
 		t.Fatalf("buf1: expected 'before', got %q", buf1.String())
 	}

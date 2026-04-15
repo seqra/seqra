@@ -21,7 +21,7 @@ func TestOpenProjectLog(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		defer CloseLogFile()
+		defer func() { _ = CloseLogFile() }()
 
 		logsDir := filepath.Join(cacheDir, "logs")
 		if !strings.HasPrefix(logPath, logsDir) {
