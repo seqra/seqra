@@ -8,36 +8,45 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"time"
 
 	"github.com/sirupsen/logrus"
 )
 
 var (
-	logFile *os.File
+	logFile   *os.File
+	logSwitch *SwitchableWriter
 )
 
-// OpenLogFile creates and returns a file for logging at the specified path.
-// It creates the directory structure if it doesn't exist.
-// The file handle is stored in a global variable and can be closed with CloseLogFile().
-func OpenLogFile() (*os.File, string, error) {
-	logDir := filepath.Join(os.TempDir(), "opentaint", "logs")
-	// Create log file with timestamp
-	logPath := filepath.Join(logDir, time.Now().Format("2006-01-02_15-04-05.log"))
+// LogWriter returns the global SwitchableWriter used for log output.
+// Before any log file is opened, writes go to io.Discard.
+func LogWriter() *SwitchableWriter {
+	if logSwitch == nil {
+		logSwitch = NewSwitchableWriter(io.Discard)
+	}
+	return logSwitch
+}
 
-	// Ensure the directory exists
+// OpenLogFileAt opens a log file at the given path, creating parent directories
+// as needed, and swaps the global SwitchableWriter to write to it.
+// Returns the opened file and the resolved path.
+func OpenLogFileAt(logPath string) (*os.File, error) {
 	if err := os.MkdirAll(filepath.Dir(logPath), 0755); err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	// Open or create the log file
-	var err error
-	logFile, err = os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 
-	return logFile, logPath, nil
+	// Close previous log file if any
+	if logFile != nil {
+		_ = logFile.Close()
+	}
+	logFile = f
+	LogWriter().Swap(f)
+
+	return f, nil
 }
 
 // blockTextFormatter keeps multi-line messages as one block.
@@ -87,12 +96,10 @@ func (f *blockTextFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// SetUpLogs configures logging to the given file writer.
+// SetUpLogs configures logging using the global SwitchableWriter (io.Discard by default).
 // Console output is no longer handled by logrus — it's handled by the output.Printer.
 // Logrus is used exclusively for structured file logging.
-func SetUpLogs(out io.Writer, level string, colorMode string) error {
-	_ = colorMode
-
+func SetUpLogs(level string) error {
 	normalizedLevel := strings.ToLower(strings.TrimSpace(level))
 	var fileLevel logrus.Level
 	switch normalizedLevel {
@@ -104,24 +111,20 @@ func SetUpLogs(out io.Writer, level string, colorMode string) error {
 		return fmt.Errorf("invalid verbosity %q: expected one of info, debug", level)
 	}
 
-	// File formatter (with per-line timestamp/level/etc.)
 	fileFormatter := &blockTextFormatter{
 		TimestampFormat: "2006-01-02 15:04:05",
-		Indent:          "    ", // 4 spaces
+		Indent:          "    ",
 	}
 
-	// Discard default output — all logging goes through hooks
 	logrus.SetOutput(io.Discard)
 	logrus.SetLevel(logrus.DebugLevel)
 
-	// File logging hook — all levels up to the configured level
 	logrus.AddHook(&writerHook{
-		Writer:    out,
+		Writer:    LogWriter(),
 		Formatter: fileFormatter,
 		LogLevels: allowedLevels(fileLevel),
 	})
 
-	// Stderr hook for fatal/error — these still go to stderr for exit codes
 	logrus.AddHook(&writerHook{
 		Writer:    os.Stderr,
 		Formatter: &plainMessageFormatter{},

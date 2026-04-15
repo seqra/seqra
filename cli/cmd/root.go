@@ -40,19 +40,13 @@ var rootCmd = &cobra.Command{
 		}
 		globals.Config.Log.Verbosity = verbosity
 
-		// Set up logging to both console and file
-		logFile, logPath, err := log.OpenLogFile()
-		globals.LogPath = logPath
-		cobra.CheckErr(err)
-
-		if err := log.SetUpLogs(logFile, globals.Config.Log.Verbosity, globals.Config.Log.Color); err != nil {
+		if err := log.SetUpLogs(globals.Config.Log.Verbosity); err != nil {
 			return fmt.Errorf("failed to set up logging: %w", err)
 		}
 
 		// Configure the output printer (color mode, quiet mode)
 		out.Configure(globals.Config.Log.Color, globals.Config.Quiet)
 		out.SetVerbosity(globals.Config.Log.Verbosity)
-		out.SetLogWriter(logFile)
 
 		// Start async update check (non-blocking, at most once per day)
 		if !globals.Config.Quiet {
