@@ -161,11 +161,10 @@ func TestCreateStagingDir(t *testing.T) {
 		t.Errorf("expected .staging- prefix, got %q", dirName)
 	}
 
-	// Should contain project-model subdir
-	pmDir := filepath.Join(stagingPath, "project-model")
-	info, err := os.Stat(pmDir)
+	// Staging dir itself should exist
+	info, err := os.Stat(stagingPath)
 	if err != nil {
-		t.Fatalf("project-model dir not created: %v", err)
+		t.Fatalf("staging dir not created: %v", err)
 	}
 	if !info.IsDir() {
 		t.Error("expected directory")

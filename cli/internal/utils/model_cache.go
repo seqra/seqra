@@ -71,8 +71,7 @@ func StableProjectModelPath(cacheDir string) string {
 func CreateStagingDir(cacheDir string) (string, error) {
 	name := fmt.Sprintf(".staging-%d-%d", os.Getpid(), time.Now().UnixNano())
 	stagingPath := filepath.Join(cacheDir, name)
-	pmPath := filepath.Join(stagingPath, projectModelDir)
-	if err := os.MkdirAll(pmPath, 0o755); err != nil {
+	if err := os.MkdirAll(stagingPath, 0o755); err != nil {
 		return "", fmt.Errorf("failed to create staging directory: %w", err)
 	}
 	return stagingPath, nil
