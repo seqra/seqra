@@ -338,6 +338,92 @@ func TestScanForStaleArtifacts(t *testing.T) {
 	})
 }
 
+func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
+	// Save and restore globals
+	origAnalyzer := globals.AnalyzerBindVersion
+	origAutobuilder := globals.AutobuilderBindVersion
+	origRules := globals.RulesBindVersion
+	origJava := globals.DefaultJavaVersion
+	t.Cleanup(func() {
+		globals.AnalyzerBindVersion = origAnalyzer
+		globals.AutobuilderBindVersion = origAutobuilder
+		globals.RulesBindVersion = origRules
+		globals.DefaultJavaVersion = origJava
+	})
+
+	globals.AnalyzerBindVersion = "1.0.0"
+	globals.AutobuilderBindVersion = "1.0.0"
+	globals.RulesBindVersion = "v1.0.0"
+	globals.DefaultJavaVersion = 21
+
+	t.Run("cached model is prunable", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		modelsDir := filepath.Join(home, ".opentaint", "models", "my-project-a1b2c3d4")
+		targetDir := filepath.Join(modelsDir, "project-model-1234567890")
+		createTestFile(t, filepath.Join(targetDir, "project.yaml"), 50)
+		// Create symlink
+		if err := os.Symlink("project-model-1234567890", filepath.Join(modelsDir, "project-model")); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		found := false
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindModel {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("expected cached model to be flagged as prunable")
+		}
+	})
+
+	t.Run("stale staging dir is prunable", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		modelsDir := filepath.Join(home, ".opentaint", "models", "my-project-a1b2c3d4")
+		stagingDir := filepath.Join(modelsDir, ".staging-12345-9999")
+		createTestFile(t, filepath.Join(stagingDir, "project-model", "project.yaml"), 50)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		found := false
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindModel {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("expected stale staging dir to be flagged as prunable")
+		}
+	})
+
+	t.Run("empty models dir produces no stale", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		modelsDir := filepath.Join(home, ".opentaint", "models")
+		if err := os.MkdirAll(modelsDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindModel {
+				t.Error("expected no model stale entries for empty models dir")
+			}
+		}
+	})
+}
+
 func createTestFile(t *testing.T, path string, size int) {
 	t.Helper()
 	dir := filepath.Dir(path)

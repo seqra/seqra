@@ -19,6 +19,7 @@ const (
 	StaleKindInstallLib  = "install-lib"
 	StaleKindInstallJRE  = "install-jre"
 	StaleKindLog         = "log"
+	StaleKindModel       = "model"
 )
 
 // StaleArtifact represents an artifact that can be pruned.
@@ -174,6 +175,28 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 			})
 			result.TotalSize += size
 			result.TotalCount++
+		}
+	}
+
+	// Scan for cached compilation models
+	modelsDir := filepath.Join(opentaintHome, "models")
+	if info, err := os.Stat(modelsDir); err == nil && info.IsDir() {
+		modelEntries, err := os.ReadDir(modelsDir)
+		if err == nil {
+			for _, modelEntry := range modelEntries {
+				if !modelEntry.IsDir() {
+					continue
+				}
+				modelPath := filepath.Join(modelsDir, modelEntry.Name())
+				size, _ := dirSize(modelPath)
+				result.Stale = append(result.Stale, StaleArtifact{
+					Path: modelPath,
+					Size: size,
+					Kind: StaleKindModel,
+				})
+				result.TotalSize += size
+				result.TotalCount++
+			}
 		}
 	}
 
