@@ -312,6 +312,9 @@ func scan(cmd *cobra.Command) {
 	if err := out.RunWithSpinner("Analyzing project", func() error {
 		return scanProject(nativeBuilder, analyzerJavaRunner)
 	}); err != nil {
+		if tempLogsDir != "" {
+			utils.CleanupStagingDir(tempLogsDir)
+		}
 		out.Fatalf("Native scan has failed: %s", err)
 	}
 
