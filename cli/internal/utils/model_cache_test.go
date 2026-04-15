@@ -43,7 +43,7 @@ func TestProjectPathSlugHash(t *testing.T) {
 	t.Run("special characters replaced", func(t *testing.T) {
 		result := ProjectPathSlugHash("/tmp/my project (copy)")
 		for _, c := range result {
-			if c != '-' && !((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9')) {
+			if c != '-' && (c < 'a' || c > 'z') && (c < '0' || c > '9') {
 				t.Errorf("unexpected character %q in slug-hash %q", string(c), result)
 			}
 		}
