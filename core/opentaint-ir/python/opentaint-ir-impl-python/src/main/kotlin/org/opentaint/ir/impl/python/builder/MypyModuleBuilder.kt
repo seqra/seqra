@@ -133,7 +133,8 @@ class MypyModuleBuilder(
         var index = 0
         for (block in function.cfg.blocks.sortedBy { it.label }) {
             for (inst in block.instructions) {
-                inst.location = PIRLocationImpl(function, index)
+                val (line, col) = ic.getInstPosition(inst)
+                inst.location = PIRLocationImpl(function, index, line, col)
                 index++
             }
         }

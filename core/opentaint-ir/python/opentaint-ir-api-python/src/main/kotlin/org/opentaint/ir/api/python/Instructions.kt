@@ -6,17 +6,20 @@ import org.opentaint.ir.api.common.cfg.CommonInstLocation
 interface PIRLocation : CommonInstLocation {
     override val method: PIRFunction
     val index: Int
+    val lineNumber: Int
+    val colOffset: Int
 }
 
 /**
  * Base for all PIR instructions.
  */
 sealed interface PIRInstruction: CommonInst {
-    val lineNumber: Int
-    val colOffset: Int
     fun <T> accept(visitor: PIRInstVisitor<T>): T
 
     override var location: PIRLocation
+
+    val lineNumber: Int get() = location.lineNumber
+    val colOffset: Int get() = location.colOffset
 
     /**
      * PIR instruction data classes must use identity-based equality, not structural equality.
@@ -43,8 +46,6 @@ sealed interface PIRExpr : org.opentaint.ir.api.common.cfg.CommonExpr {
 data class PIRAssign(
     val target: PIRValue,
     val expr: PIRExpr,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -113,8 +114,6 @@ data class PIRStoreAttr(
     val obj: PIRValue,
     val attribute: String,
     val value: PIRValue,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -126,8 +125,6 @@ data class PIRStoreSubscript(
     val obj: PIRValue,
     val index: PIRValue,
     val value: PIRValue,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -139,8 +136,6 @@ data class PIRStoreGlobal(
     val name: String,
     val module: String,
     val value: PIRValue,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -152,8 +147,6 @@ data class PIRStoreClosure(
     val name: String,
     val depth: Int,
     val value: PIRValue,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -168,8 +161,6 @@ data class PIRCall(
     val callee: PIRValue,
     val args: List<PIRCallArg>,
     val resolvedCallee: String? = null,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -192,8 +183,6 @@ data class PIRNextIter(
     val iterator: PIRValue,
     val bodyBlock: Int,
     val exitBlock: Int,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -205,8 +194,6 @@ data class PIRUnpack(
     val targets: List<PIRValue>,
     val source: PIRValue,
     val starIndex: Int = -1,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -218,8 +205,6 @@ data class PIRUnpack(
 
 data class PIRGoto(
     val targetBlock: Int,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -231,8 +216,6 @@ data class PIRBranch(
     val condition: PIRValue,
     val trueBlock: Int,
     val falseBlock: Int,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -242,8 +225,6 @@ data class PIRBranch(
 
 data class PIRReturn(
     val value: PIRValue?,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -254,8 +235,6 @@ data class PIRReturn(
 data class PIRRaise(
     val exception: PIRValue?,
     val cause: PIRValue?,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -266,8 +245,6 @@ data class PIRRaise(
 data class PIRExceptHandler(
     val target: PIRValue?,
     val exceptionTypes: List<PIRType>,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -280,8 +257,6 @@ data class PIRExceptHandler(
 data class PIRYield(
     val target: PIRValue?,
     val value: PIRValue?,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -292,8 +267,6 @@ data class PIRYield(
 data class PIRYieldFrom(
     val target: PIRValue?,
     val iterable: PIRValue,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -304,8 +277,6 @@ data class PIRYieldFrom(
 data class PIRAwait(
     val target: PIRValue?,
     val awaitable: PIRValue,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -317,8 +288,6 @@ data class PIRAwait(
 
 data class PIRDeleteLocal(
     val local: PIRValue,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -329,8 +298,6 @@ data class PIRDeleteLocal(
 data class PIRDeleteAttr(
     val obj: PIRValue,
     val attribute: String,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -341,8 +308,6 @@ data class PIRDeleteAttr(
 data class PIRDeleteSubscript(
     val obj: PIRValue,
     val index: PIRValue,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -353,8 +318,6 @@ data class PIRDeleteSubscript(
 data class PIRDeleteGlobal(
     val name: String,
     val module: String,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -365,11 +328,11 @@ data class PIRDeleteGlobal(
 // ─── Misc ───────────────────────────────────────────────────
 
 data object PIRUnreachable : PIRInstruction {
-    override val lineNumber: Int = -1
-    override val colOffset: Int = -1
     override var location: PIRLocation = object : PIRLocation {
         override val method: PIRFunction get() = error("Unreachable instruction has no method")
         override val index: Int get() = -1
+        override val lineNumber: Int get() = -1
+        override val colOffset: Int get() = -1
     }
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitUnreachable(this)
 }
