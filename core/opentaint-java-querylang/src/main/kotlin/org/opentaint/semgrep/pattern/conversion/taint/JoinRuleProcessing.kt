@@ -337,7 +337,7 @@ private fun RuleConversionCtx.convertCompositionLeftTaintRule(
         taintMarks = taintMarks
     )
 
-    val result = convertTaintRuleToTaintRules(preparedRules, ignoreEmptySources = false)
+    val result = convertTaintRuleToTaintRules(preparedRules, ignoreEmptySources = false, mkAnyOnFinal = true)
 
     val finalMarks = finalLabels.mapTo(hashSetOf()) { taintMark(it) }
     return result.taintRules to finalMarks

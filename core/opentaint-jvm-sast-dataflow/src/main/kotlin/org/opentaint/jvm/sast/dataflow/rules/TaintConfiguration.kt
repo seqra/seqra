@@ -723,7 +723,8 @@ class TaintConfiguration(cp: JIRClasspath) {
     private fun SerializedAssignAction.resolveWithArray(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignAction> {
         val (pos, ctr) = when (this) {
             is SerializedTaintAssignAction -> pos to ::AssignMark
-            is SerializedTaintAssignAnyFieldAction -> posAnyField to ::AssignMarkAnyField
+            is SerializedTaintAssignAnyFieldAction ->
+                posAnyField to ::AssignMarkAnyField
         }
         return createAssignWithArray(method, ctx, pos, ctr)
     }
@@ -731,7 +732,8 @@ class TaintConfiguration(cp: JIRClasspath) {
     private fun SerializedAssignAction.resolveNoArray(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignAction> {
         val (pos, ctr) = when (this) {
             is SerializedTaintAssignAction -> pos to ::AssignMark
-            is SerializedTaintAssignAnyFieldAction -> posAnyField to ::AssignMarkAnyField
+            is SerializedTaintAssignAnyFieldAction ->
+                posAnyField to ::AssignMarkAnyField
         }
         return createAssignNoArray(method, ctx, pos, ctr)
     }

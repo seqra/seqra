@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.ap.ifds.trace
 
+import info.leadinglight.jdot.enums.Position
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap
@@ -13,6 +14,7 @@ import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdgeSearcher
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
+import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
@@ -1247,6 +1249,14 @@ class MethodTraceResolver(
         }
 
         return summaryAction
+    }
+
+    private fun getFactsFromAnyField(pos: Position, mark: TaintMarkAccessor): Set<Set<InitialFactAp>> {
+        val searcher = object : MethodAnalyzerEdgeSearcher(edges, apManager, analysisManager, analysisContext, graph) {
+            override fun matchFact(factAtStatement: FinalFactAp, targetFactPattern: InitialFactAp): Boolean =
+                factAtStatement.contains(targetFactPattern)
+        }
+        return emptySet()
     }
 
     private fun resolveCallRule(

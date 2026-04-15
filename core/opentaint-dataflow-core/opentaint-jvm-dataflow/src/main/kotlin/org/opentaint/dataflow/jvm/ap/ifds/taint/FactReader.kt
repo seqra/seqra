@@ -20,16 +20,6 @@ interface FactReader {
     fun containsPositionWithTaintMark(position: PositionAccess, mark: TaintMark): Boolean =
         containsPosition(position.withSuffix(taintedPosSuffix(mark)))
 
-    fun containsAnyPositionWithTaintMark(position: PositionAccess, mark: TaintMark): Boolean {
-        val tmAccessor = TaintMarkAccessor(mark.name)
-
-        val requiredPosition = position.withSuffix(listOf(tmAccessor))
-        val positionWithTaintMark = containsAnyPosition(requiredPosition) ?: return false
-
-        val finalPositionWithTaintMark = positionWithTaintMark.withSuffix(listOf(FinalAccessor))
-        return containsPosition(finalPositionWithTaintMark)
-    }
-
     private fun taintedPosSuffix(mark: TaintMark) = listOf(TaintMarkAccessor(mark.name), FinalAccessor)
 }
 
@@ -110,6 +100,20 @@ class InitialFactReader(val fact: InitialFactAp, val apManager: ApManager): Fact
             onMismatch = { _, _ -> false },
             matchedNode = { true }
         )
+
+    fun containsAnyPositionWithTaintMark(position: PositionAccess, mark: TaintMark): Boolean {
+        val positionRoot = readPosition(
+            ap = fact,
+            position = position,
+            onMismatch = { _, _ -> null },
+            matchedNode = { it }
+        ) ?: return false
+
+        val tmAccessor = TaintMarkAccessor(mark.name)
+        val markPosition = PositionAccess.Complex(PositionAccess.Simple(fact.base), tmAccessor)
+
+        return readAnyPosition(positionRoot, markPosition) != null
+    }
 
     override fun createInitialFactWithTaintMark(position: PositionAccess, mark: TaintMark): InitialFactAp {
         val positionWithMark = PositionAccess.Complex(position, TaintMarkAccessor(mark.name))

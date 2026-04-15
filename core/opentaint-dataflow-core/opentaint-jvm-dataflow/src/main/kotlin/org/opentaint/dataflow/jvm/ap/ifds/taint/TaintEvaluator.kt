@@ -355,13 +355,21 @@ class TaintSourceActionEvaluator(
     private val exclusion: ExclusionSet,
 ) : SourceActionEvaluator<FinalFactAp> {
     override fun evaluate(rule: TaintConfigurationItem, action: AssignAction): Maybe<List<FinalFactAp>> {
-        val variable = when (action) {
-            is AssignMark -> action.position
-            is AssignMarkAnyField -> action.positionWithAny
-        }.resolveAp()
+        return when (action) {
+            is AssignMark -> {
+                val variable = action.position.resolveAp()
+                val fact = apManager.mkAccessPath(variable, exclusion, action.mark.name)
+                Maybe.from(listOf(fact))
+            }
+            is AssignMarkAnyField -> {
+                val variable = action.positionWithAny.resolveAp()
+                val variable2 = action.barePosition.resolveAp()
 
-        val fact = apManager.mkAccessPath(variable, exclusion, action.mark.name)
-        return Maybe.from(listOf(fact))
+                val fact = apManager.mkAccessPath(variable, exclusion, action.mark.name)
+                val fact2 = apManager.mkAccessPath(variable2, exclusion, action.mark.name)
+                Maybe.from(listOf(fact, fact2))
+            }
+        }
     }
 }
 
@@ -372,16 +380,20 @@ class TaintSourceActionPreconditionEvaluator(
         rule: TaintConfigurationItem,
         action: AssignAction,
     ): Maybe<List<Pair<TaintConfigurationItem, AssignAction>>> {
-        when (action) {
+        return when (action) {
             is AssignMark -> {
                 val variable = action.position.resolveAp()
-                if (!factReader.containsPositionWithTaintMark(variable, action.mark)) return Maybe.none()
-                return Maybe.some(listOf(rule to action))
+                if (!factReader.containsPositionWithTaintMark(variable, action.mark))
+                    Maybe.none()
+                else
+                    Maybe.some(listOf(rule to action))
             }
             is AssignMarkAnyField -> {
                 val variable = action.barePosition.resolveAp()
-                if (!factReader.containsAnyPositionWithTaintMark(variable, action.mark)) return Maybe.none()
-                return Maybe.some(listOf(rule to action))
+                if (!factReader.containsAnyPositionWithTaintMark(variable, action.mark))
+                    Maybe.none()
+                else
+                    Maybe.some(listOf(rule to action))
             }
         }
     }

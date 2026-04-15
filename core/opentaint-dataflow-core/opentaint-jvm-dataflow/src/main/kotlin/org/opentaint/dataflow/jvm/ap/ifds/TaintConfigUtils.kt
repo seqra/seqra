@@ -6,6 +6,7 @@ import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.FactWithPreconditions
 import org.opentaint.dataflow.configuration.jvm.Action
+import org.opentaint.dataflow.configuration.jvm.AssignAction
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.Condition
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
@@ -54,7 +55,7 @@ object TaintConfigUtils {
         .filter { conditionEvaluator.eval(condition(it)) }
         .maybeFlatMap { item ->
             actionsAfter(item)
-                .filterIsInstance<AssignMark>()
+                .filterIsInstance<AssignAction>()
                 .maybeFlatMap { taintActionEvaluator.evaluate(item, it) }
         }
 

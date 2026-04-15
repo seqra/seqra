@@ -51,7 +51,7 @@ class SpringRuleProvider(
             return baseRules
         }
 
-        return baseRules.map { taintObjectFields(method, it) }
+        return baseRules//.map { taintObjectFields(method, it) }
     }
 
     private fun taintObjectFields(method: JIRMethod, rule: TaintEntryPointSource): TaintEntryPointSource {
@@ -257,9 +257,7 @@ class SpringRuleProvider(
 
     private class ContainsMarkRewriter(val position: Position) : ConditionRewriter {
         override fun visit(condition: ContainsMark): Condition {
-            if (condition.position != position) return condition
-
-            return ContainsMarkOnAnyField(position, condition.mark)
+            return condition
         }
     }
 

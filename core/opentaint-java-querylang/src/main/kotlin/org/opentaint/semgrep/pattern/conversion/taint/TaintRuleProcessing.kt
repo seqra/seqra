@@ -2,6 +2,7 @@ package org.opentaint.semgrep.pattern.conversion.taint
 
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
@@ -44,7 +45,9 @@ fun RuleConversionCtx.convertTaintRuleToTaintRules(
 
 fun RuleConversionCtx.convertTaintRuleToTaintRules(
     rulesWithVars: ProcessedTaintRule<RuleWithMetaVars<TaintRegisterStateAutomataWithStateVars, ResolvedMetaVarInfo>>,
-    ignoreEmptySources: Boolean
+    ignoreEmptySources: Boolean,
+    mkAnyOnFinal: Boolean = false,
+    initialWithAny: MetavarAtom? = null
 ): TaintRuleFromSemgrep {
     val taintAutomata = rulesWithVars.flatMap {
         safeConvertToTaintRules {
@@ -52,7 +55,7 @@ fun RuleConversionCtx.convertTaintRuleToTaintRules(
         }.orEmpty()
     }
 
-    val taintCtx = generateEdgeCtx(taintAutomata)
+    val taintCtx = generateEdgeCtx(taintAutomata, mkAnyOnFinal, initialWithAny)
 
     if (taintCtx.source.isEmpty() && !ignoreEmptySources) {
         trace.error(TaintRuleWithoutSources())
@@ -129,7 +132,7 @@ data class ProcessedTaintRule<R>(
     )
 }
 
-private fun ProcessedTaintSourceRule<TaintAutomataEdges>.compositionStrategy() =
+private fun ProcessedTaintSourceRule<TaintAutomataEdges>.compositionStrategy(mkAnyOnFinal: Boolean, initialWithAny: MetavarAtom?) =
     object : TaintRuleGenerationCtx.CompositionStrategy {
         private val initialStateId = rule.automata.stateId(rule.automata.initial)
 
@@ -143,16 +146,19 @@ private fun ProcessedTaintSourceRule<TaintAutomataEdges>.compositionStrategy() =
             val value = state.register.assignedVars[varName]
             if (value != initialStateId) return null
 
-            return requires.build(pos)
+            val withAny = varName == initialWithAny
+            return requires.build(pos, withAny)
         }
 
         override fun stateAssign(
             state: State,
             varName: MetavarAtom,
             pos: PositionBaseWithModifiers
-        ): List<SerializedTaintAssignAction>? {
+        ): List<SerializedAssignAction>? {
             if (state !in rule.automata.finalAcceptStates) return null
             if (varName !in taintedVars) return null
+            if (mkAnyOnFinal)
+                return listOf(label.mkAssignMarkAnyField(pos))
             return listOf(label.mkAssignMark(pos))
         }
 
@@ -174,7 +180,7 @@ private fun ProcessedTaintSourceRule<TaintAutomataEdges>.compositionStrategy() =
         }
     }
 
-private fun ProcessedTaintSinkRule<TaintAutomataEdges>.compositionStrategy() =
+private fun ProcessedTaintSinkRule<TaintAutomataEdges>.compositionStrategy(initialWithAny: MetavarAtom?) =
     object : TaintRuleGenerationCtx.CompositionStrategy {
         private val initialStateId = rule.automata.stateId(rule.automata.initial)
 
@@ -185,7 +191,8 @@ private fun ProcessedTaintSinkRule<TaintAutomataEdges>.compositionStrategy() =
         ): SerializedCondition? {
             val value = state.register.assignedVars[varName]
             if (value != initialStateId) return null
-            return requires.build(pos)
+            val withAny = varName == initialWithAny
+            return requires.build(pos, withAny)
         }
 
         override fun stateAccessedMarks(state: State, varName: MetavarAtom): Set<Mark.GeneratedMark>? {
@@ -198,7 +205,8 @@ private fun ProcessedTaintSinkRule<TaintAutomataEdges>.compositionStrategy() =
 
 private fun ProcessedTaintPassRule<TaintAutomataEdges>.compositionStrategy(
     markName: Mark.GeneratedMark,
-    markRequires: TaintMarkCheckBuilder
+    markRequires: TaintMarkCheckBuilder,
+    initialWithAny: MetavarAtom?
 ) = object : TaintRuleGenerationCtx.CompositionStrategy {
     private val initialStateId = rule.automata.stateId(rule.automata.initial)
 
@@ -209,7 +217,8 @@ private fun ProcessedTaintPassRule<TaintAutomataEdges>.compositionStrategy(
     ): SerializedCondition? {
         val value = state.register.assignedVars[varName]
         if (value != initialStateId) return null
-        return markRequires.build(pos)
+        val withAny = varName == initialWithAny
+        return markRequires.build(pos, withAny)
     }
 
     override fun stateAssign(
@@ -259,7 +268,9 @@ private fun ProcessedTaintCleanRule<TaintAutomataEdges>.compositionStrategy() =
     }
 
 private fun RuleConversionCtx.generateEdgeCtx(
-    rule: ProcessedTaintRule<TaintAutomataEdges>
+    rule: ProcessedTaintRule<TaintAutomataEdges>,
+    mkAnyOnFinal: Boolean = false,
+    initialWithAny: MetavarAtom? = null
 ): ProcessedTaintRule<TaintRuleGenerationCtx> {
     val source = rule.source.flatMapIndexed { i, r ->
         val automata = r.rule
@@ -272,7 +283,7 @@ private fun RuleConversionCtx.generateEdgeCtx(
             TaintRuleGenerationCtx(
                 prefix = RuleUniqueMarkPrefix(ruleId, i, "source"),
                 automataEdges = sourceAutomata,
-                compositionStrategy = r.compositionStrategy()
+                compositionStrategy = r.compositionStrategy(mkAnyOnFinal, initialWithAny)
             ).let { listOf(it) }
         }
     }
@@ -282,7 +293,7 @@ private fun RuleConversionCtx.generateEdgeCtx(
             TaintRuleGenerationCtx(
                 prefix = RuleUniqueMarkPrefix(ruleId, i, "sink"),
                 automataEdges = r.rule,
-                compositionStrategy = r.compositionStrategy()
+                compositionStrategy = r.compositionStrategy(initialWithAny)
             ).let { listOf(it) }
         }
     }
@@ -299,7 +310,7 @@ private fun RuleConversionCtx.generateEdgeCtx(
                 TaintRuleGenerationCtx(
                     prefix = RuleUniqueMarkPrefix(ruleId, i, "pass_$p"),
                     automataEdges = passAutomata,
-                    compositionStrategy = r.compositionStrategy(markName, markCondition)
+                    compositionStrategy = r.compositionStrategy(markName, markCondition, initialWithAny)
                 )
             }
         }
