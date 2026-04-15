@@ -188,20 +188,20 @@ func TestPromoteStagingToCache(t *testing.T) {
 		t.Fatalf("PromoteStagingToCache() error = %v", err)
 	}
 
-	// project-model symlink should exist and point to a timestamped dir
-	symlinkPath := filepath.Join(cacheDir, "project-model")
-	target, err := os.Readlink(symlinkPath)
+	// project-model directory should exist (not a symlink)
+	pmPath := filepath.Join(cacheDir, "project-model")
+	info, err := os.Lstat(pmPath)
 	if err != nil {
-		t.Fatalf("expected symlink at %s: %v", symlinkPath, err)
+		t.Fatalf("expected project-model at %s: %v", pmPath, err)
 	}
-	if !strings.HasPrefix(target, "project-model-") {
-		t.Errorf("symlink target should start with project-model-, got %q", target)
+	if !info.IsDir() {
+		t.Error("expected directory, not symlink or file")
 	}
 
-	// The file should be accessible through the symlink
-	data, err := os.ReadFile(filepath.Join(symlinkPath, "project.yaml"))
+	// The file should be accessible
+	data, err := os.ReadFile(filepath.Join(pmPath, "project.yaml"))
 	if err != nil {
-		t.Fatalf("failed to read through symlink: %v", err)
+		t.Fatalf("failed to read project.yaml: %v", err)
 	}
 	if len(data) != 10 {
 		t.Errorf("expected 10 bytes, got %d", len(data))
@@ -213,7 +213,7 @@ func TestPromoteStagingToCache(t *testing.T) {
 	}
 }
 
-func TestPromoteStagingToCache_GenerationalRetention(t *testing.T) {
+func TestPromoteStagingToCache_ReplacesExisting(t *testing.T) {
 	cacheDir := t.TempDir()
 
 	// First promotion
@@ -225,9 +225,8 @@ func TestPromoteStagingToCache_GenerationalRetention(t *testing.T) {
 	if err := PromoteStagingToCache(cacheDir, staging1); err != nil {
 		t.Fatal(err)
 	}
-	target1, _ := os.Readlink(filepath.Join(cacheDir, "project-model"))
 
-	// Second promotion — previous (target1) should be kept
+	// Second promotion replaces the first
 	staging2, err := CreateStagingDir(cacheDir)
 	if err != nil {
 		t.Fatal(err)
@@ -236,57 +235,15 @@ func TestPromoteStagingToCache_GenerationalRetention(t *testing.T) {
 	if err := PromoteStagingToCache(cacheDir, staging2); err != nil {
 		t.Fatal(err)
 	}
-	target2, _ := os.Readlink(filepath.Join(cacheDir, "project-model"))
 
-	if target1 == target2 {
-		t.Error("symlink should point to different target after second promotion")
-	}
-
-	// Previous generation (target1) should still exist (N=1 retention)
-	if _, err := os.Stat(filepath.Join(cacheDir, target1)); os.IsNotExist(err) {
-		t.Error("previous generation should be kept for concurrent readers")
-	}
-
-	// New content should be accessible through symlink
+	// New content should be accessible (20 bytes from second promotion)
 	data, err := os.ReadFile(filepath.Join(cacheDir, "project-model", "project.yaml"))
 	if err != nil {
-		t.Fatalf("failed to read through symlink: %v", err)
+		t.Fatalf("failed to read project.yaml: %v", err)
 	}
 	if len(data) != 20 {
 		t.Errorf("expected 20 bytes from second promotion, got %d", len(data))
 	}
-
-	// Third promotion — oldest (target1) should now be removed
-	staging3, err := CreateStagingDir(cacheDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	createTestFile(t, filepath.Join(staging3, "project-model", "project.yaml"), 30)
-	if err := PromoteStagingToCache(cacheDir, staging3); err != nil {
-		t.Fatal(err)
-	}
-	target3, _ := os.Readlink(filepath.Join(cacheDir, "project-model"))
-
-	// Oldest generation (target1) should be removed
-	if _, err := os.Stat(filepath.Join(cacheDir, target1)); !os.IsNotExist(err) {
-		t.Error("oldest generation should be removed after third promotion")
-	}
-
-	// Previous generation (target2) should still exist
-	if _, err := os.Stat(filepath.Join(cacheDir, target2)); os.IsNotExist(err) {
-		t.Error("previous generation should be kept")
-	}
-
-	// Current generation (target3) accessible through symlink
-	data, err = os.ReadFile(filepath.Join(cacheDir, "project-model", "project.yaml"))
-	if err != nil {
-		t.Fatalf("failed to read through symlink: %v", err)
-	}
-	if len(data) != 30 {
-		t.Errorf("expected 30 bytes from third promotion, got %d", len(data))
-	}
-
-	_ = target3
 }
 
 func TestCleanupStagingDir(t *testing.T) {

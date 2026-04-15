@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 )
 
 var nonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)
@@ -59,15 +58,14 @@ func DefaultSarifReportPath(projectModelPath string) string {
 	return filepath.Join(projectModelPath, "sources", "opentaint.sarif")
 }
 
-// StableProjectModelPath returns the stable symlink path for the project model
+// CachedProjectModelPath returns the path to the cached project model
 // within a cache directory: <cacheDir>/project-model
-func StableProjectModelPath(cacheDir string) string {
+func CachedProjectModelPath(cacheDir string) string {
 	return filepath.Join(cacheDir, projectModelDir)
 }
 
 // CreateStagingDir creates a staging directory inside cacheDir for isolated compilation.
-// Returns the path to the staging directory (e.g. <cacheDir>/.staging-<pid>-<timestamp>/).
-// The staging directory contains a project-model/ subdirectory ready for compilation output.
+// Returns the path to the staging directory (e.g. <cacheDir>/.staging-XXXX/).
 func CreateStagingDir(cacheDir string) (string, error) {
 	stagingPath, err := os.MkdirTemp(cacheDir, ".staging-")
 	if err != nil {
@@ -76,75 +74,27 @@ func CreateStagingDir(cacheDir string) (string, error) {
 	return stagingPath, nil
 }
 
-// PromoteStagingToCache atomically promotes a staging directory to the cache
-// via symlink swap. Steps:
-//  1. Rename staging's project-model/ to a timestamped name in cacheDir
-//  2. Create a temp symlink pointing to the timestamped dir
-//  3. Atomically rename the temp symlink to "project-model"
-//  4. Remove the old timestamped dir (if any)
-//  5. Remove the now-empty staging dir
+// PromoteStagingToCache moves the compiled project-model/ from the staging
+// directory into the cache, replacing any existing cached model.
+// Concurrent compilations are prevented by HasStagingDir, so it is safe
+// to remove and replace the existing project-model/ directory.
 func PromoteStagingToCache(cacheDir, stagingPath string) error {
-	timestamp := fmt.Sprintf("%d", time.Now().UnixNano())
-	targetName := fmt.Sprintf("%s-%s", projectModelDir, timestamp)
-	targetPath := filepath.Join(cacheDir, targetName)
-
-	// 1. Rename staging project-model/ to timestamped dir in cache
 	srcPM := filepath.Join(stagingPath, projectModelDir)
-	if err := os.Rename(srcPM, targetPath); err != nil {
+	destPM := filepath.Join(cacheDir, projectModelDir)
+
+	// Remove existing cached model if present
+	if err := os.RemoveAll(destPM); err != nil {
+		return fmt.Errorf("failed to remove old cached model: %w", err)
+	}
+
+	// Move staging project-model/ to cache
+	if err := os.Rename(srcPM, destPM); err != nil {
 		return fmt.Errorf("failed to move staging model to cache: %w", err)
 	}
 
-	// Read old symlink target before replacing
-	symlinkPath := filepath.Join(cacheDir, projectModelDir)
-	oldTarget, _ := os.Readlink(symlinkPath)
-
-	// 2. Create temp symlink
-	tmpSymlink := filepath.Join(cacheDir, fmt.Sprintf(".project-model-tmp-%d", os.Getpid()))
-	_ = os.Remove(tmpSymlink) // clean up any leftover
-	if err := os.Symlink(targetName, tmpSymlink); err != nil {
-		return fmt.Errorf("failed to create temp symlink: %w", err)
-	}
-
-	// 3. Atomic rename of temp symlink over the real one
-	if err := os.Rename(tmpSymlink, symlinkPath); err != nil {
-		_ = os.Remove(tmpSymlink)
-		return fmt.Errorf("failed to swap symlink: %w", err)
-	}
-
-	// 4. Clean up old generations, keeping at most 1 previous version.
-	// The previous version (oldTarget) is kept for concurrent readers that
-	// may still reference it. Only remove generations older than that.
-	if err := cleanOldGenerations(cacheDir, targetName, oldTarget); err != nil {
-		// Non-fatal: old generations will be cleaned up by prune
-		_ = err
-	}
-
-	// 5. Remove the now-empty staging dir
+	// Remove the now-empty staging dir
 	_ = os.Remove(stagingPath)
 
-	return nil
-}
-
-// cleanOldGenerations removes timestamped model directories older than the
-// current and previous generation. This implements generational retention (N=1):
-// the current version and the immediately previous version are kept to allow
-// concurrent readers to finish, while anything older is removed.
-func cleanOldGenerations(cacheDir, currentTarget, previousTarget string) error {
-	entries, err := os.ReadDir(cacheDir)
-	if err != nil {
-		return err
-	}
-	prefix := projectModelDir + "-"
-	for _, entry := range entries {
-		name := entry.Name()
-		if !strings.HasPrefix(name, prefix) {
-			continue
-		}
-		if name == currentTarget || name == previousTarget {
-			continue
-		}
-		_ = os.RemoveAll(filepath.Join(cacheDir, name))
-	}
 	return nil
 }
 

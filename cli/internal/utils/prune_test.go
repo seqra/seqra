@@ -348,12 +348,7 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
 		modelsDir := filepath.Join(home, ".opentaint", "models", "my-project-a1b2c3d4")
-		targetDir := filepath.Join(modelsDir, "project-model-1234567890")
-		createTestFile(t, filepath.Join(targetDir, "project.yaml"), 50)
-		// Create symlink
-		if err := os.Symlink("project-model-1234567890", filepath.Join(modelsDir, "project-model")); err != nil {
-			t.Fatal(err)
-		}
+		createTestFile(t, filepath.Join(modelsDir, "project-model", "project.yaml"), 50)
 
 		result, err := ScanForStaleArtifacts(false)
 		if err != nil {

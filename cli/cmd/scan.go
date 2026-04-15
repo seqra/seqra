@@ -147,18 +147,12 @@ func scan(cmd *cobra.Command) {
 
 			// Reuse cached model if it exists and --recompile is not set
 			cachedModelReused := false
-			cachedModelPath := utils.StableProjectModelPath(projectCachePath)
+			cachedModelPath := utils.CachedProjectModelPath(projectCachePath)
 			if !Recompile {
 				if _, serr := os.Stat(filepath.Join(cachedModelPath, "project.yaml")); serr == nil {
 					cachedModelReused = true
 					scanMode = Scan
-					// Resolve symlink to pin to a specific generation, protecting
-					// against concurrent symlink swaps from other processes.
-					if resolved, rerr := filepath.EvalSymlinks(cachedModelPath); rerr == nil {
-						absProjectModelPath = resolved
-					} else {
-						absProjectModelPath = cachedModelPath
-					}
+					absProjectModelPath = cachedModelPath
 					output.LogDebugf("Reusing cached model at: %s", absProjectModelPath)
 				}
 			}
@@ -299,21 +293,13 @@ func scan(cmd *cobra.Command) {
 		}
 		out.Blank()
 
-		// Promote staging to cache via symlink swap
+		// Promote staging to cache
 		if projectCachePath != "" {
 			if err := utils.PromoteStagingToCache(projectCachePath, tempLogsDir); err != nil {
 				output.LogInfof("Failed to promote staging to cache: %v", err)
 			} else {
 				tempLogsDir = "" // staging dir no longer exists
-				stableModelPath := utils.StableProjectModelPath(projectCachePath)
-				// Resolve symlink to the actual timestamped directory so that
-				// concurrent scans each pin to their own model and SARIF path,
-				// unaffected by later symlink swaps from other processes.
-				if resolved, rerr := filepath.EvalSymlinks(stableModelPath); rerr == nil {
-					absProjectModelPath = resolved
-				} else {
-					absProjectModelPath = stableModelPath
-				}
+				absProjectModelPath = utils.CachedProjectModelPath(projectCachePath)
 				output.LogDebugf("Model cached at: %s", absProjectModelPath)
 			}
 		}
@@ -419,7 +405,7 @@ func printScanInfo(cmd *cobra.Command, mode ScanMode, projectCachePath string, a
 	if tempProjectModel {
 		sb.Field("Project", absUserProjectRoot)
 		if projectCachePath != "" {
-			sb.Field("Project model", utils.StableProjectModelPath(projectCachePath))
+			sb.Field("Project model", utils.CachedProjectModelPath(projectCachePath))
 		}
 	} else {
 		sb.Field("Project model", absProjectModelPath)
