@@ -220,8 +220,10 @@ func scan(cmd *cobra.Command) {
 		out.Fatalf("Input validation failed: %s", err)
 	}
 
-	if err := utils.EnsureParentDir(absSarifReportPath); err != nil {
-		out.Fatalf("Failed to create output directory: %s", err)
+	if !tempProjectModel {
+		if err := utils.EnsureParentDir(absSarifReportPath); err != nil {
+			out.Fatalf("Failed to create output directory: %s", err)
+		}
 	}
 
 	if DryRunScan {
@@ -267,6 +269,10 @@ func scan(cmd *cobra.Command) {
 		}
 		out.Blank()
 		printCompileSummary(tempProjectModelPath)
+
+		if err := utils.EnsureParentDir(absSarifReportPath); err != nil {
+			out.Fatalf("Failed to create output directory: %s", err)
+		}
 	}
 
 	// Update builder with native paths for native execution
