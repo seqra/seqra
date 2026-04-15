@@ -160,14 +160,14 @@ jobs:
       - name: Verify cached model and default SARIF location
         run: |
           # Exactly one project cache directory should exist
-          MODEL_COUNT=$(ls -d ~/.opentaint/models/*/ 2>/dev/null | wc -l)
+          MODEL_COUNT=$(ls -d ~/.opentaint/cache/*/ 2>/dev/null | wc -l)
           if [ "$MODEL_COUNT" -ne 1 ]; then
             echo "Expected 1 cached model directory, found $MODEL_COUNT"
-            ls -la ~/.opentaint/models/ || true
+            ls -la ~/.opentaint/cache/ || true
             exit 1
           fi
 
-          CACHE_DIR=$(ls -d ~/.opentaint/models/*/)
+          CACHE_DIR=$(ls -d ~/.opentaint/cache/*/)
 
           # project-model directory should exist
           if [ ! -d "${CACHE_DIR}project-model" ]; then
@@ -222,9 +222,9 @@ jobs:
         working-directory: cli
         run: |
           ./opentaint prune --yes
-          if [ -d ~/.opentaint/models ] && [ "$(ls -A ~/.opentaint/models 2>/dev/null)" ]; then
-            echo "Expected models directory to be empty after prune"
-            ls -la ~/.opentaint/models/
+          if [ -d ~/.opentaint/cache ] && [ "$(ls -A ~/.opentaint/cache 2>/dev/null)" ]; then
+            echo "Expected cache directory to be empty after prune"
+            ls -la ~/.opentaint/cache/
             exit 1
           fi
           echo "Prune correctly removed cached models"
