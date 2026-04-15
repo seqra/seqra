@@ -312,7 +312,7 @@ jobs:
       - name: Run opentaint scan
         working-directory: cli
         run: |
-          ./opentaint scan ${{ steps.github-token.outputs.arg }} --output stirling-pdf-report.sarif stirling-pdf-model
+          ./opentaint scan ${{ steps.github-token.outputs.arg }} --output stirling-pdf-report.sarif --project-model stirling-pdf-model
 
   test-install-sh-linux:
     runs-on: ubuntu-latest
