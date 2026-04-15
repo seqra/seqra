@@ -26,6 +26,7 @@ const (
 var OutputProjectModelPath string
 var ProjectPath string
 var DryRunCompile bool
+var CompileLogFile string
 
 // compileCmd represents the compile command
 var compileCmd = &cobra.Command{
@@ -43,6 +44,12 @@ Arguments:
 
 		projectRoot := filepath.Clean(ProjectPath)
 		absProjectRoot := log.AbsPathOrExit(projectRoot, "project path")
+
+		// Activate logging
+		if !DryRunCompile {
+			cachePath, _ := utils.GetProjectCachePath(absProjectRoot)
+			activateLogging(CompileLogFile, cachePath)
+		}
 
 		outputProjectModelPath := filepath.Clean(OutputProjectModelPath)
 		absOutputProjectModelPath := log.AbsPathOrExit(outputProjectModelPath, "output")
@@ -97,6 +104,7 @@ func init() {
 	compileCmd.Flags().StringVarP(&OutputProjectModelPath, "output", "o", "", `Path to the result project model`)
 	_ = compileCmd.MarkFlagRequired("output")
 	compileCmd.Flags().BoolVar(&DryRunCompile, "dry-run", false, "Validate inputs and show what would run without compiling")
+	compileCmd.Flags().StringVar(&CompileLogFile, "log-file", "", "Path to the log file (default: <cache-dir>/logs/<timestamp>.log)")
 }
 
 func ensureAutobuilderAvailable() (string, error) {
