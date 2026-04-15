@@ -22,8 +22,8 @@ func TestProjectPathSlugHash(t *testing.T) {
 		if len(result) == 0 {
 			t.Fatal("expected non-empty result")
 		}
-		// The slug part should contain "users-me-my-project"
-		if result[:len(result)-9] != "users-me-my-project" {
+		// The slug part should be the last path segment only
+		if result[:len(result)-9] != "my-project" {
 			t.Errorf("unexpected slug portion: %q", result)
 		}
 		// Should end with dash + 8 hex chars

@@ -130,9 +130,10 @@ func CleanupStagingDir(stagingPath string) {
 }
 
 // ProjectPathSlugHash returns a deterministic directory name for a project path.
-// Format: slugified-path-8hexchars (e.g. "users-me-my-project-a1b2c3d4").
+// Format: last-path-segment-8hexchars (e.g. "my-project-a1b2c3d4").
+// Uses only the last segment of the path for readability; the hash ensures uniqueness.
 func ProjectPathSlugHash(absPath string) string {
-	slug := strings.ToLower(absPath)
+	slug := strings.ToLower(filepath.Base(absPath))
 	slug = nonAlphanumeric.ReplaceAllString(slug, "-")
 	slug = strings.Trim(slug, "-")
 
