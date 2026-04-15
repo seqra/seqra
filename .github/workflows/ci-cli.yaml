@@ -168,9 +168,9 @@ jobs:
 
           CACHE_DIR=$(ls -d ~/.opentaint/models/*/)
 
-          # project-model symlink should exist
-          if [ ! -L "${CACHE_DIR}project-model" ]; then
-            echo "Expected project-model symlink in $CACHE_DIR"
+          # project-model directory should exist
+          if [ ! -d "${CACHE_DIR}project-model" ]; then
+            echo "Expected project-model directory in $CACHE_DIR"
             ls -la "$CACHE_DIR"
             exit 1
           fi
