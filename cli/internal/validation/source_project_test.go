@@ -145,6 +145,30 @@ func TestDetectLanguages_PreservesRegistrationOrder(t *testing.T) {
 
 // --- ValidateSourceProject ---
 
+func TestValidateSourceProject_NonExistentDir(t *testing.T) {
+	err := ValidateSourceProject("/nonexistent/path/to/project")
+	if err == nil {
+		t.Fatal("expected error for non-existent directory")
+	}
+	if !strings.Contains(err.Error(), "does not exist") {
+		t.Errorf("error should mention directory does not exist, got: %v", err)
+	}
+}
+
+func TestValidateSourceProject_NotADirectory(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "somefile.txt")
+	createFile(t, filePath)
+
+	err := ValidateSourceProject(filePath)
+	if err == nil {
+		t.Fatal("expected error for file path")
+	}
+	if !strings.Contains(err.Error(), "not a directory") {
+		t.Errorf("error should mention not a directory, got: %v", err)
+	}
+}
+
 func TestValidateSourceProject_ValidProject(t *testing.T) {
 	dir := t.TempDir()
 	createFile(t, filepath.Join(dir, "build.gradle.kts"))
@@ -209,6 +233,30 @@ func TestValidateSourceProject_ProjectModelTakesPrecedence(t *testing.T) {
 }
 
 // --- ValidateSourceProjectForCompile ---
+
+func TestValidateSourceProjectForCompile_NonExistentDir(t *testing.T) {
+	err := ValidateSourceProjectForCompile("/nonexistent/path/to/project")
+	if err == nil {
+		t.Fatal("expected error for non-existent directory")
+	}
+	if !strings.Contains(err.Error(), "does not exist") {
+		t.Errorf("error should mention directory does not exist, got: %v", err)
+	}
+}
+
+func TestValidateSourceProjectForCompile_NotADirectory(t *testing.T) {
+	dir := t.TempDir()
+	filePath := filepath.Join(dir, "somefile.txt")
+	createFile(t, filePath)
+
+	err := ValidateSourceProjectForCompile(filePath)
+	if err == nil {
+		t.Fatal("expected error for file path")
+	}
+	if !strings.Contains(err.Error(), "not a directory") {
+		t.Errorf("error should mention not a directory, got: %v", err)
+	}
+}
 
 func TestValidateSourceProjectForCompile_ValidProject(t *testing.T) {
 	dir := t.TempDir()

@@ -124,6 +124,21 @@ func allMarkerNames() string {
 	return strings.Join(names, ", ")
 }
 
+// validateDirectoryExists checks that the given path exists and is a directory.
+func validateDirectoryExists(absPath string) error {
+	info, err := os.Stat(absPath)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("Project directory does not exist: %s", absPath)
+	}
+	if err != nil {
+		return fmt.Errorf("Cannot access project directory: %s", err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("Path is not a directory: %s", absPath)
+	}
+	return nil
+}
+
 // IsProjectModel returns true if absProjectRoot contains a project.yaml file,
 // indicating it is a compiled project model rather than a source directory.
 func IsProjectModel(absProjectRoot string) bool {
@@ -132,10 +147,14 @@ func IsProjectModel(absProjectRoot string) bool {
 }
 
 // ValidateSourceProject checks that absProjectRoot looks like a supported
-// source project. If it contains project.yaml (a compiled project model),
-// it returns an error. If no build-system markers are found, it returns an
-// error listing the expected files.
+// source project. It returns an error if the directory does not exist, if it
+// contains project.yaml (a compiled project model), or if no build-system
+// markers are found.
 func ValidateSourceProject(absProjectRoot string) error {
+	if err := validateDirectoryExists(absProjectRoot); err != nil {
+		return err
+	}
+
 	if IsProjectModel(absProjectRoot) {
 		return fmt.Errorf(
 			"The path %s appears to be a compiled project model (contains project.yaml), not a source project",
@@ -158,6 +177,10 @@ func ValidateSourceProject(absProjectRoot string) error {
 // ValidateSourceProject, it does not check for project.yaml since compile
 // always operates on source directories.
 func ValidateSourceProjectForCompile(absProjectRoot string) error {
+	if err := validateDirectoryExists(absProjectRoot); err != nil {
+		return err
+	}
+
 	if langs := detectLanguages(absProjectRoot); len(langs) > 0 {
 		return nil
 	}
