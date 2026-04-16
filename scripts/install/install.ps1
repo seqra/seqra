@@ -1,11 +1,29 @@
 # OpenTaint installer for Windows (PowerShell)
-# Usage: irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1 | iex
+# Usage:
+#   irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1 | iex
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1))) -Version 1.2.3
 
 param(
     [string]$Version = "latest"
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Test-Version {
+    param([string]$Raw)
+
+    if (-not $Raw -or $Raw -eq "latest") {
+        return @{ PathSegment = "latest/download"; Tag = "latest" }
+    }
+
+    if ($Raw -match '^(v)?(?<ver>[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?)$') {
+        $normalized = $Matches['ver']
+        return @{ PathSegment = "download/v$normalized"; Tag = "v$normalized" }
+    }
+
+    Write-Error "Invalid version '$Raw'. Expected 'latest' or 'X.Y.Z' (optionally prefixed with 'v')."
+    exit 2
+}
 
 $Repo = if ($env:OPENTAINT_REPOSITORY) { $env:OPENTAINT_REPOSITORY } else { "seqra/opentaint" }
 
@@ -81,8 +99,13 @@ function Get-InstallDir {
 }
 
 function Main {
-    $BaseUrl = if ($env:OPENTAINT_DOWNLOAD_BASE_URL) { $env:OPENTAINT_DOWNLOAD_BASE_URL } else { "https://github.com/$Repo/releases/latest/download" }
-    $script:BaseUrl = $BaseUrl  # let Verify-Checksum see it
+    $versionInfo = Test-Version -Raw $Version
+    $BaseUrl = if ($env:OPENTAINT_DOWNLOAD_BASE_URL) {
+        $env:OPENTAINT_DOWNLOAD_BASE_URL
+    } else {
+        "https://github.com/$Repo/releases/$($versionInfo.PathSegment)"
+    }
+    $script:BaseUrl = $BaseUrl
 
     $arch = Get-Architecture
     Write-Host "Architecture: $arch"
