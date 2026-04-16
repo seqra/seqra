@@ -60,7 +60,7 @@ func checkStale(def globals.ArtifactDef, name, fullPath string) *StaleArtifact {
 }
 
 // ScanForStaleArtifacts scans ~/.opentaint/ for artifacts that are not current and returns them.
-func ScanForStaleArtifacts(includeLogs, all bool) (*PruneResult, error) {
+func ScanForStaleArtifacts(all bool) (*PruneResult, error) {
 	opentaintHome, err := GetOpentaintHome()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get opentaint home: %w", err)
@@ -174,7 +174,7 @@ func ScanForStaleArtifacts(includeLogs, all bool) (*PruneResult, error) {
 					result.TotalCount++
 				}
 
-				if includeLogs {
+				if all {
 					logsDir := filepath.Join(modelPath, "logs")
 					if lInfo, lErr := os.Stat(logsDir); lErr == nil && lInfo.IsDir() {
 						logSize, _ := dirSize(logsDir)

@@ -132,7 +132,7 @@ Only upgrades are supported — downgrading to an older version is refused.`,
 
 		// Auto-prune after successful update
 		out.Print("Pruning stale artifacts...")
-		pruneResult, err := utils.ScanForStaleArtifacts(false, false)
+		pruneResult, err := utils.ScanForStaleArtifacts(false)
 		if err != nil {
 			out.Warnf("Failed to scan for stale artifacts: %s", err)
 			return
