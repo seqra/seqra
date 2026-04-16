@@ -59,25 +59,25 @@ var supportedLanguages = []LanguageMarkers{
 	},
 }
 
-// markerSet builds a lookup set from all registered language markers.
-func markerSet() map[string]bool {
-	set := make(map[string]bool)
+// markerToLanguage builds a lookup from marker name to language name.
+func markerToLanguage() map[string]string {
+	m := make(map[string]string)
 	for _, lang := range supportedLanguages {
-		for _, m := range lang.Markers {
-			set[m] = true
+		for _, marker := range lang.Markers {
+			m[marker] = lang.Name
 		}
 	}
-	return set
+	return m
 }
 
-// detectLanguage walks absProjectRoot up to maxMarkerSearchDepth looking for
-// any registered marker. Returns the language name on first match, or "" if
-// none found.
-func detectLanguage(absProjectRoot string) string {
-	markers := markerSet()
+// detectLanguages walks absProjectRoot up to maxMarkerSearchDepth looking for
+// registered markers. Returns a deduplicated slice of detected language names.
+func detectLanguages(absProjectRoot string) []string {
+	lookup := markerToLanguage()
 	rootDepth := strings.Count(filepath.Clean(absProjectRoot), string(filepath.Separator))
+	totalLanguages := len(supportedLanguages)
 
-	found := ""
+	found := make(map[string]bool)
 	_ = filepath.WalkDir(absProjectRoot, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return filepath.SkipDir
@@ -94,22 +94,24 @@ func detectLanguage(absProjectRoot string) string {
 			}
 		}
 
-		if markers[d.Name()] {
-			// Resolve which language this marker belongs to
-			for _, lang := range supportedLanguages {
-				for _, m := range lang.Markers {
-					if m == d.Name() {
-						found = lang.Name
-						return filepath.SkipAll
-					}
-				}
+		if lang, ok := lookup[d.Name()]; ok {
+			found[lang] = true
+			if len(found) == totalLanguages {
+				return filepath.SkipAll
 			}
 		}
 
 		return nil
 	})
 
-	return found
+	languages := make([]string, 0, len(found))
+	// Preserve registration order from supportedLanguages
+	for _, lang := range supportedLanguages {
+		if found[lang.Name] {
+			languages = append(languages, lang.Name)
+		}
+	}
+	return languages
 }
 
 // allMarkerNames returns a human-readable comma-separated list of all markers
@@ -137,7 +139,7 @@ func ValidateSourceProject(absProjectRoot string) error {
 		)
 	}
 
-	if lang := detectLanguage(absProjectRoot); lang != "" {
+	if langs := detectLanguages(absProjectRoot); len(langs) > 0 {
 		return nil
 	}
 
@@ -153,7 +155,7 @@ func ValidateSourceProject(absProjectRoot string) error {
 // ValidateSourceProject, it does not check for project.yaml since compile
 // always operates on source directories.
 func ValidateSourceProjectForCompile(absProjectRoot string) error {
-	if lang := detectLanguage(absProjectRoot); lang != "" {
+	if langs := detectLanguages(absProjectRoot); len(langs) > 0 {
 		return nil
 	}
 

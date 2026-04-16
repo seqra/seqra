@@ -3,6 +3,7 @@ package validation
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -24,9 +25,9 @@ func createDir(t *testing.T, path string) {
 	}
 }
 
-// --- detectLanguage ---
+// --- detectLanguages ---
 
-func TestDetectLanguage_AllMarkers(t *testing.T) {
+func TestDetectLanguages_AllMarkers(t *testing.T) {
 	for _, lang := range supportedLanguages {
 		for _, marker := range lang.Markers {
 			t.Run(lang.Name+"/"+marker, func(t *testing.T) {
@@ -39,82 +40,106 @@ func TestDetectLanguage_AllMarkers(t *testing.T) {
 					createFile(t, path)
 				}
 
-				got := detectLanguage(dir)
-				if got != lang.Name {
-					t.Errorf("detectLanguage() = %q, want %q for marker %q", got, lang.Name, marker)
+				got := detectLanguages(dir)
+				if !slices.Contains(got, lang.Name) {
+					t.Errorf("detectLanguages() = %v, want to contain %q for marker %q", got, lang.Name, marker)
 				}
 			})
 		}
 	}
 }
 
-func TestDetectLanguage_NestedMarker(t *testing.T) {
+func TestDetectLanguages_NestedMarker(t *testing.T) {
 	dir := t.TempDir()
 	createFile(t, filepath.Join(dir, "backend", "pom.xml"))
 
-	got := detectLanguage(dir)
-	if got != "Java/Kotlin" {
-		t.Errorf("detectLanguage() = %q, want %q for nested pom.xml", got, "Java/Kotlin")
+	got := detectLanguages(dir)
+	if !slices.Contains(got, "Java/Kotlin") {
+		t.Errorf("detectLanguages() = %v, want to contain %q for nested pom.xml", got, "Java/Kotlin")
 	}
 }
 
-func TestDetectLanguage_DeeplyNestedWithinLimit(t *testing.T) {
+func TestDetectLanguages_DeeplyNestedWithinLimit(t *testing.T) {
 	dir := t.TempDir()
 	// depth 3 (a/b/c/pom.xml) — should be found
 	createFile(t, filepath.Join(dir, "a", "b", "c", "pom.xml"))
 
-	got := detectLanguage(dir)
-	if got != "Java/Kotlin" {
-		t.Errorf("detectLanguage() = %q, want %q at depth 3", got, "Java/Kotlin")
+	got := detectLanguages(dir)
+	if !slices.Contains(got, "Java/Kotlin") {
+		t.Errorf("detectLanguages() = %v, want to contain %q at depth 3", got, "Java/Kotlin")
 	}
 }
 
-func TestDetectLanguage_BeyondMaxDepth(t *testing.T) {
+func TestDetectLanguages_BeyondMaxDepth(t *testing.T) {
 	dir := t.TempDir()
 	// depth 4 (a/b/c/d/pom.xml) — beyond maxMarkerSearchDepth=3
 	createFile(t, filepath.Join(dir, "a", "b", "c", "d", "pom.xml"))
 
-	got := detectLanguage(dir)
-	if got != "" {
-		t.Errorf("detectLanguage() = %q, want empty for marker beyond max depth", got)
+	got := detectLanguages(dir)
+	if len(got) != 0 {
+		t.Errorf("detectLanguages() = %v, want empty for marker beyond max depth", got)
 	}
 }
 
-func TestDetectLanguage_SkippedDirs(t *testing.T) {
+func TestDetectLanguages_SkippedDirs(t *testing.T) {
 	for skipped := range skippedDirs {
 		t.Run(skipped, func(t *testing.T) {
 			dir := t.TempDir()
 			createFile(t, filepath.Join(dir, skipped, "pom.xml"))
 
-			got := detectLanguage(dir)
-			if got != "" {
-				t.Errorf("detectLanguage() = %q, want empty for marker inside skipped dir %q", got, skipped)
+			got := detectLanguages(dir)
+			if len(got) != 0 {
+				t.Errorf("detectLanguages() = %v, want empty for marker inside skipped dir %q", got, skipped)
 			}
 		})
 	}
 }
 
-func TestDetectLanguage_EmptyDir(t *testing.T) {
+func TestDetectLanguages_EmptyDir(t *testing.T) {
 	dir := t.TempDir()
 
-	got := detectLanguage(dir)
-	if got != "" {
-		t.Errorf("detectLanguage() = %q, want empty for empty dir", got)
+	got := detectLanguages(dir)
+	if len(got) != 0 {
+		t.Errorf("detectLanguages() = %v, want empty for empty dir", got)
 	}
 }
 
-func TestDetectLanguage_WindowsMarkers(t *testing.T) {
+func TestDetectLanguages_WindowsMarkers(t *testing.T) {
 	windowsMarkers := []string{"gradlew.bat", "mvnw.cmd"}
 	for _, marker := range windowsMarkers {
 		t.Run(marker, func(t *testing.T) {
 			dir := t.TempDir()
 			createFile(t, filepath.Join(dir, marker))
 
-			got := detectLanguage(dir)
-			if got != "Java/Kotlin" {
-				t.Errorf("detectLanguage() = %q, want %q for Windows marker %q", got, "Java/Kotlin", marker)
+			got := detectLanguages(dir)
+			if !slices.Contains(got, "Java/Kotlin") {
+				t.Errorf("detectLanguages() = %v, want to contain %q for Windows marker %q", got, "Java/Kotlin", marker)
 			}
 		})
+	}
+}
+
+func TestDetectLanguages_PreservesRegistrationOrder(t *testing.T) {
+	dir := t.TempDir()
+	// Place markers for all registered languages
+	for _, lang := range supportedLanguages {
+		marker := lang.Markers[0]
+		if strings.HasPrefix(marker, ".") {
+			createDir(t, filepath.Join(dir, marker))
+		} else {
+			createFile(t, filepath.Join(dir, marker))
+		}
+	}
+
+	got := detectLanguages(dir)
+	for i, lang := range supportedLanguages {
+		if i >= len(got) {
+			t.Errorf("detectLanguages() missing %q at index %d", lang.Name, i)
+			continue
+		}
+		if got[i] != lang.Name {
+			t.Errorf("detectLanguages()[%d] = %q, want %q", i, got[i], lang.Name)
+		}
 	}
 }
 
