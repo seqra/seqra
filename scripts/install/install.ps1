@@ -147,7 +147,7 @@ function Main {
     try {
         $archivePath = Join-Path $tmpDir $archiveName
         Write-Host "Downloading $archiveName..."
-        Invoke-Download -Url $url -OutFile $archivePath -ShowProgress $false
+        Invoke-Download -Url $url -OutFile $archivePath -ShowProgress $true
 
         Verify-Checksum -ArchivePath $archivePath -ArchiveName $archiveName
 
