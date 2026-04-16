@@ -14,8 +14,12 @@ pick_downloader() {
         DOWNLOADER="curl"
         return
     fi
-    echo "Error: curl is required but not installed." >&2
-    echo "Install curl and re-run the installer." >&2
+    if command -v wget >/dev/null 2>&1; then
+        DOWNLOADER="wget"
+        return
+    fi
+    echo "Error: curl or wget is required but neither is installed." >&2
+    echo "Install curl or wget and re-run the installer." >&2
     exit 1
 }
 
@@ -26,6 +30,9 @@ download() {
     case "$DOWNLOADER" in
         curl)
             curl -fsSL -o "$output" "$url"
+            ;;
+        wget)
+            wget -q -O "$output" "$url"
             ;;
         *)
             echo "Error: no downloader configured." >&2
