@@ -1361,7 +1361,37 @@ Expected: `On branch misonijnik/match-generic-types` with only `opentaint-projec
 
 ## Appendix A: Runtime verdict table
 
-_Filled in during Task 4._
+_Captured 2026-04-17._
+
+```
+row | status | content-type                                    | raw_script | verdict
+----+--------+-------------------------------------------------+------------+--------
+  1 |    200 | text/html;charset=UTF-8                         | true       | TP
+  2 |    200 | text/html;charset=UTF-8                         | true       | TP
+  3 |    406 | text/html;charset=UTF-8                         | false      | FP
+  4 |    406 | text/html;charset=UTF-8                         | false      | FP
+  5 |    406 | text/html;charset=UTF-8                         | false      | FP
+  6 |    406 | text/html;charset=UTF-8                         | false      | FP
+  7 |    200 | text/html;charset=UTF-8                         | true       | TP
+  8 |    406 | text/html;charset=UTF-8                         | false      | FP
+  9 |    200 | text/html                                       | true       | TP
+ 10 |    200 | application/json                                | true       | FP
+ 11 |    200 | text/html                                       | true       | TP
+ 12 |    200 | application/json                                | true       | FP
+ 13 |    200 | application/json                                | true       | FP
+ 14 |    200 | text/html;charset=UTF-8                         | true       | TP
+ 15 |    200 | application/json                                | true       | FP
+ 16 |    500 | text/html                                       | true       | TP
+ 17 |    200 | text/html                                       | true       | TP
+ 18 |    200 | application/pdf                                 | true       | FP
+ 19 |    200 | application/octet-stream                        | true       | FP
+ 20 |    200 | application/json;charset=ISO-8859-1             | true       | FP
+ 21 |    200 | application/json;charset=ISO-8859-1             | true       | FP
+```
+
+Verdict rule: **TP** iff response `Content-Type` starts with `text/html` AND body contains the raw payload `<script>alert(1)</script>`; otherwise **FP**. Each request carried `Accept: text/html` and `?payload=<script>alert(1)</script>` against the ephemeral Spring Boot 2.7 harness at `/tmp/xss-verify/`.
+
+**Flips vs spec:** No flips — all 21 rows matched the spec prediction.
 
 ## Appendix B: Raw-vs-generic matching probe
 
