@@ -46,7 +46,7 @@ Arguments:
 		absProjectRoot := log.AbsPathOrExit(projectRoot, "project path")
 
 		if err := validation.ValidateSourceProjectForCompile(absProjectRoot); err != nil {
-			out.Fatalf("%s", err)
+			out.FatalErr(err)
 		}
 
 		// Activate logging
