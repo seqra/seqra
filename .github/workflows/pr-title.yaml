@@ -80,7 +80,6 @@ jobs:
 
           declare -A SCOPE_PATHS
 
-          SCOPE_PATHS[cli]="^(cli/|\.github/workflows/(ci|release)-cli\.)"
           SCOPE_PATHS[rules]="^(rules/|\.github/workflows/(ci|release)-rules\.)"
           SCOPE_PATHS[github]="^(github/|\.github/workflows/(ci|release)-github\.)"
           SCOPE_PATHS[gitlab]="^(gitlab/|\.github/workflows/release-gitlab\.)"
@@ -137,6 +136,7 @@ jobs:
           )
           DOCS_PATTERN=$(IFS="|"; echo "${DOCS_PATTERNS[*]}")
           SCOPE_PATHS[docs]="^(${DOCS_PATTERN})"
+          SCOPE_PATHS[cli]="^(cli/|\.github/workflows/(ci|release)-cli\.|${DOCS_PATTERN})"
 
           ALLOWED="${SCOPE_PATHS[$SCOPE]:-}"
           if [ -z "$ALLOWED" ]; then
