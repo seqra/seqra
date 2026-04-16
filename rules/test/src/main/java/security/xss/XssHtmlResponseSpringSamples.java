@@ -8,6 +8,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.opentaint.sast.test.util.NegativeRuleSample;
 import org.opentaint.sast.test.util.PositiveRuleSample;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -18,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.HtmlUtils;
+
+import java.nio.charset.Charset;
 
 
 /**
@@ -107,6 +110,43 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
+    // ── ResponseEntity<byte[]> WITH produces = "text/html" — XSS ────────────
+    // Explicit HTML content type forces the browser to render the bytes as
+    // HTML, so untrusted input embedded in those bytes is exploitable.
+    //
+    // Note on ResponseEntity<byte[]> WITHOUT produces: Spring's
+    // ByteArrayHttpMessageConverter defaults to application/octet-stream, so a
+    // raw ResponseEntity<byte[]> response is not rendered as HTML by modern
+    // browsers and is generally not XSS-exploitable in practice. The current
+    // Spring XSS sink rule cannot distinguish the body type and will flag
+    // byte[]-body controllers that reflect untrusted input — this is an
+    // acceptable over-approximation given that any downstream change to the
+    // handler's content type would make the response vulnerable.
+
+    @Controller
+    public static class UnsafeResponseEntityBytesHtmlController {
+
+        @GetMapping(value = "/xss-in-spring-app/unsafe-bytes-html", produces = "text/html")
+        @ResponseBody
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public ResponseEntity<byte[]> unsafeBytesHtml(@RequestParam String name) {
+            byte[] body = ("<h1>Hello, " + name + "!</h1>").getBytes(Charset.defaultCharset());
+            return ResponseEntity.status(HttpStatus.OK).body(body);
+        }
+    }
+
+    // ── String return WITH produces = "application/json" — NOT XSS ──────────
+
+    @RestController
+    public static class SafeJsonStringReturnController {
+
+        @GetMapping(value = "/xss-in-spring-app/safe-json-string", produces = "application/json")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public String safeJsonStringReturn(@RequestParam(required = false, defaultValue = "") String name) {
+            return "{\"name\":\"" + name + "\"}";
+        }
+    }
+
     // ── Negative: sanitized String return ────────────────────────────────────
 
     @RestController
@@ -117,6 +157,238 @@ public class XssHtmlResponseSpringSamples {
         public String safeStringReturn(@RequestParam(required = false, defaultValue = "") String name) {
             String safeName = HtmlUtils.htmlEscape(name, "UTF-8");
             return "<h1>Hello, " + safeName + "!</h1>";
+        }
+    }
+
+    // ── Row 02: String, produces="text/html" — TP ──────────────────────────
+
+    @RestController
+    public static class Row02StringProducesHtmlController {
+
+        @GetMapping(value = "/xss-in-spring-app/row-02", produces = "text/html")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public String row02(@RequestParam(required = false, defaultValue = "") String name) {
+            return "<h1>Hello, " + name + "!</h1>";
+        }
+    }
+
+    // ── Row 04: String, produces="text/plain" — FP ─────────────────────────
+
+    @RestController
+    public static class Row04StringProducesTextPlainController {
+
+        @GetMapping(value = "/xss-in-spring-app/row-04", produces = "text/plain")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public String row04(@RequestParam(required = false, defaultValue = "") String name) {
+            return "Hello, " + name;
+        }
+    }
+
+    // ── Row 05: String, produces="application/pdf" — FP ────────────────────
+
+    @RestController
+    public static class Row05StringProducesPdfController {
+
+        @GetMapping(value = "/xss-in-spring-app/row-05", produces = "application/pdf")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public String row05(@RequestParam(required = false, defaultValue = "") String name) {
+            return "<h1>Hello, " + name + "!</h1>";
+        }
+    }
+
+    // ── Row 06: String, produces="application/octet-stream" — FP ───────────
+
+    @RestController
+    public static class Row06StringProducesOctetStreamController {
+
+        @GetMapping(value = "/xss-in-spring-app/row-06", produces = "application/octet-stream")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public String row06(@RequestParam(required = false, defaultValue = "") String name) {
+            return "<h1>Hello, " + name + "!</h1>";
+        }
+    }
+
+    // ── Row 08: ResponseEntity<String>, produces="application/json" — FP ───
+
+    @RestController
+    public static class Row08ResponseEntityStringProducesJsonController {
+
+        @GetMapping(value = "/xss-in-spring-app/row-08", produces = "application/json")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public ResponseEntity<String> row08(@RequestParam(required = false, defaultValue = "") String name) {
+            return ResponseEntity.ok("{\"name\":\"" + name + "\"}");
+        }
+    }
+
+    // ── Row 09: ResponseEntity<String>.contentType(TEXT_HTML) — TP ─────────
+
+    @RestController
+    public static class Row09ResponseEntityStringContentTypeHtmlController {
+
+        @GetMapping("/xss-in-spring-app/row-09")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public ResponseEntity<String> row09(@RequestParam(required = false, defaultValue = "") String name) {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.TEXT_HTML)
+                    .body("<h1>Hello, " + name + "!</h1>");
+        }
+    }
+
+    // ── Row 10: ResponseEntity<String>.contentType(APPLICATION_JSON) — FP ──
+
+    @RestController
+    public static class Row10ResponseEntityStringContentTypeJsonController {
+
+        @GetMapping("/xss-in-spring-app/row-10")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public ResponseEntity<String> row10(@RequestParam(required = false, defaultValue = "") String name) {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("{\"name\":\"" + name + "\"}");
+        }
+    }
+
+    // ── Row 11: ResponseEntity<String>.header("Content-Type","text/html") — TP
+
+    @RestController
+    public static class Row11ResponseEntityStringHeaderHtmlController {
+
+        @GetMapping("/xss-in-spring-app/row-11")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public ResponseEntity<String> row11(@RequestParam(required = false, defaultValue = "") String name) {
+            return ResponseEntity.ok()
+                    .header("Content-Type", "text/html")
+                    .body("<h1>Hello, " + name + "!</h1>");
+        }
+    }
+
+    // ── Row 12: ResponseEntity<String>.header("Content-Type","application/json") — FP
+
+    @RestController
+    public static class Row12ResponseEntityStringHeaderJsonController {
+
+        @GetMapping("/xss-in-spring-app/row-12")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public ResponseEntity<String> row12(@RequestParam(required = false, defaultValue = "") String name) {
+            return ResponseEntity.ok()
+                    .header("Content-Type", "application/json")
+                    .body("{\"name\":\"" + name + "\"}");
+        }
+    }
+
+    // ── Row 13: new ResponseEntity<>(body, headers, status) with json headers — FP
+
+    @RestController
+    public static class Row13NewResponseEntityHeadersJsonController {
+
+        @GetMapping("/xss-in-spring-app/row-13")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public ResponseEntity<String> row13(@RequestParam(required = false, defaultValue = "") String name) {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            return new ResponseEntity<>("{\"name\":\"" + name + "\"}", headers, HttpStatus.OK);
+        }
+    }
+
+    // ── Row 14: raw ResponseEntity, no contentType — TP ────────────────────
+
+    @RestController
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static class Row14RawResponseEntityNoContentTypeController {
+
+        @GetMapping("/xss-in-spring-app/row-14")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public ResponseEntity row14(@RequestParam(required = false, defaultValue = "") String name) {
+            return ResponseEntity.ok("<h1>Hello, " + name + "!</h1>");
+        }
+    }
+
+    // ── Row 15: raw ResponseEntity.contentType(APPLICATION_JSON) — FP ──────
+
+    @RestController
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    public static class Row15RawResponseEntityContentTypeJsonController {
+
+        @GetMapping("/xss-in-spring-app/row-15")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public ResponseEntity row15(@RequestParam(required = false, defaultValue = "") String name) {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("{\"name\":\"" + name + "\"}");
+        }
+    }
+
+    // ── Row 16: Stirling-PDF ResponseEntity<byte[]> no content type — TP ───
+
+    @RestController
+    public static class Row16StirlingPdfShapeController {
+
+        @GetMapping("/xss-in-spring-app/row-16")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public ResponseEntity<byte[]> row16(@RequestParam(required = false, defaultValue = "") String filename) {
+            String err = "Conversion failed for " + filename;
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(err.getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
+    // ── Row 18: ResponseEntity<byte[]>.contentType(APPLICATION_PDF) — FP ───
+
+    @RestController
+    public static class Row18ResponseEntityBytesContentTypePdfController {
+
+        @GetMapping("/xss-in-spring-app/row-18")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public ResponseEntity<byte[]> row18(@RequestParam(required = false, defaultValue = "") String name) {
+            byte[] body = ("PDF-1.4% fake for " + name).getBytes(StandardCharsets.UTF_8);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(body);
+        }
+    }
+
+    // ── Row 19: ResponseEntity<byte[]>.contentType(APPLICATION_OCTET_STREAM) — FP
+
+    @RestController
+    public static class Row19ResponseEntityBytesContentTypeOctetStreamController {
+
+        @GetMapping("/xss-in-spring-app/row-19")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public ResponseEntity<byte[]> row19(@RequestParam(required = false, defaultValue = "") String name) {
+            byte[] body = ("binary-for-" + name).getBytes(StandardCharsets.UTF_8);
+            return ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                    .body(body);
+        }
+    }
+
+    // ── Row 20: HttpServletResponse.setContentType("application/json") — FP
+
+    @Controller
+    public static class Row20ServletSetContentTypeJsonController {
+
+        @GetMapping("/xss-in-spring-app/row-20")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public void row20(@RequestParam(required = false, defaultValue = "") String name,
+                          HttpServletResponse response) throws IOException {
+            response.setContentType("application/json");
+            PrintWriter out = response.getWriter();
+            out.print("{\"name\":\"" + name + "\"}");
+        }
+    }
+
+    // ── Row 21: HttpServletResponse.setHeader("Content-Type","application/json") — FP
+
+    @Controller
+    public static class Row21ServletSetHeaderJsonController {
+
+        @GetMapping("/xss-in-spring-app/row-21")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public void row21(@RequestParam(required = false, defaultValue = "") String name,
+                          HttpServletResponse response) throws IOException {
+            response.setHeader("Content-Type", "application/json");
+            PrintWriter out = response.getWriter();
+            out.print("{\"name\":\"" + name + "\"}");
         }
     }
 }
