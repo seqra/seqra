@@ -129,15 +129,15 @@ func scan(cmd *cobra.Command) {
 	cfg := resolveScanConfig(absUserProjectRoot)
 
 	// Activate logging
-	logCachePath := cfg.projectCachePath
-	if logCachePath == "" && ProjectModelPath != "" {
-		var err error
-		logCachePath, err = utils.GetProjectCachePath(absUserProjectRoot)
-		if err != nil {
-			output.LogInfof("Failed to resolve project cache path for logging: %v", err)
-		}
-	}
 	if !DryRunScan {
+		logCachePath := cfg.projectCachePath
+		if logCachePath == "" && ProjectModelPath != "" {
+			var err error
+			logCachePath, err = utils.GetProjectCachePath(absUserProjectRoot)
+			if err != nil {
+				output.LogInfof("Failed to resolve project cache path for logging: %v", err)
+			}
+		}
 		activateLogging(ScanLogFile, logCachePath)
 	}
 

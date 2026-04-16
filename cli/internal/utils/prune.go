@@ -178,7 +178,7 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 		}
 	}
 
-	// Scan for cached compilation models
+	// Scan for cached compilation models (and optionally logs inside them)
 	modelsDir, _ := GetModelCacheDirPath()
 	if info, err := os.Stat(modelsDir); err == nil && info.IsDir() {
 		modelEntries, err := os.ReadDir(modelsDir)
@@ -189,37 +189,27 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 				}
 				modelPath := filepath.Join(modelsDir, modelEntry.Name())
 				size, _ := dirSize(modelPath)
-				result.Stale = append(result.Stale, StaleArtifact{
-					Path: modelPath,
-					Size: size,
-					Kind: StaleKindModel,
-				})
-				result.TotalSize += size
-				result.TotalCount++
-			}
-		}
-	}
+				if size > 0 {
+					result.Stale = append(result.Stale, StaleArtifact{
+						Path: modelPath,
+						Size: size,
+						Kind: StaleKindModel,
+					})
+					result.TotalSize += size
+					result.TotalCount++
+				}
 
-	// Scan for logs inside project cache directories if requested
-	if includeLogs {
-		cacheDir, _ := GetModelCacheDirPath()
-		if info, err := os.Stat(cacheDir); err == nil && info.IsDir() {
-			cacheEntries, err := os.ReadDir(cacheDir)
-			if err == nil {
-				for _, cacheEntry := range cacheEntries {
-					if !cacheEntry.IsDir() {
-						continue
-					}
-					logsDir := filepath.Join(cacheDir, cacheEntry.Name(), "logs")
-					if info, err := os.Stat(logsDir); err == nil && info.IsDir() {
-						size, _ := dirSize(logsDir)
-						if size > 0 {
+				if includeLogs {
+					logsDir := filepath.Join(modelPath, "logs")
+					if lInfo, lErr := os.Stat(logsDir); lErr == nil && lInfo.IsDir() {
+						logSize, _ := dirSize(logsDir)
+						if logSize > 0 {
 							result.Stale = append(result.Stale, StaleArtifact{
 								Path: logsDir,
-								Size: size,
+								Size: logSize,
 								Kind: StaleKindLog,
 							})
-							result.TotalSize += size
+							result.TotalSize += logSize
 							result.TotalCount++
 						}
 					}

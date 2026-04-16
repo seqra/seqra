@@ -8,21 +8,23 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/sirupsen/logrus"
 )
 
 var (
-	logFile   *os.File
-	logSwitch *SwitchableWriter
+	logFile     *os.File
+	logSwitch   *SwitchableWriter
+	logSwitchOn sync.Once
 )
 
 // LogWriter returns the global SwitchableWriter used for log output.
 // Before any log file is opened, writes go to io.Discard.
 func LogWriter() *SwitchableWriter {
-	if logSwitch == nil {
+	logSwitchOn.Do(func() {
 		logSwitch = NewSwitchableWriter(io.Discard)
-	}
+	})
 	return logSwitch
 }
 
