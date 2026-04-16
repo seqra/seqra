@@ -114,6 +114,7 @@ detect_platform() {
         Darwin) os="darwin" ;;
         *)
             echo "Error: Unsupported operating system: $os" >&2
+            echo "See https://github.com/seqra/opentaint/blob/main/docs/installation.md for alternatives." >&2
             exit 1
             ;;
     esac
@@ -124,6 +125,7 @@ detect_platform() {
         arm64|aarch64) arch="arm64" ;;
         *)
             echo "Error: Unsupported architecture: $arch" >&2
+            echo "See https://github.com/seqra/opentaint/blob/main/docs/installation.md for alternatives." >&2
             exit 1
             ;;
     esac
