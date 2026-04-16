@@ -78,7 +78,7 @@ var rootCmd = &cobra.Command{
 func Execute() {
 	err := rootCmd.Execute()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		fmt.Fprintf(os.Stderr, "Error: %s\n", output.Humanize(err))
 		fmt.Fprintln(os.Stderr, "Run 'opentaint --help' for usage.")
 		os.Exit(1)
 	}
