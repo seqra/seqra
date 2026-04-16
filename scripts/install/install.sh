@@ -2,11 +2,108 @@
 set -euo pipefail
 
 # OpenTaint installer for Linux and macOS
-# Usage: curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
+# Usage:
+#   curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash -s -- 1.2.3
 
 REPO="${OPENTAINT_REPOSITORY:-seqra/opentaint}"
 INSTALL_DIR="${OPENTAINT_INSTALL_DIR:-}"
-DOWNLOAD_BASE_URL="${OPENTAINT_DOWNLOAD_BASE_URL:-https://github.com/${REPO}/releases/latest/download}"
+
+DOWNLOADER=""
+
+# Populates VERSION_PATH_SEGMENT and VERSION_TAG from the raw version argument.
+# Accepts:
+#   (empty)  -> latest
+#   latest
+#   X.Y.Z
+#   vX.Y.Z
+#   X.Y.Z-suffix
+#   vX.Y.Z-suffix
+# Exits 2 on invalid input.
+validate_version() {
+    local raw="${1:-latest}"
+
+    if [ "$raw" = "latest" ] || [ -z "$raw" ]; then
+        VERSION_PATH_SEGMENT="latest/download"
+        VERSION_TAG="latest"
+        return
+    fi
+
+    if [[ "$raw" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?$ ]]; then
+        local normalized="${raw#v}"
+        VERSION_PATH_SEGMENT="download/v${normalized}"
+        VERSION_TAG="v${normalized}"
+        return
+    fi
+
+    echo "Error: invalid version '$raw'." >&2
+    echo "Expected 'latest' or 'X.Y.Z' (optionally prefixed with 'v')." >&2
+    exit 2
+}
+
+# Prints the resolved path of an existing opentaint binary if it appears to
+# belong to a Homebrew installation (mirrors cli/internal/utils/updater.go
+# classification). Prints nothing otherwise.
+detect_homebrew_install() {
+    if ! command -v opentaint >/dev/null 2>&1; then
+        return 0
+    fi
+    local path resolved
+    path="$(command -v opentaint)"
+    # Resolve symlinks so we can compare against the real location.
+    # readlink -f is GNU-only; fall back to realpath on macOS/BSD.
+    if resolved="$(readlink -f "$path" 2>/dev/null)" && [ -n "$resolved" ]; then
+        path="$resolved"
+    elif resolved="$(realpath "$path" 2>/dev/null)" && [ -n "$resolved" ]; then
+        path="$resolved"
+    fi
+    case "$(printf '%s' "$path" | tr '[:upper:]' '[:lower:]')" in
+        */cellar/*|*/caskroom/*|*/homebrew/*)
+            echo "$path"
+            ;;
+    esac
+}
+
+pick_downloader() {
+    if command -v curl >/dev/null 2>&1; then
+        DOWNLOADER="curl"
+        return
+    fi
+    if command -v wget >/dev/null 2>&1; then
+        DOWNLOADER="wget"
+        return
+    fi
+    echo "Error: curl or wget is required but neither is installed." >&2
+    echo "Install curl or wget and re-run the installer." >&2
+    exit 1
+}
+
+download() {
+    local url="$1"
+    local output="$2"
+    local progress="${3:-0}"
+
+    case "$DOWNLOADER" in
+        curl)
+            if [ "$progress" = "1" ]; then
+                curl -fSL --progress-bar -o "$output" "$url"
+            else
+                curl -fsSL -o "$output" "$url"
+            fi
+            ;;
+        wget)
+            if [ "$progress" = "1" ]; then
+                wget --show-progress --progress=bar:force:noscroll -q -O "$output" "$url"
+            else
+                wget -q -O "$output" "$url"
+            fi
+            ;;
+        *)
+            echo "Error: no downloader configured." >&2
+            exit 1
+            ;;
+    esac
+}
 
 detect_platform() {
     local os arch
@@ -17,6 +114,7 @@ detect_platform() {
         Darwin) os="darwin" ;;
         *)
             echo "Error: Unsupported operating system: $os" >&2
+            echo "See https://github.com/seqra/opentaint/blob/main/docs/installation.md for alternatives." >&2
             exit 1
             ;;
     esac
@@ -27,9 +125,18 @@ detect_platform() {
         arm64|aarch64) arch="arm64" ;;
         *)
             echo "Error: Unsupported architecture: $arch" >&2
+            echo "See https://github.com/seqra/opentaint/blob/main/docs/installation.md for alternatives." >&2
             exit 1
             ;;
     esac
+
+    # Rosetta-2: a shell running as amd64 under Rosetta on Apple Silicon
+    # should download the native arm64 archive instead.
+    if [ "$os" = "darwin" ] && [ "$arch" = "amd64" ]; then
+        if [ "$(sysctl -n sysctl.proc_translated 2>/dev/null)" = "1" ]; then
+            arch="arm64"
+        fi
+    fi
 
     echo "${os}_${arch}"
 }
@@ -40,7 +147,7 @@ verify_checksum() {
     local checksums_url="${DOWNLOAD_BASE_URL}/checksums.txt"
 
     echo "Verifying checksum..."
-    if ! curl -fsSL -o "$tmp_dir/checksums.txt" "$checksums_url" 2>/dev/null; then
+    if ! download "$checksums_url" "$tmp_dir/checksums.txt" 2>/dev/null; then
         echo "Warning: Could not download checksums.txt, skipping verification." >&2
         return 0
     fi
@@ -87,6 +194,21 @@ get_install_dir() {
 main() {
     local platform archive_name url install_dir bin_dir
 
+    validate_version "${1:-}"
+    pick_downloader
+
+    local existing_brew
+    existing_brew="$(detect_homebrew_install)"
+    if [ -n "$existing_brew" ] && [ "${OPENTAINT_FORCE:-0}" != "1" ]; then
+        echo "Error: opentaint is already installed via Homebrew at $existing_brew" >&2
+        echo "Run 'brew upgrade --cask opentaint' to update, or set" >&2
+        echo "OPENTAINT_FORCE=1 to install side-by-side anyway." >&2
+        exit 3
+    fi
+
+    DOWNLOAD_BASE_URL="${OPENTAINT_DOWNLOAD_BASE_URL:-https://github.com/${REPO}/releases/${VERSION_PATH_SEGMENT}}"
+
+    echo "Version: $VERSION_TAG"
     echo "Detecting platform..."
     platform="$(detect_platform)"
     echo "Platform: $platform"
@@ -101,7 +223,7 @@ main() {
     trap 'rm -rf "$tmp_dir"' EXIT
 
     echo "Downloading ${archive_name}..."
-    curl -fsSL -o "$tmp_dir/$archive_name" "$url"
+    download "$url" "$tmp_dir/$archive_name" 1
 
     verify_checksum "$tmp_dir/$archive_name" "$archive_name"
 
