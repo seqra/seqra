@@ -132,6 +132,13 @@ func scan(cmd *cobra.Command) {
 		out.Fatalf("Unsupported architecture found: %s! Only arm64 and amd64 are supported.", utils.GetArch())
 	}
 
+	// When compiling from sources, validate the source folder looks like a Java/Kotlin project
+	if ProjectModelPath == "" {
+		if err := validation.ValidateSourceProject(absUserProjectRoot); err != nil {
+			out.Fatalf("%s", err)
+		}
+	}
+
 	cfg := resolveScanConfig(absUserProjectRoot)
 
 	// Activate logging
