@@ -86,10 +86,12 @@ Use --project-model to scan a pre-compiled project model instead of compiling fr
 	Annotations: map[string]string{"PrintConfig": "true"},
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 && ProjectModelPath != "" {
-			out.Fatalf("Cannot use both a source path argument and --project-model flag. Use either:\n  opentaint scan <source-path>\n  opentaint scan --project-model <model-path>")
+			suggest("Use either a source path or --project-model", "opentaint scan <source-path>\n  opentaint scan --project-model <model-path>")
+			out.InteractiveBlank()
+			out.Fatalf("Cannot use both a source path argument and --project-model flag")
 		}
 		if Recompile && ProjectModelPath != "" {
-			out.Fatalf("Cannot use --recompile with --project-model. The --recompile flag only applies when compiling from sources.")
+			out.Fatalf("Cannot use --recompile with --project-model; the flag only applies when compiling from sources")
 		}
 		if len(args) > 0 {
 			UserProjectPath = args[0]
@@ -412,7 +414,9 @@ func resolveScanConfig(absUserProjectRoot string) scanConfig {
 	}
 
 	if utils.HasStagingDir(projectCachePath) {
-		out.Fatalf("Compilation already in progress for this project. Wait for it to finish, or use --project-model to scan an existing model.")
+		suggest("To scan an existing model instead", "opentaint scan --project-model <model-path>")
+		out.InteractiveBlank()
+		out.Fatalf("Compilation already in progress for this project")
 	}
 
 	stagingDir, serr := utils.CreateStagingDir(projectCachePath)
