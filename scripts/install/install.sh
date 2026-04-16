@@ -81,13 +81,22 @@ pick_downloader() {
 download() {
     local url="$1"
     local output="$2"
+    local progress="${3:-0}"
 
     case "$DOWNLOADER" in
         curl)
-            curl -fsSL -o "$output" "$url"
+            if [ "$progress" = "1" ]; then
+                curl -fSL --progress-bar -o "$output" "$url"
+            else
+                curl -fsSL -o "$output" "$url"
+            fi
             ;;
         wget)
-            wget -q -O "$output" "$url"
+            if [ "$progress" = "1" ]; then
+                wget --show-progress --progress=bar:force:noscroll -q -O "$output" "$url"
+            else
+                wget -q -O "$output" "$url"
+            fi
             ;;
         *)
             echo "Error: no downloader configured." >&2
@@ -212,7 +221,7 @@ main() {
     trap 'rm -rf "$tmp_dir"' EXIT
 
     echo "Downloading ${archive_name}..."
-    download "$url" "$tmp_dir/$archive_name"
+    download "$url" "$tmp_dir/$archive_name" 1
 
     verify_checksum "$tmp_dir/$archive_name" "$archive_name"
 
