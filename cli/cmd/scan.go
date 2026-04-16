@@ -86,9 +86,9 @@ Use --project-model to scan a pre-compiled project model instead of compiling fr
 	Annotations: map[string]string{"PrintConfig": "true"},
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 && ProjectModelPath != "" {
+			out.Error("Cannot use both a source path argument and --project-model flag")
 			suggest("Use either a source path or --project-model", "opentaint scan <source-path>\n  opentaint scan --project-model <model-path>")
-			out.InteractiveBlank()
-			out.Fatalf("Cannot use both a source path argument and --project-model flag")
+			os.Exit(1)
 		}
 		if Recompile && ProjectModelPath != "" {
 			out.Fatalf("Cannot use --recompile with --project-model; the flag only applies when compiling from sources")
@@ -138,8 +138,9 @@ func scan(cmd *cobra.Command) {
 	if ProjectModelPath == "" {
 		if err := validation.ValidateSourceProject(absUserProjectRoot); err != nil {
 			if validation.IsProjectModel(absUserProjectRoot) {
+				out.Error(fmt.Sprintf("%s", err))
 				suggest("Use --project-model to scan a pre-compiled model", fmt.Sprintf("opentaint scan --project-model %s", absUserProjectRoot))
-				out.InteractiveBlank()
+				os.Exit(1)
 			}
 			out.Fatalf("%s", err)
 		}
@@ -271,9 +272,9 @@ func scan(cmd *cobra.Command) {
 			return compile(absUserProjectRoot, cfg.absProjectModel, autobuilderJarPath, compileJavaRunner, Internal)
 		}); err != nil {
 			cleanupStaging()
+			out.Error(fmt.Sprintf("Native compile has failed: %s", err))
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
-			out.InteractiveBlank()
-			out.Fatalf("Native compile has failed: %s", err)
+			os.Exit(1)
 		}
 		out.Blank()
 
@@ -414,9 +415,9 @@ func resolveScanConfig(absUserProjectRoot string) scanConfig {
 	}
 
 	if utils.HasStagingDir(projectCachePath) {
+		out.Error("Compilation already in progress for this project")
 		suggest("To scan an existing model instead", "opentaint scan --project-model <model-path>")
-		out.InteractiveBlank()
-		out.Fatalf("Compilation already in progress for this project")
+		os.Exit(1)
 	}
 
 	stagingDir, serr := utils.CreateStagingDir(projectCachePath)
