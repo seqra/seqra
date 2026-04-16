@@ -36,6 +36,8 @@ function Test-HomebrewInstall {
         $path = $resolved
     } catch { }
 
+    # Patterns target POSIX-style Homebrew paths; meaningful only when pwsh runs
+    # on macOS/Linux. Native Windows paths use backslashes and will not match.
     $lower = $path.ToLower()
     if ($lower -match '/cellar/' -or $lower -match '/caskroom/' -or $lower -match '/homebrew/') {
         return $path
@@ -80,7 +82,8 @@ function Invoke-Download {
 function Verify-Checksum {
     param(
         [string]$ArchivePath,
-        [string]$ArchiveName
+        [string]$ArchiveName,
+        [string]$BaseUrl
     )
 
     $checksumsUrl = "$BaseUrl/checksums.txt"
@@ -129,18 +132,17 @@ function Main {
     }
 
     $versionInfo = Test-Version -Raw $Version
-    $BaseUrl = if ($env:OPENTAINT_DOWNLOAD_BASE_URL) {
+    $baseUrl = if ($env:OPENTAINT_DOWNLOAD_BASE_URL) {
         $env:OPENTAINT_DOWNLOAD_BASE_URL
     } else {
         "https://github.com/$Repo/releases/$($versionInfo.PathSegment)"
     }
-    $script:BaseUrl = $BaseUrl
 
     $arch = Get-Architecture
     Write-Host "Architecture: $arch"
 
     $archiveName = "opentaint-full_windows_${arch}.zip"
-    $url = "$BaseUrl/$archiveName"
+    $url = "$baseUrl/$archiveName"
     $installDir = Get-InstallDir
     Write-Host "Install directory: $installDir"
 
@@ -152,7 +154,7 @@ function Main {
         Write-Host "Downloading $archiveName..."
         Invoke-Download -Url $url -OutFile $archivePath -ShowProgress $true
 
-        Verify-Checksum -ArchivePath $archivePath -ArchiveName $archiveName
+        Verify-Checksum -ArchivePath $archivePath -ArchiveName $archiveName -BaseUrl $baseUrl
 
         Write-Host "Extracting..."
         Expand-Archive -Path $archivePath -DestinationPath $tmpDir -Force

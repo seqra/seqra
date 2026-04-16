@@ -48,14 +48,14 @@ detect_homebrew_install() {
     if ! command -v opentaint >/dev/null 2>&1; then
         return 0
     fi
-    local path
+    local path resolved
     path="$(command -v opentaint)"
     # Resolve symlinks so we can compare against the real location.
-    if command -v readlink >/dev/null 2>&1; then
-        # readlink -f is Linux/GNU; macOS realpath works but differs. Fall back.
-        if resolved="$(readlink -f "$path" 2>/dev/null)"; then
-            path="$resolved"
-        fi
+    # readlink -f is GNU-only; fall back to realpath on macOS/BSD.
+    if resolved="$(readlink -f "$path" 2>/dev/null)" && [ -n "$resolved" ]; then
+        path="$resolved"
+    elif resolved="$(realpath "$path" 2>/dev/null)" && [ -n "$resolved" ]; then
+        path="$resolved"
     fi
     case "$(printf '%s' "$path" | tr '[:upper:]' '[:lower:]')" in
         */cellar/*|*/caskroom/*|*/homebrew/*)
