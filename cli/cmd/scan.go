@@ -85,6 +85,12 @@ Use --project-model to scan a pre-compiled project model instead of compiling fr
 `,
 	Annotations: map[string]string{"PrintConfig": "true"},
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) > 0 && ProjectModelPath != "" {
+			out.Fatalf("Cannot use both a source path argument and --project-model flag. Use either:\n  opentaint scan <source-path>\n  opentaint scan --project-model <model-path>")
+		}
+		if Recompile && ProjectModelPath != "" {
+			out.Fatalf("Cannot use --recompile with --project-model. The --recompile flag only applies when compiling from sources.")
+		}
 		if len(args) > 0 {
 			UserProjectPath = args[0]
 		} else {
