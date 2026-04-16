@@ -171,8 +171,8 @@ func TestValidateSourceProject_ProjectModel(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for project model directory")
 	}
-	if !strings.Contains(err.Error(), "--project-model") {
-		t.Errorf("error should suggest --project-model, got: %v", err)
+	if strings.Contains(err.Error(), "--project-model") {
+		t.Errorf("error should not contain --project-model suggestion, got: %v", err)
 	}
 	if !strings.Contains(err.Error(), "compiled project model") {
 		t.Errorf("error should mention compiled project model, got: %v", err)
@@ -186,7 +186,7 @@ func TestValidateSourceProject_NoMarkers(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for directory without build markers")
 	}
-	if !strings.Contains(err.Error(), "no supported build files found") {
+	if !strings.Contains(err.Error(), "No supported build files found") {
 		t.Errorf("error should mention missing build files, got: %v", err)
 	}
 	if strings.Contains(err.Error(), "--project-model") {
@@ -203,8 +203,8 @@ func TestValidateSourceProject_ProjectModelTakesPrecedence(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when project.yaml is present, even with pom.xml")
 	}
-	if !strings.Contains(err.Error(), "--project-model") {
-		t.Errorf("error should suggest --project-model, got: %v", err)
+	if !strings.Contains(err.Error(), "compiled project model") {
+		t.Errorf("error should mention compiled project model, got: %v", err)
 	}
 }
 
@@ -235,7 +235,7 @@ func TestValidateSourceProjectForCompile_NoMarkers(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for directory without build markers")
 	}
-	if !strings.Contains(err.Error(), "no supported build files found") {
+	if !strings.Contains(err.Error(), "No supported build files found") {
 		t.Errorf("error should mention missing build files, got: %v", err)
 	}
 	if strings.Contains(err.Error(), "--project-model") {

@@ -124,18 +124,22 @@ func allMarkerNames() string {
 	return strings.Join(names, ", ")
 }
 
+// IsProjectModel returns true if absProjectRoot contains a project.yaml file,
+// indicating it is a compiled project model rather than a source directory.
+func IsProjectModel(absProjectRoot string) bool {
+	_, err := os.Stat(filepath.Join(absProjectRoot, "project.yaml"))
+	return err == nil
+}
+
 // ValidateSourceProject checks that absProjectRoot looks like a supported
 // source project. If it contains project.yaml (a compiled project model),
-// it returns an error suggesting --project-model. If no build-system markers
-// are found, it returns an error listing the expected files.
+// it returns an error. If no build-system markers are found, it returns an
+// error listing the expected files.
 func ValidateSourceProject(absProjectRoot string) error {
-	projectYaml := filepath.Join(absProjectRoot, "project.yaml")
-	if _, err := os.Stat(projectYaml); err == nil {
+	if IsProjectModel(absProjectRoot) {
 		return fmt.Errorf(
-			"the path %s appears to be a compiled project model (contains project.yaml), not a source project.\n"+
-				"  Use --project-model to scan it:\n"+
-				"    opentaint scan --project-model %s",
-			absProjectRoot, absProjectRoot,
+			"The path %s appears to be a compiled project model (contains project.yaml), not a source project",
+			absProjectRoot,
 		)
 	}
 
@@ -144,8 +148,7 @@ func ValidateSourceProject(absProjectRoot string) error {
 	}
 
 	return fmt.Errorf(
-		"no supported build files found in %s.\n"+
-			"  Expected one of: %s",
+		"No supported build files found in %s\n  Expected one of: %s",
 		absProjectRoot, allMarkerNames(),
 	)
 }
@@ -160,8 +163,7 @@ func ValidateSourceProjectForCompile(absProjectRoot string) error {
 	}
 
 	return fmt.Errorf(
-		"no supported build files found in %s.\n"+
-			"  Expected one of: %s",
+		"No supported build files found in %s\n  Expected one of: %s",
 		absProjectRoot, allMarkerNames(),
 	)
 }

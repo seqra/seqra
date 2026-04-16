@@ -135,6 +135,10 @@ func scan(cmd *cobra.Command) {
 	// When compiling from sources, validate the source folder looks like a Java/Kotlin project
 	if ProjectModelPath == "" {
 		if err := validation.ValidateSourceProject(absUserProjectRoot); err != nil {
+			if validation.IsProjectModel(absUserProjectRoot) {
+				suggest("Use --project-model to scan a pre-compiled model", fmt.Sprintf("opentaint scan --project-model %s", absUserProjectRoot))
+				out.InteractiveBlank()
+			}
 			out.Fatalf("%s", err)
 		}
 	}
