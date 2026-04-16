@@ -162,15 +162,11 @@ func scan(cmd *cobra.Command) {
 
 	// Activate logging
 	if !DryRunScan {
-		logCachePath := cfg.projectCachePath
-		if logCachePath == "" && ProjectModelPath != "" {
-			var err error
-			logCachePath, err = utils.GetProjectCachePath(absUserProjectRoot)
-			if err != nil {
-				output.LogInfof("Failed to resolve project cache path for logging: %v", err)
-			}
+		if cfg.projectCachePath != "" {
+			activateLogging(ScanLogFile, cfg.projectCachePath)
+		} else {
+			activateLoggingForProject(ScanLogFile, absUserProjectRoot)
 		}
-		activateLogging(ScanLogFile, logCachePath)
 	}
 
 	absProjectModelPath := cfg.absProjectModel
@@ -181,7 +177,7 @@ func scan(cmd *cobra.Command) {
 		}
 	}
 
-	var absRuleSetPaths = []RulesetType{}
+	var absRuleSetPaths []RulesetType
 	var userRuleSetPath = Ruleset
 
 	for _, ruleset := range userRuleSetPath {

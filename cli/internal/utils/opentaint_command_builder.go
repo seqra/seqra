@@ -107,7 +107,7 @@ func (cb *OpentaintCommandBuilder) WithTimeout(timeout time.Duration) *Opentaint
 
 // WithRuleset sets the ruleset path flag.
 func (cb *OpentaintCommandBuilder) WithRuleset(rulesets []string) *OpentaintCommandBuilder {
-	if len(rulesets) == 1 && rulesets[0] == "builtint" {
+	if len(rulesets) == 1 && rulesets[0] == "builtin" {
 		return cb
 	}
 	cb.arrayFlags["ruleset"] = []string{}

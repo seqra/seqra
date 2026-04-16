@@ -146,16 +146,15 @@ func IsProjectModel(absProjectRoot string) bool {
 	return err == nil
 }
 
-// ValidateSourceProject checks that absProjectRoot looks like a supported
-// source project. It returns an error if the directory does not exist, if it
-// contains project.yaml (a compiled project model), or if no build-system
-// markers are found.
-func ValidateSourceProject(absProjectRoot string) error {
+// validateSourceDir checks that absProjectRoot looks like a supported source
+// project. When checkProjectModel is true it also rejects directories that
+// contain project.yaml (compiled project models).
+func validateSourceDir(absProjectRoot string, checkProjectModel bool) error {
 	if err := validateDirectoryExists(absProjectRoot); err != nil {
 		return err
 	}
 
-	if IsProjectModel(absProjectRoot) {
+	if checkProjectModel && IsProjectModel(absProjectRoot) {
 		return fmt.Errorf(
 			"the path %s appears to be a compiled project model (contains project.yaml), not a source project",
 			absProjectRoot,
@@ -172,21 +171,18 @@ func ValidateSourceProject(absProjectRoot string) error {
 	)
 }
 
+// ValidateSourceProject checks that absProjectRoot looks like a supported
+// source project. It returns an error if the directory does not exist, if it
+// contains project.yaml (a compiled project model), or if no build-system
+// markers are found.
+func ValidateSourceProject(absProjectRoot string) error {
+	return validateSourceDir(absProjectRoot, true)
+}
+
 // ValidateSourceProjectForCompile checks that absProjectRoot looks like a
 // supported source project by looking for build-system markers. Unlike
 // ValidateSourceProject, it does not check for project.yaml since compile
 // always operates on source directories.
 func ValidateSourceProjectForCompile(absProjectRoot string) error {
-	if err := validateDirectoryExists(absProjectRoot); err != nil {
-		return err
-	}
-
-	if langs := detectLanguages(absProjectRoot); len(langs) > 0 {
-		return nil
-	}
-
-	return fmt.Errorf(
-		"no supported build files found in %s\n  expected one of: %s",
-		absProjectRoot, allMarkerNames(),
-	)
+	return validateSourceDir(absProjectRoot, false)
 }
