@@ -37,6 +37,62 @@ func TestDeleteArtifacts(t *testing.T) {
 		}
 	})
 
+	t.Run("cleans up empty parent dirs for model artifacts", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		cacheDir := filepath.Join(tmpDir, "cache")
+		projectDir := filepath.Join(cacheDir, "my-project-a1b2c3d4")
+		pmDir := filepath.Join(projectDir, "project-model")
+		createTestFile(t, filepath.Join(pmDir, "project.yaml"), 50)
+
+		artifacts := []StaleArtifact{
+			{Path: pmDir, Size: 50, Kind: StaleKindModel},
+		}
+
+		if err := DeleteArtifacts(artifacts); err != nil {
+			t.Fatalf("DeleteArtifacts() error = %v", err)
+		}
+
+		// project-model/ should be gone
+		if _, err := os.Stat(pmDir); !os.IsNotExist(err) {
+			t.Errorf("expected project-model dir to be removed")
+		}
+		// Empty project dir should be cleaned up
+		if _, err := os.Stat(projectDir); !os.IsNotExist(err) {
+			t.Errorf("expected empty project cache dir to be removed")
+		}
+		// Empty cache dir should be cleaned up
+		if _, err := os.Stat(cacheDir); !os.IsNotExist(err) {
+			t.Errorf("expected empty cache dir to be removed")
+		}
+	})
+
+	t.Run("preserves non-empty parent dirs for model artifacts", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		cacheDir := filepath.Join(tmpDir, "cache")
+		projectDir := filepath.Join(cacheDir, "my-project-a1b2c3d4")
+		pmDir := filepath.Join(projectDir, "project-model")
+		createTestFile(t, filepath.Join(pmDir, "project.yaml"), 50)
+		// Another project still exists in cache/
+		createTestFile(t, filepath.Join(cacheDir, "other-project-deadbeef", "project-model", "p.yaml"), 10)
+
+		artifacts := []StaleArtifact{
+			{Path: pmDir, Size: 50, Kind: StaleKindModel},
+		}
+
+		if err := DeleteArtifacts(artifacts); err != nil {
+			t.Fatalf("DeleteArtifacts() error = %v", err)
+		}
+
+		// Empty project dir should be cleaned up
+		if _, err := os.Stat(projectDir); !os.IsNotExist(err) {
+			t.Errorf("expected empty project cache dir to be removed")
+		}
+		// cache dir should remain (has other project)
+		if _, err := os.Stat(cacheDir); os.IsNotExist(err) {
+			t.Errorf("expected cache dir to remain (has other projects)")
+		}
+	})
+
 	t.Run("empty slice is no-op", func(t *testing.T) {
 		if err := DeleteArtifacts(nil); err != nil {
 			t.Fatalf("DeleteArtifacts(nil) error = %v", err)

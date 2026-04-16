@@ -274,14 +274,37 @@ func scanProjectCacheSubdirs(projectCachePath string, result *PruneResult) {
 	}
 }
 
-// DeleteArtifacts removes the given stale artifacts.
+// DeleteArtifacts removes the given stale artifacts and cleans up empty parent
+// directories left behind (e.g. empty project cache dirs under ~/.opentaint/cache/).
 func DeleteArtifacts(artifacts []StaleArtifact) error {
+	emptyDirCandidates := map[string]struct{}{}
+
 	for _, artifact := range artifacts {
 		if err := os.RemoveAll(artifact.Path); err != nil {
 			return fmt.Errorf("failed to remove %s: %w", artifact.Path, err)
 		}
+		if artifact.Kind == StaleKindModel || artifact.Kind == StaleKindLog {
+			emptyDirCandidates[filepath.Dir(artifact.Path)] = struct{}{}
+		}
+	}
+
+	// Try to remove empty parent directories bottom-up.
+	// os.Remove only succeeds on empty directories, so this is safe.
+	for dir := range emptyDirCandidates {
+		removeEmptyParents(dir)
 	}
 	return nil
+}
+
+// removeEmptyParents attempts to remove dir and its parent if they are empty.
+// Stops at the first non-empty or non-removable directory.
+func removeEmptyParents(dir string) {
+	for i := 0; i < 2; i++ {
+		if err := os.Remove(dir); err != nil {
+			return
+		}
+		dir = filepath.Dir(dir)
+	}
 }
 
 func fileSize(path string) int64 {
