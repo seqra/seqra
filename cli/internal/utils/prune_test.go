@@ -281,7 +281,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		}
 	})
 
-	t.Run("stale install-lib no marker", func(t *testing.T) {
+	t.Run("install-lib not pruned without all flag", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
 		installLib := filepath.Join(home, ".opentaint", "install", "lib")
@@ -291,35 +291,9 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		found := false
 		for _, s := range result.Stale {
 			if s.Kind == StaleKindInstallLib {
-				found = true
-			}
-		}
-		if !found {
-			t.Error("expected install-lib to be flagged as stale when no version marker exists")
-		}
-	})
-
-	t.Run("current install-lib with marker", func(t *testing.T) {
-		home := t.TempDir()
-		t.Setenv("HOME", home)
-		installLib := filepath.Join(home, ".opentaint", "install", "lib")
-		createTestFile(t, filepath.Join(installLib, "artifact.jar"), 100)
-
-		// Write current marker
-		if err := WriteInstallVersionMarker(); err != nil {
-			t.Fatal(err)
-		}
-
-		result, err := ScanForStaleArtifacts(false, false)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindInstallLib {
-				t.Error("expected install-lib not to be flagged when version marker is current")
+				t.Error("expected install-lib not to be flagged without --all flag")
 			}
 		}
 	})

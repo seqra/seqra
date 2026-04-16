@@ -129,13 +129,12 @@ func ScanForStaleArtifacts(includeLogs, all bool) (*PruneResult, error) {
 	}
 
 	// Scan install-tier directories for stale artifacts
-	installCurrent := IsInstallCurrent()
 	for _, check := range []struct {
 		path   string
 		kind   string
 		should bool
 	}{
-		{GetInstallLibPath(), StaleKindInstallLib, !installCurrent || all},
+		{GetInstallLibPath(), StaleKindInstallLib, all},
 		{GetInstallJREPath(), StaleKindInstallJRE, all},
 	} {
 		if !check.should || check.path == "" {
