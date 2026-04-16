@@ -146,10 +146,18 @@ func TestSelfUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create install directory with an existing binary
+	// Create install directory with an existing binary and bundled artifact dirs
+	// so that SelfUpdate recognises this as a bundled installation and updates
+	// lib/ and jre/ in-place rather than placing them in the install tier.
 	installDir := t.TempDir()
 	existingBinary := filepath.Join(installDir, "opentaint")
 	if err := os.WriteFile(existingBinary, []byte("old-binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(installDir, "lib"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(installDir, "jre"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
