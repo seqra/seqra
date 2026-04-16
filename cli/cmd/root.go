@@ -170,7 +170,9 @@ func addConfigFields(cmd *cobra.Command, sb *output.SectionBuilder) {
 			if viper.ConfigFileUsed() != "" {
 				sb.Field("Config file", viper.ConfigFileUsed())
 			}
-			sb.Field("Log file", globals.LogPath)
+			if globals.LogPath != "" {
+				sb.Field("Log file", globals.LogPath)
+			}
 		}
 	}
 }

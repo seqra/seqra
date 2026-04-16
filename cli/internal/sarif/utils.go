@@ -255,10 +255,17 @@ func (report *Report) PrintSummary(out *output.Printer, absSarifReportPath strin
 			rulesTriggered,
 		).
 		Group("Output",
-			out.FieldItem("Report", absSarifReportPath),
-			out.FieldItem("Log", globals.LogPath),
+			outputItems(out, absSarifReportPath)...,
 		).
 		Render()
+}
+
+func outputItems(out *output.Printer, absSarifReportPath string) []any {
+	items := []any{out.FieldItem("Report", absSarifReportPath)}
+	if globals.LogPath != "" {
+		items = append(items, out.FieldItem("Log", globals.LogPath))
+	}
+	return items
 }
 
 func (report *Report) PrintAll(out *output.Printer, showCodeSnippets bool, verboseFlow bool) bool {
