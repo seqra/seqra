@@ -177,6 +177,18 @@ func (p *Printer) Error(a ...any) {
 	fmt.Fprintln(p.w, p.theme.Error.Render(text)) //nolint:errcheck
 }
 
+// ErrorErr prints an error value as a human-friendly, capitalized message.
+func (p *Printer) ErrorErr(err error) {
+	p.Error(Humanize(err))
+}
+
+// FatalErr prints an error value as a human-friendly, capitalized message
+// and terminates the process with exit code 1.
+func (p *Printer) FatalErr(err error) {
+	p.ErrorErr(err)
+	os.Exit(1)
+}
+
 // Warn prints a warning-styled message.
 func (p *Printer) Warn(a ...any) {
 	text := fmt.Sprint(a...)
