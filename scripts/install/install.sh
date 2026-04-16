@@ -2,12 +2,44 @@
 set -euo pipefail
 
 # OpenTaint installer for Linux and macOS
-# Usage: curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
+# Usage:
+#   curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash -s -- 1.2.3
 
 REPO="${OPENTAINT_REPOSITORY:-seqra/opentaint}"
 INSTALL_DIR="${OPENTAINT_INSTALL_DIR:-}"
 
 DOWNLOADER=""
+
+# Populates VERSION_PATH_SEGMENT and VERSION_TAG from the raw version argument.
+# Accepts:
+#   (empty)  -> latest
+#   latest
+#   X.Y.Z
+#   vX.Y.Z
+#   X.Y.Z-suffix
+#   vX.Y.Z-suffix
+# Exits 2 on invalid input.
+validate_version() {
+    local raw="${1:-latest}"
+
+    if [ "$raw" = "latest" ] || [ -z "$raw" ]; then
+        VERSION_PATH_SEGMENT="latest/download"
+        VERSION_TAG="latest"
+        return
+    fi
+
+    if [[ "$raw" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9._-]+)?$ ]]; then
+        local normalized="${raw#v}"
+        VERSION_PATH_SEGMENT="download/v${normalized}"
+        VERSION_TAG="v${normalized}"
+        return
+    fi
+
+    echo "Error: invalid version '$raw'." >&2
+    echo "Expected 'latest' or 'X.Y.Z' (optionally prefixed with 'v')." >&2
+    exit 2
+}
 
 pick_downloader() {
     if command -v curl >/dev/null 2>&1; then
@@ -128,10 +160,12 @@ get_install_dir() {
 main() {
     local platform archive_name url install_dir bin_dir
 
+    validate_version "${1:-}"
     pick_downloader
 
-    DOWNLOAD_BASE_URL="${OPENTAINT_DOWNLOAD_BASE_URL:-https://github.com/${REPO}/releases/latest/download}"
+    DOWNLOAD_BASE_URL="${OPENTAINT_DOWNLOAD_BASE_URL:-https://github.com/${REPO}/releases/${VERSION_PATH_SEGMENT}}"
 
+    echo "Version: $VERSION_TAG"
     echo "Detecting platform..."
     platform="$(detect_platform)"
     echo "Platform: $platform"
