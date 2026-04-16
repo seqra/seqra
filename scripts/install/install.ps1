@@ -51,7 +51,8 @@ function Get-Architecture {
         "AMD64" { return "amd64" }
         "ARM64" { return "arm64" }
         default {
-            Write-Error "Unsupported architecture: $arch"
+            [Console]::Error.WriteLine("Error: Unsupported architecture: $arch")
+            [Console]::Error.WriteLine("See https://github.com/seqra/opentaint/blob/main/docs/installation.md for alternatives.")
             exit 1
         }
     }
