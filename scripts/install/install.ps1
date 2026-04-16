@@ -25,6 +25,24 @@ function Test-Version {
     exit 2
 }
 
+function Test-HomebrewInstall {
+    $cmd = Get-Command opentaint -ErrorAction SilentlyContinue
+    if (-not $cmd) {
+        return $null
+    }
+    $path = $cmd.Source
+    try {
+        $resolved = (Resolve-Path -LiteralPath $path -ErrorAction Stop).Path
+        $path = $resolved
+    } catch { }
+
+    $lower = $path.ToLower()
+    if ($lower -match '/cellar/' -or $lower -match '/caskroom/' -or $lower -match '/homebrew/') {
+        return $path
+    }
+    return $null
+}
+
 $Repo = if ($env:OPENTAINT_REPOSITORY) { $env:OPENTAINT_REPOSITORY } else { "seqra/opentaint" }
 
 function Get-Architecture {
@@ -99,6 +117,14 @@ function Get-InstallDir {
 }
 
 function Main {
+    $existingBrew = Test-HomebrewInstall
+    if ($existingBrew -and $env:OPENTAINT_FORCE -ne "1") {
+        [Console]::Error.WriteLine("Error: opentaint is already installed via Homebrew at $existingBrew.")
+        [Console]::Error.WriteLine("Run 'brew upgrade --cask opentaint' to update, or set")
+        [Console]::Error.WriteLine("`$env:OPENTAINT_FORCE='1' to install side-by-side anyway.")
+        exit 3
+    }
+
     $versionInfo = Test-Version -Raw $Version
     $BaseUrl = if ($env:OPENTAINT_DOWNLOAD_BASE_URL) {
         $env:OPENTAINT_DOWNLOAD_BASE_URL
