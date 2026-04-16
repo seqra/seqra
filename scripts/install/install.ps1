@@ -1,10 +1,13 @@
 # OpenTaint installer for Windows (PowerShell)
 # Usage: irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1 | iex
 
+param(
+    [string]$Version = "latest"
+)
+
 $ErrorActionPreference = 'Stop'
 
 $Repo = if ($env:OPENTAINT_REPOSITORY) { $env:OPENTAINT_REPOSITORY } else { "seqra/opentaint" }
-$BaseUrl = if ($env:OPENTAINT_DOWNLOAD_BASE_URL) { $env:OPENTAINT_DOWNLOAD_BASE_URL } else { "https://github.com/$Repo/releases/latest/download" }
 
 function Get-Architecture {
     $arch = $env:PROCESSOR_ARCHITECTURE
@@ -15,6 +18,25 @@ function Get-Architecture {
             Write-Error "Unsupported architecture: $arch"
             exit 1
         }
+    }
+}
+
+function Invoke-Download {
+    param(
+        [string]$Url,
+        [string]$OutFile,
+        [bool]$ShowProgress = $false
+    )
+
+    $previous = $ProgressPreference
+    if (-not $ShowProgress) {
+        $ProgressPreference = 'SilentlyContinue'
+    }
+    try {
+        Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing
+    }
+    finally {
+        $ProgressPreference = $previous
     }
 }
 
@@ -29,7 +51,7 @@ function Verify-Checksum {
 
     Write-Host "Verifying checksum..."
     try {
-        Invoke-WebRequest -Uri $checksumsUrl -OutFile $checksumsFile -UseBasicParsing
+        Invoke-Download -Url $checksumsUrl -OutFile $checksumsFile -ShowProgress $false
     } catch {
         Write-Warning "Could not download checksums.txt, skipping verification."
         return
@@ -59,6 +81,9 @@ function Get-InstallDir {
 }
 
 function Main {
+    $BaseUrl = if ($env:OPENTAINT_DOWNLOAD_BASE_URL) { $env:OPENTAINT_DOWNLOAD_BASE_URL } else { "https://github.com/$Repo/releases/latest/download" }
+    $script:BaseUrl = $BaseUrl  # let Verify-Checksum see it
+
     $arch = Get-Architecture
     Write-Host "Architecture: $arch"
 
@@ -73,7 +98,7 @@ function Main {
     try {
         $archivePath = Join-Path $tmpDir $archiveName
         Write-Host "Downloading $archiveName..."
-        Invoke-WebRequest -Uri $url -OutFile $archivePath -UseBasicParsing
+        Invoke-Download -Url $url -OutFile $archivePath -ShowProgress $false
 
         Verify-Checksum -ArchivePath $archivePath -ArchiveName $archiveName
 
@@ -87,7 +112,6 @@ function Main {
         New-Item -ItemType Directory -Path $binDir -Force | Out-Null
         Copy-Item -Path (Join-Path $tmpDir "opentaint.exe") -Destination (Join-Path $binDir "opentaint.exe") -Force
 
-        # Install bundled lib and jre if present (next to the binary)
         $libSrc = Join-Path $tmpDir "lib"
         if (Test-Path $libSrc) {
             $libDst = Join-Path $binDir "lib"
@@ -102,7 +126,6 @@ function Main {
             Copy-Item -Recurse -Path $jreSrc -Destination $jreDst
         }
 
-        # Add to PATH if not already there
         $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
         if ($userPath -notlike "*$binDir*") {
             [Environment]::SetEnvironmentVariable("Path", "$binDir;$userPath", "User")
