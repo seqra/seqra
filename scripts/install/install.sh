@@ -6,7 +6,33 @@ set -euo pipefail
 
 REPO="${OPENTAINT_REPOSITORY:-seqra/opentaint}"
 INSTALL_DIR="${OPENTAINT_INSTALL_DIR:-}"
-DOWNLOAD_BASE_URL="${OPENTAINT_DOWNLOAD_BASE_URL:-https://github.com/${REPO}/releases/latest/download}"
+
+DOWNLOADER=""
+
+pick_downloader() {
+    if command -v curl >/dev/null 2>&1; then
+        DOWNLOADER="curl"
+        return
+    fi
+    echo "Error: curl is required but not installed." >&2
+    echo "Install curl and re-run the installer." >&2
+    exit 1
+}
+
+download() {
+    local url="$1"
+    local output="$2"
+
+    case "$DOWNLOADER" in
+        curl)
+            curl -fsSL -o "$output" "$url"
+            ;;
+        *)
+            echo "Error: no downloader configured." >&2
+            exit 1
+            ;;
+    esac
+}
 
 detect_platform() {
     local os arch
@@ -40,7 +66,7 @@ verify_checksum() {
     local checksums_url="${DOWNLOAD_BASE_URL}/checksums.txt"
 
     echo "Verifying checksum..."
-    if ! curl -fsSL -o "$tmp_dir/checksums.txt" "$checksums_url" 2>/dev/null; then
+    if ! download "$checksums_url" "$tmp_dir/checksums.txt" 2>/dev/null; then
         echo "Warning: Could not download checksums.txt, skipping verification." >&2
         return 0
     fi
@@ -87,6 +113,10 @@ get_install_dir() {
 main() {
     local platform archive_name url install_dir bin_dir
 
+    pick_downloader
+
+    DOWNLOAD_BASE_URL="${OPENTAINT_DOWNLOAD_BASE_URL:-https://github.com/${REPO}/releases/latest/download}"
+
     echo "Detecting platform..."
     platform="$(detect_platform)"
     echo "Platform: $platform"
@@ -101,7 +131,7 @@ main() {
     trap 'rm -rf "$tmp_dir"' EXIT
 
     echo "Downloading ${archive_name}..."
-    curl -fsSL -o "$tmp_dir/$archive_name" "$url"
+    download "$url" "$tmp_dir/$archive_name"
 
     verify_checksum "$tmp_dir/$archive_name" "$archive_name"
 
