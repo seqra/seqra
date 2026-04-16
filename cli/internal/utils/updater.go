@@ -189,23 +189,23 @@ func SelfUpdate(archivePath, installDir string) error {
 	// Preserve the installation style: if bundled artifacts exist next to the
 	// binary, update them in place. Otherwise, place into the install tier
 	// (~/.opentaint/install/) so bare-binary installations stay bare.
-	bundledLib := filepath.Join(installDir, "lib")
-	bundledJRE := filepath.Join(installDir, "jre")
+	libBundled := pathExists(filepath.Join(installDir, "lib"))
+	jreBundled := pathExists(filepath.Join(installDir, "jre"))
 
-	_, libBundled := os.Stat(bundledLib)
-	_, jreBundled := os.Stat(bundledJRE)
-
-	if err := updateArtifactDir(tmpDir, "lib", libBundled == nil, installDir); err != nil {
+	if err := updateArtifactDir(tmpDir, "lib", libBundled, installDir); err != nil {
 		output.LogInfof("Failed to update lib directory: %v", err)
 	}
-	if err := updateArtifactDir(tmpDir, "jre", jreBundled == nil, installDir); err != nil {
+	if err := updateArtifactDir(tmpDir, "jre", jreBundled, installDir); err != nil {
 		output.LogInfof("Failed to update jre directory: %v", err)
 	}
 
-	// If anything was placed in the install tier, update the version marker.
-	if libBundled != nil || jreBundled != nil {
-		if err := WriteInstallVersionMarker(); err != nil {
-			output.LogInfof("Failed to write install version marker: %v", err)
+	// Remove stale install-tier marker so the next run reconciles it.
+	// We cannot write the correct marker here because the running binary
+	// still has the OLD embedded versions.yaml. ReconcileInstallMarker
+	// (called from PersistentPreRunE) handles it on the new binary's first run.
+	if !libBundled || !jreBundled {
+		if dir := GetInstallDir(); dir != "" {
+			_ = os.Remove(filepath.Join(dir, ".versions"))
 		}
 	}
 
@@ -214,8 +214,8 @@ func SelfUpdate(archivePath, installDir string) error {
 
 // updateArtifactDir moves an extracted artifact directory (lib or jre) to the
 // appropriate location. When bundled is true, it replaces the directory next to
-// the binary (installDir). Otherwise it places it in the install tier.
-func updateArtifactDir(tmpDir, name string, bundled bool, installDir string) error {
+// the binary (exeDir). Otherwise it places it in the install tier.
+func updateArtifactDir(tmpDir, name string, bundled bool, exeDir string) error {
 	src := filepath.Join(tmpDir, name)
 	if _, err := os.Stat(src); err != nil {
 		return nil // archive doesn't contain this directory
@@ -223,7 +223,7 @@ func updateArtifactDir(tmpDir, name string, bundled bool, installDir string) err
 
 	var dest string
 	if bundled {
-		dest = filepath.Join(installDir, name)
+		dest = filepath.Join(exeDir, name)
 	} else {
 		dir := GetInstallDir()
 		if dir == "" {

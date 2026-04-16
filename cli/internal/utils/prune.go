@@ -36,6 +36,13 @@ type PruneResult struct {
 	TotalCount int
 }
 
+// Add appends a stale artifact and updates the totals.
+func (r *PruneResult) Add(a StaleArtifact) {
+	r.Stale = append(r.Stale, a)
+	r.TotalSize += a.Size
+	r.TotalCount++
+}
+
 // checkStale tests whether a filename matches the given artifact definition and
 // has a version that differs from the bind version.
 // Returns a StaleArtifact if it should be pruned, nil otherwise.
@@ -88,9 +95,7 @@ func ScanForStaleArtifacts(all bool) (*PruneResult, error) {
 		matched := false
 		for _, def := range artifacts {
 			if artifact := checkStale(def, name, fullPath); artifact != nil {
-				result.Stale = append(result.Stale, *artifact)
-				result.TotalSize += artifact.Size
-				result.TotalCount++
+				result.Add(*artifact)
 				matched = true
 				break
 			}
@@ -116,13 +121,7 @@ func ScanForStaleArtifacts(all bool) (*PruneResult, error) {
 				}
 				subPath := filepath.Join(fullPath, subEntry.Name())
 				size, _ := dirSize(subPath)
-				result.Stale = append(result.Stale, StaleArtifact{
-					Path: subPath,
-					Size: size,
-					Kind: name,
-				})
-				result.TotalSize += size
-				result.TotalCount++
+				result.Add(StaleArtifact{Path: subPath, Size: size, Kind: name})
 			}
 			continue
 		}
@@ -144,13 +143,7 @@ func ScanForStaleArtifacts(all bool) (*PruneResult, error) {
 			continue
 		}
 		size, _ := dirSize(check.path)
-		result.Stale = append(result.Stale, StaleArtifact{
-			Path: check.path,
-			Size: size,
-			Kind: check.kind,
-		})
-		result.TotalSize += size
-		result.TotalCount++
+		result.Add(StaleArtifact{Path: check.path, Size: size, Kind: check.kind})
 	}
 
 	// Scan for cached compilation models (and optionally logs inside them)
@@ -165,13 +158,7 @@ func ScanForStaleArtifacts(all bool) (*PruneResult, error) {
 				modelPath := filepath.Join(modelsDir, modelEntry.Name())
 				size, _ := dirSize(modelPath)
 				if size > 0 {
-					result.Stale = append(result.Stale, StaleArtifact{
-						Path: modelPath,
-						Size: size,
-						Kind: StaleKindModel,
-					})
-					result.TotalSize += size
-					result.TotalCount++
+					result.Add(StaleArtifact{Path: modelPath, Size: size, Kind: StaleKindModel})
 				}
 
 				if all {
@@ -179,13 +166,7 @@ func ScanForStaleArtifacts(all bool) (*PruneResult, error) {
 					if lInfo, lErr := os.Stat(logsDir); lErr == nil && lInfo.IsDir() {
 						logSize, _ := dirSize(logsDir)
 						if logSize > 0 {
-							result.Stale = append(result.Stale, StaleArtifact{
-								Path: logsDir,
-								Size: logSize,
-								Kind: StaleKindLog,
-							})
-							result.TotalSize += logSize
-							result.TotalCount++
+							result.Add(StaleArtifact{Path: logsDir, Size: logSize, Kind: StaleKindLog})
 						}
 					}
 				}

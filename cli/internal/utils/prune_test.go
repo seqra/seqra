@@ -62,6 +62,26 @@ func setupPruneTestGlobals(t *testing.T) {
 	globals.DefaultJavaVersion = 21
 }
 
+func assertHasKind(t *testing.T, result *PruneResult, kind string) {
+	t.Helper()
+	for _, s := range result.Stale {
+		if s.Kind == kind {
+			return
+		}
+	}
+	t.Errorf("expected stale entry with kind %q, found none", kind)
+}
+
+func assertNoKind(t *testing.T, result *PruneResult, kind string) {
+	t.Helper()
+	for _, s := range result.Stale {
+		if s.Kind == kind {
+			t.Errorf("expected no stale entry with kind %q, but found one at %s", kind, s.Path)
+			return
+		}
+	}
+}
+
 func TestScanForStaleArtifacts(t *testing.T) {
 	setupPruneTestGlobals(t)
 
@@ -210,15 +230,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		found := false
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindLog {
-				found = true
-			}
-		}
-		if !found {
-			t.Error("expected log stale entry with --all flag")
-		}
+		assertHasKind(t, result, StaleKindLog)
 	})
 
 	t.Run("logs not pruned without all flag", func(t *testing.T) {
@@ -231,11 +243,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindLog {
-				t.Error("expected no log stale entries without --all flag")
-			}
-		}
+		assertNoKind(t, result, StaleKindLog)
 	})
 
 	t.Run("hidden files skipped", func(t *testing.T) {
@@ -291,11 +299,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindInstallLib {
-				t.Error("expected install-lib not to be flagged without --all flag")
-			}
-		}
+		assertNoKind(t, result, StaleKindInstallLib)
 	})
 
 	t.Run("current install-lib pruned with all flag", func(t *testing.T) {
@@ -313,15 +317,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		found := false
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindInstallLib {
-				found = true
-			}
-		}
-		if !found {
-			t.Error("expected install-lib to be flagged with --all flag even when marker is current")
-		}
+		assertHasKind(t, result, StaleKindInstallLib)
 	})
 
 	t.Run("install-jre not pruned without all flag", func(t *testing.T) {
@@ -334,11 +330,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindInstallJRE {
-				t.Error("expected install-jre not to be flagged without --all flag")
-			}
-		}
+		assertNoKind(t, result, StaleKindInstallJRE)
 	})
 
 	t.Run("install-jre pruned with all flag", func(t *testing.T) {
@@ -351,15 +343,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		found := false
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindInstallJRE {
-				found = true
-			}
-		}
-		if !found {
-			t.Error("expected install-jre to be flagged as stale with --all flag")
-		}
+		assertHasKind(t, result, StaleKindInstallJRE)
 	})
 }
 
@@ -376,15 +360,7 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		found := false
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindModel {
-				found = true
-			}
-		}
-		if !found {
-			t.Error("expected cached model to be flagged as prunable")
-		}
+		assertHasKind(t, result, StaleKindModel)
 	})
 
 	t.Run("stale staging dir is prunable", func(t *testing.T) {
@@ -398,15 +374,7 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		found := false
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindModel {
-				found = true
-			}
-		}
-		if !found {
-			t.Error("expected stale staging dir to be flagged as prunable")
-		}
+		assertHasKind(t, result, StaleKindModel)
 	})
 
 	t.Run("empty models dir produces no stale", func(t *testing.T) {
@@ -421,11 +389,7 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindModel {
-				t.Error("expected no model stale entries for empty models dir")
-			}
-		}
+		assertNoKind(t, result, StaleKindModel)
 	})
 }
 
@@ -442,15 +406,7 @@ func TestScanForStaleArtifacts_LogsInCacheDirs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		found := false
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindLog {
-				found = true
-			}
-		}
-		if !found {
-			t.Error("expected logs to be flagged as prunable with --all flag")
-		}
+		assertHasKind(t, result, StaleKindLog)
 	})
 
 	t.Run("logs not pruned without all flag", func(t *testing.T) {
@@ -463,11 +419,7 @@ func TestScanForStaleArtifacts_LogsInCacheDirs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindLog {
-				t.Error("expected no log stale entries without --all flag")
-			}
-		}
+		assertNoKind(t, result, StaleKindLog)
 	})
 }
 

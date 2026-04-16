@@ -48,6 +48,9 @@ var rootCmd = &cobra.Command{
 		out.Configure(globals.Config.Log.Color, globals.Config.Quiet)
 		out.SetVerbosity(globals.Config.Log.Verbosity)
 
+		// Reconcile install-tier version marker if needed (lightweight: a few Stat calls).
+		utils.ReconcileInstallMarker()
+
 		// Start async update check (non-blocking, at most once per day)
 		if !globals.Config.Quiet {
 			go checkForUpdateAsync()
