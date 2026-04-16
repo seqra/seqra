@@ -1395,7 +1395,29 @@ Verdict rule: **TP** iff response `Content-Type` starts with `text/html` AND bod
 
 ## Appendix B: Raw-vs-generic matching probe
 
-_Filled in during Task 5._
+_Captured 2026-04-17._
+
+Probe project at `/tmp/xss-probe/` with `ProbeSamples.java` containing three `@RestController` handlers:
+
+- `parameterizedString` (line 13) — returns `ResponseEntity<String>`
+- `parameterizedBytes` (line 18) — returns `ResponseEntity<byte[]>`
+- `raw` (line 24) — returns raw `ResponseEntity`
+
+Each probe rule uses `mode: taint` with `pattern-sources: $CLASS.ok($U)` so that `return ResponseEntity.ok(...)` is tainted in every handler, and the sink is `pattern-inside: <method-decl>` + `pattern: return $UNTRUSTED;`.
+
+| probe rule | parameterizedString (line 13) | parameterizedBytes (line 18) | raw (line 24) |
+|------------|-------------------------------|------------------------------|---------------|
+| `rule-generic.yaml` (`ResponseEntity<$T> $M(...) { ... }`) | matched | matched | matched |
+| `rule-raw.yaml` (`ResponseEntity $M(...) { ... }`)           | matched | matched | matched |
+
+Rule-loader warnings (same for both rules) explain the equivalence:
+
+- `Method declaration pattern with a concrete return type is not supported; only metavariable return types are handled.`
+- `Method declaration pattern with a generic return type is not supported; type arguments on return types will be ignored.`
+
+Under opentaint's best-effort fallback, both the concrete `ResponseEntity` head and the `<$T>` type argument on a method-declaration return type are effectively discarded, so both patterns reduce to "any method declaration" and match every handler in `ProbeSamples` identically.
+
+**Decision: unified block.** Because `rule-raw.yaml` fires on `ResponseEntity<String>` and `ResponseEntity<byte[]>` just as readily as on raw `ResponseEntity` (and `rule-generic.yaml` fires on raw `ResponseEntity` just as readily as on the parameterized forms), adding a separate raw block alongside the generic block would duplicate every finding. Keep the sink rule as a single `ResponseEntity<$T>` block — under opentaint's current method-declaration matcher it already covers raw `ResponseEntity` (and any other type argument) via erased-name matching.
 
 ## Appendix C: Baseline rule output vs labels
 
