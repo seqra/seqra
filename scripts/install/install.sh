@@ -64,6 +64,14 @@ detect_platform() {
             ;;
     esac
 
+    # Rosetta-2: a shell running as amd64 under Rosetta on Apple Silicon
+    # should download the native arm64 archive instead.
+    if [ "$os" = "darwin" ] && [ "$arch" = "amd64" ]; then
+        if [ "$(sysctl -n sysctl.proc_translated 2>/dev/null)" = "1" ]; then
+            arch="arm64"
+        fi
+    fi
+
     echo "${os}_${arch}"
 }
 
