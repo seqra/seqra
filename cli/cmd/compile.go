@@ -28,6 +28,14 @@ var ProjectPath string
 var DryRunCompile bool
 var CompileLogFile string
 
+// currentCompileBuilder returns a builder pre-populated with the user's current compile flags.
+// All compile command suggestions should use this as the base to ensure that adding a new
+// flag in one place automatically propagates to every suggestion.
+func currentCompileBuilder(projectPath string) *utils.OpentaintCommandBuilder {
+	return utils.NewCompileCommand(projectPath).
+		WithOutput(OutputProjectModelPath)
+}
+
 // compileCmd represents the compile command
 var compileCmd = &cobra.Command{
 	Use:   "compile project",
@@ -142,7 +150,7 @@ func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath strin
 		validationErr := fmt.Errorf("output validation failed after compile: %w", err)
 		output.LogInfo(validationErr)
 		if caller == External {
-			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based compilation:", utils.BuildCompileCommandWithDocker(ProjectPath, OutputProjectModelPath))
+			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based compilation:", utils.BuildCompileCommandWithDocker(currentCompileBuilder(""), ProjectPath, OutputProjectModelPath))
 		}
 		return fmt.Errorf("there was a problem during the compile step, check the full logs: %s", globals.LogPath)
 	}

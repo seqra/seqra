@@ -155,8 +155,68 @@ func TestNewScanCommand(t *testing.T) {
 	}
 }
 
+func TestNewSummaryCommand(t *testing.T) {
+	tests := []struct {
+		name             string
+		sarifPath        string
+		showFindings     bool
+		verboseFlow      bool
+		showCodeSnippets bool
+		expected         string
+	}{
+		{
+			name:      "basic summary command",
+			sarifPath: "/path/to/report.sarif",
+			expected:  "opentaint summary /path/to/report.sarif",
+		},
+		{
+			name:         "summary with show-findings",
+			sarifPath:    "/path/to/report.sarif",
+			showFindings: true,
+			expected:     "opentaint summary /path/to/report.sarif --show-findings",
+		},
+		{
+			name:             "summary with all flags",
+			sarifPath:        "/path/to/report.sarif",
+			showFindings:     true,
+			verboseFlow:      true,
+			showCodeSnippets: true,
+			expected:         "opentaint summary /path/to/report.sarif --show-code-snippets --show-findings --verbose-flow",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builder := NewSummaryCommand(tt.sarifPath)
+			if tt.showFindings {
+				builder.WithShowFindings()
+			}
+			if tt.verboseFlow {
+				builder.WithVerboseFlow()
+			}
+			if tt.showCodeSnippets {
+				builder.WithShowCodeSnippets()
+			}
+			cmd := builder.Build()
+
+			if cmd != tt.expected {
+				t.Errorf("NewSummaryCommand() = %q, want %q", cmd, tt.expected)
+			}
+		})
+	}
+}
+
+func TestScanCommandWithoutArgument(t *testing.T) {
+	cmd := NewScanCommand("").WithProjectModel("/path/to/model").Build()
+	expected := "opentaint scan --project-model /path/to/model"
+	if cmd != expected {
+		t.Errorf("NewScanCommand(\"\") = %q, want %q", cmd, expected)
+	}
+}
+
 func TestBuildCompileCommandWithDocker(t *testing.T) {
-	cmd := BuildCompileCommandWithDocker("/path/to/project", "/path/to/output")
+	base := NewCompileCommand("").WithOutput("/path/to/output")
+	cmd := BuildCompileCommandWithDocker(base, "/path/to/project", "/path/to/output")
 	expected := "docker run --rm -v /path/to/project:/project -v /path/to:/database ghcr.io/seqra/opentaint:latest opentaint compile /project --output /database/output"
 	if cmd != expected {
 		t.Errorf("BuildCompileCommandWithDocker() = %q, want %q", cmd, expected)
@@ -165,50 +225,78 @@ func TestBuildCompileCommandWithDocker(t *testing.T) {
 
 func TestBuildScanCommandWithDocker(t *testing.T) {
 	tests := []struct {
-		name                 string
-		projectPath          string
-		sarifReportPath      string
-		rulesetPaths         []string
-		timeout              time.Duration
-		semgrepCompatibility bool
-		expected             string
+		name            string
+		base            *OpentaintCommandBuilder
+		projectPath     string
+		sarifReportPath string
+		rulesetPaths    []string
+		expected        string
 	}{
 		{
-			name:                 "default options",
-			projectPath:          "/path/to/project",
-			sarifReportPath:      "/path/to/output/results.sarif",
-			rulesetPaths:         []string{"builtin"},
-			timeout:              defaultTimeout,
-			semgrepCompatibility: true,
-			expected:             "docker run --rm -v /path/to/project:/project -v /path/to/output:/output ghcr.io/seqra/opentaint:latest opentaint scan /project --output /output/results.sarif",
+			name:            "default options",
+			base:            NewScanCommand("").WithTimeout(defaultTimeout).WithSemgrepCompatibility(true),
+			projectPath:     "/path/to/project",
+			sarifReportPath: "/path/to/output/results.sarif",
+			rulesetPaths:    []string{"builtin"},
+			expected:        "docker run --rm -v /path/to/project:/project -v /path/to/output:/output ghcr.io/seqra/opentaint:latest opentaint scan /project --output /output/results.sarif",
 		},
 		{
-			name:                 "custom timeout and semgrep compatibility disabled",
-			projectPath:          "/path/to/project",
-			sarifReportPath:      "/path/to/output/results.sarif",
-			rulesetPaths:         []string{"builtin"},
-			timeout:              1200 * time.Second,
-			semgrepCompatibility: false,
-			expected:             "docker run --rm -v /path/to/project:/project -v /path/to/output:/output ghcr.io/seqra/opentaint:latest opentaint scan /project --output /output/results.sarif --timeout 20m0s --semgrep-compatibility-sarif=false",
+			name:            "custom timeout and semgrep compatibility disabled",
+			base:            NewScanCommand("").WithTimeout(1200 * time.Second).WithSemgrepCompatibility(false),
+			projectPath:     "/path/to/project",
+			sarifReportPath: "/path/to/output/results.sarif",
+			rulesetPaths:    []string{"builtin"},
+			expected:        "docker run --rm -v /path/to/project:/project -v /path/to/output:/output ghcr.io/seqra/opentaint:latest opentaint scan /project --output /output/results.sarif --timeout 20m0s --semgrep-compatibility-sarif=false",
 		},
 		{
-			name:                 "custom ruleset with volume mount",
-			projectPath:          "/path/to/project",
-			sarifReportPath:      "/path/to/output/results.sarif",
-			rulesetPaths:         []string{"builtin", "/path/to/custom-rules.yaml"},
-			timeout:              defaultTimeout,
-			semgrepCompatibility: true,
-			expected:             "docker run --rm -v /path/to/project:/project -v /path/to/output:/output -v /path/to/custom-rules.yaml:/rules/ruleset1 ghcr.io/seqra/opentaint:latest opentaint scan /project --output /output/results.sarif --ruleset builtin --ruleset /rules/ruleset1",
+			name:            "custom ruleset with volume mount",
+			base:            NewScanCommand("").WithTimeout(defaultTimeout).WithSemgrepCompatibility(true),
+			projectPath:     "/path/to/project",
+			sarifReportPath: "/path/to/output/results.sarif",
+			rulesetPaths:    []string{"builtin", "/path/to/custom-rules.yaml"},
+			expected:        "docker run --rm -v /path/to/project:/project -v /path/to/output:/output -v /path/to/custom-rules.yaml:/rules/ruleset1 ghcr.io/seqra/opentaint:latest opentaint scan /project --output /output/results.sarif --ruleset builtin --ruleset /rules/ruleset1",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cmd := BuildScanCommandWithDocker(tt.projectPath, tt.sarifReportPath, tt.rulesetPaths, tt.timeout, tt.semgrepCompatibility)
+			cmd := BuildScanCommandWithDocker(tt.base, tt.projectPath, tt.sarifReportPath, tt.rulesetPaths)
 			if cmd != tt.expected {
 				t.Errorf("BuildScanCommandWithDocker() = %q, want %q", cmd, tt.expected)
 			}
 		})
+	}
+}
+
+func TestCopyFlagsFrom(t *testing.T) {
+	base := NewScanCommand("/original").
+		WithTimeout(1200 * time.Second).
+		WithSemgrepCompatibility(false).
+		WithOutput("/original/output.sarif")
+
+	// CopyFlagsFrom should carry non-path flags, then overrides replace paths
+	result := NewScanCommand("/docker/project").
+		CopyFlagsFrom(base).
+		WithOutput("/docker/output.sarif").
+		Build()
+
+	expected := "opentaint scan /docker/project --output /docker/output.sarif --timeout 20m0s --semgrep-compatibility-sarif=false"
+	if result != expected {
+		t.Errorf("CopyFlagsFrom() = %q, want %q", result, expected)
+	}
+}
+
+func TestCopyFlagsFromDoesNotMutateSource(t *testing.T) {
+	base := NewScanCommand("").WithTimeout(1200 * time.Second)
+	baseBefore := base.Build()
+
+	NewScanCommand("/other").
+		CopyFlagsFrom(base).
+		WithOutput("/new/output.sarif")
+
+	baseAfter := base.Build()
+	if baseBefore != baseAfter {
+		t.Errorf("CopyFlagsFrom mutated source: before=%q, after=%q", baseBefore, baseAfter)
 	}
 }
 

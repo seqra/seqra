@@ -87,7 +87,8 @@ Use --project-model to scan a pre-compiled project model instead of compiling fr
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 && ProjectModelPath != "" {
 			out.Error("Cannot use both a source path argument and --project-model flag")
-			suggest("Use either a source path or --project-model", "opentaint scan <source-path>\n  opentaint scan --project-model <model-path>")
+			suggest("Use either a source path or --project-model",
+				utils.NewScanCommand("<source-path>").Build()+"\n  "+utils.NewScanCommand("").WithProjectModel("<model-path>").Build())
 			os.Exit(1)
 		}
 		if Recompile && ProjectModelPath != "" {
@@ -126,6 +127,17 @@ func init() {
 	scanCmd.Flags().StringVar(&ScanLogFile, "log-file", "", "Path to the log file (default: <cache-dir>/logs/<timestamp>.log)")
 }
 
+// currentScanBuilder returns a builder pre-populated with the user's current scan flags.
+// All scan command suggestions should use this as the base to ensure that adding a new
+// flag in one place automatically propagates to every suggestion.
+func currentScanBuilder(sourcePath string) *utils.OpentaintCommandBuilder {
+	return utils.NewScanCommand(sourcePath).
+		WithOutput(SarifReportPath).
+		WithTimeout(globals.Config.Scan.Timeout).
+		WithRuleset(Ruleset).
+		WithSemgrepCompatibility(SemgrepCompatibilitySarif)
+}
+
 func scan(cmd *cobra.Command) {
 	userProjectPath := filepath.Clean(UserProjectPath)
 	absUserProjectRoot := log.AbsPathOrExit(userProjectPath, "project path")
@@ -139,7 +151,7 @@ func scan(cmd *cobra.Command) {
 		if err := validation.ValidateSourceProject(absUserProjectRoot); err != nil {
 			if validation.IsProjectModel(absUserProjectRoot) {
 				out.ErrorErr(err)
-				suggest("Use --project-model to scan a pre-compiled model", fmt.Sprintf("opentaint scan --project-model %s", absUserProjectRoot))
+				suggest("Use --project-model to scan a pre-compiled model", currentScanBuilder("").WithProjectModel(absUserProjectRoot).Build())
 				os.Exit(1)
 			}
 			out.FatalErr(err)
@@ -273,7 +285,7 @@ func scan(cmd *cobra.Command) {
 		}); err != nil {
 			cleanupStaging()
 			out.Error("Native compile has failed: " + err.Error())
-			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
+			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(currentScanBuilder(""), absUserProjectRoot, absSarifReportPath, Ruleset))
 			os.Exit(1)
 		}
 		out.Blank()
@@ -377,7 +389,7 @@ func scan(cmd *cobra.Command) {
 	// Process the generated SARIF report if it exists
 	printSarifSummary(report, absSarifReportPath)
 
-	suggest("To view findings run", fmt.Sprintf("opentaint summary --show-findings %s", absSarifReportPath))
+	suggest("To view findings run", utils.NewSummaryCommand(absSarifReportPath).WithShowFindings().Build())
 }
 
 func resolveScanConfig(absUserProjectRoot string) scanConfig {
@@ -416,7 +428,7 @@ func resolveScanConfig(absUserProjectRoot string) scanConfig {
 
 	if utils.HasStagingDir(projectCachePath) {
 		out.Error("Compilation already in progress for this project")
-		suggest("To scan an existing model instead", "opentaint scan --project-model <model-path>")
+		suggest("To scan an existing model instead", utils.NewScanCommand("").WithProjectModel("<model-path>").Build())
 		os.Exit(1)
 	}
 

@@ -53,6 +53,18 @@ func NewScanCommand(sourcePath string) *OpentaintCommandBuilder {
 	}
 }
 
+// NewSummaryCommand creates a new CommandBuilder for the summary command.
+// sarifPath is the path to the SARIF report (positional argument).
+func NewSummaryCommand(sarifPath string) *OpentaintCommandBuilder {
+	return &OpentaintCommandBuilder{
+		command:    "opentaint summary",
+		args:       []string{sarifPath},
+		flags:      make(map[string]string),
+		arrayFlags: make(map[string][]string),
+		boolFlags:  make(map[string]bool),
+	}
+}
+
 // WithProjectModel sets the project-model flag.
 func (cb *OpentaintCommandBuilder) WithProjectModel(path string) *OpentaintCommandBuilder {
 	if path != "" {
@@ -122,6 +134,43 @@ func (cb *OpentaintCommandBuilder) WithSemgrepCompatibility(enabled bool) *Opent
 	return cb
 }
 
+// WithShowFindings sets the show-findings flag.
+func (cb *OpentaintCommandBuilder) WithShowFindings() *OpentaintCommandBuilder {
+	cb.boolFlags["show-findings"] = true
+	return cb
+}
+
+// WithVerboseFlow sets the verbose-flow flag.
+func (cb *OpentaintCommandBuilder) WithVerboseFlow() *OpentaintCommandBuilder {
+	cb.boolFlags["verbose-flow"] = true
+	return cb
+}
+
+// WithShowCodeSnippets sets the show-code-snippets flag.
+func (cb *OpentaintCommandBuilder) WithShowCodeSnippets() *OpentaintCommandBuilder {
+	cb.boolFlags["show-code-snippets"] = true
+	return cb
+}
+
+// CopyFlagsFrom copies all flags (regular, array, and boolean) from the source builder,
+// overwriting any existing flags with the same name. The command and positional args
+// are not copied — only flags. Use this to create a variant of an existing command
+// (e.g. Docker) that automatically inherits all user-specified options.
+func (cb *OpentaintCommandBuilder) CopyFlagsFrom(source *OpentaintCommandBuilder) *OpentaintCommandBuilder {
+	for k, v := range source.flags {
+		cb.flags[k] = v
+	}
+	for k, v := range source.arrayFlags {
+		copied := make([]string, len(v))
+		copy(copied, v)
+		cb.arrayFlags[k] = copied
+	}
+	for k, v := range source.boolFlags {
+		cb.boolFlags[k] = v
+	}
+	return cb
+}
+
 // Build constructs the final command string.
 func (cb *OpentaintCommandBuilder) Build() string {
 	parts := []string{cb.command}
@@ -156,21 +205,28 @@ func (cb *OpentaintCommandBuilder) Build() string {
 	}
 	sort.Strings(boolFlagNames)
 	for _, flag := range boolFlagNames {
-		parts = append(parts, fmt.Sprintf("--%s=%t", flag, cb.boolFlags[flag]))
+		if cb.boolFlags[flag] {
+			parts = append(parts, fmt.Sprintf("--%s", flag))
+		} else {
+			parts = append(parts, fmt.Sprintf("--%s=false", flag))
+		}
 	}
 
 	return strings.Join(parts, " ")
 }
 
 // BuildCompileCommandWithDocker builds a docker run command string for compiling a project
-// using the opentaint Docker image.
-func BuildCompileCommandWithDocker(projectPath, outputPath string) string {
+// using the opentaint Docker image. The base builder carries all user-specified compile flags
+// so that new flags added to the builder factory are automatically included.
+// Path-based flags (output) are remapped to container paths.
+func BuildCompileCommandWithDocker(base *OpentaintCommandBuilder, projectPath, outputPath string) string {
 	absProjectPath, _ := filepath.Abs(projectPath)
 	absOutputPath, _ := filepath.Abs(outputPath)
 	outputDir := filepath.Dir(absOutputPath)
 	outputName := filepath.Base(absOutputPath)
 
 	compileCmd := NewCompileCommand("/project").
+		CopyFlagsFrom(base).
 		WithOutput("/database/" + outputName).
 		Build()
 
@@ -179,9 +235,10 @@ func BuildCompileCommandWithDocker(projectPath, outputPath string) string {
 }
 
 // BuildScanCommandWithDocker builds a docker run command string for scanning a project
-// using the opentaint Docker image.
-func BuildScanCommandWithDocker(projectPath, sarifReportPath string, rulesetPaths []string,
-	timeout time.Duration, semgrepCompatibility bool) string {
+// using the opentaint Docker image. The base builder carries all user-specified scan flags
+// (timeout, semgrep-compatibility, etc.) so that new flags added to the builder factory
+// are automatically included. Path-based flags (output, ruleset) are remapped to container paths.
+func BuildScanCommandWithDocker(base *OpentaintCommandBuilder, projectPath, sarifReportPath string, rulesetPaths []string) string {
 	absProjectPath, _ := filepath.Abs(projectPath)
 	absSarifReportPath, _ := filepath.Abs(sarifReportPath)
 	outputDir := filepath.Dir(absSarifReportPath)
@@ -212,11 +269,13 @@ func BuildScanCommandWithDocker(projectPath, sarifReportPath string, rulesetPath
 		}
 	}
 
+	// Start with container paths, then inherit all non-path flags from the base builder.
+	// WithOutput and WithRuleset called after CopyFlagsFrom override the host paths
+	// that were copied, replacing them with the container-mapped equivalents.
 	scanCmd := NewScanCommand("/project").
+		CopyFlagsFrom(base).
 		WithOutput("/output/" + sarifName).
-		WithTimeout(timeout).
 		WithRuleset(containerRulesets).
-		WithSemgrepCompatibility(semgrepCompatibility).
 		Build()
 
 	return fmt.Sprintf("docker run --rm %s ghcr.io/seqra/opentaint:latest %s", volumes, scanCmd)
