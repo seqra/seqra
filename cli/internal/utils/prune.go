@@ -36,19 +36,17 @@ type PruneResult struct {
 	TotalCount int
 }
 
-// checkStale tests whether a filename matches the given artifact definition and is stale or redundant.
+// checkStale tests whether a filename matches the given artifact definition and
+// has a version that differs from the bind version.
 // Returns a StaleArtifact if it should be pruned, nil otherwise.
-func checkStale(def globals.ArtifactDef, name, fullPath string, bundledLibExists bool) *StaleArtifact {
+func checkStale(def globals.ArtifactDef, name, fullPath string) *StaleArtifact {
 	if !strings.HasPrefix(name, def.CachePrefix) || !strings.HasSuffix(name, def.CacheSuffix) {
 		return nil
 	}
 	version := strings.TrimPrefix(name, def.CachePrefix)
 	version = strings.TrimSuffix(version, def.CacheSuffix)
 
-	isStale := version != def.BindVersion
-	isRedundant := !isStale && bundledLibExists
-
-	if !isStale && !isRedundant {
+	if version == def.BindVersion {
 		return nil
 	}
 
@@ -62,7 +60,7 @@ func checkStale(def globals.ArtifactDef, name, fullPath string, bundledLibExists
 }
 
 // ScanForStaleArtifacts scans ~/.opentaint/ for artifacts that are not current and returns them.
-func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
+func ScanForStaleArtifacts(includeLogs, all bool) (*PruneResult, error) {
 	opentaintHome, err := GetOpentaintHome()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get opentaint home: %w", err)
@@ -73,20 +71,6 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 	entries, err := os.ReadDir(opentaintHome)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read opentaint home: %w", err)
-	}
-
-	bundledLibExists := false
-	if libPath := GetBundledLibPath(); libPath != "" {
-		if _, err := os.Stat(libPath); err == nil {
-			bundledLibExists = true
-		}
-	}
-
-	bundledJREExists := false
-	if jrePath := GetBundledJREPath(); jrePath != "" {
-		if _, err := os.Stat(jrePath); err == nil {
-			bundledJREExists = true
-		}
 	}
 
 	artifacts := globals.Artifacts()
@@ -103,7 +87,7 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 		// Check against artifact definitions
 		matched := false
 		for _, def := range artifacts {
-			if artifact := checkStale(def, name, fullPath, bundledLibExists); artifact != nil {
+			if artifact := checkStale(def, name, fullPath); artifact != nil {
 				result.Stale = append(result.Stale, *artifact)
 				result.TotalSize += artifact.Size
 				result.TotalCount++
@@ -125,26 +109,20 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 			if err != nil {
 				continue
 			}
+			currentPrefix := fmt.Sprintf("temurin-%d-", globals.DefaultJavaVersion)
 			for _, subEntry := range subEntries {
-				subPath := filepath.Join(fullPath, subEntry.Name())
-
-				// If bundled JRE exists, all downloaded JREs for current version are redundant
-				isRedundant := bundledJREExists && name == StaleKindJRE
-
-				// All JDK/JRE directories that aren't the current version are stale
-				currentPrefix := fmt.Sprintf("temurin-%d-", globals.DefaultJavaVersion)
-				isStale := !strings.HasPrefix(subEntry.Name(), currentPrefix)
-
-				if isStale || isRedundant {
-					size, _ := dirSize(subPath)
-					result.Stale = append(result.Stale, StaleArtifact{
-						Path: subPath,
-						Size: size,
-						Kind: name,
-					})
-					result.TotalSize += size
-					result.TotalCount++
+				if strings.HasPrefix(subEntry.Name(), currentPrefix) {
+					continue
 				}
+				subPath := filepath.Join(fullPath, subEntry.Name())
+				size, _ := dirSize(subPath)
+				result.Stale = append(result.Stale, StaleArtifact{
+					Path: subPath,
+					Size: size,
+					Kind: name,
+				})
+				result.TotalSize += size
+				result.TotalCount++
 			}
 			continue
 		}
@@ -153,29 +131,27 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 	// Scan install-tier directories for stale artifacts
 	installCurrent := IsInstallCurrent()
 	for _, check := range []struct {
-		path          string
-		kind          string
-		bundledExists bool
+		path   string
+		kind   string
+		should bool
 	}{
-		{GetInstallLibPath(), StaleKindInstallLib, bundledLibExists},
-		{GetInstallJREPath(), StaleKindInstallJRE, bundledJREExists},
+		{GetInstallLibPath(), StaleKindInstallLib, !installCurrent || all},
+		{GetInstallJREPath(), StaleKindInstallJRE, all},
 	} {
-		if check.path == "" {
+		if !check.should || check.path == "" {
 			continue
 		}
 		if _, err := os.Stat(check.path); err != nil {
 			continue
 		}
-		if !installCurrent || check.bundledExists {
-			size, _ := dirSize(check.path)
-			result.Stale = append(result.Stale, StaleArtifact{
-				Path: check.path,
-				Size: size,
-				Kind: check.kind,
-			})
-			result.TotalSize += size
-			result.TotalCount++
-		}
+		size, _ := dirSize(check.path)
+		result.Stale = append(result.Stale, StaleArtifact{
+			Path: check.path,
+			Size: size,
+			Kind: check.kind,
+		})
+		result.TotalSize += size
+		result.TotalCount++
 	}
 
 	// Scan for cached compilation models (and optionally logs inside them)

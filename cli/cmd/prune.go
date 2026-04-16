@@ -12,6 +12,7 @@ var (
 	pruneDryRun  bool
 	pruneYes     bool
 	pruneIncLogs bool
+	pruneAll     bool
 )
 
 var pruneCmd = &cobra.Command{
@@ -23,11 +24,12 @@ Identifies artifacts that are no longer needed:
 - Old versions of analyzer JARs, autobuilder JARs, and rules
 - Downloaded JDK/JRE versions that don't match the current version
 - Redundant downloads when bundled artifacts are available
-- Stale install-tier artifacts (~/.opentaint/install/) after a opentaint upgrade
+- Stale install-tier lib artifacts (~/.opentaint/install/) after a opentaint upgrade
+- With --all: install-tier JRE and lib artifacts regardless of upgrade state
 
 By default, log files are kept. Use --include-logs to also prune them from project cache directories.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		result, err := utils.ScanForStaleArtifacts(pruneIncLogs)
+		result, err := utils.ScanForStaleArtifacts(pruneIncLogs, pruneAll)
 		if err != nil {
 			out.Fatalf("Failed to scan for stale artifacts: %s", err)
 		}
@@ -71,4 +73,5 @@ func init() {
 	pruneCmd.Flags().BoolVar(&pruneDryRun, "dry-run", false, "Show what would be deleted without deleting")
 	pruneCmd.Flags().BoolVar(&pruneYes, "yes", false, "Skip interactive confirmation")
 	pruneCmd.Flags().BoolVar(&pruneIncLogs, "include-logs", false, "Also prune log files")
+	pruneCmd.Flags().BoolVar(&pruneAll, "all", false, "Also prune install-tier JRE and lib artifacts")
 }
