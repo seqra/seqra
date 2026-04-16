@@ -127,6 +127,7 @@ jobs:
 
           DOCS_PATTERNS=(
             "docs/"
+            "scripts/"
             "(.*/)?README\.md"
             "(.*/)?CHANGELOG\.md"
             "logos/"
