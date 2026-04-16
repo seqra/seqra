@@ -62,7 +62,37 @@ func GetProjectCachePath(projectPath string) (string, error) {
 const (
 	projectModelDir = "project-model"
 	modelsCacheDir  = "cache"
+	logsCacheDir    = "logs"
 )
+
+// GetLogCacheDirPath returns ~/.opentaint/logs/ without creating it.
+func GetLogCacheDirPath() (string, error) {
+	opentaintHome, err := GetOpenTaintHomePath()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(opentaintHome, logsCacheDir), nil
+}
+
+// GetProjectLogPath returns ~/.opentaint/logs/<slug-hash>/ for a project path,
+// without creating the directory. The project path is canonicalized before hashing.
+func GetProjectLogPath(projectPath string) (string, error) {
+	absPath, err := filepath.Abs(projectPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve absolute path: %w", err)
+	}
+	absPath, err = filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return "", fmt.Errorf("failed to resolve symlinks: %w", err)
+	}
+
+	logsDir, err := GetLogCacheDirPath()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(logsDir, ProjectPathSlugHash(absPath)), nil
+}
 
 // DefaultSarifReportPath returns the default SARIF report location for a given
 // project model path: <projectModelPath>/sources/opentaint.sarif

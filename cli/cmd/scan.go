@@ -162,11 +162,7 @@ func scan(cmd *cobra.Command) {
 
 	// Activate logging
 	if !DryRunScan {
-		if cfg.projectCachePath != "" {
-			activateLogging(ScanLogFile, cfg.projectCachePath)
-		} else {
-			activateLoggingForProject(ScanLogFile, absUserProjectRoot)
-		}
+		activateLoggingForProject(ScanLogFile, absUserProjectRoot)
 	}
 
 	absProjectModelPath := cfg.absProjectModel

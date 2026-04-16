@@ -284,3 +284,44 @@ func TestCleanupStagingDir(t *testing.T) {
 		t.Error("staging dir should be removed after cleanup")
 	}
 }
+
+func TestGetLogCacheDirPath(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	logDir, err := GetLogCacheDirPath()
+	if err != nil {
+		t.Fatalf("GetLogCacheDirPath() error = %v", err)
+	}
+	expected := filepath.Join(home, ".opentaint", "logs")
+	if logDir != expected {
+		t.Errorf("got %q, want %q", logDir, expected)
+	}
+}
+
+func TestGetProjectLogPath(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	// Use a real existing path so EvalSymlinks works.
+	// projectPath is passed as-is; GetProjectLogPath canonicalizes it internally.
+	// The slug-hash is computed from the resolved path, so we resolve here too.
+	projectPath := home
+	resolvedProjectPath, err := filepath.EvalSymlinks(projectPath)
+	if err != nil {
+		t.Fatalf("EvalSymlinks projectPath: %v", err)
+	}
+
+	logPath, err := GetProjectLogPath(projectPath)
+	if err != nil {
+		t.Fatalf("GetProjectLogPath() error = %v", err)
+	}
+
+	// GetOpenTaintHomePath uses os.UserHomeDir() which returns HOME as-is (unresolved).
+	// So the logs base is HOME/.opentaint/logs, not resolved-HOME/.opentaint/logs.
+	slugHash := ProjectPathSlugHash(resolvedProjectPath)
+	expected := filepath.Join(home, ".opentaint", "logs", slugHash)
+	if logPath != expected {
+		t.Errorf("got %q, want %q", logPath, expected)
+	}
+}
