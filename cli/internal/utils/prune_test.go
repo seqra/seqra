@@ -559,6 +559,37 @@ func TestScanForStaleArtifacts_Categories(t *testing.T) {
 	})
 }
 
+func TestScanForStaleArtifacts_LockedModelSkipped(t *testing.T) {
+	setupPruneTestGlobals(t)
+
+	t.Run("locked project is skipped during model scan", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
+		createTestFile(t, filepath.Join(projectDir, "project-model", "project.yaml"), 50)
+
+		// Hold the compile lock
+		lockPath := CompileLockPath(projectDir)
+		lock, err := TryLock(lockPath, LockMeta{PID: 99999, Command: "compile"})
+		if err != nil {
+			t.Fatalf("failed to acquire compile lock: %v", err)
+		}
+		defer lock.Unlock()
+
+		result, err := ScanForStaleArtifacts(PruneCategoryModels)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assertNoKind(t, result, StaleKindModel)
+		if len(result.Skipped) != 1 {
+			t.Fatalf("expected 1 skipped, got %d", len(result.Skipped))
+		}
+		if result.Skipped[0].Meta.PID != 99999 {
+			t.Errorf("expected PID 99999, got %d", result.Skipped[0].Meta.PID)
+		}
+	})
+}
+
 func TestPruneResult_AddSkipped(t *testing.T) {
 	result := &PruneResult{}
 	result.AddSkipped(SkippedProject{

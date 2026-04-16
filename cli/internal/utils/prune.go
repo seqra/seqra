@@ -203,8 +203,7 @@ func ScanForStaleArtifacts(categories PruneCategory) (*PruneResult, error) {
 		modelsDir, mErr := GetModelCacheDirPath()
 		if mErr != nil {
 			output.LogDebugf("Failed to resolve model cache path: %v", mErr)
-		}
-		if info, err := os.Stat(modelsDir); err == nil && info.IsDir() {
+		} else if info, err := os.Stat(modelsDir); err == nil && info.IsDir() {
 			modelEntries, err := os.ReadDir(modelsDir)
 			if err == nil {
 				for _, modelEntry := range modelEntries {
