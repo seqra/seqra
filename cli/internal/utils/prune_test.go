@@ -87,7 +87,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 
 	t.Run("empty home", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -102,7 +102,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		opentaintHome := filepath.Join(home, ".opentaint")
 		createTestFile(t, filepath.Join(opentaintHome, "analyzer_0.9.0.jar"), 100)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -120,7 +120,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		opentaintHome := filepath.Join(home, ".opentaint")
 		createTestFile(t, filepath.Join(opentaintHome, "analyzer_1.0.0.jar"), 100)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -135,7 +135,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		opentaintHome := filepath.Join(home, ".opentaint")
 		createTestFile(t, filepath.Join(opentaintHome, "autobuilder_0.9.0.jar"), 100)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -154,7 +154,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		rulesDir := filepath.Join(opentaintHome, "rules_v0.9.0")
 		createTestFile(t, filepath.Join(rulesDir, "rule.yaml"), 50)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -173,7 +173,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		jdkDir := filepath.Join(opentaintHome, "jdk", "temurin-17-jdk+35")
 		createTestFile(t, filepath.Join(jdkDir, "bin", "java"), 50)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -192,7 +192,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		jreDir := filepath.Join(opentaintHome, "jre", "temurin-17-jre+35")
 		createTestFile(t, filepath.Join(jreDir, "bin", "java"), 50)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -211,7 +211,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		jreDir := filepath.Join(opentaintHome, "jre", "temurin-21-jre+35")
 		createTestFile(t, filepath.Join(jreDir, "bin", "java"), 50)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -220,32 +220,17 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		}
 	})
 
-	t.Run("logs included in model prune with all flag", func(t *testing.T) {
+
+	t.Run("logs dir skipped in home scan", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
-		logsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4", "logs")
+		logsDir := filepath.Join(home, ".opentaint", "logs", "my-project-a1b2c3d4")
 		createTestFile(t, filepath.Join(logsDir, "app.log"), 200)
 
-		result, err := ScanForStaleArtifacts(true)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		// With --all, entire project cache dir is pruned as model (includes logs)
-		assertHasKind(t, result, StaleKindModel)
-		assertNoKind(t, result, StaleKindLog)
-	})
-
-	t.Run("logs-only dir not pruned without all flag", func(t *testing.T) {
-		home := t.TempDir()
-		t.Setenv("HOME", home)
-		logsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4", "logs")
-		createTestFile(t, filepath.Join(logsDir, "app.log"), 200)
-
-		result, err := ScanForStaleArtifacts(false)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		assertNoKind(t, result, StaleKindModel)
 		assertNoKind(t, result, StaleKindLog)
 	})
 
@@ -256,7 +241,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		createTestFile(t, filepath.Join(opentaintHome, ".config"), 10)
 		createTestFile(t, filepath.Join(opentaintHome, ".last-update-check"), 10)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -278,7 +263,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		createTestFile(t, filepath.Join(opentaintHome, "analyzer_0.8.0.jar"), 100)
 		createTestFile(t, filepath.Join(opentaintHome, "autobuilder_0.8.0.jar"), 100)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -298,7 +283,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		installLib := filepath.Join(home, ".opentaint", "install", "lib")
 		createTestFile(t, filepath.Join(installLib, "artifact.jar"), 100)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -316,7 +301,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		result, err := ScanForStaleArtifacts(true)
+		result, err := ScanForStaleArtifacts(PruneCategoriesAll)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -329,7 +314,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		installJRE := filepath.Join(home, ".opentaint", "install", "jre")
 		createTestFile(t, filepath.Join(installJRE, "bin", "java"), 50)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -342,7 +327,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		installJRE := filepath.Join(home, ".opentaint", "install", "jre")
 		createTestFile(t, filepath.Join(installJRE, "bin", "java"), 50)
 
-		result, err := ScanForStaleArtifacts(true)
+		result, err := ScanForStaleArtifacts(PruneCategoriesAll)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -360,7 +345,7 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 		pmPath := filepath.Join(projectDir, "project-model", "project.yaml")
 		createTestFile(t, pmPath, 50)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -376,35 +361,16 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 		}
 	})
 
-	t.Run("cached model with all prunes entire dir", func(t *testing.T) {
-		home := t.TempDir()
-		t.Setenv("HOME", home)
-		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
-		createTestFile(t, filepath.Join(projectDir, "project-model", "project.yaml"), 50)
-
-		result, err := ScanForStaleArtifacts(true)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		assertHasKind(t, result, StaleKindModel)
-		// Should target the entire project cache dir
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindModel {
-				if s.Path != projectDir {
-					t.Errorf("expected path %q, got %q", projectDir, s.Path)
-				}
-			}
-		}
-	})
-
 	t.Run("logs preserved without all flag", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
 		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
 		createTestFile(t, filepath.Join(projectDir, "project-model", "project.yaml"), 50)
-		createTestFile(t, filepath.Join(projectDir, "logs", "2026-01-01.log"), 100)
+		// Logs are now in ~/.opentaint/logs/, not in cache dirs
+		logsDir := filepath.Join(home, ".opentaint", "logs", "my-project-a1b2c3d4")
+		createTestFile(t, filepath.Join(logsDir, "2026-01-01.log"), 100)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -423,13 +389,15 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 		t.Setenv("HOME", home)
 		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
 		createTestFile(t, filepath.Join(projectDir, "project-model", "project.yaml"), 50)
-		createTestFile(t, filepath.Join(projectDir, "logs", "2026-01-01.log"), 100)
+		// Logs live in their own top-level directory, counted separately
+		logsDir := filepath.Join(home, ".opentaint", "logs", "my-project-a1b2c3d4")
+		createTestFile(t, filepath.Join(logsDir, "2026-01-01.log"), 100)
 
-		result, err := ScanForStaleArtifacts(true)
+		result, err := ScanForStaleArtifacts(PruneCategoriesAll)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		// Should have exactly one entry for the entire dir, no separate log entry
+		// Model entry targets project-model/ subdir
 		modelCount := 0
 		for _, s := range result.Stale {
 			if s.Kind == StaleKindModel {
@@ -439,7 +407,16 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 		if modelCount != 1 {
 			t.Errorf("expected 1 model entry, got %d", modelCount)
 		}
-		assertNoKind(t, result, StaleKindLog)
+		// Log entry is separate, targeting ~/.opentaint/logs/<slug>/
+		logCount := 0
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindLog {
+				logCount++
+			}
+		}
+		if logCount != 1 {
+			t.Errorf("expected 1 log entry, got %d", logCount)
+		}
 	})
 
 	t.Run("stale staging dir is prunable", func(t *testing.T) {
@@ -449,7 +426,7 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 		stagingDir := filepath.Join(projectDir, ".staging-12345-9999")
 		createTestFile(t, filepath.Join(stagingDir, "project-model", "project.yaml"), 50)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -472,7 +449,7 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -480,36 +457,105 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 	})
 }
 
-func TestScanForStaleArtifacts_LogsInCacheDirs(t *testing.T) {
+func TestScanForStaleArtifacts_Categories(t *testing.T) {
 	setupPruneTestGlobals(t)
 
-	t.Run("logs-only cache dir pruned with all flag", func(t *testing.T) {
+	t.Run("artifacts-only prunes jars not rules", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
-		logsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4", "logs")
-		createTestFile(t, filepath.Join(logsDir, "2026-01-01_00-00-00.log"), 100)
+		opentaintHome := filepath.Join(home, ".opentaint")
+		createTestFile(t, filepath.Join(opentaintHome, "analyzer_0.9.0.jar"), 100)
+		rulesDir := filepath.Join(opentaintHome, "rules_v0.9.0")
+		createTestFile(t, filepath.Join(rulesDir, "rule.yaml"), 50)
 
-		result, err := ScanForStaleArtifacts(true)
+		result, err := ScanForStaleArtifacts(PruneCategoryArtifacts)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		// With --all, the entire project cache dir is pruned (includes logs)
-		assertHasKind(t, result, StaleKindModel)
+		assertHasKind(t, result, StaleKindAnalyzer)
+		assertNoKind(t, result, StaleKindRules)
 	})
 
-	t.Run("logs-only cache dir not pruned without all flag", func(t *testing.T) {
+	t.Run("rules-only prunes rules not jars", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
-		logsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4", "logs")
-		createTestFile(t, filepath.Join(logsDir, "2026-01-01_00-00-00.log"), 100)
+		opentaintHome := filepath.Join(home, ".opentaint")
+		createTestFile(t, filepath.Join(opentaintHome, "analyzer_0.9.0.jar"), 100)
+		rulesDir := filepath.Join(opentaintHome, "rules_v0.9.0")
+		createTestFile(t, filepath.Join(rulesDir, "rule.yaml"), 50)
 
-		result, err := ScanForStaleArtifacts(false)
+		result, err := ScanForStaleArtifacts(PruneCategoryRules)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		// Without --all, only project-model/ and .staging-* are pruned; logs are preserved
+		assertHasKind(t, result, StaleKindRules)
+		assertNoKind(t, result, StaleKindAnalyzer)
+	})
+
+	t.Run("logs-only scans logs dir", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		logsDir := filepath.Join(home, ".opentaint", "logs", "my-project-a1b2c3d4")
+		createTestFile(t, filepath.Join(logsDir, "2026-01-01.log"), 100)
+
+		result, err := ScanForStaleArtifacts(PruneCategoryLogs)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assertHasKind(t, result, StaleKindLog)
 		assertNoKind(t, result, StaleKindModel)
+		assertNoKind(t, result, StaleKindAnalyzer)
+	})
+
+	t.Run("default categories match expected behavior", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		opentaintHome := filepath.Join(home, ".opentaint")
+		// Artifact (should be pruned)
+		createTestFile(t, filepath.Join(opentaintHome, "analyzer_0.9.0.jar"), 100)
+		// Rules (should be pruned)
+		rulesDir := filepath.Join(opentaintHome, "rules_v0.9.0")
+		createTestFile(t, filepath.Join(rulesDir, "rule.yaml"), 50)
+		// JDK (should be pruned)
+		jdkDir := filepath.Join(opentaintHome, "jdk", "temurin-17-jdk+35")
+		createTestFile(t, filepath.Join(jdkDir, "bin", "java"), 50)
+		// Model (should be pruned)
+		pmPath := filepath.Join(opentaintHome, "cache", "my-project-a1b2c3d4", "project-model", "project.yaml")
+		createTestFile(t, pmPath, 50)
+		// Logs (should NOT be pruned with default)
+		logsDir := filepath.Join(opentaintHome, "logs", "my-project-a1b2c3d4")
+		createTestFile(t, filepath.Join(logsDir, "2026-01-01.log"), 100)
+		// Install (should NOT be pruned with default)
+		installLib := filepath.Join(opentaintHome, "install", "lib")
+		createTestFile(t, filepath.Join(installLib, "artifact.jar"), 100)
+
+		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assertHasKind(t, result, StaleKindAnalyzer)
+		assertHasKind(t, result, StaleKindRules)
+		assertHasKind(t, result, StaleKindJDK)
+		assertHasKind(t, result, StaleKindModel)
 		assertNoKind(t, result, StaleKindLog)
+		assertNoKind(t, result, StaleKindInstallLib)
+	})
+
+	t.Run("all categories include logs and install", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		opentaintHome := filepath.Join(home, ".opentaint")
+		logsDir := filepath.Join(opentaintHome, "logs", "my-project-a1b2c3d4")
+		createTestFile(t, filepath.Join(logsDir, "2026-01-01.log"), 100)
+		installLib := filepath.Join(opentaintHome, "install", "lib")
+		createTestFile(t, filepath.Join(installLib, "artifact.jar"), 100)
+
+		result, err := ScanForStaleArtifacts(PruneCategoriesAll)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assertHasKind(t, result, StaleKindLog)
+		assertHasKind(t, result, StaleKindInstallLib)
 	})
 }
 

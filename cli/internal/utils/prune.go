@@ -44,6 +44,29 @@ func (r *PruneResult) Add(a StaleArtifact) {
 	r.TotalCount++
 }
 
+// PruneCategory represents a class of artifacts that can be selectively pruned.
+type PruneCategory int
+
+const (
+	PruneCategoryArtifacts PruneCategory = 1 << iota
+	PruneCategoryRules
+	PruneCategoryJDK
+	PruneCategoryModels
+	PruneCategoryLogs
+	PruneCategoryInstall
+)
+
+// PruneCategoriesDefault is the set pruned with no flags: artifacts + rules + jdk + models.
+const PruneCategoriesDefault = PruneCategoryArtifacts | PruneCategoryRules | PruneCategoryJDK | PruneCategoryModels
+
+// PruneCategoriesAll is the set pruned with --all.
+const PruneCategoriesAll = PruneCategoryArtifacts | PruneCategoryRules | PruneCategoryJDK | PruneCategoryModels | PruneCategoryLogs | PruneCategoryInstall
+
+// has reports whether the given category is included in the set.
+func (c PruneCategory) has(cat PruneCategory) bool {
+	return c&cat != 0
+}
+
 // checkStale tests whether a filename matches the given artifact definition and
 // has a version that differs from the bind version.
 // Returns a StaleArtifact if it should be pruned, nil otherwise.
@@ -68,7 +91,7 @@ func checkStale(def globals.ArtifactDef, name, fullPath string) *StaleArtifact {
 }
 
 // ScanForStaleArtifacts scans ~/.opentaint/ for artifacts that are not current and returns them.
-func ScanForStaleArtifacts(all bool) (*PruneResult, error) {
+func ScanForStaleArtifacts(categories PruneCategory) (*PruneResult, error) {
 	opentaintHome, err := GetOpenTaintHomePath()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get opentaint home: %w", err)
@@ -76,102 +99,129 @@ func ScanForStaleArtifacts(all bool) (*PruneResult, error) {
 
 	result := &PruneResult{}
 
-	entries, err := os.ReadDir(opentaintHome)
-	if os.IsNotExist(err) {
-		return result, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to read opentaint home: %w", err)
-	}
+	scanArtifactsOrRules := categories.has(PruneCategoryArtifacts) || categories.has(PruneCategoryRules)
+	scanJDK := categories.has(PruneCategoryJDK)
 
-	artifacts := globals.Artifacts()
-
-	for _, entry := range entries {
-		name := entry.Name()
-		fullPath := filepath.Join(opentaintHome, name)
-
-		// Skip special files, hidden files, and cache directory
-		if name == "cache" || strings.HasPrefix(name, ".") {
-			continue
+	if scanArtifactsOrRules || scanJDK {
+		entries, err := os.ReadDir(opentaintHome)
+		if os.IsNotExist(err) {
+			return result, nil
+		}
+		if err != nil {
+			return nil, fmt.Errorf("failed to read opentaint home: %w", err)
 		}
 
-		// Check against artifact definitions
-		matched := false
-		for _, def := range artifacts {
-			if artifact := checkStale(def, name, fullPath); artifact != nil {
-				result.Add(*artifact)
-				matched = true
-				break
-			}
-			if strings.HasPrefix(name, def.CachePrefix) {
-				matched = true // matches pattern but is current — skip
-				break
-			}
-		}
-		if matched {
-			continue
-		}
+		artifacts := globals.Artifacts()
 
-		// Check JDK/JRE directories
-		if name == StaleKindJDK || name == StaleKindJRE {
-			subEntries, err := os.ReadDir(fullPath)
-			if err != nil {
+		for _, entry := range entries {
+			name := entry.Name()
+			fullPath := filepath.Join(opentaintHome, name)
+
+			// Skip special dirs and hidden files
+			if name == "cache" || name == "logs" || name == "install" || strings.HasPrefix(name, ".") {
 				continue
 			}
-			currentPrefix := fmt.Sprintf("temurin-%d-", globals.DefaultJavaVersion)
-			for _, subEntry := range subEntries {
-				if strings.HasPrefix(subEntry.Name(), currentPrefix) {
+
+			if scanArtifactsOrRules {
+				// Check against artifact definitions
+				matched := false
+				for _, def := range artifacts {
+					isRules := def.Kind() == StaleKindRules
+					categoryEnabled := (isRules && categories.has(PruneCategoryRules)) ||
+						(!isRules && categories.has(PruneCategoryArtifacts))
+
+					if strings.HasPrefix(name, def.CachePrefix) {
+						matched = true
+						if categoryEnabled {
+							if artifact := checkStale(def, name, fullPath); artifact != nil {
+								result.Add(*artifact)
+							}
+						}
+						break
+					}
+				}
+				if matched {
 					continue
 				}
-				subPath := filepath.Join(fullPath, subEntry.Name())
-				size, _ := dirSize(subPath)
-				result.Add(StaleArtifact{Path: subPath, Size: size, Kind: name})
 			}
-			continue
+
+			if scanJDK {
+				// Check JDK/JRE directories
+				if name == StaleKindJDK || name == StaleKindJRE {
+					subEntries, err := os.ReadDir(fullPath)
+					if err != nil {
+						continue
+					}
+					currentPrefix := fmt.Sprintf("temurin-%d-", globals.DefaultJavaVersion)
+					for _, subEntry := range subEntries {
+						if strings.HasPrefix(subEntry.Name(), currentPrefix) {
+							continue
+						}
+						subPath := filepath.Join(fullPath, subEntry.Name())
+						size, _ := dirSize(subPath)
+						result.Add(StaleArtifact{Path: subPath, Size: size, Kind: name})
+					}
+				}
+			}
 		}
 	}
 
 	// Scan install-tier directories for stale artifacts
-	for _, check := range []struct {
-		path   string
-		kind   string
-		should bool
-	}{
-		{GetInstallLibPath(), StaleKindInstallLib, all},
-		{GetInstallJREPath(), StaleKindInstallJRE, all},
-	} {
-		if !check.should || check.path == "" {
-			continue
+	if categories.has(PruneCategoryInstall) {
+		for _, check := range []struct {
+			path string
+			kind string
+		}{
+			{GetInstallLibPath(), StaleKindInstallLib},
+			{GetInstallJREPath(), StaleKindInstallJRE},
+		} {
+			if check.path == "" {
+				continue
+			}
+			if _, err := os.Stat(check.path); err != nil {
+				continue
+			}
+			size, _ := dirSize(check.path)
+			result.Add(StaleArtifact{Path: check.path, Size: size, Kind: check.kind})
 		}
-		if _, err := os.Stat(check.path); err != nil {
-			continue
-		}
-		size, _ := dirSize(check.path)
-		result.Add(StaleArtifact{Path: check.path, Size: size, Kind: check.kind})
 	}
 
-	// Scan for cached compilation models (and optionally logs inside them)
-	modelsDir, mErr := GetModelCacheDirPath()
-	if mErr != nil {
-		output.LogDebugf("Failed to resolve model cache path: %v", mErr)
-	}
-	if info, err := os.Stat(modelsDir); err == nil && info.IsDir() {
-		modelEntries, err := os.ReadDir(modelsDir)
-		if err == nil {
-			for _, modelEntry := range modelEntries {
-				if !modelEntry.IsDir() {
-					continue
-				}
-				projectCachePath := filepath.Join(modelsDir, modelEntry.Name())
-				if all {
-					// With --all: prune entire project cache dir (model + logs)
-					size, _ := dirSize(projectCachePath)
-					if size > 0 {
-						result.Add(StaleArtifact{Path: projectCachePath, Size: size, Kind: StaleKindModel})
+	// Scan for cached compilation models
+	if categories.has(PruneCategoryModels) {
+		modelsDir, mErr := GetModelCacheDirPath()
+		if mErr != nil {
+			output.LogDebugf("Failed to resolve model cache path: %v", mErr)
+		} else if info, err := os.Stat(modelsDir); err == nil && info.IsDir() {
+			modelEntries, err := os.ReadDir(modelsDir)
+			if err == nil {
+				for _, modelEntry := range modelEntries {
+					if !modelEntry.IsDir() {
+						continue
 					}
-				} else {
-					// Without --all: prune only project-model/ and .staging-* dirs, preserve logs
+					projectCachePath := filepath.Join(modelsDir, modelEntry.Name())
+					// Always prune only project-model/ and .staging-* subdirs;
+					// logs are now in a separate ~/.opentaint/logs/ directory.
 					scanProjectCacheSubdirs(projectCachePath, result)
+				}
+			}
+		}
+	}
+
+	// Scan for project log directories
+	if categories.has(PruneCategoryLogs) {
+		logsDir, lErr := GetLogCacheDirPath()
+		if lErr != nil {
+			output.LogDebugf("Failed to resolve log cache path: %v", lErr)
+		} else if info, err := os.Stat(logsDir); err == nil && info.IsDir() {
+			logEntries, err := os.ReadDir(logsDir)
+			if err == nil {
+				for _, logEntry := range logEntries {
+					if !logEntry.IsDir() {
+						continue
+					}
+					projectLogPath := filepath.Join(logsDir, logEntry.Name())
+					size, _ := dirSize(projectLogPath)
+					result.Add(StaleArtifact{Path: projectLogPath, Size: size, Kind: StaleKindLog})
 				}
 			}
 		}
