@@ -372,7 +372,7 @@ func (j *javaRunner) ensureSpecificVersion(version int) (string, error) {
 	// Unset Java environment variables for clean environment when using specific version
 	unsetJavaEnvironmentVariables()
 
-	opentaintHome, err := utils.GetOpentaintHome()
+	opentaintHome, err := utils.GetOpenTaintHome()
 	if err != nil {
 		return "", err
 	}

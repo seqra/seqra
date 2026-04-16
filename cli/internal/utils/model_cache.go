@@ -14,7 +14,7 @@ var nonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)
 // GetModelCacheDirPath returns ~/.opentaint/cache/ without creating it.
 // Use this when you only need to read/check the directory (e.g. prune scanning).
 func GetModelCacheDirPath() (string, error) {
-	opentaintHome, err := GetOpentaintHome()
+	opentaintHome, err := GetOpenTaintHomePath()
 	if err != nil {
 		return "", err
 	}
@@ -33,10 +33,8 @@ func GetModelCacheDir() (string, error) {
 	return modelsDir, nil
 }
 
-// GetProjectCachePath returns ~/.opentaint/cache/<slug-hash>/ for a project path,
-// creating the directory if needed. The project path is canonicalized (resolved
-// through symlinks and made absolute) before hashing.
-func GetProjectCachePath(projectPath string) (string, error) {
+// canonicalProjectPath resolves a project path to an absolute, symlink-resolved form.
+func canonicalProjectPath(projectPath string) (string, error) {
 	absPath, err := filepath.Abs(projectPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve absolute path: %w", err)
@@ -44,6 +42,17 @@ func GetProjectCachePath(projectPath string) (string, error) {
 	absPath, err = filepath.EvalSymlinks(absPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve symlinks: %w", err)
+	}
+	return absPath, nil
+}
+
+// GetProjectCachePath returns ~/.opentaint/cache/<slug-hash>/ for a project path,
+// creating the directory if needed. The project path is canonicalized (resolved
+// through symlinks and made absolute) before hashing.
+func GetProjectCachePath(projectPath string) (string, error) {
+	absPath, err := canonicalProjectPath(projectPath)
+	if err != nil {
+		return "", err
 	}
 
 	modelsDir, err := GetModelCacheDir()
@@ -62,7 +71,33 @@ func GetProjectCachePath(projectPath string) (string, error) {
 const (
 	projectModelDir = "project-model"
 	modelsCacheDir  = "cache"
+	logsCacheDir    = "logs"
 )
+
+// GetLogCacheDirPath returns ~/.opentaint/logs/ without creating it.
+func GetLogCacheDirPath() (string, error) {
+	opentaintHome, err := GetOpenTaintHomePath()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(opentaintHome, logsCacheDir), nil
+}
+
+// GetProjectLogPath returns ~/.opentaint/logs/<slug-hash>/ for a project path,
+// without creating the directory. The project path is canonicalized before hashing.
+func GetProjectLogPath(projectPath string) (string, error) {
+	absPath, err := canonicalProjectPath(projectPath)
+	if err != nil {
+		return "", err
+	}
+
+	logsDir, err := GetLogCacheDirPath()
+	if err != nil {
+		return "", err
+	}
+
+	return filepath.Join(logsDir, ProjectPathSlugHash(absPath)), nil
+}
 
 // DefaultSarifReportPath returns the default SARIF report location for a given
 // project model path: <projectModelPath>/sources/opentaint.sarif
@@ -88,8 +123,7 @@ func CreateStagingDir(cacheDir string) (string, error) {
 
 // PromoteStagingToCache moves the compiled project-model/ from the staging
 // directory into the cache, replacing any existing cached model.
-// HasStagingDir provides best-effort detection of concurrent compilations
-// (not a lock), so in practice only one process promotes at a time.
+// The caller must hold the compile lock to prevent concurrent promotions.
 func PromoteStagingToCache(cacheDir, stagingPath string) error {
 	srcPM := filepath.Join(stagingPath, projectModelDir)
 	destPM := filepath.Join(cacheDir, projectModelDir)
@@ -108,22 +142,6 @@ func PromoteStagingToCache(cacheDir, stagingPath string) error {
 	_ = os.RemoveAll(stagingPath)
 
 	return nil
-}
-
-// HasStagingDir checks whether any .staging-* directory exists in cacheDir.
-// This is a best-effort heuristic (not a lock) for detecting in-progress
-// compilations; a TOCTOU race is possible but unlikely for a CLI tool.
-func HasStagingDir(cacheDir string) bool {
-	entries, err := os.ReadDir(cacheDir)
-	if err != nil {
-		return false
-	}
-	for _, entry := range entries {
-		if entry.IsDir() && strings.HasPrefix(entry.Name(), ".staging-") {
-			return true
-		}
-	}
-	return false
 }
 
 // CleanupStagingDir removes a staging directory and all its contents.

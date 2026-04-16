@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/seqra/opentaint/internal/globals"
-	"github.com/seqra/opentaint/internal/output"
 	"github.com/seqra/opentaint/internal/utils"
 	"github.com/seqra/opentaint/internal/version"
 	"github.com/spf13/cobra"
@@ -129,21 +128,7 @@ Only upgrades are supported — downgrading to an older version is refused.`,
 		}
 
 		out.Successf("Successfully updated to v%s", targetVersion)
-
-		// Auto-prune after successful update
-		out.Print("Pruning stale artifacts...")
-		pruneResult, err := utils.ScanForStaleArtifacts(false)
-		if err != nil {
-			out.Warnf("Failed to scan for stale artifacts: %s", err)
-			return
-		}
-		if pruneResult.TotalCount > 0 {
-			if err := utils.DeleteArtifacts(pruneResult.Stale); err != nil {
-				out.Warnf("Failed to prune stale artifacts: %s", err)
-			} else {
-				out.Successf("Pruned %d items, freed %s", pruneResult.TotalCount, output.FormatSize(pruneResult.TotalSize))
-			}
-		}
+		suggest("To clean up old artifacts run", "opentaint prune")
 	},
 }
 

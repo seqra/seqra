@@ -8,21 +8,32 @@ import (
 	"github.com/seqra/opentaint/internal/globals"
 )
 
-func GetOpentaintHome() (string, error) {
-	// Find home directory.
+// GetOpenTaintHomePath returns ~/.opentaint/ without creating it.
+// Use this when you only need to read/check the directory (e.g. prune scanning).
+func GetOpenTaintHomePath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
+	return filepath.Join(home, ".opentaint"), nil
+}
 
-	// Search config in home directory with name ".opentaint" (without extension).
-	path := filepath.Join(home, ".opentaint")
-	merr := os.MkdirAll(path, os.ModePerm)
-	if merr != nil {
-		return "", merr
+// GetOpenTaintHome returns ~/.opentaint/, creating it if needed.
+func GetOpenTaintHome() (string, error) {
+	path, err := GetOpenTaintHomePath()
+	if err != nil {
+		return "", err
 	}
-
+	if err := os.MkdirAll(path, os.ModePerm); err != nil {
+		return "", err
+	}
 	return path, nil
+}
+
+// pathExists reports whether a path exists on disk.
+func pathExists(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
 }
 
 // exeDir returns the directory containing the current executable, resolved through symlinks.
@@ -125,6 +136,26 @@ func CleanInstallDir() error {
 		}
 	}
 	return nil
+}
+
+// ReconcileInstallMarker writes the install-tier version marker if all
+// bind-version artifacts are present but the marker is missing or stale.
+// This reconciles the marker after SelfUpdate, where the old binary cannot
+// write correct data. Safe to call on every command invocation (a few Stat calls).
+func ReconcileInstallMarker() {
+	if IsInstallCurrent() {
+		return
+	}
+	installLib := GetInstallLibPath()
+	if installLib == "" {
+		return
+	}
+	for _, def := range globals.Artifacts() {
+		if !pathExists(filepath.Join(installLib, def.LibSubpath)) {
+			return
+		}
+	}
+	_ = WriteInstallVersionMarker()
 }
 
 // resolveArtifactPath resolves the path for an artifact by checking tiers in order:

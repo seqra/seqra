@@ -69,6 +69,7 @@ type scanConfig struct {
 	projectCachePath string // cache dir for this project (empty for explicit model / dry-run)
 	stagingDir       string // staging dir path (empty when not compiling or dry-run)
 	needsCompilation bool   // true when compilation is needed before scanning
+	compileLock      *utils.FileLock
 }
 
 // scanCmd represents the scan command
@@ -159,14 +160,15 @@ func scan(cmd *cobra.Command) {
 	}
 
 	cfg := resolveScanConfig(absUserProjectRoot)
+	defer func() {
+		if cfg.compileLock != nil {
+			cfg.compileLock.Unlock()
+		}
+	}()
 
 	// Activate logging
 	if !DryRunScan {
-		if cfg.projectCachePath != "" {
-			activateLogging(ScanLogFile, cfg.projectCachePath)
-		} else {
-			activateLoggingForProject(ScanLogFile, absUserProjectRoot)
-		}
+		activateLoggingForProject(ScanLogFile, absUserProjectRoot)
 	}
 
 	absProjectModelPath := cfg.absProjectModel
@@ -422,10 +424,17 @@ func resolveScanConfig(absUserProjectRoot string) scanConfig {
 		}
 	}
 
-	if utils.HasStagingDir(projectCachePath) {
+	compileLock, lockErr := utils.TryLock(
+		utils.CompileLockPath(projectCachePath),
+		utils.LockMeta{PID: os.Getpid(), Command: "compile", Project: absUserProjectRoot},
+	)
+	if lockErr == utils.ErrLocked {
 		out.Error("Compilation already in progress for this project")
 		suggest("To scan an existing model instead", utils.NewScanCommand("").WithProjectModel("<model-path>").Build())
 		os.Exit(1)
+	}
+	if lockErr != nil {
+		out.Fatalf("Failed to acquire compile lock: %s", lockErr)
 	}
 
 	stagingDir, serr := utils.CreateStagingDir(projectCachePath)
@@ -439,6 +448,7 @@ func resolveScanConfig(absUserProjectRoot string) scanConfig {
 		projectCachePath: projectCachePath,
 		stagingDir:       stagingDir,
 		needsCompilation: true,
+		compileLock:      compileLock,
 	}
 }
 
