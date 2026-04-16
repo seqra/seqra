@@ -104,7 +104,9 @@ function Verify-Checksum {
     $actual = (Get-FileHash -Path $ArchivePath -Algorithm SHA256).Hash.ToLower()
 
     if ($expected -ne $actual) {
-        Write-Error "Checksum verification failed!`n  Expected: $expected`n  Actual:   $actual"
+        [Console]::Error.WriteLine("Error: Checksum verification failed!")
+        [Console]::Error.WriteLine("  Expected: $expected")
+        [Console]::Error.WriteLine("  Actual:   $actual")
         exit 1
     }
     Write-Host "Checksum verified."
