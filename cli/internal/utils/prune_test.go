@@ -559,6 +559,21 @@ func TestScanForStaleArtifacts_Categories(t *testing.T) {
 	})
 }
 
+func TestPruneResult_AddSkipped(t *testing.T) {
+	result := &PruneResult{}
+	result.AddSkipped(SkippedProject{
+		Path: "/home/user/.opentaint/cache/my-project-abc12345",
+		Meta: LockMeta{PID: 12345, Command: "compile"},
+	})
+
+	if len(result.Skipped) != 1 {
+		t.Fatalf("expected 1 skipped, got %d", len(result.Skipped))
+	}
+	if result.Skipped[0].Meta.PID != 12345 {
+		t.Errorf("expected PID 12345, got %d", result.Skipped[0].Meta.PID)
+	}
+}
+
 func createTestFile(t *testing.T, path string, size int) {
 	t.Helper()
 	dir := filepath.Dir(path)

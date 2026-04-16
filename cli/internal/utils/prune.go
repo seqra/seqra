@@ -30,9 +30,16 @@ type StaleArtifact struct {
 	Kind string
 }
 
+// SkippedProject represents a project cache that was skipped because a compile lock was held.
+type SkippedProject struct {
+	Path string
+	Meta LockMeta
+}
+
 // PruneResult contains the results of scanning for stale artifacts.
 type PruneResult struct {
 	Stale      []StaleArtifact
+	Skipped    []SkippedProject
 	TotalSize  int64
 	TotalCount int
 }
@@ -42,6 +49,11 @@ func (r *PruneResult) Add(a StaleArtifact) {
 	r.Stale = append(r.Stale, a)
 	r.TotalSize += a.Size
 	r.TotalCount++
+}
+
+// AddSkipped records a project that was skipped due to an active compile lock.
+func (r *PruneResult) AddSkipped(s SkippedProject) {
+	r.Skipped = append(r.Skipped, s)
 }
 
 // PruneCategory represents a class of artifacts that can be selectively pruned.
@@ -186,12 +198,13 @@ func ScanForStaleArtifacts(categories PruneCategory) (*PruneResult, error) {
 		}
 	}
 
-	// Scan for cached compilation models
+	// Models (cache dir) — lock-aware
 	if categories.has(PruneCategoryModels) {
 		modelsDir, mErr := GetModelCacheDirPath()
 		if mErr != nil {
 			output.LogDebugf("Failed to resolve model cache path: %v", mErr)
-		} else if info, err := os.Stat(modelsDir); err == nil && info.IsDir() {
+		}
+		if info, err := os.Stat(modelsDir); err == nil && info.IsDir() {
 			modelEntries, err := os.ReadDir(modelsDir)
 			if err == nil {
 				for _, modelEntry := range modelEntries {
@@ -199,8 +212,16 @@ func ScanForStaleArtifacts(categories PruneCategory) (*PruneResult, error) {
 						continue
 					}
 					projectCachePath := filepath.Join(modelsDir, modelEntry.Name())
-					// Always prune only project-model/ and .staging-* subdirs;
-					// logs are now in a separate ~/.opentaint/logs/ directory.
+					lockPath := CompileLockPath(projectCachePath)
+					lock, lockErr := TryLock(lockPath, LockMeta{PID: os.Getpid(), Command: "prune"})
+					if lockErr == ErrLocked {
+						meta, _ := ReadLockMeta(lockPath)
+						result.AddSkipped(SkippedProject{Path: projectCachePath, Meta: meta})
+						continue
+					}
+					if lock != nil {
+						lock.Unlock()
+					}
 					scanProjectCacheSubdirs(projectCachePath, result)
 				}
 			}
