@@ -210,7 +210,7 @@ func TestValidateSourceProject_NoMarkers(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for directory without build markers")
 	}
-	if !strings.Contains(err.Error(), "No supported build files found") {
+	if !strings.Contains(err.Error(), "no supported build files found") {
 		t.Errorf("error should mention missing build files, got: %v", err)
 	}
 	if strings.Contains(err.Error(), "--project-model") {
@@ -283,7 +283,7 @@ func TestValidateSourceProjectForCompile_NoMarkers(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error for directory without build markers")
 	}
-	if !strings.Contains(err.Error(), "No supported build files found") {
+	if !strings.Contains(err.Error(), "no supported build files found") {
 		t.Errorf("error should mention missing build files, got: %v", err)
 	}
 	if strings.Contains(err.Error(), "--project-model") {

@@ -128,13 +128,13 @@ func allMarkerNames() string {
 func validateDirectoryExists(absPath string) error {
 	info, err := os.Stat(absPath)
 	if os.IsNotExist(err) {
-		return fmt.Errorf("Project directory does not exist: %s", absPath)
+		return fmt.Errorf("project directory does not exist: %s", absPath)
 	}
 	if err != nil {
-		return fmt.Errorf("Cannot access project directory: %s", err)
+		return fmt.Errorf("cannot access project directory: %s", err)
 	}
 	if !info.IsDir() {
-		return fmt.Errorf("Path is not a directory: %s", absPath)
+		return fmt.Errorf("path is not a directory: %s", absPath)
 	}
 	return nil
 }
@@ -157,7 +157,7 @@ func ValidateSourceProject(absProjectRoot string) error {
 
 	if IsProjectModel(absProjectRoot) {
 		return fmt.Errorf(
-			"The path %s appears to be a compiled project model (contains project.yaml), not a source project",
+			"the path %s appears to be a compiled project model (contains project.yaml), not a source project",
 			absProjectRoot,
 		)
 	}
@@ -167,7 +167,7 @@ func ValidateSourceProject(absProjectRoot string) error {
 	}
 
 	return fmt.Errorf(
-		"No supported build files found in %s\n  Expected one of: %s",
+		"no supported build files found in %s\n  expected one of: %s",
 		absProjectRoot, allMarkerNames(),
 	)
 }
@@ -186,7 +186,7 @@ func ValidateSourceProjectForCompile(absProjectRoot string) error {
 	}
 
 	return fmt.Errorf(
-		"No supported build files found in %s\n  Expected one of: %s",
+		"no supported build files found in %s\n  expected one of: %s",
 		absProjectRoot, allMarkerNames(),
 	)
 }
