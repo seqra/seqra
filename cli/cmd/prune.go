@@ -35,24 +35,22 @@ func resolveCategories() (utils.PruneCategory, error) {
 		return utils.PruneCategoriesDefault, nil
 	}
 
+	flagMap := []struct {
+		flag *bool
+		cat  utils.PruneCategory
+	}{
+		{&pruneArtifacts, utils.PruneCategoryArtifacts},
+		{&pruneRules, utils.PruneCategoryRules},
+		{&pruneJDK, utils.PruneCategoryJDK},
+		{&pruneModels, utils.PruneCategoryModels},
+		{&pruneLogs, utils.PruneCategoryLogs},
+		{&pruneInstall, utils.PruneCategoryInstall},
+	}
 	var cats utils.PruneCategory
-	if pruneArtifacts {
-		cats |= utils.PruneCategoryArtifacts
-	}
-	if pruneRules {
-		cats |= utils.PruneCategoryRules
-	}
-	if pruneJDK {
-		cats |= utils.PruneCategoryJDK
-	}
-	if pruneModels {
-		cats |= utils.PruneCategoryModels
-	}
-	if pruneLogs {
-		cats |= utils.PruneCategoryLogs
-	}
-	if pruneInstall {
-		cats |= utils.PruneCategoryInstall
+	for _, f := range flagMap {
+		if *f.flag {
+			cats |= f.cat
+		}
 	}
 	return cats, nil
 }
@@ -73,7 +71,7 @@ Use category flags to prune selectively:
   --jdk         Old JDK/JRE versions
   --models      Cached project models and staging directories
   --logs        Project log files
-  --install     Install-tier lib and JRE artifacts
+  --install     Install-tier lib and JRE artifacts (requires re-download)
 
 Without category flags, prunes: artifacts + rules + jdk + models.
 With --all: prunes everything including logs and install-tier.`,
@@ -162,5 +160,5 @@ func init() {
 	pruneCmd.Flags().BoolVar(&pruneJDK, "jdk", false, "Prune old JDK/JRE versions")
 	pruneCmd.Flags().BoolVar(&pruneModels, "models", false, "Prune cached project models and staging directories")
 	pruneCmd.Flags().BoolVar(&pruneLogs, "logs", false, "Prune project log files")
-	pruneCmd.Flags().BoolVar(&pruneInstall, "install", false, "Prune install-tier lib and JRE artifacts")
+	pruneCmd.Flags().BoolVar(&pruneInstall, "install", false, "Prune install-tier lib and JRE artifacts (requires re-download on next run)")
 }

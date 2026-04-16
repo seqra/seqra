@@ -218,10 +218,12 @@ func ScanForStaleArtifacts(categories PruneCategory) (*PruneResult, error) {
 						result.AddSkipped(SkippedProject{Path: projectCachePath, Meta: meta})
 						continue
 					}
-					if lock != nil {
-						lock.Unlock()
+					if lockErr != nil {
+						output.LogDebugf("Failed to probe compile lock for %s, skipping: %v", projectCachePath, lockErr)
+						continue
 					}
 					scanProjectCacheSubdirs(projectCachePath, result)
+					lock.Unlock()
 				}
 			}
 		}

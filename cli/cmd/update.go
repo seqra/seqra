@@ -128,6 +128,7 @@ Only upgrades are supported — downgrading to an older version is refused.`,
 		}
 
 		out.Successf("Successfully updated to v%s", targetVersion)
+		suggest("To clean up old artifacts run", "opentaint prune")
 	},
 }
 

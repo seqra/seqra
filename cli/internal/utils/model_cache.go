@@ -33,10 +33,8 @@ func GetModelCacheDir() (string, error) {
 	return modelsDir, nil
 }
 
-// GetProjectCachePath returns ~/.opentaint/cache/<slug-hash>/ for a project path,
-// creating the directory if needed. The project path is canonicalized (resolved
-// through symlinks and made absolute) before hashing.
-func GetProjectCachePath(projectPath string) (string, error) {
+// canonicalProjectPath resolves a project path to an absolute, symlink-resolved form.
+func canonicalProjectPath(projectPath string) (string, error) {
 	absPath, err := filepath.Abs(projectPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve absolute path: %w", err)
@@ -44,6 +42,17 @@ func GetProjectCachePath(projectPath string) (string, error) {
 	absPath, err = filepath.EvalSymlinks(absPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to resolve symlinks: %w", err)
+	}
+	return absPath, nil
+}
+
+// GetProjectCachePath returns ~/.opentaint/cache/<slug-hash>/ for a project path,
+// creating the directory if needed. The project path is canonicalized (resolved
+// through symlinks and made absolute) before hashing.
+func GetProjectCachePath(projectPath string) (string, error) {
+	absPath, err := canonicalProjectPath(projectPath)
+	if err != nil {
+		return "", err
 	}
 
 	modelsDir, err := GetModelCacheDir()
@@ -77,13 +86,9 @@ func GetLogCacheDirPath() (string, error) {
 // GetProjectLogPath returns ~/.opentaint/logs/<slug-hash>/ for a project path,
 // without creating the directory. The project path is canonicalized before hashing.
 func GetProjectLogPath(projectPath string) (string, error) {
-	absPath, err := filepath.Abs(projectPath)
+	absPath, err := canonicalProjectPath(projectPath)
 	if err != nil {
-		return "", fmt.Errorf("failed to resolve absolute path: %w", err)
-	}
-	absPath, err = filepath.EvalSymlinks(absPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to resolve symlinks: %w", err)
+		return "", err
 	}
 
 	logsDir, err := GetLogCacheDirPath()
