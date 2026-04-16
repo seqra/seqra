@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
 import it.unimi.dsi.fastutil.ints.IntArrayList
+import it.unimi.dsi.fastutil.ints.IntList
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
@@ -268,6 +269,22 @@ class AccessPath(
 
         override fun toString(): String = accessorList().joinToString("") { it.toSuffix() }
 
+        fun extractSuffix(prefix: AccessNode?): AccessNode? {
+            if (prefix == null) return this
+
+            val accessorList = this.toList()
+            val suffixAccessors = accessorList.subList(prefix.size, size)
+            return manager.createNodeFromAccessors(suffixAccessors)
+        }
+
+        fun extractPrefix(suffix: AccessNode?): AccessNode? {
+            if (suffix == null) return this
+
+            val accessorList = this.toList()
+            val prefixAccessors = accessorList.subList(0, size - suffix.size)
+            return manager.createNodeFromAccessors(prefixAccessors)
+        }
+
         fun addParent(accessor: AccessorIdx): AccessNode {
             checkNoClassStaticAccessor()
 
@@ -334,7 +351,7 @@ class AccessPath(
 
         companion object {
             @JvmStatic
-            fun TreeApManager.createNodeFromAccessors(accessors: IntArrayList): AccessNode? =
+            fun TreeApManager.createNodeFromAccessors(accessors: IntList): AccessNode? =
                 accessors.foldRight(null as AccessNode?) { accessor, acc -> AccessNode(this, accessor, acc) }
 
             @JvmStatic

@@ -12,6 +12,7 @@ import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.ReversedApNode
+import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.createNodeFromAccessors
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessPath.AccessNode.Companion.foldRight
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.ANY_ACCESSOR_IDX
@@ -342,6 +343,24 @@ class AccessTree(
             forEachAccessor { fieldIdx, child ->
                 val field = with(manager) { fieldIdx.accessor }
                 child.print(builder, prefix + field.toSuffix())
+            }
+        }
+
+        fun printRaw(): String = buildString { printRaw(this) }
+
+        fun printRaw(builder: StringBuilder, prefix: String = "", suffix: String = ""): Unit = with(builder) {
+            if (isFinal || isAbstract) {
+                append(prefix)
+
+                if (isFinal) {
+                    appendLine(FINAL_ACCESSOR_IDX)
+                } else {
+                    appendLine("/*$suffix")
+                }
+            }
+
+            forEachAccessor { fieldIdx, child ->
+                child.printRaw(builder, "$prefix -> $fieldIdx")
             }
         }
 
@@ -1394,6 +1413,50 @@ class AccessTree(
 
                 val interned = internNodes(AccessTreeInterner(), IdentityHashMap())
                 return extractMatchingSuffixInternal(interned, suffix)
+            }
+
+            fun AccessNode.extractMatchingPrefix(prefix: AccessPath.AccessNode?): List<Pair<AccessNode, AccessPath.AccessNode?>> {
+                if (prefix == null) return listOf(this to null)
+
+                val prefixAccessors = prefix.toList()
+                val result = mutableListOf<IntObjectImmutablePair<AccessNode>>()
+                extractPrefix(this, prefixAccessors, 0, result)
+
+                return result.map { prefixLengthWithNode ->
+                    val prefixLength = prefixLengthWithNode.leftInt()
+                    val matchedPrefixAccessors = prefixAccessors.subList(0, prefixLength)
+                    val matchedPrefix = manager.createNodeFromAccessors(matchedPrefixAccessors)
+
+                    val matchedNode = prefixLengthWithNode.second()
+                    matchedNode to matchedPrefix
+                }
+            }
+
+            private fun extractPrefix(
+                node: AccessNode,
+                prefixAccessors: IntArrayList,
+                paPos: Int,
+                result: MutableList<IntObjectImmutablePair<AccessNode>>
+            ) {
+                if (paPos == prefixAccessors.size) {
+                    result += IntObjectImmutablePair(paPos, node)
+                    return
+                }
+
+                val accessor = prefixAccessors.getInt(paPos)
+
+                val child = node.getNodeByAccessor(accessor)
+                if (child == null) {
+                    result += IntObjectImmutablePair(paPos, node)
+                    return
+                }
+
+                extractPrefix(child, prefixAccessors, paPos + 1, result)
+
+                val remainder = node.clearChild(accessor)
+                if (!remainder.isEmpty) {
+                    result += IntObjectImmutablePair(paPos, remainder)
+                }
             }
 
             private fun extractMatchingSuffixInternal(
