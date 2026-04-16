@@ -21,7 +21,7 @@ function Test-Version {
         return @{ PathSegment = "download/v$normalized"; Tag = "v$normalized" }
     }
 
-    Write-Error "Invalid version '$Raw'. Expected 'latest' or 'X.Y.Z' (optionally prefixed with 'v')."
+    [Console]::Error.WriteLine("Error: Invalid version '$Raw'. Expected 'latest' or 'X.Y.Z' (optionally prefixed with 'v').")
     exit 2
 }
 
