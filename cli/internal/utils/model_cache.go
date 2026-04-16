@@ -14,7 +14,7 @@ var nonAlphanumeric = regexp.MustCompile(`[^a-z0-9]+`)
 // GetModelCacheDirPath returns ~/.opentaint/cache/ without creating it.
 // Use this when you only need to read/check the directory (e.g. prune scanning).
 func GetModelCacheDirPath() (string, error) {
-	opentaintHome, err := GetOpentaintHome()
+	opentaintHome, err := GetOpenTaintHomePath()
 	if err != nil {
 		return "", err
 	}

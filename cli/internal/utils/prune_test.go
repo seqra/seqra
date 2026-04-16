@@ -220,7 +220,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		}
 	})
 
-	t.Run("logs pruned with all flag", func(t *testing.T) {
+	t.Run("logs included in model prune with all flag", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
 		logsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4", "logs")
@@ -230,10 +230,12 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		assertHasKind(t, result, StaleKindLog)
+		// With --all, entire project cache dir is pruned as model (includes logs)
+		assertHasKind(t, result, StaleKindModel)
+		assertNoKind(t, result, StaleKindLog)
 	})
 
-	t.Run("logs not pruned without all flag", func(t *testing.T) {
+	t.Run("logs-only dir not pruned without all flag", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
 		logsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4", "logs")
@@ -243,6 +245,7 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+		assertNoKind(t, result, StaleKindModel)
 		assertNoKind(t, result, StaleKindLog)
 	})
 
@@ -350,24 +353,100 @@ func TestScanForStaleArtifacts(t *testing.T) {
 func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 	setupPruneTestGlobals(t)
 
-	t.Run("cached model is prunable", func(t *testing.T) {
+	t.Run("cached model is prunable without all", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
-		modelsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
-		createTestFile(t, filepath.Join(modelsDir, "project-model", "project.yaml"), 50)
+		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
+		pmPath := filepath.Join(projectDir, "project-model", "project.yaml")
+		createTestFile(t, pmPath, 50)
 
 		result, err := ScanForStaleArtifacts(false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		assertHasKind(t, result, StaleKindModel)
+		// Should target project-model/ specifically, not the parent dir
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindModel {
+				expected := filepath.Join(projectDir, "project-model")
+				if s.Path != expected {
+					t.Errorf("expected path %q, got %q", expected, s.Path)
+				}
+			}
+		}
+	})
+
+	t.Run("cached model with all prunes entire dir", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
+		createTestFile(t, filepath.Join(projectDir, "project-model", "project.yaml"), 50)
+
+		result, err := ScanForStaleArtifacts(true)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assertHasKind(t, result, StaleKindModel)
+		// Should target the entire project cache dir
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindModel {
+				if s.Path != projectDir {
+					t.Errorf("expected path %q, got %q", projectDir, s.Path)
+				}
+			}
+		}
+	})
+
+	t.Run("logs preserved without all flag", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
+		createTestFile(t, filepath.Join(projectDir, "project-model", "project.yaml"), 50)
+		createTestFile(t, filepath.Join(projectDir, "logs", "2026-01-01.log"), 100)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assertHasKind(t, result, StaleKindModel)
+		assertNoKind(t, result, StaleKindLog)
+		// Only project-model should be listed, not logs
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindModel && s.Size != 50 {
+				t.Errorf("expected model size 50 (excluding logs), got %d", s.Size)
+			}
+		}
+	})
+
+	t.Run("no size double-counting with all flag", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
+		createTestFile(t, filepath.Join(projectDir, "project-model", "project.yaml"), 50)
+		createTestFile(t, filepath.Join(projectDir, "logs", "2026-01-01.log"), 100)
+
+		result, err := ScanForStaleArtifacts(true)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		// Should have exactly one entry for the entire dir, no separate log entry
+		modelCount := 0
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindModel {
+				modelCount++
+			}
+		}
+		if modelCount != 1 {
+			t.Errorf("expected 1 model entry, got %d", modelCount)
+		}
+		assertNoKind(t, result, StaleKindLog)
 	})
 
 	t.Run("stale staging dir is prunable", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
-		modelsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
-		stagingDir := filepath.Join(modelsDir, ".staging-12345-9999")
+		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
+		stagingDir := filepath.Join(projectDir, ".staging-12345-9999")
 		createTestFile(t, filepath.Join(stagingDir, "project-model", "project.yaml"), 50)
 
 		result, err := ScanForStaleArtifacts(false)
@@ -375,6 +454,14 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 			t.Fatalf("unexpected error: %v", err)
 		}
 		assertHasKind(t, result, StaleKindModel)
+		// Should target the staging dir specifically
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindModel {
+				if s.Path != stagingDir {
+					t.Errorf("expected path %q, got %q", stagingDir, s.Path)
+				}
+			}
+		}
 	})
 
 	t.Run("empty models dir produces no stale", func(t *testing.T) {
@@ -396,7 +483,7 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 func TestScanForStaleArtifacts_LogsInCacheDirs(t *testing.T) {
 	setupPruneTestGlobals(t)
 
-	t.Run("logs inside project cache prunable with all flag", func(t *testing.T) {
+	t.Run("logs-only cache dir pruned with all flag", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
 		logsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4", "logs")
@@ -406,10 +493,11 @@ func TestScanForStaleArtifacts_LogsInCacheDirs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		assertHasKind(t, result, StaleKindLog)
+		// With --all, the entire project cache dir is pruned (includes logs)
+		assertHasKind(t, result, StaleKindModel)
 	})
 
-	t.Run("logs not pruned without all flag", func(t *testing.T) {
+	t.Run("logs-only cache dir not pruned without all flag", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
 		logsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4", "logs")
@@ -419,6 +507,8 @@ func TestScanForStaleArtifacts_LogsInCacheDirs(t *testing.T) {
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
+		// Without --all, only project-model/ and .staging-* are pruned; logs are preserved
+		assertNoKind(t, result, StaleKindModel)
 		assertNoKind(t, result, StaleKindLog)
 	})
 }

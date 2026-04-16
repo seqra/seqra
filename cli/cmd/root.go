@@ -187,7 +187,7 @@ func checkForUpdateAsync() {
 		return
 	}
 
-	opentaintHome, err := utils.GetOpentaintHome()
+	opentaintHome, err := utils.GetOpenTaintHome()
 	if err != nil {
 		return
 	}

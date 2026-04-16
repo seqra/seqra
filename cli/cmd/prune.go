@@ -22,7 +22,7 @@ var pruneCmd = &cobra.Command{
 Identifies artifacts that are no longer needed:
 - Old versions of analyzer JARs, autobuilder JARs, and rules
 - Downloaded JDK/JRE versions that don't match the current version
-- With --all: install-tier lib and JRE artifacts, and log files from project cache directories`,
+- With --all: install-tier lib and JRE artifacts, and entire project cache directories (including logs)`,
 	Run: func(cmd *cobra.Command, args []string) {
 		result, err := utils.ScanForStaleArtifacts(pruneAll)
 		if err != nil {
@@ -67,5 +67,5 @@ func init() {
 
 	pruneCmd.Flags().BoolVar(&pruneDryRun, "dry-run", false, "Show what would be deleted without deleting")
 	pruneCmd.Flags().BoolVar(&pruneYes, "yes", false, "Skip interactive confirmation")
-	pruneCmd.Flags().BoolVar(&pruneAll, "all", false, "Also prune install-tier artifacts and log files")
+	pruneCmd.Flags().BoolVar(&pruneAll, "all", false, "Also prune install-tier artifacts and entire project cache directories (including logs)")
 }

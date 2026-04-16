@@ -8,20 +8,25 @@ import (
 	"github.com/seqra/opentaint/internal/globals"
 )
 
-func GetOpentaintHome() (string, error) {
-	// Find home directory.
+// GetOpenTaintHomePath returns ~/.opentaint/ without creating it.
+// Use this when you only need to read/check the directory (e.g. prune scanning).
+func GetOpenTaintHomePath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
+	return filepath.Join(home, ".opentaint"), nil
+}
 
-	// Search config in home directory with name ".opentaint" (without extension).
-	path := filepath.Join(home, ".opentaint")
-	merr := os.MkdirAll(path, os.ModePerm)
-	if merr != nil {
-		return "", merr
+// GetOpenTaintHome returns ~/.opentaint/, creating it if needed.
+func GetOpenTaintHome() (string, error) {
+	path, err := GetOpenTaintHomePath()
+	if err != nil {
+		return "", err
 	}
-
+	if err := os.MkdirAll(path, os.ModePerm); err != nil {
+		return "", err
+	}
 	return path, nil
 }
 

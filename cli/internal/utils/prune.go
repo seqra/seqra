@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/seqra/opentaint/internal/globals"
+	"github.com/seqra/opentaint/internal/output"
 )
 
 // Stale artifact kind constants.
@@ -68,7 +69,7 @@ func checkStale(def globals.ArtifactDef, name, fullPath string) *StaleArtifact {
 
 // ScanForStaleArtifacts scans ~/.opentaint/ for artifacts that are not current and returns them.
 func ScanForStaleArtifacts(all bool) (*PruneResult, error) {
-	opentaintHome, err := GetOpentaintHome()
+	opentaintHome, err := GetOpenTaintHomePath()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get opentaint home: %w", err)
 	}
@@ -76,6 +77,9 @@ func ScanForStaleArtifacts(all bool) (*PruneResult, error) {
 	result := &PruneResult{}
 
 	entries, err := os.ReadDir(opentaintHome)
+	if os.IsNotExist(err) {
+		return result, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to read opentaint home: %w", err)
 	}
@@ -147,7 +151,10 @@ func ScanForStaleArtifacts(all bool) (*PruneResult, error) {
 	}
 
 	// Scan for cached compilation models (and optionally logs inside them)
-	modelsDir, _ := GetModelCacheDirPath()
+	modelsDir, mErr := GetModelCacheDirPath()
+	if mErr != nil {
+		output.LogDebugf("Failed to resolve model cache path: %v", mErr)
+	}
 	if info, err := os.Stat(modelsDir); err == nil && info.IsDir() {
 		modelEntries, err := os.ReadDir(modelsDir)
 		if err == nil {
@@ -155,26 +162,44 @@ func ScanForStaleArtifacts(all bool) (*PruneResult, error) {
 				if !modelEntry.IsDir() {
 					continue
 				}
-				modelPath := filepath.Join(modelsDir, modelEntry.Name())
-				size, _ := dirSize(modelPath)
-				if size > 0 {
-					result.Add(StaleArtifact{Path: modelPath, Size: size, Kind: StaleKindModel})
-				}
-
+				projectCachePath := filepath.Join(modelsDir, modelEntry.Name())
 				if all {
-					logsDir := filepath.Join(modelPath, "logs")
-					if lInfo, lErr := os.Stat(logsDir); lErr == nil && lInfo.IsDir() {
-						logSize, _ := dirSize(logsDir)
-						if logSize > 0 {
-							result.Add(StaleArtifact{Path: logsDir, Size: logSize, Kind: StaleKindLog})
-						}
+					// With --all: prune entire project cache dir (model + logs)
+					size, _ := dirSize(projectCachePath)
+					if size > 0 {
+						result.Add(StaleArtifact{Path: projectCachePath, Size: size, Kind: StaleKindModel})
 					}
+				} else {
+					// Without --all: prune only project-model/ and .staging-* dirs, preserve logs
+					scanProjectCacheSubdirs(projectCachePath, result)
 				}
 			}
 		}
 	}
 
 	return result, nil
+}
+
+// scanProjectCacheSubdirs adds only project-model/ and .staging-* subdirs
+// from a project cache directory, preserving logs and other data.
+func scanProjectCacheSubdirs(projectCachePath string, result *PruneResult) {
+	entries, err := os.ReadDir(projectCachePath)
+	if err != nil {
+		return
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if name == projectModelDir || strings.HasPrefix(name, ".staging-") {
+			subPath := filepath.Join(projectCachePath, name)
+			size, _ := dirSize(subPath)
+			if size > 0 {
+				result.Add(StaleArtifact{Path: subPath, Size: size, Kind: StaleKindModel})
+			}
+		}
+	}
 }
 
 // DeleteArtifacts removes the given stale artifacts.

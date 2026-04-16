@@ -125,7 +125,7 @@ func downloadJava(installNextToBinary, installCurrent bool) (*tree.Tree, error) 
 		return node, fmt.Errorf("unsupported Java version: %d (supported range: 8-25)", javaVersion)
 	}
 
-	opentaintHome, err := utils.GetOpentaintHome()
+	opentaintHome, err := utils.GetOpenTaintHome()
 	if err != nil {
 		return node, err
 	}

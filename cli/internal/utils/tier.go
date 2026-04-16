@@ -89,7 +89,7 @@ func ArtifactTiers(def globals.ArtifactDef) ([]Tier, error) {
 			tiers = append(tiers, Tier{TierInstall, filepath.Join(libPath, def.LibSubpath)})
 		}
 	} else {
-		opentaintHome, err := GetOpentaintHome()
+		opentaintHome, err := GetOpenTaintHome()
 		if err != nil {
 			return nil, err
 		}
