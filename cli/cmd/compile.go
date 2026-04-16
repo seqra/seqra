@@ -26,6 +26,15 @@ const (
 var OutputProjectModelPath string
 var ProjectPath string
 var DryRunCompile bool
+var CompileLogFile string
+
+// currentCompileBuilder returns a builder pre-populated with the user's current compile flags.
+// All compile command suggestions should use this as the base to ensure that adding a new
+// flag in one place automatically propagates to every suggestion.
+func currentCompileBuilder(projectPath string) *utils.OpentaintCommandBuilder {
+	return utils.NewCompileCommand(projectPath).
+		WithOutput(OutputProjectModelPath)
+}
 
 // compileCmd represents the compile command
 var compileCmd = &cobra.Command{
@@ -43,6 +52,15 @@ Arguments:
 
 		projectRoot := filepath.Clean(ProjectPath)
 		absProjectRoot := log.AbsPathOrExit(projectRoot, "project path")
+
+		if err := validation.ValidateSourceProjectForCompile(absProjectRoot); err != nil {
+			out.FatalErr(err)
+		}
+
+		// Activate logging
+		if !DryRunCompile {
+			activateLoggingForProject(CompileLogFile, absProjectRoot)
+		}
 
 		outputProjectModelPath := filepath.Clean(OutputProjectModelPath)
 		absOutputProjectModelPath := log.AbsPathOrExit(outputProjectModelPath, "output")
@@ -97,6 +115,7 @@ func init() {
 	compileCmd.Flags().StringVarP(&OutputProjectModelPath, "output", "o", "", `Path to the result project model`)
 	_ = compileCmd.MarkFlagRequired("output")
 	compileCmd.Flags().BoolVar(&DryRunCompile, "dry-run", false, "Validate inputs and show what would run without compiling")
+	compileCmd.Flags().StringVar(&CompileLogFile, "log-file", "", "Path to the log file (default: <cache-dir>/logs/<timestamp>.log)")
 }
 
 func ensureAutobuilderAvailable() (string, error) {
@@ -131,7 +150,7 @@ func compile(absProjectRoot, absOutputProjectModelPath, autobuilderJarPath strin
 		validationErr := fmt.Errorf("output validation failed after compile: %w", err)
 		output.LogInfo(validationErr)
 		if caller == External {
-			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based compilation:", utils.BuildCompileCommandWithDocker(ProjectPath, OutputProjectModelPath))
+			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based compilation:", utils.BuildCompileCommandWithDocker(currentCompileBuilder(""), ProjectPath, OutputProjectModelPath))
 		}
 		return fmt.Errorf("there was a problem during the compile step, check the full logs: %s", globals.LogPath)
 	}

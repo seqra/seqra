@@ -141,12 +141,93 @@ jobs:
         working-directory: cli
         run: |
           ./opentaint compile --quiet ${{ steps.github-token.outputs.arg }} --output portable-project ../project-root --verbosity debug
-          ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif portable-project --verbosity debug
+          ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif --project-model portable-project --verbosity debug
 
-      - name: Run opentaint scan
+      - name: Run opentaint scan with explicit path and output
         working-directory: cli
         run: |
           ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif ../project-root
+
+      - name: Clean up cached models before default-output tests
+        working-directory: cli
+        run: ./opentaint prune --yes ${{ steps.github-token.outputs.arg }}
+
+      - name: Run opentaint scan with default output (CompileAndScan)
+        working-directory: cli
+        run: |
+          ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} ../project-root
+
+      - name: Verify cached model and default SARIF location
+        run: |
+          # Exactly one project cache directory should exist
+          MODEL_COUNT=$(ls -d ~/.opentaint/cache/*/ 2>/dev/null | wc -l)
+          if [ "$MODEL_COUNT" -ne 1 ]; then
+            echo "Expected 1 cached model directory, found $MODEL_COUNT"
+            ls -la ~/.opentaint/cache/ || true
+            exit 1
+          fi
+
+          CACHE_DIR=$(ls -d ~/.opentaint/cache/*/)
+
+          # project-model directory should exist
+          if [ ! -d "${CACHE_DIR}project-model" ]; then
+            echo "Expected project-model directory in $CACHE_DIR"
+            ls -la "$CACHE_DIR"
+            exit 1
+          fi
+
+          # Default SARIF should be inside project-model/sources/
+          SARIF_PATH="${CACHE_DIR}project-model/sources/opentaint.sarif"
+          if [ ! -f "$SARIF_PATH" ]; then
+            echo "Expected default SARIF at $SARIF_PATH"
+            find "$CACHE_DIR" -name "*.sarif" || true
+            exit 1
+          fi
+
+          echo "Cached model verified at: $CACHE_DIR"
+          echo "Default SARIF verified at: $SARIF_PATH"
+
+      - name: Run opentaint scan with no arguments (defaults to current directory)
+        working-directory: project-root
+        run: |
+          ../cli/opentaint scan --quiet ${{ steps.github-token.outputs.arg }}
+
+      - name: Run opentaint scan on pre-compiled model without --output
+        working-directory: cli
+        run: |
+          ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --project-model portable-project
+
+      - name: Verify SARIF placed inside provided project-model
+        working-directory: cli
+        run: |
+          if [ ! -f "portable-project/sources/opentaint.sarif" ]; then
+            echo "Expected SARIF at portable-project/sources/opentaint.sarif"
+            find portable-project -name "*.sarif" || true
+            exit 1
+          fi
+          echo "SARIF in explicit project-model verified"
+
+      - name: Run opentaint prune --dry-run and verify cached models listed
+        working-directory: cli
+        run: |
+          OUTPUT=$(./opentaint prune --dry-run 2>&1)
+          if ! echo "$OUTPUT" | grep -q "model"; then
+            echo "Expected prune --dry-run to list cached model artifacts"
+            echo "$OUTPUT"
+            exit 1
+          fi
+          echo "Prune dry-run correctly lists cached models"
+
+      - name: Run opentaint prune --yes and verify cached models removed
+        working-directory: cli
+        run: |
+          ./opentaint prune --yes
+          if [ -d ~/.opentaint/cache ] && [ "$(ls -A ~/.opentaint/cache 2>/dev/null)" ]; then
+            echo "Expected cache directory to be empty after prune"
+            ls -la ~/.opentaint/cache/
+            exit 1
+          fi
+          echo "Prune correctly removed cached models"
 
   run-on-petclinic-windows:
     runs-on: windows-latest
@@ -185,7 +266,7 @@ jobs:
         working-directory: cli
         run: |
           ./opentaint compile --quiet ${{ steps.github-token.outputs.arg }} --output portable-project ../project-root --verbosity debug
-          ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif portable-project --verbosity debug
+          ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif --project-model portable-project --verbosity debug
 
       - name: Run opentaint scan
         working-directory: cli
@@ -232,7 +313,7 @@ jobs:
       - name: Run opentaint scan
         working-directory: cli
         run: |
-          ./opentaint scan ${{ steps.github-token.outputs.arg }} --output stirling-pdf-report.sarif stirling-pdf-model
+          ./opentaint scan ${{ steps.github-token.outputs.arg }} --output stirling-pdf-report.sarif --project-model stirling-pdf-model
 
   test-install-sh-linux:
     runs-on: ubuntu-latest

@@ -127,7 +127,7 @@ irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/insta
 
 **สแกนโปรเจกต์ของคุณ:**
 ```bash
-opentaint scan --output results.sarif /path/to/your/spring/project
+opentaint scan
 ```
 
 **หรือใช้ Docker:**

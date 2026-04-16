@@ -19,6 +19,7 @@ const (
 	StaleKindInstallLib  = "install-lib"
 	StaleKindInstallJRE  = "install-jre"
 	StaleKindLog         = "log"
+	StaleKindModel       = "model"
 )
 
 // StaleArtifact represents an artifact that can be pruned.
@@ -94,8 +95,8 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 		name := entry.Name()
 		fullPath := filepath.Join(opentaintHome, name)
 
-		// Skip special files, hidden files, and log directory
-		if name == "logs" || strings.HasPrefix(name, ".") {
+		// Skip special files, hidden files, and cache directory
+		if name == "cache" || strings.HasPrefix(name, ".") {
 			continue
 		}
 
@@ -177,19 +178,42 @@ func ScanForStaleArtifacts(includeLogs bool) (*PruneResult, error) {
 		}
 	}
 
-	// Scan for logs if requested
-	if includeLogs {
-		logsDir := filepath.Join(opentaintHome, "logs")
-		if info, err := os.Stat(logsDir); err == nil && info.IsDir() {
-			size, _ := dirSize(logsDir)
-			if size > 0 {
-				result.Stale = append(result.Stale, StaleArtifact{
-					Path: logsDir,
-					Size: size,
-					Kind: StaleKindLog,
-				})
-				result.TotalSize += size
-				result.TotalCount++
+	// Scan for cached compilation models (and optionally logs inside them)
+	modelsDir, _ := GetModelCacheDirPath()
+	if info, err := os.Stat(modelsDir); err == nil && info.IsDir() {
+		modelEntries, err := os.ReadDir(modelsDir)
+		if err == nil {
+			for _, modelEntry := range modelEntries {
+				if !modelEntry.IsDir() {
+					continue
+				}
+				modelPath := filepath.Join(modelsDir, modelEntry.Name())
+				size, _ := dirSize(modelPath)
+				if size > 0 {
+					result.Stale = append(result.Stale, StaleArtifact{
+						Path: modelPath,
+						Size: size,
+						Kind: StaleKindModel,
+					})
+					result.TotalSize += size
+					result.TotalCount++
+				}
+
+				if includeLogs {
+					logsDir := filepath.Join(modelPath, "logs")
+					if lInfo, lErr := os.Stat(logsDir); lErr == nil && lInfo.IsDir() {
+						logSize, _ := dirSize(logsDir)
+						if logSize > 0 {
+							result.Stale = append(result.Stale, StaleArtifact{
+								Path: logsDir,
+								Size: logSize,
+								Kind: StaleKindLog,
+							})
+							result.TotalSize += logSize
+							result.TotalCount++
+						}
+					}
+				}
 			}
 		}
 	}

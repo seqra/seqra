@@ -118,15 +118,13 @@ opentaint project --output . --source-root src \
 
 ## Usage with Scan Command
 
-Once you have a `project.yaml` file, you can scan your project. The scan command will use `project.yaml` if it exists, or compile the project first:
+Once you have a `project.yaml` file, you can scan your project model directly:
 
 ```bash
-opentaint scan /path/to/project --output results.sarif
+opentaint scan --project-model /path/to/project
 ```
 
-The scan command automatically detects whether the provided path contains a `project.yaml` file:
-- If `project.yaml` exists: Uses it directly (scan-only mode)
-- If `project.yaml` doesn't exist: Compiles the project first, then scans
+The `--project-model` flag tells the scan command to use the provided project model as-is, skipping compilation.
 
 ## Best Practices
 

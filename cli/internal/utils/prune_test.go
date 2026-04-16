@@ -44,8 +44,8 @@ func TestDeleteArtifacts(t *testing.T) {
 	})
 }
 
-func TestScanForStaleArtifacts(t *testing.T) {
-	// Save and restore globals
+func setupPruneTestGlobals(t *testing.T) {
+	t.Helper()
 	origAnalyzer := globals.AnalyzerBindVersion
 	origAutobuilder := globals.AutobuilderBindVersion
 	origRules := globals.RulesBindVersion
@@ -56,11 +56,14 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		globals.RulesBindVersion = origRules
 		globals.DefaultJavaVersion = origJava
 	})
-
 	globals.AnalyzerBindVersion = "1.0.0"
 	globals.AutobuilderBindVersion = "1.0.0"
 	globals.RulesBindVersion = "v1.0.0"
 	globals.DefaultJavaVersion = 21
+}
+
+func TestScanForStaleArtifacts(t *testing.T) {
+	setupPruneTestGlobals(t)
 
 	t.Run("empty home", func(t *testing.T) {
 		t.Setenv("HOME", t.TempDir())
@@ -200,33 +203,38 @@ func TestScanForStaleArtifacts(t *testing.T) {
 	t.Run("logs includeLogs=true", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
-		opentaintHome := filepath.Join(home, ".opentaint")
-		createTestFile(t, filepath.Join(opentaintHome, "logs", "app.log"), 200)
+		logsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4", "logs")
+		createTestFile(t, filepath.Join(logsDir, "app.log"), 200)
 
 		result, err := ScanForStaleArtifacts(true)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if len(result.Stale) != 1 {
-			t.Fatalf("expected 1 stale, got %d", len(result.Stale))
+		found := false
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindLog {
+				found = true
+			}
 		}
-		if result.Stale[0].Kind != StaleKindLog {
-			t.Errorf("expected kind=%s, got %q", StaleKindLog, result.Stale[0].Kind)
+		if !found {
+			t.Error("expected log stale entry when includeLogs=true")
 		}
 	})
 
 	t.Run("logs includeLogs=false", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
-		opentaintHome := filepath.Join(home, ".opentaint")
-		createTestFile(t, filepath.Join(opentaintHome, "logs", "app.log"), 200)
+		logsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4", "logs")
+		createTestFile(t, filepath.Join(logsDir, "app.log"), 200)
 
 		result, err := ScanForStaleArtifacts(false)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
-		if len(result.Stale) != 0 {
-			t.Errorf("expected 0 stale, got %d", len(result.Stale))
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindLog {
+				t.Error("expected no log stale entries when includeLogs=false")
+			}
 		}
 	})
 
@@ -334,6 +342,114 @@ func TestScanForStaleArtifacts(t *testing.T) {
 		}
 		if !found {
 			t.Error("expected install-jre to be flagged as stale when no version marker exists")
+		}
+	})
+}
+
+func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
+	setupPruneTestGlobals(t)
+
+	t.Run("cached model is prunable", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		modelsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
+		createTestFile(t, filepath.Join(modelsDir, "project-model", "project.yaml"), 50)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		found := false
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindModel {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("expected cached model to be flagged as prunable")
+		}
+	})
+
+	t.Run("stale staging dir is prunable", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		modelsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
+		stagingDir := filepath.Join(modelsDir, ".staging-12345-9999")
+		createTestFile(t, filepath.Join(stagingDir, "project-model", "project.yaml"), 50)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		found := false
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindModel {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("expected stale staging dir to be flagged as prunable")
+		}
+	})
+
+	t.Run("empty models dir produces no stale", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		modelsDir := filepath.Join(home, ".opentaint", "cache")
+		if err := os.MkdirAll(modelsDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindModel {
+				t.Error("expected no model stale entries for empty models dir")
+			}
+		}
+	})
+}
+
+func TestScanForStaleArtifacts_LogsInCacheDirs(t *testing.T) {
+	setupPruneTestGlobals(t)
+
+	t.Run("logs inside project cache are prunable", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		logsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4", "logs")
+		createTestFile(t, filepath.Join(logsDir, "2026-01-01_00-00-00.log"), 100)
+
+		result, err := ScanForStaleArtifacts(true)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		found := false
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindLog {
+				found = true
+			}
+		}
+		if !found {
+			t.Error("expected logs to be flagged as prunable")
+		}
+	})
+
+	t.Run("logs not pruned when include-logs is false", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		logsDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4", "logs")
+		createTestFile(t, filepath.Join(logsDir, "2026-01-01_00-00-00.log"), 100)
+
+		result, err := ScanForStaleArtifacts(false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		for _, s := range result.Stale {
+			if s.Kind == StaleKindLog {
+				t.Error("expected no log stale entries when include-logs is false")
+			}
 		}
 	})
 }

@@ -206,12 +206,13 @@ func (c *JavaAutobuilderConfig) logProjectSummary(projectYamlPath string, config
 }
 
 var (
-	OutputDir     string
-	SourceRoot    string
-	Dependencies  []string
-	Packages      []string
-	Classpaths    []string
-	DryRunProject bool
+	OutputDir      string
+	SourceRoot     string
+	Dependencies   []string
+	Packages       []string
+	Classpaths     []string
+	DryRunProject  bool
+	ProjectLogFile string
 )
 
 var projectCmd = &cobra.Command{
@@ -234,6 +235,12 @@ Examples:
 			WithPackages(Packages).
 			WithClasspath(Classpaths).
 			Build()
+
+		// Activate logging — derive cache slug from --output path
+		if !DryRunProject {
+			outputAbs := log.AbsPathOrExit(filepath.Clean(OutputDir), "output")
+			activateLoggingForProject(ProjectLogFile, outputAbs)
+		}
 
 		classpathItems := make([]any, len(config.classpaths))
 		for i, cp := range config.classpaths {
@@ -284,4 +291,5 @@ func init() {
 	projectCmd.Flags().StringArrayVar(&Classpaths, "classpath", []string{}, "Classpath entries (classes or JAR files)")
 	_ = projectCmd.MarkFlagRequired("classpath")
 	projectCmd.Flags().BoolVar(&DryRunProject, "dry-run", false, "Validate inputs and show what would run without generating project model")
+	projectCmd.Flags().StringVar(&ProjectLogFile, "log-file", "", "Path to the log file (default: <cache-dir>/logs/<timestamp>.log)")
 }

@@ -1,9 +1,8 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/seqra/opentaint/internal/sarif"
+	"github.com/seqra/opentaint/internal/utils"
 	"github.com/seqra/opentaint/internal/utils/log"
 	"github.com/spf13/cobra"
 )
@@ -41,6 +40,23 @@ func init() {
 	summaryCmd.Flags().BoolVar(&verboseFlow, "verbose-flow", false, "Show full code flow steps for findings")
 }
 
+// currentSummaryBuilder returns a builder pre-populated with the user's current summary flags.
+// All summary command suggestions should use this as the base to ensure that adding a new
+// flag in one place automatically propagates to every suggestion.
+func currentSummaryBuilder(sarifPath string) *utils.OpentaintCommandBuilder {
+	builder := utils.NewSummaryCommand(sarifPath)
+	if showFindings {
+		builder.WithShowFindings()
+	}
+	if showCodeSnippets {
+		builder.WithShowCodeSnippets()
+	}
+	if verboseFlow {
+		builder.WithVerboseFlow()
+	}
+	return builder
+}
+
 func printSarifSummary(report *sarif.Report, absSarifPath string) {
 	hasOmittedFlow := false
 	if showFindings {
@@ -53,7 +69,7 @@ func printSarifSummary(report *sarif.Report, absSarifPath string) {
 	if showFindings && hasOmittedFlow && !verboseFlow {
 		out.Suggest(
 			"To see full code flow and code snippets, use:",
-			fmt.Sprintf("opentaint summary --show-findings --verbose-flow --show-code-snippets %s", absSarifPath),
+			currentSummaryBuilder(absSarifPath).WithVerboseFlow().WithShowCodeSnippets().Build(),
 		)
 	}
 }

@@ -3,20 +3,26 @@
 ## Scanning Projects
 
 ```bash
-# Basic scan
+# Basic scan (current directory, SARIF written to the cached model directory)
+opentaint scan
+
+# Scan a specific project
+opentaint scan /path/to/project
+
+# With explicit output path
 opentaint scan --output results.sarif /path/to/project
 
 # With custom memory allocation
-opentaint scan --max-memory 16G --output results.sarif /path/to/project
+opentaint scan --max-memory 16G /path/to/project
 
 # With specific severity levels
-opentaint scan --severity error --severity warning --output results.sarif /path/to/project
+opentaint scan --severity error --severity warning /path/to/project
 
 # With custom ruleset
-opentaint scan --ruleset /path/to/rules.yaml --output results.sarif /path/to/project
+opentaint scan --ruleset /path/to/rules.yaml /path/to/project
 
 # With timeout
-opentaint scan --timeout 5m --output results.sarif /path/to/project
+opentaint scan --timeout 5m /path/to/project
 ```
 
 ## Viewing Results
@@ -60,11 +66,25 @@ Use [CodeChecker](https://github.com/Ericsson/codechecker) for advanced result m
 | `opentaint summary` | View SARIF analysis results |
 | `opentaint pull` | Download analyzer dependencies |
 | `opentaint update` | Update to latest version |
-| `opentaint prune` | Remove stale downloaded artifacts |
+| `opentaint prune` | Remove stale downloaded artifacts and cached models |
 
 ### opentaint scan
 
-Automatically detects Maven/Gradle projects, builds them, and performs security analysis.
+Automatically detects Maven/Gradle projects, builds them, and performs security analysis. The source path defaults to the current directory when omitted.
+
+On the first run, the compiled project model is cached in `~/.opentaint/cache/`. Subsequent scans of the same project reuse the cached model, skipping compilation entirely.
+
+| Flag | Description |
+|------|-------------|
+| `--output`, `-o` | Path to the SARIF report (default: `<model-dir>/sources/opentaint.sarif`) |
+| `--recompile` | Force recompilation even if a cached project model exists |
+| `--project-model` | Path to a pre-compiled project model (skips compilation) |
+| `--timeout`, `-t` | Timeout for analysis (default: `15m`) |
+| `--max-memory` | Maximum memory for the analyzer (default: `8G`) |
+| `--severity` | Severity levels to report (default: `warning`, `error`) |
+| `--ruleset` | YAML rules file or directory (default: `builtin`) |
+| `--dry-run` | Validate inputs and show what would run without compiling or scanning |
+| `--log-file` | Path to the log file (default: `<cache-dir>/logs/<timestamp>.log`) |
 
 ### opentaint compile
 
@@ -72,8 +92,14 @@ Compiles Java and Kotlin projects and generates project models for analysis. Use
 
 ```bash
 opentaint compile --output ./my-project-model /path/to/project
-opentaint scan --output results.sarif ./my-project-model
+opentaint scan --project-model ./my-project-model
 ```
+
+| Flag | Description |
+|------|-------------|
+| `--output`, `-o` | Path to the result project model (required) |
+| `--dry-run` | Validate inputs and show what would run without compiling |
+| `--log-file` | Path to the log file (default: `<cache-dir>/logs/<timestamp>.log`) |
 
 ### opentaint summary
 
@@ -93,8 +119,45 @@ Create project models from precompiled JARs or classes when source code isn't av
 opentaint project --output ./project-model --source-root /path/to/source \
   --classpath /path/to/app.jar --package com.example
 
-opentaint scan --output results.sarif ./project-model
+opentaint scan --project-model ./project-model
 ```
+
+| Flag | Description |
+|------|-------------|
+| `--output`, `-o` | Output directory for project.yaml (required) |
+| `--source-root` | Source root directory (required) |
+| `--classpath` | Classpath entries — classes or JAR files (required) |
+| `--package` | Project packages (required) |
+| `--dependency` | Project dependencies — JAR files |
+| `--dry-run` | Validate inputs and show what would run without generating project model |
+| `--log-file` | Path to the log file (default: `<cache-dir>/logs/<timestamp>.log`) |
+
+## Model Caching
+
+When `opentaint scan` compiles a project, the resulting project model is cached in `~/.opentaint/cache/`. The cache directory name is derived from the project path (e.g. `my-project-a1b2c3d4`).
+
+On subsequent scans of the same project, the cached model is reused automatically — compilation is skipped entirely. This makes repeated scans significantly faster.
+
+```bash
+# First scan: compiles and caches the model
+opentaint scan /path/to/project
+
+# Second scan: reuses the cached model (no compilation)
+opentaint scan /path/to/project
+
+# Force recompilation (e.g. after code changes)
+opentaint scan --recompile /path/to/project
+```
+
+If a compilation is already in progress for the same project (detected via a staging directory), the scan aborts with an error instead of compiling concurrently.
+
+To remove all cached models:
+
+```bash
+opentaint prune
+```
+
+When `--output` is not specified, the SARIF report is written next to the cached model at `<model-dir>/sources/opentaint.sarif`.
 
 ## Global Options
 
