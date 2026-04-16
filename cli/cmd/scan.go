@@ -138,11 +138,11 @@ func scan(cmd *cobra.Command) {
 	if ProjectModelPath == "" {
 		if err := validation.ValidateSourceProject(absUserProjectRoot); err != nil {
 			if validation.IsProjectModel(absUserProjectRoot) {
-				out.Error(fmt.Sprintf("%s", err))
+				out.ErrorErr(err)
 				suggest("Use --project-model to scan a pre-compiled model", fmt.Sprintf("opentaint scan --project-model %s", absUserProjectRoot))
 				os.Exit(1)
 			}
-			out.Fatalf("%s", err)
+			out.FatalErr(err)
 		}
 	}
 
@@ -272,7 +272,7 @@ func scan(cmd *cobra.Command) {
 			return compile(absUserProjectRoot, cfg.absProjectModel, autobuilderJarPath, compileJavaRunner, Internal)
 		}); err != nil {
 			cleanupStaging()
-			out.Error(fmt.Sprintf("Native compile has failed: %s", err))
+			out.Error("Native compile has failed: " + err.Error())
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(absUserProjectRoot, absSarifReportPath, Ruleset, globals.Config.Scan.Timeout, SemgrepCompatibilitySarif))
 			os.Exit(1)
 		}
