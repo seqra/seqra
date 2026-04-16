@@ -41,6 +41,29 @@ validate_version() {
     exit 2
 }
 
+# Prints the resolved path of an existing opentaint binary if it appears to
+# belong to a Homebrew installation (mirrors cli/internal/utils/updater.go
+# classification). Prints nothing otherwise.
+detect_homebrew_install() {
+    if ! command -v opentaint >/dev/null 2>&1; then
+        return 0
+    fi
+    local path
+    path="$(command -v opentaint)"
+    # Resolve symlinks so we can compare against the real location.
+    if command -v readlink >/dev/null 2>&1; then
+        # readlink -f is Linux/GNU; macOS realpath works but differs. Fall back.
+        if resolved="$(readlink -f "$path" 2>/dev/null)"; then
+            path="$resolved"
+        fi
+    fi
+    case "$(printf '%s' "$path" | tr '[:upper:]' '[:lower:]')" in
+        */cellar/*|*/caskroom/*|*/homebrew/*)
+            echo "$path"
+            ;;
+    esac
+}
+
 pick_downloader() {
     if command -v curl >/dev/null 2>&1; then
         DOWNLOADER="curl"
@@ -162,6 +185,15 @@ main() {
 
     validate_version "${1:-}"
     pick_downloader
+
+    local existing_brew
+    existing_brew="$(detect_homebrew_install)"
+    if [ -n "$existing_brew" ] && [ "${OPENTAINT_FORCE:-0}" != "1" ]; then
+        echo "Error: opentaint is already installed via Homebrew at $existing_brew" >&2
+        echo "Run 'brew upgrade --cask opentaint' to update, or set" >&2
+        echo "OPENTAINT_FORCE=1 to install side-by-side anyway." >&2
+        exit 3
+    fi
 
     DOWNLOAD_BASE_URL="${OPENTAINT_DOWNLOAD_BASE_URL:-https://github.com/${REPO}/releases/${VERSION_PATH_SEGMENT}}"
 
