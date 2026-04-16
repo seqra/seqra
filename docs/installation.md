@@ -10,20 +10,44 @@ brew install --cask seqra/tap/opentaint
 
 ## Install Scripts
 
+The install scripts accept an optional version argument. Without one, the latest GitHub release is installed.
+
 **Linux/macOS:**
 ```bash
+# Latest
 curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
+
+# Specific version (leading 'v' is optional)
+curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash -s -- 1.2.3
 ```
 
 **Windows (PowerShell):**
 ```powershell
+# Latest
 irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1 | iex
+
+# Specific version
+& ([scriptblock]::Create((irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1))) -Version 1.2.3
 ```
 
 **Windows (CMD):**
 ```cmd
+:: Latest
 curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.cmd -o install.cmd && install.cmd && del install.cmd
+
+:: Specific version
+curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.cmd -o install.cmd && install.cmd 1.2.3 && del install.cmd
 ```
+
+### Environment variables
+
+| Variable | Effect |
+|---|---|
+| `OPENTAINT_REPOSITORY` | Override `seqra/opentaint` (for forks or mirrors) |
+| `OPENTAINT_INSTALL_DIR` | Override the install destination |
+| `OPENTAINT_FORCE` | Set to `1` to install side-by-side with an existing Homebrew install |
+
+If opentaint is already installed via Homebrew, the install scripts refuse to run and print the Homebrew upgrade command instead. Set `OPENTAINT_FORCE=1` to force a parallel install.
 
 ## Docker
 
