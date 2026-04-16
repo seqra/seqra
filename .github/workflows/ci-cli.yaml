@@ -141,7 +141,7 @@ jobs:
         working-directory: cli
         run: |
           ./opentaint compile --quiet ${{ steps.github-token.outputs.arg }} --output portable-project ../project-root --verbosity debug
-          ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif portable-project --verbosity debug
+          ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif --project-model portable-project --verbosity debug
 
       - name: Run opentaint scan with explicit path and output
         working-directory: cli
@@ -266,7 +266,7 @@ jobs:
         working-directory: cli
         run: |
           ./opentaint compile --quiet ${{ steps.github-token.outputs.arg }} --output portable-project ../project-root --verbosity debug
-          ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif portable-project --verbosity debug
+          ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif --project-model portable-project --verbosity debug
 
       - name: Run opentaint scan
         working-directory: cli
