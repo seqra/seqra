@@ -1359,6 +1359,50 @@ Expected: `On branch misonijnik/match-generic-types` with only `opentaint-projec
 
 ---
 
+## Appendix A.2: Real-browser re-verification
+
+_Captured 2026-04-17 — re-run via headless Chromium (Playwright 1.59.1, chromium-headless-shell v1217 ≈ Chromium 142)._
+
+The original Appendix A run used Java HttpClient (curl-equivalent) and classified rows by "TP iff response `Content-Type` starts with `text/html` AND body contains the raw `<script>`". That heuristic ignores how real browsers actually handle responses — specifically MIME sniffing and browser-native download handling for binary types. This second run replays every row through headless Chromium with a `dialog` listener trapping `alert(1)`; the verdict is now "TP iff `alert(1)` actually fires in the browser".
+
+```
+row | status | httpCT                              | docCT                    | rawInBody | alert | verdict
+----+--------+-------------------------------------+--------------------------+-----------+-------+--------
+  1 |    200 | text/html;charset=UTF-8             | text/html                | true      | true  | TP
+  2 |    200 | text/html;charset=UTF-8             | text/html                | true      | true  | TP
+  3 |    200 | application/json                    | application/json         | false     | false | FP
+  4 |    200 | text/plain;charset=UTF-8            | text/plain               | false     | false | FP
+  5 |    200 | application/pdf;charset=UTF-8       | text/html (download)     | false     | false | FP
+  6 |    200 | text/plain;charset=UTF-8            | text/plain               | false     | false | FP
+  7 |    200 | text/html;charset=UTF-8             | text/html                | true      | true  | TP
+  8 |    200 | application/json                    | application/json         | false     | false | FP
+  9 |    200 | text/html                           | text/html                | true      | true  | TP
+ 10 |    200 | application/json                    | application/json         | false     | false | FP
+ 11 |    200 | text/html                           | text/html                | true      | true  | TP
+ 12 |    200 | application/json                    | application/json         | false     | false | FP
+ 13 |    200 | application/json                    | application/json         | false     | false | FP
+ 14 |    200 | text/html;charset=UTF-8             | text/html                | true      | true  | TP
+ 15 |    200 | application/json                    | application/json         | false     | false | FP
+ 16 |    500 | text/html                           | text/html                | true      | true  | TP
+ 17 |    200 | text/html                           | text/html                | true      | true  | TP
+ 18 |    200 | application/pdf                     | text/html (download)     | false     | false | FP
+ 19 |    200 | application/octet-stream            | text/html (download)     | false     | false | FP
+ 20 |    200 | application/json;charset=ISO-8859-1 | application/json         | false     | false | FP
+ 21 |    200 | application/json;charset=ISO-8859-1 | application/json         | false     | false | FP
+```
+
+Verdicts match Appendix A exactly. **Modern Chromium does not MIME-sniff JSON / pdf / octet-stream bodies back to HTML.** Specifically:
+
+- `application/json` is rejected for HTML sniffing by Chromium's CORB/ORB behavior; rows 3/8/10/12/13/15/20/21 render as JSON text, `<script>` is not parsed.
+- `application/octet-stream` (row 19) and `application/pdf` (rows 5/18) always trigger a download prompt — Chromium does not attempt to render them inline as HTML regardless of body bytes.
+- Row 5 is interesting: `@GetMapping(produces="application/pdf")` on a String return. `StringHttpMessageConverter` writes `application/pdf;charset=UTF-8`, Chromium starts a download, no execution.
+- Row 6: `@GetMapping(produces="application/octet-stream")` on a String return. `StringHttpMessageConverter` actually downgrades the response to `text/plain;charset=UTF-8` (the converter can't serialize a String as octet-stream), so the browser sees text/plain — no HTML parsing, no execution.
+- Row 16 (Stirling shape) is correctly TP because Spring negotiates `ResponseEntity<byte[]>.body(...)` via `ByteArrayHttpMessageConverter`'s `[application/octet-stream, */*]` list against the browser's `Accept: text/html`, and the `*/*` branch lands on `text/html`. Browser parses as HTML, script executes.
+
+The "legacy MIME-sniffing" concern (IE6/7, old Safari) cited during review is historically accurate but not reproducible on modern Chromium. The 6 rows that the committed rule over-flags (10, 12, 13, 15, 18, 19) are therefore **defensive over-approximations** that do not execute in current browsers. The samples keep the `@PositiveRuleSample` label to reconcile with the rule's actual behavior; their inline comments note the over-approximation.
+
+---
+
 ## Appendix A: Runtime verdict table
 
 _Captured 2026-04-17._
