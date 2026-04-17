@@ -111,6 +111,41 @@ func CachedProjectModelPath(cacheDir string) string {
 	return filepath.Join(cacheDir, projectModelDir)
 }
 
+// compileCompleteMarker is the sentinel file written as the final step of a
+// successful compile. Its presence proves the whole model is on disk.
+const compileCompleteMarker = ".compile-complete"
+
+// CompileCompleteMarkerPath returns the absolute path to the compile-complete
+// marker inside a cache directory.
+func CompileCompleteMarkerPath(cacheDir string) string {
+	return filepath.Join(cacheDir, projectModelDir, compileCompleteMarker)
+}
+
+// IsCachedModelComplete reports whether cacheDir holds a fully-written
+// project model. Both project.yaml and the compile-complete marker must
+// exist. A crashed mid-compile leaves the marker absent and returns false.
+func IsCachedModelComplete(cacheDir string) bool {
+	pm := filepath.Join(cacheDir, projectModelDir)
+	if _, err := os.Stat(filepath.Join(pm, "project.yaml")); err != nil {
+		return false
+	}
+	if _, err := os.Stat(filepath.Join(pm, compileCompleteMarker)); err != nil {
+		return false
+	}
+	return true
+}
+
+// MarkCompileComplete writes the compile-complete marker as the very last
+// step of a successful compile. The caller must have just populated
+// <cacheDir>/project-model/ and must hold the cache exclusive lock.
+func MarkCompileComplete(cacheDir string) error {
+	markerPath := CompileCompleteMarkerPath(cacheDir)
+	if err := os.WriteFile(markerPath, nil, 0o644); err != nil {
+		return fmt.Errorf("failed to write compile-complete marker: %w", err)
+	}
+	return nil
+}
+
 // CreateStagingDir creates a staging directory inside cacheDir for isolated compilation.
 // Returns the path to the staging directory (e.g. <cacheDir>/.staging-XXXX/).
 func CreateStagingDir(cacheDir string) (string, error) {

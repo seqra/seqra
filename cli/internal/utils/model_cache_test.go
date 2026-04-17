@@ -325,3 +325,68 @@ func TestGetProjectLogPath(t *testing.T) {
 		t.Errorf("got %q, want %q", logPath, expected)
 	}
 }
+
+func TestCompileCompleteMarkerPath(t *testing.T) {
+	cacheDir := "/home/user/.opentaint/cache/my-project-abc12345"
+	got := CompileCompleteMarkerPath(cacheDir)
+	expected := "/home/user/.opentaint/cache/my-project-abc12345/project-model/.compile-complete"
+	if got != expected {
+		t.Errorf("got %q, want %q", got, expected)
+	}
+}
+
+func TestIsCachedModelComplete(t *testing.T) {
+	t.Run("false for non-existent cache", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		if IsCachedModelComplete(cacheDir) {
+			t.Error("empty cache dir should not be complete")
+		}
+	})
+
+	t.Run("false when project.yaml missing", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		// Only the marker, no project.yaml.
+		createTestFile(t, filepath.Join(cacheDir, "project-model", ".compile-complete"), 0)
+		if IsCachedModelComplete(cacheDir) {
+			t.Error("missing project.yaml should make cache incomplete")
+		}
+	})
+
+	t.Run("false when marker missing", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		// Only project.yaml, no marker.
+		createTestFile(t, filepath.Join(cacheDir, "project-model", "project.yaml"), 10)
+		if IsCachedModelComplete(cacheDir) {
+			t.Error("missing marker should make cache incomplete")
+		}
+	})
+
+	t.Run("true when both present", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		createTestFile(t, filepath.Join(cacheDir, "project-model", "project.yaml"), 10)
+		createTestFile(t, filepath.Join(cacheDir, "project-model", ".compile-complete"), 0)
+		if !IsCachedModelComplete(cacheDir) {
+			t.Error("both files present should mean complete")
+		}
+	})
+}
+
+func TestMarkCompileComplete(t *testing.T) {
+	cacheDir := t.TempDir()
+	// The caller always creates project-model/ before calling.
+	if err := os.MkdirAll(filepath.Join(cacheDir, "project-model"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := MarkCompileComplete(cacheDir); err != nil {
+		t.Fatalf("MarkCompileComplete() error = %v", err)
+	}
+
+	info, err := os.Stat(CompileCompleteMarkerPath(cacheDir))
+	if err != nil {
+		t.Fatalf("marker should exist: %v", err)
+	}
+	if info.Size() != 0 {
+		t.Errorf("marker should be empty, got size %d", info.Size())
+	}
+}
