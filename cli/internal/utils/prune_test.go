@@ -628,7 +628,7 @@ func TestScanForStaleArtifacts_LockedModelSkipped(t *testing.T) {
 		lockPath := CacheLockPath(projectDir)
 		lock, err := TryLockExclusive(lockPath, LockMeta{PID: 99999, Command: "compile"})
 		if err != nil {
-			t.Fatalf("failed to acquire compile lock: %v", err)
+			t.Fatalf("failed to acquire cache lock: %v", err)
 		}
 		defer lock.Unlock()
 
