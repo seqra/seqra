@@ -28,9 +28,9 @@ inputs:
   upload-artifact:
     description: 'Should opentaint-action upload sarif artifact'
     default: 'true'
-  verbosity:
-    description: 'Log level'
-    default: 'info'
+  debug:
+    description: 'Enable debug output. Set to "true" for verbose logs.'
+    default: 'false'
   timeout:
     description: 'Scan timeout'
     default: '15m'
@@ -106,8 +106,13 @@ runs:
              COMPILE_ARGS+=(--java-version "${{ inputs.java-version }}")
            fi
 
+           DEBUG_ARGS=()
+           if [ "${{ inputs.debug }}" = "true" ]; then
+             DEBUG_ARGS+=(--debug)
+           fi
+
             "${{ steps.globals.outputs.OPENTAINT_BIN }}" --quiet "${TOKEN_ARGS[@]}" compile \
-              --verbosity "${{ inputs.verbosity }}" \
+              "${DEBUG_ARGS[@]}" \
               "${COMPILE_ARGS[@]}" \
               --output "${{ steps.globals.outputs.OPENTAINT_PROJECT }}" "${{ inputs.project-root }}"
 
@@ -149,7 +154,9 @@ runs:
            append_csv_args "ruleset" "${{ inputs.rules-path }}"
 
            CMD+=(--timeout "${{ inputs.timeout }}")
-           CMD+=(--verbosity "${{ inputs.verbosity }}")
+           if [ "${{ inputs.debug }}" = "true" ]; then
+             CMD+=(--debug)
+           fi
 
            append_csv_args "severity" "${{ inputs.severity }}"
 

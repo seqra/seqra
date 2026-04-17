@@ -123,8 +123,8 @@ jobs:
             # Name of uploaded artifact
             artifact-name: 'opentaint.sarif'
 
-            # Log level
-            verbosity: 'info'
+            # Enable debug output ('true' or 'false')
+            debug: 'false'
 
             # Scan timeout
             timeout: '15m'
