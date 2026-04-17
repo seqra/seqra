@@ -624,9 +624,9 @@ func TestScanForStaleArtifacts_LockedModelSkipped(t *testing.T) {
 		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
 		createTestFile(t, filepath.Join(projectDir, "project-model", "project.yaml"), 50)
 
-		// Hold the compile lock
-		lockPath := CompileLockPath(projectDir)
-		lock, err := TryLock(lockPath, LockMeta{PID: 99999, Command: "compile"})
+		// Hold the cache lock exclusively (simulate in-progress compile).
+		lockPath := CacheLockPath(projectDir)
+		lock, err := TryLockExclusive(lockPath, LockMeta{PID: 99999, Command: "compile"})
 		if err != nil {
 			t.Fatalf("failed to acquire compile lock: %v", err)
 		}

@@ -158,20 +158,3 @@ func PruneLockPath() (string, error) {
 func CacheLockPath(projectCachePath string) string {
 	return filepath.Join(projectCachePath, ".cache.lock")
 }
-
-// TryLock is a deprecated alias for TryLockExclusive, retained during the
-// call-site migration in task 2 of the reader/writer lock rollout. Remove
-// once no callers remain.
-//
-// Deprecated: use TryLockExclusive.
-func TryLock(lockPath string, meta LockMeta) (*FileLock, error) {
-	return TryLockExclusive(lockPath, meta)
-}
-
-// CompileLockPath is a deprecated alias for CacheLockPath, retained during
-// the call-site migration in task 2.
-//
-// Deprecated: use CacheLockPath.
-func CompileLockPath(projectCachePath string) string {
-	return CacheLockPath(projectCachePath)
-}

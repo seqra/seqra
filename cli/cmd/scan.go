@@ -424,8 +424,8 @@ func resolveScanConfig(absUserProjectRoot string) scanConfig {
 		}
 	}
 
-	compileLock, lockErr := utils.TryLock(
-		utils.CompileLockPath(projectCachePath),
+	compileLock, lockErr := utils.TryLockExclusive(
+		utils.CacheLockPath(projectCachePath),
 		utils.LockMeta{PID: os.Getpid(), Command: "compile", Project: absUserProjectRoot},
 	)
 	if lockErr == utils.ErrLocked {

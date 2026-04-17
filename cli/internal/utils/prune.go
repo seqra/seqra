@@ -211,8 +211,8 @@ func ScanForStaleArtifacts(categories PruneCategory) (*PruneResult, error) {
 						continue
 					}
 					projectCachePath := filepath.Join(modelsDir, modelEntry.Name())
-					lockPath := CompileLockPath(projectCachePath)
-					lock, lockErr := TryLock(lockPath, LockMeta{PID: os.Getpid(), Command: "prune"})
+					lockPath := CacheLockPath(projectCachePath)
+					lock, lockErr := TryLockExclusive(lockPath, LockMeta{PID: os.Getpid(), Command: "prune"})
 					if lockErr == ErrLocked {
 						meta, _ := ReadLockMeta(lockPath)
 						result.AddSkipped(SkippedProject{Path: projectCachePath, Meta: meta})

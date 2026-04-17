@@ -86,7 +86,7 @@ With --all: prunes everything including logs and install-tier.`,
 		if err != nil {
 			out.Fatalf("Failed to resolve prune lock path: %s", err)
 		}
-		pruneLock, err := utils.TryLock(pruneLockPath, utils.LockMeta{
+		pruneLock, err := utils.TryLockExclusive(pruneLockPath, utils.LockMeta{
 			PID:     os.Getpid(),
 			Command: "prune",
 		})
