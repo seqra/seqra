@@ -146,45 +146,6 @@ func MarkCompileComplete(cacheDir string) error {
 	return nil
 }
 
-// CreateStagingDir creates a staging directory inside cacheDir for isolated compilation.
-// Returns the path to the staging directory (e.g. <cacheDir>/.staging-XXXX/).
-func CreateStagingDir(cacheDir string) (string, error) {
-	stagingPath, err := os.MkdirTemp(cacheDir, ".staging-")
-	if err != nil {
-		return "", fmt.Errorf("failed to create staging directory: %w", err)
-	}
-	return stagingPath, nil
-}
-
-// PromoteStagingToCache moves the compiled project-model/ from the staging
-// directory into the cache, replacing any existing cached model.
-// The caller must hold the compile lock to prevent concurrent promotions.
-func PromoteStagingToCache(cacheDir, stagingPath string) error {
-	srcPM := filepath.Join(stagingPath, projectModelDir)
-	destPM := filepath.Join(cacheDir, projectModelDir)
-
-	// Remove existing cached model if present
-	if err := os.RemoveAll(destPM); err != nil {
-		return fmt.Errorf("failed to remove old cached model: %w", err)
-	}
-
-	// Move staging project-model/ to cache
-	if err := os.Rename(srcPM, destPM); err != nil {
-		return fmt.Errorf("failed to move staging model to cache: %w", err)
-	}
-
-	// Remove the staging dir and any leftover files (e.g. build logs)
-	_ = os.RemoveAll(stagingPath)
-
-	return nil
-}
-
-// CleanupStagingDir removes a staging directory and all its contents.
-// Used when compilation fails and the staging output is not needed.
-func CleanupStagingDir(stagingPath string) {
-	_ = os.RemoveAll(stagingPath)
-}
-
 // ProjectPathSlugHash returns a deterministic directory name for a project path.
 // Format: last-path-segment-8hexchars (e.g. "my-project-a1b2c3d4").
 // Uses only the last segment of the path for readability; the hash ensures uniqueness.

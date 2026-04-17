@@ -252,25 +252,17 @@ func ScanForStaleArtifacts(categories PruneCategory) (*PruneResult, error) {
 	return result, nil
 }
 
-// scanProjectCacheSubdirs adds only project-model/ and .staging-* subdirs
-// from a project cache directory, preserving logs and other data.
+// scanProjectCacheSubdirs adds only the project-model/ subdir of a project
+// cache directory so that adjacent files (lock, logs) are preserved.
 func scanProjectCacheSubdirs(projectCachePath string, result *PruneResult) {
-	entries, err := os.ReadDir(projectCachePath)
-	if err != nil {
+	pmPath := filepath.Join(projectCachePath, projectModelDir)
+	info, err := os.Stat(pmPath)
+	if err != nil || !info.IsDir() {
 		return
 	}
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-		name := entry.Name()
-		if name == projectModelDir || strings.HasPrefix(name, ".staging-") {
-			subPath := filepath.Join(projectCachePath, name)
-			size, _ := dirSize(subPath)
-			if size > 0 {
-				result.Add(StaleArtifact{Path: subPath, Size: size, Kind: StaleKindModel})
-			}
-		}
+	size, _ := dirSize(pmPath)
+	if size > 0 {
+		result.Add(StaleArtifact{Path: pmPath, Size: size, Kind: StaleKindModel})
 	}
 }
 

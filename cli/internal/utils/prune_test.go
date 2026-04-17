@@ -475,28 +475,6 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 		}
 	})
 
-	t.Run("stale staging dir is prunable", func(t *testing.T) {
-		home := t.TempDir()
-		t.Setenv("HOME", home)
-		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
-		stagingDir := filepath.Join(projectDir, ".staging-12345-9999")
-		createTestFile(t, filepath.Join(stagingDir, "project-model", "project.yaml"), 50)
-
-		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		assertHasKind(t, result, StaleKindModel)
-		// Should target the staging dir specifically
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindModel {
-				if s.Path != stagingDir {
-					t.Errorf("expected path %q, got %q", stagingDir, s.Path)
-				}
-			}
-		}
-	})
-
 	t.Run("empty models dir produces no stale", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
