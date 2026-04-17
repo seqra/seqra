@@ -158,7 +158,7 @@ func init() {
 	pruneCmd.Flags().BoolVar(&pruneArtifacts, "artifacts", false, "Prune stale analyzer and autobuilder JARs")
 	pruneCmd.Flags().BoolVar(&pruneRules, "rules", false, "Prune stale rules directories")
 	pruneCmd.Flags().BoolVar(&pruneJDK, "jdk", false, "Prune old JDK/JRE versions")
-	pruneCmd.Flags().BoolVar(&pruneModels, "models", false, "Prune cached project models and staging directories")
+	pruneCmd.Flags().BoolVar(&pruneModels, "models", false, "Prune cached project models")
 	pruneCmd.Flags().BoolVar(&pruneLogs, "logs", false, "Prune project log files")
 	pruneCmd.Flags().BoolVar(&pruneInstall, "install", false, "Prune install-tier lib and JRE artifacts (requires re-download on next run)")
 }

@@ -30,7 +30,7 @@ type StaleArtifact struct {
 	Kind string
 }
 
-// SkippedProject represents a project cache that was skipped because a compile lock was held.
+// SkippedProject represents a project cache that was skipped because its cache lock was held.
 type SkippedProject struct {
 	Path string
 	Meta LockMeta
@@ -51,7 +51,7 @@ func (r *PruneResult) Add(a StaleArtifact) {
 	r.TotalCount++
 }
 
-// AddSkipped records a project that was skipped due to an active compile lock.
+// AddSkipped records a project that was skipped due to an active cache lock holder.
 func (r *PruneResult) AddSkipped(s SkippedProject) {
 	r.Skipped = append(r.Skipped, s)
 }
@@ -219,7 +219,7 @@ func ScanForStaleArtifacts(categories PruneCategory) (*PruneResult, error) {
 						continue
 					}
 					if lockErr != nil {
-						output.LogDebugf("Failed to probe compile lock for %s, skipping: %v", projectCachePath, lockErr)
+						output.LogDebugf("Failed to probe cache lock for %s, skipping: %v", projectCachePath, lockErr)
 						continue
 					}
 					scanProjectCacheSubdirs(projectCachePath, result)

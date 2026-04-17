@@ -149,7 +149,7 @@ opentaint scan /path/to/project
 opentaint scan --recompile /path/to/project
 ```
 
-If a compilation is already in progress for the same project (detected via a staging directory), the scan aborts with an error instead of compiling concurrently.
+If another scan is actively compiling the same project, the scan aborts with an error instead of compiling concurrently. Multiple read-only scans against the same cached model can run in parallel.
 
 To remove all cached models:
 
