@@ -105,7 +105,7 @@ jobs:
       - name: Run opentaint scan in native environment when user can build project but has no java 17+
         working-directory: cli
         run: |
-          ./opentaint scan ${{ steps.github-token.outputs.arg }} --output report.sarif ../project-root-java-11 --verbosity debug
+          ./opentaint scan --debug ${{ steps.github-token.outputs.arg }} --output report.sarif ../project-root-java-11
 
   run-on-petclinic:
     runs-on: ubuntu-latest
@@ -140,8 +140,8 @@ jobs:
       - name: Run opentaint separate compile and scan
         working-directory: cli
         run: |
-          ./opentaint compile --quiet ${{ steps.github-token.outputs.arg }} --output portable-project ../project-root --verbosity debug
-          ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif --project-model portable-project --verbosity debug
+          ./opentaint compile --quiet --debug ${{ steps.github-token.outputs.arg }} --output portable-project ../project-root
+          ./opentaint scan --quiet --debug ${{ steps.github-token.outputs.arg }} --output report.sarif --project-model portable-project
 
       - name: Run opentaint scan with explicit path and output
         working-directory: cli
@@ -265,8 +265,8 @@ jobs:
       - name: Run opentaint separate compile and scan
         working-directory: cli
         run: |
-          ./opentaint compile --quiet ${{ steps.github-token.outputs.arg }} --output portable-project ../project-root --verbosity debug
-          ./opentaint scan --quiet ${{ steps.github-token.outputs.arg }} --output report.sarif --project-model portable-project --verbosity debug
+          ./opentaint compile --quiet --debug ${{ steps.github-token.outputs.arg }} --output portable-project ../project-root
+          ./opentaint scan --quiet --debug ${{ steps.github-token.outputs.arg }} --output report.sarif --project-model portable-project
 
       - name: Run opentaint scan
         working-directory: cli
