@@ -23,103 +23,125 @@ rules:
           - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(...)
 
     pattern-sinks:
-      # ── Spring @ResponseBody String return ─────────────────────────────────
-      # StringHttpMessageConverter accepts text/* including text/html.
-      # When the browser sends Accept: text/html, a String return is rendered
-      # as HTML unless produces constrains to a safe content type.
-
-      # 1a. String return — no produces (dangerous default: content negotiation)
+      # ── Handler return — body type depends on return type (String, ResponseEntity<T>, raw ResponseEntity)
+      # NOTE: opentaint currently treats concrete/generic return types in
+      # method-declaration patterns as wildcards, so we discriminate by:
+      #   - handler mapping annotation (@GetMapping/@PostMapping/etc.) via
+      #     pattern-either pattern-inside — otherwise non-handler methods
+      #     that happen to return tainted data would be flagged.
+      #   - explicit non-HTML produces attribute on the handler annotation
+      #     via pattern-not-inside with the concrete annotation name.
+      #
+      # Limitation: opentaint cannot currently discriminate ResponseEntity
+      # builder chain content types (.contentType(MediaType.APPLICATION_JSON).body(...),
+      # .header("Content-Type", "application/json").body(...), or HttpHeaders
+      # used with new ResponseEntity<>(body, headers, status)) at the pattern
+      # level — sanitizer / pattern-not-inside / pattern-not variants all
+      # either fail to match or over-exclude. As a result the rule
+      # over-flags these. See Appendix D of the implementation plan.
       - patterns:
-          - pattern-inside: |
-              @$ANNOTATION(...)
-              String $METHOD(...) {
-                ...
-              }
-          - metavariable-pattern:
-              metavariable: $ANNOTATION
-              patterns:
-                - pattern-either:
-                    - pattern: RequestMapping
-                    - pattern: DeleteMapping
-                    - pattern: GetMapping
-                    - pattern: PatchMapping
-                    - pattern: PostMapping
-                    - pattern: PutMapping
+          - pattern-either:
+              - pattern-inside: |
+                  @GetMapping(...)
+                  $RT $M(...) { ... }
+              - pattern-inside: |
+                  @PostMapping(...)
+                  $RT $M(...) { ... }
+              - pattern-inside: |
+                  @PutMapping(...)
+                  $RT $M(...) { ... }
+              - pattern-inside: |
+                  @PatchMapping(...)
+                  $RT $M(...) { ... }
+              - pattern-inside: |
+                  @DeleteMapping(...)
+                  $RT $M(...) { ... }
+              - pattern-inside: |
+                  @RequestMapping(...)
+                  $RT $M(...) { ... }
+          # application/json
           - pattern-not-inside: |
-              @$A(..., produces = "application/json", ...)
-              String $M(...) { ... }
+              @GetMapping(..., produces = "application/json", ...)
+              $RT $M(...) { ... }
           - pattern-not-inside: |
-              @$A(..., produces = MediaType.APPLICATION_JSON_VALUE, ...)
-              String $M(...) { ... }
+              @PostMapping(..., produces = "application/json", ...)
+              $RT $M(...) { ... }
           - pattern-not-inside: |
-              @$A(..., produces = "text/plain", ...)
-              String $M(...) { ... }
+              @PutMapping(..., produces = "application/json", ...)
+              $RT $M(...) { ... }
           - pattern-not-inside: |
-              @$A(..., produces = MediaType.TEXT_PLAIN_VALUE, ...)
-              String $M(...) { ... }
+              @PatchMapping(..., produces = "application/json", ...)
+              $RT $M(...) { ... }
           - pattern-not-inside: |
-              @$A(..., produces = "application/pdf", ...)
-              String $M(...) { ... }
+              @DeleteMapping(..., produces = "application/json", ...)
+              $RT $M(...) { ... }
           - pattern-not-inside: |
-              @$A(..., produces = "application/octet-stream", ...)
-              String $M(...) { ... }
-          - pattern: return $UNTRUSTED;
-          - focus-metavariable: $UNTRUSTED
-
-      # 1b. ResponseEntity<String> return — same converter, same risk
-      - patterns:
-          - pattern-inside: |
-              @$ANNOTATION(...)
-              ResponseEntity<String> $METHOD(...) {
-                ...
-              }
-          - metavariable-pattern:
-              metavariable: $ANNOTATION
-              patterns:
-                - pattern-either:
-                    - pattern: RequestMapping
-                    - pattern: DeleteMapping
-                    - pattern: GetMapping
-                    - pattern: PatchMapping
-                    - pattern: PostMapping
-                    - pattern: PutMapping
+              @RequestMapping(..., produces = "application/json", ...)
+              $RT $M(...) { ... }
+          # text/plain
           - pattern-not-inside: |
-              @$A(..., produces = "application/json", ...)
-              ResponseEntity<String> $M(...) { ... }
+              @GetMapping(..., produces = "text/plain", ...)
+              $RT $M(...) { ... }
           - pattern-not-inside: |
-              @$A(..., produces = MediaType.APPLICATION_JSON_VALUE, ...)
-              ResponseEntity<String> $M(...) { ... }
-          - pattern: return $UNTRUSTED;
-          - focus-metavariable: $UNTRUSTED
-
-      # 1c. Raw ResponseEntity return (no type param) — body type unknown
-      - patterns:
-          - pattern-inside: |
-              @$ANNOTATION(...)
-              ResponseEntity $METHOD(...) {
-                ...
-              }
-          - metavariable-pattern:
-              metavariable: $ANNOTATION
-              patterns:
-                - pattern-either:
-                    - pattern: RequestMapping
-                    - pattern: DeleteMapping
-                    - pattern: GetMapping
-                    - pattern: PatchMapping
-                    - pattern: PostMapping
-                    - pattern: PutMapping
+              @PostMapping(..., produces = "text/plain", ...)
+              $RT $M(...) { ... }
           - pattern-not-inside: |
-              @$A(..., produces = "application/json", ...)
-              ResponseEntity $M(...) { ... }
+              @PutMapping(..., produces = "text/plain", ...)
+              $RT $M(...) { ... }
           - pattern-not-inside: |
-              @$A(..., produces = MediaType.APPLICATION_JSON_VALUE, ...)
-              ResponseEntity $M(...) { ... }
+              @PatchMapping(..., produces = "text/plain", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @DeleteMapping(..., produces = "text/plain", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @RequestMapping(..., produces = "text/plain", ...)
+              $RT $M(...) { ... }
+          # application/pdf
+          - pattern-not-inside: |
+              @GetMapping(..., produces = "application/pdf", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PostMapping(..., produces = "application/pdf", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PutMapping(..., produces = "application/pdf", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PatchMapping(..., produces = "application/pdf", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @DeleteMapping(..., produces = "application/pdf", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @RequestMapping(..., produces = "application/pdf", ...)
+              $RT $M(...) { ... }
+          # application/octet-stream
+          - pattern-not-inside: |
+              @GetMapping(..., produces = "application/octet-stream", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PostMapping(..., produces = "application/octet-stream", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PutMapping(..., produces = "application/octet-stream", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PatchMapping(..., produces = "application/octet-stream", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @DeleteMapping(..., produces = "application/octet-stream", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @RequestMapping(..., produces = "application/octet-stream", ...)
+              $RT $M(...) { ... }
           - pattern: return $UNTRUSTED;
           - focus-metavariable: $UNTRUSTED
 
       # ── Direct response writer with HTML content type ──────────────────────
-      # Servlet API: setContentType / setHeader / addHeader
+      # Servlet API: setContentType / setHeader / addHeader. The pattern-inside
+      # enumerates only text/html variants; handlers that set a non-HTML
+      # content type don't match and are not flagged.
       - patterns:
           - pattern-either:
               - pattern-inside: |
@@ -168,43 +190,4 @@ rules:
                   (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
               - pattern: |
                   (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
-          - focus-metavariable: $UNTRUSTED
-
-      # ── produces = "text/html" — explicit HTML ────────────────────────────
-      - patterns:
-          - pattern-inside: |
-              @$ANNOTATION(..., produces = "text/html", ...)
-              $RETURNTYPE $METHOD(...) {
-                ...
-              }
-          - metavariable-pattern:
-              metavariable: $ANNOTATION
-              patterns:
-                - pattern-either:
-                    - pattern: RequestMapping
-                    - pattern: DeleteMapping
-                    - pattern: GetMapping
-                    - pattern: PatchMapping
-                    - pattern: PostMapping
-                    - pattern: PutMapping
-          - pattern: return $UNTRUSTED;
-          - focus-metavariable: $UNTRUSTED
-
-      - patterns:
-          - pattern-inside: |
-              @$ANNOTATION(..., produces = MediaType.TEXT_HTML_VALUE, ...)
-              $RETURNTYPE $METHOD(...) {
-                ...
-              }
-          - metavariable-pattern:
-              metavariable: $ANNOTATION
-              patterns:
-                - pattern-either:
-                    - pattern: RequestMapping
-                    - pattern: DeleteMapping
-                    - pattern: GetMapping
-                    - pattern: PatchMapping
-                    - pattern: PostMapping
-                    - pattern: PutMapping
-          - pattern: return $UNTRUSTED;
           - focus-metavariable: $UNTRUSTED
