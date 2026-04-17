@@ -4,6 +4,17 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.TestInstance
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.AccessPathBase.Companion.Argument
+import org.opentaint.dataflow.ap.ifds.access.FactAp
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.configuration.jvm.TaintCleaner
+import org.opentaint.dataflow.configuration.jvm.TaintEntryPointSource
+import org.opentaint.dataflow.configuration.jvm.TaintMethodEntrySink
+import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSink
+import org.opentaint.dataflow.configuration.jvm.TaintMethodExitSource
+import org.opentaint.dataflow.configuration.jvm.TaintMethodSink
+import org.opentaint.dataflow.configuration.jvm.TaintMethodSource
+import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
+import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
 import org.opentaint.dataflow.ifds.SingletonUnit
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
@@ -14,7 +25,11 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAccessor
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasApInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalVariableReachability
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRAnalysisManager
+import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.RegisteredLocation
 import org.opentaint.ir.api.jvm.cfg.JIRCallInst
@@ -29,7 +44,71 @@ import kotlin.test.assertTrue
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AliasSampleTest : BasicTestUtils() {
-    private val manager by lazy { JIRAnalysisManager(cp) }
+    private val noRules = object : TaintRulesProvider {
+        override fun entryPointRulesForMethod(
+            method: CommonMethod,
+            fact: FactAp?,
+            allRelevant: Boolean
+        ): Iterable<TaintEntryPointSource> = emptyList()
+
+        override fun sourceRulesForMethod(
+            method: CommonMethod,
+            statement: CommonInst,
+            fact: FactAp?,
+            allRelevant: Boolean
+        ): Iterable<TaintMethodSource> = emptyList()
+
+        override fun exitSourceRulesForMethod(
+            method: CommonMethod,
+            statement: CommonInst,
+            fact: FactAp?,
+            allRelevant: Boolean
+        ): Iterable<TaintMethodExitSource> = emptyList()
+
+        override fun sinkRulesForMethod(
+            method: CommonMethod,
+            statement: CommonInst,
+            fact: FactAp?,
+            allRelevant: Boolean
+        ): Iterable<TaintMethodSink> = emptyList()
+
+        override fun sinkRulesForMethodEntry(
+            method: CommonMethod,
+            fact: FactAp?,
+            allRelevant: Boolean
+        ): Iterable<TaintMethodEntrySink> = emptyList()
+
+        override fun sinkRulesForMethodExit(
+            method: CommonMethod,
+            statement: CommonInst,
+            fact: FactAp?,
+            initialFacts: Set<InitialFactAp>?,
+            allRelevant: Boolean
+        ): Iterable<TaintMethodExitSink> = emptyList()
+
+        override fun passTroughRulesForMethod(
+            method: CommonMethod,
+            statement: CommonInst,
+            fact: FactAp?,
+            allRelevant: Boolean
+        ): Iterable<TaintPassThrough> = emptyList()
+
+        override fun cleanerRulesForMethod(
+            method: CommonMethod,
+            statement: CommonInst,
+            fact: FactAp?,
+            allRelevant: Boolean
+        ): Iterable<TaintCleaner> = emptyList()
+
+        override fun sourceRulesForStaticField(
+            field: JIRField,
+            statement: CommonInst,
+            fact: FactAp?,
+            allRelevant: Boolean
+        ): Iterable<TaintStaticFieldSource> = emptyList()
+    }
+    
+    private val manager by lazy { JIRAnalysisManager(cp, noRules) }
 
     @Test
     fun `test simple aliasing`() {

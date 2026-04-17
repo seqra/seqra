@@ -166,6 +166,9 @@ class AccessCactus(
     override val size: Int
         get() = access.size
 
+    override val depth: Int
+        get() = access.depth
+
     override fun toString(): String = buildString {
         access.print(this, "$base", suffix = "/$exclusions")
         if (lastIndex != -1 && this[lastIndex] == '\n') {
@@ -251,7 +254,7 @@ class AccessCactus(
             get() = this is CycleStartEdge && this.cycleSize == 1
 
         private val hash: Int
-        private val depth: Int
+        val depth: Int
         val size: Int
 
         private fun isWellFormed(rootAccessors: Set<Accessor>): Boolean {

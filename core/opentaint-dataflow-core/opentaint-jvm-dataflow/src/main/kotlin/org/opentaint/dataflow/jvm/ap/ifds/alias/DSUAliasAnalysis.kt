@@ -22,7 +22,8 @@ import java.util.BitSet
 
 class DSUAliasAnalysis(
     val methodCallResolver: CallResolver,
-    val rootMethodReachabilityInfo: JIRLocalVariableReachability
+    val rootMethodReachabilityInfo: JIRLocalVariableReachability,
+    val cancellation: AnalysisCancellation
 ) {
     private val aliasManager = AAInfoManager()
     private val dsuMergeStrategy = DsuMergeStrategy(aliasManager)
@@ -373,6 +374,8 @@ class DSUAliasAnalysis(
     }
 
     private fun eval(inst: JIRInst, state: ImmutableState, callFrame: CallTreeNode): ImmutableState {
+        cancellation.checkpoint()
+
         val reachabilityInfo = methodReachabilityInfo(inst.location.method)
         val instIdx = inst.location.index
 

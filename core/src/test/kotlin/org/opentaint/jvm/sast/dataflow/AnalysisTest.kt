@@ -152,12 +152,11 @@ abstract class AnalysisTest : BasicTestUtils() {
 
         @Suppress("UNCHECKED_CAST")
         val engine = TaintAnalysisUnitRunnerManager(
-            JIRAnalysisManager(cp),
+            JIRAnalysisManager(cp, rulesProvider),
             ifdsGraph as ApplicationGraph<CommonMethod, CommonInst>,
             unitResolver = SingleLocationUnit(cls.declaration.location) as UnitResolver<CommonMethod>,
             apManager = TreeApManager(anyAccessorUnrollStrategy = AnyAccessorUnrollStrategy.AnyAccessorDisabled),
             summarySerializationContext = DummySerializationContext,
-            taintConfig = rulesProvider,
             taintRulesStatsSamplingPeriod = null,
         )
 

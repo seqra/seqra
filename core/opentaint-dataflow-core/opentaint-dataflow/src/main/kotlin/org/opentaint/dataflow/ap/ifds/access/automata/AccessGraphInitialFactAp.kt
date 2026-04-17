@@ -14,6 +14,7 @@ data class AccessGraphInitialFactAp(
     override val exclusions: ExclusionSet,
 ) : InitialFactAp, AccessGraphAccessorList {
     override val size: Int get() = access.size
+    override val depth: Int get() = size
 
     override fun rebase(newBase: AccessPathBase): InitialFactAp =
         AccessGraphInitialFactAp(newBase, access, exclusions)

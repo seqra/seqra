@@ -23,10 +23,12 @@ import org.opentaint.dataflow.ap.ifds.access.FactSideEffectSummariesApStorage
 import org.opentaint.dataflow.ap.ifds.access.cactus.AccessCactus.AccessNode
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 class CactusApManager(
-    override val anyAccessorUnrollStrategy: AnyAccessorUnrollStrategy
+    override val anyAccessorUnrollStrategy: AnyAccessorUnrollStrategy,
+    override val cancellation: Cancellation = Cancellation(),
 ) : ApManager {
     override fun initialFactAbstraction(methodInitialStatement: CommonInst): InitialFactAbstraction =
         CactusInitialFactAbstraction()

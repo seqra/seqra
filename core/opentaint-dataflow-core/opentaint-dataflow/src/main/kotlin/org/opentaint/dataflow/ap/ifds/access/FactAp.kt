@@ -22,6 +22,7 @@ interface FactAp: AccessorList {
     val exclusions: ExclusionSet
 
     val size: Int
+    val depth: Int
 }
 
 interface InitialFactAp : FactAp, ReadableAccessorList<InitialFactAp> {

@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
 import it.unimi.dsi.fastutil.Hash
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenCustomHashMap
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode
 
@@ -23,19 +24,30 @@ class AccessTreeInterner {
             return a.accessorNodes.contentIdentityEquals(b.accessorNodes)
         }
 
-        private inline fun <reified T> Array<out T>?.contentIdentityEquals(other: Array<out T>?): Boolean {
+        private inline fun <reified T> Array<out T>?.contentIdentityEquals(other: Array<out T>?): Boolean =
+            contentEqualsOp(other) { a, b -> a === b }
+
+        private inline fun <reified T> Array<out T>?.contentEqualsOp(
+            other: Array<out T>?,
+            areEqual: (T, T) -> Boolean
+        ): Boolean {
             if (this === other) return true
             if (this == null || other == null) return false
             if (this.size != other.size) return false
             for (i in 0 until size) {
-                if (this[i] !== other[i]) return false
+                if (!areEqual(this[i], other[i])) return false
             }
             return true
         }
     }
 
-    private val cache = Object2ObjectOpenCustomHashMap<AccessNode, AccessNode>(InternStrategy)
+    private val cache = Long2ObjectOpenHashMap<Object2ObjectOpenCustomHashMap<AccessNode, AccessNode>>()
 
-    fun intern(node: AccessNode): AccessNode =
-        cache.putIfAbsent(node, node) ?: node
+    fun intern(node: AccessNode): AccessNode {
+        val bucket = cache.computeIfAbsent(node.hash) {
+            Object2ObjectOpenCustomHashMap<AccessNode, AccessNode>(InternStrategy)
+        }
+
+        return bucket.putIfAbsent(node, node) ?: node
+    }
 }

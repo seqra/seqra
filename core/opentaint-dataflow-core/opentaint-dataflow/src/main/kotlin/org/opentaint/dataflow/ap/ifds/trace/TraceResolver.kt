@@ -7,6 +7,7 @@ import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.MethodEntry
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.SourceStartEntry
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 
@@ -14,7 +15,7 @@ class TraceResolver(
     private val entryPointMethods: Set<CommonMethod>,
     private val manager: TaintAnalysisUnitRunnerManager,
     private val params: Params,
-    private val cancellation: ProcessingCancellation
+    private val cancellation: Cancellation
 ) {
     data class Params(
         val resolveEntryPointToStartTrace: Boolean = true,
@@ -236,7 +237,7 @@ class TraceResolver(
         }
 
         private fun process() {
-            while (cancellation.isActive) {
+            while (cancellation.isActive()) {
                 val event = pollUnprocessedEvent() ?: break
                 val resolvedNodes = resolveNode(event.trace, event.kind, event.depth)
 
@@ -273,7 +274,7 @@ class TraceResolver(
         }
 
         private fun removeUnresolvedInnerCalls() {
-            while (cancellation.isActive) {
+            while (cancellation.isActive()) {
                 val unresolvedNodes = hashMapOf<InterProceduralFullTraceNode, MutableList<InterProceduralCall>>()
 
                 for (r in requestedInnerTraces) {
@@ -482,7 +483,7 @@ class TraceResolver(
                 .filterIsInstance<MethodTraceResolver.TraceEntry.Action>()
 
             for (entry in allActions) {
-                if (!cancellation.isActive) return
+                if (!cancellation.isActive()) return
 
                 val action = entry.primaryAction
                 if (action !is TraceEntryAction.CallSummary) continue
@@ -526,7 +527,7 @@ class TraceResolver(
             startNodes.mapTo(unprocessedMethods) { it.methodEntryPoint to it }
 
             val visitedEp = hashSetOf<Pair<MethodEntryPoint, TraceNode>>()
-            while (unprocessedMethods.isNotEmpty() && cancellation.isActive) {
+            while (unprocessedMethods.isNotEmpty() && cancellation.isActive()) {
                 val methodCall = unprocessedMethods.removeLast()
                 if (!visitedEp.add(methodCall)) continue
 

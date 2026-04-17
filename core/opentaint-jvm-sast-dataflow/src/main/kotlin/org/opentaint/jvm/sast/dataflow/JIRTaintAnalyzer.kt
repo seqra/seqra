@@ -34,6 +34,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRSafeApplicationGraph
 import org.opentaint.dataflow.jvm.ap.ifds.JIRSummarySerializationContext
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRAnalysisManager
+import org.opentaint.dataflow.jvm.ap.ifds.taint.ExternalMethodTracker
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.ifds.PackageUnit
@@ -58,7 +59,12 @@ class JIRTaintAnalyzer(
     val projectClasses: ClassLocationChecker,
     val options: TaintAnalyzerOptions,
     val analysisUnit: JIRUnitResolver = PackageUnitResolver(projectClasses),
+    private val externalMethodTracker: ExternalMethodTracker? = null,
 ): AutoCloseable {
+    data class Status(
+        val analysisStatus: TaintAnalysisUnitRunnerManager.Status,
+        val traceResolutionStatus: TaintAnalysisUnitRunnerManager.Status,
+    )
 
     private val ifdsAnalysisGraph by lazy {
         val usages = runBlocking { cp.usagesExt() }
@@ -69,7 +75,7 @@ class JIRTaintAnalyzer(
 
     val ifdsEngine by lazy { createIfdsEngine() }
 
-    fun analyzeWithIfds(entryPoints: List<JIRMethod>): List<VulnerabilityWithTrace> {
+    fun analyzeWithIfds(entryPoints: List<JIRMethod>): Pair<List<VulnerabilityWithTrace>, Status> {
         return analyzeTaintWithIfdsEngine(entryPoints)
     }
 
@@ -105,24 +111,25 @@ class JIRTaintAnalyzer(
 
     @Suppress("UNCHECKED_CAST")
     private fun createIfdsEngine() = TaintAnalysisUnitRunnerManager(
-        JIRAnalysisManager(cp, analysisParams),
+        JIRAnalysisManager(cp, taintConfig, externalMethodTracker, analysisParams),
         ifdsAnalysisGraph as ApplicationGraph<CommonMethod, CommonInst>,
         analysisUnit as UnitResolver<CommonMethod>,
-        taintConfig,
         summarySerializationContext,
         apManager,
-        options.debugOptions?.taintRulesStatsSamplingPeriod
+        options.debugOptions?.taintRulesStatsSamplingPeriod,
     )
 
     private fun analyzeTaintWithIfdsEngine(
         entryPoints: List<JIRMethod>,
-    ): List<VulnerabilityWithTrace> {
+    ): Pair<List<VulnerabilityWithTrace>, Status> {
         val analysisStart = TimeSource.Monotonic.markNow()
 
-        val analysisTimeout = options.ifdsTimeout * 0.95 // Reserve 5% of time for report creation
+        val analysisTimeout = options.ifdsTimeout * 0.90 // Reserve 10% of time for trace generation and report creation
         val startMethods = entryPoints.map { MethodWithContext(it, EmptyMethodContext) }
         runCatching { ifdsEngine.runAnalysis(startMethods, timeout = analysisTimeout, cancellationTimeout = 30.seconds) }
             .onFailure { logger.error(it) { "Ifds engine failed" } }
+
+        val analysisStatus = ifdsEngine.status.get()
 
         if (options.debugOptions?.enableIfdsCoverage == true) {
             logger.debug {
@@ -167,10 +174,15 @@ class JIRTaintAnalyzer(
         }
 
         logger.info { "Start trace generation" }
-        val traceResolutionTimeout = options.ifdsTimeout - analysisStart.elapsedNow()
+        val leftTime = options.ifdsTimeout - analysisStart.elapsedNow()
+        val traceResolutionTimeout = leftTime * 0.90 // Reserve 10% of time for report creation
         if (!traceResolutionTimeout.isPositive()) {
             logger.warn { "No time remaining for trace resolution" }
-            return emptyList()
+            val status = Status(
+                analysisStatus,
+                TaintAnalysisUnitRunnerManager.Status.TIMEOUT
+            )
+            return emptyList<VulnerabilityWithTrace>() to status
         }
 
         val vulnerabilitiesWithTraces = ifdsEngine.generateTraces(entryPoints, vulnerabilities, traceResolutionTimeout)
@@ -181,7 +193,11 @@ class JIRTaintAnalyzer(
             val delta = vulnerabilitiesWithTraces.size - filteredVulnerabilities.size
             logger.info { "Filter out $delta vulnerabilities without traces" }
         }
-        return filteredVulnerabilities
+
+        val traceResolutionStatus = ifdsEngine.status.get()
+        val status = Status(analysisStatus, traceResolutionStatus)
+
+        return filteredVulnerabilities to status
     }
 
     private object InnerCallTraceResolveStrategy : TraceResolver.InnerCallTraceResolveStrategy {

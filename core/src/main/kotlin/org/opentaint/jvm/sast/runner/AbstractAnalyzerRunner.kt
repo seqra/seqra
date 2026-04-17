@@ -9,6 +9,7 @@ import com.github.ajalt.clikt.parameters.types.int
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.jvm.sast.dataflow.DebugOptions
+import org.opentaint.jvm.sast.project.ProjectAnalysisStatus
 import org.opentaint.jvm.sast.project.ProjectKind
 import org.opentaint.jvm.sast.util.file
 import org.opentaint.jvm.sast.util.newDirectory
@@ -16,6 +17,7 @@ import org.opentaint.project.Project
 import org.opentaint.util.CliWithLogger
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
+import kotlin.system.exitProcess
 
 abstract class AbstractAnalyzerRunner : CliWithLogger() {
     protected val ifdsAnalysisTimeout: Int by option(help = "IFDS analysis timeout in seconds")
@@ -78,7 +80,7 @@ abstract class AbstractAnalyzerRunner : CliWithLogger() {
         val project = runCatching { Project.load(project) }
             .onFailure {
                 logger.error(it) { "Incorrect project configuration" }
-                return
+                exitProcess(-1)
             }
             .getOrThrow()
 
@@ -86,24 +88,38 @@ abstract class AbstractAnalyzerRunner : CliWithLogger() {
 
         outputDir.createDirectories()
 
-        runProjectAnalysisRecursively(resolvedProject)
+        val status = runProjectAnalysisRecursively(resolvedProject)
+        exitProcessIfNotOk(status)
     }
 
-    private fun runProjectAnalysisRecursively(project: Project) {
-        try {
+    private fun runProjectAnalysisRecursively(project: Project): ProjectAnalysisStatus {
+        val status = try {
             logger.info { "Start analysis for project: ${project.sourceRoot}" }
-            analyzeProject(project, outputDir, debugOptions)
-            logger.info { "Finish analysis for project: ${project.sourceRoot}" }
+            analyzeProject(project, outputDir, debugOptions).also {
+                logger.info { "Finish analysis for project: ${project.sourceRoot}" }
+            }
         } catch (ex: Throwable) {
             logger.error(ex) { "Fail analysis for project: ${project.sourceRoot}" }
+            ProjectAnalysisStatus.EXCEPTION
         }
 
-        project.subProjects.forEach {
-            runProjectAnalysisRecursively(it)
+        return project.subProjects.fold(status) { currentStatus, it ->
+            val status = runProjectAnalysisRecursively(it)
+            maxOf(currentStatus, status)
         }
     }
 
-    protected abstract fun analyzeProject(project: Project, analyzerOutputDir: Path, debugOptions: DebugOptions)
+    private fun exitProcessIfNotOk(status: ProjectAnalysisStatus) {
+        val exitCode = when (status) {
+            ProjectAnalysisStatus.OK -> return
+            ProjectAnalysisStatus.TIMEOUT -> -2
+            ProjectAnalysisStatus.OOM -> -3
+            ProjectAnalysisStatus.EXCEPTION -> -4
+        }
+        exitProcess(exitCode)
+    }
+
+    protected abstract fun analyzeProject(project: Project, analyzerOutputDir: Path, debugOptions: DebugOptions): ProjectAnalysisStatus
 
     companion object {
         private val logger = object : KLogging() {}.logger

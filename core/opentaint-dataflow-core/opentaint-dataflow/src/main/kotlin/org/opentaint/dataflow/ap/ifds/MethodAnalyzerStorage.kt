@@ -19,6 +19,7 @@ class MethodAnalyzerStorage(
             val analyzer = if (!languageManager.isEmpty(methodEntryPoint.method)) {
                 val emptyContextAnalyzer = getOrCreateMethodAnalyzerWithEmptyContext(runner, methodEntryPoint)
                 NormalMethodAnalyzer(runner, methodEntryPoint, taintRulesStatsSamplingPeriod, emptyContextAnalyzer)
+                    .let { if (NormalMethodAnalyzer.DEBUG_ANALYSIS_TIME) TimedMethodAnalyzer(it) else it }
             } else {
                 val methodExitPoints = runner.graph.methodGraph(methodEntryPoint.method).exitPoints().toList()
 

@@ -9,10 +9,12 @@ import java.nio.file.Path
 import kotlin.time.Duration
 
 data class ProjectAnalysisOptions(
-    val customConfig: Path? = null,
+    val customApproximationConfig: List<Path> = emptyList(),
     val semgrepRuleSet: List<Path> = emptyList(),
     val semgrepRuleLoadTrace: Path? = null,
     val semgrepSeverity: List<Severity> = emptyList(),
+    val semgrepRuleId: List<String> = emptyList(),
+    val trackExternalMethods: Boolean = false,
     val cwe: List<Int> = emptyList(),
     val useSymbolicExecution: Boolean = false,
     val symbolicExecutionTimeout: Duration = Duration.ZERO,

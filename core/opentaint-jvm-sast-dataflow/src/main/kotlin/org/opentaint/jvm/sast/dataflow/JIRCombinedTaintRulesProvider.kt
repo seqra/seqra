@@ -69,9 +69,14 @@ class JIRCombinedTaintRulesProvider(
     private inline fun <T> combine(
         mode: CombinationMode,
         rules: TaintRulesProvider.() -> Iterable<T>,
-    ): Iterable<T> = when (mode) {
-        CombinationMode.EXTEND -> base.rules() + combined.rules()
-        CombinationMode.OVERRIDE -> combined.rules()
-        CombinationMode.IGNORE -> base.rules()
+    ): Iterable<T> {
+        val baseRules = base.rules()
+        val combinedRules = combined.rules().toList()
+
+        return when (mode) {
+            CombinationMode.EXTEND -> baseRules + combinedRules
+            CombinationMode.OVERRIDE -> combinedRules.takeIf { it.isNotEmpty() } ?: baseRules
+            CombinationMode.IGNORE -> baseRules
+        }
     }
 }
