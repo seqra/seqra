@@ -114,7 +114,7 @@ opentaint prune
 ### Enable Verbose Logging
 
 ```bash
-opentaint scan --verbosity debug /path/to/project
+opentaint scan --debug /path/to/project
 ```
 
 ### Common Log Locations

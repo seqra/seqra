@@ -208,7 +208,7 @@ docker run --rm \
   -v /path/to/your/project:/project \
   -v /path/to/output:/output \
   ghcr.io/seqra/opentaint:latest \
-  opentaint scan --verbosity debug --output /output/results.sarif /project
+  opentaint scan --debug --output /output/results.sarif /project
 ```
 
 ### View Available Commands
