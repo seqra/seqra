@@ -160,7 +160,7 @@ runs:
 
            append_csv_args "severity" "${{ inputs.severity }}"
 
-            CMD+=(--output "${{ steps.globals.outputs.OPENTAINT_SARIF }}" "${{ steps.globals.outputs.OPENTAINT_PROJECT }}")
+            CMD+=(--output "${{ steps.globals.outputs.OPENTAINT_SARIF }}" --project-model "${{ steps.globals.outputs.OPENTAINT_PROJECT }}")
 
            "${CMD[@]}"
 
