@@ -142,149 +142,6 @@ func TestGetProjectCachePath_SymlinksResolved(t *testing.T) {
 	}
 }
 
-func TestCreateStagingDir(t *testing.T) {
-	cacheDir := t.TempDir()
-
-	stagingPath, err := CreateStagingDir(cacheDir)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	// Should be under cacheDir
-	if !strings.HasPrefix(stagingPath, cacheDir) {
-		t.Errorf("staging path %q should be under %q", stagingPath, cacheDir)
-	}
-
-	// Directory name should start with .staging-
-	dirName := filepath.Base(stagingPath)
-	if !strings.HasPrefix(dirName, ".staging-") {
-		t.Errorf("expected .staging- prefix, got %q", dirName)
-	}
-
-	// Staging dir itself should exist
-	info, err := os.Stat(stagingPath)
-	if err != nil {
-		t.Fatalf("staging dir not created: %v", err)
-	}
-	if !info.IsDir() {
-		t.Error("expected directory")
-	}
-}
-
-func TestPromoteStagingToCache(t *testing.T) {
-	cacheDir := t.TempDir()
-
-	// Create a staging dir with content
-	stagingPath, err := CreateStagingDir(cacheDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Add a file to project-model to simulate compilation output
-	createTestFile(t, filepath.Join(stagingPath, "project-model", "project.yaml"), 10)
-
-	// Promote
-	err = PromoteStagingToCache(cacheDir, stagingPath)
-	if err != nil {
-		t.Fatalf("PromoteStagingToCache() error = %v", err)
-	}
-
-	// project-model directory should exist (not a symlink)
-	pmPath := filepath.Join(cacheDir, "project-model")
-	info, err := os.Lstat(pmPath)
-	if err != nil {
-		t.Fatalf("expected project-model at %s: %v", pmPath, err)
-	}
-	if !info.IsDir() {
-		t.Error("expected directory, not symlink or file")
-	}
-
-	// The file should be accessible
-	data, err := os.ReadFile(filepath.Join(pmPath, "project.yaml"))
-	if err != nil {
-		t.Fatalf("failed to read project.yaml: %v", err)
-	}
-	if len(data) != 10 {
-		t.Errorf("expected 10 bytes, got %d", len(data))
-	}
-
-	// Staging dir should be cleaned up
-	if _, err := os.Stat(stagingPath); !os.IsNotExist(err) {
-		t.Error("staging dir should be removed after promotion")
-	}
-}
-
-func TestPromoteStagingToCache_ReplacesExisting(t *testing.T) {
-	cacheDir := t.TempDir()
-
-	// First promotion
-	staging1, err := CreateStagingDir(cacheDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	createTestFile(t, filepath.Join(staging1, "project-model", "project.yaml"), 10)
-	if err := PromoteStagingToCache(cacheDir, staging1); err != nil {
-		t.Fatal(err)
-	}
-
-	// Second promotion replaces the first
-	staging2, err := CreateStagingDir(cacheDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	createTestFile(t, filepath.Join(staging2, "project-model", "project.yaml"), 20)
-	if err := PromoteStagingToCache(cacheDir, staging2); err != nil {
-		t.Fatal(err)
-	}
-
-	// New content should be accessible (20 bytes from second promotion)
-	data, err := os.ReadFile(filepath.Join(cacheDir, "project-model", "project.yaml"))
-	if err != nil {
-		t.Fatalf("failed to read project.yaml: %v", err)
-	}
-	if len(data) != 20 {
-		t.Errorf("expected 20 bytes from second promotion, got %d", len(data))
-	}
-}
-
-func TestPromoteStagingToCache_CleansLeftoverFiles(t *testing.T) {
-	cacheDir := t.TempDir()
-
-	stagingPath, err := CreateStagingDir(cacheDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Compilation output
-	createTestFile(t, filepath.Join(stagingPath, "project-model", "project.yaml"), 10)
-	// Leftover file outside project-model/ (e.g. build log)
-	createTestFile(t, filepath.Join(stagingPath, "build.log"), 100)
-
-	err = PromoteStagingToCache(cacheDir, stagingPath)
-	if err != nil {
-		t.Fatalf("PromoteStagingToCache() error = %v", err)
-	}
-
-	// Staging dir should be fully removed despite leftover files
-	if _, err := os.Stat(stagingPath); !os.IsNotExist(err) {
-		t.Errorf("staging dir should be removed after promotion, but still exists")
-	}
-}
-
-func TestCleanupStagingDir(t *testing.T) {
-	cacheDir := t.TempDir()
-
-	stagingPath, err := CreateStagingDir(cacheDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	createTestFile(t, filepath.Join(stagingPath, "project-model", "file.txt"), 5)
-
-	CleanupStagingDir(stagingPath)
-
-	if _, err := os.Stat(stagingPath); !os.IsNotExist(err) {
-		t.Error("staging dir should be removed after cleanup")
-	}
-}
-
 func TestGetLogCacheDirPath(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -323,5 +180,70 @@ func TestGetProjectLogPath(t *testing.T) {
 	expected := filepath.Join(home, ".opentaint", "logs", slugHash)
 	if logPath != expected {
 		t.Errorf("got %q, want %q", logPath, expected)
+	}
+}
+
+func TestCompileCompleteMarkerPath(t *testing.T) {
+	cacheDir := "/home/user/.opentaint/cache/my-project-abc12345"
+	got := CompileCompleteMarkerPath(cacheDir)
+	expected := "/home/user/.opentaint/cache/my-project-abc12345/project-model/.compile-complete"
+	if got != expected {
+		t.Errorf("got %q, want %q", got, expected)
+	}
+}
+
+func TestIsCachedModelComplete(t *testing.T) {
+	t.Run("false for non-existent cache", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		if IsCachedModelComplete(cacheDir) {
+			t.Error("empty cache dir should not be complete")
+		}
+	})
+
+	t.Run("false when project.yaml missing", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		// Only the marker, no project.yaml.
+		createTestFile(t, CompileCompleteMarkerPath(cacheDir), 0)
+		if IsCachedModelComplete(cacheDir) {
+			t.Error("missing project.yaml should make cache incomplete")
+		}
+	})
+
+	t.Run("false when marker missing", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		// Only project.yaml, no marker.
+		createTestFile(t, filepath.Join(cacheDir, "project-model", "project.yaml"), 10)
+		if IsCachedModelComplete(cacheDir) {
+			t.Error("missing marker should make cache incomplete")
+		}
+	})
+
+	t.Run("true when both present", func(t *testing.T) {
+		cacheDir := t.TempDir()
+		createTestFile(t, filepath.Join(cacheDir, "project-model", "project.yaml"), 10)
+		createTestFile(t, CompileCompleteMarkerPath(cacheDir), 0)
+		if !IsCachedModelComplete(cacheDir) {
+			t.Error("both files present should mean complete")
+		}
+	})
+}
+
+func TestMarkCompileComplete(t *testing.T) {
+	cacheDir := t.TempDir()
+	// The caller always creates project-model/ before calling.
+	if err := os.MkdirAll(filepath.Join(cacheDir, "project-model"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := MarkCompileComplete(cacheDir); err != nil {
+		t.Fatalf("MarkCompileComplete() error = %v", err)
+	}
+
+	info, err := os.Stat(CompileCompleteMarkerPath(cacheDir))
+	if err != nil {
+		t.Fatalf("marker should exist: %v", err)
+	}
+	if info.Size() != 0 {
+		t.Errorf("marker should be empty, got size %d", info.Size())
 	}
 }

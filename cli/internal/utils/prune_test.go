@@ -93,6 +93,55 @@ func TestDeleteArtifacts(t *testing.T) {
 		}
 	})
 
+	t.Run("cleans up project dir with residual cache lock", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		cacheDir := filepath.Join(tmpDir, "cache")
+		projectDir := filepath.Join(cacheDir, "my-project-a1b2c3d4")
+		pmDir := filepath.Join(projectDir, "project-model")
+		createTestFile(t, filepath.Join(pmDir, "project.yaml"), 50)
+		// Simulate the .cache.lock file a prior scan left behind.
+		createTestFile(t, CacheLockPath(projectDir), 0)
+
+		artifacts := []StaleArtifact{{Path: pmDir, Size: 50, Kind: StaleKindModel}}
+		if err := DeleteArtifacts(artifacts); err != nil {
+			t.Fatalf("DeleteArtifacts() error = %v", err)
+		}
+
+		if _, err := os.Stat(projectDir); !os.IsNotExist(err) {
+			t.Errorf("expected project cache dir to be removed, got err=%v", err)
+		}
+		if _, err := os.Stat(cacheDir); !os.IsNotExist(err) {
+			t.Errorf("expected empty cache dir to be removed, got err=%v", err)
+		}
+	})
+
+	t.Run("preserves project dir when cache lock is held elsewhere", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		cacheDir := filepath.Join(tmpDir, "cache")
+		projectDir := filepath.Join(cacheDir, "my-project-a1b2c3d4")
+		pmDir := filepath.Join(projectDir, "project-model")
+		createTestFile(t, filepath.Join(pmDir, "project.yaml"), 50)
+
+		// Another holder grabbed the lock between scan and delete.
+		sharedLock, err := TryLockShared(CacheLockPath(projectDir))
+		if err != nil {
+			t.Fatalf("TryLockShared() error = %v", err)
+		}
+		defer sharedLock.Unlock()
+
+		artifacts := []StaleArtifact{{Path: pmDir, Size: 50, Kind: StaleKindModel}}
+		if err := DeleteArtifacts(artifacts); err != nil {
+			t.Fatalf("DeleteArtifacts() error = %v", err)
+		}
+
+		if _, err := os.Stat(pmDir); !os.IsNotExist(err) {
+			t.Errorf("expected project-model to be removed, got err=%v", err)
+		}
+		if _, err := os.Stat(projectDir); err != nil {
+			t.Errorf("expected project cache dir to remain (lock held), got err=%v", err)
+		}
+	})
+
 	t.Run("empty slice is no-op", func(t *testing.T) {
 		if err := DeleteArtifacts(nil); err != nil {
 			t.Fatalf("DeleteArtifacts(nil) error = %v", err)
@@ -475,28 +524,6 @@ func TestScanForStaleArtifacts_CachedModels(t *testing.T) {
 		}
 	})
 
-	t.Run("stale staging dir is prunable", func(t *testing.T) {
-		home := t.TempDir()
-		t.Setenv("HOME", home)
-		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
-		stagingDir := filepath.Join(projectDir, ".staging-12345-9999")
-		createTestFile(t, filepath.Join(stagingDir, "project-model", "project.yaml"), 50)
-
-		result, err := ScanForStaleArtifacts(PruneCategoriesDefault)
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		assertHasKind(t, result, StaleKindModel)
-		// Should target the staging dir specifically
-		for _, s := range result.Stale {
-			if s.Kind == StaleKindModel {
-				if s.Path != stagingDir {
-					t.Errorf("expected path %q, got %q", stagingDir, s.Path)
-				}
-			}
-		}
-	})
-
 	t.Run("empty models dir produces no stale", func(t *testing.T) {
 		home := t.TempDir()
 		t.Setenv("HOME", home)
@@ -624,11 +651,11 @@ func TestScanForStaleArtifacts_LockedModelSkipped(t *testing.T) {
 		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
 		createTestFile(t, filepath.Join(projectDir, "project-model", "project.yaml"), 50)
 
-		// Hold the compile lock
-		lockPath := CompileLockPath(projectDir)
-		lock, err := TryLock(lockPath, LockMeta{PID: 99999, Command: "compile"})
+		// Hold the cache lock exclusively (simulate in-progress compile).
+		lockPath := CacheLockPath(projectDir)
+		lock, err := TryLockExclusive(lockPath, LockMeta{PID: 99999, Command: "compile"})
 		if err != nil {
-			t.Fatalf("failed to acquire compile lock: %v", err)
+			t.Fatalf("failed to acquire cache lock: %v", err)
 		}
 		defer lock.Unlock()
 
@@ -642,6 +669,36 @@ func TestScanForStaleArtifacts_LockedModelSkipped(t *testing.T) {
 		}
 		if result.Skipped[0].Meta.PID != 99999 {
 			t.Errorf("expected PID 99999, got %d", result.Skipped[0].Meta.PID)
+		}
+	})
+
+	t.Run("shared-locked project is skipped with empty meta", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
+		createTestFile(t, filepath.Join(projectDir, "project-model", "project.yaml"), 50)
+
+		// Hold the cache lock as a reader (simulates an in-progress analyze).
+		lockPath := CacheLockPath(projectDir)
+		sharedLock, err := TryLockShared(lockPath)
+		if err != nil {
+			t.Fatalf("failed to acquire shared cache lock: %v", err)
+		}
+		defer sharedLock.Unlock()
+
+		result, err := ScanForStaleArtifacts(PruneCategoryModels)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assertNoKind(t, result, StaleKindModel)
+		if len(result.Skipped) != 1 {
+			t.Fatalf("expected 1 skipped, got %d", len(result.Skipped))
+		}
+		if result.Skipped[0].Meta.PID != 0 {
+			t.Errorf("expected empty meta for reader-held lock, got PID %d", result.Skipped[0].Meta.PID)
+		}
+		if result.Skipped[0].Meta.Command != "" {
+			t.Errorf("expected empty command for reader-held lock, got %q", result.Skipped[0].Meta.Command)
 		}
 	})
 }

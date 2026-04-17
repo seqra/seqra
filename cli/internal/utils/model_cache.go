@@ -111,43 +111,39 @@ func CachedProjectModelPath(cacheDir string) string {
 	return filepath.Join(cacheDir, projectModelDir)
 }
 
-// CreateStagingDir creates a staging directory inside cacheDir for isolated compilation.
-// Returns the path to the staging directory (e.g. <cacheDir>/.staging-XXXX/).
-func CreateStagingDir(cacheDir string) (string, error) {
-	stagingPath, err := os.MkdirTemp(cacheDir, ".staging-")
-	if err != nil {
-		return "", fmt.Errorf("failed to create staging directory: %w", err)
-	}
-	return stagingPath, nil
+// compileCompleteMarker is the sentinel file written as the final step of a
+// successful compile. Its presence proves the whole model is on disk.
+const compileCompleteMarker = ".compile-complete"
+
+// CompileCompleteMarkerPath returns the absolute path to the compile-complete
+// marker inside a cache directory.
+func CompileCompleteMarkerPath(cacheDir string) string {
+	return filepath.Join(cacheDir, projectModelDir, compileCompleteMarker)
 }
 
-// PromoteStagingToCache moves the compiled project-model/ from the staging
-// directory into the cache, replacing any existing cached model.
-// The caller must hold the compile lock to prevent concurrent promotions.
-func PromoteStagingToCache(cacheDir, stagingPath string) error {
-	srcPM := filepath.Join(stagingPath, projectModelDir)
-	destPM := filepath.Join(cacheDir, projectModelDir)
-
-	// Remove existing cached model if present
-	if err := os.RemoveAll(destPM); err != nil {
-		return fmt.Errorf("failed to remove old cached model: %w", err)
+// IsCachedModelComplete reports whether cacheDir holds a fully-written
+// project model. Both project.yaml and the compile-complete marker must
+// exist. A crashed mid-compile leaves the marker absent and returns false.
+func IsCachedModelComplete(cacheDir string) bool {
+	pm := CachedProjectModelPath(cacheDir)
+	if _, err := os.Stat(filepath.Join(pm, "project.yaml")); err != nil {
+		return false
 	}
-
-	// Move staging project-model/ to cache
-	if err := os.Rename(srcPM, destPM); err != nil {
-		return fmt.Errorf("failed to move staging model to cache: %w", err)
+	if _, err := os.Stat(CompileCompleteMarkerPath(cacheDir)); err != nil {
+		return false
 	}
+	return true
+}
 
-	// Remove the staging dir and any leftover files (e.g. build logs)
-	_ = os.RemoveAll(stagingPath)
-
+// MarkCompileComplete writes the compile-complete marker as the very last
+// step of a successful compile. The caller must have just populated
+// <cacheDir>/project-model/ and must hold the cache exclusive lock.
+func MarkCompileComplete(cacheDir string) error {
+	markerPath := CompileCompleteMarkerPath(cacheDir)
+	if err := os.WriteFile(markerPath, nil, 0o644); err != nil {
+		return fmt.Errorf("failed to write compile-complete marker: %w", err)
+	}
 	return nil
-}
-
-// CleanupStagingDir removes a staging directory and all its contents.
-// Used when compilation fails and the staging output is not needed.
-func CleanupStagingDir(stagingPath string) {
-	_ = os.RemoveAll(stagingPath)
 }
 
 // ProjectPathSlugHash returns a deterministic directory name for a project path.

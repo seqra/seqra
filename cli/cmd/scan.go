@@ -65,11 +65,10 @@ func (m ScanMode) String() string {
 // scanConfig holds the resolved paths and flags for a scan invocation.
 type scanConfig struct {
 	mode             ScanMode
-	absProjectModel  string // absolute path to the project model (cached or staging)
+	absProjectModel  string // absolute path to the project model (always the cache dir when projectCachePath is set)
 	projectCachePath string // cache dir for this project (empty for explicit model / dry-run)
-	stagingDir       string // staging dir path (empty when not compiling or dry-run)
 	needsCompilation bool   // true when compilation is needed before scanning
-	compileLock      *utils.FileLock
+	cacheLock        *utils.FileLock
 }
 
 // scanCmd represents the scan command
@@ -161,8 +160,8 @@ func scan(cmd *cobra.Command) {
 
 	cfg := resolveScanConfig(absUserProjectRoot)
 	defer func() {
-		if cfg.compileLock != nil {
-			cfg.compileLock.Unlock()
+		if cfg.cacheLock != nil {
+			cfg.cacheLock.Unlock()
 		}
 	}()
 
@@ -172,12 +171,6 @@ func scan(cmd *cobra.Command) {
 	}
 
 	absProjectModelPath := cfg.absProjectModel
-
-	cleanupStaging := func() {
-		if cfg.stagingDir != "" {
-			utils.CleanupStagingDir(cfg.stagingDir)
-		}
-	}
 
 	var absRuleSetPaths []RulesetType
 	var userRuleSetPath = Ruleset
@@ -278,31 +271,35 @@ func scan(cmd *cobra.Command) {
 			out.Fatalf("Failed to resolve Java for compilation: %s", err)
 		}
 
+		// Wipe any residue from a prior crashed compile before writing new output.
+		if cfg.projectCachePath != "" {
+			if err := os.RemoveAll(cfg.absProjectModel); err != nil {
+				out.Fatalf("Failed to prepare cache directory: %s", err)
+			}
+		}
+
 		if err := out.RunWithSpinner("Compiling project model", func() error {
 			return compile(absUserProjectRoot, cfg.absProjectModel, autobuilderJarPath, compileJavaRunner, Internal)
 		}); err != nil {
-			cleanupStaging()
+			if cfg.projectCachePath != "" {
+				_ = os.RemoveAll(cfg.absProjectModel)
+			}
 			out.Error("Native compile has failed: " + err.Error())
 			suggest("If native compilation fails due to missing required Java, set JAVA_HOME according to the project's requirements or try Docker-based scan:", utils.BuildScanCommandWithDocker(currentScanBuilder(""), absUserProjectRoot, absSarifReportPath, Ruleset))
 			os.Exit(1)
 		}
 		out.Blank()
 
-		// Promote staging to cache
+		// Mark the cache as valid, then downgrade to a reader so other scans
+		// can run the analyzer against the freshly-compiled model in parallel.
 		if cfg.projectCachePath != "" {
-			if err := utils.PromoteStagingToCache(cfg.projectCachePath, cfg.stagingDir); err != nil {
-				output.LogInfof("Failed to promote staging to cache: %v", err)
-			} else {
-				cfg.stagingDir = "" // staging dir no longer exists
-				absProjectModelPath = utils.CachedProjectModelPath(cfg.projectCachePath)
-				output.LogDebugf("Model cached at: %s", absProjectModelPath)
+			if err := utils.MarkCompileComplete(cfg.projectCachePath); err != nil {
+				_ = os.RemoveAll(cfg.absProjectModel)
+				out.Fatalf("Failed to mark model complete: %s", err)
 			}
-		}
-
-		// Recompute SARIF path against the promoted model path
-		if SarifReportPath == "" {
-			absSarifReportPath = utils.DefaultSarifReportPath(absProjectModelPath)
-			sarifReportName = filepath.Base(absSarifReportPath)
+			if err := cfg.cacheLock.Downgrade(); err != nil {
+				output.LogInfof("Cache lock downgrade failed, continuing under exclusive: %v", err)
+			}
 		}
 
 		printCompileSummary(absProjectModelPath)
@@ -358,7 +355,6 @@ func scan(cmd *cobra.Command) {
 	if err := out.RunWithSpinner("Analyzing project", func() error {
 		return scanProject(nativeBuilder, analyzerJavaRunner)
 	}); err != nil {
-		cleanupStaging()
 		out.Fatalf("Native scan has failed: %s", err)
 	}
 
@@ -413,42 +409,58 @@ func resolveScanConfig(absUserProjectRoot string) scanConfig {
 	}
 
 	cachedModelPath := utils.CachedProjectModelPath(projectCachePath)
-	if !Recompile {
-		if _, serr := os.Stat(filepath.Join(cachedModelPath, "project.yaml")); serr == nil {
-			output.LogDebugf("Reusing cached model at: %s", cachedModelPath)
-			return scanConfig{
-				mode:             Scan,
-				absProjectModel:  cachedModelPath,
-				projectCachePath: projectCachePath,
+	cacheLockPath := utils.CacheLockPath(projectCachePath)
+
+	// Fast path: if we're not forced to recompile and the cache looks
+	// complete on disk, take a shared lock and re-check under the lock.
+	if !Recompile && utils.IsCachedModelComplete(projectCachePath) {
+		sharedLock, sharedErr := utils.TryLockShared(cacheLockPath)
+		if sharedErr == nil {
+			if utils.IsCachedModelComplete(projectCachePath) {
+				output.LogDebugf("Reusing cached model at: %s", cachedModelPath)
+				return scanConfig{
+					mode:             Scan,
+					absProjectModel:  cachedModelPath,
+					projectCachePath: projectCachePath,
+					cacheLock:        sharedLock,
+				}
 			}
+			// Marker vanished between the outer check and the lock
+			// (writer raced ahead of us). Fall through to compile path.
+			sharedLock.Unlock()
+		} else if sharedErr != utils.ErrLocked {
+			out.Fatalf("Failed to acquire cache read lock: %s", sharedErr)
 		}
+		// sharedErr == ErrLocked means a writer holds the cache; we're about
+		// to ask for exclusive below, which will also fail with ErrLocked —
+		// ReadLockMeta below will surface which command is holding it.
 	}
 
-	compileLock, lockErr := utils.TryLock(
-		utils.CompileLockPath(projectCachePath),
+	cacheLock, lockErr := utils.TryLockExclusive(
+		cacheLockPath,
 		utils.LockMeta{PID: os.Getpid(), Command: "compile", Project: absUserProjectRoot},
 	)
 	if lockErr == utils.ErrLocked {
-		out.Error("Compilation already in progress for this project")
+		// Readers don't stamp metadata (empty LockMeta); writers do. Use that
+		// to distinguish an in-progress compile from an in-progress analyze.
+		if meta, _ := utils.ReadLockMeta(cacheLockPath); meta.PID != 0 {
+			out.Error("Compilation already in progress for this project")
+		} else {
+			out.Error("Another scan is currently analyzing this project")
+		}
 		suggest("To scan an existing model instead", utils.NewScanCommand("").WithProjectModel("<model-path>").Build())
 		os.Exit(1)
 	}
 	if lockErr != nil {
-		out.Fatalf("Failed to acquire compile lock: %s", lockErr)
-	}
-
-	stagingDir, serr := utils.CreateStagingDir(projectCachePath)
-	if serr != nil {
-		out.Fatalf("Failed to create staging directory: %s", serr)
+		out.Fatalf("Failed to acquire cache lock: %s", lockErr)
 	}
 
 	return scanConfig{
 		mode:             CompileAndScan,
-		absProjectModel:  filepath.Join(stagingDir, "project-model"),
+		absProjectModel:  cachedModelPath,
 		projectCachePath: projectCachePath,
-		stagingDir:       stagingDir,
 		needsCompilation: true,
-		compileLock:      compileLock,
+		cacheLock:        cacheLock,
 	}
 }
 
@@ -462,7 +474,7 @@ func printScanInfo(cmd *cobra.Command, cfg scanConfig, absSemgrepRuleLoadTracePa
 	if cfg.needsCompilation {
 		sb.Field("Project", absUserProjectRoot)
 		if cfg.projectCachePath != "" {
-			sb.Field("Project model", utils.CachedProjectModelPath(cfg.projectCachePath))
+			sb.Field("Project model", cfg.absProjectModel)
 		}
 	} else {
 		sb.Field("Project model", cfg.absProjectModel)

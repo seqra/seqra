@@ -101,12 +101,6 @@ This means another `opentaint scan` is currently compiling the same project. Wai
 opentaint scan --project-model /path/to/model
 ```
 
-If the previous process crashed and left a stale staging directory, prune cached models:
-
-```bash
-opentaint prune
-```
-
 ### Clearing the Model Cache
 
 To remove all cached project models (stored in `~/.opentaint/cache/`):

@@ -63,13 +63,13 @@ var pruneCmd = &cobra.Command{
 Identifies artifacts that are no longer needed:
 - Old versions of analyzer JARs, autobuilder JARs, and rules
 - Downloaded JDK/JRE versions that don't match the current version
-- Cached project models and staging directories
+- Cached project models
 
 Use category flags to prune selectively:
   --artifacts   Stale analyzer and autobuilder JARs
   --rules       Stale rules directories
   --jdk         Old JDK/JRE versions
-  --models      Cached project models and staging directories
+  --models      Cached project models
   --logs        Project log files
   --install     Install-tier lib and JRE artifacts (requires re-download)
 
@@ -86,7 +86,7 @@ With --all: prunes everything including logs and install-tier.`,
 		if err != nil {
 			out.Fatalf("Failed to resolve prune lock path: %s", err)
 		}
-		pruneLock, err := utils.TryLock(pruneLockPath, utils.LockMeta{
+		pruneLock, err := utils.TryLockExclusive(pruneLockPath, utils.LockMeta{
 			PID:     os.Getpid(),
 			Command: "prune",
 		})
@@ -158,7 +158,7 @@ func init() {
 	pruneCmd.Flags().BoolVar(&pruneArtifacts, "artifacts", false, "Prune stale analyzer and autobuilder JARs")
 	pruneCmd.Flags().BoolVar(&pruneRules, "rules", false, "Prune stale rules directories")
 	pruneCmd.Flags().BoolVar(&pruneJDK, "jdk", false, "Prune old JDK/JRE versions")
-	pruneCmd.Flags().BoolVar(&pruneModels, "models", false, "Prune cached project models and staging directories")
+	pruneCmd.Flags().BoolVar(&pruneModels, "models", false, "Prune cached project models")
 	pruneCmd.Flags().BoolVar(&pruneLogs, "logs", false, "Prune project log files")
 	pruneCmd.Flags().BoolVar(&pruneInstall, "install", false, "Prune install-tier lib and JRE artifacts (requires re-download on next run)")
 }
