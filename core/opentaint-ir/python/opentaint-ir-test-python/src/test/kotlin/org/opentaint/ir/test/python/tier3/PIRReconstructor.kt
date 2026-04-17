@@ -89,14 +89,12 @@ class PIRReconstructor {
         // assignments like: local_var = GlobalRef(nested_func_unique_name)
         val localVarCaptureMap = mutableMapOf<String, List<String>>()
         localVarCaptureMap.putAll(captureMap)  // funcName -> captures
-        for (block in func.cfg.blocks) {
-            for (inst in block.instructions) {
-                if (inst is PIRAssign && inst.expr is PIRGlobalRef && inst.target is PIRLocal) {
-                    val refName = (inst.expr as PIRGlobalRef).name
-                    val localName = (inst.target as PIRLocal).name
-                    if (refName in captureMap && localName != refName) {
-                        localVarCaptureMap[localName] = captureMap[refName]!!
-                    }
+        for (inst in func.instList) {
+            if (inst is PIRAssign && inst.expr is PIRGlobalRef && inst.target is PIRLocal) {
+                val refName = (inst.expr as PIRGlobalRef).name
+                val localName = (inst.target as PIRLocal).name
+                if (refName in captureMap && localName != refName) {
+                    localVarCaptureMap[localName] = captureMap[refName]!!
                 }
             }
         }
@@ -152,10 +150,8 @@ class PIRReconstructor {
 
         // Collect all locals used (except parameters, emitted function names, and captured vars)
         val locals = mutableSetOf<String>()
-        for (block in blocks) {
-            for (inst in block.instructions) {
-                collectLocals(inst, locals)
-            }
+        for (inst in func.instList) {
+            collectLocals(inst, locals)
         }
         locals.removeAll(paramNames)
         locals.removeAll(emittedFuncNames)
@@ -221,10 +217,8 @@ class PIRReconstructor {
      */
     private fun collectLambdaRefs(func: PIRFunction, moduleName: String = ""): Set<String> {
         val refs = mutableSetOf<String>()
-        for (block in func.cfg.blocks) {
-            for (inst in block.instructions) {
-                collectLambdaRefsFromInstruction(inst, refs, moduleName)
-            }
+        for (inst in func.instList) {
+            collectLambdaRefsFromInstruction(inst, refs, moduleName)
         }
         return refs
     }

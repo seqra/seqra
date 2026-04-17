@@ -72,11 +72,11 @@ def op_rshift(a: int, b: int) -> int:
     @BeforeAll fun setup() { cp = buildFromSource(SOURCE) }
     @AfterAll fun tearDown() { cp.close() }
     private fun binOps(name: String) = cp.findFunctionOrNull("__test__.$name")!!
-        .cfg.blocks.flatMap { it.instructions }.filterAssignOf<PIRBinaryExpr>()
+        .instList.filterAssignOf<PIRBinaryExpr>()
     private fun unaryOps(name: String) = cp.findFunctionOrNull("__test__.$name")!!
-        .cfg.blocks.flatMap { it.instructions }.filterAssignOf<PIRUnaryExpr>()
+        .instList.filterAssignOf<PIRUnaryExpr>()
     private fun compares(name: String) = cp.findFunctionOrNull("__test__.$name")!!
-        .cfg.blocks.flatMap { it.instructions }.filterAssignOf<PIRCompareExpr>()
+        .instList.filterAssignOf<PIRCompareExpr>()
 
     @Test fun `ADD operator`() = assertTrue(binOps("op_add").any { it.binaryExpr is PIRAddExpr })
     @Test fun `SUB operator`() = assertTrue(binOps("op_sub").any { it.binaryExpr is PIRSubExpr })

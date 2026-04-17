@@ -117,13 +117,13 @@ async def fn_async(x: int) -> int:
     }
 
     @Test fun `recursive call produces PIRCall`() {
-        val insts = func("fn_recursive").cfg.blocks.flatMap { it.instructions }
+        val insts = func("fn_recursive").instList
         val calls = insts.filterIsInstance<PIRCall>()
         assertTrue(calls.isNotEmpty(), "Expected PIRCall for recursive call")
     }
 
     @Test fun `keyword call has KEYWORD arg kind`() {
-        val insts = func("fn_caller").cfg.blocks.flatMap { it.instructions }
+        val insts = func("fn_caller").instList
         val calls = insts.filterIsInstance<PIRCall>()
         assertTrue(calls.any { call ->
             call.args.any { it.kind == PIRCallArgKind.KEYWORD }
@@ -160,7 +160,7 @@ async def fn_async(x: int) -> int:
     @Test fun `generator function`() {
         val f = func("fn_generator")
         assertTrue(f.isGenerator, "Expected isGenerator=true")
-        val insts = f.cfg.blocks.flatMap { it.instructions }
+        val insts = f.instList
         assertTrue(insts.any { it is PIRYield }, "Expected PIRYield in generator")
     }
 

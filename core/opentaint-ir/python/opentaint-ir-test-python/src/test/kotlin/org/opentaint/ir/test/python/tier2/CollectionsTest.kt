@@ -70,7 +70,7 @@ def col_attr_store(obj: object) -> None:
     @BeforeAll fun setup() { cp = buildFromSource(SOURCE) }
     @AfterAll fun tearDown() { cp.close() }
     private fun insts(name: String) = cp.findFunctionOrNull("__test__.$name")!!
-        .cfg.blocks.flatMap { it.instructions }
+        .instList
 
     @Test fun `list literal`() {
         val builds = insts("col_list").filterAssignOf<PIRListExpr>()

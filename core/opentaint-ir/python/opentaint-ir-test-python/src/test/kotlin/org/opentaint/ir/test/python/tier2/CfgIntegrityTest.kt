@@ -238,7 +238,7 @@ def ci_no_return():
     @Test
     fun `all functions have non-empty CFG blocks`() {
         for (func in allTestFunctions()) {
-            assertTrue(func.cfg.blocks.isNotEmpty(),
+            assertTrue(func.instList.isNotEmpty(),
                 "${func.qualifiedName} has empty CFG blocks list")
         }
     }
@@ -422,7 +422,7 @@ def ci_no_return():
     @Test
     fun `for loop has GetIter-NextIter and back edge`() {
         val f = func("ci_for_loop")
-        val allInsts = f.cfg.blocks.flatMap { it.instructions }
+        val allInsts = f.instList
         assertTrue(allInsts.any { it.isAssignOf<PIRIterExpr>() }, "ci_for_loop: no PIRGetIter")
         assertTrue(allInsts.any { it is PIRNextIter }, "ci_for_loop: no PIRNextIter")
 
@@ -437,7 +437,7 @@ def ci_no_return():
     @Test
     fun `nested loops have two iterator pairs`() {
         val f = func("ci_nested_loops")
-        val allInsts = f.cfg.blocks.flatMap { it.instructions }
+        val allInsts = f.instList
         val getIters = allInsts.filterAssignOf<PIRIterExpr>()
         val nextIters = allInsts.filterIsInstance<PIRNextIter>()
         assertTrue(getIters.size >= 2, "ci_nested_loops: expected >= 2 GetIter, got ${getIters.size}")
@@ -447,7 +447,7 @@ def ci_no_return():
     @Test
     fun `try-except has exception handler blocks`() {
         val f = func("ci_try_except")
-        val handlers = f.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRExceptHandler>()
+        val handlers = f.instList.filterIsInstance<PIRExceptHandler>()
         assertTrue(handlers.isNotEmpty(), "ci_try_except: no PIRExceptHandler found")
 
         // Some blocks should reference exception handlers
@@ -467,7 +467,7 @@ def ci_no_return():
     @Test
     fun `nested try produces multiple handler layers`() {
         val f = func("ci_nested_try")
-        val handlers = f.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRExceptHandler>()
+        val handlers = f.instList.filterIsInstance<PIRExceptHandler>()
         assertTrue(handlers.size >= 2,
             "ci_nested_try: expected >= 2 exception handlers, got ${handlers.size}")
     }
@@ -476,21 +476,21 @@ def ci_no_return():
     fun `while break exits loop`() {
         val f = func("ci_while_break")
         // Should have a Goto that exits the loop (break)
-        val gotos = f.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRGoto>()
+        val gotos = f.instList.filterIsInstance<PIRGoto>()
         assertTrue(gotos.isNotEmpty(), "ci_while_break: no PIRGoto for break")
     }
 
     @Test
     fun `for continue has goto back to header`() {
         val f = func("ci_for_continue")
-        val gotos = f.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRGoto>()
+        val gotos = f.instList.filterIsInstance<PIRGoto>()
         assertTrue(gotos.size >= 2, "ci_for_continue: expected >= 2 gotos (continue + loop back)")
     }
 
     @Test
     fun `if-elif-else has at least 3 branches`() {
         val f = func("ci_if_elif_else")
-        val branches = f.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRBranch>()
+        val branches = f.instList.filterIsInstance<PIRBranch>()
         assertTrue(branches.size >= 3,
             "ci_if_elif_else: expected >= 3 branches for 4-way if/elif/else, got ${branches.size}")
     }
@@ -498,7 +498,7 @@ def ci_no_return():
     @Test
     fun `with statement has enter and exit calls`() {
         val f = func("ci_with_stmt")
-        val loadAttrs = f.cfg.blocks.flatMap { it.instructions }.filterAssignOf<PIRAttrExpr>()
+        val loadAttrs = f.instList.filterAssignOf<PIRAttrExpr>()
         val enterCall = loadAttrs.any { it.attrExpr.attribute == "__enter__" }
         val exitCall = loadAttrs.any { it.attrExpr.attribute == "__exit__" }
         assertTrue(enterCall, "ci_with_stmt: no __enter__ load_attr found")
@@ -508,7 +508,7 @@ def ci_no_return():
     @Test
     fun `multiple returns produce multiple exit blocks`() {
         val f = func("ci_multiple_returns")
-        val returns = f.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRReturn>()
+        val returns = f.instList.filterIsInstance<PIRReturn>()
         assertTrue(returns.size >= 4,
             "ci_multiple_returns: expected >= 4 returns, got ${returns.size}")
     }
@@ -516,7 +516,7 @@ def ci_no_return():
     @Test
     fun `raise produces exit with PIRRaise`() {
         val f = func("ci_raise_exception")
-        val raises = f.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRRaise>()
+        val raises = f.instList.filterIsInstance<PIRRaise>()
         assertTrue(raises.isNotEmpty(), "ci_raise_exception: no PIRRaise found")
         assertTrue(raises.any { it.exception != null }, "ci_raise_exception: PIRRaise has no exception value")
     }
@@ -524,8 +524,8 @@ def ci_no_return():
     @Test
     fun `raise and return produce both exit types`() {
         val f = func("ci_raise_and_return")
-        val returns = f.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRReturn>()
-        val raises = f.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRRaise>()
+        val returns = f.instList.filterIsInstance<PIRReturn>()
+        val raises = f.instList.filterIsInstance<PIRRaise>()
         assertTrue(returns.isNotEmpty(), "ci_raise_and_return: no PIRReturn found")
         assertTrue(raises.isNotEmpty(), "ci_raise_and_return: no PIRRaise found")
     }
@@ -534,7 +534,7 @@ def ci_no_return():
     fun `deeply nested if produces many blocks`() {
         val f = func("ci_deeply_nested")
         // 4 levels of nesting = at least 4 branches
-        val branches = f.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRBranch>()
+        val branches = f.instList.filterIsInstance<PIRBranch>()
         assertTrue(branches.size >= 3,
             "ci_deeply_nested: expected >= 3 branches, got ${branches.size}")
     }
@@ -550,7 +550,7 @@ def ci_no_return():
     fun `no-return function still has implicit return`() {
         val f = func("ci_no_return")
         // Python functions implicitly return None at the end
-        val returns = f.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRReturn>()
+        val returns = f.instList.filterIsInstance<PIRReturn>()
         assertTrue(returns.isNotEmpty(),
             "ci_no_return: function without explicit return should still have implicit PIRReturn")
     }

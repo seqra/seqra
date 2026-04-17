@@ -64,7 +64,7 @@ def etr_base_class() -> str:
     @AfterAll fun tearDown() { cp.close() }
 
     private fun func(name: String) = cp.findFunctionOrNull("__test__.$name")!!
-    private fun insts(name: String) = func(name).cfg.blocks.flatMap { it.instructions }
+    private fun insts(name: String) = func(name).instList
     private fun handlers(name: String) = insts(name).filterIsInstance<PIRExceptHandler>()
 
     private fun hasExceptionType(handlerList: List<PIRExceptHandler>, typeName: String): Boolean =

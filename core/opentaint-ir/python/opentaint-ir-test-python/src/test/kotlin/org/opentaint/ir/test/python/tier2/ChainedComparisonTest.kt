@@ -69,7 +69,7 @@ def cc_single_compare(x: int) -> bool:
         cp.findFunctionOrNull("__test__.$name")
             ?: fail("Function $name not found")
 
-    private fun insts(name: String) = func(name).cfg.blocks.flatMap { it.instructions }
+    private fun insts(name: String) = func(name).instList
 
     // ─── Simple chained comparison ─────────────────────────
 
@@ -207,7 +207,7 @@ def cc_single_compare(x: int) -> bool:
         )
         for (name in funcNames) {
             val f = func(name)
-            assertTrue(f.cfg.blocks.isNotEmpty(),
+            assertTrue(f.instList.isNotEmpty(),
                 "Function $name should have non-empty CFG")
         }
     }

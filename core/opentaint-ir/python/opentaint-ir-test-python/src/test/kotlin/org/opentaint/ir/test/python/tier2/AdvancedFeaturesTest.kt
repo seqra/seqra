@@ -180,14 +180,14 @@ def af_isinstance_tuple(x: object) -> bool:
             ?: cp.findFunctionOrNull("__test__.AFDecorated.$name")
             ?: fail("Function $name not found")
 
-    private fun insts(name: String) = func(name).cfg.blocks.flatMap { it.instructions }
+    private fun insts(name: String) = func(name).instList
 
     // ─── Super expression tests ────────────────────────────
 
     @Test fun `child super call produces PIRCall`() {
         val child = cp.findFunctionOrNull("__test__.AFChild.method")
         assertNotNull(child, "AFChild.method not found")
-        val calls = child!!.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRCall>()
+        val calls = child!!.instList.filterIsInstance<PIRCall>()
         assertTrue(calls.isNotEmpty(), "Expected PIRCall for super().method()")
     }
 
@@ -277,7 +277,7 @@ def af_isinstance_tuple(x: object) -> bool:
     }
 
     @Test fun `dict splat override has BuildDict`() {
-        assertTrue(func("af_dict_splat_override").cfg.blocks.isNotEmpty())
+        assertTrue(func("af_dict_splat_override").instList.isNotEmpty())
     }
 
     // ─── Del tests ─────────────────────────────────────────
@@ -346,7 +346,7 @@ def af_isinstance_tuple(x: object) -> bool:
         )
         for (name in funcNames) {
             val f = func(name)
-            assertTrue(f.cfg.blocks.isNotEmpty(),
+            assertTrue(f.instList.isNotEmpty(),
                 "Function $name should have non-empty CFG")
         }
     }

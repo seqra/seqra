@@ -190,14 +190,14 @@ def cnf_conditional_nested(flag):
     }
 
     private fun allInstructions(func: PIRFunction): List<PIRInstruction> =
-        func.cfg.blocks.flatMap { it.instructions }
+        func.instList
 
     // ─── 1. Outer functions with nested defs have valid CFGs ───
 
     @Test
     fun `simple nested - outer has valid CFG`() {
         val f = findFunc("cnf_simple_nested")
-        assertTrue(f.cfg.blocks.isNotEmpty(), "cnf_simple_nested should have non-empty CFG")
+        assertTrue(f.instList.isNotEmpty(), "cnf_simple_nested should have non-empty CFG")
     }
 
     @Test
@@ -217,7 +217,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `closure read - outer has valid CFG`() {
         val f = findFunc("cnf_closure_read")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     @Test
@@ -232,7 +232,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `nonlocal write - outer has valid CFG`() {
         val f = findFunc("cnf_nonlocal_write")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     @Test
@@ -250,7 +250,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `nonlocal multiple - outer has valid CFG`() {
         val f = findFunc("cnf_nonlocal_multiple")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     // ─── 4. Class inside function doesn't crash ───────────────
@@ -258,7 +258,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `class inside func - outer has valid CFG`() {
         val f = findFunc("cnf_class_inside_func")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     @Test
@@ -278,7 +278,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `triple nested - outer has valid CFG`() {
         val f = findFunc("cnf_triple_nested")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     @Test
@@ -300,7 +300,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `lambda in func - outer has valid CFG`() {
         val f = findFunc("cnf_lambda_in_func")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     @Test
@@ -315,7 +315,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `lambda in nested - outer has valid CFG`() {
         val f = findFunc("cnf_lambda_in_nested")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     // ─── 8. Closure over loop variable ────────────────────────
@@ -323,7 +323,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `closure over loop - outer has valid CFG`() {
         val f = findFunc("cnf_closure_over_loop")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     @Test
@@ -338,7 +338,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `returns inner - outer has valid CFG with return`() {
         val f = findFunc("cnf_returns_inner")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
         assertTrue(allInstructions(f).any { it is PIRReturn })
     }
 
@@ -347,7 +347,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `two inner - outer has valid CFG`() {
         val f = findFunc("cnf_two_inner")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     @Test
@@ -361,7 +361,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `inner calls inner - outer has valid CFG`() {
         val f = findFunc("cnf_inner_calls_inner")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     // ─── 12. Global keyword ───────────────────────────────────
@@ -369,7 +369,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `global keyword - function has valid CFG`() {
         val f = findFunc("cnf_global_keyword")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     @Test
@@ -386,7 +386,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `deeply nested - outer has valid CFG`() {
         val f = findFunc("cnf_deeply_nested")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     @Test
@@ -401,7 +401,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `decorator inside - outer has valid CFG`() {
         val f = findFunc("cnf_decorator_inside")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     @Test
@@ -414,7 +414,7 @@ def cnf_conditional_nested(flag):
     @Test
     fun `conditional nested - outer has valid CFG`() {
         val f = findFunc("cnf_conditional_nested")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     @Test
@@ -448,7 +448,7 @@ def cnf_conditional_nested(flag):
         )
         for (name in names) {
             val f = findFunc(name)
-            assertTrue(f.cfg.blocks.isNotEmpty(), "$name should have non-empty CFG")
+            assertTrue(f.instList.isNotEmpty(), "$name should have non-empty CFG")
             assertTrue(allInstructions(f).any { it is PIRReturn },
                 "$name should have at least one PIRReturn")
         }
@@ -492,24 +492,24 @@ def cnf_conditional_nested(flag):
     @Test
     fun `extracted inner function has valid CFG with return`() {
         val inner = findNestedFunc("cnf_simple_nested.inner")!!
-        assertTrue(inner.cfg.blocks.isNotEmpty(), "inner should have non-empty CFG")
-        val rets = inner.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRReturn>()
+        assertTrue(inner.instList.isNotEmpty(), "inner should have non-empty CFG")
+        val rets = inner.instList.filterIsInstance<PIRReturn>()
         assertTrue(rets.isNotEmpty(), "inner should have PIRReturn")
     }
 
     @Test
     fun `extracted reader function has valid CFG with return`() {
         val reader = findNestedFunc("cnf_closure_read.reader")!!
-        assertTrue(reader.cfg.blocks.isNotEmpty(), "reader should have non-empty CFG")
-        val rets = reader.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRReturn>()
+        assertTrue(reader.instList.isNotEmpty(), "reader should have non-empty CFG")
+        val rets = reader.instList.filterIsInstance<PIRReturn>()
         assertTrue(rets.isNotEmpty(), "reader should have PIRReturn")
     }
 
     @Test
     fun `extracted factory function has valid CFG with return`() {
         val factory = findNestedFunc("cnf_returns_inner.factory")!!
-        assertTrue(factory.cfg.blocks.isNotEmpty(), "factory should have non-empty CFG")
-        val rets = factory.cfg.blocks.flatMap { it.instructions }.filterIsInstance<PIRReturn>()
+        assertTrue(factory.instList.isNotEmpty(), "factory should have non-empty CFG")
+        val rets = factory.instList.filterIsInstance<PIRReturn>()
         assertTrue(rets.isNotEmpty(), "factory should have PIRReturn")
     }
 
@@ -598,11 +598,11 @@ def cnf_conditional_nested(flag):
     fun `two inner from cnf_two_inner - both have valid CFGs with return`() {
         val addOne = findNestedFunc("cnf_two_inner.add_one")!!
         val double = findNestedFunc("cnf_two_inner.double")!!
-        assertTrue(addOne.cfg.blocks.isNotEmpty(), "add_one should have non-empty CFG")
-        assertTrue(double.cfg.blocks.isNotEmpty(), "double should have non-empty CFG")
-        assertTrue(addOne.cfg.blocks.flatMap { it.instructions }.any { it is PIRReturn },
+        assertTrue(addOne.instList.isNotEmpty(), "add_one should have non-empty CFG")
+        assertTrue(double.instList.isNotEmpty(), "double should have non-empty CFG")
+        assertTrue(addOne.instList.any { it is PIRReturn },
             "add_one should have PIRReturn")
-        assertTrue(double.cfg.blocks.flatMap { it.instructions }.any { it is PIRReturn },
+        assertTrue(double.instList.any { it is PIRReturn },
             "double should have PIRReturn")
     }
 

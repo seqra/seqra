@@ -87,7 +87,7 @@ def ftu_ignore_second(pairs: list) -> list:
         cp.findFunctionOrNull("__test__.$name")
             ?: fail("Function $name not found")
 
-    private fun insts(name: String) = func(name).cfg.blocks.flatMap { it.instructions }
+    private fun insts(name: String) = func(name).instList
 
     // ─── Pair unpacking ────────────────────────────────────
 
@@ -193,7 +193,7 @@ def ftu_ignore_second(pairs: list) -> list:
         )
         for (name in funcNames) {
             val f = func(name)
-            assertTrue(f.cfg.blocks.isNotEmpty(),
+            assertTrue(f.instList.isNotEmpty(),
                 "Function $name should have non-empty CFG")
         }
     }

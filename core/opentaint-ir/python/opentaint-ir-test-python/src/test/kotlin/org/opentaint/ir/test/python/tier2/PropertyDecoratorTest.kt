@@ -200,7 +200,7 @@ class Priority(IntEnum):
         val getter = cls.properties.find { it.name == "value" }?.getter
             ?: cls.methods.find { it.name == "value" && it.isProperty }
         assertNotNull(getter, "value getter not found")
-        val loadAttrs = getter!!.cfg.blocks.flatMap { it.instructions }
+        val loadAttrs = getter!!.instList
             .filterAssignOf<PIRAttrExpr>()
         assertTrue(loadAttrs.any { it.attrExpr.attribute == "_value" },
             "Getter body should load self._value")
@@ -221,8 +221,8 @@ class Priority(IntEnum):
         assertNotNull(valueProp, "value property not found")
         val setter = valueProp!!.setter
         assertNotNull(setter, "value setter not found")
-        assertTrue(setter!!.cfg.blocks.isNotEmpty(), "setter should have valid CFG")
-        val storeAttrs = setter.cfg.blocks.flatMap { it.instructions }
+        assertTrue(setter!!.instList.isNotEmpty(), "setter should have valid CFG")
+        val storeAttrs = setter.instList
             .filterIsInstance<PIRStoreAttr>()
         assertTrue(storeAttrs.any { it.attribute == "_value" },
             "Setter body should store to self._value")
@@ -271,14 +271,14 @@ class Priority(IntEnum):
         assertNotNull(m, "decorated_method not found")
         // mypy may or may not preserve custom decorators in the decorator list
         // At minimum the method should be callable and have a CFG
-        assertTrue(m!!.cfg.blocks.isNotEmpty(),
+        assertTrue(m!!.instList.isNotEmpty(),
             "decorated_method should have a valid CFG")
     }
 
     @Test fun `module-level decorated function is found`() {
         val f = cp.findFunctionOrNull("__test__.decorated_function")
         assertNotNull(f, "decorated_function should be found at module level")
-        assertTrue(f!!.cfg.blocks.isNotEmpty(),
+        assertTrue(f!!.instList.isNotEmpty(),
             "decorated_function should have a valid CFG")
     }
 
@@ -303,14 +303,14 @@ class Priority(IntEnum):
         val m = cls.methods.find { it.name == "stacked_method" }
         assertNotNull(m, "stacked_method should exist; " +
             "methods: ${cls.methods.map { it.name }}")
-        assertTrue(m!!.cfg.blocks.isNotEmpty(),
+        assertTrue(m!!.instList.isNotEmpty(),
             "stacked_method should have a valid CFG")
     }
 
     @Test fun `stacked decorators - module function exists with valid CFG`() {
         val f = cp.findFunctionOrNull("__test__.stacked_function")
         assertNotNull(f, "stacked_function should be found at module level")
-        assertTrue(f!!.cfg.blocks.isNotEmpty(),
+        assertTrue(f!!.instList.isNotEmpty(),
             "stacked_function should have a valid CFG")
     }
 
@@ -407,7 +407,7 @@ class Priority(IntEnum):
         val m = cls.methods.find { it.name == "describe" }
         assertNotNull(m, "Priority should have a 'describe' method; " +
             "methods: ${cls.methods.map { it.name }}")
-        assertTrue(m!!.cfg.blocks.isNotEmpty(),
+        assertTrue(m!!.instList.isNotEmpty(),
             "describe method should have a valid CFG")
     }
 }

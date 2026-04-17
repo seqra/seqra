@@ -260,19 +260,19 @@ def ec_all_param_kinds(a: int, b: int = 0, *args, c: int = 0, **kwargs) -> int:
             ?: cp.findFunctionOrNull("__test__.ECClass.$name")
             ?: fail("Function $name not found")
 
-    private fun insts(name: String) = func(name).cfg.blocks.flatMap { it.instructions }
+    private fun insts(name: String) = func(name).instList
 
     // ─── Empty/minimal function tests ──────────────────────
 
     @Test fun `empty pass function has CFG`() {
         val f = func("ec_empty_pass")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
         assertTrue(insts("ec_empty_pass").any { it is PIRReturn })
     }
 
     @Test fun `docstring-only function has CFG`() {
         val f = func("ec_only_docstring")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     @Test fun `return None has return instruction`() {
@@ -457,7 +457,7 @@ def ec_all_param_kinds(a: int, b: int = 0, *args, c: int = 0, **kwargs) -> int:
     @Test fun `instance method accesses self x`() {
         val method = cp.findFunctionOrNull("__test__.ECClass.instance_method")
         assertNotNull(method)
-        val loadAttrs = method!!.cfg.blocks.flatMap { it.instructions }
+        val loadAttrs = method!!.instList
             .filterAssignOf<PIRAttrExpr>()
         assertTrue(loadAttrs.any { it.attrExpr.attribute == "x" },
             "Expected load_attr for self.x")
@@ -467,14 +467,14 @@ def ec_all_param_kinds(a: int, b: int = 0, *args, c: int = 0, **kwargs) -> int:
 
     @Test fun `read global has CFG`() {
         val f = func("ec_read_global")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
         // Global reads may be lowered as LoadGlobal or direct value references
         assertTrue(insts("ec_read_global").any { it is PIRReturn })
     }
 
     @Test fun `write global has CFG`() {
         val f = func("ec_write_global")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
         // Global writes may be lowered as StoreGlobal or direct assigns
         val allInsts = insts("ec_write_global")
         assertTrue(allInsts.any { it is PIRAssign || it is PIRStoreGlobal },

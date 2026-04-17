@@ -71,7 +71,7 @@ def w_in_assert(x: int) -> int:
         cp.findFunctionOrNull("__test__.$name")
             ?: fail("Function $name not found")
 
-    private fun insts(name: String) = func(name).cfg.blocks.flatMap { it.instructions }
+    private fun insts(name: String) = func(name).instList
 
     // ─── Basic walrus tests ────────────────────────────────
 
@@ -129,7 +129,7 @@ def w_in_assert(x: int) -> int:
 
     @Test fun `walrus in list comp has function structure`() {
         val f = func("w_in_list_comp")
-        assertTrue(f.cfg.blocks.isNotEmpty(), "Expected CFG for walrus in comprehension")
+        assertTrue(f.instList.isNotEmpty(), "Expected CFG for walrus in comprehension")
         val allInsts = insts("w_in_list_comp")
         assertTrue(allInsts.isNotEmpty(), "Expected instructions in walrus comp function")
     }
@@ -169,11 +169,8 @@ def w_in_assert(x: int) -> int:
         )
         for (name in funcNames) {
             val f = func(name)
-            assertTrue(f.cfg.blocks.isNotEmpty(),
+            assertTrue(f.instList.isNotEmpty(),
                 "Function $name should have non-empty CFG")
-            val blocks = f.cfg.blocks
-            // Every CFG should have at least entry block
-            assertNotNull(f.cfg.entryBlock, "Function $name should have entry block")
         }
     }
 

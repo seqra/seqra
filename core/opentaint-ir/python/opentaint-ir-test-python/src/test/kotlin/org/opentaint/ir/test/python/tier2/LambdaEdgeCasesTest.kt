@@ -94,7 +94,7 @@ def lec_lambda_chain(x: int) -> int:
         cp.findFunctionOrNull("__test__.$name")
             ?: fail("Function $name not found")
 
-    private fun insts(name: String) = func(name).cfg.blocks.flatMap { it.instructions }
+    private fun insts(name: String) = func(name).instList
 
     // ─── Basic lambda tests ────────────────────────────────
 
@@ -132,7 +132,7 @@ def lec_lambda_chain(x: int) -> int:
         val lambdaFuncs = cp.modules.flatMap { it.functions }
             .filter { it.qualifiedName.contains("<lambda>") }
         val hasConditionalLambda = lambdaFuncs.any { f ->
-            f.cfg.blocks.flatMap { it.instructions }.any { it is PIRBranch }
+            f.instList.any { it is PIRBranch }
         }
         assertTrue(hasConditionalLambda,
             "Expected at least one lambda with PIRBranch (conditional)")
@@ -169,12 +169,12 @@ def lec_lambda_chain(x: int) -> int:
 
     @Test fun `lambda in comprehension has CFG`() {
         val f = func("lec_lambda_in_comp")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     @Test fun `comp in lambda has CFG`() {
         val f = func("lec_comp_in_lambda")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
         assertTrue(insts("lec_comp_in_lambda").any { it is PIRCall })
     }
 
@@ -228,12 +228,10 @@ def lec_lambda_chain(x: int) -> int:
         val lambdaFuncs = cp.modules.flatMap { it.functions }
             .filter { it.qualifiedName.contains("<lambda>") }
         for (f in lambdaFuncs) {
-            assertTrue(f.cfg.blocks.isNotEmpty(),
+            assertTrue(f.instList.isNotEmpty(),
                 "Lambda ${f.qualifiedName} should have non-empty CFG")
-            assertNotNull(f.cfg.entryBlock,
-                "Lambda ${f.qualifiedName} should have entry block")
             // Every lambda should have a return
-            val hasReturn = f.cfg.blocks.flatMap { it.instructions }.any { it is PIRReturn }
+            val hasReturn = f.instList.any { it is PIRReturn }
             assertTrue(hasReturn,
                 "Lambda ${f.qualifiedName} should have a return instruction")
         }
@@ -250,7 +248,7 @@ def lec_lambda_chain(x: int) -> int:
         )
         for (name in funcNames) {
             val f = func(name)
-            assertTrue(f.cfg.blocks.isNotEmpty(),
+            assertTrue(f.instList.isNotEmpty(),
                 "Function $name should have non-empty CFG")
         }
     }

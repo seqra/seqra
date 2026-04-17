@@ -179,7 +179,7 @@ def ecfc_except_as_in_loop(items: list) -> list:
         cp.findFunctionOrNull("__test__.$name")
             ?: fail("Function $name not found")
 
-    private fun insts(name: String) = func(name).cfg.blocks.flatMap { it.instructions }
+    private fun insts(name: String) = func(name).instList
 
     // ─── Break in try ──────────────────────────────────────
 
@@ -333,9 +333,8 @@ def ecfc_except_as_in_loop(items: list) -> list:
         )
         for (name in funcNames) {
             val f = func(name)
-            assertTrue(f.cfg.blocks.isNotEmpty(),
+            assertTrue(f.instList.isNotEmpty(),
                 "Function $name should have non-empty CFG")
-            assertNotNull(f.cfg.entryBlock, "Function $name should have entry block")
         }
     }
 

@@ -47,7 +47,7 @@ def gen_conditional(items: list):
     @BeforeAll fun setup() { cp = buildFromSource(SOURCE) }
     @AfterAll fun tearDown() { cp.close() }
     private fun func(name: String) = cp.findFunctionOrNull("__test__.$name")!!
-    private fun insts(name: String) = func(name).cfg.blocks.flatMap { it.instructions }
+    private fun insts(name: String) = func(name).instList
 
     @Test fun `simple generator has isGenerator`() {
         assertTrue(func("gen_simple").isGenerator)

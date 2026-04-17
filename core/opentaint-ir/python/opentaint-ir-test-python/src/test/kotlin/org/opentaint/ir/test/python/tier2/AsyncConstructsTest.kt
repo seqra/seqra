@@ -99,7 +99,7 @@ async def async_yield_multiple(items):
         throw AssertionError("Function not found: $name")
     }
 
-    private fun insts(name: String) = findFunc(name).cfg.blocks.flatMap { it.instructions }
+    private fun insts(name: String) = findFunc(name).instList
     private inline fun <reified T : PIRInstruction> allOf(name: String): List<T> =
         insts(name).filterIsInstance<T>()
 

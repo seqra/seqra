@@ -146,7 +146,7 @@ def ae_yield_from(inner):
     }
 
     private fun allInstructions(func: PIRFunction): List<PIRInstruction> =
-        func.cfg.blocks.flatMap { it.instructions }
+        func.instList
 
     private inline fun <reified T : PIRInstruction> instsOf(name: String): List<T> =
         allInstructions(findFunc(name)).filterIsInstance<T>()
@@ -168,7 +168,7 @@ def ae_yield_from(inner):
     fun `fstring multi produces PIRBuildString with multiple parts`() {
         val func = findFunc("ae_fstring_multi")
         val allInsts = allInstructions(func)
-        assertTrue(func.cfg.blocks.isNotEmpty(),
+        assertTrue(func.instList.isNotEmpty(),
             "Expected non-empty CFG for ae_fstring_multi")
         assertTrue(allInsts.isNotEmpty(),
             "Expected non-empty instructions for ae_fstring_multi (f-strings are lowered by mypy)")
@@ -180,7 +180,7 @@ def ae_yield_from(inner):
     fun `fstring format spec produces PIRBuildString or format call`() {
         val func = findFunc("ae_fstring_format_spec")
         val allInsts = allInstructions(func)
-        assertTrue(func.cfg.blocks.isNotEmpty(),
+        assertTrue(func.instList.isNotEmpty(),
             "Expected non-empty CFG for ae_fstring_format_spec")
         assertTrue(allInsts.isNotEmpty(),
             "Expected non-empty instructions for ae_fstring_format_spec (f-strings are lowered by mypy)")
@@ -291,7 +291,7 @@ def ae_yield_from(inner):
         // search all functions for the unpack instruction.
         val found = cp.modules.flatMap { m ->
             m.functions.flatMap { f ->
-                f.cfg.blocks.flatMap { it.instructions }
+                f.instList
             }
         }.any { it is PIRUnpack }
         assertTrue(found,
@@ -322,7 +322,7 @@ def ae_yield_from(inner):
     fun `assert fstring message contains PIRBuildString`() {
         val func = findFunc("ae_assert_fstring")
         val allInsts = allInstructions(func)
-        assertTrue(func.cfg.blocks.isNotEmpty(),
+        assertTrue(func.instList.isNotEmpty(),
             "Expected non-empty CFG for ae_assert_fstring")
         assertTrue(allInsts.isNotEmpty(),
             "Expected non-empty instructions for ae_assert_fstring (f-strings are lowered by mypy)")
@@ -401,7 +401,7 @@ def ae_yield_from(inner):
         )
         for (name in funcNames) {
             val f = findFunc(name)
-            assertTrue(f.cfg.blocks.isNotEmpty(),
+            assertTrue(f.instList.isNotEmpty(),
                 "Function $name should have non-empty CFG")
             val allInsts = allInstructions(f)
             assertTrue(allInsts.any { it is PIRReturn },

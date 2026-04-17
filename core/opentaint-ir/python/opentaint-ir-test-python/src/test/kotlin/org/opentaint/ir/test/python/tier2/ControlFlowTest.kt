@@ -107,7 +107,7 @@ def cf_short_or(a: int, b: int) -> bool:
     @AfterAll fun tearDown() { cp.close() }
 
     private fun func(name: String) = cp.findFunctionOrNull("__test__.$name")!!
-    private fun insts(name: String) = func(name).cfg.blocks.flatMap { it.instructions }
+    private fun insts(name: String) = func(name).instList
 
     @Test fun `if simple produces branch`() {
         assertTrue(insts("cf_if_simple").any { it is PIRBranch })

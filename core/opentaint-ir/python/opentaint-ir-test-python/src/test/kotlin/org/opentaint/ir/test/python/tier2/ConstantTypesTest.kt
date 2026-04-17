@@ -97,58 +97,58 @@ def ct_mixed_types():
         cp.findFunctionOrNull("__test__.$name")
             ?: fail("Function $name not found")
 
-    private fun insts(name: String) = func(name).cfg.blocks.flatMap { it.instructions }
+    private fun insts(name: String) = func(name).instList
 
     // ─── Complex number tests ──────────────────────────────
 
     @Test fun `complex literal has CFG`() {
         val f = func("ct_complex_literal")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
         assertTrue(insts("ct_complex_literal").any { it is PIRReturn })
     }
 
     @Test fun `pure imaginary has CFG`() {
         val f = func("ct_complex_pure")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     @Test fun `zero imaginary has CFG`() {
         val f = func("ct_complex_zero")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
     }
 
     // ─── Bytes tests ───────────────────────────────────────
 
     @Test fun `bytes literal has CFG`() {
         val f = func("ct_bytes_literal")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
         assertTrue(insts("ct_bytes_literal").any { it is PIRReturn })
     }
 
     @Test fun `empty bytes has CFG`() {
-        assertTrue(func("ct_bytes_empty").cfg.blocks.isNotEmpty())
+        assertTrue(func("ct_bytes_empty").instList.isNotEmpty())
     }
 
     @Test fun `bytes with escapes has CFG`() {
-        assertTrue(func("ct_bytes_escape").cfg.blocks.isNotEmpty())
+        assertTrue(func("ct_bytes_escape").instList.isNotEmpty())
     }
 
     // ─── Ellipsis tests ────────────────────────────────────
 
     @Test fun `ellipsis literal has CFG`() {
         val f = func("ct_ellipsis")
-        assertTrue(f.cfg.blocks.isNotEmpty())
+        assertTrue(f.instList.isNotEmpty())
         assertTrue(insts("ct_ellipsis").any { it is PIRReturn })
     }
 
     // ─── Large int tests ───────────────────────────────────
 
     @Test fun `large int has CFG`() {
-        assertTrue(func("ct_large_int").cfg.blocks.isNotEmpty())
+        assertTrue(func("ct_large_int").instList.isNotEmpty())
     }
 
     @Test fun `negative large int has CFG`() {
-        assertTrue(func("ct_negative_large_int").cfg.blocks.isNotEmpty())
+        assertTrue(func("ct_negative_large_int").instList.isNotEmpty())
     }
 
     // ─── Basic type tests ──────────────────────────────────
@@ -172,15 +172,15 @@ def ct_mixed_types():
     // ─── String tests ──────────────────────────────────────
 
     @Test fun `empty string has CFG`() {
-        assertTrue(func("ct_string_empty").cfg.blocks.isNotEmpty())
+        assertTrue(func("ct_string_empty").instList.isNotEmpty())
     }
 
     @Test fun `unicode string has CFG`() {
-        assertTrue(func("ct_string_unicode").cfg.blocks.isNotEmpty())
+        assertTrue(func("ct_string_unicode").instList.isNotEmpty())
     }
 
     @Test fun `multiline string has CFG`() {
-        assertTrue(func("ct_multiline").cfg.blocks.isNotEmpty())
+        assertTrue(func("ct_multiline").instList.isNotEmpty())
     }
 
     // ─── Collection literal tests ──────────────────────────
@@ -237,9 +237,8 @@ def ct_mixed_types():
         )
         for (name in funcNames) {
             val f = func(name)
-            assertTrue(f.cfg.blocks.isNotEmpty(),
+            assertTrue(f.instList.isNotEmpty(),
                 "Function $name should have non-empty CFG")
-            assertNotNull(f.cfg.entryBlock, "Function $name should have entry block")
         }
     }
 }
