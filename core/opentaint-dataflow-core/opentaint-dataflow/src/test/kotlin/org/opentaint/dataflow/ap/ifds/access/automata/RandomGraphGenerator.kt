@@ -1,6 +1,8 @@
 package org.opentaint.dataflow.ap.ifds.access.automata
 
+import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
+import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import kotlin.random.Random
 
@@ -13,7 +15,9 @@ class RandomGraphGenerator(
 
     init {
         with(manager) {
+            repeat(accessorsSize) { TaintMarkAccessor("$it").idx }
             repeat(accessorsSize) { FieldAccessor("", "$it", "").idx }
+            repeat(accessorsSize) { ClassStaticAccessor("$it").idx }
         }
     }
 
