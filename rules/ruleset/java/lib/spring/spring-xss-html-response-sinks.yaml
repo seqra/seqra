@@ -32,6 +32,15 @@ rules:
       #   - explicit non-HTML produces attribute on the handler annotation
       #     via pattern-not-inside with the concrete annotation name.
       #
+      # MediaType.X_VALUE vs literal: Java compiles `produces =
+      # MediaType.APPLICATION_JSON_VALUE` into the same bytecode annotation
+      # string value as `produces = "application/json"` (compile-time
+      # constants are inlined), so the string-literal pattern-not-inside
+      # below covers the MediaType constant form as well. (opentaint's
+      # pattern compiler does not accept field-access expressions as
+      # annotation-argument patterns, so an explicit constant-form
+      # pattern-not-inside cannot be authored here.)
+      #
       # Limitation: opentaint cannot currently discriminate ResponseEntity
       # builder chain content types (.contentType(MediaType.APPLICATION_JSON).body(...),
       # .header("Content-Type", "application/json").body(...), or HttpHeaders
@@ -134,6 +143,103 @@ rules:
               $RT $M(...) { ... }
           - pattern-not-inside: |
               @RequestMapping(..., produces = "application/octet-stream", ...)
+              $RT $M(...) { ... }
+          # application/xml (also covers MediaType.APPLICATION_XML_VALUE via
+          # compile-time constant inlining).
+          - pattern-not-inside: |
+              @GetMapping(..., produces = "application/xml", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PostMapping(..., produces = "application/xml", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PutMapping(..., produces = "application/xml", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PatchMapping(..., produces = "application/xml", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @DeleteMapping(..., produces = "application/xml", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @RequestMapping(..., produces = "application/xml", ...)
+              $RT $M(...) { ... }
+          # text/xml (also covers MediaType.TEXT_XML_VALUE via inlining).
+          - pattern-not-inside: |
+              @GetMapping(..., produces = "text/xml", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PostMapping(..., produces = "text/xml", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PutMapping(..., produces = "text/xml", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PatchMapping(..., produces = "text/xml", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @DeleteMapping(..., produces = "text/xml", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @RequestMapping(..., produces = "text/xml", ...)
+              $RT $M(...) { ... }
+          # image/png — string literal (image/svg+xml deliberately NOT excluded;
+          # SVG can host inline <script> and IS XSS-exploitable)
+          - pattern-not-inside: |
+              @GetMapping(..., produces = "image/png", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PostMapping(..., produces = "image/png", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PutMapping(..., produces = "image/png", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PatchMapping(..., produces = "image/png", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @DeleteMapping(..., produces = "image/png", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @RequestMapping(..., produces = "image/png", ...)
+              $RT $M(...) { ... }
+          # image/jpeg — string literal
+          - pattern-not-inside: |
+              @GetMapping(..., produces = "image/jpeg", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PostMapping(..., produces = "image/jpeg", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PutMapping(..., produces = "image/jpeg", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PatchMapping(..., produces = "image/jpeg", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @DeleteMapping(..., produces = "image/jpeg", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @RequestMapping(..., produces = "image/jpeg", ...)
+              $RT $M(...) { ... }
+          # image/gif — string literal
+          - pattern-not-inside: |
+              @GetMapping(..., produces = "image/gif", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PostMapping(..., produces = "image/gif", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PutMapping(..., produces = "image/gif", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @PatchMapping(..., produces = "image/gif", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @DeleteMapping(..., produces = "image/gif", ...)
+              $RT $M(...) { ... }
+          - pattern-not-inside: |
+              @RequestMapping(..., produces = "image/gif", ...)
               $RT $M(...) { ... }
           - pattern: return $UNTRUSTED;
           - focus-metavariable: $UNTRUSTED
