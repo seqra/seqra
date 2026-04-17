@@ -18,17 +18,15 @@ scan:
   timeout: 15m
   max_memory: 16G
 
-# Logging
-log:
-  verbosity: info  # info, debug
-  color: auto      # auto, always, never
+# Output (terminal-side controls)
+output:
+  debug: false   # true streams JAR output to stderr and shows debug-only fields
+  color: auto    # auto, always, never
+  quiet: false   # suppress spinners, progress bars, JAR streaming
 
 # Java runtime settings
 java:
   version: 23
-
-# Suppress interactive output
-quiet: false
 ```
 
 ### Available Options
@@ -37,10 +35,14 @@ quiet: false
 |---------|-------------|---------|
 | `scan.timeout` | Analysis timeout duration | `15m` |
 | `scan.max_memory` | Maximum memory for analyzer (e.g., `8G`, `1024m`) | `8G` |
-| `log.verbosity` | Verbosity level: `info`, `debug` | `info` |
-| `log.color` | Color mode: `auto`, `always`, `never` | `auto` |
+| `output.debug` | Enable debug output (stream JAR subprocess output, show debug fields) | `false` |
+| `output.color` | Color mode: `auto`, `always`, `never` | `auto` |
+| `output.quiet` | Suppress interactive console output (spinners, progress bars, JAR streaming) | `false` |
 | `java.version` | Java version for running the analyzer | `23` |
-| `quiet` | Suppress interactive console output | `false` |
+
+The per-run log file (`~/.opentaint/logs/<project>/<timestamp>.log`) always
+captures full JAR subprocess output regardless of these flags. They control
+only what is shown on the terminal.
 
 ## Environment Variables
 
@@ -49,8 +51,9 @@ All configuration options can also be set via environment variables with the `OP
 ```bash
 export OPENTAINT_SCAN_TIMEOUT=30m
 export OPENTAINT_SCAN_MAX_MEMORY=16G
-export OPENTAINT_LOG_VERBOSITY=debug
-export OPENTAINT_LOG_COLOR=always
+export OPENTAINT_OUTPUT_DEBUG=true
+export OPENTAINT_OUTPUT_COLOR=always
+export OPENTAINT_OUTPUT_QUIET=false
 export OPENTAINT_JAVA_VERSION=23
 
 opentaint scan /path/to/project

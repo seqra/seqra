@@ -245,26 +245,26 @@ func TestFileLinkNonTTY(t *testing.T) {
 	}
 }
 
-func TestIsInteractiveUIDisabledOnDebugVerbosity(t *testing.T) {
+func TestIsInteractiveUIDisabledOnDebug(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewWithWriter(&buf)
 	p.Configure("never", false)
 	p.isTTY = true
-	p.SetVerbosity("debug")
+	p.SetDebug(true)
 
 	if p.IsInteractiveUI() {
-		t.Fatal("expected interactive UI to be disabled on debug verbosity")
+		t.Fatal("expected interactive UI to be disabled when debug is enabled")
 	}
 }
 
-func TestIsInteractiveUIEnabledOnInfoVerbosity(t *testing.T) {
+func TestIsInteractiveUIEnabledByDefault(t *testing.T) {
 	var buf bytes.Buffer
 	p := NewWithWriter(&buf)
 	p.Configure("never", false)
 	p.isTTY = true
-	p.SetVerbosity("info")
+	p.SetDebug(false)
 
 	if !p.IsInteractiveUI() {
-		t.Fatal("expected interactive UI to be enabled on info verbosity")
+		t.Fatal("expected interactive UI to be enabled in default (non-debug) mode")
 	}
 }

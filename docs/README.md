@@ -146,9 +146,9 @@ For detailed usage, see [Usage Guide](usage.md).
 scan:
   timeout: 15m
   max_memory: 16G
-log:
-  verbosity: info  # info, debug
-  color: auto      # auto, always, never
+output:
+  debug: false   # true to enable debug output
+  color: auto    # auto, always, never
 ```
 
 Or use environment variables: `OPENTAINT_SCAN_TIMEOUT=30m`, `OPENTAINT_SCAN_MAX_MEMORY=16G`
@@ -173,7 +173,7 @@ For detailed configuration, see [Configuration Guide](configuration.md).
 | Timeout | Use `--timeout 20m` |
 | Re-download deps | `opentaint prune --yes && opentaint pull` |
 | Stale cached model | Use `--recompile` to force recompilation |
-| Debug | Use `--verbosity debug` |
+| Debug | Use `--debug` |
 
 For detailed troubleshooting, see [Troubleshooting Guide](troubleshooting.md).
 

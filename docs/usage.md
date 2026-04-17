@@ -165,8 +165,8 @@ These options apply to all commands:
 
 - `--config string` — Path to configuration file
 - `--java-version int` — Java version for analyzer (default: 21)
-- `--quiet` — Suppress interactive output
-- `--verbosity string` — Verbosity level (`info`, `debug`)
+- `--quiet` / `-q` — Suppress interactive output (spinners, progress bars, JAR streaming)
+- `--debug` / `-d` — Enable debug output (stream JAR subprocess output, show debug fields)
 - `--color string` — Color mode (`auto`, `always`, `never`); defaults to `auto` (detects terminal)
 
 For persistent configuration using files or environment variables, see the [Configuration](configuration.md) documentation.
