@@ -99,20 +99,10 @@ func (f *blockTextFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 }
 
 // SetUpLogs configures logging using the global SwitchableWriter (io.Discard by default).
-// Console output is no longer handled by logrus — it's handled by the output.Printer.
-// Logrus is used exclusively for structured file logging.
-func SetUpLogs(level string) error {
-	normalizedLevel := strings.ToLower(strings.TrimSpace(level))
-	var fileLevel logrus.Level
-	switch normalizedLevel {
-	case "", "info":
-		fileLevel = logrus.InfoLevel
-	case "debug":
-		fileLevel = logrus.DebugLevel
-	default:
-		return fmt.Errorf("invalid verbosity %q: expected one of info, debug", level)
-	}
-
+// The file hook always captures Debug-and-above entries so the per-run log file is
+// the reliable record of analyzer/autobuilder output regardless of console verbosity.
+// Console output is handled by the output.Printer, not by logrus.
+func SetUpLogs() error {
 	fileFormatter := &blockTextFormatter{
 		TimestampFormat: "2006-01-02 15:04:05",
 		Indent:          "    ",
@@ -124,7 +114,7 @@ func SetUpLogs(level string) error {
 	logrus.AddHook(&writerHook{
 		Writer:    LogWriter(),
 		Formatter: fileFormatter,
-		LogLevels: allowedLevels(fileLevel),
+		LogLevels: allowedLevels(logrus.DebugLevel),
 	})
 
 	logrus.AddHook(&writerHook{

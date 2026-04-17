@@ -40,7 +40,7 @@ var rootCmd = &cobra.Command{
 		}
 		globals.Config.Log.Verbosity = verbosity
 
-		if err := log.SetUpLogs(globals.Config.Log.Verbosity); err != nil {
+		if err := log.SetUpLogs(); err != nil {
 			return fmt.Errorf("failed to set up logging: %w", err)
 		}
 
