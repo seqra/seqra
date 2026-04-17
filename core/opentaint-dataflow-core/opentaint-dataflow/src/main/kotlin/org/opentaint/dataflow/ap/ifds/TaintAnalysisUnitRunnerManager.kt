@@ -21,7 +21,7 @@ import org.opentaint.dataflow.ap.ifds.access.tree.TreeApManager
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
-import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisContext
+import org.opentaint.dataflow.ap.ifds.taint.CommonTaintAnalysisContext
 import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisUnitStorage
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
@@ -32,7 +32,6 @@ import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityChecker
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityChecker.VerifiedVulnerability
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityChecker.VulnerabilityVerificationStatus
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
-import org.opentaint.dataflow.configuration.CommonTaintRulesProvider
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
@@ -56,7 +55,6 @@ class TaintAnalysisUnitRunnerManager(
     private val analysisManager: TaintAnalysisManager,
     val graph: ApplicationGraph<CommonMethod, CommonInst>,
     override val unitResolver: UnitResolver<CommonMethod>,
-    private val taintConfig: CommonTaintRulesProvider,
     private val summarySerializationContext: SummarySerializationContext,
     val apManager: ApManager,
     private val taintRulesStatsSamplingPeriod: Int?,
@@ -352,7 +350,6 @@ class TaintAnalysisUnitRunnerManager(
     private class TaintAnalysisManagerWithContext(
         private val analysisManager: TaintAnalysisManager,
         private val sinkTracker: TaintSinkTracker,
-        private val taintConfig: CommonTaintRulesProvider,
     ) : TaintAnalysisManager by analysisManager {
         override fun getMethodAnalysisContext(
             methodEntryPoint: MethodEntryPoint,
@@ -361,7 +358,7 @@ class TaintAnalysisUnitRunnerManager(
             contextForEmptyMethod: MethodAnalysisContext?
         ): MethodAnalysisContext = analysisManager.getMethodAnalysisContext(
             methodEntryPoint, graph, callResolver,
-            TaintAnalysisContext(taintConfig, sinkTracker),
+            CommonTaintAnalysisContext(sinkTracker),
             contextForEmptyMethod
         )
     }
@@ -371,7 +368,7 @@ class TaintAnalysisUnitRunnerManager(
             TaintAnalysisUnitStorage(apManager, analysisManager)
         }
         val sinkTracker = TaintSinkTracker(storage)
-        val taintAnalyzer = TaintAnalysisManagerWithContext(analysisManager, sinkTracker, taintConfig)
+        val taintAnalyzer = TaintAnalysisManagerWithContext(analysisManager, sinkTracker)
 
         val runner = TaintAnalysisUnitRunner(
             manager = this,
