@@ -80,19 +80,28 @@ func TryLockShared(lockPath string) (*FileLock, error) {
 // Downgrade atomically converts a held LOCK_EX to LOCK_SH on the same fd and
 // truncates the metadata file. After Downgrade the handle may still be
 // released by Unlock. Calling Downgrade on a shared handle returns an error.
+//
+// Metadata is truncated *before* the kernel mode transition so that any
+// concurrent prune that fails to acquire exclusive can never see stale
+// writer PID under a shared lock. If the truncate fails, the kernel mode
+// is not touched and the handle remains exclusively held — the caller can
+// continue as if Downgrade were never called.
 func (l *FileLock) Downgrade() error {
 	if !l.exclusive {
 		return errors.New("Downgrade called on non-exclusive lock")
 	}
+	if err := os.Truncate(l.path, 0); err != nil {
+		return fmt.Errorf("failed to clear lock metadata on downgrade: %w", err)
+	}
 	// gofrs/flock.RLock on a held exclusive fd issues unix.Flock(fd, LOCK_SH)
-	// on the same descriptor, which is an atomic downgrade on POSIX.
+	// on the same descriptor, which is an atomic downgrade on POSIX. After
+	// this call, gofrs internally has both its f.l and f.r fields set to
+	// true; that is harmless because its Unlock path issues LOCK_UN whenever
+	// either flag is set.
 	if err := l.flock.RLock(); err != nil {
 		return fmt.Errorf("failed to downgrade lock: %w", err)
 	}
 	l.exclusive = false
-	if err := os.Truncate(l.path, 0); err != nil {
-		return fmt.Errorf("failed to clear lock metadata on downgrade: %w", err)
-	}
 	return nil
 }
 

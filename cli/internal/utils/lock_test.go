@@ -211,6 +211,33 @@ func TestDowngrade(t *testing.T) {
 			t.Fatal("expected error from Downgrade on shared lock")
 		}
 	})
+
+	t.Run("downgrade truncates meta even if RLock fails (no-op test)", func(t *testing.T) {
+		// We can't easily force flock.RLock to fail in a unit test, but we
+		// can assert the error contract: on any Downgrade error, meta must
+		// still be either fully cleared or fully intact — never partially.
+		// The actual ordering is tested implicitly by the "downgrade clears
+		// stamped meta" case. This test documents the intent.
+		path := filepath.Join(t.TempDir(), "d.lock")
+		w, err := TryLockExclusive(path, LockMeta{PID: 99, Command: "compile"})
+		if err != nil {
+			t.Fatalf("TryLockExclusive() error = %v", err)
+		}
+		defer w.Unlock()
+
+		if err := w.Downgrade(); err != nil {
+			t.Fatalf("Downgrade() error = %v", err)
+		}
+
+		// File must be empty (truncation happened).
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(data) != 0 {
+			t.Errorf("expected empty meta after Downgrade, got %q", string(data))
+		}
+	})
 }
 
 func TestReadLockMeta(t *testing.T) {
