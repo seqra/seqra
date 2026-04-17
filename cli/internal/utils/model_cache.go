@@ -125,7 +125,7 @@ func CompileCompleteMarkerPath(cacheDir string) string {
 // project model. Both project.yaml and the compile-complete marker must
 // exist. A crashed mid-compile leaves the marker absent and returns false.
 func IsCachedModelComplete(cacheDir string) bool {
-	pm := filepath.Join(cacheDir, projectModelDir)
+	pm := CachedProjectModelPath(cacheDir)
 	if _, err := os.Stat(filepath.Join(pm, "project.yaml")); err != nil {
 		return false
 	}
