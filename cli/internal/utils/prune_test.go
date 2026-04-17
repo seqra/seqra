@@ -622,6 +622,36 @@ func TestScanForStaleArtifacts_LockedModelSkipped(t *testing.T) {
 			t.Errorf("expected PID 99999, got %d", result.Skipped[0].Meta.PID)
 		}
 	})
+
+	t.Run("shared-locked project is skipped with empty meta", func(t *testing.T) {
+		home := t.TempDir()
+		t.Setenv("HOME", home)
+		projectDir := filepath.Join(home, ".opentaint", "cache", "my-project-a1b2c3d4")
+		createTestFile(t, filepath.Join(projectDir, "project-model", "project.yaml"), 50)
+
+		// Hold the cache lock as a reader (simulates an in-progress analyze).
+		lockPath := CacheLockPath(projectDir)
+		sharedLock, err := TryLockShared(lockPath)
+		if err != nil {
+			t.Fatalf("failed to acquire shared cache lock: %v", err)
+		}
+		defer sharedLock.Unlock()
+
+		result, err := ScanForStaleArtifacts(PruneCategoryModels)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		assertNoKind(t, result, StaleKindModel)
+		if len(result.Skipped) != 1 {
+			t.Fatalf("expected 1 skipped, got %d", len(result.Skipped))
+		}
+		if result.Skipped[0].Meta.PID != 0 {
+			t.Errorf("expected empty meta for reader-held lock, got PID %d", result.Skipped[0].Meta.PID)
+		}
+		if result.Skipped[0].Meta.Command != "" {
+			t.Errorf("expected empty command for reader-held lock, got %q", result.Skipped[0].Meta.Command)
+		}
+	})
 }
 
 func TestPruneResult_AddSkipped(t *testing.T) {
