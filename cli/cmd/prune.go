@@ -63,13 +63,13 @@ var pruneCmd = &cobra.Command{
 Identifies artifacts that are no longer needed:
 - Old versions of analyzer JARs, autobuilder JARs, and rules
 - Downloaded JDK/JRE versions that don't match the current version
-- Cached project models and staging directories
+- Cached project models
 
 Use category flags to prune selectively:
   --artifacts   Stale analyzer and autobuilder JARs
   --rules       Stale rules directories
   --jdk         Old JDK/JRE versions
-  --models      Cached project models and staging directories
+  --models      Cached project models
   --logs        Project log files
   --install     Install-tier lib and JRE artifacts (requires re-download)
 
