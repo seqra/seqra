@@ -294,17 +294,13 @@ func scan(cmd *cobra.Command) {
 		// can run the analyzer against the freshly-compiled model in parallel.
 		if cfg.projectCachePath != "" {
 			if err := utils.MarkCompileComplete(cfg.projectCachePath); err != nil {
+				_ = os.RemoveAll(cfg.absProjectModel)
 				out.Fatalf("Failed to mark model complete: %s", err)
 			}
 			if err := cfg.cacheLock.Downgrade(); err != nil {
-				output.LogDebugf("Cache lock downgrade failed, continuing under exclusive: %v", err)
+				output.LogInfof("Cache lock downgrade failed, continuing under exclusive: %v", err)
 			}
 		}
-
-		// absProjectModelPath is already cfg.absProjectModel (= cached model
-		// path in the non-dry-run flow), so there is nothing to recompute —
-		// the pre-compile absSarifReportPath already points at the final
-		// cache location.
 
 		printCompileSummary(absProjectModelPath)
 	}
@@ -472,7 +468,7 @@ func printScanInfo(cmd *cobra.Command, cfg scanConfig, absSemgrepRuleLoadTracePa
 	if cfg.needsCompilation {
 		sb.Field("Project", absUserProjectRoot)
 		if cfg.projectCachePath != "" {
-			sb.Field("Project model", utils.CachedProjectModelPath(cfg.projectCachePath))
+			sb.Field("Project model", cfg.absProjectModel)
 		}
 	} else {
 		sb.Field("Project model", cfg.absProjectModel)
