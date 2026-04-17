@@ -25,10 +25,8 @@ class PIRMethodAnalysisContext(
     init {
         val names = linkedSetOf<String>()
         val collector = LocalNameCollector(names)
-        for (block in method.cfg.blocks) {
-            for (inst in block.instructions) {
-                inst.accept(collector)
-            }
+        for (inst in method.instList) {
+            inst.accept(collector)
         }
         localNameToIndex = names.withIndex().associate { (idx, name) -> name to idx }
         indexToLocalName = localNameToIndex.entries.associate { (name, idx) -> idx to name }

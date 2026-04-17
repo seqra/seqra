@@ -130,12 +130,11 @@ class MypyModuleBuilder(
      * Called after PIRFunctionImpl construction, similar to how enclosingClass is wired.
      */
     private fun wireInstructionLocations(function: PIRFunction) {
-        var index = 0
         for (block in function.cfg.blocks.sortedBy { it.label }) {
             for (inst in block.instructions) {
                 val (line, col) = ic.getInstPosition(inst)
+                val index = ic.getInstIndex(inst)
                 inst.location = PIRLocationImpl(function, index, line, col)
-                index++
             }
         }
     }

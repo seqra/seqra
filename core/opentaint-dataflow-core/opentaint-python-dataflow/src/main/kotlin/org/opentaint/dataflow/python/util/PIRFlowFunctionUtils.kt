@@ -100,14 +100,12 @@ object PIRFlowFunctionUtils {
         if (callee !is PIRLocal) return null
 
         // Scan the flattened instructions in the same method to find the defining assignment
-        for (block in method.cfg.blocks) {
-            for (inst in block.instructions) {
-                if (inst is PIRAssign && inst.target is PIRLocal
-                    && (inst.target as PIRLocal).name == callee.name
-                    && inst.expr is PIRAttrExpr
-                ) {
-                    return (inst.expr as PIRAttrExpr).obj
-                }
+        for (inst in method.instList) {
+            if (inst is PIRAssign && inst.target is PIRLocal
+                && (inst.target as PIRLocal).name == callee.name
+                && inst.expr is PIRAttrExpr
+            ) {
+                return (inst.expr as PIRAttrExpr).obj
             }
         }
         return null

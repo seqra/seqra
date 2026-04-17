@@ -239,7 +239,7 @@ def ct_mixed_types():
             val f = func(name)
             assertTrue(f.cfg.blocks.isNotEmpty(),
                 "Function $name should have non-empty CFG")
-            assertNotNull(f.cfg.entry, "Function $name should have entry block")
+            assertNotNull(f.cfg.entryBlock, "Function $name should have entry block")
         }
     }
 }

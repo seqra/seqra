@@ -13,29 +13,19 @@ open class PIRLanguageManager(
     protected val cp: PIRClasspath,
 ) : LanguageManager {
 
-    // --- Flat instruction list cache (per-function) ---
-    private val flatInstsCache = HashMap<PIRFunction, List<PIRInstruction>>()
-
-    protected fun flattenCfg(method: PIRFunction): List<PIRInstruction> =
-        flatInstsCache.getOrPut(method) {
-            method.cfg.blocks
-                .sortedBy { it.label }
-                .flatMap { it.instructions }
-        }
-
     // --- Interface implementations ---
 
     override fun getInstIndex(inst: CommonInst): Int =
         (inst as PIRInstruction).location.index
 
     override fun getMaxInstIndex(method: CommonMethod): Int =
-        flattenCfg(method as PIRFunction).size - 1
+        (method as PIRFunction).instList.size - 1
 
     override fun getInstByIndex(method: CommonMethod, index: Int): CommonInst =
-        flattenCfg(method as PIRFunction)[index]
+        (method as PIRFunction).instList[index]
 
     override fun isEmpty(method: CommonMethod): Boolean =
-        flattenCfg(method as PIRFunction).isEmpty()
+        (method as PIRFunction).instList.isEmpty()
 
     override fun getCallExpr(inst: CommonInst): CommonCallExpr? {
         val pirInst = inst as PIRInstruction

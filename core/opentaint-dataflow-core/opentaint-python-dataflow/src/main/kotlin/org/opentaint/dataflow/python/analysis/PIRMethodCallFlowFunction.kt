@@ -257,22 +257,20 @@ class PIRMethodCallFlowFunction(
     private val receiverInfo: Pair<String, String>? by lazy {
         val callee = callInst.callee
         if (callee !is PIRLocal) return@lazy null
-        for (block in method.cfg.blocks) {
-            for (inst in block.instructions) {
-                if (inst is PIRAssign && inst.target is PIRLocal
-                    && (inst.target as PIRLocal).name == callee.name
-                    && inst.expr is PIRAttrExpr
-                ) {
-                    val attrExpr = inst.expr as PIRAttrExpr
-                    val attrName = attrExpr.attribute
-                    // Try obj type first
-                    val typeName = attrExpr.obj.type.typeName
-                    if (typeName.isNotEmpty() && typeName != "Any" && typeName != "any") {
-                        return@lazy typeName to attrName
-                    }
-                    // Fallback: return just the attribute name (rules can match on suffix)
-                    return@lazy "" to attrName
+        for (inst in method.instList) {
+            if (inst is PIRAssign && inst.target is PIRLocal
+                && (inst.target as PIRLocal).name == callee.name
+                && inst.expr is PIRAttrExpr
+            ) {
+                val attrExpr = inst.expr as PIRAttrExpr
+                val attrName = attrExpr.attribute
+                // Try obj type first
+                val typeName = attrExpr.obj.type.typeName
+                if (typeName.isNotEmpty() && typeName != "Any" && typeName != "any") {
+                    return@lazy typeName to attrName
                 }
+                // Fallback: return just the attribute name (rules can match on suffix)
+                return@lazy "" to attrName
             }
         }
         null

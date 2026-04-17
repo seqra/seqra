@@ -32,6 +32,13 @@ sealed interface PIRInstruction: CommonInst {
     // Implementors: override equals/hashCode to use identity (=== / System.identityHashCode)
 }
 
+sealed interface PIRBranchingInst : PIRInstruction {
+    val successors: List<Int>
+    val blockSuccessors: List<Int>
+}
+
+sealed interface PIRTerminatingInst : PIRInstruction
+
 /**
  * Base for all PIR expressions (right-hand sides of assignments).
  * [PIRValue] subtypes (locals, constants, refs) are also expressions.
@@ -205,8 +212,17 @@ data class PIRNextIter(
     val iterator: PIRValue,
     val bodyBlock: Int,
     val exitBlock: Int,
-) : PIRInstruction {
+    val bodyInstIndex: Int,
+    val exitInstIndex: Int,
+) : PIRInstruction, PIRBranchingInst {
     override lateinit var location: PIRLocation
+
+    override val successors: List<Int>
+        get() = listOf(bodyInstIndex, exitInstIndex)
+
+    override val blockSuccessors: List<Int>
+        get() = listOf(bodyBlock, exitBlock)
+
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitNextIter(this)
@@ -215,7 +231,7 @@ data class PIRNextIter(
 data class PIRUnpack(
     val targets: List<PIRValue>,
     val source: PIRValue,
-    val starIndex: Int = -1,
+    val starIndex: Int,
 ) : PIRInstruction {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
@@ -227,8 +243,16 @@ data class PIRUnpack(
 
 data class PIRGoto(
     val targetBlock: Int,
-) : PIRInstruction {
+    val targetInstIndex: Int,
+) : PIRInstruction, PIRBranchingInst {
     override lateinit var location: PIRLocation
+
+    override val successors: List<Int>
+        get() = listOf(targetInstIndex)
+
+    override val blockSuccessors: List<Int>
+        get() = listOf(targetBlock)
+
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitGoto(this)
@@ -238,8 +262,17 @@ data class PIRBranch(
     val condition: PIRValue,
     val trueBlock: Int,
     val falseBlock: Int,
-) : PIRInstruction {
+    val trueInstIndex: Int,
+    val falseInstIndex: Int,
+) : PIRInstruction, PIRBranchingInst {
     override lateinit var location: PIRLocation
+
+    override val successors: List<Int>
+        get() = listOf(trueInstIndex, falseInstIndex)
+
+    override val blockSuccessors: List<Int>
+        get() = listOf(trueBlock, falseBlock)
+
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitBranch(this)
@@ -247,7 +280,7 @@ data class PIRBranch(
 
 data class PIRReturn(
     val value: PIRValue?,
-) : PIRInstruction {
+) : PIRInstruction, PIRTerminatingInst {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -257,7 +290,7 @@ data class PIRReturn(
 data class PIRRaise(
     val exception: PIRValue?,
     val cause: PIRValue?,
-) : PIRInstruction {
+) : PIRInstruction, PIRTerminatingInst {
     override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -349,7 +382,7 @@ data class PIRDeleteGlobal(
 
 // ─── Misc ───────────────────────────────────────────────────
 
-data object PIRUnreachable : PIRInstruction {
+data object PIRUnreachable : PIRInstruction, PIRTerminatingInst {
     override var location: PIRLocation = object : PIRLocation {
         override val method: PIRFunction get() = error("Unreachable instruction has no method")
         override val index: Int get() = -1

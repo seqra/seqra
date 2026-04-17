@@ -15,11 +15,17 @@ data class PIRBasicBlock(
  * Analogous to JIRGraph + JIRBlockGraph combined.
  */
 interface PIRCFG {
-    val entry: PIRBasicBlock
     val blocks: List<PIRBasicBlock>
-    val exits: Set<PIRBasicBlock>
+    val entry: PIRInstruction
+    val exits: Set<PIRInstruction>
+    val entryBlock: PIRBasicBlock
+    val exitBlocks: Set<PIRBasicBlock>
+    val instList: List<PIRInstruction>
+    fun successors(inst: PIRInstruction): List<PIRInstruction>
+    fun predecessors(inst: PIRInstruction): List<PIRInstruction>
     fun successors(block: PIRBasicBlock): List<PIRBasicBlock>
     fun predecessors(block: PIRBasicBlock): List<PIRBasicBlock>
     fun exceptionalSuccessors(block: PIRBasicBlock): List<PIRBasicBlock>
     fun block(label: Int): PIRBasicBlock
+    fun block(inst: PIRInstruction): PIRBasicBlock
 }

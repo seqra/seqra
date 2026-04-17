@@ -42,9 +42,7 @@ class PIRApplicationGraph(
         override val applicationGraph: ApplicationGraph<PIRFunction, PIRInstruction>,
     ) : ApplicationGraph.MethodGraph<PIRFunction, PIRInstruction> {
 
-        private val flatInstructions: List<PIRInstruction> by lazy {
-            method.cfg.blocks.sortedBy { it.label }.flatMap { it.instructions }
-        }
+        private val flatInstructions: List<PIRInstruction> get() = method.instList
 
         private val succs: Map<PIRInstruction, List<PIRInstruction>> by lazy {
             buildSuccessors()
@@ -55,22 +53,10 @@ class PIRApplicationGraph(
         }
 
         private fun buildSuccessors(): Map<PIRInstruction, List<PIRInstruction>> {
-            val cfg = method.cfg
-            val result = java.util.IdentityHashMap<PIRInstruction, List<PIRInstruction>>()
+            val result = hashMapOf<PIRInstruction, List<PIRInstruction>>()
 
-            for (block in cfg.blocks) {
-                val insts = block.instructions
-                if (insts.isEmpty()) continue
-
-                // Within-block successors
-                for (i in 0 until insts.size - 1) {
-                    result[insts[i]] = listOf(insts[i + 1])
-                }
-
-                // Last instruction → successor blocks' first instructions
-                val terminator = insts.last()
-                val succBlocks = cfg.successors(block)
-                result[terminator] = succBlocks.mapNotNull { it.instructions.firstOrNull() }
+            flatInstructions.forEach{ inst ->
+                result[inst] = method.cfg.successors(inst)
             }
 
             return result
@@ -93,12 +79,10 @@ class PIRApplicationGraph(
             (succs[node] ?: emptyList()).asSequence()
 
         override fun entryPoints(): Sequence<PIRInstruction> =
-            method.cfg.entry.instructions.firstOrNull()
-                ?.let { sequenceOf(it) } ?: emptySequence()
+            method.cfg.entry.let { sequenceOf(it) }
 
         override fun exitPoints(): Sequence<PIRInstruction> =
             method.cfg.exits.asSequence()
-                .mapNotNull { it.instructions.lastOrNull() }
 
         override fun statements(): Sequence<PIRInstruction> =
             flatInstructions.asSequence()

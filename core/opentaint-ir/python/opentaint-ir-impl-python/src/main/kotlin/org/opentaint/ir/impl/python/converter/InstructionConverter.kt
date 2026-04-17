@@ -12,28 +12,65 @@ class InstructionConverter(
     /** Source positions (line, col) for each instruction, to be read during location wiring. */
     private val sourcePositions = mutableMapOf<PIRInstruction, Pair<Int, Int>>()
 
+    /** Flat instruction indices, to be read during location wiring. */
+    private val instructionIndices = mutableMapOf<PIRInstruction, Int>()
+
     fun convertCFG(proto: PIRCFGProto): PIRCFG {
-        val blocks = proto.blocksList.map { convertBlock(it) }
+        val protoBlocks = proto.blocksList.sortedBy { it.label }
+        val blockStartIndex = calculateBlockToStartIdx(protoBlocks)
+
+        val instList = ArrayList<PIRInstruction>()
+        val instToBlock = ArrayList<Int>()
+        for (blockProto in protoBlocks) {
+            convertBlockInstructions(blockProto, blockStartIndex, instList)
+            repeat(blockProto.instructionsCount) { instToBlock.add(blockProto.label) }
+        }
+
+        val blocks = convertBlocks(protoBlocks, blockStartIndex, instList)
+
         return PIRCFGImpl(
             blocks = blocks,
+            instList = instList,
             entryLabel = proto.entryBlock,
             exitLabels = proto.exitBlocksList.toSet(),
+            instToBlock = instToBlock,
         )
     }
 
     fun getInstPosition(inst: PIRInstruction): Pair<Int, Int> =
         sourcePositions[inst] ?: error("Missing source position for instruction: $inst")
 
-    private fun saveInstPosition(inst: PIRInstruction, line: Int, col: Int) {
+    fun getInstIndex(inst: PIRInstruction): Int =
+        instructionIndices[inst] ?: error("Missing instruction index for: $inst")
+
+    private fun saveInstMetadata(inst: PIRInstruction, line: Int, col: Int, flatIndex: Int) {
         sourcePositions[inst] = line to col
+        instructionIndices[inst] = flatIndex
     }
 
-    private fun convertBlock(proto: PIRBasicBlockProto): PIRBasicBlock {
-        return PIRBasicBlock(
-            label = proto.label,
-            instructions = proto.instructionsList.map { convertInstruction(it) },
-            exceptionHandlers = proto.exceptionHandlersList.toList(),
-        )
+    private fun convertBlockInstructions(proto: PIRBasicBlockProto, blockStartIndex: Map<Int, Int>, dst: MutableList<PIRInstruction>) {
+        val startIdx = blockStartIndex.getValue(proto.label)
+        for ((i, instProto) in proto.instructionsList.withIndex()) {
+            dst.add(convertInstruction(instProto, blockStartIndex, startIdx + i))
+        }
+    }
+
+    private fun convertBlocks(protoBlocks: List<PIRBasicBlockProto>, blockStartIndex: Map<Int, Int>, instList: List<PIRInstruction>) =
+        protoBlocks.map { blockProto ->
+            val startIdx = blockStartIndex.getValue(blockProto.label)
+            PIRBasicBlock(
+                label = blockProto.label,
+                instructions = instList.subList(startIdx, startIdx + blockProto.instructionsCount),
+                exceptionHandlers = blockProto.exceptionHandlersList.toList(),
+            )
+        }
+
+    private fun calculateBlockToStartIdx(blocks: List<PIRBasicBlockProto>) = buildMap {
+        var idx = 0
+        for (block in blocks) {
+            this[block.label] = idx
+            idx += block.instructionsCount
+        }
     }
 
     private fun v(proto: PIRValueProto) = valueConverter.convert(proto)
@@ -43,7 +80,7 @@ class InstructionConverter(
     private fun assign(target: PIRValueProto, expr: PIRExpr) =
         PIRAssign(v(target), expr)
 
-    private fun convertInstruction(proto: PIRInstructionProto): PIRInstruction {
+    private fun convertInstruction(proto: PIRInstructionProto, blockStartIndex: Map<Int, Int>, flatIndex: Int): PIRInstruction {
         val line = proto.lineNumber
         val col = proto.colOffset
 
@@ -141,18 +178,21 @@ class InstructionConverter(
             }
             PIRInstructionProto.InstCase.NEXT_ITER -> {
                 val ni = proto.nextIter
-                PIRNextIter(v(ni.target), v(ni.iterator), ni.bodyBlock, ni.exitBlock)
+                PIRNextIter(v(ni.target), v(ni.iterator), ni.bodyBlock, ni.exitBlock,
+                    blockStartIndex.getValue(ni.bodyBlock), blockStartIndex.getValue(ni.exitBlock))
             }
             PIRInstructionProto.InstCase.UNPACK -> {
                 val u = proto.unpack
                 PIRUnpack(u.targetsList.map { v(it) }, v(u.source), u.starIndex)
             }
             PIRInstructionProto.InstCase.GOTO_INST -> {
-                PIRGoto(proto.gotoInst.targetBlock)
+                val target = proto.gotoInst.targetBlock
+                PIRGoto(target, blockStartIndex.getValue(target))
             }
             PIRInstructionProto.InstCase.BRANCH -> {
                 val b = proto.branch
-                PIRBranch(v(b.condition), b.trueBlock, b.falseBlock)
+                PIRBranch(v(b.condition), b.trueBlock, b.falseBlock,
+                    blockStartIndex.getValue(b.trueBlock), blockStartIndex.getValue(b.falseBlock))
             }
             PIRInstructionProto.InstCase.RETURN_INST -> {
                 val r = proto.returnInst
@@ -215,7 +255,7 @@ class InstructionConverter(
             PIRInstructionProto.InstCase.UNREACHABLE -> PIRUnreachable
             PIRInstructionProto.InstCase.INST_NOT_SET, null -> PIRUnreachable
         }.also {
-            saveInstPosition(it, line, col)
+            saveInstMetadata(it, line, col, flatIndex)
         }
     }
 

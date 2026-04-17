@@ -205,8 +205,8 @@ def ci_no_return():
     private fun reachableBlocks(cfg: PIRCFG): Set<Int> {
         val visited = mutableSetOf<Int>()
         val queue = ArrayDeque<PIRBasicBlock>()
-        queue.add(cfg.entry)
-        visited.add(cfg.entry.label)
+        queue.add(cfg.entryBlock)
+        visited.add(cfg.entryBlock.label)
         while (queue.isNotEmpty()) {
             val block = queue.removeFirst()
             for (succ in cfg.successors(block)) {
@@ -247,8 +247,8 @@ def ci_no_return():
     fun `entry block exists in blocks list`() {
         for (func in allTestFunctions()) {
             val cfg = func.cfg
-            assertTrue(cfg.blocks.any { it.label == cfg.entry.label },
-                "${func.qualifiedName}: entry block label ${cfg.entry.label} not in blocks list")
+            assertTrue(cfg.blocks.any { it.label == cfg.entryBlock.label },
+                "${func.qualifiedName}: entry block label ${cfg.entryBlock.label} not in blocks list")
         }
     }
 
@@ -323,7 +323,7 @@ def ci_no_return():
     fun `exit blocks have no normal successors`() {
         for (func in allTestFunctions()) {
             val cfg = func.cfg
-            for (exitBlock in cfg.exits) {
+            for (exitBlock in cfg.exitBlocks) {
                 val succs = cfg.successors(exitBlock)
                 assertTrue(succs.isEmpty(),
                     "${func.qualifiedName}: exit block ${exitBlock.label} has successors: ${succs.map { it.label }}")
@@ -335,7 +335,7 @@ def ci_no_return():
     fun `exit blocks end with terminator`() {
         for (func in allTestFunctions()) {
             val cfg = func.cfg
-            for (exitBlock in cfg.exits) {
+            for (exitBlock in cfg.exitBlocks) {
                 val last = exitBlock.instructions.lastOrNull()
                 assertNotNull(last,
                     "${func.qualifiedName}: exit block ${exitBlock.label} has no instructions")
@@ -350,7 +350,7 @@ def ci_no_return():
     fun `non-exit non-empty blocks end with terminator or are followed by exception handler`() {
         for (func in allTestFunctions()) {
             val cfg = func.cfg
-            val exitLabels = cfg.exits.map { it.label }.toSet()
+            val exitLabels = cfg.exitBlocks.map { it.label }.toSet()
             for (block in cfg.blocks) {
                 if (block.label in exitLabels) continue
                 if (block.instructions.isEmpty()) continue
@@ -373,7 +373,7 @@ def ci_no_return():
             "ci_raise_exception", "ci_many_params", "ci_no_return")
         for (name in nonLoopFuncs) {
             val cfg = func(name).cfg
-            val entrySelf = cfg.successors(cfg.entry).any { it.label == cfg.entry.label }
+            val entrySelf = cfg.successors(cfg.entryBlock).any { it.label == cfg.entryBlock.label }
             assertFalse(entrySelf,
                 "$name: entry block has self-loop but function has no loop")
         }
@@ -393,7 +393,7 @@ def ci_no_return():
         val f = func("ci_single_return")
         assertTrue(f.cfg.blocks.size <= 2,
             "ci_single_return: expected 1-2 blocks, got ${f.cfg.blocks.size}")
-        assertTrue(f.cfg.exits.isNotEmpty(), "ci_single_return: no exit blocks")
+        assertTrue(f.cfg.exitBlocks.isNotEmpty(), "ci_single_return: no exit blocks")
     }
 
     @Test
@@ -619,6 +619,139 @@ def ci_no_return():
                     assertTrue(handlerLabel in allLabels,
                         "${func.qualifiedName}: exception handler label $handlerLabel in block ${block.label} " +
                             "not in block labels $allLabels")
+                }
+            }
+        }
+    }
+
+    // ─── Tests: instList invariants ─────────────────────────────
+
+    @Test
+    fun `instList indices match location index`() {
+        for (func in allTestFunctions()) {
+            val instList = func.instList
+            for ((i, inst) in instList.withIndex()) {
+                assertEquals(i, inst.location.index,
+                    "${func.qualifiedName}: instList[$i] has location.index=${inst.location.index}")
+            }
+        }
+    }
+
+    @Test
+    fun `instList contains same instructions as blocks`() {
+        for (func in allTestFunctions()) {
+            val fromBlocks = func.cfg.blocks.sortedBy { it.label }.flatMap { it.instructions }
+            val fromInstList = func.instList
+            assertEquals(fromBlocks.size, fromInstList.size,
+                "${func.qualifiedName}: flattened blocks size != instList size")
+            for (i in fromBlocks.indices) {
+                assertSame(fromBlocks[i], fromInstList[i],
+                    "${func.qualifiedName}: instruction at index $i differs between blocks and instList")
+            }
+        }
+    }
+
+    @Test
+    fun `instList entry is first instruction`() {
+        for (func in allTestFunctions()) {
+            val cfg = func.cfg
+            if (func.instList.isEmpty()) continue
+            assertSame(cfg.entry, func.instList.first(),
+                "${func.qualifiedName}: cfg.entry != instList[0]")
+        }
+    }
+
+    @Test
+    fun `instList exits are terminating instructions`() {
+        for (func in allTestFunctions()) {
+            val cfg = func.cfg
+            for (exit in cfg.exits) {
+                assertTrue(exit is PIRTerminatingInst,
+                    "${func.qualifiedName}: exit instruction ${exit::class.simpleName} is not PIRTerminatingInst")
+            }
+        }
+    }
+
+    @Test
+    fun `branching inst successors point to valid instList indices`() {
+        for (func in allTestFunctions()) {
+            val instList = func.instList
+            for (inst in instList) {
+                if (inst is PIRBranchingInst) {
+                    for (succIdx in inst.successors) {
+                        assertTrue(succIdx in instList.indices,
+                            "${func.qualifiedName}: branching inst at ${inst.location.index} " +
+                                "has successor index $succIdx outside instList range [0, ${instList.size})")
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `branching inst successors target first instruction of target block`() {
+        for (func in allTestFunctions()) {
+            val cfg = func.cfg
+            val instList = func.instList
+            for (inst in instList) {
+                if (inst is PIRBranchingInst) {
+                    for ((succIdx, blockLabel) in inst.successors.zip(inst.blockSuccessors)) {
+                        val targetBlock = cfg.block(blockLabel)
+                        val expectedFirst = targetBlock.instructions.firstOrNull() ?: continue
+                        assertSame(expectedFirst, instList[succIdx],
+                            "${func.qualifiedName}: branching inst successor index $succIdx " +
+                                "doesn't point to first instruction of block $blockLabel")
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `inst-level successors consistent with block-level successors`() {
+        for (func in allTestFunctions()) {
+            val cfg = func.cfg
+            for (block in cfg.blocks) {
+                val insts = block.instructions
+                if (insts.isEmpty()) continue
+
+                // Within-block: each non-last instruction's successor is the next instruction
+                for (i in 0 until insts.size - 1) {
+                    val succs = cfg.successors(insts[i])
+                    assertEquals(1, succs.size,
+                        "${func.qualifiedName}: mid-block inst at ${insts[i].location.index} " +
+                            "should have exactly 1 successor")
+                    assertSame(insts[i + 1], succs[0],
+                        "${func.qualifiedName}: mid-block inst at ${insts[i].location.index} " +
+                            "successor should be next instruction")
+                }
+
+                // Last instruction: inst-level successors should match block-level successors' first instructions
+                val lastInst = insts.last()
+                val instSuccs = cfg.successors(lastInst)
+                val blockSuccFirstInsts = cfg.successors(block).mapNotNull { it.instructions.firstOrNull() }
+                assertEquals(blockSuccFirstInsts.size, instSuccs.size,
+                    "${func.qualifiedName}: terminator at ${lastInst.location.index} " +
+                        "inst-level successors count (${instSuccs.size}) != block-level (${blockSuccFirstInsts.size})")
+                for (s in blockSuccFirstInsts) {
+                    assertTrue(instSuccs.any { it === s },
+                        "${func.qualifiedName}: block-level successor inst ${s.location.index} " +
+                            "not found in inst-level successors")
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `block(inst) returns correct block for each instruction`() {
+        for (func in allTestFunctions()) {
+            val cfg = func.cfg
+            for (block in cfg.blocks) {
+                for (inst in block.instructions) {
+                    val resolved = cfg.block(inst)
+                    assertSame(block, resolved,
+                        "${func.qualifiedName}: block(inst at ${inst.location.index}) " +
+                            "returned block ${resolved.label}, expected ${block.label}")
                 }
             }
         }

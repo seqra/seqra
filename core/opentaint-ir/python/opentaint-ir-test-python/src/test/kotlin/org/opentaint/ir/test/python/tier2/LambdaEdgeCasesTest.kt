@@ -230,7 +230,7 @@ def lec_lambda_chain(x: int) -> int:
         for (f in lambdaFuncs) {
             assertTrue(f.cfg.blocks.isNotEmpty(),
                 "Lambda ${f.qualifiedName} should have non-empty CFG")
-            assertNotNull(f.cfg.entry,
+            assertNotNull(f.cfg.entryBlock,
                 "Lambda ${f.qualifiedName} should have entry block")
             // Every lambda should have a return
             val hasReturn = f.cfg.blocks.flatMap { it.instructions }.any { it is PIRReturn }

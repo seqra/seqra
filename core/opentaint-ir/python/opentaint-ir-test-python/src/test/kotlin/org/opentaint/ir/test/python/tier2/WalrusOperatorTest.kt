@@ -173,7 +173,7 @@ def w_in_assert(x: int) -> int:
                 "Function $name should have non-empty CFG")
             val blocks = f.cfg.blocks
             // Every CFG should have at least entry block
-            assertNotNull(f.cfg.entry, "Function $name should have entry block")
+            assertNotNull(f.cfg.entryBlock, "Function $name should have entry block")
         }
     }
 

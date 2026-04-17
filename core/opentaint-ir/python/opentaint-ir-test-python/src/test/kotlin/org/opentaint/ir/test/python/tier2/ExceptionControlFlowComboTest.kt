@@ -335,7 +335,7 @@ def ecfc_except_as_in_loop(items: list) -> list:
             val f = func(name)
             assertTrue(f.cfg.blocks.isNotEmpty(),
                 "Function $name should have non-empty CFG")
-            assertNotNull(f.cfg.entry, "Function $name should have entry block")
+            assertNotNull(f.cfg.entryBlock, "Function $name should have entry block")
         }
     }
 

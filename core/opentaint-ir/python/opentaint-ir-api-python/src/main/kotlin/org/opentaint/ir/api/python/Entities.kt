@@ -99,6 +99,8 @@ interface PIRFunction: CommonMethod {
     override val parameters: List<PIRParameter>
     override val returnType: PIRType
     val cfg: PIRCFG
+    /** Flat instruction list: blocks sorted by label, instructions flattened. */
+    val instList: List<PIRInstruction>
     val decorators: List<PIRDecorator>
     val isAsync: Boolean
     val isGenerator: Boolean

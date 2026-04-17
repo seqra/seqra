@@ -256,9 +256,9 @@ abstract class BenchmarkTestBase : PIRTestBase() {
                     }
                 }
                 if (cfg.blocks.isNotEmpty()) {
-                    val reachable = mutableSetOf(cfg.entry.label)
+                    val reachable = mutableSetOf(cfg.entryBlock.label)
                     val queue = ArrayDeque<PIRBasicBlock>()
-                    queue.add(cfg.entry)
+                    queue.add(cfg.entryBlock)
                     while (queue.isNotEmpty()) {
                         val b = queue.removeFirst()
                         for (succ in cfg.successors(b) + cfg.exceptionalSuccessors(b)) {

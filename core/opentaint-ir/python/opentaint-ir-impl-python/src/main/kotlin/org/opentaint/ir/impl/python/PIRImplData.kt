@@ -59,6 +59,8 @@ data class PIRFunctionImpl(
     override var enclosingClass: PIRClass?,
     override val module: PIRModule,
 ) : PIRFunction {
+    override val instList: List<PIRInstruction> get() = cfg.instList
+
     // Break circular hashCode/toString: function → enclosingClass → methods → function
     override fun equals(other: Any?): Boolean = this === other || (other is PIRFunctionImpl && qualifiedName == other.qualifiedName)
     override fun hashCode(): Int = qualifiedName.hashCode()
@@ -99,36 +101,48 @@ data class PIRDecoratorImpl(
 
 class PIRCFGImpl(
     override val blocks: List<PIRBasicBlock>,
+    override val instList: List<PIRInstruction>,
     private val entryLabel: Int,
     private val exitLabels: Set<Int>,
+    private val instToBlock: List<Int>,
 ) : PIRCFG {
     private val blocksByLabel = blocks.associateBy { it.label }
 
-    override val entry: PIRBasicBlock
+    override val entry: PIRInstruction
+        get() = instList.first()
+
+    override val exits: Set<PIRInstruction>
+        get() = exitLabels.mapNotNullTo(hashSetOf()) { block(it).instructions.lastOrNull() }
+
+    override val entryBlock: PIRBasicBlock
         get() = blocksByLabel[entryLabel] ?: blocks.first()
 
-    override val exits: Set<PIRBasicBlock>
-        get() = blocks.filter { it.label in exitLabels }.toSet()
+    override val exitBlocks: Set<PIRBasicBlock>
+        get() = exitLabels.mapTo(hashSetOf()) { block(it) }
+
+    override fun successors(inst: PIRInstruction): List<PIRInstruction> =
+        when (inst) {
+            is PIRBranchingInst -> inst.successors.map { instList[it] }
+            is PIRTerminatingInst -> emptyList()
+            else -> instList.getOrNull(inst.location.index + 1)?.let { listOf(it) }
+                ?: error("Unexpected non-terminating last instruction: $inst")
+        }
 
     override fun successors(block: PIRBasicBlock): List<PIRBasicBlock> {
         val last = block.instructions.lastOrNull() ?: return emptyList()
         return when (last) {
-            is PIRGoto -> listOfNotNull(blocksByLabel[last.targetBlock])
-            is PIRBranch -> listOfNotNull(
-                blocksByLabel[last.trueBlock],
-                blocksByLabel[last.falseBlock]
-            )
-            is PIRNextIter -> listOfNotNull(
-                blocksByLabel[last.bodyBlock],
-                blocksByLabel[last.exitBlock]
-            )
-            is PIRReturn, is PIRRaise, is PIRUnreachable -> emptyList()
-            else -> emptyList()
+            is PIRBranchingInst -> last.blockSuccessors.map { block(it) }
+            is PIRTerminatingInst -> emptyList()
+            else -> error("Unexpected block last instruction: $last")
         }
     }
 
     override fun predecessors(block: PIRBasicBlock): List<PIRBasicBlock> {
         return blocks.filter { block in successors(it) }
+    }
+
+    override fun predecessors(inst: PIRInstruction): List<PIRInstruction> {
+        return instList.filter { inst in successors(it) }
     }
 
     override fun exceptionalSuccessors(block: PIRBasicBlock): List<PIRBasicBlock> {
@@ -138,13 +152,17 @@ class PIRCFGImpl(
     override fun block(label: Int): PIRBasicBlock {
         return blocksByLabel[label] ?: throw IllegalArgumentException("No block with label $label")
     }
+
+    override fun block(inst: PIRInstruction): PIRBasicBlock {
+        return block(instToBlock[inst.location.index])
+    }
 }
 
 // ─── Unknown Entity Implementations ────────────────────────
 // Returned when a module fails to build (e.g. mypy syntax error).
 // All collections are empty; lookups return further Unknown entities.
 
-private val EMPTY_CFG = PIRCFGImpl(emptyList(), 0, emptySet())
+private val EMPTY_CFG = PIRCFGImpl(emptyList(), emptyList(), 0, emptySet(), emptyList())
 
 class PIRUnknownModule(
     override val name: String,
@@ -187,6 +205,7 @@ class PIRUnknownFunction(
     override val parameters: List<PIRParameter> = emptyList()
     override val returnType: PIRType = PIRAnyType
     override val cfg: PIRCFG = EMPTY_CFG
+    override val instList: List<PIRInstruction> = emptyList()
     override val decorators: List<PIRDecorator> = emptyList()
     override val isAsync: Boolean = false
     override val isGenerator: Boolean = false

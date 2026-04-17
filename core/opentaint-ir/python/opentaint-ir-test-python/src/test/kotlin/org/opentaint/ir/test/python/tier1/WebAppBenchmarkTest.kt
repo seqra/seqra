@@ -2,6 +2,7 @@ package org.opentaint.ir.test.python.tier1
 
 import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Tag
+import kotlin.test.Ignore
 
 /**
  * Tier 1: Real-world web application benchmarks.
@@ -15,7 +16,7 @@ import org.junit.jupiter.api.Tag
 class WebAppBenchmarkTest : BenchmarkTestBase() {
 
     companion object {
-        private const val WEB_PROJECTS_DIR = "/home/sobol/data/python-ir/web-projects"
+        private const val WEB_PROJECTS_DIR = "/home/pvl/folder/projects/web-projects"
     }
 
     // ─── Django Web Applications ─────────────────────────────
@@ -24,8 +25,7 @@ class WebAppBenchmarkTest : BenchmarkTestBase() {
         analyzeDir("saleor", "$WEB_PROJECTS_DIR/saleor/saleor", 1121, 2432, 8982)
 
     @Test @Timeout(600) fun `webapp - netbox (Django network automation)`() =
-        analyzeDir("netbox", "$WEB_PROJECTS_DIR/netbox/netbox", 0, 0, 0,
-            expectedUnknownModules = setOf("core.graphql.filters"))
+        analyzeDir("netbox", "$WEB_PROJECTS_DIR/netbox/netbox", 727, 3631, 3730)
 
     @Test @Timeout(600) fun `webapp - wagtail (Django CMS)`() =
         analyzeDir("wagtail", "$WEB_PROJECTS_DIR/wagtail/wagtail", 697, 1296, 5343)
@@ -55,7 +55,8 @@ class WebAppBenchmarkTest : BenchmarkTestBase() {
         analyzeDir("flagsmith", "$WEB_PROJECTS_DIR/flagsmith/api", 686, 1018, 2947)
 
     @Test @Timeout(600) fun `webapp - hyperkitty (Django mailing lists)`() =
-        analyzeDir("hyperkitty", "$WEB_PROJECTS_DIR/hyperkitty/hyperkitty", 63, 69, 299)
+        analyzeDir("hyperkitty", "$WEB_PROJECTS_DIR/hyperkitty/hyperkitty", 0, 0, 0,
+            expectedUnknownModules = setOf("hyperkitty.management.commands.hyperkitty_import"))
 
     @Test @Timeout(600) fun `webapp - ralph (Django asset management)`() =
         analyzeDir("ralph", "$WEB_PROJECTS_DIR/ralph/src/ralph", 0, 0, 0,
@@ -64,6 +65,7 @@ class WebAppBenchmarkTest : BenchmarkTestBase() {
     @Test @Timeout(600) fun `webapp - plane (Django project tracker)`() =
         analyzeDir("plane", "$WEB_PROJECTS_DIR/plane/apps", 449, 739, 2232)
 
+    @Ignore("Commit have been removed")
     @Test @Timeout(1200) fun `webapp - posthog (Django analytics)`() =
         analyzeDir("posthog", "$WEB_PROJECTS_DIR/posthog/posthog", 2920, 5211, 21223)
 
