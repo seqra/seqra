@@ -432,8 +432,8 @@ func resolveScanConfig(absUserProjectRoot string) scanConfig {
 			out.Fatalf("Failed to acquire cache read lock: %s", sharedErr)
 		}
 		// sharedErr == ErrLocked means a writer holds the cache; we're about
-		// to ask for exclusive below, which will also fail with ErrLocked and
-		// produce the same "compilation already in progress" message.
+		// to ask for exclusive below, which will also fail with ErrLocked —
+		// ReadLockMeta below will surface which command is holding it.
 	}
 
 	cacheLock, lockErr := utils.TryLockExclusive(
@@ -441,7 +441,13 @@ func resolveScanConfig(absUserProjectRoot string) scanConfig {
 		utils.LockMeta{PID: os.Getpid(), Command: "compile", Project: absUserProjectRoot},
 	)
 	if lockErr == utils.ErrLocked {
-		out.Error("Compilation already in progress for this project")
+		// Readers don't stamp metadata (empty LockMeta); writers do. Use that
+		// to distinguish an in-progress compile from an in-progress analyze.
+		if meta, _ := utils.ReadLockMeta(cacheLockPath); meta.PID != 0 {
+			out.Error("Compilation already in progress for this project")
+		} else {
+			out.Error("Another scan is currently analyzing this project")
+		}
 		suggest("To scan an existing model instead", utils.NewScanCommand("").WithProjectModel("<model-path>").Build())
 		os.Exit(1)
 	}
