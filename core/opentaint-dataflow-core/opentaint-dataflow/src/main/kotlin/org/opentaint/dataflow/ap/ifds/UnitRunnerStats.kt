@@ -2,6 +2,7 @@ package org.opentaint.dataflow.ap.ifds
 
 import org.opentaint.ir.api.common.CommonMethod
 import java.util.BitSet
+import kotlin.time.Duration.Companion.nanoseconds
 
 data class UnitRunnerStats(val processed: Long, val enqueued: Long)
 
@@ -19,7 +20,20 @@ class MethodStats {
     }
 
     fun stats(method: CommonMethod): Stats = stats.getOrPut(method) {
-        Stats(method, steps = 0, unprocessedEdges = 0, handledSummaries = 0, sourceSummaries = 0, passSummaries = 0, traceResolverSteps = 0)
+        Stats(
+            method,
+            steps = 0,
+            unprocessedEdges = 0,
+            handledSummaries = 0,
+            sourceSummaries = 0,
+            passSummaries = 0,
+            traceResolverSteps = 0,
+            analysisTime = 0,
+            stepTime = 0,
+            summaryTime = 0,
+            callTime = 0,
+            otherTime = 0,
+        )
     }
 
     data class Stats(
@@ -30,6 +44,11 @@ class MethodStats {
         var sourceSummaries: Long,
         var passSummaries: Long,
         var traceResolverSteps: Long,
+        var analysisTime: Long,
+        var stepTime: Long,
+        var summaryTime: Long,
+        var callTime: Long,
+        var otherTime: Long,
     ) {
         val stepsForTaintMark: MutableMap<String, Long> = hashMapOf()
         val coveredInstructions = BitSet()
@@ -41,6 +60,11 @@ class MethodStats {
             sourceSummaries -= other.sourceSummaries
             passSummaries -= other.passSummaries
             traceResolverSteps -= other.traceResolverSteps
+            analysisTime -= other.analysisTime
+            stepTime -= other.stepTime
+            summaryTime -= other.summaryTime
+            callTime -= other.callTime
+            otherTime -= other.otherTime
         }
 
         override fun toString(): String = buildString {
@@ -55,6 +79,19 @@ class MethodStats {
             append("source: $sourceSummaries")
             append(" | ")
             append("pass: $passSummaries")
+
+            if (analysisTime > 0) {
+                append(" | ")
+                append("AT: ${analysisTime.nanoseconds.inWholeMilliseconds}")
+                append(" | ")
+                append("StT: ${stepTime.nanoseconds.inWholeMilliseconds}")
+                append(" | ")
+                append("SuT: ${summaryTime.nanoseconds.inWholeMilliseconds}")
+                append(" | ")
+                append("CT: ${callTime.nanoseconds.inWholeMilliseconds}")
+                append(" | ")
+                append("OT: ${otherTime.nanoseconds.inWholeMilliseconds}")
+            }
 
             if (traceResolverSteps > 0) {
                 append(" | ")

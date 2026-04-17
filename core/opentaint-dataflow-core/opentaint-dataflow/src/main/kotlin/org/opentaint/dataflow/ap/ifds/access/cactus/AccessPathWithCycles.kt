@@ -88,6 +88,8 @@ class AccessPathWithCycles(
     override val size: Int
         get() = access?.size ?: 0
 
+    override val depth: Int get() = size
+
     override fun toString(): String = "$base${access ?: ""}.*/$exclusions"
 
     override fun equals(other: Any?): Boolean {

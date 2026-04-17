@@ -24,10 +24,12 @@ import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 class AutomataApManager(
-    override val anyAccessorUnrollStrategy: AnyAccessorUnrollStrategy
+    override val anyAccessorUnrollStrategy: AnyAccessorUnrollStrategy,
+    override val cancellation: Cancellation = Cancellation()
 ) : ApManager {
     private val interner = AccessorInterner()
 

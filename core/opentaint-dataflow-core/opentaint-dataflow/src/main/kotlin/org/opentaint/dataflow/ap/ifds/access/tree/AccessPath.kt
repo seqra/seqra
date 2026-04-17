@@ -1,19 +1,23 @@
 package org.opentaint.dataflow.ap.ifds.access.tree
 
+import it.unimi.dsi.fastutil.ints.IntArrayList
+import it.unimi.dsi.fastutil.ints.IntList
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
-import org.opentaint.dataflow.ap.ifds.AnyAccessor
-import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
-import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
-import org.opentaint.dataflow.ap.ifds.FieldAccessor
-import org.opentaint.dataflow.ap.ifds.FinalAccessor
-import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
-import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode.Companion.SUBSEQUENT_ARRAY_ELEMENTS_LIMIT
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.ANY_ACCESSOR_IDX
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.ELEMENT_ACCESSOR_IDX
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.FINAL_ACCESSOR_IDX
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.VALUE_ACCESSOR_IDX
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldAccessor
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isStaticAccessor
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isTaintMarkAccessor
+import org.opentaint.dataflow.util.reversedForEachInt
 
 class AccessPath(
     private val apManager: TreeApManager,
@@ -32,48 +36,44 @@ class AccessPath(
     override fun replaceExclusions(exclusions: ExclusionSet): InitialFactAp =
         AccessPath(apManager, base, access, exclusions)
 
-    override fun getAllAccessors(): Set<Accessor> {
-        val result = hashSetOf<Accessor>()
-        var curNode = access
-        while (curNode != null) {
-            result.add(curNode.accessor)
-            curNode = curNode.next
-        }
-        return result
-    }
+    override fun getAllAccessors(): Set<Accessor> =
+        access?.accessorList()?.toSet().orEmpty()
 
-    override fun startsWithAccessor(accessor: Accessor): Boolean {
+    override fun startsWithAccessor(accessor: Accessor): Boolean = with(apManager) {
         if (access == null) return false
-        return access.accessor == accessor
+        return access.accessor.accessor == accessor
     }
 
-    override fun getStartAccessors(): Set<Accessor> =
-        access?.let { setOf(it.accessor) } ?: emptySet()
+    override fun getStartAccessors(): Set<Accessor> = with(apManager) {
+        access?.let { setOf(it.accessor.accessor) } ?: emptySet()
+    }
 
-    override fun readAccessor(accessor: Accessor): AccessPath? {
+    override fun readAccessor(accessor: Accessor): AccessPath? = with(apManager) {
         if (access == null) return null
-        if (access.accessor != accessor) return null
+        if (access.accessor.accessor != accessor) return null
         return AccessPath(apManager, base, access.next, exclusions)
     }
 
     override fun prependAccessor(accessor: Accessor): InitialFactAp {
+        val accessorIdx = with(apManager) { accessor.idx }
+
         if (access == null) {
-            return AccessPath(apManager, base, AccessNode(accessor, next = null), exclusions)
+            return AccessPath(apManager, base, AccessNode(apManager, accessorIdx, next = null), exclusions)
         }
 
-        val node = access.addParent(accessor)
+        val node = access.addParent(accessorIdx)
         return AccessPath(apManager, base, node, exclusions)
     }
 
-    override fun clearAccessor(accessor: Accessor): InitialFactAp? {
-        if (access == null) return this
-        if (access.accessor != accessor) return this
+    override fun clearAccessor(accessor: Accessor): InitialFactAp? = with(apManager) {
+        if (access == null) return this@AccessPath
+        if (access.accessor.accessor != accessor) return this@AccessPath
         return null
     }
 
     override fun compatibilityFilter(typeChecker: FactTypeChecker): FactTypeChecker.FactCompatibilityFilter {
         val node = access ?: return FactTypeChecker.AlwaysCompatibleFilter
-        return typeChecker.accessPathCompatibilityFilter(node.toList())
+        return typeChecker.accessPathCompatibilityFilter(node.accessorList())
     }
 
     sealed interface AccessPathDelta : InitialFactAp.Delta {
@@ -88,11 +88,17 @@ class AccessPath(
 
         data class Delta(val node: AccessNode) : AccessPathDelta {
             override val isEmpty: Boolean get() = false
-            override fun startsWithAccessor(accessor: Accessor): Boolean = node.accessor == accessor
-            override fun getStartAccessors(): Set<Accessor> = setOf(node.accessor)
-            override fun getAllAccessors(): Set<Accessor> = node.mapTo(hashSetOf()) { it }
-            override fun readAccessor(accessor: Accessor): InitialFactAp.Delta? {
-                if (node.accessor == accessor) return node.next?.let { Delta(it) }
+            override fun startsWithAccessor(accessor: Accessor): Boolean =
+                with(node.manager) { node.accessor.accessor == accessor }
+
+            override fun getStartAccessors(): Set<Accessor> =
+                with(node.manager) { setOf(node.accessor.accessor) }
+
+            override fun getAllAccessors(): Set<Accessor> =
+                node.accessorList().toSet()
+
+            override fun readAccessor(accessor: Accessor): InitialFactAp.Delta? = with(node.manager) {
+                if (node.accessor.accessor == accessor) return node.next?.let { Delta(it) }
                 return null
             }
 
@@ -119,7 +125,7 @@ class AccessPath(
 
         var node: AccessNode? = access
         var otherNode: AccessTree.AccessNode = other.access
-        val accessorsOnPath = mutableListOf<Accessor>()
+        val accessorsOnPath = IntArrayList()
 
         while (true) {
             if (node == null) {
@@ -129,14 +135,14 @@ class AccessPath(
                 return emptyList()
             }
 
-            val nextOtherNode = if (node.accessor is FinalAccessor) {
+            val nextOtherNode = if (node.accessor == FINAL_ACCESSOR_IDX) {
                 if (otherNode.isFinal) {
                     return listOf(this to AccessPathDelta.Empty)
                 }
 
                 null
             } else {
-                otherNode.getChild(apManager, node.accessor)
+                otherNode.getChild(node.accessor)
             }
 
             if (nextOtherNode == null) {
@@ -144,7 +150,7 @@ class AccessPath(
                     val filteredNode = node.filter(other.exclusions) ?: return emptyList()
 
                     val matchedAccessNode = accessorsOnPath.foldRight(null as AccessNode?) { accessor, prevNode ->
-                        AccessNode(accessor, prevNode)
+                        AccessNode(apManager, accessor, prevNode)
                     }
                     val matchedFact = AccessPath(apManager, base, matchedAccessNode, exclusions)
 
@@ -162,7 +168,7 @@ class AccessPath(
 
     private fun AccessNode.filter(exclusion: ExclusionSet): AccessNode? = when (exclusion) {
         ExclusionSet.Empty -> this
-        is ExclusionSet.Concrete -> this.takeIf { it.accessor !in exclusion }
+        is ExclusionSet.Concrete -> this.takeIf { with(manager) { it.accessor.accessor !in exclusion } }
         ExclusionSet.Universe -> null
     }
 
@@ -185,6 +191,8 @@ class AccessPath(
 
     override val size: Int
         get() = access?.size ?: 0
+
+    override val depth: Int get() = size
 
     override fun toString(): String = "$base${access ?: ""}.*/$exclusions"
 
@@ -209,14 +217,15 @@ class AccessPath(
     }
 
     class AccessNode(
-        val accessor: Accessor,
+        val manager: TreeApManager,
+        val accessor: AccessorIdx,
         val next: AccessNode?
-    ): Iterable<Accessor> {
+    ) {
         private val hash: Int
         val size: Int
 
         init {
-            var hash = accessor.hashCode()
+            var hash = accessor
             if (next != null) hash += 17 * next.hash
             this.hash = hash
         }
@@ -239,53 +248,57 @@ class AccessPath(
             return next == other.next
         }
 
-        override fun iterator(): Iterator<Accessor> = object : Iterator<Accessor> {
-            private var node: AccessNode? = this@AccessNode
-
-            override fun hasNext(): Boolean = node != null
-
-            override fun next(): Accessor {
-                val node = this.node ?: error("Iterator invariant")
-                val accessor = node.accessor
-                this.node = node.next
-                return accessor
+        fun toList(): IntArrayList {
+            val result = IntArrayList()
+            var node = this
+            while (true) {
+                result.add(node.accessor)
+                node = node.next ?: break
             }
+            return result
         }
 
         fun concat(other: AccessNode): AccessNode {
+            val thisAccessors = this.toList()
             var node = other
-            for (accessor in this.toList().asReversed()) {
+            thisAccessors.reversedForEachInt { accessor ->
                 node = node.addParent(accessor)
             }
             return node
         }
 
-        override fun toString(): String = joinToString("") { it.toSuffix() }
+        fun accessorList(): List<Accessor> = toList().map { with(manager) { it.accessor } }
 
+        override fun toString(): String = accessorList().joinToString("") { it.toSuffix() }
 
-        fun addParent(accessor: Accessor): AccessNode {
+        fun addParent(accessor: AccessorIdx): AccessNode {
             checkNoClassStaticAccessor()
 
-            return when (accessor) {
-                FinalAccessor -> error("Final parent")
-                ElementAccessor -> AccessNode(ElementAccessor, limitElementAccess(limit = SUBSEQUENT_ARRAY_ELEMENTS_LIMIT))
-                is FieldAccessor -> AccessNode(accessor, limitFieldAccess(accessor))
-                is ClassStaticAccessor -> AccessNode(accessor, this)
-                is TaintMarkAccessor -> AccessNode(accessor, this)
-                ValueAccessor -> {
-                    check(this.accessor is TaintMarkAccessor) {
+            return when {
+                accessor == FINAL_ACCESSOR_IDX -> error("Final parent")
+                accessor == ELEMENT_ACCESSOR_IDX -> AccessNode(
+                    manager, ELEMENT_ACCESSOR_IDX,
+                    limitElementAccess(limit = SUBSEQUENT_ARRAY_ELEMENTS_LIMIT)
+                )
+                accessor.isFieldAccessor() -> AccessNode(manager, accessor, limitFieldAccess(accessor))
+                accessor.isStaticAccessor() -> AccessNode(manager, accessor, this)
+                accessor.isTaintMarkAccessor() -> AccessNode(manager, accessor, this)
+                accessor == VALUE_ACCESSOR_IDX -> {
+                    check(this.accessor.isTaintMarkAccessor()) {
                         "Value accessor can only be prepended before a taint mark"
                     }
-                    AccessNode(accessor, this)
+                    AccessNode(manager, accessor, this)
                 }
-                AnyAccessor -> this // todo: All accessors are not supported in tree base ap
+
+                accessor == ANY_ACCESSOR_IDX -> this // todo: All accessors are not supported in tree base ap
+                else -> error("Unsupported accessor $accessor")
             }
         }
 
         private fun checkNoClassStaticAccessor() {
             var node: AccessNode? = this
             while (node != null) {
-                check(node.accessor !is ClassStaticAccessor) {
+                check(!node.accessor.isStaticAccessor()) {
                     "At most one ClassStaticAccessor is allowed in access path"
                 }
                 node = node.next
@@ -293,12 +306,12 @@ class AccessPath(
         }
 
         private fun limitElementAccess(limit: Int): AccessNode? {
-            if (accessor !is ElementAccessor) return this
+            if (accessor != ELEMENT_ACCESSOR_IDX) return this
 
             if (limit > 0) {
                 val limitedChild = next?.limitElementAccess(limit - 1)
                 if (limitedChild === next) return this
-                return AccessNode(accessor, limitedChild)
+                return AccessNode(manager, accessor, limitedChild)
             }
 
             return collapseElementAccess()
@@ -308,33 +321,33 @@ class AccessPath(
         private fun collapseElementAccess(): AccessNode? {
             var node = this
             while (true) {
-                if (node.accessor !is ElementAccessor) return node
+                if (node.accessor != ELEMENT_ACCESSOR_IDX) return node
                 node = node.next ?: return null
             }
         }
 
-        private fun limitFieldAccess(newRootField: FieldAccessor): AccessNode? {
+        private fun limitFieldAccess(newRootField: AccessorIdx): AccessNode? {
             var node = this
             while (true) {
                 val accessor = node.accessor
-                if (accessor is FieldAccessor && accessor == newRootField) return node.next
+                if (accessor == newRootField) return node.next
                 node = node.next ?: return this
             }
         }
 
         companion object {
             @JvmStatic
-            fun createNodeFromAccessors(accessors: List<Accessor>): AccessNode? =
-                accessors.foldRight(null as AccessNode?, ::AccessNode)
+            fun TreeApManager.createNodeFromAccessors(accessors: IntList): AccessNode? =
+                accessors.foldRight(null as AccessNode?) { accessor, acc -> AccessNode(this, accessor, acc) }
 
             @JvmStatic
-            fun createNodeFromReversedAp(reversedAp: ReversedApNode?): AccessNode? =
-                reversedAp.foldRight(null as AccessNode?, ::AccessNode)
+            fun TreeApManager.createNodeFromReversedAp(reversedAp: ReversedApNode?): AccessNode? =
+                reversedAp.foldRight(null as AccessNode?) { accessor, acc -> AccessNode(this, accessor, acc) }
 
-            class ReversedApNode(val accessor: Accessor, val prev: ReversedApNode?)
+            class ReversedApNode(val accessor: AccessorIdx, val prev: ReversedApNode?)
 
             inline fun <R> ReversedApNode?.foldRight(
-                initial: R, operation: (accessor: Accessor, acc: R) -> R
+                initial: R, operation: (accessor: AccessorIdx, acc: R) -> R
             ): R {
                 if (this == null) return initial
 

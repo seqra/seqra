@@ -69,8 +69,8 @@ private inline fun AgEdge(from: NodeMarker, to: NodeMarker): AgEdge =
 private inline val AgEdge.from: NodeMarker get() = this.first
 private inline val AgEdge.to: NodeMarker get() = this.second
 
-private fun LongArrayList.removeLast(): Long = removeLong(lastIndex)
-private fun IntArrayList.removeLast(): Int = removeInt(lastIndex)
+private fun LongArrayList.removeLastLong(): Long = removeLong(lastIndex)
+private fun IntArrayList.removeLastInt(): Int = removeInt(lastIndex)
 
 class AccessGraph(
     val manager: AutomataApManager,
@@ -107,7 +107,7 @@ class AccessGraph(
         unprocessed.add(initial)
 
         while (!unprocessed.isEmpty) {
-            val node = unprocessed.removeLast()
+            val node = unprocessed.removeLastInt()
             val successors = nodeSucc[node] ?: continue
 
             hash *= 17
@@ -143,7 +143,7 @@ class AccessGraph(
         unprocessed.add(NodePair(initial, other.initial))
 
         while (unprocessed.isNotEmpty()) {
-            val (thisNode, otherNode) = unprocessed.removeLast()
+            val (thisNode, otherNode) = unprocessed.removeLastLong()
 
             val currentMapping = nodeMapping.put(thisNode, otherNode)
             if (currentMapping != NO_NODE) {
@@ -381,7 +381,7 @@ class AccessGraph(
         unprocessed.add(NodePair(this.initial, other.initial))
 
         while (unprocessed.isNotEmpty()) {
-            val nodePair = unprocessed.removeLast()
+            val nodePair = unprocessed.removeLastLong()
             if (!visitedNodes.add(nodePair)) continue
             val (thisNode, otherNode) = nodePair
 
@@ -450,7 +450,7 @@ class AccessGraph(
         unprocessed.add(NodePair(this.initial, other.initial))
 
         while (unprocessed.isNotEmpty()) {
-            val nodePair = unprocessed.removeLast()
+            val nodePair = unprocessed.removeLastLong()
             if (!visitedNodes.add(nodePair)) continue
             val (thisNode, otherNode) = nodePair
 

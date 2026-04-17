@@ -15,6 +15,7 @@ data class AccessGraphFinalFactAp(
     override val exclusions: ExclusionSet
 ) : FinalFactAp, AccessGraphAccessorList {
     override val size: Int get() = access.size
+    override val depth: Int get() = size
 
     override fun rebase(newBase: AccessPathBase): FinalFactAp =
         AccessGraphFinalFactAp(newBase, access, exclusions)

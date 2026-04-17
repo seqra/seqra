@@ -27,7 +27,6 @@ import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerabilityWithEndFactRequirement
 import org.opentaint.dataflow.ap.ifds.trace.ParallelProcessingContext
-import org.opentaint.dataflow.ap.ifds.trace.ProcessingCancellation
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityChecker
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityChecker.VerifiedVulnerability
@@ -37,6 +36,7 @@ import org.opentaint.dataflow.configuration.CommonTaintRulesProvider
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.util.MemoryManager
 import org.opentaint.dataflow.util.SoftReferenceManager
 import org.opentaint.dataflow.util.percentToString
@@ -47,6 +47,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -58,8 +59,21 @@ class TaintAnalysisUnitRunnerManager(
     private val taintConfig: CommonTaintRulesProvider,
     private val summarySerializationContext: SummarySerializationContext,
     val apManager: ApManager,
-    private val taintRulesStatsSamplingPeriod: Int?
+    private val taintRulesStatsSamplingPeriod: Int?,
 ): AnalysisUnitRunnerManager, AutoCloseable {
+    override val cancellation: Cancellation = apManager.cancellation
+
+    enum class Status {
+        OK, EXCEPTION, TIMEOUT, OOM
+    }
+
+    val status = AtomicReference<Status>(Status.OK)
+
+    private fun updateFailureStatus(status: Status) {
+        if (status == Status.OK) return
+        this.status.compareAndSet(Status.OK, status)
+    }
+
     private val runnerForUnit = ConcurrentHashMap<UnitType, TaintAnalysisUnitRunner>()
     private val unitStorage = ConcurrentHashMap<UnitType, TaintAnalysisUnitStorage>()
     private val methodDependencies = ConcurrentHashMap<CommonMethod, MutableSet<UnitType>>()
@@ -69,6 +83,7 @@ class TaintAnalysisUnitRunnerManager(
 
     private val totalEventsProcessed = AtomicInteger()
     private val totalEventsEnqueued = AtomicInteger()
+    private val totalDelayedUnits = AtomicInteger()
 
     @OptIn(DelicateCoroutinesApi::class)
     private val analyzerDispatcher = newFixedThreadPoolContext(
@@ -96,6 +111,8 @@ class TaintAnalysisUnitRunnerManager(
     private val analysisMemoryManager = MemoryManager(OOM_DETECTION_THRESHOLD, apManager.refManager()) {
         logger.error { "Running low on memory, stopping analysis" }
         analysisCompletion.complete(Unit)
+        cancellation.cancel()
+        updateFailureStatus(Status.OOM)
     }
 
     fun storeSummaries() {
@@ -110,6 +127,8 @@ class TaintAnalysisUnitRunnerManager(
         timeout: Duration,
         cancellationTimeout: Duration
     ) = analysisMemoryManager.runWithMemoryManager {
+        cancellation.activate()
+
         val timeStart = TimeSource.Monotonic.markNow()
 
         val unitStartMethods = startMethods.groupBy { unitResolver.resolve(it.method) }.filterKeys { it != UnknownUnit }
@@ -142,6 +161,8 @@ class TaintAnalysisUnitRunnerManager(
                 }
 
                 if (timeoutFailure == null) {
+                    updateFailureStatus(Status.TIMEOUT)
+                    cancellation.cancel()
                     logger.warn { "Ifds analysis timeout" }
                 }
             } finally {
@@ -177,17 +198,17 @@ class TaintAnalysisUnitRunnerManager(
         cancellationTimeout: Duration
     ): List<VulnerabilityWithTrace> {
         if (vulnerabilities.isEmpty()) return emptyList()
+        cancellation.activate()
 
-        val traceResolverCancellation = ProcessingCancellation()
         val traceResolverMemoryManager = MemoryManager(TRACE_GENERATION_MEMORY_THRESHOLD, apManager.refManager()) {
-            traceResolverCancellation.cancel()
+            cancellation.cancel()
+            updateFailureStatus(Status.OOM)
             logger.error { "Running low on memory, stopping trace resolution" }
         }
 
         return traceResolverMemoryManager.runWithMemoryManager {
             resolveVulnerabilityTracesWithCancellation(
-                entryPoints, vulnerabilities, resolverParams, timeout, cancellationTimeout,
-                traceResolverCancellation
+                entryPoints, vulnerabilities, resolverParams, timeout, cancellationTimeout
             )
         }
     }
@@ -198,9 +219,8 @@ class TaintAnalysisUnitRunnerManager(
         resolverParams: TraceResolver.Params,
         timeout: Duration,
         cancellationTimeout: Duration,
-        traceResolverCancellation: ProcessingCancellation
     ): List<VulnerabilityWithTrace> {
-        val traceResolver = TraceResolver(entryPoints, this, resolverParams, traceResolverCancellation)
+        val traceResolver = TraceResolver(entryPoints, this, resolverParams, cancellation)
         val traceResolutionContext = object : ParallelProcessingContext<TaintVulnerability, VulnerabilityWithTrace>(
             analyzerDispatcher, name = "Trace resolution", vulnerabilities
         ) {
@@ -235,7 +255,7 @@ class TaintAnalysisUnitRunnerManager(
         }
 
         return traceResolutionContext.processAll(
-            progressScope, timeout, cancellationTimeout, traceResolverCancellation
+            progressScope, timeout, cancellationTimeout, cancellation
         ) { vulnerability ->
             val trace = traceResolver.resolveTrace(vulnerability)
             VulnerabilityWithTrace(vulnerability, trace)
@@ -248,6 +268,8 @@ class TaintAnalysisUnitRunnerManager(
         timeout: Duration,
         cancellationTimeout: Duration
     ): List<TaintVulnerability> {
+        cancellation.activate()
+
         val confirmed = mutableListOf<TaintVulnerability>()
         val unconfirmedVulnerabilities = mutableListOf<TaintVulnerabilityWithEndFactRequirement>()
 
@@ -261,16 +283,15 @@ class TaintAnalysisUnitRunnerManager(
 
         if (unconfirmedVulnerabilities.isEmpty()) return confirmed
 
-        val vulnConfirmCancellation = ProcessingCancellation()
         val vulnConfirmMemoryManager = MemoryManager(TRACE_GENERATION_MEMORY_THRESHOLD, apManager.refManager()) {
-            vulnConfirmCancellation.cancel()
+            cancellation.cancel()
+            updateFailureStatus(Status.OOM)
             logger.error { "Running low on memory, stopping vulnerability confirmation" }
         }
 
         val checkedVulnerabilities = vulnConfirmMemoryManager.runWithMemoryManager {
             confirmVulnerabilitiesWithCancellation(
                 entryPoints, unconfirmedVulnerabilities, timeout, cancellationTimeout,
-                vulnConfirmCancellation
             )
         }
 
@@ -295,9 +316,8 @@ class TaintAnalysisUnitRunnerManager(
         vulnerabilities: List<TaintVulnerabilityWithEndFactRequirement>,
         timeout: Duration,
         cancellationTimeout: Duration,
-        vulnConfirmCancellation: ProcessingCancellation,
     ): List<VerifiedVulnerability> {
-        val checker = VulnerabilityChecker(entryPoints, this, vulnConfirmCancellation)
+        val checker = VulnerabilityChecker(entryPoints, this, cancellation)
         val vulnConfirmationContext =
             object : ParallelProcessingContext<TaintVulnerabilityWithEndFactRequirement, VerifiedVulnerability>(
                 analyzerDispatcher, name = "Vulnerability confirmation", vulnerabilities
@@ -310,7 +330,7 @@ class TaintAnalysisUnitRunnerManager(
             }
 
         return vulnConfirmationContext.processAll(
-            progressScope, timeout, cancellationTimeout, vulnConfirmCancellation
+            progressScope, timeout, cancellationTimeout, cancellation
         ) { checker.verifyVulnerability(it) }
     }
 
@@ -364,8 +384,13 @@ class TaintAnalysisUnitRunnerManager(
         )
 
         val exceptionHandler = CoroutineExceptionHandler { _, exception ->
+            if (exception is Cancellation.Cancelled) {
+                logger.error { "Cancelled: $unit, stopping analysis" }
+                return@CoroutineExceptionHandler
+            }
             logger.error { "Got exception from runner for unit $unit, stopping analysis" }
             analysisCompletion.completeExceptionally(exception)
+            updateFailureStatus(Status.EXCEPTION)
         }
 
         val job = analyzerScope.launch(exceptionHandler) { runner.runLoop() }
@@ -382,10 +407,31 @@ class TaintAnalysisUnitRunnerManager(
         totalEventsProcessed.incrementAndGet()
 
         val remainingEvents = totalEventsEnqueued.decrementAndGet()
-        if (remainingEvents == 0) {
-            logger.debug { "All runners are empty" }
-            analysisCompletion.complete(Unit)
+        if (remainingEvents != 0) return
+
+        val delayedUnits = totalDelayedUnits.getAndSet(0)
+        if (delayedUnits != 0) {
+            resumeDelayedUnits()
+            return
         }
+
+        logger.debug { "All runners are empty" }
+        analysisCompletion.complete(Unit)
+    }
+
+    fun handleUnitDelayed() {
+        totalDelayedUnits.incrementAndGet()
+    }
+
+    private fun resumeDelayedUnits() {
+        handleEventEnqueued()
+
+        logger.debug { "Resume delayed units" }
+        runnerForUnit.values.forEach {
+            it.resumeDelayedUnit()
+        }
+
+        handleEventProcessed()
     }
 
     override fun registerMethodCallFromUnit(method: CommonMethod, unit: UnitType) {
@@ -445,6 +491,10 @@ class TaintAnalysisUnitRunnerManager(
         logger.debug {
             val methodStats = collectMethodStats()
 
+            val mostTimeSpentMethods = methodStats.stats.values
+                .filter { it.analysisTime > 0 }
+                .sortedByDescending { it.analysisTime }
+
             val mostUnprocessedMethods = methodStats.stats.values.sortedByDescending { it.unprocessedEdges }
             val mostStepsMethods = methodStats.stats.values.sortedByDescending { it.steps }
             val mostHandledSummariesMethods = methodStats.stats.values.sortedByDescending { it.handledSummaries }
@@ -452,6 +502,11 @@ class TaintAnalysisUnitRunnerManager(
             val mostPassMethods = methodStats.stats.values.sortedByDescending { it.passSummaries }
 
             buildString {
+                if (mostTimeSpentMethods.isNotEmpty()) {
+                    appendLine("Time spent")
+                    mostTimeSpentMethods.take(10).forEach { appendLine(it) }
+                }
+
                 appendLine("Unprocessed")
                 mostUnprocessedMethods.take(5).forEach { appendLine(it) }
 

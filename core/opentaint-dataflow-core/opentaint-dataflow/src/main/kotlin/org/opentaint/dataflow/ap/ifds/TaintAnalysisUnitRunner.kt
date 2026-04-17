@@ -4,6 +4,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.yield
+import mu.KLogging
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.util.analysis.ApplicationGraph
@@ -18,9 +19,9 @@ import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
 import org.opentaint.dataflow.ap.ifds.trace.MethodForwardTraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.MethodForwardTraceResolver.RelevantFactFilter
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver
-import org.opentaint.dataflow.ap.ifds.trace.ProcessingCancellation
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.ifds.UnitType
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.util.concurrentReadSafeForEach
 import java.util.PriorityQueue
 import java.util.concurrent.atomic.LongAdder
@@ -72,6 +73,7 @@ class TaintAnalysisUnitRunner(
     private val analyzers = mutableListOf<MethodAnalyzerStorage>()
     private val methodAnalyzers = hashMapOf<CommonMethod, MethodAnalyzerStorage>()
     private val loadedSummaries = hashMapOf<MethodEntryPoint, Pair<List<Edge>, List<InitialFactAp>>>()
+    private var delayedMethodAnalyzers = mutableListOf<MethodAnalyzer>()
 
     private val internalMethodSummarySubscriptions = SummaryEdgeSubscriptionManager(manager, this)
     private val externalMethodSummarySubscriptions = SummaryEdgeSubscriptionManager(manager, this)
@@ -115,6 +117,10 @@ class TaintAnalysisUnitRunner(
         for (method in startMethods) {
             addStart(method)
         }
+    }
+
+    fun resumeDelayedUnit() {
+        addUnprocessedEvent(DelayedAnalysisResume)
     }
 
     private fun addStart(method: MethodWithContext) {
@@ -194,6 +200,19 @@ class TaintAnalysisUnitRunner(
                 is LambdaResolvedEvent -> {
                     handleLambdaResolvedEvent(event)
                 }
+
+                is MethodAnalysisDelayed -> {
+                    if (delayedMethodAnalyzers.add(event.analyzer)) {
+                        manager.handleUnitDelayed()
+                    }
+                }
+
+                is DelayedAnalysisResume -> {
+                    val currentDelayed = delayedMethodAnalyzers
+                    delayedMethodAnalyzers = mutableListOf()
+
+                    resumeDelayedAnalyzers(currentDelayed)
+                }
             }
 
             if (processed) {
@@ -208,6 +227,8 @@ class TaintAnalysisUnitRunner(
 
     private fun addUnprocessedEvent(event: ExternalInputFact) = addUnprocessedAnyEvent(event)
     private fun addUnprocessedEvent(edge: MethodAnalyzer) = addUnprocessedAnyEvent(edge)
+    private fun addUnprocessedEvent(event: MethodAnalysisDelayed) = addUnprocessedAnyEvent(event)
+    private fun addUnprocessedEvent(event: DelayedAnalysisResume) = addUnprocessedAnyEvent(event)
 
     override fun addSummaryEdgeEvent(event: SummaryEdgeSubscriptionManager.SummaryEvent) {
         addUnprocessedAnyEvent(event)
@@ -278,6 +299,27 @@ class TaintAnalysisUnitRunner(
 
     override fun enqueueMethodAnalyzer(analyzer: MethodAnalyzer) {
         addUnprocessedEvent(analyzer)
+    }
+
+    data class MethodAnalysisDelayed(val analyzer: MethodAnalyzer)
+
+    data object DelayedAnalysisResume
+
+    override fun registerDelayedAnalyzer(analyzer: MethodAnalyzer) {
+        addUnprocessedEvent(MethodAnalysisDelayed(analyzer))
+    }
+
+    private var factLimit = NormalMethodAnalyzer.INITIAL_ALLOWED_FACT_DEPTH
+
+    private fun resumeDelayedAnalyzers(delayedAnalyzers: Collection<MethodAnalyzer>) {
+        if (delayedAnalyzers.isEmpty()) return
+
+        val increasedFactLimit = ++factLimit
+        logger.debug { "Increase unit $unit fact limit: $increasedFactLimit" }
+
+        delayedAnalyzers.forEach { analyzer ->
+            analyzer.updateFactDepthLimit(increasedFactLimit)
+        }
     }
 
     private val CommonMethod.isExtern: Boolean
@@ -428,7 +470,7 @@ class TaintAnalysisUnitRunner(
     fun resolveIntraProceduralFullTrace(
         methodEntryPoint: MethodEntryPoint,
         summaryTrace: MethodTraceResolver.SummaryTrace,
-        cancellation: ProcessingCancellation,
+        cancellation: Cancellation,
         collapseUnchangedNodes: Boolean,
     ): List<MethodTraceResolver.FullTrace> {
         val methodRunners = methodAnalyzers(methodEntryPoint)
@@ -460,5 +502,7 @@ class TaintAnalysisUnitRunner(
 
     companion object {
         private const val RUNNER_STEPS_QUANT = 1000
+
+        private val logger = object : KLogging() {}.logger
     }
 }

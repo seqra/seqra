@@ -119,7 +119,7 @@ class JIRTaintAnalyzer(
     ): List<VulnerabilityWithTrace> {
         val analysisStart = TimeSource.Monotonic.markNow()
 
-        val analysisTimeout = options.ifdsTimeout * 0.95 // Reserve 5% of time for report creation
+        val analysisTimeout = options.ifdsTimeout * 0.90 // Reserve 10% of time for trace generation and report creation
         val startMethods = entryPoints.map { MethodWithContext(it, EmptyMethodContext) }
         runCatching { ifdsEngine.runAnalysis(startMethods, timeout = analysisTimeout, cancellationTimeout = 30.seconds) }
             .onFailure { logger.error(it) { "Ifds engine failed" } }
@@ -167,7 +167,8 @@ class JIRTaintAnalyzer(
         }
 
         logger.info { "Start trace generation" }
-        val traceResolutionTimeout = options.ifdsTimeout - analysisStart.elapsedNow()
+        val leftTime = options.ifdsTimeout - analysisStart.elapsedNow()
+        val traceResolutionTimeout = leftTime * 0.90 // Reserve 10% of time for report creation
         if (!traceResolutionTimeout.isPositive()) {
             logger.warn { "No time remaining for trace resolution" }
             return emptyList()

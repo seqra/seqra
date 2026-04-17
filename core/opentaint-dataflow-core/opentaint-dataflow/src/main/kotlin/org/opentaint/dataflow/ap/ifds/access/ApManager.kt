@@ -15,10 +15,12 @@ import org.opentaint.dataflow.ap.ifds.SummaryEdgeSubscriptionManager.ZeroEdgeSum
 import org.opentaint.dataflow.ap.ifds.ZeroToFactEdgeBuilder
 import org.opentaint.dataflow.ap.ifds.serialization.ApSerializer
 import org.opentaint.dataflow.ap.ifds.serialization.SummarySerializationContext
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 interface ApManager {
     val anyAccessorUnrollStrategy: AnyAccessorUnrollStrategy
+    val cancellation: Cancellation
 
     fun initialFactAbstraction(methodInitialStatement: CommonInst): InitialFactAbstraction
 

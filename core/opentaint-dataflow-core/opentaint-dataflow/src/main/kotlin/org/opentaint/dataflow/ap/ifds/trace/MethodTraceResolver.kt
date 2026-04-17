@@ -57,6 +57,7 @@ import java.util.BitSet
 import java.util.LinkedList
 import java.util.Objects
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallResolver.MethodCallResolutionResult
+import org.opentaint.dataflow.util.Cancellation
 import kotlin.collections.plusAssign
 
 class MethodTraceResolver(
@@ -327,7 +328,7 @@ class MethodTraceResolver(
 
     private val entryManager = EntryManager()
 
-    private inner class TraceBuilder(val finalEntryId: Int, val cancellation: ProcessingCancellation) {
+    private inner class TraceBuilder(val finalEntryId: Int, val cancellation: Cancellation) {
         val startEntryIds = BitSet()
         var processedEntryIds = CompactIntSet().also { it.add(finalEntryId) }
         val unprocessedEntryIds = IntArrayList().also { it.add(finalEntryId) }
@@ -465,7 +466,7 @@ class MethodTraceResolver(
 
     fun resolveIntraProceduralFullTrace(
         summaryTrace: SummaryTrace,
-        cancellation: ProcessingCancellation,
+        cancellation: Cancellation,
         collapseUnchangedNodes: Boolean,
     ): Pair<List<FullTrace>, Int> {
         check(summaryTrace.method == methodEntryPoint) { "Incorrect summary trace" }
@@ -598,7 +599,7 @@ class MethodTraceResolver(
     }
 
     private fun TraceBuilder.resolveTrace(traceKind: TraceKind) {
-        while (unprocessedEntryIds.isNotEmpty() && cancellation.isActive) {
+        while (unprocessedEntryIds.isNotEmpty() && cancellation.isActive()) {
             val entryId = unprocessedEntryIds.removeInt(unprocessedEntryIds.lastIndex)
             val entry = entryManager.entryById(entryId)
             processTraceEntry(entry, traceKind)

@@ -3,11 +3,20 @@ package org.opentaint.dataflow.util
 import it.unimi.dsi.fastutil.ints.Int2IntOpenHashMap
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.ints.IntCollection
+import it.unimi.dsi.fastutil.ints.IntList
 
 inline fun IntCollection.forEachInt(block: (Int) -> Unit) {
     val iter = intIterator()
     while (iter.hasNext()) {
         val element = iter.nextInt()
+        block(element)
+    }
+}
+
+inline fun IntList.reversedForEachInt(block: (Int) -> Unit) {
+    val iter = listIterator(size)
+    while (iter.hasPrevious()) {
+        val element = iter.previousInt()
         block(element)
     }
 }

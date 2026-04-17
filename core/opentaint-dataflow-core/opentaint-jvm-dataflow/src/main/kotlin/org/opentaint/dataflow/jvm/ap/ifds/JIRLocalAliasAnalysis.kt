@@ -6,6 +6,8 @@ import org.opentaint.dataflow.jvm.ap.ifds.alias.JIRIntraProcAliasAnalysis
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.jvm.graph.JApplicationGraph
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 class JIRLocalAliasAnalysis(
     private val entryPoint: JIRInst,
@@ -18,13 +20,14 @@ class JIRLocalAliasAnalysis(
     data class Params(
         val useAliasAnalysis: Boolean = true,
         val aliasAnalysisInterProcCallDepth: Int = 0,
+        val aliasAnalysisTimeLimit: Duration = 10.seconds,
     )
 
     private val aliasInfo by lazy { compute() }
 
     class MethodAliasInfo(
-        val aliasBeforeStatement: Array<Int2ObjectOpenHashMap<Array<Any>>?>,
-        val aliasAfterStatement: Array<Int2ObjectOpenHashMap<Array<Any>>?>,
+        val aliasBeforeStatement: Array<Int2ObjectOpenHashMap<Array<Any>>?>?,
+        val aliasAfterStatement: Array<Int2ObjectOpenHashMap<Array<Any>>?>?,
     )
 
     private fun getLocalVarAliases(
@@ -36,18 +39,21 @@ class JIRLocalAliasAnalysis(
         }?.map { it.wrapAliasInfo() }
 
     fun findAlias(base: AccessPathBase.LocalVar, statement: CommonInst): List<AliasInfo>? {
+        val aliasBefore = aliasInfo.aliasBeforeStatement ?: return null
         val idx = languageManager.getInstIndex(statement)
-        return getLocalVarAliases(aliasInfo.aliasBeforeStatement, idx, base)
+        return getLocalVarAliases(aliasBefore, idx, base)
     }
 
     fun getAllAliasAtStatement(statement: CommonInst): Int2ObjectOpenHashMap<List<AliasInfo>> {
+        val aliasBefore = aliasInfo.aliasBeforeStatement ?: return Int2ObjectOpenHashMap()
         val idx = languageManager.getInstIndex(statement)
-        return aliasInfo.aliasBeforeStatement[idx]?.let { wrapAllInfo(it) } ?: Int2ObjectOpenHashMap()
+        return aliasBefore[idx]?.let { wrapAllInfo(it) } ?: Int2ObjectOpenHashMap()
     }
 
     fun findAliasAfterStatement(base: AccessPathBase.LocalVar, statement: CommonInst): List<AliasInfo>? {
+        val aliasAfter = aliasInfo.aliasAfterStatement ?: return null
         val idx = languageManager.getInstIndex(statement)
-        return getLocalVarAliases(aliasInfo.aliasAfterStatement, idx, base)
+        return getLocalVarAliases(aliasAfter, idx, base)
     }
 
     private fun compute(): MethodAliasInfo {

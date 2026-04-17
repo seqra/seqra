@@ -3,7 +3,6 @@ package org.opentaint.dataflow.ap.ifds.access.tree
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges.Companion.instructionStorageIdx
 import org.opentaint.dataflow.ap.ifds.access.common.CommonZ2FSet
-import org.opentaint.dataflow.util.SoftReferenceManager
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode as AccessTreeNode
 
@@ -14,19 +13,19 @@ class MethodEdgesFinalTreeApSet(
     override val apManager: TreeApManager,
 ) : CommonZ2FSet<AccessTreeNode>(methodInitialStatement), TreeFinalApAccess {
     override fun createApStorage(): ApStorage<AccessTreeNode> =
-        ZeroInitialFactEdges(maxInstIdx, languageManager, apManager.refManager)
+        ZeroInitialFactEdges(maxInstIdx, languageManager, apManager)
 
     private class ZeroInitialFactEdges(
         maxInstIdx: Int,
         private val languageManager: LanguageManager,
-        refManager: SoftReferenceManager,
-    ): TreeSetWithCompression(maxInstIdx, refManager), ApStorage<AccessTreeNode> {
+        manager: TreeApManager,
+    ): TreeSetWithCompression(maxInstIdx, manager), ApStorage<AccessTreeNode> {
         override fun addEdge(statement: CommonInst, accessPath: AccessTreeNode): AccessTreeNode? {
             val factSetIdx = instructionStorageIdx(statement, languageManager)
             val factSet = edges[factSetIdx]
 
             if (factSet == null) {
-                edges[factSetIdx] = accessPath
+                edges[factSetIdx] = internIfRequired(accessPath)
                 return accessPath
             }
 
@@ -35,7 +34,7 @@ class MethodEdgesFinalTreeApSet(
                 return null
             }
 
-            edges[factSetIdx] = mergedFacts
+            edges[factSetIdx] = internIfRequired(mergedFacts)
             intern(factSetIdx)
             return mergedFacts
         }
