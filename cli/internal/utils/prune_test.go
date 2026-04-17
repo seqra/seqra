@@ -93,6 +93,55 @@ func TestDeleteArtifacts(t *testing.T) {
 		}
 	})
 
+	t.Run("cleans up project dir with residual cache lock", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		cacheDir := filepath.Join(tmpDir, "cache")
+		projectDir := filepath.Join(cacheDir, "my-project-a1b2c3d4")
+		pmDir := filepath.Join(projectDir, "project-model")
+		createTestFile(t, filepath.Join(pmDir, "project.yaml"), 50)
+		// Simulate the .cache.lock file a prior scan left behind.
+		createTestFile(t, CacheLockPath(projectDir), 0)
+
+		artifacts := []StaleArtifact{{Path: pmDir, Size: 50, Kind: StaleKindModel}}
+		if err := DeleteArtifacts(artifacts); err != nil {
+			t.Fatalf("DeleteArtifacts() error = %v", err)
+		}
+
+		if _, err := os.Stat(projectDir); !os.IsNotExist(err) {
+			t.Errorf("expected project cache dir to be removed, got err=%v", err)
+		}
+		if _, err := os.Stat(cacheDir); !os.IsNotExist(err) {
+			t.Errorf("expected empty cache dir to be removed, got err=%v", err)
+		}
+	})
+
+	t.Run("preserves project dir when cache lock is held elsewhere", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		cacheDir := filepath.Join(tmpDir, "cache")
+		projectDir := filepath.Join(cacheDir, "my-project-a1b2c3d4")
+		pmDir := filepath.Join(projectDir, "project-model")
+		createTestFile(t, filepath.Join(pmDir, "project.yaml"), 50)
+
+		// Another holder grabbed the lock between scan and delete.
+		sharedLock, err := TryLockShared(CacheLockPath(projectDir))
+		if err != nil {
+			t.Fatalf("TryLockShared() error = %v", err)
+		}
+		defer sharedLock.Unlock()
+
+		artifacts := []StaleArtifact{{Path: pmDir, Size: 50, Kind: StaleKindModel}}
+		if err := DeleteArtifacts(artifacts); err != nil {
+			t.Fatalf("DeleteArtifacts() error = %v", err)
+		}
+
+		if _, err := os.Stat(pmDir); !os.IsNotExist(err) {
+			t.Errorf("expected project-model to be removed, got err=%v", err)
+		}
+		if _, err := os.Stat(projectDir); err != nil {
+			t.Errorf("expected project cache dir to remain (lock held), got err=%v", err)
+		}
+	})
+
 	t.Run("empty slice is no-op", func(t *testing.T) {
 		if err := DeleteArtifacts(nil); err != nil {
 			t.Fatalf("DeleteArtifacts(nil) error = %v", err)

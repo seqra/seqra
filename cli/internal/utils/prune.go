@@ -272,10 +272,20 @@ func DeleteArtifacts(artifacts []StaleArtifact) error {
 	emptyDirCandidates := map[string]struct{}{}
 
 	for _, artifact := range artifacts {
+		if artifact.Kind == StaleKindModel {
+			modelsParent, err := deleteModelArtifact(artifact.Path)
+			if err != nil {
+				return err
+			}
+			if modelsParent != "" {
+				emptyDirCandidates[modelsParent] = struct{}{}
+			}
+			continue
+		}
 		if err := os.RemoveAll(artifact.Path); err != nil {
 			return fmt.Errorf("failed to remove %s: %w", artifact.Path, err)
 		}
-		if artifact.Kind == StaleKindModel || artifact.Kind == StaleKindLog {
+		if artifact.Kind == StaleKindLog {
 			emptyDirCandidates[filepath.Dir(artifact.Path)] = struct{}{}
 		}
 	}
@@ -286,6 +296,35 @@ func DeleteArtifacts(artifacts []StaleArtifact) error {
 		removeEmptyParents(dir)
 	}
 	return nil
+}
+
+// deleteModelArtifact removes a cached project-model and, when the cache lock
+// is still ours to take, the entire project cache directory (including the
+// residual .cache.lock left over from the prior scan). Returns the models/
+// parent directory as a candidate for empty-parent cleanup, or "" if the
+// project directory must remain intact (another holder acquired the lock).
+func deleteModelArtifact(modelPath string) (string, error) {
+	projectDir := filepath.Dir(modelPath)
+	lock, err := TryLockExclusive(CacheLockPath(projectDir), LockMeta{
+		PID:     os.Getpid(),
+		Command: "prune",
+	})
+	if err != nil {
+		// Another process grabbed the cache between scan and delete.
+		// Fall back to removing only the model; the holder keeps its lock.
+		if rmErr := os.RemoveAll(modelPath); rmErr != nil {
+			return "", fmt.Errorf("failed to remove %s: %w", modelPath, rmErr)
+		}
+		return "", nil
+	}
+	// Remove the whole project cache dir while holding exclusive. The lock
+	// file is unlinked here; our fd stays valid until Unlock closes it.
+	if err := os.RemoveAll(projectDir); err != nil {
+		lock.Unlock()
+		return "", fmt.Errorf("failed to remove %s: %w", projectDir, err)
+	}
+	lock.Unlock()
+	return filepath.Dir(projectDir), nil
 }
 
 // removeEmptyParents attempts to remove dir and its parent if they are empty.
