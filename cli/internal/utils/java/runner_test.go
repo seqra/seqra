@@ -389,4 +389,3 @@ func TestEnvironmentVariableList(t *testing.T) {
 	}
 	_ = os.Unsetenv("NON_JAVA")
 }
-

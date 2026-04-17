@@ -9,8 +9,8 @@ import (
 )
 
 // SetUpLogs must wire the file hook so that Debug-level entries are
-// captured no matter what verbosity argument is passed in. JAR output is
-// emitted at Debug; it must land in the log file even in default mode.
+// always captured. JAR output is emitted at Debug; it must land in the
+// log file regardless of any user-facing console mode.
 func TestSetUpLogsFileHookAlwaysCapturesDebug(t *testing.T) {
 	var buf bytes.Buffer
 	LogWriter().Swap(&buf)
@@ -27,7 +27,7 @@ func TestSetUpLogsFileHookAlwaysCapturesDebug(t *testing.T) {
 
 	got := buf.String()
 	if !strings.Contains(got, "captured-debug-line") {
-		t.Fatalf("expected debug line in log file output even with info verbosity, got %q", got)
+		t.Fatalf("expected debug line in log file output in default mode, got %q", got)
 	}
 }
 
