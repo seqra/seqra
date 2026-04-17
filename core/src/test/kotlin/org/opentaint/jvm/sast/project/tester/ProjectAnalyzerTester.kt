@@ -237,7 +237,7 @@ private fun ProjectAnalysisContext.analyze(
         projectClasses = projectClasses.locationChecker(),
         options = options,
     ).use { analyzer ->
-        return analyzer.analyzeWithIfds(entryPoints)
+        return analyzer.analyzeWithIfds(entryPoints).first
     }
 }
 

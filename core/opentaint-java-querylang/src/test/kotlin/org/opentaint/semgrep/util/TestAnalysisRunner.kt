@@ -75,7 +75,7 @@ class TestAnalysisRunner(
     @Suppress("UNCHECKED_CAST")
     private fun setupEngine(configProvider: TaintRulesProvider): TaintAnalysisUnitRunnerManager {
         return TaintAnalysisUnitRunnerManager(
-            JIRAnalysisManager(cp),
+            JIRAnalysisManager(cp, configProvider),
             ifdsAnalysisGraph as ApplicationGraph<CommonMethod, CommonInst>,
             unitResolver = object :JIRUnitResolver {
                 override fun locationIsUnknown(loc: RegisteredLocation): Boolean =
@@ -87,7 +87,6 @@ class TestAnalysisRunner(
             } as UnitResolver<CommonMethod>,
             apManager = TreeApManager(anyAccessorUnrollStrategy = AnyAccessorUnrollStrategy.AnyAccessorDisabled),
             summarySerializationContext = DummySerializationContext,
-            taintConfig = configProvider,
             taintRulesStatsSamplingPeriod = null,
         )
     }

@@ -9,7 +9,7 @@ import java.nio.file.Path
 import kotlin.time.Duration
 
 data class ProjectAnalysisOptions(
-    val customConfig: List<Path> = emptyList(),
+    val customApproximationConfig: List<Path> = emptyList(),
     val semgrepRuleSet: List<Path> = emptyList(),
     val semgrepRuleLoadTrace: Path? = null,
     val semgrepSeverity: List<Severity> = emptyList(),

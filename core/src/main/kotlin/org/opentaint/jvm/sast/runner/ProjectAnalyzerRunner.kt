@@ -95,7 +95,7 @@ class ProjectAnalyzerRunner : AbstractAnalyzerRunner() {
         )
 
         val options = ProjectAnalysisOptions(
-            customConfig = approximationsConfig,
+            customApproximationConfig = approximationsConfig,
             semgrepRuleSet = semgrepRuleSet,
             semgrepSeverity = semgrepRuleSeverity,
             semgrepRuleId = semgrepRuleId,
