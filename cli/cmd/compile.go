@@ -67,7 +67,7 @@ Arguments:
 
 		sb := out.Section("OpenTaint Compile")
 		addConfigFields(cmd, sb)
-		if globals.Config.Log.Verbosity == "debug" {
+		if globals.Config.Output.Debug {
 			sb.Line()
 		}
 		sb.Field("Project", absProjectRoot).
@@ -88,7 +88,6 @@ Arguments:
 
 		compileJavaRunner := java.NewJavaRunner().
 			WithSkipVerify(globals.Config.SkipVerify).
-			WithStreamOutput(globals.Config.Quiet).
 			WithDebugOutput(out.DebugStream("Autobuilder")).
 			TrySystem().
 			TrySpecificVersion(globals.Config.Java.Version)

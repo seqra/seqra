@@ -263,7 +263,6 @@ func scan(cmd *cobra.Command) {
 
 		compileJavaRunner := java.NewJavaRunner().
 			WithSkipVerify(globals.Config.SkipVerify).
-			WithStreamOutput(globals.Config.Quiet).
 			WithDebugOutput(out.DebugStream("Autobuilder")).
 			TrySystem().
 			TrySpecificVersion(globals.Config.Java.Version)
@@ -344,7 +343,6 @@ func scan(cmd *cobra.Command) {
 
 	analyzerJavaRunner := java.NewJavaRunner().
 		WithSkipVerify(globals.Config.SkipVerify).
-		WithStreamOutput(globals.Config.Quiet).
 		WithDebugOutput(out.DebugStream("Analyzer")).
 		WithImageType(java.AdoptiumImageJRE).
 		TrySpecificVersion(globals.DefaultJavaVersion)
@@ -467,7 +465,7 @@ func resolveScanConfig(absUserProjectRoot string) scanConfig {
 func printScanInfo(cmd *cobra.Command, cfg scanConfig, absSemgrepRuleLoadTracePath string, absUserProjectRoot string, absRuleSetPaths []RulesetType) {
 	sb := out.Section(cfg.mode.String())
 	addConfigFields(cmd, sb)
-	if globals.Config.Log.Verbosity == "debug" {
+	if globals.Config.Output.Debug {
 		sb.Field("Rule load trace", absSemgrepRuleLoadTracePath)
 		sb.Line()
 	}

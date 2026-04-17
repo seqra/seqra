@@ -46,9 +46,10 @@ type Scan struct {
 	CodeFlowLimit int64         `mapstructure:"code_flow_limit"`
 }
 
-type Log struct {
-	Verbosity string `mapstructure:"verbosity"`
-	Color     string `mapstructure:"color"`
+type Output struct {
+	Debug bool   `mapstructure:"debug"`
+	Color string `mapstructure:"color"`
+	Quiet bool   `mapstructure:"quiet"`
 }
 
 type Github struct {
@@ -72,8 +73,8 @@ type Java struct {
 }
 
 type ConfigType struct {
-	Scan Scan `mapstructure:"scan"`
-	Log  Log  `mapstructure:"log"`
+	Scan   Scan   `mapstructure:"scan"`
+	Output Output `mapstructure:"output"`
 
 	Github      Github      `mapstructure:"github"`
 	Analyzer    Analyzer    `mapstructure:"analyzer"`
@@ -82,7 +83,6 @@ type ConfigType struct {
 	Java        Java        `mapstructure:"java"`
 	Owner       string      `mapstructure:"owner"`
 	Repo        string      `mapstructure:"repo"`
-	Quiet       bool        `mapstructure:"quiet"`
 	SkipVerify  bool        `mapstructure:"skip-verify"`
 }
 

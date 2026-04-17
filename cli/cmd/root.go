@@ -34,25 +34,19 @@ var rootCmd = &cobra.Command{
 	SilenceUsage:  true,
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		verbosity, err := normalizeVerbosity(globals.Config.Log.Verbosity)
-		if err != nil {
-			return err
-		}
-		globals.Config.Log.Verbosity = verbosity
-
 		if err := log.SetUpLogs(); err != nil {
 			return fmt.Errorf("failed to set up logging: %w", err)
 		}
 
-		// Configure the output printer (color mode, quiet mode)
-		out.Configure(globals.Config.Log.Color, globals.Config.Quiet)
-		out.SetVerbosity(globals.Config.Log.Verbosity)
+		// Configure the output printer.
+		out.Configure(globals.Config.Output.Color, globals.Config.Output.Quiet)
+		out.SetDebug(globals.Config.Output.Debug)
 
 		// Reconcile install-tier version marker if needed (lightweight: a few Stat calls).
 		utils.ReconcileInstallMarker()
 
 		// Start async update check (non-blocking, at most once per day)
-		if !globals.Config.Quiet {
+		if !globals.Config.Output.Quiet {
 			go checkForUpdateAsync()
 		}
 
@@ -98,14 +92,14 @@ func init() {
 
 	rootCmd.Flags().BoolVarP(&toolVersion, "version", "v", false, "Print the version information")
 
-	rootCmd.PersistentFlags().StringVar(&globals.Config.Log.Verbosity, "verbosity", "info", "Verbosity level (info, debug)")
-	_ = viper.BindPFlag("log.verbosity", rootCmd.PersistentFlags().Lookup("verbosity"))
+	rootCmd.PersistentFlags().BoolVarP(&globals.Config.Output.Debug, "debug", "d", false, "Enable debug output (stream JAR subprocess output, show debug-only fields)")
+	_ = viper.BindPFlag("output.debug", rootCmd.PersistentFlags().Lookup("debug"))
 
-	rootCmd.PersistentFlags().StringVar(&globals.Config.Log.Color, "color", "auto", "Color mode (auto, always, never)")
-	_ = viper.BindPFlag("log.color", rootCmd.PersistentFlags().Lookup("color"))
+	rootCmd.PersistentFlags().StringVar(&globals.Config.Output.Color, "color", "auto", "Color mode (auto, always, never)")
+	_ = viper.BindPFlag("output.color", rootCmd.PersistentFlags().Lookup("color"))
 
-	rootCmd.PersistentFlags().BoolVarP(&globals.Config.Quiet, "quiet", "q", false, "Suppress interactive UI elements (spinners, progress bars)")
-	_ = viper.BindPFlag("quiet", rootCmd.PersistentFlags().Lookup("quiet"))
+	rootCmd.PersistentFlags().BoolVarP(&globals.Config.Output.Quiet, "quiet", "q", false, "Suppress interactive UI elements (spinners, progress bars) and JAR streaming")
+	_ = viper.BindPFlag("output.quiet", rootCmd.PersistentFlags().Lookup("quiet"))
 
 	rootCmd.PersistentFlags().StringVar(&globals.Config.Analyzer.Version, "analyzer-version", globals.AnalyzerBindVersion, "Version of opentaint analyzer")
 	_ = rootCmd.PersistentFlags().MarkHidden("analyzer-version")
@@ -153,23 +147,11 @@ func initConfig() {
 	_ = viper.Unmarshal(&globals.Config)
 }
 
-func normalizeVerbosity(level string) (string, error) {
-	value := strings.ToLower(strings.TrimSpace(level))
-	switch value {
-	case "", "info":
-		return "info", nil
-	case "debug":
-		return "debug", nil
-	default:
-		return "info", nil
-	}
-}
-
 // addConfigFields appends config fields to a SectionBuilder if PrintConfig annotation is set.
 func addConfigFields(cmd *cobra.Command, sb *output.SectionBuilder) {
 	if cmd.Annotations != nil && cmd.Annotations["PrintConfig"] == "true" {
-		if globals.Config.Log.Verbosity == "debug" {
-			sb.Field("Log level", globals.Config.Log.Verbosity)
+		if globals.Config.Output.Debug {
+			sb.Field("Log level", "debug")
 			if viper.ConfigFileUsed() != "" {
 				sb.Field("Config file", viper.ConfigFileUsed())
 			}

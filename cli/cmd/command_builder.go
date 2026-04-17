@@ -9,24 +9,23 @@ import (
 )
 
 type BaseCommandBuilder struct {
-	verbosity string
+	debug bool
 }
 
+// appendVerbosityFlag passes the JAR's own --verbosity flag based on opentaint's
+// debug bool. The Java tool's CLI surface is independent of opentaint's; we just
+// translate. info ↔ false, debug ↔ true.
 func (b *BaseCommandBuilder) appendVerbosityFlag(flags []string) []string {
-	switch b.verbosity {
-	case "info":
-		return append(flags, "--verbosity=info")
-	case "debug":
+	if b.debug {
 		return append(flags, "--verbosity=debug")
-	default:
-		return flags
 	}
+	return append(flags, "--verbosity=info")
 }
 
 func NewAnalyzerBuilder() *AnalyzerBuilder {
 	return &AnalyzerBuilder{
 		BaseCommandBuilder: &BaseCommandBuilder{
-			verbosity: globals.Config.Log.Verbosity,
+			debug: globals.Config.Output.Debug,
 		},
 		maxMemory: "-Xmx8G",
 	}
@@ -35,7 +34,7 @@ func NewAnalyzerBuilder() *AnalyzerBuilder {
 func NewAutobuilderBuilder() *AutobuilderBuilder {
 	return &AutobuilderBuilder{
 		BaseCommandBuilder: &BaseCommandBuilder{
-			verbosity: globals.Config.Log.Verbosity,
+			debug: globals.Config.Output.Debug,
 		},
 		maxMemory: "-Xmx1G",
 	}

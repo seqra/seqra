@@ -16,15 +16,15 @@ import (
 // through a Printer instance. It holds the active theme, the output writer,
 // and knows whether it's writing to a TTY.
 type Printer struct {
-	baseW     io.Writer
-	w         io.Writer
-	debugW    io.Writer
-	logW      io.Writer
-	verbosity string
-	theme     *Theme
-	isTTY     bool
-	quiet     bool
-	profile   colorprofile.Profile
+	baseW   io.Writer
+	w       io.Writer
+	debugW  io.Writer
+	logW    io.Writer
+	debug   bool
+	theme   *Theme
+	isTTY   bool
+	quiet   bool
+	profile colorprofile.Profile
 }
 
 var ansiEscapePattern = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
@@ -119,21 +119,22 @@ func (p *Printer) SetLogWriter(w io.Writer) {
 	p.logW = w
 }
 
-// SetVerbosity stores the configured log verbosity to control
-// interactive UI elements like spinners and progress bars.
-func (p *Printer) SetVerbosity(level string) {
-	p.verbosity = strings.ToLower(strings.TrimSpace(level))
+// SetDebug enables debug-mode console output: JAR streaming, debug-only
+// fields in info sections, and suppression of spinners (which would conflict
+// with streamed JAR output).
+func (p *Printer) SetDebug(debug bool) {
+	p.debug = debug
 }
 
-// IsDebugVerbosity returns true for debug-like verbosity modes.
-func (p *Printer) IsDebugVerbosity() bool {
-	return p.verbosity == "debug"
+// IsDebug returns true when debug-mode console output is enabled.
+func (p *Printer) IsDebug() bool {
+	return p.debug
 }
 
 // IsInteractiveUI returns true when interactive UI components
 // (spinners/progress bars) should be rendered.
 func (p *Printer) IsInteractiveUI() bool {
-	return p.IsInteractive() && !p.IsDebugVerbosity() && !p.quiet
+	return p.IsInteractive() && !p.IsDebug() && !p.quiet
 }
 
 func (p *Printer) writeMirroredLine(line string) {

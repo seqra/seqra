@@ -29,7 +29,7 @@ func buildRuleParsingIssuesNode(out *output.Printer, result *RuleLoadErrorsResul
 	}
 
 	s := result.Summary
-	isDebug := globals.Config.Log.Verbosity == "debug"
+	isDebug := globals.Config.Output.Debug
 
 	var children []any
 
