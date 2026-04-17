@@ -1505,7 +1505,7 @@ Summary: **5 misses** (rows 2, 9, 11, 14, 16 — TP labels not flagged), **0 ext
 
 ## Appendix D: Post-rule-update matrix
 
-_Captured 2026-04-17._
+_Captured 2026-04-17; revised 2026-04-17 after honest-labels + gap-coverage pass._
 
 ### Final test-result summary
 
@@ -1522,18 +1522,20 @@ java -Xmx8G -Djdk.util.jar.enableMultiRelease=false \
      --semgrep-rule-set ./rules/ruleset --debug-run-rule-tests
 ```
 
-Result from `opentaint-result/test-result.json`:
+Result from `opentaint-result/test-result.json` (honest labels):
 
 ```
-success: 298
+success: 297
 skipped: 0
-falsePositive: 0
-falseNegative: 0
+falsePositive: 6
+falseNegative: 3
 ```
 
-### Per-row status after rule update
+The 6 FPs and 3 FNs are intentional — they are the **gap between the rule and empirical browser behavior** and we now record them honestly rather than paper over them with Positive labels on FP rows. See the "Honest labels vs prior over-approximated labels" section below.
 
-Labels in this table are the **committed** `@PositiveRuleSample` / `@NegativeRuleSample` annotations on the samples. For the 6 rows where dynamic verification showed the sample is NOT exploitable (rows 10, 12, 13, 15, 18, 19) but the rule fires anyway, the sample is labeled `@PositiveRuleSample` and carries an inline comment noting the over-approximation. The "dynamic" column captures the Appendix A verdict (the actual exploitability of that controller shape).
+### Per-row status after rule update (rows 1–21)
+
+Labels in this table are the **committed** `@PositiveRuleSample` / `@NegativeRuleSample` annotations on the samples. Labels now match the Appendix A.2 browser verdict — rows where the rule fires despite the browser verifying "not XSS" are labeled `@NegativeRuleSample` and produce FP rows in `test-result.json`; rows where the browser verifies "XSS" but the rule cannot fire are labeled `@PositiveRuleSample` and produce FN rows.
 
 ```
 row  label      dynamic  rule fires  status
@@ -1546,17 +1548,17 @@ row  label      dynamic  rule fires  status
   6   Negative     FP       NO        OK
   7   Positive     TP       YES       OK
   8   Negative     FP       NO        OK
-  9   Positive     TP       YES       OK   (via produces="text/html" on block 3? — fires)
- 10   Positive*    FP       YES       over-approximation
- 11   Positive     TP       YES       OK   (via produces="text/html" on block 3? — fires)
- 12   Positive*    FP       YES       over-approximation
- 13   Positive*    FP       YES       over-approximation
+  9   Positive     TP       YES       OK
+ 10   Negative     FP       YES       FP   (builder-chain over-approximation)
+ 11   Positive     TP       YES       OK
+ 12   Negative     FP       YES       FP   (builder-chain over-approximation)
+ 13   Negative     FP       YES       FP   (builder-chain over-approximation)
  14   Positive     TP       YES       OK   (raw ResponseEntity)
- 15   Positive*    FP       YES       over-approximation
+ 15   Negative     FP       YES       FP   (builder-chain over-approximation)
  16   Positive     TP       YES       OK   (Stirling-PDF shape)
  17   Positive     TP       YES       OK   (RE<byte[]> + produces="text/html")
- 18   Positive*    FP       YES       over-approximation
- 19   Positive*    FP       YES       over-approximation
+ 18   Negative     FP       YES       FP   (builder-chain over-approximation)
+ 19   Negative     FP       YES       FP   (builder-chain over-approximation)
  20   Negative     FP       NO        OK
  21   Negative     FP       NO        OK
 ```
@@ -1576,9 +1578,13 @@ SafeHtmlController (sanitized text/html writer)               FP       NO       
 SafeStringReturnController (sanitized String return)          FP       NO        OK
 ```
 
+### Honest labels vs prior over-approximated labels
+
+An earlier iteration of this plan labeled rows 10, 12, 13, 15, 18, 19 as `@PositiveRuleSample` purely to reconcile with the rule's (over-flagging) output, keeping the `test-result.json` summary at 0 FP / 0 FN. That approach hid the gap from any reader of the test summary. This revision flips those labels back to `@NegativeRuleSample` — matching the empirical browser verdict — and accepts that the `test-result.json` summary now records 6 FPs attributable to the six builder-chain content-type variants. Each affected sample carries an inline comment explaining the empirical verdict and pointing at this appendix.
+
 ### Over-approximation footprint and why
 
-Rows 10, 12, 13, 15, 18, 19 (Positive*) are all **ResponseEntity builder chain variants that set a non-HTML content type programmatically**:
+Rows 10, 12, 13, 15, 18, 19 are all **ResponseEntity builder chain variants that set a non-HTML content type programmatically**:
 
 - `.contentType(MediaType.APPLICATION_JSON).body(tainted)` (rows 10, 15)
 - `.contentType(MediaType.APPLICATION_PDF).body(tainted)` (row 18)
@@ -1586,7 +1592,7 @@ Rows 10, 12, 13, 15, 18, 19 (Positive*) are all **ResponseEntity builder chain v
 - `.header("Content-Type", "application/json").body(tainted)` (row 12)
 - `new ResponseEntity<>(tainted, headers, status)` with `HttpHeaders.setContentType(APPLICATION_JSON)` (row 13)
 
-The Spring Boot 2.7 runtime harness confirmed (Appendix A) that none of these actually serve HTML to the browser — the response `Content-Type` is the declared non-HTML type, the `<script>` payload is not rendered, so XSS does not occur. However, the opentaint rule cannot suppress these findings because:
+The Spring Boot 2.7 runtime harness confirmed (Appendix A / A.2) that none of these actually serve HTML to the browser — the response `Content-Type` is the declared non-HTML type, the `<script>` payload is not rendered, so XSS does not occur. However, the opentaint rule cannot suppress these findings because:
 
 - `pattern-sanitizers` with the builder chain expression (`$Z.contentType(JSON).body($U)` + `focus-metavariable: $U`) does not propagate the sanitization — opentaint's built-in `.body()` propagator runs first and marks the return value tainted before the sanitizer is consulted.
 - `pattern-not` / `pattern-not-inside` at the sink level, whether wrapping the full method body or targeting just the return expression, was observed to **over-exclude** when combined with either an `@$A(...)` metavariable annotation pattern or the `$RT $M(...) { ... }` method shell. All attempted variants either excluded every TP row (rows 1, 7, 9, 11, 14, 16 disappearing) or excluded nothing.
@@ -1594,12 +1600,18 @@ The Spring Boot 2.7 runtime harness confirmed (Appendix A) that none of these ac
 
 The implication is that builder-chain content-type discrimination requires additional opentaint engine support — either expression-level sanitizer propagation across call chains, or a mechanism for user-defined non-propagation on specific method signatures.
 
+### MediaType.X_VALUE constant vs literal produces
+
+Javac inlines `MediaType.APPLICATION_JSON_VALUE` (a `public static final String` equal to `"application/json"`) into the compiled annotation value, so bytecode sees `produces = "application/json"` regardless of whether the source wrote the constant or the literal. The string-literal `pattern-not-inside` entries therefore cover both forms, as Row 22 (empirically FP, not over-flagged) confirms.
+
+Authoring an explicit `produces = MediaType.APPLICATION_JSON_VALUE` pattern-not-inside is not supported by opentaint's pattern builder — it fails with `Annotation_argument_is_not_string_or_metavar`, drops the whole block-1 compilation, and causes every row-1-through-21 TP to become an FN. That variant is therefore NOT used in the rule.
+
 ### Known-limitation surface in the committed rule
 
 The rule YAML carries an inline comment block (at the top of the handler-return sink) identifying this limitation. Each over-approximated sample (rows 10/12/13/15/18/19) carries a dedicated block comment noting:
 
 - Dynamic verification result (not XSS).
-- Why the sample is labeled `@PositiveRuleSample` anyway (rule over-flags).
+- Why the sample is labeled `@NegativeRuleSample` anyway (rule over-flags → FP).
 - Pointer back to this Appendix D.
 
 ### Verification
@@ -1609,5 +1621,75 @@ cd rules/test && ./gradlew --no-daemon checkRulesCoverage
 Rule coverage check passed: all rules valid and covered.
 ```
 
-Final `opentaint-result/test-result.json`: 298 success, 0 skipped, 0 FP, 0 FN.
+Final `opentaint-result/test-result.json`: 297 success, 0 skipped, 6 FP, 3 FN. The 6 FPs and 3 FNs trace exactly to the gaps described in this appendix and Appendix E.
+
+## Appendix E: Extended gap-coverage matrix (rows 22–30)
+
+_Captured 2026-04-17._
+
+This appendix covers additional controller shapes added to close specific gaps and/or surface specific FNs. All verdicts are real-browser verdicts from the same Playwright Chromium harness used in Appendix A.2 (`/tmp/xss-verify/verify.js`). Browser behavior observed on headless Chromium 142 (chromium_headless_shell-1217), Playwright 1.59.1.
+
+### Row-by-row empirical matrix
+
+```
+row | path      | shape                                       | httpCT                           | docCT             | alert | verdict
+----+-----------+---------------------------------------------+----------------------------------+-------------------+-------+--------
+ 22 | /row-22   | String + produces = APPLICATION_JSON_VALUE  | application/json                 | application/json  | false | FP
+ 23 | /row-23   | String + produces = TEXT_HTML_VALUE         | text/html;charset=UTF-8          | text/html         | true  | TP
+ 24 | /row-24   | String + produces = "application/xml"       | application/xml;charset=UTF-8    | application/xml   | false | FP
+ 25 | /row-25   | String + produces = "image/svg+xml"         | image/svg+xml;charset=UTF-8      | image/svg+xml     | true  | TP
+ 26 | (skipped) | ModelAndView                                | —                                | —                 | —     | deferred
+ 27 | /row-27   | DeferredResult<String> setResult(tainted)   | text/html;charset=UTF-8          | text/html         | true  | TP
+ 28 | /row-28   | CompletableFuture<String>.completedFuture   | text/html;charset=UTF-8          | text/html         | true  | TP
+ 29 | /row-29   | @ExceptionHandler @ResponseBody String msg  | text/html;charset=UTF-8          | text/html         | true  | TP
+ 30 | /row-30   | setContentType("text/html;charset=utf-16")  | text/html;charset=utf-16         | text/html         | true  | TP
+```
+
+Row 26 outcome: **skipped** in the committed samples — a `ModelAndView` handler would require a configured view resolver (Thymeleaf, Freemarker, JSP) to be exercised end-to-end, and template engines escape output by default so the conventional ModelAndView flow is not a plain XSS sink in the Spring MVC rule's current scope. Documenting this as deferred.
+
+### Rule response per row
+
+```
+row  empirical  rule fires  status / reason
+---  ---------  ----------  ---------------
+ 22      FP        NO       OK — MediaType.APPLICATION_JSON_VALUE inlines to "application/json",
+                             and the existing `produces = "application/json"` pattern-not-inside covers it
+ 23      TP        YES      OK — MediaType.TEXT_HTML_VALUE inlines to "text/html"; not in any pattern-not-inside
+ 24      FP        NO       OK — rule now excludes produces = "application/xml" (block 1)
+ 25      TP        YES      OK — rule deliberately does NOT exclude image/svg+xml (SVG can host <script>)
+ 26      —         —        deferred
+ 27      TP        NO       FN — DeferredResult<String> does not match `return $UNTRUSTED` at the handler return
+                             (the tainted value flows via `.setResult(tainted)` on a separate object).
+ 28      TP        YES      OK — the return expression `CompletableFuture.completedFuture(tainted)` matches
+                             `return $UNTRUSTED` with $UNTRUSTED focused on the tainted arg
+ 29      TP        NO       FN — @ExceptionHandler-only methods are not enumerated in the rule's
+                             mapping-annotation pattern-either (only @GetMapping/.../@RequestMapping)
+ 30      TP        NO       FN — block 2's setContentType pattern-either enumerates charsets UTF-8, utf-8,
+                             and ISO-8859-1, not utf-16
+```
+
+### Rule extensions made
+
+Block 1 now also excludes non-HTML produces values added in this iteration:
+
+- `"application/xml"`, `"text/xml"` (also covers `MediaType.APPLICATION_XML_VALUE` / `MediaType.TEXT_XML_VALUE` via javac constant inlining).
+- `"image/png"`, `"image/jpeg"`, `"image/gif"`.
+
+Deliberately NOT excluded:
+
+- `"image/svg+xml"` — SVG can host inline `<script>` and execute in top-level navigation. Row 25 confirms this empirically.
+
+Not extensible at the YAML level (authoring would break block 1 compilation):
+
+- `MediaType.APPLICATION_JSON_VALUE` (and every `MediaType.X_VALUE`) as an explicit `pattern-not-inside` — opentaint rejects field-access expressions as annotation arguments with `Annotation_argument_is_not_string_or_metavar`. Not needed in practice because the string-literal form covers the same bytecode annotation value.
+
+### Known FNs exposed in this matrix
+
+Three honest FNs now visible in `test-result.json`:
+
+1. **Row 27 — `DeferredResult<String>`**. The rule's sink is `return $UNTRUSTED;` with `focus-metavariable: $UNTRUSTED`. Row 27 returns a `DeferredResult` object into which the tainted value was injected via `.setResult(tainted)`. opentaint does not currently track the taint flow from `DeferredResult.setResult(tainted)` to the object returned by the handler, so no match. Closing this requires either adding `DeferredResult.setResult(tainted)` as a dedicated sink or teaching opentaint to propagate taint from `setResult` into the surrounding object's returned state.
+2. **Row 29 — `@ExceptionHandler` returning tainted message**. The rule's block 1 `pattern-either` enumerates the six mapping annotations; `@ExceptionHandler` is not among them. Closing this requires enumerating `@ExceptionHandler`, `@ControllerAdvice`+`@ExceptionHandler`, and optionally other non-mapping-style return-annotated methods. The trade-off is potential FPs on non-request-handling exception methods that happen to return user-controlled data.
+3. **Row 30 — `setContentType("text/html;charset=utf-16")`**. Block 2 enumerates specific charset suffixes (UTF-8, utf-8, ISO-8859-1). A more robust form would be a charset-agnostic match, e.g. a regex on the content-type argument starting with `text/html` regardless of charset. opentaint's `pattern-inside` doesn't accept a regex argument in the statement form used by block 2, so switching requires either per-charset enumeration or a rule refactor that uses `(HttpServletResponse $R).setContentType($CT)` + a `metavariable-pattern` / `metavariable-regex` constraint on `$CT`.
+
+These are documented, not fixed here — the scope of this pass is honest labeling plus non-HTML content-type exclusion coverage.
 
