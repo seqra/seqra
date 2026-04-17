@@ -5,6 +5,35 @@ import (
 	"testing"
 )
 
+func TestHasNestedKey(t *testing.T) {
+	settings := map[string]any{
+		"log": map[string]any{
+			"verbosity": "debug",
+			"color":     "auto",
+		},
+		"quiet": true,
+	}
+	tests := []struct {
+		name string
+		path []string
+		want bool
+	}{
+		{name: "top-level key present", path: []string{"quiet"}, want: true},
+		{name: "nested key present", path: []string{"log", "verbosity"}, want: true},
+		{name: "nested key missing", path: []string{"log", "missing"}, want: false},
+		{name: "parent exists but not a map", path: []string{"quiet", "sub"}, want: false},
+		{name: "empty path", path: []string{}, want: false},
+		{name: "missing top-level", path: []string{"other"}, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := hasNestedKey(settings, tt.path); got != tt.want {
+				t.Fatalf("hasNestedKey(%v) = %t, want %t", tt.path, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestAppendVerbosityFlag(t *testing.T) {
 	tests := []struct {
 		name  string
