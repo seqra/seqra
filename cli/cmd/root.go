@@ -42,8 +42,6 @@ var rootCmd = &cobra.Command{
 		out.Configure(globals.Config.Output.Color, globals.Config.Output.Quiet)
 		out.SetDebug(globals.Config.Output.Debug)
 
-		warnLegacyConfigKeys()
-
 		// Reconcile install-tier version marker if needed (lightweight: a few Stat calls).
 		utils.ReconcileInstallMarker()
 
@@ -147,27 +145,6 @@ func initConfig() {
 
 	_ = viper.ReadInConfig()
 	_ = viper.Unmarshal(&globals.Config)
-}
-
-// warnLegacyConfigKeys emits a one-line warning for each legacy config key or
-// env var that was renamed in the verbosity-options redesign. Viper accepts
-// unknown YAML keys silently and env vars only take effect through bindings,
-// so without this nudge a user whose ~/.opentaint/config.yaml still contains
-// the old log.* block or top-level quiet — or whose shell still exports the
-// old OPENTAINT_LOG_* / OPENTAINT_QUIET env vars — would see no warning at
-// all and their settings would drift silently.
-func warnLegacyConfigKeys() {
-	settings := viper.AllSettings()
-	for _, key := range []string{"log.verbosity", "log.color", "quiet"} {
-		if hasNestedKey(settings, strings.Split(key, ".")) {
-			out.Warnf("Config key %q is no longer recognized. Use the output.* namespace instead (output.debug, output.color, output.quiet).", key)
-		}
-	}
-	for _, env := range []string{"OPENTAINT_LOG_VERBOSITY", "OPENTAINT_LOG_COLOR", "OPENTAINT_QUIET"} {
-		if os.Getenv(env) != "" {
-			out.Warnf("Environment variable %s is no longer recognized. Use OPENTAINT_OUTPUT_DEBUG / OPENTAINT_OUTPUT_COLOR / OPENTAINT_OUTPUT_QUIET instead.", env)
-		}
-	}
 }
 
 // hasNestedKey reports whether a dotted key path is present in a viper settings map.
