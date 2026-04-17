@@ -84,7 +84,7 @@ runs:
         opentaint-version: ${{ inputs.opentaint-version }}
         rules-path: ${{ inputs.rules-path }}
         timeout: ${{ inputs.opentaint-timeout }}
-        verbosity: 'info'
+        debug: 'false'
         severity: 'warning,error'
 
     - name: Download OpenTaint SARIF artifact (current)
@@ -110,7 +110,7 @@ runs:
         opentaint-version: ${{ inputs.opentaint-version }}
         rules-path: ${{ inputs.rules-path }}
         timeout: ${{ inputs.opentaint-timeout }}
-        verbosity: 'info'
+        debug: 'false'
         severity: 'warning,error'
 
     - name: Download OpenTaint SARIF artifact (base)
