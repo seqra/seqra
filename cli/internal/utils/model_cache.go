@@ -129,7 +129,7 @@ func IsCachedModelComplete(cacheDir string) bool {
 	if _, err := os.Stat(filepath.Join(pm, "project.yaml")); err != nil {
 		return false
 	}
-	if _, err := os.Stat(filepath.Join(pm, compileCompleteMarker)); err != nil {
+	if _, err := os.Stat(CompileCompleteMarkerPath(cacheDir)); err != nil {
 		return false
 	}
 	return true

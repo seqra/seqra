@@ -203,7 +203,7 @@ func TestIsCachedModelComplete(t *testing.T) {
 	t.Run("false when project.yaml missing", func(t *testing.T) {
 		cacheDir := t.TempDir()
 		// Only the marker, no project.yaml.
-		createTestFile(t, filepath.Join(cacheDir, "project-model", ".compile-complete"), 0)
+		createTestFile(t, CompileCompleteMarkerPath(cacheDir), 0)
 		if IsCachedModelComplete(cacheDir) {
 			t.Error("missing project.yaml should make cache incomplete")
 		}
@@ -221,7 +221,7 @@ func TestIsCachedModelComplete(t *testing.T) {
 	t.Run("true when both present", func(t *testing.T) {
 		cacheDir := t.TempDir()
 		createTestFile(t, filepath.Join(cacheDir, "project-model", "project.yaml"), 10)
-		createTestFile(t, filepath.Join(cacheDir, "project-model", ".compile-complete"), 0)
+		createTestFile(t, CompileCompleteMarkerPath(cacheDir), 0)
 		if !IsCachedModelComplete(cacheDir) {
 			t.Error("both files present should mean complete")
 		}

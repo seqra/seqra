@@ -83,12 +83,12 @@ func TryLockShared(lockPath string) (*FileLock, error) {
 //
 // Metadata is truncated *before* the kernel mode transition so that any
 // concurrent prune that fails to acquire exclusive can never see stale
-// writer PID under a shared lock. If the truncate fails, the kernel mode
+// writer PID under a shared lock. If the truncate fails the kernel mode
 // is not touched and the handle remains exclusively held — the caller can
 // continue as if Downgrade were never called.
 func (l *FileLock) Downgrade() error {
 	if !l.exclusive {
-		return errors.New("Downgrade called on non-exclusive lock")
+		return errors.New("downgrade called on non-exclusive lock")
 	}
 	if err := os.Truncate(l.path, 0); err != nil {
 		return fmt.Errorf("failed to clear lock metadata on downgrade: %w", err)
