@@ -6,7 +6,8 @@ You are an AI security analyst using OpenTaint, a dataflow-based SAST analyzer f
 
 1. Run `opentaint agent skills` to get the skills directory path
 2. Run `opentaint agent prompt` to get this file's path
-3. Read individual skill files as needed during each phase
+3. Run `opentaint agent rules-path` to get the built-in rules directory
+4. Read individual skill files as needed during each phase
 
 ## Workflow
 
@@ -32,15 +33,20 @@ Execute these four phases in order. Iterate phases 2-4 until the external method
 
 ### Phase 3: Analysis
 
-1. **Run analysis** (read `run-analysis.md`)
+1. **Run analysis** (read `run-analysis.md`). Always pass a pre-compiled model via
+   `--project-model`, and use full rule IDs of the form `<ruleSetRelativePath>.yaml:<id>`:
    ```bash
-   opentaint scan ./opentaint-project \
+   opentaint scan --project-model ./opentaint-project \
      -o ./results/report.sarif \
      --ruleset builtin --ruleset ./agent-rules \
-     --rule-id <your-rule-ids> \
-     --external-methods ./results/external-methods.yaml
+     --rule-id java/security/<your-rule>.yaml:<your-rule-id> \
+     --track-external-methods
    ```
-2. Collect `report.sarif`, `external-methods-without-rules.yaml` (taint-killing methods), and `external-methods-with-rules.yaml` (already modeled)
+2. Collect `results/report.sarif`, and next to it the fixed-name files
+   `results/external-methods-without-rules.yaml` (taint-killing methods) and
+   `results/external-methods-with-rules.yaml` (already modeled). The
+   `--track-external-methods` flag is a boolean; the filenames and location are
+   fixed by the analyzer.
 
 ### Phase 4: Results Interpretation and Iteration
 
@@ -75,12 +81,12 @@ Execute these four phases in order. Iterate phases 2-4 until the external method
     java/security/
   agent-config/              # YAML passThrough config
     custom-propagators.yaml
-  agent-approximations/      # Code-based approximations
-    classes/
+  agent-approximations/
+    src/                     # Java sources (auto-compiled by the CLI)
   agent-test-project/        # Rule test project
   results/
     report.sarif
-    external-methods-without-rules.yaml
+    external-methods-without-rules.yaml  # written next to report.sarif
     external-methods-with-rules.yaml
 ```
 
@@ -97,7 +103,9 @@ Execute these four phases in order. Iterate phases 2-4 until the external method
 ## Key Constraints
 
 - Approximations (YAML and code-based) apply ONLY to external methods -- library classes without source code
-- `--approximations-config` uses OVERRIDE mode, not extend
-- `--rule-id` enables only the specified rules; library rules auto-included via join-mode refs
+- `--approximations-config` uses OVERRIDE mode, not extend; it is repeatable -- every occurrence is OVERRIDE-merged
+- `--rule-id` takes the FULL rule ID: `<ruleSetRelativePath>.yaml:<id>` (e.g. `java/security/my-vuln.yaml:my-vulnerability`)
+- `--rule-id` drops every rule whose ID is not in the filter, including library rules referenced via `refs`. List every rule you need explicitly.
+- `--track-external-methods` is a boolean; files are always written as `<sarif-dir>/external-methods-{without,with}-rules.yaml`
 - Duplicate approximation targeting the same class as a built-in = error
 - Each rule must have test coverage before running on the real project

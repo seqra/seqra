@@ -83,8 +83,8 @@ Fields:
 
 The split into `withoutRules` / `withRules` reduces the agent's effort — it can focus on `withoutRules` first (methods with no propagation model at all), and only review `withRules` if specific traces look suspicious.
 
-**Kotlin CLI flag**: `--external-methods-output <path>` (optional, new flag on `ProjectAnalyzerRunner`)
-**Go CLI flag**: `--external-methods <path>` (optional, new flag on `scan` command, proxied to Kotlin CLI)
+**Kotlin CLI flag**: `--track-external-methods` (boolean, on `ProjectAnalyzerRunner`). Output filenames are fixed: `<--output-dir>/external-methods-without-rules.yaml` and `<--output-dir>/external-methods-with-rules.yaml`. The path is not configurable.
+**Go CLI flag**: `--track-external-methods` (boolean, on `scan`). The two YAMLs are written into the same directory as the SARIF file specified by `-o`.
 
 ### 1.2 Allow `--approximations-config` + `--semgrep-rule-set` Together
 
@@ -113,8 +113,8 @@ The agent's custom config intentionally overrides the default config — when th
 
 **Note**: Despite the YAML config schema supporting a `cleaner` section, the analyzer currently cannot use sanitizers from the config. The `--approximations-config` is used exclusively for `passThrough` rules.
 
-**Kotlin CLI**: Rename `--config` to `--approximations-config`.
-**Go CLI**: Expose `--approximations-config <path>` flag on the `scan` command.
+**Kotlin CLI**: `--approximations-config` is repeatable (`List<Path>`). Every occurrence is OVERRIDE-merged with the default config.
+**Go CLI**: Exposes `--approximations-config <path>` on the `scan` command as a repeatable flag; each occurrence is forwarded to the analyzer.
 
 ### 1.3 Custom Code-Based Approximations via CLI
 
@@ -184,10 +184,12 @@ Hint: Ensure the library being approximated is in the project's dependencies.
 
 **Go CLI**:
 ```
-opentaint test-rules <test-project-path-or-project.yaml> \
+opentaint agent test-rules <test-project-model-dir> \
   --ruleset <path>                 # required, rule files to test
   --output <dir>                   # output directory for test-result.json
 ```
+
+The positional argument is the directory produced by `opentaint compile` (contains `project.yaml`).
 
 **Behavior**:
 1. If input is a project directory (not project.yaml), auto-compile via autobuilder
@@ -201,28 +203,30 @@ opentaint test-rules <test-project-path-or-project.yaml> \
 
 **Current state**: The `--semgrep-rule-severity` flag filters rules by severity. There is no way to filter by rule ID. When `--ruleset builtin --ruleset ./agent-rules` is used, ALL rules from both rulesets are active.
 
-**Required change**: Add a `--semgrep-rule-id` filter flag (repeatable) that restricts which rules are active. Only rules matching the provided IDs will execute. Library rules (`options.lib: true`) referenced by active rules via `refs` are automatically included — they don't need to be listed explicitly.
+**Required change**: Add a `--semgrep-rule-id` filter flag (repeatable) that restricts which rules are active. Only rules whose **full** ID is in the filter are kept; every other rule (including library rules referenced via `refs`) is dropped. The filter is intentionally exact: callers must list every rule they want active.
 
-**Kotlin CLI flag**: `--semgrep-rule-id <id>` (repeatable)
-**Go CLI flag**: `--rule-id <id>` (repeatable, on `scan` command)
+The full rule ID has the form `<ruleSetRelativePath>.yaml:<shortId>`, e.g.
+`java/security/my-vuln.yaml:my-vulnerability`.
+
+**Kotlin CLI flag**: `--semgrep-rule-id <full-id>` (repeatable)
+**Go CLI flag**: `--rule-id <full-id>` (repeatable, on `scan` command)
 
 **Example**:
 ```bash
-# Only run the agent's custom rule (which refs built-in library rules)
-opentaint scan ./opentaint-project/project.yaml \
+# The agent's own rule plus every library rule it depends on must be listed explicitly.
+opentaint scan --project-model ./opentaint-project \
   -o ./results/report.sarif \
   --ruleset builtin \
   --ruleset ./agent-rules \
-  --rule-id my-vulnerability
+  --rule-id java/security/my-vuln.yaml:my-vulnerability \
+  --rule-id java/lib/generic/servlet-untrusted-data-source.yaml:java-servlet-untrusted-data-source \
+  --rule-id java/lib/generic/jdbc-sql-sink.yaml:java-jdbc-sql-sink
 ```
 
-**Implementation**: In `SemgrepRuleLoader`, after loading all rules, apply the ID filter:
-1. Collect the set of active rule IDs from `--semgrep-rule-id` flags
-2. If the set is non-empty, filter `rulesWithMeta` to keep only rules whose ID is in the set
-3. For join-mode rules in the active set, recursively resolve `refs` and include all referenced library rules
-4. All other rules are excluded (not loaded into the analyzer)
-
-If `--semgrep-rule-id` is not provided, all loaded rules are active (current behavior preserved).
+**Implementation**: In `SemgrepRuleLoader.loadRules`, the filter is applied per-rule via
+`ruleIdAllow(rule, filter)`: a rule is kept iff the filter is empty or
+`rule.info.ruleId in filter`. Referenced library rules are NOT auto-included. If
+`--semgrep-rule-id` is not provided, all loaded rules are active (current behavior preserved).
 
 ### 1.7 Hidden Local JAR Path Flags (Development)
 
@@ -260,7 +264,7 @@ Identical pattern in `compile.go` for `ensureAutobuilderAvailable()`.
 **Usage**:
 ```bash
 # Use locally-built analyzer
-opentaint scan ./project -o report.sarif \
+opentaint scan --project-model ./opentaint-project -o report.sarif \
   --analyzer-jar ./core/build/libs/opentaint-project-analyzer.jar
 
 # Use locally-built autobuilder
@@ -268,13 +272,13 @@ opentaint compile ./project -o ./opentaint-project \
   --autobuilder-jar ./autobuilder/build/libs/opentaint-project-auto-builder.jar
 
 # Both
-opentaint scan ./project -o report.sarif \
+opentaint scan --project-model ./opentaint-project -o report.sarif \
   --analyzer-jar /path/to/local/analyzer.jar \
   --autobuilder-jar /path/to/local/autobuilder.jar
 
 # Via environment variables (viper binding)
 export OPENTAINT_ANALYZER_JAR=/path/to/local/analyzer.jar
-opentaint scan ./project -o report.sarif
+opentaint scan --project-model ./opentaint-project -o report.sarif
 ```
 
 **Note**: These flags are hidden (not shown in `--help`) — they are for development use only. When set, no download is attempted.
@@ -287,7 +291,7 @@ opentaint scan ./project -o report.sarif
 
 **Go CLI**:
 ```
-opentaint rules-path
+opentaint agent rules-path
 ```
 
 **Behavior**:
@@ -299,7 +303,7 @@ opentaint rules-path
 **Usage by the agent**:
 ```bash
 # Get the rules path
-RULES_DIR=$(opentaint rules-path)
+RULES_DIR=$(opentaint agent rules-path)
 
 # Read builtin rules to understand available sources/sinks
 ls $RULES_DIR/java/lib/generic/
@@ -319,7 +323,7 @@ ls $RULES_DIR/java/security/
 
 **Go CLI**:
 ```
-opentaint init-test-project <output-dir> \
+opentaint agent init-test-project <output-dir> \
   [--dependency <maven-coord>] ...    # additional maven dependencies for test code
 ```
 
@@ -357,7 +361,7 @@ opentaint init-test-project <output-dir> \
    Next steps:
      1. Add test samples in src/main/java/test/
      2. Build: opentaint compile ./agent-test-project -o ./agent-test-compiled
-     3. Test: opentaint test-rules ./agent-test-compiled/project.yaml --ruleset <rules> -o ./test-output
+     3. Test: opentaint agent test-rules ./agent-test-compiled --ruleset <rules> -o ./test-output
    ```
 
 ---
@@ -388,14 +392,15 @@ opentaint project \
 #### `opentaint scan` (existing, extended)
 Run analysis. **New flags** marked with ★.
 ```
-opentaint scan <project-path-or-project.yaml> \
+opentaint scan [<source-path>] \
+  [--project-model <dir>] \
   -o <report.sarif> \
   [--ruleset builtin] \
   [--ruleset <path>] \
-  [--rule-id <id>]                       ★ filter: only run these rule IDs
-  [--approximations-config <path>]       ★ YAML passThrough config (overrides defaults)
+  [--rule-id <full-id>]                  ★ filter: only run these rule IDs (repeatable)
+  [--approximations-config <path>]       ★ YAML passThrough config, OVERRIDE mode (repeatable)
   [--dataflow-approximations <dir>]      ★ approximation source/class dir (auto-compiles .java)
-  [--external-methods <path>]            ★ output external methods list
+  [--track-external-methods]             ★ write external-methods-{without,with}-rules.yaml next to SARIF
   [--timeout <duration>] \
   [--max-memory <size>] \
   [--severity <levels>] \
@@ -403,20 +408,24 @@ opentaint scan <project-path-or-project.yaml> \
 ```
 
 Flag interactions:
-- `--ruleset` and `--approximations-config` can be used together (engine change 1.2)
-- `--dataflow-approximations` accepts `.java` source dir (auto-compiled) or `.class` dir (passed directly)
-- `--external-methods` requires an output path; produces the YAML file alongside SARIF
-- `--rule-id` restricts which rules are active; referenced library rules are included automatically
+- Pass either the source project as a positional argument (will be compiled) or a pre-compiled project model via `--project-model <dir>` (contains `project.yaml`). Not both.
+- `--ruleset` and `--approximations-config` can be used together (engine change 1.2).
+- `--dataflow-approximations` accepts `.java` source dir (auto-compiled) or `.class` dir (passed directly).
+- `--track-external-methods` is a boolean; output filenames and directory are fixed (next to the SARIF).
+- `--rule-id` takes the FULL rule ID `<path>.yaml:<shortId>`; rules whose full ID is not listed are dropped, including library rules referenced via join-mode `refs`.
 
-#### `opentaint test-rules` ★ NEW
-Run rule tests against a test project.
+#### `opentaint agent test-rules` ★ NEW
+Run rule tests against a test project. Registered under the `agent` command group.
 ```
-opentaint test-rules <test-project-path-or-project.yaml> \
+opentaint agent test-rules <test-project-model-dir> \
   --ruleset <path> \
   -o <output-dir> \
   [--timeout <duration>] \
   [--max-memory <size>]
 ```
+
+The positional argument is the **directory** that contains `project.yaml` (e.g.
+`./agent-test-compiled`), not the `project.yaml` file path.
 
 Output: `<output-dir>/test-result.json` with verdicts per test sample.
 
@@ -434,18 +443,20 @@ Rule Tests Summary:
   - disabled:        1
 ```
 
-#### `opentaint rules-path` ★ NEW
+#### `opentaint agent rules-path` ★ NEW
 Print the resolved filesystem path to built-in rules (downloads if needed).
+Registered under the `agent` command group.
 ```
-opentaint rules-path
+opentaint agent rules-path
 ```
 
 Prints absolute path to stdout. The agent uses this to read built-in rule YAML files.
 
-#### `opentaint init-test-project` ★ NEW
+#### `opentaint agent init-test-project` ★ NEW
 Bootstrap a test project for rule testing.
+Registered under the `agent` command group.
 ```
-opentaint init-test-project <output-dir> \
+opentaint agent init-test-project <output-dir> \
   [--dependency <maven-coord>] ...
 ```
 
@@ -475,11 +486,15 @@ func (b *AnalyzerBuilder) AddRuleIdFilter(ruleId string) *AnalyzerBuilder
 These translate to:
 | Go CLI flag | Analyzer CLI flag |
 |---|---|
-| `--approximations-config <path>` | `--approximations-config <path>` |
+| `--approximations-config <path>` (repeatable) | `--approximations-config <path>` (repeatable) |
 | `--dataflow-approximations <path>` | `--dataflow-approximations <path>` (compiled classes dir) |
-| `--external-methods <path>` | `--external-methods-output <path>` |
-| `--rule-id <id>` | `--semgrep-rule-id <id>` |
-| (test-rules command) | `--debug-run-rule-tests` |
+| `--track-external-methods` | `--track-external-methods` |
+| `--rule-id <full-id>` | `--semgrep-rule-id <full-id>` |
+| (`opentaint agent test-rules` command) | `--debug-run-rule-tests` |
+
+The Go CLI `AnalyzerBuilder` methods: `AddApproximationsConfig(path)`,
+`AddDataflowApproximations(path)`, `SetTrackExternalMethods(bool)`, `AddRuleID(id)`,
+`EnableRunRuleTests()`.
 
 ---
 
@@ -569,7 +584,7 @@ The agent discovers entry points itself — no special CLI command is needed. Th
 
 2. Read built-in rules to check existing coverage:
    ```bash
-   RULES_DIR=$(opentaint rules-path)
+   RULES_DIR=$(opentaint agent rules-path)
    # List available source/sink library rules
    ls $RULES_DIR/java/lib/generic/
    ls $RULES_DIR/java/lib/spring/
@@ -669,16 +684,17 @@ The agent discovers entry points itself — no special CLI command is needed. Th
          - pattern: Cipher.getInstance("DES")
    ```
 
-6. When running analysis, use `--rule-id` to activate only the agent's rules:
+6. When running analysis, use `--rule-id` to activate only the agent's rules. The flag
+   takes the FULL rule ID (`<ruleSetRelativePath>.yaml:<shortId>`). Library rules referenced
+   via `refs` are NOT auto-included — the filter drops every rule whose full ID is missing,
+   so either list every library rule explicitly or omit `--rule-id` to keep all loaded rules active.
    ```bash
-   opentaint scan ./opentaint-project/project.yaml \
+   opentaint scan --project-model ./opentaint-project \
      -o ./results/report.sarif \
      --ruleset builtin --ruleset ./agent-rules \
-     --rule-id my-vulnerability \
-     --rule-id weak-crypto
+     --rule-id java/security/my-vuln.yaml:my-vulnerability \
+     --rule-id java/security/weak-crypto.yaml:weak-crypto
    ```
-
-   Library rules referenced via `refs` in join-mode rules are auto-included. No need to list them in `--rule-id`.
 
 **Constraints**:
 - Rule IDs must be globally unique
@@ -686,6 +702,7 @@ The agent discovers entry points itself — no special CLI command is needed. Th
 - Security rules must have `metadata.cwe` and `metadata.short-description`
 - Source/sink metavariable names must match across `refs` + `on` clauses (convention: `$UNTRUSTED`)
 - The `rule:` path in `refs` is relative to the ruleset root; when using `--ruleset`, the root is the ruleset directory
+- `--rule-id` does not auto-include rules referenced via `refs`; list every library rule explicitly or omit the flag
 
 ### 3.4 Skill: `test-rule`
 
@@ -695,7 +712,7 @@ The agent discovers entry points itself — no special CLI command is needed. Th
 
 1. Bootstrap a test project:
    ```bash
-   opentaint init-test-project ./agent-test-project \
+   opentaint agent init-test-project ./agent-test-project \
      --dependency "javax.servlet:javax.servlet-api:4.0.1"
    ```
 
@@ -741,9 +758,9 @@ The agent discovers entry points itself — no special CLI command is needed. Th
    opentaint compile ./agent-test-project -o ./agent-test-compiled
    ```
 
-4. Run rule tests:
+4. Run rule tests (positional argument is the project-model **directory**, not `project.yaml`):
    ```bash
-   opentaint test-rules ./agent-test-compiled/project.yaml \
+   opentaint agent test-rules ./agent-test-compiled \
      --ruleset ./agent-rules \
      -o ./test-output
    ```
@@ -777,37 +794,37 @@ The agent discovers entry points itself — no special CLI command is needed. Th
 
 **Instructions**:
 
-1. Run analysis with the agent's rules:
+1. Run analysis with the agent's rules. Pass the pre-compiled model via `--project-model`:
    ```bash
-   opentaint scan ./opentaint-project/project.yaml \
+   opentaint scan --project-model ./opentaint-project \
      -o ./results/report.sarif \
      --ruleset builtin \
      --ruleset ./agent-rules \
-     --rule-id my-vulnerability \
-     --external-methods ./results/external-methods.yaml \
+     --rule-id java/security/my-vuln.yaml:my-vulnerability \
+     --track-external-methods \
      --timeout 900s \
      --severity warning,error
    ```
 
    If you have custom passThrough config:
    ```bash
-   opentaint scan ./opentaint-project/project.yaml \
+   opentaint scan --project-model ./opentaint-project \
      -o ./results/report.sarif \
      --ruleset builtin --ruleset ./agent-rules \
-     --rule-id my-vulnerability \
+     --rule-id java/security/my-vuln.yaml:my-vulnerability \
      --approximations-config ./agent-config/custom-propagators.yaml \
-     --external-methods ./results/external-methods.yaml
+     --track-external-methods
    ```
 
    If you have approximation source files:
    ```bash
-   opentaint scan ./opentaint-project/project.yaml \
+   opentaint scan --project-model ./opentaint-project \
      -o ./results/report.sarif \
      --ruleset builtin --ruleset ./agent-rules \
-     --rule-id my-vulnerability \
+     --rule-id java/security/my-vuln.yaml:my-vulnerability \
      --approximations-config ./agent-config/custom-propagators.yaml \
      --dataflow-approximations ./agent-approximations/src \
-     --external-methods ./results/external-methods.yaml
+     --track-external-methods
    ```
 
    The `--dataflow-approximations` flag accepts a directory. If it contains `.java` files, the CLI auto-compiles them using `opentaint-analyzer.jar` as the classpath (which contains `@Approximate`, `OpentaintNdUtil`, `ArgumentTypeContext`) plus the target project's dependencies. Compilation errors are reported before analysis starts.
@@ -817,9 +834,12 @@ The agent discovers entry points itself — no special CLI command is needed. Th
    opentaint summary ./results/report.sarif --show-findings --verbose-flow
    ```
 
-3. Collect both outputs for the decision loop:
+3. Collect outputs for the decision loop (all next to the SARIF file):
    - `./results/report.sarif` — vulnerability findings with traces
-   - `./results/external-methods.yaml` — split into `withoutRules` (priority) and `withRules` (for review)
+   - `./results/external-methods-without-rules.yaml` — priority list (killed dataflow)
+   - `./results/external-methods-with-rules.yaml` — already modeled (for review)
+
+   The `--track-external-methods` flag is a boolean; filenames and directory are fixed.
 
 ### 3.6 Skill: `analyze-findings`
 
@@ -954,12 +974,12 @@ For each finding in the SARIF report:
            to: result
    ```
 
-2. Use with analysis:
+2. Use with analysis (`--approximations-config` is repeatable, each OVERRIDE-merged):
    ```bash
-   opentaint scan ./opentaint-project/project.yaml \
+   opentaint scan --project-model ./opentaint-project \
      -o ./results/report.sarif \
      --ruleset builtin --ruleset ./agent-rules \
-     --rule-id my-vulnerability \
+     --rule-id java/security/my-vuln.yaml:my-vulnerability \
      --approximations-config ./agent-config/custom-propagators.yaml
    ```
 
@@ -1024,10 +1044,10 @@ For each finding in the SARIF report:
 
 2. Use with analysis — compilation is automatic:
    ```bash
-   opentaint scan ./opentaint-project/project.yaml \
+   opentaint scan --project-model ./opentaint-project \
      -o ./results/report.sarif \
      --ruleset builtin --ruleset ./agent-rules \
-     --rule-id my-vulnerability \
+     --rule-id java/security/my-vuln.yaml:my-vulnerability \
      --dataflow-approximations ./agent-approximations/src
    ```
 
@@ -1161,7 +1181,7 @@ Load these skills as needed during your workflow:
 
    a. Load `create-rule` skill. Read built-in rules to check coverage:
       ```bash
-      RULES_DIR=$(opentaint rules-path)
+      RULES_DIR=$(opentaint agent rules-path)
       ls $RULES_DIR/java/security/       # existing security rules
       ls $RULES_DIR/java/lib/generic/    # available source/sink libraries
       ```
@@ -1173,21 +1193,21 @@ Load these skills as needed during your workflow:
 
    c. Load `test-rule` skill. Bootstrap and test:
       ```bash
-      opentaint init-test-project ./agent-test-project --dependency "javax.servlet:javax.servlet-api:4.0.1"
+      opentaint agent init-test-project ./agent-test-project --dependency "javax.servlet:javax.servlet-api:4.0.1"
       ```
       - Add `@PositiveRuleSample` and `@NegativeRuleSample` test methods
-      - Run: `opentaint test-rules ./agent-test-compiled/project.yaml --ruleset ./agent-rules -o ./test-output`
+      - Run: `opentaint agent test-rules ./agent-test-compiled --ruleset ./agent-rules -o ./test-output`
       - Fix until `test-result.json` shows zero failures
 
 ### Phase 3: Analysis Loop
 
 5. Load `run-analysis` skill. Run initial analysis:
    ```bash
-   opentaint scan ./opentaint-project/project.yaml \
+   opentaint scan --project-model ./opentaint-project \
      -o ./results/report.sarif \
      --ruleset builtin --ruleset ./agent-rules \
-     --rule-id my-vulnerability \
-     --external-methods ./results/external-methods.yaml
+     --rule-id java/security/my-vuln.yaml:my-vulnerability \
+     --track-external-methods
    ```
 
 6. Load `analyze-findings` skill. For each SARIF finding:
@@ -1293,7 +1313,7 @@ When fixing FP:
 
 ```bash
 # Bootstrap test project with servlet API dependency
-opentaint init-test-project ./agent-test-project \
+opentaint agent init-test-project ./agent-test-project \
   --dependency "javax.servlet:javax.servlet-api:4.0.1"
 
 # Add test samples
@@ -1317,9 +1337,9 @@ public class SampleTest {
 }
 EOF
 
-# Build and test
+# Build and test — the test-rules argument is the project-model directory
 opentaint compile ./agent-test-project -o ./agent-test-compiled
-opentaint test-rules ./agent-test-compiled/project.yaml \
+opentaint agent test-rules ./agent-test-compiled \
   --ruleset ./agent-rules -o ./test-output
 cat ./test-output/test-result.json
 ```

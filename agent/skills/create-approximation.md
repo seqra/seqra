@@ -46,26 +46,24 @@ public class ReactiveProcessor {
 }
 ```
 
-### 2. Compile approximations
+### 2. Run with approximations
 
-Compile the Java sources against the analyzer JAR (contains the annotation classes) and the target project's dependencies:
-
-```bash
-javac -source 8 -target 8 \
-  -cp "opentaint-project-analyzer.jar:target-project-deps/*" \
-  -d agent-approximations/classes \
-  agent-approximations/src/agent/approximations/*.java
-```
-
-### 3. Run with approximations
+Point `--dataflow-approximations` at the source directory. The CLI auto-compiles `.java`
+files using the analyzer JAR (for `@Approximate`, `OpentaintNdUtil`, `ArgumentTypeContext`)
+and the target project's dependencies, then forwards the compiled directory to the analyzer.
+Manual `javac` invocation is not required.
 
 ```bash
-opentaint scan ./opentaint-project \
+opentaint scan --project-model ./opentaint-project \
   -o ./results/report.sarif \
   --ruleset builtin --ruleset ./agent-rules \
   --rule-id java/security/my-vuln.yaml:my-vulnerability \
-  --dataflow-approximations ./agent-approximations/classes
+  --dataflow-approximations ./agent-approximations/src
 ```
+
+If `.java` compilation fails, the CLI reports the errors and aborts before the scan starts.
+If the directory contains already-compiled `.class` files (no `.java` siblings), the CLI
+passes it through unchanged.
 
 ## Key Patterns
 

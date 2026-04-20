@@ -11,6 +11,9 @@ Create pattern rules for detecting specific vulnerability classes.
 
 ### 1. Check existing coverage
 
+`opentaint agent rules-path` prints the absolute path to the built-in rules directory
+(downloading them on first call). Use it to browse built-in patterns.
+
 ```bash
 RULES_DIR=$(opentaint agent rules-path)
 ls $RULES_DIR/java/lib/generic/
@@ -113,9 +116,13 @@ refs:
 The `--rule-id` flag requires the **full rule ID** in the format `<ruleSetRelativePath>:<shortId>`.
 The `ruleSetRelativePath` is the path to the YAML file relative to its ruleset root, **including** the `.yaml` extension.
 
+Library rules referenced via join-mode `refs` are NOT auto-included by `--rule-id` — the
+filter drops every rule whose full ID is not listed. Either list every library rule
+explicitly, or omit `--rule-id` entirely to keep all loaded rules active.
+
 ```bash
 # Full rule ID = "java/security/my-vuln.yaml" (relative path with .yaml) + ":" + "my-vulnerability" (id from YAML)
-opentaint scan ./opentaint-project \
+opentaint scan --project-model ./opentaint-project \
   -o ./results/report.sarif \
   --ruleset builtin --ruleset ./agent-rules \
   --rule-id java/security/my-vuln.yaml:my-vulnerability
@@ -134,7 +141,7 @@ To discover full rule IDs, read the rule YAML file:
 - The `rule:` path in `refs` is relative to the ruleset root
 - Rule IDs must be globally unique
 - `--rule-id` requires the **full** rule ID (`<path.yaml>:<id>`), not just the short ID
-- Library rules referenced via `refs` in join-mode rules are auto-included by `--rule-id`
+- `--rule-id` drops every rule whose full ID is not listed, including library rules referenced via `refs`. List all rules you need explicitly, or omit `--rule-id`.
 - For simple structural patterns (no dataflow), omit `mode:` (uses default mode)
 
 ## FP/FN Fixes
