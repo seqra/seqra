@@ -141,8 +141,11 @@ rules:
 
         # ── Phase 3: Initial Scan ─────────────────────────────────────
 
-        sarif_path = ws["results"] / "report-1.sarif"
-        ext_methods_path = ws["results"] / "external-methods-1.yaml"
+        # Per-run subdirectory so the fixed external-methods filenames do not
+        # collide between the initial scan and the rescan further down.
+        run1_dir = ws["results"] / "run-1"
+        run1_dir.mkdir(parents=True, exist_ok=True)
+        sarif_path = run1_dir / "report.sarif"
 
         result = cli.scan(
             project_path=str(stirling_project),
@@ -151,7 +154,7 @@ rules:
             rule_ids=[
                 "java/security/stirling-path-traversal.yaml:stirling-path-traversal"
             ],
-            external_methods=str(ext_methods_path),
+            track_external_methods=True,
             severity=["note", "warning", "error"],
             timeout=600,
         )
@@ -188,8 +191,8 @@ rules:
 
         priority_methods = []
         wo_count, wr_count = 0, 0
-        if external_methods_exist(ext_methods_path):
-            ext_data = load_external_methods(ext_methods_path)
+        if external_methods_exist(sarif_path):
+            ext_data = load_external_methods(sarif_path)
             wo_count, wr_count = count_external_methods(ext_data)
             print(
                 f"Phase 3b: External methods — {wo_count} without rules, {wr_count} with rules"
@@ -239,9 +242,11 @@ rules:
                     f"Phase 4: Created {len(pass_through_rules)} custom passThrough rules"
                 )
 
-                # Rescan with approximations
-                sarif_path_2 = ws["results"] / "report-2.sarif"
-                ext_methods_path_2 = ws["results"] / "external-methods-2.yaml"
+                # Rescan with approximations — own subdir keeps the fixed
+                # external-methods filenames from overwriting run-1 outputs.
+                run2_dir = ws["results"] / "run-2"
+                run2_dir.mkdir(parents=True, exist_ok=True)
+                sarif_path_2 = run2_dir / "report.sarif"
 
                 result2 = cli.scan(
                     project_path=str(stirling_project),
@@ -251,7 +256,7 @@ rules:
                         "java/security/stirling-path-traversal.yaml:stirling-path-traversal"
                     ],
                     approximations_config=str(config_file),
-                    external_methods=str(ext_methods_path_2),
+                    track_external_methods=True,
                     severity=["note", "warning", "error"],
                     timeout=600,
                 )
@@ -267,8 +272,8 @@ rules:
                         f"Phase 4: Rescan found {len(findings_2)} findings (was {len(findings)})"
                     )
 
-                    if external_methods_exist(ext_methods_path_2):
-                        ext_data_2 = load_external_methods(ext_methods_path_2)
+                    if external_methods_exist(sarif_path_2):
+                        ext_data_2 = load_external_methods(sarif_path_2)
                         wo2, wr2 = count_external_methods(ext_data_2)
                         print(
                             f"  External methods after approx: {wo2} without (was {wo_count}), {wr2} with (was {wr_count})"

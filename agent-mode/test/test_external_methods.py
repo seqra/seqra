@@ -33,20 +33,19 @@ class TestExternalMethodsBasic:
     def test_scan_produces_external_methods_file(
         self, cli: OpenTaintCLI, stirling_project: Path, tmp_output: Path
     ):
-        """--external-methods flag produces a YAML file alongside SARIF output."""
+        """--track-external-methods produces YAML files alongside SARIF output."""
         sarif_path = tmp_output / "report.sarif"
-        ext_methods_path = tmp_output / "external-methods.yaml"
 
         result = cli.scan(
             project_path=str(stirling_project),
             output=str(sarif_path),
             rulesets=["builtin"],
-            external_methods=str(ext_methods_path),
+            track_external_methods=True,
             severity=["warning", "error"],
             timeout=600,
         )
-        result.assert_ok("Scan with --external-methods failed")
-        assert external_methods_exist(ext_methods_path), (
+        result.assert_ok("Scan with --track-external-methods failed")
+        assert external_methods_exist(sarif_path), (
             "External methods files not produced"
         )
 
@@ -60,19 +59,18 @@ class TestExternalMethodsBasic:
         Each entry has: method, signature, factPositions, callSites.
         """
         sarif_path = tmp_output / "report.sarif"
-        ext_methods_path = tmp_output / "external-methods.yaml"
 
         result = cli.scan(
             project_path=str(stirling_project),
             output=str(sarif_path),
             rulesets=["builtin"],
-            external_methods=str(ext_methods_path),
+            track_external_methods=True,
             severity=["warning", "error"],
             timeout=600,
         )
         result.assert_ok()
 
-        data = load_external_methods(ext_methods_path)
+        data = load_external_methods(sarif_path)
 
         for section_name in ["withoutRules", "withRules"]:
             section = data.get(section_name, [])
@@ -119,19 +117,18 @@ class TestExternalMethodsContent:
         The withoutRules list should be non-empty.
         """
         sarif_path = tmp_output / "report.sarif"
-        ext_methods_path = tmp_output / "external-methods.yaml"
 
         result = cli.scan(
             project_path=str(stirling_project),
             output=str(sarif_path),
             rulesets=["builtin"],
-            external_methods=str(ext_methods_path),
+            track_external_methods=True,
             severity=["warning", "error"],
             timeout=600,
         )
         result.assert_ok()
 
-        data = load_external_methods(ext_methods_path)
+        data = load_external_methods(sarif_path)
         without_count, with_count = count_external_methods(data)
         print(
             f"External methods: {without_count} without rules, {with_count} with rules"
@@ -149,19 +146,18 @@ class TestExternalMethodsContent:
         have built-in approximations.
         """
         sarif_path = tmp_output / "report.sarif"
-        ext_methods_path = tmp_output / "external-methods.yaml"
 
         result = cli.scan(
             project_path=str(stirling_project),
             output=str(sarif_path),
             rulesets=["builtin"],
-            external_methods=str(ext_methods_path),
+            track_external_methods=True,
             severity=["warning", "error"],
             timeout=600,
         )
         result.assert_ok()
 
-        data = load_external_methods(ext_methods_path)
+        data = load_external_methods(sarif_path)
         with_rules = data.get("withRules", [])
         with_rules_methods = {e["method"] for e in with_rules}
 
@@ -191,34 +187,32 @@ class TestExternalMethodsWithApproximations:
 
         # Run 1: without custom approximations
         sarif1 = tmp_output / "run1" / "report.sarif"
-        ext1 = tmp_output / "run1" / "external-methods.yaml"
         (tmp_output / "run1").mkdir()
         r1 = cli.scan(
             project_path=str(stirling_project),
             output=str(sarif1),
             rulesets=["builtin"],
-            external_methods=str(ext1),
+            track_external_methods=True,
             severity=["warning", "error"],
             timeout=600,
         )
 
         # Run 2: with custom approximations
         sarif2 = tmp_output / "run2" / "report.sarif"
-        ext2 = tmp_output / "run2" / "external-methods.yaml"
         (tmp_output / "run2").mkdir()
         r2 = cli.scan(
             project_path=str(stirling_project),
             output=str(sarif2),
             rulesets=["builtin"],
             approximations_config=str(yaml_config),
-            external_methods=str(ext2),
+            track_external_methods=True,
             severity=["warning", "error"],
             timeout=600,
         )
 
         if r1.ok and r2.ok:
-            data1 = load_external_methods(ext1)
-            data2 = load_external_methods(ext2)
+            data1 = load_external_methods(sarif1)
+            data2 = load_external_methods(sarif2)
             wo1, _ = count_external_methods(data1)
             wo2, _ = count_external_methods(data2)
             print(f"Without custom approx: {wo1} methods without rules")
@@ -243,25 +237,24 @@ class TestExternalMethodsAlongsideSarif:
     ):
         """A single scan produces both SARIF report and external methods file."""
         sarif_path = tmp_output / "report.sarif"
-        ext_methods_path = tmp_output / "external-methods.yaml"
 
         result = cli.scan(
             project_path=str(stirling_project),
             output=str(sarif_path),
             rulesets=["builtin"],
-            external_methods=str(ext_methods_path),
+            track_external_methods=True,
             severity=["warning", "error"],
             timeout=600,
         )
         result.assert_ok()
 
         assert sarif_path.exists(), "SARIF report not produced"
-        assert external_methods_exist(ext_methods_path), (
+        assert external_methods_exist(sarif_path), (
             "External methods files not produced"
         )
 
         sarif_data = load_sarif(sarif_path)
-        ext_data = load_external_methods(ext_methods_path)
+        ext_data = load_external_methods(sarif_path)
         assert len(sarif_results(sarif_data)) > 0, "SARIF has no results"
         wo, wr = count_external_methods(ext_data)
         assert wo + wr > 0, "External methods file is empty"

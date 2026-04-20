@@ -201,7 +201,7 @@ class OpenTaintCLI:
         rule_ids: list = None,
         approximations_config: Optional[str] = None,
         dataflow_approximations: Optional[str] = None,
-        external_methods: Optional[str] = None,
+        track_external_methods: bool = False,
         severity: list = None,
         timeout: int = 900,
         max_memory: str = "8G",
@@ -209,14 +209,18 @@ class OpenTaintCLI:
     ) -> CLIResult:
         """Run opentaint scan.
 
-        The CLI expects a directory path (it looks for project.yaml inside).
-        If project_path points to a project.yaml file, the parent directory is used.
+        If ``project_path`` points at a pre-compiled project model (either the
+        directory containing ``project.yaml`` or the ``project.yaml`` file
+        itself), the scan is invoked with ``--project-model <dir>``. Otherwise
+        the path is forwarded as a source project.
         """
-        # CLI expects directory, not project.yaml file path
         p = Path(project_path)
         if p.name == "project.yaml" and p.is_file():
-            project_path = str(p.parent)
-        cmd = self._base_cmd() + ["scan", project_path, "-o", output]
+            p = p.parent
+        if p.is_dir() and (p / "project.yaml").is_file():
+            cmd = self._base_cmd() + ["scan", "-o", output, "--project-model", str(p)]
+        else:
+            cmd = self._base_cmd() + ["scan", str(p), "-o", output]
         for rs in rulesets or ["builtin"]:
             cmd.extend(["--ruleset", rs])
         for rid in rule_ids or []:
@@ -225,8 +229,8 @@ class OpenTaintCLI:
             cmd.extend(["--approximations-config", approximations_config])
         if dataflow_approximations:
             cmd.extend(["--dataflow-approximations", dataflow_approximations])
-        if external_methods:
-            cmd.extend(["--external-methods", external_methods])
+        if track_external_methods:
+            cmd.append("--track-external-methods")
         for sev in severity or ["warning", "error"]:
             cmd.extend(["--severity", sev])
         cmd.extend(["--timeout", f"{timeout}s", "--max-memory", max_memory])
@@ -353,46 +357,47 @@ def sarif_findings_for_rule(data: dict, rule_id: str) -> list:
     ]
 
 
-def _derive_external_methods_paths(base_path: Path) -> tuple:
-    """Derive the two external methods file paths from the base path.
+def _derive_external_methods_paths(sarif_path: Path) -> tuple:
+    """Return the two fixed external-methods file paths next to the SARIF.
 
-    Given ``base_path`` = ``results/external-methods.yaml``, returns:
-      (``results/external-methods-without-rules.yaml``,
-       ``results/external-methods-with-rules.yaml``)
+    The analyzer always writes ``external-methods-without-rules.yaml`` and
+    ``external-methods-with-rules.yaml`` into its output directory. Here we
+    key off the SARIF path (or its parent directory), matching how the
+    Go CLI routes ``-o`` to ``--output-dir``.
     """
-    stem = base_path.stem  # e.g. "external-methods"
-    parent = base_path.parent
+    parent = sarif_path if sarif_path.is_dir() else sarif_path.parent
     return (
-        parent / f"{stem}-without-rules.yaml",
-        parent / f"{stem}-with-rules.yaml",
+        parent / "external-methods-without-rules.yaml",
+        parent / "external-methods-with-rules.yaml",
     )
 
 
-def load_external_methods(base_path: Path) -> dict:
-    """Load and validate external methods from the two split files.
+def load_external_methods(sarif_path: Path) -> dict:
+    """Load external methods from the two fixed files next to the SARIF.
 
-    The analyzer writes two files derived from the ``--external-methods``
-    path:  ``<name>-without-rules.yaml`` and ``<name>-with-rules.yaml``.
-    This helper recombines them into the legacy dict format for convenience::
-
-        {"withoutRules": [...], "withRules": [...]}
+    Returns ``{"withoutRules": [...], "withRules": [...]}``.
     """
-    wo_path, wr_path = _derive_external_methods_paths(base_path)
+    wo_path, wr_path = _derive_external_methods_paths(sarif_path)
 
     without_rules = []
     with_rules = []
 
-    if wo_path.exists():
-        with open(wo_path) as f:
-            wo_data = yaml.safe_load(f)
-        if isinstance(wo_data, dict):
-            without_rules = wo_data.get("methods", [])
+    def _read(path: Path) -> list:
+        if not path.exists():
+            return []
+        with open(path) as f:
+            data = yaml.safe_load(f)
+        if data is None:
+            return []
+        # Analyzer writes a top-level YAML list; tolerate {methods: [...]} too.
+        if isinstance(data, list):
+            return data
+        if isinstance(data, dict):
+            return data.get("methods", [])
+        return []
 
-    if wr_path.exists():
-        with open(wr_path) as f:
-            wr_data = yaml.safe_load(f)
-        if isinstance(wr_data, dict):
-            with_rules = wr_data.get("methods", [])
+    without_rules = _read(wo_path)
+    with_rules = _read(wr_path)
 
     assert wo_path.exists() or wr_path.exists(), (
         f"Neither external methods file found: {wo_path}, {wr_path}"
@@ -400,9 +405,9 @@ def load_external_methods(base_path: Path) -> dict:
     return {"withoutRules": without_rules, "withRules": with_rules}
 
 
-def external_methods_exist(base_path: Path) -> bool:
-    """Check if at least one of the external methods split files exists."""
-    wo_path, wr_path = _derive_external_methods_paths(base_path)
+def external_methods_exist(sarif_path: Path) -> bool:
+    """Check if at least one external-methods file exists next to the SARIF."""
+    wo_path, wr_path = _derive_external_methods_paths(sarif_path)
     return wo_path.exists() or wr_path.exists()
 
 
