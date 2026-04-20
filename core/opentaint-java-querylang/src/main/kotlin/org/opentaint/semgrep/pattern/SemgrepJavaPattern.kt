@@ -194,6 +194,9 @@ sealed interface TypeName {
     ) : TypeName
 
     data class ArrayTypeName(val elementType: TypeName) : TypeName
+
+    /** Unbounded wildcard `?` occurring as a type argument. */
+    data object WildcardTypeName : TypeName
 }
 
 sealed interface Modifier

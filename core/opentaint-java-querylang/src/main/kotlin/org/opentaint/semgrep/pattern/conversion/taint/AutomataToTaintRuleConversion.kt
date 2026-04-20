@@ -708,6 +708,19 @@ private fun classNameMatcherFromConcreteString(name: String): SerializedTypeName
     return SerializedTypeNameMatcher.ClassPattern(pkg, cls)
 }
 
+/**
+ * A ClassPattern that accepts any class name. Used as a placeholder for a
+ * type-argument slot whose inner pattern resolved to null (e.g. an
+ * unconstrained metavariable or AnyType). Keeps the arity of a pattern like
+ * `ResponseEntity<$T>` intact so it remains distinguishable from a raw
+ * `ResponseEntity` at the matcher level.
+ */
+private fun anyClassPattern(): SerializedTypeNameMatcher.ClassPattern =
+    SerializedTypeNameMatcher.ClassPattern(
+        `package` = anyName(),
+        `class` = anyName()
+    )
+
 private fun TaintRuleGenerationCtx.evaluateEdgePredicateConstraint(
     edgeKind: TaintEdgeKind,
     state: State,
@@ -834,8 +847,13 @@ private fun TaintRuleGenerationCtx.typeMatcher(
 ): MetaVarConstraintFormula<SerializedTypeNameMatcher>? {
     return when (typeName) {
         is TypeNamePattern.ClassName -> {
-            val serializedTypeArgs = typeName.typeArgs.mapNotNull {
+            // Preserve arity of typeArgs: a metavar like $T or AnyType that
+            // produces null still takes a slot in the type-arg list with an
+            // "any" matcher, so the outer matcher remains distinguishable
+            // from a raw (zero-type-arg) form.
+            val serializedTypeArgs = typeName.typeArgs.map {
                 (typeMatcher(it, semgrepRuleTrace) as? MetaVarConstraintFormula.Constraint<SerializedTypeNameMatcher>)?.constraint
+                    ?: anyClassPattern()
             }
             MetaVarConstraintFormula.Constraint(
                 SerializedTypeNameMatcher.ClassPattern(
@@ -852,8 +870,9 @@ private fun TaintRuleGenerationCtx.typeMatcher(
                     Simple(typeName.name)
                 )
             } else {
-                val serializedTypeArgs = typeName.typeArgs.mapNotNull {
+                val serializedTypeArgs = typeName.typeArgs.map {
                     (typeMatcher(it, semgrepRuleTrace) as? MetaVarConstraintFormula.Constraint<SerializedTypeNameMatcher>)?.constraint
+                        ?: anyClassPattern()
                 }
                 val (pkg, cls) = classNamePartsFromConcreteString(typeName.name)
                 MetaVarConstraintFormula.Constraint(
