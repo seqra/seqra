@@ -91,7 +91,7 @@ class InstructionConverter(
             }
             PIRInstructionProto.InstCase.LOAD_ATTR -> {
                 val la = proto.loadAttr
-                assign(la.target, PIRAttrExpr(v(la.`object`), la.attribute, t(la.type)))
+                PIRLoadAttr(v(la.target), v(la.`object`), la.attribute, t(la.type))
             }
             PIRInstructionProto.InstCase.STORE_ATTR -> {
                 val sa = proto.storeAttr

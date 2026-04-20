@@ -265,9 +265,9 @@ def ae_yield_from(inner):
 
     @Test
     fun `del nested attr loads intermediate attribute`() {
-        val loads = allInstructions(findFunc("ae_del_nested_attr")).filterAssignOf<PIRAttrExpr>()
-        assertTrue(loads.any { it.attrExpr.attribute == "inner" },
-            "Expected PIRAttrExpr for 'obj.inner' before deleting '.attr'")
+        val loads = allInstructions(findFunc("ae_del_nested_attr")).filterIsInstance<PIRLoadAttr>()
+        assertTrue(loads.any { it.attribute == "inner" },
+            "Expected PIRLoadAttr for 'obj.inner' before deleting '.attr'")
     }
 
     // ─── Tuple return ──────────────────────────────────────

@@ -41,7 +41,7 @@ data class PIRTaintConfig(
  * without sanitizing them.
  *
  * In PIR, `data.upper()` is lowered to:
- *   PIRAssign(target=$t0, expr=PIRAttrExpr(obj=data, attr="upper"))
+ *   PIRLoadAttr(target=$t0, obj=data, attribute="upper")
  *   PIRCall(target=$t1, callee=$t0, args=[], resolvedCallee="builtins.str.upper")
  *
  * The PositionBase.This position resolves to `data` (the receiver object)

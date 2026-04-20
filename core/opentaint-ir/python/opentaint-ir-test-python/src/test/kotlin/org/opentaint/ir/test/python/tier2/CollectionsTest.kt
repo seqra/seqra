@@ -141,7 +141,7 @@ def col_attr_store(obj: object) -> None:
     }
 
     @Test fun `load attr`() {
-        assertTrue(insts("col_attr_load").any { it.isAssignOf<PIRAttrExpr>() })
+        assertTrue(insts("col_attr_load").any { it is PIRLoadAttr })
     }
 
     @Test fun `store attr`() {

@@ -239,7 +239,6 @@ class PIRReconstructor {
                 is PIRBinaryExpr -> { checkValue(expr.left); checkValue(expr.right) }
                 is PIRUnaryExpr -> checkValue(expr.operand)
                 is PIRCompareExpr -> { checkValue(expr.left); checkValue(expr.right) }
-                is PIRAttrExpr -> checkValue(expr.obj)
                 is PIRSubscriptExpr -> { checkValue(expr.obj); checkValue(expr.index) }
                 is PIRListExpr -> expr.elements.forEach { checkValue(it) }
                 is PIRTupleExpr -> expr.elements.forEach { checkValue(it) }
@@ -254,6 +253,7 @@ class PIRReconstructor {
         }
         when (inst) {
             is PIRAssign -> { checkValue(inst.target); checkExpr(inst.expr) }
+            is PIRLoadAttr -> { checkValue(inst.target); checkValue(inst.obj) }
             is PIRCall -> { inst.target?.let { checkValue(it) }; checkValue(inst.callee); inst.args.forEach { checkValue(it.value) } }
             is PIRStoreAttr -> { checkValue(inst.obj); checkValue(inst.value) }
             is PIRStoreSubscript -> { checkValue(inst.obj); checkValue(inst.index); checkValue(inst.value) }
@@ -278,6 +278,7 @@ class PIRReconstructor {
     private fun reconstructInstruction(inst: PIRInstruction): List<String> {
         return when (inst) {
             is PIRAssign -> reconstructAssign(inst)
+            is PIRLoadAttr -> listOf("${val_(inst.target)} = ${val_(inst.obj)}.${inst.attribute}")
             is PIRCall -> {
                 val argsStr = inst.args.joinToString(", ") { callArg(it) }
                 // Inject __env__ as first argument if callee is a nested function with captures
@@ -377,7 +378,6 @@ class PIRReconstructor {
             is PIRBinaryExpr -> listOf("$target = ${val_(expr.left)} ${binOp(expr)} ${val_(expr.right)}")
             is PIRUnaryExpr -> listOf("$target = ${unaryOp(expr)}${val_(expr.operand)}")
             is PIRCompareExpr -> listOf("$target = ${val_(expr.left)} ${cmpOp(expr)} ${val_(expr.right)}")
-            is PIRAttrExpr -> listOf("$target = ${val_(expr.obj)}.${expr.attribute}")
             is PIRSubscriptExpr -> listOf("$target = ${val_(expr.obj)}[${val_(expr.index)}]")
             is PIRListExpr -> {
                 val elems = expr.elements.joinToString(", ") { val_(it) }
@@ -519,7 +519,6 @@ class PIRReconstructor {
                 is PIRBinaryExpr -> { collectLocalFromValue(expr.left, locals); collectLocalFromValue(expr.right, locals) }
                 is PIRUnaryExpr -> collectLocalFromValue(expr.operand, locals)
                 is PIRCompareExpr -> { collectLocalFromValue(expr.left, locals); collectLocalFromValue(expr.right, locals) }
-                is PIRAttrExpr -> collectLocalFromValue(expr.obj, locals)
                 is PIRSubscriptExpr -> { collectLocalFromValue(expr.obj, locals); collectLocalFromValue(expr.index, locals) }
                 is PIRListExpr -> expr.elements.forEach { collectLocalFromValue(it, locals) }
                 is PIRTupleExpr -> expr.elements.forEach { collectLocalFromValue(it, locals) }
@@ -534,6 +533,7 @@ class PIRReconstructor {
         }
         when (inst) {
             is PIRAssign -> { collectLocalFromValue(inst.target, locals); collectExprLocals(inst.expr) }
+            is PIRLoadAttr -> { collectLocalFromValue(inst.target, locals); collectLocalFromValue(inst.obj, locals) }
             is PIRCall -> { inst.target?.let { collectLocalFromValue(it, locals) }; collectLocalFromValue(inst.callee, locals) }
             is PIRStoreAttr -> { collectLocalFromValue(inst.obj, locals); collectLocalFromValue(inst.value, locals) }
             is PIRStoreSubscript -> { collectLocalFromValue(inst.obj, locals); collectLocalFromValue(inst.index, locals); collectLocalFromValue(inst.value, locals) }

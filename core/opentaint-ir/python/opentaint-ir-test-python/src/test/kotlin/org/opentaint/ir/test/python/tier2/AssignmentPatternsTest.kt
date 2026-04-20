@@ -188,8 +188,8 @@ def ap_chained_attr(obj) -> None:
 
     @Test
     fun `ap_chained_attr - loads intermediate attribute`() {
-        assertTrue(insts("ap_chained_attr").filterAssignOf<PIRAttrExpr>().any { it.attrExpr.attribute == "a" },
-            "Expected PIRAttrExpr for 'obj.a'")
+        assertTrue(insts("ap_chained_attr").filterIsInstance<PIRLoadAttr>().any { it.attribute == "a" },
+            "Expected PIRLoadAttr for 'obj.a'")
     }
 
     @Test

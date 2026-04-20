@@ -19,7 +19,7 @@ class PIRCallResolver(private val cp: PIRClasspath) {
 
     /**
      * Resolves a call with fallback: if resolvedCallee is null, searches the method's
-     * instructions for a preceding PIRAssign(target=callee, expr=PIRAttrExpr(obj, attr))
+     * instructions for a preceding PIRLoadAttr(target=callee, obj, attr)
      * and constructs the qualified name from obj.type + attr.
      */
     fun resolve(call: PIRCall, method: PIRFunction): PIRFunction? {
@@ -37,20 +37,17 @@ class PIRCallResolver(private val cp: PIRClasspath) {
             }
         }
 
-        // Fallback: find the AttrExpr that loaded the callee
+        // Fallback: find the PIRLoadAttr that loaded the callee
         val calleeValue = call.callee
         if (calleeValue is PIRLocal) {
             for (inst in method.instList) {
-                if (inst is PIRAssign && inst.target is PIRLocal &&
-                    (inst.target as PIRLocal).name == calleeValue.name &&
-                    inst.expr is PIRAttrExpr
+                if (inst is PIRLoadAttr && inst.target is PIRLocal &&
+                    (inst.target as PIRLocal).name == calleeValue.name
                 ) {
-                    val attrExpr = inst.expr as PIRAttrExpr
-                    val attrName = attrExpr.attribute
+                    val attrName = inst.attribute
 
                     // Strategy 1: Use obj's type name (for instance method calls: obj.method())
-                    // Works when mypy preserves the type, e.g. "SimpleObject.MyClass"
-                    val objType = attrExpr.obj.type
+                    val objType = inst.obj.type
                     val typeName = objType.typeName
                     if (typeName != "Any") {
                         val resolved1 = cp.findFunctionOrNull("$typeName.$attrName")
@@ -58,8 +55,8 @@ class PIRCallResolver(private val cp: PIRClasspath) {
                     }
 
                     // Strategy 2: Use PIRGlobalRef's module.name (for class-level calls: ClassName.method())
-                    if (attrExpr.obj is PIRGlobalRef) {
-                        val gref = attrExpr.obj as PIRGlobalRef
+                    if (inst.obj is PIRGlobalRef) {
+                        val gref = inst.obj as PIRGlobalRef
                         val qualName = if (gref.module.isNotEmpty()) "${gref.module}.${gref.name}" else gref.name
                         val resolved2 = cp.findFunctionOrNull("$qualName.$attrName")
                         if (resolved2 != null) return resolved2
@@ -67,8 +64,8 @@ class PIRCallResolver(private val cp: PIRClasspath) {
 
                     // Strategy 3: For local variables with unknown type, try to infer the class
                     // from the constructor call that assigned the variable
-                    if (attrExpr.obj is PIRLocal) {
-                        val localName = (attrExpr.obj as PIRLocal).name
+                    if (inst.obj is PIRLocal) {
+                        val localName = (inst.obj as PIRLocal).name
                         val className = inferClassFromConstructor(localName, method)
                         if (className != null) {
                             val resolved3 = cp.findFunctionOrNull("$className.$attrName")

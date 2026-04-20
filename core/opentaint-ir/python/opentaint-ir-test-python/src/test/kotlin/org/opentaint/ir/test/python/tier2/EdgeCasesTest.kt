@@ -458,8 +458,8 @@ def ec_all_param_kinds(a: int, b: int = 0, *args, c: int = 0, **kwargs) -> int:
         val method = cp.findFunctionOrNull("__test__.ECClass.instance_method")
         assertNotNull(method)
         val loadAttrs = method!!.instList
-            .filterAssignOf<PIRAttrExpr>()
-        assertTrue(loadAttrs.any { it.attrExpr.attribute == "x" },
+            .filterIsInstance<PIRLoadAttr>()
+        assertTrue(loadAttrs.any { it.attribute == "x" },
             "Expected load_attr for self.x")
     }
 

@@ -25,6 +25,7 @@ class PIRMethodSequentFlowFunction(
     override fun propagateZeroToFact(currentFactAp: FinalFactAp): Set<Sequent> {
         return when (instruction) {
             is PIRAssign -> handleAssignZero(instruction, currentFactAp)
+            is PIRLoadAttr -> handleLoadAttrZero(instruction, currentFactAp)
             is PIRReturn -> handleReturnShared(instruction, currentFactAp) { Sequent.ZeroToFact(it, null) }
             is PIRStoreAttr -> handleStoreAttrShared(instruction, currentFactAp) { Sequent.ZeroToFact(it, null) }
             is PIRStoreSubscript -> handleStoreSubscriptShared(instruction, currentFactAp) { Sequent.ZeroToFact(it, null) }
@@ -37,6 +38,7 @@ class PIRMethodSequentFlowFunction(
         currentFactAp: FinalFactAp,
     ): Set<Sequent> = when (instruction) {
         is PIRAssign -> handleAssignFact(instruction, initialFactAp, currentFactAp)
+        is PIRLoadAttr -> handleLoadAttrFact(instruction, initialFactAp, currentFactAp)
         is PIRReturn -> handleReturnShared(instruction, currentFactAp) { Sequent.FactToFact(initialFactAp, it, null) }
         is PIRStoreAttr -> handleStoreAttrFact(instruction, initialFactAp, currentFactAp)
         is PIRStoreSubscript -> handleStoreSubscriptFact(instruction, initialFactAp, currentFactAp)
@@ -87,7 +89,6 @@ class PIRMethodSequentFlowFunction(
      * Core assignment handling for both ZeroToFact and FactToFact.
      * Dispatches based on expression type:
      * - Simple value (PIRValue): variable-to-variable copy
-     * - PIRAttrExpr: field read (x = obj.attr)
      * - PIRSubscriptExpr: subscript read (x = obj[i])
      * - Other compound: strong update (kill) on target
      */
@@ -116,12 +117,7 @@ class PIRMethodSequentFlowFunction(
             return if (currentFactAp.base == assignTo) emptySet() else setOf(Sequent.Unchanged)
         }
 
-        // Case 2: Field read (x = obj.attr)
-        if (expr is PIRAttrExpr) {
-            return handleAttrRead(expr, assignTo, currentFactAp, mkCopy)
-        }
-
-        // Case 3: Subscript read (x = obj[index])
+        // Case 2: Subscript read (x = obj[index])
         if (expr is PIRSubscriptExpr) {
             return handleSubscriptRead(expr, assignTo, currentFactAp, mkCopy)
         }
@@ -149,6 +145,31 @@ class PIRMethodSequentFlowFunction(
         }
     }
 
+    // ==========================================================================
+    // LoadAttr: target = obj.attr (PIRLoadAttr instruction)
+    // ==========================================================================
+
+    private fun handleLoadAttrZero(
+        inst: PIRLoadAttr,
+        currentFactAp: FinalFactAp,
+    ): Set<Sequent> {
+        val assignTo = PIRFlowFunctionUtils.accessPathBase(inst.target, method, ctx)
+            ?: return setOf(Sequent.Unchanged)
+        return handleAttrRead(inst, assignTo, currentFactAp) { Sequent.ZeroToFact(it, null) }
+    }
+
+    private fun handleLoadAttrFact(
+        inst: PIRLoadAttr,
+        initialFactAp: InitialFactAp,
+        currentFactAp: FinalFactAp,
+    ): Set<Sequent> {
+        val assignTo = PIRFlowFunctionUtils.accessPathBase(inst.target, method, ctx)
+            ?: return setOf(Sequent.Unchanged)
+        return handleAttrRead(inst, assignTo, currentFactAp) {
+            Sequent.FactToFact(initialFactAp, it, null)
+        }
+    }
+
     /**
      * Field read: target = obj.attr
      *
@@ -159,17 +180,17 @@ class PIRMethodSequentFlowFunction(
      * propagate abstract fact with field excluded + materialize the concrete read.
      */
     private inline fun handleAttrRead(
-        expr: PIRAttrExpr,
+        inst: PIRLoadAttr,
         assignTo: AccessPathBase,
         currentFactAp: FinalFactAp,
         mkCopy: (FinalFactAp) -> Sequent,
     ): Set<Sequent> {
-        val objBase = PIRFlowFunctionUtils.accessPathBase(expr.obj, method, ctx)
+        val objBase = PIRFlowFunctionUtils.accessPathBase(inst.obj, method, ctx)
             ?: return if (currentFactAp.base == assignTo) emptySet() else setOf(Sequent.Unchanged)
         val accessor = org.opentaint.dataflow.ap.ifds.FieldAccessor(
-            expr.obj.type.typeName,
-            expr.attribute,
-            expr.resultType.typeName,
+            inst.obj.type.typeName,
+            inst.attribute,
+            inst.resultType.typeName,
         )
 
         val results = mutableSetOf<Sequent>()

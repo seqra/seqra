@@ -116,12 +116,6 @@ data class PIRNotInExpr(override val left: PIRValue, override val right: PIRValu
 
 // ─── Other Expressions ─────────────────────────────────────
 
-data class PIRAttrExpr(
-    val obj: PIRValue,
-    val attribute: String,
-    val resultType: PIRType = PIRAnyType,
-) : PIRExpr
-
 data class PIRSubscriptExpr(
     val obj: PIRValue,
     val index: PIRValue,
@@ -138,6 +132,18 @@ data class PIRIterExpr(val iterable: PIRValue) : PIRExpr
 data class PIRTypeCheckExpr(val value: PIRValue, val checkType: PIRType) : PIRExpr
 
 // ─── Memory Store (side-effecting, no result) ───────────────
+
+data class PIRLoadAttr(
+    val target: PIRValue,
+    val obj: PIRValue,
+    val attribute: String,
+    val resultType: PIRType = PIRAnyType,
+) : PIRInstruction {
+    override lateinit var location: PIRLocation
+    override fun equals(other: Any?) = this === other
+    override fun hashCode() = System.identityHashCode(this)
+    override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitLoadAttr(this)
+}
 
 data class PIRStoreAttr(
     val obj: PIRValue,
@@ -412,7 +418,6 @@ inline fun <reified E : PIRExpr> Iterable<PIRInstruction>.filterAssignOf(): List
 val PIRAssign.binaryExpr: PIRBinaryExpr get() = expr as PIRBinaryExpr
 val PIRAssign.unaryExpr: PIRUnaryExpr get() = expr as PIRUnaryExpr
 val PIRAssign.compareExpr: PIRCompareExpr get() = expr as PIRCompareExpr
-val PIRAssign.attrExpr: PIRAttrExpr get() = expr as PIRAttrExpr
 val PIRAssign.subscriptExpr: PIRSubscriptExpr get() = expr as PIRSubscriptExpr
 val PIRAssign.listExpr: PIRListExpr get() = expr as PIRListExpr
 val PIRAssign.tupleExpr: PIRTupleExpr get() = expr as PIRTupleExpr

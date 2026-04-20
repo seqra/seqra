@@ -498,9 +498,9 @@ def ci_no_return():
     @Test
     fun `with statement has enter and exit calls`() {
         val f = func("ci_with_stmt")
-        val loadAttrs = f.instList.filterAssignOf<PIRAttrExpr>()
-        val enterCall = loadAttrs.any { it.attrExpr.attribute == "__enter__" }
-        val exitCall = loadAttrs.any { it.attrExpr.attribute == "__exit__" }
+        val loadAttrs = f.instList.filterIsInstance<PIRLoadAttr>()
+        val enterCall = loadAttrs.any { it.attribute == "__enter__" }
+        val exitCall = loadAttrs.any { it.attribute == "__exit__" }
         assertTrue(enterCall, "ci_with_stmt: no __enter__ load_attr found")
         assertTrue(exitCall, "ci_with_stmt: no __exit__ load_attr found")
     }

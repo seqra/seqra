@@ -62,7 +62,6 @@ private class LocalNameCollector(
             is PIRBinaryExpr -> { visit(expr.left); visit(expr.right) }
             is PIRUnaryExpr -> visit(expr.operand)
             is PIRCompareExpr -> { visit(expr.left); visit(expr.right) }
-            is PIRAttrExpr -> visit(expr.obj)
             is PIRSubscriptExpr -> { visit(expr.obj); visit(expr.index) }
             is PIRListExpr -> expr.elements.forEach(::visit)
             is PIRTupleExpr -> expr.elements.forEach(::visit)
@@ -81,6 +80,7 @@ private class LocalNameCollector(
     override fun defaultVisit(inst: PIRInstruction) = Unit
 
     override fun visitAssign(inst: PIRAssign) { visit(inst.target); visitExpr(inst.expr) }
+    override fun visitLoadAttr(inst: PIRLoadAttr) { visit(inst.target); visit(inst.obj) }
     override fun visitCall(inst: PIRCall) {
         visitNullable(inst.target); visit(inst.callee)
         inst.args.forEach { visit(it.value) }

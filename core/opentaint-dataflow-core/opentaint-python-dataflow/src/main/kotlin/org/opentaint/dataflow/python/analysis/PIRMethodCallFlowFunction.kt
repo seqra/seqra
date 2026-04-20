@@ -222,7 +222,7 @@ class PIRMethodCallFlowFunction(
     /**
      * Instance-level call matching that also handles unresolved method calls.
      * For calls where resolvedCallee is null (common for method calls like data.upper()),
-     * attempts to match by finding the defining PIRAttrExpr and constructing a
+     * attempts to match by finding the defining PIRLoadAttr and constructing a
      * candidate callee name from the receiver type and attribute name.
      */
     private fun matchesCallOrReceiver(ruleFunction: String): Boolean {
@@ -231,8 +231,8 @@ class PIRMethodCallFlowFunction(
         if (callee != null) {
             if (callee == ruleFunction || callee.endsWith(".$ruleFunction")) return true
         }
-        // Fallback: match using the defining PIRAttrExpr's receiver type + attribute name.
-        // For data.upper(), the PIRAttrExpr has obj=data (type str) and attribute="upper".
+        // Fallback: match using the defining PIRLoadAttr's receiver type + attribute name.
+        // For data.upper(), the PIRLoadAttr has obj=data (type str) and attribute="upper".
         // We construct candidates like "builtins.str.upper" and "str.upper".
         val info = receiverInfo
         if (info != null) {
@@ -252,24 +252,20 @@ class PIRMethodCallFlowFunction(
 
     /**
      * Lazily computed receiver info: (receiverTypeName, attributeName) or null.
-     * Found by scanning for the PIRAssign + PIRAttrExpr that defines the call's callee.
+     * Found by scanning for the PIRLoadAttr that defines the call's callee.
      */
     private val receiverInfo: Pair<String, String>? by lazy {
         val callee = callInst.callee
         if (callee !is PIRLocal) return@lazy null
         for (inst in method.instList) {
-            if (inst is PIRAssign && inst.target is PIRLocal
+            if (inst is PIRLoadAttr && inst.target is PIRLocal
                 && (inst.target as PIRLocal).name == callee.name
-                && inst.expr is PIRAttrExpr
             ) {
-                val attrExpr = inst.expr as PIRAttrExpr
-                val attrName = attrExpr.attribute
-                // Try obj type first
-                val typeName = attrExpr.obj.type.typeName
+                val attrName = inst.attribute
+                val typeName = inst.obj.type.typeName
                 if (typeName.isNotEmpty() && typeName != "Any" && typeName != "any") {
                     return@lazy typeName to attrName
                 }
-                // Fallback: return just the attribute name (rules can match on suffix)
                 return@lazy "" to attrName
             }
         }
