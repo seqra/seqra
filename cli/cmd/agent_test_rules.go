@@ -117,7 +117,6 @@ Exit codes:
 
 		javaRunner := java.NewJavaRunner().
 			WithSkipVerify(globals.Config.SkipVerify).
-			WithStreamOutput(globals.Config.Quiet).
 			WithDebugOutput(out.DebugStream("Analyzer")).
 			WithImageType(java.AdoptiumImageJRE).
 			TrySpecificVersion(globals.DefaultJavaVersion)
