@@ -7,10 +7,14 @@ import org.springframework.http.ResponseEntity;
 
 /**
  * A3. Rule pattern-inside declares return type {@code ResponseEntity<List<String>>}.
- * Surprise from the matrix run: engine does not discriminate the nested-generic
- * form either — a method returning plain {@code ResponseEntity<String>} also
- * matches. Pin both as Positive here; the should-be-Negative angle is the
- * @Disabled gap test {@code `B11 ...`} in EngineGapsTest.
+ *
+ * Expected behavior: only the {@code ResponseEntity<List<String>>}-returning
+ * method matches; a method returning plain {@code ResponseEntity<String>}
+ * should NOT match (the nested type arg differs).
+ *
+ * Current engine behavior: the generic specificity at the nested type-arg
+ * level is ignored — both methods match. This test is EXPECTED TO FAIL
+ * today with an FP on NegativeFlatGeneric.
  */
 @RuleSet("example/RuleWithNestedGenericReturnType.yaml")
 public abstract class RuleWithNestedGenericReturnType implements RuleSample {
@@ -36,10 +40,11 @@ public abstract class RuleWithNestedGenericReturnType implements RuleSample {
     }
 
     /**
-     * Pinned as Positive: the engine over-matches because the method-decl
-     * return-type's generic specificity is effectively ignored today.
+     * Honest Negative: rule requires {@code ResponseEntity<List<String>>}
+     * but method returns {@code ResponseEntity<String>}. The engine currently
+     * reports this as a match (FP).
      */
-    final static class PositiveFlatGenericPinsOverMatch extends RuleWithNestedGenericReturnType {
+    final static class NegativeFlatGeneric extends RuleWithNestedGenericReturnType {
         @Override
         public void entrypoint() {
             String data = "tainted";
