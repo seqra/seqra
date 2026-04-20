@@ -39,9 +39,11 @@ Read the trace:
 
 ### 3. Process external methods (FN discovery)
 
-The `--external-methods` flag produces two files:
-- **`<name>-without-rules.yaml`** — Methods where the analyzer **killed dataflow facts** (no approximation model). **This is where false negatives come from.** Focus here.
-- **`<name>-with-rules.yaml`** — Methods with existing approximation rules (already modeled, typically no action needed).
+The `--track-external-methods` flag produces two files next to the SARIF report:
+- **`<sarif-dir>/external-methods-without-rules.yaml`** — Methods where the analyzer **killed dataflow facts** (no approximation model). **This is where false negatives come from.** Focus here.
+- **`<sarif-dir>/external-methods-with-rules.yaml`** — Methods with existing approximation rules (already modeled, typically no action needed).
+
+Filenames and directory are fixed; the flag is a boolean.
 
 Read `external-methods-without-rules.yaml`. **Prioritize generic data-flow propagators** over
 vulnerability-specific methods. The most common cause of killed facts is mundane collection/utility

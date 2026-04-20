@@ -16,7 +16,7 @@ Generate a fact reachability SARIF report to debug why a specific rule does (or 
 ### Run analysis with fact reachability debugging
 
 ```bash
-opentaint scan ./opentaint-project \
+opentaint scan --project-model ./opentaint-project \
   -o ./results/fact-reachability.sarif \
   --ruleset builtin --ruleset ./agent-rules \
   --rule-id java/security/my-vuln.yaml:my-vulnerability \
@@ -56,5 +56,5 @@ Always check the output directory (`-o` parent) for this file.
 ## Notes
 
 - This is a debug-only option intended for troubleshooting rule coverage
-- The scan path is the **directory** containing `project.yaml`, not the path to `project.yaml` itself
-- `--rule-id` enables only the specified rule; library rules referenced via join-mode `refs` are auto-included
+- Pre-compiled project models are passed via `--project-model <dir>`, not as a positional argument
+- `--rule-id` drops every rule whose full ID is not listed, **including** library rules referenced via join-mode `refs`; list each library rule explicitly if you need refs resolved

@@ -94,8 +94,10 @@ passThrough:
 
 ### 3. Run with config
 
+`--approximations-config` is repeatable. Each occurrence is OVERRIDE-merged with the default.
+
 ```bash
-opentaint scan ./opentaint-project \
+opentaint scan --project-model ./opentaint-project \
   -o ./results/report.sarif \
   --ruleset builtin --ruleset ./agent-rules \
   --rule-id java/security/my-vuln.yaml:my-vulnerability \
