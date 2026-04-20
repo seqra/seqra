@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithRawResponseEntity
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithRawResponseEntity
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          ResponseEntity $METHOD(..., String $A, ...) {
+              ...
+          }
