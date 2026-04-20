@@ -2,11 +2,31 @@
 
 Create code-based approximations for complex library methods involving lambdas, async, or callbacks.
 
+## When approximations are actually useful
+
+Approximations (both code-based and YAML) only change the analysis of **external methods
+with no existing model**. Concretely, this means the method the approximation targets must
+appear in `<sarif-dir>/external-methods-without-rules.yaml` produced by the previous scan
+(see `analyze-findings` skill). An entry there means the analyzer walked through that method
+and **killed the dataflow facts** because it had no rule — that's the exact gap you can fill.
+
+If the method is in `external-methods-with-rules.yaml`, it is already modeled. Writing
+another approximation for it is a no-op at best and conflicts with a built-in rule at worst
+(duplicate-target error). Skip it.
+
+If the method is in neither list, the analyzer never reached it on a tainted path during
+the scan. Adding an approximation will not change the result until the analyzer actually
+observes a tainted argument flowing in.
+
+**Rule of thumb**: approximate only methods that are in the `without-rules` list **and** lie
+on a code path relevant to your vulnerability (reachable between a source and a sink).
+
 ## Prerequisites
 
-- External methods list analyzed (analyze-findings skill)
-- The method involves lambdas/callbacks/functional interfaces (YAML cannot model these)
-- The target class must NOT already have a built-in approximation
+- A baseline scan has been run with `--track-external-methods` (see `run-analysis` skill)
+- `external-methods-without-rules.yaml` has been read and the target method is in it (see `analyze-findings` skill)
+- The method involves lambdas/callbacks/functional interfaces (YAML cannot model these — otherwise prefer `create-yaml-config`)
+- The target class must NOT already have a built-in approximation (would be listed under `external-methods-with-rules.yaml` if so)
 
 ## Procedure
 
@@ -79,8 +99,17 @@ passes it through unchanged.
 
 - Java 8 source compatibility
 - One approximation class per target class (strict bijection)
-- Must NOT target a class that already has a built-in approximation (will error at runtime)
+- Must NOT target a class that already has a built-in approximation (will error at runtime). Verify by checking `external-methods-with-rules.yaml` — if the class appears there, it is already covered.
 - Method signatures must match the target class methods exactly
+
+## Validating the approximation had an effect
+
+After re-running the scan with `--dataflow-approximations`, diff the before/after
+`external-methods-without-rules.yaml`:
+
+- The approximated method should disappear from `without-rules` (moves to `with-rules`)
+- If it does not move, your `@Approximate(...)` target class or the method signature does not match what the analyzer sees
+- If new findings appear in the SARIF after the approximation, they are likely true positives the kill-facts was hiding
 
 ## When to use code-based vs YAML
 
@@ -88,3 +117,4 @@ passes it through unchanged.
 - Non-deterministic branching (async paths) -> **Code-based**
 - Complex internal state with multiple method interactions -> **Code-based**
 - Simple from-to propagation -> **YAML** (create-yaml-config skill)
+- Method is **not** in `external-methods-without-rules.yaml` -> **do nothing** (approximation will have no observable effect)
