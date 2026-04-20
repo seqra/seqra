@@ -4,19 +4,8 @@ import org.opentaint.ir.api.python.*
 import org.opentaint.ir.impl.python.*
 import org.opentaint.ir.impl.python.converter.InstructionConverter
 import org.opentaint.ir.impl.python.converter.TypeConverter
-import org.opentaint.ir.impl.python.converter.ValueConverter
 import org.opentaint.ir.impl.python.proto.*
 
-/**
- * Builds PIRModule from a raw MypyModuleProto (AST).
- *
- * This replaces ModuleConverter for the new AST path.
- * Instead of converting already-lowered PIR protos, it:
- * 1. Walks the raw AST definitions
- * 2. Extracts class/function/field metadata
- * 3. Uses CfgBuilder to lower function bodies to PIR CFGs
- * 4. Produces the same PIRModule output as the old path
- */
 class MypyModuleBuilder(
     private val astModule: MypyModuleProto,
     private val classpath: PIRClasspath? = null,
@@ -29,17 +18,14 @@ class MypyModuleBuilder(
 
     val moduleName: String = astModule.name
     var lambdaCounter = 0
-    val lambdaFunctions = mutableListOf<PIRFunctionProto>()
+    private val pendingLambdas = mutableListOf<PendingFunction>()
     var nestedFuncCounter = 0
-    val nestedFunctions = mutableListOf<PIRFunctionProto>()
+    private val pendingNested = mutableListOf<PendingFunction>()
     private val diagnostics = mutableListOf<PIRDiagnostic>()
     private val typeConverter = TypeConverter()
-
-    private val vc = ValueConverter(typeConverter)
-    private val ic = InstructionConverter(typeConverter, vc)
+    private val ic = InstructionConverter()
 
     fun build(): PIRModule {
-        // Propagate mypy build errors as diagnostics
         for (error in astModule.errorsList) {
             diagnostics.add(PIRDiagnostic(
                 org.opentaint.ir.api.python.PIRDiagnosticSeverity.ERROR,
@@ -81,12 +67,10 @@ class MypyModuleBuilder(
             }
         }
 
-        // Build module_init CFG
         val moduleInit = buildModuleInit(dummyModule)
 
-        // Add lambda and nested functions
-        val lambdaFuncList = lambdaFunctions.map { convertLambdaFunction(it, dummyModule) }
-        val nestedFuncList = nestedFunctions.map { convertLambdaFunction(it, dummyModule) }
+        val lambdaFuncList = pendingLambdas.map { convertPendingFunction(it, dummyModule) }
+        val nestedFuncList = pendingNested.map { convertPendingFunction(it, dummyModule) }
         val allFunctions = functions + lambdaFuncList + nestedFuncList
 
         return PIRModuleImpl(
@@ -245,11 +229,11 @@ class MypyModuleBuilder(
         // Build CFG from raw AST body
         val cfgScope = ScopeStack()
         val cfgBuilder = CfgBuilder(cfgScope, this, currentFunctionQualifiedName = qualifiedName)
-        val cfgProto = try {
+        val flatCfg = try {
             if (funcDef.hasBody()) {
                 cfgBuilder.buildFunctionCfg(funcDef.body)
             } else {
-                emptyCfgProto()
+                FlatCFG.EMPTY
             }
         } catch (e: Exception) {
             diagnostics.add(PIRDiagnostic(
@@ -258,17 +242,17 @@ class MypyModuleBuilder(
                 funcDef.name,
                 e.javaClass.simpleName,
             ))
-            emptyCfgProto()
+            FlatCFG.EMPTY
         }
 
-        val pirCfg = ic.convertCFG(cfgProto)
+        val pirCfg = ic.convertCFG(flatCfg)
 
         val params = funcDef.argumentsList.mapIndexed { idx, arg ->
             val kind = when (arg.kind) {
-                0, 1 -> PIRParameterKind.POSITIONAL_OR_KEYWORD  // ARG_POS, ARG_OPT
-                2 -> PIRParameterKind.VAR_POSITIONAL            // ARG_STAR
-                4 -> PIRParameterKind.VAR_KEYWORD               // ARG_STAR2
-                3, 5 -> PIRParameterKind.KEYWORD_ONLY           // ARG_NAMED=3, ARG_NAMED_OPT=5
+                0, 1 -> PIRParameterKind.POSITIONAL_OR_KEYWORD
+                2 -> PIRParameterKind.VAR_POSITIONAL
+                4 -> PIRParameterKind.VAR_KEYWORD
+                3, 5 -> PIRParameterKind.KEYWORD_ONLY
                 else -> PIRParameterKind.POSITIONAL_OR_KEYWORD
             }
             val type = if (arg.hasType()) typeConverter.convert(arg.type) else PIRAnyType
@@ -308,7 +292,6 @@ class MypyModuleBuilder(
     ): PIRFunction {
         val func = buildFunction(decorator.func, enclosingClass, module)
 
-        // Extract decorator info and flags
         var isStatic = func.isStaticMethod
         var isClass = func.isClassMethod
         var isProp = func.isProperty
@@ -354,7 +337,7 @@ class MypyModuleBuilder(
             }
         }
 
-        val cfgProto = try {
+        val flatCfg = try {
             cfgBuilder.buildModuleInitCfg(moduleStmts)
         } catch (e: Exception) {
             diagnostics.add(PIRDiagnostic(
@@ -363,10 +346,10 @@ class MypyModuleBuilder(
                 "__module_init__",
                 e.javaClass.simpleName,
             ))
-            emptyCfgProto()
+            FlatCFG.EMPTY
         }
 
-        val pirCfg = ic.convertCFG(cfgProto)
+        val pirCfg = ic.convertCFG(flatCfg)
         val function = PIRFunctionImpl(
             name = "__module_init__",
             qualifiedName = "$moduleName.__module_init__",
@@ -387,7 +370,7 @@ class MypyModuleBuilder(
         return function
     }
 
-    // ─── Nested function extraction ─────────────────────
+    // ─── Nested function / lambda extraction ────────────
 
     /**
      * Extract a nested FuncDef from within a function body, building it as a
@@ -398,18 +381,16 @@ class MypyModuleBuilder(
      */
     fun extractNestedFunction(funcDef: MypyFuncDefProto, enclosingQualifiedName: String): Pair<String, String> {
         val idx = nestedFuncCounter++
-        // Unique name avoids collisions between nested functions with same name in different outers
         val uniqueName = "${funcDef.name}\$local$idx"
         val qualifiedName = "$enclosingQualifiedName.${funcDef.name}"
 
-        // Build the nested function's CFG using a fresh CfgBuilder
         val nestedScope = ScopeStack()
         val nestedCfgBuilder = CfgBuilder(nestedScope, this, currentFunctionQualifiedName = qualifiedName)
-        val cfgProto = try {
+        val flatCfg = try {
             if (funcDef.hasBody()) {
                 nestedCfgBuilder.buildFunctionCfg(funcDef.body)
             } else {
-                emptyCfgProto()
+                FlatCFG.EMPTY
             }
         } catch (e: Exception) {
             diagnostics.add(PIRDiagnostic(
@@ -418,87 +399,78 @@ class MypyModuleBuilder(
                 funcDef.name,
                 e.javaClass.simpleName,
             ))
-            emptyCfgProto()
+            FlatCFG.EMPTY
         }
 
-        val funcBuilder = PIRFunctionProto.newBuilder()
-            .setName(uniqueName)
-            .setQualifiedName(qualifiedName)
-            .setCfg(cfgProto)
-            .setIsAsync(funcDef.isAsync)
-            .setIsGenerator(funcDef.isGenerator)
-
-        // Parameters
-        for (arg in funcDef.argumentsList) {
-            val kind = when (arg.kind) {
-                2 -> ParameterKind.VAR_POSITIONAL
-                4 -> ParameterKind.VAR_KEYWORD
-                3, 5 -> ParameterKind.KEYWORD_ONLY
-                else -> ParameterKind.POSITIONAL_OR_KEYWORD
-            }
-            val paramBuilder = PIRParameterProto.newBuilder()
-                .setName(arg.name)
-                .setKind(kind)
-                .setHasDefault(arg.hasDefault)
-            if (arg.hasType()) paramBuilder.setType(arg.type)
-            // Carry default value through for nested functions
-            if (arg.hasDefault && arg.hasDefaultValue()) {
-                val defaultVal = evalConstExpr(arg.defaultValue)
-                if (defaultVal != null) paramBuilder.setDefaultValue(defaultVal)
-            }
-            funcBuilder.addParameters(paramBuilder)
-        }
-
-        // Return type
-        if (funcDef.hasReturnType()) {
-            funcBuilder.setReturnType(funcDef.returnType)
-        }
-
-        // Compute closure vars from body analysis (migrated from Python serializer)
         val paramNames = funcDef.argumentsList.map { it.name }
         val closureVars = if (funcDef.hasBody()) {
             FreeVarAnalyzer.collectFreeVars(funcDef.body, paramNames)
         } else emptyList()
-        for (cv in closureVars) {
-            funcBuilder.addClosureVars(cv)
-        }
 
-        nestedFunctions.add(funcBuilder.build())
+        pendingNested.add(PendingFunction(
+            name = uniqueName,
+            qualifiedName = qualifiedName,
+            cfg = flatCfg,
+            arguments = funcDef.argumentsList,
+            returnType = if (funcDef.hasReturnType()) funcDef.returnType else null,
+            isAsync = funcDef.isAsync,
+            isGenerator = funcDef.isGenerator,
+            closureVars = closureVars,
+        ))
+
         return Pair(uniqueName, qualifiedName)
+    }
+
+    fun addLambda(
+        name: String,
+        qualifiedName: String,
+        cfg: FlatCFG,
+        arguments: List<MypyArgumentProto>,
+        returnType: PIRTypeProto?,
+    ) {
+        pendingLambdas.add(PendingFunction(
+            name = name,
+            qualifiedName = qualifiedName,
+            cfg = cfg,
+            arguments = arguments,
+            returnType = returnType,
+            isAsync = false,
+            isGenerator = false,
+            closureVars = emptyList(),
+        ))
     }
 
     // ─── Helpers ─────────────────────────────────────────
 
-    private fun convertLambdaFunction(proto: PIRFunctionProto, module: PIRModule): PIRFunction {
-        val params = proto.parametersList.mapIndexed { idx, p ->
-            val kind = when (p.kind) {
-                ParameterKind.POSITIONAL_ONLY -> PIRParameterKind.POSITIONAL_ONLY
-                ParameterKind.POSITIONAL_OR_KEYWORD -> PIRParameterKind.POSITIONAL_OR_KEYWORD
-                ParameterKind.VAR_POSITIONAL -> PIRParameterKind.VAR_POSITIONAL
-                ParameterKind.KEYWORD_ONLY -> PIRParameterKind.KEYWORD_ONLY
-                ParameterKind.VAR_KEYWORD -> PIRParameterKind.VAR_KEYWORD
+    private fun convertPendingFunction(pending: PendingFunction, module: PIRModule): PIRFunction {
+        val params = pending.arguments.mapIndexed { idx, arg ->
+            val kind = when (arg.kind) {
+                0, 1 -> PIRParameterKind.POSITIONAL_OR_KEYWORD
+                2 -> PIRParameterKind.VAR_POSITIONAL
+                4 -> PIRParameterKind.VAR_KEYWORD
+                3, 5 -> PIRParameterKind.KEYWORD_ONLY
                 else -> PIRParameterKind.POSITIONAL_OR_KEYWORD
             }
-            val type = if (p.hasType()) typeConverter.convert(p.type) else PIRAnyType
-            val defVal = if (p.hasDefaultValue()) vc.convert(p.defaultValue) else null
-            PIRParameterImpl(p.name, type, kind, p.hasDefault, defVal, idx)
+            val type = if (arg.hasType()) typeConverter.convert(arg.type) else PIRAnyType
+            val defVal = if (arg.hasDefault && arg.hasDefaultValue()) evalConstValue(arg.defaultValue) else null
+            PIRParameterImpl(arg.name, type, kind, arg.hasDefault, defVal, idx)
         }
-        val returnType = if (proto.hasReturnType()) typeConverter.convert(proto.returnType) else PIRAnyType
-        val cfg = ic.convertCFG(proto.cfg)
+        val returnType = if (pending.returnType != null) typeConverter.convert(pending.returnType) else PIRAnyType
+        val cfg = ic.convertCFG(pending.cfg)
 
         val function = PIRFunctionImpl(
-            name = proto.name,
-            qualifiedName = proto.qualifiedName,
+            name = pending.name,
+            qualifiedName = pending.qualifiedName,
             parameters = params,
             returnType = returnType,
             cfg = cfg,
             decorators = emptyList(),
-            isAsync = proto.isAsync,
-            isGenerator = proto.isGenerator,
+            isAsync = pending.isAsync,
+            isGenerator = pending.isGenerator,
             isStaticMethod = false,
             isClassMethod = false,
             isProperty = false,
-            closureVars = proto.closureVarsList,
+            closureVars = pending.closureVars,
             enclosingClass = null,
             module = module,
         )
@@ -506,44 +478,31 @@ class MypyModuleBuilder(
         return function
     }
 
-    /** Try to evaluate a MypyExprProto to a constant PIRValueProto. Returns null for complex expressions. */
-    private fun evalConstExpr(expr: MypyExprProto): PIRValueProto? {
-        fun constVal(builder: PIRConstProto.Builder): PIRValueProto =
-            PIRValueProto.newBuilder().setConstVal(builder).build()
+    private fun evalConstValue(expr: MypyExprProto): PIRValue? {
         return when (expr.kindCase) {
-            MypyExprProto.KindCase.INT_EXPR ->
-                constVal(PIRConstProto.newBuilder().setIntValue(expr.intExpr.value))
-            MypyExprProto.KindCase.FLOAT_EXPR ->
-                constVal(PIRConstProto.newBuilder().setFloatValue(expr.floatExpr.value))
-            MypyExprProto.KindCase.STR_EXPR ->
-                constVal(PIRConstProto.newBuilder().setStringValue(expr.strExpr.value))
-            MypyExprProto.KindCase.BYTES_EXPR ->
-                constVal(PIRConstProto.newBuilder().setStringValue(expr.bytesExpr.value.toStringUtf8()))
-            MypyExprProto.KindCase.NAME_EXPR -> {
-                val name = expr.nameExpr.name
-                when (name) {
-                    "True" -> constVal(PIRConstProto.newBuilder().setBoolValue(true))
-                    "False" -> constVal(PIRConstProto.newBuilder().setBoolValue(false))
-                    "None" -> constVal(PIRConstProto.newBuilder().setNoneValue(true))
-                    else -> null
-                }
+            MypyExprProto.KindCase.INT_EXPR -> PIRIntConst(expr.intExpr.value, PIRAnyType)
+            MypyExprProto.KindCase.FLOAT_EXPR -> PIRFloatConst(expr.floatExpr.value, PIRAnyType)
+            MypyExprProto.KindCase.STR_EXPR -> PIRStrConst(expr.strExpr.value, PIRAnyType)
+            MypyExprProto.KindCase.BYTES_EXPR -> PIRStrConst(expr.bytesExpr.value.toStringUtf8(), PIRAnyType)
+            MypyExprProto.KindCase.NAME_EXPR -> when (expr.nameExpr.name) {
+                "True" -> PIRBoolConst(true, PIRAnyType)
+                "False" -> PIRBoolConst(false, PIRAnyType)
+                "None" -> PIRNoneConst
+                else -> null
             }
             else -> null
         }
     }
-
-    private fun emptyCfgProto(): PIRCFGProto {
-        return PIRCFGProto.newBuilder()
-            .addBlocks(
-                PIRBasicBlockProto.newBuilder()
-                    .setLabel(0)
-                    .addInstructions(
-                        PIRInstructionProto.newBuilder()
-                            .setReturnInst(PIRReturnProto.getDefaultInstance())
-                    )
-            )
-            .setEntryBlock(0)
-            .addExitBlocks(0)
-            .build()
-    }
 }
+
+/** Holds metadata for a lambda or nested function awaiting conversion. */
+class PendingFunction(
+    val name: String,
+    val qualifiedName: String,
+    val cfg: FlatCFG,
+    val arguments: List<MypyArgumentProto>,
+    val returnType: PIRTypeProto?,
+    val isAsync: Boolean,
+    val isGenerator: Boolean,
+    val closureVars: List<String>,
+)

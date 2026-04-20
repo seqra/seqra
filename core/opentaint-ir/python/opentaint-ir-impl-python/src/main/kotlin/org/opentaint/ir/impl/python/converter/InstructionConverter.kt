@@ -2,37 +2,31 @@ package org.opentaint.ir.impl.python.converter
 
 import org.opentaint.ir.api.python.*
 import org.opentaint.ir.impl.python.PIRCFGImpl
-import org.opentaint.ir.impl.python.proto.*
+import org.opentaint.ir.impl.python.builder.*
 
-class InstructionConverter(
-    private val typeConverter: TypeConverter,
-    private val valueConverter: ValueConverter,
-) {
+class InstructionConverter {
 
-    /** Source positions (line, col) for each instruction, to be read during location wiring. */
     private val sourcePositions = mutableMapOf<PIRInstruction, Pair<Int, Int>>()
-
-    /** Flat instruction indices, to be read during location wiring. */
     private val instructionIndices = mutableMapOf<PIRInstruction, Int>()
 
-    fun convertCFG(proto: PIRCFGProto): PIRCFG {
-        val protoBlocks = proto.blocksList.sortedBy { it.label }
-        val blockStartIndex = calculateBlockToStartIdx(protoBlocks)
+    fun convertCFG(flat: FlatCFG): PIRCFG {
+        val sortedBlocks = flat.blocks.sortedBy { it.label }
+        val blockStartIndex = calculateBlockToStartIdx(sortedBlocks)
 
         val instList = ArrayList<PIRInstruction>()
         val instToBlock = ArrayList<Int>()
-        for (blockProto in protoBlocks) {
-            convertBlockInstructions(blockProto, blockStartIndex, instList)
-            repeat(blockProto.instructionsCount) { instToBlock.add(blockProto.label) }
+        for (block in sortedBlocks) {
+            convertBlockInstructions(block, blockStartIndex, instList)
+            repeat(block.instructions.size) { instToBlock.add(block.label) }
         }
 
-        val blocks = convertBlocks(protoBlocks, blockStartIndex, instList)
+        val blocks = convertBlocks(sortedBlocks, blockStartIndex, instList)
 
         return PIRCFGImpl(
             blocks = blocks,
             instList = instList,
-            entryLabel = proto.entryBlock,
-            exitLabels = proto.exitBlocksList.toSet(),
+            entryLabel = flat.entryBlock,
+            exitLabels = flat.exitBlocks.toSet(),
             instToBlock = instToBlock,
         )
     }
@@ -43,287 +37,157 @@ class InstructionConverter(
     fun getInstIndex(inst: PIRInstruction): Int =
         instructionIndices[inst] ?: error("Missing instruction index for: $inst")
 
-    private fun saveInstMetadata(inst: PIRInstruction, line: Int, col: Int, flatIndex: Int) {
-        sourcePositions[inst] = line to col
-        instructionIndices[inst] = flatIndex
-    }
-
-    private fun convertBlockInstructions(proto: PIRBasicBlockProto, blockStartIndex: Map<Int, Int>, dst: MutableList<PIRInstruction>) {
-        val startIdx = blockStartIndex.getValue(proto.label)
-        for ((i, instProto) in proto.instructionsList.withIndex()) {
-            dst.add(convertInstruction(instProto, blockStartIndex, startIdx + i))
+    private fun convertBlockInstructions(block: FlatBlock, blockStartIndex: Map<Int, Int>, dst: MutableList<PIRInstruction>) {
+        val startIdx = blockStartIndex.getValue(block.label)
+        for ((i, flatInst) in block.instructions.withIndex()) {
+            dst.add(convertInstruction(flatInst, blockStartIndex, startIdx + i))
         }
     }
 
-    private fun convertBlocks(protoBlocks: List<PIRBasicBlockProto>, blockStartIndex: Map<Int, Int>, instList: List<PIRInstruction>) =
-        protoBlocks.map { blockProto ->
-            val startIdx = blockStartIndex.getValue(blockProto.label)
+    private fun convertBlocks(sortedBlocks: List<FlatBlock>, blockStartIndex: Map<Int, Int>, instList: List<PIRInstruction>): List<PIRBasicBlock> =
+        sortedBlocks.map { block ->
+            val startIdx = blockStartIndex.getValue(block.label)
             PIRBasicBlock(
-                label = blockProto.label,
-                instructions = instList.subList(startIdx, startIdx + blockProto.instructionsCount),
-                exceptionHandlers = blockProto.exceptionHandlersList.toList(),
+                label = block.label,
+                instructions = instList.subList(startIdx, startIdx + block.instructions.size),
+                exceptionHandlers = block.exceptionHandlers,
             )
         }
 
-    private fun calculateBlockToStartIdx(blocks: List<PIRBasicBlockProto>) = buildMap {
+    private fun calculateBlockToStartIdx(blocks: List<FlatBlock>): Map<Int, Int> = buildMap {
         var idx = 0
         for (block in blocks) {
             this[block.label] = idx
-            idx += block.instructionsCount
+            idx += block.instructions.size
         }
     }
 
-    private fun v(proto: PIRValueProto) = valueConverter.convert(proto)
-    private fun t(proto: PIRTypeProto) = typeConverter.convert(proto)
+    // ─── Value conversion ─────────────────────────────────
 
-    /** Create a PIRAssign wrapping an expression. */
-    private fun assign(target: PIRValueProto, expr: PIRExpr) =
-        PIRAssign(v(target), expr)
+    private fun v(flat: FlatValue): PIRValue = when (flat) {
+        is FlatLocal -> PIRLocal(flat.name, convertType(flat.type))
+        is FlatGlobalRef -> PIRGlobalRef(flat.name, flat.module, PIRAnyType)
+        is FlatParameterRef -> PIRParameterRef(flat.name, PIRAnyType)
+        is FlatIntConst -> PIRIntConst(flat.value, PIRAnyType)
+        is FlatFloatConst -> PIRFloatConst(flat.value, PIRAnyType)
+        is FlatStrConst -> PIRStrConst(flat.value, PIRAnyType)
+        is FlatBoolConst -> PIRBoolConst(flat.value, PIRAnyType)
+        is FlatNoneConst -> PIRNoneConst
+        is FlatEllipsisConst -> PIREllipsisConst
+        is FlatBytesConst -> PIRBytesConst(flat.value, PIRAnyType)
+        is FlatComplexConst -> PIRComplexConst(flat.real, flat.imag, PIRAnyType)
+    }
 
-    private fun convertInstruction(proto: PIRInstructionProto, blockStartIndex: Map<Int, Int>, flatIndex: Int): PIRInstruction {
-        val line = proto.lineNumber
-        val col = proto.colOffset
+    private fun convertType(flat: FlatType): PIRType = when (flat) {
+        is FlatAnyType -> PIRAnyType
+        is FlatClassType -> PIRClassType(flat.qualifiedName)
+    }
 
-        return when (proto.instCase) {
-            PIRInstructionProto.InstCase.ASSIGN -> {
-                val a = proto.assign
-                PIRAssign(v(a.target), v(a.source))
-            }
-            PIRInstructionProto.InstCase.LOAD_ATTR -> {
-                val la = proto.loadAttr
-                PIRLoadAttr(v(la.target), v(la.`object`), la.attribute, t(la.type))
-            }
-            PIRInstructionProto.InstCase.STORE_ATTR -> {
-                val sa = proto.storeAttr
-                PIRStoreAttr(v(sa.`object`), sa.attribute, v(sa.value))
-            }
-            PIRInstructionProto.InstCase.LOAD_SUBSCRIPT -> {
-                val ls = proto.loadSubscript
-                assign(ls.target, PIRSubscriptExpr(v(ls.`object`), v(ls.index), t(ls.type)))
-            }
-            PIRInstructionProto.InstCase.STORE_SUBSCRIPT -> {
-                val ss = proto.storeSubscript
-                PIRStoreSubscript(v(ss.`object`), v(ss.index), v(ss.value))
-            }
-            PIRInstructionProto.InstCase.LOAD_GLOBAL -> {
-                val lg = proto.loadGlobal
-                // LoadGlobal → assign target = GlobalRef value
-                assign(lg.target, PIRGlobalRef(lg.name, lg.module))
-            }
-            PIRInstructionProto.InstCase.STORE_GLOBAL -> {
-                val sg = proto.storeGlobal
-                PIRStoreGlobal(sg.name, sg.module, v(sg.value))
-            }
-            PIRInstructionProto.InstCase.LOAD_CLOSURE -> {
-                val lc = proto.loadClosure
-                // LoadClosure → assign target = GlobalRef-like reference (closure name)
-                assign(lc.target, PIRGlobalRef(lc.name, ""))
-            }
-            PIRInstructionProto.InstCase.STORE_CLOSURE -> {
-                val sc = proto.storeClosure
-                PIRStoreClosure(sc.name, sc.depth, v(sc.value))
-            }
-            PIRInstructionProto.InstCase.BIN_OP -> {
-                val bo = proto.binOp
-                assign(bo.target, convertBinaryOp(bo.left, bo.right, bo.op))
-            }
-            PIRInstructionProto.InstCase.UNARY_OP -> {
-                val uo = proto.unaryOp
-                assign(uo.target, convertUnaryOp(uo.operand, uo.op))
-            }
-            PIRInstructionProto.InstCase.COMPARE -> {
-                val c = proto.compare
-                assign(c.target, convertCompareOp(c.left, c.right, c.op))
-            }
-            PIRInstructionProto.InstCase.CALL -> {
-                val c = proto.call
-                PIRCall(
-                    target = if (c.hasTarget()) v(c.target) else null,
-                    callee = v(c.callee),
-                    args = c.argsList.map { convertCallArg(it) },
-                    resolvedCallee = c.resolvedCallee.ifEmpty { null },
-                )
-            }
-            PIRInstructionProto.InstCase.BUILD_LIST -> {
-                val bl = proto.buildList
-                assign(bl.target, PIRListExpr(bl.elementsList.map { v(it) }))
-            }
-            PIRInstructionProto.InstCase.BUILD_TUPLE -> {
-                val bt = proto.buildTuple
-                assign(bt.target, PIRTupleExpr(bt.elementsList.map { v(it) }))
-            }
-            PIRInstructionProto.InstCase.BUILD_SET -> {
-                val bs = proto.buildSet
-                assign(bs.target, PIRSetExpr(bs.elementsList.map { v(it) }))
-            }
-            PIRInstructionProto.InstCase.BUILD_DICT -> {
-                val bd = proto.buildDict
-                assign(bd.target, PIRDictExpr(bd.keysList.map { v(it) }, bd.valuesList.map { v(it) }))
-            }
-            PIRInstructionProto.InstCase.BUILD_SLICE -> {
-                val bs = proto.buildSlice
-                assign(bs.target, PIRSliceExpr(
-                    if (bs.hasLower()) v(bs.lower) else null,
-                    if (bs.hasUpper()) v(bs.upper) else null,
-                    if (bs.hasStep()) v(bs.step) else null,
-                ))
-            }
-            PIRInstructionProto.InstCase.BUILD_STRING -> {
-                val bs = proto.buildString
-                assign(bs.target, PIRStringExpr(bs.partsList.map { v(it) }))
-            }
-            PIRInstructionProto.InstCase.GET_ITER -> {
-                val gi = proto.getIter
-                assign(gi.target, PIRIterExpr(v(gi.iterable)))
-            }
-            PIRInstructionProto.InstCase.NEXT_ITER -> {
-                val ni = proto.nextIter
-                PIRNextIter(v(ni.target), v(ni.iterator), ni.bodyBlock, ni.exitBlock,
-                    blockStartIndex.getValue(ni.bodyBlock), blockStartIndex.getValue(ni.exitBlock))
-            }
-            PIRInstructionProto.InstCase.UNPACK -> {
-                val u = proto.unpack
-                PIRUnpack(u.targetsList.map { v(it) }, v(u.source), u.starIndex)
-            }
-            PIRInstructionProto.InstCase.GOTO_INST -> {
-                val target = proto.gotoInst.targetBlock
-                PIRGoto(target, blockStartIndex.getValue(target))
-            }
-            PIRInstructionProto.InstCase.BRANCH -> {
-                val b = proto.branch
-                PIRBranch(v(b.condition), b.trueBlock, b.falseBlock,
-                    blockStartIndex.getValue(b.trueBlock), blockStartIndex.getValue(b.falseBlock))
-            }
-            PIRInstructionProto.InstCase.RETURN_INST -> {
-                val r = proto.returnInst
-                PIRReturn(if (r.hasValue()) v(r.value) else null)
-            }
-            PIRInstructionProto.InstCase.RAISE_INST -> {
-                val r = proto.raiseInst
-                PIRRaise(
-                    if (r.hasException()) v(r.exception) else null,
-                    if (r.hasCause()) v(r.cause) else null,
-                )
-            }
-            PIRInstructionProto.InstCase.EXCEPT_HANDLER -> {
-                val eh = proto.exceptHandler
-                PIRExceptHandler(
-                    if (eh.hasTarget()) v(eh.target) else null,
-                    eh.exceptionTypesList.map { t(it) },
-                )
-            }
-            PIRInstructionProto.InstCase.YIELD_INST -> {
-                val y = proto.yieldInst
-                PIRYield(
-                    if (y.hasTarget()) v(y.target) else null,
-                    if (y.hasValue()) v(y.value) else null,
-                )
-            }
-            PIRInstructionProto.InstCase.YIELD_FROM -> {
-                val yf = proto.yieldFrom
-                PIRYieldFrom(
-                    if (yf.hasTarget()) v(yf.target) else null,
-                    v(yf.iterable),
-                )
-            }
-            PIRInstructionProto.InstCase.AWAIT_INST -> {
-                val a = proto.awaitInst
-                PIRAwait(
-                    if (a.hasTarget()) v(a.target) else null,
-                    v(a.awaitable),
-                )
-            }
-            PIRInstructionProto.InstCase.DELETE_LOCAL -> {
-                PIRDeleteLocal(v(proto.deleteLocal.local))
-            }
-            PIRInstructionProto.InstCase.DELETE_ATTR -> {
-                val da = proto.deleteAttr
-                PIRDeleteAttr(v(da.`object`), da.attribute)
-            }
-            PIRInstructionProto.InstCase.DELETE_SUBSCRIPT -> {
-                val ds = proto.deleteSubscript
-                PIRDeleteSubscript(v(ds.`object`), v(ds.index))
-            }
-            PIRInstructionProto.InstCase.DELETE_GLOBAL -> {
-                val dg = proto.deleteGlobal
-                PIRDeleteGlobal(dg.name, dg.module)
-            }
-            PIRInstructionProto.InstCase.TYPE_CHECK -> {
-                val tc = proto.typeCheck
-                assign(tc.target, PIRTypeCheckExpr(v(tc.value), t(tc.type)))
-            }
-            PIRInstructionProto.InstCase.UNREACHABLE -> PIRUnreachable
-            PIRInstructionProto.InstCase.INST_NOT_SET, null -> PIRUnreachable
+    // ─── Instruction conversion ───────────────────────────
+
+    private fun convertInstruction(flat: FlatInst, blockStartIndex: Map<Int, Int>, flatIndex: Int): PIRInstruction {
+        return when (flat) {
+            is FlatAssign -> PIRAssign(v(flat.target), v(flat.source))
+            is FlatLoadAttr -> PIRLoadAttr(v(flat.target), v(flat.obj), flat.attribute, convertType(flat.type))
+            is FlatStoreAttr -> PIRStoreAttr(v(flat.obj), flat.attribute, v(flat.value))
+            is FlatLoadSubscript -> PIRAssign(v(flat.target), PIRSubscriptExpr(v(flat.obj), v(flat.index), convertType(flat.type)))
+            is FlatStoreSubscript -> PIRStoreSubscript(v(flat.obj), v(flat.index), v(flat.value))
+            is FlatLoadGlobal -> PIRAssign(v(flat.target), PIRGlobalRef(flat.name, flat.module))
+            is FlatStoreGlobal -> PIRStoreGlobal(flat.name, flat.module, v(flat.value))
+            is FlatLoadClosure -> PIRAssign(v(flat.target), PIRGlobalRef(flat.name, ""))
+            is FlatStoreClosure -> PIRStoreClosure(flat.name, flat.depth, v(flat.value))
+
+            is FlatBinOp -> PIRAssign(v(flat.target), convertBinaryOp(v(flat.left), v(flat.right), flat.op))
+            is FlatUnaryOp -> PIRAssign(v(flat.target), convertUnaryOp(v(flat.operand), flat.op))
+            is FlatCompare -> PIRAssign(v(flat.target), convertCompareOp(v(flat.left), v(flat.right), flat.op))
+
+            is FlatCall -> PIRCall(
+                target = flat.target?.let { v(it) },
+                callee = v(flat.callee),
+                args = flat.args.map { PIRCallArg(v(it.value), convertArgKind(it.kind), it.keyword.ifEmpty { null }) },
+                resolvedCallee = flat.resolvedCallee.ifEmpty { null },
+            )
+
+            is FlatBuildList -> PIRAssign(v(flat.target), PIRListExpr(flat.elements.map { v(it) }))
+            is FlatBuildTuple -> PIRAssign(v(flat.target), PIRTupleExpr(flat.elements.map { v(it) }))
+            is FlatBuildSet -> PIRAssign(v(flat.target), PIRSetExpr(flat.elements.map { v(it) }))
+            is FlatBuildDict -> PIRAssign(v(flat.target), PIRDictExpr(flat.keys.map { v(it) }, flat.values.map { v(it) }))
+            is FlatBuildSlice -> PIRAssign(v(flat.target), PIRSliceExpr(flat.lower?.let { v(it) }, flat.upper?.let { v(it) }, flat.step?.let { v(it) }))
+            is FlatBuildString -> PIRAssign(v(flat.target), PIRStringExpr(flat.parts.map { v(it) }))
+
+            is FlatGetIter -> PIRAssign(v(flat.target), PIRIterExpr(v(flat.iterable)))
+            is FlatNextIter -> PIRNextIter(
+                v(flat.target), v(flat.iterator), flat.bodyBlock, flat.exitBlock,
+                blockStartIndex.getValue(flat.bodyBlock), blockStartIndex.getValue(flat.exitBlock),
+            )
+            is FlatUnpack -> PIRUnpack(flat.targets.map { v(it) }, v(flat.source), flat.starIndex)
+
+            is FlatGoto -> PIRGoto(flat.targetBlock, blockStartIndex.getValue(flat.targetBlock))
+            is FlatBranch -> PIRBranch(
+                v(flat.condition), flat.trueBlock, flat.falseBlock,
+                blockStartIndex.getValue(flat.trueBlock), blockStartIndex.getValue(flat.falseBlock),
+            )
+            is FlatReturn -> PIRReturn(flat.value?.let { v(it) })
+            is FlatRaise -> PIRRaise(flat.exception?.let { v(it) }, flat.cause?.let { v(it) })
+            is FlatExceptHandler -> PIRExceptHandler(flat.target?.let { v(it) }, flat.exceptionTypes.map { convertType(it) })
+
+            is FlatYield -> PIRYield(flat.target?.let { v(it) }, flat.value?.let { v(it) })
+            is FlatYieldFrom -> PIRYieldFrom(flat.target?.let { v(it) }, v(flat.iterable))
+            is FlatAwait -> PIRAwait(flat.target?.let { v(it) }, v(flat.awaitable))
+
+            is FlatDeleteLocal -> PIRDeleteLocal(v(flat.local))
+            is FlatDeleteAttr -> PIRDeleteAttr(v(flat.obj), flat.attribute)
+            is FlatDeleteSubscript -> PIRDeleteSubscript(v(flat.obj), v(flat.index))
+            is FlatDeleteGlobal -> PIRDeleteGlobal(flat.name, flat.module)
+
+            is FlatTypeCheck -> PIRAssign(v(flat.target), PIRTypeCheckExpr(v(flat.value), convertType(flat.type)))
+            is FlatUnreachable -> PIRUnreachable
         }.also {
-            saveInstMetadata(it, line, col, flatIndex)
+            sourcePositions[it] = flat.line to 0
+            instructionIndices[it] = flatIndex
         }
     }
 
-    private fun convertCallArg(proto: PIRCallArgProto): PIRCallArg {
-        return PIRCallArg(
-            value = valueConverter.convert(proto.value),
-            kind = when (proto.kind) {
-                CallArgKind.POSITIONAL -> PIRCallArgKind.POSITIONAL
-                CallArgKind.KEYWORD -> PIRCallArgKind.KEYWORD
-                CallArgKind.STAR -> PIRCallArgKind.STAR
-                CallArgKind.DOUBLE_STAR -> PIRCallArgKind.DOUBLE_STAR
-                CallArgKind.UNRECOGNIZED, null -> PIRCallArgKind.POSITIONAL
-            },
-            keyword = proto.keyword.ifEmpty { null },
-        )
+    private fun convertArgKind(kind: FlatArgKind): PIRCallArgKind = when (kind) {
+        FlatArgKind.POSITIONAL -> PIRCallArgKind.POSITIONAL
+        FlatArgKind.KEYWORD -> PIRCallArgKind.KEYWORD
+        FlatArgKind.STAR -> PIRCallArgKind.STAR
+        FlatArgKind.DOUBLE_STAR -> PIRCallArgKind.DOUBLE_STAR
     }
 
-    private fun convertBinaryOp(left: PIRValueProto, right: PIRValueProto, op: BinaryOperator): PIRBinaryExpr {
-        val l = v(left)
-        val r = v(right)
-
-        return when (op) {
-            BinaryOperator.ADD -> PIRAddExpr(l, r)
-            BinaryOperator.SUB -> PIRSubExpr(l, r)
-            BinaryOperator.MUL -> PIRMulExpr(l, r)
-            BinaryOperator.DIV -> PIRDivExpr(l, r)
-            BinaryOperator.FLOOR_DIV -> PIRFloorDivExpr(l, r)
-            BinaryOperator.MOD -> PIRModExpr(l, r)
-            BinaryOperator.POW -> PIRPowExpr(l, r)
-            BinaryOperator.MAT_MUL -> PIRMatMulExpr(l, r)
-            BinaryOperator.BIT_AND -> PIRBitAndExpr(l, r)
-            BinaryOperator.BIT_OR -> PIRBitOrExpr(l, r)
-            BinaryOperator.BIT_XOR -> PIRBitXorExpr(l, r)
-            BinaryOperator.LSHIFT -> PIRLShiftExpr(l, r)
-            BinaryOperator.RSHIFT -> PIRRShiftExpr(l, r)
-            BinaryOperator.UNRECOGNIZED -> PIRAddExpr(l, r)
-        }
+    private fun convertBinaryOp(l: PIRValue, r: PIRValue, op: FlatBinaryOperator): PIRBinaryExpr = when (op) {
+        FlatBinaryOperator.ADD -> PIRAddExpr(l, r)
+        FlatBinaryOperator.SUB -> PIRSubExpr(l, r)
+        FlatBinaryOperator.MUL -> PIRMulExpr(l, r)
+        FlatBinaryOperator.DIV -> PIRDivExpr(l, r)
+        FlatBinaryOperator.FLOOR_DIV -> PIRFloorDivExpr(l, r)
+        FlatBinaryOperator.MOD -> PIRModExpr(l, r)
+        FlatBinaryOperator.POW -> PIRPowExpr(l, r)
+        FlatBinaryOperator.MAT_MUL -> PIRMatMulExpr(l, r)
+        FlatBinaryOperator.BIT_AND -> PIRBitAndExpr(l, r)
+        FlatBinaryOperator.BIT_OR -> PIRBitOrExpr(l, r)
+        FlatBinaryOperator.BIT_XOR -> PIRBitXorExpr(l, r)
+        FlatBinaryOperator.LSHIFT -> PIRLShiftExpr(l, r)
+        FlatBinaryOperator.RSHIFT -> PIRRShiftExpr(l, r)
     }
 
-    private fun convertUnaryOp(operandProto: PIRValueProto, op: UnaryOperator): PIRUnaryExpr {
-        val operand = v(operandProto)
-
-        return when (op) {
-            UnaryOperator.NEG -> PIRNegExpr(operand)
-            UnaryOperator.POS -> PIRPosExpr(operand)
-            UnaryOperator.NOT -> PIRNotExpr(operand)
-            UnaryOperator.INVERT -> PIRInvertExpr(operand)
-            UnaryOperator.UNRECOGNIZED -> PIRNegExpr(operand)
-        }
+    private fun convertUnaryOp(operand: PIRValue, op: FlatUnaryOperator): PIRUnaryExpr = when (op) {
+        FlatUnaryOperator.NEG -> PIRNegExpr(operand)
+        FlatUnaryOperator.POS -> PIRPosExpr(operand)
+        FlatUnaryOperator.NOT -> PIRNotExpr(operand)
+        FlatUnaryOperator.INVERT -> PIRInvertExpr(operand)
     }
 
-    private fun convertCompareOp(leftProto: PIRValueProto, rightProto: PIRValueProto, op: CompareOperator): PIRCompareExpr {
-        val l = v(leftProto)
-        val r = v(rightProto)
-
-        return when (op) {
-            CompareOperator.EQ -> PIREqExpr(l, r)
-            CompareOperator.NE -> PIRNeExpr(l, r)
-            CompareOperator.LT -> PIRLtExpr(l, r)
-            CompareOperator.LE -> PIRLeExpr(l, r)
-            CompareOperator.GT -> PIRGtExpr(l, r)
-            CompareOperator.GE -> PIRGeExpr(l, r)
-            CompareOperator.IS -> PIRIsExpr(l, r)
-            CompareOperator.IS_NOT -> PIRIsNotExpr(l, r)
-            CompareOperator.IN -> PIRInExpr(l, r)
-            CompareOperator.NOT_IN -> PIRNotInExpr(l, r)
-            CompareOperator.UNRECOGNIZED -> PIREqExpr(l, r)
-        }
+    private fun convertCompareOp(l: PIRValue, r: PIRValue, op: FlatCompareOperator): PIRCompareExpr = when (op) {
+        FlatCompareOperator.EQ -> PIREqExpr(l, r)
+        FlatCompareOperator.NE -> PIRNeExpr(l, r)
+        FlatCompareOperator.LT -> PIRLtExpr(l, r)
+        FlatCompareOperator.LE -> PIRLeExpr(l, r)
+        FlatCompareOperator.GT -> PIRGtExpr(l, r)
+        FlatCompareOperator.GE -> PIRGeExpr(l, r)
+        FlatCompareOperator.IS -> PIRIsExpr(l, r)
+        FlatCompareOperator.IS_NOT -> PIRIsNotExpr(l, r)
+        FlatCompareOperator.IN -> PIRInExpr(l, r)
+        FlatCompareOperator.NOT_IN -> PIRNotInExpr(l, r)
     }
-
 }

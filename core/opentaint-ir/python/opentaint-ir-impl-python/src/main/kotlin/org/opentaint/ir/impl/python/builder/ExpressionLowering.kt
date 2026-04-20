@@ -1,54 +1,78 @@
 package org.opentaint.ir.impl.python.builder
 
-import org.opentaint.ir.impl.python.proto.*
+import org.opentaint.ir.impl.python.proto.MypyExprProto
+import org.opentaint.ir.impl.python.proto.MypyIntExprProto
+import org.opentaint.ir.impl.python.proto.MypyNameExprProto
+import org.opentaint.ir.impl.python.proto.MypyMemberExprProto
+import org.opentaint.ir.impl.python.proto.MypyOpExprProto
+import org.opentaint.ir.impl.python.proto.MypyUnaryExprProto
+import org.opentaint.ir.impl.python.proto.MypyComparisonExprProto
+import org.opentaint.ir.impl.python.proto.MypyCallExprProto
+import org.opentaint.ir.impl.python.proto.MypyIndexExprProto
+import org.opentaint.ir.impl.python.proto.MypySliceExprProto
+import org.opentaint.ir.impl.python.proto.MypyListExprProto
+import org.opentaint.ir.impl.python.proto.MypyTupleExprProto
+import org.opentaint.ir.impl.python.proto.MypySetExprProto
+import org.opentaint.ir.impl.python.proto.MypyDictExprProto
+import org.opentaint.ir.impl.python.proto.MypyConditionalExprProto
+import org.opentaint.ir.impl.python.proto.MypyYieldExprProto
+import org.opentaint.ir.impl.python.proto.MypyYieldFromExprProto
+import org.opentaint.ir.impl.python.proto.MypyAwaitExprProto
+import org.opentaint.ir.impl.python.proto.MypyAssignmentExprProto
+import org.opentaint.ir.impl.python.proto.MypyLambdaExprProto
+import org.opentaint.ir.impl.python.proto.MypyListComprehensionProto
+import org.opentaint.ir.impl.python.proto.MypySetComprehensionProto
+import org.opentaint.ir.impl.python.proto.MypyDictComprehensionProto
+import org.opentaint.ir.impl.python.proto.MypyGeneratorExprProto
+import org.opentaint.ir.impl.python.proto.MypyCondListProto
 
 /**
  * Expression lowering: converts raw mypy AST expressions into PIR instructions.
  *
  * This is the Kotlin port of Python's expression_visitor.py.
- * Each method returns a PIRValueProto and may emit instructions via [cfgBuilder].
+ * Each method returns a [FlatValue] and may emit instructions via [cfgBuilder].
  */
 class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
 
     companion object {
         val BIN_OP_MAP = mapOf(
-            "+" to BinaryOperator.ADD,
-            "-" to BinaryOperator.SUB,
-            "*" to BinaryOperator.MUL,
-            "/" to BinaryOperator.DIV,
-            "//" to BinaryOperator.FLOOR_DIV,
-            "%" to BinaryOperator.MOD,
-            "**" to BinaryOperator.POW,
-            "@" to BinaryOperator.MAT_MUL,
-            "&" to BinaryOperator.BIT_AND,
-            "|" to BinaryOperator.BIT_OR,
-            "^" to BinaryOperator.BIT_XOR,
-            "<<" to BinaryOperator.LSHIFT,
-            ">>" to BinaryOperator.RSHIFT,
+            "+" to FlatBinaryOperator.ADD,
+            "-" to FlatBinaryOperator.SUB,
+            "*" to FlatBinaryOperator.MUL,
+            "/" to FlatBinaryOperator.DIV,
+            "//" to FlatBinaryOperator.FLOOR_DIV,
+            "%" to FlatBinaryOperator.MOD,
+            "**" to FlatBinaryOperator.POW,
+            "@" to FlatBinaryOperator.MAT_MUL,
+            "&" to FlatBinaryOperator.BIT_AND,
+            "|" to FlatBinaryOperator.BIT_OR,
+            "^" to FlatBinaryOperator.BIT_XOR,
+            "<<" to FlatBinaryOperator.LSHIFT,
+            ">>" to FlatBinaryOperator.RSHIFT,
         )
 
         val UNARY_OP_MAP = mapOf(
-            "-" to UnaryOperator.NEG,
-            "+" to UnaryOperator.POS,
-            "not" to UnaryOperator.NOT,
-            "~" to UnaryOperator.INVERT,
+            "-" to FlatUnaryOperator.NEG,
+            "+" to FlatUnaryOperator.POS,
+            "not" to FlatUnaryOperator.NOT,
+            "~" to FlatUnaryOperator.INVERT,
         )
 
         val COMPARE_OP_MAP = mapOf(
-            "==" to CompareOperator.EQ,
-            "!=" to CompareOperator.NE,
-            "<" to CompareOperator.LT,
-            "<=" to CompareOperator.LE,
-            ">" to CompareOperator.GT,
-            ">=" to CompareOperator.GE,
-            "is" to CompareOperator.IS,
-            "is not" to CompareOperator.IS_NOT,
-            "in" to CompareOperator.IN,
-            "not in" to CompareOperator.NOT_IN,
+            "==" to FlatCompareOperator.EQ,
+            "!=" to FlatCompareOperator.NE,
+            "<" to FlatCompareOperator.LT,
+            "<=" to FlatCompareOperator.LE,
+            ">" to FlatCompareOperator.GT,
+            ">=" to FlatCompareOperator.GE,
+            "is" to FlatCompareOperator.IS,
+            "is not" to FlatCompareOperator.IS_NOT,
+            "in" to FlatCompareOperator.IN,
+            "not in" to FlatCompareOperator.NOT_IN,
         )
     }
 
-    fun accept(expr: MypyExprProto): PIRValueProto {
+    fun accept(expr: MypyExprProto): FlatValue {
         return when (expr.kindCase) {
             MypyExprProto.KindCase.INT_EXPR -> constInt(expr.intExpr)
             MypyExprProto.KindCase.STR_EXPR -> constStr(expr.strExpr.value)
@@ -86,57 +110,32 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
 
     // ─── Constants ────────────────────────────────────────
 
-    private fun constInt(proto: MypyIntExprProto): PIRValueProto {
+    private fun constInt(proto: MypyIntExprProto): FlatValue {
         return if (proto.strValue.isNotEmpty()) {
             // Fall back to string for huge ints
-            PIRValueProto.newBuilder()
-                .setConstVal(PIRConstProto.newBuilder().setStringValue(proto.strValue))
-                .build()
+            FlatStrConst(proto.strValue)
         } else {
-            PIRValueProto.newBuilder()
-                .setConstVal(PIRConstProto.newBuilder().setIntValue(proto.value))
-                .build()
+            FlatIntConst(proto.value)
         }
     }
 
-    private fun constFloat(value: Double): PIRValueProto =
-        PIRValueProto.newBuilder()
-            .setConstVal(PIRConstProto.newBuilder().setFloatValue(value))
-            .build()
+    private fun constFloat(value: Double): FlatValue = FlatFloatConst(value)
 
-    private fun constStr(value: String): PIRValueProto =
-        PIRValueProto.newBuilder()
-            .setConstVal(PIRConstProto.newBuilder().setStringValue(value))
-            .build()
+    private fun constStr(value: String): FlatValue = FlatStrConst(value)
 
-    private fun constBytes(value: ByteArray): PIRValueProto =
-        PIRValueProto.newBuilder()
-            .setConstVal(PIRConstProto.newBuilder().setBytesValue(com.google.protobuf.ByteString.copyFrom(value)))
-            .build()
+    private fun constBytes(value: ByteArray): FlatValue = FlatBytesConst(value)
 
-    private fun constComplex(real: Double, imag: Double): PIRValueProto =
-        PIRValueProto.newBuilder()
-            .setConstVal(PIRConstProto.newBuilder().setComplexReal(real).setComplexImag(imag))
-            .build()
+    private fun constComplex(real: Double, imag: Double): FlatValue = FlatComplexConst(real, imag)
 
-    private fun constBool(value: Boolean): PIRValueProto =
-        PIRValueProto.newBuilder()
-            .setConstVal(PIRConstProto.newBuilder().setBoolValue(value))
-            .build()
+    private fun constBool(value: Boolean): FlatValue = FlatBoolConst(value)
 
-    fun constNone(): PIRValueProto =
-        PIRValueProto.newBuilder()
-            .setConstVal(PIRConstProto.newBuilder().setNoneValue(true))
-            .build()
+    fun constNone(): FlatValue = FlatNoneConst
 
-    private fun constEllipsis(): PIRValueProto =
-        PIRValueProto.newBuilder()
-            .setConstVal(PIRConstProto.newBuilder().setEllipsisValue(true))
-            .build()
+    private fun constEllipsis(): FlatValue = FlatEllipsisConst
 
     // ─── Names & Attributes ──────────────────────────────
 
-    private fun visitName(expr: MypyNameExprProto): PIRValueProto {
+    private fun visitName(expr: MypyNameExprProto): FlatValue {
         val name = expr.name
 
         // Builtins
@@ -147,59 +146,34 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
         // Global/imported reference
         if (expr.fullname.isNotEmpty() && "." in expr.fullname) {
             val module = expr.fullname.substringBeforeLast(".")
-            return PIRValueProto.newBuilder()
-                .setGlobalRef(PIRGlobalRefProto.newBuilder().setName(name).setModule(module))
-                .build()
+            return FlatGlobalRef(name, module)
         }
 
         // Local or parameter
         val resolved = cfgBuilder.scope.resolveLocal(name)
-        return PIRValueProto.newBuilder()
-            .setLocal(PIRLocalProto.newBuilder().setName(resolved))
-            .build()
+        return FlatLocal(resolved)
     }
 
     // Access the scope from CfgBuilder — we need it public
     private val scope get() = cfgBuilder.scope
 
-    private fun visitMember(expr: MypyMemberExprProto, line: Int): PIRValueProto {
+    private fun visitMember(expr: MypyMemberExprProto, line: Int): FlatValue {
         val obj = accept(expr.expr)
         val target = cfgBuilder.newTempValue()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setLoadAttr(
-                    PIRLoadAttrProto.newBuilder()
-                        .setTarget(target)
-                        .setObject(obj)
-                        .setAttribute(expr.name)
-                )
-                .build()
-        )
+        cfgBuilder.emit(FlatLoadAttr(target, obj, expr.name, line = line))
         return target
     }
 
     // ─── Operators ────────────────────────────────────────
 
-    private fun visitOp(expr: MypyOpExprProto, line: Int): PIRValueProto {
+    private fun visitOp(expr: MypyOpExprProto, line: Int): FlatValue {
         val op = expr.op
         return when {
             op in BIN_OP_MAP -> {
                 val left = accept(expr.left)
                 val right = accept(expr.right)
                 val target = cfgBuilder.newTempValue()
-                cfgBuilder.emit(
-                    PIRInstructionProto.newBuilder()
-                        .setLineNumber(line)
-                        .setBinOp(
-                            PIRBinOpProto.newBuilder()
-                                .setTarget(target)
-                                .setLeft(left)
-                                .setRight(right)
-                                .setOp(BIN_OP_MAP[op]!!)
-                        )
-                        .build()
-                )
+                cfgBuilder.emit(FlatBinOp(target, left, right, BIN_OP_MAP[op]!!, line = line))
                 target
             }
             op == "and" -> visitShortCircuit(expr, isAnd = true, line)
@@ -208,15 +182,10 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
         }
     }
 
-    private fun visitShortCircuit(expr: MypyOpExprProto, isAnd: Boolean, line: Int): PIRValueProto {
+    private fun visitShortCircuit(expr: MypyOpExprProto, isAnd: Boolean, line: Int): FlatValue {
         val left = accept(expr.left)
         val target = cfgBuilder.newTempValue()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setAssign(PIRAssignProto.newBuilder().setTarget(target).setSource(left))
-                .build()
-        )
+        cfgBuilder.emit(FlatAssign(target, left, line = line))
 
         val evalRight = cfgBuilder.newBlock()
         val endBlock = cfgBuilder.newBlock()
@@ -229,53 +198,27 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
 
         cfgBuilder.activate(evalRight)
         val right = accept(expr.right)
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setAssign(PIRAssignProto.newBuilder().setTarget(target).setSource(right))
-                .build()
-        )
+        cfgBuilder.emit(FlatAssign(target, right, line = line))
         cfgBuilder.emitGoto(endBlock, line)
         cfgBuilder.activate(endBlock)
         return target
     }
 
-    private fun visitUnary(expr: MypyUnaryExprProto, line: Int): PIRValueProto {
+    private fun visitUnary(expr: MypyUnaryExprProto, line: Int): FlatValue {
         val operand = accept(expr.expr)
         val target = cfgBuilder.newTempValue()
-        val op = UNARY_OP_MAP[expr.op] ?: UnaryOperator.NEG
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setUnaryOp(
-                    PIRUnaryOpProto.newBuilder()
-                        .setTarget(target)
-                        .setOperand(operand)
-                        .setOp(op)
-                )
-                .build()
-        )
+        val op = UNARY_OP_MAP[expr.op] ?: FlatUnaryOperator.NEG
+        cfgBuilder.emit(FlatUnaryOp(target, operand, op, line = line))
         return target
     }
 
-    private fun visitComparison(expr: MypyComparisonExprProto, line: Int): PIRValueProto {
+    private fun visitComparison(expr: MypyComparisonExprProto, line: Int): FlatValue {
         if (expr.operatorsCount == 1) {
             val left = accept(expr.getOperands(0))
             val right = accept(expr.getOperands(1))
             val target = cfgBuilder.newTempValue()
-            val op = COMPARE_OP_MAP[expr.getOperators(0)] ?: CompareOperator.EQ
-            cfgBuilder.emit(
-                PIRInstructionProto.newBuilder()
-                    .setLineNumber(line)
-                    .setCompare(
-                        PIRCompareProto.newBuilder()
-                            .setTarget(target)
-                            .setLeft(left)
-                            .setRight(right)
-                            .setOp(op)
-                    )
-                    .build()
-            )
+            val op = COMPARE_OP_MAP[expr.getOperators(0)] ?: FlatCompareOperator.EQ
+            cfgBuilder.emit(FlatCompare(target, left, right, op, line = line))
             return target
         }
 
@@ -288,26 +231,10 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
         for (i in 0 until expr.operatorsCount) {
             val nextRight = accept(expr.getOperands(i + 1))
             val cmpTarget = cfgBuilder.newTempValue()
-            val op = COMPARE_OP_MAP[expr.getOperators(i)] ?: CompareOperator.EQ
-            cfgBuilder.emit(
-                PIRInstructionProto.newBuilder()
-                    .setLineNumber(line)
-                    .setCompare(
-                        PIRCompareProto.newBuilder()
-                            .setTarget(cmpTarget)
-                            .setLeft(prevRight)
-                            .setRight(nextRight)
-                            .setOp(op)
-                    )
-                    .build()
-            )
+            val op = COMPARE_OP_MAP[expr.getOperators(i)] ?: FlatCompareOperator.EQ
+            cfgBuilder.emit(FlatCompare(cmpTarget, prevRight, nextRight, op, line = line))
             // Store into result
-            cfgBuilder.emit(
-                PIRInstructionProto.newBuilder()
-                    .setLineNumber(line)
-                    .setAssign(PIRAssignProto.newBuilder().setTarget(resultVar).setSource(cmpTarget))
-                    .build()
-            )
+            cfgBuilder.emit(FlatAssign(resultVar, cmpTarget, line = line))
 
             if (i < expr.operatorsCount - 1) {
                 // Short-circuit: if this comparison is false, skip remaining
@@ -325,24 +252,18 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
 
     // ─── Call ─────────────────────────────────────────────
 
-    private fun visitCall(expr: MypyCallExprProto, line: Int): PIRValueProto {
+    private fun visitCall(expr: MypyCallExprProto, line: Int): FlatValue {
         val callee = accept(expr.callee)
-        val args = mutableListOf<PIRCallArgProto>()
+        val args = mutableListOf<FlatCallArg>()
         for (arg in expr.argsList) {
             val argVal = accept(arg.expr)
-            val protoKind = when (arg.kind) {
-                2 -> CallArgKind.STAR            // ARG_STAR
-                4 -> CallArgKind.DOUBLE_STAR     // ARG_STAR2
-                3, 5 -> CallArgKind.KEYWORD      // ARG_NAMED=3, ARG_NAMED_OPT=5
-                else -> CallArgKind.POSITIONAL   // ARG_POS, ARG_OPT
+            val kind = when (arg.kind) {
+                2 -> FlatArgKind.STAR            // ARG_STAR
+                4 -> FlatArgKind.DOUBLE_STAR     // ARG_STAR2
+                3, 5 -> FlatArgKind.KEYWORD      // ARG_NAMED=3, ARG_NAMED_OPT=5
+                else -> FlatArgKind.POSITIONAL   // ARG_POS, ARG_OPT
             }
-            args.add(
-                PIRCallArgProto.newBuilder()
-                    .setValue(argVal)
-                    .setKind(protoKind)
-                    .setKeyword(arg.name)
-                    .build()
-            )
+            args.add(FlatCallArg(argVal, kind, arg.name))
         }
 
         // Resolve callee qualified name: prefer CallExpr.resolvedCallee,
@@ -365,117 +286,65 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
         }
 
         val target = cfgBuilder.newTempValue()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setCall(
-                    PIRCallProto.newBuilder()
-                        .setTarget(target)
-                        .setCallee(callee)
-                        .addAllArgs(args)
-                        .setResolvedCallee(resolvedCallee)
-                )
-                .build()
-        )
+        cfgBuilder.emit(FlatCall(target, callee, args, resolvedCallee, line = line))
         return target
     }
 
     // ─── Subscript & Slice ───────────────────────────────
 
-    private fun visitIndex(expr: MypyIndexExprProto, line: Int): PIRValueProto {
+    private fun visitIndex(expr: MypyIndexExprProto, line: Int): FlatValue {
         val obj = accept(expr.base)
         val index = accept(expr.index)
         val target = cfgBuilder.newTempValue()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setLoadSubscript(
-                    PIRLoadSubscriptProto.newBuilder()
-                        .setTarget(target)
-                        .setObject(obj)
-                        .setIndex(index)
-                )
-                .build()
-        )
+        cfgBuilder.emit(FlatLoadSubscript(target, obj, index, line = line))
         return target
     }
 
-    private fun visitSlice(expr: MypySliceExprProto, line: Int): PIRValueProto {
+    private fun visitSlice(expr: MypySliceExprProto, line: Int): FlatValue {
         val target = cfgBuilder.newTempValue()
-        val builder = PIRBuildSliceProto.newBuilder().setTarget(target)
-        if (expr.hasBegin()) builder.setLower(accept(expr.begin))
-        if (expr.hasEnd()) builder.setUpper(accept(expr.end))
-        if (expr.hasStride()) builder.setStep(accept(expr.stride))
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setBuildSlice(builder)
-                .build()
-        )
+        val lower = if (expr.hasBegin()) accept(expr.begin) else null
+        val upper = if (expr.hasEnd()) accept(expr.end) else null
+        val step = if (expr.hasStride()) accept(expr.stride) else null
+        cfgBuilder.emit(FlatBuildSlice(target, lower, upper, step, line = line))
         return target
     }
 
     // ─── Collection literals ─────────────────────────────
 
-    private fun visitList(expr: MypyListExprProto, line: Int): PIRValueProto {
+    private fun visitList(expr: MypyListExprProto, line: Int): FlatValue {
         val elements = expr.itemsList.map { accept(it) }
         val target = cfgBuilder.newTempValue()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setBuildList(PIRBuildListProto.newBuilder().setTarget(target).addAllElements(elements))
-                .build()
-        )
+        cfgBuilder.emit(FlatBuildList(target, elements, line = line))
         return target
     }
 
-    private fun visitTuple(expr: MypyTupleExprProto, line: Int): PIRValueProto {
+    private fun visitTuple(expr: MypyTupleExprProto, line: Int): FlatValue {
         val elements = expr.itemsList.map { accept(it) }
         val target = cfgBuilder.newTempValue()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setBuildTuple(PIRBuildTupleProto.newBuilder().setTarget(target).addAllElements(elements))
-                .build()
-        )
+        cfgBuilder.emit(FlatBuildTuple(target, elements, line = line))
         return target
     }
 
-    private fun visitSet(expr: MypySetExprProto, line: Int): PIRValueProto {
+    private fun visitSet(expr: MypySetExprProto, line: Int): FlatValue {
         val elements = expr.itemsList.map { accept(it) }
         val target = cfgBuilder.newTempValue()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setBuildSet(PIRBuildSetProto.newBuilder().setTarget(target).addAllElements(elements))
-                .build()
-        )
+        cfgBuilder.emit(FlatBuildSet(target, elements, line = line))
         return target
     }
 
-    private fun visitDict(expr: MypyDictExprProto, line: Int): PIRValueProto {
+    private fun visitDict(expr: MypyDictExprProto, line: Int): FlatValue {
         val keys = expr.keysList.map {
             if (it.kindCase == MypyExprProto.KindCase.KIND_NOT_SET) constNone() else accept(it)
         }
         val values = expr.valuesList.map { accept(it) }
         val target = cfgBuilder.newTempValue()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setBuildDict(
-                    PIRBuildDictProto.newBuilder()
-                        .setTarget(target)
-                        .addAllKeys(keys)
-                        .addAllValues(values)
-                )
-                .build()
-        )
+        cfgBuilder.emit(FlatBuildDict(target, keys, values, line = line))
         return target
     }
 
     // ─── Conditional expression ─────────────────────────
 
-    private fun visitConditional(expr: MypyConditionalExprProto, line: Int): PIRValueProto {
+    private fun visitConditional(expr: MypyConditionalExprProto, line: Int): FlatValue {
         val cond = accept(expr.cond)
         val target = cfgBuilder.newTempValue()
         val trueBlock = cfgBuilder.newBlock()
@@ -486,20 +355,12 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
 
         cfgBuilder.activate(trueBlock)
         val trueVal = accept(expr.ifExpr)
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setAssign(PIRAssignProto.newBuilder().setTarget(target).setSource(trueVal))
-                .build()
-        )
+        cfgBuilder.emit(FlatAssign(target, trueVal))
         cfgBuilder.emitGoto(endBlock, -1)
 
         cfgBuilder.activate(falseBlock)
         val falseVal = accept(expr.elseExpr)
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setAssign(PIRAssignProto.newBuilder().setTarget(target).setSource(falseVal))
-                .build()
-        )
+        cfgBuilder.emit(FlatAssign(target, falseVal))
         cfgBuilder.emitGoto(endBlock, -1)
 
         cfgBuilder.activate(endBlock)
@@ -508,68 +369,46 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
 
     // ─── Generators & Async ─────────────────────────────
 
-    private fun visitYield(expr: MypyYieldExprProto, line: Int): PIRValueProto {
+    private fun visitYield(expr: MypyYieldExprProto, line: Int): FlatValue {
         val value = if (expr.hasExpr() && expr.expr.kindCase != MypyExprProto.KindCase.KIND_NOT_SET) {
             accept(expr.expr)
         } else constNone()
         val target = cfgBuilder.newTempValue()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setYieldInst(PIRYieldProto.newBuilder().setTarget(target).setValue(value))
-                .build()
-        )
+        cfgBuilder.emit(FlatYield(target, value, line = line))
         return target
     }
 
-    private fun visitYieldFrom(expr: MypyYieldFromExprProto, line: Int): PIRValueProto {
+    private fun visitYieldFrom(expr: MypyYieldFromExprProto, line: Int): FlatValue {
         val iterable = accept(expr.expr)
         val target = cfgBuilder.newTempValue()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setYieldFrom(PIRYieldFromProto.newBuilder().setTarget(target).setIterable(iterable))
-                .build()
-        )
+        cfgBuilder.emit(FlatYieldFrom(target, iterable, line = line))
         return target
     }
 
-    private fun visitAwait(expr: MypyAwaitExprProto, line: Int): PIRValueProto {
+    private fun visitAwait(expr: MypyAwaitExprProto, line: Int): FlatValue {
         val awaitable = accept(expr.expr)
         val target = cfgBuilder.newTempValue()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setAwaitInst(PIRAwaitProto.newBuilder().setTarget(target).setAwaitable(awaitable))
-                .build()
-        )
+        cfgBuilder.emit(FlatAwait(target, awaitable, line = line))
         return target
     }
 
     // ─── Walrus ─────────────────────────────────────────
 
-    private fun visitWalrus(expr: MypyAssignmentExprProto, line: Int): PIRValueProto {
+    private fun visitWalrus(expr: MypyAssignmentExprProto, line: Int): FlatValue {
         val value = accept(expr.value)
         val targetName = if (expr.target.hasNameExpr()) {
             scope.resolveLocal(expr.target.nameExpr.name)
         } else {
             scope.newTemp()
         }
-        val target = PIRValueProto.newBuilder()
-            .setLocal(PIRLocalProto.newBuilder().setName(targetName))
-            .build()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setAssign(PIRAssignProto.newBuilder().setTarget(target).setSource(value))
-                .build()
-        )
+        val target = FlatLocal(targetName)
+        cfgBuilder.emit(FlatAssign(target, value, line = line))
         return target
     }
 
     // ─── Lambda ─────────────────────────────────────────
 
-    private fun visitLambda(expr: MypyLambdaExprProto, line: Int): PIRValueProto {
+    private fun visitLambda(expr: MypyLambdaExprProto, line: Int): FlatValue {
         val mb = cfgBuilder.moduleBuilder ?: return constNone()
 
         val idx = mb.lambdaCounter++
@@ -579,81 +418,38 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
         // Build the lambda's CFG using a fresh CfgBuilder
         val lambdaScope = ScopeStack()
         val lambdaCfg = CfgBuilder(lambdaScope, mb)
-        val cfgProto = try {
+        val flatCfg = try {
             lambdaCfg.buildFunctionCfg(expr.body)
         } catch (e: Exception) {
             // Fallback: empty CFG
-            PIRCFGProto.newBuilder()
-                .addBlocks(
-                    PIRBasicBlockProto.newBuilder()
-                        .setLabel(0)
-                        .addInstructions(
-                            PIRInstructionProto.newBuilder()
-                                .setReturnInst(PIRReturnProto.getDefaultInstance())
-                        )
-                )
-                .setEntryBlock(0)
-                .addExitBlocks(0)
-                .build()
+            FlatCFG.EMPTY
         }
 
-        // Build the function proto
-        val funcBuilder = PIRFunctionProto.newBuilder()
-            .setName(lambdaName)
-            .setQualifiedName(qualifiedName)
-            .setCfg(cfgProto)
+        mb.addLambda(
+            lambdaName,
+            qualifiedName,
+            flatCfg,
+            expr.argumentsList,
+            if (expr.hasReturnType()) expr.returnType else null,
+        )
 
-        // Parameters
-        for (arg in expr.argumentsList) {
-            val kind = when (arg.kind) {
-                2 -> ParameterKind.VAR_POSITIONAL     // ARG_STAR
-                4 -> ParameterKind.VAR_KEYWORD        // ARG_STAR2
-                3, 5 -> ParameterKind.KEYWORD_ONLY    // ARG_NAMED=3, ARG_NAMED_OPT=5
-                else -> ParameterKind.POSITIONAL_OR_KEYWORD
-            }
-            val paramBuilder = PIRParameterProto.newBuilder()
-                .setName(arg.name)
-                .setKind(kind)
-                .setHasDefault(arg.hasDefault)
-            if (arg.hasType()) paramBuilder.setType(arg.type)
-            funcBuilder.addParameters(paramBuilder)
-        }
-
-        // Return type
-        if (expr.hasReturnType()) {
-            funcBuilder.setReturnType(expr.returnType)
-        }
-
-        mb.lambdaFunctions.add(funcBuilder.build())
-
-        return PIRValueProto.newBuilder()
-            .setGlobalRef(
-                PIRGlobalRefProto.newBuilder()
-                    .setName(lambdaName)
-                    .setModule(mb.moduleName)
-            )
-            .build()
+        return FlatGlobalRef(lambdaName, mb.moduleName)
     }
 
     // ─── Comprehensions ─────────────────────────────────
 
-    private fun visitListComprehension(expr: MypyListComprehensionProto, line: Int): PIRValueProto =
+    private fun visitListComprehension(expr: MypyListComprehensionProto, line: Int): FlatValue =
         visitComprehensionAsLoop(expr.generator, "list", line)
 
-    private fun visitSetComprehension(expr: MypySetComprehensionProto, line: Int): PIRValueProto =
+    private fun visitSetComprehension(expr: MypySetComprehensionProto, line: Int): FlatValue =
         visitComprehensionAsLoop(expr.generator, "set", line)
 
-    private fun visitGeneratorExpr(expr: MypyGeneratorExprProto, line: Int): PIRValueProto =
+    private fun visitGeneratorExpr(expr: MypyGeneratorExprProto, line: Int): FlatValue =
         visitComprehensionAsLoop(expr, "list", line)
 
-    private fun visitDictComprehension(expr: MypyDictComprehensionProto, line: Int): PIRValueProto {
+    private fun visitDictComprehension(expr: MypyDictComprehensionProto, line: Int): FlatValue {
         val result = cfgBuilder.newTempValue()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setBuildDict(PIRBuildDictProto.newBuilder().setTarget(result))
-                .build()
-        )
+        cfgBuilder.emit(FlatBuildDict(result, line = line))
 
         emitComprehensionLoops(
             indices = expr.indicesList,
@@ -671,27 +467,15 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
         gen: MypyGeneratorExprProto,
         collectionType: String,
         line: Int,
-    ): PIRValueProto {
+    ): FlatValue {
         val result = cfgBuilder.newTempValue()
 
         if (collectionType == "list") {
-            cfgBuilder.emit(
-                PIRInstructionProto.newBuilder()
-                    .setLineNumber(line)
-                    .setBuildList(PIRBuildListProto.newBuilder().setTarget(result))
-                    .build()
-            )
+            cfgBuilder.emit(FlatBuildList(result, line = line))
         } else {
             // set() call
-            val setRef = PIRValueProto.newBuilder()
-                .setGlobalRef(PIRGlobalRefProto.newBuilder().setName("set").setModule("builtins"))
-                .build()
-            cfgBuilder.emit(
-                PIRInstructionProto.newBuilder()
-                    .setLineNumber(line)
-                    .setCall(PIRCallProto.newBuilder().setTarget(result).setCallee(setRef))
-                    .build()
-            )
+            val setRef = FlatGlobalRef("set", "builtins")
+            cfgBuilder.emit(FlatCall(result, setRef, line = line))
         }
 
         val addMethod = if (collectionType == "list") "append" else "add"
@@ -723,12 +507,7 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
 
         val iterableVal = accept(sequences[loopIdx])
         val iterVal = cfgBuilder.newTempValue()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setGetIter(PIRGetIterProto.newBuilder().setTarget(iterVal).setIterable(iterableVal))
-                .build()
-        )
+        cfgBuilder.emit(FlatGetIter(iterVal, iterableVal, line = line))
 
         val headerBlock = cfgBuilder.newBlock()
         val bodyBlock = cfgBuilder.newBlock()
@@ -740,25 +519,12 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
         // Loop variable
         val idxExpr = indices[loopIdx]
         val targetVal = if (idxExpr.hasNameExpr()) {
-            PIRValueProto.newBuilder()
-                .setLocal(PIRLocalProto.newBuilder().setName(scope.resolveLocal(idxExpr.nameExpr.name)))
-                .build()
+            FlatLocal(scope.resolveLocal(idxExpr.nameExpr.name))
         } else {
             cfgBuilder.newTempValue()
         }
 
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setNextIter(
-                    PIRNextIterProto.newBuilder()
-                        .setTarget(targetVal)
-                        .setIterator(iterVal)
-                        .setBodyBlock(bodyBlock)
-                        .setExitBlock(exitBlock)
-                )
-                .build()
-        )
+        cfgBuilder.emit(FlatNextIter(targetVal, iterVal, bodyBlock, exitBlock, line = line))
 
         cfgBuilder.activate(bodyBlock)
 
@@ -789,65 +555,27 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
         cfgBuilder.activate(exitBlock)
     }
 
-    private fun emitCollectionAdd(collection: PIRValueProto, valueExpr: MypyExprProto, method: String, line: Int) {
+    private fun emitCollectionAdd(collection: FlatValue, valueExpr: MypyExprProto, method: String, line: Int) {
         val value = accept(valueExpr)
         val methodRef = cfgBuilder.newTempValue()
+        cfgBuilder.emit(FlatLoadAttr(methodRef, collection, method, line = line))
         cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setLoadAttr(
-                    PIRLoadAttrProto.newBuilder()
-                        .setTarget(methodRef)
-                        .setObject(collection)
-                        .setAttribute(method)
-                )
-                .build()
-        )
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setCall(
-                    PIRCallProto.newBuilder()
-                        .setCallee(methodRef)
-                        .addArgs(
-                            PIRCallArgProto.newBuilder()
-                                .setValue(value)
-                                .setKind(CallArgKind.POSITIONAL)
-                        )
-                )
-                .build()
+            FlatCall(null, methodRef, listOf(FlatCallArg(value, FlatArgKind.POSITIONAL)), line = line),
         )
     }
 
-    private fun emitDictStore(dictVal: PIRValueProto, keyExpr: MypyExprProto, valueExpr: MypyExprProto, line: Int) {
+    private fun emitDictStore(dictVal: FlatValue, keyExpr: MypyExprProto, valueExpr: MypyExprProto, line: Int) {
         val key = accept(keyExpr)
         val value = accept(valueExpr)
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setStoreSubscript(
-                    PIRStoreSubscriptProto.newBuilder()
-                        .setObject(dictVal)
-                        .setIndex(key)
-                        .setValue(value)
-                )
-                .build()
-        )
+        cfgBuilder.emit(FlatStoreSubscript(dictVal, key, value, line = line))
     }
 
     // ─── Super ──────────────────────────────────────────
 
-    private fun visitSuper(line: Int): PIRValueProto {
+    private fun visitSuper(line: Int): FlatValue {
         val target = cfgBuilder.newTempValue()
-        val callee = PIRValueProto.newBuilder()
-            .setGlobalRef(PIRGlobalRefProto.newBuilder().setName("super").setModule("builtins"))
-            .build()
-        cfgBuilder.emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setCall(PIRCallProto.newBuilder().setTarget(target).setCallee(callee))
-                .build()
-        )
+        val callee = FlatGlobalRef("super", "builtins")
+        cfgBuilder.emit(FlatCall(target, callee, line = line))
         return target
     }
 }

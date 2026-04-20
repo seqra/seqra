@@ -16,8 +16,8 @@ class CfgBuilder(
 ) {
     val exprLowering = ExpressionLowering(this)
 
-    private val blocks = mutableListOf<PIRBasicBlockProto>()
-    private var currentInstructions = mutableListOf<PIRInstructionProto>()
+    private val blocks = mutableListOf<FlatBlock>()
+    private var currentInstructions = mutableListOf<FlatInst>()
     private var currentLabel = 0
     private var blockCounter = 0
     private var currentExceptionHandlers = mutableListOf<Int>()
@@ -50,72 +50,48 @@ class CfgBuilder(
 
     private fun finalizeCurrentBlock() {
         if (currentInstructions.isNotEmpty() || currentLabel == 0) {
-            val block = PIRBasicBlockProto.newBuilder()
-                .setLabel(currentLabel)
-                .addAllInstructions(currentInstructions)
-                .addAllExceptionHandlers(currentExceptionHandlers)
-                .build()
-            blocks.add(block)
+            blocks.add(
+                FlatBlock(
+                    label = currentLabel,
+                    instructions = currentInstructions.toList(),
+                    exceptionHandlers = currentExceptionHandlers.toList(),
+                )
+            )
         }
     }
 
     fun currentBlockTerminated(): Boolean {
         if (currentInstructions.isEmpty()) return false
         val last = currentInstructions.last()
-        return last.hasGotoInst() || last.hasBranch() || last.hasReturnInst() ||
-                last.hasRaiseInst() || last.hasUnreachable() || last.hasNextIter()
+        return last is FlatGoto || last is FlatBranch || last is FlatReturn ||
+                last is FlatRaise || last is FlatUnreachable || last is FlatNextIter
     }
 
     // ─── Instruction emission ──────────────────────────────
 
-    fun emit(inst: PIRInstructionProto) {
+    fun emit(inst: FlatInst) {
         currentInstructions.add(inst)
     }
 
     fun emitGoto(target: Int, line: Int = -1) {
-        emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setGotoInst(PIRGotoProto.newBuilder().setTargetBlock(target))
-                .build()
-        )
+        emit(FlatGoto(target, line = line))
     }
 
-    fun emitBranch(condition: PIRValueProto, trueBlock: Int, falseBlock: Int, line: Int = -1) {
-        emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setBranch(
-                    PIRBranchProto.newBuilder()
-                        .setCondition(condition)
-                        .setTrueBlock(trueBlock)
-                        .setFalseBlock(falseBlock)
-                )
-                .build()
-        )
+    fun emitBranch(condition: FlatValue, trueBlock: Int, falseBlock: Int, line: Int = -1) {
+        emit(FlatBranch(condition, trueBlock, falseBlock, line = line))
     }
 
-    fun emitReturn(value: PIRValueProto?, line: Int = -1) {
-        val ret = PIRReturnProto.newBuilder()
-        if (value != null) ret.setValue(value)
-        emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setReturnInst(ret)
-                .build()
-        )
+    fun emitReturn(value: FlatValue?, line: Int = -1) {
+        emit(FlatReturn(value, line = line))
     }
 
-    fun newTempValue(): PIRValueProto {
-        val name = scope.newTemp()
-        return PIRValueProto.newBuilder()
-            .setLocal(PIRLocalProto.newBuilder().setName(name))
-            .build()
+    fun newTempValue(): FlatLocal {
+        return FlatLocal(scope.newTemp())
     }
 
     // ─── CFG builders ────────────────────────────────────
 
-    fun buildFunctionCfg(body: MypyBlockProto): PIRCFGProto {
+    fun buildFunctionCfg(body: MypyBlockProto): FlatCFG {
         reset()
         currentLabel = 0
         currentInstructions = mutableListOf()
@@ -129,7 +105,7 @@ class CfgBuilder(
         return finalizeCfg()
     }
 
-    fun buildModuleInitCfg(defs: List<MypyStmtProto>): PIRCFGProto {
+    fun buildModuleInitCfg(defs: List<MypyStmtProto>): FlatCFG {
         reset()
         currentLabel = 0
         currentInstructions = mutableListOf()
@@ -150,24 +126,24 @@ class CfgBuilder(
         return finalizeCfg()
     }
 
-    private fun finalizeCfg(): PIRCFGProto {
+    private fun finalizeCfg(): FlatCFG {
         finalizeCurrentBlock()
 
         val exitLabels = mutableListOf<Int>()
         for (block in blocks) {
-            if (block.instructionsCount > 0) {
-                val last = block.getInstructions(block.instructionsCount - 1)
-                if (last.hasReturnInst() || last.hasRaiseInst() || last.hasUnreachable()) {
+            if (block.instructions.isNotEmpty()) {
+                val last = block.instructions.last()
+                if (last is FlatReturn || last is FlatRaise || last is FlatUnreachable) {
                     exitLabels.add(block.label)
                 }
             }
         }
 
-        return PIRCFGProto.newBuilder()
-            .addAllBlocks(blocks)
-            .setEntryBlock(0)
-            .addAllExitBlocks(exitLabels)
-            .build()
+        return FlatCFG(
+            blocks = blocks.toList(),
+            entryBlock = 0,
+            exitBlocks = exitLabels,
+        )
     }
 
     // ─── Statement dispatch ────────────────────────────────
@@ -212,69 +188,33 @@ class CfgBuilder(
         }
     }
 
-    fun assignTo(lvalue: MypyExprProto, rhs: PIRValueProto, line: Int) {
+    fun assignTo(lvalue: MypyExprProto, rhs: FlatValue, line: Int) {
         when {
             lvalue.hasNameExpr() -> {
                 val targetName = scope.resolveLocal(lvalue.nameExpr.name)
-                val target = PIRValueProto.newBuilder()
-                    .setLocal(PIRLocalProto.newBuilder().setName(targetName))
-                    .build()
-                emit(
-                    PIRInstructionProto.newBuilder()
-                        .setLineNumber(line)
-                        .setAssign(PIRAssignProto.newBuilder().setTarget(target).setSource(rhs))
-                        .build()
-                )
+                emit(FlatAssign(FlatLocal(targetName), rhs, line = line))
             }
             lvalue.hasMemberExpr() -> {
                 val obj = exprLowering.accept(lvalue.memberExpr.expr)
-                emit(
-                    PIRInstructionProto.newBuilder()
-                        .setLineNumber(line)
-                        .setStoreAttr(
-                            PIRStoreAttrProto.newBuilder()
-                                .setObject(obj)
-                                .setAttribute(lvalue.memberExpr.name)
-                                .setValue(rhs)
-                        )
-                        .build()
-                )
+                emit(FlatStoreAttr(obj, lvalue.memberExpr.name, rhs, line = line))
             }
             lvalue.hasIndexExpr() -> {
                 val obj = exprLowering.accept(lvalue.indexExpr.base)
                 val index = exprLowering.accept(lvalue.indexExpr.index)
-                emit(
-                    PIRInstructionProto.newBuilder()
-                        .setLineNumber(line)
-                        .setStoreSubscript(
-                            PIRStoreSubscriptProto.newBuilder()
-                                .setObject(obj)
-                                .setIndex(index)
-                                .setValue(rhs)
-                        )
-                        .build()
-                )
+                emit(FlatStoreSubscript(obj, index, rhs, line = line))
             }
             lvalue.hasTupleExpr() -> {
-                val targets = mutableListOf<PIRValueProto>()
+                val targets = mutableListOf<FlatValue>()
                 var starIndex = -1
                 for ((i, item) in lvalue.tupleExpr.itemsList.withIndex()) {
                     when {
                         item.hasNameExpr() -> {
                             val name = scope.resolveLocal(item.nameExpr.name)
-                            targets.add(
-                                PIRValueProto.newBuilder()
-                                    .setLocal(PIRLocalProto.newBuilder().setName(name))
-                                    .build()
-                            )
+                            targets.add(FlatLocal(name))
                         }
                         item.hasStarExpr() && item.starExpr.expr.hasNameExpr() -> {
                             val name = scope.resolveLocal(item.starExpr.expr.nameExpr.name)
-                            targets.add(
-                                PIRValueProto.newBuilder()
-                                    .setLocal(PIRLocalProto.newBuilder().setName(name))
-                                    .build()
-                            )
+                            targets.add(FlatLocal(name))
                             starIndex = i
                         }
                         else -> {
@@ -285,17 +225,7 @@ class CfgBuilder(
                         starIndex = i
                     }
                 }
-                emit(
-                    PIRInstructionProto.newBuilder()
-                        .setLineNumber(line)
-                        .setUnpack(
-                            PIRUnpackProto.newBuilder()
-                                .addAllTargets(targets)
-                                .setSource(rhs)
-                                .setStarIndex(starIndex)
-                        )
-                        .build()
-                )
+                emit(FlatUnpack(targets, rhs, starIndex, line = line))
             }
             lvalue.hasStarExpr() -> {
                 assignTo(lvalue.starExpr.expr, rhs, line)
@@ -307,19 +237,8 @@ class CfgBuilder(
         val lhsVal = exprLowering.accept(stmt.lvalue)
         val rhsVal = exprLowering.accept(stmt.rvalue)
         val target = newTempValue()
-        val op = ExpressionLowering.BIN_OP_MAP[stmt.op] ?: BinaryOperator.ADD
-        emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setBinOp(
-                    PIRBinOpProto.newBuilder()
-                        .setTarget(target)
-                        .setLeft(lhsVal)
-                        .setRight(rhsVal)
-                        .setOp(op)
-                )
-                .build()
-        )
+        val op = ExpressionLowering.BIN_OP_MAP[stmt.op] ?: FlatBinaryOperator.ADD
+        emit(FlatBinOp(target, lhsVal, rhsVal, op, line = line))
         assignTo(stmt.lvalue, target, line)
     }
 
@@ -433,16 +352,7 @@ class CfgBuilder(
     private fun visitFor(stmt: MypyForStmtProto, line: Int) {
         val iterVal = newTempValue()
         val iterableVal = exprLowering.accept(stmt.iterable)
-        emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setGetIter(
-                    PIRGetIterProto.newBuilder()
-                        .setTarget(iterVal)
-                        .setIterable(iterableVal)
-                )
-                .build()
-        )
+        emit(FlatGetIter(iterVal, iterableVal, line = line))
 
         val headerBlock = newBlock()
         val bodyBlock = newBlock()
@@ -466,18 +376,7 @@ class CfgBuilder(
         activate(headerBlock)
 
         val targetVal = lowerForTarget(stmt.index)
-        emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setNextIter(
-                    PIRNextIterProto.newBuilder()
-                        .setTarget(targetVal)
-                        .setIterator(iterVal)
-                        .setBodyBlock(bodyBlock)
-                        .setExitBlock(exitBlock)
-                )
-                .build()
-        )
+        emit(FlatNextIter(targetVal, iterVal, bodyBlock, exitBlock, line = line))
 
         val oldBreak = breakTarget
         val oldContinue = continueTarget
@@ -509,13 +408,11 @@ class CfgBuilder(
         }
     }
 
-    private fun lowerForTarget(target: MypyExprProto): PIRValueProto {
+    private fun lowerForTarget(target: MypyExprProto): FlatLocal {
         return when {
             target.hasNameExpr() -> {
                 val name = scope.resolveLocal(target.nameExpr.name)
-                PIRValueProto.newBuilder()
-                    .setLocal(PIRLocalProto.newBuilder().setName(name))
-                    .build()
+                FlatLocal(name)
             }
             target.hasTupleExpr() -> {
                 // For tuple unpacking, use a temp for next_iter result
@@ -561,34 +458,24 @@ class CfgBuilder(
         for (i in 0 until stmt.handlersCount) {
             activate(handlerBlocks[i])
 
-            val excTypeProtos = mutableListOf<PIRTypeProto>()
+            val excTypes = mutableListOf<FlatType>()
             if (i < stmt.typesCount) {
                 val typeExpr = stmt.getTypes(i)
                 if (typeExpr.kindCase != MypyExprProto.KindCase.KIND_NOT_SET) {
-                    excTypeProtos.addAll(resolveExceptTypes(typeExpr))
+                    excTypes.addAll(resolveExceptTypes(typeExpr))
                 }
             }
 
-            var excTarget: PIRValueProto? = null
+            var excTarget: FlatValue? = null
             if (i < stmt.varsCount) {
                 val varExpr = stmt.getVars(i)
                 if (varExpr.hasNameExpr()) {
                     val varName = scope.resolveLocal(varExpr.nameExpr.name)
-                    excTarget = PIRValueProto.newBuilder()
-                        .setLocal(PIRLocalProto.newBuilder().setName(varName))
-                        .build()
+                    excTarget = FlatLocal(varName)
                 }
             }
 
-            val eh = PIRExceptHandlerProto.newBuilder()
-                .addAllExceptionTypes(excTypeProtos)
-            if (excTarget != null) eh.setTarget(excTarget)
-            emit(
-                PIRInstructionProto.newBuilder()
-                    .setLineNumber(line)
-                    .setExceptHandler(eh)
-                    .build()
-            )
+            emit(FlatExceptHandler(excTarget, excTypes, line = line))
 
             visitBlock(stmt.getHandlers(i))
             if (!currentBlockTerminated()) {
@@ -618,34 +505,15 @@ class CfgBuilder(
     // ─── With ──────────────────────────────────────────────
 
     private fun visitWith(stmt: MypyWithStmtProto, line: Int) {
-        val ctxVals = mutableListOf<PIRValueProto>()
+        val ctxVals = mutableListOf<FlatValue>()
         for (i in stmt.exprsList.indices) {
             val ctxVal = exprLowering.accept(stmt.getExprs(i))
             ctxVals.add(ctxVal)
 
             val enterAttr = newTempValue()
-            emit(
-                PIRInstructionProto.newBuilder()
-                    .setLineNumber(line)
-                    .setLoadAttr(
-                        PIRLoadAttrProto.newBuilder()
-                            .setTarget(enterAttr)
-                            .setObject(ctxVal)
-                            .setAttribute("__enter__")
-                    )
-                    .build()
-            )
+            emit(FlatLoadAttr(enterAttr, ctxVal, "__enter__", line = line))
             val enterResult = newTempValue()
-            emit(
-                PIRInstructionProto.newBuilder()
-                    .setLineNumber(line)
-                    .setCall(
-                        PIRCallProto.newBuilder()
-                            .setTarget(enterResult)
-                            .setCallee(enterAttr)
-                    )
-                    .build()
-            )
+            emit(FlatCall(enterResult, enterAttr, line = line))
             if (i < stmt.targetsCount) {
                 val target = stmt.getTargets(i)
                 if (target.kindCase != MypyExprProto.KindCase.KIND_NOT_SET) {
@@ -660,40 +528,12 @@ class CfgBuilder(
         if (currentBlockTerminated()) return
 
         // Emit __exit__ calls in reverse order
-        val noneVal = PIRValueProto.newBuilder()
-            .setConstVal(PIRConstProto.newBuilder().setNoneValue(true))
-            .build()
+        val noneArg = FlatCallArg(FlatNoneConst)
         for (ctxVal in ctxVals.reversed()) {
             val exitAttr = newTempValue()
-            emit(
-                PIRInstructionProto.newBuilder()
-                    .setLineNumber(line)
-                    .setLoadAttr(
-                        PIRLoadAttrProto.newBuilder()
-                            .setTarget(exitAttr)
-                            .setObject(ctxVal)
-                            .setAttribute("__exit__")
-                    )
-                    .build()
-            )
+            emit(FlatLoadAttr(exitAttr, ctxVal, "__exit__", line = line))
             val exitResult = newTempValue()
-            val noneArg = PIRCallArgProto.newBuilder()
-                .setValue(noneVal)
-                .setKind(CallArgKind.POSITIONAL)
-                .build()
-            emit(
-                PIRInstructionProto.newBuilder()
-                    .setLineNumber(line)
-                    .setCall(
-                        PIRCallProto.newBuilder()
-                            .setTarget(exitResult)
-                            .setCallee(exitAttr)
-                            .addArgs(noneArg)
-                            .addArgs(noneArg)
-                            .addArgs(noneArg)
-                    )
-                    .build()
-            )
+            emit(FlatCall(exitResult, exitAttr, listOf(noneArg, noneArg, noneArg), line = line))
         }
     }
 
@@ -706,16 +546,7 @@ class CfgBuilder(
         val cause = if (stmt.hasFromExpr() && stmt.fromExpr.kindCase != MypyExprProto.KindCase.KIND_NOT_SET) {
             exprLowering.accept(stmt.fromExpr)
         } else null
-
-        val raiseBuilder = PIRRaiseProto.newBuilder()
-        if (exc != null) raiseBuilder.setException(exc)
-        if (cause != null) raiseBuilder.setCause(cause)
-        emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setRaiseInst(raiseBuilder)
-                .build()
-        )
+        emit(FlatRaise(exc, cause, line = line))
     }
 
     // ─── Break / Continue ──────────────────────────────────
@@ -737,42 +568,16 @@ class CfgBuilder(
     private fun visitDelExpr(expr: MypyExprProto, line: Int) {
         when {
             expr.hasNameExpr() -> {
-                val local = PIRValueProto.newBuilder()
-                    .setLocal(PIRLocalProto.newBuilder().setName(scope.resolveLocal(expr.nameExpr.name)))
-                    .build()
-                emit(
-                    PIRInstructionProto.newBuilder()
-                        .setLineNumber(line)
-                        .setDeleteLocal(PIRDeleteLocalProto.newBuilder().setLocal(local))
-                        .build()
-                )
+                emit(FlatDeleteLocal(FlatLocal(scope.resolveLocal(expr.nameExpr.name)), line = line))
             }
             expr.hasMemberExpr() -> {
                 val obj = exprLowering.accept(expr.memberExpr.expr)
-                emit(
-                    PIRInstructionProto.newBuilder()
-                        .setLineNumber(line)
-                        .setDeleteAttr(
-                            PIRDeleteAttrProto.newBuilder()
-                                .setObject(obj)
-                                .setAttribute(expr.memberExpr.name)
-                        )
-                        .build()
-                )
+                emit(FlatDeleteAttr(obj, expr.memberExpr.name, line = line))
             }
             expr.hasIndexExpr() -> {
                 val obj = exprLowering.accept(expr.indexExpr.base)
                 val index = exprLowering.accept(expr.indexExpr.index)
-                emit(
-                    PIRInstructionProto.newBuilder()
-                        .setLineNumber(line)
-                        .setDeleteSubscript(
-                            PIRDeleteSubscriptProto.newBuilder()
-                                .setObject(obj)
-                                .setIndex(index)
-                        )
-                        .build()
-                )
+                emit(FlatDeleteSubscript(obj, index, line = line))
             }
             expr.hasTupleExpr() -> {
                 for (item in expr.tupleExpr.itemsList) {
@@ -792,23 +597,9 @@ class CfgBuilder(
 
         // Emit assignment: funcname = GlobalRef(uniqueName)
         // Use uniqueName to avoid collisions between inner functions with same name
-        val ref = PIRValueProto.newBuilder()
-            .setGlobalRef(
-                PIRGlobalRefProto.newBuilder()
-                    .setName(uniqueName)
-                    .setModule(mb.moduleName)
-            )
-            .build()
+        val ref = FlatGlobalRef(uniqueName, mb.moduleName)
         val targetName = scope.resolveLocal(funcDef.name)
-        val target = PIRValueProto.newBuilder()
-            .setLocal(PIRLocalProto.newBuilder().setName(targetName))
-            .build()
-        emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setAssign(PIRAssignProto.newBuilder().setTarget(target).setSource(ref))
-                .build()
-        )
+        emit(FlatAssign(FlatLocal(targetName), ref, line = line))
     }
 
     // ─── Assert ────────────────────────────────────────────
@@ -820,48 +611,23 @@ class CfgBuilder(
         emitBranch(cond, passBlock, failBlock, line)
 
         activate(failBlock)
-        var exc: PIRValueProto = PIRValueProto.newBuilder()
-            .setGlobalRef(
-                PIRGlobalRefProto.newBuilder()
-                    .setName("AssertionError")
-                    .setModule("builtins")
-            )
-            .build()
+        var exc: FlatValue = FlatGlobalRef("AssertionError", "builtins")
 
         if (stmt.hasMsg() && stmt.msg.kindCase != MypyExprProto.KindCase.KIND_NOT_SET) {
             val msgVal = exprLowering.accept(stmt.msg)
             val callTarget = newTempValue()
-            emit(
-                PIRInstructionProto.newBuilder()
-                    .setLineNumber(line)
-                    .setCall(
-                        PIRCallProto.newBuilder()
-                            .setTarget(callTarget)
-                            .setCallee(exc)
-                            .addArgs(
-                                PIRCallArgProto.newBuilder()
-                                    .setValue(msgVal)
-                                    .setKind(CallArgKind.POSITIONAL)
-                            )
-                    )
-                    .build()
-            )
+            emit(FlatCall(callTarget, exc, listOf(FlatCallArg(msgVal)), line = line))
             exc = callTarget
         }
-        emit(
-            PIRInstructionProto.newBuilder()
-                .setLineNumber(line)
-                .setRaiseInst(PIRRaiseProto.newBuilder().setException(exc))
-                .build()
-        )
+        emit(FlatRaise(exc, null, line = line))
 
         activate(passBlock)
     }
 
     // ─── Helpers ───────────────────────────────────────────
 
-    private fun resolveExceptTypes(typeExpr: MypyExprProto): List<PIRTypeProto> {
-        val result = mutableListOf<PIRTypeProto>()
+    private fun resolveExceptTypes(typeExpr: MypyExprProto): List<FlatType> {
+        val result = mutableListOf<FlatType>()
         when {
             typeExpr.hasTupleExpr() -> {
                 for (item in typeExpr.tupleExpr.itemsList) {
@@ -873,32 +639,17 @@ class CfgBuilder(
                 if (fullname.isBlank()) {
                     fullname = "builtins.${typeExpr.nameExpr.name}"
                 }
-                result.add(
-                    PIRTypeProto.newBuilder()
-                        .setClassType(PIRClassTypeProto.newBuilder().setQualifiedName(fullname))
-                        .build()
-                )
+                result.add(FlatClassType(fullname))
             }
             typeExpr.hasMemberExpr() -> {
                 var fullname = typeExpr.memberExpr.fullname
                 if (fullname.isBlank()) {
                     fullname = typeExpr.memberExpr.name
                 }
-                result.add(
-                    PIRTypeProto.newBuilder()
-                        .setClassType(PIRClassTypeProto.newBuilder().setQualifiedName(fullname))
-                        .build()
-                )
+                result.add(FlatClassType(fullname))
             }
             else -> {
-                result.add(
-                    PIRTypeProto.newBuilder()
-                        .setClassType(
-                            PIRClassTypeProto.newBuilder()
-                                .setQualifiedName("builtins.Exception")
-                        )
-                        .build()
-                )
+                result.add(FlatClassType("builtins.Exception"))
             }
         }
         return result
