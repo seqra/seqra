@@ -1,7 +1,6 @@
 package org.opentaint.semgrep
 
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS
 import org.opentaint.semgrep.util.SampleBasedTest
@@ -52,6 +51,28 @@ class TypeAwarePatternTest : SampleBasedTest() {
     @Test
     fun `A6 - raw ResponseEntity method-decl pattern matches raw and parameterized forms`() =
         runTest<example.RuleWithRawResponseEntity>()
+
+    // A8. Mixed metavar + concrete: Map<$K, String> — $K is a metavar, second
+    // slot is concrete String.
+    @Test
+    fun `A8 - mixed metavar and concrete Map of K String`() =
+        runTest<example.RuleWithMixedMetavarConcrete>()
+
+    // A10. Deep nesting: List<List<String>> — Negatives are List<String>
+    // (missing outer) and List<List<Integer>> (inner mismatch).
+    @Test
+    fun `A10 - deep nesting List of List of String`() = runTest<example.RuleWithDeepNesting>()
+
+    // A12. Parameter-position concrete-vs-metavar discrimination: first
+    // parameter is concrete List<String>, not a metavar.
+    @Test
+    fun `A12 - parameter position concrete List of String`() =
+        runTest<example.RuleWithParamConcreteListString>()
+
+    // A13. Fully-qualified type argument: ResponseEntity<java.lang.String>.
+    @Test
+    fun `A13 - fully-qualified type argument ResponseEntity of java lang String`() =
+        runTest<example.RuleWithFqnTypeArg>()
 
     @AfterAll
     fun close() {
