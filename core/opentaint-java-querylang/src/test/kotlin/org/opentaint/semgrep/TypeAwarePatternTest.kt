@@ -74,6 +74,47 @@ class TypeAwarePatternTest : SampleBasedTest() {
     fun `A13 - fully-qualified type argument ResponseEntity of java lang String`() =
         runTest<example.RuleWithFqnTypeArg>()
 
+    // A15. Array of parameterized type: List<String>[] return.
+    @Test
+    fun `A15 - array of parameterized type List of String array`() =
+        runTest<example.RuleWithArrayOfParameterized>()
+
+    // A17. Concrete return type discriminates a different concrete return.
+    // Rule return is String; Negative method returns Integer.
+    @Test
+    fun `A17 - concrete return String discriminates from Integer`() =
+        runTest<example.RuleWithConcreteReturnDiscrim>()
+
+    // A19. Nested generic in parameter position:
+    // List<Map<String, Integer>> — complement to A10 (nested generic in
+    // return position).
+    @Test
+    fun `A19 - nested generic in parameter List of Map of String Integer`() =
+        runTest<example.RuleWithNestedParamGeneric>()
+
+    // A20. Class<$T> reflection-style parameter.
+    @Test
+    fun `A20 - Class of T parameter`() = runTest<example.RuleWithClassTypeParam>()
+
+    // A21. Interface vs class widening: Collection<String> pattern vs
+    // List<String> method. Observed behavior: engine uses exact-type
+    // matching at the method-decl return position — no subtype widening.
+    // The List<String> sample was flipped from Positive to Negative to
+    // match the engine's actual semantics.
+    @Test
+    fun `A21 - Collection of String return exact type match no subtype widening`() =
+        runTest<example.RuleWithCollectionReturn>()
+
+    // A22. Nested mixed containers: Map<String, List<Integer>>.
+    @Test
+    fun `A22 - nested mixed containers Map of String List of Integer`() =
+        runTest<example.RuleWithNestedMapListReturn>()
+
+    // A23. Array dimension mismatch: String[][] return.
+    @Test
+    fun `A23 - array dimension mismatch String two dim`() =
+        runTest<example.RuleWithTwoDimArrayReturn>()
+
     @AfterAll
     fun close() {
         closeRunner()

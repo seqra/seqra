@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithCollectionReturn
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithCollectionReturn
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          Collection<String> $METHOD(..., String $A, ...) {
+              ...
+          }

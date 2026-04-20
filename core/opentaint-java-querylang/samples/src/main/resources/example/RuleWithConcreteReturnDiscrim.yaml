@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithConcreteReturnDiscrim
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithConcreteReturnDiscrim
+    patterns:
+      - pattern: |-
+          ...
+          sink($DATA);
+          ...
+      - pattern-inside: |-
+          String $METHOD(String $A, String $DATA) {
+              ...
+          }
