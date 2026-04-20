@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithNestedMapListReturn
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithNestedMapListReturn
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          Map<String, List<Integer>> $METHOD(..., String $A, ...) {
+              ...
+          }

@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithNestedParamGeneric
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithNestedParamGeneric
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          $RET $METHOD(List<Map<String, Integer>> $X, ..., String $A, ...) {
+              ...
+          }
