@@ -40,10 +40,15 @@ Read the trace:
 ### 3. Process external methods (FN discovery)
 
 The `--track-external-methods` flag produces two files next to the SARIF report:
-- **`<sarif-dir>/external-methods-without-rules.yaml`** — Methods where the analyzer **killed dataflow facts** (no approximation model). **This is where false negatives come from.** Focus here.
-- **`<sarif-dir>/external-methods-with-rules.yaml`** — Methods with existing approximation rules (already modeled, typically no action needed).
+- **`<sarif-dir>/external-methods-without-rules.yaml`** — Methods where the analyzer **killed dataflow facts** (no approximation model). **This is the only list worth approximating.** Every false negative caused by a missing library model is rooted here.
+- **`<sarif-dir>/external-methods-with-rules.yaml`** — Methods that already have an approximation model. Do NOT target these with custom approximations or YAML `passThrough` rules — you would OVERRIDE an existing model, which is usually a regression.
 
 Filenames and directory are fixed; the flag is a boolean.
+
+**Approximation scope — hard rules**:
+- Only methods listed in `external-methods-without-rules.yaml` are candidates for a new YAML `passThrough` rule or a code-based approximation.
+- Methods not listed in either file were never reached on a tainted path during the scan; approximating them is a no-op until that changes (different sources/rules/entry points).
+- Application-internal methods are never in these lists — approximations don't apply to them. Fix those via rule patterns, not approximations.
 
 Read `external-methods-without-rules.yaml`. **Prioritize generic data-flow propagators** over
 vulnerability-specific methods. The most common cause of killed facts is mundane collection/utility
@@ -63,18 +68,19 @@ methods, not the vulnerability-relevant operations themselves.
 
 **LOW PRIORITY — Vulnerability-specific methods**:
 - These are usually already modeled in built-in rules. Only add if missing.
-- **Action**: Check built-in coverage first
+- **Action**: Check `external-methods-with-rules.yaml` first; if present, skip.
 
 **NEUTRAL**: Irrelevant to taint flow (logging, metrics, sanitizers).
 - **Action**: Skip — default call-to-return passthrough is correct
 
 ### 4. Batch processing
 
-- Group external methods by package/library
+- Filter `external-methods-without-rules.yaml` to methods on a plausible source→sink path for the current vulnerability class; approximating methods that sit outside that path wastes iteration time.
+- Group the filtered methods by package/library
 - **Start with generic propagators** (collections, strings, wrappers) — they affect all rules
-- Check built-in coverage first (many common libraries already have approximations)
+- Check built-in coverage first (many common libraries already have approximations — cross-check against `external-methods-with-rules.yaml`)
 - Generate comprehensive rules per library
-- Re-run after each batch, check for regressions
+- Re-run with `--track-external-methods` after each batch; verify the approximated methods actually moved from `without-rules` to `with-rules`, and check for finding regressions
 
 ## Decision Priorities
 
