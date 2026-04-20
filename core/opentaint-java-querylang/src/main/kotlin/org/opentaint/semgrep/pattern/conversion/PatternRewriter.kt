@@ -262,6 +262,7 @@ interface PatternRewriter {
     fun TypeName.rewriteTypeName(): TypeName = when (this) {
         is TypeName.SimpleTypeName -> rewriteSimpleTypeName()
         is TypeName.ArrayTypeName -> rewriteArrayTypeName()
+        is TypeName.WildcardTypeName -> this
     }
 
     fun TypeName.SimpleTypeName.rewriteSimpleTypeName(): TypeName.SimpleTypeName =

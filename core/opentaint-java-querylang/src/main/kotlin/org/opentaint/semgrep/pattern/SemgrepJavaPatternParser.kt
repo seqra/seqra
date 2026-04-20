@@ -214,9 +214,6 @@ private class TypenameParserVisitor : JavaParserBaseVisitor<TypeName>() {
         val parsedTypes = parsed.filterNotNull()
         if (parsedTypes.size == parsed.size) return parsedTypes
 
-        // T<?>
-        if (parsed.size == 1 && parsedTypes.isEmpty()) return emptyList()
-
         ctx.todo()
     }
 
@@ -228,7 +225,7 @@ private class TypenameParserVisitor : JavaParserBaseVisitor<TypeName>() {
                 it.todo()
             }
 
-            return null
+            return TypeName.WildcardTypeName
         }
 
         unreachable()
