@@ -24,6 +24,14 @@ sealed interface SerializedTypeNameMatcher {
 
     @Serializable
     data class Array(val element: SerializedTypeNameMatcher) : SerializedTypeNameMatcher
+
+    /**
+     * Matches only an unbounded Java wildcard (`?`) at a type-argument slot.
+     * Distinct from an "any" [ClassPattern] so a pattern like `Foo<?>` does not
+     * match a concrete parameterization like `Foo<String>`.
+     */
+    @Serializable
+    data object Wildcard : SerializedTypeNameMatcher
 }
 
 @Serializable(with = SimpleNameMatcherSerializer::class)

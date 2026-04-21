@@ -30,6 +30,16 @@ sealed interface TypeNamePattern {
         override fun toString(): String = "*"
     }
 
+    /**
+     * Java unbounded wildcard `?` as a type argument. Unlike [AnyType], which
+     * is an unconstrained matcher that subsumes any type, [WildcardType] only
+     * matches an unbounded wildcard at the corresponding type-argument slot.
+     */
+    @Serializable
+    data object WildcardType : TypeNamePattern {
+        override fun toString(): String = "?"
+    }
+
     @Serializable
     data class ArrayType(val element: TypeNamePattern) : TypeNamePattern {
         override fun toString(): String = "${element}[]"

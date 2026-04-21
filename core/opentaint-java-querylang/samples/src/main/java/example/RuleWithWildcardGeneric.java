@@ -32,11 +32,10 @@ public abstract class RuleWithWildcardGeneric implements RuleSample {
     }
 
     /**
-     * ResponseEntity&lt;String&gt; is a concrete parameterized form. In many
-     * semgrep engines a wildcard <?> is considered to match any concrete
-     * type; keeping this as a Positive documents current engine behavior.
+     * ResponseEntity&lt;String&gt; is a concrete parameterized form and must not
+     * match a wildcard &lt;?&gt; type argument in the rule pattern.
      */
-    final static class PositiveConcreteAlsoMatches extends RuleWithWildcardGeneric {
+    final static class NegativeConcreteDoesNotMatch extends RuleWithWildcardGeneric {
         @Override
         public void entrypoint() {
             String data = "tainted";

@@ -16,6 +16,7 @@ fun SerializedTypeNameMatcher.normalizeAnyName(): SerializedTypeNameMatcher = wh
     is SerializedSimpleNameMatcher -> normalizeAnyName()
     is ClassPattern -> ClassPattern(`package`.normalizeAnyName(), `class`.normalizeAnyName(), typeArgs.map { it.normalizeAnyName() })
     is SerializedTypeNameMatcher.Array -> SerializedTypeNameMatcher.Array(element.normalizeAnyName())
+    is SerializedTypeNameMatcher.Wildcard -> this
 }
 
 fun SerializedSimpleNameMatcher.normalizeAnyName(): SerializedSimpleNameMatcher = when (this) {

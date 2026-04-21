@@ -628,6 +628,10 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
             is Pattern -> {
                 TODO("Signature class name pattern")
             }
+
+            is SerializedTypeNameMatcher.Wildcard -> {
+                TODO("Signature class is a wildcard")
+            }
         }
 
         builders.mapTo(buildersWithClass) { builder ->
@@ -898,6 +902,10 @@ private fun TaintRuleGenerationCtx.typeMatcher(
         }
 
         is TypeNamePattern.AnyType -> null
+
+        is TypeNamePattern.WildcardType -> MetaVarConstraintFormula.Constraint(
+            SerializedTypeNameMatcher.Wildcard
+        )
 
         is TypeNamePattern.MetaVar -> {
             val constraints = metaVarInfo.constraints[typeName.metaVar]

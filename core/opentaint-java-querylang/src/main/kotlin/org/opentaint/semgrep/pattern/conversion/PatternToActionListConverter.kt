@@ -219,7 +219,7 @@ class PatternToActionListConverter: ActionListBuilder {
             val elementTypePattern = transformTypeName(typeName.elementType)
             TypeNamePattern.ArrayType(elementTypePattern)
         }
-        is TypeName.WildcardTypeName -> TypeNamePattern.AnyType
+        is TypeName.WildcardTypeName -> TypeNamePattern.WildcardType
     }
 
     private fun transformSimpleTypeName(typeName: TypeName.SimpleTypeName): TypeNamePattern {

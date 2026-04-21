@@ -794,13 +794,18 @@ private fun unifyTypeName(
     when (left) {
         TypeNamePattern.AnyType -> return right
 
+        // WildcardType only unifies with itself (already handled by the
+        // `left == right` short-circuit above). Anything else is incompatible.
+        TypeNamePattern.WildcardType -> return null
+
         is TypeNamePattern.PrimitiveName -> return null
 
         is TypeNamePattern.ClassName -> when (right) {
             TypeNamePattern.AnyType -> return left
 
             is TypeNamePattern.ArrayType,
-            is TypeNamePattern.PrimitiveName -> return null
+            is TypeNamePattern.PrimitiveName,
+            TypeNamePattern.WildcardType -> return null
 
             is TypeNamePattern.ClassName -> {
                 if (left.name != right.name) return null
@@ -826,7 +831,8 @@ private fun unifyTypeName(
             TypeNamePattern.AnyType -> return left
 
             is TypeNamePattern.ArrayType,
-            is TypeNamePattern.PrimitiveName -> return null
+            is TypeNamePattern.PrimitiveName,
+            TypeNamePattern.WildcardType -> return null
 
             is TypeNamePattern.ClassName -> {
                 if (left.name.endsWith(right.name)) {
@@ -853,7 +859,8 @@ private fun unifyTypeName(
             TypeNamePattern.AnyType -> return left
 
             is TypeNamePattern.ArrayType,
-            is TypeNamePattern.PrimitiveName -> return null
+            is TypeNamePattern.PrimitiveName,
+            TypeNamePattern.WildcardType -> return null
 
             is TypeNamePattern.ClassName -> {
                 if (!stringMatches(right.name, metaVarInfo.metaVarConstraints[left.metaVar])) return null
@@ -885,7 +892,8 @@ private fun unifyTypeName(
             is TypeNamePattern.ClassName,
             is TypeNamePattern.FullyQualified,
             is TypeNamePattern.MetaVar,
-            is TypeNamePattern.PrimitiveName -> return null
+            is TypeNamePattern.PrimitiveName,
+            TypeNamePattern.WildcardType -> return null
         }
     }
 }
