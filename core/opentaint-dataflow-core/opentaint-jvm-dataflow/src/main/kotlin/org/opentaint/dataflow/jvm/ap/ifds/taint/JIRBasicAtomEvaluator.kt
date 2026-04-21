@@ -29,11 +29,11 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAllocInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasApInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasInfo
+import org.opentaint.dataflow.configuration.jvm.matchType
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
-import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.JIRType
@@ -356,16 +356,14 @@ class JIRBasicAtomEvaluator(
             }
         }
 
-        // Generic type args check
         if (condition.typeArgs.isNotEmpty()) {
             val genericType = resolveGenericType(value)
             if (genericType is JIRClassType) {
                 if (genericType.typeArguments.size != condition.typeArgs.size) return false
                 return condition.typeArgs.zip(genericType.typeArguments).all { (matcher, arg) ->
-                    matcher.matchType(arg)
+                    matcher.matchType(arg) { name -> matchErasedName(name) }
                 }
             }
-            // Can't resolve generics — erased match already passed above
             return true
         }
 
@@ -379,22 +377,14 @@ class JIRBasicAtomEvaluator(
         val localVarNode = method.withAsmNode { methodNode ->
             methodNode.localVariables?.find { lvn -> lvn.index == localVar.index }
         } ?: return null
+        // typedMethod.typeOf can throw on unresolved references / malformed
+        // debug info; skip generic-aware matching rather than aborting the
+        // atom evaluation.
         return try {
             typedMethod.typeOf(localVarNode)
         } catch (_: Exception) {
             null
         }
-    }
-
-    private fun SerializedTypeNameMatcher.matchType(type: JIRType): Boolean = when {
-        this is SerializedTypeNameMatcher.ClassPattern && typeArgs.isEmpty() -> matchErasedName(type.typeName)
-        this is SerializedTypeNameMatcher.ClassPattern && type is JIRClassType -> {
-            matchErasedName(type.typeName) &&
-            typeArgs.size == type.typeArguments.size &&
-            typeArgs.zip(type.typeArguments).all { (m, a) -> m.matchType(a) }
-        }
-        this is SerializedTypeNameMatcher.Array && type is JIRArrayType -> element.matchType(type.elementType)
-        else -> matchErasedName(type.typeName)
     }
 
     private fun SerializedTypeNameMatcher.matchErasedName(name: String): Boolean = when (this) {
