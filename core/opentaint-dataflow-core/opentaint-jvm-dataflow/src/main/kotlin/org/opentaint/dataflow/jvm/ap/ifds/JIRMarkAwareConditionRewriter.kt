@@ -13,6 +13,13 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicAtomEvaluator
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRTypedMethod
 
+/**
+ * [typedMethod] enables generic-type-argument matching in `TypeMatchesPattern`
+ * atoms (see [JIRBasicAtomEvaluator.resolveGenericType]). When null, matching
+ * falls back to erased-name comparison — type-arg predicates in the rule will
+ * silently pass regardless of the runtime parameterization. Pass the typed
+ * view of the analyzed method whenever available.
+ */
 class JIRMarkAwareConditionRewriter(
     positionResolver: PositionResolver<CallPositionValue>,
     factTypeChecker: JIRFactTypeChecker,
