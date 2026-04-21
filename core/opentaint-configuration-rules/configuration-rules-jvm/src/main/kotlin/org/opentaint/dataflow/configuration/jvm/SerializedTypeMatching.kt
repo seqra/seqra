@@ -51,13 +51,24 @@ fun SerializedTypeNameMatcher.matchType(
 
 /**
  * Erased class name for matching — drops any generic decoration that
- * [JIRType.typeName] may carry (e.g. `Map<String, Object>` → `java.util.Map`).
+ * [JIRType.typeName] may carry (e.g. `Map<String, Object>` → `java.util.Map`)
+ * and reduces a type variable / unbound wildcard to its declared erasure
+ * (e.g. `E` → `java.lang.Object`) so string-based matchers can match against
+ * pass-through rules whose return/parameter types show up as type variables
+ * when resolved via the declaring class (e.g. `List.get` returns `E`).
  */
 private fun JIRType.erasedName(): String = when (this) {
     is JIRClassType -> jIRClass.name
+    is JIRTypeVariable -> jIRClass.name
+    is JIRUnboundWildcard -> jIRClass.name
     is JIRArrayType -> {
         val el = elementType
-        if (el is JIRClassType) el.jIRClass.name + "[]" else typeName
+        when (el) {
+            is JIRClassType -> el.jIRClass.name + "[]"
+            is JIRTypeVariable -> el.jIRClass.name + "[]"
+            is JIRUnboundWildcard -> el.jIRClass.name + "[]"
+            else -> typeName
+        }
     }
     else -> typeName
 }
