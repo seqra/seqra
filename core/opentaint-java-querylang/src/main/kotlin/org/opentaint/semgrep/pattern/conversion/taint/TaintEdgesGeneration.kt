@@ -363,6 +363,7 @@ private fun MetaVarCtx.typeNameMetaVars(typeName: TypeNamePattern, metaVars: Bit
         }
 
         TypeNamePattern.AnyType,
+        TypeNamePattern.WildcardType,
         is TypeNamePattern.PrimitiveName -> {
             // no metavars
         }

@@ -258,6 +258,10 @@ class TaintConfiguration(private val cp: JIRClasspath) {
             val nameWithoutArrayModifier = name.removeSuffix("[]")
             name != nameWithoutArrayModifier && element.matchNormalizedTypeName(nameWithoutArrayModifier)
         }
+
+        // A wildcard matcher is only meaningful at a type-argument position
+        // and is never compared against a class-name string.
+        is SerializedTypeNameMatcher.Wildcard -> false
     }
 
     private fun SerializedTypeNameMatcher.matchType(type: JIRType): Boolean =

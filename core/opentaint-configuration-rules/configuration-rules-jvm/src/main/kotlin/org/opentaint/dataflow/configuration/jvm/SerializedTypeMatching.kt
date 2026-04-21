@@ -30,6 +30,8 @@ fun SerializedTypeNameMatcher.matchType(
     type: JIRType,
     erasedMatch: SerializedTypeNameMatcher.(String) -> Boolean,
 ): Boolean = when {
+    this is SerializedTypeNameMatcher.Wildcard -> type is JIRUnboundWildcard
+
     this is SerializedTypeNameMatcher.ClassPattern && typeArgs.isEmpty() && type is JIRClassType ->
         erasedMatch(type.erasedName()) && type.isRawLike()
 

@@ -400,6 +400,9 @@ class JIRBasicAtomEvaluator(
             val nameWithout = name.removeSuffix("[]")
             name != nameWithout && element.matchErasedName(nameWithout)
         }
+        // A wildcard matcher is only meaningful at a type-argument slot; it has
+        // no erased-name projection to compare against a string.
+        is SerializedTypeNameMatcher.Wildcard -> false
     }
 
     private fun ConditionNameMatcher.match(name: String): Boolean = when (this) {

@@ -40,8 +40,8 @@ class TypeAwarePatternTest : SampleBasedTest() {
     @Test
     fun `A4 - two-arg generic Map of K V in parameter`() = runTest<example.RuleWithTwoArgGeneric>()
 
-    // A5. Wildcard type argument: ResponseEntity<?>. Documents current engine
-    // behavior; both concrete and wildcard-typed methods match today.
+    // A5. Wildcard type argument: ResponseEntity<?>. A concrete type argument
+    // (ResponseEntity<String>) must not match a wildcard pattern.
     @Test
     fun `A5 - wildcard type argument ResponseEntity of question mark`() =
         runTest<example.RuleWithWildcardGeneric>()

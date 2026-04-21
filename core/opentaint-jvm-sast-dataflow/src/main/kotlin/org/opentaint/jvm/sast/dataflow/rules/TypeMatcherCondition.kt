@@ -37,6 +37,10 @@ fun SerializedTypeNameMatcher.toConditionNameMatcher(patternManager: PatternMana
         is SerializedTypeNameMatcher.Array -> {
             element.toConditionNameMatcher(patternManager)?.addSuffix("[]", patternManager)
         }
+
+        // A wildcard matcher has no erased-name projection; there is no
+        // meaningful class-name `ConditionNameMatcher` to produce.
+        is SerializedTypeNameMatcher.Wildcard -> null
     }
 }
 
