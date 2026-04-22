@@ -121,9 +121,11 @@ class SarifGenerator(
         var partialFingerPrints: Map<String, String>? = null
 
         if (options.generateFingerprint) {
-            val fingerprint = computeFingerprint(ruleId, sinkLocation, threadFlows)
+            val fullFingerprint = computeFingerprint(ruleId, sinkLocation, FingerprintKind.FULL_TRACE, threadFlows)
+            val sourceSinkFingerprint = computeFingerprint(ruleId, sinkLocation, FingerprintKind.SOURCE_SINK, threadFlows)
             partialFingerPrints = mapOf(
-                "vulnerabilityWithTraceHash/v1" to fingerprint
+                "vulnerabilityWithTraceHash/v1" to fullFingerprint,
+                "vulnerabilitySourceSinkHash/v1" to sourceSinkFingerprint,
             )
         }
 
@@ -153,17 +155,30 @@ class SarifGenerator(
         return result
     }
 
+    private enum class FingerprintKind {
+        FULL_TRACE, SOURCE_SINK
+    }
+
     @OptIn(ExperimentalEncodingApi::class)
     private fun computeFingerprint(
         ruleId: String,
         vulnerabilityLocation: IntermediateLocation,
+        kind: FingerprintKind,
         traces: List<List<IntermediateLocation>>?
     ): String {
         val digest = MessageDigest.getInstance("SHA-256")
         digest.update(ruleId.toByteArray())
         digest.addLocationFingerprint(vulnerabilityLocation)
         traces?.forEach { trace ->
-            trace.forEach { digest.addLocationFingerprint(it) }
+            when (kind) {
+                FingerprintKind.FULL_TRACE -> {
+                    trace.forEach { digest.addLocationFingerprint(it) }
+                }
+
+                FingerprintKind.SOURCE_SINK -> {
+                    trace.firstOrNull()?.let { digest.addLocationFingerprint(it) }
+                }
+            }
         }
         val digestData = digest.digest()
         return Base64.encode(digestData)
