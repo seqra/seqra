@@ -1,9 +1,7 @@
 package cmd
 
 import (
-	"archive/zip"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,9 +9,14 @@ import (
 
 	"github.com/seqra/opentaint/internal/globals"
 	"github.com/seqra/opentaint/internal/output"
+	"github.com/seqra/opentaint/internal/utils"
 	"github.com/seqra/opentaint/internal/utils/java"
 	"github.com/seqra/opentaint/internal/utils/project"
 )
+
+// approxClassesJarPrefix is the path prefix under which the analyzer fat JAR
+// bundles approximation support sources (OpentaintNdUtil, ArgumentTypeContext).
+const approxClassesJarPrefix = "opentaint-dataflow-approximations/"
 
 // compileApproximationsIfNeeded checks whether a --dataflow-approximations directory
 // contains .java source files. If so, it compiles them using javac (with the
@@ -29,15 +32,53 @@ func compileApproximationsIfNeeded(approxPath string, analyzerJarPath string, pr
 	if err != nil {
 		return "", fmt.Errorf("approximation path does not exist: %w", err)
 	}
-
-	// If it's a single file, return as-is (nothing to compile)
 	if !info.IsDir() {
 		return approxPath, nil
 	}
 
-	// Collect .java files in the directory tree
+	javaFiles, err := collectJavaSources(approxPath)
+	if err != nil {
+		return "", err
+	}
+	if len(javaFiles) == 0 {
+		return approxPath, nil
+	}
+
+	output.LogInfof("Found %d .java file(s) in approximations directory, compiling...", len(javaFiles))
+
+	javacPath, err := resolveJavacPath()
+	if err != nil {
+		return "", err
+	}
+
+	extractedDir, err := os.MkdirTemp("", "opentaint-approx-deps-*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp directory for approximation deps: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(extractedDir) }()
+
+	if err := utils.ExtractZipPrefix(analyzerJarPath, approxClassesJarPrefix, extractedDir); err != nil {
+		return "", fmt.Errorf("failed to extract approximation classes from analyzer JAR: %w", err)
+	}
+
+	outputDir, err := os.MkdirTemp("", "opentaint-approx-compiled-*")
+	if err != nil {
+		return "", fmt.Errorf("failed to create temp directory for compiled approximations: %w", err)
+	}
+
+	classpath := buildApproxClasspath(analyzerJarPath, extractedDir, projectModelDir)
+	if err := runJavac(javacPath, classpath, outputDir, javaFiles); err != nil {
+		_ = os.RemoveAll(outputDir)
+		return "", err
+	}
+
+	output.LogInfof("Approximation compilation succeeded, output: %s", outputDir)
+	return outputDir, nil
+}
+
+func collectJavaSources(root string) ([]string, error) {
 	var javaFiles []string
-	_ = filepath.Walk(approxPath, func(path string, fi os.FileInfo, walkErr error) error {
+	err := filepath.Walk(root, func(path string, fi os.FileInfo, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
@@ -46,15 +87,13 @@ func compileApproximationsIfNeeded(approxPath string, analyzerJarPath string, pr
 		}
 		return nil
 	})
-
-	if len(javaFiles) == 0 {
-		// No Java sources — directory may contain .class files or be empty; pass through.
-		return approxPath, nil
+	if err != nil {
+		return nil, fmt.Errorf("failed to walk approximations directory: %w", err)
 	}
+	return javaFiles, nil
+}
 
-	output.LogInfof("Found %d .java file(s) in approximations directory, compiling...", len(javaFiles))
-
-	// Resolve javac from the managed JDK
+func resolveJavacPath() (string, error) {
 	javacRunner := java.NewJavaRunner().
 		WithSkipVerify(globals.Config.SkipVerify).
 		WithImageType(java.AdoptiumImageJDK).
@@ -66,34 +105,24 @@ func compileApproximationsIfNeeded(approxPath string, analyzerJarPath string, pr
 		return "", fmt.Errorf("failed to resolve Java for approximation compilation: %w", err)
 	}
 
-	javacPath := deriveJavacPath(javaPath)
+	javacPath := java.DeriveJavacPath(javaPath)
 	if _, err := os.Stat(javacPath); err != nil {
 		return "", fmt.Errorf("javac not found at %s (resolved from java at %s). A JDK (not JRE) is required to compile approximation sources", javacPath, javaPath)
 	}
+	return javacPath, nil
+}
 
-	// Extract approximation support classes from the analyzer JAR.
-	// The JAR bundles utility classes (OpentaintNdUtil, ArgumentTypeContext)
-	// under "opentaint-dataflow-approximations/" prefix.
-	extractedDir, err := extractApproxClassesFromJar(analyzerJarPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to extract approximation classes from analyzer JAR: %w", err)
-	}
+// buildApproxClasspath assembles the javac classpath for approximation compilation:
+//  1. Analyzer JAR — contains @Approximate, @ApproximateByName annotations
+//  2. Extracted approximation utilities — OpentaintNdUtil, ArgumentTypeContext
+//  3. Project dependencies — library JARs that approximation code may reference
+func buildApproxClasspath(analyzerJarPath, extractedDir, projectModelDir string) string {
+	parts := []string{analyzerJarPath, extractedDir}
+	parts = append(parts, resolveProjectDependencies(projectModelDir)...)
+	return strings.Join(parts, string(os.PathListSeparator))
+}
 
-	// Create temp output directory for compiled .class files
-	outputDir, err := os.MkdirTemp("", "opentaint-approx-compiled-*")
-	if err != nil {
-		_ = os.RemoveAll(extractedDir)
-		return "", fmt.Errorf("failed to create temp directory for compiled approximations: %w", err)
-	}
-
-	// Build classpath:
-	// 1. Analyzer JAR — contains @Approximate, @ApproximateByName annotations
-	// 2. Extracted approximation utilities — OpentaintNdUtil, ArgumentTypeContext
-	// 3. Project dependencies — library JARs that approximation code may reference
-	cpParts := []string{analyzerJarPath, extractedDir}
-	cpParts = append(cpParts, resolveProjectDependencies(projectModelDir)...)
-	classpath := strings.Join(cpParts, string(os.PathListSeparator))
-
+func runJavac(javacPath, classpath, outputDir string, javaFiles []string) error {
 	args := []string{
 		"-source", "8",
 		"-target", "8",
@@ -106,20 +135,13 @@ func compileApproximationsIfNeeded(approxPath string, analyzerJarPath string, pr
 
 	cmd := exec.Command(javacPath, args...)
 	cmdOutput, cmdErr := cmd.CombinedOutput()
-
-	// Always clean up extracted dependencies
-	_ = os.RemoveAll(extractedDir)
-
 	if cmdErr != nil {
-		_ = os.RemoveAll(outputDir)
-		return "", fmt.Errorf(
+		return fmt.Errorf(
 			"approximation compilation failed:\n%s\njavac exited with: %w",
 			string(cmdOutput), cmdErr,
 		)
 	}
-
-	output.LogInfof("Approximation compilation succeeded, output: %s", outputDir)
-	return outputDir, nil
+	return nil
 }
 
 // resolveProjectDependencies reads project.yaml from the project model directory
@@ -145,79 +167,4 @@ func resolveProjectDependencies(projectModelDir string) []string {
 	}
 	output.LogDebugf("Resolved %d project dependencies for approximation classpath", len(absDeps))
 	return absDeps
-}
-
-// extractApproxClassesFromJar extracts bundled approximation support classes
-// from the analyzer fat JAR. These are stored under "opentaint-dataflow-approximations/"
-// prefix and need standard package structure for javac to find them.
-func extractApproxClassesFromJar(jarPath string) (string, error) {
-	r, err := zip.OpenReader(jarPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to open JAR: %w", err)
-	}
-	defer func() { _ = r.Close() }()
-
-	extractDir, err := os.MkdirTemp("", "opentaint-approx-deps-*")
-	if err != nil {
-		return "", err
-	}
-
-	const prefix = "opentaint-dataflow-approximations/"
-	for _, f := range r.File {
-		classExtErr := extractApproxClass(f, prefix, extractDir)
-		if classExtErr != nil {
-			return "", classExtErr
-		}
-	}
-
-	return extractDir, nil
-}
-
-func extractApproxClass(f *zip.File, prefix string, extractDir string) error {
-	if !strings.HasPrefix(f.Name, prefix) {
-		return nil
-	}
-	if f.FileInfo().IsDir() {
-		return nil
-	}
-
-	relPath := strings.TrimPrefix(f.Name, prefix)
-	if relPath == "" {
-		return nil
-	}
-
-	destPath := filepath.Join(extractDir, relPath)
-	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-		_ = os.RemoveAll(extractDir)
-		return err
-	}
-
-	src, err := f.Open()
-	if err != nil {
-		_ = os.RemoveAll(extractDir)
-		return err
-	}
-	defer func() { _ = src.Close() }()
-
-	dst, err := os.Create(destPath)
-	if err != nil {
-		_ = os.RemoveAll(extractDir)
-		return err
-	}
-	defer func() { _ = dst.Close() }()
-
-	_, err = io.Copy(dst, src)
-
-	if err != nil {
-		_ = os.RemoveAll(extractDir)
-		return err
-	}
-
-	return nil
-}
-
-// deriveJavacPath returns the path to javac given the path to java.
-func deriveJavacPath(javaPath string) string {
-	dir := filepath.Dir(javaPath)
-	return filepath.Join(dir, "javac")
 }

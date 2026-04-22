@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/seqra/opentaint/internal/analyzer"
 	"github.com/seqra/opentaint/internal/load_trace"
 	"github.com/seqra/opentaint/internal/sarif"
 	"github.com/seqra/opentaint/internal/validation"
@@ -124,7 +125,7 @@ func init() {
 	scanCmd.Flags().StringVar(&globals.Config.Scan.MaxMemory, "max-memory", "8G", "Maximum memory for the analyzer (e.g., 1024m, 8G, 81920k, 83886080)")
 	_ = viper.BindPFlag("scan.max_memory", scanCmd.Flags().Lookup("max-memory"))
 	scanCmd.Flags().Int64Var(&globals.Config.Scan.CodeFlowLimit, "code-flow-limit", 0, "Maximum number of code flows to include in the report (0 = unlimited)")
-	_ = scanCmd.PersistentFlags().MarkHidden("code-flow-limit")
+	_ = scanCmd.Flags().MarkHidden("code-flow-limit")
 	_ = viper.BindPFlag("scan.code_flow_limit", scanCmd.Flags().Lookup("code-flow-limit"))
 	scanCmd.Flags().BoolVar(&DryRunScan, "dry-run", false, "Validate inputs and show what would run without compiling or scanning")
 	scanCmd.Flags().BoolVar(&Recompile, "recompile", false, "Force recompilation even if a cached project model exists")
@@ -133,16 +134,16 @@ func init() {
 	scanCmd.Flags().StringArrayVar(&RuleID, "rule-id", nil, "Filter active rules by ID (repeatable)")
 
 	scanCmd.Flags().StringArrayVar(&ApproximationsConfig, "approximations-config", nil, "YAML passThrough approximations config (OVERRIDE mode, repeatable)")
-	_ = scanCmd.PersistentFlags().MarkHidden("approximations-config")
+	_ = scanCmd.Flags().MarkHidden("approximations-config")
 
 	scanCmd.Flags().StringArrayVar(&DataflowApproximations, "dataflow-approximations", nil, "Directory of compiled approximation class files (repeatable)")
-	_ = scanCmd.PersistentFlags().MarkHidden("dataflow-approximations")
+	_ = scanCmd.Flags().MarkHidden("dataflow-approximations")
 
 	scanCmd.Flags().BoolVar(&TrackExternalMethods, "track-external-methods", false, "Write external-methods-{without,with}-rules.yaml next to the SARIF report")
-	_ = scanCmd.PersistentFlags().MarkHidden("track-external-methods")
+	_ = scanCmd.Flags().MarkHidden("track-external-methods")
 
 	scanCmd.Flags().BoolVar(&DebugFactReachabilitySarif, "debug-fact-reachability-sarif", false, "Generate SARIF with fact reachability info (debug; use with a single rule only)")
-	_ = scanCmd.PersistentFlags().MarkHidden("debug-fact-reachability-sarif")
+	_ = scanCmd.Flags().MarkHidden("debug-fact-reachability-sarif")
 }
 
 // currentScanBuilder returns a builder pre-populated with the user's current scan flags.
@@ -391,7 +392,7 @@ func scan(cmd *cobra.Command) {
 		out.Fatalf("Failed to resolve Java for analyzer: %s", err)
 	}
 
-	var analyzerFail *analyzerError
+	var analyzerFail *analyzer.Error
 	var scanCmdErr *java.JavaCommandError
 	if err := out.RunWithSpinner("Analyzing project", func() error {
 		var scanErr error
@@ -400,7 +401,9 @@ func scan(cmd *cobra.Command) {
 	}); err != nil {
 		out.Fatalf("Native scan has failed: %s", err)
 	}
-	analyzerFail = classifyAnalyzerError(scanCmdErr)
+	if analyzerFail = analyzer.Classify(scanCmdErr); analyzerFail != nil {
+		out.Error(analyzerFail.Message)
+	}
 
 	report, err := validation.ValidateSarifOutput(absSarifReportPath)
 	if err != nil {
@@ -408,7 +411,7 @@ func scan(cmd *cobra.Command) {
 		if analyzerFail == nil {
 			// Analyzer reported success but produced no valid SARIF — treat as failure.
 			out.Error(fmt.Sprintf("There was a problem during the scan step, check the full logs: %s", globals.LogPath))
-			analyzerFail = &analyzerError{exitCode: 1, message: "scan output validation failed"}
+			analyzerFail = &analyzer.Error{ExitCode: 1, Message: "scan output validation failed"}
 		}
 	}
 
@@ -419,7 +422,7 @@ func scan(cmd *cobra.Command) {
 		output.LogInfof("Rule load trace validation failed: %v", err)
 		if analyzerFail == nil {
 			out.Error(fmt.Sprintf("Failed to validate rule load trace output: %s", err))
-			analyzerFail = &analyzerError{exitCode: 1, message: "rule load trace validation failed"}
+			analyzerFail = &analyzer.Error{ExitCode: 1, Message: "rule load trace validation failed"}
 		}
 	}
 
@@ -444,7 +447,7 @@ func scan(cmd *cobra.Command) {
 	}
 
 	if analyzerFail != nil {
-		os.Exit(analyzerFail.exitCode)
+		os.Exit(analyzerFail.ExitCode)
 	}
 }
 

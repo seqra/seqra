@@ -3,7 +3,9 @@ package java
 import (
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -128,6 +130,17 @@ func validateJavaInstallation(javaPath string) *JavaInstallation {
 	output.LogDebugf("Validated Java installation: %s v%s (major: %d, vendor: %s)", javaPath, fullVersion, majorVersion, vendor)
 
 	return installation
+}
+
+// DeriveJavacPath returns the javac binary path that sits next to the given
+// java binary. On Windows the ".exe" suffix is preserved.
+func DeriveJavacPath(javaPath string) string {
+	dir := filepath.Dir(javaPath)
+	name := "javac"
+	if runtime.GOOS == "windows" {
+		name = "javac.exe"
+	}
+	return filepath.Join(dir, name)
 }
 
 func extractVendor(versionOutput string) string {

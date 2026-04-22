@@ -56,6 +56,58 @@ func ExtractTar(tr *tar.Reader, basePath, destPath string, isSourceDir bool) err
 	return nil
 }
 
+// ExtractZipPrefix extracts entries whose names begin with prefix from the zip
+// at src into destDir, stripping prefix from each entry's relative path.
+// Directory entries are skipped — parent directories are created on demand.
+// Returns an error if the zip cannot be opened or any entry fails to write.
+func ExtractZipPrefix(src, prefix, destDir string) error {
+	r, err := zip.OpenReader(src)
+	if err != nil {
+		return fmt.Errorf("failed to open zip: %w", err)
+	}
+	defer func() { _ = r.Close() }()
+
+	for _, f := range r.File {
+		if !strings.HasPrefix(f.Name, prefix) || f.FileInfo().IsDir() {
+			continue
+		}
+		relPath := strings.TrimPrefix(f.Name, prefix)
+		if relPath == "" {
+			continue
+		}
+		if err := copyZipEntry(f, filepath.Join(destDir, relPath)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func copyZipEntry(f *zip.File, destPath string) (err error) {
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		return err
+	}
+	src, err := f.Open()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := src.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+	dst, err := os.Create(destPath)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := dst.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
+	}()
+	_, err = io.Copy(dst, src)
+	return err
+}
+
 // ExtractZip extracts the contents of a ZIP file to the specified destination directory.
 func ExtractZip(src, dest string) error {
 	zr, err := zip.OpenReader(src)
