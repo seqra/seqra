@@ -65,10 +65,10 @@ class JIRIntraProcAliasAnalysis(
     ): JIRLocalAliasAnalysis.MethodAliasInfo =
         withAnalysisCancellation(
             timeLimit = params.aliasAnalysisTimeLimit,
-            body = { compute(it, localVariableReachability) },
+            body = { computeMay(it, localVariableReachability) },
             onAnalysisCancelled = {
                 logger.error {
-                    "Alias analysis for ${entryPoint.location.method} exceed ${params.aliasAnalysisTimeLimit}"
+                    "May alias analysis for ${entryPoint.location.method} exceed ${params.aliasAnalysisTimeLimit}"
                 }
 
                 JIRLocalAliasAnalysis.MethodAliasInfo(
@@ -78,7 +78,25 @@ class JIRIntraProcAliasAnalysis(
             }
         )
 
-    private fun compute(
+    fun computeMust(
+        localVariableReachability: JIRLocalVariableReachability
+    ): JIRLocalAliasAnalysis.MethodMustAliasInfo =
+        withAnalysisCancellation(
+            timeLimit = params.aliasAnalysisTimeLimit,
+            body = { computeMust(it, localVariableReachability) },
+            onAnalysisCancelled = {
+                logger.error {
+                    "Must alias analysis for ${entryPoint.location.method} exceed ${params.aliasAnalysisTimeLimit}"
+                }
+
+                JIRLocalAliasAnalysis.MethodMustAliasInfo(
+                    aliasBeforeStatement = null,
+                    aliasAfterStatement = null
+                )
+            }
+        )
+
+    private fun computeMay(
         cancellation: AnalysisCancellation,
         localVariableReachability: JIRLocalVariableReachability
     ): JIRLocalAliasAnalysis.MethodAliasInfo {
@@ -96,9 +114,12 @@ class JIRIntraProcAliasAnalysis(
         return compressAliasInfo(aliasBeforeStatement, aliasAfterStatement)
     }
 
-    fun computeMust(localVariableReachability: JIRLocalVariableReachability): JIRLocalAliasAnalysis.MethodMustAliasInfo {
+    private fun computeMust(
+        cancellation: AnalysisCancellation,
+        localVariableReachability: JIRLocalVariableReachability
+    ): JIRLocalAliasAnalysis.MethodMustAliasInfo {
         val jig = getJIG(entryPoint)
-        val daa = DSUAliasAnalysis(CallResolver(), localVariableReachability, MergeType.Must).analyze(jig)
+        val daa = DSUAliasAnalysis(CallResolver(), localVariableReachability, MergeType.Must, cancellation).analyze(jig)
 
         val aliasBeforeStatement = Array(jig.statements.size) { i ->
             resolveAccessPathBase(daa.statesBeforeStmt[i], localVariableReachability, i)

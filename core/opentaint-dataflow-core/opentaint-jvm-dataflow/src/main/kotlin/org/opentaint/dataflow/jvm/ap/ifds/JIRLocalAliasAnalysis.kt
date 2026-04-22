@@ -33,8 +33,8 @@ class JIRLocalAliasAnalysis(
     )
 
     class MethodMustAliasInfo(
-        val aliasBeforeStatement: Array<Object2ObjectOpenHashMap<AccessPathBase, Array<Any>>?>,
-        val aliasAfterStatement: Array<Object2ObjectOpenHashMap<AccessPathBase, Array<Any>>?>,
+        val aliasBeforeStatement: Array<Object2ObjectOpenHashMap<AccessPathBase, Array<Any>>?>?,
+        val aliasAfterStatement: Array<Object2ObjectOpenHashMap<AccessPathBase, Array<Any>>?>?,
     )
 
     private fun getLocalVarAliases(
@@ -54,8 +54,9 @@ class JIRLocalAliasAnalysis(
         }?.map { it.wrapAliasInfo() }
 
     fun findMustAlias(base: AccessPathBase, statement: CommonInst): List<AliasInfo>? {
+        val aliasBefore = mustAliasInfo.aliasBeforeStatement ?: return null
         val idx = languageManager.getInstIndex(statement)
-        return getAccessPathBaseAliases(mustAliasInfo.aliasBeforeStatement, idx, base)
+        return getAccessPathBaseAliases(aliasBefore, idx, base)
     }
 
     fun findAlias(base: AccessPathBase.LocalVar, statement: CommonInst): List<AliasInfo>? {
