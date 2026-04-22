@@ -133,7 +133,7 @@ fun InstEvalContext.evalInst(inst: JIRInst): Stmt? {
         }
 
         is JIRThrowInst -> {
-            val value = getLocalRefValue(inst.throwable, inst) as? RefValue ?: return null
+            val value = evalSimpleValue(inst.throwable as JIRImmediate, inst) as? RefValue ?: return null
             Stmt.Throw(value, inst.location.index)
         }
 

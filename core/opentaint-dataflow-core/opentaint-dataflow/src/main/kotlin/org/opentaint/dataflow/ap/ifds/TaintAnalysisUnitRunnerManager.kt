@@ -385,7 +385,8 @@ class TaintAnalysisUnitRunnerManager(
                 logger.error { "Cancelled: $unit, stopping analysis" }
                 return@CoroutineExceptionHandler
             }
-            logger.error { "Got exception from runner for unit $unit, stopping analysis" }
+
+            logger.error { "Got exception $exception from runner for unit $unit, stopping analysis" }
             analysisCompletion.completeExceptionally(exception)
             updateFailureStatus(Status.EXCEPTION)
         }
