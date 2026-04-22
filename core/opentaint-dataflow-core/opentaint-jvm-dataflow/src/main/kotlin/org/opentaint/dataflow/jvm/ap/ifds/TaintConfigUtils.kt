@@ -9,6 +9,7 @@ import org.opentaint.dataflow.configuration.jvm.Action
 import org.opentaint.dataflow.configuration.jvm.AssignAction
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.Condition
+import org.opentaint.dataflow.configuration.jvm.ContainsMarkOnAnyField
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.CopyMark
 import org.opentaint.dataflow.configuration.jvm.RemoveAllMarks
@@ -190,7 +191,7 @@ object TaintConfigUtils {
         applyRule: (T, List<InitialFactAp>) -> Unit,
         applyRuleWithAssumptions: (T, List<FactWithPreconditions>) -> Unit
     ) {
-        val conditionEvaluator = JIRFactAwareConditionEvaluator(conditionFactReaders, markAfterAnyFieldResolver)
+        val conditionEvaluator = JIRFactAwareConditionEvaluator(conditionFactReaders, null)
 
         for (rule in this) {
             val ruleCondition = rule.condition()
@@ -228,15 +229,23 @@ object TaintConfigUtils {
 
             val conditionEvaluatorWithAssumptions = JIRFactAwareConditionEvaluator(
                 assumptionReaders,
-                markAfterAnyFieldResolver = null // note: mark resolved on first eval
+                null
             )
             if (!conditionEvaluatorWithAssumptions.evalWithAssumptionsCheck(assumptionExpr)) {
+                val restAssumptions = conditionEvaluatorWithAssumptions.assumptionExpr() ?: continue
+                if (!restAssumptions.mustCalculateAny()) continue
+            }
+            val conditionEvaluatorWithAssumptionsAndResolver = JIRFactAwareConditionEvaluator(
+                assumptionReaders,
+                markAfterAnyFieldResolver
+            )
+            if (!conditionEvaluatorWithAssumptionsAndResolver.evalWithAssumptionsCheck(assumptionExpr)) {
                 continue
             }
 
             val currentFactPreconditions = facts.map { FactWithPreconditions(it, listOf(factPrecondition)) }
 
-            val assumedFacts = conditionEvaluatorWithAssumptions.facts()
+            val assumedFacts = conditionEvaluatorWithAssumptionsAndResolver.facts()
 
             if (assumedFacts.size == 1) {
                 addRuleWithAssumption(
@@ -254,11 +263,11 @@ object TaintConfigUtils {
             val assumptionExprDnf = assumptionExpr.explodeToDNF().distinct()
             for (cube in assumptionExprDnf) {
                 val expr = JIRMarkAwareConditionExpr.And(cube.literals.toTypedArray())
-                if (!conditionEvaluatorWithAssumptions.evalWithAssumptionsCheck(expr)) {
+                if (!conditionEvaluatorWithAssumptionsAndResolver.evalWithAssumptionsCheck(expr)) {
                     continue
                 }
 
-                val cubeAssumedFacts = conditionEvaluatorWithAssumptions.facts()
+                val cubeAssumedFacts = conditionEvaluatorWithAssumptionsAndResolver.facts()
                 addRuleWithAssumption(
                     currentAssumptionPreconditions,
                     applyRuleWithAssumptions,
@@ -282,3 +291,16 @@ object TaintConfigUtils {
         applyRuleWithAssumptions(rule, allFacts)
     }
 }
+
+fun JIRMarkAwareConditionExpr.mustCalculateAny(): Boolean =
+    when (this) {
+        is JIRMarkAwareConditionExpr.Literal ->
+            this is JIRMarkAwareConditionExpr.ContainsMarkOnAnyFieldLiteral
+
+        is JIRMarkAwareConditionExpr.Or ->
+            args.any { it.mustCalculateAny() }
+
+        is JIRMarkAwareConditionExpr.And ->
+            args.all { it.mustCalculateAny() }
+    }
+
