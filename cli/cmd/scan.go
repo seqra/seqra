@@ -23,15 +23,20 @@ import (
 )
 
 var (
-	UserProjectPath           string
-	ProjectModelPath          string
-	SarifReportPath           string
-	SemgrepCompatibilitySarif bool
-	Severity                  []string
-	Ruleset                   []string
-	DryRunScan                bool
-	Recompile                 bool
-	ScanLogFile               string
+	UserProjectPath            string
+	ProjectModelPath           string
+	SarifReportPath            string
+	SemgrepCompatibilitySarif  bool
+	Severity                   []string
+	Ruleset                    []string
+	DryRunScan                 bool
+	Recompile                  bool
+	ScanLogFile                string
+	RuleID                     []string
+	ApproximationsConfig       []string
+	DataflowApproximations     []string
+	TrackExternalMethods       bool
+	DebugFactReachabilitySarif bool
 )
 
 type RulesetType struct {
@@ -125,6 +130,19 @@ func init() {
 	scanCmd.Flags().BoolVar(&Recompile, "recompile", false, "Force recompilation even if a cached project model exists")
 	scanCmd.Flags().StringVar(&ProjectModelPath, "project-model", "", "Path to a pre-compiled project model (skips compilation)")
 	scanCmd.Flags().StringVar(&ScanLogFile, "log-file", "", "Path to the log file (default: <cache-dir>/logs/<timestamp>.log)")
+	scanCmd.Flags().StringArrayVar(&RuleID, "rule-id", nil, "Filter active rules by ID (repeatable)")
+
+	scanCmd.Flags().StringArrayVar(&ApproximationsConfig, "approximations-config", nil, "YAML passThrough approximations config (OVERRIDE mode, repeatable)")
+	_ = scanCmd.PersistentFlags().MarkHidden("approximations-config")
+
+	scanCmd.Flags().StringArrayVar(&DataflowApproximations, "dataflow-approximations", nil, "Directory of compiled approximation class files (repeatable)")
+	_ = scanCmd.PersistentFlags().MarkHidden("dataflow-approximations")
+
+	scanCmd.Flags().BoolVar(&TrackExternalMethods, "track-external-methods", false, "Write external-methods-{without,with}-rules.yaml next to the SARIF report")
+	_ = scanCmd.PersistentFlags().MarkHidden("track-external-methods")
+
+	scanCmd.Flags().BoolVar(&DebugFactReachabilitySarif, "debug-fact-reachability-sarif", false, "Generate SARIF with fact reachability info (debug; use with a single rule only)")
+	_ = scanCmd.PersistentFlags().MarkHidden("debug-fact-reachability-sarif")
 }
 
 // currentScanBuilder returns a builder pre-populated with the user's current scan flags.
@@ -334,12 +352,35 @@ func scan(cmd *cobra.Command) {
 	if maxMemory != "" {
 		nativeBuilder.SetMaxMemory(maxMemory)
 	}
+	for _, ruleID := range RuleID {
+		nativeBuilder.AddRuleID(ruleID)
+	}
+	for _, approxConfig := range ApproximationsConfig {
+		absApproxConfig := log.AbsPathOrExit(approxConfig, "approximations-config")
+		nativeBuilder.AddApproximationsConfig(absApproxConfig)
+	}
+	if TrackExternalMethods {
+		nativeBuilder.SetTrackExternalMethods(true)
+	}
+	if DebugFactReachabilitySarif {
+		nativeBuilder.EnableDebugFactReachabilitySarif()
+	}
 
 	analyzerJarPath, err := ensureAnalyzerAvailable()
 	if err != nil {
 		out.Fatalf("Native scan preparation failed: %s", err)
 	}
 	nativeBuilder.SetJarPath(analyzerJarPath)
+
+	// Process --dataflow-approximations: auto-compile .java sources if needed
+	for _, approxPath := range DataflowApproximations {
+		absApproxPath := log.AbsPathOrExit(approxPath, "dataflow-approximations")
+		compiledPath, compileErr := compileApproximationsIfNeeded(absApproxPath, analyzerJarPath, absProjectModelPath)
+		if compileErr != nil {
+			out.Fatalf("Approximation compilation failed: %s", compileErr)
+		}
+		nativeBuilder.AddDataflowApproximations(compiledPath)
+	}
 
 	analyzerJavaRunner := java.NewJavaRunner().
 		WithSkipVerify(globals.Config.SkipVerify).
@@ -350,38 +391,68 @@ func scan(cmd *cobra.Command) {
 		out.Fatalf("Failed to resolve Java for analyzer: %s", err)
 	}
 
+	var analyzerFail *analyzerError
+	var scanCmdErr *java.JavaCommandError
 	if err := out.RunWithSpinner("Analyzing project", func() error {
-		return scanProject(nativeBuilder, analyzerJavaRunner)
+		var scanErr error
+		scanCmdErr, scanErr = scanProject(nativeBuilder, analyzerJavaRunner)
+		return scanErr
 	}); err != nil {
 		out.Fatalf("Native scan has failed: %s", err)
 	}
+	analyzerFail = classifyAnalyzerError(scanCmdErr)
 
+	// Always attempt to print summary information — even when the analyzer
+	// failed, partial SARIF and rule-load-trace files may have been written.
 	report, err := validation.ValidateSarifOutput(absSarifReportPath)
 	if err != nil {
 		output.LogInfof("Scan output validation failed: %v", err)
-		out.Fatalf("There was a problem during the scan step, check the full logs: %s", globals.LogPath)
+		if analyzerFail == nil {
+			// Analyzer reported success but produced no valid SARIF — treat as failure.
+			out.Error(fmt.Sprintf("There was a problem during the scan step, check the full logs: %s", globals.LogPath))
+			analyzerFail = &analyzerError{exitCode: 1, message: "scan output validation failed"}
+		}
 	}
 
 	out.Blank()
 
 	el, err := validation.ValidateRuleLoadTraceOutput(absSemgrepRuleLoadTracePath)
 	if err != nil {
-		out.Fatalf("Failed to validate rule load trace output: %s", err)
+		output.LogInfof("Rule load trace validation failed: %v", err)
+		if analyzerFail == nil {
+			out.Error(fmt.Sprintf("Failed to validate rule load trace output: %s", err))
+			analyzerFail = &analyzerError{exitCode: 1, message: "rule load trace validation failed"}
+		}
 	}
-	ruleLoadTraceSummary := load_trace.CollectRuleLoadTraceSummary(el, nonBuiltinRulesetPaths)
 
-	res := load_trace.CollectRulesetLoadErrorsSummary(ruleLoadTraceSummary)
-	ruleLoadErrorsResult := &res
+	if el != nil {
+		ruleLoadTraceSummary := load_trace.CollectRuleLoadTraceSummary(el, nonBuiltinRulesetPaths)
 
-	sarifSummary := sarif.GenerateSummary(report)
-	load_trace.PrintRuleStatisticsTree(out, ruleLoadErrorsResult, absSemgrepRuleLoadTracePath, sarifSummary)
+		res := load_trace.CollectRulesetLoadErrorsSummary(ruleLoadTraceSummary)
+		ruleLoadErrorsResult := &res
 
-	load_trace.PrintSyntaxErrorReport(out, ruleLoadTraceSummary)
+		var sarifSummary sarif.Summary
+		if report != nil {
+			sarifSummary = sarif.GenerateSummary(report)
+		}
+		load_trace.PrintRuleStatisticsTree(out, ruleLoadErrorsResult, absSemgrepRuleLoadTracePath, sarifSummary)
 
-	// Process the generated SARIF report if it exists
-	printSarifSummary(report, absSarifReportPath)
+		load_trace.PrintSyntaxErrorReport(out, ruleLoadTraceSummary)
+	}
 
-	suggest("To view findings run", utils.NewSummaryCommand(absSarifReportPath).WithShowFindings().Build())
+	if report != nil {
+		printSarifSummary(report, absSarifReportPath)
+	}
+
+	if SarifReportPath == "" {
+		utils.RemoveIfExistsOrExit(absSarifReportPath)
+	} else {
+		suggest("To view findings run", fmt.Sprintf("opentaint summary --show-findings %s", absSarifReportPath))
+	}
+
+	if analyzerFail != nil {
+		os.Exit(analyzerFail.exitCode)
+	}
 }
 
 func resolveScanConfig(absUserProjectRoot string) scanConfig {
@@ -502,6 +573,10 @@ func setupSemgrepRuleLoadTrace() string {
 }
 
 func ensureAnalyzerAvailable() (string, error) {
+	if globals.Config.Analyzer.JarPath != "" {
+		return globals.Config.Analyzer.JarPath, nil
+	}
+
 	analyzerJarPath, err := utils.GetAnalyzerJarPath(globals.Config.Analyzer.Version)
 	if err != nil {
 		return "", fmt.Errorf("failed to construct path to the analyzer: %w", err)
@@ -516,7 +591,7 @@ func ensureAnalyzerAvailable() (string, error) {
 	return analyzerJarPath, nil
 }
 
-func scanProject(analyzerBuilder *AnalyzerBuilder, javaRunner java.JavaRunner) error {
+func scanProject(analyzerBuilder *AnalyzerBuilder, javaRunner java.JavaRunner) (*java.JavaCommandError, error) {
 	analyzerCommand := analyzerBuilder.BuildNativeCommand()
 
 	commandSucceeded := func(err error) bool {
@@ -526,8 +601,6 @@ func scanProject(analyzerBuilder *AnalyzerBuilder, javaRunner java.JavaRunner) e
 		}
 		return true
 	}
-	// Execute the command using JavaRunner
-	err := javaRunner.ExecuteJavaCommand(analyzerCommand, commandSucceeded)
 
-	return err
+	return javaRunner.ExecuteJavaCommand(analyzerCommand, commandSucceeded)
 }

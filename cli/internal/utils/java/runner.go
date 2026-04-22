@@ -24,6 +24,16 @@ const (
 	None
 )
 
+// JavaCommandError is returned when a Java process exits with a non-zero exit code.
+// It preserves the exit code so callers can interpret process-specific status values.
+type JavaCommandError struct {
+	ExitCode int
+}
+
+func (e *JavaCommandError) Error() string {
+	return fmt.Sprintf("java command failed with exit code %d", e.ExitCode)
+}
+
 type JavaRunner interface {
 	TrySystem() JavaRunner
 	TrySpecificVersion(version int) JavaRunner
@@ -35,7 +45,7 @@ type JavaRunner interface {
 	// Call this before wrapping ExecuteJavaCommand in a spinner to avoid
 	// download progress bars overlapping with spinner output.
 	EnsureJava() (string, error)
-	ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) error
+	ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) (*JavaCommandError, error)
 }
 
 type DebugLineWriter interface {
@@ -147,9 +157,9 @@ func (j *javaRunner) EnsureJava() (string, error) {
 	return "", fmt.Errorf("all Java resolution attempts failed")
 }
 
-func (j *javaRunner) ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) error {
+func (j *javaRunner) ExecuteJavaCommand(args []string, commandSucceeded func(error) bool) (*JavaCommandError, error) {
 	if len(args) == 0 {
-		return fmt.Errorf("no Java command arguments provided")
+		return nil, fmt.Errorf("no Java command arguments provided")
 	}
 
 	// If EnsureJava was called, use the pre-resolved path directly
@@ -157,6 +167,7 @@ func (j *javaRunner) ExecuteJavaCommand(args []string, commandSucceeded func(err
 		return j.executeWithJava(j.resolvedJavaPath, Specific, args, commandSucceeded)
 	}
 
+	var lastCmdErr *JavaCommandError
 	resolutionStrategies := j.GetJavaResolutions()
 	for i, resolutionStrategy := range resolutionStrategies {
 		javaPath, strategy, err := resolutionStrategy()
@@ -165,17 +176,26 @@ func (j *javaRunner) ExecuteJavaCommand(args []string, commandSucceeded func(err
 			continue
 		}
 
-		if err := j.executeWithJava(javaPath, strategy, args, commandSucceeded); err == nil {
-			return nil
+		cmdErr, execErr := j.executeWithJava(javaPath, strategy, args, commandSucceeded)
+		if execErr != nil {
+			output.LogDebugf("Java command setup failed (attempt %d): %v", i+1, execErr)
+			continue
+		}
+		if cmdErr == nil {
+			return nil, nil
 		}
 
+		lastCmdErr = cmdErr
 		output.LogDebugf("Java command failed (attempt %d), trying next resolution", i+1)
 	}
 
-	return fmt.Errorf("all Java resolution attempts failed")
+	if lastCmdErr != nil {
+		return lastCmdErr, nil
+	}
+	return nil, fmt.Errorf("all Java resolution attempts failed")
 }
 
-func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrategy, args []string, commandSucceeded func(error) bool) error {
+func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrategy, args []string, commandSucceeded func(error) bool) (*JavaCommandError, error) {
 	cmdArgs := append([]string{javaPath}, args...)
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 
@@ -190,16 +210,16 @@ func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrateg
 	// Create pipes for stdout and stderr
 	stdoutPipe, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Errorf("failed to create stdout pipe: %w", err)
+		return nil, fmt.Errorf("failed to create stdout pipe: %w", err)
 	}
 
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
-		return fmt.Errorf("failed to create stderr pipe: %w", err)
+		return nil, fmt.Errorf("failed to create stderr pipe: %w", err)
 	}
 
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to start Java command: %w", err)
+		return nil, fmt.Errorf("failed to start Java command: %w", err)
 	}
 
 	streamToTerminal := globals.Config.Output.Debug
@@ -230,9 +250,10 @@ func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrateg
 	// Wait for the command to finish
 	err = cmd.Wait()
 
-	// Log any errors at debug level (caller decides severity)
+	// Extract exit code from the process error
+	exitCode := 0
 	if err != nil {
-		exitCode := 1
+		exitCode = 1
 		if exitErr, ok := err.(*exec.ExitError); ok {
 			exitCode = exitErr.ExitCode()
 		}
@@ -240,10 +261,10 @@ func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrateg
 	}
 
 	if commandSucceeded(err) {
-		return nil
+		return nil, nil
 	}
 
-	return fmt.Errorf("java command failed")
+	return &JavaCommandError{ExitCode: exitCode}, nil
 }
 
 func (j *javaRunner) TrySpecificVersion(version int) JavaRunner {

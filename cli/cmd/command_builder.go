@@ -42,21 +42,26 @@ func NewAutobuilderBuilder() *AutobuilderBuilder {
 
 type AnalyzerBuilder struct {
 	*BaseCommandBuilder
-	projectPath              string
-	outputDir                string
-	sarifFileName            string
-	sarifCodeFlowLimit       int64
-	sarifToolVersion         string
-	sarifToolSemanticVersion string
-	sarifUriBase             string
-	semgrepCompatibility     bool
-	partialFingerprints      bool
-	ifdsAnalysisTimeout      int64
-	severities               []string
-	ruleSetPaths             []string
-	ruleLoadTracePath        string
-	jarPath                  string
-	maxMemory                string
+	projectPath                string
+	outputDir                  string
+	sarifFileName              string
+	sarifCodeFlowLimit         int64
+	sarifToolVersion           string
+	sarifToolSemanticVersion   string
+	sarifUriBase               string
+	semgrepCompatibility       bool
+	partialFingerprints        bool
+	ifdsAnalysisTimeout        int64
+	severities                 []string
+	ruleSetPaths               []string
+	ruleLoadTracePath          string
+	jarPath                    string
+	maxMemory                  string
+	ruleIDs                    []string
+	approximationsConfig       []string
+	dataflowApproximations     []string
+	trackExternalMethods       bool
+	debugFactReachabilitySarif bool
 }
 
 func (a *AnalyzerBuilder) SetProject(projectPath string) *AnalyzerBuilder {
@@ -134,6 +139,31 @@ func (a *AnalyzerBuilder) SetMaxMemory(maxMemory string) *AnalyzerBuilder {
 	return a
 }
 
+func (a *AnalyzerBuilder) AddRuleID(ruleID string) *AnalyzerBuilder {
+	a.ruleIDs = append(a.ruleIDs, ruleID)
+	return a
+}
+
+func (a *AnalyzerBuilder) AddApproximationsConfig(configPath string) *AnalyzerBuilder {
+	a.approximationsConfig = append(a.approximationsConfig, configPath)
+	return a
+}
+
+func (a *AnalyzerBuilder) AddDataflowApproximations(approxPath string) *AnalyzerBuilder {
+	a.dataflowApproximations = append(a.dataflowApproximations, approxPath)
+	return a
+}
+
+func (a *AnalyzerBuilder) SetTrackExternalMethods(track bool) *AnalyzerBuilder {
+	a.trackExternalMethods = track
+	return a
+}
+
+func (a *AnalyzerBuilder) EnableDebugFactReachabilitySarif() *AnalyzerBuilder {
+	a.debugFactReachabilitySarif = true
+	return a
+}
+
 func (a *AnalyzerBuilder) BuildNativeCommand() []string {
 	// For native execution, create a temporary logs directory
 	tempLogsDir, err := os.MkdirTemp("", "opentaint-*")
@@ -201,6 +231,26 @@ func (a *AnalyzerBuilder) BuildNativeCommand() []string {
 
 	if a.ruleLoadTracePath != "" {
 		flags = append(flags, "--semgrep-rule-load-trace", a.ruleLoadTracePath)
+	}
+
+	for _, ruleID := range a.ruleIDs {
+		flags = append(flags, "--semgrep-rule-id", ruleID)
+	}
+
+	for _, configPath := range a.approximationsConfig {
+		flags = append(flags, "--approximations-config", configPath)
+	}
+
+	for _, approxPath := range a.dataflowApproximations {
+		flags = append(flags, "--dataflow-approximations", approxPath)
+	}
+
+	if a.trackExternalMethods {
+		flags = append(flags, "--track-external-methods")
+	}
+
+	if a.debugFactReachabilitySarif {
+		flags = append(flags, "--debug-fact-reachability-sarif")
 	}
 
 	return append(command, flags...)
