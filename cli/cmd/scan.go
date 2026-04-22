@@ -402,8 +402,6 @@ func scan(cmd *cobra.Command) {
 	}
 	analyzerFail = classifyAnalyzerError(scanCmdErr)
 
-	// Always attempt to print summary information — even when the analyzer
-	// failed, partial SARIF and rule-load-trace files may have been written.
 	report, err := validation.ValidateSarifOutput(absSarifReportPath)
 	if err != nil {
 		output.LogInfof("Scan output validation failed: %v", err)
@@ -442,12 +440,7 @@ func scan(cmd *cobra.Command) {
 
 	if report != nil {
 		printSarifSummary(report, absSarifReportPath)
-	}
-
-	if SarifReportPath == "" {
-		utils.RemoveIfExistsOrExit(absSarifReportPath)
-	} else {
-		suggest("To view findings run", fmt.Sprintf("opentaint summary --show-findings %s", absSarifReportPath))
+		suggest("To view findings run", utils.NewSummaryCommand(absSarifReportPath).WithShowFindings().Build())
 	}
 
 	if analyzerFail != nil {
