@@ -11,6 +11,7 @@ import org.opentaint.semgrep.pattern.SemgrepLoadTrace
 import org.opentaint.semgrep.pattern.SemgrepRuleLoader
 import org.opentaint.semgrep.pattern.createTaintConfig
 import kotlin.io.path.Path
+import kotlin.io.path.relativeTo
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -32,7 +33,19 @@ abstract class SampleBasedTest(
 
         val trace = SemgrepLoadTrace()
         val loader = SemgrepRuleLoader()
-        loader.registerRuleSet(ruleSetText = data.rule, ruleRelativePath = Path(data.rulePath), rulesRoot = Path("."), trace)
+
+        val rulesRoot = Path(".")
+        val rootDir = Path("samples/src/main/resources/lib").toFile()
+        rootDir.walk().filter { it.isFile }.forEach { file ->
+            if (file.extension !in setOf("yml", "yaml")) {
+                return@forEach
+            }
+
+            val content = file.readText()
+            loader.registerRuleSet(content, file.toPath().relativeTo(rulesRoot), rulesRoot, trace)
+        }
+
+        loader.registerRuleSet(ruleSetText = data.rule, ruleRelativePath = Path(data.rulePath), rulesRoot, trace)
 
         val loadedRules = loader.loadRules().rulesWithMeta
         val (rule, _) = loadedRules.singleOrNull()

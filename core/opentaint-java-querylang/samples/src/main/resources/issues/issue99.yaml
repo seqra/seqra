@@ -1,0 +1,15 @@
+rules:
+  - id: any-unroll
+    severity: ERROR
+    message: join rule
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: samples/src/main/resources/lib/source.yaml#untrusted-data-source
+          as: untrusted-data
+        - rule: samples/src/main/resources/lib/sink.yaml#sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'

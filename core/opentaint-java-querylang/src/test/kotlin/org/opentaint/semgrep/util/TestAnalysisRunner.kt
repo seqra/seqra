@@ -31,6 +31,7 @@ import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.jvm.graph.JApplicationGraphImpl
 import org.opentaint.jvm.sast.dataflow.DummySerializationContext
 import org.opentaint.jvm.sast.dataflow.JIRMethodExitRuleProvider
+import org.opentaint.jvm.sast.dataflow.JIRTaintAnalyzer
 import org.opentaint.jvm.sast.dataflow.JIRTaintRulesProvider
 import org.opentaint.jvm.sast.dataflow.rules.TaintConfiguration
 import org.opentaint.jvm.transformer.JMultiDimArrayAllocationTransformer
@@ -85,7 +86,7 @@ class TestAnalysisRunner(
                     if (method.enclosingClass.declaration.location.isRuntime) UnknownUnit else SingletonUnit
 
             } as UnitResolver<CommonMethod>,
-            apManager = TreeApManager(anyAccessorUnrollStrategy = AnyAccessorUnrollStrategy.AnyAccessorDisabled),
+            apManager = TreeApManager(anyAccessorUnrollStrategy = JIRTaintAnalyzer.UnrollStrategy),
             summarySerializationContext = DummySerializationContext,
             taintConfig = configProvider,
             taintRulesStatsSamplingPeriod = null,

@@ -73,7 +73,7 @@ class JIRTaintAnalyzer(
         return analyzeTaintWithIfdsEngine(entryPoints)
     }
 
-    private object UnrollStrategy : AnyAccessorUnrollStrategy {
+    object UnrollStrategy : AnyAccessorUnrollStrategy {
         override fun unrollAccessor(accessor: Accessor): Boolean = when (accessor) {
             is ElementAccessor -> true
             is FieldAccessor -> accessor.fieldName != "<rule-storage>"

@@ -270,7 +270,7 @@ private fun RuleConversionCtx.convertCompositionRightMatchingRule(
 
 private fun RuleConversionCtx.convertCompositionRightTaintRule(
     automata: SemgrepTaintRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>>,
-    @Suppress("UNUSED_PARAMETER") initialVar: MetavarAtom,
+    initialVar: MetavarAtom,
     leftFinalMarks: Set<GeneratedMark>,
 ): List<TaintRuleFromSemgrep.TaintRuleGroup>? {
     if (automata.sources.isNotEmpty()) {
@@ -279,19 +279,20 @@ private fun RuleConversionCtx.convertCompositionRightTaintRule(
     }
 
     // note: we always treat initial var as taint source
-    return convertCompositionRightTaintRule(automata, leftFinalMarks)
+    return convertCompositionRightTaintRule(automata, leftFinalMarks, initialVar)
 }
 
 private fun RuleConversionCtx.convertCompositionRightTaintRule(
     automata: SemgrepTaintRule<RuleWithMetaVars<TaintRegisterStateAutomata, ResolvedMetaVarInfo>>,
     sourceMarks: Set<GeneratedMark>,
+    initialVar: MetavarAtom
 ): List<TaintRuleFromSemgrep.TaintRuleGroup> {
     val preparedRules = prepareTaintNonSourceRules(
         automata,
         sources = emptyList(),
         taintMarks = sourceMarks.mapTo(hashSetOf()) { GeneratedTaintMark(it) }
     )
-    return convertTaintRuleToTaintRules(preparedRules, ignoreEmptySources = true).taintRules
+    return convertTaintRuleToTaintRules(preparedRules, ignoreEmptySources = true, initialWithAny = initialVar).taintRules
 }
 
 private fun RuleConversionCtx.convertCompositionLeftTaintRule(
@@ -337,7 +338,7 @@ private fun RuleConversionCtx.convertCompositionLeftTaintRule(
         taintMarks = taintMarks
     )
 
-    val result = convertTaintRuleToTaintRules(preparedRules, ignoreEmptySources = false)
+    val result = convertTaintRuleToTaintRules(preparedRules, ignoreEmptySources = false, mkAnyOnFinal = true)
 
     val finalMarks = finalLabels.mapTo(hashSetOf()) { taintMark(it) }
     return result.taintRules to finalMarks
