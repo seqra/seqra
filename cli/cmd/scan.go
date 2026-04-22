@@ -125,7 +125,6 @@ func init() {
 	scanCmd.Flags().StringVar(&globals.Config.Scan.MaxMemory, "max-memory", "8G", "Maximum memory for the analyzer (e.g., 1024m, 8G, 81920k, 83886080)")
 	_ = viper.BindPFlag("scan.max_memory", scanCmd.Flags().Lookup("max-memory"))
 	scanCmd.Flags().Int64Var(&globals.Config.Scan.CodeFlowLimit, "code-flow-limit", 0, "Maximum number of code flows to include in the report (0 = unlimited)")
-	_ = scanCmd.Flags().MarkHidden("code-flow-limit")
 	_ = viper.BindPFlag("scan.code_flow_limit", scanCmd.Flags().Lookup("code-flow-limit"))
 	scanCmd.Flags().BoolVar(&DryRunScan, "dry-run", false, "Validate inputs and show what would run without compiling or scanning")
 	scanCmd.Flags().BoolVar(&Recompile, "recompile", false, "Force recompilation even if a cached project model exists")
