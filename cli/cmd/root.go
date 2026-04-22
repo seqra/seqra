@@ -13,10 +13,16 @@ import (
 	"github.com/seqra/opentaint/internal/utils/log"
 	"github.com/seqra/opentaint/internal/version"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
-var toolVersion bool
+const experimentalFlagName = "experimental"
+
+var (
+	toolVersion      bool
+	experimentalMode bool
+)
 
 // out is the global output printer used by all commands for user-facing output.
 // It is configured in PersistentPreRunE after logging is set up.
@@ -34,6 +40,8 @@ var rootCmd = &cobra.Command{
 	SilenceUsage:  true,
 
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		applyExperimentalFlagVisibility(cmd.Root(), experimentalMode)
+
 		if err := log.SetUpLogs(); err != nil {
 			return fmt.Errorf("failed to set up logging: %w", err)
 		}
@@ -83,12 +91,15 @@ func Execute() {
 
 func init() {
 	cobra.OnInitialize(initConfig)
+	configureExperimentalFlagVisibility()
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
 	rootCmd.PersistentFlags().StringVar(&globals.ConfigFile, "config", "", "Path to a config file")
+	rootCmd.PersistentFlags().BoolVar(&experimentalMode, experimentalFlagName, false, "Show experimental and hidden flags")
+	_ = rootCmd.PersistentFlags().MarkHidden(experimentalFlagName)
 
 	rootCmd.Flags().BoolVarP(&toolVersion, "version", "v", false, "Print the version information")
 
@@ -130,6 +141,14 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVar(&globals.Config.SkipVerify, "skip-verify", false, "Skip SHA256 checksum verification of downloaded artifacts")
 	_ = viper.BindPFlag("skip-verify", rootCmd.PersistentFlags().Lookup("skip-verify"))
+
+	rootCmd.PersistentFlags().StringVar(&globals.Config.Analyzer.JarPath, "analyzer-jar", "", "Path to analyzer JAR (dev override, skips download)")
+	_ = rootCmd.PersistentFlags().MarkHidden("analyzer-jar")
+	_ = viper.BindPFlag("analyzer.jar_path", rootCmd.PersistentFlags().Lookup("analyzer-jar"))
+
+	rootCmd.PersistentFlags().StringVar(&globals.Config.Autobuilder.JarPath, "autobuilder-jar", "", "Path to autobuilder JAR (dev override, skips download)")
+	_ = rootCmd.PersistentFlags().MarkHidden("autobuilder-jar")
+	_ = viper.BindPFlag("autobuilder.jar_path", rootCmd.PersistentFlags().Lookup("autobuilder-jar"))
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -180,6 +199,52 @@ func addConfigFields(cmd *cobra.Command, sb *output.SectionBuilder) {
 			}
 		}
 	}
+}
+
+func configureExperimentalFlagVisibility() {
+	defaultHelpFunc := rootCmd.HelpFunc()
+	defaultUsageFunc := rootCmd.UsageFunc()
+
+	rootCmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		applyExperimentalFlagVisibility(cmd.Root(), experimentalMode)
+		defaultHelpFunc(cmd, args)
+	})
+	rootCmd.SetUsageFunc(func(cmd *cobra.Command) error {
+		applyExperimentalFlagVisibility(cmd.Root(), experimentalMode)
+		return defaultUsageFunc(cmd)
+	})
+}
+
+func applyExperimentalFlagVisibility(root *cobra.Command, enabled bool) {
+	if !enabled || root == nil {
+		return
+	}
+
+	visitCommandTree(root, func(cmd *cobra.Command) {
+		setFlagSetHidden(cmd.LocalFlags(), false)
+		setFlagSetHidden(cmd.PersistentFlags(), false)
+	})
+}
+
+func visitCommandTree(root *cobra.Command, visit func(*cobra.Command)) {
+	if root == nil {
+		return
+	}
+
+	visit(root)
+	for _, child := range root.Commands() {
+		visitCommandTree(child, visit)
+	}
+}
+
+func setFlagSetHidden(flags *pflag.FlagSet, hidden bool) {
+	if flags == nil {
+		return
+	}
+
+	flags.VisitAll(func(flag *pflag.Flag) {
+		flag.Hidden = hidden
+	})
 }
 
 // checkForUpdateAsync checks for a newer version in the background, throttled to once per day.

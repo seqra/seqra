@@ -332,8 +332,11 @@ func TestJavaRunner_GetJavaResolutions_BothStrategies(t *testing.T) {
 func TestJavaRunner_ExecuteJavaCommand_NoArgs(t *testing.T) {
 	runner := NewJavaRunner()
 
-	err := runner.ExecuteJavaCommand([]string{}, func(error) bool { return true })
+	cmdErr, err := runner.ExecuteJavaCommand([]string{}, func(error) bool { return true })
 
+	if cmdErr != nil {
+		t.Error("Expected no JavaCommandError for missing arguments")
+	}
 	if err == nil {
 		t.Error("Expected error when no arguments provided")
 	}

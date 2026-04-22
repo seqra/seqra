@@ -118,6 +118,10 @@ func init() {
 }
 
 func ensureAutobuilderAvailable() (string, error) {
+	if globals.Config.Autobuilder.JarPath != "" {
+		return globals.Config.Autobuilder.JarPath, nil
+	}
+
 	autobuilderJarPath, err := utils.GetAutobuilderJarPath(globals.Config.Autobuilder.Version)
 	if err != nil {
 		return "", fmt.Errorf("failed to construct path to the autobuilder: %w", err)
@@ -189,10 +193,14 @@ func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPat
 		return true
 	}
 	// Execute the command using JavaRunner
-	err = javaRunner.ExecuteJavaCommand(autobuilderCommand, commandSucceeded)
+	cmdErr, err := javaRunner.ExecuteJavaCommand(autobuilderCommand, commandSucceeded)
 	if err != nil {
 		output.LogInfof("Native compilation has failed: %s", err)
 		return fmt.Errorf("native compilation has failed: %w", err)
+	}
+	if cmdErr != nil {
+		output.LogInfof("Native compilation has failed: %s", cmdErr)
+		return fmt.Errorf("native compilation has failed: %w", cmdErr)
 	}
 
 	return nil
