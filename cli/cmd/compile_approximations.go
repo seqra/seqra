@@ -155,7 +155,7 @@ func extractApproxClassesFromJar(jarPath string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to open JAR: %w", err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	extractDir, err := os.MkdirTemp("", "opentaint-approx-deps-*")
 	if err != nil {
@@ -164,42 +164,56 @@ func extractApproxClassesFromJar(jarPath string) (string, error) {
 
 	const prefix = "opentaint-dataflow-approximations/"
 	for _, f := range r.File {
-		if !strings.HasPrefix(f.Name, prefix) {
-			continue
-		}
-		if f.FileInfo().IsDir() {
-			continue
-		}
-		relPath := strings.TrimPrefix(f.Name, prefix)
-		if relPath == "" {
-			continue
-		}
-		destPath := filepath.Join(extractDir, relPath)
-		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
-			_ = os.RemoveAll(extractDir)
-			return "", err
-		}
-		src, err := f.Open()
-		if err != nil {
-			_ = os.RemoveAll(extractDir)
-			return "", err
-		}
-		dst, err := os.Create(destPath)
-		if err != nil {
-			src.Close()
-			_ = os.RemoveAll(extractDir)
-			return "", err
-		}
-		_, err = io.Copy(dst, src)
-		src.Close()
-		dst.Close()
-		if err != nil {
-			_ = os.RemoveAll(extractDir)
-			return "", err
+		classExtErr := extractApproxClass(f, prefix, extractDir)
+		if classExtErr != nil {
+			return "", classExtErr
 		}
 	}
 
 	return extractDir, nil
+}
+
+func extractApproxClass(f *zip.File, prefix string, extractDir string) error {
+	if !strings.HasPrefix(f.Name, prefix) {
+		return nil
+	}
+	if f.FileInfo().IsDir() {
+		return nil
+	}
+
+	relPath := strings.TrimPrefix(f.Name, prefix)
+	if relPath == "" {
+		return nil
+	}
+
+	destPath := filepath.Join(extractDir, relPath)
+	if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+		_ = os.RemoveAll(extractDir)
+		return err
+	}
+
+	src, err := f.Open()
+	if err != nil {
+		_ = os.RemoveAll(extractDir)
+		return err
+	}
+	defer func() { _ = src.Close() }()
+
+	dst, err := os.Create(destPath)
+	if err != nil {
+		_ = os.RemoveAll(extractDir)
+		return err
+	}
+	defer func() { _ = dst.Close() }()
+
+	_, err = io.Copy(dst, src)
+
+	if err != nil {
+		_ = os.RemoveAll(extractDir)
+		return err
+	}
+
+	return nil
 }
 
 // deriveJavacPath returns the path to javac given the path to java.
