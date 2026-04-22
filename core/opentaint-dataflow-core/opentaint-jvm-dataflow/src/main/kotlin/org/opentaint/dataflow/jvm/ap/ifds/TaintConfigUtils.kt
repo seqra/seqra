@@ -229,23 +229,15 @@ object TaintConfigUtils {
 
             val conditionEvaluatorWithAssumptions = JIRFactAwareConditionEvaluator(
                 assumptionReaders,
-                null
+                markAfterAnyFieldResolver.takeIf { assumptionExpr.mustCalculateAny() }
             )
             if (!conditionEvaluatorWithAssumptions.evalWithAssumptionsCheck(assumptionExpr)) {
-                val restAssumptions = conditionEvaluatorWithAssumptions.assumptionExpr() ?: continue
-                if (!restAssumptions.mustCalculateAny()) continue
-            }
-            val conditionEvaluatorWithAssumptionsAndResolver = JIRFactAwareConditionEvaluator(
-                assumptionReaders,
-                markAfterAnyFieldResolver
-            )
-            if (!conditionEvaluatorWithAssumptionsAndResolver.evalWithAssumptionsCheck(assumptionExpr)) {
                 continue
             }
 
             val currentFactPreconditions = facts.map { FactWithPreconditions(it, listOf(factPrecondition)) }
 
-            val assumedFacts = conditionEvaluatorWithAssumptionsAndResolver.facts()
+            val assumedFacts = conditionEvaluatorWithAssumptions.facts()
 
             if (assumedFacts.size == 1) {
                 addRuleWithAssumption(
@@ -263,11 +255,11 @@ object TaintConfigUtils {
             val assumptionExprDnf = assumptionExpr.explodeToDNF().distinct()
             for (cube in assumptionExprDnf) {
                 val expr = JIRMarkAwareConditionExpr.And(cube.literals.toTypedArray())
-                if (!conditionEvaluatorWithAssumptionsAndResolver.evalWithAssumptionsCheck(expr)) {
+                if (!conditionEvaluatorWithAssumptions.evalWithAssumptionsCheck(expr)) {
                     continue
                 }
 
-                val cubeAssumedFacts = conditionEvaluatorWithAssumptionsAndResolver.facts()
+                val cubeAssumedFacts = conditionEvaluatorWithAssumptions.facts()
                 addRuleWithAssumption(
                     currentAssumptionPreconditions,
                     applyRuleWithAssumptions,
