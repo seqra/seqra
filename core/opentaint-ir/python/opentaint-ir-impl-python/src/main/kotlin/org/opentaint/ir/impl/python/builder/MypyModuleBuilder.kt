@@ -214,7 +214,41 @@ class MypyModuleBuilder(
         funcDef: MypyFuncDefProto,
         enclosingClass: String?,
         module: PIRModule,
-    ): PIRFunction {
+    ): PIRFunction = convertFlatFunction(
+        buildFlatFunction(
+            funcDef,
+            buildDecorators(funcDef),
+            enclosingClass,
+        ),
+        module,
+    )
+
+    private fun buildDecoratedFunction(
+        decorator: MypyDecoratorDefProto,
+        enclosingClass: String?,
+        module: PIRModule,
+    ): PIRFunction = convertFlatFunction(
+        buildFlatFunction(
+            decorator.func,
+            buildDecorators(decorator),
+            enclosingClass,
+        ),
+        module,
+    )
+
+    private fun buildDecorators(
+        decorator: MypyDecoratorDefProto
+    ): List<FlatDecorator> = decorator.originalDecoratorsList.map { flatDecoratorFromExpr(it) }
+
+    private fun buildDecorators(
+        funcDef: MypyFuncDefProto
+    ): List<FlatDecorator> = funcDef.decoratorsList.map { FlatDecorator(it.name, it.qualifiedName, it.argumentsList) }
+
+    private fun buildFlatFunction(
+        funcDef: MypyFuncDefProto,
+        decorators: List<FlatDecorator>,
+        enclosingClass: String?,
+    ): FlatFunctionIR {
         val qualifiedName = if (enclosingClass != null) {
             // Always use enclosingClass when present — the proto's fullname may be wrong
             // for decorated methods (Python serializer doesn't pass enclosing_class to
@@ -226,7 +260,6 @@ class MypyModuleBuilder(
             "$moduleName.${funcDef.name}"
         }
 
-        // Build CFG from raw AST body
         val cfgScope = ScopeStack()
         val cfgBuilder = CfgBuilder(cfgScope, this, currentFunctionQualifiedName = qualifiedName)
         val flatCfg = try {
@@ -245,79 +278,69 @@ class MypyModuleBuilder(
             FlatCFG.EMPTY
         }
 
-        val pirCfg = ic.convertCFG(flatCfg)
-
-        val params = funcDef.argumentsList.mapIndexed { idx, arg ->
-            val kind = when (arg.kind) {
-                0, 1 -> PIRParameterKind.POSITIONAL_OR_KEYWORD
-                2 -> PIRParameterKind.VAR_POSITIONAL
-                4 -> PIRParameterKind.VAR_KEYWORD
-                3, 5 -> PIRParameterKind.KEYWORD_ONLY
-                else -> PIRParameterKind.POSITIONAL_OR_KEYWORD
-            }
-            val type = if (arg.hasType()) typeConverter.convert(arg.type) else PIRAnyType
-            PIRParameterImpl(arg.name, type, kind, arg.hasDefault, null, idx)
-        }
-
-        val returnType = if (funcDef.hasReturnType()) {
-            typeConverter.convert(funcDef.returnType)
-        } else PIRAnyType
-
-        val function = PIRFunctionImpl(
+        return FlatFunctionIR(
             name = funcDef.name,
             qualifiedName = qualifiedName,
-            parameters = params,
-            returnType = returnType,
-            cfg = pirCfg,
-            decorators = funcDef.decoratorsList.map {
-                PIRDecoratorImpl(it.name, it.qualifiedName, it.argumentsList)
-            },
+            parentQualifiedName = null,
+            kind = if (enclosingClass != null) FlatFunctionKind.METHOD else FlatFunctionKind.TOP_LEVEL,
+            cfg = flatCfg,
+            parameters = convertParameters(funcDef.argumentsList),
+            returnType = if (funcDef.hasReturnType()) protoTypeToFlat(funcDef.returnType) else FlatAnyType,
             isAsync = funcDef.isAsync,
             isGenerator = funcDef.isGenerator,
-            isStaticMethod = funcDef.isStatic,
-            isClassMethod = funcDef.isClass,
-            isProperty = funcDef.isProperty,
             closureVars = funcDef.closureVarsList,
-            enclosingClass = null,
-            module = module,
+            decorators = decorators,
         )
-        wireInstructionLocations(function)
-        return function
     }
 
-    private fun buildDecoratedFunction(
-        decorator: MypyDecoratorDefProto,
-        enclosingClass: String?,
-        module: PIRModule,
-    ): PIRFunction {
-        val func = buildFunction(decorator.func, enclosingClass, module)
-
-        var isStatic = func.isStaticMethod
-        var isClass = func.isClassMethod
-        var isProp = func.isProperty
-        val decList = mutableListOf<PIRDecorator>()
-
-        for (decExpr in decorator.originalDecoratorsList) {
-            if (decExpr.hasNameExpr()) {
-                when (decExpr.nameExpr.name) {
-                    "staticmethod" -> isStatic = true
-                    "classmethod" -> isClass = true
-                    "property" -> isProp = true
-                }
-                decList.add(PIRDecoratorImpl(
-                    decExpr.nameExpr.name,
-                    decExpr.nameExpr.fullname,
-                    emptyList()
-                ))
-            }
+    private fun flatDecoratorFromExpr(expr: MypyExprProto): FlatDecorator = when {
+        expr.hasNameExpr() -> {
+            val ne = expr.nameExpr
+            FlatDecorator(
+                name = ne.name,
+                qualifiedName = ne.fullname.ifEmpty { ne.name },
+                arguments = emptyList(),
+            )
         }
+        expr.hasMemberExpr() -> {
+            val me = expr.memberExpr
+            FlatDecorator(
+                name = me.name,
+                qualifiedName = me.fullname.ifEmpty { memberExprDottedPath(me) },
+                arguments = emptyList(),
+            )
+        }
+        expr.hasCallExpr() -> {
+            val ce = expr.callExpr
+            val callee = flatDecoratorFromExpr(ce.callee)
+            FlatDecorator(
+                name = callee.name,
+                qualifiedName = callee.qualifiedName,
+                arguments = ce.argsList.map { exprRepr(it.expr) },
+            )
+        }
+        else -> FlatDecorator("<unknown>", "<unknown>", emptyList())
+    }
 
-        return PIRFunctionImpl(
-            func.name, func.qualifiedName, func.parameters, func.returnType,
-            func.cfg, decList, func.isAsync, func.isGenerator,
-            isStatic, isClass, isProp,
-            func.closureVars, func.enclosingClass, module
-        )
+    private fun memberExprDottedPath(me: MypyMemberExprProto): String {
+        val prefix = when {
+            me.expr.hasNameExpr() -> me.expr.nameExpr.fullname.ifEmpty { me.expr.nameExpr.name }
+            me.expr.hasMemberExpr() -> memberExprDottedPath(me.expr.memberExpr)
+            else -> "<expr>"
+        }
+        return "$prefix.${me.name}"
+    }
+
+    private fun exprRepr(expr: MypyExprProto): String = when {
+        expr.hasIntExpr() -> expr.intExpr.value.toString()
+        expr.hasStrExpr() -> "\"${expr.strExpr.value}\""
+        expr.hasFloatExpr() -> expr.floatExpr.value.toString()
+        expr.hasBytesExpr() -> "b\"${expr.bytesExpr.value.toStringUtf8()}\""
+        expr.hasComplexExpr() -> "${expr.complexExpr.real}+${expr.complexExpr.imag}j"
+        expr.hasEllipsisExpr() -> "..."
+        expr.hasNameExpr() -> expr.nameExpr.name
+        expr.hasMemberExpr() -> memberExprDottedPath(expr.memberExpr)
+        else -> "<expr>"
     }
 
     // ─── Module init ─────────────────────────────────────
@@ -418,6 +441,9 @@ class MypyModuleBuilder(
             isAsync = funcDef.isAsync,
             isGenerator = funcDef.isGenerator,
             closureVars = closureVars,
+            decorators = funcDef.decoratorsList.map {
+                FlatDecorator(it.name, it.qualifiedName, it.argumentsList)
+            },
         ))
 
         return Pair(uniqueName, qualifiedName)
@@ -442,6 +468,7 @@ class MypyModuleBuilder(
             isAsync = false,
             isGenerator = false,
             closureVars = emptyList(),
+            decorators = emptyList(),
         ))
     }
 
@@ -467,12 +494,14 @@ class MypyModuleBuilder(
             parameters = params,
             returnType = returnType,
             cfg = cfg,
-            decorators = emptyList(),
+            decorators = pending.decorators.map {
+                PIRDecoratorImpl(it.name, it.qualifiedName, it.arguments)
+            },
             isAsync = pending.isAsync,
             isGenerator = pending.isGenerator,
-            isStaticMethod = false,
-            isClassMethod = false,
-            isProperty = false,
+            isStaticMethod = pending.isStaticMethod,
+            isClassMethod = pending.isClassMethod,
+            isProperty = pending.isProperty,
             closureVars = pending.closureVars,
             enclosingClass = null,
             module = module,

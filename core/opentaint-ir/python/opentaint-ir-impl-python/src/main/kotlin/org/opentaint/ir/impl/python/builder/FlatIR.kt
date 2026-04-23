@@ -149,9 +149,14 @@ data class FlatFunctionIR(
     val isAsync: Boolean,
     val isGenerator: Boolean,
     val closureVars: List<String>,
+    val decorators: List<FlatDecorator>,
     val nonlocalNames: Set<String> = emptySet(),
     val globalNames: Set<String> = emptySet(),
-)
+) {
+    val isStaticMethod: Boolean get() = decorators.any { it.name == "staticmethod" }
+    val isClassMethod: Boolean get() = decorators.any { it.name == "classmethod" }
+    val isProperty: Boolean get() = decorators.any { it.name == "property" }
+}
 
 /** A function parameter declaration. Mirrors PIRParameter but lives in Flat IR. */
 data class FlatParameter(
@@ -168,6 +173,12 @@ enum class FlatParamKind {
     VAR_KEYWORD,
     KEYWORD_ONLY,
 }
+
+data class FlatDecorator(
+    val name: String,
+    val qualifiedName: String,
+    val arguments: List<String>,
+)
 
 /**
  * Raw module-level Flat IR bundle. Wraps every function-like scope plus

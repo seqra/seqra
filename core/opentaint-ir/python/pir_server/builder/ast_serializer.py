@@ -250,8 +250,11 @@ class AstSerializer:
             func=self._serialize_func_def(dec.func, enclosing_class),
             name=dec.func.name,
         )
-        # Serialize decorator expressions
-        for d in dec.decorators:
+        # Serialize the pristine decorator list. mypy's semantic analyzer strips
+        # @staticmethod / @classmethod / @property from `dec.decorators` (encoding
+        # them onto `func.is_static` etc.) — so iterating that list would lose them.
+        # `dec.original_decorators` is the untouched list.
+        for d in dec.original_decorators:
             proto.original_decorators.append(self._serialize_expr(d))
         # Extract qualified name
         if dec.func.fullname:
