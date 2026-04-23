@@ -13,7 +13,7 @@ INSTALL_GOBIN := $(abspath $(BINDIR))
 all: build
 
 generate:
-	$(GO) generate .
+	$(GO) generate ./...
 
 build: generate
 	mkdir -p $(BUILD_DIR)
