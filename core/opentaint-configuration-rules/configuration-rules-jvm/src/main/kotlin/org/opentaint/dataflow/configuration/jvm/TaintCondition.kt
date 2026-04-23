@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.configuration.jvm
 
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher
 import org.opentaint.ir.api.jvm.JIRType
 import java.util.Objects
 
@@ -119,6 +120,7 @@ sealed interface ConditionNameMatcher {
 data class TypeMatchesPattern(
     val position: Position,
     val pattern: ConditionNameMatcher,
+    val typeArgs: List<SerializedTypeNameMatcher> = emptyList(),
 ) : Condition {
     override fun <R> accept(conditionVisitor: ConditionVisitor<R>): R = conditionVisitor.visit(this)
 }

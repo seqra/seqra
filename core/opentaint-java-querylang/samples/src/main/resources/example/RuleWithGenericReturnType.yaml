@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithGenericReturnType
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithGenericReturnType
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          ResponseEntity<$T> $METHOD(..., String $A, ...) {
+              ...
+          }

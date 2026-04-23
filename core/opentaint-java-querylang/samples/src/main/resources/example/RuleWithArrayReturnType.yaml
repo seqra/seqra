@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithArrayReturnType
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithArrayReturnType
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          String[] $METHOD(..., String $A, ...) {
+              ...
+          }

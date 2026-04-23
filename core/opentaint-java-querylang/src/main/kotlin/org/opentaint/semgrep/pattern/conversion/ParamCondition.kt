@@ -6,13 +6,13 @@ import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureMo
 @Serializable
 sealed interface TypeNamePattern {
     @Serializable
-    data class FullyQualified(val name: String) : TypeNamePattern {
-        override fun toString(): String = name
+    data class FullyQualified(val name: String, val typeArgs: List<TypeNamePattern> = emptyList()) : TypeNamePattern {
+        override fun toString(): String = if (typeArgs.isEmpty()) name else "$name<${typeArgs.joinToString(", ")}>"
     }
 
     @Serializable
-    data class ClassName(val name: String) : TypeNamePattern {
-        override fun toString(): String = "*.$name"
+    data class ClassName(val name: String, val typeArgs: List<TypeNamePattern> = emptyList()) : TypeNamePattern {
+        override fun toString(): String = if (typeArgs.isEmpty()) "*.$name" else "*.$name<${typeArgs.joinToString(", ")}>"
     }
 
     @Serializable
@@ -28,6 +28,16 @@ sealed interface TypeNamePattern {
     @Serializable
     data object AnyType : TypeNamePattern {
         override fun toString(): String = "*"
+    }
+
+    /**
+     * Java unbounded wildcard `?` as a type argument. Unlike [AnyType], which
+     * is an unconstrained matcher that subsumes any type, [WildcardType] only
+     * matches an unbounded wildcard at the corresponding type-argument slot.
+     */
+    @Serializable
+    data object WildcardType : TypeNamePattern {
+        override fun toString(): String = "?"
     }
 
     @Serializable

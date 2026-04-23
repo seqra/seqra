@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithWildcardGeneric
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithWildcardGeneric
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          ResponseEntity<?> $METHOD(..., String $A, ...) {
+              ...
+          }

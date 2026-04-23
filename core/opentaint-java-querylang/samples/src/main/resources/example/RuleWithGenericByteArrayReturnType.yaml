@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithGenericByteArrayReturnType
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithGenericByteArrayReturnType
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          ResponseEntity<byte[]> $METHOD(..., String $A, ...) {
+              ...
+          }

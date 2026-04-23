@@ -19,6 +19,7 @@ data class Predicate(
 data class MethodSignature(
     val methodName: MethodName,
     val enclosingClassName: MethodEnclosingClassName,
+    val returnType: TypeNamePattern? = null,
 )
 
 @Serializable
