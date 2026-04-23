@@ -24,20 +24,21 @@ import (
 )
 
 var (
-	UserProjectPath            string
-	ProjectModelPath           string
-	SarifReportPath            string
-	SemgrepCompatibilitySarif  bool
-	Severity                   []string
-	Ruleset                    []string
-	DryRunScan                 bool
-	Recompile                  bool
-	ScanLogFile                string
-	RuleID                     []string
-	ApproximationsConfig       []string
-	DataflowApproximations     []string
-	TrackExternalMethods       bool
-	DebugFactReachabilitySarif bool
+	UserProjectPath                       string
+	ProjectModelPath                      string
+	SarifReportPath                       string
+	SemgrepCompatibilitySarif             bool
+	Severity                              []string
+	Ruleset                               []string
+	DryRunScan                            bool
+	Recompile                             bool
+	ScanLogFile                           string
+	RuleID                                []string
+	ApproximationsConfig                  []string
+	DataflowApproximations                []string
+	TrackExternalMethods                  bool
+	DebugFactReachabilitySarif            bool
+	DebugRunAnalysisOnSelectedEntryPoints string
 )
 
 type RulesetType struct {
@@ -143,6 +144,9 @@ func init() {
 
 	scanCmd.Flags().BoolVar(&DebugFactReachabilitySarif, "debug-fact-reachability-sarif", false, "Generate SARIF with fact reachability info (debug; use with a single rule only)")
 	_ = scanCmd.Flags().MarkHidden("debug-fact-reachability-sarif")
+
+	scanCmd.Flags().StringVar(&DebugRunAnalysisOnSelectedEntryPoints, "debug-run-analysis-on-selected-entry-points", "", "Run analysis on selected entry points: '*' for all methods or method FQN like com.example.Class#method")
+	_ = scanCmd.Flags().MarkHidden("debug-run-analysis-on-selected-entry-points")
 }
 
 // currentScanBuilder returns a builder pre-populated with the user's current scan flags.
@@ -364,6 +368,9 @@ func scan(cmd *cobra.Command) {
 	}
 	if DebugFactReachabilitySarif {
 		nativeBuilder.EnableDebugFactReachabilitySarif()
+	}
+	if DebugRunAnalysisOnSelectedEntryPoints != "" {
+		nativeBuilder.SetDebugRunAnalysisOnSelectedEntryPoints(DebugRunAnalysisOnSelectedEntryPoints)
 	}
 
 	analyzerJarPath, err := ensureAnalyzerAvailable()
