@@ -1,7 +1,6 @@
 package org.opentaint.ir.impl.python.builder
 
 import org.opentaint.ir.api.python.PIRDiagnostic
-import org.opentaint.ir.api.python.PIRField
 
 // ─── Values ───────────────────────────────────────────
 
@@ -180,6 +179,12 @@ data class FlatDecorator(
     val arguments: List<String>,
 )
 
+data class FlatModuleField(
+    val name: String,
+    val type: FlatType,
+    val hasInitializer: Boolean,
+)
+
 /**
  * Raw module-level Flat IR bundle. Wraps every function-like scope plus
  * module metadata and any diagnostics accumulated during lowering.
@@ -192,7 +197,10 @@ data class FlatModuleIR(
     val moduleName: String,
     val path: String,
     val functions: List<FlatFunctionIR>,
-    val fields: List<PIRField>,
+    val fields: List<FlatModuleField>,
     val imports: List<String>,
     val diagnostics: List<PIRDiagnostic>,
-)
+) {
+    val moduleInit: FlatFunctionIR
+        get() = functions.single { it.kind == FlatFunctionKind.MODULE_INIT }
+}

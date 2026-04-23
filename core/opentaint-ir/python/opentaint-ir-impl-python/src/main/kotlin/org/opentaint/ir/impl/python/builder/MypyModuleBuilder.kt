@@ -39,8 +39,8 @@ class MypyModuleBuilder(
         val dummyModule = createDummyModule()
 
         val classes = mutableListOf<PIRClass>()
-        val functions = mutableListOf<PIRFunction>()
-        val fields = mutableListOf<PIRField>()
+        val topLevelFlatFunctions = mutableListOf<FlatFunctionIR>()
+        val flatFields = mutableListOf<FlatModuleField>()
 
         for (def in astModule.defsList) {
             when (def.kindCase) {
@@ -48,18 +48,18 @@ class MypyModuleBuilder(
                     classes.add(buildClass(def.classDef, dummyModule))
                 }
                 MypyDefinitionProto.KindCase.FUNC_DEF -> {
-                    functions.add(buildFunction(def.funcDef, null, dummyModule))
+                    topLevelFlatFunctions.add(buildFlatFunction(def.funcDef, buildDecorators(def.funcDef), null))
                 }
                 MypyDefinitionProto.KindCase.DECORATOR -> {
-                    functions.add(buildDecoratedFunction(def.decorator, null, dummyModule))
+                    topLevelFlatFunctions.add(buildFlatFunction(def.decorator.func, buildDecorators(def.decorator), null))
                 }
                 MypyDefinitionProto.KindCase.ASSIGNMENT -> {
                     for (lvalue in def.assignment.lvaluesList) {
                         if (lvalue.hasNameExpr()) {
                             val type = if (lvalue.hasExprType()) {
-                                typeConverter.convert(lvalue.exprType)
-                            } else PIRAnyType
-                            fields.add(PIRFieldImpl(lvalue.nameExpr.name, type, false, true))
+                                protoTypeToFlat(lvalue.exprType)
+                            } else FlatAnyType
+                            flatFields.add(FlatModuleField(lvalue.nameExpr.name, type, hasInitializer = true))
                         }
                     }
                 }
@@ -67,22 +67,36 @@ class MypyModuleBuilder(
             }
         }
 
-        val moduleInit = buildModuleInit(dummyModule)
+        val flatModuleInit = buildFlatModuleInit()
+        val allFlatFunctions = topLevelFlatFunctions + pendingLambdas + pendingNested + flatModuleInit
 
-        val lambdaFuncList = pendingLambdas.map { convertFlatFunction(it, dummyModule) }
-        val nestedFuncList = pendingNested.map { convertFlatFunction(it, dummyModule) }
-        val allFunctions = functions + lambdaFuncList + nestedFuncList
+        val flatModule = FlatModuleIR(
+            moduleName = moduleName,
+            path = astModule.path,
+            functions = allFlatFunctions,
+            fields = flatFields,
+            imports = astModule.importsList,
+            diagnostics = diagnostics,
+        )
+
+        val pirFunctions = flatModule.functions
+            .filter { it.kind != FlatFunctionKind.MODULE_INIT }
+            .map { convertFlatFunction(it, dummyModule) }
+        val pirModuleInit = convertFlatFunction(flatModule.moduleInit, dummyModule)
+        val pirFields = flatModule.fields.map {
+            PIRFieldImpl(it.name, ic.convertType(it.type), isClassVar = false, hasInitializer = it.hasInitializer)
+        }
 
         return PIRModuleImpl(
             name = moduleName,
             path = astModule.path,
             classes = classes,
-            functions = allFunctions,
-            fields = fields,
-            moduleInit = moduleInit,
-            imports = astModule.importsList,
+            functions = pirFunctions,
+            fields = pirFields,
+            moduleInit = pirModuleInit,
+            imports = flatModule.imports,
             classpath = classpath ?: dummyModule.classpath,
-            diagnostics = diagnostics,
+            diagnostics = flatModule.diagnostics,
         )
     }
 
@@ -345,20 +359,14 @@ class MypyModuleBuilder(
 
     // ─── Module init ─────────────────────────────────────
 
-    private fun buildModuleInit(module: PIRModule): PIRFunction {
+    private fun buildFlatModuleInit(): FlatFunctionIR {
+        val qualifiedName = "$moduleName.__module_init__"
         val cfgScope = ScopeStack()
         val cfgBuilder = CfgBuilder(cfgScope, this)
 
-        val moduleStmts = mutableListOf<MypyStmtProto>()
-        for (def in astModule.defsList) {
-            if (def.kindCase == MypyDefinitionProto.KindCase.ASSIGNMENT) {
-                moduleStmts.add(
-                    MypyStmtProto.newBuilder()
-                        .setAssignment(def.assignment)
-                        .build()
-                )
-            }
-        }
+        val moduleStmts = astModule.defsList
+            .filter { it.kindCase == MypyDefinitionProto.KindCase.ASSIGNMENT }
+            .map { MypyStmtProto.newBuilder().setAssignment(it.assignment).build() }
 
         val flatCfg = try {
             cfgBuilder.buildModuleInitCfg(moduleStmts)
@@ -372,25 +380,19 @@ class MypyModuleBuilder(
             FlatCFG.EMPTY
         }
 
-        val pirCfg = ic.convertCFG(flatCfg)
-        val function = PIRFunctionImpl(
+        return FlatFunctionIR(
             name = "__module_init__",
-            qualifiedName = "$moduleName.__module_init__",
+            qualifiedName = qualifiedName,
+            parentQualifiedName = null,
+            kind = FlatFunctionKind.MODULE_INIT,
+            cfg = flatCfg,
             parameters = emptyList(),
-            returnType = PIRAnyType,
-            cfg = pirCfg,
-            decorators = emptyList(),
+            returnType = FlatAnyType,
             isAsync = false,
             isGenerator = false,
-            isStaticMethod = false,
-            isClassMethod = false,
-            isProperty = false,
             closureVars = emptyList(),
-            enclosingClass = null,
-            module = module,
+            decorators = emptyList(),
         )
-        wireInstructionLocations(function)
-        return function
     }
 
     // ─── Nested function / lambda extraction ────────────
