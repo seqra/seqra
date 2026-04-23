@@ -72,6 +72,10 @@ tasks.withType<Test> {
     }
 }
 
+tasks.withType<JavaCompile> {
+    sourceCompatibility = JavaVersion.VERSION_17.toString()
+}
+
 val projectAnalyzerJar = tasks.register<ShadowJar>("projectAnalyzerJar") {
     jarWithDependencies("opentaint-project-analyzer", "org.opentaint.jvm.sast.runner.ProjectAnalyzerRunner")
 }
