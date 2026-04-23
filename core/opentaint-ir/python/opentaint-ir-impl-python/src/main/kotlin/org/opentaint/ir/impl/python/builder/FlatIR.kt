@@ -1,5 +1,8 @@
 package org.opentaint.ir.impl.python.builder
 
+import org.opentaint.ir.api.python.PIRDiagnostic
+import org.opentaint.ir.api.python.PIRField
+
 // ─── Values ───────────────────────────────────────────
 
 sealed interface FlatValue
@@ -25,7 +28,18 @@ data class FlatComplexConst(val real: Double, val imag: Double) : FlatConst
 
 sealed interface FlatType
 data object FlatAnyType : FlatType
-data class FlatClassType(val qualifiedName: String) : FlatType
+data object FlatNeverType : FlatType
+data object FlatNoneType : FlatType
+data class FlatClassType(
+    val qualifiedName: String,
+    val typeArgs: List<FlatType> = emptyList(),
+    val isOptional: Boolean = false,
+) : FlatType
+data class FlatFunctionType(val paramTypes: List<FlatType>, val returnType: FlatType) : FlatType
+data class FlatUnionType(val members: List<FlatType>) : FlatType
+data class FlatTupleType(val elementTypes: List<FlatType>, val isVarLength: Boolean) : FlatType
+data class FlatLiteralType(val value: String, val baseType: FlatType) : FlatType
+data class FlatTypeVarType(val name: String, val bounds: List<FlatType>) : FlatType
 
 // ─── Instructions ─────────────────────────────────────
 
@@ -100,3 +114,74 @@ data class FlatCFG(val blocks: List<FlatBlock>, val entryBlock: Int, val exitBlo
         )
     }
 }
+
+// ─── Functions / Modules ──────────────────────────────
+
+enum class FlatFunctionKind {
+    MODULE_INIT,
+    TOP_LEVEL,
+    METHOD,
+    NESTED_DEF,
+    LAMBDA,
+}
+
+/**
+ * A single lexical function-like scope in raw Flat IR: top-level functions,
+ * methods, nested defs, lambdas, and the synthetic module initializer.
+ *
+ * First-pass lowering produces these without any closure semantics. Later
+ * transforms (e.g. ClosureLoweringTransform) rewrite them into
+ * closure-lowered FlatFunctionIRs.
+ *
+ * `nonlocalNames` / `globalNames` capture function-wide `nonlocal` / `global`
+ * declarations so later passes don't need to re-walk the mypy AST.
+ * `closureVars` is legacy metadata produced by the first pass today; it will
+ * be replaced by analyzer-computed facts in phases 3–4.
+ */
+data class FlatFunctionIR(
+    val name: String,
+    val qualifiedName: String,
+    val parentQualifiedName: String?,
+    val kind: FlatFunctionKind,
+    val cfg: FlatCFG,
+    val parameters: List<FlatParameter>,
+    val returnType: FlatType,
+    val isAsync: Boolean,
+    val isGenerator: Boolean,
+    val closureVars: List<String>,
+    val nonlocalNames: Set<String> = emptySet(),
+    val globalNames: Set<String> = emptySet(),
+)
+
+/** A function parameter declaration. Mirrors PIRParameter but lives in Flat IR. */
+data class FlatParameter(
+    val name: String,
+    val type: FlatType,
+    val kind: FlatParamKind,
+    val hasDefault: Boolean,
+    val defaultValue: FlatConst?,
+)
+
+enum class FlatParamKind {
+    POSITIONAL_OR_KEYWORD,
+    VAR_POSITIONAL,
+    VAR_KEYWORD,
+    KEYWORD_ONLY,
+}
+
+/**
+ * Raw module-level Flat IR bundle. Wraps every function-like scope plus
+ * module metadata and any diagnostics accumulated during lowering.
+ *
+ * Not routed through the current builder yet; introduced here so subsequent
+ * phases can move to a `FlatModuleIR -> FlatModuleIR` transform shape
+ * without re-plumbing types.
+ */
+data class FlatModuleIR(
+    val moduleName: String,
+    val path: String,
+    val functions: List<FlatFunctionIR>,
+    val fields: List<PIRField>,
+    val imports: List<String>,
+    val diagnostics: List<PIRDiagnostic>,
+)

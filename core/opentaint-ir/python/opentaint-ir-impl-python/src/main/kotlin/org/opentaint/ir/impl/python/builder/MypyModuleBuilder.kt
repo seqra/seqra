@@ -18,9 +18,9 @@ class MypyModuleBuilder(
 
     val moduleName: String = astModule.name
     var lambdaCounter = 0
-    private val pendingLambdas = mutableListOf<PendingFunction>()
+    private val pendingLambdas = mutableListOf<FlatFunctionIR>()
     var nestedFuncCounter = 0
-    private val pendingNested = mutableListOf<PendingFunction>()
+    private val pendingNested = mutableListOf<FlatFunctionIR>()
     private val diagnostics = mutableListOf<PIRDiagnostic>()
     private val typeConverter = TypeConverter()
     private val ic = InstructionConverter()
@@ -69,8 +69,8 @@ class MypyModuleBuilder(
 
         val moduleInit = buildModuleInit(dummyModule)
 
-        val lambdaFuncList = pendingLambdas.map { convertPendingFunction(it, dummyModule) }
-        val nestedFuncList = pendingNested.map { convertPendingFunction(it, dummyModule) }
+        val lambdaFuncList = pendingLambdas.map { convertFlatFunction(it, dummyModule) }
+        val nestedFuncList = pendingNested.map { convertFlatFunction(it, dummyModule) }
         val allFunctions = functions + lambdaFuncList + nestedFuncList
 
         return PIRModuleImpl(
@@ -407,12 +407,14 @@ class MypyModuleBuilder(
             FreeVarAnalyzer.collectFreeVars(funcDef.body, paramNames)
         } else emptyList()
 
-        pendingNested.add(PendingFunction(
+        pendingNested.add(FlatFunctionIR(
             name = uniqueName,
             qualifiedName = qualifiedName,
+            parentQualifiedName = enclosingQualifiedName,
+            kind = FlatFunctionKind.NESTED_DEF,
             cfg = flatCfg,
-            arguments = funcDef.argumentsList,
-            returnType = if (funcDef.hasReturnType()) funcDef.returnType else null,
+            parameters = convertParameters(funcDef.argumentsList),
+            returnType = if (funcDef.hasReturnType()) protoTypeToFlat(funcDef.returnType) else FlatAnyType,
             isAsync = funcDef.isAsync,
             isGenerator = funcDef.isGenerator,
             closureVars = closureVars,
@@ -424,16 +426,19 @@ class MypyModuleBuilder(
     fun addLambda(
         name: String,
         qualifiedName: String,
+        parentQualifiedName: String?,
         cfg: FlatCFG,
         arguments: List<MypyArgumentProto>,
         returnType: PIRTypeProto?,
     ) {
-        pendingLambdas.add(PendingFunction(
+        pendingLambdas.add(FlatFunctionIR(
             name = name,
             qualifiedName = qualifiedName,
+            parentQualifiedName = parentQualifiedName,
+            kind = FlatFunctionKind.LAMBDA,
             cfg = cfg,
-            arguments = arguments,
-            returnType = returnType,
+            parameters = convertParameters(arguments),
+            returnType = if (returnType != null) protoTypeToFlat(returnType) else FlatAnyType,
             isAsync = false,
             isGenerator = false,
             closureVars = emptyList(),
@@ -442,20 +447,18 @@ class MypyModuleBuilder(
 
     // ─── Helpers ─────────────────────────────────────────
 
-    private fun convertPendingFunction(pending: PendingFunction, module: PIRModule): PIRFunction {
-        val params = pending.arguments.mapIndexed { idx, arg ->
-            val kind = when (arg.kind) {
-                0, 1 -> PIRParameterKind.POSITIONAL_OR_KEYWORD
-                2 -> PIRParameterKind.VAR_POSITIONAL
-                4 -> PIRParameterKind.VAR_KEYWORD
-                3, 5 -> PIRParameterKind.KEYWORD_ONLY
-                else -> PIRParameterKind.POSITIONAL_OR_KEYWORD
-            }
-            val type = if (arg.hasType()) typeConverter.convert(arg.type) else PIRAnyType
-            val defVal = if (arg.hasDefault && arg.hasDefaultValue()) evalConstValue(arg.defaultValue) else null
-            PIRParameterImpl(arg.name, type, kind, arg.hasDefault, defVal, idx)
+    private fun convertFlatFunction(pending: FlatFunctionIR, module: PIRModule): PIRFunction {
+        val params = pending.parameters.mapIndexed { idx, p ->
+            PIRParameterImpl(
+                p.name,
+                ic.convertType(p.type),
+                flatParamKindToPir(p.kind),
+                p.hasDefault,
+                p.defaultValue?.let { ic.convertConstValue(it) },
+                idx,
+            )
         }
-        val returnType = if (pending.returnType != null) typeConverter.convert(pending.returnType) else PIRAnyType
+        val returnType = ic.convertType(pending.returnType)
         val cfg = ic.convertCFG(pending.cfg)
 
         val function = PIRFunctionImpl(
@@ -478,31 +481,83 @@ class MypyModuleBuilder(
         return function
     }
 
-    private fun evalConstValue(expr: MypyExprProto): PIRValue? {
-        return when (expr.kindCase) {
-            MypyExprProto.KindCase.INT_EXPR -> PIRIntConst(expr.intExpr.value, PIRAnyType)
-            MypyExprProto.KindCase.FLOAT_EXPR -> PIRFloatConst(expr.floatExpr.value, PIRAnyType)
-            MypyExprProto.KindCase.STR_EXPR -> PIRStrConst(expr.strExpr.value, PIRAnyType)
-            MypyExprProto.KindCase.BYTES_EXPR -> PIRStrConst(expr.bytesExpr.value.toStringUtf8(), PIRAnyType)
-            MypyExprProto.KindCase.NAME_EXPR -> when (expr.nameExpr.name) {
-                "True" -> PIRBoolConst(true, PIRAnyType)
-                "False" -> PIRBoolConst(false, PIRAnyType)
-                "None" -> PIRNoneConst
-                else -> null
-            }
+    // ─── Proto → Flat IR conversion ──────────────────────
+
+    private fun convertParameters(args: List<MypyArgumentProto>): List<FlatParameter> =
+        args.map { arg ->
+            FlatParameter(
+                name = arg.name,
+                type = if (arg.hasType()) protoTypeToFlat(arg.type) else FlatAnyType,
+                kind = protoParamKindToFlat(arg.kind),
+                hasDefault = arg.hasDefault,
+                defaultValue = if (arg.hasDefault && arg.hasDefaultValue()) evalFlatConst(arg.defaultValue) else null,
+            )
+        }
+
+    private fun protoParamKindToFlat(kind: Int): FlatParamKind = when (kind) {
+        0, 1 -> FlatParamKind.POSITIONAL_OR_KEYWORD
+        2 -> FlatParamKind.VAR_POSITIONAL
+        4 -> FlatParamKind.VAR_KEYWORD
+        3, 5 -> FlatParamKind.KEYWORD_ONLY
+        else -> FlatParamKind.POSITIONAL_OR_KEYWORD
+    }
+
+    private fun protoTypeToFlat(proto: PIRTypeProto): FlatType = when (proto.kindCase) {
+        PIRTypeProto.KindCase.CLASS_TYPE -> {
+            val ct = proto.classType
+            FlatClassType(
+                qualifiedName = ct.qualifiedName,
+                typeArgs = ct.typeArgsList.map { protoTypeToFlat(it) },
+                isOptional = ct.isOptional,
+            )
+        }
+        PIRTypeProto.KindCase.FUNCTION_TYPE -> FlatFunctionType(
+            paramTypes = proto.functionType.paramTypesList.map { protoTypeToFlat(it) },
+            returnType = protoTypeToFlat(proto.functionType.returnType),
+        )
+        PIRTypeProto.KindCase.UNION_TYPE -> FlatUnionType(
+            members = proto.unionType.membersList.map { protoTypeToFlat(it) },
+        )
+        PIRTypeProto.KindCase.TUPLE_TYPE -> FlatTupleType(
+            elementTypes = proto.tupleType.elementTypesList.map { protoTypeToFlat(it) },
+            isVarLength = proto.tupleType.isVarLength,
+        )
+        PIRTypeProto.KindCase.LITERAL_TYPE -> FlatLiteralType(
+            value = proto.literalType.value,
+            baseType = protoTypeToFlat(proto.literalType.baseType),
+        )
+        PIRTypeProto.KindCase.ANY_TYPE -> FlatAnyType
+        PIRTypeProto.KindCase.NEVER_TYPE -> FlatNeverType
+        PIRTypeProto.KindCase.NONE_TYPE -> FlatNoneType
+        PIRTypeProto.KindCase.TYPE_VAR_TYPE -> FlatTypeVarType(
+            name = proto.typeVarType.name,
+            bounds = proto.typeVarType.boundsList.map { protoTypeToFlat(it) },
+        )
+        PIRTypeProto.KindCase.KIND_NOT_SET, null -> FlatAnyType
+    }
+
+    private fun evalFlatConst(expr: MypyExprProto): FlatConst? = when (expr.kindCase) {
+        MypyExprProto.KindCase.INT_EXPR -> FlatIntConst(expr.intExpr.value)
+        MypyExprProto.KindCase.FLOAT_EXPR -> FlatFloatConst(expr.floatExpr.value)
+        MypyExprProto.KindCase.STR_EXPR -> FlatStrConst(expr.strExpr.value)
+        MypyExprProto.KindCase.BYTES_EXPR -> FlatBytesConst(expr.bytesExpr.value.toByteArray())
+        MypyExprProto.KindCase.COMPLEX_EXPR -> FlatComplexConst(expr.complexExpr.real, expr.complexExpr.imag)
+        MypyExprProto.KindCase.ELLIPSIS_EXPR -> FlatEllipsisConst
+        MypyExprProto.KindCase.NAME_EXPR -> when (expr.nameExpr.name) {
+            "True" -> FlatBoolConst(true)
+            "False" -> FlatBoolConst(false)
+            "None" -> FlatNoneConst
             else -> null
         }
+        else -> null
+    }
+
+    // ─── Flat IR → PIR conversion ────────────────────────
+
+    private fun flatParamKindToPir(kind: FlatParamKind): PIRParameterKind = when (kind) {
+        FlatParamKind.POSITIONAL_OR_KEYWORD -> PIRParameterKind.POSITIONAL_OR_KEYWORD
+        FlatParamKind.VAR_POSITIONAL -> PIRParameterKind.VAR_POSITIONAL
+        FlatParamKind.VAR_KEYWORD -> PIRParameterKind.VAR_KEYWORD
+        FlatParamKind.KEYWORD_ONLY -> PIRParameterKind.KEYWORD_ONLY
     }
 }
-
-/** Holds metadata for a lambda or nested function awaiting conversion. */
-class PendingFunction(
-    val name: String,
-    val qualifiedName: String,
-    val cfg: FlatCFG,
-    val arguments: List<MypyArgumentProto>,
-    val returnType: PIRTypeProto?,
-    val isAsync: Boolean,
-    val isGenerator: Boolean,
-    val closureVars: List<String>,
-)

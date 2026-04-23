@@ -428,6 +428,7 @@ class ExpressionLowering(private val cfgBuilder: CfgBuilder) {
         mb.addLambda(
             lambdaName,
             qualifiedName,
+            cfgBuilder.currentFunctionQualifiedName.ifEmpty { null },
             flatCfg,
             expr.argumentsList,
             if (expr.hasReturnType()) expr.returnType else null,

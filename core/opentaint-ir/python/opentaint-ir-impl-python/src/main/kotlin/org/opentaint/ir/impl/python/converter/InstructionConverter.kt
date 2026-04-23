@@ -68,19 +68,46 @@ class InstructionConverter {
         is FlatLocal -> PIRLocal(flat.name, convertType(flat.type))
         is FlatGlobalRef -> PIRGlobalRef(flat.name, flat.module, PIRAnyType)
         is FlatParameterRef -> PIRParameterRef(flat.name, PIRAnyType)
-        is FlatIntConst -> PIRIntConst(flat.value, PIRAnyType)
-        is FlatFloatConst -> PIRFloatConst(flat.value, PIRAnyType)
-        is FlatStrConst -> PIRStrConst(flat.value, PIRAnyType)
-        is FlatBoolConst -> PIRBoolConst(flat.value, PIRAnyType)
-        is FlatNoneConst -> PIRNoneConst
-        is FlatEllipsisConst -> PIREllipsisConst
-        is FlatBytesConst -> PIRBytesConst(flat.value, PIRAnyType)
-        is FlatComplexConst -> PIRComplexConst(flat.real, flat.imag, PIRAnyType)
+        is FlatConst -> convertConstValue(flat)
     }
 
-    private fun convertType(flat: FlatType): PIRType = when (flat) {
+    fun convertType(flat: FlatType): PIRType = when (flat) {
         is FlatAnyType -> PIRAnyType
-        is FlatClassType -> PIRClassType(flat.qualifiedName)
+        is FlatNeverType -> PIRNeverType
+        is FlatNoneType -> PIRNoneType
+        is FlatClassType -> PIRClassType(
+            qualifiedName = flat.qualifiedName,
+            typeArgs = flat.typeArgs.map { convertType(it) },
+            isOptional = flat.isOptional,
+        )
+        is FlatFunctionType -> PIRFunctionType(
+            paramTypes = flat.paramTypes.map { convertType(it) },
+            returnType = convertType(flat.returnType),
+        )
+        is FlatUnionType -> PIRUnionType(members = flat.members.map { convertType(it) })
+        is FlatTupleType -> PIRTupleType(
+            elementTypes = flat.elementTypes.map { convertType(it) },
+            isVarLength = flat.isVarLength,
+        )
+        is FlatLiteralType -> PIRLiteralType(
+            value = flat.value,
+            baseType = convertType(flat.baseType),
+        )
+        is FlatTypeVarType -> PIRTypeVarType(
+            name = flat.name,
+            bounds = flat.bounds.map { convertType(it) },
+        )
+    }
+
+    fun convertConstValue(c: FlatConst): PIRValue = when (c) {
+        is FlatIntConst -> PIRIntConst(c.value)
+        is FlatFloatConst -> PIRFloatConst(c.value)
+        is FlatStrConst -> PIRStrConst(c.value)
+        is FlatBoolConst -> PIRBoolConst(c.value)
+        is FlatNoneConst -> PIRNoneConst
+        is FlatEllipsisConst -> PIREllipsisConst
+        is FlatBytesConst -> PIRBytesConst(c.value)
+        is FlatComplexConst -> PIRComplexConst(c.real, c.imag)
     }
 
     // ─── Instruction conversion ───────────────────────────
