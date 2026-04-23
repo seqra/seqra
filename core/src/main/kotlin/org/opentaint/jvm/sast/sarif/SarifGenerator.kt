@@ -33,6 +33,7 @@ import org.opentaint.semgrep.pattern.RuleMetadata
 import java.io.OutputStream
 import java.nio.file.Path
 import java.security.MessageDigest
+import java.util.Arrays
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 import kotlin.io.path.absolutePathString
@@ -169,19 +170,28 @@ class SarifGenerator(
         val digest = MessageDigest.getInstance("SHA-256")
         digest.update(ruleId.toByteArray())
         digest.addLocationFingerprint(vulnerabilityLocation)
-        traces?.forEach { trace ->
-            when (kind) {
-                FingerprintKind.FULL_TRACE -> {
-                    trace.forEach { digest.addLocationFingerprint(it) }
-                }
 
-                FingerprintKind.SOURCE_SINK -> {
-                    trace.firstOrNull()?.let { digest.addLocationFingerprint(it) }
-                }
-            }
-        }
+        traces
+            ?.map { computeTraceFingerprint(it, kind) }
+            ?.sortedWith(Arrays::compare)
+            ?.forEach(digest::update)
+
         val digestData = digest.digest()
         return Base64.encode(digestData)
+    }
+
+    private fun computeTraceFingerprint(
+        trace: List<IntermediateLocation>,
+        kind: FingerprintKind,
+    ): ByteArray {
+        val digest = MessageDigest.getInstance("SHA-256")
+
+        when (kind) {
+            FingerprintKind.SOURCE_SINK -> trace.firstOrNull()?.let { digest.addLocationFingerprint(it) }
+            FingerprintKind.FULL_TRACE -> trace.forEach { digest.addLocationFingerprint(it) }
+        }
+
+        return digest.digest()
     }
 
     private fun MessageDigest.addLocationFingerprint(loc: IntermediateLocation) {
