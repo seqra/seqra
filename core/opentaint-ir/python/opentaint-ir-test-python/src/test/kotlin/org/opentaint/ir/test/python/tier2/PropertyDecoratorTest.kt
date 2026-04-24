@@ -128,6 +128,18 @@ class DataWithDefaults:
     values: list = field(default_factory=list)
     count: int = 0
 
+@dataclass(frozen=True)
+class FrozenData:
+    x: int
+
+# ─── Nested decorated function inside a function body ───
+
+def outer_with_nested_decorated():
+    @my_decorator
+    def inner():
+        return 1
+    return inner
+
 # ─── Enum ───────────────────────────────────────────────
 
 class Color(Enum):
@@ -316,25 +328,26 @@ class Priority(IntEnum):
 
     // ─── staticmethod / classmethod ────────────────────────
 
-    @Test fun `staticmethod flag is set and decorator list is clean`() {
+    @Test fun `staticmethod flag is set and decorator list carries staticmethod`() {
         val cls = findClass("StaticClassMethods")
         val m = cls.methods.find { it.name == "static_fn" }
         assertNotNull(m, "static_fn should exist")
         assertTrue(m!!.isStaticMethod, "static_fn should have isStaticMethod=true")
-        // mypy strips @staticmethod from decorator list and sets the flag instead
+        // Since Stage 1 the decorator list is the authoritative source for
+        // isStaticMethod — `staticmethod` must appear in it.
         val decoNames = m.decorators.map { it.name }
-        assertFalse(decoNames.contains("staticmethod"),
-            "mypy should strip @staticmethod from decorator list; got: $decoNames")
+        assertTrue(decoNames.contains("staticmethod"),
+            "staticmethod decorator should appear in decorator list; got: $decoNames")
     }
 
-    @Test fun `classmethod flag is set and decorator list is clean`() {
+    @Test fun `classmethod flag is set and decorator list carries classmethod`() {
         val cls = findClass("StaticClassMethods")
         val m = cls.methods.find { it.name == "class_fn" }
         assertNotNull(m, "class_fn should exist")
         assertTrue(m!!.isClassMethod, "class_fn should have isClassMethod=true")
         val decoNames = m.decorators.map { it.name }
-        assertFalse(decoNames.contains("classmethod"),
-            "mypy should strip @classmethod from decorator list; got: $decoNames")
+        assertTrue(decoNames.contains("classmethod"),
+            "classmethod decorator should appear in decorator list; got: $decoNames")
     }
 
     @Test fun `instance method is neither static nor classmethod`() {
@@ -400,6 +413,37 @@ class Priority(IntEnum):
     @Test fun `IntEnum flag is set on Priority`() {
         val cls = findClass("Priority")
         assertTrue(cls.isEnum, "Priority (IntEnum) should have isEnum=true")
+    }
+
+    // ─── Class decorator propagation ────────────────────────
+
+    @Test fun `class decorator reaches PIRClass decorators list`() {
+        val cls = findClass("SimpleData")
+        val decNames = cls.decorators.map { it.name }
+        assertTrue("dataclass" in decNames,
+            "SimpleData should have a 'dataclass' decorator; got: $decNames")
+        assertTrue(cls.isDataclass, "SimpleData should remain isDataclass=true")
+    }
+
+    @Test fun `class decorator with arguments carries argument reprs`() {
+        val cls = findClass("FrozenData")
+        val dec = cls.decorators.find { it.name == "dataclass" }
+        assertNotNull(dec,
+            "FrozenData should have a 'dataclass' decorator; got: ${cls.decorators.map { it.name }}")
+        assertTrue(dec!!.arguments.isNotEmpty(),
+            "@dataclass(frozen=True) should surface its argument in PIRDecorator.arguments; got: ${dec.arguments}")
+        assertTrue(cls.isDataclass, "FrozenData should still be isDataclass=true")
+    }
+
+    // ─── Nested decorated function dispatch ─────────────────
+
+    @Test fun `nested decorated function is captured with its decorator`() {
+        val nested = cp.findFunctionOrNull("__test__.outer_with_nested_decorated.inner")
+        assertNotNull(nested,
+            "Nested @my_decorator def inner() should be extracted as a module-level function")
+        val decNames = nested!!.decorators.map { it.name }
+        assertTrue("my_decorator" in decNames,
+            "Nested function should carry 'my_decorator' decorator; got: $decNames")
     }
 
     @Test fun `enum class with method has that method`() {

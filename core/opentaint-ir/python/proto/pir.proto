@@ -690,6 +690,7 @@ message MypyStmtProto {
     MypyFuncDefProto func_def = 26;
     MypyClassDefProto class_def = 27;
     MypyNonlocalDeclProto nonlocal_decl = 28;
+    MypyDecoratorDefProto decorator = 29;
   }
 }
 

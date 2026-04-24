@@ -198,12 +198,84 @@ class AstSerializer:
             ):
                 proto.is_dataclass = True
 
+        # Serialize class decorators as MypyDecoratorInfoProto summaries.
+        # ClassDef.decorators is the raw expression list — unlike Decorator.decorators
+        # for methods, mypy's semantic analyzer does NOT strip entries here, so reading
+        # it directly is safe (analogous in purpose to the Decorator.original_decorators
+        # fix for methods). The proto field type is the summary (name / qualified_name /
+        # stringified arguments), so unwrap each decorator expression into that shape.
+        for dec_expr in class_def.decorators:
+            proto.decorators.append(self._serialize_decorator_info(dec_expr))
+
         # Class body
         for defn in class_def.defs.body:
             for d in self._serialize_definitions(defn, enclosing_class=class_def.name):
                 proto.body.append(d)
 
         return proto
+
+    def _serialize_decorator_info(
+        self, expr: Expression
+    ) -> pir_pb2.MypyDecoratorInfoProto:
+        """Unwrap a decorator expression into a MypyDecoratorInfoProto summary.
+
+        Mirrors the Kotlin `flatDecoratorFromExpr` unwrap (NameExpr / MemberExpr / CallExpr)
+        so class-side and method-side decorators report identical {name, qualified_name}
+        shapes. Argument stringification mirrors the Kotlin `exprRepr` behavior:
+        literals → their text; names/members → dotted path; otherwise "<expr>".
+        Keyword-arg names on CallExpr decorators are dropped (pre-existing Stage 1 nit).
+        """
+        if isinstance(expr, CallExpr):
+            inner = self._serialize_decorator_info(expr.callee)
+            proto = pir_pb2.MypyDecoratorInfoProto(
+                name=inner.name,
+                qualified_name=inner.qualified_name,
+            )
+            for arg in expr.args:
+                proto.arguments.append(self._decorator_arg_repr(arg))
+            return proto
+        if isinstance(expr, NameExpr):
+            fullname = getattr(expr, "fullname", "") or ""
+            return pir_pb2.MypyDecoratorInfoProto(
+                name=expr.name,
+                qualified_name=fullname or expr.name,
+            )
+        if isinstance(expr, MemberExpr):
+            fullname = getattr(expr, "fullname", "") or ""
+            return pir_pb2.MypyDecoratorInfoProto(
+                name=expr.name,
+                qualified_name=fullname or self._member_expr_dotted_path(expr),
+            )
+        return pir_pb2.MypyDecoratorInfoProto(name="<unknown>", qualified_name="<unknown>")
+
+    def _member_expr_dotted_path(self, expr: MemberExpr) -> str:
+        base = expr.expr
+        if isinstance(base, NameExpr):
+            prefix = getattr(base, "fullname", "") or base.name
+        elif isinstance(base, MemberExpr):
+            prefix = self._member_expr_dotted_path(base)
+        else:
+            prefix = "<expr>"
+        return f"{prefix}.{expr.name}"
+
+    def _decorator_arg_repr(self, expr: Expression) -> str:
+        if isinstance(expr, IntExpr):
+            return str(expr.value)
+        if isinstance(expr, StrExpr):
+            return f'"{expr.value}"'
+        if isinstance(expr, FloatExpr):
+            return str(expr.value)
+        if isinstance(expr, BytesExpr):
+            return f'b"{expr.value}"'
+        if isinstance(expr, ComplexExpr):
+            return f"{expr.value.real}+{expr.value.imag}j"
+        if isinstance(expr, EllipsisExpr):
+            return "..."
+        if isinstance(expr, NameExpr):
+            return expr.name
+        if isinstance(expr, MemberExpr):
+            return self._member_expr_dotted_path(expr)
+        return "<expr>"
 
     def _serialize_func_def(
         self, func_def: FuncDef, enclosing_class: str | None = None
@@ -399,7 +471,12 @@ class AstSerializer:
             proto.global_decl.CopyFrom(
                 pir_pb2.MypyGlobalDeclProto(names=list(stmt.names))
             )
-        elif isinstance(stmt, (FuncDef, Decorator, OverloadedFuncDef)):
+        elif isinstance(stmt, Decorator):
+            # Nested decorated-def: preserve the decorator expressions so the Kotlin
+            # side can lift them into FlatFunctionIR.decorators. Routing this as a
+            # FuncDef (via _unwrap_func) would drop the decorators silently.
+            proto.decorator.CopyFrom(self._serialize_decorator_def(stmt))
+        elif isinstance(stmt, (FuncDef, OverloadedFuncDef)):
             func_def = self._unwrap_func(stmt)
             if func_def:
                 # closure_vars computed on Kotlin side via FreeVarAnalyzer

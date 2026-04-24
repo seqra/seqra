@@ -424,7 +424,11 @@ class MypyModuleBuilder(
      * Returns pair of (uniqueName, qualifiedName) for the extracted function.
      * The caller can use the qualified name to create a GlobalRef.
      */
-    fun extractNestedFunction(funcDef: MypyFuncDefProto, enclosingQualifiedName: String): Pair<String, String> {
+    fun extractNestedFunction(
+        funcDef: MypyFuncDefProto,
+        decoratorExprs: List<MypyExprProto>,
+        enclosingQualifiedName: String,
+    ): Pair<String, String> {
         val idx = nestedFuncCounter++
         val uniqueName = "${funcDef.name}\$local$idx"
         val qualifiedName = "$enclosingQualifiedName.${funcDef.name}"
@@ -463,8 +467,13 @@ class MypyModuleBuilder(
             isAsync = funcDef.isAsync,
             isGenerator = funcDef.isGenerator,
             closureVars = closureVars,
-            decorators = funcDef.decoratorsList.map {
-                FlatDecorator(it.name, it.qualifiedName, it.argumentsList)
+            decorators = if (decoratorExprs.isNotEmpty()) {
+                decoratorExprs.map { flatDecoratorFromExpr(it) }
+            } else {
+                // Defensive fallback: the serializer does not populate MypyFuncDefProto.decorators
+                // today (decorators only reach Kotlin via Decorator.original_decorators), so this
+                // branch is unreached. Kept to avoid coupling to serializer internals.
+                funcDef.decoratorsList.map { FlatDecorator(it.name, it.qualifiedName, it.argumentsList) }
             },
         ))
 

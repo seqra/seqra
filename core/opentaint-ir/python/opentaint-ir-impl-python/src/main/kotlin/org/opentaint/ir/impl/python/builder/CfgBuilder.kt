@@ -174,7 +174,9 @@ class CfgBuilder(
             stmt.hasPassStmt() -> { /* no-op */ }
             stmt.hasGlobalDecl() -> { /* no-op */ }
             stmt.hasNonlocalDecl() -> { /* no-op — nonlocal semantics handled via FreeVarAnalyzer */ }
-            stmt.hasFuncDef() -> visitNestedFuncDef(stmt.funcDef, stmt.line)
+            stmt.hasFuncDef() -> visitNestedFuncDef(stmt.funcDef, emptyList(), stmt.line)
+            stmt.hasDecorator() ->
+                visitNestedFuncDef(stmt.decorator.func, stmt.decorator.originalDecoratorsList, stmt.line)
             stmt.hasClassDef() -> { /* ClassDef inside function body — not supported */ }
         }
     }
@@ -589,11 +591,15 @@ class CfgBuilder(
 
     // ─── Nested FuncDef ──────────────────────────────────
 
-    private fun visitNestedFuncDef(funcDef: MypyFuncDefProto, line: Int) {
+    private fun visitNestedFuncDef(
+        funcDef: MypyFuncDefProto,
+        decoratorExprs: List<MypyExprProto>,
+        line: Int,
+    ) {
         val mb = moduleBuilder ?: return
 
         // Extract the nested function as a module-level function (same pattern as lambdas)
-        val (uniqueName, _) = mb.extractNestedFunction(funcDef, currentFunctionQualifiedName)
+        val (uniqueName, _) = mb.extractNestedFunction(funcDef, decoratorExprs, currentFunctionQualifiedName)
 
         // Emit assignment: funcname = GlobalRef(uniqueName)
         // Use uniqueName to avoid collisions between inner functions with same name
