@@ -11,7 +11,7 @@ import org.opentaint.ir.impl.python.proto.*
  */
 class CfgBuilder(
     val scope: ScopeStack,
-    val moduleBuilder: MypyModuleBuilder? = null,
+    val moduleBuilder: ProtoToFlatBuilder? = null,
     var currentFunctionQualifiedName: String = "",
 ) {
     val exprLowering = ExpressionLowering(this)
