@@ -262,20 +262,25 @@ class AstSerializer:
         if isinstance(expr, IntExpr):
             return str(expr.value)
         if isinstance(expr, StrExpr):
-            return f'"{expr.value}"'
+            return f'"{self._escape_str_literal(expr.value)}"'
         if isinstance(expr, FloatExpr):
             return str(expr.value)
         if isinstance(expr, BytesExpr):
-            return f'b"{expr.value}"'
+            return f'b"{self._escape_str_literal(expr.value)}"'
         if isinstance(expr, ComplexExpr):
             return f"{expr.value.real}+{expr.value.imag}j"
         if isinstance(expr, EllipsisExpr):
             return "..."
+        # True / False / None are NameExprs in mypy's AST; their names render verbatim.
         if isinstance(expr, NameExpr):
             return expr.name
         if isinstance(expr, MemberExpr):
             return self._member_expr_dotted_path(expr)
         return "<expr>"
+
+    @staticmethod
+    def _escape_str_literal(s: str) -> str:
+        return s.replace("\\", "\\\\").replace('"', '\\"')
 
     def _serialize_func_def(
         self, func_def: FuncDef, enclosing_class: str | None = None
@@ -294,9 +299,6 @@ class AstSerializer:
             fullname=fullname,
             is_async=func_def.is_coroutine,
             is_generator=func_def.is_generator,
-            is_static=getattr(func_def, "is_static", False),
-            is_class=getattr(func_def, "is_class", False),
-            is_property=getattr(func_def, "is_property", False),
             line=getattr(func_def, "line", -1),
         )
 

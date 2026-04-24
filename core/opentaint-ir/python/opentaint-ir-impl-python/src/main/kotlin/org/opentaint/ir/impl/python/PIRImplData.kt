@@ -21,7 +21,10 @@ data class PIRModuleImpl(
     override fun toString(): String = "PIRModule($name)"
 }
 
-data class PIRClassImpl(
+// Not `data class`: `module` is `lateinit var` wired post-construction, so
+// synthesized copy()/componentN() would drop it. equals/hashCode/toString are
+// hand-rolled below to break circular references anyway.
+class PIRClassImpl(
     override val name: String,
     override val qualifiedName: String,
     override val baseClasses: List<String>,
@@ -34,15 +37,19 @@ data class PIRClassImpl(
     override val isAbstract: Boolean,
     override val isDataclass: Boolean,
     override val isEnum: Boolean,
-    override val module: PIRModule,
 ) : PIRClass {
+    // Wired after construction: chicken-and-egg — module needs its classes built first.
+    override lateinit var module: PIRModule
+
     // Break circular hashCode/toString: class → methods → function → enclosingClass → class
     override fun equals(other: Any?): Boolean = this === other || (other is PIRClassImpl && qualifiedName == other.qualifiedName)
     override fun hashCode(): Int = qualifiedName.hashCode()
     override fun toString(): String = "PIRClass($qualifiedName)"
 }
 
-data class PIRFunctionImpl(
+// Not `data class`: `module` is `lateinit var` wired post-construction, so
+// synthesized copy()/componentN() would drop it.
+class PIRFunctionImpl(
     override val name: String,
     override val qualifiedName: String,
     override val parameters: List<PIRParameter>,
@@ -57,8 +64,10 @@ data class PIRFunctionImpl(
     override val closureVars: List<String>,
     // Mutable: set after construction to wire up circular class<->method reference
     override var enclosingClass: PIRClass?,
-    override val module: PIRModule,
 ) : PIRFunction {
+    // Wired after construction: chicken-and-egg — module needs its functions built first.
+    override lateinit var module: PIRModule
+
     override val instList: List<PIRInstruction> get() = cfg.instList
 
     // Break circular hashCode/toString: function → enclosingClass → methods → function

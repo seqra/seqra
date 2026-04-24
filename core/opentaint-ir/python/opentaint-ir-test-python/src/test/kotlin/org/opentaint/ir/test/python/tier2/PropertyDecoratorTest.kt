@@ -430,8 +430,8 @@ class Priority(IntEnum):
         val dec = cls.decorators.find { it.name == "dataclass" }
         assertNotNull(dec,
             "FrozenData should have a 'dataclass' decorator; got: ${cls.decorators.map { it.name }}")
-        assertTrue(dec!!.arguments.isNotEmpty(),
-            "@dataclass(frozen=True) should surface its argument in PIRDecorator.arguments; got: ${dec.arguments}")
+        assertTrue(dec!!.arguments.any { it.contains("True") },
+            "@dataclass(frozen=True) should render its argument as \"True\" in PIRDecorator.arguments; got: ${dec.arguments}")
         assertTrue(cls.isDataclass, "FrozenData should still be isDataclass=true")
     }
 

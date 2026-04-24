@@ -237,15 +237,19 @@ class ProtoToFlatBuilder(private val astModule: MypyModuleProto) {
 
     private fun exprRepr(expr: MypyExprProto): String = when {
         expr.hasIntExpr() -> expr.intExpr.value.toString()
-        expr.hasStrExpr() -> "\"${expr.strExpr.value}\""
+        expr.hasStrExpr() -> "\"${escapeStrLiteral(expr.strExpr.value)}\""
         expr.hasFloatExpr() -> expr.floatExpr.value.toString()
-        expr.hasBytesExpr() -> "b\"${expr.bytesExpr.value.toStringUtf8()}\""
+        expr.hasBytesExpr() -> "b\"${escapeStrLiteral(expr.bytesExpr.value.toStringUtf8())}\""
         expr.hasComplexExpr() -> "${expr.complexExpr.real}+${expr.complexExpr.imag}j"
         expr.hasEllipsisExpr() -> "..."
+        // True / False / None are NameExprs in mypy's AST; their names render verbatim.
         expr.hasNameExpr() -> expr.nameExpr.name
         expr.hasMemberExpr() -> memberExprDottedPath(expr.memberExpr)
         else -> "<expr>"
     }
+
+    private fun escapeStrLiteral(s: String): String =
+        s.replace("\\", "\\\\").replace("\"", "\\\"")
 
     // ─── Module init ─────────────────────────────────────
 

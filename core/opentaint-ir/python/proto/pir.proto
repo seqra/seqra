@@ -631,12 +631,12 @@ message MypyFuncDefProto {
   MypyBlockProto body = 5;                    // Raw statement body (NOT lowered to CFG)
   bool is_async = 6;
   bool is_generator = 7;
-  bool is_static = 8;
-  bool is_class = 9;
-  bool is_property = 10;
   repeated string closure_vars = 11;
   repeated MypyDecoratorInfoProto decorators = 12;
   int32 line = 13;
+
+  reserved 8, 9, 10;
+  reserved "is_static", "is_class", "is_property";
 }
 
 message MypyArgumentProto {

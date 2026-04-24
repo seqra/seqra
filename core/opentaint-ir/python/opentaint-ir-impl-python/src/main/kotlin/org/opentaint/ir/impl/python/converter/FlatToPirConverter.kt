@@ -16,12 +16,11 @@ class FlatToPirConverter(
     // ─── Module conversion ───
 
     fun convert(): PIRModule {
-        val dummyModule = createDummyModule()
         val pirFunctions = flat.functions
             .filter { it.kind != FlatFunctionKind.MODULE_INIT }
-            .map { convertFlatFunction(it, dummyModule) }
-        val pirModuleInit = convertFlatFunction(flat.moduleInit, dummyModule)
-        val pirClasses = flat.classes.map { flatClassToPir(it, dummyModule) }
+            .map { convertFlatFunction(it) }
+        val pirModuleInit = convertFlatFunction(flat.moduleInit)
+        val pirClasses = flat.classes.map { flatClassToPir(it) }
         val pirFields = flat.fields.map {
             PIRFieldImpl(it.name, ic.convertType(it.type), isClassVar = false, hasInitializer = it.hasInitializer)
         }
@@ -36,21 +35,30 @@ class FlatToPirConverter(
             imports = flat.imports,
             classpath = classpath,
             diagnostics = flat.diagnostics,
-        )
+        ).also { wireModuleBackRefs(it) }
     }
 
-    // ─── Dummy module ───
+    /**
+     * Wires `.module` on every function and class reachable from [module].
+     * Covers: top-level functions (incl. extracted lambdas/nested defs),
+     * moduleInit, top-level classes and — recursively — their methods and
+     * nested classes. Class methods are only reachable via [PIRClass.methods],
+     * not [PIRModule.functions].
+     */
+    private fun wireModuleBackRefs(module: PIRModuleImpl) {
+        for (fn in module.functions) wireFunctionModule(fn, module)
+        wireFunctionModule(module.moduleInit, module)
+        for (cls in module.classes) wireClassModule(cls as PIRClassImpl, module)
+    }
 
-    private fun createDummyModule(): PIRModule = object : PIRModule {
-        override val name = flat.moduleName
-        override val path = flat.path
-        override val classes = emptyList<PIRClass>()
-        override val functions = emptyList<PIRFunction>()
-        override val fields = emptyList<PIRField>()
-        override val moduleInit: PIRFunction get() = throw UnsupportedOperationException()
-        override val imports = emptyList<String>()
-        override val classpath: PIRClasspath get() = this@FlatToPirConverter.classpath
-        override val diagnostics = emptyList<PIRDiagnostic>()
+    private fun wireFunctionModule(fn: PIRFunction, module: PIRModule) {
+        (fn as PIRFunctionImpl).module = module
+    }
+
+    private fun wireClassModule(cls: PIRClassImpl, module: PIRModule) {
+        cls.module = module
+        for (method in cls.methods) wireFunctionModule(method, module)
+        for (nested in cls.nestedClasses) wireClassModule(nested as PIRClassImpl, module)
     }
 
     /**
@@ -67,8 +75,8 @@ class FlatToPirConverter(
 
     // ─── Class conversion ───
 
-    private fun flatClassToPir(flat: FlatClass, module: PIRModule): PIRClass {
-        val methods = flat.methods.map { convertFlatFunction(it, module) }
+    private fun flatClassToPir(flat: FlatClass): PIRClass {
+        val methods = flat.methods.map { convertFlatFunction(it) }
         // Identity-keyed so that two `FlatFunctionIR`s which happen to be structurally
         // equal (same name / qualifiedName / CFG / etc.) still map to distinct entries.
         val methodMap = java.util.IdentityHashMap<FlatFunctionIR, PIRFunctionImpl>()
@@ -76,9 +84,10 @@ class FlatToPirConverter(
             methodMap[flat.methods[i]] = methods[i]
         }
         val classFields = flat.fields.map {
+            // TODO: introduce typeConverter
             PIRFieldImpl(it.name, ic.convertType(it.type), it.isClassVar, it.hasInitializer)
         }
-        val nestedClasses = flat.nestedClasses.map { flatClassToPir(it, module) }
+        val nestedClasses = flat.nestedClasses.map { flatClassToPir(it) }
         val properties = synthesizeProperties(flat.methods, methodMap)
         val decorators = flat.decorators.map {
             PIRDecoratorImpl(it.name, it.qualifiedName, it.arguments)
@@ -97,7 +106,6 @@ class FlatToPirConverter(
             isAbstract = flat.isAbstract,
             isDataclass = flat.isDataclass,
             isEnum = flat.isEnum,
-            module = module,
         )
 
         for (method in methods) {
@@ -146,7 +154,7 @@ class FlatToPirConverter(
 
     // ─── Function conversion ───
 
-    private fun convertFlatFunction(pending: FlatFunctionIR, module: PIRModule): PIRFunctionImpl {
+    private fun convertFlatFunction(pending: FlatFunctionIR): PIRFunctionImpl {
         val params = pending.parameters.mapIndexed { idx, p ->
             PIRParameterImpl(
                 p.name,
@@ -160,7 +168,7 @@ class FlatToPirConverter(
         val returnType = ic.convertType(pending.returnType)
         val cfg = ic.convertCFG(pending.cfg)
 
-        val function = PIRFunctionImpl(
+        return PIRFunctionImpl(
             name = pending.name,
             qualifiedName = pending.qualifiedName,
             parameters = params,
@@ -176,10 +184,7 @@ class FlatToPirConverter(
             isProperty = pending.isProperty,
             closureVars = pending.closureVars,
             enclosingClass = null,
-            module = module,
-        )
-        wireInstructionLocations(function)
-        return function
+        ).also { wireInstructionLocations(it) }
     }
 
     private fun flatParamKindToPir(kind: FlatParamKind): PIRParameterKind = when (kind) {

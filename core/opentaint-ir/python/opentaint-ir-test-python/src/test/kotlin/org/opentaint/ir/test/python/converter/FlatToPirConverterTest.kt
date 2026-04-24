@@ -157,7 +157,10 @@ class FlatToPirConverterTest {
         for (method in cls.methods) {
             assertSame(cls, method.enclosingClass)
         }
-        assertEquals("m", cls.module.name)
+        assertSame(module, cls.module)
+        for (method in cls.methods) {
+            assertSame(module, method.module)
+        }
     }
 
     @Test
