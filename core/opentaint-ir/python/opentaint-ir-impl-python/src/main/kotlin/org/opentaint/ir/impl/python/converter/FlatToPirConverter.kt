@@ -1,23 +1,22 @@
-package org.opentaint.ir.impl.python.builder
+package org.opentaint.ir.impl.python.converter
 
 import org.opentaint.ir.api.python.*
 import org.opentaint.ir.impl.python.*
-import org.opentaint.ir.impl.python.converter.InstructionConverter
+import org.opentaint.ir.impl.python.builder.*
 
-class MypyModuleBuilder(
-    astModule: org.opentaint.ir.impl.python.proto.MypyModuleProto,
-    private val classpath: PIRClasspath? = null,
+/**
+ * Converts a [FlatModuleIR] into a [PIRModule]. Pure Flat-side; no proto reads.
+ */
+class FlatToPirConverter(
+    private val flat: FlatModuleIR,
+    private val classpath: PIRClasspath,
 ) {
-    private val proto = ProtoToFlatBuilder(astModule)
     private val ic = InstructionConverter()
 
-    fun build(): PIRModule {
-        val flat = proto.build()
-        val dummyModule = createDummyModule(flat)
-        return flatToPir(flat, dummyModule)
-    }
+    // ─── Module conversion ───
 
-    private fun flatToPir(flat: FlatModuleIR, dummyModule: PIRModule): PIRModule {
+    fun convert(): PIRModule {
+        val dummyModule = createDummyModule()
         val pirFunctions = flat.functions
             .filter { it.kind != FlatFunctionKind.MODULE_INIT }
             .map { convertFlatFunction(it, dummyModule) }
@@ -35,12 +34,14 @@ class MypyModuleBuilder(
             fields = pirFields,
             moduleInit = pirModuleInit,
             imports = flat.imports,
-            classpath = classpath ?: dummyModule.classpath,
+            classpath = classpath,
             diagnostics = flat.diagnostics,
         )
     }
 
-    private fun createDummyModule(flat: FlatModuleIR): PIRModule = object : PIRModule {
+    // ─── Dummy module ───
+
+    private fun createDummyModule(): PIRModule = object : PIRModule {
         override val name = flat.moduleName
         override val path = flat.path
         override val classes = emptyList<PIRClass>()
@@ -48,16 +49,7 @@ class MypyModuleBuilder(
         override val fields = emptyList<PIRField>()
         override val moduleInit: PIRFunction get() = throw UnsupportedOperationException()
         override val imports = emptyList<String>()
-        override val classpath: PIRClasspath
-            get() = this@MypyModuleBuilder.classpath ?: object : PIRClasspath {
-                override val modules = emptyList<PIRModule>()
-                override fun findModuleOrNull(name: String): PIRModule? = null
-                override fun findClassOrNull(qualifiedName: String): PIRClass? = null
-                override fun findFunctionOrNull(qualifiedName: String): PIRFunction? = null
-                override val pythonVersion = ""
-                override val mypyVersion = ""
-                override fun close() {}
-            }
+        override val classpath: PIRClasspath get() = this@FlatToPirConverter.classpath
         override val diagnostics = emptyList<PIRDiagnostic>()
     }
 
@@ -73,8 +65,10 @@ class MypyModuleBuilder(
         }
     }
 
+    // ─── Class conversion ───
+
     private fun flatClassToPir(flat: FlatClass, module: PIRModule): PIRClass {
-        val methods = flat.methods.map { convertFlatFunction(it, module) as PIRFunctionImpl }
+        val methods = flat.methods.map { convertFlatFunction(it, module) }
         // Identity-keyed so that two `FlatFunctionIR`s which happen to be structurally
         // equal (same name / qualifiedName / CFG / etc.) still map to distinct entries.
         val methodMap = java.util.IdentityHashMap<FlatFunctionIR, PIRFunctionImpl>()
@@ -113,6 +107,8 @@ class MypyModuleBuilder(
         return cls
     }
 
+    // ─── Property synthesis ───
+
     /**
      * Group property methods into PIRPropertyImpl objects.
      * OverloadedFuncDef serializes all items: getter, setter, deleter in order.
@@ -148,7 +144,9 @@ class MypyModuleBuilder(
         return result
     }
 
-    private fun convertFlatFunction(pending: FlatFunctionIR, module: PIRModule): PIRFunction {
+    // ─── Function conversion ───
+
+    private fun convertFlatFunction(pending: FlatFunctionIR, module: PIRModule): PIRFunctionImpl {
         val params = pending.parameters.mapIndexed { idx, p ->
             PIRParameterImpl(
                 p.name,

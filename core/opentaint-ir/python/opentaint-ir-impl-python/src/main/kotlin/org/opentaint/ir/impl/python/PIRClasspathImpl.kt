@@ -3,7 +3,8 @@ package org.opentaint.ir.impl.python
 import io.grpc.ManagedChannel
 import io.grpc.ManagedChannelBuilder
 import org.opentaint.ir.api.python.*
-import org.opentaint.ir.impl.python.builder.MypyModuleBuilder
+import org.opentaint.ir.impl.python.builder.ProtoToFlatBuilder
+import org.opentaint.ir.impl.python.converter.FlatToPirConverter
 import org.opentaint.ir.impl.python.proto.PIRServiceGrpc
 import org.opentaint.ir.impl.python.proto.BuildProjectRequest
 import org.opentaint.ir.impl.python.proto.PingRequest
@@ -122,8 +123,8 @@ class PIRClasspathImpl private constructor(
                 continue
             }
 
-            val builder = MypyModuleBuilder(astModuleProto, this)
-            val module = builder.build()
+            val flat = ProtoToFlatBuilder(astModuleProto).build()
+            val module = FlatToPirConverter(flat, this).convert()
             _modules.add(module)
             modulesByName[module.name] = module
             indexModule(module)
