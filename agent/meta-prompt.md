@@ -100,6 +100,14 @@ Execute these four phases in order. Iterate phases 2-4 until the external method
 | FN: lambda/callback method | Code-based approximation | create-approximation |
 | Confirmed vulnerability | Generate PoC | generate-poc |
 
+## Note: Suspected Engine Issues
+
+If a rule that should fire keeps missing (or firing spuriously) even though the rule
+tests pass and `external-methods-without-rules.yaml` has no methods on the relevant
+path, read `opentaint-issue-investigation.md`. It walks through building a minimal
+rule-test reproducer, ruling out library-model gaps, pinpointing the instruction where
+IFDS drops the fact via `--debug-fact-reachability-sarif`, and writing a short report.
+
 ## Key Constraints
 
 - Approximations (YAML and code-based) apply ONLY to external methods -- library classes without source code
