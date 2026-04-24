@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.ap.ifds.taint
 
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
+import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationItem
@@ -109,7 +110,8 @@ class TaintSinkTracker(
     private data class TaintRuleAssumptions<T: CommonTaintConfigurationItem>(
         val rule: T,
         val statement: CommonInst,
-        val facts: MutableMap<InitialFactAp, MutableSet<Set<InitialFactAp>>>
+        val facts: MutableMap<InitialFactAp, MutableSet<Set<InitialFactAp>>>,
+        val delayedResolutions: MutableSet<Pair<InitialFactAp, TaintMarkAccessor>>,
     )
 
     private val sourceRuleAssumptions = ConcurrentHashMap<CommonTaintConfigurationSource, ConcurrentHashMap<CommonInst, TaintRuleAssumptions<CommonTaintConfigurationSource>>>()
@@ -117,6 +119,15 @@ class TaintSinkTracker(
 
     fun addSourceRuleAssumptions(rule: CommonTaintConfigurationSource, statement: CommonInst, assumptions: Map<InitialFactAp, Set<InitialFactAp>>) =
         addRuleAssumptions(sourceRuleAssumptions, rule, statement, assumptions)
+
+    fun addSinkRuleDelayedAnyResolution(rule: CommonTaintConfigurationSink, statement: CommonInst, factWithAny: InitialFactAp, tmAccessor: TaintMarkAccessor) =
+        addRuleDelayedAnyResolutions(sinkRuleAssumptions, rule, statement, factWithAny, tmAccessor)
+
+    fun removeSinkRuleDelayedAnyResolution(rule: CommonTaintConfigurationSink, statement: CommonInst, factWithAny: InitialFactAp, tmAccessor: TaintMarkAccessor) =
+        removeRuleDelayedAnyResolutions(sinkRuleAssumptions, rule, statement, factWithAny, tmAccessor)
+
+    fun getSinkRuleDelayedResolutions(rule: CommonTaintConfigurationSink, statement: CommonInst) =
+        getDelayedResolutions(sinkRuleAssumptions, rule, statement)
 
     fun currentSourceRuleAssumptions(rule: CommonTaintConfigurationSource, statement: CommonInst) =
         currentRuleAssumptions(sourceRuleAssumptions, rule, statement)
@@ -130,18 +141,52 @@ class TaintSinkTracker(
     fun currentSinkRuleAssumptions(rule: CommonTaintConfigurationSink, statement: CommonInst) =
         currentRuleAssumptions(sinkRuleAssumptions, rule, statement)
 
+    private fun <T : CommonTaintConfigurationItem> getDelayedResolutions(
+        storage: ConcurrentHashMap<T, ConcurrentHashMap<CommonInst, TaintRuleAssumptions<T>>>,
+        rule: T, statement: CommonInst
+    ): Set<Pair<InitialFactAp, TaintMarkAccessor>> {
+        val currentAssumptions = storage[rule]?.get(statement) ?: return emptySet()
+        return currentAssumptions.delayedResolutions.toSet()
+    }
+
     private fun <T : CommonTaintConfigurationItem> addRuleAssumptions(
         storage: ConcurrentHashMap<T, ConcurrentHashMap<CommonInst, TaintRuleAssumptions<T>>>,
         rule: T, statement: CommonInst, assumptions: Map<InitialFactAp, Set<InitialFactAp>>
     ) {
         val currentAssumptions = storage
             .computeIfAbsent(rule) { ConcurrentHashMap() }
-            .computeIfAbsent(statement) { TaintRuleAssumptions(rule, statement, hashMapOf()) }
+            .computeIfAbsent(statement) { TaintRuleAssumptions(rule, statement, hashMapOf(), mutableSetOf()) }
 
         synchronized(currentAssumptions) {
             assumptions.forEach { (fact, factPre) ->
                 currentAssumptions.facts.getOrPut(fact, ::hashSetOf).add(factPre)
             }
+        }
+    }
+
+    private fun <T : CommonTaintConfigurationItem> addRuleDelayedAnyResolutions(
+        storage: ConcurrentHashMap<T, ConcurrentHashMap<CommonInst, TaintRuleAssumptions<T>>>,
+        rule: T, statement: CommonInst, factWithAny: InitialFactAp, tmAccessor: TaintMarkAccessor
+    ) {
+        val currentAssumptions = storage
+            .computeIfAbsent(rule) { ConcurrentHashMap() }
+            .computeIfAbsent(statement) { TaintRuleAssumptions(rule, statement, hashMapOf(), mutableSetOf()) }
+
+        synchronized(currentAssumptions) {
+            currentAssumptions.delayedResolutions.add(factWithAny to tmAccessor)
+        }
+    }
+
+    private fun <T : CommonTaintConfigurationItem> removeRuleDelayedAnyResolutions(
+        storage: ConcurrentHashMap<T, ConcurrentHashMap<CommonInst, TaintRuleAssumptions<T>>>,
+        rule: T, statement: CommonInst, factWithAny: InitialFactAp, tmAccessor: TaintMarkAccessor
+    ) {
+        val currentAssumptions = storage
+            .computeIfAbsent(rule) { ConcurrentHashMap() }
+            .computeIfAbsent(statement) { TaintRuleAssumptions(rule, statement, hashMapOf(), mutableSetOf()) }
+
+        synchronized(currentAssumptions) {
+            currentAssumptions.delayedResolutions.remove(factWithAny to tmAccessor)
         }
     }
 

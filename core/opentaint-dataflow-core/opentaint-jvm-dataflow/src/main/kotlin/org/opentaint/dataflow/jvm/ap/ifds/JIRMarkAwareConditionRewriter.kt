@@ -38,19 +38,19 @@ class JIRMarkAwareConditionRewriter(
     }
 
     private fun rewriteAndCondition(condition: And): ExprOrConstant {
-        return rewriteList(condition.args, trueExpr, JIRMarkAwareConditionExpr::And) {
+        return rewriteList(condition.args, ExprOrConstant.trueExpr, JIRMarkAwareConditionExpr::And) {
             when {
                 it.isTrue -> null
-                it.isFalse -> return falseExpr
+                it.isFalse -> return ExprOrConstant.falseExpr
                 else -> it.expr
             }
         }
     }
 
     private fun rewriteOrCondition(condition: Or): ExprOrConstant {
-        return rewriteList(condition.args, falseExpr, JIRMarkAwareConditionExpr::Or) {
+        return rewriteList(condition.args, ExprOrConstant.falseExpr, JIRMarkAwareConditionExpr::Or) {
             when {
-                it.isTrue -> return trueExpr
+                it.isTrue -> return ExprOrConstant.trueExpr
                 it.isFalse -> null
                 else -> it.expr
             }
@@ -70,7 +70,7 @@ class JIRMarkAwareConditionRewriter(
         }
 
         val result = atom.accept(evaluator)
-        return if (result) trueExpr else falseExpr
+        return if (result) ExprOrConstant.trueExpr else ExprOrConstant.falseExpr
     }
 
     private fun JIRMarkAwareConditionExpr.negate(): JIRMarkAwareConditionExpr = when (this) {
@@ -109,25 +109,25 @@ class JIRMarkAwareConditionRewriter(
         return ExprOrConstant(create(resultExprs))
     }
 
-    @JvmInline
-    value class ExprOrConstant(private val rawValue: Any?) {
-        val isTrue: Boolean get() = rawValue === trueMarker
-        val isFalse: Boolean get() = rawValue === falseMarker
-
-        val expr: JIRMarkAwareConditionExpr get() = rawValue as JIRMarkAwareConditionExpr
-    }
-
     private fun ExprOrConstant.negate(): ExprOrConstant = when {
-        this.isFalse -> trueExpr
-        this.isTrue -> falseExpr
+        this.isFalse -> ExprOrConstant.trueExpr
+        this.isTrue -> ExprOrConstant.falseExpr
         else -> ExprOrConstant(expr.negate())
     }
+}
+
+@JvmInline
+value class ExprOrConstant(private val rawValue: Any?) {
+    val isTrue: Boolean get() = rawValue === trueMarker
+    val isFalse: Boolean get() = rawValue === falseMarker
+
+    val expr: JIRMarkAwareConditionExpr get() = rawValue as JIRMarkAwareConditionExpr
 
     companion object {
         private val trueMarker = Any()
         private val falseMarker = Any()
 
-        private val trueExpr = ExprOrConstant(trueMarker)
-        private val falseExpr = ExprOrConstant(falseMarker)
+        val trueExpr = ExprOrConstant(trueMarker)
+        val falseExpr = ExprOrConstant(falseMarker)
     }
 }

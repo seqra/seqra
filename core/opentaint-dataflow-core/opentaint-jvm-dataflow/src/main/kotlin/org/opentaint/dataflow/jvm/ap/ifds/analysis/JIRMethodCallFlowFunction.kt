@@ -18,7 +18,6 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.SideEffect
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.TraceInfo
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFlowFunction.Unchanged
 import org.opentaint.dataflow.configuration.jvm.AssignAction
-import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
 import org.opentaint.dataflow.configuration.jvm.TaintMethodSource
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionToJIRValueResolver
@@ -318,10 +317,7 @@ class JIRMethodCallFlowFunction(
         val callerFact = unmappedCallerFactAp.rebase(startFactBase)
         val conditionFactReader = FinalFactReader(callerFact, apManager)
 
-        val conditionEvaluator = JIRFactAwareConditionEvaluator(
-            listOf(conditionFactReader),
-            markAfterAnyFieldResolver = null // we don't expect such marks in pass rules
-        )
+        val conditionEvaluator = JIRFactAwareConditionEvaluator(listOf(conditionFactReader))
 
         val simpleConditionEvaluator = JIRSimpleFactAwareConditionEvaluator(conditionRewriter, conditionEvaluator)
 
@@ -417,7 +413,14 @@ class JIRMethodCallFlowFunction(
                     sinkTracker.addSinkRuleAssumptions(rule, statement, facts)
                 }
             },
-            currentAssumptions = { rule -> sinkTracker.currentSinkRuleAssumptions(rule, statement) }
+            currentAssumptions = { rule -> sinkTracker.currentSinkRuleAssumptions(rule, statement) },
+            addDelayedResolution = { rule, factWithAny, tmAccessor ->
+                sinkTracker.addSinkRuleDelayedAnyResolution(rule, statement, factWithAny, tmAccessor)
+            },
+            getDelayedResolutions = { rule -> sinkTracker.getSinkRuleDelayedResolutions(rule, statement) },
+            removeDelayedResolution = { rule, factWithAny, tmAccessor ->
+                sinkTracker.removeSinkRuleDelayedAnyResolution(rule, statement, factWithAny, tmAccessor)
+            }
         ) { rule, evaluatedFacts ->
             if (evaluatedFacts.isEmpty()) {
                 // unconditional sinks handled with zero fact
@@ -519,6 +522,9 @@ class JIRMethodCallFlowFunction(
             currentAssumptionPreconditions = { rule, facts ->
                 sinkTracker.currentSourceRuleAssumptionsPreconditions(rule, statement, facts)
             },
+            addDelayedResolution = { _, _, _ -> },
+            getDelayedResolutions = { _ -> emptySet() },
+            removeDelayedResolution = { _, _, _ -> },
             applyRule = { rule, evaluatedFacts ->
                 // unconditional sources handled with zero fact
                 if (evaluatedFacts.isEmpty() && factReader != null) return@applyRuleWithAssumptions
@@ -579,7 +585,7 @@ class JIRMethodCallFlowFunction(
                         )
                     }
                 }
-            }
+            },
         )
 
         factReader?.updateRefinement(conditionFactReaders)
@@ -631,10 +637,7 @@ class JIRMethodCallFlowFunction(
         ) { callerFact, startFactBase ->
             val passFactReader = FinalFactReader(callerFact.rebase(startFactBase), apManager)
 
-            val conditionEvaluator = JIRFactAwareConditionEvaluator(
-                listOf(passFactReader),
-                markAfterAnyFieldResolver = null // we don't expect such marks in pass rules
-            )
+            val conditionEvaluator = JIRFactAwareConditionEvaluator(listOf(passFactReader))
             val simpleConditionEvaluator = JIRSimpleFactAwareConditionEvaluator(conditionRewriter, conditionEvaluator)
             val typeResolver = JIRMethodPositionBaseTypeResolver(method)
             val passEvaluator = TaintPassActionEvaluator(

@@ -1,15 +1,14 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.FactWithPreconditions
 import org.opentaint.dataflow.configuration.jvm.Action
 import org.opentaint.dataflow.configuration.jvm.AssignAction
-import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.Condition
-import org.opentaint.dataflow.configuration.jvm.ContainsMarkOnAnyField
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.CopyMark
 import org.opentaint.dataflow.configuration.jvm.RemoveAllMarks
@@ -157,6 +156,9 @@ object TaintConfigUtils {
         condition: T.() -> Condition,
         storeAssumptions: (T, Map<InitialFactAp, Set<InitialFactAp>>) -> Unit,
         currentAssumptions: (T) -> Set<InitialFactAp>,
+        addDelayedResolution: (T, InitialFactAp, TaintMarkAccessor) -> Unit,
+        getDelayedResolutions: (T) -> Set<Pair<InitialFactAp, TaintMarkAccessor>>,
+        crossinline removeDelayedResolution: (T, InitialFactAp, TaintMarkAccessor) -> Unit,
         applyRule: (T, List<InitialFactAp>) -> Unit,
     ) {
         applyRuleWithAssumptions(
@@ -171,10 +173,13 @@ object TaintConfigUtils {
             currentAssumptionPreconditions = { _, facts ->
                 facts.map { FactWithPreconditions(it, emptyList()) }
             },
+            addDelayedResolution = addDelayedResolution,
+            getDelayedResolutions = getDelayedResolutions,
+            removeDelayedResolution = removeDelayedResolution,
             applyRule = applyRule,
             applyRuleWithAssumptions = { rule, facts ->
                 applyRule(rule, facts.map { it.fact })
-            }
+            },
         )
     }
 
@@ -188,10 +193,13 @@ object TaintConfigUtils {
         storeAssumptions: (T, Map<InitialFactAp, Set<InitialFactAp>>) -> Unit,
         currentAssumptions: (T) -> Set<InitialFactAp>,
         currentAssumptionPreconditions: (T, List<InitialFactAp>) -> List<FactWithPreconditions>,
+        addDelayedResolution: (T, InitialFactAp, TaintMarkAccessor) -> Unit,
+        getDelayedResolutions: (T) -> Set<Pair<InitialFactAp, TaintMarkAccessor>>,
+        crossinline removeDelayedResolution: (T, InitialFactAp, TaintMarkAccessor) -> Unit,
         applyRule: (T, List<InitialFactAp>) -> Unit,
-        applyRuleWithAssumptions: (T, List<FactWithPreconditions>) -> Unit
+        applyRuleWithAssumptions: (T, List<FactWithPreconditions>) -> Unit,
     ) {
-        val conditionEvaluator = JIRFactAwareConditionEvaluator(conditionFactReaders, null)
+        val conditionEvaluator = JIRFactAwareConditionEvaluator(conditionFactReaders)
 
         for (rule in this) {
             val ruleCondition = rule.condition()
@@ -213,25 +221,48 @@ object TaintConfigUtils {
                 continue
             }
 
-            // no evaluated taint marks
-            val assumptionExpr = conditionEvaluator.assumptionExpr() ?: continue
+            if (markAfterAnyFieldResolver?.initialFact != null && conditionEvaluator.hasProbedAny()) {
+                conditionEvaluator.getProbedAnyMarkAccessors().forEach {
+                    addDelayedResolution(rule, markAfterAnyFieldResolver.initialFact, it)
+                }
+            }
 
-            val facts = conditionEvaluator.facts()
+            // no evaluated taint marks
+            val assumptionExpr =
+                if (conditionEvaluator.hasProbedAny()) conditionExpr
+                else conditionEvaluator.assumptionExpr() ?: continue
+
             val factPrecondition = initialFacts.mapTo(hashSetOf()) {
                 it.replaceExclusions(ExclusionSet.Universe)
             }.ifEmpty { emptySet() }
 
-            val newAssumptions = facts.associateWith { factPrecondition }
-            storeAssumptions(rule, newAssumptions)
+            val facts = conditionEvaluator.facts()
+            if (facts.isNotEmpty()) {
+                val newAssumptions = facts.associateWith { factPrecondition }
+                storeAssumptions(rule, newAssumptions)
+            }
 
             val assumptions = currentAssumptions(rule)
             val assumptionReaders = assumptions.map { InitialFactReader(it, apManager) }
 
-            val conditionEvaluatorWithAssumptions = JIRFactAwareConditionEvaluator(
-                assumptionReaders,
-                markAfterAnyFieldResolver.takeIf { assumptionExpr.mustCalculateAny() }
-            )
-            if (!conditionEvaluatorWithAssumptions.evalWithAssumptionsCheck(assumptionExpr)) {
+            val conditionEvaluatorWithAssumptions = JIRFactAwareConditionEvaluator(assumptionReaders)
+            val conditionUnresolvedAny = conditionEvaluatorWithAssumptions.evalMarkLiteralsOnly(assumptionExpr)
+            if (conditionUnresolvedAny.isFalse) continue
+            if (!conditionUnresolvedAny.isTrue) {
+                if (markAfterAnyFieldResolver == null) continue
+
+                val delayedResolutions = getDelayedResolutions(rule)
+                val factsWithAny = delayedResolutions.map { it.first }.toSet()
+                val factsWithAnyReaders = factsWithAny.map { InitialFactReader(it, apManager) }
+                val anyRequestSender = JIRFactAwareContainsAnyMarkEvaluator(factsWithAnyReaders) { f, m ->
+                    if (f to m in delayedResolutions) {
+                        markAfterAnyFieldResolver.resolve(f, m)
+                        removeDelayedResolution(rule, f, m)
+                    }
+                }
+                // should be left with ContainsMarkOnAnyFieldLiterals only
+                anyRequestSender.evalContainsMarkAnyFieldRequests(conditionUnresolvedAny.expr)
+
                 continue
             }
 
@@ -283,16 +314,3 @@ object TaintConfigUtils {
         applyRuleWithAssumptions(rule, allFacts)
     }
 }
-
-fun JIRMarkAwareConditionExpr.mustCalculateAny(): Boolean =
-    when (this) {
-        is JIRMarkAwareConditionExpr.Literal ->
-            this is JIRMarkAwareConditionExpr.ContainsMarkOnAnyFieldLiteral
-
-        is JIRMarkAwareConditionExpr.Or ->
-            args.any { it.mustCalculateAny() }
-
-        is JIRMarkAwareConditionExpr.And ->
-            args.all { it.mustCalculateAny() }
-    }
-

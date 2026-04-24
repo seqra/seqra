@@ -13,11 +13,16 @@ data class TaintMarkFieldUnfoldRequest(
 
 data class JIRFactWithMarkAfterAnyFieldResolver(
     private val method: MethodEntryPoint,
-    private val initialFact: InitialFactAp,
+    val initialFact: InitialFactAp?,
     private val addSideEffect: (InitialFactAp, SideEffectKind) -> Unit
 ) {
     fun resolve(mark: TaintMarkAccessor) {
+        check(initialFact != null)
         addSideEffect(initialFact, TaintMarkFieldUnfoldRequest(method, initialFact, mark))
+    }
+
+    fun resolve(fact: InitialFactAp, mark: TaintMarkAccessor) {
+        addSideEffect(fact, TaintMarkFieldUnfoldRequest(method, fact, mark))
     }
 
     companion object {
@@ -25,10 +30,12 @@ data class JIRFactWithMarkAfterAnyFieldResolver(
             method: MethodEntryPoint,
             initialFacts: Set<InitialFactAp>,
             addSideEffect: (InitialFactAp, SideEffectKind) -> Unit
-        ): JIRFactWithMarkAfterAnyFieldResolver? {
+        ): JIRFactWithMarkAfterAnyFieldResolver {
             // 0 or 2+ facts implies that we have no abstraction
-            if (initialFacts.size != 1) return null
-            return JIRFactWithMarkAfterAnyFieldResolver(method, initialFacts.first(), addSideEffect)
+            val initialFact =
+                if (initialFacts.size != 1) null
+                else initialFacts.first()
+            return JIRFactWithMarkAfterAnyFieldResolver(method, initialFact, addSideEffect)
         }
     }
 }

@@ -106,6 +106,82 @@ private inline fun removeTrueLiteralsFromArray(
     return create(resultExprs)
 }
 
+fun JIRMarkAwareConditionExpr.removeMarkLiterals(
+    evalLiteral: (Literal) -> Boolean
+): ExprOrConstant = removeMarkLiteralsFromExpr(this, evalLiteral)
+
+private fun removeMarkLiteralsFromExpr(
+    expr: JIRMarkAwareConditionExpr,
+    evalLiteral: (Literal) -> Boolean
+) = when (expr) {
+    is Literal ->
+        if (evalLiteral(expr)) ExprOrConstant.trueExpr
+        else if (expr is JIRMarkAwareConditionExpr.ContainsMarkLiteral) ExprOrConstant.falseExpr
+        else ExprOrConstant(expr)
+
+    is And -> removeMarkLiteralsFromAndExpr(expr, evalLiteral)
+    is Or -> removeMarkLiteralsFromOrExpr(expr, evalLiteral)
+}
+
+private fun removeMarkLiteralsFromAndExpr(expr: And, evalLiteral: (Literal) -> Boolean): ExprOrConstant {
+    return removeMarkLiteralsFromArray(
+        expr.args, { removeMarkLiteralsFromExpr(it, evalLiteral) }, JIRMarkAwareConditionExpr::And,
+        default = ExprOrConstant.trueExpr,
+        processElement = {
+            when {
+                it.isTrue -> null
+                it.isFalse -> return ExprOrConstant.falseExpr
+                else -> it.expr
+            }
+        }
+    )
+}
+
+private fun removeMarkLiteralsFromOrExpr(expr: Or, evalLiteral: (Literal) -> Boolean): ExprOrConstant {
+    return removeMarkLiteralsFromArray(
+        expr.args, { removeMarkLiteralsFromExpr(it, evalLiteral) }, JIRMarkAwareConditionExpr::Or,
+        default = ExprOrConstant.falseExpr,
+        processElement = {
+            when {
+                it.isTrue -> return ExprOrConstant.trueExpr
+                it.isFalse -> null
+                else -> it.expr
+            }
+        }
+    )
+}
+
+private inline fun removeMarkLiteralsFromArray(
+    elements: Array<JIRMarkAwareConditionExpr>,
+    removeMarkLiteralsFromExpr: (JIRMarkAwareConditionExpr) -> ExprOrConstant,
+    create: (Array<JIRMarkAwareConditionExpr>) -> JIRMarkAwareConditionExpr,
+    default: ExprOrConstant,
+    processElement: (ExprOrConstant) -> JIRMarkAwareConditionExpr?,
+): ExprOrConstant {
+    val result = arrayOfNulls<JIRMarkAwareConditionExpr>(elements.size)
+    var size = 0
+    for (i in elements.indices) {
+        val elementResult = removeMarkLiteralsFromExpr(elements[i])
+        val elementExpr = processElement(elementResult) ?: continue
+        result[size++] = elementExpr
+    }
+
+    if (size == 0) {
+        return default
+    }
+
+    if (size == 1) {
+        return ExprOrConstant(result[0])
+    }
+
+    val resultExprs = result.copyOf(size)
+
+    @Suppress("UNCHECKED_CAST")
+    resultExprs as Array<JIRMarkAwareConditionExpr>
+
+    return ExprOrConstant(create(resultExprs))
+}
+
 data class JIRMarkAwareCube(val literals: Set<Literal>)
 
 fun JIRMarkAwareConditionExpr.explodeToDNF(): List<JIRMarkAwareCube> = when (this) {

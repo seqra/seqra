@@ -9,34 +9,51 @@ import org.opentaint.dataflow.configuration.jvm.TaintMark
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMarkAwareConditionExpr.Literal
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FactAwareConditionEvaluator
 import org.opentaint.dataflow.jvm.ap.ifds.taint.FactReader
-import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRFactWithMarkAfterAnyFieldResolver
+import org.opentaint.dataflow.jvm.ap.ifds.taint.InitialFactReader
 import org.opentaint.dataflow.jvm.ap.ifds.taint.PositionAccess
 import org.opentaint.dataflow.jvm.ap.ifds.taint.removeSuffix
 import org.opentaint.dataflow.jvm.ap.ifds.taint.resolveAp
 import org.opentaint.dataflow.jvm.ap.ifds.taint.resolveBaseAp
 import org.opentaint.dataflow.jvm.ap.ifds.taint.withSuffix
 
-class JIRFactAwareConditionEvaluator(
-    facts: List<FactReader>,
-    private val markAfterAnyFieldResolver: JIRFactWithMarkAfterAnyFieldResolver?
-) : FactAwareConditionEvaluator {
+class JIRFactAwareConditionEvaluator(facts: List<FactReader>) : FactAwareConditionEvaluator {
     private val basedFacts = facts.groupByTo(hashMapOf()) { it.base }
+
+    private var probedAnyMarkAccessors = mutableSetOf<TaintMarkAccessor>()
 
     private var hasEvaluatedContainsMark: Boolean = false
     private var remainingExpr: JIRMarkAwareConditionExpr? = null
     private val evaluatedFacts = mutableListOf<EvaluatedFact>()
+
+    fun getProbedAnyMarkAccessors(): Set<TaintMarkAccessor> {
+        return probedAnyMarkAccessors
+    }
+
+    fun hasProbedAny() = probedAnyMarkAccessors.isNotEmpty()
 
     override fun evalWithAssumptionsCheck(condition: JIRMarkAwareConditionExpr): Boolean {
         if (basedFacts.isEmpty()) return false
 
         evaluatedFacts.clear()
         hasEvaluatedContainsMark = false
+        probedAnyMarkAccessors.clear()
 
         remainingExpr = condition.removeTrueLiterals {
             evalLiteral(it)
         }
 
         return remainingExpr == null
+    }
+
+    fun evalMarkLiteralsOnly(condition: JIRMarkAwareConditionExpr): ExprOrConstant {
+        evaluatedFacts.clear()
+        hasEvaluatedContainsMark = false
+        probedAnyMarkAccessors.clear()
+        remainingExpr = null
+
+        return condition.removeMarkLiterals {
+            evalLiteral(it)
+        }
     }
 
     override fun assumptionExpr(): JIRMarkAwareConditionExpr? =
@@ -76,7 +93,7 @@ class JIRFactAwareConditionEvaluator(
             return true
         }
 
-        markAfterAnyFieldResolver?.resolve(tmAccessor)
+        probedAnyMarkAccessors += tmAccessor
 
         return false
     }
@@ -117,4 +134,41 @@ class JIRFactAwareConditionEvaluator(
     }
 
     private data object NoFact: MarkEvaluationResult
+}
+
+class JIRFactAwareContainsAnyMarkEvaluator(
+    facts: List<InitialFactReader>,
+    private val sendAnyFieldResolutionRequest: (InitialFactAp, TaintMarkAccessor) -> Unit
+) {
+    private val basedFacts = facts.groupByTo(hashMapOf()) { it.base }
+
+    fun evalContainsMarkAnyFieldRequests(condition: JIRMarkAwareConditionExpr) {
+        if (basedFacts.isEmpty()) return
+
+        condition.removeTrueLiterals {
+            evalContainsMarkAnyFieldLiteral(it)
+        }
+    }
+
+    private fun evalContainsMarkAnyFieldLiteral(literal: Literal): Boolean {
+        if (literal.negated) return true
+
+        when (literal) {
+            is JIRMarkAwareConditionExpr.ContainsMarkLiteral ->
+                error("ContainsMark literals expected to be resolved!")
+            is JIRMarkAwareConditionExpr.ContainsMarkOnAnyFieldLiteral -> sendRelevantResolutionRequests(literal.condition)
+        }
+        return false
+    }
+
+    private fun sendRelevantResolutionRequests(condition: ContainsMarkOnAnyField) {
+        val conditionBase = condition.position.resolveBaseAp()
+        val relevantFacts = basedFacts[conditionBase] ?: return
+
+        val tmAccessor = TaintMarkAccessor(condition.mark.name)
+
+        relevantFacts.forEach {
+            sendAnyFieldResolutionRequest(it.fact, tmAccessor)
+        }
+    }
 }

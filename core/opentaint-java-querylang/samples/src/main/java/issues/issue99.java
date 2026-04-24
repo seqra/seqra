@@ -22,24 +22,24 @@ public abstract class issue99 implements RuleSample {
         fakeSink(dh.field5);
     }
 
-//    static class PositiveTaint extends issue99 {
-//        @Override
-//        public void entrypoint() {
-//            DataHoarder dh = source();
-//            Response r = new Response();
-//            r.getTaker().write(dh.field2);
-//        }
-//    }
-//
-//    static class NegativeResponseTaint extends issue99 {
-//        @Override
-//        public void entrypoint() {
-//            DataHoarder dh = source();
-//            FakeResponse r = new FakeResponse();
-//            Object a = dh.field2;
-//            r.getTaker().write(a);
-//        }
-//    }
+    static class PositiveTaint extends issue99 {
+        @Override
+        public void entrypoint() {
+            DataHoarder dh = source();
+            Response r = new Response();
+            r.getTaker().write(dh.field2);
+        }
+    }
+
+    static class NegativeResponseTaint extends issue99 {
+        @Override
+        public void entrypoint() {
+            DataHoarder dh = source();
+            FakeResponse r = new FakeResponse();
+            Object a = dh.field2;
+            r.getTaker().write(a);
+        }
+    }
 
     protected DataHoarder.DH4 deepSource() {
         DataHoarder dh = source();
@@ -59,24 +59,24 @@ public abstract class issue99 implements RuleSample {
         }
     }
 
-//    static class NegativeResponseDeepTaint extends issue99 {
-//        @Override
-//        public void entrypoint() {
-//            Object dh = deepSource();
-//            mkResponse(dh);
-//        }
-//
-//        public void mkResponse(Object dh) {
-//            FakeResponse r = new FakeResponse();
-//            r.getTaker().write(dh);
-//        }
-//    }
-//
-//    static class NegativeTaint extends issue99 {
-//        @Override
-//        public void entrypoint() {
-//            DataHoarder dh = source();
-//            fakeSink(dh);
-//        }
-//    }
+    static class NegativeResponseDeepTaint extends issue99 {
+        @Override
+        public void entrypoint() {
+            Object dh = deepSource();
+            mkResponse(dh);
+        }
+
+        public void mkResponse(Object dh) {
+            FakeResponse r = new FakeResponse();
+            r.getTaker().write(dh);
+        }
+    }
+
+    static class NegativeTaint extends issue99 {
+        @Override
+        public void entrypoint() {
+            DataHoarder dh = source();
+            fakeSink(dh);
+        }
+    }
 }

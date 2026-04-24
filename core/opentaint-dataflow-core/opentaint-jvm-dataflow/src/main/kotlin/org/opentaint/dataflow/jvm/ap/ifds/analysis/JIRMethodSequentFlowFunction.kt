@@ -631,6 +631,13 @@ class JIRMethodSequentFlowFunction(
             },
             currentAssumptions = { rule ->
                 taintSinkTracker.currentSinkRuleAssumptions(rule, currentInst)
+            },
+            addDelayedResolution = { rule, factWithAny, tmAccessor ->
+                taintSinkTracker.addSinkRuleDelayedAnyResolution(rule, currentInst, factWithAny, tmAccessor)
+            },
+            getDelayedResolutions = { rule -> taintSinkTracker.getSinkRuleDelayedResolutions(rule, currentInst) },
+            removeDelayedResolution = { rule, factWithAny, tmAccessor ->
+                taintSinkTracker.removeSinkRuleDelayedAnyResolution(rule, currentInst, factWithAny, tmAccessor)
             }
         ) { rule, rawEvaluatedFacts ->
             val evaluatedFacts = rawEvaluatedFacts.map {
@@ -715,6 +722,9 @@ class JIRMethodSequentFlowFunction(
             storeAssumptions = { _, _ ->  },
             currentAssumptions = { emptySet() },
             currentAssumptionPreconditions = { _, _ -> emptyList() },
+            addDelayedResolution = { _, _, _ -> },
+            getDelayedResolutions = { _ -> emptySet() },
+            removeDelayedResolution = { _, _, _ -> },
             applyRule = { rule, evaluatedFacts ->
                 // unconditional sources handled with zero fact
                 if (evaluatedFacts.isEmpty() && fact != null) return@applyRuleWithAssumptions
