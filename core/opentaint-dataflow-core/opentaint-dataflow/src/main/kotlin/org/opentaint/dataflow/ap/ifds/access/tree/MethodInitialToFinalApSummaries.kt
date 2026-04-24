@@ -19,7 +19,7 @@ class MethodInitialToFinalApSummaries(
 
 private class MethodTaintedSummariesInitialApStorage(
     val apManager: TreeApManager,
-) : AccessBasedStorage<MethodTaintedSummariesInitialApStorage>() {
+) : AccessBasedStorage<MethodTaintedSummariesInitialApStorage>(apManager) {
     private var current: MethodTaintedSummariesMergingStorage? = null
 
     override fun createStorage() = MethodTaintedSummariesInitialApStorage(apManager)
@@ -54,6 +54,8 @@ private class MethodTaintedSummariesInitialApStorage(
 
     private fun getOrCreateCurrent(access: AccessPath.AccessNode?) =
         current ?: MethodTaintedSummariesMergingStorage(apManager, access).also { current = it }
+
+    override fun printStorageNode(): String = current.toString()
 }
 
 private class MethodTaintedSummariesGroupedByFactStorage(

@@ -47,7 +47,7 @@ class SideEffectRequirementTreeApStorage(
 
 private class SideEffectRequirementStorage(
     val apManager: TreeApManager,
-) : AccessBasedStorage<SideEffectRequirementStorage>() {
+) : AccessBasedStorage<SideEffectRequirementStorage>(apManager) {
     var requirement: AccessPath? = null
 
     override fun createStorage() = SideEffectRequirementStorage(apManager)
@@ -77,4 +77,6 @@ private class SideEffectRequirementStorage(
         this.requirement = mergedAp
         return this
     }
+
+    override fun printStorageNode(): String = requirement.toString()
 }

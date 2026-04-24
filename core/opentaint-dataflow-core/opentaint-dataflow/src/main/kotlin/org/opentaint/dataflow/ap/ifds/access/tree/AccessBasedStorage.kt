@@ -9,7 +9,9 @@ import org.opentaint.dataflow.util.forEachInt
 import org.opentaint.dataflow.util.getOrCreate
 import org.opentaint.dataflow.util.int2ObjectMap
 
-abstract class AccessBasedStorage<S : AccessBasedStorage<S>> {
+abstract class AccessBasedStorage<S : AccessBasedStorage<S>>(
+    val manager: TreeApManager
+) {
     private val children = int2ObjectMap<S>()
 
     abstract fun createStorage(): S
@@ -88,7 +90,7 @@ abstract class AccessBasedStorage<S : AccessBasedStorage<S>> {
         return storages.asSequence()
     }
 
-    fun forEachNode(manager: TreeApManager, body: (AccessPath.AccessNode?, S) -> Unit) {
+    fun forEachNode(body: (AccessPath.AccessNode?, S) -> Unit) {
         forEachNodeWithAccessorChain { accessors, s ->
             val ap = manager.createNodeFromAccessors(accessors)
             body(ap, s)
@@ -117,4 +119,19 @@ abstract class AccessBasedStorage<S : AccessBasedStorage<S>> {
 
     private fun findChild(accessor: AccessorIdx): S? =
         children.get(accessor)
+
+    override fun toString(): String = buildString {
+        print(this, prefix = "")
+    }
+
+    abstract fun printStorageNode(): String
+
+    fun print(builder: StringBuilder, prefix: String) {
+        builder.appendLine("$prefix${printStorageNode()}")
+        children.forEachEntry { accessorIdx, s ->
+            val accessor = with(manager) { accessorIdx.accessor }
+            builder.appendLine("$prefix$accessor ->")
+            s.print(builder, prefix + " ".repeat(4))
+        }
+    }
 }

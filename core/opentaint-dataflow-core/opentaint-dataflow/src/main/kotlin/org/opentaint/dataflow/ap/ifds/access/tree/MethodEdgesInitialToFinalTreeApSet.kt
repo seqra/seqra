@@ -39,7 +39,7 @@ class MethodEdgesInitialToFinalTreeApSet(
             statement: CommonInst,
             finalPattern: AccessPath.AccessNode?,
         ) {
-            sameInitialAccessEdges.forEachNode(apManager) { initial, storage ->
+            sameInitialAccessEdges.forEachNode { initial, storage ->
                 collectToListWithPostProcess(
                     dst,
                     { storage.current.allApAtStatement(it, statement) },
@@ -62,12 +62,14 @@ class MethodEdgesInitialToFinalTreeApSet(
     private class IF2FFStorage(
         val maxInstIdx: Int,
         private val languageManager: LanguageManager,
-        val manager: TreeApManager,
-    ) : AccessBasedStorage<IF2FFStorage>() {
+        manager: TreeApManager,
+    ) : AccessBasedStorage<IF2FFStorage>(manager) {
         val current = EdgeNonUniverseExclusionMergingStorage(maxInstIdx, languageManager, manager)
 
         override fun createStorage(): IF2FFStorage =
             IF2FFStorage(maxInstIdx, languageManager, manager)
+
+        override fun printStorageNode(): String = current.toString()
     }
 
     private class EdgeNonUniverseExclusionMergingStorage(

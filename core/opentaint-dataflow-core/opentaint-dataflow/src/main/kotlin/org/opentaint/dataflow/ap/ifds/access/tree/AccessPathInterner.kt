@@ -5,9 +5,12 @@ import org.opentaint.dataflow.ap.ifds.SummaryFactStorage
 import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.BitSet
 
-class AccessPathInterner(methodEntryPoint: CommonInst) {
+class AccessPathInterner(
+    val manager: TreeApManager,
+    methodEntryPoint: CommonInst
+) {
     private var size = 0
-    private val storage = BasedStorage(methodEntryPoint)
+    private val storage = BasedStorage(manager, methodEntryPoint)
 
     fun getOrCreateIndex(
         base: AccessPathBase,
@@ -24,14 +27,14 @@ class AccessPathInterner(methodEntryPoint: CommonInst) {
 
     fun findBaseIndices(base: AccessPathBase): BitSet? = storage.find(base)?.allIndices
 
-    private class BasedStorage(methodEntryPoint: CommonInst) :
+    private class BasedStorage(val manager: TreeApManager, methodEntryPoint: CommonInst) :
         SummaryFactStorage<ApInterner>(methodEntryPoint) {
-        override fun createStorage(): ApInterner = ApInterner()
+        override fun createStorage(): ApInterner = ApInterner(manager)
     }
 
-    private class ApInterner {
+    private class ApInterner(manager: TreeApManager) {
         val allIndices = BitSet()
-        val root = ApInternerNode()
+        val root = ApInternerNode(manager)
 
         inline fun getOrCreate(ap: AccessPath.AccessNode?, nextIdx: () -> Int): Int {
             val node = root.getOrCreateNode(ap)
@@ -44,8 +47,9 @@ class AccessPathInterner(methodEntryPoint: CommonInst) {
         }
     }
 
-    private class ApInternerNode : AccessBasedStorage<ApInternerNode>() {
+    private class ApInternerNode(manager: TreeApManager) : AccessBasedStorage<ApInternerNode>(manager) {
         var idx: Int = -1
-        override fun createStorage(): ApInternerNode = ApInternerNode()
+        override fun createStorage(): ApInternerNode = ApInternerNode(manager)
+        override fun printStorageNode(): String = ""
     }
 }
