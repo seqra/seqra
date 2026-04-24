@@ -20,7 +20,7 @@ class MethodNDInitialToFinalApSummaries(
 
     override fun createStorage(): Storage<AccessNode> = object :
         DefaultNDF2FSummaryStorage<AccessPath.AccessNode?, AccessNode>() {
-        private val initialApIndex = AccessPathInterner(methodInitialStatement)
+        private val initialApIndex = AccessPathInterner(apManager, methodInitialStatement)
         private val initialAp = arrayListOf<AccessPath>()
 
         override fun initialApIdx(ap: InitialFactAp): Int {

@@ -45,7 +45,7 @@ private class SummaryEdgeNDFactSubStorage(
             (exitApStorage[idx] as FactStorage).current()
     }
 
-    private val initialApIndex = AccessPathInterner(initialStatement)
+    private val initialApIndex = AccessPathInterner(apManager, initialStatement)
     private val initialAp = arrayListOf<AccessPath>()
 
     override fun initialApIdx(ap: InitialFactAp): Int {

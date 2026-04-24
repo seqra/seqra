@@ -18,7 +18,7 @@ class FactSideEffectSummariesTreeApStorage(
 }
 
 private class TaintedSESummariesInitialApStorage(val apManager: TreeApManager) :
-    AccessBasedStorage<TaintedSESummariesInitialApStorage>() {
+    AccessBasedStorage<TaintedSESummariesInitialApStorage>(apManager) {
     private var current: TaintedSESummariesMergingStorage? = null
 
     override fun createStorage() = TaintedSESummariesInitialApStorage(apManager)
@@ -40,6 +40,8 @@ private class TaintedSESummariesInitialApStorage(val apManager: TreeApManager) :
 
     private fun getOrCreateCurrent(access: AccessPath.AccessNode?) =
         current ?: TaintedSESummariesMergingStorage(apManager, access).also { current = it }
+
+    override fun printStorageNode(): String = current.toString()
 }
 
 private class TaintedSESummariesGroupedByFactStorage(
