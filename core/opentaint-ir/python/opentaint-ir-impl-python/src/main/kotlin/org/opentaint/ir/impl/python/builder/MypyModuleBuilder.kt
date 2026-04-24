@@ -3,7 +3,6 @@ package org.opentaint.ir.impl.python.builder
 import org.opentaint.ir.api.python.*
 import org.opentaint.ir.impl.python.*
 import org.opentaint.ir.impl.python.converter.InstructionConverter
-import org.opentaint.ir.impl.python.converter.TypeConverter
 import org.opentaint.ir.impl.python.proto.*
 
 class MypyModuleBuilder(
@@ -22,7 +21,6 @@ class MypyModuleBuilder(
     var nestedFuncCounter = 0
     private val pendingNested = mutableListOf<FlatFunctionIR>()
     private val diagnostics = mutableListOf<PIRDiagnostic>()
-    private val typeConverter = TypeConverter()
     private val ic = InstructionConverter()
 
     fun build(): PIRModule {
@@ -38,14 +36,14 @@ class MypyModuleBuilder(
         // Dummy module for back-references during construction
         val dummyModule = createDummyModule()
 
-        val classes = mutableListOf<PIRClass>()
+        val flatClasses = mutableListOf<FlatClass>()
         val topLevelFlatFunctions = mutableListOf<FlatFunctionIR>()
         val flatFields = mutableListOf<FlatModuleField>()
 
         for (def in astModule.defsList) {
             when (def.kindCase) {
                 MypyDefinitionProto.KindCase.CLASS_DEF -> {
-                    classes.add(buildClass(def.classDef, dummyModule))
+                    flatClasses.add(buildFlatClass(def.classDef))
                 }
                 MypyDefinitionProto.KindCase.FUNC_DEF -> {
                     topLevelFlatFunctions.add(buildFlatFunction(def.funcDef, buildDecorators(def.funcDef), null))
@@ -74,6 +72,7 @@ class MypyModuleBuilder(
             moduleName = moduleName,
             path = astModule.path,
             functions = allFlatFunctions,
+            classes = flatClasses,
             fields = flatFields,
             imports = astModule.importsList,
             diagnostics = diagnostics,
@@ -83,6 +82,7 @@ class MypyModuleBuilder(
             .filter { it.kind != FlatFunctionKind.MODULE_INIT }
             .map { convertFlatFunction(it, dummyModule) }
         val pirModuleInit = convertFlatFunction(flatModule.moduleInit, dummyModule)
+        val pirClasses = flatModule.classes.map { flatClassToPir(it, dummyModule) }
         val pirFields = flatModule.fields.map {
             PIRFieldImpl(it.name, ic.convertType(it.type), isClassVar = false, hasInitializer = it.hasInitializer)
         }
@@ -90,7 +90,7 @@ class MypyModuleBuilder(
         return PIRModuleImpl(
             name = moduleName,
             path = astModule.path,
-            classes = classes,
+            classes = pirClasses,
             functions = pirFunctions,
             fields = pirFields,
             moduleInit = pirModuleInit,
@@ -135,68 +135,50 @@ class MypyModuleBuilder(
         }
     }
 
-    private fun buildClass(classDef: MypyClassDefProto, module: PIRModule): PIRClass {
-        val methods = mutableListOf<PIRFunction>()
-        val classFields = mutableListOf<PIRField>()
-        val nestedClasses = mutableListOf<PIRClass>()
-        val properties = mutableListOf<PIRProperty>()
-        val decorators = classDef.decoratorsList.map {
-            PIRDecoratorImpl(it.name, it.qualifiedName, it.argumentsList)
-        }
+    private fun buildFlatClass(classDef: MypyClassDefProto): FlatClass {
+        val methods = mutableListOf<FlatFunctionIR>()
+        val classFields = mutableListOf<FlatClassField>()
+        val nestedClasses = mutableListOf<FlatClass>()
 
         for (def in classDef.bodyList) {
             when (def.kindCase) {
                 MypyDefinitionProto.KindCase.FUNC_DEF -> {
-                    methods.add(buildFunction(def.funcDef, classDef.name, module))
+                    methods.add(buildFlatFunction(def.funcDef, buildDecorators(def.funcDef), classDef.name))
                 }
                 MypyDefinitionProto.KindCase.DECORATOR -> {
-                    methods.add(buildDecoratedFunction(def.decorator, classDef.name, module))
+                    methods.add(buildFlatFunction(def.decorator.func, buildDecorators(def.decorator), classDef.name))
                 }
                 MypyDefinitionProto.KindCase.ASSIGNMENT -> {
                     for (lvalue in def.assignment.lvaluesList) {
                         if (lvalue.hasNameExpr()) {
                             val type = if (lvalue.hasExprType()) {
-                                typeConverter.convert(lvalue.exprType)
-                            } else PIRAnyType
-                            classFields.add(PIRFieldImpl(lvalue.nameExpr.name, type, false, true))
+                                protoTypeToFlat(lvalue.exprType)
+                            } else FlatAnyType
+                            classFields.add(
+                                FlatClassField(
+                                    name = lvalue.nameExpr.name,
+                                    type = type,
+                                    isClassVar = false,
+                                    hasInitializer = true,
+                                )
+                            )
                         }
                     }
                 }
                 MypyDefinitionProto.KindCase.CLASS_DEF -> {
-                    nestedClasses.add(buildClass(def.classDef, module))
+                    nestedClasses.add(buildFlatClass(def.classDef))
                 }
                 else -> {}
             }
         }
 
-        // Group property methods into PIRProperty objects.
-        // OverloadedFuncDef serializes all items: getter, setter, deleter in order.
-        // The getter is the one with isProperty=true. Setter/deleter have the same name
-        // but may NOT have isProperty=true (mypy only sets it on the @property getter).
-        // We detect properties by finding methods with isProperty=true, then group all
-        // methods sharing that name.
-        val propertyGetterNames = methods.filter { it.isProperty }.map { it.name }.toSet()
-        for (propName in propertyGetterNames) {
-            val group = methods.filter { it.name == propName }
-            // First occurrence is the getter (has isProperty=true)
-            val getter = group.firstOrNull { it.isProperty }
-            // Setter: method with more params than getter (has value parameter)
-            val getterParamCount = getter?.parameters?.size ?: 0
-            val setter = group.firstOrNull { !it.isProperty && it.parameters.size > getterParamCount }
-                ?: group.firstOrNull { it !== getter && it.parameters.size > getterParamCount }
-            // Deleter: method with same param count as getter, after getter, not setter
-            val deleter = group.firstOrNull { it !== getter && it !== setter
-                && it.parameters.size == getterParamCount }
-
-            val propType = getter?.returnType ?: PIRAnyType
-            properties.add(PIRPropertyImpl(propName, propType, getter, setter, deleter))
+        val decorators = classDef.decoratorsList.map {
+            FlatDecorator(it.name, it.qualifiedName, it.argumentsList)
         }
-
-        // Compute flags from raw data (migrated from Python serializer)
         val isEnum = classDef.baseClassesList.any { it in ENUM_BASE_CLASSES }
         val isDataclass = classDef.isDataclass || decorators.any { it.name == "dataclass" }
 
-        val cls = PIRClassImpl(
+        return FlatClass(
             name = classDef.name,
             qualifiedName = classDef.fullname.ifEmpty { "$moduleName.${classDef.name}" },
             baseClasses = classDef.baseClassesList,
@@ -204,51 +186,89 @@ class MypyModuleBuilder(
             methods = methods,
             fields = classFields,
             nestedClasses = nestedClasses,
-            properties = properties,
             decorators = decorators,
             isAbstract = classDef.isAbstract,
             isDataclass = isDataclass,
             isEnum = isEnum,
+        )
+    }
+
+    private fun flatClassToPir(flat: FlatClass, module: PIRModule): PIRClass {
+        val methods = flat.methods.map { convertFlatFunction(it, module) as PIRFunctionImpl }
+        // Identity-keyed so that two `FlatFunctionIR`s which happen to be structurally
+        // equal (same name / qualifiedName / CFG / etc.) still map to distinct entries.
+        val methodMap = java.util.IdentityHashMap<FlatFunctionIR, PIRFunctionImpl>()
+        for (i in flat.methods.indices) {
+            methodMap[flat.methods[i]] = methods[i]
+        }
+        val classFields = flat.fields.map {
+            PIRFieldImpl(it.name, ic.convertType(it.type), it.isClassVar, it.hasInitializer)
+        }
+        val nestedClasses = flat.nestedClasses.map { flatClassToPir(it, module) }
+        val properties = synthesizeProperties(flat.methods, methodMap)
+        val decorators = flat.decorators.map {
+            PIRDecoratorImpl(it.name, it.qualifiedName, it.arguments)
+        }
+
+        val cls = PIRClassImpl(
+            name = flat.name,
+            qualifiedName = flat.qualifiedName,
+            baseClasses = flat.baseClasses,
+            mro = flat.mro,
+            methods = methods,
+            fields = classFields,
+            nestedClasses = nestedClasses,
+            properties = properties,
+            decorators = decorators,
+            isAbstract = flat.isAbstract,
+            isDataclass = flat.isDataclass,
+            isEnum = flat.isEnum,
             module = module,
         )
 
-        // Wire up enclosingClass back-reference on all methods
         for (method in methods) {
-            if (method is PIRFunctionImpl) {
-                method.enclosingClass = cls
-            }
+            method.enclosingClass = cls
         }
 
         return cls
     }
 
+    /**
+     * Group property methods into PIRPropertyImpl objects.
+     * OverloadedFuncDef serializes all items: getter, setter, deleter in order.
+     * The getter is the one with isProperty=true. Setter/deleter have the same name
+     * but may NOT have isProperty=true (mypy only sets it on the @property getter).
+     * We detect properties by finding methods with  isProperty=true, then group all
+     * methods sharing that name.
+     */
+    private fun synthesizeProperties(
+        methods: List<FlatFunctionIR>,
+        methodMap: Map<FlatFunctionIR, PIRFunctionImpl>,
+    ): List<PIRProperty> {
+        // `distinct()` preserves first-occurrence order so `PIRClass.properties`
+        // reflects source order of getter definitions.
+        val propertyGetterNames = methods.filter { it.isProperty }.map { it.name }.distinct()
+        val result = mutableListOf<PIRProperty>()
+        for (propName in propertyGetterNames) {
+            val group = methods.filter { it.name == propName }
+            val getter = group.firstOrNull { it.isProperty }
+            val getterParamCount = getter?.parameters?.size ?: 0
+            val setter = group.firstOrNull { !it.isProperty && it.parameters.size > getterParamCount }
+                ?: group.firstOrNull { it !== getter && it.parameters.size > getterParamCount }
+            val deleter = group.firstOrNull {
+                it !== getter && it !== setter && it.parameters.size == getterParamCount
+            }
+
+            val getterPir = getter?.let { methodMap.getValue(it) }
+            val setterPir = setter?.let { methodMap.getValue(it) }
+            val deleterPir = deleter?.let { methodMap.getValue(it) }
+            val propType = getterPir?.returnType ?: PIRAnyType
+            result.add(PIRPropertyImpl(propName, propType, getterPir, setterPir, deleterPir))
+        }
+        return result
+    }
+
     // ─── Function building ───────────────────────────────
-
-    private fun buildFunction(
-        funcDef: MypyFuncDefProto,
-        enclosingClass: String?,
-        module: PIRModule,
-    ): PIRFunction = convertFlatFunction(
-        buildFlatFunction(
-            funcDef,
-            buildDecorators(funcDef),
-            enclosingClass,
-        ),
-        module,
-    )
-
-    private fun buildDecoratedFunction(
-        decorator: MypyDecoratorDefProto,
-        enclosingClass: String?,
-        module: PIRModule,
-    ): PIRFunction = convertFlatFunction(
-        buildFlatFunction(
-            decorator.func,
-            buildDecorators(decorator),
-            enclosingClass,
-        ),
-        module,
-    )
 
     private fun buildDecorators(
         decorator: MypyDecoratorDefProto

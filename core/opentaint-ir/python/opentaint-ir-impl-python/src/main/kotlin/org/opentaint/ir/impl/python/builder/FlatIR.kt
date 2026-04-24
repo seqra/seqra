@@ -185,6 +185,27 @@ data class FlatModuleField(
     val hasInitializer: Boolean,
 )
 
+data class FlatClassField(
+    val name: String,
+    val type: FlatType,
+    val isClassVar: Boolean,
+    val hasInitializer: Boolean,
+)
+
+data class FlatClass(
+    val name: String,
+    val qualifiedName: String,
+    val baseClasses: List<String>,
+    val mro: List<String>,
+    val methods: List<FlatFunctionIR>,
+    val fields: List<FlatClassField>,
+    val nestedClasses: List<FlatClass>,
+    val decorators: List<FlatDecorator>,
+    val isAbstract: Boolean,
+    val isDataclass: Boolean,
+    val isEnum: Boolean,
+)
+
 /**
  * Raw module-level Flat IR bundle. Wraps every function-like scope plus
  * module metadata and any diagnostics accumulated during lowering.
@@ -197,6 +218,7 @@ data class FlatModuleIR(
     val moduleName: String,
     val path: String,
     val functions: List<FlatFunctionIR>,
+    val classes: List<FlatClass>,
     val fields: List<FlatModuleField>,
     val imports: List<String>,
     val diagnostics: List<PIRDiagnostic>,
