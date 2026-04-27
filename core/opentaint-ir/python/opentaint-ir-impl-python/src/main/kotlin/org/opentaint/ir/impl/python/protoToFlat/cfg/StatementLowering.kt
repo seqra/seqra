@@ -415,11 +415,16 @@ private fun CfgSession.visitNestedFuncDef(
     // `MypyFuncDefProto.decorators` for nested-def nodes).
     val decorators = decoratorExprs.map { DecoratorLowering.fromExpr(it) }
 
+    // Nested-def statements only occur inside function bodies, where the
+    // current function's qualified name is always set.
+    val enclosing = requireNotNull(currentFunctionQualifiedName) {
+        "visitNestedFuncDef invoked outside a function scope"
+    }
     val nested = FunctionLowering.lowerNestedFunction(
         module = module,
         funcDef = funcDef,
         decorators = decorators,
-        enclosingQualifiedName = currentFunctionQualifiedName,
+        enclosingQualifiedName = enclosing,
     )
     module.register(nested)
 

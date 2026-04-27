@@ -1,15 +1,17 @@
 package org.opentaint.ir.impl.python.protoToFlat
 
 import org.opentaint.ir.impl.python.flat.FlatDecorator
+import org.opentaint.ir.impl.python.proto.MypyClassDefProto
 import org.opentaint.ir.impl.python.proto.MypyDecoratorDefProto
 import org.opentaint.ir.impl.python.proto.MypyExprProto
 import org.opentaint.ir.impl.python.proto.MypyFuncDefProto
 import org.opentaint.ir.impl.python.proto.MypyMemberExprProto
 
 /**
- * Stateless lowering of decorator nodes into [FlatDecorator]. Two source
+ * Stateless lowering of decorator nodes into [FlatDecorator]. Three source
  * shapes feed in:
  *   - Bare `MypyFuncDefProto.decoratorsList`  — already-summarized decorators.
+ *   - `MypyClassDefProto.decoratorsList`      — already-summarized decorators.
  *   - `MypyDecoratorDefProto.originalDecoratorsList` — raw expression nodes
  *     that we re-summarize via [fromExpr].
  */
@@ -17,6 +19,9 @@ internal object DecoratorLowering {
 
     fun fromFuncDef(funcDef: MypyFuncDefProto): List<FlatDecorator> =
         funcDef.decoratorsList.map { FlatDecorator(it.name, it.qualifiedName, it.argumentsList) }
+
+    fun fromClassDef(classDef: MypyClassDefProto): List<FlatDecorator> =
+        classDef.decoratorsList.map { FlatDecorator(it.name, it.qualifiedName, it.argumentsList) }
 
     fun fromDecoratorDef(decorator: MypyDecoratorDefProto): List<FlatDecorator> =
         decorator.originalDecoratorsList.map { fromExpr(it) }

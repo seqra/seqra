@@ -114,6 +114,19 @@ class WithProperty:
         assertTrue(outer.nestedClasses.any { it.name == "Inner" })
     }
 
+    @Test fun `nested class qualified name includes outer`() {
+        val outer = cls("Outer")
+        val inner = outer.nestedClasses.first { it.name == "Inner" }
+        assertEquals("__test__.Outer.Inner", inner.qualifiedName)
+    }
+
+    @Test fun `method on nested class has chained qualified name`() {
+        val outer = cls("Outer")
+        val inner = outer.nestedClasses.first { it.name == "Inner" }
+        val method = inner.methods.first { it.name == "inner_method" }
+        assertEquals("__test__.Outer.Inner.inner_method", method.qualifiedName)
+    }
+
     @Test fun `class with methods`() {
         val c = cls("Base")
         assertTrue(c.methods.isNotEmpty(), "Base should have methods")

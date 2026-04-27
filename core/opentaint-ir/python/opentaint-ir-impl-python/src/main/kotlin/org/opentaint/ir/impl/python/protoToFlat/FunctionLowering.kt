@@ -13,14 +13,19 @@ import org.opentaint.ir.impl.python.proto.MypyLambdaExprProto
  */
 internal object FunctionLowering {
 
-    /** Top-level function or method. `enclosingClass` is non-null iff this is a method. */
+    /**
+     * Top-level function or method.
+     *
+     * @param enclosingClassQualifiedName fully-qualified name of the enclosing
+     *   class (e.g. `"module.Outer.Inner"`), or null for free functions.
+     */
     fun lowerTopLevel(
         module: ModuleContext,
         funcDef: MypyFuncDefProto,
         decorators: List<FlatDecorator>,
-        enclosingClass: String?,
+        enclosingClassQualifiedName: String?,
     ): FlatFunctionIR {
-        val qualifiedName = qualifyTopLevel(module.moduleName, enclosingClass, funcDef)
+        val qualifiedName = qualifyTopLevel(module.moduleName, enclosingClassQualifiedName, funcDef)
         val cfg = if (funcDef.hasBody()) {
             CfgBuild.buildFunctionCfg(module, qualifiedName, funcDef.body, sourceLabel = funcDef.name)
         } else FlatCFG.EMPTY
@@ -29,7 +34,7 @@ internal object FunctionLowering {
             name = funcDef.name,
             qualifiedName = qualifiedName,
             parentQualifiedName = null,
-            kind = if (enclosingClass != null) FlatFunctionKind.METHOD else FlatFunctionKind.TOP_LEVEL,
+            kind = if (enclosingClassQualifiedName != null) FlatFunctionKind.METHOD else FlatFunctionKind.TOP_LEVEL,
             cfg = cfg,
             parameters = TypeLowering.convertParameters(funcDef.argumentsList),
             returnType = if (funcDef.hasReturnType()) TypeLowering.convertType(funcDef.returnType) else FlatAnyType,
@@ -121,16 +126,17 @@ internal object FunctionLowering {
 
     /**
      * Compose the qualified name for a top-level function or method. For
-     * methods we always derive from `moduleName.className.funcName`: mypy's
-     * `funcDef.fullname` is unreliable when the method is decorated (the
-     * Python serializer doesn't pass `enclosing_class` to the Decorator path).
+     * methods we always derive from `enclosingClassQualifiedName.funcName`:
+     * mypy's `funcDef.fullname` is unreliable when the method is decorated
+     * (the Python serializer doesn't always pass `enclosing_class` to the
+     * Decorator path).
      */
     private fun qualifyTopLevel(
         moduleName: String,
-        enclosingClass: String?,
+        enclosingClassQualifiedName: String?,
         funcDef: MypyFuncDefProto,
     ): String = when {
-        enclosingClass != null -> "$moduleName.$enclosingClass.${funcDef.name}"
+        enclosingClassQualifiedName != null -> "$enclosingClassQualifiedName.${funcDef.name}"
         funcDef.fullname.isNotEmpty() -> funcDef.fullname
         else -> "$moduleName.${funcDef.name}"
     }

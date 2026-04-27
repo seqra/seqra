@@ -145,10 +145,18 @@ class AstSerializer:
     def _serialize_definitions(
         self, defn, enclosing_class: str | None = None
     ) -> list[pir_pb2.MypyDefinitionProto]:
-        """Serialize a definition, returning a list (usually 1 item, but OverloadedFuncDef may produce multiple)."""
+        """Serialize a definition, returning a list (usually 1 item, but OverloadedFuncDef may produce multiple).
+
+        `enclosing_class` carries the dotted class chain *without* the module
+        prefix — e.g. `"Outer"` for a class nested in `Outer`, or
+        `"Outer.Inner"` for a method on `Outer.Inner`. `_serialize_func_def`
+        prepends the module name; `_serialize_class_def` does the same.
+        """
         if isinstance(defn, ClassDef):
             return [
-                pir_pb2.MypyDefinitionProto(class_def=self._serialize_class_def(defn))
+                pir_pb2.MypyDefinitionProto(
+                    class_def=self._serialize_class_def(defn, enclosing_class)
+                )
             ]
         elif isinstance(defn, Decorator):
             return [
@@ -176,10 +184,18 @@ class AstSerializer:
             ]
         return []
 
-    def _serialize_class_def(self, class_def: ClassDef) -> pir_pb2.MypyClassDefProto:
+    def _serialize_class_def(
+        self, class_def: ClassDef, enclosing_class: str | None = None
+    ) -> pir_pb2.MypyClassDefProto:
+        # `enclosing_class` is the chained class qualifier (no module prefix),
+        # e.g. `"Outer"` for `class Inner` nested in `Outer`. We always prepend
+        # `module_name` here so `fullname` is fully-qualified at the proto level.
+        own_qualifier = (
+            f"{enclosing_class}.{class_def.name}" if enclosing_class else class_def.name
+        )
         proto = pir_pb2.MypyClassDefProto(
             name=class_def.name,
-            fullname=f"{self.module_name}.{class_def.name}",
+            fullname=f"{self.module_name}.{own_qualifier}",
         )
 
         if class_def.info:
@@ -207,9 +223,11 @@ class AstSerializer:
         for dec_expr in class_def.decorators:
             proto.decorators.append(self._serialize_decorator_info(dec_expr))
 
-        # Class body
+        # Class body — pass the chained class qualifier so nested classes and
+        # methods produce fully-qualified fullnames (e.g. `module.Outer.Inner`,
+        # `module.Outer.Inner.method`).
         for defn in class_def.defs.body:
-            for d in self._serialize_definitions(defn, enclosing_class=class_def.name):
+            for d in self._serialize_definitions(defn, enclosing_class=own_qualifier):
                 proto.body.append(d)
 
         return proto

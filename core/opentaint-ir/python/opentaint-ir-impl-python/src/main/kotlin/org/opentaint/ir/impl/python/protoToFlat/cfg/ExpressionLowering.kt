@@ -360,7 +360,7 @@ private fun CfgSession.lowerLambda(expr: MypyLambdaExprProto): FlatValue {
     val lambda = FunctionLowering.lowerLambda(
         module = module,
         expr = expr,
-        parentQualifiedName = currentFunctionQualifiedName.ifEmpty { null },
+        parentQualifiedName = currentFunctionQualifiedName,
     )
     module.register(lambda)
     return FlatGlobalRef(lambda.name, module.moduleName)

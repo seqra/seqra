@@ -22,7 +22,7 @@ import org.opentaint.ir.impl.python.protoToFlat.Scope
 internal class CfgSession(
     val module: ModuleContext,
     val scope: Scope = Scope(),
-    val currentFunctionQualifiedName: String = "",
+    val currentFunctionQualifiedName: String? = null,
 ) {
     // ─── CFG state (private) ───────────────────────────────
 
