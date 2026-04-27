@@ -16,20 +16,26 @@ interface PIRLocation : CommonInstLocation {
 sealed interface PIRInstruction: CommonInst {
     fun <T> accept(visitor: PIRInstVisitor<T>): T
 
-    override var location: PIRLocation
+    override val location: PIRLocation
 
     val lineNumber: Int get() = location.lineNumber
     val colOffset: Int get() = location.colOffset
 
     /**
      * PIR instruction data classes must use identity-based equality, not structural equality.
-     * Reason: data class equals/hashCode uses only constructor params, but `location` (which
-     * carries the owning method + index) is a lateinit body property excluded from those.
-     * Without this, structurally identical instructions from different methods (e.g. two
-     * `PIRReturn(value=null)`) are considered equal, causing the dataflow engine to confuse
-     * their MethodEntryPoints and store summaries in the wrong AccessPathBaseStorage.
+     *
+     * Reason: structurally identical instructions from different methods (e.g. two
+     * `PIRReturn(value=null)`) must NOT be considered equal — the dataflow engine
+     * keys MethodEntryPoints by instruction identity, and value-equality would
+     * conflate them across methods and corrupt AccessPathBaseStorage.
+     *
+     * Implementors override equals/hashCode to use identity (=== / System.identityHashCode).
+     *
+     * Do not use the synthesized `copy()` on instructions: it would alias the same
+     * [PIRLocation] across the original and the copy, so any subsequent re-binding
+     * of the location's owning method silently affects both. If you ever need a
+     * structural clone, build a fresh [PIRLocation] for the copy.
      */
-    // Implementors: override equals/hashCode to use identity (=== / System.identityHashCode)
 }
 
 sealed interface PIRBranchingInst : PIRInstruction {
@@ -53,8 +59,8 @@ sealed interface PIRExpr : org.opentaint.ir.api.common.cfg.CommonExpr {
 data class PIRAssign(
     val target: PIRValue,
     val expr: PIRExpr,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     /** Backwards-compat: the source value when the expression is a simple value copy. */
@@ -138,8 +144,8 @@ data class PIRLoadAttr(
     val obj: PIRValue,
     val attribute: String,
     val resultType: PIRType = PIRAnyType,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitLoadAttr(this)
@@ -149,8 +155,8 @@ data class PIRStoreAttr(
     val obj: PIRValue,
     val attribute: String,
     val value: PIRValue,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitStoreAttr(this)
@@ -160,8 +166,8 @@ data class PIRStoreSubscript(
     val obj: PIRValue,
     val index: PIRValue,
     val value: PIRValue,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitStoreSubscript(this)
@@ -171,8 +177,8 @@ data class PIRStoreGlobal(
     val name: String,
     val module: String,
     val value: PIRValue,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitStoreGlobal(this)
@@ -182,8 +188,8 @@ data class PIRStoreClosure(
     val name: String,
     val depth: Int,
     val value: PIRValue,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitStoreClosure(this)
@@ -196,8 +202,8 @@ data class PIRCall(
     val callee: PIRValue,
     val args: List<PIRCallArg>,
     val resolvedCallee: String? = null,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitCall(this)
@@ -220,9 +226,8 @@ data class PIRNextIter(
     val exitBlock: Int,
     val bodyInstIndex: Int,
     val exitInstIndex: Int,
+    override val location: PIRLocation,
 ) : PIRInstruction, PIRBranchingInst {
-    override lateinit var location: PIRLocation
-
     override val successors: List<Int>
         get() = listOf(bodyInstIndex, exitInstIndex)
 
@@ -238,8 +243,8 @@ data class PIRUnpack(
     val targets: List<PIRValue>,
     val source: PIRValue,
     val starIndex: Int,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitUnpack(this)
@@ -250,9 +255,8 @@ data class PIRUnpack(
 data class PIRGoto(
     val targetBlock: Int,
     val targetInstIndex: Int,
+    override val location: PIRLocation,
 ) : PIRInstruction, PIRBranchingInst {
-    override lateinit var location: PIRLocation
-
     override val successors: List<Int>
         get() = listOf(targetInstIndex)
 
@@ -270,9 +274,8 @@ data class PIRBranch(
     val falseBlock: Int,
     val trueInstIndex: Int,
     val falseInstIndex: Int,
+    override val location: PIRLocation,
 ) : PIRInstruction, PIRBranchingInst {
-    override lateinit var location: PIRLocation
-
     override val successors: List<Int>
         get() = listOf(trueInstIndex, falseInstIndex)
 
@@ -286,8 +289,8 @@ data class PIRBranch(
 
 data class PIRReturn(
     val value: PIRValue?,
+    override val location: PIRLocation,
 ) : PIRInstruction, PIRTerminatingInst {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitReturn(this)
@@ -296,8 +299,8 @@ data class PIRReturn(
 data class PIRRaise(
     val exception: PIRValue?,
     val cause: PIRValue?,
+    override val location: PIRLocation,
 ) : PIRInstruction, PIRTerminatingInst {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitRaise(this)
@@ -306,8 +309,8 @@ data class PIRRaise(
 data class PIRExceptHandler(
     val target: PIRValue?,
     val exceptionTypes: List<PIRType>,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitExceptHandler(this)
@@ -318,8 +321,8 @@ data class PIRExceptHandler(
 data class PIRYield(
     val target: PIRValue?,
     val value: PIRValue?,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitYield(this)
@@ -328,8 +331,8 @@ data class PIRYield(
 data class PIRYieldFrom(
     val target: PIRValue?,
     val iterable: PIRValue,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitYieldFrom(this)
@@ -338,8 +341,8 @@ data class PIRYieldFrom(
 data class PIRAwait(
     val target: PIRValue?,
     val awaitable: PIRValue,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitAwait(this)
@@ -349,8 +352,8 @@ data class PIRAwait(
 
 data class PIRDeleteLocal(
     val local: PIRValue,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitDeleteLocal(this)
@@ -359,8 +362,8 @@ data class PIRDeleteLocal(
 data class PIRDeleteAttr(
     val obj: PIRValue,
     val attribute: String,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitDeleteAttr(this)
@@ -369,8 +372,8 @@ data class PIRDeleteAttr(
 data class PIRDeleteSubscript(
     val obj: PIRValue,
     val index: PIRValue,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitDeleteSubscript(this)
@@ -379,8 +382,8 @@ data class PIRDeleteSubscript(
 data class PIRDeleteGlobal(
     val name: String,
     val module: String,
+    override val location: PIRLocation,
 ) : PIRInstruction {
-    override lateinit var location: PIRLocation
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitDeleteGlobal(this)
@@ -389,7 +392,7 @@ data class PIRDeleteGlobal(
 // ─── Misc ───────────────────────────────────────────────────
 
 data object PIRUnreachable : PIRInstruction, PIRTerminatingInst {
-    override var location: PIRLocation = object : PIRLocation {
+    override val location: PIRLocation = object : PIRLocation {
         override val method: PIRFunction get() = error("Unreachable instruction has no method")
         override val index: Int get() = -1
         override val lineNumber: Int get() = -1

@@ -167,13 +167,9 @@ class FlatToPirConverter(
             closureVars = pending.closureVars,
             enclosingClass = null,
         )
-        wireInstructionLocations(function, cfgResult.lines)
+        // Each instruction was constructed with its location already populated;
+        // only `method` is still pending. Wire it now that the function exists.
+        for (loc in cfgResult.locations) loc.method = function
         return function
-    }
-
-    private fun wireInstructionLocations(function: PIRFunctionImpl, lines: List<Int>) {
-        function.instList.forEachIndexed { index, inst ->
-            inst.location = PIRLocationImpl(function, index, lines[index], 0)
-        }
     }
 }
