@@ -1,9 +1,9 @@
-package org.opentaint.ir.impl.python.converter
+package org.opentaint.ir.impl.python.flatToPir
 
 import org.opentaint.ir.api.python.*
 import org.opentaint.ir.impl.python.PIRCFGImpl
 import org.opentaint.ir.impl.python.PIRLocationImpl
-import org.opentaint.ir.impl.python.builder.*
+import org.opentaint.ir.impl.python.flat.*
 
 /**
  * Output of [CfgConverter.convert]: the built CFG plus the locations of every
@@ -63,7 +63,6 @@ object CfgConverter {
     private fun v(flat: FlatValue): PIRValue = when (flat) {
         is FlatLocal -> PIRLocal(flat.name, TypeConverter.convert(flat.type))
         is FlatGlobalRef -> PIRGlobalRef(flat.name, flat.module, PIRAnyType)
-        is FlatParameterRef -> PIRParameterRef(flat.name, PIRAnyType)
         is FlatConst -> ConstConverter.convert(flat)
     }
 

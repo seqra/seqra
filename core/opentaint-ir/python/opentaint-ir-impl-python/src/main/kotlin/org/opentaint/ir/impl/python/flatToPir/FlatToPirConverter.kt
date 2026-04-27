@@ -1,8 +1,8 @@
-package org.opentaint.ir.impl.python.converter
+package org.opentaint.ir.impl.python.flatToPir
 
 import org.opentaint.ir.api.python.*
 import org.opentaint.ir.impl.python.*
-import org.opentaint.ir.impl.python.builder.*
+import org.opentaint.ir.impl.python.flat.*
 
 /**
  * Converts a [FlatModuleIR] into a [PIRModule]. Pure Flat-side; no proto reads.

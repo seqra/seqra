@@ -1,4 +1,4 @@
-package org.opentaint.ir.impl.python.builder
+package org.opentaint.ir.impl.python.protoToFlat
 
 import org.opentaint.ir.impl.python.proto.*
 
@@ -9,7 +9,7 @@ import org.opentaint.ir.impl.python.proto.*
  * Free variables are closure captures: names that come from the enclosing scope.
  * This replaces the Python-side `_collect_free_vars` analysis.
  */
-object FreeVarAnalyzer {
+internal object FreeVarAnalyzer {
 
     private val BUILTIN_NAMES = setOf(
         "True", "False", "None", "print", "len", "range", "int", "str",
@@ -26,97 +26,89 @@ object FreeVarAnalyzer {
     )
 
     /**
-     * Collect free variable names from a function body.
-     *
-     * @param body The function's body block
-     * @param params The function's parameter names
-     * @return Sorted list of free variable names (captured from enclosing scope)
+     * Collect free variable names from a function body, plus any names declared
+     * `nonlocal` (which are always closure captures regardless of local writes).
      */
     fun collectFreeVars(body: MypyBlockProto, params: List<String>): List<String> {
-        val paramNames = params.toSet()
-        val localDefs = mutableSetOf<String>()
-        val referenced = mutableSetOf<String>()
-        val nonlocalNames = mutableSetOf<String>()
+        val state = ScanState(paramNames = params.toSet())
+        scanBlock(body, state)
 
-        scanBlock(body, localDefs, referenced, nonlocalNames)
-
-        val free = referenced - paramNames - localDefs - BUILTIN_NAMES
-        return (free + nonlocalNames).sorted()
+        val free = state.referenced - state.paramNames - state.localDefs - BUILTIN_NAMES
+        return (free + state.nonlocalNames).sorted()
     }
 
-    private fun scanBlock(block: MypyBlockProto, localDefs: MutableSet<String>,
-                          referenced: MutableSet<String>, nonlocalNames: MutableSet<String>) {
-        for (stmt in block.stmtsList) {
-            scanStmt(stmt, localDefs, referenced, nonlocalNames)
-        }
+    private class ScanState(
+        val paramNames: Set<String>,
+        val localDefs: MutableSet<String> = mutableSetOf(),
+        val referenced: MutableSet<String> = mutableSetOf(),
+        val nonlocalNames: MutableSet<String> = mutableSetOf(),
+    )
+
+    private fun scanBlock(block: MypyBlockProto, s: ScanState) {
+        for (stmt in block.stmtsList) scanStmt(stmt, s)
     }
 
-    private fun scanStmt(stmt: MypyStmtProto, localDefs: MutableSet<String>,
-                         referenced: MutableSet<String>, nonlocalNames: MutableSet<String>) {
+    private fun scanStmt(stmt: MypyStmtProto, s: ScanState) {
         when {
             stmt.hasAssignment() -> {
-                for (lv in stmt.assignment.lvaluesList) {
-                    collectAssignTargets(lv, localDefs)
-                }
-                scanExpr(stmt.assignment.rvalue, referenced)
+                for (lv in stmt.assignment.lvaluesList) collectAssignTargets(lv, s.localDefs)
+                scanExpr(stmt.assignment.rvalue, s.referenced)
             }
             stmt.hasOpAssignment() -> {
-                collectAssignTargets(stmt.opAssignment.lvalue, localDefs)
-                scanExpr(stmt.opAssignment.rvalue, referenced)
+                collectAssignTargets(stmt.opAssignment.lvalue, s.localDefs)
+                scanExpr(stmt.opAssignment.rvalue, s.referenced)
             }
             stmt.hasReturnStmt() -> {
-                if (stmt.returnStmt.hasExpr()) scanExpr(stmt.returnStmt.expr, referenced)
+                if (stmt.returnStmt.hasExpr()) scanExpr(stmt.returnStmt.expr, s.referenced)
             }
             stmt.hasExpressionStmt() -> {
-                if (stmt.expressionStmt.hasExpr()) scanExpr(stmt.expressionStmt.expr, referenced)
+                if (stmt.expressionStmt.hasExpr()) scanExpr(stmt.expressionStmt.expr, s.referenced)
             }
             stmt.hasIfStmt() -> {
-                for (cond in stmt.ifStmt.conditionsList) scanExpr(cond, referenced)
-                for (body in stmt.ifStmt.bodiesList) scanBlock(body, localDefs, referenced, nonlocalNames)
-                if (stmt.ifStmt.hasElseBody()) scanBlock(stmt.ifStmt.elseBody, localDefs, referenced, nonlocalNames)
+                for (cond in stmt.ifStmt.conditionsList) scanExpr(cond, s.referenced)
+                for (body in stmt.ifStmt.bodiesList) scanBlock(body, s)
+                if (stmt.ifStmt.hasElseBody()) scanBlock(stmt.ifStmt.elseBody, s)
             }
             stmt.hasWhileStmt() -> {
-                scanExpr(stmt.whileStmt.condition, referenced)
-                scanBlock(stmt.whileStmt.body, localDefs, referenced, nonlocalNames)
-                if (stmt.whileStmt.hasElseBody()) scanBlock(stmt.whileStmt.elseBody, localDefs, referenced, nonlocalNames)
+                scanExpr(stmt.whileStmt.condition, s.referenced)
+                scanBlock(stmt.whileStmt.body, s)
+                if (stmt.whileStmt.hasElseBody()) scanBlock(stmt.whileStmt.elseBody, s)
             }
             stmt.hasForStmt() -> {
-                collectAssignTargets(stmt.forStmt.index, localDefs)
-                scanExpr(stmt.forStmt.iterable, referenced)
-                scanBlock(stmt.forStmt.body, localDefs, referenced, nonlocalNames)
-                if (stmt.forStmt.hasElseBody()) scanBlock(stmt.forStmt.elseBody, localDefs, referenced, nonlocalNames)
+                collectAssignTargets(stmt.forStmt.index, s.localDefs)
+                scanExpr(stmt.forStmt.iterable, s.referenced)
+                scanBlock(stmt.forStmt.body, s)
+                if (stmt.forStmt.hasElseBody()) scanBlock(stmt.forStmt.elseBody, s)
             }
             stmt.hasWithStmt() -> {
-                for (expr in stmt.withStmt.exprsList) scanExpr(expr, referenced)
-                for (target in stmt.withStmt.targetsList) collectAssignTargets(target, localDefs)
-                scanBlock(stmt.withStmt.body, localDefs, referenced, nonlocalNames)
+                for (expr in stmt.withStmt.exprsList) scanExpr(expr, s.referenced)
+                for (target in stmt.withStmt.targetsList) collectAssignTargets(target, s.localDefs)
+                scanBlock(stmt.withStmt.body, s)
             }
             stmt.hasTryStmt() -> {
-                scanBlock(stmt.tryStmt.body, localDefs, referenced, nonlocalNames)
-                for (handler in stmt.tryStmt.handlersList) scanBlock(handler, localDefs, referenced, nonlocalNames)
-                if (stmt.tryStmt.hasElseBody()) scanBlock(stmt.tryStmt.elseBody, localDefs, referenced, nonlocalNames)
-                if (stmt.tryStmt.hasFinallyBody()) scanBlock(stmt.tryStmt.finallyBody, localDefs, referenced, nonlocalNames)
+                scanBlock(stmt.tryStmt.body, s)
+                for (handler in stmt.tryStmt.handlersList) scanBlock(handler, s)
+                if (stmt.tryStmt.hasElseBody()) scanBlock(stmt.tryStmt.elseBody, s)
+                if (stmt.tryStmt.hasFinallyBody()) scanBlock(stmt.tryStmt.finallyBody, s)
                 for (v in stmt.tryStmt.varsList) {
-                    if (v.hasNameExpr()) localDefs.add(v.nameExpr.name)
+                    if (v.hasNameExpr()) s.localDefs.add(v.nameExpr.name)
                 }
             }
             stmt.hasRaiseStmt() -> {
-                if (stmt.raiseStmt.hasExpr()) scanExpr(stmt.raiseStmt.expr, referenced)
-                if (stmt.raiseStmt.hasFromExpr()) scanExpr(stmt.raiseStmt.fromExpr, referenced)
+                if (stmt.raiseStmt.hasExpr()) scanExpr(stmt.raiseStmt.expr, s.referenced)
+                if (stmt.raiseStmt.hasFromExpr()) scanExpr(stmt.raiseStmt.fromExpr, s.referenced)
             }
             stmt.hasDelStmt() -> {
-                if (stmt.delStmt.hasExpr()) scanExpr(stmt.delStmt.expr, referenced)
+                if (stmt.delStmt.hasExpr()) scanExpr(stmt.delStmt.expr, s.referenced)
             }
             stmt.hasAssertStmt() -> {
-                scanExpr(stmt.assertStmt.expr, referenced)
-                if (stmt.assertStmt.hasMsg()) scanExpr(stmt.assertStmt.msg, referenced)
+                scanExpr(stmt.assertStmt.expr, s.referenced)
+                if (stmt.assertStmt.hasMsg()) scanExpr(stmt.assertStmt.msg, s.referenced)
             }
             stmt.hasGlobalDecl() -> { /* global names are not free vars */ }
-            stmt.hasNonlocalDecl() -> {
-                nonlocalNames.addAll(stmt.nonlocalDecl.namesList)
-            }
-            stmt.hasFuncDef() -> { /* nested function — skip (handled separately) */ }
-            stmt.hasClassDef() -> { /* nested class — skip */ }
+            stmt.hasNonlocalDecl() -> s.nonlocalNames.addAll(stmt.nonlocalDecl.namesList)
+            stmt.hasFuncDef() -> { /* nested function — separate scope */ }
+            stmt.hasClassDef() -> { /* nested class — separate scope */ }
             // PassStmt, BreakStmt, ContinueStmt — no-op
         }
     }
@@ -167,14 +159,13 @@ object FreeVarAnalyzer {
             MypyExprProto.KindCase.YIELD_EXPR -> if (expr.yieldExpr.hasExpr()) scanExpr(expr.yieldExpr.expr, referenced)
             MypyExprProto.KindCase.YIELD_FROM_EXPR -> scanExpr(expr.yieldFromExpr.expr, referenced)
             MypyExprProto.KindCase.AWAIT_EXPR -> scanExpr(expr.awaitExpr.expr, referenced)
-            MypyExprProto.KindCase.LAMBDA_EXPR -> { /* lambda has own scope — skip */ }
+            MypyExprProto.KindCase.LAMBDA_EXPR,
             MypyExprProto.KindCase.LIST_COMPREHENSION,
             MypyExprProto.KindCase.SET_COMPREHENSION,
             MypyExprProto.KindCase.DICT_COMPREHENSION,
-            MypyExprProto.KindCase.GENERATOR_EXPR -> { /* comprehensions have own scope — skip */ }
+            MypyExprProto.KindCase.GENERATOR_EXPR -> { /* introduce their own scope */ }
             MypyExprProto.KindCase.SUPER_EXPR -> { /* super() has no free vars */ }
-            // Literals and constants have no references
-            else -> {}
+            else -> {} // literals & constants
         }
     }
 

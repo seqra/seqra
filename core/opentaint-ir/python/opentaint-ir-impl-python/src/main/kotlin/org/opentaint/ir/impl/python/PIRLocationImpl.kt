@@ -4,7 +4,7 @@ import org.opentaint.ir.api.python.PIRFunction
 import org.opentaint.ir.api.python.PIRLocation
 
 /**
- * [method] is wired post-construction by [org.opentaint.ir.impl.python.converter.FlatToPirConverter]
+ * [method] is wired post-construction by [org.opentaint.ir.impl.python.flatToPir.FlatToPirConverter]
  * once the owning function exists. Until then the location carries only its
  * within-function identity ([index], [lineNumber], [colOffset]); reading
  * [method] before wiring throws.

@@ -1,7 +1,7 @@
-package org.opentaint.ir.impl.python.converter
+package org.opentaint.ir.impl.python.flatToPir
 
 import org.opentaint.ir.api.python.*
-import org.opentaint.ir.impl.python.builder.*
+import org.opentaint.ir.impl.python.flat.*
 
 object ConstConverter {
     fun convert(c: FlatConst): PIRValue = when (c) {

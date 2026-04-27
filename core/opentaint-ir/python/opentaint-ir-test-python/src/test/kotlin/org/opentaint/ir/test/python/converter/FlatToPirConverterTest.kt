@@ -3,8 +3,8 @@ package org.opentaint.ir.test.python.converter
 import org.junit.jupiter.api.Test
 import org.opentaint.ir.api.python.*
 import org.opentaint.ir.impl.python.PIRModuleImpl
-import org.opentaint.ir.impl.python.builder.*
-import org.opentaint.ir.impl.python.converter.FlatToPirConverter
+import org.opentaint.ir.impl.python.flat.*
+import org.opentaint.ir.impl.python.flatToPir.FlatToPirConverter
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
