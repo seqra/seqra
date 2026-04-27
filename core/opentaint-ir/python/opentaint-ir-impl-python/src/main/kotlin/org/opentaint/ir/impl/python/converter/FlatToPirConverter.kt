@@ -11,8 +11,6 @@ class FlatToPirConverter(
     private val flat: FlatModuleIR,
     private val classpath: PIRClasspath,
 ) {
-    private val ic = InstructionConverter()
-
     // ─── Module conversion ───
 
     fun convert(): PIRModule {
@@ -22,7 +20,7 @@ class FlatToPirConverter(
         val pirModuleInit = convertFlatFunction(flat.moduleInit)
         val pirClasses = flat.classes.map { flatClassToPir(it) }
         val pirFields = flat.fields.map {
-            PIRFieldImpl(it.name, ic.convertType(it.type), isClassVar = false, hasInitializer = it.hasInitializer)
+            PIRFieldImpl(it.name, TypeConverter.convert(it.type), isClassVar = false, hasInitializer = it.hasInitializer)
         }
 
         return PIRModuleImpl(
@@ -61,18 +59,6 @@ class FlatToPirConverter(
         for (nested in cls.nestedClasses) wireClassModule(nested as PIRClassImpl, module)
     }
 
-    /**
-     * Wires PIRLocation onto every instruction in the function's CFG.
-     * Called after PIRFunctionImpl construction, similar to how enclosingClass is wired.
-     */
-    private fun wireInstructionLocations(function: PIRFunction) {
-        function.instList.forEach { inst ->
-            val (line, col) = ic.getInstPosition(inst)
-            val index = ic.getInstIndex(inst)
-            inst.location = PIRLocationImpl(function, index, line, col)
-        }
-    }
-
     // ─── Class conversion ───
 
     private fun flatClassToPir(flat: FlatClass): PIRClass {
@@ -84,8 +70,7 @@ class FlatToPirConverter(
             methodMap[flat.methods[i]] = methods[i]
         }
         val classFields = flat.fields.map {
-            // TODO: introduce typeConverter
-            PIRFieldImpl(it.name, ic.convertType(it.type), it.isClassVar, it.hasInitializer)
+            PIRFieldImpl(it.name, TypeConverter.convert(it.type), it.isClassVar, it.hasInitializer)
         }
         val nestedClasses = flat.nestedClasses.map { flatClassToPir(it) }
         val properties = synthesizeProperties(flat.methods, methodMap)
@@ -158,22 +143,22 @@ class FlatToPirConverter(
         val params = pending.parameters.mapIndexed { idx, p ->
             PIRParameterImpl(
                 p.name,
-                ic.convertType(p.type),
+                TypeConverter.convert(p.type),
                 flatParamKindToPir(p.kind),
                 p.hasDefault,
-                p.defaultValue?.let { ic.convertConstValue(it) },
+                p.defaultValue?.let { ConstConverter.convert(it) },
                 idx,
             )
         }
-        val returnType = ic.convertType(pending.returnType)
-        val cfg = ic.convertCFG(pending.cfg)
+        val returnType = TypeConverter.convert(pending.returnType)
+        val cfgResult = CfgConverter.convert(pending.cfg)
 
-        return PIRFunctionImpl(
+        val function = PIRFunctionImpl(
             name = pending.name,
             qualifiedName = pending.qualifiedName,
             parameters = params,
             returnType = returnType,
-            cfg = cfg,
+            cfg = cfgResult.cfg,
             decorators = pending.decorators.map {
                 PIRDecoratorImpl(it.name, it.qualifiedName, it.arguments)
             },
@@ -184,7 +169,15 @@ class FlatToPirConverter(
             isProperty = pending.isProperty,
             closureVars = pending.closureVars,
             enclosingClass = null,
-        ).also { wireInstructionLocations(it) }
+        )
+        wireInstructionLocations(function, cfgResult.lines)
+        return function
+    }
+
+    private fun wireInstructionLocations(function: PIRFunctionImpl, lines: List<Int>) {
+        function.instList.forEachIndexed { index, inst ->
+            inst.location = PIRLocationImpl(function, index, lines[index], 0)
+        }
     }
 
     private fun flatParamKindToPir(kind: FlatParamKind): PIRParameterKind = when (kind) {

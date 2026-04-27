@@ -4,48 +4,32 @@ import org.opentaint.ir.api.python.*
 import org.opentaint.ir.impl.python.PIRCFGImpl
 import org.opentaint.ir.impl.python.builder.*
 
-class InstructionConverter {
+/**
+ * Output of [CfgConverter.convert]: the built CFG plus a parallel list of
+ * source lines (one entry per instruction in `cfg.instList`, indexed by the
+ * instruction's position in `instList`). Callers use the lines to build
+ * `PIRLocation`s once they have a `PIRFunction` to bind to.
+ */
+class CfgConversionResult(val cfg: PIRCFG, val lines: List<Int>)
 
-    private val sourcePositions = mutableMapOf<PIRInstruction, Pair<Int, Int>>()
-    private val instructionIndices = mutableMapOf<PIRInstruction, Int>()
+object CfgConverter {
 
-    fun convertCFG(flat: FlatCFG): PIRCFG {
+    fun convert(flat: FlatCFG): CfgConversionResult {
         val sortedBlocks = flat.blocks.sortedBy { it.label }
         val blockStartIndex = calculateBlockToStartIdx(sortedBlocks)
 
         val instList = ArrayList<PIRInstruction>()
+        val lines = ArrayList<Int>()
         val instToBlock = ArrayList<Int>()
         for (block in sortedBlocks) {
-            convertBlockInstructions(block, blockStartIndex, instList)
-            repeat(block.instructions.size) { instToBlock.add(block.label) }
+            for (flatInst in block.instructions) {
+                instList.add(convertInstruction(flatInst, blockStartIndex))
+                lines.add(flatInst.line)
+                instToBlock.add(block.label)
+            }
         }
 
-        val blocks = convertBlocks(sortedBlocks, blockStartIndex, instList)
-
-        return PIRCFGImpl(
-            blocks = blocks,
-            instList = instList,
-            entryLabel = flat.entryBlock,
-            exitLabels = flat.exitBlocks.toSet(),
-            instToBlock = instToBlock,
-        )
-    }
-
-    fun getInstPosition(inst: PIRInstruction): Pair<Int, Int> =
-        sourcePositions[inst] ?: error("Missing source position for instruction: $inst")
-
-    fun getInstIndex(inst: PIRInstruction): Int =
-        instructionIndices[inst] ?: error("Missing instruction index for: $inst")
-
-    private fun convertBlockInstructions(block: FlatBlock, blockStartIndex: Map<Int, Int>, dst: MutableList<PIRInstruction>) {
-        val startIdx = blockStartIndex.getValue(block.label)
-        for ((i, flatInst) in block.instructions.withIndex()) {
-            dst.add(convertInstruction(flatInst, blockStartIndex, startIdx + i))
-        }
-    }
-
-    private fun convertBlocks(sortedBlocks: List<FlatBlock>, blockStartIndex: Map<Int, Int>, instList: List<PIRInstruction>): List<PIRBasicBlock> =
-        sortedBlocks.map { block ->
+        val blocks = sortedBlocks.map { block ->
             val startIdx = blockStartIndex.getValue(block.label)
             PIRBasicBlock(
                 label = block.label,
@@ -53,6 +37,16 @@ class InstructionConverter {
                 exceptionHandlers = block.exceptionHandlers,
             )
         }
+
+        val cfg = PIRCFGImpl(
+            blocks = blocks,
+            instList = instList,
+            entryLabel = flat.entryBlock,
+            exitLabels = flat.exitBlocks.toSet(),
+            instToBlock = instToBlock,
+        )
+        return CfgConversionResult(cfg, lines)
+    }
 
     private fun calculateBlockToStartIdx(blocks: List<FlatBlock>): Map<Int, Int> = buildMap {
         var idx = 0
@@ -65,59 +59,20 @@ class InstructionConverter {
     // ─── Value conversion ─────────────────────────────────
 
     private fun v(flat: FlatValue): PIRValue = when (flat) {
-        is FlatLocal -> PIRLocal(flat.name, convertType(flat.type))
+        is FlatLocal -> PIRLocal(flat.name, TypeConverter.convert(flat.type))
         is FlatGlobalRef -> PIRGlobalRef(flat.name, flat.module, PIRAnyType)
         is FlatParameterRef -> PIRParameterRef(flat.name, PIRAnyType)
-        is FlatConst -> convertConstValue(flat)
-    }
-
-    fun convertType(flat: FlatType): PIRType = when (flat) {
-        is FlatAnyType -> PIRAnyType
-        is FlatNeverType -> PIRNeverType
-        is FlatNoneType -> PIRNoneType
-        is FlatClassType -> PIRClassType(
-            qualifiedName = flat.qualifiedName,
-            typeArgs = flat.typeArgs.map { convertType(it) },
-            isOptional = flat.isOptional,
-        )
-        is FlatFunctionType -> PIRFunctionType(
-            paramTypes = flat.paramTypes.map { convertType(it) },
-            returnType = convertType(flat.returnType),
-        )
-        is FlatUnionType -> PIRUnionType(members = flat.members.map { convertType(it) })
-        is FlatTupleType -> PIRTupleType(
-            elementTypes = flat.elementTypes.map { convertType(it) },
-            isVarLength = flat.isVarLength,
-        )
-        is FlatLiteralType -> PIRLiteralType(
-            value = flat.value,
-            baseType = convertType(flat.baseType),
-        )
-        is FlatTypeVarType -> PIRTypeVarType(
-            name = flat.name,
-            bounds = flat.bounds.map { convertType(it) },
-        )
-    }
-
-    fun convertConstValue(c: FlatConst): PIRValue = when (c) {
-        is FlatIntConst -> PIRIntConst(c.value)
-        is FlatFloatConst -> PIRFloatConst(c.value)
-        is FlatStrConst -> PIRStrConst(c.value)
-        is FlatBoolConst -> PIRBoolConst(c.value)
-        is FlatNoneConst -> PIRNoneConst
-        is FlatEllipsisConst -> PIREllipsisConst
-        is FlatBytesConst -> PIRBytesConst(c.value)
-        is FlatComplexConst -> PIRComplexConst(c.real, c.imag)
+        is FlatConst -> ConstConverter.convert(flat)
     }
 
     // ─── Instruction conversion ───────────────────────────
 
-    private fun convertInstruction(flat: FlatInst, blockStartIndex: Map<Int, Int>, flatIndex: Int): PIRInstruction {
-        return when (flat) {
+    private fun convertInstruction(flat: FlatInst, blockStartIndex: Map<Int, Int>): PIRInstruction =
+        when (flat) {
             is FlatAssign -> PIRAssign(v(flat.target), v(flat.source))
-            is FlatLoadAttr -> PIRLoadAttr(v(flat.target), v(flat.obj), flat.attribute, convertType(flat.type))
+            is FlatLoadAttr -> PIRLoadAttr(v(flat.target), v(flat.obj), flat.attribute, TypeConverter.convert(flat.type))
             is FlatStoreAttr -> PIRStoreAttr(v(flat.obj), flat.attribute, v(flat.value))
-            is FlatLoadSubscript -> PIRAssign(v(flat.target), PIRSubscriptExpr(v(flat.obj), v(flat.index), convertType(flat.type)))
+            is FlatLoadSubscript -> PIRAssign(v(flat.target), PIRSubscriptExpr(v(flat.obj), v(flat.index), TypeConverter.convert(flat.type)))
             is FlatStoreSubscript -> PIRStoreSubscript(v(flat.obj), v(flat.index), v(flat.value))
             is FlatLoadGlobal -> PIRAssign(v(flat.target), PIRGlobalRef(flat.name, flat.module))
             is FlatStoreGlobal -> PIRStoreGlobal(flat.name, flat.module, v(flat.value))
@@ -156,7 +111,7 @@ class InstructionConverter {
             )
             is FlatReturn -> PIRReturn(flat.value?.let { v(it) })
             is FlatRaise -> PIRRaise(flat.exception?.let { v(it) }, flat.cause?.let { v(it) })
-            is FlatExceptHandler -> PIRExceptHandler(flat.target?.let { v(it) }, flat.exceptionTypes.map { convertType(it) })
+            is FlatExceptHandler -> PIRExceptHandler(flat.target?.let { v(it) }, flat.exceptionTypes.map { TypeConverter.convert(it) })
 
             is FlatYield -> PIRYield(flat.target?.let { v(it) }, flat.value?.let { v(it) })
             is FlatYieldFrom -> PIRYieldFrom(flat.target?.let { v(it) }, v(flat.iterable))
@@ -167,13 +122,9 @@ class InstructionConverter {
             is FlatDeleteSubscript -> PIRDeleteSubscript(v(flat.obj), v(flat.index))
             is FlatDeleteGlobal -> PIRDeleteGlobal(flat.name, flat.module)
 
-            is FlatTypeCheck -> PIRAssign(v(flat.target), PIRTypeCheckExpr(v(flat.value), convertType(flat.type)))
+            is FlatTypeCheck -> PIRAssign(v(flat.target), PIRTypeCheckExpr(v(flat.value), TypeConverter.convert(flat.type)))
             is FlatUnreachable -> PIRUnreachable
-        }.also {
-            sourcePositions[it] = flat.line to 0
-            instructionIndices[it] = flatIndex
         }
-    }
 
     private fun convertArgKind(kind: FlatArgKind): PIRCallArgKind = when (kind) {
         FlatArgKind.POSITIONAL -> PIRCallArgKind.POSITIONAL
