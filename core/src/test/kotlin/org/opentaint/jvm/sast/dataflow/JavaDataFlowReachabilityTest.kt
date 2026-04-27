@@ -229,6 +229,33 @@ class JavaDataFlowReachabilityTest : AnalysisTest() {
     }
 
     @Test
+    fun `lambda closure - taint flows through Iterable forEach into action lambda`() {
+        val testCls = "$SAMPLE_PACKAGE.LambdaClosureDataFlowSample"
+        val config = lambdaConfig(testCls)
+
+        assertReachable(
+            config = config,
+            testCls = testCls,
+            entryPointName = "forEachIdentityLambdaTaintFlow",
+            ruleId = LAMBDA_RULE_ID,
+            testName = "forEach identity lambda taint flow"
+        )
+    }
+
+    @Test
+    fun `lambda closure - sanitizing inner lambda captured by forEach action blocks taint`() {
+        val testCls = "$SAMPLE_PACKAGE.LambdaClosureDataFlowSample"
+        val config = lambdaConfig(testCls)
+
+        assertNotReachable(
+            config = config,
+            testCls = testCls,
+            entryPointName = "forEachCapturedSanitizingLambdaNoTaintFlow",
+            testName = "forEach captured sanitizing lambda no taint flow"
+        )
+    }
+
+    @Test
     fun `optional flow - taint propagates through Optional of and get`() {
         val testCls = "$SAMPLE_PACKAGE.OptionalDataFlowSample"
         val config = optionalConfig(testCls)
