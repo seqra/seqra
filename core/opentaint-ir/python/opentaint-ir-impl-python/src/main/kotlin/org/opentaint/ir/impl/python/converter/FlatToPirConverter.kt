@@ -14,9 +14,7 @@ class FlatToPirConverter(
     // ─── Module conversion ───
 
     fun convert(): PIRModule {
-        val pirFunctions = flat.functions
-            .filter { it.kind != FlatFunctionKind.MODULE_INIT }
-            .map { convertFlatFunction(it) }
+        val pirFunctions = flat.functions.map { convertFlatFunction(it) }
         val pirModuleInit = convertFlatFunction(flat.moduleInit)
         val pirClasses = flat.classes.map { flatClassToPir(it) }
         val pirFields = flat.fields.map {
@@ -63,20 +61,12 @@ class FlatToPirConverter(
 
     private fun flatClassToPir(flat: FlatClass): PIRClass {
         val methods = flat.methods.map { convertFlatFunction(it) }
-        // Identity-keyed so that two `FlatFunctionIR`s which happen to be structurally
-        // equal (same name / qualifiedName / CFG / etc.) still map to distinct entries.
-        val methodMap = java.util.IdentityHashMap<FlatFunctionIR, PIRFunctionImpl>()
-        for (i in flat.methods.indices) {
-            methodMap[flat.methods[i]] = methods[i]
-        }
         val classFields = flat.fields.map {
             PIRFieldImpl(it.name, TypeConverter.convert(it.type), it.isClassVar, it.hasInitializer)
         }
         val nestedClasses = flat.nestedClasses.map { flatClassToPir(it) }
-        val properties = synthesizeProperties(flat.methods, methodMap)
-        val decorators = flat.decorators.map {
-            PIRDecoratorImpl(it.name, it.qualifiedName, it.arguments)
-        }
+        val properties = synthesizeProperties(flat.methods, methods)
+        val decorators = flat.decorators.map { it.toPir() }
 
         val cls = PIRClassImpl(
             name = flat.name,
@@ -109,28 +99,37 @@ class FlatToPirConverter(
      * but may NOT have isProperty=true (mypy only sets it on the @property getter).
      * We detect properties by finding methods with  isProperty=true, then group all
      * methods sharing that name.
+     *
+     * [flatMethods] and [pirMethods] are position-aligned: `pirMethods[i]` is the
+     * conversion of `flatMethods[i]`.
      */
     private fun synthesizeProperties(
-        methods: List<FlatFunctionIR>,
-        methodMap: Map<FlatFunctionIR, PIRFunctionImpl>,
+        flatMethods: List<FlatFunctionIR>,
+        pirMethods: List<PIRFunctionImpl>,
     ): List<PIRProperty> {
+        require(flatMethods.size == pirMethods.size) {
+            "flatMethods and pirMethods must be position-aligned: ${flatMethods.size} vs ${pirMethods.size}"
+        }
         // `distinct()` preserves first-occurrence order so `PIRClass.properties`
         // reflects source order of getter definitions.
-        val propertyGetterNames = methods.filter { it.isProperty }.map { it.name }.distinct()
+        val propertyGetterNames = flatMethods.filter { it.isProperty }.map { it.name }.distinct()
         val result = mutableListOf<PIRProperty>()
         for (propName in propertyGetterNames) {
-            val group = methods.filter { it.name == propName }
-            val getter = group.firstOrNull { it.isProperty }
-            val getterParamCount = getter?.parameters?.size ?: 0
-            val setter = group.firstOrNull { !it.isProperty && it.parameters.size > getterParamCount }
-                ?: group.firstOrNull { it !== getter && it.parameters.size > getterParamCount }
-            val deleter = group.firstOrNull {
-                it !== getter && it !== setter && it.parameters.size == getterParamCount
+            val groupIndices = flatMethods.indices.filter { flatMethods[it].name == propName }
+            val getterIdx = groupIndices.firstOrNull { flatMethods[it].isProperty }
+            val getterParamCount = getterIdx?.let { flatMethods[it].parameters.size } ?: 0
+            val setterIdx = groupIndices.firstOrNull {
+                !flatMethods[it].isProperty && flatMethods[it].parameters.size > getterParamCount
+            } ?: groupIndices.firstOrNull {
+                it != getterIdx && flatMethods[it].parameters.size > getterParamCount
+            }
+            val deleterIdx = groupIndices.firstOrNull {
+                it != getterIdx && it != setterIdx && flatMethods[it].parameters.size == getterParamCount
             }
 
-            val getterPir = getter?.let { methodMap.getValue(it) }
-            val setterPir = setter?.let { methodMap.getValue(it) }
-            val deleterPir = deleter?.let { methodMap.getValue(it) }
+            val getterPir = getterIdx?.let { pirMethods[it] }
+            val setterPir = setterIdx?.let { pirMethods[it] }
+            val deleterPir = deleterIdx?.let { pirMethods[it] }
             val propType = getterPir?.returnType ?: PIRAnyType
             result.add(PIRPropertyImpl(propName, propType, getterPir, setterPir, deleterPir))
         }
@@ -144,7 +143,7 @@ class FlatToPirConverter(
             PIRParameterImpl(
                 p.name,
                 TypeConverter.convert(p.type),
-                flatParamKindToPir(p.kind),
+                p.kind.toPir(),
                 p.hasDefault,
                 p.defaultValue?.let { ConstConverter.convert(it) },
                 idx,
@@ -159,9 +158,7 @@ class FlatToPirConverter(
             parameters = params,
             returnType = returnType,
             cfg = cfgResult.cfg,
-            decorators = pending.decorators.map {
-                PIRDecoratorImpl(it.name, it.qualifiedName, it.arguments)
-            },
+            decorators = pending.decorators.map { it.toPir() },
             isAsync = pending.isAsync,
             isGenerator = pending.isGenerator,
             isStaticMethod = pending.isStaticMethod,
@@ -178,12 +175,5 @@ class FlatToPirConverter(
         function.instList.forEachIndexed { index, inst ->
             inst.location = PIRLocationImpl(function, index, lines[index], 0)
         }
-    }
-
-    private fun flatParamKindToPir(kind: FlatParamKind): PIRParameterKind = when (kind) {
-        FlatParamKind.POSITIONAL_OR_KEYWORD -> PIRParameterKind.POSITIONAL_OR_KEYWORD
-        FlatParamKind.VAR_POSITIONAL -> PIRParameterKind.VAR_POSITIONAL
-        FlatParamKind.VAR_KEYWORD -> PIRParameterKind.VAR_KEYWORD
-        FlatParamKind.KEYWORD_ONLY -> PIRParameterKind.KEYWORD_ONLY
     }
 }

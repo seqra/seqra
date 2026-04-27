@@ -60,8 +60,8 @@ data class FlatBinOp(val target: FlatValue, val left: FlatValue, val right: Flat
 data class FlatUnaryOp(val target: FlatValue, val operand: FlatValue, val op: FlatUnaryOperator, override val line: Int = -1) : FlatInst
 data class FlatCompare(val target: FlatValue, val left: FlatValue, val right: FlatValue, val op: FlatCompareOperator, override val line: Int = -1) : FlatInst
 
-data class FlatCall(val target: FlatValue?, val callee: FlatValue, val args: List<FlatCallArg> = emptyList(), val resolvedCallee: String = "", override val line: Int = -1) : FlatInst
-data class FlatCallArg(val value: FlatValue, val kind: FlatArgKind = FlatArgKind.POSITIONAL, val keyword: String = "")
+data class FlatCall(val target: FlatValue?, val callee: FlatValue, val args: List<FlatCallArg> = emptyList(), val resolvedCallee: String? = null, override val line: Int = -1) : FlatInst
+data class FlatCallArg(val value: FlatValue, val kind: FlatArgKind = FlatArgKind.POSITIONAL, val keyword: String? = null)
 
 data class FlatBuildList(val target: FlatValue, val elements: List<FlatValue> = emptyList(), override val line: Int = -1) : FlatInst
 data class FlatBuildTuple(val target: FlatValue, val elements: List<FlatValue> = emptyList(), override val line: Int = -1) : FlatInst
@@ -207,22 +207,28 @@ data class FlatClass(
 )
 
 /**
- * Raw module-level Flat IR bundle. Wraps every function-like scope plus
- * module metadata and any diagnostics accumulated during lowering.
+ * Raw module-level Flat IR bundle.
  *
- * Not routed through the current builder yet; introduced here so subsequent
- * phases can move to a `FlatModuleIR -> FlatModuleIR` transform shape
- * without re-plumbing types.
+ * `functions` is every non-init function-like scope (top-level defs, lambdas,
+ * nested defs). The synthetic module initializer is exposed separately via
+ * [moduleInit] so consumers don't need to filter on [FlatFunctionKind].
  */
 data class FlatModuleIR(
     val moduleName: String,
     val path: String,
     val functions: List<FlatFunctionIR>,
+    val moduleInit: FlatFunctionIR,
     val classes: List<FlatClass>,
     val fields: List<FlatModuleField>,
     val imports: List<String>,
     val diagnostics: List<PIRDiagnostic>,
 ) {
-    val moduleInit: FlatFunctionIR
-        get() = functions.single { it.kind == FlatFunctionKind.MODULE_INIT }
+    init {
+        require(moduleInit.kind == FlatFunctionKind.MODULE_INIT) {
+            "moduleInit must have kind=MODULE_INIT, got ${moduleInit.kind}"
+        }
+        require(functions.none { it.kind == FlatFunctionKind.MODULE_INIT }) {
+            "functions must not contain a MODULE_INIT entry"
+        }
+    }
 }

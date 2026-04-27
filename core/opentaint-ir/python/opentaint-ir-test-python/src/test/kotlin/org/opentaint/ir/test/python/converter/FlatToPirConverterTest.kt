@@ -13,6 +13,20 @@ import kotlin.test.assertTrue
 
 class FlatToPirConverterTest {
 
+    private fun stubModuleInit(qualifiedName: String = "m.__module_init__") = FlatFunctionIR(
+        name = "__module_init__",
+        qualifiedName = qualifiedName,
+        parentQualifiedName = null,
+        kind = FlatFunctionKind.MODULE_INIT,
+        cfg = FlatCFG.EMPTY,
+        parameters = emptyList(),
+        returnType = FlatAnyType,
+        isAsync = false,
+        isGenerator = false,
+        closureVars = emptyList(),
+        decorators = emptyList(),
+    )
+
     private val stubClasspath = object : PIRClasspath {
         override val modules = emptyList<PIRModule>()
         override fun findModuleOrNull(name: String): PIRModule? = null
@@ -42,19 +56,19 @@ class FlatToPirConverterTest {
                     closureVars = emptyList(),
                     decorators = emptyList(),
                 ),
-                FlatFunctionIR(
-                    name = "__module_init__",
-                    qualifiedName = "m.__module_init__",
-                    parentQualifiedName = null,
-                    kind = FlatFunctionKind.MODULE_INIT,
-                    cfg = FlatCFG.EMPTY,
-                    parameters = emptyList(),
-                    returnType = FlatAnyType,
-                    isAsync = false,
-                    isGenerator = false,
-                    closureVars = emptyList(),
-                    decorators = emptyList(),
-                ),
+            ),
+            moduleInit = FlatFunctionIR(
+                name = "__module_init__",
+                qualifiedName = "m.__module_init__",
+                parentQualifiedName = null,
+                kind = FlatFunctionKind.MODULE_INIT,
+                cfg = FlatCFG.EMPTY,
+                parameters = emptyList(),
+                returnType = FlatAnyType,
+                isAsync = false,
+                isGenerator = false,
+                closureVars = emptyList(),
+                decorators = emptyList(),
             ),
             classes = emptyList(),
             fields = listOf(FlatModuleField("x", FlatClassType("builtins.int"), true)),
@@ -80,21 +94,8 @@ class FlatToPirConverterTest {
         val flat = FlatModuleIR(
             moduleName = "m",
             path = "m.py",
-            functions = listOf(
-                FlatFunctionIR(
-                    name = "__module_init__",
-                    qualifiedName = "m.__module_init__",
-                    parentQualifiedName = null,
-                    kind = FlatFunctionKind.MODULE_INIT,
-                    cfg = FlatCFG.EMPTY,
-                    parameters = emptyList(),
-                    returnType = FlatAnyType,
-                    isAsync = false,
-                    isGenerator = false,
-                    closureVars = emptyList(),
-                    decorators = emptyList(),
-                ),
-            ),
+            functions = emptyList(),
+            moduleInit = stubModuleInit(),
             classes = listOf(
                 FlatClass(
                     name = "Cls",
@@ -168,21 +169,8 @@ class FlatToPirConverterTest {
         val flat = FlatModuleIR(
             moduleName = "m",
             path = "m.py",
-            functions = listOf(
-                FlatFunctionIR(
-                    name = "__module_init__",
-                    qualifiedName = "m.__module_init__",
-                    parentQualifiedName = null,
-                    kind = FlatFunctionKind.MODULE_INIT,
-                    cfg = FlatCFG.EMPTY,
-                    parameters = emptyList(),
-                    returnType = FlatAnyType,
-                    isAsync = false,
-                    isGenerator = false,
-                    closureVars = emptyList(),
-                    decorators = emptyList(),
-                ),
-            ),
+            functions = emptyList(),
+            moduleInit = stubModuleInit(),
             classes = emptyList(),
             fields = emptyList(),
             imports = emptyList(),

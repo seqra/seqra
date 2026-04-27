@@ -65,12 +65,13 @@ class ProtoToFlatBuilder(private val astModule: MypyModuleProto) {
         val flatModuleInit = buildFlatModuleInit()
         // Snapshot after buildFlatModuleInit(): module-level lambdas reached
         // through module-init CFG construction must appear in pendingLambdas.
-        val allFlatFunctions = topLevelFlatFunctions + pendingLambdas + pendingNested + flatModuleInit
+        val nonInitFunctions = topLevelFlatFunctions + pendingLambdas + pendingNested
 
         return FlatModuleIR(
             moduleName = moduleName,
             path = astModule.path,
-            functions = allFlatFunctions,
+            functions = nonInitFunctions,
+            moduleInit = flatModuleInit,
             classes = flatClasses,
             fields = flatFields,
             imports = astModule.importsList,

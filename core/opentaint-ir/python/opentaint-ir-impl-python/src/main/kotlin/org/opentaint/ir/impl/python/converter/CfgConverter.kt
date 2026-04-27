@@ -79,15 +79,15 @@ object CfgConverter {
             is FlatLoadClosure -> PIRAssign(v(flat.target), PIRGlobalRef(flat.name, ""))
             is FlatStoreClosure -> PIRStoreClosure(flat.name, flat.depth, v(flat.value))
 
-            is FlatBinOp -> PIRAssign(v(flat.target), convertBinaryOp(v(flat.left), v(flat.right), flat.op))
-            is FlatUnaryOp -> PIRAssign(v(flat.target), convertUnaryOp(v(flat.operand), flat.op))
-            is FlatCompare -> PIRAssign(v(flat.target), convertCompareOp(v(flat.left), v(flat.right), flat.op))
+            is FlatBinOp -> PIRAssign(v(flat.target), flat.op.toPir(v(flat.left), v(flat.right)))
+            is FlatUnaryOp -> PIRAssign(v(flat.target), flat.op.toPir(v(flat.operand)))
+            is FlatCompare -> PIRAssign(v(flat.target), flat.op.toPir(v(flat.left), v(flat.right)))
 
             is FlatCall -> PIRCall(
                 target = flat.target?.let { v(it) },
                 callee = v(flat.callee),
-                args = flat.args.map { PIRCallArg(v(it.value), convertArgKind(it.kind), it.keyword.ifEmpty { null }) },
-                resolvedCallee = flat.resolvedCallee.ifEmpty { null },
+                args = flat.args.map { PIRCallArg(v(it.value), it.kind.toPir(), it.keyword) },
+                resolvedCallee = flat.resolvedCallee,
             )
 
             is FlatBuildList -> PIRAssign(v(flat.target), PIRListExpr(flat.elements.map { v(it) }))
@@ -126,46 +126,4 @@ object CfgConverter {
             is FlatUnreachable -> PIRUnreachable
         }
 
-    private fun convertArgKind(kind: FlatArgKind): PIRCallArgKind = when (kind) {
-        FlatArgKind.POSITIONAL -> PIRCallArgKind.POSITIONAL
-        FlatArgKind.KEYWORD -> PIRCallArgKind.KEYWORD
-        FlatArgKind.STAR -> PIRCallArgKind.STAR
-        FlatArgKind.DOUBLE_STAR -> PIRCallArgKind.DOUBLE_STAR
-    }
-
-    private fun convertBinaryOp(l: PIRValue, r: PIRValue, op: FlatBinaryOperator): PIRBinaryExpr = when (op) {
-        FlatBinaryOperator.ADD -> PIRAddExpr(l, r)
-        FlatBinaryOperator.SUB -> PIRSubExpr(l, r)
-        FlatBinaryOperator.MUL -> PIRMulExpr(l, r)
-        FlatBinaryOperator.DIV -> PIRDivExpr(l, r)
-        FlatBinaryOperator.FLOOR_DIV -> PIRFloorDivExpr(l, r)
-        FlatBinaryOperator.MOD -> PIRModExpr(l, r)
-        FlatBinaryOperator.POW -> PIRPowExpr(l, r)
-        FlatBinaryOperator.MAT_MUL -> PIRMatMulExpr(l, r)
-        FlatBinaryOperator.BIT_AND -> PIRBitAndExpr(l, r)
-        FlatBinaryOperator.BIT_OR -> PIRBitOrExpr(l, r)
-        FlatBinaryOperator.BIT_XOR -> PIRBitXorExpr(l, r)
-        FlatBinaryOperator.LSHIFT -> PIRLShiftExpr(l, r)
-        FlatBinaryOperator.RSHIFT -> PIRRShiftExpr(l, r)
-    }
-
-    private fun convertUnaryOp(operand: PIRValue, op: FlatUnaryOperator): PIRUnaryExpr = when (op) {
-        FlatUnaryOperator.NEG -> PIRNegExpr(operand)
-        FlatUnaryOperator.POS -> PIRPosExpr(operand)
-        FlatUnaryOperator.NOT -> PIRNotExpr(operand)
-        FlatUnaryOperator.INVERT -> PIRInvertExpr(operand)
-    }
-
-    private fun convertCompareOp(l: PIRValue, r: PIRValue, op: FlatCompareOperator): PIRCompareExpr = when (op) {
-        FlatCompareOperator.EQ -> PIREqExpr(l, r)
-        FlatCompareOperator.NE -> PIRNeExpr(l, r)
-        FlatCompareOperator.LT -> PIRLtExpr(l, r)
-        FlatCompareOperator.LE -> PIRLeExpr(l, r)
-        FlatCompareOperator.GT -> PIRGtExpr(l, r)
-        FlatCompareOperator.GE -> PIRGeExpr(l, r)
-        FlatCompareOperator.IS -> PIRIsExpr(l, r)
-        FlatCompareOperator.IS_NOT -> PIRIsNotExpr(l, r)
-        FlatCompareOperator.IN -> PIRInExpr(l, r)
-        FlatCompareOperator.NOT_IN -> PIRNotInExpr(l, r)
-    }
 }
