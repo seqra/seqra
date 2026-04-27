@@ -20,7 +20,7 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.python.PIRClasspath
 import org.opentaint.ir.api.python.PIRSettings
-import org.opentaint.ir.impl.python.PIRClasspathImpl
+import org.opentaint.ir.impl.python.PIRClasspathLoader
 import org.opentaint.jvm.sast.dataflow.DummySerializationContext
 import org.opentaint.util.analysis.ApplicationGraph
 import java.io.File
@@ -88,13 +88,13 @@ class AntBenchmarkTest {
 
         println("Building PIR classpath for ${pyFiles.size} benchmark files in flat temp dir...")
 
-        cp = PIRClasspathImpl.create(
+        cp = PIRClasspathLoader(
             PIRSettings(
                 sources = pyFiles,
                 mypyFlags = listOf("--ignore-missing-imports"),
                 rpcTimeout = java.time.Duration.ofSeconds(1200),
             )
-        )
+        ).load()
         benchmarkAvailable = true
         println("PIR classpath built. Ready to run ${cases.size} test cases.")
     }

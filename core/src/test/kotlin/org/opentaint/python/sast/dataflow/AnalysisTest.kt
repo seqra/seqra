@@ -17,7 +17,7 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.python.PIRClasspath
 import org.opentaint.ir.api.python.PIRSettings
-import org.opentaint.ir.impl.python.PIRClasspathImpl
+import org.opentaint.ir.impl.python.PIRClasspathLoader
 import org.opentaint.jvm.sast.dataflow.DummySerializationContext
 import org.opentaint.util.analysis.ApplicationGraph
 import java.nio.file.Path
@@ -67,13 +67,13 @@ abstract class AnalysisTest {
     }
 
     private fun createClasspath(pyFiles: List<String>): PIRClasspath {
-        return PIRClasspathImpl.create(
+        return PIRClasspathLoader(
             PIRSettings(
                 sources = pyFiles,
                 mypyFlags = listOf("--ignore-missing-imports"),
                 rpcTimeout = java.time.Duration.ofSeconds(1200),
             )
-        )
+        ).load()
     }
 
     /**

@@ -27,16 +27,6 @@ class FlatToPirConverterTest {
         decorators = emptyList(),
     )
 
-    private val stubClasspath = object : PIRClasspath {
-        override val modules = emptyList<PIRModule>()
-        override fun findModuleOrNull(name: String): PIRModule? = null
-        override fun findClassOrNull(qualifiedName: String): PIRClass? = null
-        override fun findFunctionOrNull(qualifiedName: String): PIRFunction? = null
-        override val pythonVersion = "3.11"
-        override val mypyVersion = "1.0"
-        override fun close() {}
-    }
-
     @Test
     fun `minimal module round-trip`() {
         val flat = FlatModuleIR(
@@ -76,7 +66,7 @@ class FlatToPirConverterTest {
             diagnostics = emptyList(),
         )
 
-        val module = FlatToPirConverter(flat, stubClasspath).convert()
+        val module = FlatToPirConverter(flat).convert()
 
         assertEquals("m", module.name)
         assertEquals("m.py", module.path)
@@ -86,7 +76,6 @@ class FlatToPirConverterTest {
         assertEquals(1, module.fields.size)
         assertEquals("x", module.fields[0].name)
         assertEquals(listOf("os"), module.imports)
-        assertSame(stubClasspath, module.classpath)
     }
 
     @Test
@@ -146,7 +135,7 @@ class FlatToPirConverterTest {
             diagnostics = emptyList(),
         )
 
-        val module = FlatToPirConverter(flat, stubClasspath).convert()
+        val module = FlatToPirConverter(flat).convert()
 
         assertEquals(1, module.classes.size)
         val cls = module.classes[0]
@@ -177,7 +166,7 @@ class FlatToPirConverterTest {
             diagnostics = listOf(PIRDiagnostic(PIRDiagnosticSeverity.ERROR, "test error", "fn", "TestException")),
         )
 
-        val module = FlatToPirConverter(flat, stubClasspath).convert()
+        val module = FlatToPirConverter(flat).convert()
 
         assertEquals(1, module.diagnostics.size)
         assertEquals("test error", module.diagnostics[0].message)

@@ -6,6 +6,7 @@ import org.junit.jupiter.api.*
 import org.junit.jupiter.api.Assertions.*
 import org.opentaint.ir.api.python.*
 import org.opentaint.ir.impl.python.PIRClasspathImpl
+import org.opentaint.ir.impl.python.PIRClasspathLoader
 import org.opentaint.ir.impl.python.proto.ExecuteFunctionRequest
 import org.opentaint.ir.test.python.PIRTestBase
 import java.io.File
@@ -35,10 +36,10 @@ abstract class RoundTripTestBase : PIRTestBase() {
         file.writeText(allSources)
         file.deleteOnExit()
 
-        cp = PIRClasspathImpl.create(PIRSettings(
+        cp = PIRClasspathLoader(PIRSettings(
             sources = listOf(file.absolutePath),
             mypyFlags = listOf("--ignore-missing-imports"),
-        ))
+        )).load()
     }
 
     @AfterAll

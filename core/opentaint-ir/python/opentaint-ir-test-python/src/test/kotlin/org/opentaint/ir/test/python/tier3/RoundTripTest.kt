@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Tag
 import org.opentaint.ir.api.python.*
 import org.opentaint.ir.impl.python.PIRClasspathImpl
+import org.opentaint.ir.impl.python.PIRClasspathLoader
 import org.opentaint.ir.impl.python.proto.ExecuteFunctionRequest
 import org.opentaint.ir.test.python.PIRTestBase
 import java.io.File
@@ -207,10 +208,10 @@ def rt_build_dict(keys: list, vals: list) -> dict:
         file.writeText(ALL_SOURCES)
         file.deleteOnExit()
 
-        cp = PIRClasspathImpl.create(PIRSettings(
+        cp = PIRClasspathLoader(PIRSettings(
             sources = listOf(file.absolutePath),
             mypyFlags = listOf("--ignore-missing-imports"),
-        ))
+        )).load()
     }
 
     @AfterAll

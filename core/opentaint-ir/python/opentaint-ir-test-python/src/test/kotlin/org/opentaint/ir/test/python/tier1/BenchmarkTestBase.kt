@@ -2,7 +2,7 @@ package org.opentaint.ir.test.python.tier1
 
 import org.junit.jupiter.api.Assertions.*
 import org.opentaint.ir.api.python.*
-import org.opentaint.ir.impl.python.PIRClasspathImpl
+import org.opentaint.ir.impl.python.PIRClasspathLoader
 import org.opentaint.ir.test.python.PIRTestBase
 import java.io.File
 
@@ -86,11 +86,11 @@ abstract class BenchmarkTestBase : PIRTestBase() {
     // ─── Core analysis ──────────────────────────────────────
 
     private fun createClasspath(pyFiles: List<String>): PIRClasspath {
-        return PIRClasspathImpl.create(PIRSettings(
+        return PIRClasspathLoader(PIRSettings(
             sources = pyFiles,
             mypyFlags = listOf("--ignore-missing-imports"),
             rpcTimeout = java.time.Duration.ofSeconds(1200),
-        ))
+        )).load()
     }
 
     private fun verifyClasspath(

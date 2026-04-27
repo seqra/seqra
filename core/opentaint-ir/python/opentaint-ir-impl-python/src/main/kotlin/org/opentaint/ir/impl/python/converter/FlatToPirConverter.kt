@@ -9,7 +9,6 @@ import org.opentaint.ir.impl.python.builder.*
  */
 class FlatToPirConverter(
     private val flat: FlatModuleIR,
-    private val classpath: PIRClasspath,
 ) {
     // ─── Module conversion ───
 
@@ -29,7 +28,6 @@ class FlatToPirConverter(
             fields = pirFields,
             moduleInit = pirModuleInit,
             imports = flat.imports,
-            classpath = classpath,
             diagnostics = flat.diagnostics,
         ).also { wireModuleBackRefs(it) }
     }

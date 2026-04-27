@@ -12,7 +12,6 @@ data class PIRModuleImpl(
     override val fields: List<PIRField>,
     override val moduleInit: PIRFunction,
     override val imports: List<String>,
-    override val classpath: PIRClasspath,
     override val diagnostics: List<PIRDiagnostic> = emptyList(),
 ) : PIRModule {
     // Break circular hashCode/toString: module → classes/functions → module
@@ -175,7 +174,6 @@ private val EMPTY_CFG = PIRCFGImpl(emptyList(), emptyList(), 0, emptySet(), empt
 
 class PIRUnknownModule(
     override val name: String,
-    override val classpath: PIRClasspath,
     override val diagnostics: List<PIRDiagnostic>,
 ) : PIRModule {
     override val path: String = ""

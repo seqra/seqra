@@ -66,7 +66,6 @@ interface PIRModule {
     val fields: List<PIRField>
     val moduleInit: PIRFunction
     val imports: List<String>
-    val classpath: PIRClasspath
     val diagnostics: List<PIRDiagnostic>
     val isUnknown: Boolean get() = false
 }
