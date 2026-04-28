@@ -26,17 +26,19 @@ rules:
           - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(...)
           - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(...)
           # ── ResponseEntity builder chain pinned to a non-HTML content type
-          # Sanitizes the entire body() / chain expression so the value
-          # returned to the caller is treated as clean. No focus-metavariable:
-          # we want the whole call's return to be sanitized (matching the
-          # convention used by the existing escaper sanitizers above), not
-          # just one inner argument.
+          # Assignment-form sanitizer (mirrors
+          # servlet-unvalidated-redirect-sinks.yaml's
+          # `$URL = (HttpServletRequest $REQ).getContextPath();` shape):
+          # the LHS variable that receives the safe builder chain output is
+          # captured by `$RESULT` and focus-metavariable narrows the
+          # sanitizer to that variable, so downstream uses (including a
+          # subsequent `return $RESULT;`) see clean data.
           - patterns:
               - pattern-either:
-                  - pattern: $X.contentType($CT).body(...)
-                  - pattern: $X.contentType($CT).$Y(...).body(...)
-                  - pattern: $X.header("Content-Type", $CT).body(...)
-                  - pattern: $X.header("Content-Type", $CT).$Y(...).body(...)
+                  - pattern: $RESULT = $X.contentType($CT).body(...);
+                  - pattern: $RESULT = $X.contentType($CT).$Y(...).body(...);
+                  - pattern: $RESULT = $X.header("Content-Type", $CT).body(...);
+                  - pattern: $RESULT = $X.header("Content-Type", $CT).$Y(...).body(...);
               - metavariable-pattern:
                   metavariable: $CT
                   pattern-either:
@@ -70,24 +72,43 @@ rules:
                     - pattern: '"image/png"'
                     - pattern: '"image/jpeg"'
                     - pattern: '"image/gif"'
+              - focus-metavariable: $RESULT
           # ── HttpHeaders preset to a non-HTML content type, then used as
           # the `headers` argument of `new ResponseEntity<>(body, headers, ...)`.
-          # `$H` binds the same HttpHeaders local in pattern-inside and the
-          # constructor pattern, so the constraint is "the headers argument
-          # of THIS constructor was previously pinned to a safe content
-          # type". No focus-metavariable: sanitize the whole constructor
-          # call's return value.
+          # Multi-statement assignment-form sanitizer: `$H` binds the same
+          # HttpHeaders local across the setContentType call and the
+          # constructor, and `$RESULT` is the LHS variable that receives
+          # the constructor result. focus-metavariable on `$RESULT`
+          # sanitizes downstream uses of that variable (mirrors
+          # servlet-untrusted-data-source.yaml's
+          # `$FILES = ($FU $SFU).parseRequest($REQ); ... $UNTRUSTED = ...`
+          # multi-statement style).
           - patterns:
-              - pattern-inside: |
-                  (HttpHeaders $H).setContentType($CT);
-                  ...
               - pattern-either:
-                  - pattern: new ResponseEntity<>(..., $H, ...)
-                  - pattern: new ResponseEntity<$T>(..., $H, ...)
-                  - pattern: new ResponseEntity(..., $H, ...)
-                  - pattern: new org.springframework.http.ResponseEntity<>(..., $H, ...)
-                  - pattern: new org.springframework.http.ResponseEntity<$T>(..., $H, ...)
-                  - pattern: new org.springframework.http.ResponseEntity(..., $H, ...)
+                  - pattern: |
+                      (HttpHeaders $H).setContentType($CT);
+                      ...
+                      $RESULT = new ResponseEntity<>(..., $H, ...);
+                  - pattern: |
+                      (HttpHeaders $H).setContentType($CT);
+                      ...
+                      $RESULT = new ResponseEntity<$T>(..., $H, ...);
+                  - pattern: |
+                      (HttpHeaders $H).setContentType($CT);
+                      ...
+                      $RESULT = new ResponseEntity(..., $H, ...);
+                  - pattern: |
+                      (HttpHeaders $H).setContentType($CT);
+                      ...
+                      $RESULT = new org.springframework.http.ResponseEntity<>(..., $H, ...);
+                  - pattern: |
+                      (HttpHeaders $H).setContentType($CT);
+                      ...
+                      $RESULT = new org.springframework.http.ResponseEntity<$T>(..., $H, ...);
+                  - pattern: |
+                      (HttpHeaders $H).setContentType($CT);
+                      ...
+                      $RESULT = new org.springframework.http.ResponseEntity(..., $H, ...);
               - metavariable-pattern:
                   metavariable: $CT
                   pattern-either:
@@ -109,44 +130,43 @@ rules:
                     - pattern: MediaType.IMAGE_PNG
                     - pattern: MediaType.IMAGE_JPEG
                     - pattern: MediaType.IMAGE_GIF
+              - focus-metavariable: $RESULT
           # ── Servlet response writer / outputStream calls preceded by a
           # non-HTML setContentType / setHeader / addHeader on the SAME
-          # response object. `$R` is bound consistently in pattern-inside
-          # and the inner sink pattern, so the constraint is "this writer
-          # call's response previously had a safe Content-Type set on it"
-          # — not "any object in scope set some content type". focus-
-          # metavariable: $UNTRUSTED narrows the sanitization to the
-          # writer's data argument, mirroring spring-xss-sinks.yaml's
-          # escaper sanitizer style.
+          # response object. Multi-statement single-pattern form: `$R` is
+          # bound to the same response object across the
+          # setContentType / setHeader / addHeader call and the writer
+          # call, so the constraint is "this writer call's response
+          # previously had a safe Content-Type set on it" — not "any
+          # object in scope set some content type". focus-metavariable on
+          # `$UNTRUSTED` narrows the sanitizer to the writer's data
+          # argument.
           - patterns:
               - pattern-either:
-                  - pattern-inside: |
+                  - pattern: |
                       (HttpServletResponse $R).setContentType($CT);
                       ...
-                  - pattern-inside: |
+                      (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
+                  - pattern: |
+                      (HttpServletResponse $R).setContentType($CT);
+                      ...
+                      (HttpServletResponse $R).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
+                  - pattern: |
                       (HttpServletResponse $R).setHeader("Content-Type", $CT);
                       ...
-                  - pattern-inside: |
+                      (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
+                  - pattern: |
+                      (HttpServletResponse $R).setHeader("Content-Type", $CT);
+                      ...
+                      (HttpServletResponse $R).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
+                  - pattern: |
                       (HttpServletResponse $R).addHeader("Content-Type", $CT);
                       ...
-                  - pattern-inside: |
-                      (javax.servlet.http.HttpServletResponse $R).setContentType($CT);
+                      (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
+                  - pattern: |
+                      (HttpServletResponse $R).addHeader("Content-Type", $CT);
                       ...
-                  - pattern-inside: |
-                      (javax.servlet.http.HttpServletResponse $R).setHeader("Content-Type", $CT);
-                      ...
-                  - pattern-inside: |
-                      (javax.servlet.http.HttpServletResponse $R).addHeader("Content-Type", $CT);
-                      ...
-              - pattern-either:
-                  - pattern: |
-                      (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
-                  - pattern: |
-                      (HttpServletResponse $R).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
-                  - pattern: |
-                      (javax.servlet.http.HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
-                  - pattern: |
-                      (javax.servlet.http.HttpServletResponse $R).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
+                      (HttpServletResponse $R).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
               - metavariable-pattern:
                   metavariable: $CT
                   pattern-either:

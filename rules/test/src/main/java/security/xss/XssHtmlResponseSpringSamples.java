@@ -691,4 +691,45 @@ public class XssHtmlResponseSpringSamples {
             out.print("{\"name\":\"" + name + "\"}");
         }
     }
+
+    // ── Row 36: assignment-form ResponseEntity safe builder chain — should be FP-free
+    // Same `.contentType(MediaType.APPLICATION_JSON).body(...)` shape as
+    // Row10, but written with an explicit LHS assignment. The
+    // assignment-form sanitizer (pattern: `$RESULT = $X.contentType($CT).body(...);`,
+    // focus-metavariable $RESULT) should sanitize the `result` variable
+    // and the subsequent `return result;` should see clean data.
+
+    @RestController
+    public static class Row36ResponseEntityAssignmentJsonController {
+
+        @GetMapping("/xss-in-spring-app/row-36")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public ResponseEntity<String> row36(@RequestParam(required = false, defaultValue = "") String name) {
+            ResponseEntity<String> result = ResponseEntity.ok()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body("{\"name\":\"" + name + "\"}");
+            return result;
+        }
+    }
+
+    // ── Row 37: assignment-form servlet writer with safe setContentType
+    // Same shape as Row20, but the writer call is on a separate line and
+    // the data argument is held in a variable. Multi-statement single-
+    // pattern sanitizer should match
+    //   $R.setContentType("application/json"); ... $R.getWriter()....print($UNTRUSTED);
+    // and sanitize $UNTRUSTED at the writer's argument position.
+
+    @org.springframework.stereotype.Controller
+    public static class Row37ServletSetContentTypeJsonAssignmentController {
+
+        @GetMapping("/xss-in-spring-app/row-37")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public void row37(@RequestParam(required = false, defaultValue = "") String name,
+                          HttpServletResponse response) throws IOException {
+            response.setContentType("application/json");
+            String body = "{\"name\":\"" + name + "\"}";
+            PrintWriter out = response.getWriter();
+            out.print(body);
+        }
+    }
 }
