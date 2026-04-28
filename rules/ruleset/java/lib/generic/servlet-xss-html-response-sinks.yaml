@@ -21,6 +21,50 @@ rules:
           - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(...)
           - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(...)
           - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(...)
+          # Sanitize the writer-argument when the response was previously
+          # pinned to a non-HTML content type via setContentType /
+          # setHeader / addHeader. Mirrors the spring rule's safe-CT
+          # sanitizer; documents intent even where the engine does not
+          # yet apply it (see the pattern-not-inside list below for the
+          # belt-and-suspenders form).
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $R.setContentType($CT);
+                      ...
+                  - pattern-inside: |
+                      $R.setHeader("Content-Type", $CT);
+                      ...
+                  - pattern-inside: |
+                      $R.addHeader("Content-Type", $CT);
+                      ...
+              - pattern-either:
+                  - pattern: |
+                      (HttpServletResponse $RR).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
+                  - pattern: |
+                      (HttpServletResponse $RR).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
+                  - pattern: |
+                      (javax.servlet.http.HttpServletResponse $RR).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
+                  - pattern: |
+                      (javax.servlet.http.HttpServletResponse $RR).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
+              - metavariable-pattern:
+                  metavariable: $CT
+                  pattern-either:
+                    - pattern: '"application/json"'
+                    - pattern: '"application/json;charset=UTF-8"'
+                    - pattern: '"application/json; charset=UTF-8"'
+                    - pattern: '"application/json;charset=utf-8"'
+                    - pattern: '"text/plain"'
+                    - pattern: '"text/plain;charset=UTF-8"'
+                    - pattern: '"application/pdf"'
+                    - pattern: '"application/octet-stream"'
+                    - pattern: '"application/xml"'
+                    - pattern: '"application/xml;charset=UTF-8"'
+                    - pattern: '"text/xml"'
+                    - pattern: '"image/png"'
+                    - pattern: '"image/jpeg"'
+                    - pattern: '"image/gif"'
+              - focus-metavariable: $UNTRUSTED
 
     # Servlet spec defaults to text/html when no content type is set.
     # Writer/OutputStream is XSS-vulnerable unless a safe content type
@@ -56,6 +100,79 @@ rules:
               ...
           - pattern-not-inside: |
               $R.setContentType("application/xml;charset=UTF-8");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("text/xml");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("image/png");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("image/jpeg");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("image/gif");
+              ...
+          # ── setHeader / addHeader equivalents ─────────────────────────
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "application/json");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "application/json;charset=UTF-8");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "text/plain");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "application/pdf");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "application/octet-stream");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "application/xml");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "text/xml");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "image/png");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "image/jpeg");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "image/gif");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "application/json");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "application/json;charset=UTF-8");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "text/plain");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "application/pdf");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "application/octet-stream");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "application/xml");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "text/xml");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "image/png");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "image/jpeg");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "image/gif");
               ...
           - pattern-either:
               - pattern: |
