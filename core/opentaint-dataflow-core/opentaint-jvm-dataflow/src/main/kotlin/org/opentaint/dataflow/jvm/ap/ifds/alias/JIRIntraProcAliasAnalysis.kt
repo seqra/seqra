@@ -85,11 +85,11 @@ class JIRIntraProcAliasAnalysis(
         val daa = DSUAliasAnalysis(CallResolver(), localVariableReachability, cancellation).analyze(jig)
 
         val aliasBeforeStatement = Array(jig.statements.size) { i ->
-            resolveLocalVar(daa.statesBeforeStmt[i], localVariableReachability, i)
+            resolveLocalVar(daa.statesBeforeStmt[i], localVariableReachability, i, cancellation)
         }
 
         val aliasAfterStatement = Array(jig.statements.size) { i ->
-            resolveLocalVar(daa.statesAfterStmt[i], localVariableReachability, i)
+            resolveLocalVar(daa.statesAfterStmt[i], localVariableReachability, i, cancellation)
         }
 
         return compressAliasInfo(aliasBeforeStatement, aliasAfterStatement)
@@ -141,7 +141,8 @@ class JIRIntraProcAliasAnalysis(
     private fun resolveLocalVar(
         daa: ConnectedAliases,
         reachableLocals: JIRLocalVariableReachability,
-        instIdx: Int
+        instIdx: Int,
+        cancellation: AnalysisCancellation,
     ): Int2ObjectOpenHashMap<List<AliasInfo>> {
         val result = Int2ObjectOpenHashMap<List<AliasInfo>>()
         daa.aliasGroups.forEach { (_, group) ->
@@ -151,7 +152,7 @@ class JIRIntraProcAliasAnalysis(
             if (locals.isEmpty()) return@forEach
 
             val converted = group
-                .flatMap { it.convertToAliasInfo(daa.aliasGroups, depth = 0) }
+                .flatMap { it.convertToAliasInfo(daa.aliasGroups, depth = 0, cancellation) }
                 .filter { it !is AliasApInfo || reachableLocals.isReachable(it.base, instIdx) }
                 .distinct()
 
@@ -167,7 +168,8 @@ class JIRIntraProcAliasAnalysis(
 
     private fun AAInfo.convertToAliasInfo(
         aliasGroups: Int2ObjectOpenHashMap<List<AAInfo>>,
-        depth: Int
+        depth: Int,
+        cancellation: AnalysisCancellation,
     ): List<AliasInfo> {
         if (this !is HeapAlias) {
             val base = convertBaseAccessor(this)
@@ -178,8 +180,10 @@ class JIRIntraProcAliasAnalysis(
             return emptyList()
         }
 
+        cancellation.checkpoint()
+
         val instanceGroup = aliasGroups[instance] ?: return emptyList()
-        val instances = instanceGroup.flatMap { it.convertToAliasInfo(aliasGroups, depth + 1) }
+        val instances = instanceGroup.flatMap { it.convertToAliasInfo(aliasGroups, depth + 1, cancellation) }
         val accessor = when (val a = this.heapAccessor) {
             is ArrayAlias -> AliasAccessor.Array
             is FieldAlias -> a.field
