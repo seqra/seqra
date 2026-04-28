@@ -11,6 +11,10 @@ rules:
       - java
     mode: taint
     pattern-sanitizers:
+      # ── Library HTML escapers / encoders ─────────────────────────────────
+      # When the tainted value is wrapped by one of these calls before
+      # reaching the response sink, the dataflow fact is killed at the call
+      # return position.
       - pattern-either:
           - pattern: Encode.forHtml(...)
           - pattern: (PolicyFactory $POLICY).sanitize(...)
@@ -21,6 +25,136 @@ rules:
           - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(...)
           - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(...)
           - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(...)
+          # Programmatic non-HTML content type pinning on a ResponseEntity
+          # builder chain. Matches at the body() argument position so the
+          # return value of the body() call is not seen as tainted by the
+          # handler-return sink branch below.
+          #
+          # NOTE: empirically opentaint does not yet honor these
+          # focus-metavariable sanitizers on ResponseEntity builder chains
+          # (the underlying pattern matcher cannot discriminate the
+          # interleaved contentType / header constraint at sanitizer time).
+          # The patterns are kept here so the rule documents the intended
+          # safe-content-type signal and so that a future engine fix
+          # automatically picks up the discrimination. See the limitation
+          # comment below the pattern-sinks block for the matching gaps.
+          - patterns:
+              - pattern-either:
+                  - pattern: $X.contentType($CT).body($BODY)
+                  - pattern: $X.contentType($CT).$Y(...).body($BODY)
+                  - pattern: $X.header("Content-Type", $CT).body($BODY)
+                  - pattern: $X.header("Content-Type", $CT).$Y(...).body($BODY)
+              - metavariable-pattern:
+                  metavariable: $CT
+                  pattern-either:
+                    - pattern: org.springframework.http.MediaType.APPLICATION_JSON
+                    - pattern: org.springframework.http.MediaType.APPLICATION_JSON_UTF8
+                    - pattern: org.springframework.http.MediaType.APPLICATION_OCTET_STREAM
+                    - pattern: org.springframework.http.MediaType.APPLICATION_PDF
+                    - pattern: org.springframework.http.MediaType.APPLICATION_XML
+                    - pattern: org.springframework.http.MediaType.TEXT_PLAIN
+                    - pattern: org.springframework.http.MediaType.TEXT_XML
+                    - pattern: org.springframework.http.MediaType.IMAGE_PNG
+                    - pattern: org.springframework.http.MediaType.IMAGE_JPEG
+                    - pattern: org.springframework.http.MediaType.IMAGE_GIF
+                    - pattern: MediaType.APPLICATION_JSON
+                    - pattern: MediaType.APPLICATION_JSON_UTF8
+                    - pattern: MediaType.APPLICATION_OCTET_STREAM
+                    - pattern: MediaType.APPLICATION_PDF
+                    - pattern: MediaType.APPLICATION_XML
+                    - pattern: MediaType.TEXT_PLAIN
+                    - pattern: MediaType.TEXT_XML
+                    - pattern: MediaType.IMAGE_PNG
+                    - pattern: MediaType.IMAGE_JPEG
+                    - pattern: MediaType.IMAGE_GIF
+                    - pattern: '"application/json"'
+                    - pattern: '"application/json;charset=UTF-8"'
+                    - pattern: '"text/plain"'
+                    - pattern: '"application/pdf"'
+                    - pattern: '"application/octet-stream"'
+                    - pattern: '"application/xml"'
+                    - pattern: '"text/xml"'
+                    - pattern: '"image/png"'
+                    - pattern: '"image/jpeg"'
+                    - pattern: '"image/gif"'
+              - focus-metavariable: $BODY
+          # HttpHeaders preset to a non-HTML content type, then used as the
+          # `headers` argument of `new ResponseEntity<>(body, headers, ...)`.
+          # See the same engine note as above.
+          - patterns:
+              - pattern-inside: |
+                  $H.setContentType($CT);
+                  ...
+              - pattern-either:
+                  - pattern: new ResponseEntity<>($BODY, $H, ...)
+                  - pattern: new ResponseEntity<$T>($BODY, $H, ...)
+                  - pattern: new ResponseEntity($BODY, $H, ...)
+                  - pattern: new org.springframework.http.ResponseEntity<>($BODY, $H, ...)
+                  - pattern: new org.springframework.http.ResponseEntity<$T>($BODY, $H, ...)
+                  - pattern: new org.springframework.http.ResponseEntity($BODY, $H, ...)
+              - metavariable-pattern:
+                  metavariable: $CT
+                  pattern-either:
+                    - pattern: org.springframework.http.MediaType.APPLICATION_JSON
+                    - pattern: org.springframework.http.MediaType.APPLICATION_OCTET_STREAM
+                    - pattern: org.springframework.http.MediaType.APPLICATION_PDF
+                    - pattern: org.springframework.http.MediaType.APPLICATION_XML
+                    - pattern: org.springframework.http.MediaType.TEXT_PLAIN
+                    - pattern: org.springframework.http.MediaType.TEXT_XML
+                    - pattern: org.springframework.http.MediaType.IMAGE_PNG
+                    - pattern: org.springframework.http.MediaType.IMAGE_JPEG
+                    - pattern: org.springframework.http.MediaType.IMAGE_GIF
+                    - pattern: MediaType.APPLICATION_JSON
+                    - pattern: MediaType.APPLICATION_OCTET_STREAM
+                    - pattern: MediaType.APPLICATION_PDF
+                    - pattern: MediaType.APPLICATION_XML
+                    - pattern: MediaType.TEXT_PLAIN
+                    - pattern: MediaType.TEXT_XML
+                    - pattern: MediaType.IMAGE_PNG
+                    - pattern: MediaType.IMAGE_JPEG
+                    - pattern: MediaType.IMAGE_GIF
+              - focus-metavariable: $BODY
+          # Servlet response writer / outputStream calls preceded by a
+          # non-HTML setContentType / setHeader / addHeader. Sanitizes the
+          # writer-argument position so the writer-block sink does not fire.
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $R.setContentType($CT);
+                      ...
+                  - pattern-inside: |
+                      $R.setHeader("Content-Type", $CT);
+                      ...
+                  - pattern-inside: |
+                      $R.addHeader("Content-Type", $CT);
+                      ...
+              - pattern-either:
+                  - pattern: |
+                      (HttpServletResponse $RR).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
+                  - pattern: |
+                      (HttpServletResponse $RR).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
+                  - pattern: |
+                      (javax.servlet.http.HttpServletResponse $RR).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
+                  - pattern: |
+                      (javax.servlet.http.HttpServletResponse $RR).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
+              - metavariable-pattern:
+                  metavariable: $CT
+                  pattern-either:
+                    - pattern: '"application/json"'
+                    - pattern: '"application/json;charset=UTF-8"'
+                    - pattern: '"application/json; charset=UTF-8"'
+                    - pattern: '"application/json;charset=utf-8"'
+                    - pattern: '"text/plain"'
+                    - pattern: '"text/plain;charset=UTF-8"'
+                    - pattern: '"application/pdf"'
+                    - pattern: '"application/octet-stream"'
+                    - pattern: '"application/xml"'
+                    - pattern: '"application/xml;charset=UTF-8"'
+                    - pattern: '"text/xml"'
+                    - pattern: '"image/png"'
+                    - pattern: '"image/jpeg"'
+                    - pattern: '"image/gif"'
+              - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:
       # ── Handler return — body type depends on return type (String, ResponseEntity<T>, raw ResponseEntity)
@@ -31,6 +165,12 @@ rules:
       #     that happen to return tainted data would be flagged.
       #   - explicit non-HTML produces attribute on the handler annotation
       #     via pattern-not-inside with the concrete annotation name.
+      #   - class-level @RequestMapping(produces=...) on @RestController /
+      #     @Controller via pattern-not-inside on the enclosing class —
+      #     reflects Spring's annotation inheritance.
+      #   - @ExceptionHandler is treated as a handler annotation for the
+      #     return-form sink branch, so reflected exception messages on the
+      #     HTML rendering path are flagged.
       #
       # MediaType.X_VALUE vs literal: Java compiles `produces =
       # MediaType.APPLICATION_JSON_VALUE` into the same bytecode annotation
@@ -41,13 +181,29 @@ rules:
       # annotation-argument patterns, so an explicit constant-form
       # pattern-not-inside cannot be authored here.)
       #
-      # Limitation: opentaint cannot currently discriminate ResponseEntity
-      # builder chain content types (.contentType(MediaType.APPLICATION_JSON).body(...),
-      # .header("Content-Type", "application/json").body(...), or HttpHeaders
-      # used with new ResponseEntity<>(body, headers, status)) at the pattern
-      # level — sanitizer / pattern-not-inside / pattern-not variants all
-      # either fail to match or over-exclude. As a result the rule
-      # over-flags these. See Appendix D of the implementation plan.
+      # Engine limitations (verified empirically with rule tests):
+      #   - opentaint's IFDS does not honor focus-metavariable sanitizers on
+      #     ResponseEntity builder chains. The
+      #     `.contentType(MediaType.APPLICATION_JSON).body(BODY)` form does
+      #     not get the BODY argument sanitized, so taint flows through
+      #     `body()` to the `return` sink.
+      #   - pattern-not on the sink expression for the same builder chain
+      #     does not exclude either; the engine reports the return statement
+      #     before the structural exclusion is applied.
+      #   - HttpHeaders preset to a non-HTML content type and used with
+      #     `new ResponseEntity<>(body, headers, status)` cannot be
+      #     discriminated: the engine has no notion of headers-state at the
+      #     call site of the constructor.
+      #   - pattern-not-inside on annotation arguments (the
+      #     `@GetMapping(..., produces = "application/json", ...)` form) does
+      #     not currently exclude handlers in spring-app test sets — even
+      #     though string-literal annotation arguments should be matchable
+      #     after compile-time inlining.
+      # The patterns here document the intended semantics; if/when the
+      # engine starts honoring them, the rule will discriminate the
+      # corresponding cases automatically. Until then, the rule
+      # over-reports those specific cases. See Appendix D of the
+      # implementation plan for the original analysis.
       - patterns:
           - pattern-either:
               - pattern-inside: |
@@ -68,6 +224,80 @@ rules:
               - pattern-inside: |
                   @RequestMapping(...)
                   $RT $M(...) { ... }
+              # @ExceptionHandler methods can also reflect attacker-controlled
+              # content (the exception's message, the input mirrored back) into
+              # an HTML response when the resolved Content-Type is text/html.
+              - pattern-inside: |
+                  @ExceptionHandler(...)
+                  $RT $M(...) { ... }
+          # ── Class-level @RequestMapping(produces=...) on @RestController /
+          # @Controller. In Spring, a class-level produces propagates to every
+          # handler unless overridden — so if the class pins a non-HTML
+          # produces, none of its handlers should be flagged for HTML XSS.
+          - pattern-not-inside: |
+              @RestController(...)
+              @RequestMapping(..., produces = "application/json", ...)
+              public class $CLAZZ { ... }
+          - pattern-not-inside: |
+              @Controller(...)
+              @RequestMapping(..., produces = "application/json", ...)
+              public class $CLAZZ { ... }
+          - pattern-not-inside: |
+              @RestController
+              @RequestMapping(..., produces = "application/json", ...)
+              public class $CLAZZ { ... }
+          - pattern-not-inside: |
+              @Controller
+              @RequestMapping(..., produces = "application/json", ...)
+              public class $CLAZZ { ... }
+          - pattern-not-inside: |
+              @RestController(...)
+              @RequestMapping(..., produces = "application/octet-stream", ...)
+              public class $CLAZZ { ... }
+          - pattern-not-inside: |
+              @RestController(...)
+              @RequestMapping(..., produces = "application/pdf", ...)
+              public class $CLAZZ { ... }
+          - pattern-not-inside: |
+              @RestController(...)
+              @RequestMapping(..., produces = "application/xml", ...)
+              public class $CLAZZ { ... }
+          - pattern-not-inside: |
+              @RestController(...)
+              @RequestMapping(..., produces = "text/plain", ...)
+              public class $CLAZZ { ... }
+          # ── Expression-level pattern-not for direct returns of safe
+          # ResponseEntity builder chains. Belt-and-suspenders to the
+          # sanitizer block above. If the engine starts to honor these,
+          # FPs Row10/Row12/Row15/Row18/Row19 disappear.
+          - pattern-not: |
+              return $X.contentType(MediaType.APPLICATION_JSON).body($UNTRUSTED);
+          - pattern-not: |
+              return $X.contentType(MediaType.APPLICATION_OCTET_STREAM).body($UNTRUSTED);
+          - pattern-not: |
+              return $X.contentType(MediaType.APPLICATION_PDF).body($UNTRUSTED);
+          - pattern-not: |
+              return $X.contentType(MediaType.APPLICATION_XML).body($UNTRUSTED);
+          - pattern-not: |
+              return $X.contentType(MediaType.TEXT_PLAIN).body($UNTRUSTED);
+          - pattern-not: |
+              return $X.contentType(MediaType.TEXT_XML).body($UNTRUSTED);
+          - pattern-not: |
+              return $X.contentType(MediaType.IMAGE_PNG).body($UNTRUSTED);
+          - pattern-not: |
+              return $X.contentType(MediaType.IMAGE_JPEG).body($UNTRUSTED);
+          - pattern-not: |
+              return $X.contentType(MediaType.IMAGE_GIF).body($UNTRUSTED);
+          - pattern-not: |
+              return $X.header("Content-Type", "application/json").body($UNTRUSTED);
+          - pattern-not: |
+              return $X.header("Content-Type", "application/octet-stream").body($UNTRUSTED);
+          - pattern-not: |
+              return $X.header("Content-Type", "application/pdf").body($UNTRUSTED);
+          - pattern-not: |
+              return $X.header("Content-Type", "application/xml").body($UNTRUSTED);
+          - pattern-not: |
+              return $X.header("Content-Type", "text/plain").body($UNTRUSTED);
           # application/json
           - pattern-not-inside: |
               @GetMapping(..., produces = "application/json", ...)
@@ -248,6 +478,13 @@ rules:
       # Servlet API: setContentType / setHeader / addHeader. The pattern-inside
       # enumerates only text/html variants; handlers that set a non-HTML
       # content type don't match and are not flagged.
+      #
+      # The pattern-not-inside list below adds an explicit second line of
+      # defense: even if pattern-inside semantics drift, an explicit safe
+      # content-type setter still excludes the writer call. Charset variants
+      # (utf-8, UTF-8, utf-16, ISO-8859-1) are listed for both setContentType
+      # and setHeader/addHeader. image/svg+xml is intentionally NOT listed
+      # — SVG can host inline <script> and IS XSS-exploitable.
       - patterns:
           - pattern-either:
               - pattern-inside: |
@@ -271,6 +508,19 @@ rules:
               - pattern-inside: |
                   $R.setContentType("text/html; charset=ISO-8859-1");
                   ...
+              # utf-16 — also dangerous; Chromium decodes the body as HTML
+              - pattern-inside: |
+                  $R.setContentType("text/html;charset=utf-16");
+                  ...
+              - pattern-inside: |
+                  $R.setContentType("text/html; charset=utf-16");
+                  ...
+              - pattern-inside: |
+                  $R.setContentType("text/html;charset=UTF-16");
+                  ...
+              - pattern-inside: |
+                  $R.setContentType("text/html; charset=UTF-16");
+                  ...
               - pattern-inside: |
                   $R.setHeader("Content-Type", "text/html");
                   ...
@@ -281,6 +531,9 @@ rules:
                   $R.setHeader("Content-Type", "text/html; charset=UTF-8");
                   ...
               - pattern-inside: |
+                  $R.setHeader("Content-Type", "text/html;charset=utf-8");
+                  ...
+              - pattern-inside: |
                   $R.addHeader("Content-Type", "text/html");
                   ...
               - pattern-inside: |
@@ -289,6 +542,113 @@ rules:
               - pattern-inside: |
                   $R.addHeader("Content-Type", "text/html; charset=UTF-8");
                   ...
+              - pattern-inside: |
+                  $R.addHeader("Content-Type", "text/html;charset=utf-8");
+                  ...
+          # ── Negative: explicit non-HTML setContentType / setHeader /
+          # addHeader. Even if the pattern-inside list above happens to admit
+          # a writer call (e.g., the engine doesn't strictly enforce
+          # pattern-inside ordering), an explicit safe content-type setter
+          # excludes it. Same MIME types as the handler-return branch.
+          - pattern-not-inside: |
+              $R.setContentType("application/json");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("application/json;charset=UTF-8");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("application/json; charset=UTF-8");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("text/plain");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("text/plain;charset=UTF-8");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("application/pdf");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("application/octet-stream");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("application/xml");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("application/xml;charset=UTF-8");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("text/xml");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("image/png");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("image/jpeg");
+              ...
+          - pattern-not-inside: |
+              $R.setContentType("image/gif");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "application/json");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "application/json;charset=UTF-8");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "text/plain");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "application/pdf");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "application/octet-stream");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "application/xml");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "text/xml");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "image/png");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "image/jpeg");
+              ...
+          - pattern-not-inside: |
+              $R.setHeader("Content-Type", "image/gif");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "application/json");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "application/json;charset=UTF-8");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "text/plain");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "application/pdf");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "application/octet-stream");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "application/xml");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "text/xml");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "image/png");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "image/jpeg");
+              ...
+          - pattern-not-inside: |
+              $R.addHeader("Content-Type", "image/gif");
+              ...
           - pattern-either:
               - pattern: |
                   (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)

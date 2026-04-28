@@ -587,4 +587,108 @@ public class XssHtmlResponseSpringSamples {
             out.println("<h1>Hello, " + name + "!</h1>");
         }
     }
+
+    // ── Row 31: @RestController + class-level @RequestMapping(produces=JSON) — FP
+    // Class-level @RequestMapping(produces = APPLICATION_JSON_VALUE)
+    // propagates to every handler in the class. The handler reflects
+    // user-controlled data, but Spring sets Content-Type:
+    // application/json; Chromium does not MIME-sniff JSON to HTML,
+    // alert(1) does not fire. The rule's class-level pattern-not-inside
+    // is intended to exclude these. See the engine-limitations comment in
+    // spring-xss-html-response-sinks.yaml — currently this still reports
+    // an FP because pattern-not-inside on annotation arguments is not
+    // honored end-to-end.
+
+    @RestController
+    @org.springframework.web.bind.annotation.RequestMapping(value = "/xss-in-spring-app/row-31", produces = "application/json")
+    public static class Row31RestControllerClassLevelJsonController {
+
+        @GetMapping
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public String row31(@RequestParam(required = false, defaultValue = "") String name) {
+            return "{\"name\":\"" + name + "\"}";
+        }
+    }
+
+    // ── Row 32: @RestController + class-level @RequestMapping(produces=text/html) — TP
+    // Same class-level inheritance, but produces is text/html — handler
+    // returns are HTML, so reflected user input IS XSS. The rule must
+    // still fire here.
+
+    @RestController
+    @org.springframework.web.bind.annotation.RequestMapping(value = "/xss-in-spring-app/row-32", produces = "text/html")
+    public static class Row32RestControllerClassLevelHtmlController {
+
+        @GetMapping
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public String row32(@RequestParam(required = false, defaultValue = "") String name) {
+            return "<h1>Hello, " + name + "!</h1>";
+        }
+    }
+
+    // ── Row 33: @ExceptionHandler reflecting tainted exception message into HTML — TP
+    // The mapping handler throws an exception carrying user input; the
+    // @ExceptionHandler returns the exception message as a String. Under
+    // String content negotiation against an `Accept: text/html` request,
+    // Spring lands on Content-Type: text/html and the script executes.
+    // The rule's @ExceptionHandler pattern-inside makes the handler
+    // visible as a sink-eligible method.
+
+    @RestController
+    public static class Row33ExceptionHandlerReflectsTaintedMessageController {
+
+        public static class ReflectedException extends RuntimeException {
+            public ReflectedException(String msg) { super(msg); }
+        }
+
+        @GetMapping("/xss-in-spring-app/row-33")
+        public String row33(@RequestParam(required = false, defaultValue = "") String name) {
+            throw new ReflectedException("<h1>Hello, " + name + "!</h1>");
+        }
+
+        @org.springframework.web.bind.annotation.ExceptionHandler(ReflectedException.class)
+        @org.springframework.web.bind.annotation.ResponseBody
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public String handleReflectedException(ReflectedException ex) {
+            return ex.getMessage();
+        }
+    }
+
+    // ── Row 34: setHeader("Content-Type", "text/html") + writer + tainted — TP
+    // Reflected XSS through setHeader rather than setContentType.
+    // The rule's pattern-inside list in the writer block enumerates this
+    // form, so the rule fires.
+
+    @org.springframework.stereotype.Controller
+    public static class Row34ServletSetHeaderTextHtmlController {
+
+        @GetMapping("/xss-in-spring-app/row-34")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public void row34(@RequestParam(required = false, defaultValue = "") String name,
+                          HttpServletResponse response) throws IOException {
+            response.setHeader("Content-Type", "text/html");
+            PrintWriter out = response.getWriter();
+            out.println("<h1>Hello, " + name + "!</h1>");
+        }
+    }
+
+    // ── Row 35: addHeader("Content-Type", "application/json") + writer — FP
+    // addHeader (vs setHeader / setContentType) form for the safe
+    // content-type signal. Currently the writer block's pattern-not-inside
+    // covers addHeader for application/json, so the writer call should
+    // not be flagged. Same pattern-not-inside engine limitation applies as
+    // for setHeader / setContentType.
+
+    @org.springframework.stereotype.Controller
+    public static class Row35ServletAddHeaderJsonController {
+
+        @GetMapping("/xss-in-spring-app/row-35")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public void row35(@RequestParam(required = false, defaultValue = "") String name,
+                          HttpServletResponse response) throws IOException {
+            response.addHeader("Content-Type", "application/json");
+            PrintWriter out = response.getWriter();
+            out.print("{\"name\":\"" + name + "\"}");
+        }
+    }
 }
