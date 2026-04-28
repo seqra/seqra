@@ -21,32 +21,37 @@ rules:
           - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(...)
           - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(...)
           - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(...)
-          # Sanitize the writer-argument when the response was previously
-          # pinned to a non-HTML content type via setContentType /
-          # setHeader / addHeader. Mirrors the spring rule's safe-CT
-          # sanitizer; documents intent even where the engine does not
-          # yet apply it (see the pattern-not-inside list below for the
-          # belt-and-suspenders form).
+          # Multi-statement single-pattern sanitizer: when the same response
+          # object has a non-HTML setContentType / setHeader / addHeader
+          # call followed by a writer / outputStream write, sanitize the
+          # writer's data argument. Mirrors
+          # servlet-untrusted-data-source.yaml's multi-statement style.
           - patterns:
               - pattern-either:
-                  - pattern-inside: |
+                  - pattern: |
                       (HttpServletResponse $RESPONSE).setContentType($CT);
                       ...
-                  - pattern-inside: |
+                      (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
+                  - pattern: |
+                      (HttpServletResponse $RESPONSE).setContentType($CT);
+                      ...
+                      (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
+                  - pattern: |
                       (HttpServletResponse $RESPONSE).setHeader("Content-Type", $CT);
                       ...
-                  - pattern-inside: |
+                      (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
+                  - pattern: |
+                      (HttpServletResponse $RESPONSE).setHeader("Content-Type", $CT);
+                      ...
+                      (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
+                  - pattern: |
                       (HttpServletResponse $RESPONSE).addHeader("Content-Type", $CT);
                       ...
-              - pattern-either:
+                      (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
                   - pattern: |
-                      (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
-                  - pattern: |
-                      (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
-                  - pattern: |
-                      (javax.servlet.http.HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
-                  - pattern: |
-                      (javax.servlet.http.HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
+                      (HttpServletResponse $RESPONSE).addHeader("Content-Type", $CT);
+                      ...
+                      (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
               - metavariable-pattern:
                   metavariable: $CT
                   pattern-either:
