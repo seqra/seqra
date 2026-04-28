@@ -1,13 +1,9 @@
 package sample.alias;
 
 import java.util.List;
+import sample.BaseSample;
 
-public class LoopAliasSample {
-
-    static class Node {
-        Node next;
-        Object data;
-    }
+public class LoopAliasSample extends BaseSample {
 
     static void aliasInLoop(Object a, Object b) {
         Object cur = a;
@@ -62,7 +58,4 @@ public class LoopAliasSample {
         Object data = cur.data;
         sinkOneValue(data);
     }
-
-    static void sinkOneValue(Object v) { }
-    static void doNothing() { }
 }

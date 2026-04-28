@@ -294,12 +294,16 @@ class JIRBasicAtomEvaluator(
 
         val base = AccessPathBase.LocalVar(lv.index)
         if (!matchArrayValue) {
-            // todo: use must alias if negated
-            val aliasInfo = aa.findAlias(base, statement)
+            val aliasInfo =
+                if (negated)
+                    aa.findMustAlias(base, statement)
+                else
+                    aa.findAlias(base, statement)
             if (aliasInfo != null) {
                 body(aliasInfo)
             }
         } else {
+            // should `negated` change behaviour here like in the if-case?
             val allAliases = aa.getAllAliasAtStatement(statement)
             for ((_, aliasSet) in allAliases) {
                 for (info in aliasSet) {
