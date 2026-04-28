@@ -30,23 +30,23 @@ rules:
           - patterns:
               - pattern-either:
                   - pattern-inside: |
-                      $R.setContentType($CT);
+                      (HttpServletResponse $RESPONSE).setContentType($CT);
                       ...
                   - pattern-inside: |
-                      $R.setHeader("Content-Type", $CT);
+                      (HttpServletResponse $RESPONSE).setHeader("Content-Type", $CT);
                       ...
                   - pattern-inside: |
-                      $R.addHeader("Content-Type", $CT);
+                      (HttpServletResponse $RESPONSE).addHeader("Content-Type", $CT);
                       ...
               - pattern-either:
                   - pattern: |
-                      (HttpServletResponse $RR).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
+                      (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
                   - pattern: |
-                      (HttpServletResponse $RR).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
+                      (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
                   - pattern: |
-                      (javax.servlet.http.HttpServletResponse $RR).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
+                      (javax.servlet.http.HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
                   - pattern: |
-                      (javax.servlet.http.HttpServletResponse $RR).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
+                      (javax.servlet.http.HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
               - metavariable-pattern:
                   metavariable: $CT
                   pattern-either:
@@ -72,107 +72,107 @@ rules:
     pattern-sinks:
       - patterns:
           - pattern-not-inside: |
-              $R.setContentType("application/json");
+              (HttpServletResponse $RESPONSE).setContentType("application/json");
               ...
           - pattern-not-inside: |
-              $R.setContentType("application/json;charset=UTF-8");
+              (HttpServletResponse $RESPONSE).setContentType("application/json;charset=UTF-8");
               ...
           - pattern-not-inside: |
-              $R.setContentType("application/json; charset=UTF-8");
+              (HttpServletResponse $RESPONSE).setContentType("application/json; charset=UTF-8");
               ...
           - pattern-not-inside: |
-              $R.setContentType("text/plain");
+              (HttpServletResponse $RESPONSE).setContentType("text/plain");
               ...
           - pattern-not-inside: |
-              $R.setContentType("text/plain;charset=UTF-8");
+              (HttpServletResponse $RESPONSE).setContentType("text/plain;charset=UTF-8");
               ...
           - pattern-not-inside: |
-              $R.setContentType("text/plain; charset=UTF-8");
+              (HttpServletResponse $RESPONSE).setContentType("text/plain; charset=UTF-8");
               ...
           - pattern-not-inside: |
-              $R.setContentType("application/pdf");
+              (HttpServletResponse $RESPONSE).setContentType("application/pdf");
               ...
           - pattern-not-inside: |
-              $R.setContentType("application/octet-stream");
+              (HttpServletResponse $RESPONSE).setContentType("application/octet-stream");
               ...
           - pattern-not-inside: |
-              $R.setContentType("application/xml");
+              (HttpServletResponse $RESPONSE).setContentType("application/xml");
               ...
           - pattern-not-inside: |
-              $R.setContentType("application/xml;charset=UTF-8");
+              (HttpServletResponse $RESPONSE).setContentType("application/xml;charset=UTF-8");
               ...
           - pattern-not-inside: |
-              $R.setContentType("text/xml");
+              (HttpServletResponse $RESPONSE).setContentType("text/xml");
               ...
           - pattern-not-inside: |
-              $R.setContentType("image/png");
+              (HttpServletResponse $RESPONSE).setContentType("image/png");
               ...
           - pattern-not-inside: |
-              $R.setContentType("image/jpeg");
+              (HttpServletResponse $RESPONSE).setContentType("image/jpeg");
               ...
           - pattern-not-inside: |
-              $R.setContentType("image/gif");
+              (HttpServletResponse $RESPONSE).setContentType("image/gif");
               ...
           # ── setHeader / addHeader equivalents ─────────────────────────
           - pattern-not-inside: |
-              $R.setHeader("Content-Type", "application/json");
+              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/json");
               ...
           - pattern-not-inside: |
-              $R.setHeader("Content-Type", "application/json;charset=UTF-8");
+              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/json;charset=UTF-8");
               ...
           - pattern-not-inside: |
-              $R.setHeader("Content-Type", "text/plain");
+              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "text/plain");
               ...
           - pattern-not-inside: |
-              $R.setHeader("Content-Type", "application/pdf");
+              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/pdf");
               ...
           - pattern-not-inside: |
-              $R.setHeader("Content-Type", "application/octet-stream");
+              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/octet-stream");
               ...
           - pattern-not-inside: |
-              $R.setHeader("Content-Type", "application/xml");
+              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/xml");
               ...
           - pattern-not-inside: |
-              $R.setHeader("Content-Type", "text/xml");
+              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "text/xml");
               ...
           - pattern-not-inside: |
-              $R.setHeader("Content-Type", "image/png");
+              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "image/png");
               ...
           - pattern-not-inside: |
-              $R.setHeader("Content-Type", "image/jpeg");
+              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "image/jpeg");
               ...
           - pattern-not-inside: |
-              $R.setHeader("Content-Type", "image/gif");
+              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "image/gif");
               ...
           - pattern-not-inside: |
-              $R.addHeader("Content-Type", "application/json");
+              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/json");
               ...
           - pattern-not-inside: |
-              $R.addHeader("Content-Type", "application/json;charset=UTF-8");
+              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/json;charset=UTF-8");
               ...
           - pattern-not-inside: |
-              $R.addHeader("Content-Type", "text/plain");
+              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "text/plain");
               ...
           - pattern-not-inside: |
-              $R.addHeader("Content-Type", "application/pdf");
+              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/pdf");
               ...
           - pattern-not-inside: |
-              $R.addHeader("Content-Type", "application/octet-stream");
+              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/octet-stream");
               ...
           - pattern-not-inside: |
-              $R.addHeader("Content-Type", "application/xml");
+              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/xml");
               ...
           - pattern-not-inside: |
-              $R.addHeader("Content-Type", "text/xml");
+              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "text/xml");
               ...
           - pattern-not-inside: |
-              $R.addHeader("Content-Type", "image/png");
+              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "image/png");
               ...
           - pattern-not-inside: |
-              $R.addHeader("Content-Type", "image/jpeg");
+              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "image/jpeg");
               ...
           - pattern-not-inside: |
-              $R.addHeader("Content-Type", "image/gif");
+              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "image/gif");
               ...
           - pattern-either:
               - pattern: |
