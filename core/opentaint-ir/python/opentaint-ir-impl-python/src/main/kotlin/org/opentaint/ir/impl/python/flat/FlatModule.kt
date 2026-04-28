@@ -20,8 +20,9 @@ enum class FlatFunctionKind {
  *
  * `nonlocalNames` / `globalNames` capture function-wide `nonlocal` / `global`
  * declarations so later passes don't need to re-walk the source AST.
- * `closureVars` is legacy metadata produced by the first pass today; it will
- * be replaced by analyzer-computed facts in later phases.
+ * `closureVars` is populated by the closure transform on `NESTED_DEF` /
+ * `LAMBDA` functions; always `emptySet()` on raw IR and on closure roots
+ * (`TOP_LEVEL` / `METHOD` / `MODULE_INIT`).
  */
 data class FlatFunctionIR(
     val name: String,
@@ -33,8 +34,8 @@ data class FlatFunctionIR(
     val returnType: FlatType,
     val isAsync: Boolean,
     val isGenerator: Boolean,
-    val closureVars: List<String>,
     val decorators: List<FlatDecorator>,
+    val closureVars: Set<String> = emptySet(),
     val nonlocalNames: Set<String> = emptySet(),
     val globalNames: Set<String> = emptySet(),
 ) {

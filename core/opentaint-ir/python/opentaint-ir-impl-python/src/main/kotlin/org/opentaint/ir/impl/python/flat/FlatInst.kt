@@ -12,8 +12,11 @@ data class FlatLoadSubscript(val target: FlatValue, val obj: FlatValue, val inde
 data class FlatStoreSubscript(val obj: FlatValue, val index: FlatValue, val value: FlatValue, override val line: Int = -1) : FlatInst
 data class FlatLoadGlobal(val target: FlatValue, val name: String, val module: String, override val line: Int = -1) : FlatInst
 data class FlatStoreGlobal(val name: String, val module: String, val value: FlatValue, override val line: Int = -1) : FlatInst
-data class FlatLoadClosure(val target: FlatValue, val name: String, val depth: Int, override val line: Int = -1) : FlatInst
-data class FlatStoreClosure(val name: String, val depth: Int, val value: FlatValue, override val line: Int = -1) : FlatInst
+data class FlatBindFunction(
+    val target: FlatValue,        // local that receives the bound function
+    val function: FlatGlobalRef,  // synthetic global ref to the lifted function
+    override val line: Int = -1,
+) : FlatInst
 
 data class FlatBinOp(val target: FlatValue, val left: FlatValue, val right: FlatValue, val op: FlatBinaryOperator, override val line: Int = -1) : FlatInst
 data class FlatUnaryOp(val target: FlatValue, val operand: FlatValue, val op: FlatUnaryOperator, override val line: Int = -1) : FlatInst

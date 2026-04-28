@@ -24,3 +24,8 @@ config.local.*
 
 **/.gradle
 **/build
+
+CLAUDE.md
+.claude/*
+.mcprules-*
+.agents/*

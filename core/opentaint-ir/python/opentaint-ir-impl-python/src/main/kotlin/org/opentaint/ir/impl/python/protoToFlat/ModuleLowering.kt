@@ -178,7 +178,6 @@ internal object ModuleLowering {
             returnType = FlatAnyType,
             isAsync = false,
             isGenerator = false,
-            closureVars = emptyList(),
             decorators = emptyList(),
         )
     }

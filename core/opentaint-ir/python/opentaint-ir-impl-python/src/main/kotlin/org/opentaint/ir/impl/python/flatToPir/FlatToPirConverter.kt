@@ -162,7 +162,7 @@ class FlatToPirConverter(
             isStaticMethod = pending.isStaticMethod,
             isClassMethod = pending.isClassMethod,
             isProperty = pending.isProperty,
-            closureVars = pending.closureVars,
+            closureVars = pending.closureVars.toList(),
             enclosingClass = null,
         )
         // Each instruction was constructed with its location already populated;

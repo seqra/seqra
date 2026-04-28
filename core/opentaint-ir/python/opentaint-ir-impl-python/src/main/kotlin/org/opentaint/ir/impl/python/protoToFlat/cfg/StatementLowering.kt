@@ -38,7 +38,9 @@ private fun CfgSession.visitStmt(stmt: MypyStmtProto) {
         stmt.hasFuncDef() -> visitNestedFuncDef(stmt.funcDef, emptyList(), stmt.line)
         stmt.hasDecorator() ->
             visitNestedFuncDef(stmt.decorator.func, stmt.decorator.originalDecoratorsList, stmt.line)
-        // PassStmt, GlobalDecl, NonlocalDecl, ClassDef inside body: no-op
+        stmt.hasGlobalDecl() -> recordGlobal(stmt.globalDecl.namesList)
+        stmt.hasNonlocalDecl() -> recordNonlocal(stmt.nonlocalDecl.namesList)
+        // PassStmt, ClassDef inside body: no-op
     }
 }
 
@@ -431,5 +433,5 @@ private fun CfgSession.visitNestedFuncDef(
     // Bind the local name to the synthetic global function.
     val ref = FlatGlobalRef(nested.name, module.moduleName)
     val targetName = scope.resolveLocal(funcDef.name)
-    emit(FlatAssign(FlatLocal(targetName), ref, line = line))
+    emit(FlatBindFunction(FlatLocal(targetName), ref, line = line))
 }

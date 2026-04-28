@@ -13,6 +13,22 @@ import org.opentaint.ir.impl.python.proto.MypyBlockProto
  */
 internal object CfgBuild {
 
+    /**
+     * Result of building a function-scope CFG. Carries the CFG plus any
+     * `nonlocal` / `global` declarations collected while walking the body —
+     * those are needed by closure analysis and aren't reconstructible from
+     * the lowered instruction stream.
+     */
+    data class CfgBuildResult(
+        val cfg: FlatCFG,
+        val nonlocalNames: Set<String>,
+        val globalNames: Set<String>,
+    ) {
+        companion object {
+            val EMPTY = CfgBuildResult(FlatCFG.EMPTY, emptySet(), emptySet())
+        }
+    }
+
     /** Build the CFG for a regular function/method body. */
     fun buildFunctionCfg(
         module: ModuleContext,
@@ -20,12 +36,12 @@ internal object CfgBuild {
         body: MypyBlockProto,
         sourceLabel: String = qualifiedName,
         errorPrefix: String = "Failed to build CFG for $qualifiedName",
-    ): FlatCFG {
+    ): CfgBuildResult {
         val session = CfgSession(module = module, currentFunctionQualifiedName = qualifiedName)
         return runOrEmpty(module, sourceLabel, errorPrefix) {
             session.visitBlock(body)
             if (!session.currentBlockTerminated()) session.emitReturn(null)
-            session.finalizeCfg()
+            CfgBuildResult(session.finalizeCfg(), session.nonlocalNames, session.globalNames)
         }
     }
 
@@ -44,6 +60,9 @@ internal object CfgBuild {
         assignments: List<MypyAssignmentStmtProto>,
     ): FlatCFG {
         val session = CfgSession(module = module)
+        // `nonlocal` / `global` declarations collected by the session are
+        // intentionally dropped here: module init has no enclosing scope, so
+        // they have no effect.
         return runOrEmpty(
             module,
             sourceLabel = "__module_init__",
@@ -54,19 +73,19 @@ internal object CfgBuild {
                 session.visitAssignment(assignment, line = -1)
             }
             if (!session.currentBlockTerminated()) session.emitReturn(null)
-            session.finalizeCfg()
-        }
+            CfgBuildResult(session.finalizeCfg(), session.nonlocalNames, session.globalNames)
+        }.cfg
     }
 
     private inline fun runOrEmpty(
         module: ModuleContext,
         sourceLabel: String,
         errorPrefix: String,
-        block: () -> FlatCFG,
-    ): FlatCFG = try {
+        block: () -> CfgBuildResult,
+    ): CfgBuildResult = try {
         block()
     } catch (e: Exception) {
         module.reportException(errorPrefix, sourceLabel, e)
-        FlatCFG.EMPTY
+        CfgBuildResult.EMPTY
     }
 }

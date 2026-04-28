@@ -5,6 +5,7 @@ import io.grpc.ManagedChannelBuilder
 import org.opentaint.ir.api.python.*
 import org.opentaint.ir.impl.python.flatToPir.FlatToPirConverter
 import org.opentaint.ir.impl.python.protoToFlat.ProtoToFlat
+import org.opentaint.ir.impl.python.transforms.closure.FlatClosureTransformer
 import org.opentaint.ir.impl.python.proto.BuildProjectRequest
 import org.opentaint.ir.impl.python.proto.PIRServiceGrpc
 import org.opentaint.ir.impl.python.proto.PingRequest
@@ -129,7 +130,8 @@ class PIRClasspathLoader(private val settings: PIRSettings) {
             }
 
             val flat = ProtoToFlat.lowerModule(astModuleProto)
-            result.add(FlatToPirConverter(flat).convert())
+            val flatWithClosure = FlatClosureTransformer.transform(flat)
+            result.add(FlatToPirConverter(flatWithClosure).convert())
             count++
 
             // Progress logging every 10 seconds

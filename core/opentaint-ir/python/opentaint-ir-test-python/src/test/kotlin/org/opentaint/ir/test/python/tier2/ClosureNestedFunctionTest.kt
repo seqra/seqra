@@ -148,6 +148,13 @@ def cnf_conditional_nested(flag):
         def helper():
             return 2
     return helper()
+
+def cnf_transitive(x):
+    def cnf_transitive_mid():
+        def cnf_transitive_inner():
+            return x
+        return cnf_transitive_inner()
+    return cnf_transitive_mid()
 """.trimIndent()
     }
 
@@ -644,5 +651,137 @@ def cnf_conditional_nested(flag):
         val swap = findNestedFunc("cnf_nonlocal_multiple.swap")!!
         assertTrue(swap.closureVars.size >= 2,
             "swap should have at least 2 closureVars for 'a' and 'b', got: ${swap.closureVars}")
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // Step 6: closure-lowered IR shape (cells, <self>, env attach)
+    // ═══════════════════════════════════════════════════════════════
+
+    @Test
+    fun `reader has self at parameter index 0`() {
+        val reader = findNestedFunc("cnf_closure_read.reader")!!
+        assertTrue(reader.parameters.isNotEmpty(),
+            "reader should have at least the synthetic <self> parameter")
+        assertEquals("<self>", reader.parameters[0].name,
+            "reader.parameters[0] should be <self>, got params: ${reader.parameters.map { it.name }}")
+    }
+
+    @Test
+    fun `simple non-capturing inner has NO self parameter`() {
+        val inner = findNestedFunc("cnf_simple_nested.inner")!!
+        val paramNames = inner.parameters.map { it.name }
+        assertFalse(paramNames.contains("<self>"),
+            "non-capturing inner should not have <self>, got params: $paramNames")
+        assertTrue(inner.closureVars.isEmpty(),
+            "non-capturing inner should have empty closureVars, got: ${inner.closureVars}")
+    }
+
+    @Test
+    fun `reader prologue extracts cell value from self closure env`() {
+        val reader = findNestedFunc("cnf_closure_read.reader")!!
+        val insts = reader.instList
+
+        // Look for: PIRLoadAttr whose obj.name == "<self>" and attribute == "_closure_env_"
+        val envLoad = insts.filterIsInstance<PIRLoadAttr>().firstOrNull { la ->
+            val obj = la.obj
+            obj is PIRLocal && obj.name == "<self>" && la.attribute == "_closure_env_"
+        }
+        assertNotNull(envLoad,
+            "reader should have a PIRLoadAttr extracting _closure_env_ from <self>; insts=$insts")
+
+        val envLocalName = (envLoad!!.target as? PIRLocal)?.name
+        assertNotNull(envLocalName, "envLoad target should be a PIRLocal")
+        assertTrue(envLocalName!!.startsWith("\$env"),
+            "env local name should start with \$env, got: $envLocalName")
+
+        // Look for: PIRAssign(target=$cell$value, expr=PIRSubscriptExpr(obj=$env, index=PIRStrConst("value")))
+        val cellAssign = insts.filterIsInstance<PIRAssign>().firstOrNull { a ->
+            val tgt = a.target
+            val expr = a.expr
+            tgt is PIRLocal && tgt.name.startsWith("\$cell\$value") &&
+                expr is PIRSubscriptExpr &&
+                (expr.obj as? PIRLocal)?.name == envLocalName &&
+                (expr.index as? PIRStrConst)?.value == "value"
+        }
+        assertNotNull(cellAssign,
+            "reader should have a PIRAssign(\$cell\$value = \$env[\"value\"]); insts=$insts")
+    }
+
+    @Test
+    fun `reader reads value through cell load`() {
+        val reader = findNestedFunc("cnf_closure_read.reader")!!
+        val cellLoad = reader.instList.filterIsInstance<PIRLoadAttr>().firstOrNull { la ->
+            la.attribute == "value" &&
+                (la.obj as? PIRLocal)?.name?.startsWith("\$cell\$value") == true
+        }
+        assertNotNull(cellLoad,
+            "reader should have a PIRLoadAttr loading 'value' from a \$cell\$value local; " +
+                "insts=${reader.instList}")
+    }
+
+    @Test
+    fun `outer cnf_closure_read emits pir_cell call and stores env at bind site`() {
+        val outer = findFunc("cnf_closure_read")
+        val insts = outer.instList
+
+        val cellCtorCalls = insts.filterIsInstance<PIRCall>().filter { call ->
+            val callee = call.callee
+            callee is PIRGlobalRef && callee.name == "__pir_cell__" && callee.module == "builtins"
+        }
+        assertTrue(cellCtorCalls.isNotEmpty(),
+            "outer should have at least one PIRCall to __pir_cell__() for owning value's cell")
+
+        val envStores = insts.filterIsInstance<PIRStoreAttr>().filter { it.attribute == "_closure_env_" }
+        assertTrue(envStores.isNotEmpty(),
+            "outer should have at least one PIRStoreAttr storing _closure_env_ on the bound reader")
+
+        val dictAssigns = insts.filterIsInstance<PIRAssign>().filter { it.expr is PIRDictExpr }
+        assertTrue(dictAssigns.isNotEmpty(),
+            "outer should have at least one PIRAssign building the env dict (PIRDictExpr)")
+    }
+
+    @Test
+    fun `increment writes count through cell store`() {
+        val increment = findNestedFunc("cnf_nonlocal_write.increment")!!
+
+        val cellStore = increment.instList.filterIsInstance<PIRStoreAttr>().firstOrNull { sa ->
+            sa.attribute == "value" &&
+                (sa.obj as? PIRLocal)?.name?.startsWith("\$cell\$count") == true
+        }
+        assertNotNull(cellStore,
+            "increment should have a PIRStoreAttr writing 'value' on a \$cell\$count local; " +
+                "insts=${increment.instList}")
+
+        assertTrue(increment.closureVars.contains("count"),
+            "increment.closureVars should contain 'count', got: ${increment.closureVars}")
+    }
+
+    @Test
+    fun `transitive capture - cnf_transitive_mid has closureVars containing x`() {
+        val mid = findNestedFunc("cnf_transitive.cnf_transitive_mid")
+            ?: findNestedFunc("cnf_transitive_mid")
+        assertNotNull(mid, "cnf_transitive_mid should be extracted as a PIRFunction")
+        assertTrue(mid!!.closureVars.contains("x"),
+            "cnf_transitive_mid should transitively capture 'x' from cnf_transitive; " +
+                "got closureVars: ${mid.closureVars}")
+    }
+
+    @Test
+    fun `call to capturing reader does NOT pass self argument`() {
+        val outer = findFunc("cnf_closure_read")
+        // Find the call whose callee resolves to "reader" — either via resolvedCallee
+        // or by callee operand referencing the bound `reader` local.
+        val readerCalls = outer.instList.filterIsInstance<PIRCall>().filter { call ->
+            val resolved = call.resolvedCallee
+            if (resolved != null && resolved.endsWith("reader")) return@filter true
+            val callee = call.callee
+            callee is PIRLocal && callee.name == "reader"
+        }
+        assertTrue(readerCalls.isNotEmpty(),
+            "outer should have a PIRCall to reader; insts=${outer.instList}")
+        for (call in readerCalls) {
+            assertEquals(0, call.args.size,
+                "call to reader must not have any args (no implicit <self>), got args: ${call.args}")
+        }
     }
 }

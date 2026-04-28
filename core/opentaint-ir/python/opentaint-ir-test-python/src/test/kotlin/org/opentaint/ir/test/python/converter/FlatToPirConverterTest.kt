@@ -23,7 +23,6 @@ class FlatToPirConverterTest {
         returnType = FlatAnyType,
         isAsync = false,
         isGenerator = false,
-        closureVars = emptyList(),
         decorators = emptyList(),
     )
 
@@ -43,7 +42,6 @@ class FlatToPirConverterTest {
                     returnType = FlatAnyType,
                     isAsync = false,
                     isGenerator = false,
-                    closureVars = emptyList(),
                     decorators = emptyList(),
                 ),
             ),
@@ -57,7 +55,6 @@ class FlatToPirConverterTest {
                 returnType = FlatAnyType,
                 isAsync = false,
                 isGenerator = false,
-                closureVars = emptyList(),
                 decorators = emptyList(),
             ),
             classes = emptyList(),
@@ -102,7 +99,6 @@ class FlatToPirConverterTest {
                             returnType = FlatAnyType,
                             isAsync = false,
                             isGenerator = false,
-                            closureVars = emptyList(),
                             decorators = listOf(FlatDecorator("property", "builtins.property", emptyList())),
                         ),
                         FlatFunctionIR(
@@ -118,7 +114,6 @@ class FlatToPirConverterTest {
                             returnType = FlatAnyType,
                             isAsync = false,
                             isGenerator = false,
-                            closureVars = emptyList(),
                             decorators = emptyList(),
                         ),
                     ),
@@ -151,6 +146,55 @@ class FlatToPirConverterTest {
         for (method in cls.methods) {
             assertSame(module, method.module)
         }
+    }
+
+    @Test
+    fun `FlatBindFunction lowers to PIRAssign of PIRGlobalRef`() {
+        val bind = FlatBindFunction(
+            target = FlatLocal("x"),
+            function = FlatGlobalRef("inner\$local0", "mod"),
+            line = 7,
+        )
+        val cfg = FlatCFG(
+            blocks = listOf(FlatBlock(0, listOf(bind, FlatReturn(null)), emptyList())),
+            entryBlock = 0,
+            exitBlocks = listOf(0),
+        )
+
+        val flat = FlatModuleIR(
+            moduleName = "mod",
+            path = "mod.py",
+            functions = listOf(
+                FlatFunctionIR(
+                    name = "outer",
+                    qualifiedName = "mod.outer",
+                    parentQualifiedName = null,
+                    kind = FlatFunctionKind.TOP_LEVEL,
+                    cfg = cfg,
+                    parameters = emptyList(),
+                    returnType = FlatAnyType,
+                    isAsync = false,
+                    isGenerator = false,
+                    decorators = emptyList(),
+                ),
+            ),
+            moduleInit = stubModuleInit("mod.__module_init__"),
+            classes = emptyList(),
+            fields = emptyList(),
+            imports = emptyList(),
+            diagnostics = emptyList(),
+        )
+
+        val module = FlatToPirConverter(flat).convert()
+        val outer = module.functions.first { it.name == "outer" }
+        val firstInst = outer.cfg.instList.first()
+
+        val assign = assertIs<PIRAssign>(firstInst, "FlatBindFunction must lower to PIRAssign")
+        val target = assertIs<PIRLocal>(assign.target, "PIRAssign target must be PIRLocal")
+        assertEquals("x", target.name)
+        val ref = assertIs<PIRGlobalRef>(assign.expr, "PIRAssign expr must be PIRGlobalRef")
+        assertEquals("inner\$local0", ref.name)
+        assertEquals("mod", ref.module)
     }
 
     @Test

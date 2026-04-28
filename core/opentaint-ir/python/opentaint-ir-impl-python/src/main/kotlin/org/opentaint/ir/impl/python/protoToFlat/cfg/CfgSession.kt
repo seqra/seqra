@@ -43,6 +43,24 @@ internal class CfgSession(
 
     private data class LoopTargets(val breakBlock: Int, val continueBlock: Int)
 
+    // ─── Nonlocal / global declarations ────────────────────
+
+    private val _nonlocalNames = mutableSetOf<String>()
+    private val _globalNames = mutableSetOf<String>()
+
+    /** Record `nonlocal` declarations encountered while lowering this scope. */
+    fun recordNonlocal(names: Iterable<String>) {
+        _nonlocalNames.addAll(names)
+    }
+
+    /** Record `global` declarations encountered while lowering this scope. */
+    fun recordGlobal(names: Iterable<String>) {
+        _globalNames.addAll(names)
+    }
+
+    val nonlocalNames: Set<String> get() = _nonlocalNames
+    val globalNames: Set<String> get() = _globalNames
+
     // ─── Block management ──────────────────────────────────
 
     fun newBlock(): Int = ++blockCounter

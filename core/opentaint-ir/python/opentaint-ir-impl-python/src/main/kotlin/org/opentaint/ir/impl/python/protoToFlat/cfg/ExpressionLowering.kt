@@ -363,7 +363,10 @@ private fun CfgSession.lowerLambda(expr: MypyLambdaExprProto): FlatValue {
         parentQualifiedName = currentFunctionQualifiedName,
     )
     module.register(lambda)
-    return FlatGlobalRef(lambda.name, module.moduleName)
+    val ref = FlatGlobalRef(lambda.name, module.moduleName)
+    val target = newTempValue()
+    emit(FlatBindFunction(target, ref, line = -1))
+    return target
 }
 
 // ─── Super ───────────────────────��──────────────────
