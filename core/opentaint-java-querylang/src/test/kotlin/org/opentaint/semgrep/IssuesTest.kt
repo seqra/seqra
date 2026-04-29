@@ -16,6 +16,9 @@ import issues.issue94
 import issues.issue95
 import issues.issue96
 import issues.issue97
+import issues.issue98
+import issues.issue99
+import issues.issue100
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
@@ -104,6 +107,30 @@ class IssuesTest : SampleBasedTest() {
 
     @Test
     fun `issue 97`() = runTest<issue97>()
+
+    @Test
+    @Disabled // todo: pattern-not-inside containing a compound formula (pattern-either /
+              // metavariable-pattern) is rejected as "pattern-inside must be a simple
+              // pattern". Equivalent to multiple pattern-not-inside siblings; engine
+              // should accept it.
+    fun `issue 98`() = runTest<issue98>()
+
+    @Test
+    @Disabled // todo: two method-name metavariables on a single chained call
+              // ($R.$M1(...).$M2(...)) fails with "Method name metavar constraints
+              // intersection". Authoring two-step call chains where both methods are
+              // metavar-constrained should be supported.
+    fun `issue 99`() = runTest<issue99>()
+
+    @Test
+    @Disabled // todo: diamond / generic class names (Foo<>, Foo<$E>) used as
+              // metavariable-pattern alternatives fail with "no viable alternative"
+              // at the AST parser. The failed alternatives are silently dropped from
+              // the pattern-either, so a rule with only such alternatives ends up
+              // with an unsatisfiable Or(emptySet) constraint and never matches.
+              // Should be both: fix the parser to accept these forms AND surface
+              // the parse failure to the rule author.
+    fun `issue 100`() = runTest<issue100>()
 
     @AfterAll
     fun close() {

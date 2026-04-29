@@ -24,8 +24,9 @@ rules:
           # Multi-statement single-pattern sanitizer: when the same response
           # object has a non-HTML setContentType / setHeader / addHeader
           # call followed by a writer / outputStream write, sanitize the
-          # writer's data argument. Mirrors
-          # servlet-untrusted-data-source.yaml's multi-statement style.
+          # writer's data argument. `$SETHEADER` collapses
+          # setHeader/addHeader into one branch; setContentType has a
+          # different arity so it stays as its own branch.
           - patterns:
               - pattern-either:
                   - pattern: |
@@ -37,21 +38,18 @@ rules:
                       ...
                       (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
                   - pattern: |
-                      (HttpServletResponse $RESPONSE).setHeader("Content-Type", $CT);
+                      (HttpServletResponse $RESPONSE).$SETHEADER("Content-Type", $CT);
                       ...
                       (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
                   - pattern: |
-                      (HttpServletResponse $RESPONSE).setHeader("Content-Type", $CT);
+                      (HttpServletResponse $RESPONSE).$SETHEADER("Content-Type", $CT);
                       ...
                       (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
-                  - pattern: |
-                      (HttpServletResponse $RESPONSE).addHeader("Content-Type", $CT);
-                      ...
-                      (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
-                  - pattern: |
-                      (HttpServletResponse $RESPONSE).addHeader("Content-Type", $CT);
-                      ...
-                      (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
+              - metavariable-pattern:
+                  metavariable: $SETHEADER
+                  pattern-either:
+                    - pattern: setHeader
+                    - pattern: addHeader
               - metavariable-pattern:
                   metavariable: $CT
                   pattern-either:
@@ -74,6 +72,9 @@ rules:
     # Servlet spec defaults to text/html when no content type is set.
     # Writer/OutputStream is XSS-vulnerable unless a safe content type
     # (application/json, text/plain, etc.) is explicitly set on the response.
+    #
+    # NOTE: pattern-not-inside entries must each be a simple leaf pattern
+    # (engine constraint). They are AND'd together as separate filters.
     pattern-sinks:
       - patterns:
           - pattern-not-inside: |

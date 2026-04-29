@@ -1,0 +1,18 @@
+rules:
+  - id: i99
+    languages:
+      - java
+    severity: ERROR
+    message: "two method-name metavars on the same call chain"
+    patterns:
+      - pattern: $R.$M1(...).$M2(...);
+      - metavariable-pattern:
+          metavariable: $M1
+          pattern-either:
+            - pattern: getA
+            - pattern: getB
+      - metavariable-pattern:
+          metavariable: $M2
+          pattern-either:
+            - pattern: doX
+            - pattern: doY

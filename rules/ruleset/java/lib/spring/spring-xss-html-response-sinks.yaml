@@ -133,14 +133,11 @@ rules:
               - focus-metavariable: $RESULT
           # ── Servlet response writer / outputStream calls preceded by a
           # non-HTML setContentType / setHeader / addHeader on the SAME
-          # response object. Multi-statement single-pattern form: `$R` is
-          # bound to the same response object across the
-          # setContentType / setHeader / addHeader call and the writer
-          # call, so the constraint is "this writer call's response
-          # previously had a safe Content-Type set on it" — not "any
-          # object in scope set some content type". focus-metavariable on
-          # `$UNTRUSTED` narrows the sanitizer to the writer's data
-          # argument.
+          # response object. `$SETHEADER` collapses setHeader/addHeader
+          # (two-arg form); `setContentType` (single-arg) stays separate.
+          # `getWriter`/`getOutputStream` remain concrete because a method
+          # metavar there would intersect with `$WRITE` and the engine
+          # rejects two method-name metavars on one call chain.
           - patterns:
               - pattern-either:
                   - pattern: |
@@ -152,21 +149,18 @@ rules:
                       ...
                       (HttpServletResponse $R).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
                   - pattern: |
-                      (HttpServletResponse $R).setHeader("Content-Type", $CT);
+                      (HttpServletResponse $R).$SETHEADER("Content-Type", $CT);
                       ...
                       (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
                   - pattern: |
-                      (HttpServletResponse $R).setHeader("Content-Type", $CT);
+                      (HttpServletResponse $R).$SETHEADER("Content-Type", $CT);
                       ...
                       (HttpServletResponse $R).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
-                  - pattern: |
-                      (HttpServletResponse $R).addHeader("Content-Type", $CT);
-                      ...
-                      (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
-                  - pattern: |
-                      (HttpServletResponse $R).addHeader("Content-Type", $CT);
-                      ...
-                      (HttpServletResponse $R).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
+              - metavariable-pattern:
+                  metavariable: $SETHEADER
+                  pattern-either:
+                    - pattern: setHeader
+                    - pattern: addHeader
               - metavariable-pattern:
                   metavariable: $CT
                   pattern-either:
@@ -229,6 +223,9 @@ rules:
       #     not currently exclude handlers in spring-app test sets — even
       #     though string-literal annotation arguments should be matchable
       #     after compile-time inlining.
+      #   - pattern-inside / pattern-not-inside MUST be a simple leaf
+      #     pattern; nesting `pattern-either` or `metavariable-pattern`
+      #     inside is rejected with "pattern-inside must be simple".
       # The patterns here document the intended semantics; if/when the
       # engine starts honoring them, the rule will discriminate the
       # corresponding cases automatically. Until then, the rule

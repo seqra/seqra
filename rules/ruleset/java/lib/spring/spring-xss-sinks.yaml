@@ -41,13 +41,11 @@ rules:
                       - pattern: PatchMapping
                       - pattern: PostMapping
                       - pattern: PutMapping
-          - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
           - pattern: |
               (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
           - pattern: |
               (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
-          - pattern: |
-              (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
+          - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
           - pattern: |
               (javax.servlet.ServletOutputStream $WRITER).$WRITE(..., $UNTRUSTED, ...)
           - pattern: |
