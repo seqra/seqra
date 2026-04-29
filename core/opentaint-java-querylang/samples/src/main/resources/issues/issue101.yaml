@@ -1,0 +1,18 @@
+rules:
+  - id: i101
+    languages:
+      - java
+    severity: ERROR
+    message: "tainted parameter returned via string concatenation does not trigger sink `pattern: return $UNTRUSTED;`"
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: |
+              $RT handler(..., String $UNTRUSTED, ...) {
+                ...
+              }
+          - focus-metavariable: $UNTRUSTED
+    pattern-sinks:
+      - patterns:
+          - pattern: return $UNTRUSTED;
+          - focus-metavariable: $UNTRUSTED
