@@ -95,12 +95,15 @@ class JIRAnalysisManager(
         val localVariableReachability = jirContextForEmptyMethod?.localVariableReachability
             ?: JIRLocalVariableReachability(method, graph, this)
 
+        val runnerManager = callResolver.runner.manager
+        val cancellation = runnerManager.cancellation
+
         val aliasAnalysisParams = params.aliasAnalysisParams
         val aliasAnalysis = if (aliasAnalysisParams.useAliasAnalysis) {
             jirContextForEmptyMethod?.aliasAnalysis
                 ?: JIRLocalAliasAnalysis(
                     entryPointStatement, graph, callResolver.callResolver,
-                    localVariableReachability, this, aliasAnalysisParams
+                    localVariableReachability, cancellation, this, aliasAnalysisParams
                 )
         } else {
             null

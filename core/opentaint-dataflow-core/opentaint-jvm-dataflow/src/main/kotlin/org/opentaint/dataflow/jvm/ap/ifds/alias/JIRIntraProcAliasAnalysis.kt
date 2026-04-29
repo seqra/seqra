@@ -15,6 +15,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalVariableReachability
 import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.ConnectedAliases
 import org.opentaint.dataflow.jvm.ap.ifds.alias.RefValue.Local
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -27,6 +28,7 @@ class JIRIntraProcAliasAnalysis(
     private val graph: JApplicationGraph,
     private val callResolver: JIRCallResolver,
     private val languageManager: JIRLanguageManager,
+    private val rootCancellation: Cancellation,
     private val params: JIRLocalAliasAnalysis.Params,
 ) {
     companion object {
@@ -64,6 +66,7 @@ class JIRIntraProcAliasAnalysis(
     ): JIRLocalAliasAnalysis.MethodAliasInfo =
         withAnalysisCancellation(
             timeLimit = params.aliasAnalysisTimeLimit,
+            parentCancellation = rootCancellation,
             body = { compute(it, localVariableReachability) },
             onAnalysisCancelled = {
                 logger.error {

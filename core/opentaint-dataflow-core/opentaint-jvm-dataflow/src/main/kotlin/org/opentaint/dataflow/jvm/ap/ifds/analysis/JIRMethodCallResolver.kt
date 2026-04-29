@@ -23,7 +23,7 @@ import org.opentaint.ir.api.jvm.ext.findMethodOrNull
 class JIRMethodCallResolver(
     private val lambdaTracker: JIRLambdaTracker,
     val callResolver: JIRCallResolver,
-    private val runner: TaintAnalysisUnitRunner,
+    val runner: TaintAnalysisUnitRunner,
     private val params: Params,
 ) : MethodCallResolver {
     data class Params(
