@@ -130,6 +130,8 @@ private class SummaryEdgeFactAbstractTreeSubscriptionStorage(
     ): CommonFactEdgeSubBuilder<AccessTree.AccessNode>? {
         callerInitialAp as AccessPath
 
+        apManager.cancellation.checkpoint()
+
         val currentIndex = initialApIndex.getOrCreateIndex(callerInitialAp) { newIndex ->
             storageInitialFacts.add(callerInitialAp)
             storageFinalFacts.add(callerExitAp)
@@ -286,6 +288,8 @@ private class SummaryEdgeFactTreeSubscriptionStorage(
     private var callerPathEdgeFactAp: AccessTree.AccessNode? = null
 
     override fun add(callerExitAp: AccessTree.AccessNode): CommonZeroEdgeSubBuilder<AccessTree.AccessNode>? {
+        apManager.cancellation.checkpoint()
+
         if (callerPathEdgeFactAp == null) {
             callerPathEdgeFactAp = callerExitAp
             return ZeroEdgeSubBuilder(apManager).setNode(callerExitAp)
