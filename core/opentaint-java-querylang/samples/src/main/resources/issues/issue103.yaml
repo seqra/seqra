@@ -1,0 +1,17 @@
+rules:
+  - id: i103
+    languages:
+      - java
+    severity: ERROR
+    message: "focus-metavariable on builder-chain assignment does not propagate sanitizer"
+    mode: taint
+    pattern-sources:
+      - pattern: src(...);
+    pattern-sanitizers:
+      - patterns:
+          - pattern: $RESULT = $X.safe($CT).body(...);
+          - focus-metavariable: $RESULT
+    pattern-sinks:
+      - patterns:
+          - pattern: sink($Y);
+          - focus-metavariable: $Y

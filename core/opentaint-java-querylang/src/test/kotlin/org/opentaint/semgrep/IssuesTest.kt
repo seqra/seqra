@@ -19,6 +19,8 @@ import issues.issue97
 import issues.issue98
 import issues.issue99
 import issues.issue100
+import issues.issue102
+import issues.issue103
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
@@ -131,6 +133,29 @@ class IssuesTest : SampleBasedTest() {
               // Should be both: fix the parser to accept these forms AND surface
               // the parse failure to the rule author.
     fun `issue 100`() = runTest<issue100>()
+
+    @Test
+    @Disabled // todo: a rule with many `pattern-not-inside` entries hits the
+              // 2s automata build budget ("Failed to transform pattern to
+              // automata: Operation timeout"). Each pattern-not-inside
+              // complements an Inside automaton and intersects with the
+              // running result; the operation count grows superlinearly.
+              // Switching identical filtering to `pattern-not` (no Inside
+              // wrapper) avoids the timeout. Engine should either widen the
+              // budget for this construct, build the complement lazily, or
+              // unify equivalent Inside automata before complementing.
+    fun `issue 102`() = runTest<issue102>()
+
+    @Test
+    @Disabled // todo: the assignment-form sanitizer
+              // `pattern: $RESULT = $X.safe(...).body(...)` with
+              // `focus-metavariable: $RESULT` does not propagate cleanliness
+              // to downstream uses of $RESULT. The IFDS engine does not
+              // recognise this builder-chain shape as sanitising the body()
+              // argument, so taint flows through `body()` and reaches the
+              // sink. Documented in the original spring-xss-html-response
+              // rule comments; the rewrite no longer attempts this form.
+    fun `issue 103`() = runTest<issue103>()
 
     @AfterAll
     fun close() {
