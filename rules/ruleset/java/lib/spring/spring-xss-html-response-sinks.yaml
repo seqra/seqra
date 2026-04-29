@@ -11,10 +11,6 @@ rules:
       - java
     mode: taint
     pattern-sanitizers:
-      # ── Library HTML escapers / encoders ─────────────────────────────────
-      # When the tainted value is wrapped by one of these calls before
-      # reaching the response sink, the dataflow fact is killed at the call
-      # return position.
       - pattern-either:
           - pattern: Encode.forHtml(...)
           - pattern: (PolicyFactory $POLICY).sanitize(...)
@@ -25,665 +21,148 @@ rules:
           - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(...)
           - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(...)
           - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(...)
-          # ── ResponseEntity builder chain pinned to a non-HTML content type
-          # Assignment-form sanitizer (mirrors
-          # servlet-unvalidated-redirect-sinks.yaml's
-          # `$URL = (HttpServletRequest $REQ).getContextPath();` shape):
-          # the LHS variable that receives the safe builder chain output is
-          # captured by `$RESULT` and focus-metavariable narrows the
-          # sanitizer to that variable, so downstream uses (including a
-          # subsequent `return $RESULT;`) see clean data.
-          - patterns:
-              - pattern-either:
-                  - pattern: $RESULT = $X.contentType($CT).body(...);
-                  - pattern: $RESULT = $X.contentType($CT).$Y(...).body(...);
-                  - pattern: $RESULT = $X.header("Content-Type", $CT).body(...);
-                  - pattern: $RESULT = $X.header("Content-Type", $CT).$Y(...).body(...);
-              - metavariable-pattern:
-                  metavariable: $CT
-                  pattern-either:
-                    - pattern: org.springframework.http.MediaType.APPLICATION_JSON
-                    - pattern: org.springframework.http.MediaType.APPLICATION_JSON_UTF8
-                    - pattern: org.springframework.http.MediaType.APPLICATION_OCTET_STREAM
-                    - pattern: org.springframework.http.MediaType.APPLICATION_PDF
-                    - pattern: org.springframework.http.MediaType.APPLICATION_XML
-                    - pattern: org.springframework.http.MediaType.TEXT_PLAIN
-                    - pattern: org.springframework.http.MediaType.TEXT_XML
-                    - pattern: org.springframework.http.MediaType.IMAGE_PNG
-                    - pattern: org.springframework.http.MediaType.IMAGE_JPEG
-                    - pattern: org.springframework.http.MediaType.IMAGE_GIF
-                    - pattern: MediaType.APPLICATION_JSON
-                    - pattern: MediaType.APPLICATION_JSON_UTF8
-                    - pattern: MediaType.APPLICATION_OCTET_STREAM
-                    - pattern: MediaType.APPLICATION_PDF
-                    - pattern: MediaType.APPLICATION_XML
-                    - pattern: MediaType.TEXT_PLAIN
-                    - pattern: MediaType.TEXT_XML
-                    - pattern: MediaType.IMAGE_PNG
-                    - pattern: MediaType.IMAGE_JPEG
-                    - pattern: MediaType.IMAGE_GIF
-                    - pattern: '"application/json"'
-                    - pattern: '"application/json;charset=UTF-8"'
-                    - pattern: '"text/plain"'
-                    - pattern: '"application/pdf"'
-                    - pattern: '"application/octet-stream"'
-                    - pattern: '"application/xml"'
-                    - pattern: '"text/xml"'
-                    - pattern: '"image/png"'
-                    - pattern: '"image/jpeg"'
-                    - pattern: '"image/gif"'
-              - focus-metavariable: $RESULT
-          # ── HttpHeaders preset to a non-HTML content type, then used as
-          # the `headers` argument of `new ResponseEntity<>(body, headers, ...)`.
-          # Multi-statement assignment-form sanitizer: `$H` binds the same
-          # HttpHeaders local across the setContentType call and the
-          # constructor, and `$RESULT` is the LHS variable that receives
-          # the constructor result. focus-metavariable on `$RESULT`
-          # sanitizes downstream uses of that variable (mirrors
-          # servlet-untrusted-data-source.yaml's
-          # `$FILES = ($FU $SFU).parseRequest($REQ); ... $UNTRUSTED = ...`
-          # multi-statement style).
-          - patterns:
-              - pattern-either:
-                  - pattern: |
-                      (HttpHeaders $H).setContentType($CT);
-                      ...
-                      $RESULT = new ResponseEntity<>(..., $H, ...);
-                  - pattern: |
-                      (HttpHeaders $H).setContentType($CT);
-                      ...
-                      $RESULT = new ResponseEntity<$T>(..., $H, ...);
-                  - pattern: |
-                      (HttpHeaders $H).setContentType($CT);
-                      ...
-                      $RESULT = new ResponseEntity(..., $H, ...);
-                  - pattern: |
-                      (HttpHeaders $H).setContentType($CT);
-                      ...
-                      $RESULT = new org.springframework.http.ResponseEntity<>(..., $H, ...);
-                  - pattern: |
-                      (HttpHeaders $H).setContentType($CT);
-                      ...
-                      $RESULT = new org.springframework.http.ResponseEntity<$T>(..., $H, ...);
-                  - pattern: |
-                      (HttpHeaders $H).setContentType($CT);
-                      ...
-                      $RESULT = new org.springframework.http.ResponseEntity(..., $H, ...);
-              - metavariable-pattern:
-                  metavariable: $CT
-                  pattern-either:
-                    - pattern: org.springframework.http.MediaType.APPLICATION_JSON
-                    - pattern: org.springframework.http.MediaType.APPLICATION_OCTET_STREAM
-                    - pattern: org.springframework.http.MediaType.APPLICATION_PDF
-                    - pattern: org.springframework.http.MediaType.APPLICATION_XML
-                    - pattern: org.springframework.http.MediaType.TEXT_PLAIN
-                    - pattern: org.springframework.http.MediaType.TEXT_XML
-                    - pattern: org.springframework.http.MediaType.IMAGE_PNG
-                    - pattern: org.springframework.http.MediaType.IMAGE_JPEG
-                    - pattern: org.springframework.http.MediaType.IMAGE_GIF
-                    - pattern: MediaType.APPLICATION_JSON
-                    - pattern: MediaType.APPLICATION_OCTET_STREAM
-                    - pattern: MediaType.APPLICATION_PDF
-                    - pattern: MediaType.APPLICATION_XML
-                    - pattern: MediaType.TEXT_PLAIN
-                    - pattern: MediaType.TEXT_XML
-                    - pattern: MediaType.IMAGE_PNG
-                    - pattern: MediaType.IMAGE_JPEG
-                    - pattern: MediaType.IMAGE_GIF
-              - focus-metavariable: $RESULT
-          # ── Servlet response writer / outputStream calls preceded by a
-          # non-HTML setContentType / setHeader / addHeader on the SAME
-          # response object. `$SETHEADER` collapses setHeader/addHeader
-          # (two-arg form); `setContentType` (single-arg) stays separate.
-          # `getWriter`/`getOutputStream` remain concrete because a method
-          # metavar there would intersect with `$WRITE` and the engine
-          # rejects two method-name metavars on one call chain.
-          - patterns:
-              - pattern-either:
-                  - pattern: |
-                      (HttpServletResponse $R).setContentType($CT);
-                      ...
-                      (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
-                  - pattern: |
-                      (HttpServletResponse $R).setContentType($CT);
-                      ...
-                      (HttpServletResponse $R).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
-                  - pattern: |
-                      (HttpServletResponse $R).$SETHEADER("Content-Type", $CT);
-                      ...
-                      (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
-                  - pattern: |
-                      (HttpServletResponse $R).$SETHEADER("Content-Type", $CT);
-                      ...
-                      (HttpServletResponse $R).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
-              - metavariable-pattern:
-                  metavariable: $SETHEADER
-                  pattern-either:
-                    - pattern: setHeader
-                    - pattern: addHeader
-              - metavariable-pattern:
-                  metavariable: $CT
-                  pattern-either:
-                    - pattern: '"application/json"'
-                    - pattern: '"application/json;charset=UTF-8"'
-                    - pattern: '"application/json; charset=UTF-8"'
-                    - pattern: '"application/json;charset=utf-8"'
-                    - pattern: '"text/plain"'
-                    - pattern: '"text/plain;charset=UTF-8"'
-                    - pattern: '"application/pdf"'
-                    - pattern: '"application/octet-stream"'
-                    - pattern: '"application/xml"'
-                    - pattern: '"application/xml;charset=UTF-8"'
-                    - pattern: '"text/xml"'
-                    - pattern: '"image/png"'
-                    - pattern: '"image/jpeg"'
-                    - pattern: '"image/gif"'
-              - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:
-      # ── Handler return — body type depends on return type (String, ResponseEntity<T>, raw ResponseEntity)
-      # NOTE: opentaint currently treats concrete/generic return types in
-      # method-declaration patterns as wildcards, so we discriminate by:
-      #   - handler mapping annotation (@GetMapping/@PostMapping/etc.) via
-      #     pattern-either pattern-inside — otherwise non-handler methods
-      #     that happen to return tainted data would be flagged.
-      #   - explicit non-HTML produces attribute on the handler annotation
-      #     via pattern-not-inside with the concrete annotation name.
-      #   - class-level @RequestMapping(produces=...) on @RestController /
-      #     @Controller via pattern-not-inside on the enclosing class —
-      #     reflects Spring's annotation inheritance.
-      #   - @ExceptionHandler is treated as a handler annotation for the
-      #     return-form sink branch, so reflected exception messages on the
-      #     HTML rendering path are flagged.
+      # ── Branch 1: handler return.
       #
-      # MediaType.X_VALUE vs literal: Java compiles `produces =
-      # MediaType.APPLICATION_JSON_VALUE` into the same bytecode annotation
-      # string value as `produces = "application/json"` (compile-time
-      # constants are inlined), so the string-literal pattern-not-inside
-      # below covers the MediaType constant form as well. (opentaint's
-      # pattern compiler does not accept field-access expressions as
-      # annotation-argument patterns, so an explicit constant-form
-      # pattern-not-inside cannot be authored here.)
-      #
-      # Engine limitations (verified empirically with rule tests):
-      #   - opentaint's IFDS does not honor focus-metavariable sanitizers on
-      #     ResponseEntity builder chains. The
-      #     `.contentType(MediaType.APPLICATION_JSON).body(BODY)` form does
-      #     not get the BODY argument sanitized, so taint flows through
-      #     `body()` to the `return` sink.
-      #   - pattern-not on the sink expression for the same builder chain
-      #     does not exclude either; the engine reports the return statement
-      #     before the structural exclusion is applied.
-      #   - HttpHeaders preset to a non-HTML content type and used with
-      #     `new ResponseEntity<>(body, headers, status)` cannot be
-      #     discriminated: the engine has no notion of headers-state at the
-      #     call site of the constructor.
-      #   - pattern-not-inside on annotation arguments (the
-      #     `@GetMapping(..., produces = "application/json", ...)` form) does
-      #     not currently exclude handlers in spring-app test sets — even
-      #     though string-literal annotation arguments should be matchable
-      #     after compile-time inlining.
-      #   - pattern-inside / pattern-not-inside MUST be a simple leaf
-      #     pattern; nesting `pattern-either` or `metavariable-pattern`
-      #     inside is rejected with "pattern-inside must be simple".
-      # The patterns here document the intended semantics; if/when the
-      # engine starts honoring them, the rule will discriminate the
-      # corresponding cases automatically. Until then, the rule
-      # over-reports those specific cases. See Appendix D of the
-      # implementation plan for the original analysis.
+      # Single-pattern shape (whole method declaration is one match unit).
+      # The previous form — pattern-inside enumerating each @Mapping +
+      # sibling `pattern: return $UNTRUSTED;` + focus-metavariable —
+      # never matched any positive sample in the test corpus; see the
+      # @Disabled engine-issue regression test for that.
       - patterns:
-          - pattern-either:
-              - pattern-inside: |
-                  @GetMapping(...)
-                  $RT $M(...) { ... }
-              - pattern-inside: |
-                  @PostMapping(...)
-                  $RT $M(...) { ... }
-              - pattern-inside: |
-                  @PutMapping(...)
-                  $RT $M(...) { ... }
-              - pattern-inside: |
-                  @PatchMapping(...)
-                  $RT $M(...) { ... }
-              - pattern-inside: |
-                  @DeleteMapping(...)
-                  $RT $M(...) { ... }
-              - pattern-inside: |
-                  @RequestMapping(...)
-                  $RT $M(...) { ... }
-              # @ExceptionHandler methods can also reflect attacker-controlled
-              # content (the exception's message, the input mirrored back) into
-              # an HTML response when the resolved Content-Type is text/html.
-              - pattern-inside: |
-                  @ExceptionHandler(...)
-                  $RT $M(...) { ... }
-          # ── Class-level @RequestMapping(produces=...) on @RestController /
-          # @Controller. In Spring, a class-level produces propagates to every
-          # handler unless overridden — so if the class pins a non-HTML
-          # produces, none of its handlers should be flagged for HTML XSS.
-          - pattern-not-inside: |
-              @RestController(...)
-              @RequestMapping(..., produces = "application/json", ...)
-              public class $CLAZZ { ... }
-          - pattern-not-inside: |
-              @Controller(...)
-              @RequestMapping(..., produces = "application/json", ...)
-              public class $CLAZZ { ... }
-          - pattern-not-inside: |
-              @RestController
-              @RequestMapping(..., produces = "application/json", ...)
-              public class $CLAZZ { ... }
-          - pattern-not-inside: |
-              @Controller
-              @RequestMapping(..., produces = "application/json", ...)
-              public class $CLAZZ { ... }
-          - pattern-not-inside: |
-              @RestController(...)
-              @RequestMapping(..., produces = "application/octet-stream", ...)
-              public class $CLAZZ { ... }
-          - pattern-not-inside: |
-              @RestController(...)
-              @RequestMapping(..., produces = "application/pdf", ...)
-              public class $CLAZZ { ... }
-          - pattern-not-inside: |
-              @RestController(...)
-              @RequestMapping(..., produces = "application/xml", ...)
-              public class $CLAZZ { ... }
-          - pattern-not-inside: |
-              @RestController(...)
-              @RequestMapping(..., produces = "text/plain", ...)
-              public class $CLAZZ { ... }
-          # ── Expression-level pattern-not for direct returns of safe
-          # ResponseEntity builder chains. Inner metavariables ($X for the
-          # builder receiver, $BODY for the body argument) intentionally do
-          # NOT reuse the sink's $UNTRUSTED — the sink binds $UNTRUSTED to
-          # the entire returned expression, while these pattern-nots want
-          # to constrain inner sub-expressions, so a separate name avoids
-          # binding conflicts.
+          - pattern: |
+              @$ANNOTATION(...)
+              $RETURNTYPE $METHOD(...) {
+                ...
+                return $UNTRUSTED;
+                ...
+              }
+          - metavariable-pattern:
+              metavariable: $ANNOTATION
+              patterns:
+                - pattern-either:
+                    - pattern: GetMapping
+                    - pattern: PostMapping
+                    - pattern: PutMapping
+                    - pattern: PatchMapping
+                    - pattern: DeleteMapping
+                    - pattern: RequestMapping
+                    # @ExceptionHandler can also reflect attacker-controlled
+                    # data (the exception message) into an HTML response.
+                    - pattern: ExceptionHandler
+          # `pattern-not` (not `pattern-not-inside`) is used here because
+          # `pattern-not-inside` repeatedly complements an Inside automaton,
+          # and a long list of those blows past the 2s automata build budget
+          # (verified empirically). `pattern-not` over the same single-pattern
+          # shape stays under budget.
           - pattern-not: |
-              return $X.contentType(MediaType.APPLICATION_JSON).body($BODY);
+              @$ANNOTATION(..., produces = "application/json", ...)
+              $RETURNTYPE $METHOD(...) { ... }
           - pattern-not: |
-              return $X.contentType(MediaType.APPLICATION_OCTET_STREAM).body($BODY);
+              @$ANNOTATION(..., produces = "text/plain", ...)
+              $RETURNTYPE $METHOD(...) { ... }
           - pattern-not: |
-              return $X.contentType(MediaType.APPLICATION_PDF).body($BODY);
+              @$ANNOTATION(..., produces = "application/pdf", ...)
+              $RETURNTYPE $METHOD(...) { ... }
           - pattern-not: |
-              return $X.contentType(MediaType.APPLICATION_XML).body($BODY);
+              @$ANNOTATION(..., produces = "application/octet-stream", ...)
+              $RETURNTYPE $METHOD(...) { ... }
           - pattern-not: |
-              return $X.contentType(MediaType.TEXT_PLAIN).body($BODY);
+              @$ANNOTATION(..., produces = "application/xml", ...)
+              $RETURNTYPE $METHOD(...) { ... }
           - pattern-not: |
-              return $X.contentType(MediaType.TEXT_XML).body($BODY);
+              @$ANNOTATION(..., produces = "text/xml", ...)
+              $RETURNTYPE $METHOD(...) { ... }
           - pattern-not: |
-              return $X.contentType(MediaType.IMAGE_PNG).body($BODY);
+              @$ANNOTATION(..., produces = "image/png", ...)
+              $RETURNTYPE $METHOD(...) { ... }
           - pattern-not: |
-              return $X.contentType(MediaType.IMAGE_JPEG).body($BODY);
+              @$ANNOTATION(..., produces = "image/jpeg", ...)
+              $RETURNTYPE $METHOD(...) { ... }
           - pattern-not: |
-              return $X.contentType(MediaType.IMAGE_GIF).body($BODY);
-          - pattern-not: |
-              return $X.header("Content-Type", "application/json").body($BODY);
-          - pattern-not: |
-              return $X.header("Content-Type", "application/octet-stream").body($BODY);
-          - pattern-not: |
-              return $X.header("Content-Type", "application/pdf").body($BODY);
-          - pattern-not: |
-              return $X.header("Content-Type", "application/xml").body($BODY);
-          - pattern-not: |
-              return $X.header("Content-Type", "text/plain").body($BODY);
-          # application/json
-          - pattern-not-inside: |
-              @GetMapping(..., produces = "application/json", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PostMapping(..., produces = "application/json", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PutMapping(..., produces = "application/json", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PatchMapping(..., produces = "application/json", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @DeleteMapping(..., produces = "application/json", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @RequestMapping(..., produces = "application/json", ...)
-              $RT $M(...) { ... }
-          # text/plain
-          - pattern-not-inside: |
-              @GetMapping(..., produces = "text/plain", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PostMapping(..., produces = "text/plain", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PutMapping(..., produces = "text/plain", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PatchMapping(..., produces = "text/plain", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @DeleteMapping(..., produces = "text/plain", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @RequestMapping(..., produces = "text/plain", ...)
-              $RT $M(...) { ... }
-          # application/pdf
-          - pattern-not-inside: |
-              @GetMapping(..., produces = "application/pdf", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PostMapping(..., produces = "application/pdf", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PutMapping(..., produces = "application/pdf", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PatchMapping(..., produces = "application/pdf", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @DeleteMapping(..., produces = "application/pdf", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @RequestMapping(..., produces = "application/pdf", ...)
-              $RT $M(...) { ... }
-          # application/octet-stream
-          - pattern-not-inside: |
-              @GetMapping(..., produces = "application/octet-stream", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PostMapping(..., produces = "application/octet-stream", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PutMapping(..., produces = "application/octet-stream", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PatchMapping(..., produces = "application/octet-stream", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @DeleteMapping(..., produces = "application/octet-stream", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @RequestMapping(..., produces = "application/octet-stream", ...)
-              $RT $M(...) { ... }
-          # application/xml (also covers MediaType.APPLICATION_XML_VALUE via
-          # compile-time constant inlining).
-          - pattern-not-inside: |
-              @GetMapping(..., produces = "application/xml", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PostMapping(..., produces = "application/xml", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PutMapping(..., produces = "application/xml", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PatchMapping(..., produces = "application/xml", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @DeleteMapping(..., produces = "application/xml", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @RequestMapping(..., produces = "application/xml", ...)
-              $RT $M(...) { ... }
-          # text/xml (also covers MediaType.TEXT_XML_VALUE via inlining).
-          - pattern-not-inside: |
-              @GetMapping(..., produces = "text/xml", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PostMapping(..., produces = "text/xml", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PutMapping(..., produces = "text/xml", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PatchMapping(..., produces = "text/xml", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @DeleteMapping(..., produces = "text/xml", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @RequestMapping(..., produces = "text/xml", ...)
-              $RT $M(...) { ... }
-          # image/png — string literal (image/svg+xml deliberately NOT excluded;
-          # SVG can host inline <script> and IS XSS-exploitable)
-          - pattern-not-inside: |
-              @GetMapping(..., produces = "image/png", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PostMapping(..., produces = "image/png", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PutMapping(..., produces = "image/png", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PatchMapping(..., produces = "image/png", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @DeleteMapping(..., produces = "image/png", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @RequestMapping(..., produces = "image/png", ...)
-              $RT $M(...) { ... }
-          # image/jpeg — string literal
-          - pattern-not-inside: |
-              @GetMapping(..., produces = "image/jpeg", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PostMapping(..., produces = "image/jpeg", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PutMapping(..., produces = "image/jpeg", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PatchMapping(..., produces = "image/jpeg", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @DeleteMapping(..., produces = "image/jpeg", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @RequestMapping(..., produces = "image/jpeg", ...)
-              $RT $M(...) { ... }
-          # image/gif — string literal
-          - pattern-not-inside: |
-              @GetMapping(..., produces = "image/gif", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PostMapping(..., produces = "image/gif", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PutMapping(..., produces = "image/gif", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @PatchMapping(..., produces = "image/gif", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @DeleteMapping(..., produces = "image/gif", ...)
-              $RT $M(...) { ... }
-          - pattern-not-inside: |
-              @RequestMapping(..., produces = "image/gif", ...)
-              $RT $M(...) { ... }
-          - pattern: return $UNTRUSTED;
+              @$ANNOTATION(..., produces = "image/gif", ...)
+              $RETURNTYPE $METHOD(...) { ... }
           - focus-metavariable: $UNTRUSTED
 
-      # ── Direct response writer with HTML content type ──────────────────────
-      # Servlet API: setContentType / setHeader / addHeader. The pattern-inside
-      # enumerates only text/html variants; handlers that set a non-HTML
-      # content type don't match and are not flagged.
+      # ── Branch 2: handler that writes via the response writer.
       #
-      # The pattern-not-inside list below adds an explicit second line of
-      # defense: even if pattern-inside semantics drift, an explicit safe
-      # content-type setter still excludes the writer call. Charset variants
-      # (utf-8, UTF-8, utf-16, ISO-8859-1) are listed for both setContentType
-      # and setHeader/addHeader. image/svg+xml is intentionally NOT listed
-      # — SVG can host inline <script> and IS XSS-exploitable.
+      # Two arities: chained `response.getWriter().$WRITE(...)` and
+      # local-variable `$W = response.getWriter(); ...; $W.$WRITE(...)`.
+      # Each is a separate top-level pattern; the engine doesn't support
+      # collapsing them with a method-name metavar (`$STREAM(...).$WRITE(...)`
+      # fails with "Method name metavar constraints intersection") — see
+      # issue 99.
       - patterns:
-          - pattern-either:
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setContentType("text/html");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setContentType("text/html;charset=UTF-8");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setContentType("text/html; charset=UTF-8");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setContentType("text/html;charset=utf-8");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setContentType("text/html; charset=utf-8");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setContentType("text/html;charset=ISO-8859-1");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setContentType("text/html; charset=ISO-8859-1");
-                  ...
-              # utf-16 — also dangerous; Chromium decodes the body as HTML
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setContentType("text/html;charset=utf-16");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setContentType("text/html; charset=utf-16");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setContentType("text/html;charset=UTF-16");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setContentType("text/html; charset=UTF-16");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setHeader("Content-Type", "text/html");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setHeader("Content-Type", "text/html;charset=UTF-8");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setHeader("Content-Type", "text/html; charset=UTF-8");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).setHeader("Content-Type", "text/html;charset=utf-8");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).addHeader("Content-Type", "text/html");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).addHeader("Content-Type", "text/html;charset=UTF-8");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).addHeader("Content-Type", "text/html; charset=UTF-8");
-                  ...
-              - pattern-inside: |
-                  (HttpServletResponse $RESPONSE).addHeader("Content-Type", "text/html;charset=utf-8");
-                  ...
-          # ── Negative: explicit non-HTML setContentType / setHeader /
-          # addHeader. Even if the pattern-inside list above happens to admit
-          # a writer call (e.g., the engine doesn't strictly enforce
-          # pattern-inside ordering), an explicit safe content-type setter
-          # excludes it. Same MIME types as the handler-return branch.
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("application/json");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("application/json;charset=UTF-8");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("application/json; charset=UTF-8");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("text/plain");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("text/plain;charset=UTF-8");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("application/pdf");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("application/octet-stream");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("application/xml");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("application/xml;charset=UTF-8");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("text/xml");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("image/png");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("image/jpeg");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("image/gif");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/json");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/json;charset=UTF-8");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "text/plain");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/pdf");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/octet-stream");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/xml");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "text/xml");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "image/png");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "image/jpeg");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "image/gif");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/json");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/json;charset=UTF-8");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "text/plain");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/pdf");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/octet-stream");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/xml");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "text/xml");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "image/png");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "image/jpeg");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "image/gif");
-              ...
-          - pattern-either:
-              - pattern: |
-                  (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
-              - pattern: |
-                  (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
-              - pattern: |
-                  (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
+          - pattern: |
+              @$ANNOTATION(...)
+              $RETURNTYPE $METHOD(...) {
+                ...
+                (HttpServletResponse $R).$SET_HTML($CT_HTML);
+                ...
+                (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
+                ...
+              }
+          - metavariable-pattern:
+              metavariable: $ANNOTATION
+              patterns:
+                - pattern-either:
+                    - pattern: GetMapping
+                    - pattern: PostMapping
+                    - pattern: PutMapping
+                    - pattern: PatchMapping
+                    - pattern: DeleteMapping
+                    - pattern: RequestMapping
+          - metavariable-pattern:
+              metavariable: $SET_HTML
+              pattern-either:
+                - pattern: setContentType
+                - pattern: setHeader
+                - pattern: addHeader
+          - metavariable-pattern:
+              metavariable: $CT_HTML
+              pattern-either:
+                - pattern: '"text/html"'
+                - pattern: '"text/html;charset=UTF-8"'
+                - pattern: '"text/html; charset=UTF-8"'
+                - pattern: '"text/html;charset=utf-8"'
+                - pattern: '"text/html; charset=utf-8"'
+          - focus-metavariable: $UNTRUSTED
+
+      - patterns:
+          - pattern: |
+              @$ANNOTATION(...)
+              $RETURNTYPE $METHOD(...) {
+                ...
+                (HttpServletResponse $R).$SET_HTML($CT_HTML);
+                ...
+                $W = (HttpServletResponse $R).getWriter(...);
+                ...
+                $W.$WRITE(..., $UNTRUSTED, ...);
+                ...
+              }
+          - metavariable-pattern:
+              metavariable: $ANNOTATION
+              patterns:
+                - pattern-either:
+                    - pattern: GetMapping
+                    - pattern: PostMapping
+                    - pattern: PutMapping
+                    - pattern: PatchMapping
+                    - pattern: DeleteMapping
+                    - pattern: RequestMapping
+          - metavariable-pattern:
+              metavariable: $SET_HTML
+              pattern-either:
+                - pattern: setContentType
+                - pattern: setHeader
+                - pattern: addHeader
+          - metavariable-pattern:
+              metavariable: $CT_HTML
+              pattern-either:
+                - pattern: '"text/html"'
+                - pattern: '"text/html;charset=UTF-8"'
+                - pattern: '"text/html; charset=UTF-8"'
+                - pattern: '"text/html;charset=utf-8"'
+                - pattern: '"text/html; charset=utf-8"'
           - focus-metavariable: $UNTRUSTED

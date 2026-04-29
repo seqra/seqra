@@ -21,170 +21,153 @@ rules:
           - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(...)
           - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(...)
           - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(...)
-          # Multi-statement single-pattern sanitizer: when the same response
-          # object has a non-HTML setContentType / setHeader / addHeader
-          # call followed by a writer / outputStream write, sanitize the
-          # writer's data argument. `$SETHEADER` collapses
-          # setHeader/addHeader into one branch; setContentType has a
-          # different arity so it stays as its own branch.
-          - patterns:
-              - pattern-either:
-                  - pattern: |
-                      (HttpServletResponse $RESPONSE).setContentType($CT);
-                      ...
-                      (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
-                  - pattern: |
-                      (HttpServletResponse $RESPONSE).setContentType($CT);
-                      ...
-                      (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
-                  - pattern: |
-                      (HttpServletResponse $RESPONSE).$SETHEADER("Content-Type", $CT);
-                      ...
-                      (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
-                  - pattern: |
-                      (HttpServletResponse $RESPONSE).$SETHEADER("Content-Type", $CT);
-                      ...
-                      (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
-              - metavariable-pattern:
-                  metavariable: $SETHEADER
-                  pattern-either:
-                    - pattern: setHeader
-                    - pattern: addHeader
-              - metavariable-pattern:
-                  metavariable: $CT
-                  pattern-either:
-                    - pattern: '"application/json"'
-                    - pattern: '"application/json;charset=UTF-8"'
-                    - pattern: '"application/json; charset=UTF-8"'
-                    - pattern: '"application/json;charset=utf-8"'
-                    - pattern: '"text/plain"'
-                    - pattern: '"text/plain;charset=UTF-8"'
-                    - pattern: '"application/pdf"'
-                    - pattern: '"application/octet-stream"'
-                    - pattern: '"application/xml"'
-                    - pattern: '"application/xml;charset=UTF-8"'
-                    - pattern: '"text/xml"'
-                    - pattern: '"image/png"'
-                    - pattern: '"image/jpeg"'
-                    - pattern: '"image/gif"'
-              - focus-metavariable: $UNTRUSTED
 
     # Servlet spec defaults to text/html when no content type is set.
     # Writer/OutputStream is XSS-vulnerable unless a safe content type
-    # (application/json, text/plain, etc.) is explicitly set on the response.
-    #
-    # NOTE: pattern-not-inside entries must each be a simple leaf pattern
-    # (engine constraint). They are AND'd together as separate filters.
+    # is explicitly set on the response. We use the single-pattern shape
+    # (entire handler is one match unit) with `pattern-not` for safe
+    # content-type filtering — see the spring sibling rule for why
+    # pattern-inside + pattern + focus-metavariable does not work and why
+    # pattern-not is preferred over pattern-not-inside here.
     pattern-sinks:
+      # ── Branch 1: chained writer call, response.getWriter().$WRITE(...).
       - patterns:
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("application/json");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("application/json;charset=UTF-8");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("application/json; charset=UTF-8");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("text/plain");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("text/plain;charset=UTF-8");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("text/plain; charset=UTF-8");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("application/pdf");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("application/octet-stream");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("application/xml");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("application/xml;charset=UTF-8");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("text/xml");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("image/png");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("image/jpeg");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setContentType("image/gif");
-              ...
-          # ── setHeader / addHeader equivalents ─────────────────────────
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/json");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/json;charset=UTF-8");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "text/plain");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/pdf");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/octet-stream");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "application/xml");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "text/xml");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "image/png");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "image/jpeg");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).setHeader("Content-Type", "image/gif");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/json");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/json;charset=UTF-8");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "text/plain");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/pdf");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/octet-stream");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "application/xml");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "text/xml");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "image/png");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "image/jpeg");
-              ...
-          - pattern-not-inside: |
-              (HttpServletResponse $RESPONSE).addHeader("Content-Type", "image/gif");
-              ...
-          - pattern-either:
-              - pattern: |
-                  (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
-              - pattern: |
-                  (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
-              - pattern: |
-                  (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
+          - pattern: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("application/json");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("application/json;charset=UTF-8");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("text/plain");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("application/pdf");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("application/octet-stream");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("application/xml");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("text/xml");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("image/png");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("image/jpeg");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("image/gif");
+                ...
+              }
+          - focus-metavariable: $UNTRUSTED
+
+      # ── Branch 2: local PrintWriter, $W = response.getWriter(); $W.$WRITE(...).
+      - patterns:
+          - pattern: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                $W = (HttpServletResponse $RESPONSE).getWriter(...);
+                ...
+                $W.$WRITE(..., $UNTRUSTED, ...);
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("application/json");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("application/json;charset=UTF-8");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("text/plain");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("application/pdf");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("application/octet-stream");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("application/xml");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("text/xml");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("image/png");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("image/jpeg");
+                ...
+              }
+          - pattern-not: |
+              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                ...
+                (HttpServletResponse $RESPONSE).setContentType("image/gif");
+                ...
+              }
           - focus-metavariable: $UNTRUSTED
