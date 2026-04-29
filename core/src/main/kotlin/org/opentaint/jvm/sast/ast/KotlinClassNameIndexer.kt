@@ -81,7 +81,7 @@ object KotlinClassNameIndexer {
 
     fun extractClassNames(path: Path): KotlinClassNames = try {
         extractClassNamesFromSource(path)
-    } catch (ex: Throwable) {
+    } catch (ex: Exception) {
         logger.error(ex) { "Error extracting Kotlin classes from $path" }
         KotlinClassNames(emptyList(), packageName = null)
     }

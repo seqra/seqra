@@ -60,7 +60,7 @@ object JavaClassNameIndexer {
 
     fun extractClassNames(path: Path): JavaClassNames = try {
         extractClassNamesFromSource(path)
-    } catch (ex: Throwable) {
+    } catch (ex: Exception) {
         logger.error(ex) { "Error extracting Java classes from $path" }
         JavaClassNames(emptyList(), packageName = null)
     }
