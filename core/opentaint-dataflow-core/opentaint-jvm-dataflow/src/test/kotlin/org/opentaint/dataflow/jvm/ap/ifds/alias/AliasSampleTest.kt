@@ -27,6 +27,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalVariableReachability
 import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRAnalysisManager
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRField
@@ -560,8 +561,9 @@ class AliasSampleTest : BasicTestUtils() {
 
         val callResolver = JIRCallResolver(cp, SingleLocationUnit(method.enclosingClass.declaration.location))
         val localReachability = JIRLocalVariableReachability(method, graph, manager)
+        val cancellation = Cancellation().also { it.activate() }
 
-        return JIRLocalAliasAnalysis(ep, graph, callResolver, localReachability, manager, params)
+        return JIRLocalAliasAnalysis(ep, graph, callResolver, localReachability, cancellation, manager, params)
     }
 
     private fun interProcParams(depth: Int) =

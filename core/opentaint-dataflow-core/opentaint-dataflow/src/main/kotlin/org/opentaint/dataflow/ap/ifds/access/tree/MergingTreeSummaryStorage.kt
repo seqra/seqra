@@ -13,6 +13,8 @@ class MergingTreeSummaryStorage(val manager: TreeApManager) {
     private val interner = AccessTreeSoftInterner(manager)
 
     fun add(exitAccess: AccessNode): Boolean {
+        manager.cancellation.checkpoint()
+
         val currentEdges = edges
 
         val (modifiedEdges, modificationDelta) = if (currentEdges == null) {

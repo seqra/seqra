@@ -3,6 +3,7 @@ package org.opentaint.dataflow.jvm.ap.ifds
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.jvm.ap.ifds.alias.JIRIntraProcAliasAnalysis
+import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.jvm.graph.JApplicationGraph
@@ -14,6 +15,7 @@ class JIRLocalAliasAnalysis(
     private val graph: JApplicationGraph,
     private val callResolver: JIRCallResolver,
     private val localVariableReachability: JIRLocalVariableReachability,
+    private val cancellation: Cancellation,
     private val languageManager: JIRLanguageManager,
     private val params: Params,
 ) {
@@ -57,7 +59,8 @@ class JIRLocalAliasAnalysis(
     }
 
     private fun compute(): MethodAliasInfo {
-        return JIRIntraProcAliasAnalysis(entryPoint, graph, callResolver, languageManager, params).compute(localVariableReachability)
+        val analysis = JIRIntraProcAliasAnalysis(entryPoint, graph, callResolver, languageManager, cancellation, params)
+        return analysis.compute(localVariableReachability)
     }
 
     sealed interface AliasAccessor {

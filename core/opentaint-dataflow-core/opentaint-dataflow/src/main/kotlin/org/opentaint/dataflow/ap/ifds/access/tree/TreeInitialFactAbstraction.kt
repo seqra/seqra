@@ -79,6 +79,8 @@ class TreeInitialFactAbstraction(
 
             val unrollRequests = mutableListOf<AnyAccessorUnrollRequest>()
             abstractAccessPath(facts.analyzed, concreteFactAccess, unrollRequests) { abstractAccess ->
+                apManager.cancellation.checkpoint()
+
                 val initialAbstractAccessNode = apManager.createNodeFromReversedAp(abstractAccess)
                 val initialAbstractAp = AccessPath(apManager, concreteFactBase, initialAbstractAccessNode, Empty)
 
@@ -104,8 +106,9 @@ class TreeInitialFactAbstraction(
 
         val newFacts = mutableListOf<AccessTreeNode>()
         for (unrollRequest in unrollRequests) {
-            unrollRequest.accessors.forEachInt { accessor ->
+            apManager.cancellation.checkpoint()
 
+            unrollRequest.accessors.forEachInt { accessor ->
                 val accessorInstance = with(apManager) { accessor.accessor }
                 if (!unrollStrategy.unrollAccessor(accessorInstance)) return@forEachInt
 
