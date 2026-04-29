@@ -1,0 +1,13 @@
+rules:
+  - id: i100
+    languages:
+      - java
+    severity: ERROR
+    message: "diamond / generic class name as metavariable-pattern alternative"
+    patterns:
+      - pattern: $V = new $T(...);
+      - metavariable-pattern:
+          metavariable: $T
+          pattern-either:
+            - pattern: Box<>
+            - pattern: Box<$E>

@@ -1,0 +1,16 @@
+rules:
+  - id: i98
+    languages:
+      - java
+    severity: ERROR
+    message: "pattern-not-inside containing a compound formula"
+    patterns:
+      - pattern: $X.sink(...);
+      - pattern-not-inside:
+          pattern-either:
+            - pattern: |
+                $X.safeA();
+                ...
+            - pattern: |
+                $X.safeB();
+                ...
