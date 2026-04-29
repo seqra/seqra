@@ -19,6 +19,7 @@ import issues.issue97
 import issues.issue98
 import issues.issue99
 import issues.issue100
+import issues.issue101
 import issues.issue102
 import issues.issue103
 import org.junit.jupiter.api.AfterAll
@@ -133,6 +134,22 @@ class IssuesTest : SampleBasedTest() {
               // Should be both: fix the parser to accept these forms AND surface
               // the parse failure to the rule author.
     fun `issue 100`() = runTest<issue100>()
+
+    @Test
+    @Disabled // todo: taint from a method-parameter source does not propagate
+              // through string concatenation to a standalone `pattern: return
+              // $UNTRUSTED;` sink. The same rule fires when the body is `return
+              // name;` directly; the only thing that changes is the `+ "..."`
+              // in the return expression. Related to issue 83 (sink on string
+              // concatenation) but distinct: that test has a sink pattern that
+              // *explicitly* enumerates concat shapes; this test has a generic
+              // `return $UNTRUSTED;` sink that should fire whenever the return
+              // value is tainted, regardless of how the taint got there. Drove
+              // the bulk of the false-negative count that the XSS html-response
+              // rewrite then partially worked around by enclosing the return
+              // statement inside a larger single-pattern method declaration
+              // (the single-pattern shape *does* fire on concat returns).
+    fun `issue 101`() = runTest<issue101>()
 
     @Test
     @Disabled // todo: a rule with many `pattern-not-inside` entries hits the
