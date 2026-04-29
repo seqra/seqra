@@ -38,11 +38,16 @@ class JIRSourceFileResolver(
     )
 
     private val locationSources: Map<RegisteredLocation, SourceLocations> by lazy {
-        projectLocationsSourceRoots.mapValues { (_, sourcesRoot) ->
+        val allSourceRoots = projectLocationsSourceRoots.mapTo(hashSetOf()) { it.value }
+        val indexedRoots = allSourceRoots.associateWith { sourcesRoot ->
             logger.info { "Start source root indexing: $sourcesRoot" }
             collectAllSources(sourcesRoot).also {
                 logger.info { "Finish source root indexing: $sourcesRoot" }
             }
+        }
+
+        projectLocationsSourceRoots.mapValues { (_, sourcesRoot) ->
+            indexedRoots.getValue(sourcesRoot)
         }
     }
 
