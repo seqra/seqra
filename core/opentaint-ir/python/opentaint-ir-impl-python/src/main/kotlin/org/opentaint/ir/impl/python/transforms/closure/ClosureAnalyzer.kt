@@ -52,20 +52,6 @@ import org.opentaint.ir.impl.python.flat.FlatYieldFrom
  */
 object ClosureAnalyzer {
 
-    private val BUILTIN_NAMES: Set<String> = setOf(
-        "True", "False", "None", "print", "len", "range", "int", "str",
-        "float", "bool", "list", "dict", "set", "tuple", "type", "super",
-        "isinstance", "issubclass", "hasattr", "getattr", "setattr",
-        "delattr", "callable", "iter", "next", "enumerate", "zip", "map",
-        "filter", "sorted", "reversed", "sum", "min", "max", "abs", "all",
-        "any", "repr", "hash", "id", "input", "open", "chr", "ord",
-        "hex", "oct", "bin", "format", "object", "property", "staticmethod",
-        "classmethod", "ValueError", "TypeError", "RuntimeError",
-        "KeyError", "IndexError", "AttributeError", "StopIteration",
-        "Exception", "BaseException", "NotImplementedError", "AssertionError",
-        "OSError", "IOError", "FileNotFoundError", "PermissionError",
-    )
-
     fun analyze(module: FlatModuleIR): Map<String, ClosureInfo> {
         val allFunctions = collectAllFunctions(module)
         val byName: Map<String, FlatFunctionIR> = allFunctions.associateBy { it.qualifiedName }
@@ -95,7 +81,7 @@ object ClosureAnalyzer {
             val ownedNames = (params + trueLocals).filterNot(::isSynthetic).toSet()
 
             val directFree =
-                ((refs - ownedNames - BUILTIN_NAMES - global).filterNot(::isSynthetic).toSet()) +
+                ((refs - ownedNames - global).filterNot(::isSynthetic).toSet()) +
                     nonlocal
 
             val childQns = children[qn].orEmpty()

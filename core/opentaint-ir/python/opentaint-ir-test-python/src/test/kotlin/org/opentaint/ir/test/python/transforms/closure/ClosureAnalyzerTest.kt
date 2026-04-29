@@ -558,6 +558,11 @@ class ClosureAnalyzerTest {
         //     x = 1
         //     def inner():
         //         print(x); len(x)
+        //
+        // mypy resolves builtins to `FlatGlobalRef(name, "builtins")` during
+        // proto-to-flat lowering, so by the time the analyzer sees the IR,
+        // builtins are not `FlatLocal`s and never enter `refs`. The fixture
+        // mirrors that reality.
         val outerQn = "m.outer"
         val innerQn = "m.outer.inner"
 
@@ -569,12 +574,12 @@ class ClosureAnalyzerTest {
             body = listOf(
                 FlatCall(
                     target = null,
-                    callee = local("print"),
+                    callee = FlatGlobalRef("print", "builtins"),
                     args = listOf(FlatCallArg(local("x"))),
                 ),
                 FlatCall(
                     target = null,
-                    callee = local("len"),
+                    callee = FlatGlobalRef("len", "builtins"),
                     args = listOf(FlatCallArg(local("x"))),
                 ),
                 FlatReturn(null),
@@ -595,8 +600,6 @@ class ClosureAnalyzerTest {
         val info = ClosureAnalyzer.analyze(module(listOf(outer, inner)))
         val innerCv = info.getValue(innerQn).closureVars
         assertEquals(setOf("x"), innerCv)
-        // Belt-and-suspenders explicit checks for the builtins listed in
-        // [ClosureAnalyzer.BUILTIN_NAMES].
         assert("print" !in innerCv)
         assert("len" !in innerCv)
     }
