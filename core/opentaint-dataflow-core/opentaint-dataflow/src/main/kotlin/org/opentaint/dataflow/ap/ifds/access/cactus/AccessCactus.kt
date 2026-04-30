@@ -11,6 +11,8 @@ import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.TypeInfoAccessor
+import org.opentaint.dataflow.ap.ifds.TypeInfoGroupAccessor
 import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
@@ -1202,6 +1204,8 @@ class AccessCactus(
                     FinalAccessor -> error("Unexpected FinalAccessor")
                     AnyAccessor -> low === AnyAccessor
                     ValueAccessor -> TODO()
+                    is TypeInfoAccessor -> TODO()
+                    TypeInfoGroupAccessor -> TODO()
                 }
             }
 
