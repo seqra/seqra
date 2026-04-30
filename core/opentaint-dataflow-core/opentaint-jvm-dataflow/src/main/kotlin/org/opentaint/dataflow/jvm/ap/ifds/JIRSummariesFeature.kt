@@ -8,6 +8,8 @@ import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.TypeInfoAccessor
+import org.opentaint.dataflow.ap.ifds.TypeInfoGroupAccessor
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.ir.api.jvm.ByteCodeIndexer
 import org.opentaint.ir.api.jvm.JIRClasspath
@@ -159,35 +161,42 @@ class JIRSummariesFeature(
             FINAL_ACCESSOR_ID -> FinalAccessor
             ELEMENT_ACCESSOR_ID -> ElementAccessor
             VALUE_ACCESSOR_ID -> ValueAccessor
+            TYPE_INFO_GROUP_ACCESSOR_ID -> TypeInfoGroupAccessor
             else -> {
                 idToAccessorCache.computeIfAbsent(id) {
-                    val (classNameId, fieldNameId, fieldTypeId, taintMarkId, staticTypeNameId) = jIRdb.persistence.read { context ->
+                    val ids = jIRdb.persistence.read { context ->
                         val accessorEntity = context.txn.find(ACCESSOR_IDS_TYPE, "id", id)
                             .singleOrNull() ?: error("Deserialization error. Unknown accessor with id: $id")
-                        val classNameId = accessorEntity.get<Long>("classNameId")
-                        val fieldNameId = accessorEntity.get<Long>("fieldNameId")
-                        val fieldTypeId = accessorEntity.get<Long>("fieldTypeId")
-                        val taintMarkId = accessorEntity.get<Long>("taintMarkId")
-                        val staticTypeNameId = accessorEntity.get<Long>("staticTypeNameId")
-                        arrayOf(classNameId, fieldNameId, fieldTypeId, taintMarkId, staticTypeNameId)
+                        AccessorIds(
+                            classNameId = accessorEntity.get<Long>("classNameId"),
+                            fieldNameId = accessorEntity.get<Long>("fieldNameId"),
+                            fieldTypeId = accessorEntity.get<Long>("fieldTypeId"),
+                            taintMarkId = accessorEntity.get<Long>("taintMarkId"),
+                            staticTypeNameId = accessorEntity.get<Long>("staticTypeNameId"),
+                            typeInfoTypeNameId = accessorEntity.get<Long>("typeInfoTypeNameId"),
+                        )
                     }
 
-                    if (classNameId != null) {
-                        checkNotNull(fieldNameId) { "Expected non-null fieldNameId" }
-                        checkNotNull(fieldTypeId) { "Expected non-null fieldTypeId" }
+                    if (ids.classNameId != null) {
+                        checkNotNull(ids.fieldNameId) { "Expected non-null fieldNameId" }
+                        checkNotNull(ids.fieldTypeId) { "Expected non-null fieldTypeId" }
 
-                        val className = findSymbolName(classNameId, symbolType = "className")
-                        val fieldName = findSymbolName(fieldNameId, symbolType = "fieldName")
-                        val fieldType = findSymbolName(fieldTypeId, symbolType = "fieldType")
+                        val className = findSymbolName(ids.classNameId, symbolType = "className")
+                        val fieldName = findSymbolName(ids.fieldNameId, symbolType = "fieldName")
+                        val fieldType = findSymbolName(ids.fieldTypeId, symbolType = "fieldType")
                         FieldAccessor(className, fieldName, fieldType)
-                    } else if (staticTypeNameId != null) {
-                        val typeName = interner.findSymbolName(staticTypeNameId)
+                    } else if (ids.staticTypeNameId != null) {
+                        val typeName = interner.findSymbolName(ids.staticTypeNameId)
                             ?: error("Deserialization error. Unknown typeName id: $id")
                         ClassStaticAccessor(typeName)
+                    } else if (ids.typeInfoTypeNameId != null) {
+                        val typeName = interner.findSymbolName(ids.typeInfoTypeNameId)
+                            ?: error("Deserialization error. Unknown typeName id: $id")
+                        TypeInfoAccessor(typeName)
                     } else {
-                        checkNotNull(taintMarkId) { "Expected non-null taintMarkId" }
+                        checkNotNull(ids.taintMarkId) { "Expected non-null taintMarkId" }
 
-                        val taintMarkName = interner.findSymbolName(taintMarkId)
+                        val taintMarkName = interner.findSymbolName(ids.taintMarkId)
                             ?: error("Deserialization error. Unknown taintMark id: $id")
                         TaintMarkAccessor(taintMarkName)
                     }
@@ -202,6 +211,7 @@ class JIRSummariesFeature(
             ElementAccessor -> ELEMENT_ACCESSOR_ID
             FinalAccessor -> FINAL_ACCESSOR_ID
             ValueAccessor -> VALUE_ACCESSOR_ID
+            TypeInfoGroupAccessor -> TYPE_INFO_GROUP_ACCESSOR_ID
 
             is FieldAccessor -> accessorToIdCache.computeIfAbsent(accessor) {
                 val classNameId = accessor.className.asSymbolId(interner)
@@ -237,6 +247,18 @@ class JIRSummariesFeature(
                 val staticTypeNameId = accessor.typeName.asSymbolId(interner)
                 val accessorId = jIRdb.persistence.read { context ->
                     context.txn.find(ACCESSOR_IDS_TYPE, "staticTypeNameId", staticTypeNameId)
+                        .singleOrNull()
+                        ?.get<Long>("id")
+                }
+                accessorId ?: accessorIdGen.incrementAndGet().also {
+                    newAccessors.add(accessor)
+                }
+            }
+
+            is TypeInfoAccessor -> accessorToIdCache.computeIfAbsent(accessor) {
+                val typeInfoTypeNameId = accessor.typeName.asSymbolId(interner)
+                val accessorId = jIRdb.persistence.read { context ->
+                    context.txn.find(ACCESSOR_IDS_TYPE, "typeInfoTypeNameId", typeInfoTypeNameId)
                         .singleOrNull()
                         ?.get<Long>("id")
                 }
@@ -328,6 +350,14 @@ class JIRSummariesFeature(
                         staticAccessorId["staticTypeNameId"] = staticTypeNameId
                     }
                 }
+            } else if (accessor is TypeInfoAccessor) {
+                val typeInfoTypeNameId = accessor.typeName.asSymbolId(interner)
+                jIRdb.persistence.write { context ->
+                    context.txn.newEntity(ACCESSOR_IDS_TYPE).also { typeInfoAccessorId ->
+                        typeInfoAccessorId["id"] = accessorToIdCache[accessor]!!
+                        typeInfoAccessorId["typeInfoTypeNameId"] = typeInfoTypeNameId
+                    }
+                }
             } else {
                 accessor as TaintMarkAccessor
 
@@ -354,6 +384,15 @@ class JIRSummariesFeature(
             ?: error("Deserialization error. Unknown $symbolType id: $id")
     }
 
+    private data class AccessorIds(
+        val classNameId: Long?,
+        val fieldNameId: Long?,
+        val fieldTypeId: Long?,
+        val taintMarkId: Long?,
+        val staticTypeNameId: Long?,
+        val typeInfoTypeNameId: Long?,
+    )
+
     companion object {
         private const val METHOD_IDS_TYPE = "MethodIds"
         private const val ACCESSOR_IDS_TYPE = "AccessorIds"
@@ -363,6 +402,7 @@ class JIRSummariesFeature(
         private const val FINAL_ACCESSOR_ID = 1L
         private const val ELEMENT_ACCESSOR_ID = 2L
         private const val VALUE_ACCESSOR_ID = 3L
-        private const val MAX_RESERVED_ACCESSOR_ID = 3L
+        private const val TYPE_INFO_GROUP_ACCESSOR_ID = 4L
+        private const val MAX_RESERVED_ACCESSOR_ID = 4L
     }
 }
