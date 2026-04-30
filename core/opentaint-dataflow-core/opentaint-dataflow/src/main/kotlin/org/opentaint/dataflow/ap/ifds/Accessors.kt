@@ -61,6 +61,8 @@ sealed interface AccessPathBase {
     }
 }
 
+sealed interface AbstractionAlwaysUnrollNextAccessor
+
 sealed class Accessor : Comparable<Accessor> {
     abstract fun toSuffix(): String
     protected abstract val accessorClassId: Int
@@ -71,15 +73,16 @@ sealed class Accessor : Comparable<Accessor> {
         }
 
         return when (this) {
-            ElementAccessor, FinalAccessor, AnyAccessor, ValueAccessor -> 0 // Definitely equal
+            ElementAccessor, FinalAccessor, AnyAccessor, ValueAccessor, TypeInfoGroupAccessor -> 0 // Definitely equal
             is FieldAccessor -> this.compareToFieldAccessor(other as FieldAccessor)
             is TaintMarkAccessor -> this.compareToTaintMarkAccessor(other as TaintMarkAccessor)
             is ClassStaticAccessor -> this.compareToClassStaticAccessor(other as ClassStaticAccessor)
+            is TypeInfoAccessor -> this.compareToTypeInfoAccessor(other as TypeInfoAccessor)
         }
     }
 }
 
-data class TaintMarkAccessor(val mark: String): Accessor() {
+data class TaintMarkAccessor(val mark: String): Accessor(), AbstractionAlwaysUnrollNextAccessor {
     override fun toSuffix(): String = "![$mark]"
     override fun toString(): String = "![$mark]"
 
@@ -126,7 +129,7 @@ data object ElementAccessor : Accessor() {
     override val accessorClassId: Int = 0
 }
 
-data object FinalAccessor : Accessor() {
+data object FinalAccessor : Accessor(), AbstractionAlwaysUnrollNextAccessor {
     override fun toSuffix(): String = ".\$"
     override fun toString(): String = "\$"
 
@@ -153,7 +156,7 @@ data class ClassStaticAccessor(val typeName: String) : Accessor() {
     }
 }
 
-object ValueAccessor : Accessor() {
+object ValueAccessor : Accessor(), AbstractionAlwaysUnrollNextAccessor {
     override fun toString(): String = "[value]"
     override fun toSuffix(): String = ".[value]"
 
@@ -164,4 +167,22 @@ inline fun <T : Any> ApManager.tryAnyAccessorOrNull(accessor: Accessor, body: ()
     if (!AnyAccessor.containsAccessor(accessor)) return null
     if (!anyAccessorUnrollStrategy.unrollAccessor(accessor)) return null
     return body()
+}
+
+object TypeInfoGroupAccessor : Accessor(), AbstractionAlwaysUnrollNextAccessor {
+    override fun toString(): String = "[type]"
+    override fun toSuffix(): String = ".[type]"
+
+    override val accessorClassId: Int = 7
+}
+
+data class TypeInfoAccessor(val typeName: String) : Accessor(), AbstractionAlwaysUnrollNextAccessor {
+    override fun toString(): String = "{$typeName}"
+    override fun toSuffix(): String = ".{$typeName}"
+
+    override val accessorClassId: Int = 8
+
+    fun compareToTypeInfoAccessor(other: TypeInfoAccessor): Int {
+        return typeName.compareTo(other.typeName)
+    }
 }
