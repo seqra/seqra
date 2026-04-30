@@ -20,7 +20,7 @@ interface FactReader {
     fun containsPositionWithTaintMark(position: PositionAccess, mark: TaintMark): Boolean =
         containsPosition(position.withSuffix(taintedPosSuffix(mark)))
 
-    private fun taintedPosSuffix(mark: TaintMark) = listOf(TaintMarkAccessor(mark.name), FinalAccessor)
+    private fun taintedPosSuffix(mark: TaintMark): List<Accessor> = listOf(TaintMarkAccessor(mark.name), FinalAccessor)
 }
 
 class FinalFactReader(
