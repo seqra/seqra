@@ -43,6 +43,7 @@ import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.TaintSinkMeta
 import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
 import org.opentaint.dataflow.configuration.jvm.This
+import org.opentaint.dataflow.configuration.jvm.TypeArgMatcher
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
 import org.opentaint.dataflow.configuration.jvm.isFalse
 import org.opentaint.dataflow.configuration.jvm.mkAnd
@@ -258,10 +259,6 @@ class TaintConfiguration(private val cp: JIRClasspath) {
             val nameWithoutArrayModifier = name.removeSuffix("[]")
             name != nameWithoutArrayModifier && element.matchNormalizedTypeName(nameWithoutArrayModifier)
         }
-
-        // A wildcard matcher is only meaningful at a type-argument position
-        // and is never compared against a class-name string.
-        is SerializedTypeNameMatcher.Wildcard -> false
     }
 
     private fun SerializedTypeNameMatcher.matchType(type: JIRType): Boolean =
@@ -313,9 +310,6 @@ class TaintConfiguration(private val cp: JIRClasspath) {
             }
 
             is SerializedSignatureMatcher.Partial -> {
-                val ret = `return`
-                if (ret != null && !ret.matchTypedOrErased(retTyped, retErased)) return false
-
                 val paramList = params
                 if (paramList != null) {
                     for (param in paramList) {
@@ -701,7 +695,7 @@ class TaintConfiguration(private val cp: JIRClasspath) {
         val falsePositions = hashSetOf<Position>()
 
         val normalizedTypeIs = typeIs.normalizeAnyName()
-        val hasTypeArgs = normalizedTypeIs is ClassPattern && normalizedTypeIs.typeArgs.isNotEmpty()
+        val hasTypeArgs = normalizedTypeIs is ClassPattern && normalizedTypeIs.typeArgs != null
 
         for (pos in position) {
             val posTypeName = when (pos) {
@@ -713,7 +707,13 @@ class TaintConfiguration(private val cp: JIRClasspath) {
             }
 
             if (normalizedTypeIs.match(posTypeName)) {
-                if (!hasTypeArgs) return mkTrue()
+                // For Simple / Pattern matchers there is no parameterization
+                // to discriminate — erased-name match is sufficient.
+                if (normalizedTypeIs is SerializedSimpleNameMatcher) return mkTrue()
+
+                // ClassPattern / Array may carry type-arg constraints (or be a
+                // raw pattern that must reject parameterized forms). Use the
+                // typed view to verify before accepting.
                 val typedType = resolveTypedPositionType(method, pos)
                 if (typedType != null) {
                     if (normalizedTypeIs.matchType(typedType)) return mkTrue()
@@ -739,10 +739,8 @@ class TaintConfiguration(private val cp: JIRClasspath) {
             ?: return mkTrue()
 
         val nonFalsePositions = position.filter { it !in falsePositions }
-        val typeArgs = when (val typeIs = normalizedTypeIs) {
-            is ClassPattern -> typeIs.typeArgs
-            else -> emptyList()
-        }
+        val typeArgs = (normalizedTypeIs as? ClassPattern)?.typeArgs
+            ?.map { it.toTypeArgMatcher(patternManager) }
         return mkOr(nonFalsePositions.map { TypeMatchesPattern(it, matcher, typeArgs) })
     }
 

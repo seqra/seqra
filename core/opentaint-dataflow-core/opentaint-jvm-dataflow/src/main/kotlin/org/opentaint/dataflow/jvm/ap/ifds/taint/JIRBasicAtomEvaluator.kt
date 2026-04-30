@@ -29,15 +29,12 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAllocInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasApInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasInfo
-import org.opentaint.dataflow.configuration.jvm.matchType
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher
+import org.opentaint.dataflow.configuration.jvm.match
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.JIRType
-import org.opentaint.ir.api.jvm.JIRTypedMethod
 import org.opentaint.ir.api.jvm.cfg.JIRBool
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRConstant
@@ -57,7 +54,7 @@ class JIRBasicAtomEvaluator(
     private val typeChecker: JIRFactTypeChecker,
     private val aliasAnalysis: JIRLocalAliasAnalysis?,
     private val statement: CommonInst,
-    private val typedMethod: JIRTypedMethod? = null,
+    private val positionTypeResolver: PositionResolver<JIRType?>? = null,
 ) : ConditionVisitor<Boolean> {
     override fun visit(condition: Not): Boolean = error("Non-atomic condition")
     override fun visit(condition: And): Boolean = error("Non-atomic condition")
@@ -356,65 +353,19 @@ class JIRBasicAtomEvaluator(
             }
         }
 
-        if (condition.typeArgs.isNotEmpty()) {
-            val genericType = resolveGenericType(value)
+        val typeArgs = condition.typeArgs
+        if (typeArgs != null) {
+            val genericType = positionTypeResolver?.resolve(condition.position)
             if (genericType is JIRClassType) {
-                if (genericType.typeArguments.size != condition.typeArgs.size) return false
-                return condition.typeArgs.zip(genericType.typeArguments).all { (matcher, arg) ->
-                    matcher.matchType(arg) { name -> matchErasedName(name) }
+                if (genericType.typeArguments.size != typeArgs.size) return false
+                return typeArgs.zip(genericType.typeArguments).all { (matcher, arg) ->
+                    matcher.matchType(arg)
                 }
             }
             return true
         }
 
         return true
-    }
-
-    private fun resolveGenericType(value: JIRValue): JIRType? {
-        val localVar = value as? JIRLocalVar ?: return null
-        val typedMethod = typedMethod ?: return null
-        val method = (statement as? JIRInst)?.location?.method ?: return null
-        val localVarNode = method.withAsmNode { methodNode ->
-            methodNode.localVariables?.find { lvn -> lvn.index == localVar.index }
-        } ?: return null
-        // typedMethod.typeOf can throw on unresolved references / malformed
-        // debug info; skip generic-aware matching rather than aborting the
-        // atom evaluation.
-        return try {
-            typedMethod.typeOf(localVarNode)
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun SerializedTypeNameMatcher.matchErasedName(name: String): Boolean = when (this) {
-        is SerializedSimpleNameMatcher.Simple -> value == name || name.endsWith(".$value")
-        is SerializedSimpleNameMatcher.Pattern -> Regex(pattern).containsMatchIn(name)
-        is SerializedTypeNameMatcher.ClassPattern -> {
-            val lastDot = name.lastIndexOf('.')
-            val pkgName = if (lastDot >= 0) name.substring(0, lastDot) else ""
-            val clsName = if (lastDot >= 0) name.substring(lastDot + 1) else name
-            `package`.matchErasedName(pkgName) && `class`.matchErasedName(clsName)
-        }
-        is SerializedTypeNameMatcher.Array -> {
-            val nameWithout = name.removeSuffix("[]")
-            name != nameWithout && element.matchErasedName(nameWithout)
-        }
-        // A wildcard matcher is only meaningful at a type-argument slot; it has
-        // no erased-name projection to compare against a string.
-        is SerializedTypeNameMatcher.Wildcard -> false
-    }
-
-    private fun ConditionNameMatcher.match(name: String): Boolean = when (this) {
-        is ConditionNameMatcher.PatternEndsWith -> name.endsWith(suffix)
-        is ConditionNameMatcher.PatternStartsWith -> name.startsWith(prefix)
-        is ConditionNameMatcher.Simple -> match(name)
-    }
-
-    private fun ConditionNameMatcher.Simple.match(name: String): Boolean = when (this) {
-        is ConditionNameMatcher.Pattern -> pattern.containsMatchIn(name)
-        is ConditionNameMatcher.Concrete -> this.name == name
-        is ConditionNameMatcher.AnyName -> true
     }
 
     private fun Position.eval(

@@ -14,9 +14,8 @@ fun Pattern.isAny(): Boolean = pattern == ".*"
 
 fun SerializedTypeNameMatcher.normalizeAnyName(): SerializedTypeNameMatcher = when (this) {
     is SerializedSimpleNameMatcher -> normalizeAnyName()
-    is ClassPattern -> ClassPattern(`package`.normalizeAnyName(), `class`.normalizeAnyName(), typeArgs.map { it.normalizeAnyName() })
+    is ClassPattern -> ClassPattern(`package`.normalizeAnyName(), `class`.normalizeAnyName(), typeArgs?.map { it.normalizeAnyName() })
     is SerializedTypeNameMatcher.Array -> SerializedTypeNameMatcher.Array(element.normalizeAnyName())
-    is SerializedTypeNameMatcher.Wildcard -> this
 }
 
 fun SerializedSimpleNameMatcher.normalizeAnyName(): SerializedSimpleNameMatcher = when (this) {

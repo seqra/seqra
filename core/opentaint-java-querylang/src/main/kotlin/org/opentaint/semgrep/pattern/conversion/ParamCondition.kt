@@ -31,9 +31,10 @@ sealed interface TypeNamePattern {
     }
 
     /**
-     * Java unbounded wildcard `?` as a type argument. Unlike [AnyType], which
-     * is an unconstrained matcher that subsumes any type, [WildcardType] only
-     * matches an unbounded wildcard at the corresponding type-argument slot.
+     * Java unbounded wildcard `?` as a type argument. Java's `?` is the
+     * supertype of any concrete parameterization, so a `Foo<?>` pattern
+     * accepts any `Foo<X>` — semantically equivalent to [AnyType] at a
+     * type-argument slot.
      */
     @Serializable
     data object WildcardType : TypeNamePattern {

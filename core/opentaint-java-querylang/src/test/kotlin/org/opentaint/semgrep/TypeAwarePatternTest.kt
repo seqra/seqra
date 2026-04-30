@@ -40,8 +40,9 @@ class TypeAwarePatternTest : SampleBasedTest() {
     @Test
     fun `A4 - two-arg generic Map of K V in parameter`() = runTest<example.RuleWithTwoArgGeneric>()
 
-    // A5. Wildcard type argument: ResponseEntity<?>. A concrete type argument
-    // (ResponseEntity<String>) must not match a wildcard pattern.
+    // A5. Wildcard type argument: ResponseEntity<?>. Java's `?` is the
+    // supertype of any concrete parameterization, so `<?>` accepts both
+    // ResponseEntity<?> and ResponseEntity<String>.
     @Test
     fun `A5 - wildcard type argument ResponseEntity of question mark`() =
         runTest<example.RuleWithWildcardGeneric>()

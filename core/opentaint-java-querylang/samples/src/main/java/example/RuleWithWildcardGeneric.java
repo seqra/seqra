@@ -20,8 +20,8 @@ public abstract class RuleWithWildcardGeneric implements RuleSample {
     }
 
     /**
-     * Wildcard ResponseEntity&lt;?&gt; is a valid Java construct that the rule
-     * pattern also expresses. Keeping it as a Positive to pin the current behavior.
+     * Wildcard ResponseEntity&lt;?&gt; trivially matches the &lt;?&gt; rule
+     * pattern.
      */
     final static class PositiveWildcard extends RuleWithWildcardGeneric {
         @Override
@@ -32,10 +32,12 @@ public abstract class RuleWithWildcardGeneric implements RuleSample {
     }
 
     /**
-     * ResponseEntity&lt;String&gt; is a concrete parameterized form and must not
-     * match a wildcard &lt;?&gt; type argument in the rule pattern.
+     * ResponseEntity&lt;String&gt; is a concrete parameterization. Java's
+     * unbounded wildcard `?` is the supertype of any `X`, so `&lt;?&gt;`
+     * accepts any concrete type argument — `ResponseEntity&lt;String&gt;`
+     * matches.
      */
-    final static class NegativeConcreteDoesNotMatch extends RuleWithWildcardGeneric {
+    final static class PositiveConcreteMatchesWildcard extends RuleWithWildcardGeneric {
         @Override
         public void entrypoint() {
             String data = "tainted";

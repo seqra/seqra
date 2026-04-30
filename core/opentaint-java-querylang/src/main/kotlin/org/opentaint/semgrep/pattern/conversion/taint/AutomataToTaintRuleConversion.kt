@@ -566,21 +566,16 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
         }
     }
 
-    // Convert return type to signature matcher (must apply to all builder paths)
+    // Encode the return-type constraint as an IsType condition on the Result
+    // position rather than on the signature matcher.
     val returnType = signature.returnType
     if (returnType != null) {
         val returnTypeFormula = typeMatcher(returnType, semgrepRuleTrace)
-        val returnTypeMatcher = when (returnTypeFormula) {
-            null -> null
-            is MetaVarConstraintFormula.Constraint -> returnTypeFormula.constraint
-            else -> null
-        }
-        if (returnTypeMatcher != null) {
+        if (returnTypeFormula != null) {
             for (builder in buildersWithMethodName) {
-                builder.signature = SerializedSignatureMatcher.Partial(
-                    params = null,
-                    `return` = returnTypeMatcher
-                )
+                builder.conditions += returnTypeFormula.toSerializedCondition { typeNameMatcher ->
+                    SerializedCondition.IsType(typeNameMatcher, PositionBase.Result)
+                }
             }
         }
     }
@@ -627,10 +622,6 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
 
             is Pattern -> {
                 TODO("Signature class name pattern")
-            }
-
-            is SerializedTypeNameMatcher.Wildcard -> {
-                TODO("Signature class is a wildcard")
             }
         }
 
@@ -854,8 +845,8 @@ private fun TaintRuleGenerationCtx.typeMatcher(
             // Preserve arity of typeArgs: a metavar like $T or AnyType that
             // produces null still takes a slot in the type-arg list with an
             // "any" matcher, so the outer matcher remains distinguishable
-            // from a raw (zero-type-arg) form.
-            val serializedTypeArgs = typeName.typeArgs.map {
+            // from a raw (no-type-arg) form.
+            val serializedTypeArgs = typeName.typeArgs.takeIf { it.isNotEmpty() }?.map {
                 (typeMatcher(it, semgrepRuleTrace) as? MetaVarConstraintFormula.Constraint<SerializedTypeNameMatcher>)?.constraint
                     ?: anyClassPattern()
             }
@@ -901,11 +892,11 @@ private fun TaintRuleGenerationCtx.typeMatcher(
             }
         }
 
-        is TypeNamePattern.AnyType -> null
-
-        is TypeNamePattern.WildcardType -> MetaVarConstraintFormula.Constraint(
-            SerializedTypeNameMatcher.Wildcard
-        )
+        // `<?>` is the supertype of any concrete parameterization, so a
+        // wildcard slot has the same matching semantics as an unconstrained
+        // matcher — collapse it into [AnyType] at translation time.
+        is TypeNamePattern.AnyType,
+        is TypeNamePattern.WildcardType -> null
 
         is TypeNamePattern.MetaVar -> {
             val constraints = metaVarInfo.constraints[typeName.metaVar]

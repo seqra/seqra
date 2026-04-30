@@ -19,19 +19,13 @@ sealed interface SerializedTypeNameMatcher {
     data class ClassPattern(
         val `package`: SerializedSimpleNameMatcher,
         val `class`: SerializedSimpleNameMatcher,
-        val typeArgs: List<SerializedTypeNameMatcher> = emptyList()
+        // null = no type-args constraint (matches raw / declared erasure).
+        // empty list is reserved for an explicit zero-arg parameterization.
+        val typeArgs: List<SerializedTypeNameMatcher>? = null
     ) : SerializedTypeNameMatcher
 
     @Serializable
     data class Array(val element: SerializedTypeNameMatcher) : SerializedTypeNameMatcher
-
-    /**
-     * Matches only an unbounded Java wildcard (`?`) at a type-argument slot.
-     * Distinct from an "any" [ClassPattern] so a pattern like `Foo<?>` does not
-     * match a concrete parameterization like `Foo<String>`.
-     */
-    @Serializable
-    data object Wildcard : SerializedTypeNameMatcher
 }
 
 @Serializable(with = SimpleNameMatcherSerializer::class)

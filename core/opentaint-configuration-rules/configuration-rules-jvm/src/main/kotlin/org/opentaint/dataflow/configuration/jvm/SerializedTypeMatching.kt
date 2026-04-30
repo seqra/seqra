@@ -30,18 +30,18 @@ fun SerializedTypeNameMatcher.matchType(
     type: JIRType,
     erasedMatch: SerializedTypeNameMatcher.(String) -> Boolean,
 ): Boolean = when {
-    this is SerializedTypeNameMatcher.Wildcard -> type is JIRUnboundWildcard
-
-    this is SerializedTypeNameMatcher.ClassPattern && typeArgs.isEmpty() && type is JIRClassType ->
+    this is SerializedTypeNameMatcher.ClassPattern && typeArgs == null && type is JIRClassType ->
         erasedMatch(type.erasedName()) && type.isRawLike()
 
-    this is SerializedTypeNameMatcher.ClassPattern && typeArgs.isEmpty() ->
+    this is SerializedTypeNameMatcher.ClassPattern && typeArgs == null ->
         erasedMatch(type.erasedName())
 
-    this is SerializedTypeNameMatcher.ClassPattern && type is JIRClassType ->
+    this is SerializedTypeNameMatcher.ClassPattern && type is JIRClassType -> {
+        val args = typeArgs!!
         erasedMatch(type.erasedName()) &&
-            typeArgs.size == type.typeArguments.size &&
-            typeArgs.zip(type.typeArguments).all { (m, a) -> m.matchType(a, erasedMatch) }
+            args.size == type.typeArguments.size &&
+            args.zip(type.typeArguments).all { (m, a) -> m.matchType(a, erasedMatch) }
+    }
 
     this is SerializedTypeNameMatcher.Array && type is JIRArrayType ->
         element.matchType(type.elementType, erasedMatch)
@@ -57,7 +57,7 @@ fun SerializedTypeNameMatcher.matchType(
  * pass-through rules whose return/parameter types show up as type variables
  * when resolved via the declaring class (e.g. `List.get` returns `E`).
  */
-private fun JIRType.erasedName(): String = when (this) {
+fun JIRType.erasedName(): String = when (this) {
     is JIRClassType -> jIRClass.name
     is JIRTypeVariable -> jIRClass.name
     is JIRUnboundWildcard -> jIRClass.name

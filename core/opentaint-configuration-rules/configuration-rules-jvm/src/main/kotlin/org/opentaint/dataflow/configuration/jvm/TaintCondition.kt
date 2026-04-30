@@ -1,6 +1,5 @@
 package org.opentaint.dataflow.configuration.jvm
 
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher
 import org.opentaint.ir.api.jvm.JIRType
 import java.util.Objects
 
@@ -117,10 +116,22 @@ sealed interface ConditionNameMatcher {
     data class PatternStartsWith(val prefix: String) : ConditionNameMatcher
 }
 
+fun ConditionNameMatcher.match(name: String): Boolean = when (this) {
+    is ConditionNameMatcher.PatternEndsWith -> name.endsWith(suffix)
+    is ConditionNameMatcher.PatternStartsWith -> name.startsWith(prefix)
+    is ConditionNameMatcher.Simple -> match(name)
+}
+
+fun ConditionNameMatcher.Simple.match(name: String): Boolean = when (this) {
+    is ConditionNameMatcher.Pattern -> pattern.containsMatchIn(name)
+    is ConditionNameMatcher.Concrete -> this.name == name
+    is ConditionNameMatcher.AnyName -> true
+}
+
 data class TypeMatchesPattern(
     val position: Position,
     val pattern: ConditionNameMatcher,
-    val typeArgs: List<SerializedTypeNameMatcher> = emptyList(),
+    val typeArgs: List<TypeArgMatcher>? = null,
 ) : Condition {
     override fun <R> accept(conditionVisitor: ConditionVisitor<R>): R = conditionVisitor.visit(this)
 }

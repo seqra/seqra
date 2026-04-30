@@ -792,20 +792,17 @@ private fun unifyTypeName(
     if (left == right) return left
 
     when (left) {
-        TypeNamePattern.AnyType -> return right
-
-        // WildcardType only unifies with itself (already handled by the
-        // `left == right` short-circuit above). Anything else is incompatible.
-        TypeNamePattern.WildcardType -> return null
+        TypeNamePattern.AnyType,
+        TypeNamePattern.WildcardType -> return right
 
         is TypeNamePattern.PrimitiveName -> return null
 
         is TypeNamePattern.ClassName -> when (right) {
-            TypeNamePattern.AnyType -> return left
+            TypeNamePattern.AnyType,
+            TypeNamePattern.WildcardType -> return left
 
             is TypeNamePattern.ArrayType,
-            is TypeNamePattern.PrimitiveName,
-            TypeNamePattern.WildcardType -> return null
+            is TypeNamePattern.PrimitiveName -> return null
 
             is TypeNamePattern.ClassName -> {
                 if (left.name != right.name) return null
@@ -828,11 +825,11 @@ private fun unifyTypeName(
         }
 
         is TypeNamePattern.FullyQualified -> when (right) {
-            TypeNamePattern.AnyType -> return left
+            TypeNamePattern.AnyType,
+            TypeNamePattern.WildcardType -> return left
 
             is TypeNamePattern.ArrayType,
-            is TypeNamePattern.PrimitiveName,
-            TypeNamePattern.WildcardType -> return null
+            is TypeNamePattern.PrimitiveName -> return null
 
             is TypeNamePattern.ClassName -> {
                 if (left.name.endsWith(right.name)) {
@@ -856,11 +853,11 @@ private fun unifyTypeName(
         }
 
         is TypeNamePattern.MetaVar -> when (right) {
-            TypeNamePattern.AnyType -> return left
+            TypeNamePattern.AnyType,
+            TypeNamePattern.WildcardType -> return left
 
             is TypeNamePattern.ArrayType,
-            is TypeNamePattern.PrimitiveName,
-            TypeNamePattern.WildcardType -> return null
+            is TypeNamePattern.PrimitiveName -> return null
 
             is TypeNamePattern.ClassName -> {
                 if (!stringMatches(right.name, metaVarInfo.metaVarConstraints[left.metaVar])) return null
@@ -881,7 +878,8 @@ private fun unifyTypeName(
         }
 
         is TypeNamePattern.ArrayType -> when (right) {
-            is TypeNamePattern.AnyType -> return left
+            TypeNamePattern.AnyType,
+            TypeNamePattern.WildcardType -> return left
 
             is TypeNamePattern.ArrayType -> {
                 val unifiedElement = unifyTypeName(left.element, right.element, metaVarInfo)
@@ -892,8 +890,7 @@ private fun unifyTypeName(
             is TypeNamePattern.ClassName,
             is TypeNamePattern.FullyQualified,
             is TypeNamePattern.MetaVar,
-            is TypeNamePattern.PrimitiveName,
-            TypeNamePattern.WildcardType -> return null
+            is TypeNamePattern.PrimitiveName -> return null
         }
     }
 }
