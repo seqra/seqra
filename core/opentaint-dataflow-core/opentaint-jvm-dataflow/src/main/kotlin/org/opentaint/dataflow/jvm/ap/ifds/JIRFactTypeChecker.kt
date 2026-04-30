@@ -15,6 +15,8 @@ import org.opentaint.dataflow.ap.ifds.FactTypeChecker.FilterResult
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.TypeInfoAccessor
+import org.opentaint.dataflow.ap.ifds.TypeInfoGroupAccessor
 import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.jvm.util.JIRHierarchyInfo
@@ -106,6 +108,9 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
                         FilterResult.Reject
                     }
                 }
+
+                is TypeInfoAccessor -> return FilterResult.Accept
+                TypeInfoGroupAccessor -> return FilterResult.Accept
             }
         }
 
@@ -191,6 +196,7 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
             }
 
             is TaintMarkAccessor, FinalAccessor, AnyAccessor, is ClassStaticAccessor -> null
+            is TypeInfoAccessor, TypeInfoGroupAccessor -> null
         }
     }
 
