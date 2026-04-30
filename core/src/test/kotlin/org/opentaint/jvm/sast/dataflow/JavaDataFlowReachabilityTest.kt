@@ -215,6 +215,20 @@ class JavaDataFlowReachabilityTest : AnalysisTest() {
     }
 
     @Test
+    fun `lambda flow - taint tracked capture lambda`() {
+        val testCls = "$SAMPLE_PACKAGE.LambdaDataFlowSample"
+        val config = lambdaConfig(testCls)
+
+        assertReachable(
+            config = config,
+            testCls = testCls,
+            entryPointName = "lambdaCaptureFlow",
+            ruleId = LAMBDA_RULE_ID,
+            testName = "lambda capture flow"
+        )
+    }
+
+    @Test
     fun `lambda flow - taint tracked through lambda passed to method`() {
         val testCls = "$SAMPLE_PACKAGE.LambdaDataFlowSample"
         val config = lambdaConfig(testCls)
