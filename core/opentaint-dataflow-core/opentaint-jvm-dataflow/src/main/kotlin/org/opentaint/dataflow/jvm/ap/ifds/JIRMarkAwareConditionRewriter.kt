@@ -11,15 +11,24 @@ import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
 import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRBasicAtomEvaluator
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.jvm.JIRType
 
+/**
+ * [positionTypeResolver] enables generic-type-argument matching in
+ * `TypeMatchesPattern` atoms by resolving each position to a typed
+ * [JIRType]. When null, matching falls back to erased-name comparison —
+ * type-arg predicates in the rule will silently pass regardless of the
+ * runtime parameterization.
+ */
 class JIRMarkAwareConditionRewriter(
     positionResolver: PositionResolver<CallPositionValue>,
     factTypeChecker: JIRFactTypeChecker,
     aliasAnalysis: JIRLocalAliasAnalysis?,
     statement: CommonInst,
+    positionTypeResolver: PositionResolver<JIRType?>? = null,
 ) {
-    private val positiveAtomEvaluator = JIRBasicAtomEvaluator(negated = false, positionResolver, factTypeChecker, aliasAnalysis, statement)
-    private val negativeAtomEvaluator = JIRBasicAtomEvaluator(negated = true, positionResolver, factTypeChecker, aliasAnalysis, statement)
+    private val positiveAtomEvaluator = JIRBasicAtomEvaluator(negated = false, positionResolver, factTypeChecker, aliasAnalysis, statement, positionTypeResolver)
+    private val negativeAtomEvaluator = JIRBasicAtomEvaluator(negated = true, positionResolver, factTypeChecker, aliasAnalysis, statement, positionTypeResolver)
 
     constructor(
         positionResolver: PositionResolver<CallPositionValue>,

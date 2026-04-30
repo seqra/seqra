@@ -709,9 +709,15 @@ private fun MethodSignature?.unify(
     metaVarInfo: ResolvedMetaVarInfo,
 ): MethodSignature? {
     if (this == null) return other
+    val unifiedReturnType = when {
+        this.returnType == null -> other.returnType
+        other.returnType == null -> this.returnType
+        else -> unifyTypeName(this.returnType, other.returnType, metaVarInfo)
+    }
     return MethodSignature(
         methodName.unify(other.methodName, metaVarInfo) ?: return null,
         enclosingClassName.unify(other.enclosingClassName, metaVarInfo) ?: return null,
+        returnType = unifiedReturnType,
     )
 }
 
@@ -766,6 +772,18 @@ private fun MethodEnclosingClassName.unify(
     unifyTypeName(this.name, other.name, metaVarInfo)
         ?.let { MethodEnclosingClassName(it) }
 
+private fun unifyTypeArgs(
+    left: List<TypeNamePattern>,
+    right: List<TypeNamePattern>,
+    metaVarInfo: ResolvedMetaVarInfo
+): List<TypeNamePattern>? {
+    if (left.isEmpty()) return right
+    if (right.isEmpty()) return left
+    if (left.size != right.size) return null
+    val unified = left.zip(right).map { (l, r) -> unifyTypeName(l, r, metaVarInfo) ?: return null }
+    return unified
+}
+
 private fun unifyTypeName(
     left: TypeNamePattern,
     right: TypeNamePattern,
@@ -774,19 +792,29 @@ private fun unifyTypeName(
     if (left == right) return left
 
     when (left) {
-        TypeNamePattern.AnyType -> return right
+        TypeNamePattern.AnyType,
+        TypeNamePattern.WildcardType -> return right
 
         is TypeNamePattern.PrimitiveName -> return null
 
         is TypeNamePattern.ClassName -> when (right) {
-            TypeNamePattern.AnyType -> return left
+            TypeNamePattern.AnyType,
+            TypeNamePattern.WildcardType -> return left
 
             is TypeNamePattern.ArrayType,
-            is TypeNamePattern.ClassName,
             is TypeNamePattern.PrimitiveName -> return null
 
+            is TypeNamePattern.ClassName -> {
+                if (left.name != right.name) return null
+                val args = unifyTypeArgs(left.typeArgs, right.typeArgs, metaVarInfo) ?: return null
+                return TypeNamePattern.ClassName(left.name, args)
+            }
+
             is TypeNamePattern.FullyQualified -> {
-                if (right.name.endsWith(left.name)) return right
+                if (right.name.endsWith(left.name)) {
+                    val args = unifyTypeArgs(left.typeArgs, right.typeArgs, metaVarInfo) ?: return null
+                    return TypeNamePattern.FullyQualified(right.name, args)
+                }
                 return null
             }
 
@@ -797,17 +825,25 @@ private fun unifyTypeName(
         }
 
         is TypeNamePattern.FullyQualified -> when (right) {
-            TypeNamePattern.AnyType -> return left
+            TypeNamePattern.AnyType,
+            TypeNamePattern.WildcardType -> return left
 
             is TypeNamePattern.ArrayType,
             is TypeNamePattern.PrimitiveName -> return null
 
             is TypeNamePattern.ClassName -> {
-                if (left.name.endsWith(right.name)) return left
+                if (left.name.endsWith(right.name)) {
+                    val args = unifyTypeArgs(left.typeArgs, right.typeArgs, metaVarInfo) ?: return null
+                    return TypeNamePattern.FullyQualified(left.name, args)
+                }
                 return null
             }
 
-            is TypeNamePattern.FullyQualified -> return null
+            is TypeNamePattern.FullyQualified -> {
+                if (left.name != right.name) return null
+                val args = unifyTypeArgs(left.typeArgs, right.typeArgs, metaVarInfo) ?: return null
+                return TypeNamePattern.FullyQualified(left.name, args)
+            }
 
             is TypeNamePattern.MetaVar -> {
                 if (left.name == generatedMethodClassName) return null
@@ -817,7 +853,8 @@ private fun unifyTypeName(
         }
 
         is TypeNamePattern.MetaVar -> when (right) {
-            TypeNamePattern.AnyType -> return left
+            TypeNamePattern.AnyType,
+            TypeNamePattern.WildcardType -> return left
 
             is TypeNamePattern.ArrayType,
             is TypeNamePattern.PrimitiveName -> return null
@@ -841,7 +878,8 @@ private fun unifyTypeName(
         }
 
         is TypeNamePattern.ArrayType -> when (right) {
-            is TypeNamePattern.AnyType -> return left
+            TypeNamePattern.AnyType,
+            TypeNamePattern.WildcardType -> return left
 
             is TypeNamePattern.ArrayType -> {
                 val unifiedElement = unifyTypeName(left.element, right.element, metaVarInfo)

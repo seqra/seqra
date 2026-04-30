@@ -43,6 +43,7 @@ import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.TaintSinkMeta
 import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
 import org.opentaint.dataflow.configuration.jvm.This
+import org.opentaint.dataflow.configuration.jvm.TypeArgMatcher
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
 import org.opentaint.dataflow.configuration.jvm.isFalse
 import org.opentaint.dataflow.configuration.jvm.mkAnd
@@ -72,13 +73,17 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMat
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SourceRule
+import org.opentaint.dataflow.configuration.jvm.matchType
 import org.opentaint.dataflow.configuration.jvm.simplify
 import org.opentaint.dataflow.jvm.util.JIRHierarchyInfo
 import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRClassType
+import org.opentaint.ir.api.jvm.JIRTypedMethod
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
 import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.api.jvm.ext.allSuperHierarchySequence
@@ -89,7 +94,7 @@ import org.opentaint.jvm.sast.dataflow.matchedAnnotations
 import org.opentaint.jvm.util.typename
 import java.util.concurrent.atomic.AtomicInteger
 
-class TaintConfiguration(cp: JIRClasspath) {
+class TaintConfiguration(private val cp: JIRClasspath) {
     private val patternManager = PatternManager()
     private val hierarchyInfo = JIRHierarchyInfo(cp)
     private val objectTypeName = cp.objectClass.typename
@@ -256,6 +261,9 @@ class TaintConfiguration(cp: JIRClasspath) {
         }
     }
 
+    private fun SerializedTypeNameMatcher.matchType(type: JIRType): Boolean =
+        matchType(type) { name -> match(name) }
+
     private fun SerializedSimpleNameMatcher.match(name: String): Boolean = when (this) {
         is Simple -> if (value == "*") true else value == name
         is Pattern -> isAny() || patternManager.matchPattern(pattern, name)
@@ -278,27 +286,36 @@ class TaintConfiguration(cp: JIRClasspath) {
         }
     }
 
+    // When a typed view of the method is available, matchType() sees generic
+    // type arguments on the return type and parameters; otherwise we fall back
+    // to erased-name matching, which ignores type-arg specificity in the rule.
+    private fun SerializedTypeNameMatcher.matchTypedOrErased(typed: JIRType?, erased: String): Boolean =
+        if (typed != null) matchType(typed) else match(erased)
+
     private fun SerializedSignatureMatcher.matchFunctionSignature(method: JIRMethod): Boolean {
+        val typedMethod = resolveTypedMethod(method)
+        fun paramTypes(idx: Int): Pair<JIRType?, String> =
+            typedMethod?.parameters?.getOrNull(idx)?.type to method.parameters[idx].type.typeName
+        val (retTyped, retErased) = typedMethod?.returnType to method.returnType.typeName
+
         when (this) {
             is SerializedSignatureMatcher.Simple -> {
                 if (method.parameters.size != args.size) return false
+                if (!`return`.matchTypedOrErased(retTyped, retErased)) return false
 
-                if (!`return`.match(method.returnType.typeName)) return false
-
-                return args.zip(method.parameters).all { (matcher, param) ->
-                    matcher.match(param.type.typeName)
+                return args.withIndex().all { (idx, matcher) ->
+                    val (typed, erased) = paramTypes(idx)
+                    matcher.matchTypedOrErased(typed, erased)
                 }
             }
 
             is SerializedSignatureMatcher.Partial -> {
-                val ret = `return`
-                if (ret != null && !ret.match(method.returnType.typeName)) return false
-
-                val params = params
-                if (params != null) {
-                    for (param in params) {
-                        val methodParam = method.parameters.getOrNull(param.index) ?: return false
-                        if (!param.type.match(methodParam.type.typeName)) return false
+                val paramList = params
+                if (paramList != null) {
+                    for (param in paramList) {
+                        if (method.parameters.getOrNull(param.index) == null) return false
+                        val (typed, erased) = paramTypes(param.index)
+                        if (!param.type.matchTypedOrErased(typed, erased)) return false
                     }
                 }
 
@@ -678,6 +695,8 @@ class TaintConfiguration(cp: JIRClasspath) {
         val falsePositions = hashSetOf<Position>()
 
         val normalizedTypeIs = typeIs.normalizeAnyName()
+        val hasTypeArgs = normalizedTypeIs is ClassPattern && normalizedTypeIs.typeArgs != null
+
         for (pos in position) {
             val posTypeName = when (pos) {
                 is Argument -> method.parameters[pos.index].type.typeName
@@ -687,11 +706,27 @@ class TaintConfiguration(cp: JIRClasspath) {
                 is ClassStatic -> continue
             }
 
-            if (normalizedTypeIs.match(posTypeName)) return mkTrue()
+            if (normalizedTypeIs.match(posTypeName)) {
+                // For Simple / Pattern matchers there is no parameterization
+                // to discriminate — erased-name match is sufficient.
+                if (normalizedTypeIs is SerializedSimpleNameMatcher) return mkTrue()
+
+                // ClassPattern / Array may carry type-arg constraints (or be a
+                // raw pattern that must reject parameterized forms). Use the
+                // typed view to verify before accepting.
+                val typedType = resolveTypedPositionType(method, pos)
+                if (typedType != null) {
+                    if (normalizedTypeIs.matchType(typedType)) return mkTrue()
+                    falsePositions.add(pos)
+                }
+                // Unresolved: defer generic-arg matching to the runtime evaluator.
+                continue
+            }
 
             if (pos is This) {
                 if (method.enclosingClass.allSuperHierarchySequence.any { normalizedTypeIs.match(it.name) }) {
-                    return mkTrue()
+                    if (!hasTypeArgs) return mkTrue()
+                    continue
                 }
 
                 if (method.isConstructor || method.isFinal) {
@@ -704,7 +739,23 @@ class TaintConfiguration(cp: JIRClasspath) {
             ?: return mkTrue()
 
         val nonFalsePositions = position.filter { it !in falsePositions }
-        return mkOr(nonFalsePositions.map { TypeMatchesPattern(it, matcher) })
+        val typeArgs = (normalizedTypeIs as? ClassPattern)?.typeArgs
+            ?.map { it.toTypeArgMatcher(patternManager) }
+        return mkOr(nonFalsePositions.map { TypeMatchesPattern(it, matcher, typeArgs) })
+    }
+
+    private fun resolveTypedMethod(method: JIRMethod): JIRTypedMethod? {
+        val classType = cp.typeOf(method.enclosingClass) as? JIRClassType ?: return null
+        return classType.declaredMethods.find { it.method == method }
+    }
+
+    private fun resolveTypedPositionType(method: JIRMethod, pos: Position): JIRType? {
+        val typed = resolveTypedMethod(method) ?: return null
+        return when (pos) {
+            is Argument -> typed.parameters.getOrNull(pos.index)?.type
+            Result -> typed.returnType
+            else -> null
+        }
     }
 
     private fun SerializedTaintAssignAction.resolveWithArray(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignMark> =

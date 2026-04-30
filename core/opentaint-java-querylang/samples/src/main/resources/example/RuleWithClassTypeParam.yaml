@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithClassTypeParam
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithClassTypeParam
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          $RET $METHOD(Class<$T> $C, ..., String $A, ...) {
+              ...
+          }

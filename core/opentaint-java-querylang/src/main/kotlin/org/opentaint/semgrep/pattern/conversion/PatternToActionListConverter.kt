@@ -23,9 +23,6 @@ import org.opentaint.semgrep.pattern.Metavar
 import org.opentaint.semgrep.pattern.MetavarName
 import org.opentaint.semgrep.pattern.MethodArguments
 import org.opentaint.semgrep.pattern.MethodDeclaration
-import org.opentaint.semgrep.pattern.MethodDeclarationReturnTypeHasTypeArgs
-import org.opentaint.semgrep.pattern.MethodDeclarationReturnTypeIsArray
-import org.opentaint.semgrep.pattern.MethodDeclarationReturnTypeIsNotMetaVar
 import org.opentaint.semgrep.pattern.MethodInvocation
 import org.opentaint.semgrep.pattern.Modifier
 import org.opentaint.semgrep.pattern.NamedValue
@@ -39,7 +36,6 @@ import org.opentaint.semgrep.pattern.StaticFieldAccess
 import org.opentaint.semgrep.pattern.StringEllipsis
 import org.opentaint.semgrep.pattern.StringLiteral
 import org.opentaint.semgrep.pattern.ThisExpr
-import org.opentaint.semgrep.pattern.TypeArgumentsIgnored
 import org.opentaint.semgrep.pattern.TypeName
 import org.opentaint.semgrep.pattern.TypedMetavar
 import org.opentaint.semgrep.pattern.VariableAssignment
@@ -223,12 +219,11 @@ class PatternToActionListConverter: ActionListBuilder {
             val elementTypePattern = transformTypeName(typeName.elementType)
             TypeNamePattern.ArrayType(elementTypePattern)
         }
+        is TypeName.WildcardTypeName -> TypeNamePattern.WildcardType
     }
 
     private fun transformSimpleTypeName(typeName: TypeName.SimpleTypeName): TypeNamePattern {
-        if (typeName.typeArgs.isNotEmpty()) {
-            semgrepTrace?.error(TypeArgumentsIgnored())
-        }
+        val typeArgs = typeName.typeArgs.map { transformTypeName(it) }
 
         if (typeName.dotSeparatedParts.size == 1) {
             val name = typeName.dotSeparatedParts.single()
@@ -240,7 +235,7 @@ class PatternToActionListConverter: ActionListBuilder {
             if (concreteNames.size == 1) {
                 val className = concreteNames.single().name
                 if (className.first().isUpperCase()) {
-                    return TypeNamePattern.ClassName(className)
+                    return TypeNamePattern.ClassName(className, typeArgs)
                 }
 
                 if (className in primitiveTypeNames) {
@@ -251,7 +246,7 @@ class PatternToActionListConverter: ActionListBuilder {
             }
 
             val fqn = concreteNames.joinToString(".") { it.name }
-            return TypeNamePattern.FullyQualified(fqn)
+            return TypeNamePattern.FullyQualified(fqn, typeArgs)
         }
 
         transformationFailed("TypeName_non_concrete_unsupported")
@@ -553,24 +548,7 @@ class PatternToActionListConverter: ActionListBuilder {
             is MetavarName -> SignatureName.MetaVar(name.metavarName)
         }
 
-        val retType = pattern.returnType
-        if (retType != null) {
-            run {
-                if (retType !is TypeName.SimpleTypeName) {
-                    semgrepTrace?.error(MethodDeclarationReturnTypeIsArray())
-                    return@run
-                }
-
-                val retTypeMetaVar = retType.dotSeparatedParts.singleOrNull() as? MetavarName
-                if (retTypeMetaVar == null) {
-                    semgrepTrace?.error(MethodDeclarationReturnTypeIsNotMetaVar())
-                }
-
-                if (retType.typeArgs.isNotEmpty()) {
-                    semgrepTrace?.error(MethodDeclarationReturnTypeHasTypeArgs())
-                }
-            }
-        }
+        val returnTypePattern: TypeNamePattern? = pattern.returnType?.let { transformTypeName(it) }
 
         val paramConditions = mutableListOf<ParamPattern>()
 
@@ -613,6 +591,7 @@ class PatternToActionListConverter: ActionListBuilder {
 
         val signature = SemgrepPatternAction.MethodSignature(
             methodName, ParamConstraint.Partial(paramConditions),
+            returnType = returnTypePattern,
             modifiers = modifiers,
             enclosingClassMetavar = null,
             enclosingClassConstraints = emptyList(),

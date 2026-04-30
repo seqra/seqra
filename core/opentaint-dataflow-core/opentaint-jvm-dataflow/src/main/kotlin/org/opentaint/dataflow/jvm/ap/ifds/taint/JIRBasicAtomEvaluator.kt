@@ -29,9 +29,12 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAllocInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasApInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasInfo
+import org.opentaint.dataflow.configuration.jvm.match
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
+import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRRefType
+import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.cfg.JIRBool
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRConstant
@@ -51,6 +54,7 @@ class JIRBasicAtomEvaluator(
     private val typeChecker: JIRFactTypeChecker,
     private val aliasAnalysis: JIRLocalAliasAnalysis?,
     private val statement: CommonInst,
+    private val positionTypeResolver: PositionResolver<JIRType?>? = null,
 ) : ConditionVisitor<Boolean> {
     override fun visit(condition: Not): Boolean = error("Non-atomic condition")
     override fun visit(condition: And): Boolean = error("Non-atomic condition")
@@ -329,33 +333,39 @@ class JIRBasicAtomEvaluator(
         val type = value.type as? JIRRefType ?: return false
 
         val pattern = condition.pattern
-        if (pattern.match(type.typeName)) return true
+        val erasedMatch = pattern.match(type.typeName)
 
-        if (pattern !is ConditionNameMatcher.Concrete) {
-            // todo: check super classes?
-            return false
+        if (!erasedMatch) {
+            if (pattern !is ConditionNameMatcher.Concrete) {
+                // todo: check super classes?
+                return false
+            }
+
+            if (negated) return false
+
+            if (type.typeName == "java.lang.Object") {
+                // todo: hack to avoid explosion
+                return false
+            }
+
+            if (!typeChecker.typeMayHaveSubtypeOf(type.typeName, pattern.name)) {
+                return false
+            }
         }
 
-        if (negated) return false
-
-        if (type.typeName == "java.lang.Object") {
-            // todo: hack to avoid explosion
-            return false
+        val typeArgs = condition.typeArgs
+        if (typeArgs != null) {
+            val genericType = positionTypeResolver?.resolve(condition.position)
+            if (genericType is JIRClassType) {
+                if (genericType.typeArguments.size != typeArgs.size) return false
+                return typeArgs.zip(genericType.typeArguments).all { (matcher, arg) ->
+                    matcher.matchType(arg)
+                }
+            }
+            return true
         }
 
-        return typeChecker.typeMayHaveSubtypeOf(type.typeName, pattern.name)
-    }
-
-    private fun ConditionNameMatcher.match(name: String): Boolean = when (this) {
-        is ConditionNameMatcher.PatternEndsWith -> name.endsWith(suffix)
-        is ConditionNameMatcher.PatternStartsWith -> name.startsWith(prefix)
-        is ConditionNameMatcher.Simple -> match(name)
-    }
-
-    private fun ConditionNameMatcher.Simple.match(name: String): Boolean = when (this) {
-        is ConditionNameMatcher.Pattern -> pattern.containsMatchIn(name)
-        is ConditionNameMatcher.Concrete -> this.name == name
-        is ConditionNameMatcher.AnyName -> true
+        return true
     }
 
     private fun Position.eval(
