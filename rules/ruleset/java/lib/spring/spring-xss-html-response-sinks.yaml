@@ -10,34 +10,208 @@ rules:
     languages:
       - java
     mode: taint
+
+    # ─────────────────────────────────────────────────────────────────────
+    # Strategy: response content-type drives whether reflected user input
+    # is XSS or not. Spring picks the response Content-Type from (in
+    # priority order):
+    #   1. `@*Mapping(produces = "...")` on the handler or its class
+    #      (annotation-level signal — visible to the rule pre-dataflow).
+    #   2. `ResponseEntity` builder calls: `.contentType(MediaType.X)`,
+    #      `.header("Content-Type", "...")`, or `HttpHeaders.setContentType`
+    #      passed to `new ResponseEntity<>(body, headers, status)`
+    #      (in-body signal — visible only to dataflow analysis).
+    #   3. `HttpServletResponse.setContentType / setHeader / addHeader`
+    #      (in-body signal on the response object).
+    #   4. Default content-type negotiation based on the return type and
+    #      the request's `Accept` header (no in-source signal).
+    #
+    # We classify every shape this rule covers as either:
+    #
+    #   • DEFAULT-DANGEROUS — the default Content-Type lands on text/html
+    #     (or the */* fallback in a converter's media-type list does).
+    #     The rule fires by default; FPs are suppressed by subtracting
+    #     non-HTML signals via `pattern-not` (annotation-level) or
+    #     `pattern-sanitizers` (in-body).
+    #
+    #   • DEFAULT-SAFE — the default Content-Type is non-HTML, so the
+    #     rule must NOT fire unless an explicit text/html signal is
+    #     present. The rule structurally requires that signal.
+    #
+    # Concrete classification used below:
+    #   • DEFAULT-DANGEROUS:
+    #       - `String` return from `@RestController` / `@ResponseBody`
+    #         (StringHttpMessageConverter accepts text/html via */*).
+    #       - `ResponseEntity<String>`, raw `ResponseEntity` (negotiated).
+    #       - `ResponseEntity<byte[]>` (ByteArrayHttpMessageConverter's
+    #         media-type list `[application/octet-stream, */*]` lands on
+    #         text/html when `Accept: text/html` is in the request — see
+    #         Appendix A.2 of the Spring XSS dynamic-verification plan).
+    #     Covered by Branch 1.
+    #   • DEFAULT-SAFE:
+    #       - `void` handlers that write through `HttpServletResponse`
+    #         (the response Content-Type stays at whatever was set).
+    #     Covered by Branch 2.
+    # ─────────────────────────────────────────────────────────────────────
+
     pattern-sanitizers:
-      - pattern-either:
-          - pattern: Encode.forHtml(...)
-          - pattern: (PolicyFactory $POLICY).sanitize(...)
-          - pattern: (AntiSamy $AS).scan(...)
-          - pattern: JSoup.clean(...)
-          - pattern: HtmlUtils.htmlEscape(...)
-          - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(...)
-          - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(...)
-          - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(...)
-          - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(...)
+      # ── HTML encoders / escapers ─────────────────────────────────────────
+      # The $UNTRUSTED capture + `focus-metavariable: $UNTRUSTED` form scopes
+      # the sanitization to the encoded argument, matching the idiom in
+      # spring-xss-sinks.yaml. Without it the engine sanitizes the whole
+      # call expression, which can let the still-tainted argument escape.
+      - patterns:
+          - pattern-either:
+              - pattern: Encode.forHtml(..., $UNTRUSTED, ...)
+              - pattern: (PolicyFactory $POLICY).sanitize(..., $UNTRUSTED, ...)
+              - pattern: (AntiSamy $AS).scan(..., $UNTRUSTED, ...)
+              - pattern: JSoup.clean(..., $UNTRUSTED, ...)
+              - pattern: HtmlUtils.htmlEscape(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(..., $UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $UNTRUSTED, ...)
+          - focus-metavariable: $UNTRUSTED
+
+      # ── DEFAULT-DANGEROUS suppression: ResponseEntity builder chain ──────
+      # `ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body($UNTRUSTED)`
+      # and similar shapes pin the response to a non-HTML Content-Type, so
+      # the tainted body cannot drive XSS. The right declarative form is a
+      # sanitizer with `focus-metavariable: $UNTRUSTED` so the engine kills
+      # taint on the body argument instead of on the BodyBuilder return.
+      #
+      # DISABLED — engine limitation. `TaintRuleProcessing.kt:413` has a
+      # `// todo: sanitizer focus metavar` and ignores the focus-metavar
+      # on sanitizers; the engine instead sanitizes the whole matched
+      # expression. Combined with the built-in `.body()` propagator (which
+      # runs before the sanitizer is consulted and produces a tainted local
+      # for the surrounding ResponseEntity), this leaves the return tainted
+      # regardless. Re-enable once the engine TODO lands; the matrix rows
+      # 10/12/15/18/19 then move from FP to OK.
+
+      # - patterns:
+      #     - pattern-either:
+      #         - pattern: $X.contentType(MediaType.APPLICATION_JSON).body($UNTRUSTED)
+      #         - pattern: $X.contentType(MediaType.APPLICATION_PDF).body($UNTRUSTED)
+      #         - pattern: $X.contentType(MediaType.APPLICATION_OCTET_STREAM).body($UNTRUSTED)
+      #         - pattern: $X.contentType(MediaType.TEXT_PLAIN).body($UNTRUSTED)
+      #         - pattern: $X.contentType(MediaType.APPLICATION_XML).body($UNTRUSTED)
+      #         - pattern: $X.contentType(MediaType.IMAGE_PNG).body($UNTRUSTED)
+      #         - pattern: $X.contentType(MediaType.IMAGE_JPEG).body($UNTRUSTED)
+      #         - pattern: $X.contentType(MediaType.IMAGE_GIF).body($UNTRUSTED)
+      #         - pattern: $X.header("Content-Type", "application/json").body($UNTRUSTED)
+      #         - pattern: $X.header("Content-Type", "application/pdf").body($UNTRUSTED)
+      #         - pattern: $X.header("Content-Type", "application/octet-stream").body($UNTRUSTED)
+      #         - pattern: $X.header("Content-Type", "text/plain").body($UNTRUSTED)
+      #         - pattern: $X.header("Content-Type", "application/xml").body($UNTRUSTED)
+      #         - pattern: $X.header("Content-Type", "image/png").body($UNTRUSTED)
+      #         - pattern: $X.header("Content-Type", "image/jpeg").body($UNTRUSTED)
+      #         - pattern: $X.header("Content-Type", "image/gif").body($UNTRUSTED)
+      #     - focus-metavariable: $UNTRUSTED
+
+      # ── DEFAULT-DANGEROUS suppression: new ResponseEntity<>(body, headers, status)
+      # where the headers object explicitly sets a non-HTML content type.
+      # Multi-statement sanitizer pattern: the `.setContentType(...)` call
+      # is on a separate line from the constructor.
+      #
+      # DISABLED — same engine limitation as above (sanitizer focus-metavar
+      # TODO at `TaintRuleProcessing.kt:413`). Re-enable when that lands;
+      # the matrix row 13 then moves from FP to OK.
+
+      # - patterns:
+      #     - pattern-either:
+      #         - pattern: |
+      #             $H.setContentType(MediaType.APPLICATION_JSON);
+      #             ...
+      #             new ResponseEntity($UNTRUSTED, $H, ...);
+      #         - pattern: |
+      #             $H.setContentType(MediaType.APPLICATION_PDF);
+      #             ...
+      #             new ResponseEntity($UNTRUSTED, $H, ...);
+      #         - pattern: |
+      #             $H.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+      #             ...
+      #             new ResponseEntity($UNTRUSTED, $H, ...);
+      #         - pattern: |
+      #             $H.setContentType(MediaType.TEXT_PLAIN);
+      #             ...
+      #             new ResponseEntity($UNTRUSTED, $H, ...);
+      #         - pattern: |
+      #             $H.setContentType(MediaType.APPLICATION_XML);
+      #             ...
+      #             new ResponseEntity($UNTRUSTED, $H, ...);
+      #     - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:
-      # ── Branch 1: handler return.
+      # ── Branch 1: handler return — DEFAULT-DANGEROUS shapes ─────────────
       #
-      # Single-pattern shape (whole method declaration is one match unit).
-      # The previous form — pattern-inside enumerating each @Mapping +
-      # sibling `pattern: return $UNTRUSTED;` + focus-metavariable —
-      # never matched any positive sample in the test corpus; see the
-      # @Disabled engine-issue regression test for that.
+      # Covers handlers whose return type's default Content-Type can land
+      # on text/html (String, ResponseEntity<String>, raw ResponseEntity,
+      # ResponseEntity<byte[]>). The rule fires by default and subtracts
+      # only the ANNOTATION-level non-HTML signals via the `pattern-not`
+      # block below — those are the suppressions the current engine can
+      # honor end-to-end.
+      #
+      # In-body content-type signals (ResponseEntity builder
+      # `.contentType(...)`, `.header("Content-Type", ...)`, or
+      # `HttpHeaders.setContentType` passed to a `new ResponseEntity<>(...)`
+      # constructor) CANNOT be subtracted at this layer today; see the
+      # disabled `pattern-sanitizers` blocks above for the intended
+      # declarative form and the engine TODO that gates them.
+      #
+      # The positive `pattern-either` enumerates the typed return-type
+      # shapes that are DEFAULT-DANGEROUS in Spring's content negotiation:
+      #
+      #   • `String`              — StringHttpMessageConverter accepts
+      #                             text/html via */* fallback.
+      #   • `ResponseEntity<$T>`  — covers raw + every parameterized form
+      #                             (incl. <String>, <byte[]>, <Object>) —
+      #                             see TypeAwarePatternTest.A2.
+      #   • `CompletableFuture<$T>` — async wrapper around a body-typed
+      #                             return; resolves to text/html via the
+      #                             same converter chain as the unwrapped
+      #                             type.
+      #
+      # Other return types (`byte[]`, `Resource`, `ModelAndView`, `void`,
+      # `DeferredResult<$T>`) are intentionally not in this list because
+      # they are either DEFAULT-SAFE (separate branches required if we
+      # want to flag them on an explicit text/html signal) or require
+      # taint-flow shapes the rule doesn't model yet (DeferredResult —
+      # Appendix E row 27 FN).
+      #
+      # `pattern-either` of `pattern-inside` (typed method-decl shells)
+      # + sibling `pattern: return $UNTRUSTED;` deduplicates the return-
+      # statement line across alternatives.
+      #
+      # Negation MUST be `pattern-not-inside`, not `pattern-not`. With
+      # `pattern-not` the automata builder hits an inconsistent-state
+      # bug: when the negative is method-shaped but the running automata
+      # (built from `pattern: return $UNTRUSTED;`) is not, `addEndEdges`
+      # is called on the running automata regardless, leaving it with
+      # `hasEndEdges=true, hasMethodEnter=false`. The subsequent inside-
+      # patterns flow then aborts with "Automata without method enter
+      # contains end edges" (`SemgrepRuleToAutomata.kt:82-84`).
+      # `pattern-not-inside` goes through `addInsidePatterns` instead,
+      # which lifts asymmetric automata via `addDummyMethodEnter` and
+      # avoids the inconsistent state.
       - patterns:
-          - pattern: |
-              @$ANNOTATION(...)
-              $RETURNTYPE $METHOD(...) {
-                ...
-                return $UNTRUSTED;
-                ...
-              }
+          - pattern-either:
+              - pattern-inside: |
+                  @$ANNOTATION(...)
+                  String $METHOD(...) {
+                    ...
+                  }
+              - pattern-inside: |
+                  @$ANNOTATION(...)
+                  ResponseEntity<$T> $METHOD(...) {
+                    ...
+                  }
+              - pattern-inside: |
+                  @$ANNOTATION(...)
+                  CompletableFuture<$T> $METHOD(...) {
+                    ...
+                  }
+          - pattern: return $UNTRUSTED;
           - metavariable-pattern:
               metavariable: $ANNOTATION
               patterns:
@@ -51,41 +225,55 @@ rules:
                     # @ExceptionHandler can also reflect attacker-controlled
                     # data (the exception message) into an HTML response.
                     - pattern: ExceptionHandler
-          # `pattern-not` (not `pattern-not-inside`) is used here because
-          # `pattern-not-inside` repeatedly complements an Inside automaton,
-          # and a long list of those blows past the 2s automata build budget
-          # (verified empirically). `pattern-not` over the same single-pattern
-          # shape stays under budget.
-          - pattern-not: |
+          # The exclusions use `$RETURNTYPE` (a generic type metavar) so a
+          # single negative subtracts the produces= shape across every
+          # positive-side return-type alternative.
+          - pattern-not-inside: |
               @$ANNOTATION(..., produces = "application/json", ...)
               $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not: |
+          - pattern-not-inside: |
               @$ANNOTATION(..., produces = "text/plain", ...)
               $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not: |
+          - pattern-not-inside: |
               @$ANNOTATION(..., produces = "application/pdf", ...)
               $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not: |
+          - pattern-not-inside: |
               @$ANNOTATION(..., produces = "application/octet-stream", ...)
               $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not: |
+          - pattern-not-inside: |
               @$ANNOTATION(..., produces = "application/xml", ...)
               $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not: |
+          - pattern-not-inside: |
               @$ANNOTATION(..., produces = "text/xml", ...)
               $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not: |
+          - pattern-not-inside: |
               @$ANNOTATION(..., produces = "image/png", ...)
               $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not: |
+          - pattern-not-inside: |
               @$ANNOTATION(..., produces = "image/jpeg", ...)
               $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not: |
+          - pattern-not-inside: |
               @$ANNOTATION(..., produces = "image/gif", ...)
               $RETURNTYPE $METHOD(...) { ... }
           - focus-metavariable: $UNTRUSTED
 
-      # ── Branch 2: handler that writes via the response writer.
+      # ── Branch 2: handler that writes via the response writer ──────────
+      #                                       — DEFAULT-SAFE shape
+      #
+      # `void` (or non-body-returning) handlers that write through
+      # `HttpServletResponse.getWriter()` carry no implicit content-type
+      # default — whatever the handler last set on the response wins.
+      # Therefore this branch fires ONLY when the handler explicitly
+      # signals text/html via `setContentType` / `setHeader` / `addHeader`
+      # with a text/html literal. Without that signal, reflected user
+      # input through the writer is not exploitable XSS.
+      #
+      # Note: `text/html;charset=utf-16` and other charset suffixes that
+      # are not enumerated below are FNs by design today — the branch
+      # would need to switch to a `metavariable-regex` constraint on the
+      # content-type argument to cover them, which the current engine
+      # does not accept on a statement-form pattern. See Appendix E of
+      # the dynamic-verification plan.
       #
       # Two arities: chained `response.getWriter().$WRITE(...)` and
       # local-variable `$W = response.getWriter(); ...; $W.$WRITE(...)`.
