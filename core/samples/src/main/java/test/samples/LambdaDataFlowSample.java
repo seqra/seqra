@@ -30,5 +30,15 @@ public class LambdaDataFlowSample {
     }
 
     public String source() { return "tainted"; }
-    public void sink(String data) { }
+    public String sink(String data) { return data; }
+
+    public void lambdaCaptureFlow() {
+        String data = source();
+        lambdaCapture(data, s -> sink(s));
+    }
+
+    private void lambdaCapture(String input, Function<String, String> fn) {
+        Function<String, String> g = (x -> fn.apply(x));
+        g.apply(input);
+    }
 }
