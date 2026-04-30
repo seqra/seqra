@@ -14,6 +14,8 @@ import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.TypeInfoAccessor
+import org.opentaint.dataflow.ap.ifds.TypeInfoGroupAccessor
 import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.ApMode
@@ -86,7 +88,9 @@ class JIRTaintAnalyzer(
             is ClassStaticAccessor,
             is AnyAccessor,
             is FinalAccessor,
-            is TaintMarkAccessor -> false
+            is TaintMarkAccessor,
+            is TypeInfoAccessor,
+            is TypeInfoGroupAccessor -> false
             is ValueAccessor -> error("Unexpected accessor to unroll: $accessor")
         }
     }
