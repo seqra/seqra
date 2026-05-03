@@ -33,7 +33,7 @@ rules:
       on:
         - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
 
-  - id: potential-xss-in-servlet-app
+  - id: response-injection-in-servlet-app
     severity: NOTE
     message: >-
       Potential XSS: writing user input directly to a web page.
@@ -205,7 +205,7 @@ rules:
       on:
         - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
 
-  - id: potential-xss-in-spring-app
+  - id: response-injection-in-spring-app
     severity: NOTE
     message: >-
       Potential XSS: writing user input directly to a web page.

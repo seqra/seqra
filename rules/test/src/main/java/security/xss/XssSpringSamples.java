@@ -84,7 +84,7 @@ public class XssSpringSamples {
          * The HTML-context ERROR rule should NOT fire (no HTML evidence).
          */
         @GetMapping("/xss-in-spring-app/unsafe-no-content-type")
-        @PositiveRuleSample(value = "java/security/xss.yaml", id = "potential-xss-in-spring-app")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-spring-app")
         public void unsafeNoContentType(@RequestParam(required = false) String name, HttpServletResponse response) throws IOException {
             PrintWriter out = response.getWriter();
 
@@ -103,7 +103,7 @@ public class XssSpringSamples {
     public static class UnsafeResponseEntityController {
 
         @PostMapping("/xss-in-spring-app/unsafe-response-entity")
-        @PositiveRuleSample(value = "java/security/xss.yaml", id = "potential-xss-in-spring-app")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-spring-app")
         public ResponseEntity<byte[]> unsafeResponseEntity(@RequestParam String filename) {
             String errorMessage = "Conversion failed for " + filename;
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

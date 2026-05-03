@@ -79,11 +79,11 @@ public class XssServletSamples {
      * Unsafe servlet with JSON content type — positive for INFO rule.
      * The ERROR rule should NOT fire (safe content type excludes it).
      */
-    @WebServlet("/potential-xss-in-servlet-app/unsafe-json")
+    @WebServlet("/response-injection-in-servlet-app/unsafe-json")
     public static class UnsafeJsonInfoServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/xss.yaml", id = "potential-xss-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-servlet-app")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
 
