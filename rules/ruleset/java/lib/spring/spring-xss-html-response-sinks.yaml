@@ -97,33 +97,37 @@ rules:
       # under the same `patterns:` group; a sibling-level constraint
       # silently does not filter negative-scope bindings.
       - patterns:
+          # Pair each return-type shape with its dedicated sink:
+          #   - body-typed returns (String / ResponseEntity / CompletableFuture)
+          #     feed the response via `return $UNTRUSTED;`
+          #   - `DeferredResult<$T>` feeds the response via the wrapper's
+          #     `$DR.setResult(tainted)` call before returning the wrapper.
           - pattern-either:
-              - pattern-inside: |
-                  @$ANNOTATION(...)
-                  String $METHOD(...) {
-                    ...
-                  }
-              - pattern-inside: |
-                  @$ANNOTATION(...)
-                  ResponseEntity<$T> $METHOD(...) {
-                    ...
-                  }
-              - pattern-inside: |
-                  @$ANNOTATION(...)
-                  CompletableFuture<$T> $METHOD(...) {
-                    ...
-                  }
-              - pattern-inside: |
-                  @$ANNOTATION(...)
-                  DeferredResult<$T> $METHOD(...) {
-                    ...
-                  }
-          # Sink: either a tainted return, or `$DR.setResult(tainted)` —
-          # the DeferredResult shape feeds the response via the wrapper's
-          # setResult call rather than by returning the tainted value.
-          - pattern-either:
-              - pattern: return $UNTRUSTED;
-              - pattern: (DeferredResult $DR).setResult(..., $UNTRUSTED, ...);
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          String $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<$T> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<$T> $METHOD(...) {
+                            ...
+                          }
+                  - pattern: return $UNTRUSTED;
+              - patterns:
+                  - pattern-inside: |
+                      @$ANNOTATION(...)
+                      DeferredResult<$T> $METHOD(...) {
+                        ...
+                      }
+                  - pattern: $DR.setResult(..., $UNTRUSTED, ...);
           - metavariable-pattern:
               metavariable: $ANNOTATION
               patterns:
