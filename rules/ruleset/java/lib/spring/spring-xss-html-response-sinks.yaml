@@ -276,49 +276,51 @@ rules:
       # does not accept on a statement-form pattern. See Appendix E of
       # the dynamic-verification plan.
       #
-      # `pattern-inside` binds the method shell + the explicit text/html
-      # signal once; `pattern-either` covers the two writer-call arities:
-      #   - chained:    response.getWriter().$WRITE(..., $UNTRUSTED, ...)
-      #   - local var:  $W = response.getWriter(); ... $W.$WRITE(...)
-      # Collapsing the two with a method-name metavar
-      # (`$STREAM(...).$WRITE(...)`) fails with "Method name metavar
-      # constraints intersection" — see issue 99.
+      # The positive matches a text/html `setContentType($CT_HTML)` call
+      # followed (via `...`) by a tainted writer call. Two writer-call
+      # arities are covered: chained `response.getWriter().$WRITE(...)`
+      # and local-variable `$W = response.getWriter(); ... $W.$WRITE(...)`.
+      #
+      # No `pattern-inside` method shell is needed — this is a `lib: true`
+      # sink rule joined with `spring-untrusted-data-source` via
+      # `xss-in-spring-app`, so the source rule already restricts the
+      # firing scope to `@*Mapping` handler bodies. Collapsing the writer
+      # arities with a method-name metavar (`$STREAM(...).$WRITE(...)`)
+      # fails with "Method name metavar constraints intersection" —
+      # see issue 99.
+      #
+      # Two-argument forms `setHeader("Content-Type", $CT_HTML)` and
+      # `addHeader("Content-Type", $CT_HTML)` are NOT covered today. Adding
+      # them as additional `pattern` alternatives makes the rule load
+      # cleanly but introduces FPs: when the bound `$CT_HTML` literal is
+      # `"application/json"` (Row 21, Row 35), the sibling
+      # `metavariable-pattern: $CT_HTML` constraint silently does not
+      # filter the binding, and the rule fires anyway. The same
+      # `metavariable-pattern` shape works for `$PRODUCES` in Branch 1
+      # where the metavar is bound by `pattern-not-inside`, so the
+      # constraint applies asymmetrically to negative-scope vs positive-
+      # multi-statement string-literal bindings — see Appendix E rows
+      # 34 / UnsafeSetHeader (FN by design until either the engine fixes
+      # this or we enumerate the text/html literals inline in the patterns).
       - patterns:
-          - pattern-inside: |
-              @$ANNOTATION(...)
-              $RETURNTYPE $METHOD(...) {
-                ...
-                (HttpServletResponse $R).$SET_HTML($CT_HTML);
-                ...
-              }
           - pattern-either:
-              - pattern: (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
               - pattern: |
+                  (HttpServletResponse $R).setContentType($CT_HTML);
+                  ...
+                  (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
+              - pattern: |
+                  (HttpServletResponse $R).setContentType($CT_HTML);
+                  ...
                   $W = (HttpServletResponse $R).getWriter(...);
                   ...
                   $W.$WRITE(..., $UNTRUSTED, ...);
           - metavariable-pattern:
-              metavariable: $ANNOTATION
+              metavariable: $CT_HTML
               patterns:
                 - pattern-either:
-                    - pattern: GetMapping
-                    - pattern: PostMapping
-                    - pattern: PutMapping
-                    - pattern: PatchMapping
-                    - pattern: DeleteMapping
-                    - pattern: RequestMapping
-          - metavariable-pattern:
-              metavariable: $SET_HTML
-              pattern-either:
-                - pattern: setContentType
-                - pattern: setHeader
-                - pattern: addHeader
-          - metavariable-pattern:
-              metavariable: $CT_HTML
-              pattern-either:
-                - pattern: '"text/html"'
-                - pattern: '"text/html;charset=UTF-8"'
-                - pattern: '"text/html; charset=UTF-8"'
-                - pattern: '"text/html;charset=utf-8"'
-                - pattern: '"text/html; charset=utf-8"'
+                    - pattern: '"text/html"'
+                    - pattern: '"text/html;charset=UTF-8"'
+                    - pattern: '"text/html; charset=UTF-8"'
+                    - pattern: '"text/html;charset=utf-8"'
+                    - pattern: '"text/html; charset=utf-8"'
           - focus-metavariable: $UNTRUSTED

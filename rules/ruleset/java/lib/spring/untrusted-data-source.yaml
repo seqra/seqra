@@ -65,6 +65,12 @@ rules:
                         - pattern: PatchMapping
                         - pattern: PostMapping
                         - pattern: PutMapping
+                        # `@ExceptionHandler` methods receive the thrown
+                        # exception as a parameter; when the controller
+                        # constructs that exception with attacker-controlled
+                        # data (e.g. `throw new E(name)`), the handler's
+                        # `ex.getMessage()` reflects user input.
+                        - pattern: ExceptionHandler
           - pattern: |
               $UNTRUSTED = (MessageBodyReader $READER).readFrom(...);
           - pattern: |
