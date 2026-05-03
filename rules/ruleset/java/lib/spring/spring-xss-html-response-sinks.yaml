@@ -105,6 +105,19 @@ rules:
           - pattern-either:
               - patterns:
                   - pattern-either:
+                      # Body-typed returns whose default Content-Type can
+                      # land on text/html. Ideally we'd discriminate
+                      # `ResponseEntity<String>` / `<byte[]>` (DEFAULT-
+                      # DANGEROUS) from `ResponseEntity<DTO>` /
+                      # `ResponseEntity<Map<...>>` (DEFAULT-SAFE — Jackson
+                      # serializes as JSON). The engine has a documented
+                      # gap on concrete type-arg discrimination at the
+                      # method-decl return position (see
+                      # `RuleWithGenericByteArrayReturnType.java`'s honest
+                      # negative), so all four alternatives below collapse
+                      # to "any return type" today; the type list is
+                      # forward-compatible declarative intent that will
+                      # take effect once the engine gap closes.
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           String $METHOD(...) {
@@ -112,7 +125,12 @@ rules:
                           }
                       - pattern-inside: |
                           @$ANNOTATION(...)
-                          ResponseEntity<$T> $METHOD(...) {
+                          ResponseEntity<String> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<byte[]> $METHOD(...) {
                             ...
                           }
                       - pattern-inside: |
