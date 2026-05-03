@@ -34,7 +34,7 @@ rules:
         - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
 
   - id: potential-xss-in-servlet-app
-    severity: INFO
+    severity: NOTE
     message: >-
       Potential XSS: writing user input directly to a web page.
     metadata:
@@ -206,7 +206,7 @@ rules:
         - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
 
   - id: potential-xss-in-spring-app
-    severity: INFO
+    severity: NOTE
     message: >-
       Potential XSS: writing user input directly to a web page.
     metadata:

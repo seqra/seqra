@@ -32,4 +32,4 @@ rules:
             - pattern: PatchMapping
             - pattern: PostMapping
             - pattern: PutMapping
-    severity: INFO
+    severity: NOTE
