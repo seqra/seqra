@@ -225,36 +225,37 @@ rules:
                     # @ExceptionHandler can also reflect attacker-controlled
                     # data (the exception message) into an HTML response.
                     - pattern: ExceptionHandler
-          # The exclusions use `$RETURNTYPE` (a generic type metavar) so a
+          # The exclusion uses `$RETURNTYPE` (a generic type metavar) so a
           # single negative subtracts the produces= shape across every
-          # positive-side return-type alternative.
-          - pattern-not-inside: |
-              @$ANNOTATION(..., produces = "application/json", ...)
-              $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not-inside: |
-              @$ANNOTATION(..., produces = "text/plain", ...)
-              $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not-inside: |
-              @$ANNOTATION(..., produces = "application/pdf", ...)
-              $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not-inside: |
-              @$ANNOTATION(..., produces = "application/octet-stream", ...)
-              $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not-inside: |
-              @$ANNOTATION(..., produces = "application/xml", ...)
-              $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not-inside: |
-              @$ANNOTATION(..., produces = "text/xml", ...)
-              $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not-inside: |
-              @$ANNOTATION(..., produces = "image/png", ...)
-              $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not-inside: |
-              @$ANNOTATION(..., produces = "image/jpeg", ...)
-              $RETURNTYPE $METHOD(...) { ... }
-          - pattern-not-inside: |
-              @$ANNOTATION(..., produces = "image/gif", ...)
-              $RETURNTYPE $METHOD(...) { ... }
+          # positive-side return-type alternative. The produces value is
+          # captured into `$PRODUCES` and constrained by a co-located
+          # `metavariable-pattern` under the same `patterns:` group —
+          # this pairs the negative with its filter so the engine
+          # consults the constraint while binding the metavar inside the
+          # negative pattern. Listed top-level (sibling), the same
+          # constraint is silently ignored for negative-scope metavars
+          # (verified empirically: 37/10/5 → 30/17/5).
+          #
+          # `image/svg+xml` is deliberately NOT excluded — SVG can host
+          # inline `<script>` and execute, so reflected user input into
+          # an SVG response is still a real XSS (Appendix E row 25).
+          - patterns:
+              - pattern-not-inside: |
+                  @$ANNOTATION(..., produces = $PRODUCES, ...)
+                  $RETURNTYPE $METHOD(...) { ... }
+              - metavariable-pattern:
+                  metavariable: $PRODUCES
+                  patterns:
+                    - pattern-either:
+                        - pattern: '"application/json"'
+                        - pattern: '"text/plain"'
+                        - pattern: '"application/pdf"'
+                        - pattern: '"application/octet-stream"'
+                        - pattern: '"application/xml"'
+                        - pattern: '"text/xml"'
+                        - pattern: '"image/png"'
+                        - pattern: '"image/jpeg"'
+                        - pattern: '"image/gif"'
           - focus-metavariable: $UNTRUSTED
 
       # ── Branch 2: handler that writes via the response writer ──────────
