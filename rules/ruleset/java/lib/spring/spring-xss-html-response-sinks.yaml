@@ -200,10 +200,6 @@ rules:
               - pattern: |
                   (HttpServletResponse $R).setContentType("$CT_HTML");
                   ...
-                  (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
-              - pattern: |
-                  (HttpServletResponse $R).setContentType("$CT_HTML");
-                  ...
                   $W = (HttpServletResponse $R).getWriter(...);
                   ...
                   $W.$WRITE(..., $UNTRUSTED, ...);
@@ -211,18 +207,10 @@ rules:
               - pattern: |
                   (HttpServletResponse $R).setHeader("Content-Type", "$CT_HTML");
                   ...
-                  (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
-              - pattern: |
-                  (HttpServletResponse $R).setHeader("Content-Type", "$CT_HTML");
-                  ...
                   $W = (HttpServletResponse $R).getWriter(...);
                   ...
                   $W.$WRITE(..., $UNTRUSTED, ...);
               # addHeader (2-arg) + chained / local-var writer
-              - pattern: |
-                  (HttpServletResponse $R).addHeader("Content-Type", "$CT_HTML");
-                  ...
-                  (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
               - pattern: |
                   (HttpServletResponse $R).addHeader("Content-Type", "$CT_HTML");
                   ...
