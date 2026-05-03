@@ -10,164 +10,101 @@ rules:
     languages:
       - java
     mode: taint
-    pattern-sanitizers:
-      - pattern-either:
-          - pattern: Encode.forHtml(...)
-          - pattern: (PolicyFactory $POLICY).sanitize(...)
-          - pattern: (AntiSamy $AS).scan(...)
-          - pattern: JSoup.clean(...)
-          - pattern: HtmlUtils.htmlEscape(...)
-          - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(...)
-          - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(...)
-          - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(...)
-          - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(...)
 
-    # Servlet spec defaults to text/html when no content type is set.
-    # Writer/OutputStream is XSS-vulnerable unless a safe content type
-    # is explicitly set on the response. We use the single-pattern shape
-    # (entire handler is one match unit) with `pattern-not` for safe
-    # content-type filtering — see the spring sibling rule for why
-    # pattern-inside + pattern + focus-metavariable does not work and why
-    # pattern-not is preferred over pattern-not-inside here.
-    pattern-sinks:
-      # ── Branch 1: chained writer call, response.getWriter().$WRITE(...).
+    # ─────────────────────────────────────────────────────────────────────
+    # Strategy: per the Servlet spec, the response Content-Type defaults
+    # to text/html when no explicit `setContentType` call is made on the
+    # response. Reflected user input through the writer / OutputStream is
+    # therefore XSS by default — this is a DEFAULT-DANGEROUS shape. The
+    # rule fires by default and subtracts only the explicit non-HTML
+    # `setContentType("...")` signals via `pattern-not-inside`.
+    #
+    # See `spring-xss-html-response-sinks.yaml` for the matching strategy
+    # narrative; this rule mirrors its structure but for raw `HttpServlet`
+    # handlers (no Spring `@*Mapping` annotations).
+    # ─────────────────────────────────────────────────────────────────────
+
+    pattern-sanitizers:
+      # ── HTML encoders / escapers ─────────────────────────────────────────
+      # The $UNTRUSTED capture + `focus-metavariable: $UNTRUSTED` form
+      # scopes the sanitization to the encoded argument, matching the
+      # idiom in spring-xss-sinks.yaml. Without it the engine sanitizes
+      # the whole call expression, which can let the still-tainted
+      # argument escape.
       - patterns:
-          - pattern: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("application/json");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("application/json;charset=UTF-8");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("text/plain");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("application/pdf");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("application/octet-stream");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("application/xml");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("text/xml");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("image/png");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("image/jpeg");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("image/gif");
-                ...
-              }
+          - pattern-either:
+              - pattern: Encode.forHtml(..., $UNTRUSTED, ...)
+              - pattern: (PolicyFactory $POLICY).sanitize(..., $UNTRUSTED, ...)
+              - pattern: (AntiSamy $AS).scan(..., $UNTRUSTED, ...)
+              - pattern: JSoup.clean(..., $UNTRUSTED, ...)
+              - pattern: HtmlUtils.htmlEscape(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(..., $UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $UNTRUSTED, ...)
           - focus-metavariable: $UNTRUSTED
 
-      # ── Branch 2: local PrintWriter, $W = response.getWriter(); $W.$WRITE(...).
+    pattern-sinks:
+      # ── Servlet writer/OutputStream — DEFAULT-DANGEROUS shape ───────────
+      #
+      # `pattern-inside` binds the method shell once; `pattern-either`
+      # covers the two writer-call arities:
+      #   - chained:    response.getWriter().$WRITE(..., $UNTRUSTED, ...)
+      #   - local var:  $W = response.getWriter(); ... $W.$WRITE(...)
+      # Collapsing the two with a method-name metavar
+      # (`$STREAM(...).$WRITE(...)`) fails with "Method name metavar
+      # constraints intersection" — see issue 99.
+      #
+      # Negation MUST be `pattern-not-inside`, not `pattern-not`. The
+      # `pattern-not` form trips an inconsistent-state automata bug at
+      # `SemgrepRuleToAutomata.kt:82-84` when combined with `pattern-inside`
+      # (unconditional `addEndEdges(curAutomata)` in `addNegativeAutomata`
+      # leaves a non-method-shaped automata with end edges, which the
+      # inside-patterns flow then rejects). `pattern-not-inside` goes
+      # through `addInsidePatterns`, which lifts asymmetric automata via
+      # `addDummyMethodEnter` and avoids the inconsistent state.
       - patterns:
-          - pattern: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                $W = (HttpServletResponse $RESPONSE).getWriter(...);
-                ...
-                $W.$WRITE(..., $UNTRUSTED, ...);
+          - pattern-inside: |
+              $RT $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
                 ...
               }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("application/json");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("application/json;charset=UTF-8");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("text/plain");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("application/pdf");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("application/octet-stream");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("application/xml");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("text/xml");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("image/png");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("image/jpeg");
-                ...
-              }
-          - pattern-not: |
-              $RETURNTYPE $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-                (HttpServletResponse $RESPONSE).setContentType("image/gif");
-                ...
-              }
+          - pattern-either:
+              - pattern: (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
+              - pattern: |
+                  $W = (HttpServletResponse $RESPONSE).getWriter(...);
+                  ...
+                  $W.$WRITE(..., $UNTRUSTED, ...);
+          # The setContentType value is captured into `$CT` and constrained
+          # by a co-located `metavariable-pattern` under the same
+          # `patterns:` group — this pairs the negative with its filter
+          # so the engine consults the constraint while binding the
+          # metavar inside the negative pattern. Listed as a top-level
+          # sibling, the same constraint is silently ignored for
+          # metavars bound only inside `pattern-not-inside` (verified
+          # empirically against the Spring sibling rule).
+          #
+          # `image/svg+xml` is deliberately NOT excluded — SVG can host
+          # inline `<script>` and execute, so reflected user input into
+          # an SVG response is still a real XSS.
+          - patterns:
+              - pattern-not-inside: |
+                  $RT $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
+                    ...
+                    (HttpServletResponse $RESPONSE).setContentType($CT);
+                    ...
+                  }
+              - metavariable-pattern:
+                  metavariable: $CT
+                  patterns:
+                    - pattern-either:
+                        - pattern: '"application/json"'
+                        - pattern: '"application/json;charset=UTF-8"'
+                        - pattern: '"text/plain"'
+                        - pattern: '"application/pdf"'
+                        - pattern: '"application/octet-stream"'
+                        - pattern: '"application/xml"'
+                        - pattern: '"text/xml"'
+                        - pattern: '"image/png"'
+                        - pattern: '"image/jpeg"'
+                        - pattern: '"image/gif"'
           - focus-metavariable: $UNTRUSTED
