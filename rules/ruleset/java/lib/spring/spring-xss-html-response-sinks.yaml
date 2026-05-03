@@ -76,71 +76,70 @@ rules:
       # ── DEFAULT-DANGEROUS suppression: ResponseEntity builder chain ──────
       # `ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body($UNTRUSTED)`
       # and similar shapes pin the response to a non-HTML Content-Type, so
-      # the tainted body cannot drive XSS. The right declarative form is a
-      # sanitizer with `focus-metavariable: $UNTRUSTED` so the engine kills
-      # taint on the body argument instead of on the BodyBuilder return.
+      # the tainted body cannot drive XSS. The declarative form below uses
+      # `focus-metavariable: $UNTRUSTED` so the engine kills taint on the
+      # body argument rather than on the BodyBuilder return.
       #
-      # DISABLED — engine limitation. `TaintRuleProcessing.kt:413` has a
-      # `// todo: sanitizer focus metavar` and ignores the focus-metavar
-      # on sanitizers; the engine instead sanitizes the whole matched
-      # expression. Combined with the built-in `.body()` propagator (which
-      # runs before the sanitizer is consulted and produces a tainted local
-      # for the surrounding ResponseEntity), this leaves the return tainted
-      # regardless. Re-enable once the engine TODO lands; the matrix rows
-      # 10/12/15/18/19 then move from FP to OK.
-
-      # - patterns:
-      #     - pattern-either:
-      #         - pattern: $X.contentType(MediaType.APPLICATION_JSON).body($UNTRUSTED)
-      #         - pattern: $X.contentType(MediaType.APPLICATION_PDF).body($UNTRUSTED)
-      #         - pattern: $X.contentType(MediaType.APPLICATION_OCTET_STREAM).body($UNTRUSTED)
-      #         - pattern: $X.contentType(MediaType.TEXT_PLAIN).body($UNTRUSTED)
-      #         - pattern: $X.contentType(MediaType.APPLICATION_XML).body($UNTRUSTED)
-      #         - pattern: $X.contentType(MediaType.IMAGE_PNG).body($UNTRUSTED)
-      #         - pattern: $X.contentType(MediaType.IMAGE_JPEG).body($UNTRUSTED)
-      #         - pattern: $X.contentType(MediaType.IMAGE_GIF).body($UNTRUSTED)
-      #         - pattern: $X.header("Content-Type", "application/json").body($UNTRUSTED)
-      #         - pattern: $X.header("Content-Type", "application/pdf").body($UNTRUSTED)
-      #         - pattern: $X.header("Content-Type", "application/octet-stream").body($UNTRUSTED)
-      #         - pattern: $X.header("Content-Type", "text/plain").body($UNTRUSTED)
-      #         - pattern: $X.header("Content-Type", "application/xml").body($UNTRUSTED)
-      #         - pattern: $X.header("Content-Type", "image/png").body($UNTRUSTED)
-      #         - pattern: $X.header("Content-Type", "image/jpeg").body($UNTRUSTED)
-      #         - pattern: $X.header("Content-Type", "image/gif").body($UNTRUSTED)
-      #     - focus-metavariable: $UNTRUSTED
+      # NOTE — this block is forward-compatible but does not yet suppress
+      # the matrix rows 10 / 12 / 15 / 18 / 19 FPs against the current
+      # engine. `TaintRuleProcessing.kt:413` carries a `// todo: sanitizer
+      # focus metavar` and ignores `focus-metavariable` on sanitizers; the
+      # engine instead sanitizes the whole matched expression. Combined
+      # with the built-in `.body()` propagator (which runs before the
+      # sanitizer is consulted and produces a tainted local for the
+      # surrounding ResponseEntity), the return stays tainted today. The
+      # block becomes load-bearing once the engine TODO lands.
+      - patterns:
+          - pattern-either:
+              - pattern: $X.contentType(MediaType.APPLICATION_JSON).body($UNTRUSTED)
+              - pattern: $X.contentType(MediaType.APPLICATION_PDF).body($UNTRUSTED)
+              - pattern: $X.contentType(MediaType.APPLICATION_OCTET_STREAM).body($UNTRUSTED)
+              - pattern: $X.contentType(MediaType.TEXT_PLAIN).body($UNTRUSTED)
+              - pattern: $X.contentType(MediaType.APPLICATION_XML).body($UNTRUSTED)
+              - pattern: $X.contentType(MediaType.IMAGE_PNG).body($UNTRUSTED)
+              - pattern: $X.contentType(MediaType.IMAGE_JPEG).body($UNTRUSTED)
+              - pattern: $X.contentType(MediaType.IMAGE_GIF).body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", "application/json").body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", "application/pdf").body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", "application/octet-stream").body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", "text/plain").body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", "application/xml").body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", "image/png").body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", "image/jpeg").body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", "image/gif").body($UNTRUSTED)
+          - focus-metavariable: $UNTRUSTED
 
       # ── DEFAULT-DANGEROUS suppression: new ResponseEntity<>(body, headers, status)
       # where the headers object explicitly sets a non-HTML content type.
       # Multi-statement sanitizer pattern: the `.setContentType(...)` call
       # is on a separate line from the constructor.
       #
-      # DISABLED — same engine limitation as above (sanitizer focus-metavar
-      # TODO at `TaintRuleProcessing.kt:413`). Re-enable when that lands;
-      # the matrix row 13 then moves from FP to OK.
-
-      # - patterns:
-      #     - pattern-either:
-      #         - pattern: |
-      #             $H.setContentType(MediaType.APPLICATION_JSON);
-      #             ...
-      #             new ResponseEntity($UNTRUSTED, $H, ...);
-      #         - pattern: |
-      #             $H.setContentType(MediaType.APPLICATION_PDF);
-      #             ...
-      #             new ResponseEntity($UNTRUSTED, $H, ...);
-      #         - pattern: |
-      #             $H.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-      #             ...
-      #             new ResponseEntity($UNTRUSTED, $H, ...);
-      #         - pattern: |
-      #             $H.setContentType(MediaType.TEXT_PLAIN);
-      #             ...
-      #             new ResponseEntity($UNTRUSTED, $H, ...);
-      #         - pattern: |
-      #             $H.setContentType(MediaType.APPLICATION_XML);
-      #             ...
-      #             new ResponseEntity($UNTRUSTED, $H, ...);
-      #     - focus-metavariable: $UNTRUSTED
+      # Same engine TODO applies (`TaintRuleProcessing.kt:413` —
+      # sanitizer focus-metavar). The block is forward-compatible; it
+      # will start suppressing matrix row 13 once the engine TODO lands.
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  $H.setContentType(MediaType.APPLICATION_JSON);
+                  ...
+                  new ResponseEntity($UNTRUSTED, $H, ...);
+              - pattern: |
+                  $H.setContentType(MediaType.APPLICATION_PDF);
+                  ...
+                  new ResponseEntity($UNTRUSTED, $H, ...);
+              - pattern: |
+                  $H.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+                  ...
+                  new ResponseEntity($UNTRUSTED, $H, ...);
+              - pattern: |
+                  $H.setContentType(MediaType.TEXT_PLAIN);
+                  ...
+                  new ResponseEntity($UNTRUSTED, $H, ...);
+              - pattern: |
+                  $H.setContentType(MediaType.APPLICATION_XML);
+                  ...
+                  new ResponseEntity($UNTRUSTED, $H, ...);
+          - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:
       # ── Branch 1: handler return — DEFAULT-DANGEROUS shapes ─────────────
