@@ -146,6 +146,45 @@ rules:
                         - pattern: '"image/gif"'
           - focus-metavariable: $UNTRUSTED
 
+      # Branch 1b: `DeferredResult<$T>` handlers — taint flows via
+      # `$DR.setResult(...)` into the wrapper, not via `return`.
+      - patterns:
+          - pattern-inside: |
+              @$ANNOTATION(...)
+              DeferredResult<$T> $METHOD(...) {
+                ...
+              }
+          - pattern: $DR.setResult(..., $UNTRUSTED, ...);
+          - metavariable-pattern:
+              metavariable: $ANNOTATION
+              patterns:
+                - pattern-either:
+                    - pattern: GetMapping
+                    - pattern: PostMapping
+                    - pattern: PutMapping
+                    - pattern: PatchMapping
+                    - pattern: DeleteMapping
+                    - pattern: RequestMapping
+                    - pattern: ExceptionHandler
+          - patterns:
+              - pattern-not-inside: |
+                  @$ANNOTATION(..., produces = $PRODUCES, ...)
+                  $RETURNTYPE $METHOD(...) { ... }
+              - metavariable-pattern:
+                  metavariable: $PRODUCES
+                  patterns:
+                    - pattern-either:
+                        - pattern: '"application/json"'
+                        - pattern: '"text/plain"'
+                        - pattern: '"application/pdf"'
+                        - pattern: '"application/octet-stream"'
+                        - pattern: '"application/xml"'
+                        - pattern: '"text/xml"'
+                        - pattern: '"image/png"'
+                        - pattern: '"image/jpeg"'
+                        - pattern: '"image/gif"'
+          - focus-metavariable: $UNTRUSTED
+
       # Branch 2: servlet-style writer — DEFAULT-SAFE shape, fires only
       # on an explicit text/html `setContentType` signal. Two writer
       # arities (chained / local-var) — they cannot be collapsed via a
