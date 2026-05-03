@@ -186,35 +186,57 @@ rules:
           - focus-metavariable: $UNTRUSTED
 
       # Branch 2: servlet-style writer — DEFAULT-SAFE shape, fires only
-      # on an explicit text/html `setContentType` signal. Two writer
-      # arities (chained / local-var) — they cannot be collapsed via a
-      # method-name metavar (engine issue 99: "Method name metavar
-      # constraints intersection").
+      # on an explicit text/html signal via `setContentType` (1-arg) or
+      # `setHeader` / `addHeader` (2-arg with header name "Content-Type").
       #
-      # Two-arg `setHeader / addHeader("Content-Type", ...)` is NOT
-      # covered: a sibling-level `metavariable-pattern: $CT_HTML`
-      # silently fails to filter positive multi-statement-bound string
-      # literals, so adding those alternatives lets non-text/html values
-      # through. Rows 34 / UnsafeSetHeader stay FN until the engine fix.
+      # `$CT_HTML` is placed INSIDE the source-pattern quotes (`"$CT_HTML"`)
+      # so the metavar binds to the string-literal contents; a sibling
+      # `metavariable-regex` then filters those contents. Placing the
+      # metavar OUTSIDE the quotes (`$CT_HTML` matching the whole literal
+      # expression) registers the constraint but the engine does not
+      # consult it during matching — see the standalone repro at
+      # `core/opentaint-java-querylang/samples/.../issues/`.
+      #
+      # The two writer-call arities (chained / local-var) cannot be
+      # collapsed via a method-name metavar — engine issue 99 ("Method
+      # name metavar constraints intersection"). They appear as two
+      # alternatives in `pattern-either`.
       - patterns:
           - pattern-either:
+              # setContentType (1-arg) + chained / local-var writer
               - pattern: |
-                  (HttpServletResponse $R).setContentType($CT_HTML);
+                  (HttpServletResponse $R).setContentType("$CT_HTML");
                   ...
                   (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
               - pattern: |
-                  (HttpServletResponse $R).setContentType($CT_HTML);
+                  (HttpServletResponse $R).setContentType("$CT_HTML");
                   ...
                   $W = (HttpServletResponse $R).getWriter(...);
                   ...
                   $W.$WRITE(..., $UNTRUSTED, ...);
-          - metavariable-pattern:
+              # setHeader (2-arg) + chained / local-var writer
+              - pattern: |
+                  (HttpServletResponse $R).setHeader("Content-Type", "$CT_HTML");
+                  ...
+                  (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
+              - pattern: |
+                  (HttpServletResponse $R).setHeader("Content-Type", "$CT_HTML");
+                  ...
+                  $W = (HttpServletResponse $R).getWriter(...);
+                  ...
+                  $W.$WRITE(..., $UNTRUSTED, ...);
+              # addHeader (2-arg) + chained / local-var writer
+              - pattern: |
+                  (HttpServletResponse $R).addHeader("Content-Type", "$CT_HTML");
+                  ...
+                  (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
+              - pattern: |
+                  (HttpServletResponse $R).addHeader("Content-Type", "$CT_HTML");
+                  ...
+                  $W = (HttpServletResponse $R).getWriter(...);
+                  ...
+                  $W.$WRITE(..., $UNTRUSTED, ...);
+          - metavariable-regex:
               metavariable: $CT_HTML
-              patterns:
-                - pattern-either:
-                    - pattern: '"text/html"'
-                    - pattern: '"text/html;charset=UTF-8"'
-                    - pattern: '"text/html; charset=UTF-8"'
-                    - pattern: '"text/html;charset=utf-8"'
-                    - pattern: '"text/html; charset=utf-8"'
+              regex: '^text/html(\s*;.*)?$'
           - focus-metavariable: $UNTRUSTED
