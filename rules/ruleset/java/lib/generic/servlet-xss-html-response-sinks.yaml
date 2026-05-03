@@ -93,7 +93,18 @@ rules:
                     (HttpServletResponse $RESPONSE).setContentType("$CT_SAFE");
                     ...
                   }
-              - metavariable-regex:
+              - metavariable-pattern:
                   metavariable: $CT_SAFE
-                  regex: '^(application/json|text/plain|application/pdf|application/octet-stream|application/xml|text/xml|image/png|image/jpeg|image/gif)(\s*;.*)?$'
+                  patterns:
+                    - pattern-either:
+                        - pattern: application/json
+                        - pattern: application/json;charset=UTF-8
+                        - pattern: text/plain
+                        - pattern: application/pdf
+                        - pattern: application/octet-stream
+                        - pattern: application/xml
+                        - pattern: text/xml
+                        - pattern: image/png
+                        - pattern: image/jpeg
+                        - pattern: image/gif
           - focus-metavariable: $UNTRUSTED
