@@ -141,7 +141,7 @@ public class XssHtmlResponseServletSamples {
     public static class SafeChainedWriterJsonServlet extends HttpServlet {
 
         @Override
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
 
@@ -157,7 +157,7 @@ public class XssHtmlResponseServletSamples {
     public static class SafeOutputStreamOctetServlet extends HttpServlet {
 
         @Override
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
 

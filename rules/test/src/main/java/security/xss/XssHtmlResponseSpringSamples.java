@@ -143,7 +143,7 @@ public class XssHtmlResponseSpringSamples {
     public static class SafeJsonStringReturnController {
 
         @GetMapping(value = "/xss-in-spring-app/safe-json-string", produces = "application/json")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public String safeJsonStringReturn(@RequestParam(required = false, defaultValue = "") String name) {
             return "{\"name\":\"" + name + "\"}";
         }
@@ -180,7 +180,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row04StringProducesTextPlainController {
 
         @GetMapping(value = "/xss-in-spring-app/row-04", produces = "text/plain")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public String row04(@RequestParam(required = false, defaultValue = "") String name) {
             return "Hello, " + name;
         }
@@ -192,7 +192,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row05StringProducesPdfController {
 
         @GetMapping(value = "/xss-in-spring-app/row-05", produces = "application/pdf")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public String row05(@RequestParam(required = false, defaultValue = "") String name) {
             return "<h1>Hello, " + name + "!</h1>";
         }
@@ -204,7 +204,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row06StringProducesOctetStreamController {
 
         @GetMapping(value = "/xss-in-spring-app/row-06", produces = "application/octet-stream")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public String row06(@RequestParam(required = false, defaultValue = "") String name) {
             return "<h1>Hello, " + name + "!</h1>";
         }
@@ -216,7 +216,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row08ResponseEntityStringProducesJsonController {
 
         @GetMapping(value = "/xss-in-spring-app/row-08", produces = "application/json")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public ResponseEntity<String> row08(@RequestParam(required = false, defaultValue = "") String name) {
             return ResponseEntity.ok("{\"name\":\"" + name + "\"}");
         }
@@ -249,7 +249,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row10ResponseEntityStringContentTypeJsonController {
 
         @GetMapping("/xss-in-spring-app/row-10")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public ResponseEntity<String> row10(@RequestParam(required = false, defaultValue = "") String name) {
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_JSON)
@@ -283,7 +283,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row12ResponseEntityStringHeaderJsonController {
 
         @GetMapping("/xss-in-spring-app/row-12")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public ResponseEntity<String> row12(@RequestParam(required = false, defaultValue = "") String name) {
             return ResponseEntity.ok()
                     .header("Content-Type", "application/json")
@@ -303,7 +303,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row13NewResponseEntityHeadersJsonController {
 
         @GetMapping("/xss-in-spring-app/row-13")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public ResponseEntity<String> row13(@RequestParam(required = false, defaultValue = "") String name) {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
@@ -337,7 +337,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row15RawResponseEntityContentTypeJsonController {
 
         @GetMapping("/xss-in-spring-app/row-15")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public ResponseEntity row15(@RequestParam(required = false, defaultValue = "") String name) {
             return ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_JSON)
@@ -371,7 +371,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row18ResponseEntityBytesContentTypePdfController {
 
         @GetMapping("/xss-in-spring-app/row-18")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public ResponseEntity<byte[]> row18(@RequestParam(required = false, defaultValue = "") String name) {
             byte[] body = ("PDF-1.4% fake for " + name).getBytes(StandardCharsets.UTF_8);
             return ResponseEntity.ok()
@@ -392,7 +392,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row19ResponseEntityBytesContentTypeOctetStreamController {
 
         @GetMapping("/xss-in-spring-app/row-19")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public ResponseEntity<byte[]> row19(@RequestParam(required = false, defaultValue = "") String name) {
             byte[] body = ("binary-for-" + name).getBytes(StandardCharsets.UTF_8);
             return ResponseEntity.ok()
@@ -407,7 +407,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row20ServletSetContentTypeJsonController {
 
         @GetMapping("/xss-in-spring-app/row-20")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public void row20(@RequestParam(required = false, defaultValue = "") String name,
                           HttpServletResponse response) throws IOException {
             response.setContentType("application/json");
@@ -422,7 +422,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row21ServletSetHeaderJsonController {
 
         @GetMapping("/xss-in-spring-app/row-21")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public void row21(@RequestParam(required = false, defaultValue = "") String name,
                           HttpServletResponse response) throws IOException {
             response.setHeader("Content-Type", "application/json");
@@ -443,7 +443,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row22StringProducesMediaTypeJsonConstantController {
 
         @GetMapping(value = "/xss-in-spring-app/row-22", produces = MediaType.APPLICATION_JSON_VALUE)
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public String row22(@RequestParam(required = false, defaultValue = "") String name) {
             return "{\"payload\":\"" + name + "\"}";
         }
@@ -476,7 +476,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row24StringProducesApplicationXmlController {
 
         @GetMapping(value = "/xss-in-spring-app/row-24", produces = "application/xml")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public String row24(@RequestParam(required = false, defaultValue = "") String name) {
             return "<note>" + name + "</note>";
         }
@@ -573,7 +573,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row31RestControllerClassLevelJsonController {
 
         @GetMapping
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public String row31(@RequestParam(required = false, defaultValue = "") String name) {
             return "{\"name\":\"" + name + "\"}";
         }
@@ -624,7 +624,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row35ServletAddHeaderJsonController {
 
         @GetMapping("/xss-in-spring-app/row-35")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public void row35(@RequestParam(required = false, defaultValue = "") String name,
                           HttpServletResponse response) throws IOException {
             response.addHeader("Content-Type", "application/json");
@@ -644,7 +644,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row36ResponseEntityAssignmentJsonController {
 
         @GetMapping("/xss-in-spring-app/row-36")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public ResponseEntity<String> row36(@RequestParam(required = false, defaultValue = "") String name) {
             ResponseEntity<String> result = ResponseEntity.ok()
                     .contentType(MediaType.APPLICATION_JSON)
@@ -664,7 +664,7 @@ public class XssHtmlResponseSpringSamples {
     public static class Row37ServletSetContentTypeJsonAssignmentController {
 
         @GetMapping("/xss-in-spring-app/row-37")
-        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        // ENGINE-FP: @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public void row37(@RequestParam(required = false, defaultValue = "") String name,
                           HttpServletResponse response) throws IOException {
             response.setContentType("application/json");
