@@ -113,7 +113,17 @@ rules:
                   CompletableFuture<$T> $METHOD(...) {
                     ...
                   }
-          - pattern: return $UNTRUSTED;
+              - pattern-inside: |
+                  @$ANNOTATION(...)
+                  DeferredResult<$T> $METHOD(...) {
+                    ...
+                  }
+          # Sink: either a tainted return, or `$DR.setResult(tainted)` —
+          # the DeferredResult shape feeds the response via the wrapper's
+          # setResult call rather than by returning the tainted value.
+          - pattern-either:
+              - pattern: return $UNTRUSTED;
+              - pattern: (DeferredResult $DR).setResult(..., $UNTRUSTED, ...);
           - metavariable-pattern:
               metavariable: $ANNOTATION
               patterns:
@@ -127,45 +137,6 @@ rules:
                     - pattern: ExceptionHandler
           # `image/svg+xml` is deliberately NOT excluded — SVG can host
           # inline `<script>` and execute.
-          - patterns:
-              - pattern-not-inside: |
-                  @$ANNOTATION(..., produces = $PRODUCES, ...)
-                  $RETURNTYPE $METHOD(...) { ... }
-              - metavariable-pattern:
-                  metavariable: $PRODUCES
-                  patterns:
-                    - pattern-either:
-                        - pattern: '"application/json"'
-                        - pattern: '"text/plain"'
-                        - pattern: '"application/pdf"'
-                        - pattern: '"application/octet-stream"'
-                        - pattern: '"application/xml"'
-                        - pattern: '"text/xml"'
-                        - pattern: '"image/png"'
-                        - pattern: '"image/jpeg"'
-                        - pattern: '"image/gif"'
-          - focus-metavariable: $UNTRUSTED
-
-      # Branch 1b: `DeferredResult<$T>` handlers — taint flows via
-      # `$DR.setResult(...)` into the wrapper, not via `return`.
-      - patterns:
-          - pattern-inside: |
-              @$ANNOTATION(...)
-              DeferredResult<$T> $METHOD(...) {
-                ...
-              }
-          - pattern: $DR.setResult(..., $UNTRUSTED, ...);
-          - metavariable-pattern:
-              metavariable: $ANNOTATION
-              patterns:
-                - pattern-either:
-                    - pattern: GetMapping
-                    - pattern: PostMapping
-                    - pattern: PutMapping
-                    - pattern: PatchMapping
-                    - pattern: DeleteMapping
-                    - pattern: RequestMapping
-                    - pattern: ExceptionHandler
           - patterns:
               - pattern-not-inside: |
                   @$ANNOTATION(..., produces = $PRODUCES, ...)
