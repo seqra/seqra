@@ -276,60 +276,27 @@ rules:
       # does not accept on a statement-form pattern. See Appendix E of
       # the dynamic-verification plan.
       #
-      # Two arities: chained `response.getWriter().$WRITE(...)` and
-      # local-variable `$W = response.getWriter(); ...; $W.$WRITE(...)`.
-      # Each is a separate top-level pattern; the engine doesn't support
-      # collapsing them with a method-name metavar (`$STREAM(...).$WRITE(...)`
-      # fails with "Method name metavar constraints intersection") — see
-      # issue 99.
+      # `pattern-inside` binds the method shell + the explicit text/html
+      # signal once; `pattern-either` covers the two writer-call arities:
+      #   - chained:    response.getWriter().$WRITE(..., $UNTRUSTED, ...)
+      #   - local var:  $W = response.getWriter(); ... $W.$WRITE(...)
+      # Collapsing the two with a method-name metavar
+      # (`$STREAM(...).$WRITE(...)`) fails with "Method name metavar
+      # constraints intersection" — see issue 99.
       - patterns:
-          - pattern: |
+          - pattern-inside: |
               @$ANNOTATION(...)
               $RETURNTYPE $METHOD(...) {
                 ...
                 (HttpServletResponse $R).$SET_HTML($CT_HTML);
                 ...
-                (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
-                ...
               }
-          - metavariable-pattern:
-              metavariable: $ANNOTATION
-              patterns:
-                - pattern-either:
-                    - pattern: GetMapping
-                    - pattern: PostMapping
-                    - pattern: PutMapping
-                    - pattern: PatchMapping
-                    - pattern: DeleteMapping
-                    - pattern: RequestMapping
-          - metavariable-pattern:
-              metavariable: $SET_HTML
-              pattern-either:
-                - pattern: setContentType
-                - pattern: setHeader
-                - pattern: addHeader
-          - metavariable-pattern:
-              metavariable: $CT_HTML
-              pattern-either:
-                - pattern: '"text/html"'
-                - pattern: '"text/html;charset=UTF-8"'
-                - pattern: '"text/html; charset=UTF-8"'
-                - pattern: '"text/html;charset=utf-8"'
-                - pattern: '"text/html; charset=utf-8"'
-          - focus-metavariable: $UNTRUSTED
-
-      - patterns:
-          - pattern: |
-              @$ANNOTATION(...)
-              $RETURNTYPE $METHOD(...) {
-                ...
-                (HttpServletResponse $R).$SET_HTML($CT_HTML);
-                ...
-                $W = (HttpServletResponse $R).getWriter(...);
-                ...
-                $W.$WRITE(..., $UNTRUSTED, ...);
-                ...
-              }
+          - pattern-either:
+              - pattern: (HttpServletResponse $R).getWriter(...).$WRITE(..., $UNTRUSTED, ...);
+              - pattern: |
+                  $W = (HttpServletResponse $R).getWriter(...);
+                  ...
+                  $W.$WRITE(..., $UNTRUSTED, ...);
           - metavariable-pattern:
               metavariable: $ANNOTATION
               patterns:
