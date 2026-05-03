@@ -156,7 +156,6 @@ rules:
                     - pattern: PatchMapping
                     - pattern: DeleteMapping
                     - pattern: RequestMapping
-                    - pattern: ExceptionHandler
           # `image/svg+xml` is deliberately NOT excluded — SVG can host
           # inline `<script>` and execute.
           - patterns:

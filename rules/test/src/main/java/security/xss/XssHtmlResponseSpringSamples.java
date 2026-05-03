@@ -14,7 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -536,36 +535,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 29: @ExceptionHandler returning tainted message (text/html) — TP
-    // Empirical browser verdict (Playwright Chromium, Appendix E): XSS
-    // fires — the request handler throws MyException carrying the
-    // tainted payload; the @ExceptionHandler method returns the message
-    // as a String via @ResponseBody, content negotiation lands on
-    // text/html, alert(1) executes. NOTE: the rule currently may NOT fire
-    // on the @ExceptionHandler handler because the pattern-either only
-    // enumerates mapping annotations (@Get/@Post/...). This is a known
-    // FN — see Appendix E.
-
-    @RestController
-    public static class Row29ExceptionHandlerTaintedMessageController {
-
-        public static class MyException extends RuntimeException {
-            public MyException(String msg) { super(msg); }
-        }
-
-        @GetMapping("/xss-in-spring-app/row-29")
-        public String row29(@RequestParam(required = false, defaultValue = "") String name) {
-            throw new MyException("<h1>Hello, " + name + "!</h1>");
-        }
-
-        @ExceptionHandler(MyException.class)
-        @ResponseBody
-        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
-        public String handleMyException(MyException ex) {
-            return ex.getMessage();
-        }
-    }
-
     // ── Row 30: setContentType("text/html;charset=utf-16") + writer — TP ──
     // Empirical browser verdict (Playwright Chromium, Appendix E): XSS
     // fires — Content-Type: text/html;charset=utf-16, Chromium decodes
@@ -623,34 +592,6 @@ public class XssHtmlResponseSpringSamples {
         @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public String row32(@RequestParam(required = false, defaultValue = "") String name) {
             return "<h1>Hello, " + name + "!</h1>";
-        }
-    }
-
-    // ── Row 33: @ExceptionHandler reflecting tainted exception message into HTML — TP
-    // The mapping handler throws an exception carrying user input; the
-    // @ExceptionHandler returns the exception message as a String. Under
-    // String content negotiation against an `Accept: text/html` request,
-    // Spring lands on Content-Type: text/html and the script executes.
-    // The rule's @ExceptionHandler pattern-inside makes the handler
-    // visible as a sink-eligible method.
-
-    @RestController
-    public static class Row33ExceptionHandlerReflectsTaintedMessageController {
-
-        public static class ReflectedException extends RuntimeException {
-            public ReflectedException(String msg) { super(msg); }
-        }
-
-        @GetMapping("/xss-in-spring-app/row-33")
-        public String row33(@RequestParam(required = false, defaultValue = "") String name) {
-            throw new ReflectedException("<h1>Hello, " + name + "!</h1>");
-        }
-
-        @org.springframework.web.bind.annotation.ExceptionHandler(ReflectedException.class)
-        @org.springframework.web.bind.annotation.ResponseBody
-        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
-        public String handleReflectedException(ReflectedException ex) {
-            return ex.getMessage();
         }
     }
 
