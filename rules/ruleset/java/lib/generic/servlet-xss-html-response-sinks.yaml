@@ -11,26 +11,12 @@ rules:
       - java
     mode: taint
 
-    # ─────────────────────────────────────────────────────────────────────
-    # Strategy: per the Servlet spec, the response Content-Type defaults
-    # to text/html when no explicit `setContentType` call is made on the
-    # response. Reflected user input through the writer / OutputStream is
-    # therefore XSS by default — this is a DEFAULT-DANGEROUS shape. The
-    # rule fires by default and subtracts only the explicit non-HTML
-    # `setContentType("...")` signals via `pattern-not-inside`.
-    #
-    # See `spring-xss-html-response-sinks.yaml` for the matching strategy
-    # narrative; this rule mirrors its structure but for raw `HttpServlet`
-    # handlers (no Spring `@*Mapping` annotations).
-    # ─────────────────────────────────────────────────────────────────────
+    # Servlet spec defaults Content-Type to text/html when not set
+    # explicitly, so writer/OutputStream output is XSS by default unless
+    # `setContentType("...")` pins a non-HTML value. Mirrors the Spring
+    # sibling rule's strategy for raw `HttpServlet` handlers.
 
     pattern-sanitizers:
-      # ── HTML encoders / escapers ─────────────────────────────────────────
-      # The $UNTRUSTED capture + `focus-metavariable: $UNTRUSTED` form
-      # scopes the sanitization to the encoded argument, matching the
-      # idiom in spring-xss-sinks.yaml. Without it the engine sanitizes
-      # the whole call expression, which can let the still-tainted
-      # argument escape.
       - patterns:
           - pattern-either:
               - pattern: Encode.forHtml(..., $UNTRUSTED, ...)
@@ -45,24 +31,17 @@ rules:
           - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:
-      # ── Servlet writer/OutputStream — DEFAULT-DANGEROUS shape ───────────
+      # `pattern-either` covers the two writer-call arities; collapsing
+      # them via a method-name metavar (`$STREAM(...).$WRITE(...)`) fails
+      # with "Method name metavar constraints intersection" (issue 99).
       #
-      # `pattern-inside` binds the method shell once; `pattern-either`
-      # covers the two writer-call arities:
-      #   - chained:    response.getWriter().$WRITE(..., $UNTRUSTED, ...)
-      #   - local var:  $W = response.getWriter(); ... $W.$WRITE(...)
-      # Collapsing the two with a method-name metavar
-      # (`$STREAM(...).$WRITE(...)`) fails with "Method name metavar
-      # constraints intersection" — see issue 99.
+      # Negation MUST be `pattern-not-inside`, not `pattern-not` (the
+      # latter trips an inconsistent-state automata bug at
+      # `SemgrepRuleToAutomata.kt:82-84`).
       #
-      # Negation MUST be `pattern-not-inside`, not `pattern-not`. The
-      # `pattern-not` form trips an inconsistent-state automata bug at
-      # `SemgrepRuleToAutomata.kt:82-84` when combined with `pattern-inside`
-      # (unconditional `addEndEdges(curAutomata)` in `addNegativeAutomata`
-      # leaves a non-method-shaped automata with end edges, which the
-      # inside-patterns flow then rejects). `pattern-not-inside` goes
-      # through `addInsidePatterns`, which lifts asymmetric automata via
-      # `addDummyMethodEnter` and avoids the inconsistent state.
+      # `$CT` is constrained by a co-located `metavariable-pattern` under
+      # the same `patterns:` group — sibling-level constraints silently
+      # do not filter negative-scope bindings.
       - patterns:
           - pattern-inside: |
               $RT $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
@@ -74,18 +53,8 @@ rules:
                   $W = (HttpServletResponse $RESPONSE).getWriter(...);
                   ...
                   $W.$WRITE(..., $UNTRUSTED, ...);
-          # The setContentType value is captured into `$CT` and constrained
-          # by a co-located `metavariable-pattern` under the same
-          # `patterns:` group — this pairs the negative with its filter
-          # so the engine consults the constraint while binding the
-          # metavar inside the negative pattern. Listed as a top-level
-          # sibling, the same constraint is silently ignored for
-          # metavars bound only inside `pattern-not-inside` (verified
-          # empirically against the Spring sibling rule).
-          #
           # `image/svg+xml` is deliberately NOT excluded — SVG can host
-          # inline `<script>` and execute, so reflected user input into
-          # an SVG response is still a real XSS.
+          # inline `<script>` and execute.
           - patterns:
               - pattern-not-inside: |
                   $RT $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
