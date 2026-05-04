@@ -30,17 +30,6 @@ sealed interface TypeNamePattern {
         override fun toString(): String = "*"
     }
 
-    /**
-     * Java unbounded wildcard `?` as a type argument. Java's `?` is the
-     * supertype of any concrete parameterization, so a `Foo<?>` pattern
-     * accepts any `Foo<X>` — semantically equivalent to [AnyType] at a
-     * type-argument slot.
-     */
-    @Serializable
-    data object WildcardType : TypeNamePattern {
-        override fun toString(): String = "?"
-    }
-
     @Serializable
     data class ArrayType(val element: TypeNamePattern) : TypeNamePattern {
         override fun toString(): String = "${element}[]"

@@ -995,8 +995,7 @@ private fun EdgeCondition.isDummyCondition(metaVarInfo: ResolvedMetaVarInfo): Bo
             is TypeNamePattern.ArrayType,
             is TypeNamePattern.ClassName,
             is TypeNamePattern.FullyQualified,
-            is TypeNamePattern.PrimitiveName,
-            TypeNamePattern.WildcardType -> return false
+            is TypeNamePattern.PrimitiveName -> return false
         }
     }
 

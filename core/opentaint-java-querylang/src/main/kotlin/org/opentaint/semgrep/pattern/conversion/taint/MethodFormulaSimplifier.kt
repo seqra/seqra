@@ -5,8 +5,6 @@ import org.opentaint.dataflow.util.filter
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.map
 import org.opentaint.dataflow.util.toSet
-import org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
-import org.opentaint.semgrep.pattern.conversion.generatedMethodClassName
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
 import org.opentaint.semgrep.pattern.MetaVarConstraints
@@ -27,10 +25,12 @@ import org.opentaint.semgrep.pattern.conversion.automata.MethodModifierConstrain
 import org.opentaint.semgrep.pattern.conversion.automata.MethodName
 import org.opentaint.semgrep.pattern.conversion.automata.MethodSignature
 import org.opentaint.semgrep.pattern.conversion.automata.NumberOfArgsConstraint
+import org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.conversion.automata.ParamConstraint
 import org.opentaint.semgrep.pattern.conversion.automata.Position
 import org.opentaint.semgrep.pattern.conversion.automata.Predicate
 import org.opentaint.semgrep.pattern.conversion.generatedAnyValueGeneratorMethodName
+import org.opentaint.semgrep.pattern.conversion.generatedMethodClassName
 import org.opentaint.semgrep.pattern.conversion.generatedStringConcatMethodName
 import java.util.BitSet
 
@@ -792,14 +792,12 @@ private fun unifyTypeName(
     if (left == right) return left
 
     when (left) {
-        TypeNamePattern.AnyType,
-        TypeNamePattern.WildcardType -> return right
+        TypeNamePattern.AnyType -> return right
 
         is TypeNamePattern.PrimitiveName -> return null
 
         is TypeNamePattern.ClassName -> when (right) {
-            TypeNamePattern.AnyType,
-            TypeNamePattern.WildcardType -> return left
+            TypeNamePattern.AnyType -> return left
 
             is TypeNamePattern.ArrayType,
             is TypeNamePattern.PrimitiveName -> return null
@@ -825,8 +823,7 @@ private fun unifyTypeName(
         }
 
         is TypeNamePattern.FullyQualified -> when (right) {
-            TypeNamePattern.AnyType,
-            TypeNamePattern.WildcardType -> return left
+            TypeNamePattern.AnyType -> return left
 
             is TypeNamePattern.ArrayType,
             is TypeNamePattern.PrimitiveName -> return null
@@ -853,8 +850,7 @@ private fun unifyTypeName(
         }
 
         is TypeNamePattern.MetaVar -> when (right) {
-            TypeNamePattern.AnyType,
-            TypeNamePattern.WildcardType -> return left
+            TypeNamePattern.AnyType -> return left
 
             is TypeNamePattern.ArrayType,
             is TypeNamePattern.PrimitiveName -> return null
@@ -878,8 +874,7 @@ private fun unifyTypeName(
         }
 
         is TypeNamePattern.ArrayType -> when (right) {
-            TypeNamePattern.AnyType,
-            TypeNamePattern.WildcardType -> return left
+            is TypeNamePattern.AnyType -> return left
 
             is TypeNamePattern.ArrayType -> {
                 val unifiedElement = unifyTypeName(left.element, right.element, metaVarInfo)

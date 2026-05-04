@@ -12,9 +12,7 @@ import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.ClassConstr
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifier
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureModifierValue
 import org.opentaint.semgrep.pattern.conversion.SemgrepPatternAction.SignatureName
-import org.opentaint.semgrep.pattern.conversion.SpecificBoolValue
 import org.opentaint.semgrep.pattern.conversion.SpecificConstantValue
-import org.opentaint.semgrep.pattern.conversion.SpecificStringValue
 import org.opentaint.semgrep.pattern.conversion.TypeNamePattern
 import org.opentaint.semgrep.pattern.conversion.automata.ClassModifierConstraint
 import org.opentaint.semgrep.pattern.conversion.automata.MethodConstraint
@@ -363,7 +361,6 @@ private fun MetaVarCtx.typeNameMetaVars(typeName: TypeNamePattern, metaVars: Bit
         }
 
         TypeNamePattern.AnyType,
-        TypeNamePattern.WildcardType,
         is TypeNamePattern.PrimitiveName -> {
             // no metavars
         }

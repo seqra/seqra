@@ -11,34 +11,33 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.C
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFieldRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFunctionNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSignatureMatcher
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Pattern
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Simple
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
+import org.opentaint.semgrep.pattern.FailedToConvertToTaintRule
+import org.opentaint.semgrep.pattern.IgnoredMetavarConstraint
 import org.opentaint.semgrep.pattern.Mark.RuleUniqueMarkPrefix
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
-import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
-import org.opentaint.semgrep.pattern.RuleWithMetaVars
-import org.opentaint.semgrep.pattern.FailedToConvertToTaintRule
-import org.opentaint.semgrep.pattern.IgnoredMetavarConstraint
 import org.opentaint.semgrep.pattern.NonMethodCallCleaner
 import org.opentaint.semgrep.pattern.PlaceholderAnnotation
 import org.opentaint.semgrep.pattern.PlaceholderMethodName
 import org.opentaint.semgrep.pattern.PlaceholderStringValue
 import org.opentaint.semgrep.pattern.PlaceholderTypeName
-import org.opentaint.semgrep.pattern.TaintRuleMatchAnything
+import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.pattern.RuleWithMetaVars
 import org.opentaint.semgrep.pattern.SemgrepMatchingRule
 import org.opentaint.semgrep.pattern.SemgrepRule
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.SemgrepTaintRule
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
+import org.opentaint.semgrep.pattern.TaintRuleMatchAnything
 import org.opentaint.semgrep.pattern.UserRuleFromSemgrepInfo
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
@@ -141,7 +140,6 @@ private data class RuleCondition(
     val enclosingClassName: SerializedSimpleNameMatcher,
     val name: SerializedSimpleNameMatcher,
     val condition: SerializedCondition,
-    val signature: SerializedSignatureMatcher? = null,
 )
 
 private data class EvaluatedEdgeCondition(
@@ -260,17 +258,17 @@ fun TaintRuleGenerationCtx.generateTaintRules(ctx: RuleConversionCtx): List<Seri
             if (actions.isEmpty()) continue
 
             val info = edgeRuleInfo(ruleEdge)
-            rules += generateRules(condition.ruleCondition) { function, signature, cond ->
+            rules += generateRules(condition.ruleCondition) { function, cond ->
                 when (ruleEdge.edgeKind) {
                     TaintRuleEdge.Kind.MethodCall -> listOf(
                         SerializedRule.Source(
-                            function, signature = signature, overrides = true, cond, actions, info = info,
+                            function, signature = null, overrides = true, cond, actions, info = info,
                         )
                     )
 
                     TaintRuleEdge.Kind.MethodEnter -> listOf(
                         SerializedRule.EntryPoint(
-                            function, signature = signature, overrides = false, cond, actions, info = info,
+                            function, signature = null, overrides = false, cond, actions, info = info,
                         )
                     )
 
@@ -288,13 +286,13 @@ fun TaintRuleGenerationCtx.generateTaintRules(ctx: RuleConversionCtx): List<Seri
         for (condition in evaluateWithStateCheck(ruleEdge, TaintEdgeKind.POSITIVE, state)) {
             rules += condition.additionalFieldRules
 
-            rules += generateRules(condition.ruleCondition) { function, signature, cond ->
+            rules += generateRules(condition.ruleCondition) { function, cond ->
                 val afterSinkActions = buildStateAssignAction(ruleEdge.stateTo, condition)
 
                 when (ruleEdge.edgeKind) {
                     TaintRuleEdge.Kind.MethodEnter -> listOf(
                         SerializedRule.MethodEntrySink(
-                            function, signature = signature, overrides = false, cond,
+                            function, signature = null, overrides = false, cond,
                             trackFactsReachAnalysisEnd = afterSinkActions,
                             ctx.ruleId, meta = ctx.meta
                         )
@@ -302,7 +300,7 @@ fun TaintRuleGenerationCtx.generateTaintRules(ctx: RuleConversionCtx): List<Seri
 
                     TaintRuleEdge.Kind.MethodCall -> listOf(
                         SerializedRule.Sink(
-                            function, signature = signature, overrides = true, cond,
+                            function, signature = null, overrides = true, cond,
                             trackFactsReachAnalysisEnd = afterSinkActions,
                             ctx.ruleId, meta = ctx.meta
                         )
@@ -332,10 +330,10 @@ fun TaintRuleGenerationCtx.generateTaintRules(ctx: RuleConversionCtx): List<Seri
                 }
 
                 TaintRuleEdge.Kind.MethodCall -> {
-                    rules += generateRules(condition.ruleCondition) { function, signature, cond ->
+                    rules += generateRules(condition.ruleCondition) { function, cond ->
                         listOf(
                             SerializedRule.Cleaner(
-                                function, signature = signature, overrides = true, cond, actions,
+                                function, signature = null, overrides = true, cond, actions,
                                 info = edgeRuleInfo(ruleEdge)
                             )
                         )
@@ -412,7 +410,7 @@ private fun EvaluatedEdgeCondition.addStateCheck(
 
 private inline fun <T> generateRules(
     condition: RuleCondition,
-    body: (SerializedFunctionNameMatcher, SerializedSignatureMatcher?, SerializedCondition) -> T
+    body: (SerializedFunctionNameMatcher, SerializedCondition) -> T
 ): T {
     val functionMatcher = SerializedFunctionNameMatcher.Complex(
         condition.enclosingClassPackage,
@@ -420,14 +418,13 @@ private inline fun <T> generateRules(
         condition.name
     )
 
-    return body(functionMatcher, condition.signature, condition.condition)
+    return body(functionMatcher, condition.condition)
 }
 
 private class RuleConditionBuilder {
     var enclosingClassPackage: SerializedSimpleNameMatcher? = null
     var enclosingClassName: SerializedSimpleNameMatcher? = null
     var methodName: SerializedSimpleNameMatcher? = null
-    var signature: SerializedSignatureMatcher? = null
 
     val conditions = hashSetOf<SerializedCondition>()
 
@@ -435,7 +432,6 @@ private class RuleConditionBuilder {
         n.enclosingClassPackage = this.enclosingClassPackage
         n.enclosingClassName = this.enclosingClassName
         n.methodName = this.methodName
-        n.signature = this.signature
         n.conditions.addAll(conditions)
     }
 
@@ -443,8 +439,7 @@ private class RuleConditionBuilder {
         enclosingClassPackage ?: anyName(),
         enclosingClassName ?: anyName(),
         methodName ?: anyName(),
-        SerializedCondition.and(conditions.toList()),
-        signature
+        SerializedCondition.and(conditions.toList())
     )
 }
 
@@ -566,8 +561,6 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
         }
     }
 
-    // Encode the return-type constraint as an IsType condition on the Result
-    // position rather than on the signature matcher.
     val returnType = signature.returnType
     if (returnType != null) {
         val returnTypeFormula = typeMatcher(returnType, semgrepRuleTrace)
@@ -703,13 +696,6 @@ private fun classNameMatcherFromConcreteString(name: String): SerializedTypeName
     return SerializedTypeNameMatcher.ClassPattern(pkg, cls)
 }
 
-/**
- * A ClassPattern that accepts any class name. Used as a placeholder for a
- * type-argument slot whose inner pattern resolved to null (e.g. an
- * unconstrained metavariable or AnyType). Keeps the arity of a pattern like
- * `ResponseEntity<$T>` intact so it remains distinguishable from a raw
- * `ResponseEntity` at the matcher level.
- */
 private fun anyClassPattern(): SerializedTypeNameMatcher.ClassPattern =
     SerializedTypeNameMatcher.ClassPattern(
         `package` = anyName(),
@@ -842,14 +828,7 @@ private fun TaintRuleGenerationCtx.typeMatcher(
 ): MetaVarConstraintFormula<SerializedTypeNameMatcher>? {
     return when (typeName) {
         is TypeNamePattern.ClassName -> {
-            // Preserve arity of typeArgs: a metavar like $T or AnyType that
-            // produces null still takes a slot in the type-arg list with an
-            // "any" matcher, so the outer matcher remains distinguishable
-            // from a raw (no-type-arg) form.
-            val serializedTypeArgs = typeName.typeArgs.takeIf { it.isNotEmpty() }?.map {
-                (typeMatcher(it, semgrepRuleTrace) as? MetaVarConstraintFormula.Constraint<SerializedTypeNameMatcher>)?.constraint
-                    ?: anyClassPattern()
-            }
+            val serializedTypeArgs = typeArgsMatcher(typeName.typeArgs, semgrepRuleTrace)
             MetaVarConstraintFormula.Constraint(
                 SerializedTypeNameMatcher.ClassPattern(
                     `package` = anyName(),
@@ -860,15 +839,12 @@ private fun TaintRuleGenerationCtx.typeMatcher(
         }
 
         is TypeNamePattern.FullyQualified -> {
-            if (typeName.typeArgs.isEmpty()) {
+            val serializedTypeArgs = typeArgsMatcher(typeName.typeArgs, semgrepRuleTrace)
+            if (serializedTypeArgs == null) {
                 MetaVarConstraintFormula.Constraint(
                     Simple(typeName.name)
                 )
             } else {
-                val serializedTypeArgs = typeName.typeArgs.map {
-                    (typeMatcher(it, semgrepRuleTrace) as? MetaVarConstraintFormula.Constraint<SerializedTypeNameMatcher>)?.constraint
-                        ?: anyClassPattern()
-                }
                 val (pkg, cls) = classNamePartsFromConcreteString(typeName.name)
                 MetaVarConstraintFormula.Constraint(
                     SerializedTypeNameMatcher.ClassPattern(
@@ -892,11 +868,7 @@ private fun TaintRuleGenerationCtx.typeMatcher(
             }
         }
 
-        // `<?>` is the supertype of any concrete parameterization, so a
-        // wildcard slot has the same matching semantics as an unconstrained
-        // matcher — collapse it into [AnyType] at translation time.
-        is TypeNamePattern.AnyType,
-        is TypeNamePattern.WildcardType -> null
+        is TypeNamePattern.AnyType -> null
 
         is TypeNamePattern.MetaVar -> {
             val constraints = metaVarInfo.constraints[typeName.metaVar]
@@ -956,6 +928,14 @@ private fun TaintRuleGenerationCtx.typeMatcher(
             }
         }
     }
+}
+
+private fun TaintRuleGenerationCtx.typeArgsMatcher(
+    typeArgs: List<TypeNamePattern>,
+    semgrepRuleTrace: SemgrepRuleLoadStepTrace
+): List<SerializedTypeNameMatcher>? = typeArgs.takeIf { it.isNotEmpty() }?.map {
+    (typeMatcher(it, semgrepRuleTrace) as? MetaVarConstraintFormula.Constraint<SerializedTypeNameMatcher>)?.constraint
+        ?: anyClassPattern()
 }
 
 private fun String.patternCanMatchDot(): Boolean =
