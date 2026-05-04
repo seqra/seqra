@@ -147,11 +147,33 @@ rules:
                       # 41 / 42 are ENGINE-FP). Once that path closes,
                       # the enumerations below take effect for these
                       # cases too.
-                      - pattern-inside: |
-                          @$ANNOTATION(...)
-                          String $METHOD(...) {
-                            ...
-                          }
+                      #
+                      # The `@ResponseBody` exclusion at the bottom of
+                      # this branch is scoped (via a co-located
+                      # `pattern-not-inside` on the bare `String`
+                      # alternative) to apply only to the `String`
+                      # return shape — it is the only return type here
+                      # whose write-vs-view-resolve verdict is decided
+                      # by `@ResponseBody` (a `String` from a plain
+                      # `@Controller` is a view name; with
+                      # `@ResponseBody` it goes through
+                      # `StringHttpMessageConverter`). For
+                      # `ResponseEntity<…>` / `CompletableFuture<…>` /
+                      # raw `byte[]`, Spring's
+                      # `HttpEntityMethodProcessor` /
+                      # `RequestResponseBodyMethodProcessor` write to
+                      # the response body regardless of
+                      # `@ResponseBody`, so the exclusion is not
+                      # applied to those shapes.
+                      - patterns:
+                          - pattern-inside: |
+                              @$ANNOTATION(...)
+                              String $METHOD(...) {
+                                ...
+                              }
+                          - pattern-not-inside: |
+                              @ResponseBody
+                              $RETURNTYPE $METHOD(...) { ... }
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           ResponseEntity<String> $METHOD(...) {
@@ -224,9 +246,6 @@ rules:
                         - pattern: MediaType.IMAGE_PNG_VALUE
                         - pattern: MediaType.IMAGE_JPEG_VALUE
                         - pattern: MediaType.IMAGE_GIF_VALUE
-          - pattern-not-inside: |
-              @ResponseBody
-              $RETURNTYPE $METHOD(...) { ... }
           - focus-metavariable: $UNTRUSTED
 
       # Branch 1b: explicit HTML / SVG producer on the handler
