@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithGenericMetavarArrayArg
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithGenericMetavarArrayArg
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          ResponseEntity<$T> $METHOD(..., String $A, ...) {
+              ...
+          }

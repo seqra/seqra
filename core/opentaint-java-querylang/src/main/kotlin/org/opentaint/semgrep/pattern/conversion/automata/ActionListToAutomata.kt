@@ -284,6 +284,7 @@ private fun constructSignatureFormula(
     val signature = MethodSignature(
         methodName = methodName,
         enclosingClassName = MethodEnclosingClassName.anyClassName,
+        returnType = action.returnType,
     )
     builder.addSignature(signature)
 

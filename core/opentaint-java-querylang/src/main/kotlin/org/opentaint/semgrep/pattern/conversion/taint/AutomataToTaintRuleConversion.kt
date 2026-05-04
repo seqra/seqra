@@ -11,33 +11,33 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.C
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFieldRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFunctionNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher
-import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedRule
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Pattern
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher.Simple
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintCleanAction
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
+import org.opentaint.semgrep.pattern.FailedToConvertToTaintRule
+import org.opentaint.semgrep.pattern.IgnoredMetavarConstraint
 import org.opentaint.semgrep.pattern.Mark.RuleUniqueMarkPrefix
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
-import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
-import org.opentaint.semgrep.pattern.RuleWithMetaVars
-import org.opentaint.semgrep.pattern.FailedToConvertToTaintRule
-import org.opentaint.semgrep.pattern.IgnoredMetavarConstraint
 import org.opentaint.semgrep.pattern.NonMethodCallCleaner
 import org.opentaint.semgrep.pattern.PlaceholderAnnotation
 import org.opentaint.semgrep.pattern.PlaceholderMethodName
 import org.opentaint.semgrep.pattern.PlaceholderStringValue
 import org.opentaint.semgrep.pattern.PlaceholderTypeName
-import org.opentaint.semgrep.pattern.TaintRuleMatchAnything
+import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
+import org.opentaint.semgrep.pattern.RuleWithMetaVars
 import org.opentaint.semgrep.pattern.SemgrepMatchingRule
 import org.opentaint.semgrep.pattern.SemgrepRule
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
 import org.opentaint.semgrep.pattern.SemgrepTaintRule
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
+import org.opentaint.semgrep.pattern.TaintRuleMatchAnything
 import org.opentaint.semgrep.pattern.UserRuleFromSemgrepInfo
 import org.opentaint.semgrep.pattern.conversion.IsMetavar
 import org.opentaint.semgrep.pattern.conversion.MetavarAtom
@@ -497,6 +497,11 @@ private fun MethodSignature.notEvaluatedSignature(evaluated: MethodSignature): M
             MethodEnclosingClassName.anyClassName
         } else {
             enclosingClassName
+        },
+        returnType = if (returnType == evaluated.returnType) {
+            null
+        } else {
+            returnType
         }
     )
 }
@@ -553,6 +558,18 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
         RuleConditionBuilder().also { builder ->
             builder.methodName = name
             methodConds?.let { builder.conditions.add(it) }
+        }
+    }
+
+    val returnType = signature.returnType
+    if (returnType != null) {
+        val returnTypeFormula = typeMatcher(returnType, semgrepRuleTrace)
+        if (returnTypeFormula != null) {
+            for (builder in buildersWithMethodName) {
+                builder.conditions += returnTypeFormula.toSerializedCondition { typeNameMatcher ->
+                    SerializedCondition.IsType(typeNameMatcher, PositionBase.Result)
+                }
+            }
         }
     }
 
@@ -679,6 +696,12 @@ private fun classNameMatcherFromConcreteString(name: String): SerializedTypeName
     return SerializedTypeNameMatcher.ClassPattern(pkg, cls)
 }
 
+private fun anyClassPattern(): SerializedTypeNameMatcher.ClassPattern =
+    SerializedTypeNameMatcher.ClassPattern(
+        `package` = anyName(),
+        `class` = anyName()
+    )
+
 private fun TaintRuleGenerationCtx.evaluateEdgePredicateConstraint(
     edgeKind: TaintEdgeKind,
     state: State,
@@ -804,17 +827,33 @@ private fun TaintRuleGenerationCtx.typeMatcher(
     semgrepRuleTrace: SemgrepRuleLoadStepTrace
 ): MetaVarConstraintFormula<SerializedTypeNameMatcher>? {
     return when (typeName) {
-        is TypeNamePattern.ClassName -> MetaVarConstraintFormula.Constraint(
-            SerializedTypeNameMatcher.ClassPattern(
-                `package` = anyName(),
-                `class` = Simple(typeName.name)
+        is TypeNamePattern.ClassName -> {
+            val serializedTypeArgs = typeArgsMatcher(typeName.typeArgs, semgrepRuleTrace)
+            MetaVarConstraintFormula.Constraint(
+                SerializedTypeNameMatcher.ClassPattern(
+                    `package` = anyName(),
+                    `class` = Simple(typeName.name),
+                    typeArgs = serializedTypeArgs
+                )
             )
-        )
+        }
 
         is TypeNamePattern.FullyQualified -> {
-            MetaVarConstraintFormula.Constraint(
-                Simple(typeName.name)
-            )
+            val serializedTypeArgs = typeArgsMatcher(typeName.typeArgs, semgrepRuleTrace)
+            if (serializedTypeArgs == null) {
+                MetaVarConstraintFormula.Constraint(
+                    Simple(typeName.name)
+                )
+            } else {
+                val (pkg, cls) = classNamePartsFromConcreteString(typeName.name)
+                MetaVarConstraintFormula.Constraint(
+                    SerializedTypeNameMatcher.ClassPattern(
+                        `package` = pkg,
+                        `class` = cls,
+                        typeArgs = serializedTypeArgs
+                    )
+                )
+            }
         }
 
         is TypeNamePattern.PrimitiveName -> {
@@ -889,6 +928,14 @@ private fun TaintRuleGenerationCtx.typeMatcher(
             }
         }
     }
+}
+
+private fun TaintRuleGenerationCtx.typeArgsMatcher(
+    typeArgs: List<TypeNamePattern>,
+    semgrepRuleTrace: SemgrepRuleLoadStepTrace
+): List<SerializedTypeNameMatcher>? = typeArgs.takeIf { it.isNotEmpty() }?.map {
+    (typeMatcher(it, semgrepRuleTrace) as? MetaVarConstraintFormula.Constraint<SerializedTypeNameMatcher>)?.constraint
+        ?: anyClassPattern()
 }
 
 private fun String.patternCanMatchDot(): Boolean =

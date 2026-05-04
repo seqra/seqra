@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithMixedMetavarConcrete
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithMixedMetavarConcrete
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          $RET $METHOD(Map<$K, String> $M, ..., String $A, ...) {
+              ...
+          }

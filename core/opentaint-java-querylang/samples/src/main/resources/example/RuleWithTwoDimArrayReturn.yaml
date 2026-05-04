@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithTwoDimArrayReturn
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithTwoDimArrayReturn
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          String[][] $METHOD(..., String $A, ...) {
+              ...
+          }

@@ -1,6 +1,7 @@
 package org.opentaint.jvm.sast.dataflow.rules
 
 import org.opentaint.dataflow.configuration.jvm.ConditionNameMatcher
+import org.opentaint.dataflow.configuration.jvm.TypeArgMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher.ClassPattern
@@ -16,6 +17,18 @@ fun SerializedSimpleNameMatcher.toConditionNameMatcher(patternManager: PatternMa
 
             ConditionNameMatcher.Pattern(patternManager.compilePattern(pattern))
         }
+    }
+}
+
+fun SerializedTypeNameMatcher.toTypeArgMatcher(patternManager: PatternManager): TypeArgMatcher = when (this) {
+    is SerializedTypeNameMatcher.Array -> TypeArgMatcher.Array(element.toTypeArgMatcher(patternManager))
+    is ClassPattern -> {
+        val name = toConditionNameMatcher(patternManager) ?: ConditionNameMatcher.AnyName
+        TypeArgMatcher.Class(name, typeArgs?.map { it.toTypeArgMatcher(patternManager) })
+    }
+    is SerializedSimpleNameMatcher -> {
+        val name = toConditionNameMatcher(patternManager) ?: ConditionNameMatcher.AnyName
+        TypeArgMatcher.Class(name, typeArgs = null)
     }
 }
 

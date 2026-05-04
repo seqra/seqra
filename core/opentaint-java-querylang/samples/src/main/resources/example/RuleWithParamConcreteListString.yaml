@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithParamConcreteListString
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithParamConcreteListString
+    patterns:
+      - pattern: |-
+          ...
+          sink($DATA);
+          ...
+      - pattern-inside: |-
+          $RET $METHOD(List<String> $A, String $DATA) {
+              ...
+          }

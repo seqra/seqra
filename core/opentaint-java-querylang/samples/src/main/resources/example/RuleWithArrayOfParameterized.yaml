@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithArrayOfParameterized
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithArrayOfParameterized
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          List<String>[] $METHOD(..., String $A, ...) {
+              ...
+          }

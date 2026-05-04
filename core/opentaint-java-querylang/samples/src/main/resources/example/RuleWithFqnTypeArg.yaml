@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithFqnTypeArg
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithFqnTypeArg
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          ResponseEntity<java.lang.String> $METHOD(..., String $A, ...) {
+              ...
+          }

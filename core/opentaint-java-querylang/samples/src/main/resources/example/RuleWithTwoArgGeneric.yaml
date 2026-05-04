@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithTwoArgGeneric
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithTwoArgGeneric
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          $RET $METHOD(Map<$K, $V> $M, ..., String $A, ...) {
+              ...
+          }

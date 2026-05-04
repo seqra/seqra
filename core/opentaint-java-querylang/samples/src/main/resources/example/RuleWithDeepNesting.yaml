@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithDeepNesting
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithDeepNesting
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          List<List<String>> $METHOD(..., String $A, ...) {
+              ...
+          }

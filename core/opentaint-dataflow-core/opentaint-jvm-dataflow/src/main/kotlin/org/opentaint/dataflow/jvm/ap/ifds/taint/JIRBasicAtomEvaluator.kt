@@ -21,8 +21,10 @@ import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.Position
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
+import org.opentaint.dataflow.configuration.jvm.TypeArgMatcher
 import org.opentaint.dataflow.configuration.jvm.TypeMatches
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
+import org.opentaint.dataflow.configuration.jvm.erasedName
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionValue
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
@@ -31,7 +33,10 @@ import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasApInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasInfo
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
+import org.opentaint.ir.api.jvm.JIRArrayType
+import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRRefType
+import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.cfg.JIRBool
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRConstant
@@ -329,21 +334,35 @@ class JIRBasicAtomEvaluator(
         val type = value.type as? JIRRefType ?: return false
 
         val pattern = condition.pattern
-        if (pattern.match(type.typeName)) return true
+        val erasedMatch = pattern.match(type.typeName)
 
-        if (pattern !is ConditionNameMatcher.Concrete) {
-            // todo: check super classes?
-            return false
+        if (!erasedMatch) {
+            if (pattern !is ConditionNameMatcher.Concrete) {
+                // todo: check super classes?
+                return false
+            }
+
+            if (negated) return false
+
+            if (type.typeName == "java.lang.Object") {
+                // todo: hack to avoid explosion
+                return false
+            }
+
+            if (!typeChecker.typeMayHaveSubtypeOf(type.typeName, pattern.name)) {
+                return false
+            }
         }
 
-        if (negated) return false
+        val typeArgs = condition.typeArgs
+            ?: return true
 
-        if (type.typeName == "java.lang.Object") {
-            // todo: hack to avoid explosion
-            return false
+        if (type !is JIRClassType) return true
+
+        if (type.typeArguments.size != typeArgs.size) return false
+        return typeArgs.zip(type.typeArguments).all { (matcher, arg) ->
+            matcher.matchType(arg)
         }
-
-        return typeChecker.typeMayHaveSubtypeOf(type.typeName, pattern.name)
     }
 
     private fun ConditionNameMatcher.match(name: String): Boolean = when (this) {
@@ -352,7 +371,7 @@ class JIRBasicAtomEvaluator(
         is ConditionNameMatcher.Simple -> match(name)
     }
 
-    private fun ConditionNameMatcher.Simple.match(name: String): Boolean = when (this) {
+   private fun ConditionNameMatcher.Simple.match(name: String): Boolean = when (this) {
         is ConditionNameMatcher.Pattern -> pattern.containsMatchIn(name)
         is ConditionNameMatcher.Concrete -> this.name == name
         is ConditionNameMatcher.AnyName -> true
@@ -367,4 +386,24 @@ class JIRBasicAtomEvaluator(
         is CallPositionValue.Value -> value(res.value)
         is CallPositionValue.VarArgValue -> callVarArgValue(res.value)
     }
+
+    private fun TypeArgMatcher.matchType(type: JIRType): Boolean = when (this) {
+        is TypeArgMatcher.Class -> matchType(type)
+        is TypeArgMatcher.Array -> matchType(type)
+    }
+
+    private fun TypeArgMatcher.Class.matchType(type: JIRType): Boolean {
+        if (!name.match(type.erasedName())) return false
+
+        val args = typeArgs
+        if (args == null || type !is JIRClassType) {
+            return true
+        }
+
+        if (args.size != type.typeArguments.size) return false
+        return args.zip(type.typeArguments).all { (m, a) -> m.matchType(a) }
+    }
+
+    private fun TypeArgMatcher.Array.matchType(type: JIRType): Boolean =
+        type is JIRArrayType && element.matchType(type.elementType)
 }

@@ -5,8 +5,6 @@ import org.opentaint.dataflow.util.filter
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.map
 import org.opentaint.dataflow.util.toSet
-import org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
-import org.opentaint.semgrep.pattern.conversion.generatedMethodClassName
 import org.opentaint.semgrep.pattern.MetaVarConstraint
 import org.opentaint.semgrep.pattern.MetaVarConstraintFormula
 import org.opentaint.semgrep.pattern.MetaVarConstraints
@@ -27,10 +25,12 @@ import org.opentaint.semgrep.pattern.conversion.automata.MethodModifierConstrain
 import org.opentaint.semgrep.pattern.conversion.automata.MethodName
 import org.opentaint.semgrep.pattern.conversion.automata.MethodSignature
 import org.opentaint.semgrep.pattern.conversion.automata.NumberOfArgsConstraint
+import org.opentaint.semgrep.pattern.conversion.automata.OperationCancelation
 import org.opentaint.semgrep.pattern.conversion.automata.ParamConstraint
 import org.opentaint.semgrep.pattern.conversion.automata.Position
 import org.opentaint.semgrep.pattern.conversion.automata.Predicate
 import org.opentaint.semgrep.pattern.conversion.generatedAnyValueGeneratorMethodName
+import org.opentaint.semgrep.pattern.conversion.generatedMethodClassName
 import org.opentaint.semgrep.pattern.conversion.generatedStringConcatMethodName
 import java.util.BitSet
 
@@ -709,9 +709,15 @@ private fun MethodSignature?.unify(
     metaVarInfo: ResolvedMetaVarInfo,
 ): MethodSignature? {
     if (this == null) return other
+    val unifiedReturnType = when {
+        this.returnType == null -> other.returnType
+        other.returnType == null -> this.returnType
+        else -> unifyTypeName(this.returnType, other.returnType, metaVarInfo)
+    }
     return MethodSignature(
         methodName.unify(other.methodName, metaVarInfo) ?: return null,
         enclosingClassName.unify(other.enclosingClassName, metaVarInfo) ?: return null,
+        returnType = unifiedReturnType,
     )
 }
 
@@ -766,6 +772,18 @@ private fun MethodEnclosingClassName.unify(
     unifyTypeName(this.name, other.name, metaVarInfo)
         ?.let { MethodEnclosingClassName(it) }
 
+private fun unifyTypeArgs(
+    left: List<TypeNamePattern>,
+    right: List<TypeNamePattern>,
+    metaVarInfo: ResolvedMetaVarInfo
+): List<TypeNamePattern>? {
+    if (left.isEmpty()) return right
+    if (right.isEmpty()) return left
+    if (left.size != right.size) return null
+    val unified = left.zip(right).map { (l, r) -> unifyTypeName(l, r, metaVarInfo) ?: return null }
+    return unified
+}
+
 private fun unifyTypeName(
     left: TypeNamePattern,
     right: TypeNamePattern,
@@ -782,11 +800,19 @@ private fun unifyTypeName(
             TypeNamePattern.AnyType -> return left
 
             is TypeNamePattern.ArrayType,
-            is TypeNamePattern.ClassName,
             is TypeNamePattern.PrimitiveName -> return null
 
+            is TypeNamePattern.ClassName -> {
+                if (left.name != right.name) return null
+                val args = unifyTypeArgs(left.typeArgs, right.typeArgs, metaVarInfo) ?: return null
+                return TypeNamePattern.ClassName(left.name, args)
+            }
+
             is TypeNamePattern.FullyQualified -> {
-                if (right.name.endsWith(left.name)) return right
+                if (right.name.endsWith(left.name)) {
+                    val args = unifyTypeArgs(left.typeArgs, right.typeArgs, metaVarInfo) ?: return null
+                    return TypeNamePattern.FullyQualified(right.name, args)
+                }
                 return null
             }
 
@@ -803,11 +829,18 @@ private fun unifyTypeName(
             is TypeNamePattern.PrimitiveName -> return null
 
             is TypeNamePattern.ClassName -> {
-                if (left.name.endsWith(right.name)) return left
+                if (left.name.endsWith(right.name)) {
+                    val args = unifyTypeArgs(left.typeArgs, right.typeArgs, metaVarInfo) ?: return null
+                    return TypeNamePattern.FullyQualified(left.name, args)
+                }
                 return null
             }
 
-            is TypeNamePattern.FullyQualified -> return null
+            is TypeNamePattern.FullyQualified -> {
+                if (left.name != right.name) return null
+                val args = unifyTypeArgs(left.typeArgs, right.typeArgs, metaVarInfo) ?: return null
+                return TypeNamePattern.FullyQualified(left.name, args)
+            }
 
             is TypeNamePattern.MetaVar -> {
                 if (left.name == generatedMethodClassName) return null

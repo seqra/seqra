@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithConcreteReturnType
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithConcreteReturnType
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          String $METHOD(..., String $A, ...) {
+              ...
+          }

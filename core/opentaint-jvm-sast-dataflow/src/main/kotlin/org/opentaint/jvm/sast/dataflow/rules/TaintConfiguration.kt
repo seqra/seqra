@@ -45,6 +45,7 @@ import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
 import org.opentaint.dataflow.configuration.jvm.This
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
 import org.opentaint.dataflow.configuration.jvm.isFalse
+import org.opentaint.dataflow.configuration.jvm.matchType
 import org.opentaint.dataflow.configuration.jvm.mkAnd
 import org.opentaint.dataflow.configuration.jvm.mkFalse
 import org.opentaint.dataflow.configuration.jvm.mkOr
@@ -76,9 +77,12 @@ import org.opentaint.dataflow.configuration.jvm.simplify
 import org.opentaint.dataflow.jvm.util.JIRHierarchyInfo
 import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
+import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRField
 import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.JIRType
+import org.opentaint.ir.api.jvm.JIRTypedMethod
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
 import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.api.jvm.ext.allSuperHierarchySequence
@@ -89,7 +93,7 @@ import org.opentaint.jvm.sast.dataflow.matchedAnnotations
 import org.opentaint.jvm.util.typename
 import java.util.concurrent.atomic.AtomicInteger
 
-class TaintConfiguration(cp: JIRClasspath) {
+class TaintConfiguration(private val cp: JIRClasspath) {
     private val patternManager = PatternManager()
     private val hierarchyInfo = JIRHierarchyInfo(cp)
     private val objectTypeName = cp.objectClass.typename
@@ -279,32 +283,56 @@ class TaintConfiguration(cp: JIRClasspath) {
     }
 
     private fun SerializedSignatureMatcher.matchFunctionSignature(method: JIRMethod): Boolean {
+        val typedMethod by lazy { resolveTypedMethod(method) }
+
         when (this) {
             is SerializedSignatureMatcher.Simple -> {
                 if (method.parameters.size != args.size) return false
+                if (!`return`.matchTypedOrErased(method.returnType.typeName) { typedMethod?.returnType }) return false
 
-                if (!`return`.match(method.returnType.typeName)) return false
-
-                return args.zip(method.parameters).all { (matcher, param) ->
-                    matcher.match(param.type.typeName)
+                return args.withIndex().all { (idx, matcher) ->
+                    matcher.matchTypedOrErased(method.parameters[idx].type.typeName) {
+                        typedMethod?.parameters?.getOrNull(idx)?.type
+                    }
                 }
             }
 
             is SerializedSignatureMatcher.Partial -> {
                 val ret = `return`
-                if (ret != null && !ret.match(method.returnType.typeName)) return false
+                if (ret != null) {
+                    if (!ret.matchTypedOrErased(method.returnType.typeName) { typedMethod?.returnType }) return false
+                }
 
-                val params = params
-                if (params != null) {
-                    for (param in params) {
+                val paramList = params
+                if (paramList != null) {
+                    for (param in paramList) {
                         val methodParam = method.parameters.getOrNull(param.index) ?: return false
-                        if (!param.type.match(methodParam.type.typeName)) return false
+                        val paramTypeMatched = param.type.matchTypedOrErased(methodParam.type.typeName) {
+                            typedMethod?.parameters?.getOrNull(param.index)?.type
+                        }
+                        if (!paramTypeMatched) return false
                     }
                 }
 
                 return true
             }
         }
+    }
+
+    private fun SerializedTypeNameMatcher.matchTypedOrErased(erased: String, resolveType: () -> JIRType?): Boolean {
+        return withTypeResolutionFailureHandling(onFailure = { true }) {
+            matchType(erased, { resolveType() ?: throw TypeResolutionFailed() }, { name -> match(name) })
+        }
+    }
+
+    private inline fun <T> withTypeResolutionFailureHandling(onFailure: () -> T, body: () -> T): T = try {
+        body()
+    } catch (e: TypeResolutionFailed) {
+        onFailure()
+    }
+
+    private class TypeResolutionFailed : Exception() {
+        override fun fillInStackTrace(): Throwable = this
     }
 
     private fun SerializedFieldRule.resolveFieldRule(field: JIRField): List<TaintConfigurationItem> {
@@ -678,21 +706,27 @@ class TaintConfiguration(cp: JIRClasspath) {
         val falsePositions = hashSetOf<Position>()
 
         val normalizedTypeIs = typeIs.normalizeAnyName()
+
+        val typedMethod by lazy { resolveTypedMethod(method) }
+
         for (pos in position) {
             val posTypeName = when (pos) {
                 is Argument -> method.parameters[pos.index].type.typeName
-                Result -> method.returnType.typeName
-                This -> method.enclosingClass.name
+                is Result -> method.returnType.typeName
+                is This -> method.enclosingClass.name
                 is PositionWithAccess,
                 is ClassStatic -> continue
             }
 
-            if (normalizedTypeIs.match(posTypeName)) return mkTrue()
+            if (normalizedTypeIs.matchTypedOrErased(posTypeName) { typedMethod?.positionType(pos) }) {
+                return mkTrue()
+            }
 
             if (pos is This) {
-                if (method.enclosingClass.allSuperHierarchySequence.any { normalizedTypeIs.match(it.name) }) {
-                    return mkTrue()
+                val anySuperTypeMatch = method.enclosingClass.allSuperHierarchySequence.any {
+                    normalizedTypeIs.matchTypedOrErased(it.name) { typedMethod?.positionType(This) }
                 }
+                if (anySuperTypeMatch) return mkTrue()
 
                 if (method.isConstructor || method.isFinal) {
                     falsePositions.add(pos)
@@ -704,7 +738,22 @@ class TaintConfiguration(cp: JIRClasspath) {
             ?: return mkTrue()
 
         val nonFalsePositions = position.filter { it !in falsePositions }
-        return mkOr(nonFalsePositions.map { TypeMatchesPattern(it, matcher) })
+        val typeArgs = (normalizedTypeIs as? ClassPattern)?.typeArgs
+            ?.map { it.toTypeArgMatcher(patternManager) }
+
+        return mkOr(nonFalsePositions.map { TypeMatchesPattern(it, matcher, typeArgs) })
+    }
+
+    private fun JIRTypedMethod.positionType(pos: Position): JIRType? = when (pos) {
+        is Argument -> parameters.getOrNull(pos.index)?.type
+        is Result -> returnType
+        is This -> enclosingType
+        else -> null
+    }
+
+    private fun resolveTypedMethod(method: JIRMethod): JIRTypedMethod? {
+        val classType = cp.typeOf(method.enclosingClass) as? JIRClassType ?: return null
+        return classType.declaredMethods.find { it.method == method }
     }
 
     private fun SerializedTaintAssignAction.resolveWithArray(method: JIRMethod, ctx: AnyArgSpecializationCtx): List<AssignMark> =

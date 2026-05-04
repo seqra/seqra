@@ -146,21 +146,6 @@ class FailedTransformationToActionList(causeMessage: String?) : RuleIssueBlockin
     override val message: String = "Failed to transform pattern into an action list: ${causeMessage ?: "unknown error"}"
 }
 
-class TypeArgumentsIgnored : UnsupportedFeatureNonBlockingMessage() {
-    override val message: String = "Type arguments in the pattern are not supported and will be ignored during matching"
-}
-
-class MethodDeclarationReturnTypeIsArray : UnsupportedFeatureNonBlockingMessage() {
-    override val message: String = "Method declaration pattern with array return type is not supported; the return type constraint will be ignored"
-}
-
-class MethodDeclarationReturnTypeIsNotMetaVar : UnsupportedFeatureNonBlockingMessage() {
-    override val message: String = "Method declaration pattern with a concrete return type is not supported; only metavariable return types are handled"
-}
-
-class MethodDeclarationReturnTypeHasTypeArgs : UnsupportedFeatureNonBlockingMessage() {
-    override val message: String = "Method declaration pattern with a generic return type is not supported; type arguments on return types will be ignored"
-}
 
 class EmptyPatternsAfterConvertToRawRule(times: Int) : InternalWarningNonBlockingMessage() {
     override val message: String = "$times pattern variant(s) were dropped during normalization because they produced no positive patterns"

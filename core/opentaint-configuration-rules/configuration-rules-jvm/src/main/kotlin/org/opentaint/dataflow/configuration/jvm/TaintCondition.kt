@@ -119,6 +119,7 @@ sealed interface ConditionNameMatcher {
 data class TypeMatchesPattern(
     val position: Position,
     val pattern: ConditionNameMatcher,
+    val typeArgs: List<TypeArgMatcher>? = null,
 ) : Condition {
     override fun <R> accept(conditionVisitor: ConditionVisitor<R>): R = conditionVisitor.visit(this)
 }
