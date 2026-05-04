@@ -684,4 +684,118 @@ public class XssHtmlResponseSpringSamples {
             out.print(body);
         }
     }
+
+    // ── Row 50: setContentType(MediaType.TEXT_HTML_VALUE) + writer — TP
+    // `setContentType` accepts `String`, so passing the
+    // `MediaType.TEXT_HTML_VALUE` constant (which IS a `String`) is
+    // valid Spring code. Equivalent to `setContentType("text/html")` at
+    // runtime, so reflected user input is XSS-exploitable. The Branch 2
+    // sink alternatives currently only enumerate the bare-string form;
+    // this sample pins the constant-form coverage.
+
+    @org.springframework.stereotype.Controller
+    public static class Row50ServletSetContentTypeHtmlConstantController {
+
+        @GetMapping("/xss-in-spring-app/row-50")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public void row50(@RequestParam(required = false, defaultValue = "") String name,
+                          HttpServletResponse response) throws IOException {
+            response.setContentType(MediaType.TEXT_HTML_VALUE);
+            PrintWriter out = response.getWriter();
+            out.println("<h1>Hello, " + name + "!</h1>");
+        }
+    }
+
+    // ── Row 51: setHeader("Content-Type", MediaType.TEXT_HTML_VALUE) + writer — TP
+
+    @org.springframework.stereotype.Controller
+    public static class Row51ServletSetHeaderHtmlConstantController {
+
+        @GetMapping("/xss-in-spring-app/row-51")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public void row51(@RequestParam(required = false, defaultValue = "") String name,
+                          HttpServletResponse response) throws IOException {
+            response.setHeader("Content-Type", MediaType.TEXT_HTML_VALUE);
+            PrintWriter out = response.getWriter();
+            out.println("<h1>Hello, " + name + "!</h1>");
+        }
+    }
+
+    // ── Row 52: addHeader("Content-Type", MediaType.TEXT_HTML_VALUE) + writer — TP
+
+    @org.springframework.stereotype.Controller
+    public static class Row52ServletAddHeaderHtmlConstantController {
+
+        @GetMapping("/xss-in-spring-app/row-52")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public void row52(@RequestParam(required = false, defaultValue = "") String name,
+                          HttpServletResponse response) throws IOException {
+            response.addHeader("Content-Type", MediaType.TEXT_HTML_VALUE);
+            PrintWriter out = response.getWriter();
+            out.println("<h1>Hello, " + name + "!</h1>");
+        }
+    }
+
+    // ── Row 53: Object return + chained `return`-anchored builder + tainted body — TP
+    // Return type `Object` is NOT in Branch 1's default-dangerous
+    // enumeration (String / ResponseEntity<String|byte[]> / etc.) and
+    // there is no `produces=` annotation, so Branch 1 / 1b do not
+    // match this method-decl shape. The builder chain's explicit
+    // `.contentType(MediaType.TEXT_HTML)` is the runtime HTML signal
+    // (it overrides any framework default). Branch 1c is the only
+    // branch that catches this pattern; the sink is the `return`
+    // statement itself, not the bare `.body(...)` call.
+
+    @RestController
+    public static class Row53BuilderChainHtmlObjectReturnController {
+
+        @GetMapping("/xss-in-spring-app/row-53")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public Object row53(@RequestParam(required = false, defaultValue = "") String name) {
+            return ResponseEntity.ok()
+                    .contentType(MediaType.TEXT_HTML)
+                    .body("<h1>Hello, " + name + "!</h1>");
+        }
+    }
+
+    // ── Row 54: Object return + multi-statement (local-var) builder + return — TP
+    // Same default-`produces` case as Row 53, but the entity is built
+    // into a local variable and then returned on a subsequent line.
+    // Pins the multi-statement form of Branch 1c.
+
+    @RestController
+    public static class Row54BuilderChainHtmlMultiStatementController {
+
+        @GetMapping("/xss-in-spring-app/row-54")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public Object row54(@RequestParam(required = false, defaultValue = "") String name) {
+            ResponseEntity<String> entity = ResponseEntity.ok()
+                    .contentType(MediaType.TEXT_HTML)
+                    .body("<h1>Hello, " + name + "!</h1>");
+            return entity;
+        }
+    }
+
+    // ── Row 55: builder-chain HTML entity built but NOT returned — TN
+    // The handler constructs a `ResponseEntity` with
+    // `MediaType.TEXT_HTML` and a tainted body, but the entity is
+    // discarded — the method is `void` and the entity never reaches
+    // the dispatcher. No HTTP response carries the tainted data, so
+    // no XSS. Branch 1c is anchored at the `return` statement, so it
+    // correctly does NOT fire here. (An earlier `.body($UNTRUSTED)`-
+    // anchored Branch 1c would have raised an FP on this sample.)
+
+    @RestController
+    public static class Row55BuilderChainHtmlEntityDiscardedController {
+
+        @GetMapping("/xss-in-spring-app/row-55")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        @SuppressWarnings("unused")
+        public void row55(@RequestParam(required = false, defaultValue = "") String name) {
+            ResponseEntity<String> entity = ResponseEntity.ok()
+                    .contentType(MediaType.TEXT_HTML)
+                    .body("<h1>Hello, " + name + "!</h1>");
+            // `entity` is never returned, never written to the response.
+        }
+    }
 }

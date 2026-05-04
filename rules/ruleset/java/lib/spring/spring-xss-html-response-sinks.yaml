@@ -56,6 +56,20 @@ rules:
               - pattern: $X.header("Content-Type", "image/png").body($UNTRUSTED)
               - pattern: $X.header("Content-Type", "image/jpeg").body($UNTRUSTED)
               - pattern: $X.header("Content-Type", "image/gif").body($UNTRUSTED)
+              # `header(name, value)` takes a `String` value, so the
+              # `MediaType.X_VALUE` String constants are also valid
+              # arguments. The dev analyzer constant-folds them to the
+              # bare-string form above and these alternatives are
+              # therefore redundant under it; kept explicit for
+              # robustness against analyzer regressions / older builds.
+              - pattern: $X.header("Content-Type", MediaType.APPLICATION_JSON_VALUE).body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", MediaType.APPLICATION_PDF_VALUE).body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", MediaType.APPLICATION_OCTET_STREAM_VALUE).body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", MediaType.TEXT_PLAIN_VALUE).body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", MediaType.APPLICATION_XML_VALUE).body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", MediaType.IMAGE_PNG_VALUE).body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", MediaType.IMAGE_JPEG_VALUE).body($UNTRUSTED)
+              - pattern: $X.header("Content-Type", MediaType.IMAGE_GIF_VALUE).body($UNTRUSTED)
           - focus-metavariable: $UNTRUSTED
 
       # `new ResponseEntity<>(body, headers, status)` with a non-HTML
@@ -97,6 +111,16 @@ rules:
       # under the same `patterns:` group; a sibling-level constraint
       # silently does not filter negative-scope bindings.
       - patterns:
+          - metavariable-pattern:
+              metavariable: $ANNOTATION
+              patterns:
+                - pattern-either:
+                    - pattern: GetMapping
+                    - pattern: PostMapping
+                    - pattern: PutMapping
+                    - pattern: PatchMapping
+                    - pattern: DeleteMapping
+                    - pattern: RequestMapping
           # Pair each return-type shape with its dedicated sink:
           #   - body-typed returns (String / ResponseEntity / CompletableFuture)
           #     feed the response via `return $UNTRUSTED;`
@@ -162,18 +186,18 @@ rules:
                             ...
                           }
                   - pattern: $DR.setResult(..., $UNTRUSTED, ...);
-          - metavariable-pattern:
-              metavariable: $ANNOTATION
-              patterns:
-                - pattern-either:
-                    - pattern: GetMapping
-                    - pattern: PostMapping
-                    - pattern: PutMapping
-                    - pattern: PatchMapping
-                    - pattern: DeleteMapping
-                    - pattern: RequestMapping
           # `image/svg+xml` is deliberately NOT excluded — SVG can host
           # inline `<script>` and execute.
+          #
+          # `$PRODUCES` is placed OUTSIDE the source-pattern quotes so
+          # it binds to the entire annotation-argument expression
+          # (string literal OR `MediaType.X_VALUE` constant ref). The
+          # `metavariable-pattern` alternatives mix quoted Java string
+          # literals (e.g., `'"application/json"'`) with bare AST node
+          # references (e.g., `MediaType.APPLICATION_JSON_VALUE`). A
+          # bare-identifier MIME form like `application/json` cannot be
+          # used because the engine parses `/` and `-` as Java
+          # operators (BLOCKING parse error).
           - patterns:
               - pattern-not-inside: |
                   @$ANNOTATION(..., produces = $PRODUCES, ...)
@@ -191,52 +215,36 @@ rules:
                         - pattern: '"image/png"'
                         - pattern: '"image/jpeg"'
                         - pattern: '"image/gif"'
-          # Class-level `@RestController` ( = `@Controller` + `@ResponseBody`)
-          # routes every handler return through Spring's
-          # `HttpMessageConverter` pipeline. The default content-type for
-          # `String` / `ResponseEntity<String>` / `<byte[]>` is `text/plain`
-          # / `application/octet-stream` / converter-negotiated JSON — NOT
-          # `text/html`. So the DEFAULT-DANGEROUS shapes above are actually
-          # default-safe in a `@RestController` class. Explicit
-          # `produces = "text/html"` / `MediaType.TEXT_HTML_VALUE` /
-          # `image/svg+xml` cases are recovered by the dedicated
-          # explicit-HTML-producer branch below — they fire regardless of
-          # the class annotation.
-          - pattern-not-inside: |
-              @RestController
-              public class $C {
-                ...
-              }
-          - pattern-not-inside: |
-              @RestController(...)
-              public class $C {
-                ...
-              }
-          # Class-level `@ResponseBody` is the same semantics as
-          # `@RestController` (rare in practice but valid).
+                        - pattern: MediaType.APPLICATION_JSON_VALUE
+                        - pattern: MediaType.TEXT_PLAIN_VALUE
+                        - pattern: MediaType.APPLICATION_PDF_VALUE
+                        - pattern: MediaType.APPLICATION_OCTET_STREAM_VALUE
+                        - pattern: MediaType.APPLICATION_XML_VALUE
+                        - pattern: MediaType.TEXT_XML_VALUE
+                        - pattern: MediaType.IMAGE_PNG_VALUE
+                        - pattern: MediaType.IMAGE_JPEG_VALUE
+                        - pattern: MediaType.IMAGE_GIF_VALUE
           - pattern-not-inside: |
               @ResponseBody
-              public class $C {
-                ...
-              }
+              $RETURNTYPE $METHOD(...) { ... }
           - focus-metavariable: $UNTRUSTED
 
-      # Branch 1b: explicit HTML / SVG producer on the handler annotation
-      # OR on a class-level `@RequestMapping`. Fires regardless of
-      # `@RestController` because an explicit `produces` overrides the
-      # converter's default content type. Recovers Rows 02 / 23 / 25 / 32.
+      # Branch 1b: explicit HTML / SVG producer on the handler
+      # annotation. Fires regardless of `@RestController` because an
+      # explicit `produces` overrides the converter's default content
+      # type. Recovers Rows 02 / 23 / 25.
+      #
+      # Single bare-metavar `pattern-inside` (`produces = $PRODUCES_HTML`)
+      # binds the metavar to the entire annotation-argument expression,
+      # then `metavariable-pattern` lists both quoted Java string
+      # literals (`'"text/html"'` etc.) and bare `MediaType.X` constant
+      # references. Constant references cannot appear directly at the
+      # annotation-argument position in a rule pattern — the parser
+      # rejects them as "Annotation_argument_is_not_string_or_metavar".
       - patterns:
-          - pattern-either:
-              - patterns:
-                  - pattern-inside: |
-                      @$ANNOTATION(..., produces = $PRODUCES_HTML, ...)
-                      $RT $METHOD(...) { ... }
-                  - pattern: return $UNTRUSTED;
-              - patterns:
-                  - pattern-inside: |
-                      @RequestMapping(..., produces = $PRODUCES_HTML, ...)
-                      class $C { ... }
-                  - pattern: return $UNTRUSTED;
+          - pattern-inside: |
+              @$ANNOTATION(..., produces = $PRODUCES_HTML, ...)
+              $RT $METHOD(...) { ... }
           - metavariable-pattern:
               metavariable: $PRODUCES_HTML
               patterns:
@@ -244,9 +252,40 @@ rules:
                     - pattern: '"text/html"'
                     - pattern: '"text/html;charset=UTF-8"'
                     - pattern: '"text/html;charset=utf-8"'
-                    - pattern: 'MediaType.TEXT_HTML_VALUE'
                     - pattern: '"image/svg+xml"'
-                    - pattern: 'MediaType.IMAGE_SVG_XML_VALUE'
+                    - pattern: MediaType.TEXT_HTML_VALUE
+                    - pattern: MediaType.IMAGE_SVG_XML_VALUE
+          - pattern: return $UNTRUSTED;
+          - focus-metavariable: $UNTRUSTED
+
+      # Branch 1c: explicit HTML / SVG signal on a `ResponseEntity`
+      # builder chain. Sink is the `return` statement that hands the
+      # built entity back to Spring's dispatcher — `.body(...)` itself
+      # only constructs an entity, it is the `return` that exposes the
+      # response to the wire. Fires regardless of the handler's
+      # declared return type (covers `Object`, `ResponseEntity<DTO>`,
+      # custom wrappers) and regardless of the annotation's
+      # `produces=` (the builder's `.contentType(...)` overrides the
+      # framework default at runtime).
+      #
+      # `MediaType.TEXT_HTML` and `MediaType.IMAGE_SVG_XML` are the
+      # `MediaType` instance constants; `BodyBuilder.contentType()`
+      # accepts `MediaType` only (no `String` overload), so the
+      # `_VALUE` String constants do NOT appear here.
+      - patterns:
+          - pattern-either:
+              # Chained return: `return X.contentType(...).body(tainted);`
+              - pattern: return $X.contentType(MediaType.TEXT_HTML).body($UNTRUSTED);
+              - pattern: return $X.contentType(MediaType.IMAGE_SVG_XML).body($UNTRUSTED);
+              # Local-var assignment then return.
+              - pattern: |
+                  $RE = $X.contentType(MediaType.TEXT_HTML).body($UNTRUSTED);
+                  ...
+                  return $RE;
+              - pattern: |
+                  $RE = $X.contentType(MediaType.IMAGE_SVG_XML).body($UNTRUSTED);
+                  ...
+                  return $RE;
           - focus-metavariable: $UNTRUSTED
 
       # Branch 2: servlet-style writer — DEFAULT-SAFE shape, fires only
@@ -267,21 +306,18 @@ rules:
       # alternatives in `pattern-either`.
       - patterns:
           - pattern-either:
-              # setContentType (1-arg) + chained / local-var writer
               - pattern: |
                   (HttpServletResponse $R).setContentType("$CT_HTML");
                   ...
                   $W = (HttpServletResponse $R).getWriter(...);
                   ...
                   $W.$WRITE(..., $UNTRUSTED, ...);
-              # setHeader (2-arg) + chained / local-var writer
               - pattern: |
                   (HttpServletResponse $R).setHeader("Content-Type", "$CT_HTML");
                   ...
                   $W = (HttpServletResponse $R).getWriter(...);
                   ...
                   $W.$WRITE(..., $UNTRUSTED, ...);
-              # addHeader (2-arg) + chained / local-var writer
               - pattern: |
                   (HttpServletResponse $R).addHeader("Content-Type", "$CT_HTML");
                   ...

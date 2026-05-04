@@ -31,36 +31,8 @@ rules:
           - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:
-      # Method-shell `pattern-inside` binds `$RESPONSE` so the safe-CT
-      # exclusion below can refer to the same response object even for
-      # sink shapes that do not mention it (typed PrintWriter locals,
-      # JspWriter, etc.).
-      #
-      # Negation MUST be `pattern-not-inside`, not `pattern-not` (the
-      # latter trips an inconsistent-state automata bug at
-      # `SemgrepRuleToAutomata.kt:82-84`).
-      #
-      # `$CT` is constrained by a co-located `metavariable-pattern` under
-      # the same `patterns:` group — sibling-level constraints silently
-      # do not filter negative-scope bindings.
-      #
-      # The `$WRITE` method-name metavar cannot be constrained further
-      # (engine issue 99 — "Method name metavar constraints
-      # intersection"), so each writer-call arity is spelled out as a
-      # separate alternative under `pattern-either`.
       - patterns:
-          - pattern-inside: |
-              $RT $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                ...
-              }
           - pattern-either:
-              # Chained writer / output-stream calls.
-              - pattern: (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
-              - pattern: (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
-              # `sendError(code, msg)` writes the message into the default
-              # error page, which the container renders as text/html.
-              - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
-              # Local-var assignment shapes (writer / output-stream).
               - pattern: |
                   $W = (HttpServletResponse $RESPONSE).getWriter(...);
                   ...
@@ -69,42 +41,55 @@ rules:
                   $W = (HttpServletResponse $RESPONSE).getOutputStream(...);
                   ...
                   $W.$WRITE(..., $UNTRUSTED, ...);
-              # Pre-existing typed locals — writer / output-stream / JSP
-              # writer that arrived from elsewhere (constructor, helper,
-              # parameter). Both the FQN and short forms are spelled out
-              # because Semgrep does not unify them automatically when
-              # the import is absent in the sample.
+              - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
               - pattern: (java.io.PrintWriter $W).$WRITE(..., $UNTRUSTED, ...)
               - pattern: (PrintWriter $W).$WRITE(..., $UNTRUSTED, ...)
               - pattern: (javax.servlet.ServletOutputStream $W).$WRITE(..., $UNTRUSTED, ...)
               - pattern: (ServletOutputStream $W).$WRITE(..., $UNTRUSTED, ...)
               - pattern: (jakarta.servlet.jsp.JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
-          # `image/svg+xml` is deliberately NOT excluded — SVG can host
-          # inline `<script>` and execute.
-          #
-          # `$CT_SAFE` is placed INSIDE the source-pattern quotes
-          # (`"$CT_SAFE"`) so the metavar binds to the string-literal
-          # contents; a sibling `metavariable-regex` then filters those
-          # contents. Mirrors the Spring sibling rule's Branch 2 shape.
+
+          # `$CT_SAFE` is placed OUTSIDE the source-pattern quotes so it
+          # binds to the entire string-literal expression. The
+          # `metavariable-pattern` alternatives are then quoted Java
+          # string literals (e.g., `'"application/json"'`). The bare-
+          # identifier form (`application/json`) cannot be used because
+          # the engine parses it as a Java AST expression — `/` and `-`
+          # become operators, so e.g. `application/octet-stream` is
+          # truncated to `application/octet` (BLOCKING parse error).
           - patterns:
               - pattern-not-inside: |
-                  $RT $METHOD(HttpServletRequest $REQ, HttpServletResponse $RESPONSE) {
-                    ...
-                    (HttpServletResponse $RESPONSE).setContentType("$CT_SAFE");
-                    ...
-                  }
+                  (HttpServletResponse $RESPONSE).setContentType($CT_SAFE);
+                  ...
               - metavariable-pattern:
                   metavariable: $CT_SAFE
                   patterns:
                     - pattern-either:
-                        - pattern: application/json
-                        - pattern: application/json;charset=UTF-8
-                        - pattern: text/plain
-                        - pattern: application/pdf
-                        - pattern: application/octet-stream
-                        - pattern: application/xml
-                        - pattern: text/xml
-                        - pattern: image/png
-                        - pattern: image/jpeg
-                        - pattern: image/gif
+                        - pattern: '"application/json"'
+                        - pattern: '"application/json;charset=UTF-8"'
+                        - pattern: '"text/plain"'
+                        - pattern: '"application/pdf"'
+                        - pattern: '"application/octet-stream"'
+                        - pattern: '"application/xml"'
+                        - pattern: '"text/xml"'
+                        - pattern: '"image/png"'
+                        - pattern: '"image/jpeg"'
+                        - pattern: '"image/gif"'
+                        # `setContentType(String)` accepts the Spring
+                        # `MediaType.X_VALUE` String constants too. The
+                        # dev analyzer constant-folds them, but we list
+                        # them explicitly so the negation survives
+                        # analyzer regressions / older builds. Short
+                        # `MediaType.X_VALUE` form relies on the
+                        # engine's import resolution; raw-servlet code
+                        # that pulls in `org.springframework.http.MediaType`
+                        # for its String constants is unusual but valid.
+                        - pattern: MediaType.APPLICATION_JSON_VALUE
+                        - pattern: MediaType.TEXT_PLAIN_VALUE
+                        - pattern: MediaType.APPLICATION_PDF_VALUE
+                        - pattern: MediaType.APPLICATION_OCTET_STREAM_VALUE
+                        - pattern: MediaType.APPLICATION_XML_VALUE
+                        - pattern: MediaType.TEXT_XML_VALUE
+                        - pattern: MediaType.IMAGE_PNG_VALUE
+                        - pattern: MediaType.IMAGE_JPEG_VALUE
+                        - pattern: MediaType.IMAGE_GIF_VALUE
           - focus-metavariable: $UNTRUSTED
