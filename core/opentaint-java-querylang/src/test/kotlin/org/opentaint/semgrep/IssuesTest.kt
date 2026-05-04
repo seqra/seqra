@@ -16,12 +16,6 @@ import issues.issue94
 import issues.issue95
 import issues.issue96
 import issues.issue97
-import issues.issue98
-import issues.issue99
-import issues.issue100
-import issues.issue101
-import issues.issue102
-import issues.issue103
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
@@ -110,69 +104,6 @@ class IssuesTest : SampleBasedTest() {
 
     @Test
     fun `issue 97`() = runTest<issue97>()
-
-    @Test
-    @Disabled // todo: pattern-not-inside containing a compound formula (pattern-either /
-              // metavariable-pattern) is rejected as "pattern-inside must be a simple
-              // pattern". Equivalent to multiple pattern-not-inside siblings; engine
-              // should accept it.
-    fun `issue 98`() = runTest<issue98>()
-
-    @Test
-    @Disabled // todo: two method-name metavariables on a single chained call
-              // ($R.$M1(...).$M2(...)) fails with "Method name metavar constraints
-              // intersection". Authoring two-step call chains where both methods are
-              // metavar-constrained should be supported.
-    fun `issue 99`() = runTest<issue99>()
-
-    @Test
-    @Disabled // todo: diamond / generic class names (Foo<>, Foo<$E>) used as
-              // metavariable-pattern alternatives fail with "no viable alternative"
-              // at the AST parser. The failed alternatives are silently dropped from
-              // the pattern-either, so a rule with only such alternatives ends up
-              // with an unsatisfiable Or(emptySet) constraint and never matches.
-              // Should be both: fix the parser to accept these forms AND surface
-              // the parse failure to the rule author.
-    fun `issue 100`() = runTest<issue100>()
-
-    @Test
-    @Disabled // todo: taint from a method-parameter source does not propagate
-              // through string concatenation to a standalone `pattern: return
-              // $UNTRUSTED;` sink. The same rule fires when the body is `return
-              // name;` directly; the only thing that changes is the `+ "..."`
-              // in the return expression. Related to issue 83 (sink on string
-              // concatenation) but distinct: that test has a sink pattern that
-              // *explicitly* enumerates concat shapes; this test has a generic
-              // `return $UNTRUSTED;` sink that should fire whenever the return
-              // value is tainted, regardless of how the taint got there. Drove
-              // the bulk of the false-negative count that the XSS html-response
-              // rewrite then partially worked around by enclosing the return
-              // statement inside a larger single-pattern method declaration
-              // (the single-pattern shape *does* fire on concat returns).
-    fun `issue 101`() = runTest<issue101>()
-
-    @Test
-    @Disabled // todo: a rule with many `pattern-not-inside` entries hits the
-              // 2s automata build budget ("Failed to transform pattern to
-              // automata: Operation timeout"). Each pattern-not-inside
-              // complements an Inside automaton and intersects with the
-              // running result; the operation count grows superlinearly.
-              // Switching identical filtering to `pattern-not` (no Inside
-              // wrapper) avoids the timeout. Engine should either widen the
-              // budget for this construct, build the complement lazily, or
-              // unify equivalent Inside automata before complementing.
-    fun `issue 102`() = runTest<issue102>()
-
-    @Test
-    @Disabled // todo: the assignment-form sanitizer
-              // `pattern: $RESULT = $X.safe(...).body(...)` with
-              // `focus-metavariable: $RESULT` does not propagate cleanliness
-              // to downstream uses of $RESULT. The IFDS engine does not
-              // recognise this builder-chain shape as sanitising the body()
-              // argument, so taint flows through `body()` and reaches the
-              // sink. Documented in the original spring-xss-html-response
-              // rule comments; the rewrite no longer attempts this form.
-    fun `issue 103`() = runTest<issue103>()
 
     @AfterAll
     fun close() {
