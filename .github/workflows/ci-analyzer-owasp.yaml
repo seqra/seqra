@@ -21,7 +21,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  EXPECTED_TRACES: 3011
+  EXPECTED_TRACES: 3835
 
 jobs:
   owasp:
