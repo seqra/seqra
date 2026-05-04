@@ -100,7 +100,7 @@ rules:
  - id: controller
    languages:
      - java
-   severity: NOTE
+   severity: INFO
    message: Spring controller method detected
    metadata:
      license: MIT
