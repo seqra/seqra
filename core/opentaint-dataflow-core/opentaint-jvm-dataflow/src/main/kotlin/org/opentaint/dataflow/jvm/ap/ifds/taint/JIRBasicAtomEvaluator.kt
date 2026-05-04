@@ -21,17 +21,19 @@ import org.opentaint.dataflow.configuration.jvm.Not
 import org.opentaint.dataflow.configuration.jvm.Or
 import org.opentaint.dataflow.configuration.jvm.Position
 import org.opentaint.dataflow.configuration.jvm.PositionResolver
+import org.opentaint.dataflow.configuration.jvm.TypeArgMatcher
 import org.opentaint.dataflow.configuration.jvm.TypeMatches
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
+import org.opentaint.dataflow.configuration.jvm.erasedName
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionValue
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAllocInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasApInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasInfo
-import org.opentaint.dataflow.configuration.jvm.match
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
+import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.JIRType
@@ -54,7 +56,6 @@ class JIRBasicAtomEvaluator(
     private val typeChecker: JIRFactTypeChecker,
     private val aliasAnalysis: JIRLocalAliasAnalysis?,
     private val statement: CommonInst,
-    private val positionTypeResolver: PositionResolver<JIRType?>? = null,
 ) : ConditionVisitor<Boolean> {
     override fun visit(condition: Not): Boolean = error("Non-atomic condition")
     override fun visit(condition: And): Boolean = error("Non-atomic condition")
@@ -354,18 +355,26 @@ class JIRBasicAtomEvaluator(
         }
 
         val typeArgs = condition.typeArgs
-        if (typeArgs != null) {
-            val genericType = positionTypeResolver?.resolve(condition.position)
-            if (genericType is JIRClassType) {
-                if (genericType.typeArguments.size != typeArgs.size) return false
-                return typeArgs.zip(genericType.typeArguments).all { (matcher, arg) ->
-                    matcher.matchType(arg)
-                }
-            }
-            return true
-        }
+            ?: return true
 
-        return true
+        if (type !is JIRClassType) return true
+
+        if (type.typeArguments.size != typeArgs.size) return false
+        return typeArgs.zip(type.typeArguments).all { (matcher, arg) ->
+            matcher.matchType(arg)
+        }
+    }
+
+    private fun ConditionNameMatcher.match(name: String): Boolean = when (this) {
+        is ConditionNameMatcher.PatternEndsWith -> name.endsWith(suffix)
+        is ConditionNameMatcher.PatternStartsWith -> name.startsWith(prefix)
+        is ConditionNameMatcher.Simple -> match(name)
+    }
+
+   private fun ConditionNameMatcher.Simple.match(name: String): Boolean = when (this) {
+        is ConditionNameMatcher.Pattern -> pattern.containsMatchIn(name)
+        is ConditionNameMatcher.Concrete -> this.name == name
+        is ConditionNameMatcher.AnyName -> true
     }
 
     private fun Position.eval(
@@ -377,4 +386,24 @@ class JIRBasicAtomEvaluator(
         is CallPositionValue.Value -> value(res.value)
         is CallPositionValue.VarArgValue -> callVarArgValue(res.value)
     }
+
+    private fun TypeArgMatcher.matchType(type: JIRType): Boolean = when (this) {
+        is TypeArgMatcher.Class -> matchType(type)
+        is TypeArgMatcher.Array -> matchType(type)
+    }
+
+    private fun TypeArgMatcher.Class.matchType(type: JIRType): Boolean {
+        if (!name.match(type.erasedName())) return false
+
+        val args = typeArgs
+        if (args == null || type !is JIRClassType) {
+            return true
+        }
+
+        if (args.size != type.typeArguments.size) return false
+        return args.zip(type.typeArguments).all { (m, a) -> m.matchType(a) }
+    }
+
+    private fun TypeArgMatcher.Array.matchType(type: JIRType): Boolean =
+        type is JIRArrayType && element.matchType(type.elementType)
 }

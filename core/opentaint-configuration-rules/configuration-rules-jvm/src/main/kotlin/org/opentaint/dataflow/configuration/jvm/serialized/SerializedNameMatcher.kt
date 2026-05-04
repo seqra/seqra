@@ -21,7 +21,7 @@ sealed interface SerializedTypeNameMatcher {
         val `class`: SerializedSimpleNameMatcher,
         // null = no type-args constraint (matches raw / declared erasure).
         // empty list is reserved for an explicit zero-arg parameterization.
-        val typeArgs: List<SerializedTypeNameMatcher>? = null
+        val typeArgs: List<SerializedTypeNameMatcher>? = null,
     ) : SerializedTypeNameMatcher
 
     @Serializable

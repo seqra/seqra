@@ -27,6 +27,7 @@ sealed interface SerializedSignatureMatcher {
     @Serializable
     data class Partial(
         val params: List<SerializedArgMatcher>? = null,
+        val `return`: SerializedTypeNameMatcher? = null
     ) : SerializedSignatureMatcher
 }
 
