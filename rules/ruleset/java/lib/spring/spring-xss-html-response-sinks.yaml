@@ -106,18 +106,23 @@ rules:
               - patterns:
                   - pattern-either:
                       # Body-typed returns whose default Content-Type can
-                      # land on text/html. Ideally we'd discriminate
-                      # `ResponseEntity<String>` / `<byte[]>` (DEFAULT-
-                      # DANGEROUS) from `ResponseEntity<DTO>` /
-                      # `ResponseEntity<Map<...>>` (DEFAULT-SAFE — Jackson
-                      # serializes as JSON). The engine has a documented
-                      # gap on concrete type-arg discrimination at the
-                      # method-decl return position (see
-                      # `RuleWithGenericByteArrayReturnType.java`'s honest
-                      # negative), so all four alternatives below collapse
-                      # to "any return type" today; the type list is
-                      # forward-compatible declarative intent that will
-                      # take effect once the engine gap closes.
+                      # land on text/html. The engine implements exact
+                      # type-arg matching at the method-decl return
+                      # position (see `TypeAwarePatternTest` A1 etc.), so
+                      # `ResponseEntity<String>` / `<byte[]>` are now
+                      # declarative discriminators rather than
+                      # placeholders. NOTE: discrimination composes
+                      # cleanly with call-site sinks (`$DR.setResult(...)`
+                      # below correctly excludes `DeferredResult<DTO>` —
+                      # see Row 43); but the return-statement sink shape
+                      # (`return $UNTRUSTED;` paired with a bare-params
+                      # `pattern-inside`) does NOT yet honor the
+                      # parameterized-return-type filter end-to-end —
+                      # `ResponseEntity<DTO>` / `ResponseEntity<Map<...>>`
+                      # / `CompletableFuture<DTO>` still match (Rows 40 /
+                      # 41 / 42 are ENGINE-FP). Once that path closes,
+                      # the enumerations below take effect for these
+                      # cases too.
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           String $METHOD(...) {
@@ -135,16 +140,27 @@ rules:
                           }
                       - pattern-inside: |
                           @$ANNOTATION(...)
-                          CompletableFuture<$T> $METHOD(...) {
+                          CompletableFuture<String> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<byte[]> $METHOD(...) {
                             ...
                           }
                   - pattern: return $UNTRUSTED;
               - patterns:
-                  - pattern-inside: |
-                      @$ANNOTATION(...)
-                      DeferredResult<$T> $METHOD(...) {
-                        ...
-                      }
+                  - pattern-either:
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<String> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<byte[]> $METHOD(...) {
+                            ...
+                          }
                   - pattern: $DR.setResult(..., $UNTRUSTED, ...);
           - metavariable-pattern:
               metavariable: $ANNOTATION
@@ -175,6 +191,62 @@ rules:
                         - pattern: '"image/png"'
                         - pattern: '"image/jpeg"'
                         - pattern: '"image/gif"'
+          # Class-level `@RestController` ( = `@Controller` + `@ResponseBody`)
+          # routes every handler return through Spring's
+          # `HttpMessageConverter` pipeline. The default content-type for
+          # `String` / `ResponseEntity<String>` / `<byte[]>` is `text/plain`
+          # / `application/octet-stream` / converter-negotiated JSON — NOT
+          # `text/html`. So the DEFAULT-DANGEROUS shapes above are actually
+          # default-safe in a `@RestController` class. Explicit
+          # `produces = "text/html"` / `MediaType.TEXT_HTML_VALUE` /
+          # `image/svg+xml` cases are recovered by the dedicated
+          # explicit-HTML-producer branch below — they fire regardless of
+          # the class annotation.
+          - pattern-not-inside: |
+              @RestController
+              public class $C {
+                ...
+              }
+          - pattern-not-inside: |
+              @RestController(...)
+              public class $C {
+                ...
+              }
+          # Class-level `@ResponseBody` is the same semantics as
+          # `@RestController` (rare in practice but valid).
+          - pattern-not-inside: |
+              @ResponseBody
+              public class $C {
+                ...
+              }
+          - focus-metavariable: $UNTRUSTED
+
+      # Branch 1b: explicit HTML / SVG producer on the handler annotation
+      # OR on a class-level `@RequestMapping`. Fires regardless of
+      # `@RestController` because an explicit `produces` overrides the
+      # converter's default content type. Recovers Rows 02 / 23 / 25 / 32.
+      - patterns:
+          - pattern-either:
+              - patterns:
+                  - pattern-inside: |
+                      @$ANNOTATION(..., produces = $PRODUCES_HTML, ...)
+                      $RT $METHOD(...) { ... }
+                  - pattern: return $UNTRUSTED;
+              - patterns:
+                  - pattern-inside: |
+                      @RequestMapping(..., produces = $PRODUCES_HTML, ...)
+                      class $C { ... }
+                  - pattern: return $UNTRUSTED;
+          - metavariable-pattern:
+              metavariable: $PRODUCES_HTML
+              patterns:
+                - pattern-either:
+                    - pattern: '"text/html"'
+                    - pattern: '"text/html;charset=UTF-8"'
+                    - pattern: '"text/html;charset=utf-8"'
+                    - pattern: 'MediaType.TEXT_HTML_VALUE'
+                    - pattern: '"image/svg+xml"'
+                    - pattern: 'MediaType.IMAGE_SVG_XML_VALUE'
           - focus-metavariable: $UNTRUSTED
 
       # Branch 2: servlet-style writer — DEFAULT-SAFE shape, fires only

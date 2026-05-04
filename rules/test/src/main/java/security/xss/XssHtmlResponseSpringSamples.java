@@ -653,6 +653,17 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
+    // ── Rows 40/41/42/43: @RestController + parameterized return cases ─────
+    // Moved to dedicated `spring-app-tests/` sub-projects so they're
+    // analyzed via Spring dispatch rather than direct method-as-entry:
+    //   - rules/test/spring-app-tests/xss-rest-controller-string-negative
+    //   - rules/test/spring-app-tests/xss-rest-controller-dto-negative
+    //   - rules/test/spring-app-tests/xss-rest-controller-html-positive
+    // Method-as-entry analysis (the default for samples in this file)
+    // does not honor class-level `pattern-not-inside` end-to-end, so
+    // these cases need the SpringTestSample wrapper to reflect what
+    // `opentaint scan` actually produces.
+
     // ── Row 37: assignment-form servlet writer with safe setContentType
     // Same shape as Row20, but the writer call is on a separate line and
     // the data argument is held in a variable. Multi-statement single-
