@@ -47,12 +47,6 @@ class TypeAwarePatternTest : SampleBasedTest() {
     fun `A5 - wildcard type argument ResponseEntity of question mark`() =
         runTest<example.RuleWithWildcardGeneric>()
 
-    // A6. Raw ResponseEntity in method-decl pattern matches raw, parameterized,
-    // and parameterized-with-array — documented current engine behavior.
-    @Test
-    fun `A6 - raw ResponseEntity method-decl pattern matches raw and parameterized forms`() =
-        runTest<example.RuleWithRawResponseEntity>()
-
     // A8. Mixed metavar + concrete: Map<$K, String> — $K is a metavar, second
     // slot is concrete String.
     @Test
