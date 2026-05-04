@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.configuration.jvm
 
+import org.opentaint.dataflow.configuration.jvm.serialized.SerializedSimpleNameMatcher
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMatcher
 import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRClassType
@@ -7,46 +8,40 @@ import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.JIRTypeVariable
 import org.opentaint.ir.api.jvm.JIRUnboundWildcard
 
-/**
- * A class type is "raw-like" when no concrete substitution has been applied to
- * its type arguments — either the list is empty, or every argument is still a
- * declared type variable / unbound wildcard. Matches a no-type-arg rule pattern.
- */
-fun JIRClassType.isRawLike(): Boolean {
-    if (typeArguments.isEmpty()) return true
-    return typeArguments.all { it is JIRTypeVariable || it is JIRUnboundWildcard }
+fun SerializedTypeNameMatcher.matchType(
+    erasedTypeName: String,
+    resolveType: () -> JIRType,
+    erasedMatch: SerializedTypeNameMatcher.(String) -> Boolean,
+): Boolean {
+    if (!erasedMatch(erasedTypeName)) return false
+    return matchTypeArgs(resolveType, erasedMatch)
 }
 
-/**
- * Structural match of a serialized type-name matcher against a resolved
- * [JIRType], including recursion into generic type arguments.
- *
- * Erased-name matching is delegated to [erasedMatch] so each caller can plug in
- * its own name-matching primitive (e.g. a `PatternManager`-cached matcher vs.
- * a plain `Regex`). The matcher receiver on [erasedMatch] is the sub-pattern
- * being tested, not the root `this`.
- */
-fun SerializedTypeNameMatcher.matchType(
-    type: JIRType,
+private fun SerializedTypeNameMatcher.matchTypeArgs(
+    resolveType: () -> JIRType?,
     erasedMatch: SerializedTypeNameMatcher.(String) -> Boolean,
-): Boolean = when {
-    this is SerializedTypeNameMatcher.ClassPattern && typeArgs == null && type is JIRClassType ->
-        erasedMatch(type.erasedName()) && type.isRawLike()
+): Boolean {
+    return when (this) {
+        is SerializedSimpleNameMatcher -> true // no type args
 
-    this is SerializedTypeNameMatcher.ClassPattern && typeArgs == null ->
-        erasedMatch(type.erasedName())
+        is SerializedTypeNameMatcher.ClassPattern -> {
+            val args = typeArgs ?: return true
 
-    this is SerializedTypeNameMatcher.ClassPattern && type is JIRClassType -> {
-        val args = typeArgs!!
-        erasedMatch(type.erasedName()) &&
-            args.size == type.typeArguments.size &&
-            args.zip(type.typeArguments).all { (m, a) -> m.matchType(a, erasedMatch) }
+            val type = resolveType()
+            if (type !is JIRClassType) return false
+
+            if (args.size != type.typeArguments.size) return false
+
+            args.zip(type.typeArguments).all { (m, a) ->
+                m.matchType(a.erasedName(), resolveType = { a }, erasedMatch)
+            }
+        }
+
+        is SerializedTypeNameMatcher.Array -> element.matchTypeArgs(
+            resolveType = { (resolveType() as? JIRArrayType)?.elementType },
+            erasedMatch
+        )
     }
-
-    this is SerializedTypeNameMatcher.Array && type is JIRArrayType ->
-        element.matchType(type.elementType, erasedMatch)
-
-    else -> erasedMatch(type.erasedName())
 }
 
 /**
