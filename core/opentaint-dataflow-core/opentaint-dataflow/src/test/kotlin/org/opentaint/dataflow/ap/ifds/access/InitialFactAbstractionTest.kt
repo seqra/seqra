@@ -78,20 +78,26 @@ abstract class InitialFactAbstractionTest {
         val produced = abstraction.addAbstractedInitialFact(added, FactTypeChecker.Dummy)
 
         if (expectedEmpty) {
-            assertTrue(
-                abstractionIsEmpty(produced),
-                "[$name] expected no produced facts; analyzed=$analyzed; added=$added; produced=${
-                    producedFactsToString(produced)
-                }",
-            )
+            val message = buildString {
+                appendLine("[$name] expected no produced facts")
+                appendLine("analyzed=$analyzed")
+                appendLine("added=$added")
+                appendLine("produced=${producedFactsToString(produced)}")
+            }
+            assertTrue(abstractionIsEmpty(produced), message)
         }
 
         expectedFacts.forEach { expected ->
+            val message = buildString {
+                appendLine("[$name] expected fact is missing")
+                appendLine("analyzed=$analyzed")
+                appendLine("added=$added")
+                appendLine("expected=$expected")
+                appendLine("produced=${producedFactsToString(produced)}")
+            }
             assertTrue(
                 produced.any { (initial, final) -> initial == expected && final.equalTo(expected) },
-                "[$name] expected fact is missing; analyzed=$analyzed; added=$added; expected=$expected; produced=${
-                    producedFactsToString(produced)
-                }",
+                message,
             )
         }
     }
