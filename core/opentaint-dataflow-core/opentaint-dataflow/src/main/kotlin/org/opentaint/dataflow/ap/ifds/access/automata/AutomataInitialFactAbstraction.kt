@@ -8,6 +8,7 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAbstraction
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
+import org.opentaint.dataflow.util.ConcurrentReadSafeObject2IntMap
 import org.opentaint.dataflow.util.contains
 import org.opentaint.dataflow.util.filter
 import org.opentaint.dataflow.util.forEach
@@ -50,7 +51,7 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
         fact: AccessGraphInitialFactAp,
         typeChecker: FactTypeChecker
     ): List<Pair<InitialFactAp, FinalFactAp>> {
-        val addedBasedFacts = addedFacts.find(fact.base) ?: return emptyList()
+        val addedBasedFacts = addedFacts.getOrCreate(fact.base)
         return addedBasedFacts.registerNew(fact.access, fact.exclusions, typeChecker).map {
             Pair(
                 AccessGraphInitialFactAp(fact.base, it, ExclusionSet.Empty),
@@ -77,7 +78,7 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
         private val analyzedExclusionIndex = int2ObjectMap<BitSet>()
 
         fun addAndAbstract(graph: AccessGraph, typeChecker: FactTypeChecker): List<AccessGraph> = with(graph.manager) {
-            if (added.isEmpty()) {
+            if (added.isEmpty() && analyzed.isEmpty()) {
                 added.put(graph, 0)
                 addedGraphs.add(graph)
                 addedIndex.add(graph, 0)
@@ -107,7 +108,12 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
         ): List<AccessGraph> = with(graph.manager) {
             if (exclusion !is ExclusionSet.Concrete) return emptyList()
 
-            val analyzedGraphIdx = analyzed.getValue(graph)
+            var analyzedGraphIdx = analyzed.getInt(graph)
+            if (analyzedGraphIdx == ConcurrentReadSafeObject2IntMap.NO_VALUE) {
+                graph.registerNewAnalyzed()
+                analyzedGraphIdx = analyzed.getValue(graph)
+            }
+
             val analyzedGraphExclusion = analyzedExclusion[analyzedGraphIdx]
             val newAccessors = exclusion.set.toBitSet { it.idx }.filter { it !in analyzedGraphExclusion }
 
