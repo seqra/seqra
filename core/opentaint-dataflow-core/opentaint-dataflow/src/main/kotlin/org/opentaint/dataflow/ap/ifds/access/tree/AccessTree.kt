@@ -35,7 +35,7 @@ import java.util.Optional
 import kotlin.jvm.optionals.getOrNull
 
 class AccessTree(
-    private val apManager: TreeApManager,
+    val apManager: TreeApManager,
     override val base: AccessPathBase,
     val access: AccessNode,
     override val exclusions: ExclusionSet

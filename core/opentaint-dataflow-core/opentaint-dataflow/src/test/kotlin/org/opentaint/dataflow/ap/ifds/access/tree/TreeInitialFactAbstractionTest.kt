@@ -71,6 +71,15 @@ class TreeInitialFactAbstractionTest {
         }
     }
 
+    private fun merge(fact: FinalFactAp, vararg facts: FinalFactAp): FinalFactAp {
+        check(fact is AccessTree)
+        return facts.fold(fact) { acc, f ->
+            val tree = f as AccessTree
+            val access = acc.access.mergeAdd(tree.access)
+            AccessTree(fact.apManager, fact.base, access, fact.exclusions)
+        }
+    }
+
     @Test
     fun `scenario matrix`() {
         val scenarios = listOf(
@@ -250,6 +259,114 @@ class TreeInitialFactAbstractionTest {
                 analyzed = listOf(initialFact(This, TypeInfoGroupAccessor).exclude(TYPE_INFO_A)),
                 added = finalFact(This, TYPE_INFO_B, TypeInfoGroupAccessor),
                 expectedEmpty = true,
+            ),
+            Scenario(
+                name = "29 merged final root exclusion on b returns a.b",
+                analyzed = listOf(initialFact(This).exclude(FIELD_A_B)),
+                added = merge(
+                    finalFact(This, FIELD_A_B, FIELD_B_C),
+                    finalFact(This, FIELD_A_B, FIELD_B_E),
+                ),
+                expectedFacts = listOf(initialFact(This, FIELD_A_B)),
+            ),
+            Scenario(
+                name = "30 merged final exclusion on c under b returns a.b.c",
+                analyzed = listOf(initialFact(This, FIELD_A_B).exclude(FIELD_B_C)),
+                added = merge(
+                    finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
+                    finalFact(This, FIELD_A_B, FIELD_B_E),
+                ),
+                expectedFacts = listOf(initialFact(This, FIELD_A_B, FIELD_B_C)),
+            ),
+            Scenario(
+                name = "31 merged final non matching exclusion on e returns empty",
+                analyzed = listOf(initialFact(This, FIELD_A_B).exclude(FIELD_B_E)),
+                added = merge(
+                    finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
+                    finalFact(This, FIELD_A_B, FIELD_B_C),
+                ),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "32 merged final mark plus field with mark exclusion returns mark.final",
+                analyzed = listOf(initialFact(This).exclude(MARK)),
+                added = merge(
+                    finalFact(This, MARK),
+                    finalFact(This, FIELD_A_B, FIELD_B_C),
+                ),
+                expectedFacts = listOf(initialFact(This, MARK, FinalAccessor)),
+            ),
+            Scenario(
+                name = "33 merged final type group plus field exclusion returns type group.final",
+                analyzed = listOf(initialFact(This).exclude(TypeInfoGroupAccessor)),
+                added = merge(
+                    finalFact(This, TypeInfoGroupAccessor),
+                    finalFact(This, FIELD_A_B, FIELD_B_C),
+                ),
+                expectedFacts = listOf(initialFact(This, TypeInfoGroupAccessor, FinalAccessor)),
+            ),
+            Scenario(
+                name = "34 merged final with any branch and root exclusion on b returns a.b",
+                analyzed = listOf(initialFact(This).exclude(FIELD_A_B)),
+                added = merge(
+                    finalFact(This, AnyAccessor, FIELD_B_C),
+                    finalFact(This, FIELD_A_B, FIELD_B_C),
+                ),
+                expectedFacts = listOf(initialFact(This, FIELD_A_B)),
+            ),
+            Scenario(
+                name = "35 merged final any under b plus concrete c exclusion returns a.b.c",
+                analyzed = listOf(initialFact(This, FIELD_A_B).exclude(FIELD_B_C)),
+                added = merge(
+                    finalFact(This, FIELD_A_B, AnyAccessor, MARK),
+                    finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
+                ),
+                expectedFacts = listOf(initialFact(This, FIELD_A_B, FIELD_B_C)),
+            ),
+            Scenario(
+                name = "36 merged final any under b with non matching exclusion on e returns a.b.e",
+                analyzed = listOf(initialFact(This, FIELD_A_B).exclude(FIELD_B_E)),
+                added = merge(
+                    finalFact(This, FIELD_A_B, AnyAccessor, MARK),
+                    finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
+                ),
+                expectedFacts = listOf(initialFact(This, FIELD_A_B, FIELD_B_E)),
+            ),
+            Scenario(
+                name = "37 merged final with root any and concrete branch exclusion on c returns empty",
+                analyzed = listOf(initialFact(This, FIELD_A_B).exclude(FIELD_B_C)),
+                added = merge(
+                    finalFact(This, AnyAccessor, FIELD_B_C, FIELD_C_D),
+                    finalFact(This, FIELD_A_B, FIELD_B_E),
+                ),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "38 merged final unroll next with any no-any leaf and c exclusion returns a.b.c",
+                analyzed = listOf(initialFact(This, FIELD_A_B).exclude(FIELD_B_C)),
+                added = merge(
+                    finalFact(This, FIELD_A_B, AnyAccessor, FIELD_NO_ANY),
+                    finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
+                ),
+                expectedFacts = listOf(initialFact(This, FIELD_A_B, FIELD_B_C)),
+            ),
+            Scenario(
+                name = "39 merged final mark and value chains with root mark exclusion returns mark.final",
+                analyzed = listOf(initialFact(This).exclude(MARK)),
+                added = merge(
+                    finalFact(This, MARK),
+                    finalFact(This, ValueAccessor, MARK),
+                ),
+                expectedFacts = listOf(initialFact(This, MARK, FinalAccessor)),
+            ),
+            Scenario(
+                name = "40 merged final type group and any typed chain with root exclusion returns type group.final",
+                analyzed = listOf(initialFact(This).exclude(TypeInfoGroupAccessor)),
+                added = merge(
+                    finalFact(This, TypeInfoGroupAccessor),
+                    finalFact(This, AnyAccessor, TYPE_INFO_A, TypeInfoGroupAccessor),
+                ),
+                expectedFacts = listOf(initialFact(This, TypeInfoGroupAccessor, FinalAccessor)),
             ),
         )
 
