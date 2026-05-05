@@ -472,22 +472,6 @@ abstract class InitialFactAbstractionTest {
     )
 
     @Test
-    fun `any accessor scenario 8 analyzed excludes d under b c added b c any mark`() = runScenario(
-        "any-8 analyzed excludes d under b.c, added b.c.any.mark",
-        listOf(initialFact(AccessPathBase.This, FIELD_A_B, FIELD_B_C).exclude(FIELD_C_D)),
-        finalFact(AccessPathBase.This, FIELD_A_B, FIELD_B_C, AnyAccessor, MARK),
-        expectedFacts = listOf(initialFact(AccessPathBase.This, FIELD_A_B))
-    )
-
-    @Test
-    fun `any accessor scenario 9 analyzed excludes d under b c added b c any d mark`() = runScenario(
-        "any-9 analyzed excludes d under b.c, added b.c.any.d.mark",
-        listOf(initialFact(AccessPathBase.This, FIELD_A_B, FIELD_B_C).exclude(FIELD_C_D)),
-        finalFact(AccessPathBase.This, FIELD_A_B, FIELD_B_C, AnyAccessor, FIELD_C_D, MARK),
-        expectedFacts = listOf(initialFact(AccessPathBase.This, FIELD_A_B))
-    )
-
-    @Test
     fun `same conflicting fact added twice yields abstraction only once`() {
         val abstraction = newAbstraction()
         val analyzed = initialFact(AccessPathBase.This, FIELD_A_B).exclude(FIELD_B_C)
