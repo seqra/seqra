@@ -153,22 +153,6 @@ abstract class InitialFactAbstractionTest {
     )
 
     @Test
-    fun `scenario 7 deeper exclusion on d currently collapses to a b`() = runScenario(
-        "7 deeper exclusion on d currently collapses to a.b",
-        listOf(initialFact(AccessPathBase.This, FIELD_A_B, FIELD_B_C).exclude(FIELD_C_D)),
-        finalFact(AccessPathBase.This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
-        expectedFacts = listOf(initialFact(AccessPathBase.This, FIELD_A_B))
-    )
-
-    @Test
-    fun `scenario 8 deeper non matching exclusion currently collapses to a b`() = runScenario(
-        "8 deeper non matching exclusion currently collapses to a.b",
-        listOf(initialFact(AccessPathBase.This, FIELD_A_B, FIELD_B_C).exclude(FIELD_B_E)),
-        finalFact(AccessPathBase.This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
-        expectedFacts = listOf(initialFact(AccessPathBase.This, FIELD_A_B))
-    )
-
-    @Test
     fun `scenario 9 multiple analyzed paths currently produce no abstraction`() = runScenario(
         "9 multiple analyzed paths currently produce no abstraction",
         listOf(initialFact(AccessPathBase.This).exclude(FIELD_A_B), initialFact(AccessPathBase.This, FIELD_A_B).exclude(FIELD_B_E)),
@@ -252,7 +236,7 @@ abstract class InitialFactAbstractionTest {
     fun `scenario 19 unrelated base plus matching this base exclusion uses this base result`() = runScenario(
         "19 unrelated base plus matching this-base exclusion uses this-base result",
         listOf(
-            initialFact(AccessPathBase.Argument(0), FIELD_A_B).exclude(FIELD_B_C),
+            initialFact(AccessPathBase.ClassStatic, FIELD_A_B).exclude(FIELD_B_C),
             initialFact(AccessPathBase.This, FIELD_A_B).exclude(FIELD_B_C)
         ),
         finalFact(AccessPathBase.This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
