@@ -8,12 +8,14 @@ import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAbstraction
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.ANY_ACCESSOR_IDX
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isAlwaysUnrollNext
 import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
 import org.opentaint.dataflow.util.ConcurrentReadSafeObject2IntMap
 import org.opentaint.dataflow.util.contains
 import org.opentaint.dataflow.util.filter
 import org.opentaint.dataflow.util.forEach
+import org.opentaint.dataflow.util.forEachIntEntry
 import org.opentaint.dataflow.util.getOrCreateIndex
 import org.opentaint.dataflow.util.getValue
 import org.opentaint.dataflow.util.int2ObjectMap
@@ -137,6 +139,14 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
         ): List<AccessGraph> {
             val relevantAnalyzedGraphIndices = BitSet()
             addedGraph.accessors().forEach { accessor ->
+                if (accessor == ANY_ACCESSOR_IDX) {
+                    analyzedExclusionIndex.forEachIntEntry { excludedAccessor, graphs ->
+                        if (tryAnyAccessorOrNull(excludedAccessor.accessor) { true } != true) return@forEachIntEntry
+                        relevantAnalyzedGraphIndices.or(graphs)
+                    }
+                    return@forEach
+                }
+
                 val graphsWithAccessorExcluded = analyzedExclusionIndex.get(accessor) ?: return@forEach
                 relevantAnalyzedGraphIndices.or(graphsWithAccessorExcluded)
             }
