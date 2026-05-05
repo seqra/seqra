@@ -41,25 +41,24 @@ class TreeInitialFactAbstractionTest {
 
     @Test
     fun `analyzed exclusion hit produces more precise abstraction`() {
+        val abstraction = newAbstraction()
         val analyzed = initialFact(This, FIELD_A_B).exclude(FIELD_B_C)
-
         abstraction.registerNewInitialFact(analyzed, FactTypeChecker.Dummy)
 
         val added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D)
         val produced = abstraction.addAbstractedInitialFact(added, FactTypeChecker.Dummy)
-
         val expected = initialFact(This, FIELD_A_B, FIELD_B_C)
 
         assertTrue(
             produced.any { (initial, final) -> initial == expected && final.equalTo(expected) },
-            "Expected abstraction for a.b.c.* to be produced when c is excluded at a.b.*",
+            "Expected abstraction to contain expected fact. analyzed=$analyzed; added=$added; expected=$expected; produced=${producedFactsToString(produced)}",
         )
     }
 
     @Test
     fun `non matching exclusion keeps broader abstraction`() {
+        val abstraction = newAbstraction()
         val analyzed = initialFact(This, FIELD_A_B).exclude(FIELD_B_E)
-
         abstraction.registerNewInitialFact(analyzed, FactTypeChecker.Dummy)
 
         val added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D)
@@ -67,14 +66,14 @@ class TreeInitialFactAbstractionTest {
 
         assertTrue(
             produced.isEmpty(),
-            "Expected no new abstraction because a.b.* is already analyzed and exclusion {e} does not match accessor c. Produced: $produced",
+            "Expected no new abstraction. analyzed=$analyzed; added=$added; produced=${producedFactsToString(produced)}",
         )
     }
 
     @Test
     fun `always unroll next accessor without exclusion conflict produces no abstraction`() {
+        val abstraction = newAbstraction()
         val analyzed = initialFact(This, MARK)
-
         abstraction.registerNewInitialFact(analyzed, FactTypeChecker.Dummy)
 
         val added = finalFact(This, FIELD_A_B, ValueAccessor, MARK)
@@ -82,13 +81,49 @@ class TreeInitialFactAbstractionTest {
 
         assertTrue(
             produced.isEmpty(),
-            "Expected no new abstraction when always-unroll-next chain has no exclusion conflict. Produced: $produced",
+            "Expected no new abstraction for unroll-next chain without exclusion conflict. analyzed=$analyzed; added=$added; produced=${producedFactsToString(produced)}",
+        )
+    }
+
+    @Test
+    fun `same conflicting fact added twice yields abstraction only once`() {
+        val abstraction = newAbstraction()
+        val analyzed = initialFact(This, FIELD_A_B).exclude(FIELD_B_C)
+        abstraction.registerNewInitialFact(analyzed, FactTypeChecker.Dummy)
+
+        val added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D)
+        val firstProduced = abstraction.addAbstractedInitialFact(added, FactTypeChecker.Dummy)
+        val secondProduced = abstraction.addAbstractedInitialFact(added, FactTypeChecker.Dummy)
+
+        assertTrue(
+            firstProduced.isNotEmpty(),
+            "Expected first add to produce abstraction. analyzed=$analyzed; added=$added; produced=${producedFactsToString(firstProduced)}",
+        )
+        assertTrue(
+            secondProduced.isEmpty(),
+            "Expected second add of same fact to produce nothing. analyzed=$analyzed; added=$added; produced=${producedFactsToString(secondProduced)}",
+        )
+    }
+
+    @Test
+    fun `conflicting exclusion on different base keeps this base at most abstract fact`() {
+        val abstraction = newAbstraction()
+        val analyzedOtherBase = initialFact(AccessPathBase.Argument(0), FIELD_A_B).exclude(FIELD_B_C)
+        abstraction.registerNewInitialFact(analyzedOtherBase, FactTypeChecker.Dummy)
+
+        val added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D)
+        val produced = abstraction.addAbstractedInitialFact(added, FactTypeChecker.Dummy)
+        val expected = initialFact(This)
+
+        assertTrue(
+            produced.any { (initial, final) -> initial == expected && final.equalTo(expected) },
+            "Expected most abstract fact for this base because there are no analyzed facts for it. analyzed=$analyzedOtherBase; added=$added; expected=$expected; produced=${producedFactsToString(produced)}",
         )
     }
 
     private fun initialFact(base: AccessPathBase, vararg accessors: Accessor): InitialFactAp {
         var fact = apManager.mostAbstractInitialAp(base)
-        accessors.reversed().forEach {accessor ->
+        accessors.reversed().forEach { accessor ->
             fact = fact.prependAccessor(accessor)
         }
         return fact
@@ -96,11 +131,20 @@ class TreeInitialFactAbstractionTest {
 
     private fun finalFact(base: AccessPathBase, vararg accessors: Accessor): FinalFactAp {
         var fact = apManager.createFinalAp(base, ExclusionSet.Empty)
-        accessors.reversed().forEach {accessor ->
+        accessors.reversed().forEach { accessor ->
             fact = fact.prependAccessor(accessor)
         }
         return fact
     }
+
+    private fun producedFactsToString(produced: List<Pair<InitialFactAp, FinalFactAp>>): String =
+        if (produced.isEmpty()) {
+            "[]"
+        } else {
+            produced.joinToString(prefix = "[", postfix = "]") { (initial, _) -> "$initial" }
+        }
+
+    private fun newAbstraction() = apManager.initialFactAbstraction(dummyInst)
 
     private val dummyInst = object : CommonInst {
         override fun toString(): String = "dummy-inst"
@@ -122,6 +166,4 @@ class TreeInitialFactAbstractionTest {
             }
         }
     }
-
-    private val abstraction = apManager.initialFactAbstraction(dummyInst)
 }
