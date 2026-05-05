@@ -31,15 +31,9 @@ import org.opentaint.ir.api.jvm.cfg.JIRNewExpr
 import org.opentaint.ir.api.jvm.ext.findMethodOrNull
 
 class JIRMethodCallResolver(
-    private val lambdaTracker: JIRLambdaTracker,
     val callResolver: JIRCallResolver,
     val runner: TaintAnalysisUnitRunner,
-    private val params: Params,
 ) : MethodCallResolver {
-    data class Params(
-        val skipUnresolvedLambda: Boolean = true,
-    )
-
     override fun resolveMethodCall(
         callerContext: MethodAnalysisContext,
         callExpr: CommonCallExpr,
@@ -62,11 +56,6 @@ class JIRMethodCallResolver(
         jIRDowncast<JIRInst>(location)
         jIRDowncast<JIRMethodAnalysisContext>(callerContext)
         return resolvedJirMethodCalls(callerContext, callExpr, location)
-    }
-
-    private val lambdaFeature by lazy {
-        callResolver.cp.features?.filterIsInstance<LambdaAnonymousClassFeature>()?.firstOrNull()
-            ?: error("No lambda feature found")
     }
 
     private fun resolveJirMethodCall(
@@ -156,7 +145,7 @@ class JIRMethodCallResolver(
             }
 
             val lambdaMethod = lambdaResolver.method
-            val lambdaImpl =  cls.findMethodOrNull(lambdaMethod.name, lambdaMethod.description)
+            val lambdaImpl = cls.findMethodOrNull(lambdaMethod.name, lambdaMethod.description)
             if (lambdaImpl == null) {
                 logger.debug { "Lambda class $cls has no lambda method $lambdaMethod" }
                 return@forEach
@@ -185,12 +174,13 @@ class JIRMethodCallResolver(
     ): List<MethodCallResolutionResult> {
         val callees = callResolver.resolve(callExpr, location, callerContext)
         return callees.flatMap { resolvedCallee ->
-            resolvedJirMethodCalls(callerContext, resolvedCallee)
+            resolvedJirMethodCalls(callerContext, location, resolvedCallee)
         }
     }
 
     private fun resolvedJirMethodCalls(
         callerContext: JIRMethodAnalysisContext,
+        location: JIRInst,
         resolvedCallee: JIRCallResolver.MethodResolutionResult
     ): List<MethodCallResolutionResult> =
         when (resolvedCallee) {
@@ -203,25 +193,31 @@ class JIRMethodCallResolver(
             }
 
             is JIRCallResolver.MethodResolutionResult.Lambda -> {
-                resolvedCallee.withLambdaProxy(callerContext, { resolvedJirMethodCalls(callerContext, it) }) {
-                    val resolvedLambdas = mutableListOf<MethodCallResolutionResult>()
-                    lambdaTracker.forEachRegisteredLambda(
-                        resolvedCallee.method,
-                        object : JIRLambdaTracker.LambdaSubscriber {
-                            override fun newLambda(
-                                method: JIRMethod,
-                                lambdaClass: LambdaAnonymousClassFeature.JIRLambdaClass
-                            ) {
-                                val methodImpl = lambdaClass.findMethodOrNull(method.name, method.description)
-                                    ?: error("Lambda class $lambdaClass has no lambda method $method")
-
-                                resolvedLambdas += MethodCallResolutionResult.ResolvedMethod(MethodWithContext(methodImpl, EmptyMethodContext))
-                            }
-                        }
-                    )
-
-                    resolvedLambdas.ifEmpty { listOf(MethodCallResolutionResult.ResolutionFailure) }
+                val locationIdx = location.location.index
+                val lambdaResolver = callerContext.lambdaCallResolution.getOrCreate(locationIdx) {
+                    JIRLambdaTracker.LambdaTracker(resolvedCallee.method)
                 }
+
+                val resolvedLambdas = mutableListOf<MethodCallResolutionResult>()
+                resolvedLambdas += MethodCallResolutionResult.ResolutionFailure
+
+                lambdaResolver.forEachRegisteredLambda(
+                    object : JIRLambdaTracker.LambdaSubscriber {
+                        override fun newLambda(
+                            method: JIRMethod,
+                            lambdaClass: LambdaAnonymousClassFeature.JIRLambdaClass
+                        ) {
+                            val methodImpl = lambdaClass.findMethodOrNull(method.name, method.description)
+                                ?: error("Lambda class $lambdaClass has no lambda method $method")
+
+                            resolvedLambdas += MethodCallResolutionResult.ResolvedMethod(
+                                MethodWithContext(methodImpl, EmptyMethodContext)
+                            )
+                        }
+                    }
+                )
+
+                resolvedLambdas
             }
         }
 
@@ -237,30 +233,6 @@ class JIRMethodCallResolver(
             val lambdaMethodWithContext = MethodWithContext(methodImpl, EmptyMethodContext)
             runner.addResolvedLambdaEvent(LambdaResolvedEvent(callerEntryPoint, handler, lambdaMethodWithContext))
         }
-    }
-
-    private inline fun <T> JIRCallResolver.MethodResolutionResult.Lambda.withLambdaProxy(
-        callerContext: JIRMethodAnalysisContext,
-        delegate: (JIRCallResolver.MethodResolutionResult) -> T,
-        handleLambda: () -> T
-    ): T {
-        if (params.skipUnresolvedLambda) {
-            return delegate(JIRCallResolver.MethodResolutionResult.MethodResolutionFailed)
-        }
-
-        val caller = callerContext.methodEntryPoint.method as JIRMethod
-
-        if (caller is LambdaAnonymousClassFeature.OpentaintLambdaProxyMethod) {
-            return handleLambda()
-        }
-
-        val callerLocation = caller.enclosingClass.declaration.location
-
-        val proxy = lambdaFeature.getOrCreateLambdaProxy(method, callResolver.cp, callerLocation)
-        val proxyMethod = proxy.declaredMethods.first()
-        val proxyWithCtx = MethodWithContext(proxyMethod, EmptyMethodContext)
-        val concreteCall = JIRCallResolver.MethodResolutionResult.ConcreteMethod(proxyWithCtx)
-        return delegate(concreteCall)
     }
 
     companion object {

@@ -1,33 +1,9 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
-import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature.JIRLambdaClass
-import java.util.concurrent.ConcurrentHashMap
+import org.opentaint.ir.api.jvm.JIRMethod
 
-class JIRLambdaTracker {
-    private val lambdaTrackers = ConcurrentHashMap<JIRMethod, LambdaTracker>()
-
-    fun registerLambda(lambda: JIRLambdaClass) {
-        val methodLambdas = lambdaTrackers.computeIfAbsent(lambda.lambdaMethod) {
-            LambdaTracker(lambda.lambdaMethod)
-        }
-
-        methodLambdas.addLambda(lambda)
-    }
-
-    fun subscribeOnLambda(method: JIRMethod, subscriber: LambdaSubscriber) {
-        val methodLambdas = lambdaTrackers.computeIfAbsent(method) {
-            LambdaTracker(method)
-        }
-
-        methodLambdas.addSubscriber(subscriber)
-    }
-
-    fun forEachRegisteredLambda(method: JIRMethod, subscriber: LambdaSubscriber) {
-        val methodLambdas = lambdaTrackers[method] ?: return
-        methodLambdas.forEachRegisteredLambda(subscriber)
-    }
-
+object JIRLambdaTracker {
     class LambdaTracker(val method: JIRMethod) {
         private val subscribers = hashSetOf<LambdaSubscriber>()
         private val registeredLambdas = hashSetOf<JIRLambdaClass>()
