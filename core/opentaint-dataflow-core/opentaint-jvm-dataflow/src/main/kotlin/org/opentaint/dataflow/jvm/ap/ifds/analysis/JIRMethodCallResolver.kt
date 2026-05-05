@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
+import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
@@ -102,6 +103,8 @@ class JIRMethodCallResolver(
             }
 
             is JIRCallResolver.MethodResolutionResult.Lambda -> {
+                analyzer.handleMethodCallResolutionFailure(callExpr, failureHandler)
+
                 val locationIdx = location.location.index
                 val lambdaResolver = callerContext.lambdaCallResolution.getOrCreate(locationIdx) {
                     JIRLambdaTracker.LambdaTracker(resolvedCallee.method)
@@ -150,6 +153,13 @@ class JIRMethodCallResolver(
             val cls = callResolver.cp.findClassOrNull(typeInfo.typeName)
             check(cls is LambdaAnonymousClassFeature.JIRLambdaClass) {
                 "Unexpected type info: $cls"
+            }
+
+            val lambdaMethod = lambdaResolver.method
+            val lambdaImpl =  cls.findMethodOrNull(lambdaMethod.name, lambdaMethod.description)
+            if (lambdaImpl == null) {
+                logger.debug { "Lambda class $cls has no lambda method $lambdaMethod" }
+                return@forEach
             }
 
             lambdaResolver.addLambda(cls)
@@ -251,5 +261,9 @@ class JIRMethodCallResolver(
         val proxyWithCtx = MethodWithContext(proxyMethod, EmptyMethodContext)
         val concreteCall = JIRCallResolver.MethodResolutionResult.ConcreteMethod(proxyWithCtx)
         return delegate(concreteCall)
+    }
+
+    companion object {
+        private val logger = object : KLogging() {}.logger
     }
 }

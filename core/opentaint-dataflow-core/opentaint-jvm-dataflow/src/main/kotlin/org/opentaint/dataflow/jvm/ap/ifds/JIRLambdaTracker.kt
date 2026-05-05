@@ -28,7 +28,7 @@ class JIRLambdaTracker {
         methodLambdas.forEachRegisteredLambda(subscriber)
     }
 
-    class LambdaTracker(private val method: JIRMethod) {
+    class LambdaTracker(val method: JIRMethod) {
         private val subscribers = hashSetOf<LambdaSubscriber>()
         private val registeredLambdas = hashSetOf<JIRLambdaClass>()
 
