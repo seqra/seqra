@@ -52,6 +52,7 @@ object PIRFlowFunctionUtils {
         }
         is PIRConst -> null // Constants are not taint-trackable
         is PIRGlobalRef -> null  // Not tracked as a local
+        is PIRModuleRef -> null  // Module references are not taint-trackable
     }
 
     /**

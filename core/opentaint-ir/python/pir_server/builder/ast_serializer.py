@@ -7,6 +7,7 @@ All complex lowering is done in Kotlin.
 from __future__ import annotations
 import sys
 from mypy.nodes import (
+    GDEF,
     MypyFile,
     FuncDef,
     ClassDef,
@@ -585,7 +586,27 @@ class AstSerializer:
             if expr.node is not None:
                 fullname = getattr(expr.node, "fullname", "") or ""
             name_proto.fullname = fullname
-            # name_kind classification computed on the Kotlin side
+            # mypy's `kind` (LDEF/GDEF/MDEF) tells us, for resolved names,
+            # whether the binding is local, module-level/imported, or a
+            # class member. Without this flag the Kotlin side has to guess
+            # from `fullname` shape and would misclassify single-segment
+            # imports like `import os` (fullname == "os") as locals.
+            #
+            # When the resolved node is a MypyFile, the bound name *is* a
+            # module reference (`import os`, `import os.path as p`, plain
+            # `import os.path` which binds `os`). We emit NAME_MODULE so the
+            # Kotlin side can lower these to FlatModuleRef rather than a
+            # FlatGlobalRef whose name and module slot are the same string.
+            #
+            # For unresolved names mypy leaves `kind=None`; we fall back to
+            # NAME_LOCAL so the closure-root override continues to defend
+            # that case.
+            if isinstance(expr.node, MypyFile):
+                name_proto.name_kind = pir_pb2.NAME_MODULE
+            elif expr.kind == GDEF:
+                name_proto.name_kind = pir_pb2.NAME_GLOBAL
+            else:
+                name_proto.name_kind = pir_pb2.NAME_LOCAL
             proto.name_expr.CopyFrom(name_proto)
         elif isinstance(expr, MemberExpr):
             member_proto = pir_pb2.MypyMemberExprProto(

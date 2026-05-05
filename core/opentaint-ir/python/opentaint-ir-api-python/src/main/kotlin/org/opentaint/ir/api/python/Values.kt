@@ -99,3 +99,18 @@ data class PIRGlobalRef(
     override fun toString(): String = if (module.isNotEmpty()) "$module.$name" else name
     override fun <T> accept(visitor: PIRValueVisitor<T>): T = visitor.visitGlobalRef(this)
 }
+
+/**
+ * Reference to a module itself (e.g. `os` in `os.getcwd()`). Distinct
+ * from [PIRGlobalRef], which names a value inside a module.
+ *
+ * `module` is the canonical module fullname; any source-level alias has
+ * been resolved away during lowering.
+ */
+data class PIRModuleRef(
+    val module: String,
+    override val type: PIRType = PIRAnyType,
+) : PIRValue {
+    override fun toString(): String = module
+    override fun <T> accept(visitor: PIRValueVisitor<T>): T = visitor.visitModuleRef(this)
+}

@@ -121,6 +121,7 @@ interface PIRValueVisitor<out T> {
     fun visitBytesConst(value: PIRBytesConst): T
     fun visitComplexConst(value: PIRComplexConst): T
     fun visitGlobalRef(value: PIRGlobalRef): T
+    fun visitModuleRef(value: PIRModuleRef): T
 
     interface Default<out T> : PIRValueVisitor<T> {
         fun defaultVisitValue(value: PIRValue): T
@@ -136,5 +137,6 @@ interface PIRValueVisitor<out T> {
         override fun visitBytesConst(value: PIRBytesConst): T = defaultVisitValue(value)
         override fun visitComplexConst(value: PIRComplexConst): T = defaultVisitValue(value)
         override fun visitGlobalRef(value: PIRGlobalRef): T = defaultVisitValue(value)
+        override fun visitModuleRef(value: PIRModuleRef): T = defaultVisitValue(value)
     }
 }

@@ -99,13 +99,27 @@ private fun CfgSession.lowerName(expr: MypyNameExprProto): FlatValue {
         "None" -> return FlatNoneConst
     }
 
-    // A dotted fullname ("foo.bar") indicates a global / imported reference.
-    if (expr.fullname.isNotEmpty() && "." in expr.fullname) {
-        val module = expr.fullname.substringBeforeLast(".")
-        return FlatGlobalRef(name, module)
+    return when (expr.nameKind) {
+        // Module imports — `import os`, `import os.path as p`, plain
+        // `import os.path` (which binds `os`). mypy stores the canonical
+        // module fullname in `fullname`; `name` may be an alias which we
+        // discard (downstream consumers match against canonical paths).
+        MypyNameKind.NAME_MODULE -> FlatModuleRef(expr.fullname.ifEmpty { name })
+        // Module-level / imported / builtin values. mypy populates a dotted
+        // canonical fullname for every GDEF binding (`pkg.x`, `os.getcwd`,
+        // `builtins.print`); aliases like `from m import x as y` already
+        // arrive with the canonical fullname `m.x`, so no extra alias
+        // handling is needed.
+        MypyNameKind.NAME_GLOBAL -> {
+            val fullname = expr.fullname
+            val dot = fullname.lastIndexOf('.')
+            check(dot > 0) {
+                "NAME_GLOBAL fullname must be dotted; got '$fullname' for name '$name'"
+            }
+            FlatGlobalRef(fullname.substring(dot + 1), fullname.take(dot))
+        }
+        else -> FlatLocal(scope.resolveLocal(name))
     }
-
-    return FlatLocal(scope.resolveLocal(name))
 }
 
 private fun CfgSession.lowerMember(expr: MypyMemberExprProto, line: Int): FlatValue {

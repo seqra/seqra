@@ -62,6 +62,13 @@ class PIRCallResolver(private val cp: PIRClasspath) {
                         if (resolved2 != null) return resolved2
                     }
 
+                    // Strategy 2b: Use PIRModuleRef directly (for module.attr() calls: os.getcwd()).
+                    if (inst.obj is PIRModuleRef) {
+                        val mref = inst.obj as PIRModuleRef
+                        val resolved2b = cp.findFunctionOrNull("${mref.module}.$attrName")
+                        if (resolved2b != null) return resolved2b
+                    }
+
                     // Strategy 3: For local variables with unknown type, try to infer the class
                     // from the constructor call that assigned the variable
                     if (inst.obj is PIRLocal) {

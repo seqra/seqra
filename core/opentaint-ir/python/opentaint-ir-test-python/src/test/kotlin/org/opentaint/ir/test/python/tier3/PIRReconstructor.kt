@@ -451,6 +451,7 @@ class PIRReconstructor {
             is PIRBytesConst -> "b\"...\""
             is PIRComplexConst -> "complex(${v.real}, ${v.imag})"
             is PIRGlobalRef -> sanitizeFuncName(v.name)
+            is PIRModuleRef -> v.module
         }
     }
 

@@ -861,6 +861,10 @@ enum MypyNameKind {
   NAME_GLOBAL = 1;
   NAME_BUILTIN = 2;
   NAME_PARAMETER = 3;
+  // Bound name resolves to a module (mypy `node` is `MypyFile`). Distinct
+  // from NAME_GLOBAL so the Kotlin side can lower `import os` to a
+  // FlatModuleRef rather than abusing FlatGlobalRef("os", "os").
+  NAME_MODULE = 4;
 }
 
 message MypyMemberExprProto {

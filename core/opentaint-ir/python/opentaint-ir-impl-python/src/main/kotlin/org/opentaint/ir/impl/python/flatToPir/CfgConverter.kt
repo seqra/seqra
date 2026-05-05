@@ -63,6 +63,7 @@ object CfgConverter {
     private fun v(flat: FlatValue): PIRValue = when (flat) {
         is FlatLocal -> PIRLocal(flat.name, TypeConverter.convert(flat.type))
         is FlatGlobalRef -> PIRGlobalRef(flat.name, flat.module, PIRAnyType)
+        is FlatModuleRef -> PIRModuleRef(flat.module, PIRAnyType)
         is FlatConst -> ConstConverter.convert(flat)
     }
 

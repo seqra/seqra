@@ -9,6 +9,18 @@ sealed interface FlatValue
 data class FlatLocal(val name: String, val type: FlatType = FlatAnyType) : FlatValue
 data class FlatGlobalRef(val name: String, val module: String) : FlatValue
 
+/**
+ * Reference to an entire module (e.g. `os` in `os.getcwd()`, or `p` after
+ * `import os.path as p`). Distinct from [FlatGlobalRef], which names a
+ * value defined inside a module.
+ *
+ * `module` holds the canonical fullname (`os`, `os.path`); aliases are
+ * resolved at lowering time so downstream consumers only ever see the
+ * canonical name. Attribute access on a module (`p.join` → `os.path.join`)
+ * stays as a regular `FlatLoadAttr` whose object is this ref.
+ */
+data class FlatModuleRef(val module: String) : FlatValue
+
 sealed interface FlatConst : FlatValue
 data class FlatIntConst(val value: Long) : FlatConst
 data class FlatFloatConst(val value: Double) : FlatConst
