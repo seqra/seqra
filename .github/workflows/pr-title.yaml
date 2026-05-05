@@ -80,7 +80,7 @@ jobs:
 
           declare -A SCOPE_PATHS
 
-          SCOPE_PATHS[rules]="^(rules/|\.github/workflows/(ci|release)-rules\.)"
+          SCOPE_PATHS[rules]="^(rules/|\.github/workflows/((ci|release)-rules|ci-analyzer-owasp)\.)"
           SCOPE_PATHS[github]="^(github/|\.github/workflows/(ci|release)-github\.)"
           SCOPE_PATHS[gitlab]="^(gitlab/|\.github/workflows/release-gitlab\.)"
           AUTOBUILDER_MODULES=(
