@@ -5,6 +5,7 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase.This
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
+import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.TypeInfoAccessor
@@ -193,6 +194,42 @@ class TreeInitialFactAbstractionTest {
                 name = "22 type group exclusion with only type path currently returns empty",
                 analyzed = listOf(initialFact(This).exclude(TypeInfoGroupAccessor)),
                 added = finalFact(This, TYPE_INFO_A, TypeInfoGroupAccessor),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "23 root exclusion on mark with bare mark path returns mark.final",
+                analyzed = listOf(initialFact(This).exclude(MARK)),
+                added = finalFact(This, MARK),
+                expectedFacts = listOf(initialFact(This, MARK, FinalAccessor)),
+            ),
+            Scenario(
+                name = "24 exclusion on value under mark with bare chain currently returns empty",
+                analyzed = listOf(initialFact(This, MARK).exclude(ValueAccessor)),
+                added = finalFact(This, ValueAccessor, MARK),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "25 root exclusion on type group with bare type chain returns type group.final",
+                analyzed = listOf(initialFact(This).exclude(TypeInfoGroupAccessor)),
+                added = finalFact(This, TypeInfoGroupAccessor),
+                expectedFacts = listOf(initialFact(This, TypeInfoGroupAccessor, FinalAccessor)),
+            ),
+            Scenario(
+                name = "26 exclusion on concrete type under group with bare chain currently returns empty",
+                analyzed = listOf(initialFact(This, TypeInfoGroupAccessor).exclude(TYPE_INFO_A)),
+                added = finalFact(This, TYPE_INFO_A, TypeInfoGroupAccessor),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "27 root exclusion on mark with mark2 path returns empty",
+                analyzed = listOf(initialFact(This).exclude(MARK)),
+                added = finalFact(This, MARK_2),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "28 exclusion on typeA under group with typeB path returns empty",
+                analyzed = listOf(initialFact(This, TypeInfoGroupAccessor).exclude(TYPE_INFO_A)),
+                added = finalFact(This, TYPE_INFO_B, TypeInfoGroupAccessor),
                 expectedEmpty = true,
             ),
         )
