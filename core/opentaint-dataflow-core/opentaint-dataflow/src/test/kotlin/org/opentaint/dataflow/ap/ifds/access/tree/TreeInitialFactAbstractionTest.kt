@@ -3,6 +3,9 @@ package org.opentaint.dataflow.ap.ifds.access.tree
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.AccessPathBase.This
 import org.opentaint.dataflow.ap.ifds.Accessor
+import org.opentaint.dataflow.ap.ifds.AnyAccessor
+import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
+import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
@@ -30,11 +33,13 @@ class TreeInitialFactAbstractionTest {
         const val TYPE_B = "B"
         const val TYPE_C = "C"
         const val TYPE_D = "D"
+        const val RULE_STORAGE_FIELD_NAME = "<rule-storage>"
 
         val FIELD_A_B = FieldAccessor(TYPE_A, "b", TYPE_B)
         val FIELD_B_C = FieldAccessor(TYPE_B, "c", TYPE_C)
         val FIELD_B_E = FieldAccessor(TYPE_B, "e", TYPE_D)
         val FIELD_C_D = FieldAccessor(TYPE_C, "d", TYPE_D)
+        val FIELD_RULE_STORAGE = FieldAccessor(TYPE_B, RULE_STORAGE_FIELD_NAME, TYPE_D)
 
         val MARK = TaintMarkAccessor("test-mark")
         val MARK_2 = TaintMarkAccessor("test-mark-2")
@@ -51,6 +56,21 @@ class TreeInitialFactAbstractionTest {
     )
 
     private val apManager: ApManager = TreeApManager(AnyAccessorUnrollStrategy.AnyAccessorDisabled)
+    private val anyApManager: ApManager = TreeApManager(UnrollStrategy)
+
+    private object UnrollStrategy : AnyAccessorUnrollStrategy {
+        override fun unrollAccessor(accessor: Accessor): Boolean = when (accessor) {
+            is ElementAccessor -> true
+            is FieldAccessor -> accessor.fieldName != RULE_STORAGE_FIELD_NAME
+            is ClassStaticAccessor,
+            is AnyAccessor,
+            is FinalAccessor,
+            is TaintMarkAccessor,
+            is TypeInfoAccessor,
+            is TypeInfoGroupAccessor -> false
+            is ValueAccessor -> error("Unexpected accessor to unroll: $accessor")
+        }
+    }
 
     @Test
     fun `scenario matrix`() {
@@ -259,12 +279,95 @@ class TreeInitialFactAbstractionTest {
     }
 
     @Test
+    fun `any accessor scenario matrix`() {
+        val scenarios = listOf(
+            Scenario(
+                name = "any-1 analyzed excludes b, added any.c under root returns this.b",
+                analyzed = listOf(initialFact(anyApManager, This).exclude(FIELD_A_B)),
+                added = finalFact(anyApManager, This, AnyAccessor, FIELD_B_C),
+                expectedFacts = listOf(initialFact(anyApManager, This, FIELD_A_B)),
+            ),
+            Scenario(
+                name = "any-2 analyzed excludes c under b, added b.any.mark returns this.b.c",
+                analyzed = listOf(initialFact(anyApManager, This, FIELD_A_B).exclude(FIELD_B_C)),
+                added = finalFact(anyApManager, This, FIELD_A_B, AnyAccessor, MARK),
+                expectedFacts = listOf(initialFact(anyApManager, This, FIELD_A_B, FIELD_B_C)),
+            ),
+            Scenario(
+                name = "any-3 analyzed excludes c under b, added b.any.d returns this.b.c",
+                analyzed = listOf(initialFact(anyApManager, This, FIELD_A_B).exclude(FIELD_B_C)),
+                added = finalFact(anyApManager, This, FIELD_A_B, AnyAccessor, FIELD_C_D),
+                expectedFacts = listOf(initialFact(anyApManager, This, FIELD_A_B, FIELD_B_C)),
+            ),
+            Scenario(
+                name = "any-4 analyzed excludes e under b, added b.any.mark returns this.b.e",
+                analyzed = listOf(initialFact(anyApManager, This, FIELD_A_B).exclude(FIELD_B_E)),
+                added = finalFact(anyApManager, This, FIELD_A_B, AnyAccessor, MARK),
+                expectedFacts = listOf(initialFact(anyApManager, This, FIELD_A_B, FIELD_B_E)),
+            ),
+            Scenario(
+                name = "any-5 analyzed excludes root b, added any.c",
+                analyzed = listOf(initialFact(anyApManager, This).exclude(FIELD_A_B)),
+                added = finalFact(anyApManager, This, AnyAccessor, FIELD_B_C),
+                expectedFacts = listOf(initialFact(anyApManager, This, FIELD_A_B)),
+            ),
+            Scenario(
+                name = "any-6 analyzed excludes c under b, added b.any with rule-storage",
+                analyzed = listOf(initialFact(anyApManager, This, FIELD_A_B).exclude(FIELD_B_C)),
+                added = finalFact(anyApManager, This, FIELD_A_B, AnyAccessor, FIELD_RULE_STORAGE),
+                expectedFacts = listOf(initialFact(anyApManager, This, FIELD_A_B, FIELD_B_C)),
+            ),
+            Scenario(
+                name = "any-7 analyzed excludes c under b, added b.any.value",
+                analyzed = listOf(initialFact(anyApManager, This, FIELD_A_B).exclude(FIELD_B_C)),
+                added = finalFact(anyApManager, This, FIELD_A_B, AnyAccessor, ValueAccessor),
+                expectedFacts = listOf(initialFact(anyApManager, This, FIELD_A_B, FIELD_B_C)),
+            ),
+            Scenario(
+                name = "any-8 analyzed excludes d under b.c, added b.c.any.mark",
+                analyzed = listOf(initialFact(anyApManager, This, FIELD_A_B, FIELD_B_C).exclude(FIELD_C_D)),
+                added = finalFact(anyApManager, This, FIELD_A_B, FIELD_B_C, AnyAccessor, MARK),
+                expectedFacts = listOf(initialFact(anyApManager, This, FIELD_A_B)),
+            ),
+            Scenario(
+                name = "any-9 analyzed excludes d under b.c, added b.c.any.d.mark",
+                analyzed = listOf(initialFact(anyApManager, This, FIELD_A_B, FIELD_B_C).exclude(FIELD_C_D)),
+                added = finalFact(anyApManager, This, FIELD_A_B, FIELD_B_C, AnyAccessor, FIELD_C_D, MARK),
+                expectedFacts = listOf(initialFact(anyApManager, This, FIELD_A_B)),
+            ),
+        )
+
+        scenarios.forEach { scenario ->
+            val abstraction = newAbstraction(anyApManager)
+            scenario.analyzed.forEach { analyzedFact ->
+                abstraction.registerNewInitialFact(analyzedFact, FactTypeChecker.Dummy)
+            }
+
+            val produced = abstraction.addAbstractedInitialFact(scenario.added, FactTypeChecker.Dummy)
+
+            if (scenario.expectedEmpty) {
+                assertTrue(
+                    produced.isEmpty(),
+                    "[${scenario.name}] expected no produced facts; analyzed=${scenario.analyzed}; added=${scenario.added}; produced=${producedFactsToString(produced)}",
+                )
+            }
+
+            scenario.expectedFacts.forEach { expected ->
+                assertTrue(
+                    produced.any { (initial, final) -> initial == expected && final.equalTo(expected) },
+                    "[${scenario.name}] expected fact is missing; analyzed=${scenario.analyzed}; added=${scenario.added}; expected=$expected; produced=${producedFactsToString(produced)}",
+                )
+            }
+        }
+    }
+
+    @Test
     fun `same conflicting fact added twice yields abstraction only once`() {
         val abstraction = newAbstraction()
-        val analyzed = initialFact(This, FIELD_A_B).exclude(FIELD_B_C)
+        val analyzed = initialFact(apManager, This, FIELD_A_B).exclude(FIELD_B_C)
         abstraction.registerNewInitialFact(analyzed, FactTypeChecker.Dummy)
 
-        val added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D)
+        val added = finalFact(apManager, This, FIELD_A_B, FIELD_B_C, FIELD_C_D)
         val firstProduced = abstraction.addAbstractedInitialFact(added, FactTypeChecker.Dummy)
         val secondProduced = abstraction.addAbstractedInitialFact(added, FactTypeChecker.Dummy)
 
@@ -278,21 +381,27 @@ class TreeInitialFactAbstractionTest {
         )
     }
 
-    private fun initialFact(base: AccessPathBase, vararg accessors: Accessor): InitialFactAp {
-        var fact = apManager.mostAbstractInitialAp(base)
+    private fun initialFact(manager: ApManager, base: AccessPathBase, vararg accessors: Accessor): InitialFactAp {
+        var fact = manager.mostAbstractInitialAp(base)
         accessors.reversed().forEach { accessor ->
             fact = fact.prependAccessor(accessor)
         }
         return fact
     }
 
-    private fun finalFact(base: AccessPathBase, vararg accessors: Accessor): FinalFactAp {
-        var fact = apManager.createFinalAp(base, ExclusionSet.Empty)
+    private fun initialFact(base: AccessPathBase, vararg accessors: Accessor): InitialFactAp =
+        initialFact(apManager, base, *accessors)
+
+    private fun finalFact(manager: ApManager, base: AccessPathBase, vararg accessors: Accessor): FinalFactAp {
+        var fact = manager.createFinalAp(base, ExclusionSet.Empty)
         accessors.reversed().forEach { accessor ->
             fact = fact.prependAccessor(accessor)
         }
         return fact
     }
+
+    private fun finalFact(base: AccessPathBase, vararg accessors: Accessor): FinalFactAp =
+        finalFact(apManager, base, *accessors)
 
     private fun producedFactsToString(produced: List<Pair<InitialFactAp, FinalFactAp>>): String =
         if (produced.isEmpty()) {
@@ -301,7 +410,7 @@ class TreeInitialFactAbstractionTest {
             produced.joinToString(prefix = "[", postfix = "]") { (initial, _) -> "$initial" }
         }
 
-    private fun newAbstraction() = apManager.initialFactAbstraction(dummyInst)
+    private fun newAbstraction(manager: ApManager = apManager) = manager.initialFactAbstraction(dummyInst)
 
     private val dummyInst = object : CommonInst {
         override fun toString(): String = "dummy-inst"
