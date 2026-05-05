@@ -1,7 +1,6 @@
 package org.opentaint.ir.test.python.tier3
 
 import org.junit.jupiter.api.Tag
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 
 /**
@@ -226,6 +225,46 @@ def rtlf_wrapper_pattern(x: int) -> int:
     def with_offset(val_: int) -> int:
         return compute(val_) + 10
     return with_offset(x)
+
+# ─── Multi-instance closures ────────────────────────────────────────
+# Each invocation of the factory must produce a closure with its own
+# captured environment — two adders built from the same factory must not
+# share state.
+
+def rtlf_multi_instance_two_adders(a: int, b: int, x: int) -> int:
+    def make_adder(base: int):
+        def adder(val: int) -> int:
+            return base + val
+        return adder
+    add_a = make_adder(a)
+    add_b = make_adder(b)
+    return add_a(x) + add_b(x)
+
+def rtlf_multi_instance_independent_counters() -> int:
+    def make_counter():
+        count = 0
+        def inc() -> int:
+            nonlocal count
+            count = count + 1
+            return count
+        return inc
+    c1 = make_counter()
+    c2 = make_counter()
+    c1()
+    c1()
+    c1()
+    c2()
+    return c1() * 100 + c2()
+
+def rtlf_multi_instance_three_adders(a: int, b: int, c: int, x: int) -> int:
+    def make_adder(base: int):
+        def adder(val: int) -> int:
+            return base + val
+        return adder
+    f_a = make_adder(a)
+    f_b = make_adder(b)
+    f_c = make_adder(c)
+    return f_a(x) + f_b(x) + f_c(x)
     """.trimIndent()
 
     // ─── Simple local function calls ─────────────────────────
@@ -279,21 +318,17 @@ def rtlf_wrapper_pattern(x: int) -> int:
 
     // ─── Factory pattern ─────────────────────────────────────
 
-    @Disabled("Multi-level nesting not yet supported in round-trip reconstruction")
     @Test fun `local fn - factory adder`() = roundTripWithLambdas("rtlf_factory_adder",
         posArgs(listOf(5, 10), listOf(0, 0), listOf(-3, 7)))
 
-    @Disabled("Multi-level nesting not yet supported in round-trip reconstruction")
     @Test fun `local fn - factory multiplier`() = roundTripWithLambdas("rtlf_factory_multiplier",
         posArgs(listOf(3, 4), listOf(0, 5), listOf(-2, 3)))
 
     // ─── Nested closures — 3 levels ─────────────────────────
 
-    @Disabled("Multi-level nesting not yet supported in round-trip reconstruction")
     @Test fun `local fn - nested three levels add`() = roundTripWithLambdas("rtlf_nested_three_levels",
         posArgs(listOf(1, 2, 3), listOf(0, 0, 0), listOf(10, 20, 30)))
 
-    @Disabled("Multi-level nesting not yet supported in round-trip reconstruction")
     @Test fun `local fn - nested three levels mul`() = roundTripWithLambdas("rtlf_nested_three_mul",
         posArgs(listOf(2, 3, 4), listOf(1, 1, 1), listOf(0, 5, 3)))
 
@@ -336,7 +371,6 @@ def rtlf_wrapper_pattern(x: int) -> int:
 
     // ─── Recursive inner function ────────────────────────────
 
-    @Disabled("Multi-level nesting not yet supported in round-trip reconstruction")
     @Test fun `local fn - recursive inner factorial`() = roundTripWithLambdas("rtlf_recursive_inner",
         posArgs(listOf(5), listOf(1), listOf(0)))
 
@@ -349,4 +383,18 @@ def rtlf_wrapper_pattern(x: int) -> int:
 
     @Test fun `local fn - wrapper pattern`() = roundTripWithLambdas("rtlf_wrapper_pattern",
         posArgs(listOf(3), listOf(0), listOf(-2)))
+
+    // ─── Multi-instance closures ─────────────────────────────
+    // Each test builds the same lifted nested function multiple times. If
+    // binds shared a single wrapper, later binds would clobber earlier
+    // `_closure_env_` state and the result would diverge from the original.
+
+    @Test fun `local fn - multi instance two adders`() = roundTripWithLambdas("rtlf_multi_instance_two_adders",
+        posArgs(listOf(1, 10, 5), listOf(0, 0, 0), listOf(-3, 7, 2)))
+
+    @Test fun `local fn - multi instance independent counters`() = roundTripWithLambdas("rtlf_multi_instance_independent_counters",
+        posArgs(emptyList()))
+
+    @Test fun `local fn - multi instance three adders`() = roundTripWithLambdas("rtlf_multi_instance_three_adders",
+        posArgs(listOf(1, 2, 3, 10), listOf(100, 200, 300, 1)))
 }

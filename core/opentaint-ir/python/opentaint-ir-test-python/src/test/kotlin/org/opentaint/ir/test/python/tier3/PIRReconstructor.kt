@@ -1,6 +1,7 @@
 package org.opentaint.ir.test.python.tier3
 
 import org.opentaint.ir.api.python.*
+import org.opentaint.ir.impl.python.transforms.closure.ClosureRuntime
 
 /**
  * Converts a PIRFunction's CFG back into executable Python code.
@@ -23,113 +24,153 @@ class PIRReconstructor {
     // should be skipped since `inner` is already available from module scope.
     private var currentEmittedFuncNames: Set<String> = emptySet()
 
-    // Captured variables for the current function being reconstructed.
-    // In inner functions: these vars are accessed via __env__['name']
-    // In outer functions: these vars are stored into __env__ dict
-    private var currentCapturedVars: Set<String> = emptySet()
-    // Whether the current function is an inner (nested) function that receives __env__
-    private var currentIsInnerWithEnv: Boolean = false
-    // Mapping: nested function name -> its closureVars (for outer function to know what to pass)
-    private var nestedFuncCaptureMap: Map<String, List<String>> = emptyMap()
+    /**
+     * Global names of closure-bearing functions visible from the function
+     * currently being reconstructed. At a `PIRBindFunctionExpr` whose function
+     * is in this set, the bind site emits `target = name()` to instantiate a
+     * fresh `_closure_class` wrapper (rather than `target = name`). Call sites
+     * don't consult this set — `__call__` on the wrapper forwards `<self>`
+     * automatically.
+     */
+    private var closureBearingNames: Set<String> = emptySet()
 
     fun reconstruct(func: PIRFunction): String {
         currentEmittedFuncNames = emptySet()
-        currentCapturedVars = emptySet()
-        currentIsInnerWithEnv = false
-        nestedFuncCaptureMap = emptyMap()
-        return reconstructSingle(func)
+        closureBearingNames = if (isClosureBearing(func)) setOf(func.name) else emptySet()
+        return MODULE_PRELUDE + reconstructSingle(func)
     }
 
     /**
      * Reconstruct a function along with any lambda/nested functions it references.
      *
-     * Nested functions with captured variables use an __env__ dict pattern:
-     * - Inner function: receives __env__ as first parameter, reads/writes captured
-     *   vars via __env__['name']
-     * - Outer function: creates __env__ dict with captured vars, passes it to
-     *   inner function calls
+     * Closure semantics are encoded in the IR: capturing functions take `<self>`
+     * and read captured vars via cell loads (`<self>._closure_env_['x'].value`).
+     * The reconstructor only has to thread the function value into `<self>` at
+     * call sites — the rest falls out of the IR shape.
      */
     fun reconstructWithLambdas(func: PIRFunction, cp: PIRClasspath): String {
         val sb = StringBuilder()
-        val lambdaRefs = collectLambdaRefs(func, func.module.name)
-        val emittedFuncNames = mutableSetOf<String>()
-        val captureMap = mutableMapOf<String, List<String>>()
+        sb.append(MODULE_PRELUDE)
 
-        // Find referenced lambda/nested functions
+        // Find all referenced lambda/nested functions, transitively. A nested
+        // function may itself reference further nested functions (factory
+        // pattern, three-level nesting), and all of them need to land at module
+        // scope or the call chain breaks at runtime.
+        val emittedFuncNames = mutableSetOf<String>()
+        val closureBearingFuncs = mutableSetOf<String>()
         val resolvedFuncs = mutableListOf<PIRFunction>()
-        for (ref in lambdaRefs) {
-            var lambdaFunc = cp.findFunctionOrNull("${func.module.name}.$ref")
-            if (lambdaFunc == null) {
-                for (mod in cp.modules) {
-                    lambdaFunc = mod.functions.find { it.name == ref }
-                    if (lambdaFunc != null) break
-                }
+        val seen = mutableSetOf<String>()
+        val queue = ArrayDeque<PIRFunction>()
+        queue.addAll(
+            collectLambdaRefs(func, func.module.name).mapNotNull { resolveLambda(it, cp, func.module.name) }
+        )
+        while (queue.isNotEmpty()) {
+            val nested = queue.removeFirst()
+            if (!seen.add(nested.name)) continue
+            resolvedFuncs.add(nested)
+            emittedFuncNames.add(nested.name)
+            if (isClosureBearing(nested)) {
+                closureBearingFuncs.add(nested.name)
             }
-            if (lambdaFunc != null) {
-                resolvedFuncs.add(lambdaFunc)
-                emittedFuncNames.add(ref)
-                if (lambdaFunc.closureVars.isNotEmpty()) {
-                    captureMap[ref] = lambdaFunc.closureVars
+            for (ref in collectLambdaRefs(nested, func.module.name)) {
+                if (ref !in seen) {
+                    resolveLambda(ref, cp, func.module.name)?.let { queue.add(it) }
                 }
             }
         }
 
-        // Reconstruct each nested function
+        // Reconstruct each nested/lambda function
+        closureBearingNames = closureBearingFuncs
         for (lambdaFunc in resolvedFuncs) {
-            val cvars = lambdaFunc.closureVars.toSet()
-            sb.append(reconstructSingle(lambdaFunc, emittedFuncNames,
-                capturedVars = cvars, isInner = cvars.isNotEmpty()))
+            sb.append(reconstructSingle(lambdaFunc, emittedFuncNames))
             sb.appendLine()
         }
 
-        // Collect all captured vars across all nested functions
-        val allCaptured = captureMap.values.flatten().toSet()
-
-        // Build local-var-name -> captures map by scanning the outer CFG for
-        // assignments like: local_var = GlobalRef(nested_func_unique_name)
-        val localVarCaptureMap = mutableMapOf<String, List<String>>()
-        localVarCaptureMap.putAll(captureMap)  // funcName -> captures
-        for (inst in func.instList) {
-            if (inst is PIRAssign && inst.expr is PIRBindFunctionExpr && inst.target is PIRLocal) {
-                val refName = (inst.expr as PIRBindFunctionExpr).function.name
-                val localName = (inst.target as PIRLocal).name
-                if (refName in captureMap && localName != refName) {
-                    localVarCaptureMap[localName] = captureMap[refName]!!
-                }
-            }
-        }
-
-        // Reconstruct the outer function
-        nestedFuncCaptureMap = localVarCaptureMap
-        sb.append(reconstructSingle(func, emittedFuncNames,
-            capturedVars = allCaptured, isInner = false))
-        nestedFuncCaptureMap = emptyMap()
+        // Reconstruct the outer function. Bind sites — `PIRAssign(local,
+        // PIRBindFunctionExpr(closure_bearing))` — instantiate the wrapper
+        // class so each bind owns its own `_closure_env_`.
+        sb.append(reconstructSingle(func, emittedFuncNames))
+        closureBearingNames = emptySet()
         return sb.toString()
+    }
+
+    /** A function is closure-bearing iff it carries the synthetic `<self>` parameter. */
+    private fun isClosureBearing(func: PIRFunction): Boolean =
+        func.parameters.firstOrNull()?.name == SELF_PARAM_RAW
+
+    /**
+     * Resolve a `<lambda>$N` / nested-function name to its `PIRFunction`. First
+     * tries the qualified name in the requesting module, then falls back to a
+     * scan across all modules for a bare-name match.
+     */
+    private fun resolveLambda(name: String, cp: PIRClasspath, moduleName: String): PIRFunction? {
+        cp.findFunctionOrNull("$moduleName.$name")?.let { return it }
+        for (mod in cp.modules) {
+            mod.functions.find { it.name == name }?.let { return it }
+        }
+        return null
+    }
+
+    companion object {
+        /** Synthetic parameter name injected by closure lowering. Invalid Python identifier. */
+        private const val SELF_PARAM_RAW = ClosureRuntime.SELF_PARAM_NAME
+
+        /** Sanitised replacement for [SELF_PARAM_RAW] in reconstructed Python source. */
+        private const val SELF_PARAM_SAFE = "__self__"
+
+        /**
+         * Module-level definitions every reconstructed module needs:
+         *
+         * - `__pir_cell__`: a plain class. The IR allocates cells via
+         *   `PIRCall(callee = builtins.__pir_cell__)`; instances of this class
+         *   carry the mutable `.value` attribute.
+         *
+         * - `_closure_class`: the closure-binding decorator. Applied to every
+         *   closure-bearing function so the global name refers to a *class*,
+         *   not the raw function. The bind site instantiates the class
+         *   (`inc = inc_local0()`) — each bind gets its own wrapper, so binds
+         *   that share a lifted function but have different `_closure_env_`s
+         *   (e.g. two `make_adder` invocations) don't clobber each other.
+         *   Calling the wrapper dispatches through `__call__`, which forwards
+         *   the wrapper instance as `<self>` to the underlying function.
+         */
+        private const val MODULE_PRELUDE = """class __pir_cell__:
+    pass
+
+def _closure_class(f):
+    class _Wrapper:
+        def __call__(self, *args, **kwargs):
+            return f(self, *args, **kwargs)
+    return _Wrapper
+
+"""
     }
 
     private fun reconstructSingle(
         func: PIRFunction,
         emittedFuncNames: Set<String> = emptySet(),
-        capturedVars: Set<String> = emptySet(),
-        isInner: Boolean = false,
     ): String {
         currentEmittedFuncNames = emittedFuncNames
-        currentCapturedVars = capturedVars
-        currentIsInnerWithEnv = isInner
         val sb = StringBuilder()
 
         val paramNames = func.parameters.map { it.name }.toSet()
 
-        // Inner functions with captures get __env__ as first parameter
         val params = func.parameters.joinToString(", ") { p ->
+            val pname = sanitizeLocal(p.name)
             if (p.hasDefault && p.defaultValue != null) {
-                "${p.name}=${val_(p.defaultValue!!)}"
+                "$pname=${val_(p.defaultValue!!)}"
             } else {
-                p.name
+                pname
             }
         }
-        val fullParams = if (isInner) "__env__, $params" else params
-        sb.appendLine("def ${sanitizeFuncName(func.name)}($fullParams):")
+        // Closure-bearing functions get wrapped in @_closure_class so their
+        // global name resolves to a class. The bind site instantiates the class
+        // per bind, giving each bind a fresh wrapper that owns its own
+        // `_closure_env_`.
+        if (isClosureBearing(func)) {
+            sb.appendLine("@_closure_class")
+        }
+        sb.appendLine("def ${sanitizeFuncName(func.name)}($params):")
 
         val blocks = func.cfg.blocks
         if (blocks.isEmpty()) {
@@ -137,36 +178,18 @@ class PIRReconstructor {
             return sb.toString()
         }
 
-        // Outer function with captures: create __env__ dict and seed with params
-        if (!isInner && capturedVars.isNotEmpty()) {
-            sb.appendLine("    __env__ = {}")
-            // Initialize __env__ with parameter values that are captured
-            for (cv in capturedVars.sorted()) {
-                if (cv in paramNames) {
-                    sb.appendLine("    __env__['$cv'] = $cv")
-                }
-            }
-        }
-
-        // Collect all locals used (except parameters, emitted function names, and captured vars)
+        // Collect all locals used (except parameters and emitted function names).
         val locals = mutableSetOf<String>()
         for (inst in func.instList) {
             collectLocals(inst, locals)
         }
         locals.removeAll(paramNames)
         locals.removeAll(emittedFuncNames)
-        if (isInner) {
-            locals.removeAll(capturedVars)  // Inner: captured vars live in __env__, not as locals
-        }
         locals.remove("")
 
         // Declare locals
         for (local in locals.sorted()) {
-            if (!local.startsWith("\$")) {
-                sb.appendLine("    $local = None")
-            } else {
-                sb.appendLine("    ${sanitize(local)} = None")
-            }
+            sb.appendLine("    ${sanitizeLocal(local)} = None")
         }
 
         // Build a label->block map for looking up handler blocks
@@ -281,29 +304,15 @@ class PIRReconstructor {
             is PIRAssign -> reconstructAssign(inst)
             is PIRLoadAttr -> listOf("${val_(inst.target)} = ${val_(inst.obj)}.${inst.attribute}")
             is PIRCall -> {
-                val argsStr = inst.args.joinToString(", ") { callArg(it) }
-                // Inject __env__ as first argument if callee is a nested function with captures
-                val calleeName = when (inst.callee) {
-                    is PIRLocal -> (inst.callee as PIRLocal).name
-                    is PIRGlobalRef -> (inst.callee as PIRGlobalRef).name
-                    else -> ""
-                }
-                val needsEnv = !currentIsInnerWithEnv && calleeName in nestedFuncCaptureMap
-                val fullArgs = if (needsEnv) {
-                    if (argsStr.isEmpty()) "__env__" else "__env__, $argsStr"
-                } else argsStr
-                val call = "${val_(inst.callee)}($fullArgs)"
+                // Closure-bearing callees route through their `_closure_class`
+                // wrapper's `__call__`, which forwards the wrapper as `<self>`
+                // automatically. Plain functions call as written. Either way,
+                // the call site emits user arguments only.
+                val args = inst.args.joinToString(", ") { callArg(it) }
+                val call = "${val_(inst.callee)}($args)"
                 val t = inst.target
-                val lines = mutableListOf<String>()
-                if (t != null) lines.add("${val_(t)} = $call")
-                else lines.add(call)
-                // After calling a nested function, read back captured vars from __env__
-                if (needsEnv) {
-                    for (cv in nestedFuncCaptureMap[calleeName] ?: emptyList()) {
-                        lines.add("$cv = __env__['$cv']")
-                    }
-                }
-                lines
+                if (t != null) listOf("${val_(t)} = $call")
+                else listOf(call)
             }
             is PIRStoreAttr -> listOf("${val_(inst.obj)}.${inst.attribute} = ${val_(inst.value)}")
             is PIRStoreSubscript -> listOf("${val_(inst.obj)}[${val_(inst.index)}] = ${val_(inst.value)}")
@@ -412,47 +421,43 @@ class PIRReconstructor {
             is PIRIterExpr -> listOf("$target = iter(${val_(expr.iterable)})")
             is PIRTypeCheckExpr -> listOf("$target = isinstance(${val_(expr.value)}, object)")
             is PIRBindFunctionExpr -> {
-                // Skip self-assignments where the bound function's name matches the target
-                // local — `inner = inner` is implicit for nested defs.
+                // Bind site for a nested function. Two cases:
+                //
+                //  - Closure-bearing: the global resolves to a
+                //    `_closure_class`-decorated wrapper *class*, so instantiate
+                //    it. Each bind gets a fresh wrapper that owns its own
+                //    `_closure_env_`, so two binds of the same lifted function
+                //    (e.g. two `make_adder(n)` invocations) don't share state.
+                //    Note: a *capturing recursive inner* (a closure-bearing
+                //    function whose body re-binds itself) would re-instantiate
+                //    the wrapper inside its own body and lose its
+                //    `_closure_env_` — currently unreachable because the
+                //    only recursive-inner test (`rtlf_recursive_inner`)
+                //    doesn't capture, but worth knowing if such a test is added.
+                //
+                //  - Plain: `target = name` is a regular function-value alias.
+                //    Skip when the bound function's name equals the target
+                //    local (`inner = inner` is implicit for nested defs).
+                val fnName = expr.function.name
+                if (fnName in closureBearingNames) {
+                    return listOf("$target = ${sanitizeFuncName(fnName)}()")
+                }
                 val tgtLocal = inst.target as? PIRLocal
                 val isSelfAssign = tgtLocal != null
-                    && expr.function.name == tgtLocal.name
-                    && expr.function.name in currentEmittedFuncNames
+                    && fnName == tgtLocal.name
+                    && fnName in currentEmittedFuncNames
                 if (isSelfAssign) return emptyList()
                 listOf("$target = ${val_(expr.function)}")
             }
-            is PIRValue -> {
-                // Simple value copy (covers old PIRAssign, PIRLoadGlobal, PIRLoadClosure)
-                // Skip self-assignments for nested function references (inner = GlobalRef("inner"))
-                // but NOT lambda assignments (ident = GlobalRef("<lambda>$6")) where names differ
-                val srcRef = expr as? PIRGlobalRef
-                val tgtLocal = inst.target as? PIRLocal
-                val isSelfAssign = srcRef != null && tgtLocal != null
-                    && srcRef.name == tgtLocal.name && srcRef.name in currentEmittedFuncNames
-                if (isSelfAssign) return emptyList()
-                listOf("$target = ${val_(expr)}")
-            }
+            is PIRValue -> listOf("$target = ${val_(expr)}")
         }
-        // Outer function: also store to __env__ if target is a captured var
-        val lines = exprLines.toMutableList()
-        if (!currentIsInnerWithEnv && inst.target is PIRLocal
-            && (inst.target as PIRLocal).name in currentCapturedVars) {
-            val name = (inst.target as PIRLocal).name
-            lines.add("__env__['$name'] = $name")
-        }
-        return lines
+        return exprLines
     }
 
     private fun val_(v: PIRValue): String {
         return when (v) {
-            is PIRLocal -> {
-                if (currentIsInnerWithEnv && v.name in currentCapturedVars) {
-                    "__env__['${v.name}']"
-                } else {
-                    sanitize(v.name)
-                }
-            }
-            is PIRParameterRef -> v.name
+            is PIRLocal -> sanitizeLocal(v.name)
+            is PIRParameterRef -> sanitizeLocal(v.name)
             is PIRIntConst -> v.value.toString()
             is PIRFloatConst -> v.value.toString()
             is PIRStrConst -> "\"${v.value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
@@ -466,9 +471,17 @@ class PIRReconstructor {
         }
     }
 
-    private fun sanitize(name: String): String {
-        // Replace $ with __ for valid Python identifiers
-        return name.replace("\$", "__")
+    /**
+     * Sanitize a local variable / parameter name to a valid Python identifier.
+     * Handles synthetic closure-lowered names: `$cell$x` → `__cell__x`,
+     * `<self>` → `__self__`.
+     */
+    private fun sanitizeLocal(name: String): String {
+        if (name == SELF_PARAM_RAW) return SELF_PARAM_SAFE
+        return name
+            .replace("\$", "__")
+            .replace("<", "__")
+            .replace(">", "__")
     }
 
     /**
