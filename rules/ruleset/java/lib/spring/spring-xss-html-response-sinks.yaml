@@ -148,32 +148,33 @@ rules:
                       # the enumerations below take effect for these
                       # cases too.
                       #
-                      # The `@ResponseBody` exclusion at the bottom of
-                      # this branch is scoped (via a co-located
-                      # `pattern-not-inside` on the bare `String`
-                      # alternative) to apply only to the `String`
-                      # return shape — it is the only return type here
-                      # whose write-vs-view-resolve verdict is decided
-                      # by `@ResponseBody` (a `String` from a plain
-                      # `@Controller` is a view name; with
-                      # `@ResponseBody` it goes through
-                      # `StringHttpMessageConverter`). For
-                      # `ResponseEntity<…>` / `CompletableFuture<…>` /
-                      # raw `byte[]`, Spring's
-                      # `HttpEntityMethodProcessor` /
-                      # `RequestResponseBodyMethodProcessor` write to
-                      # the response body regardless of
-                      # `@ResponseBody`, so the exclusion is not
-                      # applied to those shapes.
-                      - patterns:
-                          - pattern-inside: |
-                              @$ANNOTATION(...)
-                              String $METHOD(...) {
-                                ...
-                              }
-                          - pattern-not-inside: |
-                              @ResponseBody
-                              $RETURNTYPE $METHOD(...) { ... }
+                      # The `String` return shape was previously gated by
+                      # `pattern-not-inside @ResponseBody`, on the belief
+                      # that body-write of a `String` lands on
+                      # `text/plain` via `StringHttpMessageConverter`'s
+                      # default and is therefore not XSS-exploitable.
+                      # That belief was disproved empirically in
+                      # `spring-app-tests/xss-in-spring-app-dynamic` —
+                      # `StringHttpMessageConverter` does Accept-header
+                      # content negotiation BEFORE falling back, and a
+                      # real browser's `Accept: text/html` lifts the
+                      # response to `Content-Type: text/html;charset=UTF-8`.
+                      # `alert(1)` then fires in Chromium. We therefore
+                      # do NOT exclude `@ResponseBody` (or its
+                      # class-level `@RestController` form) here.
+                      #
+                      # The remaining over-approximation is a plain
+                      # `@Controller` + `String` return that is treated
+                      # as a view name. In practice that shape doesn't
+                      # concatenate untrusted input into the returned
+                      # view name string, so the source→sink dataflow
+                      # path doesn't reach `return $UNTRUSTED;` and no
+                      # FP fires.
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          String $METHOD(...) {
+                            ...
+                          }
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           ResponseEntity<String> $METHOD(...) {

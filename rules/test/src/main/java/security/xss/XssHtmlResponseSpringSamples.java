@@ -656,7 +656,7 @@ public class XssHtmlResponseSpringSamples {
     // ── Rows 40/41/42/43: @RestController + parameterized return cases ─────
     // Moved to dedicated `spring-app-tests/` sub-projects so they're
     // analyzed via Spring dispatch rather than direct method-as-entry:
-    //   - rules/test/spring-app-tests/xss-rest-controller-string-negative
+    //   - rules/test/spring-app-tests/xss-rest-controller-string-positive
     //   - rules/test/spring-app-tests/xss-rest-controller-dto-negative
     //   - rules/test/spring-app-tests/xss-rest-controller-html-positive
     // Method-as-entry analysis (the default for samples in this file)
@@ -796,6 +796,31 @@ public class XssHtmlResponseSpringSamples {
                     .contentType(MediaType.TEXT_HTML)
                     .body("<h1>Hello, " + name + "!</h1>");
             // `entity` is never returned, never written to the response.
+        }
+    }
+
+    // ── Row 56: plain @Controller + @ResponseBody + String + no produces — TP
+    // Empirical browser verdict (Playwright Chromium, see
+    // `spring-app-tests/xss-in-spring-app-dynamic`): XSS fires —
+    // `@ResponseBody` makes Spring write the return value through
+    // `StringHttpMessageConverter`, which content-negotiates against the
+    // browser's `Accept: text/html` and serves
+    // `Content-Type: text/html;charset=UTF-8`. `alert(1)` executes.
+    //
+    // This is the case the previous rule missed: it had a
+    // `pattern-not-inside @ResponseBody` exclusion on the `String`
+    // return shape under the (incorrect) assumption that `text/plain`
+    // was the converter's default. Removing the exclusion is what makes
+    // this row a true positive.
+
+    @Controller
+    public static class Row56ControllerResponseBodyStringController {
+
+        @GetMapping("/xss-in-spring-app/row-56")
+        @ResponseBody
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public String row56(@RequestParam(required = false, defaultValue = "") String name) {
+            return "<h1>Hello, " + name + "!</h1>";
         }
     }
 }
