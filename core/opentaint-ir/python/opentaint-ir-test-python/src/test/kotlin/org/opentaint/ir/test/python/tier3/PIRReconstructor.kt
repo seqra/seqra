@@ -90,8 +90,8 @@ class PIRReconstructor {
         val localVarCaptureMap = mutableMapOf<String, List<String>>()
         localVarCaptureMap.putAll(captureMap)  // funcName -> captures
         for (inst in func.instList) {
-            if (inst is PIRAssign && inst.expr is PIRGlobalRef && inst.target is PIRLocal) {
-                val refName = (inst.expr as PIRGlobalRef).name
+            if (inst is PIRAssign && inst.expr is PIRBindFunctionExpr && inst.target is PIRLocal) {
+                val refName = (inst.expr as PIRBindFunctionExpr).function.name
                 val localName = (inst.target as PIRLocal).name
                 if (refName in captureMap && localName != refName) {
                     localVarCaptureMap[localName] = captureMap[refName]!!
@@ -248,6 +248,7 @@ class PIRReconstructor {
                 is PIRStringExpr -> expr.parts.forEach { checkValue(it) }
                 is PIRIterExpr -> checkValue(expr.iterable)
                 is PIRTypeCheckExpr -> checkValue(expr.value)
+                is PIRBindFunctionExpr -> checkValue(expr.function)
                 is PIRValue -> checkValue(expr)
             }
         }
@@ -410,6 +411,16 @@ class PIRReconstructor {
             }
             is PIRIterExpr -> listOf("$target = iter(${val_(expr.iterable)})")
             is PIRTypeCheckExpr -> listOf("$target = isinstance(${val_(expr.value)}, object)")
+            is PIRBindFunctionExpr -> {
+                // Skip self-assignments where the bound function's name matches the target
+                // local — `inner = inner` is implicit for nested defs.
+                val tgtLocal = inst.target as? PIRLocal
+                val isSelfAssign = tgtLocal != null
+                    && expr.function.name == tgtLocal.name
+                    && expr.function.name in currentEmittedFuncNames
+                if (isSelfAssign) return emptyList()
+                listOf("$target = ${val_(expr.function)}")
+            }
             is PIRValue -> {
                 // Simple value copy (covers old PIRAssign, PIRLoadGlobal, PIRLoadClosure)
                 // Skip self-assignments for nested function references (inner = GlobalRef("inner"))
@@ -529,6 +540,7 @@ class PIRReconstructor {
                 is PIRStringExpr -> expr.parts.forEach { collectLocalFromValue(it, locals) }
                 is PIRIterExpr -> collectLocalFromValue(expr.iterable, locals)
                 is PIRTypeCheckExpr -> collectLocalFromValue(expr.value, locals)
+                is PIRBindFunctionExpr -> {}
                 is PIRValue -> collectLocalFromValue(expr, locals)
             }
         }

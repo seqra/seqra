@@ -102,6 +102,7 @@ interface PIRExprVisitor<out T> {
     fun visitStringExpr(expr: PIRStringExpr): T
     fun visitIterExpr(expr: PIRIterExpr): T
     fun visitTypeCheckExpr(expr: PIRTypeCheckExpr): T
+    fun visitBindFunctionExpr(expr: PIRBindFunctionExpr): T
     // Values (also expressions)
     fun visitValue(value: PIRValue): T
 }

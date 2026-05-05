@@ -74,6 +74,7 @@ private class LocalNameCollector(
             is PIRIterExpr -> visit(expr.iterable)
             is PIRSliceExpr -> { expr.lower?.let(::visit); expr.upper?.let(::visit); expr.step?.let(::visit) }
             is PIRTypeCheckExpr -> visit(expr.value)
+            is PIRBindFunctionExpr -> Unit
         }
     }
 

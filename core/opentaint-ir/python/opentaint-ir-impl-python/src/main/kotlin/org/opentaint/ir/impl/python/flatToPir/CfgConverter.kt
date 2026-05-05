@@ -82,7 +82,11 @@ object CfgConverter {
             is FlatStoreSubscript -> PIRStoreSubscript(v(flat.obj), v(flat.index), v(flat.value), loc)
             is FlatLoadGlobal -> PIRAssign(v(flat.target), PIRGlobalRef(flat.name, flat.module), loc)
             is FlatStoreGlobal -> PIRStoreGlobal(flat.name, flat.module, v(flat.value), loc)
-            is FlatBindFunction -> PIRAssign(v(flat.target), v(flat.function), loc)
+            is FlatBindFunction -> PIRAssign(
+                v(flat.target),
+                PIRBindFunctionExpr(v(flat.function) as PIRGlobalRef),
+                loc,
+            )
 
             is FlatBinOp -> PIRAssign(v(flat.target), flat.op.toPir(v(flat.left), v(flat.right)), loc)
             is FlatUnaryOp -> PIRAssign(v(flat.target), flat.op.toPir(v(flat.operand)), loc)

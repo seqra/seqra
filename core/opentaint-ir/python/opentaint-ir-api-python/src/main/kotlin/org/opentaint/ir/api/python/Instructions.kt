@@ -137,6 +137,14 @@ data class PIRStringExpr(val parts: List<PIRValue>) : PIRExpr
 data class PIRIterExpr(val iterable: PIRValue) : PIRExpr
 data class PIRTypeCheckExpr(val value: PIRValue, val checkType: PIRType) : PIRExpr
 
+/**
+ * Binds a lifted nested function or lambda to a local. Materializes the
+ * function value at the site where the `def` / `lambda` syntactically appears
+ * in the source. The closure transform may follow this with a
+ * [PIRStoreAttr] writing `_closure_env_` on the bound local.
+ */
+data class PIRBindFunctionExpr(val function: PIRGlobalRef) : PIRExpr
+
 // ─── Memory Store (side-effecting, no result) ───────────────
 
 data class PIRLoadAttr(
@@ -430,3 +438,4 @@ val PIRAssign.sliceExpr: PIRSliceExpr get() = expr as PIRSliceExpr
 val PIRAssign.stringExpr: PIRStringExpr get() = expr as PIRStringExpr
 val PIRAssign.iterExpr: PIRIterExpr get() = expr as PIRIterExpr
 val PIRAssign.typeCheckExpr: PIRTypeCheckExpr get() = expr as PIRTypeCheckExpr
+val PIRAssign.bindFunctionExpr: PIRBindFunctionExpr get() = expr as PIRBindFunctionExpr
