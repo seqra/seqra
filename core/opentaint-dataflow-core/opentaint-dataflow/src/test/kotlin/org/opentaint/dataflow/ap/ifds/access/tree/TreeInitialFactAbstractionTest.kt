@@ -7,12 +7,13 @@ import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.TypeInfoAccessor
+import org.opentaint.dataflow.ap.ifds.TypeInfoGroupAccessor
 import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.CommonMethodParameter
 import org.opentaint.ir.api.common.CommonTypeName
@@ -31,58 +32,193 @@ class TreeInitialFactAbstractionTest {
 
         val FIELD_A_B = FieldAccessor(TYPE_A, "b", TYPE_B)
         val FIELD_B_C = FieldAccessor(TYPE_B, "c", TYPE_C)
-        val FIELD_C_D = FieldAccessor(TYPE_C, "d", TYPE_D)
         val FIELD_B_E = FieldAccessor(TYPE_B, "e", TYPE_D)
+        val FIELD_C_D = FieldAccessor(TYPE_C, "d", TYPE_D)
 
         val MARK = TaintMarkAccessor("test-mark")
+        val MARK_2 = TaintMarkAccessor("test-mark-2")
+        val TYPE_INFO_A = TypeInfoAccessor("A")
+        val TYPE_INFO_B = TypeInfoAccessor("B")
     }
+
+    private data class Scenario(
+        val name: String,
+        val analyzed: List<InitialFactAp>,
+        val added: FinalFactAp,
+        val expectedFacts: List<InitialFactAp> = emptyList(),
+        val expectedEmpty: Boolean = false,
+    )
 
     private val apManager: ApManager = TreeApManager(AnyAccessorUnrollStrategy.AnyAccessorDisabled)
 
     @Test
-    fun `analyzed exclusion hit produces more precise abstraction`() {
-        val abstraction = newAbstraction()
-        val analyzed = initialFact(This, FIELD_A_B).exclude(FIELD_B_C)
-        abstraction.registerNewInitialFact(analyzed, FactTypeChecker.Dummy)
-
-        val added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D)
-        val produced = abstraction.addAbstractedInitialFact(added, FactTypeChecker.Dummy)
-        val expected = initialFact(This, FIELD_A_B, FIELD_B_C)
-
-        assertTrue(
-            produced.any { (initial, final) -> initial == expected && final.equalTo(expected) },
-            "Expected abstraction to contain expected fact. analyzed=$analyzed; added=$added; expected=$expected; produced=${producedFactsToString(produced)}",
+    fun `scenario matrix`() {
+        val scenarios = listOf(
+            Scenario(
+                name = "1 exclusion hit on c returns a.b.c",
+                analyzed = listOf(initialFact(This, FIELD_A_B).exclude(FIELD_B_C)),
+                added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
+                expectedFacts = listOf(initialFact(This, FIELD_A_B, FIELD_B_C)),
+            ),
+            Scenario(
+                name = "2 exclusion miss on e returns empty",
+                analyzed = listOf(initialFact(This, FIELD_A_B).exclude(FIELD_B_E)),
+                added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "3 analyzed mark no exclusions returns empty",
+                analyzed = listOf(initialFact(This, MARK)),
+                added = finalFact(This, FIELD_A_B, ValueAccessor, MARK),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "4 no analyzed facts for this base returns most abstract",
+                analyzed = listOf(initialFact(AccessPathBase.Argument(0), FIELD_A_B).exclude(FIELD_B_C)),
+                added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
+                expectedFacts = listOf(initialFact(This)),
+            ),
+            Scenario(
+                name = "5 root exclusion on b returns a.b",
+                analyzed = listOf(initialFact(This).exclude(FIELD_A_B)),
+                added = finalFact(This, FIELD_A_B, FIELD_B_C),
+                expectedFacts = listOf(initialFact(This, FIELD_A_B)),
+            ),
+            Scenario(
+                name = "6 root non matching exclusion returns empty",
+                analyzed = listOf(initialFact(This).exclude(FIELD_B_E)),
+                added = finalFact(This, FIELD_A_B, FIELD_B_C),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "7 deeper exclusion on d currently collapses to a.b",
+                analyzed = listOf(initialFact(This, FIELD_A_B, FIELD_B_C).exclude(FIELD_C_D)),
+                added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
+                expectedFacts = listOf(initialFact(This, FIELD_A_B)),
+            ),
+            Scenario(
+                name = "8 deeper non matching exclusion currently collapses to a.b",
+                analyzed = listOf(initialFact(This, FIELD_A_B, FIELD_B_C).exclude(FIELD_B_E)),
+                added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
+                expectedFacts = listOf(initialFact(This, FIELD_A_B)),
+            ),
+            Scenario(
+                name = "9 multiple analyzed paths currently produce no abstraction",
+                analyzed = listOf(
+                    initialFact(This).exclude(FIELD_A_B),
+                    initialFact(This, FIELD_A_B).exclude(FIELD_B_E),
+                ),
+                added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "10 most abstract analyzed with empty exclusions returns empty",
+                analyzed = listOf(initialFact(This)),
+                added = finalFact(This, FIELD_A_B),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "11 mark exclusion at root currently returns empty",
+                analyzed = listOf(initialFact(This).exclude(MARK)),
+                added = finalFact(This, FIELD_A_B, ValueAccessor, MARK),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "12 value exclusion after mark currently returns empty",
+                analyzed = listOf(initialFact(This, MARK).exclude(ValueAccessor)),
+                added = finalFact(This, FIELD_A_B, ValueAccessor, MARK),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "13 type group exclusion at root currently returns empty",
+                analyzed = listOf(initialFact(This).exclude(TypeInfoGroupAccessor)),
+                added = finalFact(This, FIELD_A_B, TYPE_INFO_A, TypeInfoGroupAccessor),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "14 type accessor exclusion after group currently returns empty",
+                analyzed = listOf(initialFact(This, TypeInfoGroupAccessor).exclude(TYPE_INFO_A)),
+                added = finalFact(This, FIELD_A_B, TYPE_INFO_A, TypeInfoGroupAccessor),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "15 non matching type accessor exclusion returns empty",
+                analyzed = listOf(initialFact(This, TypeInfoGroupAccessor).exclude(TYPE_INFO_B)),
+                added = finalFact(This, FIELD_A_B, TYPE_INFO_A, TypeInfoGroupAccessor),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "16 mark2 exclusion does not match mark1 returns empty",
+                analyzed = listOf(initialFact(This).exclude(MARK_2)),
+                added = finalFact(This, FIELD_A_B, ValueAccessor, MARK),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "17 exclusion on c with short added path returns a.b.c",
+                analyzed = listOf(initialFact(This, FIELD_A_B).exclude(FIELD_B_C)),
+                added = finalFact(This, FIELD_A_B, FIELD_B_C),
+                expectedFacts = listOf(initialFact(This, FIELD_A_B, FIELD_B_C)),
+            ),
+            Scenario(
+                name = "18 exclusion on b with short added path returns a.b",
+                analyzed = listOf(initialFact(This).exclude(FIELD_A_B)),
+                added = finalFact(This, FIELD_A_B),
+                expectedFacts = listOf(initialFact(This, FIELD_A_B)),
+            ),
+            Scenario(
+                name = "19 unrelated base plus matching this-base exclusion uses this-base result",
+                analyzed = listOf(
+                    initialFact(AccessPathBase.Argument(0), FIELD_A_B).exclude(FIELD_B_C),
+                    initialFact(This, FIELD_A_B).exclude(FIELD_B_C),
+                ),
+                added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
+                expectedFacts = listOf(initialFact(This, FIELD_A_B, FIELD_B_C)),
+            ),
+            Scenario(
+                name = "20 conflicting exclusions on two levels return a.b.c",
+                analyzed = listOf(
+                    initialFact(This).exclude(FIELD_A_B),
+                    initialFact(This, FIELD_A_B).exclude(FIELD_B_C),
+                ),
+                added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D),
+                expectedFacts = listOf(initialFact(This, FIELD_A_B, FIELD_B_C)),
+            ),
+            Scenario(
+                name = "21 mark exclusion with only mark path currently returns empty",
+                analyzed = listOf(initialFact(This).exclude(MARK)),
+                added = finalFact(This, ValueAccessor, MARK),
+                expectedEmpty = true,
+            ),
+            Scenario(
+                name = "22 type group exclusion with only type path currently returns empty",
+                analyzed = listOf(initialFact(This).exclude(TypeInfoGroupAccessor)),
+                added = finalFact(This, TYPE_INFO_A, TypeInfoGroupAccessor),
+                expectedEmpty = true,
+            ),
         )
-    }
 
-    @Test
-    fun `non matching exclusion keeps broader abstraction`() {
-        val abstraction = newAbstraction()
-        val analyzed = initialFact(This, FIELD_A_B).exclude(FIELD_B_E)
-        abstraction.registerNewInitialFact(analyzed, FactTypeChecker.Dummy)
+        scenarios.forEach { scenario ->
+            val abstraction = newAbstraction()
+            scenario.analyzed.forEach { analyzedFact ->
+                abstraction.registerNewInitialFact(analyzedFact, FactTypeChecker.Dummy)
+            }
 
-        val added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D)
-        val produced = abstraction.addAbstractedInitialFact(added, FactTypeChecker.Dummy)
+            val produced = abstraction.addAbstractedInitialFact(scenario.added, FactTypeChecker.Dummy)
 
-        assertTrue(
-            produced.isEmpty(),
-            "Expected no new abstraction. analyzed=$analyzed; added=$added; produced=${producedFactsToString(produced)}",
-        )
-    }
+            if (scenario.expectedEmpty) {
+                assertTrue(
+                    produced.isEmpty(),
+                    "[${scenario.name}] expected no produced facts; analyzed=${scenario.analyzed}; added=${scenario.added}; produced=${producedFactsToString(produced)}",
+                )
+            }
 
-    @Test
-    fun `always unroll next accessor without exclusion conflict produces no abstraction`() {
-        val abstraction = newAbstraction()
-        val analyzed = initialFact(This, MARK)
-        abstraction.registerNewInitialFact(analyzed, FactTypeChecker.Dummy)
-
-        val added = finalFact(This, FIELD_A_B, ValueAccessor, MARK)
-        val produced = abstraction.addAbstractedInitialFact(added, FactTypeChecker.Dummy)
-
-        assertTrue(
-            produced.isEmpty(),
-            "Expected no new abstraction for unroll-next chain without exclusion conflict. analyzed=$analyzed; added=$added; produced=${producedFactsToString(produced)}",
-        )
+            scenario.expectedFacts.forEach { expected ->
+                assertTrue(
+                    produced.any { (initial, final) -> initial == expected && final.equalTo(expected) },
+                    "[${scenario.name}] expected fact is missing; analyzed=${scenario.analyzed}; added=${scenario.added}; expected=$expected; produced=${producedFactsToString(produced)}",
+                )
+            }
+        }
     }
 
     @Test
@@ -97,27 +233,11 @@ class TreeInitialFactAbstractionTest {
 
         assertTrue(
             firstProduced.isNotEmpty(),
-            "Expected first add to produce abstraction. analyzed=$analyzed; added=$added; produced=${producedFactsToString(firstProduced)}",
+            "Expected first add to produce abstraction; analyzed=$analyzed; added=$added; produced=${producedFactsToString(firstProduced)}",
         )
         assertTrue(
             secondProduced.isEmpty(),
-            "Expected second add of same fact to produce nothing. analyzed=$analyzed; added=$added; produced=${producedFactsToString(secondProduced)}",
-        )
-    }
-
-    @Test
-    fun `conflicting exclusion on different base keeps this base at most abstract fact`() {
-        val abstraction = newAbstraction()
-        val analyzedOtherBase = initialFact(AccessPathBase.Argument(0), FIELD_A_B).exclude(FIELD_B_C)
-        abstraction.registerNewInitialFact(analyzedOtherBase, FactTypeChecker.Dummy)
-
-        val added = finalFact(This, FIELD_A_B, FIELD_B_C, FIELD_C_D)
-        val produced = abstraction.addAbstractedInitialFact(added, FactTypeChecker.Dummy)
-        val expected = initialFact(This)
-
-        assertTrue(
-            produced.any { (initial, final) -> initial == expected && final.equalTo(expected) },
-            "Expected most abstract fact for this base because there are no analyzed facts for it. analyzed=$analyzedOtherBase; added=$added; expected=$expected; produced=${producedFactsToString(produced)}",
+            "Expected second add of same fact to produce nothing; analyzed=$analyzed; added=$added; produced=${producedFactsToString(secondProduced)}",
         )
     }
 
