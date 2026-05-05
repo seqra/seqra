@@ -184,6 +184,22 @@ rules:
                           ResponseEntity<byte[]> $METHOD(...) {
                             ...
                           }
+                      # Raw `ResponseEntity` (no type argument) is also
+                      # DEFAULT-DANGEROUS: the body's runtime type
+                      # determines content negotiation, and a `String`
+                      # body (Row 14) routes through
+                      # `StringHttpMessageConverter` which serves the
+                      # response as `text/html` when the request's
+                      # Accept header allows it. Listed as a separate
+                      # alternative because `ResponseEntity<String>` /
+                      # `<byte[]>` (concrete type-arg) patterns do not
+                      # match a raw method-decl return type — see
+                      # `TypeAwarePatternTest` A2.
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity $METHOD(...) {
+                            ...
+                          }
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           CompletableFuture<String> $METHOD(...) {
