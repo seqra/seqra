@@ -220,6 +220,42 @@ rules:
                             ...
                           }
                   - pattern: $DR.setResult(..., $UNTRUSTED, ...);
+
+              # Branch 1d: raw `ResponseEntity` (no type argument) handler
+              # return — DEFAULT-DANGEROUS for the same reason as
+              # `ResponseEntity<String>`: the body's runtime type drives
+              # content negotiation, and a `String` body routes through
+              # `StringHttpMessageConverter` which serves `text/html` under
+              # `Accept: text/html` (see Row 14).
+              #
+              # The raw `pattern-inside ResponseEntity` would over-match every
+              # `ResponseEntity<*>` declaration the engine sees (it is more
+              # permissive than the typed `<String>` / `<byte[]>` siblings,
+              # not narrower) — Stirling-PDF triage attributed 33 of 42 FPs
+              # to this. The sibling `pattern-not-inside ResponseEntity<$T>`
+              # subtracts every parameterized declaration so only truly raw
+              # returns survive — engine support landed in
+              # `TypeAwarePatternTest.A24` (raw `pattern-inside` /
+              # parameterized `pattern-not-inside` discrimination).
+              #
+              # The branch is hoisted to top-level patterns to match A24's
+              # flat structure exactly. Putting the raw + negation pair
+              # inside Branch 1's nested `pattern-either` (4 levels deep
+              # under `pattern-sinks`) does not engage the discrimination
+              # end-to-end and Row 14 reports as a rule-test FN there.
+              - patterns:
+                  - pattern-inside: |
+                      @$ANNOTATION(...)
+                      ResponseEntity $METHOD(...) {
+                        ...
+                      }
+                  - pattern-not-inside: |
+                      @$ANNOTATION(...)
+                      ResponseEntity<$T> $METHOD(...) {
+                        ...
+                      }
+                  - pattern: return $UNTRUSTED;
+                  - focus-metavariable: $UNTRUSTED
           # `image/svg+xml` is deliberately NOT excluded — SVG can host
           # inline `<script>` and execute.
           #
@@ -232,78 +268,6 @@ rules:
           # bare-identifier MIME form like `application/json` cannot be
           # used because the engine parses `/` and `-` as Java
           # operators (BLOCKING parse error).
-          - patterns:
-              - pattern-not-inside: |
-                  @$ANNOTATION(..., produces = $PRODUCES, ...)
-                  $RETURNTYPE $METHOD(...) { ... }
-              - metavariable-pattern:
-                  metavariable: $PRODUCES
-                  patterns:
-                    - pattern-either:
-                        - pattern: '"application/json"'
-                        - pattern: '"text/plain"'
-                        - pattern: '"application/pdf"'
-                        - pattern: '"application/octet-stream"'
-                        - pattern: '"application/xml"'
-                        - pattern: '"text/xml"'
-                        - pattern: '"image/png"'
-                        - pattern: '"image/jpeg"'
-                        - pattern: '"image/gif"'
-                        - pattern: MediaType.APPLICATION_JSON_VALUE
-                        - pattern: MediaType.TEXT_PLAIN_VALUE
-                        - pattern: MediaType.APPLICATION_PDF_VALUE
-                        - pattern: MediaType.APPLICATION_OCTET_STREAM_VALUE
-                        - pattern: MediaType.APPLICATION_XML_VALUE
-                        - pattern: MediaType.TEXT_XML_VALUE
-                        - pattern: MediaType.IMAGE_PNG_VALUE
-                        - pattern: MediaType.IMAGE_JPEG_VALUE
-                        - pattern: MediaType.IMAGE_GIF_VALUE
-          - focus-metavariable: $UNTRUSTED
-
-      # Branch 1d: raw `ResponseEntity` (no type argument) handler
-      # return — DEFAULT-DANGEROUS for the same reason as
-      # `ResponseEntity<String>`: the body's runtime type drives
-      # content negotiation, and a `String` body routes through
-      # `StringHttpMessageConverter` which serves `text/html` under
-      # `Accept: text/html` (see Row 14).
-      #
-      # The raw `pattern-inside ResponseEntity` would over-match every
-      # `ResponseEntity<*>` declaration the engine sees (it is more
-      # permissive than the typed `<String>` / `<byte[]>` siblings,
-      # not narrower) — Stirling-PDF triage attributed 33 of 42 FPs
-      # to this. The sibling `pattern-not-inside ResponseEntity<$T>`
-      # subtracts every parameterized declaration so only truly raw
-      # returns survive — engine support landed in
-      # `TypeAwarePatternTest.A24` (raw `pattern-inside` /
-      # parameterized `pattern-not-inside` discrimination).
-      #
-      # The branch is hoisted to top-level patterns to match A24's
-      # flat structure exactly. Putting the raw + negation pair
-      # inside Branch 1's nested `pattern-either` (4 levels deep
-      # under `pattern-sinks`) does not engage the discrimination
-      # end-to-end and Row 14 reports as a rule-test FN there.
-      - patterns:
-          - metavariable-pattern:
-              metavariable: $ANNOTATION
-              patterns:
-                - pattern-either:
-                    - pattern: GetMapping
-                    - pattern: PostMapping
-                    - pattern: PutMapping
-                    - pattern: PatchMapping
-                    - pattern: DeleteMapping
-                    - pattern: RequestMapping
-          - pattern-inside: |
-              @$ANNOTATION(...)
-              ResponseEntity $METHOD(...) {
-                ...
-              }
-          - pattern-not-inside: |
-              @$ANNOTATION(...)
-              ResponseEntity<$T> $METHOD(...) {
-                ...
-              }
-          - pattern: return $UNTRUSTED;
           - patterns:
               - pattern-not-inside: |
                   @$ANNOTATION(..., produces = $PRODUCES, ...)
