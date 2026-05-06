@@ -3,6 +3,7 @@ package org.opentaint.ir.impl.python.transforms.closure
 import org.opentaint.ir.api.python.PIRDiagnostic
 import org.opentaint.ir.api.python.PIRDiagnosticSeverity
 import org.opentaint.ir.impl.python.flat.FlatAnyType
+import org.opentaint.ir.impl.python.flat.FlatArgKind
 import org.opentaint.ir.impl.python.flat.FlatAssign
 import org.opentaint.ir.impl.python.flat.FlatAwait
 import org.opentaint.ir.impl.python.flat.FlatBinOp
@@ -17,6 +18,7 @@ import org.opentaint.ir.impl.python.flat.FlatBuildString
 import org.opentaint.ir.impl.python.flat.FlatBuildTuple
 import org.opentaint.ir.impl.python.flat.FlatCFG
 import org.opentaint.ir.impl.python.flat.FlatCall
+import org.opentaint.ir.impl.python.flat.FlatCallArg
 import org.opentaint.ir.impl.python.flat.FlatClass
 import org.opentaint.ir.impl.python.flat.FlatCompare
 import org.opentaint.ir.impl.python.flat.FlatDeleteAttr
@@ -25,6 +27,7 @@ import org.opentaint.ir.impl.python.flat.FlatDeleteLocal
 import org.opentaint.ir.impl.python.flat.FlatDeleteSubscript
 import org.opentaint.ir.impl.python.flat.FlatExceptHandler
 import org.opentaint.ir.impl.python.flat.FlatFunctionIR
+import org.opentaint.ir.impl.python.flat.FlatFunctionKind
 import org.opentaint.ir.impl.python.flat.FlatGetIter
 import org.opentaint.ir.impl.python.flat.FlatGlobalRef
 import org.opentaint.ir.impl.python.flat.FlatGoto
@@ -62,31 +65,60 @@ import org.opentaint.ir.impl.python.flat.FlatYieldFrom
  *     `<self>._closure_env_`;
  *   - rewires reads of cell-managed locals through `FlatLoadAttr` and
  *     writes through `FlatStoreAttr` against `$cell$name`;
- *   - at each `FlatBindFunction` whose child has non-empty `closureVars`,
- *     emits `FlatBuildDict($env, …)` + `FlatStoreAttr(target, "_closure_env_", $env)`.
+ *
+ * **Callable-shim shape** (per `.agents/callable-shim/plan.md`): for every
+ * capturing function (`closureVars` non-empty) the rewriter additionally
+ * synthesizes an adapter `FlatClass` whose `__init__` stores `_closure_env_`
+ * on `self` and whose `__call__` forwards to the renamed impl function. At
+ * each `FlatBindFunction(target, child)` whose child captures, the bind is
+ * replaced by a `FlatBuildDict + FlatCall` constructing the adapter class
+ * with the env dict as its only argument.
  *
  * `FlatFunctionIR.closureVars` is populated from [ClosureInfo.closureVars]
  * so the PIR converter sees it.
  */
 internal object ClosureRewriter {
 
+    /**
+     * Result of rewriting one capturing-or-cell-owning function: the (possibly
+     * renamed) impl plus an optional adapter class. Non-capturing functions
+     * with cellVars only return `impl` with `adapterClass = null`.
+     */
+    private data class RewriteOutput(
+        val impl: FlatFunctionIR,
+        val adapterClass: FlatClass? = null,
+    )
+
     fun rewrite(module: FlatModuleIR, info: Map<String, ClosureInfo>): FlatModuleIR {
         val diagnostics = ArrayList<PIRDiagnostic>()
 
-        // FlatBindFunction.function is a FlatGlobalRef carrying the synthetic
-        // *unique* name (e.g. "reader$local1"), while ClosureInfo is keyed by
-        // qualifiedName (e.g. "module.outer.reader"). Build an index so bind
-        // sites can resolve their child's ClosureInfo.
+        // Build name → qualifiedName index over original module functions only.
+        // This is the view the analyzer sees and the bind-site rewrite consults.
         val nameToQualified = buildNameToQualifiedIndex(module)
 
-        val newFunctions = module.functions.map { rewriteFunction(it, info, nameToQualified, diagnostics) }
-        val newModuleInit = rewriteFunction(module.moduleInit, info, nameToQualified, diagnostics)
-        val newClasses = module.classes.map { rewriteClass(it, info, nameToQualified, diagnostics) }
+        // First scan: pick adapter class names + impl renames for every capturing
+        // function. Both decisions must be visible BEFORE we walk bind sites.
+        val capturingPlan = buildCapturingPlan(module, info)
+
+        val adapterClasses = ArrayList<FlatClass>()
+
+        val rewriteCtx = RewriteRunner(info, nameToQualified, capturingPlan, diagnostics)
+
+        val newFunctions = module.functions.map {
+            val out = rewriteCtx.rewriteFunction(it)
+            out.adapterClass?.let(adapterClasses::add)
+            out.impl
+        }
+        val newModuleInit = rewriteCtx.rewriteFunction(module.moduleInit).also {
+            // Module init is never capturing — its kind is MODULE_INIT, a closure root.
+            it.adapterClass?.let(adapterClasses::add)
+        }.impl
+        val newClasses = module.classes.map { rewriteCtx.rewriteClass(it, adapterClasses) }
 
         return module.copy(
             functions = newFunctions,
             moduleInit = newModuleInit,
-            classes = newClasses,
+            classes = newClasses + adapterClasses,
             diagnostics = module.diagnostics + diagnostics,
         )
     }
@@ -103,67 +135,139 @@ internal object ClosureRewriter {
         return index
     }
 
-    private fun rewriteClass(
-        cls: FlatClass,
-        info: Map<String, ClosureInfo>,
-        nameToQualified: Map<String, String>,
-        diagnostics: MutableList<PIRDiagnostic>,
-    ): FlatClass = cls.copy(
-        methods = cls.methods.map { rewriteFunction(it, info, nameToQualified, diagnostics) },
-        nestedClasses = cls.nestedClasses.map { rewriteClass(it, info, nameToQualified, diagnostics) },
+    /**
+     * Per-capturing-function plan: synthetic adapter class name + impl-rename target.
+     *
+     * Keys are the *original* qualifiedName of the capturing impl function.
+     */
+    private data class CapturingEntry(
+        val originalQn: String,
+        val originalName: String,
+        val moduleName: String,
+        val adapterClassName: String,           // bare name like "<closure_inner$local1>"
+        val adapterClassQn: String,             // module.<closure_inner$local1>
+        val implRenamedName: String,            // unique-name in module.functions
+        val implRenamedQn: String,              // module.<closure_inner$local1_impl>
     )
 
-    /**
-     * Per-function rewrite. Returns the original function if there's nothing to do
-     * (no own cells, no received cells, no capturing children to annotate).
-     * On any thrown exception, appends a diagnostic and returns the original.
-     */
-    private fun rewriteFunction(
-        fn: FlatFunctionIR,
+    private fun buildCapturingPlan(
+        module: FlatModuleIR,
         info: Map<String, ClosureInfo>,
-        nameToQualified: Map<String, String>,
-        diagnostics: MutableList<PIRDiagnostic>,
-    ): FlatFunctionIR {
-        val ci = info[fn.qualifiedName] ?: return fn
-
-        val hasCapturingChildAtBindSite = functionHasCapturingChildBind(fn, info, nameToQualified)
-        if (ci.cellVars.isEmpty() && ci.closureVars.isEmpty() && !hasCapturingChildAtBindSite) {
-            return fn
+    ): Map<String, CapturingEntry> {
+        val taken = HashSet<String>()
+        // Reserve every existing function name + every existing class name to avoid collisions.
+        for (fn in module.functions) taken.add(fn.name)
+        for (fn in module.functions) taken.add(fn.qualifiedName)
+        for (cls in module.classes) {
+            taken.add(cls.name)
+            taken.add(cls.qualifiedName)
         }
+        taken.add(module.moduleInit.name)
+        taken.add(module.moduleInit.qualifiedName)
 
-        return try {
-            val ctx = RewriteCtx(fn, ci, info, nameToQualified)
-            ctx.run()
-        } catch (e: Exception) {
-            diagnostics.add(
-                PIRDiagnostic(
-                    severity = PIRDiagnosticSeverity.ERROR,
-                    message = "Closure rewrite failed for ${fn.qualifiedName}: ${e.message}",
-                    functionName = fn.qualifiedName,
-                    exceptionType = e::class.simpleName ?: "Exception",
-                ),
+        val out = LinkedHashMap<String, CapturingEntry>()
+        for (fn in module.functions) {
+            val ci = info[fn.qualifiedName] ?: continue
+            if (ci.closureVars.isEmpty()) continue
+            val baseName = fn.name
+            // Synthetic angle-bracketed names cannot collide with user identifiers.
+            val adapterClassName = uniquify("<closure_$baseName>", taken)
+            val implRenamedName = uniquify("<closure_${baseName}_impl>", taken)
+            val adapterClassQn = "${module.moduleName}.$adapterClassName"
+            val implRenamedQn = "${module.moduleName}.$implRenamedName"
+            taken.add(adapterClassName)
+            taken.add(implRenamedName)
+            taken.add(adapterClassQn)
+            taken.add(implRenamedQn)
+            out[fn.qualifiedName] = CapturingEntry(
+                originalQn = fn.qualifiedName,
+                originalName = fn.name,
+                moduleName = module.moduleName,
+                adapterClassName = adapterClassName,
+                adapterClassQn = adapterClassQn,
+                implRenamedName = implRenamedName,
+                implRenamedQn = implRenamedQn,
             )
-            fn
+        }
+        return out
+    }
+
+    private fun uniquify(candidate: String, taken: Set<String>): String {
+        if (candidate !in taken) return candidate
+        var i = 2
+        while (true) {
+            val attempt = candidate.removeSuffix(">") + "_$i>"
+            if (attempt !in taken) return attempt
+            i++
         }
     }
 
-    private fun functionHasCapturingChildBind(
-        fn: FlatFunctionIR,
-        info: Map<String, ClosureInfo>,
-        nameToQualified: Map<String, String>,
-    ): Boolean {
-        for (block in fn.cfg.blocks) {
-            for (inst in block.instructions) {
-                if (inst is FlatBindFunction) {
-                    val childQn = nameToQualified[inst.function.name]
-                    val childInfo = childQn?.let { info[it] }
-                    if (childInfo != null && childInfo.closureVars.isNotEmpty()) {
-                        return true
+    /* ------------------------------------------------------------------ */
+    /* Rewrite runner                                                     */
+    /* ------------------------------------------------------------------ */
+
+    private class RewriteRunner(
+        private val info: Map<String, ClosureInfo>,
+        private val nameToQualified: Map<String, String>,
+        private val capturingPlan: Map<String, CapturingEntry>,
+        private val diagnostics: MutableList<PIRDiagnostic>,
+    ) {
+
+        fun rewriteClass(
+            cls: FlatClass,
+            adapterAccumulator: MutableList<FlatClass>,
+        ): FlatClass = cls.copy(
+            methods = cls.methods.map {
+                val out = rewriteFunction(it)
+                out.adapterClass?.let(adapterAccumulator::add)
+                out.impl
+            },
+            nestedClasses = cls.nestedClasses.map { rewriteClass(it, adapterAccumulator) },
+        )
+
+        /**
+         * Per-function rewrite. Returns a [RewriteOutput] holding the new impl
+         * function and an optional adapter class. On any thrown exception during
+         * rewrite, appends a diagnostic and returns the function unchanged.
+         */
+        fun rewriteFunction(fn: FlatFunctionIR): RewriteOutput {
+            val ci = info[fn.qualifiedName] ?: return RewriteOutput(fn)
+
+            val hasCapturingChildAtBindSite = functionHasCapturingChildBind(fn)
+            if (ci.cellVars.isEmpty() && ci.closureVars.isEmpty() && !hasCapturingChildAtBindSite) {
+                return RewriteOutput(fn)
+            }
+
+            return try {
+                val ctx = RewriteCtx(fn, ci, info, nameToQualified, capturingPlan)
+                ctx.run()
+            } catch (e: Exception) {
+                diagnostics.add(
+                    PIRDiagnostic(
+                        severity = PIRDiagnosticSeverity.ERROR,
+                        message = "Closure rewrite failed for ${fn.qualifiedName}: ${e.message}",
+                        functionName = fn.qualifiedName,
+                        exceptionType = e::class.simpleName ?: "Exception",
+                    ),
+                )
+                RewriteOutput(fn)
+            }
+        }
+
+        private fun functionHasCapturingChildBind(fn: FlatFunctionIR): Boolean {
+            for (block in fn.cfg.blocks) {
+                for (inst in block.instructions) {
+                    if (inst is FlatBindFunction) {
+                        val childQn = nameToQualified[inst.function.name]
+                        val childInfo = childQn?.let { info[it] }
+                        if (childInfo != null && childInfo.closureVars.isNotEmpty()) {
+                            return true
+                        }
                     }
                 }
             }
+            return false
         }
-        return false
     }
 
     /* ------------------------------------------------------------------ */
@@ -175,6 +279,7 @@ internal object ClosureRewriter {
         private val ci: ClosureInfo,
         private val info: Map<String, ClosureInfo>,
         private val nameToQualified: Map<String, String>,
+        private val capturingPlan: Map<String, CapturingEntry>,
     ) {
         // Sorted for determinism.
         private val ownedCells: List<String> = ci.cellVars.toSortedSet().toList()
@@ -189,7 +294,7 @@ internal object ClosureRewriter {
         private var tempCounter: Int = 0
         private val envLocal: FlatLocal = FlatLocal(ENV_LOCAL_NAME)
 
-        fun run(): FlatFunctionIR {
+        fun run(): RewriteOutput {
             val newParameters = if (ci.closureVars.isNotEmpty()) {
                 listOf(selfParameter()) + fn.parameters
             } else {
@@ -209,12 +314,187 @@ internal object ClosureRewriter {
 
             val newCfg = fn.cfg.copy(blocks = newBlocks)
 
-            return fn.copy(
-                parameters = newParameters,
-                closureVars = ci.closureVars.toSortedSet().toSet(),
-                cfg = newCfg,
+            val capturingEntry = capturingPlan[fn.qualifiedName]
+            val rebuiltImpl = if (capturingEntry != null) {
+                fn.copy(
+                    name = capturingEntry.implRenamedName,
+                    qualifiedName = capturingEntry.implRenamedQn,
+                    parameters = newParameters,
+                    closureVars = ci.closureVars.toSortedSet().toSet(),
+                    cfg = newCfg,
+                )
+            } else {
+                fn.copy(
+                    parameters = newParameters,
+                    closureVars = ci.closureVars.toSortedSet().toSet(),
+                    cfg = newCfg,
+                )
+            }
+
+            val adapter = if (capturingEntry != null) {
+                buildAdapterClass(capturingEntry, fn)
+            } else {
+                null
+            }
+
+            return RewriteOutput(impl = rebuiltImpl, adapterClass = adapter)
+        }
+
+        /* -------------------------------------------------------------- */
+        /* Adapter class synthesis                                        */
+        /* -------------------------------------------------------------- */
+
+        /**
+         * Build the user-visible adapter class for a capturing impl function.
+         *
+         * Shape:
+         * ```
+         * class <closure_$base>:
+         *     def __init__(self, _closure_env_):
+         *         self._closure_env_ = _closure_env_
+         *     def __call__(self, ...impl-user-params...):
+         *         return _impl(self, ...impl-user-params...)
+         * ```
+         *
+         * The original impl's user-visible parameters (i.e. its parameters
+         * minus the synthetic `<self>` we just prepended) are mirrored on
+         * `__call__` exactly — same kinds, defaults, types. Forwarding uses
+         * arg kinds matched to each parameter kind.
+         */
+        private fun buildAdapterClass(entry: CapturingEntry, originalImpl: FlatFunctionIR): FlatClass {
+            val initFn = buildInitMethod(entry)
+            val callFn = buildCallMethod(entry, originalImpl)
+            return FlatClass(
+                name = entry.adapterClassName,
+                qualifiedName = entry.adapterClassQn,
+                baseClasses = emptyList(),
+                mro = emptyList(),
+                methods = listOf(initFn, callFn),
+                fields = emptyList(),
+                nestedClasses = emptyList(),
+                decorators = emptyList(),
+                isAbstract = false,
+                isDataclass = false,
+                isEnum = false,
             )
         }
+
+        private fun buildInitMethod(entry: CapturingEntry): FlatFunctionIR {
+            val selfLocal = FlatLocal("self")
+            val envParamLocal = FlatLocal(ClosureRuntime.CLOSURE_ATTR_NAME)
+            val cfg = FlatCFG(
+                blocks = listOf(
+                    FlatBlock(
+                        label = 0,
+                        instructions = listOf(
+                            FlatStoreAttr(
+                                obj = selfLocal,
+                                attribute = ClosureRuntime.CLOSURE_ATTR_NAME,
+                                value = envParamLocal,
+                            ),
+                            FlatReturn(null),
+                        ),
+                        exceptionHandlers = emptyList(),
+                    ),
+                ),
+                entryBlock = 0,
+                exitBlocks = listOf(0),
+            )
+            return FlatFunctionIR(
+                name = "__init__",
+                qualifiedName = "${entry.adapterClassQn}.__init__",
+                parentQualifiedName = null,
+                kind = FlatFunctionKind.METHOD,
+                cfg = cfg,
+                parameters = listOf(
+                    plainParameter("self"),
+                    plainParameter(ClosureRuntime.CLOSURE_ATTR_NAME),
+                ),
+                returnType = FlatAnyType,
+                isAsync = false,
+                isGenerator = false,
+                decorators = emptyList(),
+                closureVars = emptySet(),
+                nonlocalNames = emptySet(),
+                globalNames = emptySet(),
+            )
+        }
+
+        /**
+         * `__call__(self, p1, p2, …, *args, **kwargs)` — mirrors the impl's
+         * user-visible parameters and forwards them positionally/keyword/star
+         * to `_impl(self, …)`.
+         */
+        private fun buildCallMethod(entry: CapturingEntry, originalImpl: FlatFunctionIR): FlatFunctionIR {
+            // Adapter `__call__` mirrors the impl's user-visible parameters
+            // (= original impl parameters; the impl's synthetic <self> is added
+            // by the prologue inside the impl itself).
+            val implUserParams = originalImpl.parameters
+            val callParams = listOf(plainParameter("self")) + implUserParams
+
+            // Forward args: first positional is `self` (impl's <self>), then one
+            // FlatCallArg per impl user-visible param, kind matched.
+            val tmpReturn = FlatLocal("\$ret")
+            val forwardArgs = listOf(FlatCallArg(FlatLocal("self"), FlatArgKind.POSITIONAL)) +
+                implUserParams.map { p -> forwardArgFor(p) }
+
+            val implRef = FlatGlobalRef(entry.implRenamedName, entry.moduleName)
+            val cfg = FlatCFG(
+                blocks = listOf(
+                    FlatBlock(
+                        label = 0,
+                        instructions = listOf(
+                            FlatCall(
+                                target = tmpReturn,
+                                callee = implRef,
+                                args = forwardArgs,
+                            ),
+                            FlatReturn(tmpReturn),
+                        ),
+                        exceptionHandlers = emptyList(),
+                    ),
+                ),
+                entryBlock = 0,
+                exitBlocks = listOf(0),
+            )
+            return FlatFunctionIR(
+                name = "__call__",
+                qualifiedName = "${entry.adapterClassQn}.__call__",
+                parentQualifiedName = null,
+                kind = FlatFunctionKind.METHOD,
+                cfg = cfg,
+                parameters = callParams,
+                returnType = originalImpl.returnType,
+                isAsync = originalImpl.isAsync,
+                isGenerator = originalImpl.isGenerator,
+                decorators = emptyList(),
+                closureVars = emptySet(),
+                nonlocalNames = emptySet(),
+                globalNames = emptySet(),
+            )
+        }
+
+        private fun forwardArgFor(p: FlatParameter): FlatCallArg {
+            val v = FlatLocal(p.name)
+            return when (p.kind) {
+                FlatParamKind.POSITIONAL_OR_KEYWORD ->
+                    FlatCallArg(v, FlatArgKind.POSITIONAL)
+                FlatParamKind.KEYWORD_ONLY ->
+                    FlatCallArg(v, FlatArgKind.KEYWORD, keyword = p.name)
+                FlatParamKind.VAR_POSITIONAL ->
+                    FlatCallArg(v, FlatArgKind.STAR)
+                FlatParamKind.VAR_KEYWORD ->
+                    FlatCallArg(v, FlatArgKind.DOUBLE_STAR)
+            }
+        }
+
+        private fun plainParameter(name: String): FlatParameter = FlatParameter(
+            name = name,
+            type = FlatAnyType,
+            kind = FlatParamKind.POSITIONAL_OR_KEYWORD,
+            hasDefault = false,
+            defaultValue = null,
+        )
 
         /* -------------------------------------------------------------- */
         /* Prologue                                                       */
@@ -651,53 +931,49 @@ internal object ClosureRewriter {
                     inst.copy(obj = obj, index = index)
                 }
                 is FlatBindFunction -> {
-                    // Bind site: keep the bind, then if the child captures, attach env
-                    // BEFORE redirecting through a cell (so the env attach hits the
-                    // function value, not a cell). After env attach, perform the cell
-                    // store (which will reload from the function value into the cell).
-                    // FlatBindFunction.function carries the synthetic *unique* name
-                    // (e.g. "reader$local1"); ClosureInfo is keyed by qualifiedName.
+                    // Resolve child closure info via the (pre-rename) name index.
                     val childQn = nameToQualified[inst.function.name]
                     val childInfo = childQn?.let { info[it] }
                     val childClosureVars = childInfo?.closureVars.orEmpty()
                     val childCaptures = childClosureVars.isNotEmpty()
 
-                    val originalTarget = inst.target
-
-                    if (childCaptures && originalTarget is FlatLocal && isCellManaged(originalTarget.name)) {
-                        // The bound function lives in a cell. Strategy: emit the bind
-                        // with a temp target, attach the env to that temp (so the
-                        // function value gets `_closure_env_`), then store the temp
-                        // into the cell.
-                        val tmp = freshTemp()
-                        val newBind = inst.copy(target = tmp)
-                        // Build env on parent's cells.
-                        val (envInst, envAttachInst) = buildEnvAttach(
-                            parentTargetForAttach = tmp,
-                            childClosureVars = childClosureVars,
-                            line = line,
-                        )
-                        post.add(envInst)
-                        post.add(envAttachInst)
-                        post.add(storeCell(originalTarget.name, tmp, line))
-                        return listOf(newBind) + post
-                    }
-
                     if (childCaptures) {
-                        // Target not cell-managed (or not a FlatLocal). Attach env directly.
-                        val (envInst, envAttachInst) = buildEnvAttach(
-                            parentTargetForAttach = originalTarget,
-                            childClosureVars = childClosureVars,
+                        // Replace bind with adapter-class constructor call.
+                        val childEntry = childQn?.let { capturingPlan[it] }
+                            ?: error(
+                                "Closure rewrite: child '${inst.function.name}' captures " +
+                                    "but has no capturing-plan entry (childQn=$childQn)",
+                            )
+                        val originalTarget = inst.target
+
+                        // Build env on parent's cells.
+                        val (envBuildInst, envValueLocal) = buildEnvDict(childClosureVars, line)
+
+                        // Constructor call: target = <closure_inner>(env)
+                        if (originalTarget is FlatLocal && isCellManaged(originalTarget.name)) {
+                            // Cell-managed bind target: emit constructor into a temp,
+                            // then store the temp into the cell.
+                            val tmp = freshTemp()
+                            val ctorCall = FlatCall(
+                                target = tmp,
+                                callee = FlatGlobalRef(childEntry.adapterClassName, childEntry.moduleName),
+                                args = listOf(FlatCallArg(envValueLocal)),
+                                line = line,
+                            )
+                            // Sequence: env-build, ctor-call, then store tmp into cell.
+                            return listOf(envBuildInst, ctorCall, storeCell(originalTarget.name, tmp, line))
+                        }
+
+                        val ctorCall = FlatCall(
+                            target = originalTarget,
+                            callee = FlatGlobalRef(childEntry.adapterClassName, childEntry.moduleName),
+                            args = listOf(FlatCallArg(envValueLocal)),
                             line = line,
                         )
-                        post.add(envInst)
-                        post.add(envAttachInst)
-                        // Now handle a cell-managed target normally — but already
-                        // returned above for that case. Keep instruction unchanged here.
-                        inst
+                        return listOf(envBuildInst, ctorCall)
                     } else {
-                        // No capture: handle target redirect like any other write.
-                        val redir = redirectTarget(originalTarget)
+                        // Non-capturing child: keep FlatBindFunction; only handle cell-managed target.
+                        val redir = redirectTarget(inst.target)
                         if (redir != null) {
                             val (tmp, name) = redir
                             post.add(storeCell(name, tmp, line))
@@ -720,50 +996,28 @@ internal object ClosureRewriter {
         }
 
         /**
-         * Returns (envBuildInst, envStoreAttrInst). The env dict's keys are the child's
-         * closureVars (sorted) and values are the *parent*'s cell locals (this function's
-         * `cellLocals`). The store attaches the env to [parentTargetForAttach].
+         * Build the env dict on parent's cells. Returns the build-dict
+         * instruction and a freshly-allocated env local that the constructor
+         * call will receive.
          */
-        private fun buildEnvAttach(
-            parentTargetForAttach: FlatValue,
-            childClosureVars: Set<String>,
-            line: Int,
-        ): Pair<FlatInst, FlatInst> {
+        private fun buildEnvDict(childClosureVars: Set<String>, line: Int): Pair<FlatInst, FlatLocal> {
             val sortedNames = childClosureVars.toSortedSet().toList()
             val keys: List<FlatValue> = sortedNames.map { FlatStrConst(it) }
             val values: List<FlatValue> = sortedNames.map { name ->
-                // Parent must own a cell for every name the child captures —
-                // either through `cellVars` (this fn defines it) or through
-                // `closureVars` (this fn received it from above). The only way
-                // this can fail in practice is the METHOD-pass-through gap
-                // (see [ClosureAnalyzer.isClosureRoot]'s comment): if a method
-                // bind-emits a capturing nested def that needs an outer-fn
-                // local, the analyzer's closure-root override leaves the
-                // method's `cellLocals` empty for that name. The enclosing
-                // `try/catch` in [rewriteFunction] turns this into a
-                // PIRDiagnostic and bails on the method. Unreachable from
-                // real proto→Flat input today (FlatClass cannot represent
-                // class-inside-function), but exercised by
-                // FlatClosureTransformerTest's known-limitation case.
                 cellLocals[name]
                     ?: error(
                         "Closure rewrite: child captures '$name' but parent " +
                             "${fn.qualifiedName} has no cell for it (cells: ${cellLocals.keys})",
                     )
             }
+            val envTarget = freshTemp()
             val envInst = FlatBuildDict(
-                target = envLocal,
+                target = envTarget,
                 keys = keys,
                 values = values,
                 line = line,
             )
-            val attachInst = FlatStoreAttr(
-                obj = parentTargetForAttach,
-                attribute = ClosureRuntime.CLOSURE_ATTR_NAME,
-                value = envLocal,
-                line = line,
-            )
-            return envInst to attachInst
+            return envInst to envTarget
         }
     }
 

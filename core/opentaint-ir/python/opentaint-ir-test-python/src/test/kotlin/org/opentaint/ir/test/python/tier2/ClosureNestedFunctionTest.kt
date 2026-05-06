@@ -466,9 +466,26 @@ def cnf_transitive(x):
     // Qualified name pattern: __test__.outer_name.inner_name
     // ═══════════════════════════════════════════════════════════════
 
-    /** Finds a nested function by substring match on qualifiedName within module functions */
-    private fun findNestedFunc(pattern: String): PIRFunction? =
-        cp.modules.flatMap { it.functions }.firstOrNull { it.qualifiedName.contains(pattern) }
+    /**
+     * Finds a nested function by substring match on qualifiedName.
+     *
+     * Capturing nested defs are renamed to `module.<closure_${base}$local${N}_impl>`
+     * by the callable-shim refactor, so a substring lookup like
+     * `cnf_closure_read.reader` no longer matches the impl directly. Fall back
+     * to matching against the impl's `name` field, which embeds the original
+     * unique name `reader$localN`.
+     */
+    private fun findNestedFunc(pattern: String): PIRFunction? {
+        val direct = cp.modules.flatMap { it.functions }
+            .firstOrNull { it.qualifiedName.contains(pattern) }
+        if (direct != null) return direct
+        // Fallback: capturing impls use synthetic names `<closure_${base}$localN_impl>`.
+        val baseName = pattern.substringAfterLast('.')
+        return cp.modules.flatMap { it.functions }.firstOrNull { fn ->
+            val n = fn.name
+            n.startsWith("<closure_$baseName") && n.endsWith("_impl>")
+        }
+    }
 
     /** Finds all module functions matching a substring pattern */
     private fun findAllNestedFuncs(pattern: String): List<PIRFunction> =
@@ -720,7 +737,7 @@ def cnf_transitive(x):
     }
 
     @Test
-    fun `outer cnf_closure_read emits pir_cell call and stores env at bind site`() {
+    fun `outer cnf_closure_read emits pir_cell call and adapter constructor at bind site`() {
         val outer = findFunc("cnf_closure_read")
         val insts = outer.instList
 
@@ -731,9 +748,15 @@ def cnf_transitive(x):
         assertTrue(cellCtorCalls.isNotEmpty(),
             "outer should have at least one PIRCall to __pir_cell__() for owning value's cell")
 
-        val envStores = insts.filterIsInstance<PIRStoreAttr>().filter { it.attribute == "_closure_env_" }
-        assertTrue(envStores.isNotEmpty(),
-            "outer should have at least one PIRStoreAttr storing _closure_env_ on the bound reader")
+        // Callable-shim shape: the bind site is now a constructor call to the
+        // synthesized adapter class with the env dict as the only positional arg.
+        // The class qualified name uses angle brackets (synthetic, not user-visible).
+        val adapterCtors = insts.filterIsInstance<PIRCall>().filter { call ->
+            val callee = call.callee
+            callee is PIRGlobalRef && callee.name.startsWith("<closure_") && !callee.name.endsWith("_impl>")
+        }
+        assertTrue(adapterCtors.isNotEmpty(),
+            "outer should have a PIRCall to the synthesized adapter class constructor")
 
         val dictAssigns = insts.filterIsInstance<PIRAssign>().filter { it.expr is PIRDictExpr }
         assertTrue(dictAssigns.isNotEmpty(),

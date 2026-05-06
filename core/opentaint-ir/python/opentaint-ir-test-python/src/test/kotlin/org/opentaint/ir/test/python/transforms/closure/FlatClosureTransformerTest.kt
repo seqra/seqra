@@ -144,14 +144,31 @@ class FlatClosureTransformerTest {
 
     private fun cellName(n: String) = "\$cell\$$n"
 
-    /** Locate the rewritten function by qualified name in the result module. */
+    /**
+     * Locate the rewritten function by qualified name. Capturing impls are
+     * renamed to `module.<closure_$base_impl>` per the callable-shim refactor,
+     * so a lookup for the original `module.outer.inner` qn falls back to
+     * searching for a function whose `name` matches the impl-rename pattern
+     * `<closure_$base_impl>` for the original short name.
+     */
     private fun lookup(out: FlatModuleIR, qn: String): FlatFunctionIR {
         out.functions.firstOrNull { it.qualifiedName == qn }?.let { return it }
         if (out.moduleInit.qualifiedName == qn) return out.moduleInit
         for (c in out.classes) {
             c.methods.firstOrNull { it.qualifiedName == qn }?.let { return it }
         }
+        // Fallback: capturing impl was renamed.
+        val baseName = qn.substringAfterLast('.')
+        val implName = "<closure_${baseName}_impl>"
+        out.functions.firstOrNull { it.name == implName }?.let { return it }
         error("Function $qn not found in rewritten module")
+    }
+
+    /** Find the synthesized adapter class for a capturing impl by its base name. */
+    private fun adapter(out: FlatModuleIR, baseName: String): FlatClass {
+        val expected = "<closure_$baseName>"
+        return out.classes.firstOrNull { it.name == expected }
+            ?: error("Adapter class $expected not found in rewritten module")
     }
 
     private fun entryInsts(fn: FlatFunctionIR): List<FlatInst> =
@@ -671,7 +688,7 @@ class FlatClosureTransformerTest {
     /* ------------------------------------------------------------------ */
 
     @Test
-    fun `bind site for capturing child emits build dict and env attach`() {
+    fun `bind site for capturing child emits build dict and constructor call`() {
         val outerQn = "m.outer"
         val innerQn = "m.outer.inner"
         val inner = fn(
@@ -694,17 +711,111 @@ class FlatClosureTransformerTest {
         )
         val out = FlatClosureTransformer.transform(module(listOf(outer, inner)))
         val insts = entryInsts(lookup(out, outerQn))
-        val bindIdx = insts.indexOfFirst { it is FlatBindFunction }
-        assertTrue(bindIdx >= 0)
-        // After the bind, expect: FlatBuildDict, FlatStoreAttr(_closure_env_).
-        val buildDict = insts[bindIdx + 1] as FlatBuildDict
+        // Capturing-child bind site is replaced by FlatBuildDict + FlatCall(adapter ctor).
+        // No FlatBindFunction should remain at this site (callable-shim shape).
+        assertFalse(
+            insts.any { it is FlatBindFunction },
+            "Capturing-child bind should be rewritten to a constructor call",
+        )
+        val buildIdx = insts.indexOfFirst { it is FlatBuildDict }
+        assertTrue(buildIdx >= 0)
+        val buildDict = insts[buildIdx] as FlatBuildDict
         assertEquals(listOf(FlatStrConst("x") as FlatValue), buildDict.keys)
         assertEquals(listOf(local(cellName("x")) as FlatValue), buildDict.values)
-        val attach = insts[bindIdx + 2] as FlatStoreAttr
-        assertEquals(ClosureRuntime.CLOSURE_ATTR_NAME, attach.attribute)
-        // attach.obj should be the bind's original target (inner local).
-        assertEquals("inner", (attach.obj as FlatLocal).name)
-        assertEquals((buildDict.target as FlatLocal).name, (attach.value as FlatLocal).name)
+        // Next is the constructor call producing the adapter instance into `inner`.
+        val ctor = insts[buildIdx + 1] as FlatCall
+        assertEquals("inner", (ctor.target as FlatLocal).name)
+        val callee = ctor.callee as FlatGlobalRef
+        assertEquals("<closure_inner>", callee.name)
+        assertEquals(moduleName, callee.module)
+        assertEquals(1, ctor.args.size)
+        assertEquals((buildDict.target as FlatLocal).name, (ctor.args[0].value as FlatLocal).name)
+    }
+
+    @Test
+    fun `capturing nested def emits adapter class with init and call`() {
+        val outerQn = "m.outer"
+        val innerQn = "m.outer.inner"
+        val inner = fn(
+            name = "inner",
+            qualifiedName = innerQn,
+            parent = outerQn,
+            kind = FlatFunctionKind.NESTED_DEF,
+            params = listOf("p"),
+            body = listOf(FlatReturn(local("x"))),
+        )
+        val outer = fn(
+            name = "outer",
+            qualifiedName = outerQn,
+            parent = null,
+            kind = FlatFunctionKind.TOP_LEVEL,
+            body = listOf(
+                FlatAssign(local("x"), FlatIntConst(1)),
+                FlatBindFunction(local("inner"), FlatGlobalRef("inner", moduleName)),
+                FlatReturn(null),
+            ),
+        )
+        val out = FlatClosureTransformer.transform(module(listOf(outer, inner)))
+        val cls = adapter(out, "inner")
+        // Synthetic name uses angle brackets — invalid Python identifier, no collision.
+        assertTrue(cls.name.contains('<') && cls.name.contains('>'),
+            "Adapter class name should contain angle brackets, got ${cls.name}")
+        assertEquals("$moduleName.${cls.name}", cls.qualifiedName)
+        assertEquals(2, cls.methods.size)
+        assertEquals("__init__", cls.methods[0].name)
+        assertEquals("__call__", cls.methods[1].name)
+
+        // __init__: stores _closure_env_ on self.
+        val initInsts = cls.methods[0].cfg.blocks.first().instructions
+        assertEquals(listOf("self", ClosureRuntime.CLOSURE_ATTR_NAME), cls.methods[0].parameters.map { it.name })
+        val store = initInsts.filterIsInstance<FlatStoreAttr>().single()
+        assertEquals(ClosureRuntime.CLOSURE_ATTR_NAME, store.attribute)
+        assertEquals("self", (store.obj as FlatLocal).name)
+        assertEquals(ClosureRuntime.CLOSURE_ATTR_NAME, (store.value as FlatLocal).name)
+
+        // __call__: forwards self + p positionally to impl.
+        val callMethod = cls.methods[1]
+        assertEquals(listOf("self", "p"), callMethod.parameters.map { it.name })
+        val callInsts = callMethod.cfg.blocks.first().instructions
+        val implCall = callInsts.filterIsInstance<FlatCall>().single()
+        assertEquals(2, implCall.args.size)
+        assertEquals("self", (implCall.args[0].value as FlatLocal).name)
+        assertEquals("p", (implCall.args[1].value as FlatLocal).name)
+        // Impl callee is a FlatGlobalRef pointing at the renamed impl.
+        val implCallee = implCall.callee as FlatGlobalRef
+        assertEquals("<closure_inner_impl>", implCallee.name)
+    }
+
+    @Test
+    fun `non-capturing nested def emits no adapter class and no impl rename`() {
+        val outerQn = "m.outer"
+        val innerQn = "m.outer.inner"
+        val inner = fn(
+            name = "inner",
+            qualifiedName = innerQn,
+            parent = outerQn,
+            kind = FlatFunctionKind.NESTED_DEF,
+            params = listOf("p"),
+            body = listOf(FlatReturn(local("p"))),
+        )
+        val outer = fn(
+            name = "outer",
+            qualifiedName = outerQn,
+            parent = null,
+            kind = FlatFunctionKind.TOP_LEVEL,
+            body = listOf(
+                FlatBindFunction(local("inner"), FlatGlobalRef("inner", moduleName)),
+                FlatReturn(null),
+            ),
+        )
+        val out = FlatClosureTransformer.transform(module(listOf(outer, inner)))
+        // No adapter class emitted.
+        assertTrue(
+            out.classes.none { it.name.startsWith("<closure_") },
+            "Non-capturing child should not synthesize an adapter class",
+        )
+        // Impl keeps its original qualified name.
+        assertNotNull(out.functions.firstOrNull { it.qualifiedName == innerQn })
     }
 
     /* ------------------------------------------------------------------ */
@@ -781,17 +892,13 @@ class FlatClosureTransformerTest {
         )
         val out = FlatClosureTransformer.transform(module(listOf(outer, inner)))
         val insts = entryInsts(lookup(out, outerQn))
-        // Find the user call (target = "r" or a temp redirect).
+        // Find the user call: callee is FlatLocal("inner") (the adapter instance).
         val userCall = insts.filterIsInstance<FlatCall>().firstOrNull {
-            // It's the call whose callee is the bound `inner` value (after rewrite,
-            // callee will be a FlatLocal — either "inner" or a $tN if cell-managed).
-            // Distinguish from the prologue __pir_cell__ call.
             val callee = it.callee
-            callee !is FlatGlobalRef ||
-                callee.name != ClosureRuntime.CELL_CTOR_NAME
+            callee is FlatLocal && callee.name == "inner"
         }
         assertNotNull(userCall)
-        // Only one user-provided argument: 42.
+        // Only one user-provided argument: 42. No implicit <self> at the call site.
         assertEquals(1, userCall!!.args.size)
         assertEquals(FlatIntConst(42), userCall.args[0].value)
     }
@@ -826,10 +933,20 @@ class FlatClosureTransformerTest {
         )
         val out = FlatClosureTransformer.transform(module(listOf(outer, inner)))
         val rewrittenInner = lookup(out, innerQn)
+        // Decorators stay on the impl function (callable-shim shape: decorators
+        // wrap a function, not a class).
         assertEquals(listOf(deco), rewrittenInner.decorators)
-        // Bind still emitted in outer.
+        // Capturing child: bind site replaced by adapter ctor call. Adapter class
+        // synthesized; its methods carry no decorators.
+        val cls = adapter(out, "inner")
+        assertEquals(emptyList(), cls.methods[0].decorators)
+        assertEquals(emptyList(), cls.methods[1].decorators)
         val outerInsts = entryInsts(lookup(out, outerQn))
-        assertTrue(outerInsts.any { it is FlatBindFunction })
+        // Capturing-child bind became a FlatCall to the adapter constructor.
+        val ctor = outerInsts.filterIsInstance<FlatCall>().firstOrNull {
+            (it.callee as? FlatGlobalRef)?.name == cls.name
+        }
+        assertNotNull(ctor)
     }
 
     /* ------------------------------------------------------------------ */

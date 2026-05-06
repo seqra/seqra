@@ -41,6 +41,45 @@ class PIRReconstructor {
     }
 
     /**
+     * Emit Python source for a synthetic adapter class produced by the
+     * callable-shim closure refactor. Only handles the two known synthetic
+     * shapes: `__init__(self, _closure_env_)` storing the env, and
+     * `__call__(self, …)` forwarding to the impl.
+     *
+     * Real (user-defined) classes are not the concern of this reconstructor —
+     * round-trip tests today are function-only.
+     */
+    private fun reconstructAdapterClass(cls: PIRClass): String {
+        val sb = StringBuilder()
+        val sanitizedClassName = sanitizeFuncName(cls.name)
+        sb.appendLine("class $sanitizedClassName:")
+        for (method in cls.methods) {
+            val paramList = method.parameters.joinToString(", ") { p ->
+                val pname = sanitizeLocal(p.name)
+                when (p.kind) {
+                    PIRParameterKind.VAR_POSITIONAL -> "*$pname"
+                    PIRParameterKind.VAR_KEYWORD -> "**$pname"
+                    PIRParameterKind.KEYWORD_ONLY -> pname  // Caller passes by kw; def is just `name=`
+                    PIRParameterKind.POSITIONAL_OR_KEYWORD,
+                    PIRParameterKind.POSITIONAL_ONLY -> pname
+                }
+            }
+            sb.appendLine("    def ${method.name}($paramList):")
+            // Each method has a tiny CFG built by the rewriter — emit its instructions
+            // directly with 8-space indent.
+            for (block in method.cfg.blocks) {
+                for (inst in block.instructions) {
+                    val lines = reconstructInstruction(inst)
+                    for (line in lines) {
+                        sb.appendLine("        $line")
+                    }
+                }
+            }
+        }
+        return sb.toString()
+    }
+
+    /**
      * Reconstruct a function along with any lambda/nested functions it references.
      *
      * Closure semantics are encoded in the IR: capturing functions take `<self>`
@@ -79,6 +118,41 @@ class PIRReconstructor {
             }
         }
 
+        // Synthetic adapter classes from the callable-shim refactor. The bind
+        // sites for capturing nested defs are PIRCalls to these classes, so
+        // they must be visible at module scope in the reconstructed source.
+        // Adapter class names start with `<closure_` and are not user-defined.
+        // Also pull in the matching `<closure_X_impl>` functions, which the
+        // adapter's __call__ forwards to.
+        val moduleClasses = func.module.classes.filter { it.name.startsWith("<closure_") }
+        for (cls in moduleClasses) {
+            // Walk the adapter's __call__ to find the impl function it forwards to.
+            for (method in cls.methods) {
+                for (inst in method.cfg.instList) {
+                    if (inst is PIRCall) {
+                        val callee = inst.callee
+                        if (callee is PIRGlobalRef && callee.name.startsWith("<closure_") && callee.name.endsWith("_impl>")) {
+                            if (callee.name !in seen) {
+                                val implFn = cp.modules.flatMap { it.functions }.firstOrNull { it.name == callee.name }
+                                if (implFn != null) {
+                                    seen.add(implFn.name)
+                                    resolvedFuncs.add(implFn)
+                                    emittedFuncNames.add(implFn.name)
+                                    if (isClosureBearing(implFn)) {
+                                        closureBearingFuncs.add(implFn.name)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (cls in moduleClasses) {
+            sb.append(reconstructAdapterClass(cls))
+            sb.appendLine()
+        }
+
         // Reconstruct each nested/lambda function
         closureBearingNames = closureBearingFuncs
         for (lambdaFunc in resolvedFuncs) {
@@ -94,9 +168,23 @@ class PIRReconstructor {
         return sb.toString()
     }
 
-    /** A function is closure-bearing iff it carries the synthetic `<self>` parameter. */
-    private fun isClosureBearing(func: PIRFunction): Boolean =
-        func.parameters.firstOrNull()?.name == SELF_PARAM_RAW
+    /**
+     * A function is closure-bearing iff it carries the synthetic `<self>`
+     * parameter. With the callable-shim refactor, capturing impls keep
+     * `<self>` but are invoked *through* an adapter class — the adapter's
+     * `__call__` forwards `self` (the adapter instance) as the impl's
+     * `<self>`. So impl functions named `<closure_X_impl>` are NOT wrapped
+     * in `@_closure_class`; they're plain functions called directly by the
+     * adapter.
+     */
+    private fun isClosureBearing(func: PIRFunction): Boolean {
+        val hasSelf = func.parameters.firstOrNull()?.name == SELF_PARAM_RAW
+        if (!hasSelf) return false
+        val n = func.name
+        // Callable-shim impls: invoked directly by the adapter, not wrapped.
+        if (n.startsWith("<closure_") && n.endsWith("_impl>")) return false
+        return true
+    }
 
     /**
      * Resolve a `<lambda>$N` / nested-function name to its `PIRFunction`. First
