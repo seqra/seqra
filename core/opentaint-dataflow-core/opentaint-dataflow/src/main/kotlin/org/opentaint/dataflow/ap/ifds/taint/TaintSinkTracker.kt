@@ -91,16 +91,7 @@ class TaintSinkTracker(
         )
     }
 
-    private val reportedVulnerabilities = ConcurrentHashMap<String, MutableSet<CommonInst>>()
-
     private fun addVulnerability(vulnerability: TaintVulnerability) {
-        val reportedVulnerabilitiesFoRule = reportedVulnerabilities.computeIfAbsent(vulnerability.rule.id) {
-            ConcurrentHashMap.newKeySet()
-        }
-
-        // todo: current deduplication is incompatible with traces
-        if (!reportedVulnerabilitiesFoRule.add(vulnerability.statement)) return
-
         storage.addVulnerability(vulnerability)
     }
 
