@@ -134,6 +134,7 @@ jobs:
             "(.*/)?LICENSE(\.md)?"
             ".*\.svg"
             ".*\.png"
+            ".gitignore"
           )
           DOCS_PATTERN=$(IFS="|"; echo "${DOCS_PATTERNS[*]}")
           SCOPE_PATHS[docs]="^(${DOCS_PATTERN})"

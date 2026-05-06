@@ -24,3 +24,9 @@ config.local.*
 
 **/.gradle
 **/build
+
+# Ignore all hidden files and directories
+.*
+
+# Optional: Allow the .gitignore file itself to be tracked
+!.gitignore
