@@ -138,14 +138,23 @@ class TaintSinkTracker(
         }
 
         fun minimize(ruleId: String) {
-            val minFactGroupSize = facts.minOfOrNull { it.size }
+            val orderedFacts = facts.sortedBy { it.size }
+            val minFactGroupSize = orderedFacts.firstOrNull()?.size
                 ?: return
 
+            val lastFactWithAllowedSize = orderedFacts.indexOfLast { it.size <= minFactGroupSize }
+            val firstIndexToDrop = (lastFactWithAllowedSize + FACTS_OVER_LIMIT).coerceIn(0, orderedFacts.size)
+            val factsToDrop = orderedFacts.subList(firstIndexToDrop, orderedFacts.size)
+
             val originalSize = facts.size
-            facts.removeAll { it.size > minFactGroupSize }
+            facts.removeAll(factsToDrop.toSet())
             if (facts.size < originalSize) {
                 logger.debug { "Vulnerability minimize $ruleId: drop facts ${originalSize - facts.size}" }
             }
+        }
+
+        companion object {
+            private const val FACTS_OVER_LIMIT = 3
         }
     }
 
