@@ -23,17 +23,28 @@ class PIRCallResolver(private val cp: PIRClasspath) {
      * and constructs the qualified name from obj.type + attr.
      */
     fun resolve(call: PIRCall, method: PIRFunction): PIRFunction? {
-        // Primary: use resolvedCallee
+        // Primary: use resolvedCallee. The proto-to-flat layer normalizes
+        // mypy's lexical names (`m.outer.inner`) to the lifter's flat-encoded
+        // qualified names (`m.outer$inner`) at module-build time, so a direct
+        // lookup against the classpath qn registry succeeds for any
+        // fully-qualified in-module callee.
         val qualifiedName = call.resolvedCallee
         if (qualifiedName != null) {
             cp.findFunctionOrNull(qualifiedName)?.let { return it }
 
             // Fallback for nested functions: mypy may set resolvedCallee to just
             // the short name (e.g. "process" instead of "Module.outer.process").
-            // Try prepending the enclosing method's qualified name.
+            // Synthesize the lexical qn by prepending the enclosing method's qn,
+            // then translate the trailing `.` separator into the lifter's `$`
+            // encoding so the synthesized name matches the flat function's qn.
+            // (This local synthesis happens after the proto-to-flat normalizer
+            // has already run on every emitted resolvedCallee, so the path
+            // `method.qn + "." + shortName` only appears here.)
             if ("." !in qualifiedName) {
-                val candidate = "${method.qualifiedName}.$qualifiedName"
-                cp.findFunctionOrNull(candidate)?.let { return it }
+                val lexicalCandidate = "${method.qualifiedName}.$qualifiedName"
+                cp.findFunctionOrNull(lexicalCandidate)?.let { return it }
+                val flatCandidate = "${method.qualifiedName}\$$qualifiedName"
+                cp.findFunctionOrNull(flatCandidate)?.let { return it }
             }
         }
 
@@ -54,11 +65,10 @@ class PIRCallResolver(private val cp: PIRClasspath) {
                         if (resolved1 != null) return resolved1
                     }
 
-                    // Strategy 2: Use PIRGlobalRef's module.name (for class-level calls: ClassName.method())
+                    // Strategy 2: Use PIRGlobalRef's qualifiedName (for class-level calls: ClassName.method())
                     if (inst.obj is PIRGlobalRef) {
                         val gref = inst.obj as PIRGlobalRef
-                        val qualName = if (gref.module.isNotEmpty()) "${gref.module}.${gref.name}" else gref.name
-                        val resolved2 = cp.findFunctionOrNull("$qualName.$attrName")
+                        val resolved2 = cp.findFunctionOrNull("${gref.qualifiedName}.$attrName")
                         if (resolved2 != null) return resolved2
                     }
 

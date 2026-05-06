@@ -27,7 +27,13 @@ internal object FunctionLowering {
     ): FlatFunctionIR {
         val qualifiedName = qualifyTopLevel(module.moduleName, enclosingClassQualifiedName, funcDef)
         val cfgResult = if (funcDef.hasBody()) {
-            CfgBuild.buildFunctionCfg(module, qualifiedName, funcDef.body, sourceLabel = funcDef.name)
+            CfgBuild.buildFunctionCfg(
+                module = module,
+                qualifiedName = qualifiedName,
+                functionName = funcDef.name,
+                body = funcDef.body,
+                sourceLabel = funcDef.name,
+            )
         } else CfgBuild.CfgBuildResult.EMPTY
 
         return FlatFunctionIR(
@@ -48,22 +54,30 @@ internal object FunctionLowering {
 
     /**
      * Nested function defined inside another function body. Built as a
-     * synthetic module-level function whose name is uniqued per module to
-     * avoid collisions between same-named inner functions.
+     * synthetic module-level function whose [FlatFunctionIR.name] is the
+     * suffix of [FlatFunctionIR.qualifiedName] after the module name.
+     *
+     * The lexical scope is encoded in the name itself with `$` separators
+     * (so `qualifiedName == "$moduleName.$name"`). [enclosingName] is the
+     * enclosing function's `name` field; combining it with the nested
+     * def's source-level identifier gives a module-flat shape like
+     * `outer$inner`. Shadowing siblings get a `$N` collision suffix.
      */
     fun lowerNestedFunction(
         module: ModuleContext,
         funcDef: MypyFuncDefProto,
         decorators: List<FlatDecorator>,
         enclosingQualifiedName: String,
+        enclosingName: String,
     ): FlatFunctionIR {
-        val uniqueName = module.freshNestedName(funcDef.name)
-        val qualifiedName = "$enclosingQualifiedName.${funcDef.name}"
+        val uniqueName = module.freshNestedName(enclosingName, funcDef.name)
+        val qualifiedName = "${module.moduleName}.$uniqueName"
 
         val cfgResult = if (funcDef.hasBody()) {
             CfgBuild.buildFunctionCfg(
                 module = module,
                 qualifiedName = qualifiedName,
+                functionName = uniqueName,
                 body = funcDef.body,
                 sourceLabel = funcDef.name,
                 errorPrefix = "Failed to build CFG for nested $qualifiedName",
@@ -102,6 +116,7 @@ internal object FunctionLowering {
         val cfgResult = CfgBuild.buildFunctionCfg(
             module = module,
             qualifiedName = qualifiedName,
+            functionName = name,
             body = expr.body,
             sourceLabel = name,
             errorPrefix = "Failed to build CFG for lambda $qualifiedName",

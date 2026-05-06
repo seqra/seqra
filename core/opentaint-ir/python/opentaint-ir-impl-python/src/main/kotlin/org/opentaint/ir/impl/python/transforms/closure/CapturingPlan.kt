@@ -9,12 +9,10 @@ import org.opentaint.ir.impl.python.flat.FlatModuleIR
  */
 internal data class CapturingEntry(
     val originalQn: String,
-    val originalName: String,
-    val moduleName: String,
-    val adapterClassName: String,           // bare name like "<closure_inner$local1>"
-    val adapterClassQn: String,             // module.<closure_inner$local1>
+    val adapterClassName: String,           // bare name like "<closure_outer$inner>"
+    val adapterClassQn: String,             // module.<closure_outer$inner>
     val implRenamedName: String,            // unique-name in module.functions
-    val implRenamedQn: String,              // module.<closure_inner$local1_impl>
+    val implRenamedQn: String,              // module.<closure_outer$inner_impl>
 )
 
 /**
@@ -52,8 +50,6 @@ internal fun buildCapturingPlan(
         taken.add(implRenamedQn)
         out[fn.qualifiedName] = CapturingEntry(
             originalQn = fn.qualifiedName,
-            originalName = fn.name,
-            moduleName = module.moduleName,
             adapterClassName = adapterClassName,
             adapterClassQn = adapterClassQn,
             implRenamedName = implRenamedName,
@@ -61,18 +57,6 @@ internal fun buildCapturingPlan(
         )
     }
     return out
-}
-
-/**
- * Build a `synthetic-unique-name -> qualifiedName` map covering every
- * function-like that may appear as a `FlatBindFunction.function` target.
- * In practice this is `module.functions` (top-level + lifted nested defs +
- * lifted lambdas). Methods and module init are not bind targets.
- */
-internal fun buildNameToQualifiedIndex(module: FlatModuleIR): Map<String, String> {
-    val index = HashMap<String, String>()
-    for (fn in module.functions) index[fn.name] = fn.qualifiedName
-    return index
 }
 
 /**

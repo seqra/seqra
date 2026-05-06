@@ -23,6 +23,13 @@ internal class CfgSession(
     val module: ModuleContext,
     val scope: Scope = Scope(),
     val currentFunctionQualifiedName: String? = null,
+    /**
+     * Module-flat short name of the enclosing function (its
+     * [org.opentaint.ir.impl.python.flat.FlatFunctionIR.name] field).
+     * Used by nested-def lowering to compose the lifted child's name as
+     * `"$enclosingName$$childSourceName"`. `null` for module-init.
+     */
+    val currentFunctionName: String? = null,
 ) {
     // ─── CFG state (private) ───────────────────────────────
 

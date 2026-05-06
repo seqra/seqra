@@ -147,7 +147,7 @@ class ClosureAnalyzerTest {
             kind = FlatFunctionKind.TOP_LEVEL,
             body = listOf(
                 FlatAssign(local("x"), FlatIntConst(1)),
-                FlatBindFunction(local("inner"), FlatGlobalRef(innerQn, moduleName)),
+                FlatBindFunction(local("inner"), FlatGlobalRef(innerQn)),
                 FlatReturn(local("inner")),
             ),
         )
@@ -192,7 +192,7 @@ class ClosureAnalyzerTest {
             kind = FlatFunctionKind.TOP_LEVEL,
             body = listOf(
                 FlatAssign(local("count"), FlatIntConst(0)),
-                FlatBindFunction(local("inc"), FlatGlobalRef(incQn, moduleName)),
+                FlatBindFunction(local("inc"), FlatGlobalRef(incQn)),
                 FlatReturn(null),
             ),
         )
@@ -244,8 +244,8 @@ class ClosureAnalyzerTest {
             parent = null,
             kind = FlatFunctionKind.TOP_LEVEL,
             body = listOf(
-                FlatBindFunction(local("b"), FlatGlobalRef(bQn, moduleName)),
-                FlatBindFunction(local("a"), FlatGlobalRef(aQn, moduleName)),
+                FlatBindFunction(local("b"), FlatGlobalRef(bQn)),
+                FlatBindFunction(local("a"), FlatGlobalRef(aQn)),
                 FlatReturn(null),
             ),
         )
@@ -283,7 +283,7 @@ class ClosureAnalyzerTest {
             parent = outerQn,
             kind = FlatFunctionKind.NESTED_DEF,
             body = listOf(
-                FlatBindFunction(local("inner"), FlatGlobalRef(innerQn, moduleName)),
+                FlatBindFunction(local("inner"), FlatGlobalRef(innerQn)),
                 FlatReturn(null),
             ),
         )
@@ -294,7 +294,7 @@ class ClosureAnalyzerTest {
             kind = FlatFunctionKind.TOP_LEVEL,
             body = listOf(
                 FlatAssign(local("x"), FlatIntConst(1)),
-                FlatBindFunction(local("middle"), FlatGlobalRef(middleQn, moduleName)),
+                FlatBindFunction(local("middle"), FlatGlobalRef(middleQn)),
                 FlatReturn(null),
             ),
         )
@@ -379,7 +379,7 @@ class ClosureAnalyzerTest {
             kind = FlatFunctionKind.TOP_LEVEL,
             body = listOf(
                 FlatAssign(local("n"), FlatIntConst(1)),
-                FlatBindFunction(local("fn"), FlatGlobalRef(lamQn, moduleName)),
+                FlatBindFunction(local("fn"), FlatGlobalRef(lamQn)),
                 FlatReturn(null),
             ),
         )
@@ -419,7 +419,7 @@ class ClosureAnalyzerTest {
             body = listOf(
                 FlatAssign(local("a"), FlatIntConst(1)),
                 FlatAssign(local("b"), FlatIntConst(2)),
-                FlatBindFunction(local("inner"), FlatGlobalRef(innerQn, moduleName)),
+                FlatBindFunction(local("inner"), FlatGlobalRef(innerQn)),
                 FlatReturn(null),
             ),
         )
@@ -459,7 +459,7 @@ class ClosureAnalyzerTest {
             parent = null,
             kind = FlatFunctionKind.TOP_LEVEL,
             body = listOf(
-                FlatBindFunction(local("inner"), FlatGlobalRef(innerQn, moduleName)),
+                FlatBindFunction(local("inner"), FlatGlobalRef(innerQn)),
                 FlatReturn(null),
             ),
         )
@@ -510,7 +510,7 @@ class ClosureAnalyzerTest {
             kind = FlatFunctionKind.METHOD,
             params = listOf("self"),
             body = listOf(
-                FlatBindFunction(local("inner"), FlatGlobalRef(innerQn, moduleName)),
+                FlatBindFunction(local("inner"), FlatGlobalRef(innerQn)),
                 FlatReturn(local("inner")),
             ),
         )
@@ -574,12 +574,12 @@ class ClosureAnalyzerTest {
             body = listOf(
                 FlatCall(
                     target = null,
-                    callee = FlatGlobalRef("print", "builtins"),
+                    callee = FlatGlobalRef("builtins.print"),
                     args = listOf(FlatCallArg(local("x"))),
                 ),
                 FlatCall(
                     target = null,
-                    callee = FlatGlobalRef("len", "builtins"),
+                    callee = FlatGlobalRef("builtins.len"),
                     args = listOf(FlatCallArg(local("x"))),
                 ),
                 FlatReturn(null),
@@ -592,7 +592,7 @@ class ClosureAnalyzerTest {
             kind = FlatFunctionKind.TOP_LEVEL,
             body = listOf(
                 FlatAssign(local("x"), FlatIntConst(1)),
-                FlatBindFunction(local("inner"), FlatGlobalRef(innerQn, moduleName)),
+                FlatBindFunction(local("inner"), FlatGlobalRef(innerQn)),
                 FlatReturn(null),
             ),
         )
@@ -645,7 +645,7 @@ class ClosureAnalyzerTest {
             kind = FlatFunctionKind.METHOD,
             params = listOf("self"),
             body = listOf(
-                FlatBindFunction(local("inner"), FlatGlobalRef(innerQn, moduleName)),
+                FlatBindFunction(local("inner"), FlatGlobalRef(innerQn)),
                 FlatReturn(null),
             ),
         )

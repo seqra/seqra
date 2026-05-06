@@ -113,7 +113,7 @@ private fun buildCallMethod(entry: CapturingEntry, originalImpl: FlatFunctionIR)
     val forwardArgs = listOf(FlatCallArg(FlatLocal("self"), FlatArgKind.POSITIONAL)) +
         implUserParams.map { p -> forwardArgFor(p) }
 
-    val implRef = FlatGlobalRef(entry.implRenamedName, entry.moduleName)
+    val implRef = FlatGlobalRef(entry.implRenamedQn)
     val cfg = FlatCFG(
         blocks = listOf(
             FlatBlock(

@@ -152,7 +152,7 @@ class FlatToPirConverterTest {
     fun `FlatBindFunction lowers to PIRAssign of PIRBindFunctionExpr`() {
         val bind = FlatBindFunction(
             target = FlatLocal("x"),
-            function = FlatGlobalRef("inner\$local0", "mod"),
+            function = FlatGlobalRef("mod.inner\$local0"),
             line = 7,
         )
         val cfg = FlatCFG(
@@ -196,8 +196,7 @@ class FlatToPirConverterTest {
             assign.expr,
             "PIRAssign expr must be PIRBindFunctionExpr",
         )
-        assertEquals("inner\$local0", bindExpr.function.name)
-        assertEquals("mod", bindExpr.function.module)
+        assertEquals("mod.inner\$local0", bindExpr.function.qualifiedName)
     }
 
     @Test

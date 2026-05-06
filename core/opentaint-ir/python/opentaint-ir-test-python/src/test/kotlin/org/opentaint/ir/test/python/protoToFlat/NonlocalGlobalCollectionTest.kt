@@ -41,14 +41,14 @@ class NonlocalGlobalCollectionTest : RawFlatModuleTestBase() {
     @Test
     fun `inner function nonlocalNames contains a and b`() {
         val module = lowerSourceToFlat(source)
-        val inner = module.functions.first { it.qualifiedName.endsWith(".outer.inner") }
+        val inner = module.functions.first { it.qualifiedName.endsWith(".outer\$inner") }
         assertEquals(setOf("a", "b"), inner.nonlocalNames)
     }
 
     @Test
     fun `inner function globalNames contains g`() {
         val module = lowerSourceToFlat(source)
-        val inner = module.functions.first { it.qualifiedName.endsWith(".outer.inner") }
+        val inner = module.functions.first { it.qualifiedName.endsWith(".outer\$inner") }
         assertEquals(setOf("g"), inner.globalNames)
     }
 

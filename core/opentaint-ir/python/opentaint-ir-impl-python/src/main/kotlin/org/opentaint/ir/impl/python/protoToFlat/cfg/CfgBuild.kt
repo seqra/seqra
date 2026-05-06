@@ -33,11 +33,16 @@ internal object CfgBuild {
     fun buildFunctionCfg(
         module: ModuleContext,
         qualifiedName: String,
+        functionName: String,
         body: MypyBlockProto,
         sourceLabel: String = qualifiedName,
         errorPrefix: String = "Failed to build CFG for $qualifiedName",
     ): CfgBuildResult {
-        val session = CfgSession(module = module, currentFunctionQualifiedName = qualifiedName)
+        val session = CfgSession(
+            module = module,
+            currentFunctionQualifiedName = qualifiedName,
+            currentFunctionName = functionName,
+        )
         return runOrEmpty(module, sourceLabel, errorPrefix) {
             session.visitBlock(body)
             if (!session.currentBlockTerminated()) session.emitReturn(null)

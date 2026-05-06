@@ -90,7 +90,14 @@ class MypyResolutionProbeTest : RawFlatModuleTestBase() {
     }
 
     private fun addGlobalRefs(inst: FlatInst, out: MutableSet<Pair<String, String>>) {
-        forEachOperand(inst) { v -> if (v is FlatGlobalRef) out.add(v.name to v.module) }
+        forEachOperand(inst) { v ->
+            if (v is FlatGlobalRef) {
+                val qn = v.qualifiedName
+                val dot = qn.lastIndexOf('.')
+                if (dot >= 0) out.add(qn.substring(dot + 1) to qn.substring(0, dot))
+                else out.add(qn to "")
+            }
+        }
     }
 
     /** Walk every operand (read position) of [inst]. Mirrors `ClosureAnalyzer.addOperandReads`. */
@@ -179,7 +186,7 @@ class MypyResolutionProbeTest : RawFlatModuleTestBase() {
                 return inner
         """
         val mod = lowerSourceToFlat(source)
-        val inner = fn(mod, ".outer.inner")
+        val inner = fn(mod, ".outer\$inner")
 
         val locals = localReads(inner)
         val globals = globalRefs(inner)
@@ -204,7 +211,7 @@ class MypyResolutionProbeTest : RawFlatModuleTestBase() {
                 return inner
         """
         val mod = lowerSourceToFlat(source)
-        val inner = fn(mod, ".outer.inner")
+        val inner = fn(mod, ".outer\$inner")
 
         val locals = localReads(inner)
         val globals = globalRefs(inner)
@@ -400,7 +407,7 @@ class MypyResolutionProbeTest : RawFlatModuleTestBase() {
                 return inner
         """
         val mod = lowerSourceToFlat(source)
-        val inner = fn(mod, ".outer.inner")
+        val inner = fn(mod, ".outer\$inner")
 
         val locals = localReads(inner)
         val globals = globalRefs(inner)
@@ -430,7 +437,7 @@ class MypyResolutionProbeTest : RawFlatModuleTestBase() {
                 return inner
         """
         val mod = lowerSourceToFlat(source)
-        val inner = fn(mod, ".outer.inner")
+        val inner = fn(mod, ".outer\$inner")
 
         val locals = localReads(inner)
         val globals = globalRefs(inner)
@@ -457,7 +464,7 @@ class MypyResolutionProbeTest : RawFlatModuleTestBase() {
                 return inner
         """
         val mod = lowerSourceToFlat(source)
-        val inner = fn(mod, ".outer.inner")
+        val inner = fn(mod, ".outer\$inner")
         val outer = fn(mod, ".outer")
 
         val innerLocals = localReads(inner)
@@ -485,7 +492,7 @@ class MypyResolutionProbeTest : RawFlatModuleTestBase() {
         """
         val mod = lowerSourceToFlat(source)
         val transformed = org.opentaint.ir.impl.python.transforms.closure.FlatClosureTransformer.transform(mod)
-        val inner = fn(transformed, ".outer.inner")
+        val inner = fn(transformed, ".outer\$inner")
         val outer = fn(transformed, ".outer")
 
         println("[H14] inner.closureVars=${inner.closureVars}")

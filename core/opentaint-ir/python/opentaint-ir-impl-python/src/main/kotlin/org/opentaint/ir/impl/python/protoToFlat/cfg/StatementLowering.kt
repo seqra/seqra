@@ -393,7 +393,7 @@ private fun CfgSession.visitAssert(stmt: MypyAssertStmtProto, line: Int) {
     emitBranch(cond, passBlock, failBlock, line)
 
     activate(failBlock)
-    var exc: FlatValue = FlatGlobalRef("AssertionError", "builtins")
+    var exc: FlatValue = FlatGlobalRef("builtins.AssertionError")
     if (stmt.hasMsg() && stmt.msg.kindCase != MypyExprProto.KindCase.KIND_NOT_SET) {
         val msgVal = lowerExpr(stmt.msg)
         val callTarget = newTempValue()
@@ -422,16 +422,20 @@ private fun CfgSession.visitNestedFuncDef(
     val enclosing = requireNotNull(currentFunctionQualifiedName) {
         "visitNestedFuncDef invoked outside a function scope"
     }
+    val enclosingFnName = requireNotNull(currentFunctionName) {
+        "visitNestedFuncDef invoked outside a function scope (no currentFunctionName)"
+    }
     val nested = FunctionLowering.lowerNestedFunction(
         module = module,
         funcDef = funcDef,
         decorators = decorators,
         enclosingQualifiedName = enclosing,
+        enclosingName = enclosingFnName,
     )
     module.register(nested)
 
     // Bind the local name to the synthetic global function.
-    val ref = FlatGlobalRef(nested.name, module.moduleName)
+    val ref = FlatGlobalRef(nested.qualifiedName)
     val targetName = scope.resolveLocal(funcDef.name)
     emit(FlatBindFunction(FlatLocal(targetName), ref, line = line))
 }

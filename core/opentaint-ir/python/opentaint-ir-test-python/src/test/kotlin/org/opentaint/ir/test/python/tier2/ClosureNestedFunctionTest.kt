@@ -469,21 +469,30 @@ def cnf_transitive(x):
     /**
      * Finds a nested function by substring match on qualifiedName.
      *
-     * Capturing nested defs are renamed to `module.<closure_${base}$local${N}_impl>`
-     * by the callable-shim refactor, so a substring lookup like
-     * `cnf_closure_read.reader` no longer matches the impl directly. Fall back
-     * to matching against the impl's `name` field, which embeds the original
-     * unique name `reader$localN`.
+     * Tests pass patterns like `cnf_closure_read.reader`. The lifter encodes
+     * lexical scope with `$` (e.g. `cnf_closure_read$reader`), so the
+     * pattern's last `.` is normalized to `$` before lookup.
+     *
+     * Capturing nested defs are renamed to
+     * `module.<closure_${parent}$${child}_impl>` by the callable-shim
+     * refactor; fall back to matching the impl's `name` field on the bare
+     * child segment.
      */
     private fun findNestedFunc(pattern: String): PIRFunction? {
+        // The lifter encodes lexical scope inside the module-flat name field
+        // with `$` separators. A pattern like "cnf_simple_nested.inner"
+        // matches a qn whose name part is "cnf_simple_nested$inner".
+        val flatPattern = pattern.replace('.', '$')
         val direct = cp.modules.flatMap { it.functions }
-            .firstOrNull { it.qualifiedName.contains(pattern) }
+            .firstOrNull { it.qualifiedName.contains(flatPattern) || it.qualifiedName.contains(pattern) }
         if (direct != null) return direct
-        // Fallback: capturing impls use synthetic names `<closure_${base}$localN_impl>`.
+        // Fallback: capturing impls use synthetic names
+        // `<closure_${parent}$${child}_impl>`. Match by the bare child
+        // segment, the most distinctive part.
         val baseName = pattern.substringAfterLast('.')
         return cp.modules.flatMap { it.functions }.firstOrNull { fn ->
             val n = fn.name
-            n.startsWith("<closure_$baseName") && n.endsWith("_impl>")
+            n.startsWith("<closure_") && n.contains("\$$baseName") && n.endsWith("_impl>")
         }
     }
 
@@ -743,7 +752,7 @@ def cnf_transitive(x):
 
         val cellCtorCalls = insts.filterIsInstance<PIRCall>().filter { call ->
             val callee = call.callee
-            callee is PIRGlobalRef && callee.name == "__pir_cell__" && callee.module == "builtins"
+            callee is PIRGlobalRef && callee.qualifiedName == "builtins.__pir_cell__"
         }
         assertTrue(cellCtorCalls.isNotEmpty(),
             "outer should have at least one PIRCall to __pir_cell__() for owning value's cell")
@@ -753,7 +762,10 @@ def cnf_transitive(x):
         // The class qualified name uses angle brackets (synthetic, not user-visible).
         val adapterCtors = insts.filterIsInstance<PIRCall>().filter { call ->
             val callee = call.callee
-            callee is PIRGlobalRef && callee.name.startsWith("<closure_") && !callee.name.endsWith("_impl>")
+            callee is PIRGlobalRef &&
+                callee.qualifiedName.substringAfterLast('.').let {
+                    it.startsWith("<closure_") && !it.endsWith("_impl>")
+                }
         }
         assertTrue(adapterCtors.isNotEmpty(),
             "outer should have a PIRCall to the synthesized adapter class constructor")

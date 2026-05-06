@@ -438,7 +438,7 @@ class Priority(IntEnum):
     // ─── Nested decorated function dispatch ─────────────────
 
     @Test fun `nested decorated function is captured with its decorator`() {
-        val nested = cp.findFunctionOrNull("__test__.outer_with_nested_decorated.inner")
+        val nested = cp.findFunctionOrNull("__test__.outer_with_nested_decorated\$inner")
         assertNotNull(nested,
             "Nested @my_decorator def inner() should be extracted as a module-level function")
         val decNames = nested!!.decorators.map { it.name }

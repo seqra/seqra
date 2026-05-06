@@ -54,7 +54,6 @@ internal class RewriteCtx(
     private val fn: FlatFunctionIR,
     private val ci: ClosureInfo,
     private val info: Map<String, ClosureInfo>,
-    private val nameToQualified: Map<String, String>,
     private val capturingPlan: Map<String, CapturingEntry>,
 ) {
     // Sorted for determinism.
@@ -145,7 +144,7 @@ internal class RewriteCtx(
             out.add(
                 FlatCall(
                     target = cellLocal,
-                    callee = FlatGlobalRef(ClosureRuntime.CELL_CTOR_NAME, "builtins"),
+                    callee = FlatGlobalRef("builtins.${ClosureRuntime.CELL_CTOR_NAME}"),
                     args = emptyList(),
                 ),
             )
@@ -311,9 +310,10 @@ internal class RewriteCtx(
      */
     private fun rewriteBind(inst: FlatBindFunction): List<FlatInst> {
         val line = inst.line
-        // Resolve child closure info via the (pre-rename) name index.
-        val childQn = nameToQualified[inst.function.name]
-        val childInfo = childQn?.let { info[it] }
+        // The bind target's FlatGlobalRef.qualifiedName IS the child's
+        // FlatFunctionIR.qualifiedName — no name→qn bridge needed.
+        val childQn = inst.function.qualifiedName
+        val childInfo = info[childQn]
         val childClosureVars = childInfo?.closureVars.orEmpty()
 
         if (childClosureVars.isEmpty()) {
@@ -322,10 +322,10 @@ internal class RewriteCtx(
         }
 
         // Capturing child: replace bind with adapter-class constructor call.
-        val childEntry = childQn?.let { capturingPlan[it] }
+        val childEntry = capturingPlan[childQn]
             ?: error(
-                "Closure rewrite: child '${inst.function.name}' captures " +
-                    "but has no capturing-plan entry (childQn=$childQn)",
+                "Closure rewrite: child '$childQn' captures " +
+                    "but has no capturing-plan entry",
             )
         val originalTarget = inst.target
 
@@ -341,7 +341,7 @@ internal class RewriteCtx(
             return scope.finish(
                 FlatCall(
                     target = tmp,
-                    callee = FlatGlobalRef(childEntry.adapterClassName, childEntry.moduleName),
+                    callee = FlatGlobalRef(childEntry.adapterClassQn),
                     args = listOf(FlatCallArg(envValueLocal)),
                     line = line,
                 ),
@@ -351,7 +351,7 @@ internal class RewriteCtx(
         return scope.finish(
             FlatCall(
                 target = originalTarget,
-                callee = FlatGlobalRef(childEntry.adapterClassName, childEntry.moduleName),
+                callee = FlatGlobalRef(childEntry.adapterClassQn),
                 args = listOf(FlatCallArg(envValueLocal)),
                 line = line,
             ),

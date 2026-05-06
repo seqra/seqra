@@ -62,7 +62,7 @@ object CfgConverter {
 
     private fun v(flat: FlatValue): PIRValue = when (flat) {
         is FlatLocal -> PIRLocal(flat.name, TypeConverter.convert(flat.type))
-        is FlatGlobalRef -> PIRGlobalRef(flat.name, flat.module, PIRAnyType)
+        is FlatGlobalRef -> PIRGlobalRef(flat.qualifiedName, PIRAnyType)
         is FlatModuleRef -> PIRModuleRef(flat.module, PIRAnyType)
         is FlatConst -> ConstConverter.convert(flat)
     }
@@ -80,7 +80,7 @@ object CfgConverter {
             is FlatStoreAttr -> PIRStoreAttr(v(flat.obj), flat.attribute, v(flat.value), loc)
             is FlatLoadSubscript -> PIRAssign(v(flat.target), PIRSubscriptExpr(v(flat.obj), v(flat.index), TypeConverter.convert(flat.type)), loc)
             is FlatStoreSubscript -> PIRStoreSubscript(v(flat.obj), v(flat.index), v(flat.value), loc)
-            is FlatLoadGlobal -> PIRAssign(v(flat.target), PIRGlobalRef(flat.name, flat.module), loc)
+            is FlatLoadGlobal -> PIRAssign(v(flat.target), PIRGlobalRef("${flat.module}.${flat.name}"), loc)
             is FlatStoreGlobal -> PIRStoreGlobal(flat.name, flat.module, v(flat.value), loc)
             is FlatBindFunction -> PIRAssign(
                 v(flat.target),

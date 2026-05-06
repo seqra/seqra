@@ -72,7 +72,10 @@ def cse_capturing(x):
         val outer = cp.modules.flatMap { it.functions }.first { it.name == "cse_capturing" }
         val ctor = outer.instList.filterIsInstance<PIRCall>().firstOrNull { call ->
             val callee = call.callee
-            callee is PIRGlobalRef && callee.name.startsWith("<closure_") && !callee.name.endsWith("_impl>")
+            callee is PIRGlobalRef &&
+                callee.qualifiedName.substringAfterLast('.').let {
+                    it.startsWith("<closure_") && !it.endsWith("_impl>")
+                }
         }
         assertNotNull(ctor, "expected a PIRCall to the adapter class constructor")
         // Constructor receives one positional arg (the env dict).

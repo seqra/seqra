@@ -112,11 +112,10 @@ private fun CfgSession.lowerName(expr: MypyNameExprProto): FlatValue {
         // handling is needed.
         MypyNameKind.NAME_GLOBAL -> {
             val fullname = expr.fullname
-            val dot = fullname.lastIndexOf('.')
-            check(dot > 0) {
+            check('.' in fullname) {
                 "NAME_GLOBAL fullname must be dotted; got '$fullname' for name '$name'"
             }
-            FlatGlobalRef(fullname.substring(dot + 1), fullname.take(dot))
+            FlatGlobalRef(fullname)
         }
         else -> FlatLocal(scope.resolveLocal(name))
     }
@@ -377,7 +376,7 @@ private fun CfgSession.lowerLambda(expr: MypyLambdaExprProto): FlatValue {
         parentQualifiedName = currentFunctionQualifiedName,
     )
     module.register(lambda)
-    val ref = FlatGlobalRef(lambda.name, module.moduleName)
+    val ref = FlatGlobalRef(lambda.qualifiedName)
     val target = newTempValue()
     emit(FlatBindFunction(target, ref, line = -1))
     return target
@@ -387,7 +386,7 @@ private fun CfgSession.lowerLambda(expr: MypyLambdaExprProto): FlatValue {
 
 private fun CfgSession.lowerSuper(line: Int): FlatValue {
     val target = newTempValue()
-    emit(FlatCall(target, FlatGlobalRef("super", "builtins"), line = line))
+    emit(FlatCall(target, FlatGlobalRef("builtins.super"), line = line))
     return target
 }
 
@@ -409,7 +408,7 @@ private fun CfgSession.lowerComprehension(
             addMethod = "append"
         }
         CollectionKind.SET -> {
-            emit(FlatCall(result, FlatGlobalRef("set", "builtins"), line = line))
+            emit(FlatCall(result, FlatGlobalRef("builtins.set"), line = line))
             addMethod = "add"
         }
     }

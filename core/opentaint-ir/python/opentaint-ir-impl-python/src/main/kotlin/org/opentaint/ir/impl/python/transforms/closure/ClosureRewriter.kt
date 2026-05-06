@@ -39,16 +39,12 @@ internal object ClosureRewriter {
     fun rewrite(module: FlatModuleIR, info: Map<String, ClosureInfo>): FlatModuleIR {
         val diagnostics = ArrayList<PIRDiagnostic>()
 
-        // Build name → qualifiedName index over original module functions only.
-        // This is the view the analyzer sees and the bind-site rewrite consults.
-        val nameToQualified = buildNameToQualifiedIndex(module)
-
         // First scan: pick adapter class names + impl renames for every capturing
         // function. Both decisions must be visible BEFORE we walk bind sites.
         val capturingPlan = buildCapturingPlan(module, info)
 
         val adapterClasses = ArrayList<FlatClass>()
-        val runner = RewriteRunner(info, nameToQualified, capturingPlan, diagnostics)
+        val runner = RewriteRunner(info, capturingPlan, diagnostics)
 
         val newFunctions = module.functions.map {
             val out = runner.rewriteFunction(it)
@@ -76,7 +72,6 @@ internal object ClosureRewriter {
  */
 private class RewriteRunner(
     private val info: Map<String, ClosureInfo>,
-    private val nameToQualified: Map<String, String>,
     private val capturingPlan: Map<String, CapturingEntry>,
     private val diagnostics: MutableList<PIRDiagnostic>,
 ) {
@@ -114,7 +109,7 @@ private class RewriteRunner(
         }
 
         return try {
-            RewriteCtx(fn, ci, info, nameToQualified, capturingPlan).run()
+            RewriteCtx(fn, ci, info, capturingPlan).run()
         } catch (e: ClosureRewriteLimitation) {
             diagnostics.add(
                 PIRDiagnostic(

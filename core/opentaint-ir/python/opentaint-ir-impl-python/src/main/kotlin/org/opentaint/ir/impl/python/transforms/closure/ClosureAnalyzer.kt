@@ -28,13 +28,6 @@ object ClosureAnalyzer {
         // Reverse: parent qn -> direct children qns.
         val children: Map<String, List<String>> = buildChildrenMap(parentMap)
 
-        // Index over bind-site targets: every `FlatBindFunction.function.name`
-        // resolves through `module.functions` (top-level + lifted nested defs +
-        // lifted lambdas). Methods and module init are not bind targets.
-        val bindNameToQn: Map<String, String> = buildMap {
-            for (fn in module.functions) put(fn.name, fn.qualifiedName)
-        }
-
         // Bottom-up memoized computation. Tracks both the public (override-applied)
         // and the propagated (pre-override) closureVars; parents read the propagated
         // form so a closure-root descendant doesn't block transitive capture.
@@ -87,20 +80,18 @@ object ClosureAnalyzer {
         // each function's `hasCapturingChildBind` follows from a bind-site walk.
         return publicCache.mapValues { (qn, info) ->
             val fn = byName.getValue(qn)
-            info.copy(hasCapturingChildBind = functionHasCapturingChildBind(fn, bindNameToQn, publicCache))
+            info.copy(hasCapturingChildBind = functionHasCapturingChildBind(fn, publicCache))
         }
     }
 
     private fun functionHasCapturingChildBind(
         fn: FlatFunctionIR,
-        bindNameToQn: Map<String, String>,
         infoCache: Map<String, ClosureInfo>,
     ): Boolean {
         for (block in fn.cfg.blocks) {
             for (inst in block.instructions) {
                 if (inst !is FlatBindFunction) continue
-                val childQn = bindNameToQn[inst.function.name] ?: continue
-                val childInfo = infoCache[childQn] ?: continue
+                val childInfo = infoCache[inst.function.qualifiedName] ?: continue
                 if (childInfo.closureVars.isNotEmpty()) return true
             }
         }

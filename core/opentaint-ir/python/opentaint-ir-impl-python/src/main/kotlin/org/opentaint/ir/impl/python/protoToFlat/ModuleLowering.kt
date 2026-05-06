@@ -53,7 +53,7 @@ internal object ModuleLowering {
         // while building module-init's CFG must be included.
         val syntheticFunctions = context.registeredFunctions
 
-        return FlatModuleIR(
+        val rawModule = FlatModuleIR(
             moduleName = astModule.name,
             path = astModule.path,
             functions = topLevelFunctions + syntheticFunctions,
@@ -63,6 +63,14 @@ internal object ModuleLowering {
             imports = astModule.importsList,
             diagnostics = context.diagnostics,
         )
+
+        // Mypy emits resolvedCallee in its lexical form (`m.outer.inner`),
+        // but the lifter uses `$`-flat encoding for nested-def qualified
+        // names (`m.outer$inner`). Normalize so every consumer of
+        // resolvedCallee sees the same canonical form as
+        // FlatFunctionIR.qualifiedName.
+        // TODO maybe use it as a transform?
+        return ResolvedCalleeNormalizer.normalize(rawModule)
     }
 
     // ─── Class building ──────────────────────────────

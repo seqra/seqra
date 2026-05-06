@@ -131,15 +131,18 @@ class PIRReconstructor {
                 for (inst in method.cfg.instList) {
                     if (inst is PIRCall) {
                         val callee = inst.callee
-                        if (callee is PIRGlobalRef && callee.name.startsWith("<closure_") && callee.name.endsWith("_impl>")) {
-                            if (callee.name !in seen) {
-                                val implFn = cp.modules.flatMap { it.functions }.firstOrNull { it.name == callee.name }
-                                if (implFn != null) {
-                                    seen.add(implFn.name)
-                                    resolvedFuncs.add(implFn)
-                                    emittedFuncNames.add(implFn.name)
-                                    if (isClosureBearing(implFn)) {
-                                        closureBearingFuncs.add(implFn.name)
+                        if (callee is PIRGlobalRef) {
+                            val calleeShort = callee.qualifiedName.substringAfterLast('.')
+                            if (calleeShort.startsWith("<closure_") && calleeShort.endsWith("_impl>")) {
+                                if (calleeShort !in seen) {
+                                    val implFn = cp.modules.flatMap { it.functions }.firstOrNull { it.name == calleeShort }
+                                    if (implFn != null) {
+                                        seen.add(implFn.name)
+                                        resolvedFuncs.add(implFn)
+                                        emittedFuncNames.add(implFn.name)
+                                        if (isClosureBearing(implFn)) {
+                                            closureBearingFuncs.add(implFn.name)
+                                        }
                                     }
                                 }
                             }
@@ -337,11 +340,13 @@ def _closure_class(f):
     private fun collectLambdaRefsFromInstruction(inst: PIRInstruction, refs: MutableSet<String>, moduleName: String) {
         fun checkValue(v: PIRValue) {
             if (v is PIRGlobalRef) {
-                if (v.name.startsWith("<lambda>")) {
-                    refs.add(v.name)
-                } else if (v.module == moduleName) {
+                val short = v.qualifiedName.substringAfterLast('.')
+                val module = v.qualifiedName.substringBeforeLast('.', "")
+                if (short.startsWith("<lambda>")) {
+                    refs.add(short)
+                } else if (module == moduleName) {
                     // Same module GlobalRef — candidate nested function (verified during resolution)
-                    refs.add(v.name)
+                    refs.add(short)
                 }
             }
         }
@@ -526,7 +531,7 @@ def _closure_class(f):
                 //  - Plain: `target = name` is a regular function-value alias.
                 //    Skip when the bound function's name equals the target
                 //    local (`inner = inner` is implicit for nested defs).
-                val fnName = expr.function.name
+                val fnName = expr.function.qualifiedName.substringAfterLast('.')
                 if (fnName in closureBearingNames) {
                     return listOf("$target = ${sanitizeFuncName(fnName)}()")
                 }
@@ -554,7 +559,7 @@ def _closure_class(f):
             is PIREllipsisConst -> "..."
             is PIRBytesConst -> "b\"...\""
             is PIRComplexConst -> "complex(${v.real}, ${v.imag})"
-            is PIRGlobalRef -> sanitizeFuncName(v.name)
+            is PIRGlobalRef -> sanitizeFuncName(v.qualifiedName.substringAfterLast('.'))
             is PIRModuleRef -> v.module
         }
     }

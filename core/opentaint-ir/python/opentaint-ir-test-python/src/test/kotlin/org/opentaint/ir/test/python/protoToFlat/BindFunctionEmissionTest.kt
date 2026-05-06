@@ -48,7 +48,7 @@ class BindFunctionEmissionTest : RawFlatModuleTestBase() {
         val module = lowerSourceToFlat(source)
         val outer = module.functions.first { it.qualifiedName.endsWith(".outer") }
         val innerLifted = module.functions.first {
-            it.qualifiedName.endsWith(".outer.inner")
+            it.qualifiedName.endsWith(".outer\$inner")
         }
 
         val binds = outer.allInstructions().filterIsInstance<FlatBindFunction>()
@@ -59,10 +59,11 @@ class BindFunctionEmissionTest : RawFlatModuleTestBase() {
             "expected exactly one FlatBindFunction with target FlatLocal(\"inner\") in outer, got $binds",
         )
         val bind = binds.single()
-        assertEquals(innerLifted.name, bind.function.name)
-        assertTrue(
-            innerLifted.name.startsWith("inner\$local"),
-            "lifted nested name should follow inner\$local<n> convention, got ${innerLifted.name}",
+        assertEquals(innerLifted.qualifiedName, bind.function.qualifiedName)
+        assertEquals(
+            "outer\$inner",
+            innerLifted.name,
+            "lifted nested name should follow parent\$child convention, got ${innerLifted.name}",
         )
     }
 
@@ -75,7 +76,7 @@ class BindFunctionEmissionTest : RawFlatModuleTestBase() {
         }
 
         val lambdaBinds = outer.allInstructions().filterIsInstance<FlatBindFunction>()
-            .filter { it.function.name == lambdaLifted.name }
+            .filter { it.function.qualifiedName == lambdaLifted.qualifiedName }
         assertEquals(
             1,
             lambdaBinds.size,
@@ -95,7 +96,7 @@ class BindFunctionEmissionTest : RawFlatModuleTestBase() {
         val module = lowerSourceToFlat(source)
         val withDecorated = module.functions.first { it.qualifiedName.endsWith(".with_decorated") }
         val helperLifted = module.functions.first {
-            it.qualifiedName.endsWith(".with_decorated.helper")
+            it.qualifiedName.endsWith(".with_decorated\$helper")
         }
 
         val binds = withDecorated.allInstructions().filterIsInstance<FlatBindFunction>()
@@ -105,13 +106,13 @@ class BindFunctionEmissionTest : RawFlatModuleTestBase() {
             binds.size,
             "expected one FlatBindFunction binding the decorated nested def to local 'helper', got $binds",
         )
-        assertEquals(helperLifted.name, binds.single().function.name)
+        assertEquals(helperLifted.qualifiedName, binds.single().function.qualifiedName)
     }
 
     @Test
     fun `no FlatAssign of FlatLocal from FlatGlobalRef remains at nested-def or lambda binding sites`() {
         val module = lowerSourceToFlat(source)
-        val liftedNames = module.functions.map { it.name }.toSet()
+        val liftedQualifiedNames = module.functions.map { it.qualifiedName }.toSet()
 
         val parents = listOf(".outer", ".with_decorated").map { suffix ->
             module.functions.first { it.qualifiedName.endsWith(suffix) }
@@ -121,7 +122,7 @@ class BindFunctionEmissionTest : RawFlatModuleTestBase() {
                 inst is FlatAssign &&
                     inst.target is FlatLocal &&
                     inst.source is FlatGlobalRef &&
-                    (inst.source as FlatGlobalRef).name in liftedNames
+                    (inst.source as FlatGlobalRef).qualifiedName in liftedQualifiedNames
             }
             assertTrue(
                 offending.isEmpty(),

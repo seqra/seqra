@@ -90,13 +90,16 @@ data class PIRComplexConst(val real: Double, val imag: Double) : PIRConst {
 
 // ─── Global References ──────────────────────────────────────
 
-/** Reference to a global variable or imported name. */
+/**
+ * Reference to a global variable or imported name, identified by its
+ * canonical qualified name. The single string is the resolution key —
+ * consumers that need a module / simple-name split do it themselves.
+ */
 data class PIRGlobalRef(
-    val name: String,
-    val module: String,
+    val qualifiedName: String,
     override val type: PIRType = PIRAnyType,
 ) : PIRValue {
-    override fun toString(): String = if (module.isNotEmpty()) "$module.$name" else name
+    override fun toString(): String = qualifiedName
     override fun <T> accept(visitor: PIRValueVisitor<T>): T = visitor.visitGlobalRef(this)
 }
 

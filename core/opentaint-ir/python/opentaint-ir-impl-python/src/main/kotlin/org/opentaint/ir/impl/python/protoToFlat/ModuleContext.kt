@@ -20,7 +20,7 @@ import org.opentaint.ir.impl.python.flat.FlatFunctionIR
 internal class ModuleContext(val moduleName: String) {
 
     private var lambdaCounter = 0
-    private var nestedCounter = 0
+    private val nestedShadowCounters = mutableMapOf<Pair<String, String>, Int>()
     private val _registeredFunctions = mutableListOf<FlatFunctionIR>()
     private val _diagnostics = mutableListOf<PIRDiagnostic>()
 
@@ -32,8 +32,24 @@ internal class ModuleContext(val moduleName: String) {
     /** Allocate a unique synthetic-lambda name within this module, e.g. `<lambda>$3`. */
     fun freshLambdaName(): String = "<lambda>\$${lambdaCounter++}"
 
-    /** Allocate a unique synthetic-nested-function name within this module, e.g. `helper$local2`. */
-    fun freshNestedName(originalName: String): String = "${originalName}\$local${nestedCounter++}"
+    /**
+     * Build the module-flat short name for a nested `def` named [shortName]
+     * lexically inside [parentName] (which is itself a module-flat short
+     * name — so for a doubly-nested def the parent's name already contains
+     * `$`). The first nested def in a given parent gets `parent$short`;
+     * shadowing siblings get `parent$short$2`, `parent$short$3`, etc., so
+     * `module.functions` stays unique.
+     *
+     * Maintains the suffix invariant: the resulting name is the suffix of
+     * `"$moduleName.$result"` that will be stored as `qualifiedName`.
+     */
+    fun freshNestedName(parentName: String, shortName: String): String {
+        val key = parentName to shortName
+        val count = nestedShadowCounters.getOrDefault(key, 0)
+        nestedShadowCounters[key] = count + 1
+        val base = "$parentName$$shortName"
+        return if (count == 0) base else "$base$${count + 1}"
+    }
 
     fun reportError(message: String, source: String, code: String) {
         _diagnostics.add(PIRDiagnostic(PIRDiagnosticSeverity.ERROR, message, source, code))

@@ -7,7 +7,19 @@ package org.opentaint.ir.impl.python.flat
 sealed interface FlatValue
 
 data class FlatLocal(val name: String, val type: FlatType = FlatAnyType) : FlatValue
-data class FlatGlobalRef(val name: String, val module: String) : FlatValue
+
+/**
+ * Reference to a globally-resolvable name, identified by its qualified name.
+ * For intra-module functions [qualifiedName] equals the corresponding
+ * [FlatFunctionIR.qualifiedName]; for builtins / cross-module imports it is
+ * the canonical dotted fullname (`builtins.AssertionError`, `os.getcwd`).
+ *
+ * The single string is the resolution key. Module-ness is a property of the
+ * resolved target, not of the reference, so consumers that care about a
+ * "module" component (e.g. PIR class-method dispatch) split the string at
+ * the relevant boundary themselves.
+ */
+data class FlatGlobalRef(val qualifiedName: String) : FlatValue
 
 /**
  * Reference to an entire module (e.g. `os` in `os.getcwd()`, or `p` after

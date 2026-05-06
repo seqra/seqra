@@ -73,11 +73,20 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
         return out
     }
 
+    /** Returns each FlatGlobalRef as `(simpleName, module)` derived from
+     *  `qualifiedName` via last-dot split. */
     private fun globalRefs(fn: FlatFunctionIR): Set<Pair<String, String>> {
         val out = HashSet<Pair<String, String>>()
         for (block in fn.cfg.blocks) {
             for (inst in block.instructions) {
-                forEachOperand(inst) { v -> if (v is FlatGlobalRef) out.add(v.name to v.module) }
+                forEachOperand(inst) { v ->
+                    if (v is FlatGlobalRef) {
+                        val qn = v.qualifiedName
+                        val dot = qn.lastIndexOf('.')
+                        if (dot >= 0) out.add(qn.substring(dot + 1) to qn.substring(0, dot))
+                        else out.add(qn to "")
+                    }
+                }
             }
         }
         return out
@@ -230,7 +239,7 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
         val mod = lowerSourceToFlat(source)
         val transformed = FlatClosureTransformer.transform(mod)
 
-        val inner = fn(transformed, ".outer.inner")
+        val inner = fn(transformed, ".outer\$inner")
         val outer = fn(transformed, ".outer")
 
         assertEquals(
