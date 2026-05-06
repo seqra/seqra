@@ -174,6 +174,11 @@ rules:
                           }
                       - pattern-inside: |
                           @$ANNOTATION(...)
+                          ResponseEntity<Object> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
                           ResponseEntity<String> $METHOD(...) {
                             ...
                           }
@@ -221,41 +226,6 @@ rules:
                           }
                   - pattern: $DR.setResult(..., $UNTRUSTED, ...);
 
-              # Branch 1d: raw `ResponseEntity` (no type argument) handler
-              # return — DEFAULT-DANGEROUS for the same reason as
-              # `ResponseEntity<String>`: the body's runtime type drives
-              # content negotiation, and a `String` body routes through
-              # `StringHttpMessageConverter` which serves `text/html` under
-              # `Accept: text/html` (see Row 14).
-              #
-              # The raw `pattern-inside ResponseEntity` would over-match every
-              # `ResponseEntity<*>` declaration the engine sees (it is more
-              # permissive than the typed `<String>` / `<byte[]>` siblings,
-              # not narrower) — Stirling-PDF triage attributed 33 of 42 FPs
-              # to this. The sibling `pattern-not-inside ResponseEntity<$T>`
-              # subtracts every parameterized declaration so only truly raw
-              # returns survive — engine support landed in
-              # `TypeAwarePatternTest.A24` (raw `pattern-inside` /
-              # parameterized `pattern-not-inside` discrimination).
-              #
-              # The branch is hoisted to top-level patterns to match A24's
-              # flat structure exactly. Putting the raw + negation pair
-              # inside Branch 1's nested `pattern-either` (4 levels deep
-              # under `pattern-sinks`) does not engage the discrimination
-              # end-to-end and Row 14 reports as a rule-test FN there.
-              - patterns:
-                  - pattern-inside: |
-                      @$ANNOTATION(...)
-                      ResponseEntity $METHOD(...) {
-                        ...
-                      }
-                  - pattern-not-inside: |
-                      @$ANNOTATION(...)
-                      ResponseEntity<$T> $METHOD(...) {
-                        ...
-                      }
-                  - pattern: return $UNTRUSTED;
-                  - focus-metavariable: $UNTRUSTED
           # `image/svg+xml` is deliberately NOT excluded — SVG can host
           # inline `<script>` and execute.
           #
