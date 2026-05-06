@@ -294,21 +294,20 @@ class JIRTaintAnalyzer(
     ): String = buildString {
         data class VulnInfo(val location: String, val ruleId: String, val kind: String)
 
-        fun TaintSinkTracker.TaintVulnerability.vulnSummary(): VulnInfo = when (this) {
-            is TaintSinkTracker.TaintVulnerabilityWithEndFactRequirement -> {
-                vulnerability.vulnSummary().let { it.copy(kind = "end#${it.kind}") }
-            }
-
-            is TaintSinkTracker.TaintVulnerabilityUnconditional -> {
-                VulnInfo("${statement.location}|${statement}", rule.id, "unconditional")
-            }
-
-            is TaintSinkTracker.TaintVulnerabilityWithFact -> {
-                VulnInfo("${statement.location}|${statement}", rule.id, "fact")
+        fun TaintSinkTracker.TaintVulnerabilityRuleNode.kind(): List<String> = when (this) {
+            is TaintSinkTracker.TaintVulnerabilityRuleNode.Unconditional -> listOf("unconditional")
+            is TaintSinkTracker.TaintVulnerabilityRuleNode.Fact -> listOf("fact")
+            is TaintSinkTracker.TaintVulnerabilityRuleNode.WithRequirement -> requirement.values.flatMap { v ->
+                v.kind().map { "end#${it}" }
             }
         }
 
-        val info = vulnerabilities.mapTo(mutableListOf()) { it.vulnSummary() }
+        fun TaintSinkTracker.TaintVulnerability.vulnSummary(): List<VulnInfo> {
+            val kinds = vulnerabilityRules.values.flatMap { it.kind() }.distinct()
+            return kinds.map { VulnInfo("${statement.location}|${statement}", ruleId, it) }
+        }
+
+        val info = vulnerabilities.flatMapTo(mutableListOf()) { it.vulnSummary() }
         info.sortWith(compareBy<VulnInfo> { it.kind }.thenBy { it.ruleId }.thenBy { it.location })
 
         appendLine("VULNERABILITIES:")

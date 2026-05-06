@@ -25,7 +25,6 @@ import org.opentaint.dataflow.ap.ifds.taint.CommonTaintAnalysisContext
 import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisUnitStorage
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
-import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerabilityWithEndFactRequirement
 import org.opentaint.dataflow.ap.ifds.trace.ParallelProcessingContext
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityChecker
@@ -269,13 +268,13 @@ class TaintAnalysisUnitRunnerManager(
         cancellation.activate()
 
         val confirmed = mutableListOf<TaintVulnerability>()
-        val unconfirmedVulnerabilities = mutableListOf<TaintVulnerabilityWithEndFactRequirement>()
+        val unconfirmedVulnerabilities = mutableListOf<TaintVulnerability>()
 
         for (vulnerability in vulnerabilities) {
-            when (vulnerability) {
-                is TaintSinkTracker.TaintVulnerabilityUnconditional -> confirmed.add(vulnerability)
-                is TaintSinkTracker.TaintVulnerabilityWithFact -> confirmed.add(vulnerability)
-                is TaintVulnerabilityWithEndFactRequirement -> unconfirmedVulnerabilities.add(vulnerability)
+            if (VulnerabilityChecker.needVerification(vulnerability)) {
+                unconfirmedVulnerabilities.add(vulnerability)
+            } else {
+                confirmed.add(vulnerability)
             }
         }
 
@@ -311,20 +310,17 @@ class TaintAnalysisUnitRunnerManager(
 
     private fun confirmVulnerabilitiesWithCancellation(
         entryPoints: Set<CommonMethod>,
-        vulnerabilities: List<TaintVulnerabilityWithEndFactRequirement>,
+        vulnerabilities: List<TaintVulnerability>,
         timeout: Duration,
         cancellationTimeout: Duration,
     ): List<VerifiedVulnerability> {
         val checker = VulnerabilityChecker(entryPoints, this, cancellation)
         val vulnConfirmationContext =
-            object : ParallelProcessingContext<TaintVulnerabilityWithEndFactRequirement, VerifiedVulnerability>(
+            object : ParallelProcessingContext<TaintVulnerability, VerifiedVulnerability>(
                 analyzerDispatcher, name = "Vulnerability confirmation", vulnerabilities
             ) {
-                override fun createUnprocessed(item: TaintVulnerabilityWithEndFactRequirement): VerifiedVulnerability =
-                    VerifiedVulnerability(
-                        item.vulnerability,
-                        status = VulnerabilityVerificationStatus.UNKNOWN
-                    )
+                override fun createUnprocessed(item: TaintVulnerability): VerifiedVulnerability =
+                    VerifiedVulnerability(item, status = VulnerabilityVerificationStatus.UNKNOWN)
             }
 
         return vulnConfirmationContext.processAll(

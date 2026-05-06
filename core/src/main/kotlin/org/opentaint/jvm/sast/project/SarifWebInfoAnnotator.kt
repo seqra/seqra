@@ -93,7 +93,6 @@ abstract class SarifWebInfoAnnotator(
     ): Set<CommonMethod> {
         val methods = hashSetOf<CommonMethod>()
         methods.add(vulnerability.statement.location.method)
-        methods.add(vulnerability.methodEntryPoint.method)
 
         trace?.sourceToSinkTrace?.let { collectRelevantMethods(it, methods) }
         trace?.entryPointToStart?.let { collectRelevantMethods(it, methods) }

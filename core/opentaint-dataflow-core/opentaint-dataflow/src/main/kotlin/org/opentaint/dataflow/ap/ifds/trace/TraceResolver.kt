@@ -4,6 +4,7 @@ import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
+import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerabilityRuleNode
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.MethodEntry
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.SourceStartEntry
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction
@@ -127,42 +128,61 @@ class TraceResolver(
     }
 
     fun resolveTrace(vulnerability: TaintVulnerability): Trace {
-        when (vulnerability) {
-            is TaintSinkTracker.TaintVulnerabilityWithEndFactRequirement -> {
-                return resolveTrace(vulnerability.vulnerability)
+        val builder = InterProceduralTraceGraphBuilder()
+        val unconditionalTrace = vulnerability.vulnerabilityRules.values.firstNotNullOfOrNull {
+            resolveVulnNodeTrace(builder, vulnerability.statement, it)
+        }
+
+        if (unconditionalTrace != null) {
+            return unconditionalTrace
+        }
+
+        val sourceToSinkTrace = builder.build()
+
+        val entryPointToStart = resolveEntryPointToStartTrace(sourceToSinkTrace.startNodes)
+        return Trace(entryPointToStart, sourceToSinkTrace)
+    }
+
+    private fun resolveVulnNodeTrace(
+        builder: InterProceduralTraceGraphBuilder,
+        statement: CommonInst,
+        node: TaintVulnerabilityRuleNode
+    ): Trace? = when (node) {
+        is TaintVulnerabilityRuleNode.Unconditional -> {
+            val node = SimpleTraceNode(statement, node.methodEntryPoint)
+            val entryPointToStart = resolveEntryPointToStartTrace(setOf(node))
+            val sourceToSinkTrace = SourceToSinkTrace(setOf(node), setOf(node), emptyMap())
+            Trace(entryPointToStart, sourceToSinkTrace)
+        }
+
+        is TaintVulnerabilityRuleNode.WithRequirement -> {
+            node.requirement.values.firstNotNullOfOrNull { resolveVulnNodeTrace(builder, statement, it) }
+        }
+
+        is TaintVulnerabilityRuleNode.Fact -> {
+            val includeStatement = when (node.vulnerabilityTriggerPosition) {
+                TaintSinkTracker.VulnerabilityTriggerPosition.BEFORE_INST -> false
+                TaintSinkTracker.VulnerabilityTriggerPosition.AFTER_INST -> true
             }
 
-            is TaintSinkTracker.TaintVulnerabilityUnconditional -> {
-                val node = SimpleTraceNode(vulnerability.statement, vulnerability.methodEntryPoint)
-                val entryPointToStart = resolveEntryPointToStartTrace(setOf(node))
-                val sourceToSinkTrace = SourceToSinkTrace(setOf(node), setOf(node), emptyMap())
-                return Trace(entryPointToStart, sourceToSinkTrace)
-            }
+            for ((methodEntryPoint, factGroups) in node.facts) {
+                manager.withMethodRunner(methodEntryPoint) {
+                    for (facts in factGroups.facts) {
+                        val traces = resolveIntraProceduralTraceSummary(
+                            methodEntryPoint,
+                            statement,
+                            facts.facts,
+                            includeStatement = includeStatement
+                        )
 
-            is TaintSinkTracker.TaintVulnerabilityWithFact -> {
-                val builder = InterProceduralTraceGraphBuilder()
-
-                manager.withMethodRunner(vulnerability.methodEntryPoint) {
-                    val traces = resolveIntraProceduralTraceSummary(
-                        vulnerability.methodEntryPoint,
-                        vulnerability.statement,
-                        vulnerability.factAp,
-                        includeStatement = when (vulnerability.vulnerabilityTriggerPosition) {
-                            TaintSinkTracker.VulnerabilityTriggerPosition.BEFORE_INST -> false
-                            TaintSinkTracker.VulnerabilityTriggerPosition.AFTER_INST -> true
+                        for (trace in traces) {
+                            builder.createSinkNode(trace)
                         }
-                    )
-
-                    for (trace in traces) {
-                        builder.createSinkNode(trace)
                     }
                 }
-
-                val sourceToSinkTrace = builder.build()
-
-                val entryPointToStart = resolveEntryPointToStartTrace(sourceToSinkTrace.startNodes)
-                return Trace(entryPointToStart, sourceToSinkTrace)
             }
+
+            null
         }
     }
 
