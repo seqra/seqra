@@ -812,6 +812,16 @@ private fun TaintRuleGenerationCtx.evaluateMethodSignatureCondition(
 
         SerializedCondition.and(cond)
     }
+
+    val returnType = signature.returnType
+    if (returnType != null) {
+        val returnTypeFormula = typeMatcher(returnType, semgrepRuleTrace)
+        if (returnTypeFormula != null) {
+            conditions += returnTypeFormula.toSerializedCondition { typeNameMatcher ->
+                SerializedCondition.IsType(typeNameMatcher, PositionBase.Result)
+            }
+        }
+    }
 }
 
 private fun findMetaVarPosition(

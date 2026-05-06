@@ -1,0 +1,21 @@
+rules:
+  - id: example-RuleWithRawResponseEntityNotInsideGeneric
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithRawResponseEntityNotInsideGeneric
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          @$ANNOTATION(...)
+          ResponseEntity $METHOD(..., String $A, ...) {
+              ...
+          }
+      - pattern-not-inside: |-
+          @$ANNOTATION(...)
+          ResponseEntity<$T> $METHOD(..., String $A, ...) {
+              ...
+          }

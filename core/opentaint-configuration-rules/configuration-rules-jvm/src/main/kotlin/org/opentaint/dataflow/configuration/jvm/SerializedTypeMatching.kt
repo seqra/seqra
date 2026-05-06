@@ -30,6 +30,8 @@ private fun SerializedTypeNameMatcher.matchTypeArgs(
             val type = resolveType()
             if (type !is JIRClassType) return false
 
+            if (type.isRawClassType()) return false
+
             if (args.size != type.typeArguments.size) return false
 
             args.zip(type.typeArguments).all { (m, a) ->
@@ -41,6 +43,23 @@ private fun SerializedTypeNameMatcher.matchTypeArgs(
             resolveType = { (resolveType() as? JIRArrayType)?.elementType },
             erasedMatch
         )
+    }
+}
+
+/**
+ * A raw use of a generic class (e.g. `ResponseEntity` written without `<>`) is
+ * represented by JacoDB as a [JIRClassType] whose [JIRClassType.typeArguments]
+ * are the class's own declared type parameters (rather than empty). Detect this
+ * shape so that a parameterized pattern like `ResponseEntity<$T>` does not
+ * spuriously match a raw use site.
+ */
+private fun JIRClassType.isRawClassType(): Boolean {
+    val params = typeParameters
+    if (params.isEmpty()) return false
+    val args = typeArguments
+    if (args.size != params.size) return false
+    return args.zip(params).all { (arg, param) ->
+        arg is JIRTypeVariable && arg.symbol == param.symbol
     }
 }
 

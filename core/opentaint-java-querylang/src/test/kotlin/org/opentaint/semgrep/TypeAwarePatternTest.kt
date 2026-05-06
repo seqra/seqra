@@ -24,11 +24,11 @@ class TypeAwarePatternTest : SampleBasedTest() {
     @Test
     fun `A1 - ResponseEntity of byte array return type`() = runTest<example.RuleWithGenericByteArrayReturnType>()
 
-    // A2. ResponseEntity<$T> — metavar type arg resolving to any concrete type,
-    // including arrays and the raw form. All three method-decl forms are expected
-    // to match.
+    // A2. ResponseEntity<$T> — metavar type arg requires a concrete type
+    // argument, so it matches parameterized forms (String, byte[]) but NOT
+    // the raw use (no type argument).
     @Test
-    fun `A2 - ResponseEntity metavar matches parameterized string, byte array, and raw`() =
+    fun `A2 - ResponseEntity metavar matches parameterized string and byte array but not raw`() =
         runTest<example.RuleWithGenericMetavarArrayArg>()
 
     // A3. Nested generic: ResponseEntity<List<String>>.
@@ -109,6 +109,15 @@ class TypeAwarePatternTest : SampleBasedTest() {
     @Test
     fun `A23 - array dimension mismatch String two dim`() =
         runTest<example.RuleWithTwoDimArrayReturn>()
+
+    // A24. pattern-not-inside discriminates raw vs. parameterized return type.
+    // pattern-inside requires raw `ResponseEntity` (no type args), and
+    // pattern-not-inside excludes `ResponseEntity<$T>` (parameterized).
+    // A method returning raw `ResponseEntity` should match (Positive); a
+    // method returning `ResponseEntity<String>` should be excluded (Negative).
+    @Test
+    fun `A24 - pattern-not-inside discriminates raw vs parameterized ResponseEntity`() =
+        runTest<example.RuleWithRawResponseEntityNotInsideGeneric>()
 
     @AfterAll
     fun close() {
