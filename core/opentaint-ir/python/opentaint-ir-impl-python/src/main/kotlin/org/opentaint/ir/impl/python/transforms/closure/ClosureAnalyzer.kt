@@ -1,47 +1,15 @@
 package org.opentaint.ir.impl.python.transforms.closure
 
-import org.opentaint.ir.impl.python.flat.FlatAssign
-import org.opentaint.ir.impl.python.flat.FlatAwait
-import org.opentaint.ir.impl.python.flat.FlatBinOp
 import org.opentaint.ir.impl.python.flat.FlatBindFunction
-import org.opentaint.ir.impl.python.flat.FlatBranch
-import org.opentaint.ir.impl.python.flat.FlatBuildDict
-import org.opentaint.ir.impl.python.flat.FlatBuildList
-import org.opentaint.ir.impl.python.flat.FlatBuildSet
-import org.opentaint.ir.impl.python.flat.FlatBuildSlice
-import org.opentaint.ir.impl.python.flat.FlatBuildString
-import org.opentaint.ir.impl.python.flat.FlatBuildTuple
-import org.opentaint.ir.impl.python.flat.FlatCall
 import org.opentaint.ir.impl.python.flat.FlatClass
-import org.opentaint.ir.impl.python.flat.FlatCompare
-import org.opentaint.ir.impl.python.flat.FlatDeleteAttr
-import org.opentaint.ir.impl.python.flat.FlatDeleteGlobal
-import org.opentaint.ir.impl.python.flat.FlatDeleteLocal
-import org.opentaint.ir.impl.python.flat.FlatDeleteSubscript
-import org.opentaint.ir.impl.python.flat.FlatExceptHandler
 import org.opentaint.ir.impl.python.flat.FlatFunctionIR
 import org.opentaint.ir.impl.python.flat.FlatFunctionKind
-import org.opentaint.ir.impl.python.flat.FlatGetIter
-import org.opentaint.ir.impl.python.flat.FlatGoto
-import org.opentaint.ir.impl.python.flat.FlatInst
-import org.opentaint.ir.impl.python.flat.FlatLoadAttr
-import org.opentaint.ir.impl.python.flat.FlatLoadGlobal
-import org.opentaint.ir.impl.python.flat.FlatLoadSubscript
 import org.opentaint.ir.impl.python.flat.FlatLocal
 import org.opentaint.ir.impl.python.flat.FlatModuleIR
-import org.opentaint.ir.impl.python.flat.FlatNextIter
-import org.opentaint.ir.impl.python.flat.FlatRaise
-import org.opentaint.ir.impl.python.flat.FlatReturn
-import org.opentaint.ir.impl.python.flat.FlatStoreAttr
-import org.opentaint.ir.impl.python.flat.FlatStoreGlobal
-import org.opentaint.ir.impl.python.flat.FlatStoreSubscript
-import org.opentaint.ir.impl.python.flat.FlatTypeCheck
-import org.opentaint.ir.impl.python.flat.FlatUnaryOp
-import org.opentaint.ir.impl.python.flat.FlatUnpack
-import org.opentaint.ir.impl.python.flat.FlatUnreachable
 import org.opentaint.ir.impl.python.flat.FlatValue
-import org.opentaint.ir.impl.python.flat.FlatYield
-import org.opentaint.ir.impl.python.flat.FlatYieldFrom
+import org.opentaint.ir.impl.python.flat.operands
+import org.opentaint.ir.impl.python.flat.target
+import org.opentaint.ir.impl.python.flat.unpackTargets
 
 /**
  * Pure analysis pass over a [FlatModuleIR]. Computes per-function
@@ -59,6 +27,13 @@ object ClosureAnalyzer {
 
         // Reverse: parent qn -> direct children qns.
         val children: Map<String, List<String>> = buildChildrenMap(parentMap)
+
+        // Index over bind-site targets: every `FlatBindFunction.function.name`
+        // resolves through `module.functions` (top-level + lifted nested defs +
+        // lifted lambdas). Methods and module init are not bind targets.
+        val bindNameToQn: Map<String, String> = buildMap {
+            for (fn in module.functions) put(fn.name, fn.qualifiedName)
+        }
 
         // Bottom-up memoized computation. Tracks both the public (override-applied)
         // and the propagated (pre-override) closureVars; parents read the propagated
@@ -100,13 +75,36 @@ object ClosureAnalyzer {
                 ownedNames = ownedNames,
                 cellVars = cellVars,
                 closureVars = publicClosureVars,
+                hasCapturingChildBind = false,   // filled in by the second pass below
             )
             publicCache[qn] = info
             return info
         }
 
         for (qn in byName.keys) compute(qn)
-        return publicCache
+
+        // Second pass: now that every function's `closureVars` is finalised,
+        // each function's `hasCapturingChildBind` follows from a bind-site walk.
+        return publicCache.mapValues { (qn, info) ->
+            val fn = byName.getValue(qn)
+            info.copy(hasCapturingChildBind = functionHasCapturingChildBind(fn, bindNameToQn, publicCache))
+        }
+    }
+
+    private fun functionHasCapturingChildBind(
+        fn: FlatFunctionIR,
+        bindNameToQn: Map<String, String>,
+        infoCache: Map<String, ClosureInfo>,
+    ): Boolean {
+        for (block in fn.cfg.blocks) {
+            for (inst in block.instructions) {
+                if (inst !is FlatBindFunction) continue
+                val childQn = bindNameToQn[inst.function.name] ?: continue
+                val childInfo = infoCache[childQn] ?: continue
+                if (childInfo.closureVars.isNotEmpty()) return true
+            }
+        }
+        return false
     }
 
     /* ------------------------------------------------------------------ */
@@ -240,59 +238,19 @@ object ClosureAnalyzer {
 
     /**
      * Every name written via a `FlatLocal` target across all instructions in
-     * the function. This includes targets of arithmetic, attribute loads,
-     * subscript loads, builds, calls, yields, awaits, iter ops, type checks,
-     * unpacks, and `FlatBindFunction` (so sibling `def b()` references resolve).
+     * the function. Includes single-target instructions, the multi-target
+     * [org.opentaint.ir.impl.python.flat.FlatUnpack], and `FlatBindFunction`
+     * (so sibling `def b()` references resolve).
      */
     private fun collectLocalDefs(fn: FlatFunctionIR): Set<String> {
         val out = HashSet<String>()
         for (block in fn.cfg.blocks) {
             for (inst in block.instructions) {
-                addTargetName(inst, out)
+                inst.target?.let { addLocalName(it, out) }
+                inst.unpackTargets.forEach { addLocalName(it, out) }
             }
         }
         return out
-    }
-
-    private fun addTargetName(inst: FlatInst, out: MutableSet<String>) {
-        when (inst) {
-            is FlatAssign -> addLocalName(inst.target, out)
-            is FlatBinOp -> addLocalName(inst.target, out)
-            is FlatUnaryOp -> addLocalName(inst.target, out)
-            is FlatCompare -> addLocalName(inst.target, out)
-            is FlatLoadAttr -> addLocalName(inst.target, out)
-            is FlatLoadSubscript -> addLocalName(inst.target, out)
-            is FlatLoadGlobal -> addLocalName(inst.target, out)
-            is FlatBuildList -> addLocalName(inst.target, out)
-            is FlatBuildTuple -> addLocalName(inst.target, out)
-            is FlatBuildSet -> addLocalName(inst.target, out)
-            is FlatBuildDict -> addLocalName(inst.target, out)
-            is FlatBuildSlice -> addLocalName(inst.target, out)
-            is FlatBuildString -> addLocalName(inst.target, out)
-            is FlatGetIter -> addLocalName(inst.target, out)
-            is FlatTypeCheck -> addLocalName(inst.target, out)
-            is FlatCall -> inst.target?.let { addLocalName(it, out) }
-            is FlatYield -> inst.target?.let { addLocalName(it, out) }
-            is FlatYieldFrom -> inst.target?.let { addLocalName(it, out) }
-            is FlatAwait -> inst.target?.let { addLocalName(it, out) }
-            is FlatNextIter -> addLocalName(inst.target, out)
-            is FlatExceptHandler -> inst.target?.let { addLocalName(it, out) }
-            is FlatUnpack -> inst.targets.forEach { addLocalName(it, out) }
-            is FlatBindFunction -> addLocalName(inst.target, out)
-            // Side-effect-only / control-flow / non-target instructions
-            is FlatStoreAttr,
-            is FlatStoreSubscript,
-            is FlatStoreGlobal,
-            is FlatGoto,
-            is FlatBranch,
-            is FlatReturn,
-            is FlatRaise,
-            is FlatDeleteLocal,
-            is FlatDeleteAttr,
-            is FlatDeleteSubscript,
-            is FlatDeleteGlobal,
-            FlatUnreachable -> Unit
-        }
     }
 
     private fun addLocalName(value: FlatValue, out: MutableSet<String>) {
@@ -301,80 +259,17 @@ object ClosureAnalyzer {
 
     /**
      * Every `FlatLocal` referenced as an *operand* across all instructions in
-     * the function. Mirrors [addTargetName] but for read positions.
+     * the function. `FlatBindFunction.function` is a name-binding target,
+     * not an operand (per [org.opentaint.ir.impl.python.flat.mapOperand]'s
+     * contract), so it contributes no reads here.
      */
     private fun collectLocalReads(fn: FlatFunctionIR): Set<String> {
         val out = HashSet<String>()
         for (block in fn.cfg.blocks) {
             for (inst in block.instructions) {
-                addOperandReads(inst, out)
+                for (operand in inst.operands) addLocalName(operand, out)
             }
         }
         return out
-    }
-
-    private fun addOperandReads(inst: FlatInst, out: MutableSet<String>) {
-        when (inst) {
-            is FlatAssign -> addLocalName(inst.source, out)
-            is FlatBinOp -> {
-                addLocalName(inst.left, out); addLocalName(inst.right, out)
-            }
-            is FlatUnaryOp -> addLocalName(inst.operand, out)
-            is FlatCompare -> {
-                addLocalName(inst.left, out); addLocalName(inst.right, out)
-            }
-            is FlatLoadAttr -> addLocalName(inst.obj, out)
-            is FlatStoreAttr -> {
-                addLocalName(inst.obj, out); addLocalName(inst.value, out)
-            }
-            is FlatLoadSubscript -> {
-                addLocalName(inst.obj, out); addLocalName(inst.index, out)
-            }
-            is FlatStoreSubscript -> {
-                addLocalName(inst.obj, out); addLocalName(inst.index, out); addLocalName(inst.value, out)
-            }
-            is FlatStoreGlobal -> addLocalName(inst.value, out)
-            is FlatLoadGlobal -> Unit
-            is FlatCall -> {
-                addLocalName(inst.callee, out)
-                inst.args.forEach { addLocalName(it.value, out) }
-            }
-            is FlatBuildList -> inst.elements.forEach { addLocalName(it, out) }
-            is FlatBuildTuple -> inst.elements.forEach { addLocalName(it, out) }
-            is FlatBuildSet -> inst.elements.forEach { addLocalName(it, out) }
-            is FlatBuildDict -> {
-                inst.keys.forEach { addLocalName(it, out) }
-                inst.values.forEach { addLocalName(it, out) }
-            }
-            is FlatBuildSlice -> {
-                inst.lower?.let { addLocalName(it, out) }
-                inst.upper?.let { addLocalName(it, out) }
-                inst.step?.let { addLocalName(it, out) }
-            }
-            is FlatBuildString -> inst.parts.forEach { addLocalName(it, out) }
-            is FlatGetIter -> addLocalName(inst.iterable, out)
-            is FlatNextIter -> addLocalName(inst.iterator, out)
-            is FlatBranch -> addLocalName(inst.condition, out)
-            is FlatReturn -> inst.value?.let { addLocalName(it, out) }
-            is FlatRaise -> {
-                inst.exception?.let { addLocalName(it, out) }
-                inst.cause?.let { addLocalName(it, out) }
-            }
-            is FlatYield -> inst.value?.let { addLocalName(it, out) }
-            is FlatYieldFrom -> addLocalName(inst.iterable, out)
-            is FlatAwait -> addLocalName(inst.awaitable, out)
-            is FlatTypeCheck -> addLocalName(inst.value, out)
-            is FlatUnpack -> addLocalName(inst.source, out)
-            is FlatDeleteLocal -> addLocalName(inst.local, out)
-            is FlatDeleteAttr -> addLocalName(inst.obj, out)
-            is FlatDeleteSubscript -> {
-                addLocalName(inst.obj, out); addLocalName(inst.index, out)
-            }
-            is FlatBindFunction -> Unit // function side is a FlatGlobalRef, no local read
-            is FlatGoto,
-            is FlatDeleteGlobal,
-            is FlatExceptHandler,
-            FlatUnreachable -> Unit
-        }
     }
 }

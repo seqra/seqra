@@ -11,9 +11,15 @@ package org.opentaint.ir.impl.python.transforms.closure
  * - [closureVars] — names this function must receive from its parent's
  *   closure environment. Empty for closure roots
  *   (TOP_LEVEL / METHOD / MODULE_INIT).
+ * - [hasCapturingChildBind] — `true` iff this function contains a
+ *   `FlatBindFunction` whose target child has non-empty `closureVars`.
+ *   The rewriter uses this to decide whether to rewrite a function that
+ *   has no own captures or cells: such a function still needs its bind
+ *   sites rewritten into adapter-class constructor calls.
  */
 data class ClosureInfo(
     val ownedNames: Set<String>,
     val cellVars: Set<String>,
     val closureVars: Set<String>,
+    val hasCapturingChildBind: Boolean,
 )
