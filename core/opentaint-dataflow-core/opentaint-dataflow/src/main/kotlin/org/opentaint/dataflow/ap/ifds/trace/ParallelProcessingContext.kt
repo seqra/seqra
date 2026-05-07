@@ -75,11 +75,13 @@ abstract class ParallelProcessingContext<T, R : Any>(
         }
     }
 
-    private fun processAllWithCompletion(): CompletableDeferred<Unit> {
+    private fun processAllWithCompletion(cancellation: Cancellation): CompletableDeferred<Unit> {
         val workerCount = minOf(WORKER_COUNT, tasks.size)
         repeat(workerCount) {
             workers += scope.launch(exceptionHandler) {
                 for (index in tasksQueue) {
+                    if (!cancellation.isActive()) break
+
                     val task = latestState.get(index)
                     try {
                         when (val r = processItem(task)) {
@@ -114,7 +116,7 @@ abstract class ParallelProcessingContext<T, R : Any>(
             tasksQueue.trySendBlocking(i)
         }
 
-        val completion = processAllWithCompletion()
+        val completion = processAllWithCompletion(cancellation)
 
         val progress = progressScope.launch {
             while (isActive) {
