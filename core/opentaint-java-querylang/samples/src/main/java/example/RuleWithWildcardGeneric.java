@@ -19,6 +19,17 @@ public abstract class RuleWithWildcardGeneric implements RuleSample {
         return null;
     }
 
+    ResponseEntity<Object> methodReturningResponseEntityObject(String data) {
+        sink(data);
+        return null;
+    }
+
+    @SuppressWarnings("rawtypes")
+    ResponseEntity methodReturningRawResponseEntity(String data) {
+        sink(data);
+        return null;
+    }
+
     /**
      * Wildcard ResponseEntity&lt;?&gt; trivially matches the &lt;?&gt; rule
      * pattern.
@@ -32,16 +43,40 @@ public abstract class RuleWithWildcardGeneric implements RuleSample {
     }
 
     /**
-     * ResponseEntity&lt;String&gt; is a concrete parameterization. Java's
-     * unbounded wildcard `?` is the supertype of any `X`, so `&lt;?&gt;`
-     * accepts any concrete type argument — `ResponseEntity&lt;String&gt;`
-     * matches.
+     * ResponseEntity&lt;String&gt; is a concrete parameterization. The
+     * unbounded wildcard pattern `&lt;?&gt;` matches every parameterization
+     * of {@code ResponseEntity}, so this method matches.
      */
     final static class PositiveConcreteMatchesWildcard extends RuleWithWildcardGeneric {
         @Override
         public void entrypoint() {
             String data = "tainted";
             methodReturningResponseEntityString(data);
+        }
+    }
+
+    /**
+     * ResponseEntity&lt;Object&gt; — the wildcard pattern `&lt;?&gt;` matches
+     * every parameterization, including {@code Object}.
+     */
+    final static class PositiveObjectMatchesWildcard extends RuleWithWildcardGeneric {
+        @Override
+        public void entrypoint() {
+            String data = "tainted";
+            methodReturningResponseEntityObject(data);
+        }
+    }
+
+    /**
+     * Raw {@code ResponseEntity} — the pattern `ResponseEntity&lt;?&gt;` and
+     * the raw form {@code ResponseEntity} have identical meaning, so the raw
+     * use is matched by the wildcard pattern.
+     */
+    final static class PositiveRawMatchesWildcard extends RuleWithWildcardGeneric {
+        @Override
+        public void entrypoint() {
+            String data = "tainted";
+            methodReturningRawResponseEntity(data);
         }
     }
 }

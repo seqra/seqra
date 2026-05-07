@@ -38,6 +38,7 @@ import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.JIRTypeVariable
+import org.opentaint.ir.api.jvm.JIRUnboundWildcard
 import org.opentaint.ir.api.jvm.cfg.JIRBool
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRConstant
@@ -360,8 +361,6 @@ class JIRBasicAtomEvaluator(
 
         if (type !is JIRClassType) return true
 
-        if (type.isRawClassType()) return false
-
         if (type.typeArguments.size != typeArgs.size) return false
         return typeArgs.zip(type.typeArguments).all { (matcher, arg) ->
             matcher.matchType(arg)
@@ -390,9 +389,16 @@ class JIRBasicAtomEvaluator(
         is CallPositionValue.VarArgValue -> callVarArgValue(res.value)
     }
 
-    private fun TypeArgMatcher.matchType(type: JIRType): Boolean = when (this) {
-        is TypeArgMatcher.Class -> matchType(type)
-        is TypeArgMatcher.Array -> matchType(type)
+    private fun TypeArgMatcher.matchType(type: JIRType): Boolean {
+        // Raw class type arguments (`JIRTypeVariable`) and unbounded
+        // wildcards (`<?>`) denote "any type", so any pattern matcher
+        // accepts them — the unknown type could be whatever the pattern
+        // requires.
+        if (type is JIRTypeVariable || type is JIRUnboundWildcard) return true
+        return when (this) {
+            is TypeArgMatcher.Class -> matchType(type)
+            is TypeArgMatcher.Array -> matchType(type)
+        }
     }
 
     private fun TypeArgMatcher.Class.matchType(type: JIRType): Boolean {
@@ -403,20 +409,8 @@ class JIRBasicAtomEvaluator(
             return true
         }
 
-        if (type.isRawClassType()) return false
-
         if (args.size != type.typeArguments.size) return false
         return args.zip(type.typeArguments).all { (m, a) -> m.matchType(a) }
-    }
-
-    private fun JIRClassType.isRawClassType(): Boolean {
-        val params = typeParameters
-        if (params.isEmpty()) return false
-        val args = typeArguments
-        if (args.size != params.size) return false
-        return args.zip(params).all { (arg, param) ->
-            arg is JIRTypeVariable && arg.symbol == param.symbol
-        }
     }
 
     private fun TypeArgMatcher.Array.matchType(type: JIRType): Boolean =

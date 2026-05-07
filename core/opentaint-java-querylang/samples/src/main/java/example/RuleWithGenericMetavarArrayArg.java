@@ -42,11 +42,11 @@ public abstract class RuleWithGenericMetavarArrayArg implements RuleSample {
     }
 
     /**
-     * The rule pattern is {@code ResponseEntity<$T>}, which requires a concrete
-     * type argument. A raw use of {@code ResponseEntity} (no type argument)
-     * therefore must NOT match.
+     * The metavar type-arg pattern {@code ResponseEntity<$T>} matches the same
+     * set of types as {@code ResponseEntity<?>} and the raw form, so a raw use
+     * of {@code ResponseEntity} matches.
      */
-    final static class NegativeRawResponseEntity extends RuleWithGenericMetavarArrayArg {
+    final static class PositiveRawResponseEntity extends RuleWithGenericMetavarArrayArg {
         @Override
         public void entrypoint() {
             String data = "tainted";
