@@ -29,11 +29,11 @@
 
 AI generates production code faster than today's security tooling can keep up with. The code looks production-ready — yet it buries vulnerabilities in data flows that are fundamentally hard to catch. These include untrusted input winding through framework abstractions, cross-controller interactions with persistence layers, and async code. At the rate AI produces it, humans can't review this code at the depth it requires.
 
-The tools meant to help aren't keeping up either — pattern matching engines catch surface-level issues but struggle to follow data flow across function and file boundaries, LLM agents burn tokens on every file and still produce inconsistent results, and enterprise analyzers that go further gate their analysis behind a paywall, with rule sets that rarely cover your stack.
+The tools meant to help aren't keeping up either — AST-pattern matchers catch surface-level issues but struggle to follow data flow across function and file boundaries, LLM agents burn tokens on every file and still produce inconsistent results, and enterprise analyzers that go further gate their analysis behind a paywall, with rule sets that rarely cover your stack.
 
 The more AI writes code, the more you need formal methods underneath.
 
-### Find what pattern matching engines miss
+### Find what AST-pattern matchers miss
 
 The engine runs IFDS-with-abduction — formal inter-procedural dataflow analysis. It tracks untrusted data from HTTP inputs to dangerous APIs across endpoints, persistence layers, object fields, aliased references, and async code. That includes multi-hop attack paths — cross-endpoint flows, stored injections, data through object fields and aliases — at monorepo scale. 100+ rules across 20+ vulnerability classes.
 
@@ -41,7 +41,7 @@ Models Spring data flow and the full Boot ecosystem, analyzing Java and Kotlin a
 
 ### One finding becomes total coverage
 
-LLM security agents find things — but at token cost per file, with results that shift each run, and no guarantee of complete coverage. Code-native rules turn their findings into leverage. Every vulnerability an agent uncovers can be enacted as a rule — a source, a sink, and the data flow between them — which the agent can write itself. The engine applies that rule across the entire codebase, deterministically, in minutes of CPU. When a finding is a false positive, a sanitizer can be added to the rule — the refinement propagates to every match, permanently. One discovery compounds across the entire codebase.
+LLM security agents find things — but at token cost per file, with results that shift each run, and no guarantee of complete coverage. AST-pattern rules turn their findings into leverage. Every vulnerability an agent uncovers can be enacted as a rule — a source, a sink, and the data flow between them — which the agent can write itself. The engine applies that rule across the entire codebase, deterministically, in minutes of CPU. When a finding is a false positive, a sanitizer can be added to the rule — the refinement propagates to every match, permanently. One discovery compounds across the entire codebase.
 
 The entire system is designed to work with AI agents. Formal analysis produces reproducible results agents can act on without introducing uncertainty. Rules read like code, not a proprietary DSL — so agents write and tune them the same way humans do.
 

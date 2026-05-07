@@ -9,7 +9,7 @@
 <h3 align="center">The open source taint analysis engine for the AI era</h3>
 
 <p align="center">
-  Formal inter-procedural taint analysis — finds what pattern matching engines miss, enacts what LLM agents discover as rules, scales where neither can alone.
+  Formal inter-procedural taint analysis — finds what AST-pattern matchers miss, enacts what LLM agents discover as rules, scales where neither can alone.
 </p>
 
 <p align="center">
@@ -104,8 +104,8 @@ LLM security agents find vulnerabilities humans miss, burn tokens on every file,
 
 The more AI writes code, the more you need formal methods underneath.
 
-- **Find what pattern matching engines miss.** The inter-procedural dataflow engine tracks untrusted data across function boundaries, persistence layers, aliases, and async code.
-- **One finding becomes total coverage.** Code-native rules let you enact every uncovered vulnerability as a rule with the engine applying it across the entire codebase, deterministically, in minutes of CPU.
+- **Find what AST-pattern matchers miss.** The inter-procedural dataflow engine tracks untrusted data across function boundaries, persistence layers, aliases, and async code.
+- **One finding becomes total coverage.** AST-pattern rules let you enact every uncovered vulnerability as a rule with the engine applying it across the entire codebase, deterministically, in minutes of CPU.
 - **Open source, batteries included.** Engine, rules, CI integrations — the entire stack ships under Apache 2.0 and MIT. No paid tier to unlock taint tracking, no gates on writing your own rules.
 
 ## Quick Start
