@@ -94,7 +94,7 @@ private object TargetExtractor : FlatInstVisitor<List<FlatValue>> {
     override fun visitBuildString(inst: FlatBuildString) = listOf(inst.target)
     override fun visitGetIter(inst: FlatGetIter) = listOf(inst.target)
     override fun visitNextIter(inst: FlatNextIter) = listOf(inst.target)
-    override fun visitUnpack(inst: FlatUnpack) = emptyList<FlatValue>()
+    override fun visitUnpack(inst: FlatUnpack) = inst.targets
     override fun visitGoto(inst: FlatGoto) = emptyList<FlatValue>()
     override fun visitBranch(inst: FlatBranch) = emptyList<FlatValue>()
     override fun visitReturn(inst: FlatReturn) = emptyList<FlatValue>()

@@ -9,6 +9,7 @@ import org.opentaint.ir.impl.python.flat.FlatModuleIR
 import org.opentaint.ir.impl.python.flat.FlatValue
 import org.opentaint.ir.impl.python.flat.operands
 import org.opentaint.ir.impl.python.flat.targets
+import kotlin.collections.orEmpty
 
 /**
  * Result of running [ClosureAnalyzer.analyze] over a module:
@@ -40,88 +41,79 @@ data class ClosureAnalysis(
  * cells through to a nested def in a class-inside-function) or an
  * unresolved-name leak from upstream lowering.
  */
-object ClosureAnalyzer {
+class ClosureAnalyzer private constructor(val module: FlatModuleIR) {
+    private val byName: Map<String, FlatFunctionIR> = collectAllFunctions(module).associateBy { it.qualifiedName }
+    private val publicCache = HashMap<String, ClosureInfo>()
+    private val parentMap: Map<String, String?> = buildClosureParentMap(module, byName)
+    private val children: Map<String, List<String>> = buildChildrenMap(parentMap)
 
-    fun analyze(module: FlatModuleIR): ClosureAnalysis {
-        val allFunctions = collectAllFunctions(module)
-        val byName: Map<String, FlatFunctionIR> = allFunctions.associateBy { it.qualifiedName }
-        val parentMap: Map<String, String?> = buildClosureParentMap(module, byName)
+    private val propagatedClosureVars = HashMap<String, Set<String>>()
+    private val diagnostics = ArrayList<PIRDiagnostic>()
 
-        // Reverse: parent qn -> direct children qns.
-        val children: Map<String, List<String>> = buildChildrenMap(parentMap)
-
-        // Bottom-up memoized computation. Tracks both the public (override-applied)
-        // and the propagated (pre-override) closureVars; parents read the propagated
-        // form so a parentless descendant doesn't block transitive capture.
-        val publicCache = HashMap<String, ClosureInfo>()
-        val propagatedClosureVars = HashMap<String, Set<String>>()
-        val diagnostics = ArrayList<PIRDiagnostic>()
-
-        fun compute(qn: String): ClosureInfo {
-            publicCache[qn]?.let { return it }
-            val fn = byName.getValue(qn)
-
-            val params = fn.parameters.map { it.name }.toSet()
-            val localDefs = collectLocalDefs(fn)
-            val refs = collectLocalReads(fn)
-
-            val nonlocal = fn.nonlocalNames
-            val global = fn.globalNames
-
-            val trueLocals = localDefs - nonlocal - global
-            val ownedNames = (params + trueLocals).filterNot(::isSynthetic).toSet()
-
-            val directFree =
-                ((refs - ownedNames - global).filterNot(::isSynthetic).toSet()) +
-                    nonlocal
-
-            val childQns = children[qn].orEmpty()
-            // Recurse on children first so their propagatedClosureVars are populated.
-            for (childQn in childQns) compute(childQn)
-            val childNeeds: Set<String> = childQns
-                .flatMap { propagatedClosureVars.getValue(it) }
-                .toSet()
-
-            // Keep deterministic iteration order on every set produced — the
-            // rewriter emits prologue instructions and env-dict entries in
-            // iteration order, and the PIR converter compares modules
-            // structurally, so non-determinism here would surface as flaky
-            // tests downstream.
-            val cellVars = (childNeeds intersect ownedNames).sortedDeterministic()
-            val propagated = (directFree + (childNeeds - ownedNames)).sortedDeterministic()
-            propagatedClosureVars[qn] = propagated
-
-            val isClosureRoot = parentMap[qn] == null
-            if (isClosureRoot && propagated.isNotEmpty()) {
-                // A parentless function with non-empty propagated free names
-                // is suspect: either a descendant captures a name nobody owns
-                // (e.g. METHOD pass-through to a nested def crossing a
-                // class-inside-function boundary), or an upstream pass leaked
-                // unresolved names into FlatLocal reads.
-                diagnostics.add(
-                    PIRDiagnostic(
-                        severity = PIRDiagnosticSeverity.WARNING,
-                        message = "Closure-root '$qn' has unresolved free names " +
-                            "${propagated.toSortedSet()} — descendants capturing these " +
-                            "names will not have cells forwarded.",
-                        functionName = qn,
-                        exceptionType = "ClosureRootLeak",
-                    ),
-                )
-            }
-            val publicClosureVars = if (isClosureRoot) emptySet() else propagated
-            val info = ClosureInfo(
-                ownedNames = ownedNames.sortedDeterministic(),
-                cellVars = cellVars,
-                closureVars = publicClosureVars,
-                isClosureRoot = isClosureRoot,
-            )
-            publicCache[qn] = info
-            return info
-        }
-
+    private fun analyze(): ClosureAnalysis {
         for (qn in byName.keys) compute(qn)
         return ClosureAnalysis(info = publicCache, diagnostics = diagnostics)
+    }
+
+    private fun compute(qn: String): ClosureInfo = publicCache.getOrPut(qn) {
+        val fn = byName.getValue(qn)
+
+        val params = fn.parameters.map { it.name }.toSet()
+        val localDefs = collectLocalDefs(fn)
+        val refs = collectLocalReads(fn)
+
+        val nonlocal = fn.nonlocalNames
+        val global = fn.globalNames
+
+        val trueLocals = localDefs - nonlocal - global
+        val ownedNames = (params + trueLocals).filterNot(::isSynthetic).toSet()
+
+        val directFree =
+            ((refs - ownedNames - global).filterNot(::isSynthetic).toSet()) +
+                    nonlocal
+
+        val childQns = children[qn].orEmpty()
+        // Recurse on children first so their propagatedClosureVars are populated.
+        for (childQn in childQns) compute(childQn)
+        val childNeeds: Set<String> = childQns
+            .flatMap { propagatedClosureVars.getValue(it) }
+            .toSet()
+
+        // Keep deterministic iteration order on every set produced — the
+        // rewriter emits prologue instructions and env-dict entries in
+        // iteration order, and the PIR converter compares modules
+        // structurally, so non-determinism here would surface as flaky
+        // tests downstream.
+        val cellVars = (childNeeds intersect ownedNames).sortedDeterministic()
+        val propagated = (directFree + (childNeeds - ownedNames)).sortedDeterministic()
+        propagatedClosureVars[qn] = propagated
+
+        val isClosureRoot = parentMap[qn] == null
+        if (isClosureRoot && propagated.isNotEmpty()) {
+            // A parentless function with non-empty propagated free names
+            // is suspect: either a descendant captures a name nobody owns
+            // (e.g. METHOD pass-through to a nested def crossing a
+            // class-inside-function boundary), or an upstream pass leaked
+            // unresolved names into FlatLocal reads.
+            diagnostics.add(
+                PIRDiagnostic(
+                    severity = PIRDiagnosticSeverity.WARNING,
+                    message = "Closure-root '$qn' has unresolved free names " +
+                            "${propagated.toSortedSet()} — descendants capturing these " +
+                            "names will not have cells forwarded.",
+                    functionName = qn,
+                    exceptionType = "ClosureRootLeak",
+                ),
+            )
+        }
+        val publicClosureVars = if (isClosureRoot) emptySet() else propagated
+        val info = ClosureInfo(
+            ownedNames = ownedNames.sortedDeterministic(),
+            cellVars = cellVars,
+            closureVars = publicClosureVars,
+            isClosureRoot = isClosureRoot,
+        )
+        return info
     }
 
     /* ------------------------------------------------------------------ */
@@ -258,5 +250,9 @@ object ClosureAnalyzer {
             }
         }
         return out
+    }
+
+    companion object {
+        fun analyze(module: FlatModuleIR) = ClosureAnalyzer(module).analyze()
     }
 }
