@@ -561,15 +561,10 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
         }
     }
 
-    val returnType = signature.returnType
-    if (returnType != null) {
-        val returnTypeFormula = typeMatcher(returnType, semgrepRuleTrace)
-        if (returnTypeFormula != null) {
-            for (builder in buildersWithMethodName) {
-                builder.conditions += returnTypeFormula.toSerializedCondition { typeNameMatcher ->
-                    SerializedCondition.IsType(typeNameMatcher, PositionBase.Result)
-                }
-            }
+    signature.returnType?.let { returnType ->
+        val condition = evaluateFormulaSignatureReturnType(returnType, semgrepRuleTrace)
+        buildersWithMethodName.forEach { builder ->
+            builder.conditions += condition
         }
     }
 
@@ -627,6 +622,16 @@ private fun TaintRuleGenerationCtx.evaluateFormulaSignature(
     }
 
     return signature to buildersWithClass
+}
+
+private fun TaintRuleGenerationCtx.evaluateFormulaSignatureReturnType(
+    returnType: TypeNamePattern,
+    semgrepRuleTrace: SemgrepRuleLoadStepTrace,
+): SerializedCondition {
+    val returnTypeFormula = typeMatcher(returnType, semgrepRuleTrace)
+    return returnTypeFormula.toSerializedCondition { typeNameMatcher ->
+        SerializedCondition.IsType(typeNameMatcher, PositionBase.Result)
+    }
 }
 
 private fun TaintRuleGenerationCtx.evaluateFormulaSignatureMethodName(
@@ -813,14 +818,8 @@ private fun TaintRuleGenerationCtx.evaluateMethodSignatureCondition(
         SerializedCondition.and(cond)
     }
 
-    val returnType = signature.returnType
-    if (returnType != null) {
-        val returnTypeFormula = typeMatcher(returnType, semgrepRuleTrace)
-        if (returnTypeFormula != null) {
-            conditions += returnTypeFormula.toSerializedCondition { typeNameMatcher ->
-                SerializedCondition.IsType(typeNameMatcher, PositionBase.Result)
-            }
-        }
+    signature.returnType?.let {
+        conditions += evaluateFormulaSignatureReturnType(it, semgrepRuleTrace)
     }
 }
 
