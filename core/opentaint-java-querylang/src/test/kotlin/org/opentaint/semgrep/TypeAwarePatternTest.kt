@@ -137,6 +137,15 @@ class TypeAwarePatternTest : SampleBasedTest() {
     fun `A27 - wildcard pattern matches nested generic ResponseEntity but not other classes`() =
         runTest<example.RuleWithWildcardPatternNestedAndClassMismatch>()
 
+    // A28. `pattern-not-inside` whose method-decl return type differs from
+    // `pattern-inside` must filter on its own return type. Without the
+    // return-type `IsType` clause, the negative predicate drops its return
+    // type and excludes every method sharing the parameter shape, masking
+    // real positives.
+    @Test
+    fun `A28 - pattern-not-inside with distinct return type filters on its own return`() =
+        runTest<example.RuleWithNotInsideDistinctReturnType>()
+
     @AfterAll
     fun close() {
         closeRunner()
