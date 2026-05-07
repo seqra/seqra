@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithStringTypeArgMatchesRawAndWildcard
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithStringTypeArgMatchesRawAndWildcard
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          ResponseEntity<String> $METHOD(..., String $A, ...) {
+              ...
+          }

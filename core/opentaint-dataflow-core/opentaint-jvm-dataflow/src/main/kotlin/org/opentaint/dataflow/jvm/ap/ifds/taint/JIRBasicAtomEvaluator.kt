@@ -25,6 +25,7 @@ import org.opentaint.dataflow.configuration.jvm.TypeArgMatcher
 import org.opentaint.dataflow.configuration.jvm.TypeMatches
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
 import org.opentaint.dataflow.configuration.jvm.erasedName
+import org.opentaint.dataflow.configuration.jvm.isAnyTypeArg
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionValue
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
@@ -387,9 +388,12 @@ class JIRBasicAtomEvaluator(
         is CallPositionValue.VarArgValue -> callVarArgValue(res.value)
     }
 
-    private fun TypeArgMatcher.matchType(type: JIRType): Boolean = when (this) {
-        is TypeArgMatcher.Class -> matchType(type)
-        is TypeArgMatcher.Array -> matchType(type)
+    private fun TypeArgMatcher.matchType(type: JIRType): Boolean {
+        if (type.isAnyTypeArg()) return true
+        return when (this) {
+            is TypeArgMatcher.Class -> matchType(type)
+            is TypeArgMatcher.Array -> matchType(type)
+        }
     }
 
     private fun TypeArgMatcher.Class.matchType(type: JIRType): Boolean {

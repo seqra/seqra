@@ -1,0 +1,19 @@
+rules:
+  - id: example-RuleWithNotInsideDistinctReturnType
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithNotInsideDistinctReturnType
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          ResponseEntity<?> $METHOD(..., String $A, ...) {
+              ...
+          }
+      - pattern-not-inside: |-
+          ResponseEntity<Integer> $METHOD(..., String $A, ...) {
+              ...
+          }

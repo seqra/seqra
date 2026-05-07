@@ -24,9 +24,9 @@ class TypeAwarePatternTest : SampleBasedTest() {
     @Test
     fun `A1 - ResponseEntity of byte array return type`() = runTest<example.RuleWithGenericByteArrayReturnType>()
 
-    // A2. ResponseEntity<$T> — metavar type arg resolving to any concrete type,
-    // including arrays and the raw form. All three method-decl forms are expected
-    // to match.
+    // A2. ResponseEntity<$T> — metavar type arg matches the same set of types
+    // as `<?>` and the raw form, so all three method-decl forms match
+    // (String, byte[], and raw).
     @Test
     fun `A2 - ResponseEntity metavar matches parameterized string, byte array, and raw`() =
         runTest<example.RuleWithGenericMetavarArrayArg>()
@@ -40,9 +40,9 @@ class TypeAwarePatternTest : SampleBasedTest() {
     @Test
     fun `A4 - two-arg generic Map of K V in parameter`() = runTest<example.RuleWithTwoArgGeneric>()
 
-    // A5. Wildcard type argument: ResponseEntity<?>. Java's `?` is the
-    // supertype of any concrete parameterization, so `<?>` accepts both
-    // ResponseEntity<?> and ResponseEntity<String>.
+    // A5. Wildcard type argument: ResponseEntity<?>. The pattern matches
+    // every parameterization of ResponseEntity, including <Object>, <String>,
+    // <?>, and the raw form (raw and `<?>` denote the same set of types).
     @Test
     fun `A5 - wildcard type argument ResponseEntity of question mark`() =
         runTest<example.RuleWithWildcardGeneric>()
@@ -109,6 +109,42 @@ class TypeAwarePatternTest : SampleBasedTest() {
     @Test
     fun `A23 - array dimension mismatch String two dim`() =
         runTest<example.RuleWithTwoDimArrayReturn>()
+
+    // A25. Concrete-Object type argument: ResponseEntity<Object>.
+    // `Object` is the upper bound of `?`, so methods returning
+    // `ResponseEntity<Object>`, `ResponseEntity<?>`, and the raw form match.
+    // Methods returning `ResponseEntity<String>` or `ResponseEntity<Integer>`
+    // do not.
+    @Test
+    fun `A25 - Object type argument matches Object wildcard and raw but not other concrete`() =
+        runTest<example.RuleWithObjectTypeArg>()
+
+    // A26. Concrete-String type argument: ResponseEntity<String>.
+    // Raw `ResponseEntity` and `ResponseEntity<?>` denote "any type
+    // argument", so the `<String>` pattern matches both — the unknown type
+    // could be `String`. Other concrete type arguments such as `Object` or
+    // `Integer` do NOT match.
+    @Test
+    fun `A26 - String type argument matches String wildcard and raw but not other concrete`() =
+        runTest<example.RuleWithStringTypeArgMatchesRawAndWildcard>()
+
+    // A27. Wildcard rule pattern: `ResponseEntity<?>`. The wildcard accepts
+    // every parameterization including nested generics
+    // (`ResponseEntity<List<String>>`, `ResponseEntity<Map<String, Integer>>`),
+    // but the class portion still narrows — methods returning a
+    // non-`ResponseEntity` type (`List<String>`, `String`) must NOT match.
+    @Test
+    fun `A27 - wildcard pattern matches nested generic ResponseEntity but not other classes`() =
+        runTest<example.RuleWithWildcardPatternNestedAndClassMismatch>()
+
+    // A28. `pattern-not-inside` whose method-decl return type differs from
+    // `pattern-inside` must filter on its own return type. Without the
+    // return-type `IsType` clause, the negative predicate drops its return
+    // type and excludes every method sharing the parameter shape, masking
+    // real positives.
+    @Test
+    fun `A28 - pattern-not-inside with distinct return type filters on its own return`() =
+        runTest<example.RuleWithNotInsideDistinctReturnType>()
 
     @AfterAll
     fun close() {

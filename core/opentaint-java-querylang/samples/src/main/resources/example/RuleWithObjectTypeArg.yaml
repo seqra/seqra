@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithObjectTypeArg
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithObjectTypeArg
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          ResponseEntity<Object> $METHOD(..., String $A, ...) {
+              ...
+          }
