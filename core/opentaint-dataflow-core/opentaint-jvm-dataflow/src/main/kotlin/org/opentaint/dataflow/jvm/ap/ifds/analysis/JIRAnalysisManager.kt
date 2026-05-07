@@ -17,7 +17,6 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodEntrypointResolver
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSideEffectSummaryHandler
 import org.opentaint.dataflow.ap.ifds.analysis.MethodStartFlowFunction
-import org.opentaint.dataflow.jvm.ap.ifds.taint.ExternalMethodTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisContext
 import org.opentaint.dataflow.ap.ifds.trace.MethodCallPrecondition
 import org.opentaint.dataflow.ap.ifds.trace.MethodSequentPrecondition
@@ -26,14 +25,13 @@ import org.opentaint.dataflow.graph.MethodInstGraph
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
-import org.opentaint.dataflow.jvm.ap.ifds.JIRLambdaTracker
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLanguageManager
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalVariableReachability
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodContextSerializer
-import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
 import org.opentaint.dataflow.jvm.ap.ifds.jIRDowncast
+import org.opentaint.dataflow.jvm.ap.ifds.taint.ExternalMethodTracker
 import org.opentaint.dataflow.jvm.ap.ifds.taint.JIRTaintAnalysisContext
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ap.ifds.trace.JIRMethodCallPrecondition
@@ -57,12 +55,10 @@ class JIRAnalysisManager(
     val externalMethodTracker: ExternalMethodTracker? = null,
     private val params: Params = Params(),
 ) : JIRLanguageManager(cp), TaintAnalysisManager {
-    private val lambdaTracker = JIRLambdaTracker()
     override val factTypeChecker = JIRFactTypeChecker(cp)
 
     data class Params(
         val aliasAnalysisParams: JIRLocalAliasAnalysis.Params = JIRLocalAliasAnalysis.Params(),
-        val callResolverParams: JIRMethodCallResolver.Params = JIRMethodCallResolver.Params(),
     )
 
     override fun getMethodCallResolver(
@@ -74,7 +70,7 @@ class JIRAnalysisManager(
         jIRDowncast<JIRUnitResolver>(unitResolver)
 
         val jIRCallResolver = JIRCallResolver(cp, unitResolver)
-        return JIRMethodCallResolver(lambdaTracker, jIRCallResolver, runner, params.callResolverParams)
+        return JIRMethodCallResolver(jIRCallResolver, runner)
     }
 
     override fun getMethodAnalysisContext(
@@ -274,11 +270,7 @@ class JIRAnalysisManager(
     override val methodContextSerializer = JIRMethodContextSerializer(cp)
 
     override fun onInstructionReached(inst: CommonInst) {
-        jIRDowncast<JIRInst>(inst)
-        val allocatedLambda = LambdaExpressionToAnonymousClassTransformerFeature.findLambdaAllocation(inst)
-        if (allocatedLambda != null) {
-            lambdaTracker.registerLambda(allocatedLambda)
-        }
+
     }
 
     override fun reportLanguageSpecificRunnerProgress(logger: KLogger) {

@@ -17,6 +17,7 @@ import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode.Companio
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode.Companion.createAbstractNodeFromReversedAp
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.FINAL_ACCESSOR_IDX
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isAlwaysUnrollNext
 import org.opentaint.dataflow.util.forEachInt
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode as AccessTreeNode
 
@@ -76,7 +77,6 @@ class TreeInitialFactAbstraction(
     ) {
         var concreteFactAccess = initialConcreteFact
         while (true) {
-
             val unrollRequests = mutableListOf<AnyAccessorUnrollRequest>()
             abstractAccessPath(facts.analyzed, concreteFactAccess, unrollRequests) { abstractAccess ->
                 apManager.cancellation.checkpoint()
@@ -170,7 +170,7 @@ class TreeInitialFactAbstraction(
         initialAnalyzedTrieRoot: AccessPathTrieNode,
         initialAdded: AccessTreeNode,
         unrollRequests: MutableList<AnyAccessorUnrollRequest>,
-        createAbstractAp: (ReversedApNode?) -> Unit
+        crossinline createAbstractAp: (ReversedApNode?) -> Unit
     ) {
         val unprocessed = mutableListOf<AbstractionState>()
         unprocessed.add(AbstractionState(initialAnalyzedTrieRoot, initialAdded, currentAp = null))
@@ -208,35 +208,70 @@ class TreeInitialFactAbstraction(
         addedNode: AccessTreeNode,
         currentAp: ReversedApNode?,
         unprocessed: MutableList<AbstractionState>,
-        createAbstractAp: (ReversedApNode?) -> Unit
+        crossinline createAbstractAp: (ReversedApNode?) -> Unit
     ) {
         val node = analyzedTrieRoot.child(accessor)
-        if (node == null) {
-            val exclusions = analyzedTrieRoot.exclusions()
-
-            // We have no excludes -> continue with the most abstract fact
-            if (exclusions == null) {
-                createAbstractAp(currentAp)
-                return
+        if (node != null) {
+            val apWithAccessor = ReversedApNode(accessor, currentAp)
+            if (accessor.isAlwaysUnrollNext()) {
+                abstractNextAccessPath(addedNode, apWithAccessor) {
+                    createAbstractAp(it)
+                }
+            } else {
+                unprocessed += AbstractionState(node, addedNode, apWithAccessor)
             }
+            return
+        }
 
-            // Concrete: a.b.* E
-            // Added: a.* S
-            if (exclusions.contains(accessor)) {
-                // We have initial fact that exclude {b} and we have no a.b fact yet
-                // Return a.b.* {}
+        val exclusions = analyzedTrieRoot.exclusions()
 
-                createAbstractAp(ReversedApNode(accessor, currentAp))
+        // We have no excludes -> continue with the most abstract fact
+        if (exclusions == null) {
+            createAbstractAp(currentAp)
+            return
+        }
 
-                return
-            }
-
+        // Concrete: a.b.* E
+        // Added: a.* S
+        if (!exclusions.contains(accessor)) {
             // We have no conflict with added facts
             return
         }
 
+        // We have initial fact that exclude {b} and we have no a.b fact yet
+        if (!accessor.isAlwaysUnrollNext()) {
+            // Return a.b.* {}
+            createAbstractAp(ReversedApNode(accessor, currentAp))
+            return
+        }
+
         val apWithAccessor = ReversedApNode(accessor, currentAp)
-        unprocessed += AbstractionState(node, addedNode, apWithAccessor)
+        abstractNextAccessPath(addedNode, apWithAccessor) {
+            createAbstractAp(it)
+        }
+    }
+
+    private fun abstractNextAccessPath(
+        addedNode: AccessTreeNode,
+        currentAp: ReversedApNode,
+        createAbstractAp: (ReversedApNode) -> Unit
+    ) {
+        if (addedNode.containsAnyAccessor()) {
+            TODO("Any after unroll-next is not supported yet")
+        }
+
+        if (addedNode.isFinal) {
+            createAbstractAp(ReversedApNode(FINAL_ACCESSOR_IDX, currentAp))
+        }
+
+        addedNode.forEachAccessor { accessor, node ->
+            val nextAp = ReversedApNode(accessor, currentAp)
+            if (!accessor.isAlwaysUnrollNext()) {
+                createAbstractAp(nextAp)
+            } else {
+                abstractNextAccessPath(node, nextAp, createAbstractAp)
+            }
+        }
     }
 
     private class MethodSameMarkInitialFact(

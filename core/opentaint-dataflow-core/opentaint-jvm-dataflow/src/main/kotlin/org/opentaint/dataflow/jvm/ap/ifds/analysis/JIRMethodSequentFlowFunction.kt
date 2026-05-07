@@ -55,6 +55,15 @@ class JIRMethodSequentFlowFunction(
     override fun propagateZeroToZero(): Set<Sequent> = buildSet {
         add(Sequent.ZeroToZero)
 
+        if (currentInst is JIRAssignInst) {
+            JIRMethodCallResolver.TypeInfoSequentFlowFunction.handle(currentInst) { accessors ->
+                val lhv = accessPathBase(currentInst.lhv) ?: return@handle
+                val startFact = apManager.createFinalAp(lhv, ExclusionSet.Universe)
+                val fact = accessors.foldRight(startFact) { a, f -> f.prependAccessor(a) }
+                add(Sequent.ZeroToFact(fact, TraceInfo.Flow))
+            }
+        }
+
         applyUnconditionalSources()
     }
 

@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
+import org.opentaint.dataflow.jvm.util.JIRInstListBuilder
+import org.opentaint.dataflow.jvm.util.typeName
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRClasspath
@@ -51,15 +53,11 @@ import org.opentaint.ir.impl.features.classpaths.virtual.JIRVirtualParameter
 import org.opentaint.ir.impl.types.JIRClassTypeImpl
 import org.opentaint.ir.impl.types.JIRTypedFieldImpl
 import org.opentaint.ir.impl.types.substition.JIRSubstitutorImpl
-import org.opentaint.dataflow.jvm.util.JIRInstListBuilder
-import org.opentaint.dataflow.jvm.util.typeName
 import java.util.Objects
 import java.util.concurrent.ConcurrentHashMap
 
 class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
     private val lambdaClasses = ConcurrentHashMap<String, JIRLambdaClass>()
-    private val lambdaProxyClasses = ConcurrentHashMap<JIRMethod, JIRLambdaClass>()
-    private val lambdaProxyClassesByName = ConcurrentHashMap<String, JIRLambdaClass>()
 
     override fun tryFindClass(classpath: JIRClasspath, name: String): JIRClasspathExtFeature.JIRResolvedClassResult? {
         val clazz = lambdaClasses[name]
@@ -67,78 +65,7 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
             return JIRResolvedClassResultImpl(name, clazz)
         }
 
-        val proxyClass = lambdaProxyClassesByName[name]
-        if (proxyClass != null) {
-            return JIRResolvedClassResultImpl(name, proxyClass)
-        }
-
         return null
-    }
-
-    fun getOrCreateLambdaProxy(
-        method: JIRMethod,
-        classpath: JIRClasspath,
-        location: RegisteredLocation
-    ): JIRLambdaClass = lambdaProxyClasses.computeIfAbsent(method) {
-        val proxyClassName = lambdaProxyClassName(method)
-        val proxyMethod = generateProxyMethod(method, classpath)
-        val lambdaClass = JIRLambdaClass(
-            name = proxyClassName,
-            fields = emptyList(),
-            methods = listOf(proxyMethod),
-            lambdaMethod = method,
-            lambdaInterfaceType = method.enclosingClass,
-            lambdaLocation = null
-        )
-        lambdaClass.bindWithLocation(classpath, location)
-        proxyMethod.bind(lambdaClass)
-        lambdaProxyClassesByName[proxyClassName] = lambdaClass
-        lambdaClass
-    }
-
-    private fun generateProxyMethod(originalMethod: JIRMethod, classpath: JIRClasspath): OpentaintLambdaProxyMethod {
-        val instructions = JIRInstListBuilder()
-
-        val method = OpentaintLambdaProxyMethod(
-            originalMethod = originalMethod,
-            name = originalMethod.name,
-            returnType = originalMethod.returnType,
-            description = originalMethod.description,
-            parameters = originalMethod.parameters.map { JIRVirtualParameter(it.index, it.type) },
-            instructions = instructions
-        )
-
-        val interfaceType = classpath.findType(originalMethod.enclosingClass.name) as? JIRClassType
-            ?: error("Cannot resolve interface type: ${originalMethod.enclosingClass.name}")
-
-        val receiverArg = JIRThis(interfaceType)
-        val forwardedArgs = originalMethod.parameters.map { param ->
-            JIRArgument(
-                param.index,
-                param.name ?: "arg|${param.index}",
-                classpath.findType(param.type.typeName)
-            )
-        }
-
-        val typedMethod = interfaceType.lookup.method(originalMethod.name, originalMethod.description)
-            ?: error("Cannot resolve typed method: ${originalMethod.name}${originalMethod.description} in ${interfaceType.typeName}")
-
-        val methodRef = VirtualMethodRefImpl.of(interfaceType, typedMethod)
-        val callExpr = JIRVirtualCallExpr(methodRef, receiverArg, forwardedArgs)
-
-        val isVoidReturn = originalMethod.returnType == PredefinedPrimitives.Void.typeName()
-        val retVal: JIRValue? = if (isVoidReturn) {
-            instructions.addInstWithLocation(method) { loc -> JIRCallInst(loc, callExpr) }
-            null
-        } else {
-            val resultLocal = JIRLocalVar(0, "result", classpath.findType(originalMethod.returnType.typeName))
-            instructions.addInstWithLocation(method) { loc -> JIRAssignInst(loc, resultLocal, callExpr) }
-            resultLocal
-        }
-
-        instructions.addInstWithLocation(method) { loc -> JIRReturnInst(loc, retVal) }
-
-        return method
     }
 
     fun generateLambda(location: JIRInstLocation, lambda: JIRLambdaExpr): JIRLambdaClass {
@@ -458,14 +385,7 @@ class LambdaAnonymousClassFeature : JIRClasspathExtFeature {
     }
 
     companion object {
-        private const val LAMBDA_PROXY_CLASS_PREFIX = "opentaint.lambda.OpentaintLambdaProxy$"
-
         @OptIn(ExperimentalStdlibApi::class)
         private fun JIRMethod.descriptionHash() = description.hashCode().toHexString()
-
-        private fun lambdaProxyClassName(method: JIRMethod): String {
-            val clsName = method.enclosingClass.name.replace('.', '_')
-            return "$LAMBDA_PROXY_CLASS_PREFIX${clsName}_${method.name}_${method.descriptionHash()}"
-        }
     }
 }

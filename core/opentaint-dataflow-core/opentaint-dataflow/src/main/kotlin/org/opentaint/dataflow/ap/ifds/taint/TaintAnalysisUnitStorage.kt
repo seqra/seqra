@@ -3,18 +3,31 @@ package org.opentaint.dataflow.ap.ifds.taint
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.ap.ifds.MethodSummariesUnitStorage
 import org.opentaint.dataflow.ap.ifds.access.ApManager
-import java.util.concurrent.ConcurrentLinkedQueue
+import org.opentaint.ir.api.common.cfg.CommonInst
+import java.util.concurrent.ConcurrentHashMap
 
 class TaintAnalysisUnitStorage(apManager: ApManager, languageManager: LanguageManager)
     : MethodSummariesUnitStorage(apManager, languageManager)
 {
-    private val vulnerabilities = ConcurrentLinkedQueue<TaintSinkTracker.TaintVulnerability>()
+    private data class VulnerabilityIdentity(
+        val ruleId: String,
+        val statement: CommonInst,
+    )
+
+    private val vulnerabilityBuckets = ConcurrentHashMap<VulnerabilityIdentity, TaintSinkTracker.TaintVulnerability>()
 
     fun addVulnerability(vulnerability: TaintSinkTracker.TaintVulnerability) {
-        vulnerabilities.add(vulnerability)
+        val identity = VulnerabilityIdentity(vulnerability.ruleId, vulnerability.statement)
+        val bucket = vulnerabilityBuckets.computeIfAbsent(identity) { vulnerability }
+
+        synchronized(bucket) {
+            bucket.mergeAdd(vulnerability)
+        }
     }
 
     fun collectVulnerabilities(collector: MutableList<TaintSinkTracker.TaintVulnerability>) {
-        collector.addAll(vulnerabilities)
+        vulnerabilityBuckets.values.forEach {
+            collector.add(it)
+        }
     }
 }

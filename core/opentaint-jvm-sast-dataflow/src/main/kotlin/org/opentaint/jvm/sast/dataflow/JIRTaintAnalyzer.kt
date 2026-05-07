@@ -14,6 +14,8 @@ import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.TypeInfoAccessor
+import org.opentaint.dataflow.ap.ifds.TypeInfoGroupAccessor
 import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.ApMode
@@ -86,7 +88,9 @@ class JIRTaintAnalyzer(
             is ClassStaticAccessor,
             is AnyAccessor,
             is FinalAccessor,
-            is TaintMarkAccessor -> false
+            is TaintMarkAccessor,
+            is TypeInfoAccessor,
+            is TypeInfoGroupAccessor -> false
             is ValueAccessor -> error("Unexpected accessor to unroll: $accessor")
         }
     }
@@ -188,7 +192,7 @@ class JIRTaintAnalyzer(
         val vulnerabilitiesWithTraces = ifdsEngine.generateTraces(entryPoints, vulnerabilities, traceResolutionTimeout)
             .also { logger.info { "Finish trace generation" } }
 
-        val filteredVulnerabilities = vulnerabilitiesWithTraces.filterVulnWithoutTrace()
+        val filteredVulnerabilities = vulnerabilitiesWithTraces.filter { it.trace != null }
         if (filteredVulnerabilities.size != vulnerabilitiesWithTraces.size) {
             val delta = vulnerabilitiesWithTraces.size - filteredVulnerabilities.size
             logger.info { "Filter out $delta vulnerabilities without traces" }
@@ -217,22 +221,12 @@ class JIRTaintAnalyzer(
             entryPointsSet, vulnerabilities,
             resolverParams = TraceResolver.Params(
                 resolveEntryPointToStartTrace = options.symbolicExecutionEnabled,
-                startToSourceTraceResolutionLimit = 100,
-                startToSinkTraceResolutionLimit = 100,
                 sourceToSinkInnerTraceResolutionLimit = 5,
                 innerCallTraceResolveStrategy = InnerCallTraceResolveStrategy
             ),
             timeout = timeout,
             cancellationTimeout = 30.seconds
         )
-    }
-
-    private fun List<VulnerabilityWithTrace>.filterVulnWithoutTrace(): List<VulnerabilityWithTrace> =
-        filter { it.hasValidTrace() }
-
-    private fun VulnerabilityWithTrace.hasValidTrace(): Boolean {
-        val trace = trace ?: return false
-        return trace.sourceToSinkTrace.startNodes.isNotEmpty()
     }
 
     private val taintConfig: TaintRulesProvider by lazy {
@@ -290,21 +284,20 @@ class JIRTaintAnalyzer(
     ): String = buildString {
         data class VulnInfo(val location: String, val ruleId: String, val kind: String)
 
-        fun TaintSinkTracker.TaintVulnerability.vulnSummary(): VulnInfo = when (this) {
-            is TaintSinkTracker.TaintVulnerabilityWithEndFactRequirement -> {
-                vulnerability.vulnSummary().let { it.copy(kind = "end#${it.kind}") }
-            }
-
-            is TaintSinkTracker.TaintVulnerabilityUnconditional -> {
-                VulnInfo("${statement.location}|${statement}", rule.id, "unconditional")
-            }
-
-            is TaintSinkTracker.TaintVulnerabilityWithFact -> {
-                VulnInfo("${statement.location}|${statement}", rule.id, "fact")
+        fun TaintSinkTracker.TaintVulnerabilityRuleNode.kind(): List<String> = when (this) {
+            is TaintSinkTracker.TaintVulnerabilityRuleNode.Unconditional -> listOf("unconditional")
+            is TaintSinkTracker.TaintVulnerabilityRuleNode.Fact -> listOf("fact")
+            is TaintSinkTracker.TaintVulnerabilityRuleNode.WithRequirement -> requirement.values.flatMap { v ->
+                v.kind().map { "end#${it}" }
             }
         }
 
-        val info = vulnerabilities.mapTo(mutableListOf()) { it.vulnSummary() }
+        fun TaintSinkTracker.TaintVulnerability.vulnSummary(): List<VulnInfo> {
+            val kinds = vulnerabilityRules.values.flatMap { it.kind() }.distinct()
+            return kinds.map { VulnInfo("${statement.location}|${statement}", ruleId, it) }
+        }
+
+        val info = vulnerabilities.flatMapTo(mutableListOf()) { it.vulnSummary() }
         info.sortWith(compareBy<VulnInfo> { it.kind }.thenBy { it.ruleId }.thenBy { it.location })
 
         appendLine("VULNERABILITIES:")

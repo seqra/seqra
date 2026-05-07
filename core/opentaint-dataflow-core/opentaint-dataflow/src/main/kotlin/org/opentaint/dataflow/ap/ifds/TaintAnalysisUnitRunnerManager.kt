@@ -25,7 +25,6 @@ import org.opentaint.dataflow.ap.ifds.taint.CommonTaintAnalysisContext
 import org.opentaint.dataflow.ap.ifds.taint.TaintAnalysisUnitStorage
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
-import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerabilityWithEndFactRequirement
 import org.opentaint.dataflow.ap.ifds.trace.ParallelProcessingContext
 import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityChecker
@@ -219,11 +218,30 @@ class TaintAnalysisUnitRunnerManager(
         cancellationTimeout: Duration,
     ): List<VulnerabilityWithTrace> {
         val traceResolver = TraceResolver(entryPoints, this, resolverParams, cancellation)
-        val traceResolutionContext = object : ParallelProcessingContext<TaintVulnerability, VulnerabilityWithTrace>(
-            analyzerDispatcher, name = "Trace resolution", vulnerabilities
+
+        val states = vulnerabilities.map { TraceResolver.State.Initial(it) }
+        val traceResolutionContext = object : ParallelProcessingContext<TraceResolver.State, VulnerabilityWithTrace>(
+            analyzerDispatcher, name = "Trace resolution", states
         ) {
-            override fun createUnprocessed(item: TaintVulnerability) =
-                VulnerabilityWithTrace(item, trace = null)
+            override fun processItem(item: TraceResolver.State): ProcessingResult<TraceResolver.State, VulnerabilityWithTrace> {
+                val res = traceResolver.resolveTrace(item)
+                return when (res) {
+                    is TraceResolver.TraceResolutionResult.InProgress -> {
+                        ProcessingResult.Running(res.state)
+                    }
+
+                    is TraceResolver.TraceResolutionResult.NoTrace -> {
+                        ProcessingResult.Done(VulnerabilityWithTrace(res.vulnerability, trace = null))
+                    }
+
+                    is TraceResolver.TraceResolutionResult.Resolved -> {
+                        ProcessingResult.Done(VulnerabilityWithTrace(res.vulnerability, res.trace))
+                    }
+                }
+            }
+
+            override fun createUnprocessed(item: TraceResolver.State): VulnerabilityWithTrace =
+                VulnerabilityWithTrace(item.vulnerability, trace = null)
 
             private var prevStats: MethodStats? = null
 
@@ -254,10 +272,7 @@ class TaintAnalysisUnitRunnerManager(
 
         return traceResolutionContext.processAll(
             progressScope, timeout, cancellationTimeout, cancellation
-        ) { vulnerability ->
-            val trace = traceResolver.resolveTrace(vulnerability)
-            VulnerabilityWithTrace(vulnerability, trace)
-        }
+        )
     }
 
     fun confirmVulnerabilities(
@@ -269,13 +284,13 @@ class TaintAnalysisUnitRunnerManager(
         cancellation.activate()
 
         val confirmed = mutableListOf<TaintVulnerability>()
-        val unconfirmedVulnerabilities = mutableListOf<TaintVulnerabilityWithEndFactRequirement>()
+        val unconfirmedVulnerabilities = mutableListOf<TaintVulnerability>()
 
         for (vulnerability in vulnerabilities) {
-            when (vulnerability) {
-                is TaintSinkTracker.TaintVulnerabilityUnconditional -> confirmed.add(vulnerability)
-                is TaintSinkTracker.TaintVulnerabilityWithFact -> confirmed.add(vulnerability)
-                is TaintVulnerabilityWithEndFactRequirement -> unconfirmedVulnerabilities.add(vulnerability)
+            if (VulnerabilityChecker.needVerification(vulnerability)) {
+                unconfirmedVulnerabilities.add(vulnerability)
+            } else {
+                confirmed.add(vulnerability)
             }
         }
 
@@ -311,25 +326,27 @@ class TaintAnalysisUnitRunnerManager(
 
     private fun confirmVulnerabilitiesWithCancellation(
         entryPoints: Set<CommonMethod>,
-        vulnerabilities: List<TaintVulnerabilityWithEndFactRequirement>,
+        vulnerabilities: List<TaintVulnerability>,
         timeout: Duration,
         cancellationTimeout: Duration,
     ): List<VerifiedVulnerability> {
         val checker = VulnerabilityChecker(entryPoints, this, cancellation)
         val vulnConfirmationContext =
-            object : ParallelProcessingContext<TaintVulnerabilityWithEndFactRequirement, VerifiedVulnerability>(
+            object : ParallelProcessingContext<TaintVulnerability, VerifiedVulnerability>(
                 analyzerDispatcher, name = "Vulnerability confirmation", vulnerabilities
             ) {
-                override fun createUnprocessed(item: TaintVulnerabilityWithEndFactRequirement): VerifiedVulnerability =
-                    VerifiedVulnerability(
-                        item.vulnerability,
-                        status = VulnerabilityVerificationStatus.UNKNOWN
-                    )
+                override fun processItem(item: TaintVulnerability): ProcessingResult<TaintVulnerability, VerifiedVulnerability> {
+                    val result = checker.verifyVulnerability(item)
+                    return ProcessingResult.Done(result)
+                }
+
+                override fun createUnprocessed(item: TaintVulnerability): VerifiedVulnerability =
+                    VerifiedVulnerability(item, status = VulnerabilityVerificationStatus.UNKNOWN)
             }
 
         return vulnConfirmationContext.processAll(
             progressScope, timeout, cancellationTimeout, cancellation
-        ) { checker.verifyVulnerability(it) }
+        )
     }
 
     fun methodCallers(method: CommonMethod): Set<UnitType> =

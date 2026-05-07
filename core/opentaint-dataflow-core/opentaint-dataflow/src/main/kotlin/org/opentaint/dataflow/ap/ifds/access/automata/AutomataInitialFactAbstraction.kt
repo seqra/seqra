@@ -1,21 +1,28 @@
 package org.opentaint.dataflow.ap.ifds.access.automata
 
-import org.opentaint.ir.api.common.cfg.CommonInst
+import it.unimi.dsi.fastutil.ints.IntArrayList
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.MethodAnalyzerEdges
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAbstraction
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.ANY_ACCESSOR_IDX
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isAlwaysUnrollNext
 import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
+import org.opentaint.dataflow.util.ConcurrentReadSafeObject2IntMap
 import org.opentaint.dataflow.util.contains
 import org.opentaint.dataflow.util.filter
 import org.opentaint.dataflow.util.forEach
+import org.opentaint.dataflow.util.forEachIntEntry
 import org.opentaint.dataflow.util.getOrCreateIndex
 import org.opentaint.dataflow.util.getValue
 import org.opentaint.dataflow.util.int2ObjectMap
 import org.opentaint.dataflow.util.object2IntMap
+import org.opentaint.dataflow.util.reversedForEachInt
 import org.opentaint.dataflow.util.toBitSet
+import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.BitSet
 
 class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFactAbstraction {
@@ -50,7 +57,7 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
         fact: AccessGraphInitialFactAp,
         typeChecker: FactTypeChecker
     ): List<Pair<InitialFactAp, FinalFactAp>> {
-        val addedBasedFacts = addedFacts.find(fact.base) ?: return emptyList()
+        val addedBasedFacts = addedFacts.getOrCreate(fact.base)
         return addedBasedFacts.registerNew(fact.access, fact.exclusions, typeChecker).map {
             Pair(
                 AccessGraphInitialFactAp(fact.base, it, ExclusionSet.Empty),
@@ -77,7 +84,7 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
         private val analyzedExclusionIndex = int2ObjectMap<BitSet>()
 
         fun addAndAbstract(graph: AccessGraph, typeChecker: FactTypeChecker): List<AccessGraph> = with(graph.manager) {
-            if (added.isEmpty()) {
+            if (added.isEmpty() && analyzed.isEmpty()) {
                 added.put(graph, 0)
                 addedGraphs.add(graph)
                 addedIndex.add(graph, 0)
@@ -107,7 +114,12 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
         ): List<AccessGraph> = with(graph.manager) {
             if (exclusion !is ExclusionSet.Concrete) return emptyList()
 
-            val analyzedGraphIdx = analyzed.getValue(graph)
+            var analyzedGraphIdx = analyzed.getInt(graph)
+            if (analyzedGraphIdx == ConcurrentReadSafeObject2IntMap.NO_VALUE) {
+                graph.registerNewAnalyzed()
+                analyzedGraphIdx = analyzed.getValue(graph)
+            }
+
             val analyzedGraphExclusion = analyzedExclusion[analyzedGraphIdx]
             val newAccessors = exclusion.set.toBitSet { it.idx }.filter { it !in analyzedGraphExclusion }
 
@@ -127,6 +139,14 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
         ): List<AccessGraph> {
             val relevantAnalyzedGraphIndices = BitSet()
             addedGraph.accessors().forEach { accessor ->
+                if (accessor == ANY_ACCESSOR_IDX) {
+                    analyzedExclusionIndex.forEachIntEntry { excludedAccessor, graphs ->
+                        if (tryAnyAccessorOrNull(excludedAccessor.accessor) { true } != true) return@forEachIntEntry
+                        relevantAnalyzedGraphIndices.or(graphs)
+                    }
+                    return@forEach
+                }
+
                 val graphsWithAccessorExcluded = analyzedExclusionIndex.get(accessor) ?: return@forEach
                 relevantAnalyzedGraphIndices.or(graphsWithAccessorExcluded)
             }
@@ -196,12 +216,61 @@ class AutomataInitialFactAbstraction(initialStatement: CommonInst) : InitialFact
                         }
                     }
 
-                    val singleAccessorGraph = emptyGraph().prepend(accessor)
-                    val newGraph = analyzedGraph.concat(singleAccessorGraph)
+                    if (accessor.isAlwaysUnrollNext()) {
+                        val graphs = mutableListOf<AccessGraph>()
+                        unrollNext(graphs, IntArrayList(), delta, accessor)
 
-                    newAnalyzedGraphs.add(newGraph)
+                        graphs.forEach { g ->
+                            val newGraph = analyzedGraph.concat(g)
+                            newAnalyzedGraphs.add(newGraph)
+                        }
+                    } else {
+                        val singleAccessorGraph = emptyGraph().prepend(accessor)
+                        val newGraph = analyzedGraph.concat(singleAccessorGraph)
+
+                        newAnalyzedGraphs.add(newGraph)
+                    }
                 }
             }
+        }
+
+        private fun AutomataApManager.unrollNext(
+            dst: MutableList<AccessGraph>,
+            path: IntArrayList,
+            graph: AccessGraph,
+            accessor: AccessorIdx
+        ) {
+            if (path.contains(accessor)) return // note: we don't expect long accessor chains here
+            path.add(accessor)
+
+            try {
+                val nextGraph = graph.read(accessor)
+                    ?: return
+
+                if (nextGraph.initialNodeIsFinal()) {
+                    dst += rebuildGraph(path)
+                }
+
+                nextGraph.stateSuccessors(nextGraph.initial).forEach { nextAccessor ->
+                    if (nextAccessor.isAlwaysUnrollNext()) {
+                        unrollNext(dst, path, nextGraph, nextAccessor)
+                    } else {
+                        path.add(nextAccessor)
+                        dst += rebuildGraph(path)
+                        path.removeInt(path.lastIndex)
+                    }
+                }
+            } finally {
+                path.removeInt(path.lastIndex)
+            }
+        }
+
+        private fun AutomataApManager.rebuildGraph(path: IntArrayList): AccessGraph {
+            var res = emptyGraph()
+            path.reversedForEachInt { accessor ->
+                res = res.prepend(accessor)
+            }
+            return res
         }
 
         private fun AccessGraph.registerNewAnalyzed(): AccessGraph? {

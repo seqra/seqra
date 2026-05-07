@@ -9,6 +9,8 @@ import org.opentaint.dataflow.ap.ifds.FactTypeChecker.CompatibilityFilterResult
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.FinalAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
+import org.opentaint.dataflow.ap.ifds.TypeInfoAccessor
+import org.opentaint.dataflow.ap.ifds.TypeInfoGroupAccessor
 import org.opentaint.dataflow.ap.ifds.ValueAccessor
 import org.opentaint.dataflow.util.forEach
 import kotlin.collections.plusAssign
@@ -37,6 +39,8 @@ fun AutomataApManager.createFilter(
             is FinalAccessor -> FactTypeChecker.AlwaysRejectFilter
             is TaintMarkAccessor -> OnlyFinalAccessorAllowedFilter
             is ValueAccessor -> OnlyTaintMarkAccessorAllowedFilter
+            is TypeInfoGroupAccessor -> FactTypeChecker.AlwaysAcceptFilter
+            is TypeInfoAccessor -> FactTypeChecker.AlwaysAcceptFilter
             else -> error("Unexpected single accessor")
         }
     },
@@ -63,6 +67,8 @@ private inline fun <T> AutomataApManager.createFilter(
 
             is TaintMarkAccessor -> filters += singleAccessorFilter(accessor)
             is ValueAccessor -> filters += singleAccessorFilter(accessor)
+            is TypeInfoGroupAccessor -> filters += singleAccessorFilter(accessor)
+            is TypeInfoAccessor -> filters += singleAccessorFilter(accessor)
             is FieldAccessor,
             is ClassStaticAccessor -> filters += accessorListFilter(listOf(accessor))
 
