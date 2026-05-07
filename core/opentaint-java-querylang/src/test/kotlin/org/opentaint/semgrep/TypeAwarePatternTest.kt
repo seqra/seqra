@@ -128,6 +128,15 @@ class TypeAwarePatternTest : SampleBasedTest() {
     fun `A26 - String type argument matches String wildcard and raw but not other concrete`() =
         runTest<example.RuleWithStringTypeArgMatchesRawAndWildcard>()
 
+    // A27. Wildcard rule pattern: `ResponseEntity<?>`. The wildcard accepts
+    // every parameterization including nested generics
+    // (`ResponseEntity<List<String>>`, `ResponseEntity<Map<String, Integer>>`),
+    // but the class portion still narrows — methods returning a
+    // non-`ResponseEntity` type (`List<String>`, `String`) must NOT match.
+    @Test
+    fun `A27 - wildcard pattern matches nested generic ResponseEntity but not other classes`() =
+        runTest<example.RuleWithWildcardPatternNestedAndClassMismatch>()
+
     @AfterAll
     fun close() {
         closeRunner()

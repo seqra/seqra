@@ -1,0 +1,15 @@
+rules:
+  - id: example-RuleWithWildcardPatternNestedAndClassMismatch
+    languages:
+      - java
+    severity: ERROR
+    message: match example/RuleWithWildcardPatternNestedAndClassMismatch
+    patterns:
+      - pattern: |-
+          ...
+          sink($A);
+          ...
+      - pattern-inside: |-
+          ResponseEntity<?> $METHOD(..., String $A, ...) {
+              ...
+          }
