@@ -27,7 +27,6 @@ class TaintAnalysisUnitStorage(apManager: ApManager, languageManager: LanguageMa
 
     fun collectVulnerabilities(collector: MutableList<TaintSinkTracker.TaintVulnerability>) {
         vulnerabilityBuckets.values.forEach {
-            it.minimize()
             collector.add(it)
         }
     }

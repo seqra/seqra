@@ -2,12 +2,15 @@ package org.opentaint.dataflow.ap.ifds.trace
 
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
+import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerability
 import org.opentaint.dataflow.ap.ifds.taint.TaintSinkTracker.TaintVulnerabilityRuleNode
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.MethodEntry
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntry.SourceStartEntry
 import org.opentaint.dataflow.ap.ifds.trace.MethodTraceResolver.TraceEntryAction
+import org.opentaint.dataflow.ap.ifds.trace.TraceResolver.TraceResolutionResult.NoTrace
+import org.opentaint.dataflow.ap.ifds.trace.TraceResolver.TraceResolutionResult.Resolved
 import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
@@ -20,8 +23,6 @@ class TraceResolver(
 ) {
     data class Params(
         val resolveEntryPointToStartTrace: Boolean = true,
-        val startToSourceTraceResolutionLimit: Int? = null,
-        val startToSinkTraceResolutionLimit: Int? = null,
         val sourceToSinkInnerTraceResolutionLimit: Int? = null,
         val innerCallTraceResolveStrategy: InnerCallTraceResolveStrategy = InnerCallTraceResolveStrategy.Default,
     )
@@ -127,27 +128,150 @@ class TraceResolver(
         }
     }
 
-    fun resolveTrace(vulnerability: TaintVulnerability): Trace {
-        val builder = InterProceduralTraceGraphBuilder()
-        val unconditionalTrace = vulnerability.vulnerabilityRules.values.firstNotNullOfOrNull {
-            resolveVulnNodeTrace(builder, vulnerability.statement, it)
-        }
-
-        if (unconditionalTrace != null) {
-            return unconditionalTrace
-        }
-
-        val sourceToSinkTrace = builder.build()
-
-        val entryPointToStart = resolveEntryPointToStartTrace(sourceToSinkTrace.startNodes)
-        return Trace(entryPointToStart, sourceToSinkTrace)
+    sealed interface TraceResolutionResult {
+        data class Resolved(val vulnerability: TaintVulnerability, val trace: Trace) : TraceResolutionResult
+        data class NoTrace(val vulnerability: TaintVulnerability) : TraceResolutionResult
+        data class InProgress(val state: State) : TraceResolutionResult
     }
 
-    private fun resolveVulnNodeTrace(
-        builder: InterProceduralTraceGraphBuilder,
+    fun resolveTrace(state: State): TraceResolutionResult {
+        when (state) {
+            is State.Initial -> {
+                val requests = mutableListOf<TraceResolutionRequest>()
+
+                val vulnerability = state.vulnerability
+                val unconditionalTrace = vulnerability.vulnerabilityRules.values.firstNotNullOfOrNull {
+                    collectTraceResolutionRequests(requests, vulnerability.statement, it)
+                }
+
+                if (unconditionalTrace != null) {
+                    return Resolved(vulnerability, unconditionalTrace)
+                }
+
+                val nextState = Source2SinkTraceResolutionState(
+                    vulnerability,
+                    InterProceduralTraceGraphBuilder(),
+                    requests.distinct().sorted(),
+                    nextRequestIdx = 0
+                )
+
+                return TraceResolutionResult.InProgress(nextState)
+            }
+
+            is Source2SinkTraceResolutionState -> {
+                if (state.builder.isEmpty()) {
+                    if (state.nextRequestIdx >= state.requests.size) {
+                        return NoTrace(state.vulnerability)
+                    }
+
+                    val nextState = addNextRequest(state)
+                    return TraceResolutionResult.InProgress(nextState)
+                }
+
+                state.builder.process(limit = 100)
+
+                if (!state.builder.isEmpty()) {
+                    return TraceResolutionResult.InProgress(state)
+                }
+
+                state.builder.removeUnresolvedInnerCalls()
+                val trace = state.builder.createSource2SinkTrace()
+
+                if (trace.startNodes.isEmpty()) {
+                    // trace is invalid, proceed with next request
+                    val nextState = Source2SinkTraceResolutionState(
+                        state.vulnerability,
+                        InterProceduralTraceGraphBuilder(),
+                        state.requests,
+                        state.nextRequestIdx
+                    )
+                    return TraceResolutionResult.InProgress(nextState)
+                }
+
+                val nextState = Ep2StartTraceResolutionState(state.vulnerability, trace)
+                return TraceResolutionResult.InProgress(nextState)
+            }
+
+            is Ep2StartTraceResolutionState -> {
+                val entryPointToStart = resolveEntryPointToStartTrace(state.trace.startNodes)
+                val resultTrace = Trace(entryPointToStart, state.trace)
+                return Resolved(state.vulnerability, resultTrace)
+            }
+        }
+    }
+
+    private fun addNextRequest(state: Source2SinkTraceResolutionState): Source2SinkTraceResolutionState {
+        val request = state.requests[state.nextRequestIdx]
+        manager.withMethodRunner(request.methodEntryPoint) {
+            val traces = resolveIntraProceduralTraceSummary(
+                request.methodEntryPoint,
+                state.vulnerability.statement,
+                request.facts,
+                request.includeStatement
+            )
+
+            for (trace in traces) {
+                state.builder.createSinkNode(trace)
+            }
+        }
+
+        val nextState = Source2SinkTraceResolutionState(
+            state.vulnerability,
+            state.builder,
+            state.requests,
+            state.nextRequestIdx + 1
+        )
+        return nextState
+    }
+
+    private data class TraceResolutionRequest(
+        val methodEntryPoint: MethodEntryPoint,
+        val includeStatement: Boolean,
+        val facts: Set<InitialFactAp>
+    ) : Comparable<TraceResolutionRequest> {
+        override fun compareTo(other: TraceResolutionRequest): Int {
+            val factsCmp = compareFacts(other.facts)
+            if (factsCmp != 0) return factsCmp
+
+            val stmtCmp = includeStatement.compareTo(other.includeStatement)
+            if (stmtCmp != 0) return stmtCmp
+
+            return methodEntryPoint.toString().compareTo(other.methodEntryPoint.toString())
+        }
+
+        private fun compareFacts(other: Set<InitialFactAp>): Int {
+            val sizeCmp = facts.sumOf { it.size }.compareTo(other.sumOf { it.size })
+            if (sizeCmp != 0) return sizeCmp
+
+            val thisFactsStr = facts.map { it.toString() }.sorted().joinToString()
+            val otherFactsStr = other.map { it.toString() }.sorted().joinToString()
+            return thisFactsStr.compareTo(otherFactsStr)
+        }
+    }
+
+    sealed interface State {
+        val vulnerability: TaintVulnerability
+
+        data class Initial(override val vulnerability: TaintVulnerability) : State
+    }
+
+    private class Source2SinkTraceResolutionState(
+        override val vulnerability: TaintVulnerability,
+        val builder: InterProceduralTraceGraphBuilder,
+        val requests: List<TraceResolutionRequest>,
+        val nextRequestIdx: Int,
+    ): State
+
+    private class Ep2StartTraceResolutionState(
+        override val vulnerability: TaintVulnerability,
+        val trace: SourceToSinkTrace,
+    ): State
+
+    private fun collectTraceResolutionRequests(
+        requests: MutableList<TraceResolutionRequest>,
         statement: CommonInst,
         node: TaintVulnerabilityRuleNode
-    ): Trace? = when (node) {
+    ) : Trace? = when (node) {
         is TaintVulnerabilityRuleNode.Unconditional -> {
             val node = SimpleTraceNode(statement, node.methodEntryPoint)
             val entryPointToStart = resolveEntryPointToStartTrace(setOf(node))
@@ -156,7 +280,7 @@ class TraceResolver(
         }
 
         is TaintVulnerabilityRuleNode.WithRequirement -> {
-            node.requirement.values.firstNotNullOfOrNull { resolveVulnNodeTrace(builder, statement, it) }
+            node.requirement.values.firstNotNullOfOrNull { collectTraceResolutionRequests(requests, statement, it) }
         }
 
         is TaintVulnerabilityRuleNode.Fact -> {
@@ -166,19 +290,8 @@ class TraceResolver(
             }
 
             for ((methodEntryPoint, factGroups) in node.facts) {
-                manager.withMethodRunner(methodEntryPoint) {
-                    for (facts in factGroups.facts) {
-                        val traces = resolveIntraProceduralTraceSummary(
-                            methodEntryPoint,
-                            statement,
-                            facts.facts,
-                            includeStatement = includeStatement
-                        )
-
-                        for (trace in traces) {
-                            builder.createSinkNode(trace)
-                        }
-                    }
+                for (facts in factGroups.facts) {
+                    requests += TraceResolutionRequest(methodEntryPoint, includeStatement, facts.facts)
                 }
             }
 
@@ -225,18 +338,9 @@ class TraceResolver(
         val unprocessedCall2Sink = mutableListOf<BuilderUnprocessedTrace>()
         val unprocessedInner = mutableListOf<BuilderUnprocessedTrace>()
 
-        private var startToSourceTraceResolutionStat = 0
-        private var startToSinkTraceResolutionStat = 0
-
         fun createSinkNode(trace: MethodTraceResolver.SummaryTrace) {
             val nodes = resolveNode(trace, CallKind.CallToSink, depth = 0)
             sinkNodes.addAll(nodes)
-        }
-
-        fun build(): SourceToSinkTrace {
-            process()
-            removeUnresolvedInnerCalls()
-            return createSource2SinkTrace()
         }
 
         private fun pollUnprocessedEvent(): BuilderUnprocessedTrace? {
@@ -256,8 +360,12 @@ class TraceResolver(
             }
         }
 
-        private fun process() {
-            while (cancellation.isActive()) {
+        fun isEmpty(): Boolean =
+            unprocessedCall2Sink.isEmpty() && unprocessedCall2Source.isEmpty() && unprocessedInner.isEmpty()
+
+        fun process(limit: Int) {
+            var steps = 0
+            while (cancellation.isActive() && ++steps < limit) {
                 val event = pollUnprocessedEvent() ?: break
                 val resolvedNodes = resolveNode(event.trace, event.kind, event.depth)
 
@@ -275,7 +383,7 @@ class TraceResolver(
             }
         }
 
-        private fun createSource2SinkTrace(): SourceToSinkTrace {
+        fun createSource2SinkTrace(): SourceToSinkTrace {
             val rootsWithReachableSources = rootNodes.filter { node ->
                 entriesReachableFrom(successors, node, sourceNodes) { edge ->
                     edge.takeIf { it.kind == CallKind.CallToSource }?.node
@@ -293,7 +401,7 @@ class TraceResolver(
             return SourceToSinkTrace(rootsWithReachableSinks, sinkNodes, successors)
         }
 
-        private fun removeUnresolvedInnerCalls() {
+        fun removeUnresolvedInnerCalls() {
             while (cancellation.isActive()) {
                 val unresolvedNodes = hashMapOf<InterProceduralFullTraceNode, MutableList<InterProceduralCall>>()
 
@@ -419,10 +527,6 @@ class TraceResolver(
 
                         val callerTraces = resolveMethodEntry(start)
                         for ((callerStatement, callerTrace) in callerTraces) {
-                            if (params.startToSinkTraceResolutionLimit != null) {
-                                if (startToSinkTraceResolutionStat++ > params.startToSinkTraceResolutionLimit) continue
-                            }
-
                             addUnprocessedEvent(
                                 BuilderUnprocessedTrace(
                                     trace = callerTrace,
@@ -463,13 +567,6 @@ class TraceResolver(
                     if (callSummary == null) {
                         sourceNodes.add(node)
                         return node
-                    }
-
-                    if (params.startToSourceTraceResolutionLimit != null) {
-                        if (startToSourceTraceResolutionStat++ > params.startToSourceTraceResolutionLimit) {
-                            sourceNodes.add(node)
-                            return node
-                        }
                     }
 
                     addUnprocessedEvent(

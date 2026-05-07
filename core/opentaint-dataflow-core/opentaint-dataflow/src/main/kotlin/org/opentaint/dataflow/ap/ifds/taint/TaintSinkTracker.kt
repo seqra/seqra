@@ -31,20 +31,13 @@ class TaintSinkTracker(
 
             vulnerabilityRules.addAll(other.vulnerabilityRules, TaintVulnerabilityRuleNode::merge)
         }
-
-        fun minimize() {
-            vulnerabilityRules.values.forEach { it.minimize(ruleId) }
-        }
     }
 
     sealed interface TaintVulnerabilityRuleNode {
         fun merge(other: TaintVulnerabilityRuleNode): TaintVulnerabilityRuleNode
 
-        fun minimize(ruleId: String)
-
         data class Unconditional(val methodEntryPoint: MethodEntryPoint) : TaintVulnerabilityRuleNode {
             override fun merge(other: TaintVulnerabilityRuleNode) = this
-            override fun minimize(ruleId: String) = Unit
         }
 
         data class Fact(
@@ -73,10 +66,6 @@ class TaintSinkTracker(
                 facts.addAll(otherFact.facts, VulnerabilityFactGroups::merge)
                 return this
             }
-
-            override fun minimize(ruleId: String) {
-                facts.values.forEach { it.minimize(ruleId) }
-            }
         }
 
         data class WithRequirement(
@@ -96,29 +85,6 @@ class TaintSinkTracker(
                 requirement.addAll(otherWithReq.requirement, TaintVulnerabilityRuleNode::merge)
                 return this
             }
-
-            override fun minimize(ruleId: String) {
-                val minimalKeys = requirement.keys
-                    .sortedWith(compareBy(finalFactSetComparator) { it.endFactRequirement })
-                    .take(REQ_LIMIT)
-
-                if (minimalKeys.size != requirement.size) {
-                    logger.debug {
-                        "Vulnerability minimize $ruleId: drop facts with req ${requirement.size - minimalKeys.size}"
-                    }
-                    val keysToRemove = requirement.keys - minimalKeys.toSet()
-                    keysToRemove.forEach { requirement.remove(it) }
-                }
-
-                requirement.values.forEach { it.minimize(ruleId) }
-            }
-
-            companion object {
-                private const val REQ_LIMIT = 3
-
-                private val finalFactSetComparator = compareBy<Set<FinalFactAp>> { fs -> fs.sumOf { it.size } }
-                    .thenComparing { fs -> fs.map { it.toString() }.sorted().joinToString() }
-            }
         }
     }
 
@@ -127,34 +93,12 @@ class TaintSinkTracker(
         val endFactRequirement: Set<FinalFactAp>
     )
 
-    data class VulnerabilityFacts(val facts: Set<InitialFactAp>) {
-        val size: Int get() = facts.sumOf { it.size }
-    }
+    data class VulnerabilityFacts(val facts: Set<InitialFactAp>)
 
     data class VulnerabilityFactGroups(val facts: MutableSet<VulnerabilityFacts>) {
         fun merge(other: VulnerabilityFactGroups): VulnerabilityFactGroups {
             facts.addAll(other.facts)
             return this
-        }
-
-        fun minimize(ruleId: String) {
-            val orderedFacts = facts.sortedBy { it.size }
-            val minFactGroupSize = orderedFacts.firstOrNull()?.size
-                ?: return
-
-            val lastFactWithAllowedSize = orderedFacts.indexOfLast { it.size <= minFactGroupSize }
-            val firstIndexToDrop = (lastFactWithAllowedSize + FACTS_OVER_LIMIT).coerceIn(0, orderedFacts.size)
-            val factsToDrop = orderedFacts.subList(firstIndexToDrop, orderedFacts.size)
-
-            val originalSize = facts.size
-            facts.removeAll(factsToDrop.toSet())
-            if (facts.size < originalSize) {
-                logger.debug { "Vulnerability minimize $ruleId: drop facts ${originalSize - facts.size}" }
-            }
-        }
-
-        companion object {
-            private const val FACTS_OVER_LIMIT = 3
         }
     }
 

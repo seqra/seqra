@@ -192,7 +192,7 @@ class JIRTaintAnalyzer(
         val vulnerabilitiesWithTraces = ifdsEngine.generateTraces(entryPoints, vulnerabilities, traceResolutionTimeout)
             .also { logger.info { "Finish trace generation" } }
 
-        val filteredVulnerabilities = vulnerabilitiesWithTraces.filterVulnWithoutTrace()
+        val filteredVulnerabilities = vulnerabilitiesWithTraces.filter { it.trace != null }
         if (filteredVulnerabilities.size != vulnerabilitiesWithTraces.size) {
             val delta = vulnerabilitiesWithTraces.size - filteredVulnerabilities.size
             logger.info { "Filter out $delta vulnerabilities without traces" }
@@ -221,22 +221,12 @@ class JIRTaintAnalyzer(
             entryPointsSet, vulnerabilities,
             resolverParams = TraceResolver.Params(
                 resolveEntryPointToStartTrace = options.symbolicExecutionEnabled,
-                startToSourceTraceResolutionLimit = 100,
-                startToSinkTraceResolutionLimit = 100,
                 sourceToSinkInnerTraceResolutionLimit = 5,
                 innerCallTraceResolveStrategy = InnerCallTraceResolveStrategy
             ),
             timeout = timeout,
             cancellationTimeout = 30.seconds
         )
-    }
-
-    private fun List<VulnerabilityWithTrace>.filterVulnWithoutTrace(): List<VulnerabilityWithTrace> =
-        filter { it.hasValidTrace() }
-
-    private fun VulnerabilityWithTrace.hasValidTrace(): Boolean {
-        val trace = trace ?: return false
-        return trace.sourceToSinkTrace.startNodes.isNotEmpty()
     }
 
     private val taintConfig: TaintRulesProvider by lazy {
