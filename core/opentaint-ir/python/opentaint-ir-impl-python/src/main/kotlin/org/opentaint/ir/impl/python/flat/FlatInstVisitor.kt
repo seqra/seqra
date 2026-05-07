@@ -7,8 +7,8 @@ package org.opentaint.ir.impl.python.flat
  * adding one method here and one `accept` override on the new type — the
  * compiler will then flag every implementation that has not handled it.
  *
- * Most utility passes don't need a visitor directly — see [FlatInst.target],
- * [FlatInst.mapOperand], and [FlatInst.withTarget] for the common shape
+ * Most utility passes don't need a visitor directly — see [FlatInst.targets],
+ * [FlatInst.mapOperand], and [FlatInst.mapTarget] for the common shape
  * queries, all implemented on top of this visitor.
  *
  * Visitors must NOT walk operands recursively here; operand walks are

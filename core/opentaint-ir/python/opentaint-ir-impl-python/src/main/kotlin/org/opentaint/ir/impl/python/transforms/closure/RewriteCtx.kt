@@ -18,11 +18,9 @@ import org.opentaint.ir.impl.python.flat.FlatParamKind
 import org.opentaint.ir.impl.python.flat.FlatParameter
 import org.opentaint.ir.impl.python.flat.FlatStoreAttr
 import org.opentaint.ir.impl.python.flat.FlatStrConst
-import org.opentaint.ir.impl.python.flat.FlatUnpack
 import org.opentaint.ir.impl.python.flat.FlatValue
 import org.opentaint.ir.impl.python.flat.mapOperand
-import org.opentaint.ir.impl.python.flat.target
-import org.opentaint.ir.impl.python.flat.withTarget
+import org.opentaint.ir.impl.python.flat.mapTarget
 
 /**
  * Result of rewriting one capturing-or-cell-owning function: the (possibly
@@ -36,10 +34,12 @@ internal data class RewriteOutput(
 
 /**
  * Thrown when the closure transform encounters a documented but not-yet-
- * supported shape. Today the only producer is the METHOD pass-through case:
- * a closure-root method that binds a capturing child whose closure vars
- * the method doesn't own. The rewriter catches this exception, emits a
- * diagnostic, and leaves the function unchanged.
+ * supported shape. The producer is the closure-root pass-through case: a
+ * parentless function (closure root) binds a capturing child whose closure
+ * vars the parent doesn't own. [ClosureAnalyzer] emits a leak warning when
+ * it detects this; the rewriter catches the exception, emits a follow-up
+ * diagnostic on the bind-site walk, and leaves the parent function
+ * unchanged.
  *
  * Distinct from generic [IllegalStateException] / [IllegalArgumentException]
  * (which signal real invariant violations and propagate).
@@ -54,16 +54,16 @@ internal class RewriteCtx(
     private val fn: FlatFunctionIR,
     private val ci: ClosureInfo,
     private val info: Map<String, ClosureInfo>,
-    private val capturingPlan: Map<String, CapturingEntry>,
+    private val moduleName: String,
 ) {
-    // Sorted for determinism.
-    private val ownedCells: List<String> = ci.cellVars.toSortedSet().toList()
-    private val receivedCells: List<String> = ci.closureVars.toSortedSet().toList()
-    private val cellLocals: Map<String, FlatLocal> = run {
-        val m = LinkedHashMap<String, FlatLocal>()
-        for (n in ownedCells) m[n] = FlatLocal(cellLocalName(n))
-        for (n in receivedCells) m[n] = FlatLocal(cellLocalName(n))
-        m
+    // [ClosureAnalyzer] hands us deterministic-iteration sets, so we don't
+    // re-sort here. Both sets are kept on the receiver type `Set<String>`
+    // for membership checks; iteration order is preserved.
+    private val ownedCells: Set<String> = ci.cellVars
+    private val receivedCells: Set<String> = ci.closureVars
+    private val cellLocals: Map<String, FlatLocal> = buildMap {
+        for (n in ownedCells) this[n] = FlatLocal(cellLocalName(n))
+        for (n in receivedCells) this[n] = FlatLocal(cellLocalName(n))
     }
     private val originalParamNames: Set<String> = fn.parameters.map { it.name }.toSet()
     private var tempCounter: Int = 0
@@ -87,7 +87,8 @@ internal class RewriteCtx(
     }
 
     fun run(): RewriteOutput {
-        val newParameters = if (ci.closureVars.isNotEmpty()) {
+        val isCapturing = ci.closureVars.isNotEmpty()
+        val newParameters = if (isCapturing) {
             listOf(selfParameter()) + fn.parameters
         } else {
             fn.parameters
@@ -96,38 +97,35 @@ internal class RewriteCtx(
         val prologue = buildPrologue()
 
         val newBlocks = fn.cfg.blocks.map { block ->
+            val rewrittenBody = block.instructions.flatMap { rewriteInstruction(it) }
             val instructions = if (block.label == fn.cfg.entryBlock) {
-                prologue + block.instructions.flatMap { rewriteInstruction(it) }
+                prologue + rewrittenBody
             } else {
-                block.instructions.flatMap { rewriteInstruction(it) }
+                rewrittenBody
             }
             block.copy(instructions = instructions)
         }
 
         val newCfg = fn.cfg.copy(blocks = newBlocks)
 
-        val capturingEntry = capturingPlan[fn.qualifiedName]
-        val rebuiltImpl = if (capturingEntry != null) {
+        val rebuiltImpl = if (isCapturing) {
+            val implQn = ClosureRuntime.implFunctionQn(moduleName, fn.name)
             fn.copy(
-                name = capturingEntry.implRenamedName,
-                qualifiedName = capturingEntry.implRenamedQn,
+                name = implQn.substringAfterLast('.'),
+                qualifiedName = implQn,
                 parameters = newParameters,
-                closureVars = ci.closureVars.toSortedSet().toSet(),
+                closureVars = ci.closureVars,
                 cfg = newCfg,
             )
         } else {
             fn.copy(
                 parameters = newParameters,
-                closureVars = ci.closureVars.toSortedSet().toSet(),
+                closureVars = ci.closureVars,
                 cfg = newCfg,
             )
         }
 
-        val adapter = if (capturingEntry != null) {
-            buildAdapterClass(capturingEntry, fn)
-        } else {
-            null
-        }
+        val adapter = if (isCapturing) buildAdapterClass(fn, moduleName) else null
 
         return RewriteOutput(impl = rebuiltImpl, adapterClass = adapter)
     }
@@ -136,12 +134,11 @@ internal class RewriteCtx(
     /* Prologue                                                       */
     /* -------------------------------------------------------------- */
 
-    private fun buildPrologue(): List<FlatInst> {
-        val out = ArrayList<FlatInst>()
+    private fun buildPrologue(): List<FlatInst> = buildList {
         // Own cells (alloc + seed-from-param if applicable).
         for (name in ownedCells) {
             val cellLocal = cellLocals.getValue(name)
-            out.add(
+            add(
                 FlatCall(
                     target = cellLocal,
                     callee = FlatGlobalRef("builtins.${ClosureRuntime.CELL_CTOR_NAME}"),
@@ -149,7 +146,7 @@ internal class RewriteCtx(
                 ),
             )
             if (name in originalParamNames) {
-                out.add(
+                add(
                     FlatStoreAttr(
                         obj = cellLocal,
                         attribute = ClosureRuntime.CELL_VALUE_ATTR,
@@ -158,9 +155,11 @@ internal class RewriteCtx(
                 )
             }
         }
-        // Received cells via env extraction.
-        if (ci.closureVars.isNotEmpty()) {
-            out.add(
+        // Received cells via env extraction. Only emit when there are any —
+        // [receivedCells] mirrors `ci.closureVars`, so emptiness of one
+        // implies emptiness of the other.
+        if (receivedCells.isNotEmpty()) {
+            add(
                 FlatLoadAttr(
                     target = envLocal,
                     obj = FlatLocal(ClosureRuntime.SELF_PARAM_NAME),
@@ -168,17 +167,15 @@ internal class RewriteCtx(
                 ),
             )
             for (name in receivedCells) {
-                val cellLocal = cellLocals.getValue(name)
-                out.add(
+                add(
                     FlatLoadSubscript(
-                        target = cellLocal,
+                        target = cellLocals.getValue(name),
                         obj = envLocal,
                         index = FlatStrConst(name),
                     ),
                 )
             }
         }
-        return out
     }
 
     /* -------------------------------------------------------------- */
@@ -198,12 +195,12 @@ internal class RewriteCtx(
 
     /**
      * Substitute a cell-managed [FlatLocal] operand with a load into a fresh
-     * temp; emit the load into [scope]. Non-cell-managed operands pass
-     * through unchanged.
+     * temp; emit the load into [scope]. Returns the input unchanged (same
+     * reference) when no substitution is needed; the caller can detect
+     * "rewrite happened" via referential identity (`!==`).
      */
     private fun loadOperand(value: FlatValue, line: Int, scope: InstRewriterScope): FlatValue {
-        if (value !is FlatLocal) return value
-        if (!isCellManaged(value.name)) return value
+        if (value !is FlatLocal || !isCellManaged(value.name)) return value
         val tmp = freshTemp()
         scope.emitBefore(
             FlatLoadAttr(
@@ -217,18 +214,13 @@ internal class RewriteCtx(
     }
 
     /**
-     * If [target] needs cell-redirection, allocate a fresh temp, emit the
-     * post-store into [scope], and return the temp. Otherwise return `null`
-     * — the caller must keep the original target.
-     *
-     * Cell-redirection applies iff [target] is a [FlatLocal] AND its name is
-     * cell-managed in this function. Both conditions are necessary; targets
-     * that are not [FlatLocal] are not name-bound to cells regardless of
-     * what the cell map contains.
+     * If [target] is a cell-managed [FlatLocal], allocate a fresh temp,
+     * emit the post-store into [scope], and return the temp. Otherwise
+     * return [target] unchanged. The caller can detect "rewrite happened"
+     * via referential identity (`!==`).
      */
-    private fun redirectTarget(target: FlatValue, line: Int, scope: InstRewriterScope): FlatValue? {
-        if (!needsCellRedirection(target)) return null
-        target as FlatLocal
+    private fun redirectTarget(target: FlatValue, line: Int, scope: InstRewriterScope): FlatValue {
+        if (target !is FlatLocal || !isCellManaged(target.name)) return target
         val tmp = freshTemp()
         scope.emitAfter(
             FlatStoreAttr(
@@ -241,66 +233,58 @@ internal class RewriteCtx(
         return tmp
     }
 
-    /** A target needs cell-redirection iff it is a cell-managed [FlatLocal]. */
-    private fun needsCellRedirection(target: FlatValue): Boolean =
-        target is FlatLocal && isCellManaged(target.name)
-
     /**
-     * Per-instruction rewrite. For most instructions this is just
-     * `mapOperand(loadCell) + withTarget(redirectToCell)` ([defaultRewrite]);
-     * three cases are genuinely shape-changing and handled explicitly:
+     * Per-instruction rewrite. The dispatcher creates a fresh
+     * [InstRewriterScope] and each handler stages its core, pre, and post
+     * instructions on the scope. Two cases are genuinely shape-changing:
      *
      *  - `FlatBindFunction` whose child captures: replaced by an adapter
      *    constructor call (with optional cell-store wrapping if the bind
      *    target is itself cell-managed).
      *  - `FlatDeleteLocal` of a cell-managed name: lowered to
      *    `FlatDeleteAttr($cell$name, "value")`.
-     *  - `FlatUnpack`: multi-target — each cell-managed slot is
-     *    redirected separately and followed by its own cell store.
+     *
+     * Everything else flows through [defaultRewrite]: load every operand
+     * from its cell (pre), redirect every target slot — single or
+     * [FlatUnpack]'s multi-slot — to fresh temps and store them back
+     * (post). [mapOperand] / [mapTarget] are identity-preserving, so when
+     * nothing needs cell-handling the scope's core stays as the original
+     * instruction reference.
      */
     private fun rewriteInstruction(inst: FlatInst): List<FlatInst> {
-        return when (inst) {
-            is FlatBindFunction -> rewriteBind(inst)
-            is FlatDeleteLocal -> rewriteDeleteLocal(inst)
-            is FlatUnpack -> rewriteUnpack(inst)
-            else -> defaultRewrite(inst)
+        val scope = InstRewriterScope(inst)
+        when (inst) {
+            is FlatBindFunction -> rewriteBind(inst, scope)
+            is FlatDeleteLocal -> rewriteDeleteLocal(inst, scope)
+            else -> defaultRewrite(inst, scope)
         }
+        return scope.finish()
     }
 
     /**
-     * Generic rewrite: load every operand from its cell (pre), redirect a
-     * cell-managed target to a fresh temp and store it back (post).
+     * Generic rewrite: load every operand from its cell (pre), redirect
+     * every cell-managed target slot to a fresh temp and store it back
+     * (post). [FlatUnpack]'s multi-target shape is handled by [mapTarget].
      */
-    private fun defaultRewrite(inst: FlatInst): List<FlatInst> {
-        val scope = InstRewriterScope()
-        val withOps = inst.mapOperand { v -> loadOperand(v, inst.line, scope) }
-        val rewritten = inst.target?.let { redirectTarget(it, inst.line, scope) }
-            ?.let(withOps::withTarget)
-            ?: withOps
-        return scope.finish(rewritten)
+    private fun defaultRewrite(inst: FlatInst, scope: InstRewriterScope) {
+        val rewritten = inst
+            .mapOperand { v -> loadOperand(v, inst.line, scope) }
+            .mapTarget { t -> redirectTarget(t, inst.line, scope) }
+        scope.replaceWith(rewritten)
     }
 
     /** [FlatDeleteLocal] of a cell-managed name lowers to `del cell.value`. */
-    private fun rewriteDeleteLocal(inst: FlatDeleteLocal): List<FlatInst> {
-        val l = inst.local
-        if (l is FlatLocal && isCellManaged(l.name)) {
-            return listOf(
-                FlatDeleteAttr(
-                    obj = cellLocals.getValue(l.name),
-                    attribute = ClosureRuntime.CELL_VALUE_ATTR,
-                    line = inst.line,
-                ),
-            )
-        }
-        return listOf(inst)
-    }
+    private fun rewriteDeleteLocal(inst: FlatDeleteLocal, scope: InstRewriterScope) {
+        val l = inst.local as? FlatLocal ?: return
+        if (!isCellManaged(l.name)) return
 
-    /** [FlatUnpack] has multiple targets; redirect each cell-managed slot. */
-    private fun rewriteUnpack(inst: FlatUnpack): List<FlatInst> {
-        val scope = InstRewriterScope()
-        val source = loadOperand(inst.source, inst.line, scope)
-        val newTargets = inst.targets.map { redirectTarget(it, inst.line, scope) ?: it }
-        return scope.finish(inst.copy(targets = newTargets, source = source))
+        scope.replaceWith(
+            FlatDeleteAttr(
+                obj = cellLocals.getValue(l.name),
+                attribute = ClosureRuntime.CELL_VALUE_ATTR,
+                line = inst.line,
+            ),
+        )
     }
 
     /**
@@ -308,50 +292,43 @@ internal class RewriteCtx(
      * constructor call. Non-capturing → keep the bind and treat target
      * cell-management as a normal case.
      */
-    private fun rewriteBind(inst: FlatBindFunction): List<FlatInst> {
+    private fun rewriteBind(inst: FlatBindFunction, scope: InstRewriterScope) {
         val line = inst.line
         // The bind target's FlatGlobalRef.qualifiedName IS the child's
         // FlatFunctionIR.qualifiedName — no name→qn bridge needed.
         val childQn = inst.function.qualifiedName
-        val childInfo = info[childQn]
-        val childClosureVars = childInfo?.closureVars.orEmpty()
+        val childClosureVars = info[childQn]?.closureVars.orEmpty()
 
         if (childClosureVars.isEmpty()) {
             // Non-capturing child: keep FlatBindFunction; only handle cell-managed target.
-            return defaultRewrite(inst)
+            defaultRewrite(inst, scope)
+            return
         }
 
         // Capturing child: replace bind with adapter-class constructor call.
-        val childEntry = capturingPlan[childQn]
-            ?: error(
-                "Closure rewrite: child '$childQn' captures " +
-                    "but has no capturing-plan entry",
-            )
+        // The child's bare name is the suffix of its qualified name and is
+        // module-unique by construction (set by `freshNestedName` /
+        // `freshLambdaName` during proto→Flat lifting).
+        val childAdapterQn = ClosureRuntime.adapterClassQn(
+            moduleName = moduleName,
+            fnName = childQn.substringAfterLast('.'),
+        )
         val originalTarget = inst.target
 
         // Build env on parent's cells.
-        val scope = InstRewriterScope()
         val (envBuildInst, envValueLocal) = buildEnvDict(childClosureVars, line)
         scope.emitBefore(envBuildInst)
 
-        if (originalTarget is FlatLocal && isCellManaged(originalTarget.name)) {
-            // Cell-managed bind target: redirect first (post-store goes
-            // through the scope), then emit the constructor into the temp.
-            val tmp = redirectTarget(originalTarget, line, scope)!!
-            return scope.finish(
-                FlatCall(
-                    target = tmp,
-                    callee = FlatGlobalRef(childEntry.adapterClassQn),
-                    args = listOf(FlatCallArg(envValueLocal)),
-                    line = line,
-                ),
-            )
-        }
+        // Cell-managed bind target: redirect first (post-store goes through
+        // the scope), then emit the constructor into the temp. For a
+        // non-cell-managed target [redirectTarget] returns the input
+        // unchanged.
+        val callTarget = redirectTarget(originalTarget, line, scope)
 
-        return scope.finish(
+        scope.replaceWith(
             FlatCall(
-                target = originalTarget,
-                callee = FlatGlobalRef(childEntry.adapterClassQn),
+                target = callTarget,
+                callee = FlatGlobalRef(childAdapterQn),
                 args = listOf(FlatCallArg(envValueLocal)),
                 line = line,
             ),
@@ -369,9 +346,17 @@ internal class RewriteCtx(
      * forward cells from a grand-parent it doesn't see).
      */
     private fun buildEnvDict(childClosureVars: Set<String>, line: Int): Pair<FlatInst, FlatLocal> {
-        val sortedNames = childClosureVars.toSortedSet().toList()
-        val keys: List<FlatValue> = sortedNames.map { FlatStrConst(it) }
-        val values: List<FlatValue> = sortedNames.map { name ->
+        // Iteration of [childClosureVars] is already deterministic (analyzer
+        // hands us sorted-iterating sets), so no extra sort needed.
+        val keys: List<FlatValue> = childClosureVars.map { FlatStrConst(it) }
+        // `cellLocals[name]` resolves against THIS function's cell map.
+        // The same captured user-name (e.g. `x`) maps to a `$cell$x` local
+        // in every function that owns or receives it; that's correct because
+        // each `$cell$x` is a function-scoped local. The env dict's job is
+        // to bridge: keys are user-name strings, values are the parent's
+        // local cell — read in the child's prologue into the child's own
+        // local cell of the same name.
+        val values: List<FlatValue> = childClosureVars.map { name ->
             cellLocals[name]
                 ?: throw ClosureRewriteLimitation(
                     "Closure rewrite: child captures '$name' but parent " +

@@ -954,14 +954,15 @@ class FlatClosureTransformerTest {
     /* ------------------------------------------------------------------ */
 
     @Test
-    fun `transitive capture through closure root method known limitation`() {
-        // outer (TOP_LEVEL) → m (METHOD) → inner (NESTED_DEF) reads x.
-        // Per analyzer (test 12), m has empty closureVars/cellVars and outer
-        // owns x as a cell. Document the rewriter outcome: m doesn't carry
-        // env, so when m binds inner, inner's env build asks for $cell$x in
-        // m — which doesn't exist. Rewriter handles this by leaving the
-        // diagnostic and original function shape (the rewrite for m fails;
-        // outer and inner still rewrite cleanly).
+    fun `transitive capture through method-in-class-inside-function pass-through`() {
+        // outer (TOP_LEVEL) → m (METHOD, parent=outer) → inner (NESTED_DEF,
+        // parent=m) reads x from outer.
+        //
+        // Closure-root status now derives from "no parent". The method m has
+        // a parent (outer), so it forwards x through cells just like any
+        // other inner scope. The class-inside-function shape isn't producible
+        // from real proto→Flat input today, but the analyzer/rewriter are
+        // forward-compatible. No diagnostic, no `ClosureRewriteLimitation`.
         val outerQn = "m.outer"
         val mQn = "m.outer.C.m"
         val innerQn = "m.outer.C.m.inner"
@@ -1011,11 +1012,12 @@ class FlatClosureTransformerTest {
         val rewrittenInner = lookup(out, innerQn)
         assertEquals(ClosureRuntime.SELF_PARAM_NAME, rewrittenInner.parameters[0].name)
         assertEquals(setOf("x"), rewrittenInner.closureVars)
-        // m: closure-root METHOD, but binds a capturing child. The bind site
-        // would need $cell$x to attach env, but m doesn't own it — so the rewrite
-        // of m raises. A diagnostic should be appended; m stays in raw form.
-        val diagnostic = out.diagnostics.firstOrNull { it.functionName == mQn }
-        assertNotNull(diagnostic, "Expected closure-rewrite diagnostic on $mQn (limitation)")
+        // m: parented, so forwards x. <self> injected; x in closureVars.
+        val rewrittenM = lookup(out, mQn)
+        assertEquals(ClosureRuntime.SELF_PARAM_NAME, rewrittenM.parameters[0].name)
+        assertEquals(setOf("x"), rewrittenM.closureVars)
+        // No diagnostic on m: rewrite succeeds.
+        assertEquals(emptyList(), out.diagnostics.filter { it.functionName == mQn })
     }
 
     /* ------------------------------------------------------------------ */

@@ -1,15 +1,27 @@
 package org.opentaint.ir.impl.python.transforms.closure
 
-import org.opentaint.ir.impl.python.flat.FlatBindFunction
+import org.opentaint.ir.api.python.PIRDiagnostic
+import org.opentaint.ir.api.python.PIRDiagnosticSeverity
 import org.opentaint.ir.impl.python.flat.FlatClass
 import org.opentaint.ir.impl.python.flat.FlatFunctionIR
-import org.opentaint.ir.impl.python.flat.FlatFunctionKind
 import org.opentaint.ir.impl.python.flat.FlatLocal
 import org.opentaint.ir.impl.python.flat.FlatModuleIR
 import org.opentaint.ir.impl.python.flat.FlatValue
 import org.opentaint.ir.impl.python.flat.operands
-import org.opentaint.ir.impl.python.flat.target
-import org.opentaint.ir.impl.python.flat.unpackTargets
+import org.opentaint.ir.impl.python.flat.targets
+
+/**
+ * Result of running [ClosureAnalyzer.analyze] over a module:
+ *  - [info] — per-function [ClosureInfo] keyed by qualifiedName.
+ *  - [diagnostics] — analyzer-emitted findings (e.g. parentless functions
+ *    with non-empty propagated free names, which indicate either
+ *    unresolved-name leaks from upstream or unsupported pass-through
+ *    closure shapes).
+ */
+data class ClosureAnalysis(
+    val info: Map<String, ClosureInfo>,
+    val diagnostics: List<PIRDiagnostic>,
+)
 
 /**
  * Pure analysis pass over a [FlatModuleIR]. Computes per-function
@@ -17,10 +29,20 @@ import org.opentaint.ir.impl.python.flat.unpackTargets
  * receive from the parent) without modifying the IR.
  *
  * Bottom-up, no cycles: the parent map is a tree.
+ *
+ * **Closure roots are parentless functions** — the parent map (built from
+ * each function's `parentQualifiedName` plus the class-walk for methods)
+ * is the single source of truth, not [FlatFunctionKind]. A parentless
+ * function cannot receive a closure environment, so its `closureVars` is
+ * forced to `∅`. If [collectLocalReads] surfaced any unresolved free name
+ * for a parentless function, the analyzer emits a diagnostic — that
+ * indicates either an unsupported pass-through shape (e.g. METHOD passing
+ * cells through to a nested def in a class-inside-function) or an
+ * unresolved-name leak from upstream lowering.
  */
 object ClosureAnalyzer {
 
-    fun analyze(module: FlatModuleIR): Map<String, ClosureInfo> {
+    fun analyze(module: FlatModuleIR): ClosureAnalysis {
         val allFunctions = collectAllFunctions(module)
         val byName: Map<String, FlatFunctionIR> = allFunctions.associateBy { it.qualifiedName }
         val parentMap: Map<String, String?> = buildClosureParentMap(module, byName)
@@ -30,9 +52,10 @@ object ClosureAnalyzer {
 
         // Bottom-up memoized computation. Tracks both the public (override-applied)
         // and the propagated (pre-override) closureVars; parents read the propagated
-        // form so a closure-root descendant doesn't block transitive capture.
+        // form so a parentless descendant doesn't block transitive capture.
         val publicCache = HashMap<String, ClosureInfo>()
         val propagatedClosureVars = HashMap<String, Set<String>>()
+        val diagnostics = ArrayList<PIRDiagnostic>()
 
         fun compute(qn: String): ClosureInfo {
             publicCache[qn]?.let { return it }
@@ -59,91 +82,65 @@ object ClosureAnalyzer {
                 .flatMap { propagatedClosureVars.getValue(it) }
                 .toSet()
 
-            val cellVars = childNeeds intersect ownedNames
-            val propagated = directFree + (childNeeds - ownedNames)
+            // Keep deterministic iteration order on every set produced — the
+            // rewriter emits prologue instructions and env-dict entries in
+            // iteration order, and the PIR converter compares modules
+            // structurally, so non-determinism here would surface as flaky
+            // tests downstream.
+            val cellVars = (childNeeds intersect ownedNames).sortedDeterministic()
+            val propagated = (directFree + (childNeeds - ownedNames)).sortedDeterministic()
             propagatedClosureVars[qn] = propagated
 
-            val publicClosureVars = if (isClosureRoot(fn.kind)) emptySet() else propagated
+            val isClosureRoot = parentMap[qn] == null
+            if (isClosureRoot && propagated.isNotEmpty()) {
+                // A parentless function with non-empty propagated free names
+                // is suspect: either a descendant captures a name nobody owns
+                // (e.g. METHOD pass-through to a nested def crossing a
+                // class-inside-function boundary), or an upstream pass leaked
+                // unresolved names into FlatLocal reads.
+                diagnostics.add(
+                    PIRDiagnostic(
+                        severity = PIRDiagnosticSeverity.WARNING,
+                        message = "Closure-root '$qn' has unresolved free names " +
+                            "${propagated.toSortedSet()} — descendants capturing these " +
+                            "names will not have cells forwarded.",
+                        functionName = qn,
+                        exceptionType = "ClosureRootLeak",
+                    ),
+                )
+            }
+            val publicClosureVars = if (isClosureRoot) emptySet() else propagated
             val info = ClosureInfo(
-                ownedNames = ownedNames,
+                ownedNames = ownedNames.sortedDeterministic(),
                 cellVars = cellVars,
                 closureVars = publicClosureVars,
-                hasCapturingChildBind = false,   // filled in by the second pass below
+                isClosureRoot = isClosureRoot,
             )
             publicCache[qn] = info
             return info
         }
 
         for (qn in byName.keys) compute(qn)
-
-        // Second pass: now that every function's `closureVars` is finalised,
-        // each function's `hasCapturingChildBind` follows from a bind-site walk.
-        return publicCache.mapValues { (qn, info) ->
-            val fn = byName.getValue(qn)
-            info.copy(hasCapturingChildBind = functionHasCapturingChildBind(fn, publicCache))
-        }
-    }
-
-    private fun functionHasCapturingChildBind(
-        fn: FlatFunctionIR,
-        infoCache: Map<String, ClosureInfo>,
-    ): Boolean {
-        for (block in fn.cfg.blocks) {
-            for (inst in block.instructions) {
-                if (inst !is FlatBindFunction) continue
-                val childInfo = infoCache[inst.function.qualifiedName] ?: continue
-                if (childInfo.closureVars.isNotEmpty()) return true
-            }
-        }
-        return false
+        return ClosureAnalysis(info = publicCache, diagnostics = diagnostics)
     }
 
     /* ------------------------------------------------------------------ */
     /* Helpers                                                            */
     /* ------------------------------------------------------------------ */
 
-    /**
-     * A closure root cannot receive a closure environment from its parent —
-     * Python's LEGB lookup rule means the function takes no implicit `<self>`
-     * env at call time.
-     *
-     * **Caveat for `METHOD`** (see also [ClosureRewriter]'s diagnostic-bail
-     * path at `FlatBindFunction` rewriting): CPython does NOT actually treat a
-     * method body as terminating closure-cell flow. A method whose nested
-     * function captures `x` from an enclosing function gets `x` in its own
-     * `co_freevars` — the closure cell is threaded through the method at
-     * `MAKE_FUNCTION` time (when the class body executes), bypassing the class
-     * body itself. We model `METHOD` as a closure root here because:
-     *
-     *   1. It matches Python's surface semantics for *call-time* closure
-     *      passing (methods don't take an implicit env argument), which is
-     *      what our `<self>` parameter encodes.
-     *   2. The shape that would expose the difference — a class defined
-     *      inside a function body whose method contains a nested def
-     *      capturing the enclosing function's local — is unreachable from
-     *      real proto→Flat input today, because [FlatClass] does not
-     *      represent class-inside-function (proto→Flat drops `CLASS_DEF`
-     *      nested in function bodies).
-     *
-     * If/when class-inside-function support lands in `FlatClass`, this
-     * decision should flip to CPython's behavior: drop `METHOD` from the
-     * closure-root set when the method has descendants that need to pass
-     * cells through (i.e. allocate `<self>` and a `_closure_env_` for the
-     * method, and forward cells to its inner functions at *their* bind
-     * sites). The rewriter today emits a `PIRDiagnostic` and bails on the
-     * method when it encounters a `FlatBindFunction` for a capturing child
-     * whose closure vars aren't in the method's `cellLocals` map.
-     */
-    private fun isClosureRoot(kind: FlatFunctionKind): Boolean = when (kind) {
-        FlatFunctionKind.TOP_LEVEL,
-        FlatFunctionKind.METHOD,
-        FlatFunctionKind.MODULE_INIT -> true
-        FlatFunctionKind.NESTED_DEF,
-        FlatFunctionKind.LAMBDA -> false
-    }
-
     private fun isSynthetic(name: String): Boolean =
         name.contains('$') || name.contains('<') || name.contains('>')
+
+    /**
+     * Returns a `Set<String>` whose iteration order is sorted ascending.
+     * Implemented via a [LinkedHashSet] populated in sorted order so consumers
+     * can rely on deterministic iteration without re-sorting at every use
+     * site, while still satisfying the `Set` contract for membership.
+     */
+    private fun Set<String>.sortedDeterministic(): Set<String> =
+        if (size <= 1) this else LinkedHashSet<String>(size).also { dst ->
+            for (s in this.sorted()) dst.add(s)
+        }
 
     private fun collectAllFunctions(module: FlatModuleIR): List<FlatFunctionIR> {
         val out = ArrayList<FlatFunctionIR>()
@@ -237,8 +234,7 @@ object ClosureAnalyzer {
         val out = HashSet<String>()
         for (block in fn.cfg.blocks) {
             for (inst in block.instructions) {
-                inst.target?.let { addLocalName(it, out) }
-                inst.unpackTargets.forEach { addLocalName(it, out) }
+                inst.targets.forEach { addLocalName(it, out) }
             }
         }
         return out

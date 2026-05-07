@@ -152,7 +152,7 @@ class ClosureAnalyzerTest {
             ),
         )
 
-        val info = ClosureAnalyzer.analyze(module(listOf(outer, inner)))
+        val info = ClosureAnalyzer.analyze(module(listOf(outer, inner))).info
 
         assertEquals(setOf("x"), info.getValue(innerQn).closureVars)
         assertEquals(emptySet<String>(), info.getValue(innerQn).cellVars)
@@ -197,7 +197,7 @@ class ClosureAnalyzerTest {
             ),
         )
 
-        val info = ClosureAnalyzer.analyze(module(listOf(outer, inc)))
+        val info = ClosureAnalyzer.analyze(module(listOf(outer, inc))).info
 
         // `count` is in nonlocal, so it must propagate as a closure var even
         // though `inc` also writes it locally.
@@ -250,7 +250,7 @@ class ClosureAnalyzerTest {
             ),
         )
 
-        val info = ClosureAnalyzer.analyze(module(listOf(outer, a, b)))
+        val info = ClosureAnalyzer.analyze(module(listOf(outer, a, b))).info
 
         assertEquals(setOf("b"), info.getValue(aQn).closureVars)
         assertEquals(setOf("b"), info.getValue(outerQn).cellVars)
@@ -299,7 +299,7 @@ class ClosureAnalyzerTest {
             ),
         )
 
-        val info = ClosureAnalyzer.analyze(module(listOf(outer, middle, inner)))
+        val info = ClosureAnalyzer.analyze(module(listOf(outer, middle, inner))).info
 
         assertEquals(setOf("x"), info.getValue(innerQn).closureVars)
         // Transitive: middle never directly references x but its descendant
@@ -325,7 +325,7 @@ class ClosureAnalyzerTest {
             body = listOf(FlatReturn(local("unresolved"))),
         )
 
-        val info = ClosureAnalyzer.analyze(module(listOf(f)))
+        val info = ClosureAnalyzer.analyze(module(listOf(f))).info
         assertEquals(emptySet<String>(), info.getValue(fQn).closureVars)
     }
 
@@ -349,7 +349,7 @@ class ClosureAnalyzerTest {
         )
         val c = klass(name = "C", qualifiedName = cQn, methods = listOf(mfn))
 
-        val info = ClosureAnalyzer.analyze(module(functions = emptyList(), classes = listOf(c)))
+        val info = ClosureAnalyzer.analyze(module(functions = emptyList(), classes = listOf(c))).info
         assertEquals(emptySet<String>(), info.getValue(mQn).closureVars)
     }
 
@@ -384,7 +384,7 @@ class ClosureAnalyzerTest {
             ),
         )
 
-        val info = ClosureAnalyzer.analyze(module(listOf(outer, lam)))
+        val info = ClosureAnalyzer.analyze(module(listOf(outer, lam))).info
         assertEquals(setOf("n"), info.getValue(lamQn).closureVars)
         assertEquals(setOf("n"), info.getValue(outerQn).cellVars)
     }
@@ -424,7 +424,7 @@ class ClosureAnalyzerTest {
             ),
         )
 
-        val info = ClosureAnalyzer.analyze(module(listOf(outer, inner)))
+        val info = ClosureAnalyzer.analyze(module(listOf(outer, inner))).info
         assertEquals(setOf("a", "b"), info.getValue(innerQn).closureVars)
         assertEquals(setOf("a", "b"), info.getValue(outerQn).cellVars)
     }
@@ -464,7 +464,7 @@ class ClosureAnalyzerTest {
             ),
         )
 
-        val info = ClosureAnalyzer.analyze(module(listOf(outer, inner)))
+        val info = ClosureAnalyzer.analyze(module(listOf(outer, inner))).info
         assertEquals(emptySet<String>(), info.getValue(innerQn).closureVars)
         assertEquals(emptySet<String>(), info.getValue(outerQn).cellVars)
     }
@@ -537,7 +537,7 @@ class ClosureAnalyzerTest {
                 imports = emptyList(),
                 diagnostics = emptyList(),
             ),
-        )
+        ).info
 
         assertEquals(setOf("x"), info.getValue(innerQn).closureVars)
         // Method is a closure root: public closureVars forced empty.
@@ -597,7 +597,7 @@ class ClosureAnalyzerTest {
             ),
         )
 
-        val info = ClosureAnalyzer.analyze(module(listOf(outer, inner)))
+        val info = ClosureAnalyzer.analyze(module(listOf(outer, inner))).info
         val innerCv = info.getValue(innerQn).closureVars
         assertEquals(setOf("x"), innerCv)
         assert("print" !in innerCv)
@@ -605,28 +605,26 @@ class ClosureAnalyzerTest {
     }
 
     @Test
-    fun `transitive capture through closure-root method pass-through`() {
-        // class C:
-        //     def m(self):           # METHOD = closure root: own closureVars=∅
-        //         def inner():       # NESTED_DEF, parentQualifiedName = m
-        //             return x       # captured from outer (the enclosing function)
-        //         return inner()
-        //
+    fun `transitive capture through method-in-class-inside-function`() {
         // def outer():
         //     x = 1
+        //     class C:
+        //         def m(self):
+        //             def inner():
+        //                 return x       # captures outer's x via m
+        //             return inner()
         //     return C().m()
         //
-        // Note: a method really is a closure root in Python (class bodies
-        // don't form closure scopes), but a nested def *inside* the method
-        // can still capture from the enclosing FUNCTION via the method's
-        // pass-through. The analyzer's `propagatedClosureVars` cache must
-        // carry the un-overridden value so transitive capture works even
-        // when the chain crosses a method.
+        // The class-inside-function shape isn't producible from real
+        // proto→Flat input today (FlatClass doesn't represent it), but the
+        // analyzer is forward-compatible: when a method's `parent` points
+        // at an enclosing function (instead of being null), the method is
+        // *not* a closure root and forwards cells through. This is the
+        // CPython-faithful behaviour.
         //
-        // To exercise that path concretely, we wire `inner` as a child of
-        // `m`, and `m` as a child of `outer`. This is the structural shape
-        // the rewriter needs to handle: when `m`'s public closureVars is
-        // ∅ (override), `outer.cellVars` must STILL include `x`.
+        // Closure-root status is now derived from "has no parent" rather
+        // than from FlatFunctionKind, so a parented METHOD participates
+        // in the closure chain like any other inner scope.
         val outerQn = "m.outer"
         val mQn = "m.outer.C.m"          // method, parent = outer
         val innerQn = "m.outer.C.m.inner" // nested def, parent = m
@@ -660,19 +658,17 @@ class ClosureAnalyzerTest {
             ),
         )
 
-        val info = ClosureAnalyzer.analyze(module(listOf(outer, method, inner)))
+        val info = ClosureAnalyzer.analyze(module(listOf(outer, method, inner))).info
 
         // inner directly captures x from outer through m.
         assertEquals(setOf("x"), info.getValue(innerQn).closureVars)
-        // m is a METHOD — closure-root override forces empty.
-        assertEquals(emptySet(), info.getValue(mQn).closureVars)
-        // m doesn't OWN x, so cellVars stays empty too.
+        // m has a parent, so it is NOT a closure root: it forwards x.
+        assertEquals(setOf("x"), info.getValue(mQn).closureVars)
+        // m doesn't OWN x, so cellVars stays empty.
         assertEquals(emptySet(), info.getValue(mQn).cellVars)
         // outer owns x AND a transitive descendant needs it: must allocate cell.
-        // This is the assertion that catches a regression where someone reads
-        // m.publicClosureVars (∅) instead of m.propagatedClosureVars ({x})
-        // when computing outer.childNeeds.
         assertEquals(setOf("x"), info.getValue(outerQn).cellVars)
+        // outer is parentless = closure root: closureVars forced to ∅.
         assertEquals(emptySet(), info.getValue(outerQn).closureVars)
     }
 }

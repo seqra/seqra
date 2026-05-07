@@ -33,18 +33,24 @@ import org.opentaint.ir.impl.python.flat.FlatStoreAttr
  * exactly — same kinds, defaults, types. Forwarding uses arg kinds matched
  * to each parameter kind.
  *
- * Pure: depends only on [entry] and [originalImpl], not on any per-function
- * rewrite state.
+ * Pure: depends only on [originalImpl] and [moduleName], not on any
+ * per-function rewrite state. Adapter and impl qualified names are derived
+ * from [originalImpl]'s already-unique `name` via [ClosureRuntime].
  */
-internal fun buildAdapterClass(entry: CapturingEntry, originalImpl: FlatFunctionIR): FlatClass {
-    val initFn = buildInitMethod(entry)
-    val callFn = buildCallMethod(entry, originalImpl)
+internal fun buildAdapterClass(originalImpl: FlatFunctionIR, moduleName: String): FlatClass {
+    val adapterQn = ClosureRuntime.adapterClassQn(moduleName, originalImpl.name)
+    val implQn = ClosureRuntime.implFunctionQn(moduleName, originalImpl.name)
+    val adapterName = adapterQn.substringAfterLast('.')
+
     return FlatClass(
-        name = entry.adapterClassName,
-        qualifiedName = entry.adapterClassQn,
+        name = adapterName,
+        qualifiedName = adapterQn,
         baseClasses = emptyList(),
         mro = emptyList(),
-        methods = listOf(initFn, callFn),
+        methods = listOf(
+            buildInitMethod(adapterQn),
+            buildCallMethod(adapterQn, implQn, originalImpl),
+        ),
         fields = emptyList(),
         nestedClasses = emptyList(),
         decorators = emptyList(),
@@ -54,7 +60,7 @@ internal fun buildAdapterClass(entry: CapturingEntry, originalImpl: FlatFunction
     )
 }
 
-private fun buildInitMethod(entry: CapturingEntry): FlatFunctionIR {
+private fun buildInitMethod(adapterQn: String): FlatFunctionIR {
     val selfLocal = FlatLocal("self")
     val envParamLocal = FlatLocal(ClosureRuntime.CLOSURE_ATTR_NAME)
     val cfg = FlatCFG(
@@ -77,7 +83,7 @@ private fun buildInitMethod(entry: CapturingEntry): FlatFunctionIR {
     )
     return FlatFunctionIR(
         name = "__init__",
-        qualifiedName = "${entry.adapterClassQn}.__init__",
+        qualifiedName = "$adapterQn.__init__",
         parentQualifiedName = null,
         kind = FlatFunctionKind.METHOD,
         cfg = cfg,
@@ -100,7 +106,11 @@ private fun buildInitMethod(entry: CapturingEntry): FlatFunctionIR {
  * user-visible parameters and forwards them positionally/keyword/star
  * to `_impl(self, …)`.
  */
-private fun buildCallMethod(entry: CapturingEntry, originalImpl: FlatFunctionIR): FlatFunctionIR {
+private fun buildCallMethod(
+    adapterQn: String,
+    implQn: String,
+    originalImpl: FlatFunctionIR,
+): FlatFunctionIR {
     // Adapter `__call__` mirrors the impl's user-visible parameters
     // (= original impl parameters; the impl's synthetic <self> is added
     // by the prologue inside the impl itself).
@@ -113,7 +123,6 @@ private fun buildCallMethod(entry: CapturingEntry, originalImpl: FlatFunctionIR)
     val forwardArgs = listOf(FlatCallArg(FlatLocal("self"), FlatArgKind.POSITIONAL)) +
         implUserParams.map { p -> forwardArgFor(p) }
 
-    val implRef = FlatGlobalRef(entry.implRenamedQn)
     val cfg = FlatCFG(
         blocks = listOf(
             FlatBlock(
@@ -121,7 +130,7 @@ private fun buildCallMethod(entry: CapturingEntry, originalImpl: FlatFunctionIR)
                 instructions = listOf(
                     FlatCall(
                         target = tmpReturn,
-                        callee = implRef,
+                        callee = FlatGlobalRef(implQn),
                         args = forwardArgs,
                     ),
                     FlatReturn(tmpReturn),
@@ -134,7 +143,7 @@ private fun buildCallMethod(entry: CapturingEntry, originalImpl: FlatFunctionIR)
     )
     return FlatFunctionIR(
         name = "__call__",
-        qualifiedName = "${entry.adapterClassQn}.__call__",
+        qualifiedName = "$adapterQn.__call__",
         parentQualifiedName = null,
         kind = FlatFunctionKind.METHOD,
         cfg = cfg,

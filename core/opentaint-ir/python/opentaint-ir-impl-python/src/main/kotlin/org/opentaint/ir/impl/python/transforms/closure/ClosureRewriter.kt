@@ -30,21 +30,18 @@ import org.opentaint.ir.impl.python.flat.FlatModuleIR
  * so the PIR converter sees it.
  *
  * Implementation is split across:
- *  - [CapturingPlan] — synthetic name allocation.
+ *  - [ClosureRuntime.adapterClassQn] / [ClosureRuntime.implFunctionQn] —
+ *    synthetic name derivation (pure, no allocator state).
  *  - [AdapterClassBuilder] — pure adapter-class synthesis.
  *  - [RewriteCtx] — per-function rewrite state and body walk.
  */
 internal object ClosureRewriter {
 
-    fun rewrite(module: FlatModuleIR, info: Map<String, ClosureInfo>): FlatModuleIR {
-        val diagnostics = ArrayList<PIRDiagnostic>()
-
-        // First scan: pick adapter class names + impl renames for every capturing
-        // function. Both decisions must be visible BEFORE we walk bind sites.
-        val capturingPlan = buildCapturingPlan(module, info)
-
+    fun rewrite(module: FlatModuleIR, closureAnalysis: ClosureAnalysis): FlatModuleIR {
+        val info = closureAnalysis.info
+        val diagnostics = closureAnalysis.diagnostics.toMutableList()
         val adapterClasses = ArrayList<FlatClass>()
-        val runner = RewriteRunner(info, capturingPlan, diagnostics)
+        val runner = RewriteRunner(module.moduleName, info, diagnostics)
 
         val newFunctions = module.functions.map {
             val out = runner.rewriteFunction(it)
@@ -71,8 +68,8 @@ internal object ClosureRewriter {
  * [RewriteCtx] needs and isolates rewrite failures into diagnostics.
  */
 private class RewriteRunner(
+    private val moduleName: String,
     private val info: Map<String, ClosureInfo>,
-    private val capturingPlan: Map<String, CapturingEntry>,
     private val diagnostics: MutableList<PIRDiagnostic>,
 ) {
 
@@ -93,23 +90,27 @@ private class RewriteRunner(
      * function and an optional adapter class.
      *
      * Only [ClosureRewriteLimitation] (documented unsupported shapes) is
-     * caught and downgraded to a diagnostic. Any other exception — including
-     * [IllegalStateException] from `error(...)` invariant checks and
-     * [IllegalArgumentException] from contract checks like `withTarget` —
-     * indicates a programmer error and propagates: silently downgrading
-     * those produces an inconsistent module (e.g. parents committed to an
-     * adapter-class shape whose impl never got renamed because the impl
-     * rewrite was bailed).
+     * caught and downgraded to a diagnostic. Any other exception —
+     * [IllegalStateException] from `error(...)` invariant checks and the
+     * like — indicates a programmer error and propagates: silently
+     * downgrading those produces an inconsistent module (e.g. parents
+     * committed to an adapter-class shape whose impl never got renamed
+     * because the impl rewrite was bailed).
      */
     fun rewriteFunction(fn: FlatFunctionIR): RewriteOutput {
         val ci = info[fn.qualifiedName] ?: return RewriteOutput(fn)
 
-        if (ci.cellVars.isEmpty() && ci.closureVars.isEmpty() && !ci.hasCapturingChildBind) {
+        if (ci.cellVars.isEmpty() && ci.closureVars.isEmpty()) {
+            // No own cells and no received cells. Bind sites for capturing
+            // children would require this function to forward cells it
+            // doesn't have — which can only happen on a closure root with
+            // an analyzer-emitted leak warning. The rewriter has nothing
+            // to add here either way; return verbatim.
             return RewriteOutput(fn)
         }
 
         return try {
-            RewriteCtx(fn, ci, info, capturingPlan).run()
+            RewriteCtx(fn, ci, info, moduleName).run()
         } catch (e: ClosureRewriteLimitation) {
             diagnostics.add(
                 PIRDiagnostic(

@@ -6,7 +6,7 @@ package org.opentaint.ir.impl.python.flat
  * Each concrete subtype dispatches via [accept] to the matching `visit*`
  * method on [FlatInstVisitor]. Common shape queries — operand list, target
  * substitution — are implemented on top of the visitor: see
- * [FlatInst.target], [FlatInst.mapOperand], and [FlatInst.withTarget].
+ * [FlatInst.targets], [FlatInst.mapOperand], and [FlatInst.mapTarget].
  */
 sealed interface FlatInst {
     val line: Int

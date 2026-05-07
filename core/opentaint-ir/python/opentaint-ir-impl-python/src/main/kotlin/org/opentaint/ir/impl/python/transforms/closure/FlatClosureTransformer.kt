@@ -12,7 +12,7 @@ import org.opentaint.ir.impl.python.flat.FlatModuleIR
  */
 object FlatClosureTransformer {
     fun transform(module: FlatModuleIR): FlatModuleIR {
-        val info = ClosureAnalyzer.analyze(module)
-        return ClosureRewriter.rewrite(module, info)
+        val analysis = ClosureAnalyzer.analyze(module)
+        return ClosureRewriter.rewrite(module, analysis)
     }
 }
