@@ -234,18 +234,18 @@ rules:
                           UrlResource $METHOD(...) {
                             ...
                           }
-                      # `ResponseEntity<?>` wildcard and the `<Resource>`
-                      # family. The runtime body type drives content
-                      # negotiation; the wildcard's declared `?` is
-                      # invisible to Spring. Empirically all emit
-                      # `text/html` for String/byte[]/Resource bodies.
-                      # Bounded wildcards (`<? extends X>`, `<? super X>`)
-                      # are NOT covered by the literal `<?>` pattern.
-                      - pattern-inside: |
-                          @$ANNOTATION(...)
-                          ResponseEntity<?> $METHOD(...) {
-                            ...
-                          }
+                      # `<Resource>` family at the type-arg position.
+                      # Spring picks the converter from the runtime body
+                      # type, so a `Resource` parameterized return that
+                      # happens to wrap a String body still emits
+                      # `text/html`. Empirically validated for the listed
+                      # subclasses.
+                      #
+                      # `ResponseEntity<?>` (and `CompletableFuture<?>`,
+                      # `DeferredResult<?>`) intentionally NOT covered:
+                      # Semgrep's `<?>` in patterns is "any type-arg" and
+                      # over-matches `<DTO>`. FN risk for literal-`<?>`
+                      # handlers is acceptable.
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           ResponseEntity<Resource> $METHOD(...) {
@@ -311,11 +311,6 @@ rules:
                           }
                       - pattern-inside: |
                           @$ANNOTATION(...)
-                          CompletableFuture<?> $METHOD(...) {
-                            ...
-                          }
-                      - pattern-inside: |
-                          @$ANNOTATION(...)
                           CompletableFuture<Resource> $METHOD(...) {
                             ...
                           }
@@ -363,11 +358,6 @@ rules:
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           DeferredResult<Object> $METHOD(...) {
-                            ...
-                          }
-                      - pattern-inside: |
-                          @$ANNOTATION(...)
-                          DeferredResult<?> $METHOD(...) {
                             ...
                           }
                       - pattern-inside: |
