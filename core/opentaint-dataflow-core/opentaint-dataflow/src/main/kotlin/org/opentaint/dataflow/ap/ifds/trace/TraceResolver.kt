@@ -181,13 +181,7 @@ class TraceResolver(
 
                     if (trace.startNodes.isEmpty()) {
                         // trace is invalid, proceed with next request
-                        val nextState = Source2SinkTraceResolutionState(
-                            state.vulnerability,
-                            InterProceduralTraceGraphBuilder(),
-                            state.requests,
-                            state.nextRequestIdx,
-                            kind = ProcessingKind.ADD_NEXT_REQUEST,
-                        )
+                        val nextState = state.copy(kind = ProcessingKind.ADD_NEXT_REQUEST)
                         return TraceResolutionResult.InProgress(nextState)
                     }
 
@@ -219,12 +213,9 @@ class TraceResolver(
             }
         }
 
-        val nextState = Source2SinkTraceResolutionState(
-            state.vulnerability,
-            state.builder,
-            state.requests,
-            state.nextRequestIdx + 1,
-            kind = ProcessingKind.PROCESS,
+        val nextState = state.copy(
+            nextRequestIdx = state.nextRequestIdx + 1,
+            kind = ProcessingKind.PROCESS
         )
         return nextState
     }
@@ -264,7 +255,7 @@ class TraceResolver(
         ADD_NEXT_REQUEST, PROCESS
     }
 
-    private class Source2SinkTraceResolutionState(
+    private data class Source2SinkTraceResolutionState(
         override val vulnerability: TaintVulnerability,
         val builder: InterProceduralTraceGraphBuilder,
         val requests: List<TraceResolutionRequest>,
