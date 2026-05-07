@@ -25,6 +25,7 @@ import org.opentaint.dataflow.configuration.jvm.TypeArgMatcher
 import org.opentaint.dataflow.configuration.jvm.TypeMatches
 import org.opentaint.dataflow.configuration.jvm.TypeMatchesPattern
 import org.opentaint.dataflow.configuration.jvm.erasedName
+import org.opentaint.dataflow.configuration.jvm.isAnyTypeArg
 import org.opentaint.dataflow.jvm.ap.ifds.CallPositionValue
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
@@ -37,8 +38,6 @@ import org.opentaint.ir.api.jvm.JIRArrayType
 import org.opentaint.ir.api.jvm.JIRClassType
 import org.opentaint.ir.api.jvm.JIRRefType
 import org.opentaint.ir.api.jvm.JIRType
-import org.opentaint.ir.api.jvm.JIRTypeVariable
-import org.opentaint.ir.api.jvm.JIRUnboundWildcard
 import org.opentaint.ir.api.jvm.cfg.JIRBool
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRConstant
@@ -390,11 +389,7 @@ class JIRBasicAtomEvaluator(
     }
 
     private fun TypeArgMatcher.matchType(type: JIRType): Boolean {
-        // Raw class type arguments (`JIRTypeVariable`) and unbounded
-        // wildcards (`<?>`) denote "any type", so any pattern matcher
-        // accepts them — the unknown type could be whatever the pattern
-        // requires.
-        if (type is JIRTypeVariable || type is JIRUnboundWildcard) return true
+        if (type.isAnyTypeArg()) return true
         return when (this) {
             is TypeArgMatcher.Class -> matchType(type)
             is TypeArgMatcher.Array -> matchType(type)

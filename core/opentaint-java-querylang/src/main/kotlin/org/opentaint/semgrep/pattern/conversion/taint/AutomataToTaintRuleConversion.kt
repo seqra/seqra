@@ -943,16 +943,9 @@ private fun TaintRuleGenerationCtx.typeMatcher(
 private fun TaintRuleGenerationCtx.typeArgsMatcher(
     typeArgs: List<TypeNamePattern>,
     semgrepRuleTrace: SemgrepRuleLoadStepTrace
-): List<SerializedTypeNameMatcher>? {
-    if (typeArgs.isEmpty()) return null
-    // `Foo<?>` (and any all-wildcard parameterization) denotes the same set
-    // of types as the raw form `Foo` — drop the type-args constraint so the
-    // two patterns are indistinguishable downstream.
-    if (typeArgs.all { it is TypeNamePattern.AnyType }) return null
-    return typeArgs.map {
-        (typeMatcher(it, semgrepRuleTrace) as? MetaVarConstraintFormula.Constraint<SerializedTypeNameMatcher>)?.constraint
-            ?: anyClassPattern()
-    }
+): List<SerializedTypeNameMatcher>? = typeArgs.takeIf { it.isNotEmpty() }?.map {
+    (typeMatcher(it, semgrepRuleTrace) as? MetaVarConstraintFormula.Constraint<SerializedTypeNameMatcher>)?.constraint
+        ?: anyClassPattern()
 }
 
 private fun String.patternCanMatchDot(): Boolean =

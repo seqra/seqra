@@ -33,11 +33,7 @@ private fun SerializedTypeNameMatcher.matchTypeArgs(
             if (args.size != type.typeArguments.size) return false
 
             args.zip(type.typeArguments).all { (m, a) ->
-                // Raw class type arguments (`JIRTypeVariable`) and unbounded
-                // wildcards (`<?>`) denote "any type", so any pattern matcher
-                // accepts them — the unknown type could be whatever the
-                // pattern requires.
-                if (a is JIRTypeVariable || a is JIRUnboundWildcard) return@all true
+                if (a.isAnyTypeArg()) return@all true
                 m.matchType(a.erasedName(), resolveType = { a }, erasedMatch)
             }
         }
@@ -48,6 +44,14 @@ private fun SerializedTypeNameMatcher.matchTypeArgs(
         )
     }
 }
+
+/**
+ * `true` for type arguments that denote "any type" — a raw use's declared
+ * type variable (e.g. `E` of `List<E>`) or an unbounded wildcard `<?>`. Any
+ * pattern matcher accepts such a slot because the unknown could be whatever
+ * the pattern requires.
+ */
+fun JIRType.isAnyTypeArg(): Boolean = this is JIRTypeVariable || this is JIRUnboundWildcard
 
 /**
  * Erased class name for matching — drops any generic decoration that
