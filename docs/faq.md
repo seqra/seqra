@@ -2,7 +2,7 @@
 
 **What is OpenTaint?**
 
-OpenTaint is an open source taint analysis engine for the AI era. It runs inter-procedural dataflow analysis to track untrusted data across function boundaries, persistence layers, aliases, and async code. For Java and Kotlin, the analysis works on bytecode. Rules are written in an AST-pattern format that's readable yet expressive enough for the engine to find real vulnerabilities without flagging safe code. It catches what AST-pattern matchers miss, turns LLM agent findings into reusable rules, and scales beyond what either can do alone.
+OpenTaint is an open source taint analysis engine built for the AI era.. It runs inter-procedural dataflow analysis to track untrusted data across function boundaries, persistence layers, aliases, and async code. For Java and Kotlin, the analysis works on bytecode. Rules are written in a readable AST-pattern format expressive enough to describe both vulnerable and safe patterns, letting the engine analyze deeply and precisely. It catches what AST-pattern matchers miss, turns LLM agent findings into reusable rules, and scales beyond what either can do alone.
 
 **What vulnerabilities does OpenTaint detect?**
 
