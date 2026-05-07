@@ -187,6 +187,95 @@ rules:
                           ResponseEntity<byte[]> $METHOD(...) {
                             ...
                           }
+                      # Bare body-typed returns from `@RestController` /
+                      # `@Controller`+`@ResponseBody` methods. Empirically
+                      # (see `/tmp/spring-content-type-probe/RESULTS.md`) all
+                      # of these emit `text/html` to a browser visitor under
+                      # default content negotiation: `ByteArrayHttpMessageConverter`
+                      # supports the wildcard media type, `ResourceHttpMessageConverter`
+                      # supports the wildcard media type, and Spring picks
+                      # the highest-priority Accept type from the browser.
+                      # Bare `Object` is intentionally NOT covered here:
+                      # Semgrep's subtype-aware return-type matching makes
+                      # `pattern-inside Object $METHOD` subsume every
+                      # class-typed return (FP on `ResponseEntity<DTO>`).
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          byte[] $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          Resource $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          InputStreamResource $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ByteArrayResource $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ClassPathResource $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          FileSystemResource $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          UrlResource $METHOD(...) {
+                            ...
+                          }
+                      # `ResponseEntity<?>` wildcard and the `<Resource>`
+                      # family. The runtime body type drives content
+                      # negotiation; the wildcard's declared `?` is
+                      # invisible to Spring. Empirically all emit
+                      # `text/html` for String/byte[]/Resource bodies.
+                      # Bounded wildcards (`<? extends X>`, `<? super X>`)
+                      # are NOT covered by the literal `<?>` pattern.
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<?> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<Resource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<InputStreamResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<ByteArrayResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<ClassPathResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<FileSystemResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<UrlResource> $METHOD(...) {
+                            ...
+                          }
                       # Raw `ResponseEntity` (no type argument) is also
                       # DEFAULT-DANGEROUS but it is handled in a
                       # dedicated top-level Branch 1d below, not here.
@@ -211,6 +300,50 @@ rules:
                           CompletableFuture<byte[]> $METHOD(...) {
                             ...
                           }
+                      # `CompletableFuture` wraps an arbitrary inner type;
+                      # Spring unwraps it and applies converters to the
+                      # inner value. Symmetric expansion to cover Object,
+                      # wildcard, and the Resource family.
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<Object> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<?> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<Resource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<InputStreamResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<ByteArrayResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<ClassPathResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<FileSystemResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<UrlResource> $METHOD(...) {
+                            ...
+                          }
                   - pattern: return $UNTRUSTED;
               - patterns:
                   - pattern-either:
@@ -222,6 +355,49 @@ rules:
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           DeferredResult<byte[]> $METHOD(...) {
+                            ...
+                          }
+                      # Symmetric expansion mirroring CompletableFuture.
+                      # Spring unwraps the wrapper and applies converters
+                      # to the inner value.
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<Object> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<?> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<Resource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<InputStreamResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<ByteArrayResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<ClassPathResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<FileSystemResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<UrlResource> $METHOD(...) {
                             ...
                           }
                   - pattern: $DR.setResult(..., $UNTRUSTED, ...);
@@ -264,6 +440,39 @@ rules:
                         - pattern: MediaType.IMAGE_PNG_VALUE
                         - pattern: MediaType.IMAGE_JPEG_VALUE
                         - pattern: MediaType.IMAGE_GIF_VALUE
+          - focus-metavariable: $UNTRUSTED
+
+      # Branch 1d: raw `ResponseEntity` (no type argument) handler return —
+      # DEFAULT-DANGEROUS for the same reason as `ResponseEntity<String>`:
+      # the body's runtime type drives content negotiation, and a String /
+      # byte[] / Resource body routes through a converter that advertises
+      # the wildcard media type and emits `text/html` under
+      # `Accept: text/html`.
+      #
+      # The raw `pattern-inside ResponseEntity` would over-match every
+      # `ResponseEntity<*>` declaration the engine sees. The sibling
+      # `pattern-not-inside ResponseEntity<$T>` subtracts every
+      # parameterized declaration so only truly raw returns survive —
+      # engine support landed in `TypeAwarePatternTest.A24` (raw
+      # `pattern-inside` / parameterized `pattern-not-inside`
+      # discrimination).
+      #
+      # The branch is hoisted to top-level patterns to match A24's flat
+      # structure exactly. Putting the raw + negation pair inside Branch
+      # 1's nested `pattern-either` does not engage the discrimination
+      # end-to-end and the rule-test FN comes back.
+      - patterns:
+          - pattern-inside: |
+              @$ANNOTATION(...)
+              ResponseEntity $METHOD(...) {
+                ...
+              }
+          - pattern-not-inside: |
+              @$ANNOTATION(...)
+              ResponseEntity<$T> $METHOD(...) {
+                ...
+              }
+          - pattern: return $UNTRUSTED;
           - focus-metavariable: $UNTRUSTED
 
       # Branch 1b: explicit HTML / SVG producer on the handler
