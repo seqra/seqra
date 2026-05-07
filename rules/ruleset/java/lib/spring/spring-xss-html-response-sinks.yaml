@@ -432,39 +432,6 @@ rules:
                         - pattern: MediaType.IMAGE_GIF_VALUE
           - focus-metavariable: $UNTRUSTED
 
-      # Branch 1d: raw `ResponseEntity` (no type argument) handler return —
-      # DEFAULT-DANGEROUS for the same reason as `ResponseEntity<String>`:
-      # the body's runtime type drives content negotiation, and a String /
-      # byte[] / Resource body routes through a converter that advertises
-      # the wildcard media type and emits `text/html` under
-      # `Accept: text/html`.
-      #
-      # The raw `pattern-inside ResponseEntity` would over-match every
-      # `ResponseEntity<*>` declaration the engine sees. The sibling
-      # `pattern-not-inside ResponseEntity<$T>` subtracts every
-      # parameterized declaration so only truly raw returns survive —
-      # engine support landed in `TypeAwarePatternTest.A24` (raw
-      # `pattern-inside` / parameterized `pattern-not-inside`
-      # discrimination).
-      #
-      # The branch is hoisted to top-level patterns to match A24's flat
-      # structure exactly. Putting the raw + negation pair inside Branch
-      # 1's nested `pattern-either` does not engage the discrimination
-      # end-to-end and the rule-test FN comes back.
-      - patterns:
-          - pattern-inside: |
-              @$ANNOTATION(...)
-              ResponseEntity $METHOD(...) {
-                ...
-              }
-          - pattern-not-inside: |
-              @$ANNOTATION(...)
-              ResponseEntity<$T> $METHOD(...) {
-                ...
-              }
-          - pattern: return $UNTRUSTED;
-          - focus-metavariable: $UNTRUSTED
-
       # Branch 1b: explicit HTML / SVG producer on the handler
       # annotation. Fires regardless of `@RestController` because an
       # explicit `produces` overrides the converter's default content
