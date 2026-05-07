@@ -38,4 +38,4 @@ Yes. The core engine is licensed under [Apache 2.0](../LICENSE.md), and the CLI,
 
 **Can I use existing Semgrep rules?**
 
-OpenTaint supports Semgrep rule syntax, so existing rules work as a starting point. The engine layers inter-procedural dataflow analysis on top of them, and you can extend those rules with OpenTaint's full taint configuration — sources, sinks, sanitizers, propagators — to leverage the inter-procedural engine.
+OpenTaint supports Semgrep's rule format, with some restrictions and a few extensions (e.g. a taint-style join mode). The engine interprets metavariables as data values — not just syntactic placeholders — and propagates them through inter-procedural dataflow. Because of that semantic difference, the same rule can produce different findings in OpenTaint than in Semgrep.
