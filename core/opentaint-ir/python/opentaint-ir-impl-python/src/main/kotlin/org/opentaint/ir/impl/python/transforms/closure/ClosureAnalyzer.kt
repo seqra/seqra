@@ -107,13 +107,13 @@ class ClosureAnalyzer private constructor(val module: FlatModuleIR) {
             )
         }
         val publicClosureVars = if (isClosureRoot) emptySet() else propagated
-        val info = ClosureInfo(
+
+        ClosureInfo(
             ownedNames = ownedNames.sortedDeterministic(),
             cellVars = cellVars,
             closureVars = publicClosureVars,
             isClosureRoot = isClosureRoot,
         )
-        return info
     }
 
     /* ------------------------------------------------------------------ */
