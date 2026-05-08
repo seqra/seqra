@@ -1,10 +1,6 @@
 package org.opentaint.dataflow.jvm.ap.ifds.alias
 
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet
-import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAccessor.Field
 import org.opentaint.dataflow.jvm.ap.ifds.alias.DSUAliasAnalysis.State
-import org.opentaint.dataflow.jvm.ap.ifds.alias.LocalAlias.SimpleLoc
-import java.util.IdentityHashMap
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -12,73 +8,6 @@ class DSUAliasAnalysisStateTest {
 
     private val manager = AAInfoManager()
     private val strategy = DSUAliasAnalysis.DsuMergeStrategy(manager)
-
-    private class StateBuilder(
-        private val manager: AAInfoManager,
-        private val strategy: DSUAliasAnalysis.DsuMergeStrategy
-    ) {
-        private var state = State.empty(manager, strategy)
-
-        private val created = IdentityHashMap<AAInfo, Unit>()
-
-        fun local(idx: Int): LocalAlias = create(
-            SimpleLoc(RefValue.Local(idx, ContextInfo.rootContext))
-        )
-
-        fun unknown(originalIdx: Int): Unknown = create(
-            Unknown(Stmt.Return(value = null, originalIdx = originalIdx), ContextInfo.rootContext)
-        )
-
-        fun arrayAlias(instanceInfo: AAInfo) = heapAlias(instanceInfo) { i -> HeapAlias(i, ArrayAlias) }
-
-        fun fieldAlias(instanceInfo: AAInfo, fieldName: String) = heapAlias(instanceInfo) { i ->
-            HeapAlias(i, FieldAlias(Field("Cls", fieldName, "I"), isImmutable = true))
-        }
-
-        private fun heapAlias(instance: AAInfo, body: (Int) -> HeapAlias): HeapAlias {
-            val instanceId = infoId(instance)
-            val instanceGroupId = state.aliasGroupId(instanceId)
-
-            return create(body(instanceGroupId))
-        }
-
-        private fun <T : AAInfo> create(info: T): T {
-            created[info] = Unit
-            return info
-        }
-
-        fun merge(set: Set<AAInfo>) {
-            val setIds = infoIds(set)
-            state = state.mergeAliasSets(setIds)
-        }
-
-        fun remove(set: Set<AAInfo>) {
-            val setIds = infoIds(set)
-            state = state.removeUnsafe(setIds)
-        }
-
-        private fun infoId(info: AAInfo): Int {
-            check(created.containsKey(info)) { "$info doesn't belongs to the current state" }
-            return manager.getOrAdd(info)
-        }
-
-        private fun infoIds(set: Set<AAInfo>): IntOpenHashSet {
-            val setIds = IntOpenHashSet()
-            set.forEach { setIds.add(infoId(it)) }
-            return setIds
-        }
-
-        fun build(): State = state
-
-        fun mergeStates(vararg builders: StateBuilder) {
-            val states = builders.map { it.state }
-            this.state = State.merge(manager, strategy, states)
-
-            builders.forEach {
-                created.putAll(it.created)
-            }
-        }
-    }
 
     private inline fun buildState(body: StateBuilder.() -> Unit): State =
         fillState(body).build()

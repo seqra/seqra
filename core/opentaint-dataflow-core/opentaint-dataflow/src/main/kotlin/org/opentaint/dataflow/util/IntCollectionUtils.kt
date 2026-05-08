@@ -13,6 +13,8 @@ inline fun IntCollection.forEachInt(block: (Int) -> Unit) {
     }
 }
 
+fun IntCollection.firstInt(): Int = intIterator().nextInt()
+
 inline fun IntList.reversedForEachInt(block: (Int) -> Unit) {
     val iter = listIterator(size)
     while (iter.hasPrevious()) {
