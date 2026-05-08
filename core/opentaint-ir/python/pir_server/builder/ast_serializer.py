@@ -178,9 +178,12 @@ class AstSerializer:
                 results.extend(self._serialize_definitions(item, enclosing_class))
             return results
         elif isinstance(defn, AssignmentStmt):
+            # Wrap in MypyStmtProto so the module-level assignment carries
+            # its physical location alongside the assignment payload (mirrors
+            # how nested statements look in `_serialize_block`).
             return [
                 pir_pb2.MypyDefinitionProto(
-                    assignment=self._serialize_assignment_stmt(defn)
+                    assignment=self._serialize_stmt(defn)
                 )
             ]
         return []
@@ -379,7 +382,18 @@ class AstSerializer:
     def _serialize_stmt(self, stmt) -> pir_pb2.MypyStmtProto | None:
         line = getattr(stmt, "line", -1)
         col = getattr(stmt, "column", 0)
-        proto = pir_pb2.MypyStmtProto(line=line, col=col)
+        # Mypy uses None / missing attribute for unknown end coords; -1 is the
+        # wire-level sentinel. A literal 0 is a legitimate (if unusual) value
+        # and must not be collapsed to -1.
+        end_line = getattr(stmt, "end_line", None)
+        if end_line is None:
+            end_line = -1
+        end_col = getattr(stmt, "end_column", None)
+        if end_col is None:
+            end_col = -1
+        proto = pir_pb2.MypyStmtProto(
+            line=line, col=col, end_line=end_line, end_col=end_col
+        )
 
         if isinstance(stmt, AssignmentStmt):
             proto.assignment.CopyFrom(self._serialize_assignment_stmt(stmt))
@@ -547,7 +561,16 @@ class AstSerializer:
     def _serialize_expr_inner(self, expr: Expression) -> pir_pb2.MypyExprProto:
         line = getattr(expr, "line", -1)
         col = getattr(expr, "column", 0)
-        proto = pir_pb2.MypyExprProto(line=line, col=col)
+        # See _serialize_stmt for why we don't collapse 0 to -1.
+        end_line = getattr(expr, "end_line", None)
+        if end_line is None:
+            end_line = -1
+        end_col = getattr(expr, "end_column", None)
+        if end_col is None:
+            end_col = -1
+        proto = pir_pb2.MypyExprProto(
+            line=line, col=col, end_line=end_line, end_col=end_col
+        )
 
         # Attach resolved type if available
         try:

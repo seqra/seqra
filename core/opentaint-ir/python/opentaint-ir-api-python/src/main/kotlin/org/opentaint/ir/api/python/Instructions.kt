@@ -6,8 +6,6 @@ import org.opentaint.ir.api.common.cfg.CommonInstLocation
 interface PIRLocation : CommonInstLocation {
     override val method: PIRFunction
     val index: Int
-    val lineNumber: Int
-    val colOffset: Int
 }
 
 /**
@@ -18,8 +16,14 @@ sealed interface PIRInstruction: CommonInst {
 
     override val location: PIRLocation
 
-    val lineNumber: Int get() = location.lineNumber
-    val colOffset: Int get() = location.colOffset
+    /**
+     * Optional source-level span. Separate from [location], which is the
+     * structural identity of the instruction inside its CFG. `null` when the
+     * instruction has no associated source position (e.g. synthetic
+     * instructions emitted by transforms, or proto entries that don't carry
+     * one).
+     */
+    val physicalLocation: PIRPhysicalLocation?
 
     /**
      * PIR instruction data classes must use identity-based equality, not structural equality.
@@ -60,6 +64,7 @@ data class PIRAssign(
     val target: PIRValue,
     val expr: PIRExpr,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -153,6 +158,7 @@ data class PIRLoadAttr(
     val attribute: String,
     val resultType: PIRType = PIRAnyType,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -164,6 +170,7 @@ data class PIRStoreAttr(
     val attribute: String,
     val value: PIRValue,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -175,6 +182,7 @@ data class PIRStoreSubscript(
     val index: PIRValue,
     val value: PIRValue,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -186,6 +194,7 @@ data class PIRStoreGlobal(
     val module: String,
     val value: PIRValue,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -197,6 +206,7 @@ data class PIRStoreClosure(
     val depth: Int,
     val value: PIRValue,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -211,6 +221,7 @@ data class PIRCall(
     val args: List<PIRCallArg>,
     val resolvedCallee: String? = null,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -235,6 +246,7 @@ data class PIRNextIter(
     val bodyInstIndex: Int,
     val exitInstIndex: Int,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction, PIRBranchingInst {
     override val successors: List<Int>
         get() = listOf(bodyInstIndex, exitInstIndex)
@@ -252,6 +264,7 @@ data class PIRUnpack(
     val source: PIRValue,
     val starIndex: Int,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -264,6 +277,7 @@ data class PIRGoto(
     val targetBlock: Int,
     val targetInstIndex: Int,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction, PIRBranchingInst {
     override val successors: List<Int>
         get() = listOf(targetInstIndex)
@@ -283,6 +297,7 @@ data class PIRBranch(
     val trueInstIndex: Int,
     val falseInstIndex: Int,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction, PIRBranchingInst {
     override val successors: List<Int>
         get() = listOf(trueInstIndex, falseInstIndex)
@@ -298,6 +313,7 @@ data class PIRBranch(
 data class PIRReturn(
     val value: PIRValue?,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction, PIRTerminatingInst {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -308,6 +324,7 @@ data class PIRRaise(
     val exception: PIRValue?,
     val cause: PIRValue?,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction, PIRTerminatingInst {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -318,6 +335,7 @@ data class PIRExceptHandler(
     val target: PIRValue?,
     val exceptionTypes: List<PIRType>,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -330,6 +348,7 @@ data class PIRYield(
     val target: PIRValue?,
     val value: PIRValue?,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -340,6 +359,7 @@ data class PIRYieldFrom(
     val target: PIRValue?,
     val iterable: PIRValue,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -350,6 +370,7 @@ data class PIRAwait(
     val target: PIRValue?,
     val awaitable: PIRValue,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -361,6 +382,7 @@ data class PIRAwait(
 data class PIRDeleteLocal(
     val local: PIRValue,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -371,6 +393,7 @@ data class PIRDeleteAttr(
     val obj: PIRValue,
     val attribute: String,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -381,6 +404,7 @@ data class PIRDeleteSubscript(
     val obj: PIRValue,
     val index: PIRValue,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -391,6 +415,7 @@ data class PIRDeleteGlobal(
     val name: String,
     val module: String,
     override val location: PIRLocation,
+    override val physicalLocation: PIRPhysicalLocation? = null,
 ) : PIRInstruction {
     override fun equals(other: Any?) = this === other
     override fun hashCode() = System.identityHashCode(this)
@@ -403,9 +428,8 @@ data object PIRUnreachable : PIRInstruction, PIRTerminatingInst {
     override val location: PIRLocation = object : PIRLocation {
         override val method: PIRFunction get() = error("Unreachable instruction has no method")
         override val index: Int get() = -1
-        override val lineNumber: Int get() = -1
-        override val colOffset: Int get() = -1
     }
+    override val physicalLocation: PIRPhysicalLocation? get() = null
     override fun <T> accept(visitor: PIRInstVisitor<T>): T = visitor.visitUnreachable(this)
 }
 

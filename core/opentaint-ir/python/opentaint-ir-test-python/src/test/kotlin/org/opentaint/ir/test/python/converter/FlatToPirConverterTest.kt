@@ -153,7 +153,9 @@ class FlatToPirConverterTest {
         val bind = FlatBindFunction(
             target = FlatLocal("x"),
             function = FlatGlobalRef("mod.inner\$local0"),
-            line = 7,
+            physicalLocation = PIRPhysicalLocation(
+                lineStart = 7u, lineEnd = 7u, colStart = 0u, colEnd = 0u,
+            ),
         )
         val cfg = FlatCFG(
             blocks = listOf(FlatBlock(0, listOf(bind, FlatReturn(null)), emptyList())),

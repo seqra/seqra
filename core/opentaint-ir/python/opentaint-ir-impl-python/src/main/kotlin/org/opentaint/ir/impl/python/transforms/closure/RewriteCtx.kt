@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.python.transforms.closure
 
+import org.opentaint.ir.api.python.PIRPhysicalLocation
 import org.opentaint.ir.impl.python.flat.FlatAnyType
 import org.opentaint.ir.impl.python.flat.FlatBindFunction
 import org.opentaint.ir.impl.python.flat.FlatBuildDict
@@ -204,7 +205,7 @@ internal class RewriteCtx(
      * reference) when no substitution is needed; the caller can detect
      * "rewrite happened" via referential identity (`!==`).
      */
-    private fun loadOperand(value: FlatValue, line: Int, scope: InstRewriterScope): FlatValue {
+    private fun loadOperand(value: FlatValue, location: PIRPhysicalLocation?, scope: InstRewriterScope): FlatValue {
         if (value !is FlatLocal || !isCellManaged(value.name)) return value
         val tmp = freshTemp()
         scope.emitBefore(
@@ -212,7 +213,7 @@ internal class RewriteCtx(
                 target = tmp,
                 obj = cellLocals.getValue(value.name),
                 attribute = ClosureRuntime.CELL_VALUE_ATTR,
-                line = line,
+                physicalLocation = location,
             ),
         )
         return tmp
@@ -224,7 +225,7 @@ internal class RewriteCtx(
      * return [target] unchanged. The caller can detect "rewrite happened"
      * via referential identity (`!==`).
      */
-    private fun redirectTarget(target: FlatValue, line: Int, scope: InstRewriterScope): FlatValue {
+    private fun redirectTarget(target: FlatValue, location: PIRPhysicalLocation?, scope: InstRewriterScope): FlatValue {
         if (target !is FlatLocal || !isCellManaged(target.name)) return target
         val tmp = freshTemp()
         scope.emitAfter(
@@ -232,7 +233,7 @@ internal class RewriteCtx(
                 obj = cellLocals.getValue(target.name),
                 attribute = ClosureRuntime.CELL_VALUE_ATTR,
                 value = tmp,
-                line = line,
+                physicalLocation = location,
             ),
         )
         return tmp
@@ -273,8 +274,8 @@ internal class RewriteCtx(
      */
     private fun defaultRewrite(inst: FlatInst, scope: InstRewriterScope) {
         val rewritten = inst
-            .mapOperand { v -> loadOperand(v, inst.line, scope) }
-            .mapTarget { t -> redirectTarget(t, inst.line, scope) }
+            .mapOperand { v -> loadOperand(v, inst.physicalLocation, scope) }
+            .mapTarget { t -> redirectTarget(t, inst.physicalLocation, scope) }
         scope.replaceWith(rewritten)
     }
 
@@ -287,7 +288,7 @@ internal class RewriteCtx(
             FlatDeleteAttr(
                 obj = cellLocals.getValue(l.name),
                 attribute = ClosureRuntime.CELL_VALUE_ATTR,
-                line = inst.line,
+                physicalLocation = inst.physicalLocation,
             ),
         )
     }
@@ -298,7 +299,7 @@ internal class RewriteCtx(
      * cell-management as a normal case.
      */
     private fun rewriteBind(inst: FlatBindFunction, scope: InstRewriterScope) {
-        val line = inst.line
+        val location = inst.physicalLocation
         // The bind target's FlatGlobalRef.qualifiedName IS the child's
         // FlatFunctionIR.qualifiedName — no name→qn bridge needed.
         val childQn = inst.function.qualifiedName
@@ -321,21 +322,21 @@ internal class RewriteCtx(
         val originalTarget = inst.target
 
         // Build env on parent's cells.
-        val (envBuildInst, envValueLocal) = buildEnvDict(childClosureVars, line)
+        val (envBuildInst, envValueLocal) = buildEnvDict(childClosureVars, location)
         scope.emitBefore(envBuildInst)
 
         // Cell-managed bind target: redirect first (post-store goes through
         // the scope), then emit the constructor into the temp. For a
         // non-cell-managed target [redirectTarget] returns the input
         // unchanged.
-        val callTarget = redirectTarget(originalTarget, line, scope)
+        val callTarget = redirectTarget(originalTarget, location, scope)
 
         scope.replaceWith(
             FlatCall(
                 target = callTarget,
                 callee = FlatGlobalRef(childAdapterQn),
                 args = listOf(FlatCallArg(envValueLocal)),
-                line = line,
+                physicalLocation = location,
             ),
         )
     }
@@ -350,7 +351,7 @@ internal class RewriteCtx(
      * pass-through limitation (a method binding a capturing child cannot
      * forward cells from a grand-parent it doesn't see).
      */
-    private fun buildEnvDict(childClosureVars: Set<String>, line: Int): Pair<FlatInst, FlatLocal> {
+    private fun buildEnvDict(childClosureVars: Set<String>, location: PIRPhysicalLocation?): Pair<FlatInst, FlatLocal> {
         // Iteration of [childClosureVars] is already deterministic (analyzer
         // hands us sorted-iterating sets), so no extra sort needed.
         val keys: List<FlatValue> = childClosureVars.map { FlatStrConst(it) }
@@ -373,7 +374,7 @@ internal class RewriteCtx(
             target = envTarget,
             keys = keys,
             values = values,
-            line = line,
+            physicalLocation = location,
         )
         return envInst to envTarget
     }

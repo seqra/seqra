@@ -1,7 +1,9 @@
 package org.opentaint.ir.impl.python.protoToFlat.cfg
 
+import org.opentaint.ir.api.python.PIRPhysicalLocation
 import org.opentaint.ir.impl.python.flat.*
 import org.opentaint.ir.impl.python.protoToFlat.FunctionLowering
+import org.opentaint.ir.impl.python.protoToFlat.toPhysicalLocation
 import org.opentaint.ir.impl.python.proto.*
 
 /**
@@ -49,38 +51,41 @@ private val COMPARE_OP_MAP = mapOf(
     "not in" to FlatCompareOperator.NOT_IN,
 )
 
-internal fun CfgSession.lowerExpr(expr: MypyExprProto): FlatValue = when (expr.kindCase) {
-    MypyExprProto.KindCase.INT_EXPR -> intConst(expr.intExpr)
-    MypyExprProto.KindCase.STR_EXPR -> FlatStrConst(expr.strExpr.value)
-    MypyExprProto.KindCase.FLOAT_EXPR -> FlatFloatConst(expr.floatExpr.value)
-    MypyExprProto.KindCase.BYTES_EXPR -> FlatBytesConst(expr.bytesExpr.value.toByteArray())
-    MypyExprProto.KindCase.COMPLEX_EXPR -> FlatComplexConst(expr.complexExpr.real, expr.complexExpr.imag)
-    MypyExprProto.KindCase.ELLIPSIS_EXPR -> FlatEllipsisConst
-    MypyExprProto.KindCase.NAME_EXPR -> lowerName(expr.nameExpr)
-    MypyExprProto.KindCase.MEMBER_EXPR -> lowerMember(expr.memberExpr, expr.line)
-    MypyExprProto.KindCase.CALL_EXPR -> lowerCall(expr.callExpr, expr.line)
-    MypyExprProto.KindCase.OP_EXPR -> lowerOp(expr.opExpr, expr.line)
-    MypyExprProto.KindCase.UNARY_EXPR -> lowerUnary(expr.unaryExpr, expr.line)
-    MypyExprProto.KindCase.COMPARISON_EXPR -> lowerComparison(expr.comparisonExpr, expr.line)
-    MypyExprProto.KindCase.INDEX_EXPR -> lowerIndex(expr.indexExpr, expr.line)
-    MypyExprProto.KindCase.SLICE_EXPR -> lowerSlice(expr.sliceExpr, expr.line)
-    MypyExprProto.KindCase.LIST_EXPR -> lowerListExpr(expr.listExpr, expr.line)
-    MypyExprProto.KindCase.TUPLE_EXPR -> lowerTupleExpr(expr.tupleExpr, expr.line)
-    MypyExprProto.KindCase.SET_EXPR -> lowerSetExpr(expr.setExpr, expr.line)
-    MypyExprProto.KindCase.DICT_EXPR -> lowerDictExpr(expr.dictExpr, expr.line)
-    MypyExprProto.KindCase.CONDITIONAL_EXPR -> lowerConditional(expr.conditionalExpr, expr.line)
-    MypyExprProto.KindCase.STAR_EXPR -> lowerExpr(expr.starExpr.expr)
-    MypyExprProto.KindCase.YIELD_EXPR -> lowerYield(expr.yieldExpr, expr.line)
-    MypyExprProto.KindCase.YIELD_FROM_EXPR -> lowerYieldFrom(expr.yieldFromExpr, expr.line)
-    MypyExprProto.KindCase.AWAIT_EXPR -> lowerAwait(expr.awaitExpr, expr.line)
-    MypyExprProto.KindCase.ASSIGNMENT_EXPR -> lowerWalrus(expr.assignmentExpr, expr.line)
-    MypyExprProto.KindCase.LAMBDA_EXPR -> lowerLambda(expr.lambdaExpr)
-    MypyExprProto.KindCase.SUPER_EXPR -> lowerSuper(expr.line)
-    MypyExprProto.KindCase.LIST_COMPREHENSION -> lowerComprehension(expr.listComprehension.generator, CollectionKind.LIST, expr.line)
-    MypyExprProto.KindCase.SET_COMPREHENSION -> lowerComprehension(expr.setComprehension.generator, CollectionKind.SET, expr.line)
-    MypyExprProto.KindCase.DICT_COMPREHENSION -> lowerDictComprehension(expr.dictComprehension, expr.line)
-    MypyExprProto.KindCase.GENERATOR_EXPR -> lowerComprehension(expr.generatorExpr, CollectionKind.LIST, expr.line)
-    else -> FlatNoneConst
+internal fun CfgSession.lowerExpr(expr: MypyExprProto): FlatValue {
+    val loc = expr.toPhysicalLocation()
+    return when (expr.kindCase) {
+        MypyExprProto.KindCase.INT_EXPR -> intConst(expr.intExpr)
+        MypyExprProto.KindCase.STR_EXPR -> FlatStrConst(expr.strExpr.value)
+        MypyExprProto.KindCase.FLOAT_EXPR -> FlatFloatConst(expr.floatExpr.value)
+        MypyExprProto.KindCase.BYTES_EXPR -> FlatBytesConst(expr.bytesExpr.value.toByteArray())
+        MypyExprProto.KindCase.COMPLEX_EXPR -> FlatComplexConst(expr.complexExpr.real, expr.complexExpr.imag)
+        MypyExprProto.KindCase.ELLIPSIS_EXPR -> FlatEllipsisConst
+        MypyExprProto.KindCase.NAME_EXPR -> lowerName(expr.nameExpr)
+        MypyExprProto.KindCase.MEMBER_EXPR -> lowerMember(expr.memberExpr, loc)
+        MypyExprProto.KindCase.CALL_EXPR -> lowerCall(expr.callExpr, loc)
+        MypyExprProto.KindCase.OP_EXPR -> lowerOp(expr.opExpr, loc)
+        MypyExprProto.KindCase.UNARY_EXPR -> lowerUnary(expr.unaryExpr, loc)
+        MypyExprProto.KindCase.COMPARISON_EXPR -> lowerComparison(expr.comparisonExpr, loc)
+        MypyExprProto.KindCase.INDEX_EXPR -> lowerIndex(expr.indexExpr, loc)
+        MypyExprProto.KindCase.SLICE_EXPR -> lowerSlice(expr.sliceExpr, loc)
+        MypyExprProto.KindCase.LIST_EXPR -> lowerListExpr(expr.listExpr, loc)
+        MypyExprProto.KindCase.TUPLE_EXPR -> lowerTupleExpr(expr.tupleExpr, loc)
+        MypyExprProto.KindCase.SET_EXPR -> lowerSetExpr(expr.setExpr, loc)
+        MypyExprProto.KindCase.DICT_EXPR -> lowerDictExpr(expr.dictExpr, loc)
+        MypyExprProto.KindCase.CONDITIONAL_EXPR -> lowerConditional(expr.conditionalExpr, loc)
+        MypyExprProto.KindCase.STAR_EXPR -> lowerExpr(expr.starExpr.expr)
+        MypyExprProto.KindCase.YIELD_EXPR -> lowerYield(expr.yieldExpr, loc)
+        MypyExprProto.KindCase.YIELD_FROM_EXPR -> lowerYieldFrom(expr.yieldFromExpr, loc)
+        MypyExprProto.KindCase.AWAIT_EXPR -> lowerAwait(expr.awaitExpr, loc)
+        MypyExprProto.KindCase.ASSIGNMENT_EXPR -> lowerWalrus(expr.assignmentExpr, loc)
+        MypyExprProto.KindCase.LAMBDA_EXPR -> lowerLambda(expr.lambdaExpr)
+        MypyExprProto.KindCase.SUPER_EXPR -> lowerSuper(loc)
+        MypyExprProto.KindCase.LIST_COMPREHENSION -> lowerComprehension(expr.listComprehension.generator, CollectionKind.LIST, loc)
+        MypyExprProto.KindCase.SET_COMPREHENSION -> lowerComprehension(expr.setComprehension.generator, CollectionKind.SET, loc)
+        MypyExprProto.KindCase.DICT_COMPREHENSION -> lowerDictComprehension(expr.dictComprehension, loc)
+        MypyExprProto.KindCase.GENERATOR_EXPR -> lowerComprehension(expr.generatorExpr, CollectionKind.LIST, loc)
+        else -> FlatNoneConst
+    }
 }
 
 // ─── Constants ────────────────────────────────────────
@@ -121,65 +126,65 @@ private fun CfgSession.lowerName(expr: MypyNameExprProto): FlatValue {
     }
 }
 
-private fun CfgSession.lowerMember(expr: MypyMemberExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerMember(expr: MypyMemberExprProto, location: PIRPhysicalLocation?): FlatValue {
     val obj = lowerExpr(expr.expr)
     val target = newTempValue()
-    emit(FlatLoadAttr(target, obj, expr.name, line = line))
+    emit(FlatLoadAttr(target, obj, expr.name, physicalLocation = location))
     return target
 }
 
 // ─── Operators ────────────────────────────────────────
 
-private fun CfgSession.lowerOp(expr: MypyOpExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerOp(expr: MypyOpExprProto, location: PIRPhysicalLocation?): FlatValue {
     val op = expr.op
     return when {
         op in BIN_OP_MAP -> {
             val left = lowerExpr(expr.left)
             val right = lowerExpr(expr.right)
             val target = newTempValue()
-            emit(FlatBinOp(target, left, right, BIN_OP_MAP.getValue(op), line = line))
+            emit(FlatBinOp(target, left, right, BIN_OP_MAP.getValue(op), physicalLocation = location))
             target
         }
-        op == "and" -> lowerShortCircuit(expr, isAnd = true, line)
-        op == "or" -> lowerShortCircuit(expr, isAnd = false, line)
+        op == "and" -> lowerShortCircuit(expr, isAnd = true, location)
+        op == "or" -> lowerShortCircuit(expr, isAnd = false, location)
         else -> FlatNoneConst
     }
 }
 
-private fun CfgSession.lowerShortCircuit(expr: MypyOpExprProto, isAnd: Boolean, line: Int): FlatValue {
+private fun CfgSession.lowerShortCircuit(expr: MypyOpExprProto, isAnd: Boolean, location: PIRPhysicalLocation?): FlatValue {
     val left = lowerExpr(expr.left)
     val target = newTempValue()
-    emit(FlatAssign(target, left, line = line))
+    emit(FlatAssign(target, left, physicalLocation = location))
 
     val evalRight = newBlock()
     val endBlock = newBlock()
 
-    if (isAnd) emitBranch(target, evalRight, endBlock, line)
-    else emitBranch(target, endBlock, evalRight, line)
+    if (isAnd) emitBranch(target, evalRight, endBlock, location)
+    else emitBranch(target, endBlock, evalRight, location)
 
     activate(evalRight)
     val right = lowerExpr(expr.right)
-    emit(FlatAssign(target, right, line = line))
-    emitGoto(endBlock, line)
+    emit(FlatAssign(target, right, physicalLocation = location))
+    emitGoto(endBlock, location)
     activate(endBlock)
     return target
 }
 
-private fun CfgSession.lowerUnary(expr: MypyUnaryExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerUnary(expr: MypyUnaryExprProto, location: PIRPhysicalLocation?): FlatValue {
     val operand = lowerExpr(expr.expr)
     val target = newTempValue()
     val op = UNARY_OP_MAP[expr.op] ?: FlatUnaryOperator.NEG
-    emit(FlatUnaryOp(target, operand, op, line = line))
+    emit(FlatUnaryOp(target, operand, op, physicalLocation = location))
     return target
 }
 
-private fun CfgSession.lowerComparison(expr: MypyComparisonExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerComparison(expr: MypyComparisonExprProto, location: PIRPhysicalLocation?): FlatValue {
     if (expr.operatorsCount == 1) {
         val left = lowerExpr(expr.getOperands(0))
         val right = lowerExpr(expr.getOperands(1))
         val target = newTempValue()
         val op = COMPARE_OP_MAP[expr.getOperators(0)] ?: FlatCompareOperator.EQ
-        emit(FlatCompare(target, left, right, op, line = line))
+        emit(FlatCompare(target, left, right, op, physicalLocation = location))
         return target
     }
 
@@ -192,24 +197,24 @@ private fun CfgSession.lowerComparison(expr: MypyComparisonExprProto, line: Int)
         val nextRight = lowerExpr(expr.getOperands(i + 1))
         val cmpTarget = newTempValue()
         val op = COMPARE_OP_MAP[expr.getOperators(i)] ?: FlatCompareOperator.EQ
-        emit(FlatCompare(cmpTarget, prevRight, nextRight, op, line = line))
-        emit(FlatAssign(resultVar, cmpTarget, line = line))
+        emit(FlatCompare(cmpTarget, prevRight, nextRight, op, physicalLocation = location))
+        emit(FlatAssign(resultVar, cmpTarget, physicalLocation = location))
 
         if (i < expr.operatorsCount - 1) {
             val nextCmp = newBlock()
-            emitBranch(cmpTarget, nextCmp, endBlock, line)
+            emitBranch(cmpTarget, nextCmp, endBlock, location)
             activate(nextCmp)
         }
         prevRight = nextRight
     }
-    emitGoto(endBlock, line)
+    emitGoto(endBlock, location)
     activate(endBlock)
     return resultVar
 }
 
 // ─── Call ─────────────────────────────────────────────
 
-private fun CfgSession.lowerCall(expr: MypyCallExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerCall(expr: MypyCallExprProto, location: PIRPhysicalLocation?): FlatValue {
     val callee = lowerExpr(expr.callee)
     val args = expr.argsList.map { arg ->
         val argVal = lowerExpr(arg.expr)
@@ -225,7 +230,7 @@ private fun CfgSession.lowerCall(expr: MypyCallExprProto, line: Int): FlatValue 
     val resolvedCallee = resolveCallee(expr)
 
     val target = newTempValue()
-    emit(FlatCall(target, callee, args, resolvedCallee, line = line))
+    emit(FlatCall(target, callee, args, resolvedCallee, physicalLocation = location))
     return target
 }
 
@@ -253,66 +258,66 @@ private fun resolveCallee(expr: MypyCallExprProto): String? {
 
 // ─── Subscript & Slice ───────────────────────────────
 
-private fun CfgSession.lowerIndex(expr: MypyIndexExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerIndex(expr: MypyIndexExprProto, location: PIRPhysicalLocation?): FlatValue {
     val obj = lowerExpr(expr.base)
     val index = lowerExpr(expr.index)
     val target = newTempValue()
-    emit(FlatLoadSubscript(target, obj, index, line = line))
+    emit(FlatLoadSubscript(target, obj, index, physicalLocation = location))
     return target
 }
 
-private fun CfgSession.lowerSlice(expr: MypySliceExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerSlice(expr: MypySliceExprProto, location: PIRPhysicalLocation?): FlatValue {
     val target = newTempValue()
     val lower = if (expr.hasBegin()) lowerExpr(expr.begin) else null
     val upper = if (expr.hasEnd()) lowerExpr(expr.end) else null
     val step = if (expr.hasStride()) lowerExpr(expr.stride) else null
-    emit(FlatBuildSlice(target, lower, upper, step, line = line))
+    emit(FlatBuildSlice(target, lower, upper, step, physicalLocation = location))
     return target
 }
 
 // ─── Collection literals ─────────────────────────────
 
-private fun CfgSession.lowerListExpr(expr: MypyListExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerListExpr(expr: MypyListExprProto, location: PIRPhysicalLocation?): FlatValue {
     val elements = expr.itemsList.map { lowerExpr(it) }
     val target = newTempValue()
-    emit(FlatBuildList(target, elements, line = line))
+    emit(FlatBuildList(target, elements, physicalLocation = location))
     return target
 }
 
-private fun CfgSession.lowerTupleExpr(expr: MypyTupleExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerTupleExpr(expr: MypyTupleExprProto, location: PIRPhysicalLocation?): FlatValue {
     val elements = expr.itemsList.map { lowerExpr(it) }
     val target = newTempValue()
-    emit(FlatBuildTuple(target, elements, line = line))
+    emit(FlatBuildTuple(target, elements, physicalLocation = location))
     return target
 }
 
-private fun CfgSession.lowerSetExpr(expr: MypySetExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerSetExpr(expr: MypySetExprProto, location: PIRPhysicalLocation?): FlatValue {
     val elements = expr.itemsList.map { lowerExpr(it) }
     val target = newTempValue()
-    emit(FlatBuildSet(target, elements, line = line))
+    emit(FlatBuildSet(target, elements, physicalLocation = location))
     return target
 }
 
-private fun CfgSession.lowerDictExpr(expr: MypyDictExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerDictExpr(expr: MypyDictExprProto, location: PIRPhysicalLocation?): FlatValue {
     val keys = expr.keysList.map {
         if (it.kindCase == MypyExprProto.KindCase.KIND_NOT_SET) FlatNoneConst else lowerExpr(it)
     }
     val values = expr.valuesList.map { lowerExpr(it) }
     val target = newTempValue()
-    emit(FlatBuildDict(target, keys, values, line = line))
+    emit(FlatBuildDict(target, keys, values, physicalLocation = location))
     return target
 }
 
 // ─── Conditional expression ─────────────────────────
 
-private fun CfgSession.lowerConditional(expr: MypyConditionalExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerConditional(expr: MypyConditionalExprProto, location: PIRPhysicalLocation?): FlatValue {
     val cond = lowerExpr(expr.cond)
     val target = newTempValue()
     val trueBlock = newBlock()
     val falseBlock = newBlock()
     val endBlock = newBlock()
 
-    emitBranch(cond, trueBlock, falseBlock, line)
+    emitBranch(cond, trueBlock, falseBlock, location)
 
     activate(trueBlock)
     val trueVal = lowerExpr(expr.ifExpr)
@@ -330,32 +335,32 @@ private fun CfgSession.lowerConditional(expr: MypyConditionalExprProto, line: In
 
 // ─── Generators & Async ─────────────────────────────
 
-private fun CfgSession.lowerYield(expr: MypyYieldExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerYield(expr: MypyYieldExprProto, location: PIRPhysicalLocation?): FlatValue {
     val value = if (expr.hasExpr() && expr.expr.kindCase != MypyExprProto.KindCase.KIND_NOT_SET) {
         lowerExpr(expr.expr)
     } else FlatNoneConst
     val target = newTempValue()
-    emit(FlatYield(target, value, line = line))
+    emit(FlatYield(target, value, physicalLocation = location))
     return target
 }
 
-private fun CfgSession.lowerYieldFrom(expr: MypyYieldFromExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerYieldFrom(expr: MypyYieldFromExprProto, location: PIRPhysicalLocation?): FlatValue {
     val iterable = lowerExpr(expr.expr)
     val target = newTempValue()
-    emit(FlatYieldFrom(target, iterable, line = line))
+    emit(FlatYieldFrom(target, iterable, physicalLocation = location))
     return target
 }
 
-private fun CfgSession.lowerAwait(expr: MypyAwaitExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerAwait(expr: MypyAwaitExprProto, location: PIRPhysicalLocation?): FlatValue {
     val awaitable = lowerExpr(expr.expr)
     val target = newTempValue()
-    emit(FlatAwait(target, awaitable, line = line))
+    emit(FlatAwait(target, awaitable, physicalLocation = location))
     return target
 }
 
 // ─── Walrus ─────────────────────────────────────────
 
-private fun CfgSession.lowerWalrus(expr: MypyAssignmentExprProto, line: Int): FlatValue {
+private fun CfgSession.lowerWalrus(expr: MypyAssignmentExprProto, location: PIRPhysicalLocation?): FlatValue {
     val value = lowerExpr(expr.value)
     val targetName = if (expr.target.hasNameExpr()) {
         scope.resolveLocal(expr.target.nameExpr.name)
@@ -363,7 +368,7 @@ private fun CfgSession.lowerWalrus(expr: MypyAssignmentExprProto, line: Int): Fl
         scope.newTemp()
     }
     val target = FlatLocal(targetName)
-    emit(FlatAssign(target, value, line = line))
+    emit(FlatAssign(target, value, physicalLocation = location))
     return target
 }
 
@@ -378,15 +383,15 @@ private fun CfgSession.lowerLambda(expr: MypyLambdaExprProto): FlatValue {
     module.register(lambda)
     val ref = FlatGlobalRef(lambda.qualifiedName)
     val target = newTempValue()
-    emit(FlatBindFunction(target, ref, line = -1))
+    emit(FlatBindFunction(target, ref, physicalLocation = null))
     return target
 }
 
-// ─── Super ───────────────────────��──────────────────
+// ─── Super ──────────────────────────────────────────
 
-private fun CfgSession.lowerSuper(line: Int): FlatValue {
+private fun CfgSession.lowerSuper(location: PIRPhysicalLocation?): FlatValue {
     val target = newTempValue()
-    emit(FlatCall(target, FlatGlobalRef("builtins.super"), line = line))
+    emit(FlatCall(target, FlatGlobalRef("builtins.super"), physicalLocation = location))
     return target
 }
 
@@ -397,18 +402,18 @@ private enum class CollectionKind { LIST, SET }
 private fun CfgSession.lowerComprehension(
     gen: MypyGeneratorExprProto,
     collectionKind: CollectionKind,
-    line: Int,
+    location: PIRPhysicalLocation?,
 ): FlatValue {
     val result = newTempValue()
     val addMethod: String
 
     when (collectionKind) {
         CollectionKind.LIST -> {
-            emit(FlatBuildList(result, line = line))
+            emit(FlatBuildList(result, physicalLocation = location))
             addMethod = "append"
         }
         CollectionKind.SET -> {
-            emit(FlatCall(result, FlatGlobalRef("builtins.set"), line = line))
+            emit(FlatCall(result, FlatGlobalRef("builtins.set"), physicalLocation = location))
             addMethod = "add"
         }
     }
@@ -417,24 +422,24 @@ private fun CfgSession.lowerComprehension(
         indices = gen.indicesList,
         sequences = gen.sequencesList,
         condlists = gen.condlistsList,
-        line = line,
+        location = location,
         loopIdx = 0,
-    ) { emitCollectionAdd(result, gen.leftExpr, addMethod, line) }
+    ) { emitCollectionAdd(result, gen.leftExpr, addMethod, location) }
 
     return result
 }
 
-private fun CfgSession.lowerDictComprehension(expr: MypyDictComprehensionProto, line: Int): FlatValue {
+private fun CfgSession.lowerDictComprehension(expr: MypyDictComprehensionProto, location: PIRPhysicalLocation?): FlatValue {
     val result = newTempValue()
-    emit(FlatBuildDict(result, line = line))
+    emit(FlatBuildDict(result, physicalLocation = location))
 
     emitComprehensionLoops(
         indices = expr.indicesList,
         sequences = expr.sequencesList,
         condlists = expr.condlistsList,
-        line = line,
+        location = location,
         loopIdx = 0,
-    ) { emitDictStore(result, expr.key, expr.value, line) }
+    ) { emitDictStore(result, expr.key, expr.value, location) }
 
     return result
 }
@@ -448,7 +453,7 @@ private fun CfgSession.emitComprehensionLoops(
     indices: List<MypyExprProto>,
     sequences: List<MypyExprProto>,
     condlists: List<MypyCondListProto>,
-    line: Int,
+    location: PIRPhysicalLocation?,
     loopIdx: Int,
     bodyCallback: () -> Unit,
 ) {
@@ -459,7 +464,7 @@ private fun CfgSession.emitComprehensionLoops(
 
     val iterableVal = lowerExpr(sequences[loopIdx])
     val iterVal = newTempValue()
-    emit(FlatGetIter(iterVal, iterableVal, line = line))
+    emit(FlatGetIter(iterVal, iterableVal, physicalLocation = location))
 
     val headerBlock = newBlock()
     val bodyBlock = newBlock()
@@ -475,11 +480,11 @@ private fun CfgSession.emitComprehensionLoops(
         newTempValue()
     }
 
-    emit(FlatNextIter(targetVal, iterVal, bodyBlock, exitBlock, line = line))
+    emit(FlatNextIter(targetVal, iterVal, bodyBlock, exitBlock, physicalLocation = location))
 
     activate(bodyBlock)
     if (idxExpr.hasTupleExpr()) {
-        assignTo(idxExpr, targetVal, line)
+        assignTo(idxExpr, targetVal, location)
     }
 
     val conditions = if (loopIdx < condlists.size) condlists[loopIdx].conditionsList else emptyList()
@@ -487,28 +492,28 @@ private fun CfgSession.emitComprehensionLoops(
         val condVal = lowerExpr(condExpr)
         val skipBlock = newBlock()
         val continueBlock = newBlock()
-        emitBranch(condVal, continueBlock, skipBlock, line)
+        emitBranch(condVal, continueBlock, skipBlock, location)
         activate(skipBlock)
         emitGoto(headerBlock)
         activate(continueBlock)
     }
 
-    emitComprehensionLoops(indices, sequences, condlists, line, loopIdx + 1, bodyCallback)
+    emitComprehensionLoops(indices, sequences, condlists, location, loopIdx + 1, bodyCallback)
 
     if (!currentBlockTerminated()) emitGoto(headerBlock)
 
     activate(exitBlock)
 }
 
-private fun CfgSession.emitCollectionAdd(collection: FlatValue, valueExpr: MypyExprProto, method: String, line: Int) {
+private fun CfgSession.emitCollectionAdd(collection: FlatValue, valueExpr: MypyExprProto, method: String, location: PIRPhysicalLocation?) {
     val value = lowerExpr(valueExpr)
     val methodRef = newTempValue()
-    emit(FlatLoadAttr(methodRef, collection, method, line = line))
-    emit(FlatCall(null, methodRef, listOf(FlatCallArg(value, FlatArgKind.POSITIONAL)), line = line))
+    emit(FlatLoadAttr(methodRef, collection, method, physicalLocation = location))
+    emit(FlatCall(null, methodRef, listOf(FlatCallArg(value, FlatArgKind.POSITIONAL)), physicalLocation = location))
 }
 
-private fun CfgSession.emitDictStore(dictVal: FlatValue, keyExpr: MypyExprProto, valueExpr: MypyExprProto, line: Int) {
+private fun CfgSession.emitDictStore(dictVal: FlatValue, keyExpr: MypyExprProto, valueExpr: MypyExprProto, location: PIRPhysicalLocation?) {
     val key = lowerExpr(keyExpr)
     val value = lowerExpr(valueExpr)
-    emit(FlatStoreSubscript(dictVal, key, value, line = line))
+    emit(FlatStoreSubscript(dictVal, key, value, physicalLocation = location))
 }

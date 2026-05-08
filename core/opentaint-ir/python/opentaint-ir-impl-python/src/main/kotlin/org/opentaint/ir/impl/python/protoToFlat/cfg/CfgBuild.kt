@@ -6,8 +6,9 @@ import org.opentaint.ir.impl.python.flat.FlatLocal
 import org.opentaint.ir.impl.python.flat.FlatParameter
 import org.opentaint.ir.impl.python.flat.FlatParameterRef
 import org.opentaint.ir.impl.python.protoToFlat.ModuleContext
-import org.opentaint.ir.impl.python.proto.MypyAssignmentStmtProto
+import org.opentaint.ir.impl.python.protoToFlat.toPhysicalLocation
 import org.opentaint.ir.impl.python.proto.MypyBlockProto
+import org.opentaint.ir.impl.python.proto.MypyStmtProto
 
 /**
  * High-level entry points for building a single function-scope CFG. Each call
@@ -83,14 +84,14 @@ internal object CfgBuild {
      * statements pulled out of the module's def list. Function/class defs
      * are extracted separately and not included here.
      *
-     * The mypy proto's per-statement `line` lives on the outer `MypyStmtProto`
-     * wrapper, not on the inner `MypyAssignmentStmtProto`. Module-level
-     * assignments come to us already unwrapped, so the line is unknown — we
-     * pass `-1`, the standard "unknown line" sentinel used elsewhere in Flat IR.
+     * Each [MypyStmtProto] wraps its inner `MypyAssignmentStmtProto` and
+     * carries the source span on the outer wrapper, so module-level
+     * assignments get the same physical-location attribution as in-function
+     * statements.
      */
     fun buildModuleInitCfg(
         module: ModuleContext,
-        assignments: List<MypyAssignmentStmtProto>,
+        assignments: List<MypyStmtProto>,
     ): FlatCFG {
         val session = CfgSession(module = module)
         // `nonlocal` / `global` declarations collected by the session are
@@ -101,9 +102,9 @@ internal object CfgBuild {
             sourceLabel = "__module_init__",
             errorPrefix = "Failed to build module_init CFG for ${module.moduleName}",
         ) {
-            for (assignment in assignments) {
+            for (stmt in assignments) {
                 if (session.currentBlockTerminated()) break
-                session.visitAssignment(assignment, line = -1)
+                session.visitAssignment(stmt.assignment, location = stmt.toPhysicalLocation())
             }
             if (!session.currentBlockTerminated()) session.emitReturn(null)
             CfgBuildResult(session.finalizeCfg(), session.nonlocalNames, session.globalNames)

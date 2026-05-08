@@ -1,5 +1,6 @@
 package org.opentaint.ir.impl.python.protoToFlat.cfg
 
+import org.opentaint.ir.api.python.PIRPhysicalLocation
 import org.opentaint.ir.impl.python.flat.*
 import org.opentaint.ir.impl.python.protoToFlat.ModuleContext
 import org.opentaint.ir.impl.python.protoToFlat.Scope
@@ -117,12 +118,18 @@ internal class CfgSession(
         currentInstructions.add(inst)
     }
 
-    fun emitGoto(target: Int, line: Int = -1) = emit(FlatGoto(target, line))
+    fun emitGoto(target: Int, location: PIRPhysicalLocation? = null) =
+        emit(FlatGoto(target, location))
 
-    fun emitBranch(condition: FlatValue, trueBlock: Int, falseBlock: Int, line: Int = -1) =
-        emit(FlatBranch(condition, trueBlock, falseBlock, line))
+    fun emitBranch(
+        condition: FlatValue,
+        trueBlock: Int,
+        falseBlock: Int,
+        location: PIRPhysicalLocation? = null,
+    ) = emit(FlatBranch(condition, trueBlock, falseBlock, location))
 
-    fun emitReturn(value: FlatValue?, line: Int = -1) = emit(FlatReturn(value, line))
+    fun emitReturn(value: FlatValue?, location: PIRPhysicalLocation? = null) =
+        emit(FlatReturn(value, location))
 
     fun newTempValue(): FlatLocal = FlatLocal(scope.newTemp())
 

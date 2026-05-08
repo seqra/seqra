@@ -6,8 +6,7 @@ import org.opentaint.ir.api.python.PIRLocation
 /**
  * [method] is wired post-construction by [org.opentaint.ir.impl.python.flatToPir.FlatToPirConverter]
  * once the owning function exists. Until then the location carries only its
- * within-function identity ([index], [lineNumber], [colOffset]); reading
- * [method] before wiring throws.
+ * within-function identity ([index]); reading [method] before wiring throws.
  *
  * This is the one remaining `lateinit` in the IR build path. Every
  * [org.opentaint.ir.api.python.PIRInstruction] receives its location at
@@ -16,11 +15,8 @@ import org.opentaint.ir.api.python.PIRLocation
  */
 class PIRLocationImpl(
     override val index: Int,
-    override val lineNumber: Int = -1,
-    override val colOffset: Int = -1,
 ) : PIRLocation {
     override lateinit var method: PIRFunction
 
-    override fun toString(): String =
-        "PIRLocation(index=$index, line=$lineNumber)"
+    override fun toString(): String = "PIRLocation(index=$index)"
 }

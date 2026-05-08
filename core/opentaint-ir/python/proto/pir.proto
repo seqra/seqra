@@ -606,7 +606,10 @@ message MypyDefinitionProto {
   oneof kind {
     MypyClassDefProto class_def = 1;
     MypyFuncDefProto func_def = 2;
-    MypyAssignmentStmtProto assignment = 3;
+    // Wrapped in MypyStmtProto (rather than MypyAssignmentStmtProto directly)
+    // so module-level assignments carry the same physical location as
+    // in-function statements.
+    MypyStmtProto assignment = 3;
     MypyDecoratorDefProto decorator = 4;       // Decorator wrapping a FuncDef
   }
 }
@@ -669,6 +672,10 @@ message MypyBlockProto {
 message MypyStmtProto {
   int32 line = 1;
   int32 col = 2;
+  // Tags 100/101 leave the 30..99 band free for future statement variants
+  // (oneof entries today end at decorator = 29).
+  int32 end_line = 100;
+  int32 end_col = 101;
 
   oneof kind {
     MypyAssignmentStmtProto assignment = 10;
@@ -780,6 +787,10 @@ message MypyGlobalDeclProto {
 message MypyExprProto {
   int32 line = 1;
   int32 col = 2;
+  // Tags 100/101 leave the 10..99 band free for future expression variants
+  // (oneof entries today end at generator_expr = 93).
+  int32 end_line = 100;
+  int32 end_col = 101;
   PIRTypeProto expr_type = 3;                 // Resolved mypy type
 
   oneof kind {

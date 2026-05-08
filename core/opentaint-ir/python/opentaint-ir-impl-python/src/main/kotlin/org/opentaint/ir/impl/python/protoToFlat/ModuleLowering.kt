@@ -6,6 +6,7 @@ import org.opentaint.ir.impl.python.proto.MypyAssignmentStmtProto
 import org.opentaint.ir.impl.python.proto.MypyClassDefProto
 import org.opentaint.ir.impl.python.proto.MypyDefinitionProto
 import org.opentaint.ir.impl.python.proto.MypyModuleProto
+import org.opentaint.ir.impl.python.proto.MypyStmtProto
 
 /**
  * Module-level lowering: walks the top-level definitions of a [MypyModuleProto]
@@ -28,7 +29,9 @@ internal object ModuleLowering {
         val classes = mutableListOf<FlatClass>()
         val topLevelFunctions = mutableListOf<FlatFunctionIR>()
         val moduleFields = mutableListOf<FlatModuleField>()
-        val moduleInitAssignments = mutableListOf<MypyAssignmentStmtProto>()
+        // Keep the wrapping MypyStmtProto so the per-stmt physical location
+        // (line/col span) is available when lowering module-init.
+        val moduleInitAssignments = mutableListOf<MypyStmtProto>()
 
         for (def in astModule.defsList) {
             when (def.kindCase) {
@@ -38,7 +41,7 @@ internal object ModuleLowering {
                 MypyDefinitionProto.KindCase.DECORATOR ->
                     topLevelFunctions.add(lowerFuncOrDecorator(context, def, enclosingClassQualifiedName = null))
                 MypyDefinitionProto.KindCase.ASSIGNMENT -> {
-                    moduleFields.addAll(extractFields(def.assignment) { name, type ->
+                    moduleFields.addAll(extractFields(def.assignment.assignment) { name, type ->
                         FlatModuleField(name = name, type = type, hasInitializer = true)
                     })
                     moduleInitAssignments.add(def.assignment)
@@ -101,7 +104,7 @@ internal object ModuleLowering {
                 MypyDefinitionProto.KindCase.ASSIGNMENT ->
                     // TODO: pir_server doesn't carry an `is_class_var` flag; once it does,
                     //  thread it through MypyAssignmentStmtProto and read it here.
-                    classFields.addAll(extractFields(def.assignment) { name, type ->
+                    classFields.addAll(extractFields(def.assignment.assignment) { name, type ->
                         FlatClassField(name = name, type = type, isClassVar = false, hasInitializer = true)
                     })
                 MypyDefinitionProto.KindCase.CLASS_DEF ->
@@ -173,7 +176,7 @@ internal object ModuleLowering {
 
     private fun lowerModuleInit(
         context: ModuleContext,
-        assignments: List<MypyAssignmentStmtProto>,
+        assignments: List<MypyStmtProto>,
     ): FlatFunctionIR {
         val cfg = CfgBuild.buildModuleInitCfg(context, assignments)
         return FlatFunctionIR(
