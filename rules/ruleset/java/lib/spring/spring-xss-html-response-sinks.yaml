@@ -136,7 +136,7 @@ rules:
                           - pattern-not-inside: $H.setContentType(MediaType.TEXT_PLAIN)
                           - pattern-not-inside: $H.setContentType(MediaType.APPLICATION_XML)
                           - pattern-not-inside: $H.setContentType(MediaType.IMAGE_PNG)
-                          - pattern-not-inside: $H.setContentType(MediaType.IMAGE_JPEG))
+                          - pattern-not-inside: $H.setContentType(MediaType.IMAGE_JPEG)
                           - pattern-not-inside: $H.setContentType(MediaType.IMAGE_GIF)
                       - pattern-either:
                           - pattern-inside: |
@@ -402,7 +402,7 @@ rules:
                     - pattern: PatchMapping
                     - pattern: DeleteMapping
                     - pattern: RequestMapping
-          - pattern: |
+          - pattern-inside: |
                 @$ANNOTATION(...)
                 $RETURNTYPE $METHOD(...) {
                   ...
