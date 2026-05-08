@@ -200,7 +200,8 @@ rules:
                           ResponseEntity<UrlResource> $METHOD(...) {
                             ...
                           }
-                      # Raw ResponseEntity (no type-arg) intentionally not covered — FN accepted.
+                      # Raw ResponseEntity is caught by the parameterized branches above —
+                      # raw matches any parameterization at the decl position, so no dedicated branch needed.
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           CompletableFuture<String> $METHOD(...) {
