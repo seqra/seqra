@@ -29,37 +29,6 @@ rules:
               - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $UNTRUSTED, ...)
           - focus-metavariable: $UNTRUSTED
 
-      # Builder chains pinning a non-HTML Content-Type. No-op today —
-      # TaintRuleProcessing.kt:413 ignores focus-metavariable on sanitizers.
-      - patterns:
-          - pattern-either:
-              - pattern: $X.contentType(MediaType.APPLICATION_JSON).body($UNTRUSTED)
-              - pattern: $X.contentType(MediaType.APPLICATION_PDF).body($UNTRUSTED)
-              - pattern: $X.contentType(MediaType.APPLICATION_OCTET_STREAM).body($UNTRUSTED)
-              - pattern: $X.contentType(MediaType.TEXT_PLAIN).body($UNTRUSTED)
-              - pattern: $X.contentType(MediaType.APPLICATION_XML).body($UNTRUSTED)
-              - pattern: $X.contentType(MediaType.IMAGE_PNG).body($UNTRUSTED)
-              - pattern: $X.contentType(MediaType.IMAGE_JPEG).body($UNTRUSTED)
-              - pattern: $X.contentType(MediaType.IMAGE_GIF).body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", "application/json").body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", "application/pdf").body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", "application/octet-stream").body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", "text/plain").body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", "application/xml").body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", "image/png").body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", "image/jpeg").body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", "image/gif").body($UNTRUSTED)
-              # MediaType.X_VALUE constants — dev analyzer constant-folds to the
-              # bare strings above; kept explicit for older-build robustness.
-              - pattern: $X.header("Content-Type", MediaType.APPLICATION_JSON_VALUE).body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", MediaType.APPLICATION_PDF_VALUE).body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", MediaType.APPLICATION_OCTET_STREAM_VALUE).body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", MediaType.TEXT_PLAIN_VALUE).body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", MediaType.APPLICATION_XML_VALUE).body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", MediaType.IMAGE_PNG_VALUE).body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", MediaType.IMAGE_JPEG_VALUE).body($UNTRUSTED)
-              - pattern: $X.header("Content-Type", MediaType.IMAGE_GIF_VALUE).body($UNTRUSTED)
-          - focus-metavariable: $UNTRUSTED
 
       # new ResponseEntity(body, headers, status) with non-HTML preset on headers.
       # Same engine TODO as above (no-op until focus-metavariable on sanitizers lands).
@@ -104,18 +73,78 @@ rules:
           # Body-typed returns feed via `return $UNTRUSTED;`;
           # DeferredResult<$T> feeds via `$DR.setResult(tainted)` before returning the wrapper.
           - pattern-either:
-              - patterns:
-                  - pattern-either:
-                      # Type-arg matching is exact at the return position; <String>/<byte[]>
-                      # are discriminators, not placeholders (Stirling-PDF rescan: 42 → 9 FPs).
+              - pattern-either:
+                  - patterns:
+                      - patterns:
+                          - pattern-not-inside: $X.contentType(MediaType.APPLICATION_JSON)
+                          - pattern-not-inside: $X.contentType(MediaType.APPLICATION_PDF)
+                          - pattern-not-inside: $X.contentType(MediaType.APPLICATION_OCTET_STREAM)
+                          - pattern-not-inside: $X.contentType(MediaType.TEXT_PLAIN)
+                          - pattern-not-inside: $X.contentType(MediaType.APPLICATION_XML)
+                          - pattern-not-inside: $X.contentType(MediaType.IMAGE_PNG)
+                          - pattern-not-inside: $X.contentType(MediaType.IMAGE_JPEG)
+                          - pattern-not-inside: $X.contentType(MediaType.IMAGE_GIF)
+                          - pattern-not-inside: $X.header("Content-Type", "application/json")
+                          - pattern-not-inside: $X.header("Content-Type", "application/pdf")
+                          - pattern-not-inside: $X.header("Content-Type", "application/octet-stream")
+                          - pattern-not-inside: $X.header("Content-Type", "text/plain")
+                          - pattern-not-inside: $X.header("Content-Type", "application/xml")
+                          - pattern-not-inside: $X.header("Content-Type", "image/png")
+                          - pattern-not-inside: $X.header("Content-Type", "image/jpeg")
+                          - pattern-not-inside: $X.header("Content-Type", "image/gif")
+                          - pattern-not-inside: $X.header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                          - pattern-not-inside: $X.header("Content-Type", MediaType.APPLICATION_PDF_VALUE)
+                          - pattern-not-inside: $X.header("Content-Type", MediaType.APPLICATION_OCTET_STREAM_VALUE)
+                          - pattern-not-inside: $X.header("Content-Type", MediaType.TEXT_PLAIN_VALUE)
+                          - pattern-not-inside: $X.header("Content-Type", MediaType.APPLICATION_XML_VALUE)
+                          - pattern-not-inside: $X.header("Content-Type", MediaType.IMAGE_PNG_VALUE)
+                          - pattern-not-inside: $X.header("Content-Type", MediaType.IMAGE_JPEG_VALUE)
+                          - pattern-not-inside: $X.header("Content-Type", MediaType.IMAGE_GIF_VALUE)
+                      - pattern-either:
+                          - pattern-inside: |
+                              $X = ResponseEntity.status(...);
+                              ...
+                          - pattern-inside: |
+                              $X = ResponseEntity.ok();
+                              ...
+                          - pattern-inside: |
+                              $X = ResponseEntity.internalServerError();
+                              ...
+                          - pattern-inside: |
+                              $X = ResponseEntity.accepted();
+                              ...
+                          - pattern-inside: |
+                              $X = ResponseEntity.badRequest();
+                              ...
+                          - pattern-inside: |
+                              $X = ResponseEntity.created(...);
+                              ...
+                          - pattern-inside: |
+                              $X = ResponseEntity.unprocessableContent();
+                              ...
+                          - pattern-inside: |
+                              $X = ResponseEntity.unprocessableEntity();
+                              ...
+                      - pattern: |
+                          return (ResponseEntity.BodyBuilder $X).body($UNTRUSTED);
 
-                      # String return NOT gated by @ResponseBody/@RestController: StringHttpMessageConverter
-                      # negotiates to text/html under browser Accept; @Controller view-name shape doesn't dataflow.
-                      - pattern-inside: |
-                          @$ANNOTATION(...)
-                          String $METHOD(...) {
-                            ...
-                          }
+                  - patterns:
+                      - patterns:
+                          - pattern-not-inside: $H.setContentType(MediaType.APPLICATION_JSON)
+                          - pattern-not-inside: $H.setContentType(MediaType.APPLICATION_PDF)
+                          - pattern-not-inside: $H.setContentType(MediaType.APPLICATION_OCTET_STREAM)
+                          - pattern-not-inside: $H.setContentType(MediaType.TEXT_PLAIN)
+                          - pattern-not-inside: $H.setContentType(MediaType.APPLICATION_XML)
+                          - pattern-not-inside: $H.setContentType(MediaType.IMAGE_PNG)
+                          - pattern-not-inside: $H.setContentType(MediaType.IMAGE_JPEG))
+                          - pattern-not-inside: $H.setContentType(MediaType.IMAGE_GIF)
+                      - pattern-either:
+                          - pattern-inside: |
+                              $H = new Headers(...);
+                              ...
+                      - pattern: |
+                          return new ResponseEntity($UNTRUSTED, $H, ...);
+                  - pattern-either:
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           ResponseEntity<Object> $METHOD(...) {
@@ -129,6 +158,48 @@ rules:
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           ResponseEntity<byte[]> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<Resource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<InputStreamResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<ByteArrayResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<ClassPathResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<FileSystemResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<UrlResource> $METHOD(...) {
+                            ...
+                          }
+              - patterns:
+                  - pattern-either:
+                      # Type-arg matching is exact at the return position; <String>/<byte[]>
+                      # are discriminators, not placeholders (Stirling-PDF rescan: 42 → 9 FPs).
+
+                      # String return NOT gated by @ResponseBody/@RestController: StringHttpMessageConverter
+                      # negotiates to text/html under browser Accept; @Controller view-name shape doesn't dataflow.
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          String $METHOD(...) {
                             ...
                           }
                       # Bare byte[] / Resource family — converters advertise wildcard, browser
@@ -166,38 +237,6 @@ rules:
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           UrlResource $METHOD(...) {
-                            ...
-                          }
-                      # Resource family at type-arg position: Spring picks converter by runtime body type.
-                      # ResponseEntity<?> / wrapper<?> NOT covered — <?> over-matches <DTO>; FN accepted.
-                      - pattern-inside: |
-                          @$ANNOTATION(...)
-                          ResponseEntity<Resource> $METHOD(...) {
-                            ...
-                          }
-                      - pattern-inside: |
-                          @$ANNOTATION(...)
-                          ResponseEntity<InputStreamResource> $METHOD(...) {
-                            ...
-                          }
-                      - pattern-inside: |
-                          @$ANNOTATION(...)
-                          ResponseEntity<ByteArrayResource> $METHOD(...) {
-                            ...
-                          }
-                      - pattern-inside: |
-                          @$ANNOTATION(...)
-                          ResponseEntity<ClassPathResource> $METHOD(...) {
-                            ...
-                          }
-                      - pattern-inside: |
-                          @$ANNOTATION(...)
-                          ResponseEntity<FileSystemResource> $METHOD(...) {
-                            ...
-                          }
-                      - pattern-inside: |
-                          @$ANNOTATION(...)
-                          ResponseEntity<UrlResource> $METHOD(...) {
                             ...
                           }
                       # Raw ResponseEntity is caught by the parameterized branches above —
@@ -353,19 +392,24 @@ rules:
       # Branch 1c: explicit HTML/SVG on a ResponseEntity builder chain. Sink is the return —
       # .contentType() overrides the framework default; only MediaType instance constants apply.
       - patterns:
+          - metavariable-pattern:
+              metavariable: $ANNOTATION
+              patterns:
+                - pattern-either:
+                    - pattern: GetMapping
+                    - pattern: PostMapping
+                    - pattern: PutMapping
+                    - pattern: PatchMapping
+                    - pattern: DeleteMapping
+                    - pattern: RequestMapping
+          - pattern: |
+                @$ANNOTATION(...)
+                $RETURNTYPE $METHOD(...) {
+                  ...
+                }
           - pattern-either:
-              # Chained return: `return X.contentType(...).body(tainted);`
               - pattern: return $X.contentType(MediaType.TEXT_HTML).body($UNTRUSTED);
               - pattern: return $X.contentType(MediaType.IMAGE_SVG_XML).body($UNTRUSTED);
-              # Local-var assignment then return.
-              - pattern: |
-                  $RE = $X.contentType(MediaType.TEXT_HTML).body($UNTRUSTED);
-                  ...
-                  return $RE;
-              - pattern: |
-                  $RE = $X.contentType(MediaType.IMAGE_SVG_XML).body($UNTRUSTED);
-                  ...
-                  return $RE;
           - focus-metavariable: $UNTRUSTED
 
       # Branch 2: servlet writer — DEFAULT-SAFE; fires only on explicit text/html
