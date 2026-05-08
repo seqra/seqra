@@ -23,46 +23,47 @@ rules:
 
     pattern-sinks:
       - patterns:
-          - patterns:
-            - pattern-either:
-              - pattern-inside: |
-                  $RETURNTYPE $ENTRYPOINT(..., javax.servlet.http.HttpServletResponse $RESPONSE, ...) {
-                  ...
-                  }
-            - pattern-inside: |
-                  $RETURNTYPE $ENTRYPOINT(..., jakarta.servlet.http.HttpServletResponse $RESPONSE, ...) {
-                  ...
-                  }
-            - metavariable-pattern:
-                metavariable: $ENTRYPOINT
-                pattern-either:
-                  - pattern: doDelete
-                  - pattern: doGet
-                  - pattern: doPost
-                  - pattern: doPut
-                  - pattern: doTrace
-                  - pattern: _jspService
           - pattern-either:
               - patterns:
-                - pattern-either:
-                  - pattern-inside: |
-                      $W = (javax.servlet.http.HttpServletResponse $RESPONSE).getWriter(...);
-                      ...
-                  - pattern-inside: |
-                      $W = (jakarta.servlet.http.HttpServletResponse $RESPONSE).getWriter(...);
-                      ...
-                - pattern: |
-                    $W.$WRITE(..., $UNTRUSTED, ...);
-              - patterns:
-                - pattern-either:
-                  - pattern-inside: |
-                      $S = (javax.servlet.http.HttpServletResponse $RESPONSE).getOutputStream(...);
-                      ...
-                  - pattern-inside: |
-                      $S = (jakarta.servlet.http.HttpServletResponse $RESPONSE).getOutputStream(...);
-                      ...
-                - pattern: |
-                    $S.$WRITE(..., $UNTRUSTED, ...);
+                - patterns:
+                  - pattern-either:
+                    - pattern-inside: |
+                        $RETURNTYPE $ENTRYPOINT(..., javax.servlet.http.HttpServletResponse $RESPONSE, ...) {
+                        ...
+                        }
+                    - pattern-inside: |
+                        $RETURNTYPE $ENTRYPOINT(..., jakarta.servlet.http.HttpServletResponse $RESPONSE, ...) {
+                        ...
+                        }
+                  - metavariable-pattern:
+                      metavariable: $ENTRYPOINT
+                      pattern-either:
+                        - pattern: doDelete
+                        - pattern: doGet
+                        - pattern: doPost
+                        - pattern: doPut
+                        - pattern: doTrace
+                        - pattern: _jspService
+                - patterns:
+                  - pattern-either:
+                    - pattern-inside: |
+                        $W = (javax.servlet.http.HttpServletResponse $RESPONSE).getWriter(...);
+                        ...
+                    - pattern-inside: |
+                        $W = (jakarta.servlet.http.HttpServletResponse $RESPONSE).getWriter(...);
+                        ...
+                  - pattern: |
+                      $W.$WRITE(..., $UNTRUSTED, ...);
+                - patterns:
+                  - pattern-either:
+                    - pattern-inside: |
+                        $S = (javax.servlet.http.HttpServletResponse $RESPONSE).getOutputStream(...);
+                        ...
+                    - pattern-inside: |
+                        $S = (jakarta.servlet.http.HttpServletResponse $RESPONSE).getOutputStream(...);
+                        ...
+                  - pattern: |
+                      $S.$WRITE(..., $UNTRUSTED, ...);
               - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
               - pattern: (jakarta.servlet.jsp.JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
               - pattern: (javax.servlet.jsp.JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
