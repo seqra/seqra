@@ -11,10 +11,8 @@ rules:
       - java
     mode: taint
 
-    # Servlet spec defaults Content-Type to text/html when not set
-    # explicitly, so writer/OutputStream output is XSS by default unless
-    # `setContentType("...")` pins a non-HTML value. Mirrors the Spring
-    # sibling rule's strategy for raw `HttpServlet` handlers.
+    # Servlet defaults Content-Type to text/html — writer/OutputStream is XSS
+    # unless setContentType pins non-HTML. Spring sibling for raw HttpServlet handlers.
 
     pattern-sanitizers:
       - patterns:
@@ -48,14 +46,8 @@ rules:
               - pattern: (ServletOutputStream $W).$WRITE(..., $UNTRUSTED, ...)
               - pattern: (jakarta.servlet.jsp.JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
 
-          # `$CT_SAFE` is placed OUTSIDE the source-pattern quotes so it
-          # binds to the entire string-literal expression. The
-          # `metavariable-pattern` alternatives are then quoted Java
-          # string literals (e.g., `'"application/json"'`). The bare-
-          # identifier form (`application/json`) cannot be used because
-          # the engine parses it as a Java AST expression — `/` and `-`
-          # become operators, so e.g. `application/octet-stream` is
-          # truncated to `application/octet` (BLOCKING parse error).
+          # $CT_SAFE OUTSIDE quotes binds to the whole string-literal expression;
+          # bare `application/json` can't be used — engine parses `/` `-` as Java operators.
           - patterns:
               - pattern-not-inside: |
                   (HttpServletResponse $RESPONSE).setContentType($CT_SAFE);
@@ -74,15 +66,8 @@ rules:
                         - pattern: '"image/png"'
                         - pattern: '"image/jpeg"'
                         - pattern: '"image/gif"'
-                        # `setContentType(String)` accepts the Spring
-                        # `MediaType.X_VALUE` String constants too. The
-                        # dev analyzer constant-folds them, but we list
-                        # them explicitly so the negation survives
-                        # analyzer regressions / older builds. Short
-                        # `MediaType.X_VALUE` form relies on the
-                        # engine's import resolution; raw-servlet code
-                        # that pulls in `org.springframework.http.MediaType`
-                        # for its String constants is unusual but valid.
+                        # MediaType.X_VALUE constants — dev analyzer constant-folds; kept
+                        # explicit for analyzer-regression / older-build robustness.
                         - pattern: MediaType.APPLICATION_JSON_VALUE
                         - pattern: MediaType.TEXT_PLAIN_VALUE
                         - pattern: MediaType.APPLICATION_PDF_VALUE

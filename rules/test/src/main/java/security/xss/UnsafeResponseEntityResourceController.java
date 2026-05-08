@@ -1,4 +1,4 @@
-package test;
+package security.xss;
 
 import java.nio.charset.StandardCharsets;
 
@@ -10,14 +10,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * `@RestController` + `ResponseEntity<Resource>` — DEFAULT-DANGEROUS.
- *
- * Same converter mechanics as bare `Resource`: `ResourceHttpMessageConverter`
- * advertises the wildcard media type, browser Accept ranks `text/html` first, Spring writes
- * the bytes labeled `text/html`. Empirically validated in
- * `/tmp/spring-content-type-probe/RESULTS.md`.
- */
+// @RestController + ResponseEntity<Resource>. Same wildcard-converter mechanics as
+// bare Resource — browser Accept ranks text/html first, bytes labeled text/html.
 @RestController
 public class UnsafeResponseEntityResourceController {
 

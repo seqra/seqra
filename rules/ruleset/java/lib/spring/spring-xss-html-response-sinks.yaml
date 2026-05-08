@@ -11,15 +11,11 @@ rules:
       - java
     mode: taint
 
-    # The rule fires when the response Content-Type defaults to text/html
-    # (the DEFAULT-DANGEROUS shapes — `String`, `ResponseEntity<$T>`,
-    # `CompletableFuture<$T>` returns) unless an explicit non-HTML signal
-    # subtracts it. Branch 2 covers the DEFAULT-SAFE servlet-writer shape
-    # which fires only on an explicit text/html signal.
+    # Branches 1/1b/1c: DEFAULT-DANGEROUS handler returns unless a non-HTML signal subtracts.
+    # Branch 2 (servlet writer): DEFAULT-SAFE — fires only on explicit text/html.
 
     pattern-sanitizers:
-      # Standard HTML encoders / escapers. `focus-metavariable: $UNTRUSTED`
-      # scopes sanitization to the encoded argument.
+      # HTML encoders. focus-metavariable scopes sanitization to the encoded argument.
       - patterns:
           - pattern-either:
               - pattern: Encode.forHtml(..., $UNTRUSTED, ...)
@@ -33,11 +29,8 @@ rules:
               - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $UNTRUSTED, ...)
           - focus-metavariable: $UNTRUSTED
 
-      # ResponseEntity builder chains pinning a non-HTML Content-Type.
-      # Forward-compatible: `TaintRuleProcessing.kt:413` ignores
-      # `focus-metavariable` on sanitizers today, so this is a no-op
-      # against the current engine. Becomes load-bearing once the TODO
-      # lands (suppresses matrix rows 10 / 12 / 15 / 18 / 19).
+      # Builder chains pinning a non-HTML Content-Type. No-op today —
+      # TaintRuleProcessing.kt:413 ignores focus-metavariable on sanitizers.
       - patterns:
           - pattern-either:
               - pattern: $X.contentType(MediaType.APPLICATION_JSON).body($UNTRUSTED)
@@ -56,12 +49,8 @@ rules:
               - pattern: $X.header("Content-Type", "image/png").body($UNTRUSTED)
               - pattern: $X.header("Content-Type", "image/jpeg").body($UNTRUSTED)
               - pattern: $X.header("Content-Type", "image/gif").body($UNTRUSTED)
-              # `header(name, value)` takes a `String` value, so the
-              # `MediaType.X_VALUE` String constants are also valid
-              # arguments. The dev analyzer constant-folds them to the
-              # bare-string form above and these alternatives are
-              # therefore redundant under it; kept explicit for
-              # robustness against analyzer regressions / older builds.
+              # MediaType.X_VALUE constants — dev analyzer constant-folds to the
+              # bare strings above; kept explicit for older-build robustness.
               - pattern: $X.header("Content-Type", MediaType.APPLICATION_JSON_VALUE).body($UNTRUSTED)
               - pattern: $X.header("Content-Type", MediaType.APPLICATION_PDF_VALUE).body($UNTRUSTED)
               - pattern: $X.header("Content-Type", MediaType.APPLICATION_OCTET_STREAM_VALUE).body($UNTRUSTED)
@@ -72,9 +61,8 @@ rules:
               - pattern: $X.header("Content-Type", MediaType.IMAGE_GIF_VALUE).body($UNTRUSTED)
           - focus-metavariable: $UNTRUSTED
 
-      # `new ResponseEntity<>(body, headers, status)` with a non-HTML
-      # content type set on the headers object beforehand. Same engine
-      # TODO as above; suppresses matrix row 13 once fixed.
+      # new ResponseEntity(body, headers, status) with non-HTML preset on headers.
+      # Same engine TODO as above (no-op until focus-metavariable on sanitizers lands).
       - patterns:
           - pattern-either:
               - pattern: |
@@ -100,16 +88,8 @@ rules:
           - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:
-      # Branch 1: handler return — DEFAULT-DANGEROUS return types.
-      #
-      # Negation MUST be `pattern-not-inside`, not `pattern-not`. With
-      # `pattern-not` the automata builder hits an inconsistent-state bug
-      # ("Automata without method enter contains end edges" —
-      # `SemgrepRuleToAutomata.kt:82-84`).
-      #
-      # `$PRODUCES` is constrained by a co-located `metavariable-pattern`
-      # under the same `patterns:` group; a sibling-level constraint
-      # silently does not filter negative-scope bindings.
+      # Branch 1: DEFAULT-DANGEROUS return types. Use pattern-not-inside (not
+      # pattern-not — automata bug SemgrepRuleToAutomata.kt:82-84).
       - patterns:
           - metavariable-pattern:
               metavariable: $ANNOTATION
@@ -121,52 +101,16 @@ rules:
                     - pattern: PatchMapping
                     - pattern: DeleteMapping
                     - pattern: RequestMapping
-          # Pair each return-type shape with its dedicated sink:
-          #   - body-typed returns (String / ResponseEntity / CompletableFuture)
-          #     feed the response via `return $UNTRUSTED;`
-          #   - `DeferredResult<$T>` feeds the response via the wrapper's
-          #     `$DR.setResult(tainted)` call before returning the wrapper.
+          # Body-typed returns feed via `return $UNTRUSTED;`;
+          # DeferredResult<$T> feeds via `$DR.setResult(tainted)` before returning the wrapper.
           - pattern-either:
               - patterns:
                   - pattern-either:
-                      # Body-typed returns whose default Content-Type can
-                      # land on text/html. The engine implements exact
-                      # type-arg matching at the method-decl return
-                      # position (see `TypeAwarePatternTest` A1 etc.), so
-                      # `ResponseEntity<String>` / `<byte[]>` etc. are
-                      # declarative discriminators rather than
-                      # placeholders. (An older comment here claimed the
-                      # return-statement sink path lost type-arg
-                      # discrimination end-to-end and that
-                      # `ResponseEntity<DTO>` etc. would still match —
-                      # the 2026-05-05 Stirling-PDF re-scan empirically
-                      # disproves that: removing the raw `ResponseEntity`
-                      # alternative on its own dropped the FP count
-                      # from 42 to 9, i.e., the parameterized form does
-                      # NOT over-match `<DTO>` returns.)
-                      #
-                      # The `String` return shape was previously gated by
-                      # `pattern-not-inside @ResponseBody`, on the belief
-                      # that body-write of a `String` lands on
-                      # `text/plain` via `StringHttpMessageConverter`'s
-                      # default and is therefore not XSS-exploitable.
-                      # That belief was disproved empirically in
-                      # `spring-app-tests/xss-in-spring-app-dynamic` —
-                      # `StringHttpMessageConverter` does Accept-header
-                      # content negotiation BEFORE falling back, and a
-                      # real browser's `Accept: text/html` lifts the
-                      # response to `Content-Type: text/html;charset=UTF-8`.
-                      # `alert(1)` then fires in Chromium. We therefore
-                      # do NOT exclude `@ResponseBody` (or its
-                      # class-level `@RestController` form) here.
-                      #
-                      # The remaining over-approximation is a plain
-                      # `@Controller` + `String` return that is treated
-                      # as a view name. In practice that shape doesn't
-                      # concatenate untrusted input into the returned
-                      # view name string, so the source→sink dataflow
-                      # path doesn't reach `return $UNTRUSTED;` and no
-                      # FP fires.
+                      # Type-arg matching is exact at the return position; <String>/<byte[]>
+                      # are discriminators, not placeholders (Stirling-PDF rescan: 42 → 9 FPs).
+
+                      # String return NOT gated by @ResponseBody/@RestController: StringHttpMessageConverter
+                      # negotiates to text/html under browser Accept; @Controller view-name shape doesn't dataflow.
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           String $METHOD(...) {
@@ -187,18 +131,8 @@ rules:
                           ResponseEntity<byte[]> $METHOD(...) {
                             ...
                           }
-                      # Bare body-typed returns from `@RestController` /
-                      # `@Controller`+`@ResponseBody` methods. Empirically
-                      # (see `/tmp/spring-content-type-probe/RESULTS.md`) all
-                      # of these emit `text/html` to a browser visitor under
-                      # default content negotiation: `ByteArrayHttpMessageConverter`
-                      # supports the wildcard media type, `ResourceHttpMessageConverter`
-                      # supports the wildcard media type, and Spring picks
-                      # the highest-priority Accept type from the browser.
-                      # Bare `Object` is intentionally NOT covered here:
-                      # Semgrep's subtype-aware return-type matching makes
-                      # `pattern-inside Object $METHOD` subsume every
-                      # class-typed return (FP on `ResponseEntity<DTO>`).
+                      # Bare byte[] / Resource family — converters advertise wildcard, browser
+                      # Accept lifts to text/html. Object excluded (subsumes class returns, FP).
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           byte[] $METHOD(...) {
@@ -234,18 +168,8 @@ rules:
                           UrlResource $METHOD(...) {
                             ...
                           }
-                      # `<Resource>` family at the type-arg position.
-                      # Spring picks the converter from the runtime body
-                      # type, so a `Resource` parameterized return that
-                      # happens to wrap a String body still emits
-                      # `text/html`. Empirically validated for the listed
-                      # subclasses.
-                      #
-                      # `ResponseEntity<?>` (and `CompletableFuture<?>`,
-                      # `DeferredResult<?>`) intentionally NOT covered:
-                      # Semgrep's `<?>` in patterns is "any type-arg" and
-                      # over-matches `<DTO>`. FN risk for literal-`<?>`
-                      # handlers is acceptable.
+                      # Resource family at type-arg position: Spring picks converter by runtime body type.
+                      # ResponseEntity<?> / wrapper<?> NOT covered — <?> over-matches <DTO>; FN accepted.
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           ResponseEntity<Resource> $METHOD(...) {
@@ -276,20 +200,7 @@ rules:
                           ResponseEntity<UrlResource> $METHOD(...) {
                             ...
                           }
-                      # Raw `ResponseEntity` (no type argument) is also
-                      # DEFAULT-DANGEROUS but it is handled in a
-                      # dedicated top-level Branch 1d below, not here.
-                      # Putting the raw `pattern-inside` + the
-                      # `pattern-not-inside ResponseEntity<$T>`
-                      # subtraction at this nesting depth (4 levels
-                      # under `pattern-sinks`: patterns → pattern-either
-                      # → patterns → pattern-either) does not engage
-                      # the engine's `TypeAwarePatternTest.A24`
-                      # discrimination of raw vs parameterized in
-                      # negations end-to-end — Row 14 reports as a
-                      # rule-test FN. Hoisting the raw branch to
-                      # top-level patterns matches A24's flat shape
-                      # exactly and the discrimination kicks in.
+                      # Raw ResponseEntity (no type-arg) intentionally not covered — FN accepted.
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           CompletableFuture<String> $METHOD(...) {
@@ -300,10 +211,7 @@ rules:
                           CompletableFuture<byte[]> $METHOD(...) {
                             ...
                           }
-                      # `CompletableFuture` wraps an arbitrary inner type;
-                      # Spring unwraps it and applies converters to the
-                      # inner value. Symmetric expansion to cover Object,
-                      # wildcard, and the Resource family.
+                      # CompletableFuture: Spring unwraps and applies converters to the inner value.
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           CompletableFuture<Object> $METHOD(...) {
@@ -352,9 +260,7 @@ rules:
                           DeferredResult<byte[]> $METHOD(...) {
                             ...
                           }
-                      # Symmetric expansion mirroring CompletableFuture.
-                      # Spring unwraps the wrapper and applies converters
-                      # to the inner value.
+                      # DeferredResult: same wrapper-unwrap as CompletableFuture.
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           DeferredResult<Object> $METHOD(...) {
@@ -392,18 +298,10 @@ rules:
                           }
                   - pattern: $DR.setResult(..., $UNTRUSTED, ...);
 
-          # `image/svg+xml` is deliberately NOT excluded — SVG can host
-          # inline `<script>` and execute.
-          #
-          # `$PRODUCES` is placed OUTSIDE the source-pattern quotes so
-          # it binds to the entire annotation-argument expression
-          # (string literal OR `MediaType.X_VALUE` constant ref). The
-          # `metavariable-pattern` alternatives mix quoted Java string
-          # literals (e.g., `'"application/json"'`) with bare AST node
-          # references (e.g., `MediaType.APPLICATION_JSON_VALUE`). A
-          # bare-identifier MIME form like `application/json` cannot be
-          # used because the engine parses `/` and `-` as Java
-          # operators (BLOCKING parse error).
+          # image/svg+xml NOT excluded — SVG can host inline <script>.
+
+          # $PRODUCES OUTSIDE quotes binds to whole annotation-arg (string OR MediaType.X_VALUE);
+          # bare `application/json` can't appear — engine parses `/` `-` as Java operators.
           - patterns:
               - pattern-not-inside: |
                   @$ANNOTATION(..., produces = $PRODUCES, ...)
@@ -432,18 +330,8 @@ rules:
                         - pattern: MediaType.IMAGE_GIF_VALUE
           - focus-metavariable: $UNTRUSTED
 
-      # Branch 1b: explicit HTML / SVG producer on the handler
-      # annotation. Fires regardless of `@RestController` because an
-      # explicit `produces` overrides the converter's default content
-      # type. Recovers Rows 02 / 23 / 25.
-      #
-      # Single bare-metavar `pattern-inside` (`produces = $PRODUCES_HTML`)
-      # binds the metavar to the entire annotation-argument expression,
-      # then `metavariable-pattern` lists both quoted Java string
-      # literals (`'"text/html"'` etc.) and bare `MediaType.X` constant
-      # references. Constant references cannot appear directly at the
-      # annotation-argument position in a rule pattern — the parser
-      # rejects them as "Annotation_argument_is_not_string_or_metavar".
+      # Branch 1b: explicit HTML/SVG produces= — fires regardless of @RestController
+      # ($PRODUCES_HTML must be a bare metavar at the annotation-arg position).
       - patterns:
           - pattern-inside: |
               @$ANNOTATION(..., produces = $PRODUCES_HTML, ...)
@@ -461,20 +349,8 @@ rules:
           - pattern: return $UNTRUSTED;
           - focus-metavariable: $UNTRUSTED
 
-      # Branch 1c: explicit HTML / SVG signal on a `ResponseEntity`
-      # builder chain. Sink is the `return` statement that hands the
-      # built entity back to Spring's dispatcher — `.body(...)` itself
-      # only constructs an entity, it is the `return` that exposes the
-      # response to the wire. Fires regardless of the handler's
-      # declared return type (covers `Object`, `ResponseEntity<DTO>`,
-      # custom wrappers) and regardless of the annotation's
-      # `produces=` (the builder's `.contentType(...)` overrides the
-      # framework default at runtime).
-      #
-      # `MediaType.TEXT_HTML` and `MediaType.IMAGE_SVG_XML` are the
-      # `MediaType` instance constants; `BodyBuilder.contentType()`
-      # accepts `MediaType` only (no `String` overload), so the
-      # `_VALUE` String constants do NOT appear here.
+      # Branch 1c: explicit HTML/SVG on a ResponseEntity builder chain. Sink is the return —
+      # .contentType() overrides the framework default; only MediaType instance constants apply.
       - patterns:
           - pattern-either:
               # Chained return: `return X.contentType(...).body(tainted);`
@@ -491,22 +367,11 @@ rules:
                   return $RE;
           - focus-metavariable: $UNTRUSTED
 
-      # Branch 2: servlet-style writer — DEFAULT-SAFE shape, fires only
-      # on an explicit text/html signal via `setContentType` (1-arg) or
-      # `setHeader` / `addHeader` (2-arg with header name "Content-Type").
-      #
-      # `$CT_HTML` is placed INSIDE the source-pattern quotes (`"$CT_HTML"`)
-      # so the metavar binds to the string-literal contents; a sibling
-      # `metavariable-regex` then filters those contents. Placing the
-      # metavar OUTSIDE the quotes (`$CT_HTML` matching the whole literal
-      # expression) registers the constraint but the engine does not
-      # consult it during matching — see the standalone repro at
-      # `core/opentaint-java-querylang/samples/.../issues/`.
-      #
-      # The two writer-call arities (chained / local-var) cannot be
-      # collapsed via a method-name metavar — engine issue 99 ("Method
-      # name metavar constraints intersection"). They appear as two
-      # alternatives in `pattern-either`.
+      # Branch 2: servlet writer — DEFAULT-SAFE; fires only on explicit text/html
+      # via setContentType / setHeader / addHeader.
+
+      # $CT_HTML INSIDE quotes ("$CT_HTML") binds to literal contents (OUTSIDE is silently
+      # ignored). Writer-call arities are split (engine issue 99 — name-metavar intersection).
       - patterns:
           - pattern-either:
               - pattern: |

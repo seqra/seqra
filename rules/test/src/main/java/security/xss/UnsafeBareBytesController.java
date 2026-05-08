@@ -1,4 +1,4 @@
-package test;
+package security.xss;
 
 import java.nio.charset.StandardCharsets;
 
@@ -7,15 +7,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * `@RestController` + bare `byte[]` return — DEFAULT-DANGEROUS.
- *
- * `ByteArrayHttpMessageConverter` advertises the wildcard media type, so a browser's
- * Accept header (which ranks text/html ahead of the wildcard) lifts the response to
- * `Content-Type: text/html`. Tainted bytes get labeled as HTML and
- * the inline `<script>` executes. Empirically validated in
- * `/tmp/spring-content-type-probe/RESULTS.md`.
- */
+// @RestController + bare byte[] return. ByteArrayHttpMessageConverter advertises wildcard,
+// so browser Accept lifts the response to text/html and the inline <script> executes.
 @RestController
 public class UnsafeBareBytesController {
 

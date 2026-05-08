@@ -1,4 +1,4 @@
-package test;
+package security.xss;
 
 import java.nio.charset.StandardCharsets;
 
@@ -9,15 +9,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * `@RestController` + bare `Resource` return — DEFAULT-DANGEROUS.
- *
- * `ResourceHttpMessageConverter` advertises the wildcard media type, so the browser's
- * Accept ranks `text/html` first and Spring lets the converter write
- * the body bytes under `Content-Type: text/html`. The converter does
- * not validate the bytes are HTML; it just labels them. Empirically
- * validated in `/tmp/spring-content-type-probe/RESULTS.md`.
- */
+// @RestController + bare Resource return. ResourceHttpMessageConverter advertises wildcard;
+// browser Accept ranks text/html first, so the converter writes bytes labeled text/html.
 @RestController
 public class UnsafeBareResourceController {
 

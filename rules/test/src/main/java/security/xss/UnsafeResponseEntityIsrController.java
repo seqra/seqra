@@ -1,4 +1,4 @@
-package test;
+package security.xss;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -10,13 +10,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-/**
- * `@RestController` + `ResponseEntity<InputStreamResource>` — DEFAULT-DANGEROUS.
- *
- * Same Resource-family wildcard-media-type converter mechanics; the inner stream content
- * is served as `text/html` under browser Accept. Empirically validated in
- * `/tmp/spring-content-type-probe/RESULTS.md`.
- */
+// @RestController + ResponseEntity<InputStreamResource>. Same Resource-family wildcard
+// converter mechanics; the inner stream is served as text/html under browser Accept.
 @RestController
 public class UnsafeResponseEntityIsrController {
 
