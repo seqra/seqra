@@ -192,7 +192,7 @@ class FlatToPirConverterTest {
         val firstInst = outer.cfg.instList.first()
 
         val assign = assertIs<PIRAssign>(firstInst, "FlatBindFunction must lower to PIRAssign")
-        val target = assertIs<PIRLocal>(assign.target, "PIRAssign target must be PIRLocal")
+        val target = assertIs<PIRLocalVar>(assign.target, "PIRAssign target must be PIRLocalVar")
         assertEquals("x", target.name)
         val bindExpr = assertIs<PIRBindFunctionExpr>(
             assign.expr,

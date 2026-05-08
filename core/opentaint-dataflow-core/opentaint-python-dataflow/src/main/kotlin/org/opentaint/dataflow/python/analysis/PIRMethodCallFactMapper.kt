@@ -16,7 +16,8 @@ import org.opentaint.ir.api.python.*
 
 /**
  * Maps facts between caller and callee frames at call boundaries.
- * Constructed per-method with the caller's analysis context for name→index resolution.
+ * Constructed per-method with the caller's analysis context, used to
+ * resolve callees ([callResolver]) against the caller's classpath.
  */
 class PIRMethodCallFactMapper(
     private val callerCtx: PIRMethodAnalysisContext,
@@ -26,7 +27,7 @@ class PIRMethodCallFactMapper(
     private val callerMethod: PIRFunction get() = callerCtx.method
 
     private fun valueToBase(value: PIRValue): AccessPathBase? =
-        PIRFlowFunctionUtils.accessPathBase(value, callerMethod, callerCtx)
+        PIRFlowFunctionUtils.accessPathBase(value)
 
     /**
      * Computes the implicit parameter offset (self/cls) for a callee resolved from a call.

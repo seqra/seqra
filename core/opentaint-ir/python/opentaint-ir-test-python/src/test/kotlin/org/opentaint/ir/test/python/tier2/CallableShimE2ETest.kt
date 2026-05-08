@@ -8,7 +8,7 @@ import org.junit.jupiter.api.TestInstance
 import org.opentaint.ir.api.python.PIRCall
 import org.opentaint.ir.api.python.PIRClasspath
 import org.opentaint.ir.api.python.PIRGlobalRef
-import org.opentaint.ir.api.python.PIRLocal
+import org.opentaint.ir.api.python.PIRLocalVar
 import org.opentaint.ir.test.python.PIRTestBase
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -58,7 +58,7 @@ def cse_capturing(x):
     fun `outer's call site is a PIRCall on FlatLocal('inner')`() {
         val outer = cp.modules.flatMap { it.functions }.first { it.name == "cse_capturing" }
         val userCalls = outer.instList.filterIsInstance<PIRCall>().filter {
-            (it.callee as? PIRLocal)?.name == "inner"
+            (it.callee as? PIRLocalVar)?.name == "inner"
         }
         assertTrue(userCalls.isNotEmpty(), "expected a PIRCall on the bound inner local")
         // Call passes only user-supplied args (no implicit <self>).

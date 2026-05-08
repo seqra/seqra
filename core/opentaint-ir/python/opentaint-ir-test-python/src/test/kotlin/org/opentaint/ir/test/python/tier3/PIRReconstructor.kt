@@ -535,7 +535,7 @@ def _closure_class(f):
                 if (fnName in closureBearingNames) {
                     return listOf("$target = ${sanitizeFuncName(fnName)}()")
                 }
-                val tgtLocal = inst.target as? PIRLocal
+                val tgtLocal = inst.target as? PIRLocalVar
                 val isSelfAssign = tgtLocal != null
                     && fnName == tgtLocal.name
                     && fnName in currentEmittedFuncNames
@@ -549,7 +549,7 @@ def _closure_class(f):
 
     private fun val_(v: PIRValue): String {
         return when (v) {
-            is PIRLocal -> sanitizeLocal(v.name)
+            is PIRLocalVar -> sanitizeLocal(v.name)
             is PIRParameterRef -> sanitizeLocal(v.name)
             is PIRIntConst -> v.value.toString()
             is PIRFloatConst -> v.value.toString()
@@ -675,6 +675,6 @@ def _closure_class(f):
     }
 
     private fun collectLocalFromValue(v: PIRValue, locals: MutableSet<String>) {
-        if (v is PIRLocal) locals.add(v.name)
+        if (v is PIRLocalVar) locals.add(v.name)
     }
 }

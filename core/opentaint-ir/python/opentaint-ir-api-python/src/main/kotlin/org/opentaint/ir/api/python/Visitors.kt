@@ -111,7 +111,7 @@ interface PIRExprVisitor<out T> {
  * Visitor for PIR values.
  */
 interface PIRValueVisitor<out T> {
-    fun visitLocal(value: PIRLocal): T
+    fun visitLocalVar(value: PIRLocalVar): T
     fun visitParameterRef(value: PIRParameterRef): T
     fun visitIntConst(value: PIRIntConst): T
     fun visitFloatConst(value: PIRFloatConst): T
@@ -127,7 +127,7 @@ interface PIRValueVisitor<out T> {
     interface Default<out T> : PIRValueVisitor<T> {
         fun defaultVisitValue(value: PIRValue): T
 
-        override fun visitLocal(value: PIRLocal): T = defaultVisitValue(value)
+        override fun visitLocalVar(value: PIRLocalVar): T = defaultVisitValue(value)
         override fun visitParameterRef(value: PIRParameterRef): T = defaultVisitValue(value)
         override fun visitIntConst(value: PIRIntConst): T = defaultVisitValue(value)
         override fun visitFloatConst(value: PIRFloatConst): T = defaultVisitValue(value)

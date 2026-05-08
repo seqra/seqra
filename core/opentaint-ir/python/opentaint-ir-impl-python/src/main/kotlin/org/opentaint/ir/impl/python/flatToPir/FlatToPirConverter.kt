@@ -148,7 +148,7 @@ class FlatToPirConverter(
             )
         }
         val returnType = TypeConverter.convert(pending.returnType)
-        val cfgResult = CfgConverter.convert(pending.cfg)
+        val cfgResult = CfgConverter.convert(pending.cfg, pending.parameters, pending.qualifiedName)
 
         val function = PIRFunctionImpl(
             name = pending.name,

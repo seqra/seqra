@@ -15,33 +15,65 @@ sealed interface PIRValue : PIRExpr, org.opentaint.ir.api.common.cfg.CommonValue
 
 // ─── Locals & Parameters ────────────────────────────────────
 
+/**
+ * Common supertype for any reference to a function-local slot:
+ * either a body-local variable / temporary ([PIRLocalVar]) or a
+ * parameter reference ([PIRParameterRef]).
+ *
+ * Each instance carries an [index] that uniquely identifies the slot
+ * within its enclosing function. Parameter indices match
+ * [PIRParameter.index] (signature order, starting at 0); local indices
+ * start at `parameters.size` so the param + local index space is
+ * disjoint within one function.
+ *
+ * Equality on the concrete subclasses ([PIRLocalVar], [PIRParameterRef])
+ * is keyed on `(javaClass, index)`. This is meaningful only *within* one
+ * function — two values from different functions that happen to share an
+ * index will compare equal. Do not use [PIRLocal] instances as keys in
+ * maps or sets that span multiple functions.
+ */
+sealed interface PIRLocal : PIRValue {
+    val name: String
+    val index: Int
+}
+
 /** A local variable or temporary (e.g., "$t0", "result"). */
-data class PIRLocal(
-    val name: String,
+class PIRLocalVar(
+    override val name: String,
     override val type: PIRType,
-) : PIRValue {
+    override val index: Int,
+) : PIRLocal {
     override fun toString(): String = name
-    override fun <T> accept(visitor: PIRValueVisitor<T>): T = visitor.visitLocal(this)
+    override fun <T> accept(visitor: PIRValueVisitor<T>): T = visitor.visitLocalVar(this)
+
+    override fun equals(other: Any?): Boolean =
+        this === other || (other is PIRLocalVar && other.index == index)
+    override fun hashCode(): Int = index
 }
 
 /**
- * Reference to a function parameter, identified by [name].
+ * Reference to a function parameter, identified by [name] and its
+ * signature-order [index].
  *
  * Emitted by the parameter-binding prologue at function entry — one
- * `PIRAssign(PIRLocal(name), PIRParameterRef(name))` per parameter — and by
- * the closure rewriter's prologue when reading the synthetic `<self>` env
- * parameter on capturing children. Consumers that need a parameter index
- * recover it by name lookup against the enclosing function's
- * [PIRFunction.parameters]; the closure rewriter prepends a `<self>`
- * parameter, so storing an index here would force every emitter to track
- * the post-rewrite signature.
+ * `PIRAssign(PIRLocalVar(name), PIRParameterRef(name))` per parameter —
+ * and by the closure rewriter's prologue when reading the synthetic
+ * `<self>` env parameter on capturing children. The closure rewriter
+ * prepends a `<self>` parameter to capturing children; the [index] here
+ * is the *post-rewrite* signature index, populated by the Flat → PIR
+ * converter from the (already-rewritten) [PIRFunction.parameters].
  */
-data class PIRParameterRef(
-    val name: String,
+class PIRParameterRef(
+    override val name: String,
     override val type: PIRType,
-) : PIRValue {
+    override val index: Int,
+) : PIRLocal {
     override fun toString(): String = name
     override fun <T> accept(visitor: PIRValueVisitor<T>): T = visitor.visitParameterRef(this)
+
+    override fun equals(other: Any?): Boolean =
+        this === other || (other is PIRParameterRef && other.index == index)
+    override fun hashCode(): Int = index
 }
 
 // ─── Constants ──────────────────────────────────────────────

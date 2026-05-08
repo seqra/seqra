@@ -32,6 +32,7 @@ import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.python.PIRCall
 import org.opentaint.ir.api.python.PIRClasspath
 import org.opentaint.ir.api.python.PIRFunction
+import org.opentaint.ir.api.python.PIRInstruction
 import org.opentaint.util.analysis.ApplicationGraph
 
 class PIRAnalysisManager(cp: PIRClasspath) : PIRLanguageManager(cp), TaintAnalysisManager {
@@ -83,7 +84,7 @@ class PIRAnalysisManager(cp: PIRClasspath) : PIRLanguageManager(cp), TaintAnalys
     ): MethodSequentFlowFunction {
         val ctx = analysisContext as PIRMethodAnalysisContext
         return PIRMethodSequentFlowFunction(
-            currentInst as org.opentaint.ir.api.python.PIRInstruction, ctx.method, ctx, apManager
+            currentInst as PIRInstruction, ctx, apManager
         )
     }
 

@@ -2,7 +2,6 @@ package org.opentaint.dataflow.python.util
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor.*
-import org.opentaint.dataflow.python.analysis.PIRMethodAnalysisContext
 import org.opentaint.ir.api.python.*
 
 /**
@@ -14,51 +13,26 @@ object PIRFlowFunctionUtils {
     /**
      * Maps a PIRValue to an AccessPathBase.
      *
-     * - PIRLocal → LocalVar(ctx.localIndex(name)). Parameter slots, after the
-     *   function's parameter-binding prologue, also show up as PIRLocal —
-     *   the prologue emits one `PIRAssign(PIRLocal(name), PIRParameterRef(name))`
-     *   per parameter at function entry, after which the body's reads/writes
-     *   resolve uniformly to a LocalVar index. Inbound taint already flows
-     *   correctly (the assign rule propagates Argument(i) → LocalVar(idx) at
-     *   entry), but the return direction — mutations to LocalVar(idx) being
-     *   visible on the caller's argument — requires alias analysis over the
-     *   prologue assign and is future work.
-     * - PIRParameterRef → Argument(parameter index in [method.parameters]).
-     *   Only ever appears as the RHS of an entry-block prologue assign or as
-     *   the synthetic `<self>` env parameter prepended by the closure
-     *   rewriter. The index is recovered by name lookup against the
-     *   post-rewrite signature on every call so we don't have to track
-     *   `<self>`-shifted indices on the value itself.
+     * - PIRLocalVar → LocalVar(value.index). Body locals are first-appearance
+     *   indexed during Flat → PIR conversion, starting at `parameters.size`,
+     *   so their slots are disjoint from parameter slots. Parameter
+     *   reads/writes after the entry-block prologue (`PIRAssign(PIRLocalVar(p),
+     *   PIRParameterRef(p))`) flow through their PIRLocalVar slot. Inbound
+     *   taint already flows correctly (the assign rule propagates
+     *   Argument(i) → LocalVar(idx) at entry), but the return direction —
+     *   mutations to LocalVar(idx) being visible on the caller's argument —
+     *   requires alias analysis over the prologue assign and is future work.
+     * - PIRParameterRef → Argument(value.index). Indices are signature-order
+     *   on the post-rewrite [PIRFunction.parameters], so `<self>`-shifted
+     *   indices on closure children are already correct.
      * - PIRConst, PIRGlobalRef, PIRModuleRef → null (not taint-trackable).
      */
-    fun accessPathBase(
-        value: PIRValue,
-        method: PIRFunction,
-        ctx: PIRMethodAnalysisContext,
-    ): AccessPathBase? = when (value) {
-        is PIRLocal -> AccessPathBase.LocalVar(ctx.localIndex(value.name))
-        is PIRParameterRef -> {
-            val idx = method.parameters.indexOfFirst { it.name == value.name }
-            if (idx < 0) error("Parameter not found: ${value.name} in ${method.qualifiedName}")
-            AccessPathBase.Argument(idx)
-        }
+    fun accessPathBase(value: PIRValue): AccessPathBase? = when (value) {
+        is PIRLocalVar -> AccessPathBase.LocalVar(value.index)
+        is PIRParameterRef -> AccessPathBase.Argument(value.index)
         is PIRConst -> null // Constants are not taint-trackable
         is PIRGlobalRef -> null  // Not tracked as a local
         is PIRModuleRef -> null  // Module references are not taint-trackable
-    }
-
-    /**
-     * Converts a PIRExpr to an AccessPathBase.
-     * Simple values → base
-     * Compound expressions → null (not directly resolvable)
-     */
-    fun exprToBase(
-        expr: PIRExpr,
-        method: PIRFunction,
-        ctx: PIRMethodAnalysisContext,
-    ): AccessPathBase? = when (expr) {
-        is PIRValue -> accessPathBase(expr, method, ctx)
-        else -> null
     }
 
     /**
@@ -90,11 +64,11 @@ object PIRFlowFunctionUtils {
      */
     fun findMethodCallReceiver(call: PIRCall, method: PIRFunction): PIRValue? {
         val callee = call.callee
-        if (callee !is PIRLocal) return null
+        if (callee !is PIRLocalVar) return null
 
         for (inst in method.instList) {
-            if (inst is PIRLoadAttr && inst.target is PIRLocal
-                && (inst.target as PIRLocal).name == callee.name
+            if (inst is PIRLoadAttr && inst.target is PIRLocalVar
+                && (inst.target as PIRLocalVar).index == callee.index
             ) {
                 return inst.obj
             }

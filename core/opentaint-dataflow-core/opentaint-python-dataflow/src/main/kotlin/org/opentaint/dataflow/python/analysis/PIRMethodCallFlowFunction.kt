@@ -37,7 +37,7 @@ class PIRMethodCallFlowFunction(
         // Apply source rules: if this call is a taint source, generate new taint fact
         for (source in taintConfig.sources) {
             if (matchesCall(source.function, callInst)) {
-                val targetBase = resolvePosition(source.pos, callInst, method, ctx)
+                val targetBase = resolvePosition(source.pos, callInst, method)
                     ?: continue
                 val newFact = apManager.createAbstractAp(targetBase, ExclusionSet.Universe)
                     .prependAccessor(TaintMarkAccessor(source.mark))
@@ -105,8 +105,8 @@ class PIRMethodCallFlowFunction(
         // 2. Apply pass-through rules
         for (pass in taintConfig.propagators) {
             if (matchesCallOrReceiver(pass.function)) {
-                val fromBase = resolvePositionWithModifiers(pass.from, callInst, method, ctx)
-                val toBase = resolvePositionWithModifiers(pass.to, callInst, method, ctx)
+                val fromBase = resolvePositionWithModifiers(pass.from, callInst, method)
+                val toBase = resolvePositionWithModifiers(pass.to, callInst, method)
 
                 if (fromBase != null && toBase != null && currentFactAp.base == fromBase) {
                     val newFact = currentFactAp.rebase(toBase)
@@ -169,7 +169,7 @@ class PIRMethodCallFlowFunction(
     private fun checkSinks(currentFactAp: FinalFactAp, refinement: PIRFactRefinement) {
         for (sink in taintConfig.sinks) {
             if (matchesCallOrReceiver(sink.function)) {
-                val sinkBase = resolvePosition(sink.pos, callInst, method, ctx)
+                val sinkBase = resolvePosition(sink.pos, callInst, method)
                 if (sinkBase != null && currentFactAp.base == sinkBase) {
                     val accessor = TaintMarkAccessor(sink.mark)
                     checkTaintMarkDeep(currentFactAp, accessor, sink, refinement, 0)
@@ -204,7 +204,7 @@ class PIRMethodCallFlowFunction(
             // Skip if callee-side argument index exceeds formal parameter count
             if (calleeArgIdx >= calleeParamCount) break
 
-            val argBase = PIRFlowFunctionUtils.accessPathBase(arg.value, method, ctx)
+            val argBase = PIRFlowFunctionUtils.accessPathBase(arg.value)
                 ?: continue
             if (base == argBase) {
                 val startBase = AccessPathBase.Argument(calleeArgIdx)
@@ -256,10 +256,10 @@ class PIRMethodCallFlowFunction(
      */
     private val receiverInfo: Pair<String, String>? by lazy {
         val callee = callInst.callee
-        if (callee !is PIRLocal) return@lazy null
+        if (callee !is PIRLocalVar) return@lazy null
         for (inst in method.instList) {
-            if (inst is PIRLoadAttr && inst.target is PIRLocal
-                && (inst.target as PIRLocal).name == callee.name
+            if (inst is PIRLoadAttr && inst.target is PIRLocalVar
+                && (inst.target as PIRLocalVar).index == callee.index
             ) {
                 val attrName = inst.attribute
                 val typeName = inst.obj.type.typeName
@@ -282,22 +282,21 @@ class PIRMethodCallFlowFunction(
             pos: PositionBase,
             call: PIRCall,
             method: PIRFunction,
-            ctx: PIRMethodAnalysisContext,
         ): AccessPathBase? = when (pos) {
             is PositionBase.Result -> {
-                call.target?.let { PIRFlowFunctionUtils.accessPathBase(it, method, ctx) }
+                call.target?.let { PIRFlowFunctionUtils.accessPathBase(it) }
             }
             is PositionBase.Argument -> {
                 val idx = pos.idx ?: return null
                 call.args.getOrNull(idx)?.value?.let {
-                    PIRFlowFunctionUtils.accessPathBase(it, method, ctx)
+                    PIRFlowFunctionUtils.accessPathBase(it)
                 }
             }
             is PositionBase.This -> {
                 // In Python, PositionBase.This represents the method call receiver.
                 // e.g., for data.upper(), the receiver is `data`.
                 val receiver = PIRFlowFunctionUtils.findMethodCallReceiver(call, method)
-                receiver?.let { PIRFlowFunctionUtils.accessPathBase(it, method, ctx) }
+                receiver?.let { PIRFlowFunctionUtils.accessPathBase(it) }
             }
             is PositionBase.ClassStatic -> null
             is PositionBase.AnyArgument -> null
@@ -307,8 +306,7 @@ class PIRMethodCallFlowFunction(
             pos: PositionBaseWithModifiers,
             call: PIRCall,
             method: PIRFunction,
-            ctx: PIRMethodAnalysisContext,
-        ): AccessPathBase? = resolvePosition(pos.base, call, method, ctx)
+        ): AccessPathBase? = resolvePosition(pos.base, call, method)
     }
 }
 

@@ -12,7 +12,6 @@ import org.opentaint.ir.api.python.*
 
 class PIRMethodSequentFlowFunction(
     private val instruction: PIRInstruction,
-    private val method: PIRFunction,
     private val ctx: PIRMethodAnalysisContext,
     private val apManager: ApManager,
 ) : MethodSequentFlowFunction {
@@ -62,7 +61,7 @@ class PIRMethodSequentFlowFunction(
         assign: PIRAssign,
         currentFactAp: FinalFactAp,
     ): Set<Sequent> {
-        val assignTo = PIRFlowFunctionUtils.accessPathBase(assign.target, method, ctx)
+        val assignTo = PIRFlowFunctionUtils.accessPathBase(assign.target)
             ?: return setOf(Sequent.Unchanged)
 
         return handleAssignExpr(assign.expr, assignTo, currentFactAp) { Sequent.ZeroToFact(it, null) }
@@ -77,7 +76,7 @@ class PIRMethodSequentFlowFunction(
         initialFactAp: InitialFactAp,
         currentFactAp: FinalFactAp,
     ): Set<Sequent> {
-        val assignTo = PIRFlowFunctionUtils.accessPathBase(assign.target, method, ctx)
+        val assignTo = PIRFlowFunctionUtils.accessPathBase(assign.target)
             ?: return setOf(Sequent.Unchanged)
 
         return handleAssignExpr(assign.expr, assignTo, currentFactAp) {
@@ -100,7 +99,7 @@ class PIRMethodSequentFlowFunction(
     ): Set<Sequent> {
         // Case 1: Simple value copy (x = y)
         if (expr is PIRValue) {
-            val assignFrom = PIRFlowFunctionUtils.accessPathBase(expr, method, ctx)
+            val assignFrom = PIRFlowFunctionUtils.accessPathBase(expr)
             if (assignFrom != null) {
                 val results = mutableSetOf<Sequent>()
                 if (currentFactAp.base == assignFrom) {
@@ -153,7 +152,7 @@ class PIRMethodSequentFlowFunction(
         inst: PIRLoadAttr,
         currentFactAp: FinalFactAp,
     ): Set<Sequent> {
-        val assignTo = PIRFlowFunctionUtils.accessPathBase(inst.target, method, ctx)
+        val assignTo = PIRFlowFunctionUtils.accessPathBase(inst.target)
             ?: return setOf(Sequent.Unchanged)
         return handleAttrRead(inst, assignTo, currentFactAp) { Sequent.ZeroToFact(it, null) }
     }
@@ -163,7 +162,7 @@ class PIRMethodSequentFlowFunction(
         initialFactAp: InitialFactAp,
         currentFactAp: FinalFactAp,
     ): Set<Sequent> {
-        val assignTo = PIRFlowFunctionUtils.accessPathBase(inst.target, method, ctx)
+        val assignTo = PIRFlowFunctionUtils.accessPathBase(inst.target)
             ?: return setOf(Sequent.Unchanged)
         return handleAttrRead(inst, assignTo, currentFactAp) {
             Sequent.FactToFact(initialFactAp, it, null)
@@ -185,7 +184,7 @@ class PIRMethodSequentFlowFunction(
         currentFactAp: FinalFactAp,
         mkCopy: (FinalFactAp) -> Sequent,
     ): Set<Sequent> {
-        val objBase = PIRFlowFunctionUtils.accessPathBase(inst.obj, method, ctx)
+        val objBase = PIRFlowFunctionUtils.accessPathBase(inst.obj)
             ?: return if (currentFactAp.base == assignTo) emptySet() else setOf(Sequent.Unchanged)
         val accessor = org.opentaint.dataflow.ap.ifds.FieldAccessor(
             inst.obj.type.typeName,
@@ -246,7 +245,7 @@ class PIRMethodSequentFlowFunction(
         currentFactAp: FinalFactAp,
         mkCopy: (FinalFactAp) -> Sequent,
     ): Set<Sequent> {
-        val objBase = PIRFlowFunctionUtils.accessPathBase(expr.obj, method, ctx)
+        val objBase = PIRFlowFunctionUtils.accessPathBase(expr.obj)
             ?: return if (currentFactAp.base == assignTo) emptySet() else setOf(Sequent.Unchanged)
         val accessor = org.opentaint.dataflow.ap.ifds.ElementAccessor
 
@@ -312,7 +311,7 @@ class PIRMethodSequentFlowFunction(
         val results = mutableSetOf<Sequent>()
 
         for (valueExpr in valueExpressions) {
-            val valueBase = PIRFlowFunctionUtils.accessPathBase(valueExpr, method, ctx) ?: continue
+            val valueBase = PIRFlowFunctionUtils.accessPathBase(valueExpr) ?: continue
             if (currentFactAp.base == valueBase) {
                 // Element-level taint (precise)
                 val elementFact = currentFactAp.rebase(assignTo)
@@ -354,8 +353,8 @@ class PIRMethodSequentFlowFunction(
         currentFactAp: FinalFactAp,
         mkCopy: (FinalFactAp) -> Sequent,
     ): Set<Sequent> {
-        val leftBase = PIRFlowFunctionUtils.accessPathBase(expr.left, method, ctx)
-        val rightBase = PIRFlowFunctionUtils.accessPathBase(expr.right, method, ctx)
+        val leftBase = PIRFlowFunctionUtils.accessPathBase(expr.left)
+        val rightBase = PIRFlowFunctionUtils.accessPathBase(expr.right)
 
         if (leftBase != null && currentFactAp.base == leftBase) {
             return setOf(mkCopy(currentFactAp.rebase(assignTo)), Sequent.Unchanged)
@@ -385,7 +384,7 @@ class PIRMethodSequentFlowFunction(
         mkCopy: (FinalFactAp) -> Sequent,
     ): Set<Sequent> {
         for (part in expr.parts) {
-            val partBase = PIRFlowFunctionUtils.accessPathBase(part, method, ctx) ?: continue
+            val partBase = PIRFlowFunctionUtils.accessPathBase(part) ?: continue
             if (currentFactAp.base == partBase) {
                 return setOf(mkCopy(currentFactAp.rebase(assignTo)), Sequent.Unchanged)
             }
@@ -410,7 +409,7 @@ class PIRMethodSequentFlowFunction(
     ): Set<Sequent> {
         val results = mutableSetOf<Sequent>(Sequent.Unchanged)
         val retVal = ret.value ?: return results
-        val retBase = PIRFlowFunctionUtils.accessPathBase(retVal, method, ctx) ?: return results
+        val retBase = PIRFlowFunctionUtils.accessPathBase(retVal) ?: return results
         if (currentFactAp.base == retBase) {
             results.add(mkCopy(currentFactAp.rebase(AccessPathBase.Return)))
         }
@@ -431,9 +430,9 @@ class PIRMethodSequentFlowFunction(
         currentFactAp: FinalFactAp,
         mkCopy: (FinalFactAp) -> Sequent,
     ): Set<Sequent> {
-        val objBase = PIRFlowFunctionUtils.accessPathBase(store.obj, method, ctx)
+        val objBase = PIRFlowFunctionUtils.accessPathBase(store.obj)
             ?: return setOf(Sequent.Unchanged)
-        val valueBase = PIRFlowFunctionUtils.accessPathBase(store.value, method, ctx)
+        val valueBase = PIRFlowFunctionUtils.accessPathBase(store.value)
 
         if (valueBase != null && currentFactAp.base == valueBase) {
             val accessor = org.opentaint.dataflow.ap.ifds.FieldAccessor(
@@ -489,9 +488,9 @@ class PIRMethodSequentFlowFunction(
         currentFactAp: FinalFactAp,
         mkCopy: (FinalFactAp) -> Sequent,
     ): Set<Sequent> {
-        val objBase = PIRFlowFunctionUtils.accessPathBase(store.obj, method, ctx)
+        val objBase = PIRFlowFunctionUtils.accessPathBase(store.obj)
             ?: return setOf(Sequent.Unchanged)
-        val valueBase = PIRFlowFunctionUtils.accessPathBase(store.value, method, ctx)
+        val valueBase = PIRFlowFunctionUtils.accessPathBase(store.value)
 
         val accessor = org.opentaint.dataflow.ap.ifds.ElementAccessor
 

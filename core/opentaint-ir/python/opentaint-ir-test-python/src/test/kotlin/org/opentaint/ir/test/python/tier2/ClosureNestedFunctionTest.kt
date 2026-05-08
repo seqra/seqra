@@ -710,7 +710,7 @@ def cnf_transitive(x):
         // Look for: PIRLoadAttr whose obj is the parameter-ref `<self>` and
         // attribute == "_closure_env_". `<self>` is the synthetic env
         // parameter the closure rewriter prepends, so it shows up as a
-        // PIRParameterRef at the use site rather than a PIRLocal.
+        // PIRParameterRef at the use site rather than a PIRLocalVar.
         val envLoad = insts.filterIsInstance<PIRLoadAttr>().firstOrNull { la ->
             val obj = la.obj
             obj is PIRParameterRef && obj.name == "<self>" && la.attribute == "_closure_env_"
@@ -718,8 +718,8 @@ def cnf_transitive(x):
         assertNotNull(envLoad,
             "reader should have a PIRLoadAttr extracting _closure_env_ from <self>; insts=$insts")
 
-        val envLocalName = (envLoad!!.target as? PIRLocal)?.name
-        assertNotNull(envLocalName, "envLoad target should be a PIRLocal")
+        val envLocalName = (envLoad!!.target as? PIRLocalVar)?.name
+        assertNotNull(envLocalName, "envLoad target should be a PIRLocalVar")
         assertTrue(envLocalName!!.startsWith("\$env"),
             "env local name should start with \$env, got: $envLocalName")
 
@@ -727,9 +727,9 @@ def cnf_transitive(x):
         val cellAssign = insts.filterIsInstance<PIRAssign>().firstOrNull { a ->
             val tgt = a.target
             val expr = a.expr
-            tgt is PIRLocal && tgt.name.startsWith("\$cell\$value") &&
+            tgt is PIRLocalVar && tgt.name.startsWith("\$cell\$value") &&
                 expr is PIRSubscriptExpr &&
-                (expr.obj as? PIRLocal)?.name == envLocalName &&
+                (expr.obj as? PIRLocalVar)?.name == envLocalName &&
                 (expr.index as? PIRStrConst)?.value == "value"
         }
         assertNotNull(cellAssign,
@@ -741,7 +741,7 @@ def cnf_transitive(x):
         val reader = findNestedFunc("cnf_closure_read.reader")!!
         val cellLoad = reader.instList.filterIsInstance<PIRLoadAttr>().firstOrNull { la ->
             la.attribute == "value" &&
-                (la.obj as? PIRLocal)?.name?.startsWith("\$cell\$value") == true
+                (la.obj as? PIRLocalVar)?.name?.startsWith("\$cell\$value") == true
         }
         assertNotNull(cellLoad,
             "reader should have a PIRLoadAttr loading 'value' from a \$cell\$value local; " +
@@ -784,7 +784,7 @@ def cnf_transitive(x):
 
         val cellStore = increment.instList.filterIsInstance<PIRStoreAttr>().firstOrNull { sa ->
             sa.attribute == "value" &&
-                (sa.obj as? PIRLocal)?.name?.startsWith("\$cell\$count") == true
+                (sa.obj as? PIRLocalVar)?.name?.startsWith("\$cell\$count") == true
         }
         assertNotNull(cellStore,
             "increment should have a PIRStoreAttr writing 'value' on a \$cell\$count local; " +
@@ -813,7 +813,7 @@ def cnf_transitive(x):
             val resolved = call.resolvedCallee
             if (resolved != null && resolved.endsWith("reader")) return@filter true
             val callee = call.callee
-            callee is PIRLocal && callee.name == "reader"
+            callee is PIRLocalVar && callee.name == "reader"
         }
         assertTrue(readerCalls.isNotEmpty(),
             "outer should have a PIRCall to reader; insts=${outer.instList}")
