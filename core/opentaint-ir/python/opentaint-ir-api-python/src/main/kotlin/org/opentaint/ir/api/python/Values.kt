@@ -24,7 +24,18 @@ data class PIRLocal(
     override fun <T> accept(visitor: PIRValueVisitor<T>): T = visitor.visitLocal(this)
 }
 
-/** Reference to a function parameter by name. */
+/**
+ * Reference to a function parameter, identified by [name].
+ *
+ * Emitted by the parameter-binding prologue at function entry — one
+ * `PIRAssign(PIRLocal(name), PIRParameterRef(name))` per parameter — and by
+ * the closure rewriter's prologue when reading the synthetic `<self>` env
+ * parameter on capturing children. Consumers that need a parameter index
+ * recover it by name lookup against the enclosing function's
+ * [PIRFunction.parameters]; the closure rewriter prepends a `<self>`
+ * parameter, so storing an index here would force every emitter to track
+ * the post-rewrite signature.
+ */
 data class PIRParameterRef(
     val name: String,
     override val type: PIRType,

@@ -32,6 +32,7 @@ import org.opentaint.ir.impl.python.flat.FlatModuleIR
 import org.opentaint.ir.impl.python.flat.FlatNextIter
 import org.opentaint.ir.impl.python.flat.FlatParamKind
 import org.opentaint.ir.impl.python.flat.FlatParameter
+import org.opentaint.ir.impl.python.flat.FlatParameterRef
 import org.opentaint.ir.impl.python.flat.FlatReturn
 import org.opentaint.ir.impl.python.flat.FlatStoreAttr
 import org.opentaint.ir.impl.python.flat.FlatStrConst
@@ -300,6 +301,14 @@ class FlatClosureTransformerTest {
     @Test
     fun `parameter cells seeded`() {
         // outer(x): def inner(): return x  → outer.cellVars = {x}, x is param
+        //
+        // The fixture mirrors what `CfgBuild.buildFunctionCfg` produces: the
+        // function-entry parameter-binding prologue (`FlatAssign(FlatLocal(x),
+        // FlatParameterRef(x))`) is the body's first instruction. The closure
+        // rewriter's `defaultRewrite` redirects writes into a cell-managed
+        // `FlatLocal(x)` target through a fresh temp + `FlatStoreAttr`, which
+        // is what seeds `$cell$x` from the parameter — no explicit seed is
+        // emitted by the rewriter's prologue. We assert exactly that shape.
         val outerQn = "m.outer"
         val innerQn = "m.outer.inner"
         val inner = fn(
@@ -316,6 +325,7 @@ class FlatClosureTransformerTest {
             kind = FlatFunctionKind.TOP_LEVEL,
             params = listOf("x"),
             body = listOf(
+                FlatAssign(local("x"), FlatParameterRef("x")),  // mirrors CfgBuild's prologue
                 FlatBindFunction(local("inner"), FlatGlobalRef(innerQn)),
                 FlatReturn(null),
             ),
@@ -325,20 +335,33 @@ class FlatClosureTransformerTest {
         val rewrittenOuter = lookup(out, outerQn)
         val insts = entryInsts(rewrittenOuter)
 
-        // Expect FlatCall(__pir_cell__, target=$cell$x) followed immediately
-        // by FlatStoreAttr($cell$x, "value", FlatLocal("x")).
+        // Expect FlatCall(__pir_cell__, target=$cell$x) somewhere in the
+        // entry block, followed (after the param-binding prologue's redirected
+        // assign) by a FlatStoreAttr($cell$x, "value", _) seeding the cell.
         val allocIdx = insts.indexOfFirst {
             it is FlatCall &&
                 (it.callee as? FlatGlobalRef)?.qualifiedName == "builtins.${ClosureRuntime.CELL_CTOR_NAME}" &&
                 (it.target as? FlatLocal)?.name == cellName("x")
         }
-        assertTrue(allocIdx >= 0)
-        val seedInst = insts[allocIdx + 1]
-        assertTrue(seedInst is FlatStoreAttr)
-        seedInst as FlatStoreAttr
-        assertEquals(cellName("x"), (seedInst.obj as FlatLocal).name)
-        assertEquals(ClosureRuntime.CELL_VALUE_ATTR, seedInst.attribute)
-        assertEquals("x", (seedInst.value as FlatLocal).name)
+        assertTrue(allocIdx >= 0, "expected cell-alloc for x; insts=$insts")
+
+        // The redirected param-binding prologue produces:
+        //   FlatAssign($tcN, FlatParameterRef("x"))
+        //   FlatStoreAttr($cell$x, "value", $tcN)
+        // somewhere after the cell-alloc. Find the FlatStoreAttr targeting
+        // $cell$x and verify its value chains back to the parameter-ref.
+        val seedStore = insts.drop(allocIdx + 1).filterIsInstance<FlatStoreAttr>().firstOrNull { s ->
+            (s.obj as? FlatLocal)?.name == cellName("x") &&
+                s.attribute == ClosureRuntime.CELL_VALUE_ATTR
+        }
+        assertNotNull(seedStore, "expected FlatStoreAttr seeding ${cellName("x")}; insts=$insts")
+        val seedTemp = (seedStore!!.value as FlatLocal).name
+        val seedAssign = insts.filterIsInstance<FlatAssign>().firstOrNull {
+            (it.target as? FlatLocal)?.name == seedTemp && it.source is FlatParameterRef
+        }
+        assertNotNull(seedAssign,
+            "expected FlatAssign($seedTemp, FlatParameterRef(\"x\")) preceding the seed store; insts=$insts")
+        assertEquals("x", (seedAssign!!.source as FlatParameterRef).name)
     }
 
     /* ------------------------------------------------------------------ */

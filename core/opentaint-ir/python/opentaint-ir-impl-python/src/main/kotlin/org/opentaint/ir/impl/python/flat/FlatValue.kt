@@ -9,6 +9,28 @@ sealed interface FlatValue
 data class FlatLocal(val name: String, val type: FlatType = FlatAnyType) : FlatValue
 
 /**
+ * Reference to a function parameter, identified by [name].
+ *
+ * Emitted by the parameter-binding prologue inserted at function entry —
+ * each parameter `p` becomes one `FlatAssign(FlatLocal("p"),
+ * FlatParameterRef("p"))` instruction in block 0, after which the body
+ * reads/writes the same-named local — and by the closure rewriter's
+ * prologue when reading the synthetic `<self>` env parameter on capturing
+ * children. This keeps the body lowering representation-uniform (mypy
+ * itself doesn't distinguish parameter-vs-local at the use site) while
+ * giving downstream passes a structural marker for parameter slots.
+ *
+ * No index is stored: the closure rewriter prepends a `<self>` parameter
+ * to capturing children, which would shift every other parameter's index
+ * post-rewrite. Consumers that need an index recover it by name lookup
+ * against the function's [FlatParameter] list at point of use.
+ */
+data class FlatParameterRef(
+    val name: String,
+    val type: FlatType = FlatAnyType,
+) : FlatValue
+
+/**
  * Reference to a globally-resolvable name, identified by its qualified name.
  * For intra-module functions [qualifiedName] equals the corresponding
  * [FlatFunctionIR.qualifiedName]; for builtins / cross-module imports it is

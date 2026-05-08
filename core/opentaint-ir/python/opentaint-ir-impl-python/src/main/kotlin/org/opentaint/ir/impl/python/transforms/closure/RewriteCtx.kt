@@ -16,6 +16,7 @@ import org.opentaint.ir.impl.python.flat.FlatLoadSubscript
 import org.opentaint.ir.impl.python.flat.FlatLocal
 import org.opentaint.ir.impl.python.flat.FlatParamKind
 import org.opentaint.ir.impl.python.flat.FlatParameter
+import org.opentaint.ir.impl.python.flat.FlatParameterRef
 import org.opentaint.ir.impl.python.flat.FlatStoreAttr
 import org.opentaint.ir.impl.python.flat.FlatStrConst
 import org.opentaint.ir.impl.python.flat.FlatValue
@@ -88,6 +89,13 @@ internal class RewriteCtx(
 
     fun run(): RewriteOutput {
         val isCapturing = ci.closureVars.isNotEmpty()
+        // `<self>` is the synthetic env parameter prepended to capturing
+        // children's signatures here. Unlike user parameters, it is NOT
+        // bound to a same-named `FlatLocal("<self>")` by the function-entry
+        // parameter-binding prologue (CfgBuild ran before this rewrite, on
+        // the pre-prepend signature). Consumers must therefore read `<self>`
+        // exclusively as `FlatParameterRef("<self>")` — see [buildPrologue]'s
+        // env-load. No `FlatLocal("<self>")` exists at any point.
         val newParameters = if (isCapturing) {
             listOf(selfParameter()) + fn.parameters
         } else {
@@ -135,7 +143,13 @@ internal class RewriteCtx(
     /* -------------------------------------------------------------- */
 
     private fun buildPrologue(): List<FlatInst> = buildList {
-        // Own cells (alloc + seed-from-param if applicable).
+        // Own cells: only the allocation. Seeding from a parameter falls out
+        // of the body rewrite for free — when the captured name is also a
+        // parameter, the function-entry parameter-binding prologue emits
+        // `FlatAssign(FlatLocal(p), FlatParameterRef(p))`, and `defaultRewrite`
+        // redirects the cell-managed `FlatLocal(p)` target into a fresh temp
+        // plus a `FlatStoreAttr($cell$p, "value", $tempN)`. Adding an explicit
+        // seed here would duplicate that store.
         for (name in ownedCells) {
             val cellLocal = cellLocals.getValue(name)
             add(
@@ -145,15 +159,6 @@ internal class RewriteCtx(
                     args = emptyList(),
                 ),
             )
-            if (name in originalParamNames) {
-                add(
-                    FlatStoreAttr(
-                        obj = cellLocal,
-                        attribute = ClosureRuntime.CELL_VALUE_ATTR,
-                        value = FlatLocal(name),
-                    ),
-                )
-            }
         }
         // Received cells via env extraction. Only emit when there are any —
         // [receivedCells] mirrors `ci.closureVars`, so emptiness of one
@@ -162,7 +167,7 @@ internal class RewriteCtx(
             add(
                 FlatLoadAttr(
                     target = envLocal,
-                    obj = FlatLocal(ClosureRuntime.SELF_PARAM_NAME),
+                    obj = FlatParameterRef(ClosureRuntime.SELF_PARAM_NAME),
                     attribute = ClosureRuntime.CLOSURE_ATTR_NAME,
                 ),
             )

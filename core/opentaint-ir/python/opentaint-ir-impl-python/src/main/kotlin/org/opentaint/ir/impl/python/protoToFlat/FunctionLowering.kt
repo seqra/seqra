@@ -26,12 +26,14 @@ internal object FunctionLowering {
         enclosingClassQualifiedName: String?,
     ): FlatFunctionIR {
         val qualifiedName = qualifyTopLevel(module.moduleName, enclosingClassQualifiedName, funcDef)
+        val parameters = TypeLowering.convertParameters(funcDef.argumentsList)
         val cfgResult = if (funcDef.hasBody()) {
             CfgBuild.buildFunctionCfg(
                 module = module,
                 qualifiedName = qualifiedName,
                 functionName = funcDef.name,
                 body = funcDef.body,
+                parameters = parameters,
                 sourceLabel = funcDef.name,
             )
         } else CfgBuild.CfgBuildResult.EMPTY
@@ -42,7 +44,7 @@ internal object FunctionLowering {
             parentQualifiedName = null,
             kind = if (enclosingClassQualifiedName != null) FlatFunctionKind.METHOD else FlatFunctionKind.TOP_LEVEL,
             cfg = cfgResult.cfg,
-            parameters = TypeLowering.convertParameters(funcDef.argumentsList),
+            parameters = parameters,
             returnType = if (funcDef.hasReturnType()) TypeLowering.convertType(funcDef.returnType) else FlatAnyType,
             isAsync = funcDef.isAsync,
             isGenerator = funcDef.isGenerator,
@@ -72,6 +74,7 @@ internal object FunctionLowering {
     ): FlatFunctionIR {
         val uniqueName = module.freshNestedName(enclosingName, funcDef.name)
         val qualifiedName = "${module.moduleName}.$uniqueName"
+        val parameters = TypeLowering.convertParameters(funcDef.argumentsList)
 
         val cfgResult = if (funcDef.hasBody()) {
             CfgBuild.buildFunctionCfg(
@@ -79,6 +82,7 @@ internal object FunctionLowering {
                 qualifiedName = qualifiedName,
                 functionName = uniqueName,
                 body = funcDef.body,
+                parameters = parameters,
                 sourceLabel = funcDef.name,
                 errorPrefix = "Failed to build CFG for nested $qualifiedName",
             )
@@ -90,7 +94,7 @@ internal object FunctionLowering {
             parentQualifiedName = enclosingQualifiedName,
             kind = FlatFunctionKind.NESTED_DEF,
             cfg = cfgResult.cfg,
-            parameters = TypeLowering.convertParameters(funcDef.argumentsList),
+            parameters = parameters,
             returnType = if (funcDef.hasReturnType()) TypeLowering.convertType(funcDef.returnType) else FlatAnyType,
             isAsync = funcDef.isAsync,
             isGenerator = funcDef.isGenerator,
@@ -112,12 +116,14 @@ internal object FunctionLowering {
     ): FlatFunctionIR {
         val name = module.freshLambdaName()
         val qualifiedName = "${module.moduleName}.$name"
+        val parameters = TypeLowering.convertParameters(expr.argumentsList)
 
         val cfgResult = CfgBuild.buildFunctionCfg(
             module = module,
             qualifiedName = qualifiedName,
             functionName = name,
             body = expr.body,
+            parameters = parameters,
             sourceLabel = name,
             errorPrefix = "Failed to build CFG for lambda $qualifiedName",
         )
@@ -128,7 +134,7 @@ internal object FunctionLowering {
             parentQualifiedName = parentQualifiedName,
             kind = FlatFunctionKind.LAMBDA,
             cfg = cfgResult.cfg,
-            parameters = TypeLowering.convertParameters(expr.argumentsList),
+            parameters = parameters,
             returnType = if (expr.hasReturnType()) TypeLowering.convertType(expr.returnType) else FlatAnyType,
             isAsync = false,
             isGenerator = false,

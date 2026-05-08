@@ -707,10 +707,13 @@ def cnf_transitive(x):
         val reader = findNestedFunc("cnf_closure_read.reader")!!
         val insts = reader.instList
 
-        // Look for: PIRLoadAttr whose obj.name == "<self>" and attribute == "_closure_env_"
+        // Look for: PIRLoadAttr whose obj is the parameter-ref `<self>` and
+        // attribute == "_closure_env_". `<self>` is the synthetic env
+        // parameter the closure rewriter prepends, so it shows up as a
+        // PIRParameterRef at the use site rather than a PIRLocal.
         val envLoad = insts.filterIsInstance<PIRLoadAttr>().firstOrNull { la ->
             val obj = la.obj
-            obj is PIRLocal && obj.name == "<self>" && la.attribute == "_closure_env_"
+            obj is PIRParameterRef && obj.name == "<self>" && la.attribute == "_closure_env_"
         }
         assertNotNull(envLoad,
             "reader should have a PIRLoadAttr extracting _closure_env_ from <self>; insts=$insts")

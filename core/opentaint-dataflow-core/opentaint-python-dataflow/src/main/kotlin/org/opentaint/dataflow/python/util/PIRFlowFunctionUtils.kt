@@ -14,41 +14,33 @@ object PIRFlowFunctionUtils {
     /**
      * Maps a PIRValue to an AccessPathBase.
      *
-     * PIRLocal("x") → LocalVar(ctx.localIndex("x"))
-     * PIRParameterRef("arg") → Argument(parameterIndex)
-     * PIRConst → null (constants are not tracked)
-     * PIRGlobalRef → null (not tracked for now)
-     */
-    /**
-     * Maps a PIRValue to an AccessPathBase.
-     *
-     * PIRLocal whose name matches a method parameter → Argument(parameterIndex)
-     *   (PIR represents parameter usage in the body as PIRLocal, not PIRParameterRef,
-     *   but the dataflow framework expects parameters as Argument(i) so that
-     *   interprocedural summary edges align with caller subscriptions.)
-     * PIRLocal (non-parameter) → LocalVar(ctx.localIndex(name))
-     * PIRParameterRef → Argument(parameterIndex)
-     * PIRConst → null (constants are not tracked)
-     * PIRGlobalRef → null (not tracked for now)
+     * - PIRLocal → LocalVar(ctx.localIndex(name)). Parameter slots, after the
+     *   function's parameter-binding prologue, also show up as PIRLocal —
+     *   the prologue emits one `PIRAssign(PIRLocal(name), PIRParameterRef(name))`
+     *   per parameter at function entry, after which the body's reads/writes
+     *   resolve uniformly to a LocalVar index. Inbound taint already flows
+     *   correctly (the assign rule propagates Argument(i) → LocalVar(idx) at
+     *   entry), but the return direction — mutations to LocalVar(idx) being
+     *   visible on the caller's argument — requires alias analysis over the
+     *   prologue assign and is future work.
+     * - PIRParameterRef → Argument(parameter index in [method.parameters]).
+     *   Only ever appears as the RHS of an entry-block prologue assign or as
+     *   the synthetic `<self>` env parameter prepended by the closure
+     *   rewriter. The index is recovered by name lookup against the
+     *   post-rewrite signature on every call so we don't have to track
+     *   `<self>`-shifted indices on the value itself.
+     * - PIRConst, PIRGlobalRef, PIRModuleRef → null (not taint-trackable).
      */
     fun accessPathBase(
         value: PIRValue,
         method: PIRFunction,
         ctx: PIRMethodAnalysisContext,
     ): AccessPathBase? = when (value) {
-        is PIRLocal -> {
-            // Check if this local name is actually a parameter name.
-            val param = method.parameters.firstOrNull { it.name == value.name }
-            if (param != null) {
-                AccessPathBase.Argument(param.index)
-            } else {
-                AccessPathBase.LocalVar(ctx.localIndex(value.name))
-            }
-        }
+        is PIRLocal -> AccessPathBase.LocalVar(ctx.localIndex(value.name))
         is PIRParameterRef -> {
-            val param = method.parameters.firstOrNull { it.name == value.name }
-                ?: error("Parameter not found: ${value.name} in ${method.qualifiedName}")
-            AccessPathBase.Argument(param.index)
+            val idx = method.parameters.indexOfFirst { it.name == value.name }
+            if (idx < 0) error("Parameter not found: ${value.name} in ${method.qualifiedName}")
+            AccessPathBase.Argument(idx)
         }
         is PIRConst -> null // Constants are not taint-trackable
         is PIRGlobalRef -> null  // Not tracked as a local
