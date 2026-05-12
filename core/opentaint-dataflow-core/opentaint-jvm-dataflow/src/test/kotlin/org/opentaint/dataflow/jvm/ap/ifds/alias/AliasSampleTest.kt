@@ -2,6 +2,7 @@ package org.opentaint.dataflow.jvm.ap.ifds.alias
 
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.Assertions.assertTimeoutPreemptively
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.AccessPathBase.Companion.Argument
 import org.opentaint.dataflow.ap.ifds.access.FactAp
@@ -42,6 +43,7 @@ import org.opentaint.jvm.graph.JApplicationGraphImpl
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class AliasSampleTest : BasicTestUtils() {
@@ -551,6 +553,24 @@ class AliasSampleTest : BasicTestUtils() {
         assertFalse { apAliases.any { it.isPlainBase(Argument(0)) } }
     }
 
+    @Test
+    fun `write enters flushBufferWithUserData and fixpoint must terminate`() {
+        val method = findMethod(FLAKY_SAMPLE, "write")
+
+        val aa = aaForMethod(method)
+        val sink = method.findSinkCall("sinkOneValue")
+        assertTrue { aa.sinkArgApAliases(sink).isNotEmpty() }
+    }
+
+    @Test
+    fun `HeaderValues addAll fixpoint must terminate`() {
+        val method = findMethod(HEADER_VALUES_SAMPLE, "addAllEntry")
+
+        val aa = aaForMethod(method, interProcParams(depth = 1))
+        val sink = method.findSinkCall("sinkOneValue")
+        assertTrue { aa.sinkArgApAliases(sink).isNotEmpty() }
+    }
+
     private fun aaForMethod(
         method: JIRMethod,
         params: JIRLocalAliasAnalysis.Params = JIRLocalAliasAnalysis.Params()
@@ -608,6 +628,8 @@ class AliasSampleTest : BasicTestUtils() {
         const val LOOP_SAMPLE = "$ALIAS_SAMPLE_PKG.LoopAliasSample"
         const val HEAP_SAMPLE = "$ALIAS_SAMPLE_PKG.HeapAliasSample"
         const val INTERPROC_SAMPLE = "$ALIAS_SAMPLE_PKG.InterProcAliasSample"
+        const val FLAKY_SAMPLE = "$ALIAS_SAMPLE_PKG.FlakyAliasSample"
+        const val HEADER_VALUES_SAMPLE = "sample.alias.HeaderValuesHangSample"
 
         private const val FIELD_VALUE = "value"
         private const val FIELD_BOX = "box"
