@@ -1,0 +1,40 @@
+rules:
+  - id: i99
+    message: >
+      Positive control for the `"$V"` + `metavariable-regex` subtractor
+      shape used in `servlet-xss-html-response-sinks.yaml`. In this
+      isolated rule the engine DOES correctly honor the regex constraint:
+      `PositiveHtmlType` fires (text/html doesn't match the JSON regex)
+      and `NegativeJsonType` is subtracted. Documents the working shape
+      so divergent behavior in the XSS rule can be isolated against it.
+    severity: ERROR
+    languages:
+      - java
+    mode: taint
+    pattern-sources:
+      - pattern: source()
+    pattern-sinks:
+      - patterns:
+          - patterns:
+              - pattern-either:
+                  - pattern-inside: |
+                      $RT $METHOD(..., Response $R, ...) {
+                        ...
+                      }
+              - metavariable-pattern:
+                  metavariable: $METHOD
+                  pattern-either:
+                    - pattern: doStuff
+          - patterns:
+              - pattern-inside: |
+                  $W = $R.getWriter();
+                  ...
+              - pattern: $W.write($UNTRUSTED)
+          - patterns:
+              - pattern-not-inside: |
+                  $R.setHtmlType("$V");
+                  ...
+              - metavariable-regex:
+                  metavariable: $V
+                  regex: '^application/json$'
+          - focus-metavariable: $UNTRUSTED

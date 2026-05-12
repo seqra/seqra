@@ -17,6 +17,7 @@ import issues.issue95
 import issues.issue96
 import issues.issue97
 import issues.issue98
+import issues.issue99
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
@@ -109,6 +110,9 @@ class IssuesTest : SampleBasedTest() {
     @Test
     @Disabled // todo: pattern-not-inside ignored when its discriminator metavariable is narrowed by a sibling metavariable-pattern
     fun `issue 98`() = runTest<issue98>()
+
+    @Test
+    fun `issue 99`() = runTest<issue99>()
 
     @AfterAll
     fun close() {
