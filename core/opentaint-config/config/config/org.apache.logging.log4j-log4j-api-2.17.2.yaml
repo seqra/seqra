@@ -1,0 +1,17 @@
+library: org.apache.logging.log4j:log4j-api:2.17.2
+passThrough:
+- function: org.apache.logging.log4j.Logger#traceExit
+  signature: (*, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.apache.logging.log4j.Logger#traceExit
+  signature: (java.lang.String, java.lang.Object) *
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.apache.logging.log4j.Logger#traceExit
+  signature: (java.lang.Object) *
+  copy:
+  - from: arg(0)
+    to: result

@@ -1,0 +1,307 @@
+library: org.springframework:spring-messaging:6.1.5
+passThrough:
+- function: org.springframework.messaging.support.MessageBuilder#setHeader
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.messaging.Message#getHeaders
+  signature:
+    return: org.springframework.messaging.MessageHeaders
+  copy:
+  - from:
+    - this
+    - .org.springframework.messaging.Message#headers#org.springframework.messaging.MessageHeaders
+    to: result
+- function: org.springframework.messaging.simp.stomp.StompHeaders#add
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.messaging.simp.stomp.StompHeaders#headerValue#java.lang.Object
+- function: org.springframework.messaging.support.MessageBuilder#removeHeader
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#withPayload
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.messaging.simp.stomp.StompHeaders#add
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.springframework.messaging.support.MessageBuilder#fromMessage
+  signature:
+    params:
+    - index: 0
+      type: org.springframework.messaging.Message
+    return: org.springframework.messaging.support.MessageBuilder
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .org.springframework.messaging.support.MessageBuilder#originalMessage#org.springframework.messaging.Message
+- function: org.springframework.messaging.simp.SimpMessageHeaderAccessor#wrap
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#removeHeaders
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#setReplyChannelName
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.messaging.simp.stomp.StompHeaders#add
+  signature:
+    params:
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.messaging.simp.stomp.StompHeaders#headerValue#java.lang.Object
+- function: org.springframework.messaging.simp.stomp.StompHeaders#putAll
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.messaging.simp.stomp.StompHeaders#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.springframework.messaging.simp.SimpMessageHeaderAccessor#setSessionAttributes
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.messaging.simp.SimpMessageHeaderAccessor#<rule-storage>#java.lang.Object
+- function: org.springframework.messaging.simp.SimpMessageHeaderAccessor#setSessionAttributes
+  signature:
+    params:
+    - index: 0
+      type: java.util.Map
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.messaging.simp.SimpMessageHeaderAccessor#sessionAttributes#java.util.Map
+- function: org.springframework.messaging.support.MessageBuilder#createMessage
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.messaging.simp.stomp.StompHeaders#add
+  signature:
+    params:
+    - index: 1
+      type: java.lang.String
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.messaging.simp.stomp.StompHeaders#receipt#java.lang.String
+- function: org.springframework.messaging.Message#getHeaders
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.messaging.simp.SimpMessageHeaderAccessor#getSessionAttributes
+  copy:
+  - from:
+    - this
+    - .org.springframework.messaging.simp.SimpMessageHeaderAccessor#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#copyHeaders
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.messaging.simp.stomp.StompHeaders#readOnlyStompHeaders
+  signature: (*) org.springframework.messaging.simp.stomp.StompHeaders
+  copy:
+  - from:
+    - this
+    - .org.springframework.messaging.simp.stomp.StompHeaders#receipt#java.lang.String
+    to:
+    - result
+    - .org.springframework.messaging.simp.stomp.StompHeaders#receipt#java.lang.String
+  - from:
+    - this
+    - .org.springframework.messaging.simp.stomp.StompHeaders#headerValue#java.lang.Object
+    to:
+    - result
+    - .org.springframework.messaging.simp.stomp.StompHeaders#headerValue#java.lang.Object
+- function: org.springframework.messaging.support.MessageBuilder#setHeaders
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#fromMessage
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#setHeaderIfAbsent
+  copy:
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#withPayload
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#setErrorChannelName
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.messaging.Message#getPayload
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.messaging.MessageHeaders#getRawHeaders
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.springframework.messaging.MessageHeaders#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.messaging.simp.stomp.StompHeaders#setAll
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.messaging.simp.stomp.StompHeaders#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.springframework.messaging.simp.SimpMessageHeaderAccessor#setSessionAttributes
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.springframework.messaging.support.MessageBuilder#createMessage
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#setErrorChannel
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.messaging.simp.SimpMessageHeaderAccessor#getSessionAttributes
+  signature:
+    return: java.util.Map
+  copy:
+  - from:
+    - this
+    - .org.springframework.messaging.simp.SimpMessageHeaderAccessor#sessionAttributes#java.util.Map
+    to: result
+- function: org.springframework.messaging.simp.stomp.StompHeaders#add
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.messaging.simp.stomp.StompHeaders#receipt#java.lang.String
+- function: org.springframework.messaging.support.MessageBuilder#build
+  signature:
+    return: org.springframework.messaging.Message
+  copy:
+  - from:
+    - this
+    - .org.springframework.messaging.support.MessageBuilder#originalMessage#org.springframework.messaging.Message
+    to: result
+- function: org.springframework.messaging.MessageHeaders#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.messaging.MessageHeaders#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.springframework.messaging.support.MessageBuilder#setReplyChannel
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#setHeader
+  copy:
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#build
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#copyHeadersIfAbsent
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#setHeaders
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.messaging.simp.SimpMessageHeaderAccessor#getSessionAttributes
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#createMessage
+  signature:
+    params:
+    - index: 1
+      type: org.springframework.messaging.MessageHeaders
+    return: org.springframework.messaging.Message
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .org.springframework.messaging.Message#headers#org.springframework.messaging.MessageHeaders
+- function: org.springframework.messaging.support.MessageBuilder#copyHeaders
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#setHeaderIfAbsent
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.messaging.support.MessageBuilder#fromMessage
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.messaging.simp.stomp.StompHeaders#add
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.messaging.simp.stomp.StompHeaders#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.messaging.simp.stomp.StompHeaders#<rule-storage>#java.lang.Object

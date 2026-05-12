@@ -1,0 +1,48 @@
+library: org.apache.cocoon:cocoon-util:2.3.0
+passThrough:
+- function: org.apache.cocoon.util.NetUtils#deparameterize
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.cocoon.util.NetUtils#getPath
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.cocoon.util.NetUtils#relativize
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.apache.cocoon.util.NetUtils#absolutize
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.cocoon.util.NetUtils#getExtension
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.cocoon.util.NetUtils#normalize
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.cocoon.util.NetUtils#removeAuthorisation
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.cocoon.util.NetUtils#parameterize
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result

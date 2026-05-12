@@ -1,0 +1,6 @@
+library: org.springframework.data:spring-data-commons:4.0.2
+passThrough:
+- function: org.springframework.data.repository.CrudRepository#save
+  copy:
+  - from: arg(0)
+    to: result

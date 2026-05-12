@@ -1,0 +1,124 @@
+library: org.apache.velocity:velocity-engine-core:2.4.1
+passThrough:
+- function: org.apache.velocity.app.Velocity#mergeTemplate
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    - index: 1
+      type: java.lang.String
+    - index: 2
+      type: org.apache.velocity.context.Context
+    - index: 3
+      type: java.io.Writer
+  copy:
+  - from: arg(2)
+    to: arg(3)
+- function: org.apache.velocity.runtime.resource.util.StringResource#setBody
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.velocity.runtime.resource.util.StringResource#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.velocity.runtime.resource.util.StringResource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.velocity.app.VelocityEngine#evaluate
+  copy:
+  - from: arg(0)
+    to: arg(1)
+  - from: arg(3)
+    to: arg(1)
+- function: org.apache.velocity.runtime.RuntimeServices#evaluate
+  copy:
+  - from: arg(0)
+    to: arg(1)
+  - from: arg(3)
+    to: arg(1)
+- function: org.apache.velocity.VelocityContext#<init>
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.velocity.VelocityContext#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.velocity.VelocityContext#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.apache.velocity.runtime.RuntimeSingleton#parse
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.velocity.runtime.resource.util.StringResource#getBody
+  copy:
+  - from:
+    - this
+    - .org.apache.velocity.runtime.resource.util.StringResource#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.velocity.app.VelocityEngine#mergeTemplate
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    - index: 1
+      type: java.lang.String
+    - index: 2
+      type: org.apache.velocity.context.Context
+    - index: 3
+      type: java.io.Writer
+  copy:
+  - from: arg(2)
+    to: arg(3)
+- function: org.apache.velocity.runtime.resource.Resource#setData
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.velocity.runtime.resource.Resource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.velocity.runtime.RuntimeServices#parse
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.velocity.Template#merge
+  copy:
+  - from: arg(0)
+    to: arg(1)
+  - from: this
+    to: arg(1)
+- function:
+    package: org.apache.velocity.runtime.resource.util
+    class: StringResource
+    name:
+      pattern: <init>
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.velocity.runtime.resource.util.StringResource#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.velocity.runtime.resource.util.StringResource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.velocity.app.Velocity#evaluate
+  copy:
+  - from: arg(0)
+    to: arg(1)
+  - from: arg(3)
+    to: arg(1)

@@ -1,0 +1,165 @@
+library: javax.servlet:javax.servlet-api:4.0.1
+passThrough:
+- function: javax.servlet.ServletResponse#getOutputStream
+  signature: () javax.servlet.ServletOutputStream
+  copy:
+  - from: this
+    to: result
+- function: javax.servlet.http.PushBuilder#queryString
+  signature: (java.lang.String) javax.servlet.http.PushBuilder
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function: javax.servlet.http.PushBuilder#path
+  signature: (java.lang.String) javax.servlet.http.PushBuilder
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function: javax.servlet.http.Cookie#getPath
+  signature: () java.lang.String
+  copy:
+  - from: this
+    to: result
+- function: javax.servlet.http.Cookie#getValue
+  signature: () java.lang.String
+  copy:
+  - from: this
+    to: result
+- function: javax.servlet.http.Cookie#getDomain
+  signature: () java.lang.String
+  copy:
+  - from: this
+    to: result
+- function: javax.servlet.http.PushBuilder#addHeader
+  signature: (java.lang.String, java.lang.String) javax.servlet.http.PushBuilder
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function: javax.servlet.ServletResponse#getWriter
+  signature: () java.io.PrintWriter
+  copy:
+  - from: this
+    to: result
+- function: javax.servlet.http.Cookie#setDomain
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(1)
+    to: this
+- function: javax.servlet.http.PushBuilder#getMethod
+  signature: () java.lang.String
+  copy:
+  - from: this
+    to: result
+- function: javax.servlet.http.PushBuilder#getHeaderNames
+  signature: () java.util.Set
+  copy:
+  - from: this
+    to: result
+- function: javax.servlet.http.Cookie#getName
+  signature: () java.lang.String
+  copy:
+  - from: this
+    to: result
+- function: javax.servlet.http.Cookie#setPath
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(1)
+    to: this
+- function: javax.servlet.http.Cookie#<init>
+  signature: (java.lang.String, java.lang.String) void
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(1)
+    to: this
+- function: javax.servlet.http.PushBuilder#getQueryString
+  signature: () java.lang.String
+  copy:
+  - from: this
+    to: result
+- function: javax.servlet.http.PushBuilder#method
+  signature: (java.lang.String) javax.servlet.http.PushBuilder
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function: javax.servlet.http.PushBuilder#setHeader
+  signature: (java.lang.String, java.lang.String) javax.servlet.http.PushBuilder
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function: javax.servlet.http.PushBuilder#getPath
+  signature: () java.lang.String
+  copy:
+  - from: this
+    to: result
+- function: javax.servlet.http.PushBuilder#getHeader
+  signature: (java.lang.String) java.lang.String
+  copy:
+  - from: this
+    to: result
+- function: javax.servlet.http.PushBuilder#sessionId
+  signature: (java.lang.String) javax.servlet.http.PushBuilder
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function: javax.servlet.ServletRequestWrapper#<init>
+  signature: (javax.servlet.ServletRequest) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.servlet.ServletRequestWrapper#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.servlet.http.Cookie#setComment
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(1)
+    to: this
+- function: javax.servlet.http.Cookie#getComment
+  signature: () java.lang.String
+  copy:
+  - from: this
+    to: result
+- function: javax.servlet.http.Cookie#setValue
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(1)
+    to: this
+- function: javax.servlet.http.PushBuilder#getSessionId
+  signature: () java.lang.String
+  copy:
+  - from: this
+    to: result

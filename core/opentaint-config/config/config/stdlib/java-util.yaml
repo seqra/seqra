@@ -1,0 +1,6278 @@
+passThrough:
+- function: java.util.Collections#singleton
+  signature: (java.lang.Object) java.util.Set
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Properties#list
+  signature: (java.io.PrintWriter) void
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: arg(0)
+- function: java.util.Map#entrySet
+  signature: () java.util.Set
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.Scanner#<init>
+  signature: (java.io.InputStream) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.Vector#elementAt
+  signature: (java.lang.Object[], int) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Spliterators#spliterator
+  signature: (java.lang.Object[], int) java.util.Spliterator
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Set#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object) java.util.Set
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Optional#orElseThrow
+  signature: (java.util.function.Supplier) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Optional#Element#java.lang.Object
+    to: result
+- function: java.util.Arrays#spliterator
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object[]
+    return: java.util.Spliterator
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Collection#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.EventObject#<init>
+  signature: (java.lang.Object) void
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.EventObject#source#java.lang.Object
+- function: java.util.Collections#synchronizedNavigableSet
+  signature: (java.util.NavigableSet) java.util.NavigableSet
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collections#checkedCollection
+  signature: (java.util.Collection, java.lang.Class) java.util.Collection
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.NavigableSet#descendingIterator
+  signature: () java.util.Iterator
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: java.util.BitSet#set
+  signature: (int) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.BitSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: java.util.ListIterator#add
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: java.util.ResourceBundle#getString
+  signature: (java.lang.String) java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.ResourceBundle#MapValue#java.lang.Object
+    to: result
+- function: java.util.AbstractMap$SimpleImmutableEntry#<init>
+  signature: (java.lang.Object, java.lang.Object) void
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: java.util.Collection#spliterator
+  signature:
+    return: java.util.Spliterator
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Arrays#copyOfRange
+  signature: (double[], int, int) double[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.Set#copyOf
+  signature: (java.util.Collection) java.util.Set
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Spliterators#spliterator
+  signature: (double[], int) java.util.Spliterator$OfDouble
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Map$Entry#<init>
+  bypassVerification: true
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map$Entry#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map$Entry#<rule-storage>#java.lang.Object
+- function: java.util.Scanner#findWithinHorizon
+  signature: (java.util.regex.Pattern, int) java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Map#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object)
+    java.util.Map
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Set#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object)
+    java.util.Set
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.NavigableSet#tailSet
+  signature: (java.lang.Object, boolean) java.util.NavigableSet
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function:
+    package: java.util
+    class: Calendar
+    name:
+      pattern: setT.*
+  signature:
+    params:
+    - index: 0
+      type: java.util.Date
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Calendar#time#java.util.Date
+- function: java.util.Collections#checkedSet
+  signature: (java.util.Set, java.lang.Class) java.util.Set
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Objects#requireNonNullElse
+  signature: (java.lang.Object, java.lang.Object) java.lang.Object
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: java.util.Arrays#stream
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object[]
+    return: java.util.stream.Stream
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.stream.BaseStream#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.stream.BaseStream#Element#java.lang.Object
+- function: java.util.Arrays#spliterator
+  signature: (double[]) java.util.Spliterator$OfDouble
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.EnumMap#<init>
+  signature: (java.util.EnumMap) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Arrays#copyOf
+  signature: (double[], int) double[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.Set#of
+  signature: (java.lang.Object, java.lang.Object) java.util.Set
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Random#setSeed
+  signature: (long) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Random#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: java.util.BitSet#set
+  signature: (int, int, boolean) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.BitSet#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.BitSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: java.util.List#set
+  signature: (int, java.lang.Object) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+  - from: arg(1)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Optional#stream
+  signature: () java.util.stream.Stream
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.Optional#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.stream.BaseStream#Element#java.lang.Object
+- function: java.util.NavigableSet#lower
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Scanner#findInLine
+  signature: (java.lang.String) java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Vector#elements
+  signature: () java.util.Enumeration
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Enumeration#Element#java.lang.Object
+- function: java.util.Arrays#spliterator
+  signature: (int[], int, int) java.util.Spliterator$OfInt
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Collections#checkedQueue
+  signature: (java.util.Queue, java.lang.Class) java.util.Queue
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.LinkedList#removeLast
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Queue#peek
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.StringTokenizer#nextToken
+  signature: (java.lang.String) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.List#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object) java.util.List
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#stream
+  signature: (long[]) java.util.stream.LongStream
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Optional#toString
+  signature: () java.lang.String
+  bypassVerification: true
+  copy:
+  - from:
+    - this
+    - .java.util.Optional#Element#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.util.Arrays#copyOfRange
+  signature: (byte[], int, int) byte[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.Arrays#spliterator
+  signature: (long[], int, int) java.util.Spliterator$OfLong
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Arrays#copyOfRange
+  signature: (short[], int, int) short[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.Enumeration#<init>
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Enumeration#Element#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.util.Enumeration#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Enumeration#Element#java.lang.Object
+- function: java.util.StringJoiner#merge
+  signature: (*) java.util.StringJoiner
+  copy:
+  - from:
+    - this
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+    to:
+    - result
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+- function: java.util.SortedMap#headMap
+  signature: (java.lang.Object) java.util.SortedMap
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.NavigableMap#floorEntry
+  signature: (java.lang.Object) java.util.Map$Entry
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.List#spliterator
+  signature: () java.util.Spliterator
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Objects#toString
+  signature: (java.lang.Object, java.lang.String) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: java.util.Arrays#fill
+  signature: (int[], int) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.LinkedList#removeFirst
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Arrays#fill
+  signature: (char[], char) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Arrays#stream
+  signature: (double[], int, int) java.util.stream.DoubleStream
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Calendar#getInstance
+  signature: () java.util.Calendar
+  copy:
+  - from:
+    - this
+    - .java.util.Calendar#time#java.util.Date
+    to:
+    - result
+    - .java.util.Calendar#time#java.util.Date
+  - from:
+    - this
+    - .java.util.Calendar#timeZone#java.util.TimeZone
+    to:
+    - result
+    - .java.util.Calendar#timeZone#java.util.TimeZone
+- function: java.util.Calendar#set
+  signature: (int, int, int, int, int, int) void
+  copy:
+  - from: arg(5)
+    to: this
+  - from: arg(3)
+    to: this
+  - from: arg(4)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(5)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(4)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (long[], long) void
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Arrays#spliterator
+  signature: (int[]) java.util.Spliterator$OfInt
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.List#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object) java.util.List
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Scanner#nextLine
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#delimiter#java.lang.String
+    to: result
+- function: java.util.Collections#max
+  signature: (java.util.Collection, java.util.Comparator) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Vector#elementAt
+  signature: (int) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.SequencedMap#lastEntry
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.Deque#pollFirst
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Collections#singletonMap
+  signature: (java.lang.Object, java.lang.Object) java.util.Map
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Map#computeIfPresent
+  signature: (java.lang.Object, java.util.function.BiFunction) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Map#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Map$Entry#setValue
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to: result
+- function: java.util.Stack#push
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.BitSet#get
+  signature: (int) boolean
+  copy:
+  - from:
+    - this
+    - .java.util.BitSet#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.util.LinkedList#getLast
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Scanner#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: java.util.Arrays#copyOf
+  signature: (short[], int) short[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.EventObject#getSource
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.EventObject#source#java.lang.Object
+    to: result
+- function: java.util.Map$Entry#copyOf
+  signature: (java.util.Map$Entry) java.util.Map$Entry
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: java.util.Deque#offerLast
+  signature: (java.lang.Object) boolean
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Map#of
+  signature: (java.lang.Object, java.lang.Object) java.util.Map
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.ListIterator#set
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: java.util.Spliterators#iterator
+  signature:
+    params:
+    - index: 0
+      type: java.util.Spliterator$OfDouble
+    return: java.util.PrimitiveIterator$OfDouble
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Spliterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: java.util.Collections#replaceAll
+  signature: (java.util.List, java.lang.Object, java.lang.Object) boolean
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.StringJoiner#add
+  signature: (java.lang.CharSequence) java.util.StringJoiner
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.StringJoiner#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.util.Collections#unmodifiableNavigableSet
+  signature: (java.util.NavigableSet) java.util.NavigableSet
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collections#synchronizedSortedMap
+  signature: (java.util.SortedMap) java.util.SortedMap
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Scanner#<init>
+  signature: (java.io.InputStream, java.nio.charset.Charset) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.Vector#lastElement
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Optional#orElseGet
+  signature: (java.util.function.Supplier) java.lang.Object
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.Optional#Element#java.lang.Object
+    to: result
+- function: java.util.StringJoiner#<init>
+  signature: (java.lang.CharSequence, java.lang.CharSequence, java.lang.CharSequence)
+    void
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to: this
+- function: java.util.Vector#setElementAt
+  signature: (java.lang.Object, int) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collections#synchronizedNavigableMap
+  signature: (java.util.NavigableMap) java.util.NavigableMap
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Objects#requireNonNull
+  signature: (java.lang.Object, java.lang.String) java.lang.Object
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Map#put
+  signature: (java.lang.Object, java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.SortedSet#subSet
+  signature: (java.lang.Object, java.lang.Object) java.util.SortedSet
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (byte[], int, int, byte) void
+  copy:
+  - from: arg(3)
+    to: arg(0)
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.LinkedList#getLast
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.List#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Deque#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Collection#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.LinkedList#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Queue#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Arrays#fill
+  signature: (byte[], byte) void
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Scanner#skip
+  signature: (java.util.regex.Pattern) java.util.Scanner
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Scanner#<init>
+  signature: (java.io.InputStream, java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.Arrays#stream
+  signature: (long[], int, int) java.util.stream.LongStream
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.stream.BaseStream#Element#java.lang.Object
+- function: java.util.Scanner#<init>
+  signature: (java.io.File) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.io.File#path#java.lang.String
+    to:
+    - this
+    - .java.util.Scanner#delimiter#java.lang.String
+  - from:
+    - arg(0)
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - this
+    - .java.util.Scanner#delimiter#java.lang.String
+- function: java.util.BitSet#get
+  signature: (int, int) java.util.BitSet
+  copy:
+  - from:
+    - this
+    - .java.util.BitSet#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.util.Arrays#stream
+  signature: (double[]) java.util.stream.DoubleStream
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.stream.BaseStream#Element#java.lang.Object
+- function: java.util.Collections#max
+  signature: (java.util.Collection) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Enumeration#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.Collections#list
+  signature: (java.util.Enumeration) java.util.ArrayList
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Collection#parallelStream
+  signature: () java.util.stream.Stream
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.stream.BaseStream#Element#java.lang.Object
+- function: java.util.List#subList
+  signature: (int, int) java.util.List
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collections#unmodifiableSet
+  signature: (java.util.Set) java.util.Set
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Map#computeIfPresent
+  signature: (java.lang.Object, java.util.function.BiFunction) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Scanner#<init>
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.StringJoiner#setEmptyValue
+  signature: (java.lang.CharSequence) java.util.StringJoiner
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.StringJoiner#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.util.Map#values
+  signature: () java.util.Collection
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Scanner#useDelimiter
+  signature: (java.lang.String) java.util.Scanner
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Map#putAll
+  signature: (java.util.Map) void
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Map#merge
+  signature: (java.lang.Object, java.lang.Object, java.util.function.BiFunction) java.lang.Object
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Map#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object) java.util.Map
+  overrides: false
+  copy:
+  - from: arg(15)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(17)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(11)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(8)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(13)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(10)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(12)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(14)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(16)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.BitSet#set
+  signature: (int, int) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.BitSet#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.BitSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: java.util.Map#get
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: java.util.Scanner#<init>
+  signature: (java.io.InputStream) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+- function: java.util.Scanner#next
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Scanner#findWithinHorizon
+  signature: (java.lang.String, int) java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Collections#unmodifiableSequencedCollection
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Optional#orElseThrow
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Arrays#stream
+  signature: (int[], int, int) java.util.stream.IntStream
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.stream.BaseStream#Element#java.lang.Object
+- function: java.util.Spliterators#spliterator
+  signature: (java.util.PrimitiveIterator$OfInt, long, int) java.util.Spliterator$OfInt
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Arrays#fill
+  signature: (double[], int, int, double) void
+  copy:
+  - from: arg(3)
+    to: arg(0)
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Properties#list
+  signature: (java.io.PrintStream) void
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: arg(0)
+- function: java.util.Arrays#stream
+  signature: (java.lang.Object[], int, int) java.util.stream.Stream
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.stream.BaseStream#Element#java.lang.Object
+- function: java.util.Collections#unmodifiableNavigableMap
+  signature: (java.util.NavigableMap) java.util.NavigableMap
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.TreeMap#<init>
+  signature: (java.util.Map) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Arrays#stream
+  signature: (java.lang.Object[]) java.util.stream.Stream
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Map#ofEntries
+  signature: (java.util.Map$Entry[]) java.util.Map
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.SequencedMap#sequencedEntrySet
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.Set#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object)
+    java.util.Set
+  overrides: false
+  copy:
+  - from: arg(8)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collections#synchronizedMap
+  signature: (java.util.Map) java.util.Map
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.NavigableMap#pollLastEntry
+  signature: () java.util.Map$Entry
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.Spliterators#spliteratorUnknownSize
+  signature: (java.util.PrimitiveIterator$OfInt, int) java.util.Spliterator$OfInt
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: java.util
+    class: SortedMap
+    name:
+      pattern: .*Key
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Arrays#spliterator
+  signature: (int[]) java.util.Spliterator$OfInt
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Map#compute
+  signature: (java.lang.Object, java.util.function.BiFunction) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.SortedSet#headSet
+  signature: (java.lang.Object) java.util.SortedSet
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Scanner#next
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Spliterators#spliteratorUnknownSize
+  signature:
+    params:
+    - index: 0
+      type: java.util.PrimitiveIterator$OfDouble
+    return: java.util.Spliterator$OfDouble
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Spliterators#iterator
+  signature: (java.util.Spliterator$OfInt) java.util.PrimitiveIterator$OfInt
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Collections#asLifoQueue
+  signature: (java.util.Deque) java.util.Queue
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Spliterators#spliterator
+  signature: (java.util.Collection, int) java.util.Spliterator
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Arrays#fill
+  signature: (float[], int, int, float) void
+  overrides: false
+  copy:
+  - from: arg(3)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Arrays#copyOf
+  signature: (java.lang.Object[], int, java.lang.Class) java.lang.Object[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.AbstractMap$SimpleEntry#<init>
+  signature: (java.util.Map$Entry) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.Collections#fill
+  signature: (java.util.List, java.lang.Object) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Arrays#stream
+  signature: (double[]) java.util.stream.DoubleStream
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Arrays#copyOf
+  signature: (byte[], int) byte[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.Optional#ofNullable
+  signature: (java.lang.Object) java.util.Optional
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Map#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object) java.util.Map
+  overrides: false
+  copy:
+  - from: arg(15)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(17)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(19)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(11)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(8)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(13)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(10)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(12)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(14)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(16)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(18)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Set#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object) java.util.Set
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (java.lang.Object[], int, int, java.lang.Object) void
+  overrides: false
+  copy:
+  - from: arg(3)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Collection#spliterator
+  signature: () java.util.Spliterator
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Collection#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.StringJoiner#<init>
+  signature:
+    params:
+    - index: 2
+      type: java.lang.CharSequence
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+- function: java.util.Arrays#fill
+  signature: (long[], long) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Spliterators#spliterator
+  signature: (int[], int, int, int) java.util.Spliterator$OfInt
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Spliterators#spliterator
+  signature: (java.lang.Object[], int, int, int) java.util.Spliterator
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Scanner#<init>
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+- function: java.util.Collections#checkedList
+  signature: (java.util.List, java.lang.Class) java.util.List
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collections#unmodifiableMap
+  signature: (java.util.Map) java.util.Map
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Arrays#spliterator
+  signature: (double[], int, int) java.util.Spliterator$OfDouble
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Deque#peekFirst
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Arrays#asList
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object[]
+    return: java.util.List
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (byte[], int, int, byte) void
+  overrides: false
+  copy:
+  - from: arg(3)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Map#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object) java.util.Map
+  overrides: false
+  copy:
+  - from: arg(15)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(11)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(8)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(13)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(10)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(12)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(14)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Spliterators#iterator
+  signature:
+    params:
+    - index: 0
+      type: java.util.Spliterator$OfLong
+    return: java.util.PrimitiveIterator$OfLong
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Spliterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: java.util.Optional#toString
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.List#listIterator
+  signature: () java.util.ListIterator
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: java.util.Arrays#stream
+  signature: (long[]) java.util.stream.LongStream
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.stream.BaseStream#Element#java.lang.Object
+- function: java.util.NavigableSet#subSet
+  signature: (java.lang.Object, boolean, java.lang.Object, boolean) java.util.NavigableSet
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#stream
+  signature: (int[]) java.util.stream.IntStream
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.stream.BaseStream#Element#java.lang.Object
+- function: java.util.PriorityQueue#<init>
+  signature: (java.util.PriorityQueue) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.SortedSet#last
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Arrays#fill
+  signature: (java.lang.Object[], int, int, java.lang.Object) void
+  copy:
+  - from: arg(3)
+    to: arg(0)
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Optional#orElseThrow
+  signature: (java.util.function.Supplier) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Deque#removeFirst
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function:
+    package: java.util
+    class: Collections
+    name:
+      pattern: singleton.*
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: java.util.List#listIterator
+  signature: (int) java.util.ListIterator
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (boolean[], int, int, boolean) void
+  overrides: false
+  copy:
+  - from: arg(3)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Base64$Decoder#decode
+  signature: (byte[], byte[]) int
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: java.util.SequencedCollection#removeFirst
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Collections#fill
+  signature: (java.util.List, java.lang.Object) void
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Dictionary#get
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Dictionary#MapValue#java.lang.Object
+    to: result
+- function: java.util.List#replaceAll
+  signature: (java.util.function.UnaryOperator) void
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.List#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.util.Collection#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Spliterators#spliterator
+  signature:
+    params:
+    - index: 0
+      type: java.util.PrimitiveIterator$OfInt
+    return: java.util.Spliterator$OfInt
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Scanner#<init>
+  signature: (java.io.InputStream, java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+- function: java.util.Arrays#copyOf
+  signature: (int[], int) int[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.NavigableMap#lowerEntry
+  signature: (java.lang.Object) java.util.Map$Entry
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.Optional#of
+  signature: (java.lang.Object) java.util.Optional
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Optional#Element#java.lang.Object
+- function: java.util.Vector#copyInto
+  signature: (java.lang.Object[]) void
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Arrays#copyOf
+  signature: (char[], int) char[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.NavigableSet#ceiling
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Dictionary#put
+  signature: (java.lang.Object, java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Dictionary#MapValue#java.lang.Object
+  - from:
+    - this
+    - .java.util.Dictionary#MapValue#java.lang.Object
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Dictionary#MapKey#java.lang.Object
+- function: java.util.Enumeration#asIterator
+  signature: () java.util.Iterator
+  copy:
+  - from:
+    - this
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: java.util.Map#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.NavigableMap#lastEntry
+  signature: () java.util.Map$Entry
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.Arrays#spliterator
+  signature: (java.lang.Object[]) java.util.Spliterator
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.List#of
+  signature: (java.lang.Object) java.util.List
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.SequencedCollection#reversed
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.StringTokenizer#nextToken
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.StringTokenizer#token#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.util.StringTokenizer#token#java.lang.String
+    to: result
+- function: java.util.Collections#unmodifiableCollection
+  signature: (java.util.Collection) java.util.Collection
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Optional#get
+  signature: () java.lang.Object
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.Optional#Element#java.lang.Object
+    to: result
+- function: java.util.Map#remove
+  signature: (java.lang.Object, java.lang.Object) boolean
+  copy:
+  - from:
+    - this
+    - .java.util.Map#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.util.AbstractMap$SimpleEntry#<init>
+  signature: (java.lang.Object, java.lang.Object) void
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (double[], int, int, double) void
+  overrides: false
+  copy:
+  - from: arg(3)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Map$Entry#getValue
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  condition:
+    allOf:
+    - not:
+        typeIs: org.apache.commons.lang3.tuple.MutablePair
+        pos: this
+    - not:
+        typeIs: org.apache.commons.lang3.tuple.ImmutableTriple
+        pos: this
+    - not:
+        typeIs: org.apache.commons.lang3.tuple.Pair
+        pos: this
+    - not:
+        typeIs: org.apache.commons.lang3.tuple.ImmutablePair
+        pos: this
+    - not:
+        typeIs: org.apache.commons.lang3.tuple.Triple
+        pos: this
+    - not:
+        typeIs: org.apache.commons.lang3.tuple.MutableTriple
+        pos: this
+  copy:
+  - from: this
+    to: result
+- function: java.util.Map#replace
+  signature: (java.lang.Object, java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Deque#removeLast
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Collections#nCopies
+  signature: (int, java.lang.Object) java.util.List
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Map$Entry#getKey
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to: result
+- function: java.util.Deque#addFirst
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collection#<init>
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#spliterator
+  signature: (java.lang.Object[], int, int) java.util.Spliterator
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Optional#ofNullable
+  signature: (java.lang.Object) java.util.Optional
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Optional#Element#java.lang.Object
+- function: java.util.SortedMap#tailMap
+  signature: (java.lang.Object) java.util.SortedMap
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Scanner#<init>
+  signature: (java.io.InputStream, java.nio.charset.Charset) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+- function: java.util.StringJoiner#add
+  signature:
+    params:
+    - index: 0
+      type: java.lang.CharSequence
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+- function: java.util.Calendar#getInstance
+  signature: (*, *) java.util.Calendar
+  copy:
+  - from:
+    - this
+    - .java.util.Calendar#time#java.util.Date
+    to:
+    - result
+    - .java.util.Calendar#time#java.util.Date
+  - from:
+    - this
+    - .java.util.Calendar#timeZone#java.util.TimeZone
+    to:
+    - result
+    - .java.util.Calendar#timeZone#java.util.TimeZone
+- function: java.util.Map#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object) java.util.Map
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(8)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Vector#firstElement
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Map#getOrDefault
+  signature: (java.lang.Object, java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(1)
+    to: result
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: java.util.Map#putIfAbsent
+  signature: (java.lang.Object, java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (char[], int, int, char) void
+  overrides: false
+  copy:
+  - from: arg(3)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.BitSet#and
+  signature: (java.util.BitSet) void
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.NavigableMap#descendingMap
+  signature: () java.util.NavigableMap
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Scanner#findInLine
+  signature: (java.lang.String) java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.SequencedCollection#getFirst
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Objects#requireNonNull
+  signature: (java.lang.Object, java.util.function.Supplier) java.lang.Object
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Arrays#copyOfRange
+  signature: (int[], int, int) int[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.Spliterators#spliteratorUnknownSize
+  signature:
+    params:
+    - index: 0
+      type: java.util.PrimitiveIterator$OfLong
+    return: java.util.Spliterator$OfLong
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Deque#getFirst
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.List#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object) java.util.List
+  overrides: false
+  copy:
+  - from: arg(8)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.ResourceBundle#handleGetObject
+  signature: (java.lang.String) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.ResourceBundle#MapValue#java.lang.Object
+    to: result
+- function: java.util.Arrays#asList
+  signature: (java.lang.Object[]) java.util.List
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (byte[], byte) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Dictionary#remove
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Dictionary#MapValue#java.lang.Object
+    to: result
+- function:
+    package: java.util
+    class: SortedMap
+    name:
+      pattern: .*Map
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: java.util.Arrays#fill
+  signature: (java.lang.Object[], java.lang.Object) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Arrays#stream
+  signature: (long[], int, int) java.util.stream.LongStream
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Dictionary#elements
+  signature: () java.util.Enumeration
+  copy:
+  - from:
+    - this
+    - .java.util.Dictionary#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Enumeration#Element#java.lang.Object
+- function: java.util.Spliterators#spliterator
+  signature: (long[], int, int, int) java.util.Spliterator$OfLong
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Map#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#<rule-storage>#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (char[], int, int, char) void
+  copy:
+  - from: arg(3)
+    to: arg(0)
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Calendar#internalGet
+  signature: (int) int
+  copy:
+  - from:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function:
+    package: java.util
+    class: Calendar
+    name:
+      pattern: setT.*
+  signature:
+    params:
+    - index: 0
+      type: java.util.TimeZone
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Calendar#timeZone#java.util.TimeZone
+- function: java.util.Arrays#copyOfRange
+  signature: (boolean[], int, int) boolean[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.Optional#flatMap
+  signature: (java.util.function.Function) java.util.Optional
+  copy:
+  - from: this
+    to: result
+- function: java.util.Arrays#stream
+  signature: (int[], int, int) java.util.stream.IntStream
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.LinkedHashMap#<init>
+  signature: (java.util.Map) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (float[], float) void
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Arrays#spliterator
+  signature: (long[]) java.util.Spliterator$OfLong
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Spliterators#spliterator
+  signature:
+    params:
+    - index: 0
+      type: java.util.PrimitiveIterator$OfLong
+    return: java.util.Spliterator$OfLong
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Arrays#copyOfRange
+  signature: (java.lang.Object[], int, int) java.lang.Object[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.SequencedMap#pollFirstEntry
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.Calendar#get
+  signature: (int) int
+  copy:
+  - from:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.util.Arrays#fill
+  signature: (int[], int, int, int) void
+  copy:
+  - from: arg(3)
+    to: arg(0)
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Calendar#set
+  signature: (int, int, int, int, int) void
+  copy:
+  - from: arg(3)
+    to: this
+  - from: arg(4)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(4)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+- function: java.util.Collections#min
+  signature: (java.util.Collection) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Base64$Decoder#decode
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    return: byte[]
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.String#bytes#byte[]
+    to: result
+- function: java.util.List#remove
+  signature: (int) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.StringJoiner#setEmptyValue
+  signature:
+    params:
+    - index: 0
+      type: java.lang.CharSequence
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+- function: java.util.Arrays#copyOfRange
+  signature: (float[], int, int) float[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.PriorityQueue#<init>
+  signature: (java.util.Collection) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collection#add
+  signature: (java.lang.Object) boolean
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Map#compute
+  signature: (java.lang.Object, java.util.function.BiFunction) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Map#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Deque#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.util.Deque
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.StringJoiner#<init>
+  signature:
+    params:
+    - index: 1
+      type: java.lang.CharSequence
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+- function: java.util.Collection#spliterator
+  signature: () java.util.Spliterator
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Arrays#stream
+  signature: (double[], int, int) java.util.stream.DoubleStream
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.stream.BaseStream#Element#java.lang.Object
+- function: java.util.Collection#remove
+  signature: (java.lang.Object) boolean
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.util.Collection#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Arrays#fill
+  signature: (int[], int, int, int) void
+  overrides: false
+  copy:
+  - from: arg(3)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Spliterators#iterator
+  signature: (java.util.Spliterator) java.util.Iterator
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Scanner#<init>
+  signature: (java.io.File, *) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.io.File#path#java.lang.String
+    to:
+    - this
+    - .java.util.Scanner#delimiter#java.lang.String
+  - from:
+    - arg(0)
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - this
+    - .java.util.Scanner#delimiter#java.lang.String
+- function: java.util.Arrays#asList
+  signature: (java.lang.Object[]) java.util.List
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function:
+    package: java.util
+    class: SortedSet
+    name:
+      pattern: .*Set
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: java.util.StringJoiner#add
+  signature: (java.lang.CharSequence) java.util.StringJoiner
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.StringJoiner#<rule-storage>#java.lang.Object
+- function: java.util.StringJoiner#add
+  signature:
+    params:
+    - index: 0
+      type: java.lang.CharSequence
+    return: java.util.StringJoiner
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+- function: java.util.Spliterators#spliterator
+  signature: (double[], int, int, int) java.util.Spliterator$OfDouble
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Collection#toArray
+  signature: (java.lang.Object[]) java.lang.Object[]
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - arg(0)
+    - '[*]'
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+- function: java.util.Collections#unmodifiableNavigableMap
+  signature: (java.util.NavigableMap) java.util.NavigableMap
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (long[], int, int, long) void
+  overrides: false
+  copy:
+  - from: arg(3)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.NavigableSet#higher
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Collections#max
+  signature: (java.util.Collection) java.lang.Object
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.List#get
+  signature: (int) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Arrays#fill
+  signature: (float[], float) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function:
+    package: java.util
+    class: Calendar
+    name:
+      pattern: getActualM.*
+  copy:
+  - from:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.util.List#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object)
+    java.util.List
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Map#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object) java.util.Map
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Collections#max
+  signature: (java.util.Collection, java.util.Comparator) java.lang.Object
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Optional#orElseThrow
+  signature: () java.lang.Object
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.Optional#Element#java.lang.Object
+    to: result
+- function: java.util.Arrays#stream
+  signature: (java.lang.Object[]) java.util.stream.Stream
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.stream.BaseStream#Element#java.lang.Object
+- function: java.util.Collections#nCopies
+  signature: (int, java.lang.Object) java.util.List
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.SequencedCollection#addFirst
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.HashSet#<init>
+  signature: (java.util.Collection) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Set#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object) java.util.Set
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.SequencedMap#putFirst
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function:
+    package: java.util
+    class: Collections
+    name:
+      pattern: unmodifiable.*
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Spliterators#spliterator
+  signature:
+    params:
+    - index: 0
+      type: java.util.PrimitiveIterator$OfDouble
+    return: java.util.Spliterator$OfDouble
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Collections#checkedNavigableSet
+  signature: (java.util.NavigableSet, java.lang.Class) java.util.NavigableSet
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (int[], int) void
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.SequencedMap#reversed
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.List#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object) java.util.List
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Optional#map
+  signature: (java.util.function.Function) java.util.Optional
+  copy:
+  - from: this
+    to: result
+- function: java.util.Spliterators#iterator
+  signature:
+    params:
+    - index: 0
+      type: java.util.Spliterator$OfInt
+    return: java.util.PrimitiveIterator$OfInt
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Spliterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (java.lang.Object[], java.lang.Object) void
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Collections#synchronizedSortedSet
+  signature: (java.util.SortedSet) java.util.SortedSet
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Scanner#findInLine
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#delimiter#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.util.Scanner#delimiter#java.lang.String
+    to: result
+- function: java.util.Iterator#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.SequencedCollection#addLast
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collections#checkedSortedMap
+  signature: (java.util.SortedMap, java.lang.Class, java.lang.Class) java.util.SortedMap
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Deque#push
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.StringJoiner#setEmptyValue
+  signature: (java.lang.CharSequence) java.util.StringJoiner
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: this
+- function: java.util.Scanner#findWithinHorizon
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#delimiter#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.util.Scanner#delimiter#java.lang.String
+    to: result
+- function: java.util.Hashtable#<init>
+  signature: (java.util.Map) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Dictionary#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Dictionary#MapValue#java.lang.Object
+- function: java.util.SequencedSet#reversed
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Scanner#<init>
+  signature: (*, java.util.regex.Pattern) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.util.regex.Pattern#regex#java.lang.String
+    to:
+    - this
+    - .java.util.Scanner#delimiter#java.lang.String
+- function: java.util.Collections#list
+  signature: (java.util.Enumeration) java.util.ArrayList
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.NavigableMap#pollFirstEntry
+  signature: () java.util.Map$Entry
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.Spliterators#spliterator
+  signature: (java.util.PrimitiveIterator$OfLong, long, int) java.util.Spliterator$OfLong
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Base64$Decoder#decode
+  signature: (java.lang.String) byte[]
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Spliterators#spliteratorUnknownSize
+  signature: (java.util.Iterator, int) java.util.Spliterator
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Optional#orElseThrow
+  signature: (java.util.function.Supplier) java.lang.Object
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.Optional#Element#java.lang.Object
+    to: result
+- function: java.util.NavigableMap#firstEntry
+  signature: () java.util.Map$Entry
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.Map#keySet
+  signature: () java.util.Set
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Stack#pop
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Objects#requireNonNullElseGet
+  signature: (java.lang.Object, java.util.function.Supplier) java.lang.Object
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.List#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object)
+    java.util.List
+  overrides: false
+  copy:
+  - from: arg(8)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#spliterator
+  signature: (double[]) java.util.Spliterator$OfDouble
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.ResourceBundle#handleGetObject
+  signature: (java.lang.String) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: java.util.SortedMap#subMap
+  signature: (java.lang.Object, java.lang.Object) java.util.SortedMap
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function:
+    package: java.util
+    class: Calendar
+    name:
+      pattern: setT.*
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.Deque#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.util.LinkedList
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.SequencedCollection#removeLast
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.List#add
+  signature: (int, java.lang.Object) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.List#copyOf
+  signature: (java.util.Collection) java.util.List
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Optional#get
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Optional#Element#java.lang.Object
+    to: result
+- function: java.util.Spliterators#spliteratorUnknownSize
+  signature:
+    params:
+    - index: 0
+      type: java.util.PrimitiveIterator$OfInt
+    return: java.util.Spliterator$OfInt
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Enumeration#nextElement
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Arrays#fill
+  signature: (short[], short) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Deque#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.Collection#toArray
+  signature: () java.lang.Object[]
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+- function: java.util.NavigableSet#pollLast
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Optional#orElseGet
+  signature: (java.util.function.Supplier) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.StringJoiner#merge
+  signature: (java.util.StringJoiner) java.util.StringJoiner
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: this
+- function: java.util.LinkedList#getFirst
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.SequencedMap#sequencedKeySet
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Set#of
+  signature: (java.lang.Object[]) java.util.Set
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Optional#orElse
+  signature: (java.lang.Object) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Collections#unmodifiableSortedMap
+  signature: (java.util.SortedMap) java.util.SortedMap
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Set#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object) java.util.Set
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collections#min
+  signature: (java.util.Collection, java.util.Comparator) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Arrays#copyOfRange
+  signature: (long[], int, int) long[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.LinkedList#addLast
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.LinkedList#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Deque#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Collection#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Queue#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.List#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: java.util.Scanner#useDelimiter
+  signature: (java.util.regex.Pattern) java.util.Scanner
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.NavigableSet#floor
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Scanner#nextLine
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Deque#pop
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Deque#addLast
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Properties#setProperty
+  signature: (java.lang.String, java.lang.String) java.lang.Object
+  bypassVerification: true
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Dictionary#MapValue#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Dictionary#MapValue#java.lang.Object
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Dictionary#MapKey#java.lang.Object
+- function: java.util.Arrays#copyOf
+  signature: (boolean[], int) boolean[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.Scanner#reset
+  signature: () java.util.Scanner
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.List#spliterator
+  signature:
+    return: java.util.Spliterator
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Scanner#useRadix
+  signature: (int) java.util.Scanner
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Arrays#spliterator
+  signature: (java.lang.Object[]) java.util.Spliterator
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Spliterators#spliteratorUnknownSize
+  signature: (java.util.PrimitiveIterator$OfDouble, int) java.util.Spliterator$OfDouble
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Deque#descendingIterator
+  signature: () java.util.Iterator
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: java.util.Iterator#<init>
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: java.util.Deque#getLast
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Arrays#copyOf
+  signature: (long[], int) long[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.List#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Collection#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.List#<rule-storage>#java.lang.Object
+- function: java.util.Map#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object) java.util.Map
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Calendar#createCalendar
+  signature: (*, *) java.util.Calendar
+  copy:
+  - from:
+    - this
+    - .java.util.Calendar#time#java.util.Date
+    to:
+    - result
+    - .java.util.Calendar#time#java.util.Date
+  - from:
+    - this
+    - .java.util.Calendar#timeZone#java.util.TimeZone
+    to:
+    - result
+    - .java.util.Calendar#timeZone#java.util.TimeZone
+- function: java.util.BitSet#xor
+  signature: (java.util.BitSet) void
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.List#addAll
+  signature: (int, java.util.Collection) boolean
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Collection#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.List#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: java.util.SequencedMap#putLast
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Collections#synchronizedList
+  signature: (java.util.List) java.util.List
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Base64$Decoder#decode
+  signature: (byte[]) byte[]
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Arrays#spliterator
+  signature: (int[], int, int) java.util.Spliterator$OfInt
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Scanner#findInLine
+  signature: (java.util.regex.Pattern) java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Map#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object) java.util.Map
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(11)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(8)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(10)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Queue#element
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Collections#synchronizedNavigableMap
+  signature: (java.util.NavigableMap) java.util.NavigableMap
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Map#<init>
+  bypassVerification: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.Collections#enumeration
+  signature: (java.util.Collection) java.util.Enumeration
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Spliterators#spliterator
+  signature: (java.util.PrimitiveIterator$OfDouble, long, int) java.util.Spliterator$OfDouble
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Calendar#add
+  signature: (int, int) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: java.util.Vector#<init>
+  signature: (java.util.Collection) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.SequencedCollection#getLast
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Arrays#spliterator
+  signature: (long[], int, int) java.util.Spliterator$OfLong
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Map$Entry#getValue
+  signature: () java.lang.Object
+  condition:
+    allOf:
+    - not:
+        typeIs: org.apache.commons.lang3.tuple.MutablePair
+        pos: this
+    - not:
+        typeIs: org.apache.commons.lang3.tuple.ImmutableTriple
+        pos: this
+    - not:
+        typeIs: org.apache.commons.lang3.tuple.Pair
+        pos: this
+    - not:
+        typeIs: org.apache.commons.lang3.tuple.ImmutablePair
+        pos: this
+    - not:
+        typeIs: org.apache.commons.lang3.tuple.Triple
+        pos: this
+    - not:
+        typeIs: org.apache.commons.lang3.tuple.MutableTriple
+        pos: this
+  copy:
+  - from:
+    - this
+    - .java.util.Map$Entry#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Vector#addElement
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collections#unmodifiableList
+  signature: (java.util.List) java.util.List
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function:
+    package: java.util
+    class: ResourceBundle
+    name:
+      pattern: get.*
+  copy:
+  - from: this
+    to: result
+- function: java.util.Optional#of
+  signature: (java.lang.Object) java.util.Optional
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Collections#replaceAll
+  signature: (java.util.List, java.lang.Object, java.lang.Object) boolean
+  copy:
+  - from: arg(2)
+    to: arg(0)
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Enumeration#nextElement
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Enumeration#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Enumeration#Element#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Enumeration#Element#java.lang.Object
+    to: result
+- function: java.util.Base64$Decoder#decode
+  signature: (java.nio.ByteBuffer) java.nio.ByteBuffer
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.NavigableSet#headSet
+  signature: (java.lang.Object, boolean) java.util.NavigableSet
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (float[], int, int, float) void
+  copy:
+  - from: arg(3)
+    to: arg(0)
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.TreeSet#<init>
+  signature: (java.util.Collection) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collections#synchronizedSet
+  signature: (java.util.Set) java.util.Set
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Scanner#skip
+  signature: (java.lang.String) java.util.Scanner
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Arrays#fill
+  signature: (boolean[], boolean) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Spliterators#spliterator
+  signature: (long[], int) java.util.Spliterator$OfLong
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.NavigableMap#subMap
+  signature: (java.lang.Object, boolean, java.lang.Object, boolean) java.util.NavigableMap
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Vector#insertElementAt
+  signature: (java.lang.Object, int) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.PriorityQueue#<init>
+  signature: (java.util.SortedSet) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.StringJoiner#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.CharSequence
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+- function: java.util.Spliterators#iterator
+  signature: (java.util.Spliterator$OfLong) java.util.PrimitiveIterator$OfLong
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Arrays#spliterator
+  signature: (double[], int, int) java.util.Spliterator$OfDouble
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Calendar#getInstance
+  signature: (*) java.util.Calendar
+  copy:
+  - from:
+    - this
+    - .java.util.Calendar#time#java.util.Date
+    to:
+    - result
+    - .java.util.Calendar#time#java.util.Date
+  - from:
+    - this
+    - .java.util.Calendar#timeZone#java.util.TimeZone
+    to:
+    - result
+    - .java.util.Calendar#timeZone#java.util.TimeZone
+- function: java.util.Arrays#fill
+  signature: (boolean[], int, int, boolean) void
+  copy:
+  - from: arg(3)
+    to: arg(0)
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Collections#copy
+  signature: (java.util.List, java.util.List) void
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Calendar#set
+  signature: (int, int) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: java.util.Set#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object) java.util.Set
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Map$Entry#getValue
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to: result
+- function: java.util.SequencedMap#firstEntry
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function:
+    package: java.util
+    class: SortedMap
+    name:
+      pattern: .*Key
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.SortedMap#value#java.lang.Object
+    to: result
+- function: java.util.Properties#getProperty
+  signature: (java.lang.String) java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Dictionary#MapValue#java.lang.Object
+    to: result
+- function: java.util.Map#remove
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: java.util.Queue#remove
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Arrays#copyOf
+  signature: (float[], int) float[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.Collections#unmodifiableSortedSet
+  signature: (java.util.SortedSet) java.util.SortedSet
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#copyOf
+  signature: (java.lang.Object[], int) java.lang.Object[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function:
+    package: java.util
+    class: Collections
+    name:
+      pattern: unmodifiable.*
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: result
+- function: java.util.Collections#min
+  signature: (java.util.Collection, java.util.Comparator) java.lang.Object
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Optional#orElse
+  signature: (java.lang.Object) java.lang.Object
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .java.util.Optional#Element#java.lang.Object
+    to: result
+- function:
+    package: java.util
+    class: Calendar
+    name:
+      pattern: setT.*
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+- function: java.util.Arrays#spliterator
+  signature: (java.lang.Object[], int, int) java.util.Spliterator
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Collections#singletonList
+  signature: (java.lang.Object) java.util.List
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#stream
+  signature: (java.lang.Object[], int, int) java.util.stream.Stream
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.List#<init>
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Optional#get
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Arrays#fill
+  signature: (short[], int, int, short) void
+  copy:
+  - from: arg(3)
+    to: arg(0)
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.StringJoiner#<init>
+  signature: (java.lang.CharSequence) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.Arrays#fill
+  signature: (char[], char) void
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Scanner#findWithinHorizon
+  signature: (java.util.regex.Pattern, int) java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Map#replace
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object) boolean
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Properties#getProperty
+  signature: (java.lang.String, java.lang.String) java.lang.String
+  copy:
+  - from: arg(1)
+    to: result
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Dictionary#MapValue#java.lang.Object
+    to: result
+- function: java.util.EnumMap#<init>
+  signature: (java.util.Map) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Collections#checkedNavigableMap
+  signature: (java.util.NavigableMap, java.lang.Class, java.lang.Class) java.util.NavigableMap
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Deque#peekLast
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Deque#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Deque#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Collection#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Queue#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+- function: java.util.Collection#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Collection#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+- function: java.util.StringJoiner#add
+  signature: (java.lang.CharSequence) java.util.StringJoiner
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: this
+- function: java.util.Optional#or
+  signature: (java.util.function.Supplier) java.util.Optional
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.Optional#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Optional#Element#java.lang.Object
+- function:
+    package: java.util
+    class: Collections
+    name:
+      pattern: synchronized.*
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: java.util.Collections#min
+  signature: (java.util.Collection) java.lang.Object
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.Dictionary#keys
+  signature: () java.util.Enumeration
+  copy:
+  - from:
+    - this
+    - .java.util.Dictionary#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Enumeration#Element#java.lang.Object
+- function: java.util.HashMap#<init>
+  signature: (java.util.Map) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Iterator#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+- function: java.util.NavigableMap#headMap
+  signature: (java.lang.Object, boolean) java.util.NavigableMap
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Collections#synchronizedCollection
+  signature: (java.util.Collection) java.util.Collection
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.NavigableMap#higherEntry
+  signature: (java.lang.Object) java.util.Map$Entry
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.NavigableMap#ceilingEntry
+  signature: (java.lang.Object) java.util.Map$Entry
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.StringJoiner#setEmptyValue
+  signature: (*) java.util.StringJoiner
+  copy:
+  - from:
+    - this
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+    to:
+    - result
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+- function: java.util.NavigableMap#tailMap
+  signature: (java.lang.Object, boolean) java.util.NavigableMap
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Calendar#set
+  signature: (int, int, int) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .java.util.Calendar#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: java.util.ArrayDeque#<init>
+  signature: (java.util.Collection) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collections#enumeration
+  signature: (java.util.Collection) java.util.Enumeration
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Enumeration#Element#java.lang.Object
+- function: java.util.Properties#propertyNames
+  signature: () java.util.Enumeration
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Arrays#spliterator
+  signature: (long[]) java.util.Spliterator$OfLong
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Spliterator#Element#java.lang.Object
+- function: java.util.Spliterators#spliterator
+  signature: (int[], int) java.util.Spliterator$OfInt
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Deque#offerFirst
+  signature: (java.lang.Object) boolean
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.StringTokenizer#nextToken
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.BitSet#set
+  signature: (int, boolean) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.BitSet#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.BitSet#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: java.util.Objects#toString
+  signature: (java.lang.Object, java.lang.String) java.lang.String
+  overrides: false
+  copy:
+  - from: arg(1)
+    to: result
+- function: java.util.List#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object) java.util.List
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.List#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object) java.util.List
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Queue#offer
+  signature: (java.lang.Object) boolean
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.SortedSet#tailSet
+  signature: (java.lang.Object) java.util.SortedSet
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (double[], double) void
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Collections#copy
+  signature: (java.util.List, java.util.List) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Spliterators#iterator
+  signature: (java.util.Spliterator$OfDouble) java.util.PrimitiveIterator$OfDouble
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.BitSet#or
+  signature: (java.util.BitSet) void
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.Scanner#findWithinHorizon
+  signature: (java.lang.String, int) java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.NavigableSet#pollFirst
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.LinkedList#<init>
+  signature: (java.util.Collection) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Queue#poll
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.List#of
+  signature: (java.lang.Object[]) java.util.List
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collections#checkedNavigableMap
+  signature: (java.util.NavigableMap, java.lang.Class, java.lang.Class) java.util.NavigableMap
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Optional#orElseThrow
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Optional#Element#java.lang.Object
+    to: result
+- function: java.util.Collection#toArray
+  signature: (java.util.function.IntFunction) java.lang.Object[]
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+- function: java.util.Arrays#stream
+  signature: (int[]) java.util.stream.IntStream
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.NavigableSet#descendingSet
+  signature: () java.util.NavigableSet
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Optional#filter
+  signature: (java.util.function.Predicate) java.util.Optional
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.Optional#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Optional#Element#java.lang.Object
+- function: java.util.Set#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object) java.util.Set
+  overrides: false
+  copy:
+  - from: arg(8)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.List#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.Objects#requireNonNull
+  signature: (java.lang.Object) java.lang.Object
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.StringJoiner#toString
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.StringJoiner#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+    to:
+    - result
+    - .java.lang.String#content#java.lang.CharSequence
+- function: java.util.Collections#checkedSortedSet
+  signature: (java.util.SortedSet, java.lang.Class) java.util.SortedSet
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.BitSet#andNot
+  signature: (java.util.BitSet) void
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.util.Spliterators#spliterator
+  signature: (java.util.Iterator, long, int) java.util.Spliterator
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Objects#toString
+  signature: (java.lang.Object) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.Collections#addAll
+  signature: (java.util.Collection, java.lang.Object[]) boolean
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Set#of
+  signature: (java.lang.Object) java.util.Set
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#copyOfRange
+  signature: (java.lang.Object[], int, int, java.lang.Class) java.lang.Object[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.LinkedList#getFirst
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.List#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Deque#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Collection#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.LinkedList#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Queue#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Iterator#next
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+    to: result
+- function: java.util.List#spliterator
+  signature: () java.util.Spliterator
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.List#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Collection#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.LinkedList#addFirst
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.LinkedList#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Deque#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Collection#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Queue#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.List#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: java.util.StringJoiner#<init>
+  signature: (java.lang.CharSequence, java.lang.CharSequence, java.lang.CharSequence)
+    void
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .java.util.StringJoiner#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.StringJoiner#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.StringJoiner#<rule-storage>#java.lang.Object
+- function: java.util.SequencedMap#pollLastEntry
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.StringJoiner#setEmptyValue
+  signature: (java.lang.CharSequence) java.util.StringJoiner
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.StringJoiner#<rule-storage>#java.lang.Object
+- function: java.util.StringJoiner#setEmptyValue
+  signature:
+    params:
+    - index: 0
+      type: java.lang.CharSequence
+    return: java.util.StringJoiner
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+- function: java.util.Arrays#fill
+  signature: (boolean[], boolean) void
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.SequencedMap#sequencedValues
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.WeakHashMap#<init>
+  signature: (java.util.Map) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Map#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object,
+    java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object)
+    java.util.Map
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(7)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(4)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(9)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(6)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(11)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(8)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(13)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(10)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(12)
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(3)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from: arg(5)
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.StringJoiner#add
+  signature: (*) java.util.StringJoiner
+  copy:
+  - from:
+    - this
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+    to:
+    - result
+    - .java.util.StringJoiner#delimiter#java.lang.CharSequence
+- function: java.util.ListIterator#previous
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+    to: result
+- function: java.util.TreeSet#<init>
+  signature: (java.util.SortedSet) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Stack#peek
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.StringJoiner#toString
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.List#of
+  signature: (java.lang.Object, java.lang.Object) java.util.List
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collections#checkedQueue
+  signature: (java.util.Queue, java.lang.Class) java.util.Queue
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Optional#orElseGet
+  signature: (java.util.function.Supplier) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Optional#Element#java.lang.Object
+    to: result
+- function: java.util.LinkedHashSet#<init>
+  signature: (java.util.Collection) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collection#stream
+  signature: () java.util.stream.Stream
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.stream.BaseStream#Element#java.lang.Object
+- function: java.util.Scanner#useLocale
+  signature: (java.util.Locale) java.util.Scanner
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.ArrayList#<init>
+  signature: (java.util.Collection) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.IdentityHashMap#<init>
+  signature: (java.util.Map) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (short[], int, int, short) void
+  overrides: false
+  copy:
+  - from: arg(3)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Collection#addAll
+  signature: (java.util.Collection) boolean
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Spliterators#spliteratorUnknownSize
+  signature: (java.util.PrimitiveIterator$OfLong, int) java.util.Spliterator$OfLong
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.LinkedList#removeFirst
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.List#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Deque#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Collection#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.LinkedList#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Queue#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Collections#unmodifiableSequencedSet
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Collections#enumeration
+  signature:
+    params:
+    - index: 0
+      type: java.util.Collection
+    return: java.util.Enumeration
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Enumeration#Element#java.lang.Object
+- function: java.util.Enumeration#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Enumeration#<rule-storage>#java.lang.Object
+- function: java.util.Deque#pollLast
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.AbstractMap$SimpleImmutableEntry#<init>
+  signature: (java.util.Map$Entry) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Key#java.lang.Object
+    to:
+    - this
+    - .java.util.Map$Entry#Key#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map$Entry#Value#java.lang.Object
+    to:
+    - this
+    - .java.util.Map$Entry#Value#java.lang.Object
+- function: java.util.LinkedList#removeLast
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.List#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Deque#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Collection#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.LinkedList#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Queue#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Scanner#next
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#delimiter#java.lang.String
+    to: result
+- function: java.util.Scanner#findInLine
+  signature: (java.util.regex.Pattern) java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Optional#orElse
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .java.util.Optional#Element#java.lang.Object
+    to: result
+  - from: arg(0)
+    to: result
+- function: java.util.Collections#list
+  signature:
+    params:
+    - index: 0
+      type: java.util.Enumeration
+    return: java.util.ArrayList
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.Arrays#fill
+  signature: (long[], int, int, long) void
+  copy:
+  - from: arg(3)
+    to: arg(0)
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.Collections#checkedMap
+  signature: (java.util.Map, java.lang.Class, java.lang.Class) java.util.Map
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Map#entry
+  signature: (java.lang.Object, java.lang.Object) java.util.Map$Entry
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: java.util.StringTokenizer#nextToken
+  signature: (java.lang.String) java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.Collections#unmodifiableSequencedMap
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.Spliterator#trySplit
+  signature: () java.util.Spliterator
+  copy:
+  - from: this
+    to: result
+- function: java.util.Arrays#fill
+  signature: (double[], double) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.util.SortedSet#first
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.TreeMap#<init>
+  signature: (java.util.SortedMap) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Map#computeIfAbsent
+  signature: (java.lang.Object, java.util.function.Function) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: java.util.Arrays#copyOfRange
+  signature: (char[], int, int) char[]
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.util.StringJoiner#merge
+  signature: (java.util.StringJoiner) java.util.StringJoiner
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.StringJoiner#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.util.Scanner#nextLine
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.Scanner#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.Iterator#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.Arrays#fill
+  signature: (short[], short) void
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - arg(0)
+    - '[*]'
+- function: java.util.Map#copyOf
+  signature: (java.util.Map) java.util.Map
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: java.util.StringJoiner#<init>
+  signature: (java.lang.CharSequence) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.StringJoiner#<rule-storage>#java.lang.Object

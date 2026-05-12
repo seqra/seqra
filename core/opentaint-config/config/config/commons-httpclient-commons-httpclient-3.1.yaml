@@ -1,0 +1,944 @@
+library: commons-httpclient:commons-httpclient:3.1
+passThrough:
+- function: org.apache.commons.httpclient.HttpMethodBase#getResponseTrailerHeaderGroup
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpMethod#setQueryString
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.NameValuePair#<init>
+  copy:
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.commons.httpclient.NameValuePair#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to: this
+- function: org.apache.commons.httpclient.HttpMethodBase#getURI
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.cookie.CookieSpec#formatCookieHeader
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#getHostConfiguration
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HostConfiguration#getHost
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HostConfiguration#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HeaderElement#parse
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HeaderElement#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: org.apache.commons.httpclient
+    class: HttpConnection
+    name:
+      pattern: (<init>)
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.HttpMethodBase#getResponseStream
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpMethod#setRequestHeader
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.HostConfiguration#setHost
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HostConfiguration#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.HttpMethodBase#setHostConfiguration
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.HttpConnection#setLastResponseInputStream
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.cookie.CookieSpec#formatCookie
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.StatusLine#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.StatusLine#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.HttpMethod#getResponseBodyAsString
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.UsernamePasswordCredentials#setUserName
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.UsernamePasswordCredentials#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.Cookie#getDomain
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.Cookie#toString
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HeaderGroup#getCondensedHeader
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HeaderGroup#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HttpConstants#getAsciiString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.HttpConstants#getBytes
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.cookie.CookieSpec#formatCookies
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.HttpMethod#getResponseFooter
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.Header#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.commons.httpclient.Header#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.HttpMethodBase#getResponseBodyAsString
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.util.URIUtil#getQuery
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#getResponseCharSet
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HeaderElement#getParameters
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HeaderElement#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#getRequestCharSet
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpConstants#getContentBytes
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#setResponseStream
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.util.URIUtil#getPath
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#setQueryString
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.HttpMethod#getRequestHeaders
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.NameValuePair#setValue
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.NameValuePair#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.Cookie#getPath
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HttpState#setCredentials
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpState#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+- function: org.apache.commons.httpclient.HttpMethod#getRequestHeader
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#getRequestHeaderGroup
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HeaderElement#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HeaderElement#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.HttpMethodBase#getResponseHeaderGroup
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpState#getProxyCredentials
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpState#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpConnection#getHost
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.NTCredentials#getHost
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HeaderGroup#getHeaders
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HeaderGroup#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.UsernamePasswordCredentials#toString
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.UsernamePasswordCredentials#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.NTCredentials#setHost
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.HeaderGroup#setHeaders
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HeaderGroup#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.HttpMethod#getQueryString
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.Header#toString
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.Header#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HttpMethod#getResponseFooters
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HttpMethod#getResponseHeader
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.NameValuePair#setName
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.NameValuePair#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.HeaderElement#getParameterByName
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HeaderElement#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#setRequestHeader
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.UsernamePasswordCredentials#getUserName
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.UsernamePasswordCredentials#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.NTCredentials#getDomain
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpMethod#getResponseBody
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#getRequestHeaders
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.util.URIUtil#getFromPath
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.Cookie#getComment
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HttpConnection#getProxyHost
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpConstants#getString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.UsernamePasswordCredentials#setPassword
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.UsernamePasswordCredentials#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.HttpConstants#getAsciiBytes
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.HttpMethod#addResponseFooter
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.HttpConnection#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    - index: 1
+      type: int
+    - index: 2
+      type: java.lang.String
+    - index: 3
+      type: int
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.HttpMethodBase#getRequestHeader
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpState#toString
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpState#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpConnection#setProxyHost
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.HttpMethodBase#getResponseFooter
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpMethod#getPath
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HostConfiguration#getHostURL
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HostConfiguration#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.UsernamePasswordCredentials#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.commons.httpclient.UsernamePasswordCredentials#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.NTCredentials#toString
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#addRequestHeader
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.HttpMethodBase#addResponseFooter
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.HttpConnection#setHost
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.cookie.CookieSpec#parse
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#getResponseBodyAsStream
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.cookie.CookieSpec#parseAttribute
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: org.apache.commons.httpclient.HttpConnection#getVirtualHost
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpMethod#setPath
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.util.URIUtil#getPathQuery
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#getResponseHeaders
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.NameValuePair#getValue
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.NameValuePair#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#getResponseFooters
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#setPath
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.NameValuePair#getName
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.NameValuePair#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HeaderGroup#getFirstHeader
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HeaderGroup#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#getPath
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#getResponseBody
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.util.URIUtil#getName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#getResponseHeader
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.NameValuePair#toString
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.NameValuePair#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HttpConnection#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    - index: 1
+      type: java.lang.String
+    - index: 2
+      type: int
+    - index: 3
+      type: org.apache.commons.httpclient.protocol.Protocol
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.HttpMethod#getURI
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HttpMethodBase#getQueryString
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethodBase#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.NTCredentials#setDomain
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.Header#getValues
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.Header#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HttpMethod#getResponseBodyAsStream
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.NTCredentials#<init>
+  copy:
+  - from: arg(3)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to: this
+  - from: arg(3)
+    to:
+    - this
+    - .org.apache.commons.httpclient.NTCredentials#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.HttpMethod#addRequestHeader
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.HttpMethod#getResponseHeaders
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HttpMethod#getName
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HttpMethod#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.StatusLine#toString
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.httpclient.StatusLine#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.httpclient.HostConfiguration#toString
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HostConfiguration#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HeaderGroup#getLastHeader
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.HeaderGroup#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.util.URIUtil$Coder#replace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.Header#toExternalForm
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.httpclient.Header#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.httpclient.HttpState#setProxyCredentials
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpState#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+- function: org.apache.commons.httpclient.HeaderGroup#addHeader
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HeaderGroup#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.httpclient.HttpConnection#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    - index: 1
+      type: int
+    - index: 2
+      type: java.lang.String
+    - index: 3
+      type: java.lang.String
+    - index: 4
+      type: int
+    - index: 5
+      type: org.apache.commons.httpclient.protocol.Protocol
+  copy:
+  - from: arg(3)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.httpclient.HttpConnection#<rule-storage>#java.lang.Object
+- function: org.apache.commons.httpclient.HttpMethodBase#getContentCharSet
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.httpclient.HttpConstants#getContentString
+  copy:
+  - from: arg(0)
+    to: result

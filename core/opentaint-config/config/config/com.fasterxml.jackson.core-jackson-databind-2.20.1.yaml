@@ -1,0 +1,74 @@
+library: com.fasterxml.jackson.core:jackson-databind:2.20.1
+passThrough:
+- function: com.fasterxml.jackson.databind.JsonNode#textValue
+  copy:
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Parser#getCurrentName
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Parser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Parser#nextToken
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Parser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Parser#getTextCharacters
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Parser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.databind.JsonNode#elements
+  copy:
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Parser#getObjectId
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Parser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.databind.node.TextNode#textValue
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.databind.node.TextNode#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.databind.JsonNode#fieldNames
+  copy:
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.databind.JsonNode#path
+  copy:
+  - from: this
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Parser#getEmbeddedObject
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Parser#<rule-storage>#java.lang.Object
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Parser#getText
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Parser#<rule-storage>#java.lang.Object
+    to: result

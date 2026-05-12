@@ -1,0 +1,14 @@
+library: io.projectreactor:reactor-core:3.3.22.RELEASE
+passThrough:
+- function: reactor.core.publisher.Flux#subscriberContext
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#subscriberContext
+  copy:
+  - from: this
+    to: result
+- function: reactor.core.publisher.Mono#toProcessor
+  copy:
+  - from: this
+    to: result

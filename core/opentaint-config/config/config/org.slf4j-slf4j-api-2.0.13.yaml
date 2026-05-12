@@ -1,0 +1,26 @@
+library: org.slf4j:slf4j-api:2.0.13
+passThrough:
+- function: org.slf4j.helpers.MessageFormatter#format
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.slf4j.spi.LoggingEventBuilder#addArgument
+  copy:
+  - from: this
+    to: result
+- function: org.slf4j.helpers.MessageFormatter#arrayFormat
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.slf4j.spi.LoggingEventBuilder#addKeyValue
+  copy:
+  - from: this
+    to: result
+- function: org.slf4j.spi.LoggingEventBuilder#addMarker
+  copy:
+  - from: this
+    to: result
+- function: org.slf4j.spi.LoggingEventBuilder#setCause
+  copy:
+  - from: this
+    to: result

@@ -1,0 +1,68 @@
+library: com.fasterxml.jackson.core:jackson-databind:2.4.0
+passThrough:
+- function: com.fasterxml.jackson.databind.util.ArrayBuilders#addToList
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ContainerBuilder#startMap
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Segment#appendRaw
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(2)
+    to:
+    - this
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Segment#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+- function: com.fasterxml.jackson.databind.util.ContainerBuilder#startList
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ArrayBuilders#setAndArray
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ContainerBuilder#put
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.node.ContainerNode#POJONode
+  copy:
+  - from: arg(0)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ArrayBuilders#insertInList
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ContainerBuilder#add
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ArrayBuilders#arrayToList
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.node.JsonNodeFactory#POJONode
+  copy:
+  - from: arg(0)
+    to: result

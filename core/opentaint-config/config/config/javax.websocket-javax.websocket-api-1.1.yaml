@@ -1,0 +1,10 @@
+library: javax.websocket:javax.websocket-api:1.1
+passThrough:
+- function: javax.websocket.CloseReason#toString
+  copy:
+  - from: this
+    to: result
+- function: javax.websocket.CloseReason#getReasonPhrase
+  copy:
+  - from: this
+    to: result

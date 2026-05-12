@@ -1,0 +1,1995 @@
+library: org.springframework:spring-core:7.0.2
+passThrough:
+- function: org.springframework.util.StringUtils#trimArrayElements
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.Resource#getURL
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.util.ObjectUtils#unwrapOptional
+  overrides: false
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Optional#Element#java.lang.Object
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.PathMatcher#extractPathWithinPattern
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.springframework.util.StringUtils#commaDelimitedListToSet
+  bypassVerification: true
+  copy:
+  - from: arg(*)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.util.ClassUtils#getQualifiedMethodName
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#parseLocaleString
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.Resource#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.io.InputStream
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.InputStreamResource#inputStream#java.io.InputStream
+- function: org.springframework.util.CollectionUtils#mergeArrayIntoCollection
+  overrides: false
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.core.io.ClassPathResource#getURL
+  signature: () java.net.URL
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.ClassPathResource#path#java.lang.String
+    to:
+    - result
+    - .java.net.URL#spec#java.lang.String
+- function: org.springframework.util.StringUtils#trimLeadingCharacter
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.FileUrlResource#createRelative
+  signature: (*) org.springframework.core.io.Resource
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.FileUrlResource#url#java.net.URL
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+  - from:
+    - this
+    - .org.springframework.core.io.FileUrlResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#description#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileUrlResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileUrlResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileUrlResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileUrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#description#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileUrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileUrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileUrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+- function: org.springframework.util.CollectionUtils#firstElement
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.springframework.util.MultiValueMap#addAll
+  signature: (org.springframework.util.MultiValueMap) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.util.StringUtils#capitalize
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.core.io.ClassRelativeResourceLoader$ClassRelativeContextResource#createRelative
+  signature: (*) org.springframework.core.io.Resource
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.ClassRelativeResourceLoader$ClassRelativeContextResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#description#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.ClassRelativeResourceLoader$ClassRelativeContextResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.ClassRelativeResourceLoader$ClassRelativeContextResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.ClassRelativeResourceLoader$ClassRelativeContextResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+- function: org.springframework.core.io.Resource#getURI
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.core.io.Resource#getFilename
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#description#java.lang.String
+    to: result
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+    to: result
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to: result
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to: result
+- function: org.springframework.util.CollectionUtils#mergePropertiesIntoMap
+  overrides: false
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - arg(1)
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Dictionary#MapValue#java.lang.Object
+    to:
+    - arg(1)
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - arg(1)
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Dictionary#MapKey#java.lang.Object
+    to:
+    - arg(1)
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.util.StringUtils#getFilename
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#split
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.CollectionUtils#unmodifiableMultiValueMap
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.util.StringUtils#applyRelativePath
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.core.io.ClassPathResource#resolveURL
+  signature: () java.net.URL
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.ClassPathResource#path#java.lang.String
+    to:
+    - result
+    - .java.net.URL#spec#java.lang.String
+- function: org.springframework.util.ObjectUtils#addObjectToArray
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.LinkedMultiValueMap#<init>
+  signature: (java.util.Map) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.core.io.InputStreamResource#<init>
+  signature: (org.springframework.core.io.InputStreamSource) *
+  copy:
+  - from:
+    - arg(0)
+    - .org.springframework.core.io.InputStreamSource#inputStream#java.io.InputStream
+    to:
+    - this
+    - .org.springframework.core.io.InputStreamResource#inputStream#java.io.InputStream
+- function: org.springframework.util.CollectionUtils#toIterator
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.springframework.util.StringUtils#replace
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#collectionToDelimitedString
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.util.StringUtils#deleteAny
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.Resource#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Module
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.ModuleResource#module#java.lang.Module
+- function: org.springframework.core.io.Resource#getFile
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.util.StringUtils#unqualify
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.InputStreamSource#getInputStream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.util.StringUtils#concatenateStringArrays
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.util.StringUtils#quoteIfString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#commaDelimitedListToStringArray
+  bypassVerification: true
+  copy:
+  - from: arg(*)
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.core.io.ByteArrayResource#getDescription
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.ByteArrayResource#byteArray#byte[]
+    to:
+    - result
+    - .java.lang.String#bytes#byte[]
+- function: org.springframework.util.StringUtils#getFilenameExtension
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.Resource#getFilename
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.core.io.ByteArrayResource#getContentAsString
+  signature: (*) java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.ByteArrayResource#byteArray#byte[]
+    to:
+    - result
+    - .java.lang.String#bytes#byte[]
+- function: org.springframework.util.ObjectUtils#toObjectArray
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.InputStreamResource#<init>
+  signature: (org.springframework.core.io.InputStreamSource, *) *
+  copy:
+  - from:
+    - arg(0)
+    - .org.springframework.core.io.InputStreamSource#inputStream#java.io.InputStream
+    to:
+    - this
+    - .org.springframework.core.io.InputStreamResource#inputStream#java.io.InputStream
+- function: org.springframework.util.LinkedMultiValueMap#deepCopy
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.springframework.util.StringUtils#toStringArray
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(0)
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.core.io.UrlResource#createRelative
+  signature: (*) org.springframework.core.io.Resource
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#description#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#description#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#description#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+- function: org.springframework.util.MultiValueMap#toSingleValueMap
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+- function: org.springframework.util.ObjectUtils#nullSafeToString
+  bypassVerification: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+- function: org.springframework.core.io.PathResource#createRelative
+  signature: (*) org.springframework.core.io.Resource
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#location#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#description#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#location#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#location#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#location#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#description#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#uri#java.net.URI
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#uri#java.net.URI
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+- function: org.springframework.util.CollectionUtils#findValueOfType
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.springframework.util.StringValueResolver#resolveStringValue
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.Resource#getFile
+  signature:
+    return: java.io.File
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#file#java.io.File
+    to: result
+- function: org.springframework.util.ClassUtils#getShortName
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.DefaultResourceLoader$ClassPathContextResource#createRelative
+  signature: (*) org.springframework.core.io.Resource
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.DefaultResourceLoader$ClassPathContextResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#description#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.DefaultResourceLoader$ClassPathContextResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.DefaultResourceLoader$ClassPathContextResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.DefaultResourceLoader$ClassPathContextResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+- function: org.springframework.util.StringUtils#cleanPath
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.springframework.util.CollectionUtils#findFirstMatch
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.springframework.util.StringUtils#uncapitalize
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ObjectUtils#getIdentityHexString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#sortStringArray
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.AutoPopulatingList#<init>
+  signature: (java.util.List, java.lang.Class) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.util.ClassUtils#convertClassNameToResourcePath
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ReflectionUtils#shallowCopyFieldState
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: org.springframework.util.StringUtils#sortStringArray
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#trimTrailingWhitespace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.FileUrlResource#getFile
+  signature: () java.io.File
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.FileUrlResource#path#java.lang.String
+    to:
+    - result
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileUrlResource#path#java.lang.String
+    to:
+    - result
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileUrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileUrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+- function: org.springframework.util.AutoPopulatingList#<init>
+  signature: (java.util.List, org.springframework.util.AutoPopulatingList$ElementFactory)
+    *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.core.io.Resource#getURI
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.util.ClassUtils#convertResourcePathToClassName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.CollectionUtils#lastElement
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.springframework.core.io.UrlResource#getFile
+  signature: () java.io.File
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    to:
+    - result
+    - .java.io.File#uri#java.net.URI
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+    to:
+    - result
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+    to:
+    - result
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+- function: org.springframework.util.StringUtils#trimLeadingWhitespace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.PathResource#getURL
+  signature: () java.net.URL
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#location#java.lang.String
+    to:
+    - result
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .java.net.URL#spec#java.lang.String
+- function: org.springframework.core.io.FileSystemResource#getURL
+  signature: () java.net.URL
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#path#java.lang.String
+    to:
+    - result
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+    to:
+    - result
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .java.net.URL#spec#java.lang.String
+- function: org.springframework.util.StringUtils#collectionToCommaDelimitedString
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.springframework.core.io.Resource#getURL
+  signature:
+    return: java.net.URL
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    to: result
+- function: org.springframework.util.StringUtils#trimWhitespace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.Resource#getURI
+  signature:
+    return: java.net.URI
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    to: result
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+    to: result
+- function: org.springframework.util.StringUtils#delete
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ReflectionUtils#setField
+  copy:
+  - from: arg(2)
+    to: arg(1)
+- function: org.springframework.core.io.UrlResource#getURL
+  signature: () java.net.URL
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    to:
+    - result
+    - .java.net.URL#context#java.net.URL
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+    to:
+    - result
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .java.net.URL#spec#java.lang.String
+- function: org.springframework.core.io.PathResource#getURI
+  signature: () java.net.URI
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#location#java.lang.String
+    to:
+    - result
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .java.net.URI#value#java.lang.String
+- function: org.springframework.util.StringUtils#tokenizeToStringArray
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.core.io.FileSystemResource#getFile
+  signature: () java.io.File
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#path#java.lang.String
+    to:
+    - result
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#path#java.lang.String
+    to:
+    - result
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+    to:
+    - result
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+    to:
+    - result
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+- function: org.springframework.core.io.PathResource#<init>
+  signature: (java.net.URI) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.net.URI#value#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.PathResource#location#java.lang.String
+  - from:
+    - arg(0)
+    - .java.net.URI#value#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.PathResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+- function: org.springframework.core.io.FileSystemResource#<init>
+  signature: (java.io.File) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.io.File#path#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.FileSystemResource#path#java.lang.String
+  - from:
+    - arg(0)
+    - .java.io.File#path#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - arg(0)
+    - .java.io.File#path#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - arg(0)
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.FileSystemResource#path#java.lang.String
+  - from:
+    - arg(0)
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - arg(0)
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - arg(0)
+    - .java.io.File#uri#java.net.URI
+    to:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+- function: org.springframework.util.StringUtils#arrayToCommaDelimitedString
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+- function: org.springframework.core.io.UrlResource#getURI
+  signature: () java.net.URI
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+    to:
+    - result
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .java.net.URI#value#java.lang.String
+- function: org.springframework.util.ResourceUtils#extractJarFileURL
+  signature:
+    params:
+    - index: 0
+      type: java.net.URL
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ObjectUtils#toObjectArray
+  overrides: false
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.MultiValueMapAdapter#<init>
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.util.ObjectUtils#addObjectToArray
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.util.ClassUtils#getPackageName
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.CollectionUtils#arrayToList
+  overrides: false
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.core.io.UrlResource#from
+  signature: (*) org.springframework.core.io.UrlResource
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    to:
+    - result
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    to:
+    - result
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+- function: org.springframework.util.ResourceUtils#toURI
+  signature:
+    params:
+    - index: 0
+      type: java.net.URL
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.Resource#<init>
+  signature:
+    params:
+    - index: 0
+      type: byte[]
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.ByteArrayResource#byteArray#byte[]
+- function: org.springframework.core.io.Resource#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.net.URL
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.FileUrlResource#url#java.net.URL
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+- function: org.springframework.util.MultiValueMap#addAll
+  signature: (java.lang.Object, java.util.List) *
+  copy:
+  - from:
+    - arg(1)
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.core.io.PathResource#getFile
+  signature: () java.io.File
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#location#java.lang.String
+    to:
+    - result
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#location#java.lang.String
+    to:
+    - result
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.PathResource#uri#java.net.URI
+    to:
+    - result
+    - .java.io.File#uri#java.net.URI
+- function: org.springframework.core.io.Resource#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.Resource#<rule-storage>#java.lang.Object
+- function: org.springframework.util.MultiValueMap#getFirst
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: org.springframework.core.io.Resource#getURL
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.util.StringUtils#quote
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.FileSystemResource#getURI
+  signature: () java.net.URI
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#path#java.lang.String
+    to:
+    - result
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+    to:
+    - result
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .java.net.URI#value#java.lang.String
+- function: org.springframework.util.MultiValueMap#add
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.util.ClassUtils#getShortNameAsProperty
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.StringUtils#arrayToDelimitedString
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.core.io.Resource#getFilename
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.core.io.FileUrlResource#<init>
+  signature: (java.net.URL) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.FileUrlResource#path#java.lang.String
+  - from:
+    - arg(0)
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.FileUrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - arg(0)
+    - .java.net.URL#context#java.net.URL
+    to:
+    - this
+    - .org.springframework.core.io.FileUrlResource#url#java.net.URL
+- function: org.springframework.util.StringUtils#delimitedListToStringArray
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.CollectionUtils#toMultiValueMap
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: org.springframework.core.io.UrlResource#createRelativeURL
+  signature: (*) java.net.URL
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    to:
+    - result
+    - .java.net.URL#context#java.net.URL
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+    to:
+    - result
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - result
+    - .java.net.URL#spec#java.lang.String
+- function: org.springframework.core.io.Resource#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.springframework.util.MultiValueMap#addIfAbsent
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.util.StringUtils#removeDuplicateStrings
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.StringUtils#trimAllWhitespace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.ClassPathResource#createRelative
+  signature: (*) org.springframework.core.io.Resource
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.ClassPathResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#description#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.ClassPathResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.ClassPathResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.ClassPathResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+- function: org.springframework.util.StringUtils#removeDuplicateStrings
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.FileSystemResource#createRelative
+  signature: (*) org.springframework.core.io.Resource
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#description#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#description#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#description#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.core.io.Resource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    to:
+    - result
+    - .org.springframework.core.io.Resource#file#java.io.File
+- function: org.springframework.util.CollectionUtils#toArray
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Enumeration#Element#java.lang.Object
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.core.io.UrlResource#<init>
+  signature: (java.net.URI) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.net.URI#value#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+  - from:
+    - arg(0)
+    - .java.net.URI#value#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - arg(0)
+    - .java.net.URI#value#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+- function: org.springframework.util.StringUtils#stripFilenameExtension
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.UrlResource#<init>
+  signature: (java.net.URL) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+  - from:
+    - arg(0)
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - arg(0)
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+  - from:
+    - arg(0)
+    - .java.net.URL#context#java.net.URL
+    to:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+- function: org.springframework.util.ClassUtils#getQualifiedName
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ObjectUtils#getDisplayString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.MultiValueMap#setAll
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.core.io.Resource#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.DefaultResourceLoader$ClassPathContextResource#path#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.DescriptiveResource#description#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.FileSystemResource#path#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#path#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.FileSystemResourceLoader$FileSystemContextResource#path#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.FileUrlResource#path#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.FileUrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.UrlResource#location#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.UrlResource#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.PathResource#location#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.PathResource#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.ClassPathResource#path#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.ClassRelativeResourceLoader$ClassRelativeContextResource#path#java.lang.String
+- function: org.springframework.core.io.Resource#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.io.File
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.FileSystemResource#file#java.io.File
+- function: org.springframework.core.io.Resource#getFile
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.Resource#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.util.StringUtils#addStringToArray
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.springframework.util.MultiValueMap#set
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.util.CompositeIterator#add
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Iterator#Element#java.lang.Object
+    to:
+    - this
+    - .java.util.Iterator#Element#java.lang.Object
+- function: org.springframework.util.StringUtils#trimTrailingCharacter
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.core.io.InputStreamSource#getInputStream
+  signature:
+    return: java.io.InputStream
+  copy:
+  - from:
+    - this
+    - .org.springframework.core.io.InputStreamSource#inputStream#java.io.InputStream
+    to: result
+- function: org.springframework.util.StringUtils#splitArrayElementsIntoProperties
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.core.io.Resource#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.net.URI
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.UrlResource#uri#java.net.URI
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.PathResource#uri#java.net.URI
+- function: org.springframework.core.io.Resource#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.nio.file.Path
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.FileSystemResource#filePath#java.nio.file.Path
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.core.io.PathResource#path#java.nio.file.Path
+- function: org.springframework.util.CollectionUtils#arrayToList
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.ObjectUtils#identityToString
+  copy:
+  - from: arg(0)
+    to: result

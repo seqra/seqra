@@ -1,0 +1,12 @@
+library: io.projectreactor:reactor-core:3.0.3.RELEASE
+passThrough:
+- function: reactor.core.publisher.Flux#firstEmitting
+  copy:
+  - from: arg(*)
+    to: result
+- function: reactor.core.publisher.Flux#firstEmittingWith
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result

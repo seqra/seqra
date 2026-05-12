@@ -1,0 +1,1166 @@
+library: commons-lang:commons-lang:2.6
+passThrough:
+- function: org.apache.commons.lang.ObjectUtils#identityToString
+  signature:
+    params:
+    - index: 0
+      type: java.lang.StringBuffer
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: org.apache.commons.lang.text.CompositeFormat#reformat
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#replaceEachRepeatedly
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enum.Enum#getEnumClass
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.enum.Enum#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang.ArrayUtils#toObject
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.exception.ExceptionUtils#getStackFrames
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enum.Enum#getEnumList
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringEscapeUtils#unescapeCsv
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.ArrayUtils#toPrimitive
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.CharUtils#toChar
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#asWriter
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.enums.EnumUtils#getEnumList
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#overlay
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.StringUtils#defaultIfEmpty
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enums.Enum#getEnumMap
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enum.Enum#getName
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.enum.Enum#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang.StringUtils#deleteSpaces
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#getPrechomp
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#stripToEmpty
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#replaceFirst
+  copy:
+  - from: arg(1)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#trim
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringUtils#stripStart
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: org.apache.commons.lang
+    class: StringUtils
+    name:
+      pattern: capitali[sz]eAllWords
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.ClassUtils#getShortClassName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrSubstitutor#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang.text.StrSubstitutor#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.lang.StringUtils#splitByWholeSeparator
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#stripEnd
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#appendln
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringUtils#leftPad
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#setNewLineText
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringEscapeUtils#escapeCsv
+  signature:
+    params:
+    - index: 0
+      type: java.io.Writer
+    - index: 1
+      type: java.lang.String
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.StringUtils#substringBeforeLast
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrTokenizer#getTokenList
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrTokenizer#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang.StringUtils#substringsBetween
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#deleteWhitespace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.ClassUtils#convertClassesToClassNames
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrTokenizer#next
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrTokenizer#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: org.apache.commons.lang
+    class: StringUtils
+    name:
+      pattern: uncapitali[sz]e
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#removeEndIgnoreCase
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.mutable.Mutable#getValue
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.mutable.Mutable#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang.enums.EnumUtils#getEnum
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringEscapeUtils#escapeHtml
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.CharSet#getInstance
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang.StringUtils#reverse
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#concatenate
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.CharUtils#toString
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.text.StrTokenizer#reset
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#removeStart
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#substringAfter
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#chopNewline
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#asTokenizer
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringUtils#join
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enums.Enum#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang.enums.Enum#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.lang.text.StrBuilder#replace
+  signature:
+    params:
+    - index: 0
+      type: int
+    - index: 1
+      type: int
+    - index: 2
+      type: java.lang.String
+  copy:
+  - from: arg(2)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.text.StrLookup#lookup
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.lang.ClassUtils#getPackageName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enum.Enum#iterator
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.ArrayUtils#subarray
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.mutable.MutableObject#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang.mutable.MutableObject#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.lang.text.StrLookup#mapLookup
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.ClassUtils#convertClassNamesToClasses
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enum.Enum#getEnumMap
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#strip
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#trim
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#substringBefore
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#append
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.ClassUtils#getClass
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.exception.ExceptionUtils#getMessage
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#appendFixedWidthPadRight
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.CharUtils#unicodeEscaped
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.text.StrTokenizer#nextToken
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrTokenizer#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#appendFixedWidthPadLeft
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.exception.ExceptionUtils#getRootCauseStackTrace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enum.Enum#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang.enum.Enum#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.lang.StringUtils#abbreviate
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#insert
+  copy:
+  - from: arg(1)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.text.StrTokenizer#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang.text.StrTokenizer#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.lang.StringUtils#remove
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#getChomp
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.exception.ExceptionUtils#getThrowables
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.ObjectUtils#identityToString
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: org.apache.commons.lang.text
+    class: StrBuilder
+    name:
+      pattern: <init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.lang.StringUtils#abbreviateMiddle
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.ArrayUtils#toMap
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.ClassUtils#getPackageCanonicalName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#getNestedString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#splitByCharacterTypeCamelCase
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#charAt
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#asReader
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#replace
+  signature:
+    params:
+    - index: 0
+      type: org.apache.commons.lang.text.StrMatcher
+    - index: 1
+      type: java.lang.String
+    - index: 2
+      type: int
+    - index: 3
+      type: int
+    - index: 4
+      type: int
+  copy:
+  - from: arg(1)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.CharUtils#toCharacterObject
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#deleteCharAt
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringEscapeUtils#escapeHtml
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.ObjectUtils#defaultIfNull
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#appendAll
+  copy:
+  - from: arg(*)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringUtils#stripAll
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#split
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#minimizeCapacity
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringUtils#clean
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#deleteFirst
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#appendSeparator
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringUtils#splitPreserveAllTokens
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#substring
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.ClassUtils#getShortCanonicalName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#ensureCapacity
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#toString
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringEscapeUtils#escapeCsv
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enum.EnumUtils#getEnum
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#substringAfterLast
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#trimToNull
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.ClassUtils#getClass
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.ObjectUtils#min
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang.StringUtils#repeat
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#escape
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#replaceChars
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#delete
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.text.StrTokenizer#getTokenArray
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrTokenizer#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang.ClassUtils#getClass
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    - index: 1
+      type: boolean
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.ObjectUtils#toString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.CompositeFormat#parseObject
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#substringBetween
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.CharSetUtils#squeeze
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enums.EnumUtils#getEnumMap
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#defaultString
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.StringUtils#normalizeSpace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#replaceOnce
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.exception.ExceptionUtils#getCause
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#swapCase
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.ArrayUtils#clone
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#replaceAll
+  copy:
+  - from: arg(1)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringUtils#reverseDelimited
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#setNullText
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.enums.Enum#getEnumList
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#splitByWholeSeparatorPreserveAllTokens
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringEscapeUtils#unescapeCsv
+  signature:
+    params:
+    - index: 0
+      type: java.io.Writer
+    - index: 1
+      type: java.lang.String
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.StringUtils#chomp
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enums.Enum#iterator
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#replace
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#substring
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#center
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enum.EnumUtils#getEnumList
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: org.apache.commons.lang
+    class: StringUtils
+    name:
+      pattern: capitali[sz]e
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#left
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#reverseDelimitedString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#right
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#chop
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrTokenizer#previousToken
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrTokenizer#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang.StringUtils#overlayString
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.enums.Enum#getEnumClass
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.enums.Enum#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#reverse
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.ObjectUtils#max
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang.enum.EnumUtils#getEnumMap
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#lowerCase
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#getChars
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: arg(0)
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from: this
+    to: arg(0)
+- function: org.apache.commons.lang.exception.ExceptionUtils#getThrowableList
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#leftString
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringUtils#rightPad
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enums.Enum#readResolve
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.enums.Enum#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang.ArrayUtils#toString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.ObjectUtils#cloneIfPossible
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enums.EnumUtils#iterator
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#splitByCharacterType
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#upperCase
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#removeEnd
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enum.EnumUtils#iterator
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#difference
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.CharSetUtils#keep
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enum.Enum#readResolve
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.enum.Enum#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang.StringUtils#mid
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#stripToNull
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#rightString
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringEscapeUtils#escapeHtml
+  signature:
+    params:
+    - index: 0
+      type: java.io.Writer
+    - index: 1
+      type: java.lang.String
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.StringUtils#defaultIfBlank
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrTokenizer#getContent
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrTokenizer#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#midString
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#setLength
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringUtils#getCommonPrefix
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.exception.ExceptionUtils#getRootCauseMessage
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#removeStartIgnoreCase
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#toStringBuffer
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.ObjectUtils#clone
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#chompLast
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enum.Enum#getEnum
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.CharSetUtils#delete
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.StringUtils#trimToEmpty
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrTokenizer#previous
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrTokenizer#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang.exception.ExceptionUtils#getStackTrace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.StrBuilder#toCharArray
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringUtils#replaceEach
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.enums.Enum#getName
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.enums.Enum#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang.mutable.Mutable#setValue
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang.mutable.Mutable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.lang.text.StrBuilder#appendWithSeparators
+  copy:
+  - from: arg(*)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang.StringUtils#prechomp
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang.text.CompositeFormat#format
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang.exception.ExceptionUtils#getRootCause
+  copy:
+  - from: arg(0)
+    to: result

@@ -1,0 +1,39 @@
+library: org.springframework:spring-webmvc:6.1.5
+passThrough:
+- function: org.springframework.web.servlet.mvc.method.annotation.SseEmitter$SseEventBuilder#name
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.servlet.mvc.method.annotation.SseEmitter$SseEventBuilder#name
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.servlet.mvc.method.annotation.SseEmitter$SseEventBuilder#comment
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.servlet.mvc.method.annotation.SseEmitter$SseEventBuilder#reconnectTime
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.servlet.mvc.method.annotation.SseEmitter$SseEventBuilder#id
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.servlet.mvc.method.annotation.SseEmitter$SseEventBuilder#data
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.web.servlet.mvc.method.annotation.SseEmitter$SseEventBuilder#comment
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.servlet.mvc.method.annotation.SseEmitter$SseEventBuilder#id
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result

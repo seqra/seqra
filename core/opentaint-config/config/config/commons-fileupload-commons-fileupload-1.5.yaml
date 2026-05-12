@@ -1,0 +1,50 @@
+library: commons-fileupload:commons-fileupload:1.5
+passThrough:
+- function: org.apache.commons.fileupload.FileItem#getString
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.fileupload.FileItemHeadersSupport#getHeaders
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.fileupload.FileItemHeadersSupport#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.fileupload.ParameterParser#parse
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.fileupload.FileItem#getName
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.fileupload.FileItemHeadersSupport#setHeaders
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.fileupload.FileItemHeadersSupport#<rule-storage>#java.lang.Object
+- function: org.apache.commons.fileupload.FileItem#getInputStream
+  copy:
+  - from: this
+    to: result
+- function:
+    package: org.apache.commons.fileupload
+    class: FileItemHeaders
+    name:
+      pattern: get.*
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.fileupload.FileItem#getContentType
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.fileupload.FileItem#getFieldName
+  copy:
+  - from: this
+    to: result

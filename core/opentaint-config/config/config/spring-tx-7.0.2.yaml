@@ -1,0 +1,35 @@
+library: org.springframework:spring-tx:7.0.2
+passThrough:
+- function: org.springframework.dao.support.DataAccessUtils#intResult
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.dao.support.DataAccessUtils#uniqueResult
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.dao.support.DataAccessUtils#longResult
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.dao.support.DataAccessUtils#objectResult
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.dao.support.DataAccessUtils#singleResult
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.dao.support.DataAccessUtils#requiredUniqueResult
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.dao.support.DataAccessUtils#requiredSingleResult
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result

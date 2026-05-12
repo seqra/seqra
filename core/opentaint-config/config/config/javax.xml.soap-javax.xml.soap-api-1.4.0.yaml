@@ -1,0 +1,22 @@
+library: javax.xml.soap:javax.xml.soap-api:1.4.0
+passThrough:
+- function: javax.xml.soap.SAAJResult#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.soap.SAAJResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.xml.soap.SOAPPart#getContent
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.soap.SAAJResult#getResult
+  copy:
+  - from:
+    - this
+    - .javax.xml.soap.SAAJResult#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result

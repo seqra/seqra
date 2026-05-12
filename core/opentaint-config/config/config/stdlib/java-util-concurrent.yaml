@@ -1,0 +1,404 @@
+passThrough:
+- function: java.util.concurrent.ConcurrentHashMap#reduceEntries
+  signature: (long, java.util.function.BiFunction) java.util.Map$Entry
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.BlockingDeque#offerLast
+  signature: (java.lang.Object, long, java.util.concurrent.TimeUnit) boolean
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.concurrent.BlockingQueue#poll
+  signature: (long, java.util.concurrent.TimeUnit) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.concurrent.CompletableFuture#join
+  signature: () java.lang.Object
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.concurrent.Future#value#java.lang.Object
+    to: result
+- function: java.util.concurrent.BlockingQueue#drainTo
+  signature: (java.util.Collection) int
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.concurrent.TransferQueue#transfer
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.concurrent.ConcurrentHashMap#replaceAll
+  signature: (java.util.function.BiFunction) void
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.ConcurrentHashMap#search
+  signature: (long, java.util.function.BiFunction) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.CompletionStage#whenComplete
+  signature: (java.util.function.BiConsumer) java.util.concurrent.CompletionStage
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.CompletableFuture#getNow
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.concurrent.CompletableFuture#result#java.lang.Object
+    to: result
+- function: java.util.concurrent.BlockingDeque#putFirst
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.concurrent.BlockingDeque#offerFirst
+  signature: (java.lang.Object, long, java.util.concurrent.TimeUnit) boolean
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.concurrent.ConcurrentHashMap#reduceEntries
+  signature:
+    return: java.util.Map$Entry
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Value#java.lang.Object
+  - from:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map$Entry#Key#java.lang.Object
+- function: java.util.concurrent.TransferQueue#tryTransfer
+  signature: (java.lang.Object, long, java.util.concurrent.TimeUnit) boolean
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.concurrent.BlockingDeque#pollLast
+  signature: (long, java.util.concurrent.TimeUnit) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.concurrent.BlockingDeque#takeLast
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.concurrent.CompletableFuture#obtrudeValue
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.concurrent.Future#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.concurrent.CompletableFuture#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.concurrent.CompletionStage#<rule-storage>#java.lang.Object
+- function: java.util.concurrent.ConcurrentHashMap#replace
+  signature: (java.lang.Object, java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(1)
+    to: result
+- function: java.util.concurrent.TransferQueue#tryTransfer
+  signature: (java.lang.Object) boolean
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.concurrent.ConcurrentHashMap#reduceValues
+  signature: (long, java.util.function.Function, java.util.function.BiFunction) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.CompletionStage#whenCompleteAsync
+  signature: (java.util.function.BiConsumer) java.util.concurrent.CompletionStage
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.BlockingQueue#offer
+  signature: (java.lang.Object, long, java.util.concurrent.TimeUnit) boolean
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.concurrent.CompletableFuture#getNow
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .java.util.concurrent.CompletionStage#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.concurrent.Future#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.concurrent.CompletableFuture#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.concurrent.CompletableFuture#complete
+  signature: (java.lang.Object) boolean
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.concurrent.Future#value#java.lang.Object
+- function: java.util.concurrent.ConcurrentHashMap#reduce
+  signature: (long, java.util.function.BiFunction, java.util.function.BiFunction)
+    java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.Future#get
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.concurrent.Future#value#java.lang.Object
+    to: result
+- function: java.util.concurrent.ConcurrentHashMap#reduceValues
+  signature: (long, java.util.function.BiFunction) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.ConcurrentHashMap#<init>
+  signature: (java.util.Map) void
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.concurrent.CompletableFuture#join
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.concurrent.CompletableFuture#result#java.lang.Object
+    to: result
+- function: java.util.concurrent.BlockingQueue#take
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.concurrent.CompletableFuture#join
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.ConcurrentHashMap#searchEntries
+  signature: (long, java.util.function.Function) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.CompletableFuture#complete
+  signature: (java.lang.Object) boolean
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.concurrent.Future#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.concurrent.CompletableFuture#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.concurrent.CompletionStage#<rule-storage>#java.lang.Object
+- function: java.util.concurrent.ConcurrentHashMap#elements
+  signature: () java.util.Enumeration
+  copy:
+  - from:
+    - this
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Enumeration#Element#java.lang.Object
+- function: java.util.concurrent.CompletableFuture#getNow
+  signature: (java.lang.Object) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.CompletionStage#whenCompleteAsync
+  signature: (java.util.function.BiConsumer, java.util.concurrent.Executor) java.util.concurrent.CompletionStage
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.BlockingDeque#takeFirst
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.concurrent.CompletableFuture#completedFuture
+  signature: (java.lang.Object) java.util.concurrent.CompletableFuture
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.util.concurrent.ConcurrentHashMap#searchKeys
+  signature: (long, java.util.function.Function) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.BlockingQueue#drainTo
+  signature: (java.util.Collection, int) int
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to:
+    - arg(0)
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.concurrent.ConcurrentHashMap#reduceKeys
+  signature: (long, java.util.function.Function, java.util.function.BiFunction) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.BlockingQueue#put
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.concurrent.CompletableFuture#join
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.util.concurrent.CompletionStage#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.concurrent.Future#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.concurrent.CompletableFuture#<rule-storage>#java.lang.Object
+    to: result
+- function: java.util.concurrent.ConcurrentHashMap#reduceKeys
+  signature: (long, java.util.function.BiFunction) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.BlockingDeque#putLast
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+- function: java.util.concurrent.BlockingDeque#pollFirst
+  signature: (long, java.util.concurrent.TimeUnit) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#Element#java.lang.Object
+    to: result
+- function: java.util.concurrent.ConcurrentHashMap#reduceEntries
+  signature: (long, java.util.function.Function, java.util.function.BiFunction) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.CompletableFuture#completedFuture
+  signature: (java.lang.Object) java.util.concurrent.CompletableFuture
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.concurrent.Future#value#java.lang.Object
+- function: java.util.concurrent.CompletableFuture#anyOf
+  signature: (java.util.concurrent.CompletableFuture[]) java.util.concurrent.CompletableFuture
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function: java.util.concurrent.CompletionStage#toCompletableFuture
+  signature: () java.util.concurrent.CompletableFuture
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.ConcurrentHashMap#searchValues
+  signature: (long, java.util.function.Function) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.concurrent.ConcurrentHashMap#replace
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object) boolean
+  copy:
+  - from: arg(1)
+    to: result

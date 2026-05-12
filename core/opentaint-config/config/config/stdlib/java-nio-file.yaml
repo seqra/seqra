@@ -1,0 +1,191 @@
+passThrough:
+- function: java.nio.file.Files#newBufferedWriter
+  signature: (java.nio.file.Path, java.nio.file.OpenOption[]) java.io.BufferedWriter
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Files#lines
+  signature: (java.nio.file.Path) java.util.stream.Stream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Files#newByteChannel
+  signature: (java.nio.file.Path, java.nio.file.OpenOption[]) java.nio.channels.SeekableByteChannel
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Path#toUri
+  signature: () java.net.URI
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Path#getRoot
+  signature: () java.nio.file.Path
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Files#newBufferedReader
+  signature: (java.nio.file.Path) java.io.BufferedReader
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Files#newDirectoryStream
+  signature: (java.nio.file.Path, java.lang.String) java.nio.file.DirectoryStream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Path#toRealPath
+  signature: (java.nio.file.LinkOption[]) java.nio.file.Path
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Path#resolveSibling
+  signature: (java.lang.String) java.nio.file.Path
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Path#resolve
+  signature: (java.nio.file.Path) java.nio.file.Path
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: java.nio.file.Files#lines
+  signature: (java.nio.file.Path, java.nio.charset.Charset) java.util.stream.Stream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Paths#get
+  signature: (java.lang.String, java.lang.String[]) java.nio.file.Path
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function: java.nio.file.Files#newBufferedWriter
+  signature: (java.nio.file.Path, java.nio.charset.Charset, java.nio.file.OpenOption[])
+    java.io.BufferedWriter
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Path#normalize
+  signature: () java.nio.file.Path
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Files#newInputStream
+  signature: (java.nio.file.Path, java.nio.file.OpenOption[]) java.io.InputStream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Path#iterator
+  signature: () java.util.Iterator
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Files#newDirectoryStream
+  signature: (java.nio.file.Path) java.nio.file.DirectoryStream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Path#toAbsolutePath
+  signature: () java.nio.file.Path
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Path#subpath
+  signature: (int, int) java.nio.file.Path
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Path#resolve
+  signature: (java.lang.String) java.nio.file.Path
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.nio.file.Files#newBufferedReader
+  signature: (java.nio.file.Path, java.nio.charset.Charset) java.io.BufferedReader
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Path#resolve
+  signature: (java.lang.String) java.nio.file.Path
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Path#getParent
+  signature: () java.nio.file.Path
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Paths#get
+  signature: (java.net.URI) java.nio.file.Path
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function: java.nio.file.Files#newByteChannel
+  signature: (java.nio.file.Path, java.util.Set, java.nio.file.attribute.FileAttribute[])
+    java.nio.channels.SeekableByteChannel
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Path#of
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function: java.nio.file.Path#resolveSibling
+  signature: (java.nio.file.Path) java.nio.file.Path
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: java.nio.file.Files#newOutputStream
+  signature: (java.nio.file.Path, java.nio.file.OpenOption[]) java.io.OutputStream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.Path#relativize
+  signature: (java.nio.file.Path) java.nio.file.Path
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: java.nio.file.Path#resolveSibling
+  signature: (java.lang.String) java.nio.file.Path
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.nio.file.Files#newDirectoryStream
+  signature: (java.nio.file.Path, java.nio.file.DirectoryStream$Filter) java.nio.file.DirectoryStream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.nio.file.FileSystem#getPath
+  signature: (java.lang.String, java.lang.String[]) java.nio.file.Path
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result

@@ -1,0 +1,26 @@
+library: org.w3c.jigsaw:jigsaw:2.2.6
+passThrough:
+- function: org.w3c.tools.codec.Base64Decoder#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.w3c.tools.codec.Base64Decoder#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.w3c.tools.codec.Base64Encoder#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.w3c.tools.codec.Base64Encoder#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this

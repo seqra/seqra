@@ -1,0 +1,294 @@
+library: org.apache.wicket:wicket-core:10.1.0
+passThrough:
+- function: org.apache.wicket.Component#setRenderBodyOnly
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: org.apache.wicket
+    class: Component
+    name:
+      pattern: find.*
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.wicket.Component#getDefaultModel
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.wicket.model.util.GenericBaseModel#createSerializableVersionOf
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.wicket.model.util.GenericBaseModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.wicket.Component#replaceWith
+  copy:
+  - from: arg(*)
+    to: result
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: this
+- function: org.apache.wicket.Component#remove
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.wicket.Component#setVisibilityAllowed
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.wicket.Component#getInnermostModel
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.wicket.MarkupContainer#autoAdd
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: org.apache.wicket.model.Model#of
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.wicket.model.IModel#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.wicket.model.IModel#<rule-storage>#java.lang.Object
+- function: org.apache.wicket.Component#getParent
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.wicket.MarkupContainer#iterator
+  copy:
+  - from: this
+    to: result
+- function: org.apache.wicket.model.IComponentAssignedModel#wrapOnAssignment
+  copy:
+  - from: this
+    to: result
+- function: org.apache.wicket.Component#setMarkupId
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.wicket.Component#render
+  copy:
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: arg(0)
+  - from: this
+    to: arg(0)
+- function:
+    package: org.apache.wicket
+    class: Component
+    name:
+      pattern: set(Output.*)
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.wicket.Component#setDefaultModel
+  copy:
+  - from: arg(*)
+    to: result
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: this
+- function: org.apache.wicket.Component#exceptionMessage
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.wicket.Component#setIgnoreAttributeModifier
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.wicket.Component#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+- function: org.apache.wicket.MarkupContainer#getAssociatedMarkupStream
+  copy:
+  - from: this
+    to: result
+- function: org.apache.wicket.Component#getPage
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.wicket.Component#wrap
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: org.apache.wicket.model
+    class: IModel
+    name:
+      pattern: get.*
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.model.IModel#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.wicket.Component#setEnabled
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.wicket.MarkupContainer#renderAll
+  copy:
+  - from: this
+    to: arg(0)
+- function: org.apache.wicket.Component#getDefaultModelObjectAsString
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.wicket.Component#setDefaultModelObject
+  copy:
+  - from: arg(*)
+    to: result
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: this
+- function: org.apache.wicket.Component#setVisible
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.wicket.Component#onRender
+  copy:
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: arg(0)
+  - from: this
+    to: arg(0)
+- function: org.apache.wicket.Component#getDefaultModelObject
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: org.apache.wicket.model
+    class: IModel
+    name:
+      pattern: set.*
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.wicket.model.IModel#<rule-storage>#java.lang.Object
+- function: org.apache.wicket.Component#setVersioned
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.wicket.Component#<rule-storage>#java.lang.Object
+    to: result

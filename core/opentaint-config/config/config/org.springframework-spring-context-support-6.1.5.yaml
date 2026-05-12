@@ -1,0 +1,74 @@
+library: org.springframework:spring-context-support:6.1.5
+dependencies:
+- jakarta.activation:jakarta.activation-api:2.1.3
+passThrough:
+- function: org.springframework.mail.javamail.InternetAddressEditor#getAsText
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.mail.javamail.InternetAddressEditor#setAsText
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.mail.javamail.InternetAddressEditor#<rule-storage>#java.lang.Object
+- function: org.springframework.mail.javamail.InternetAddressEditor#getAsText
+  copy:
+  - from:
+    - this
+    - .org.springframework.mail.javamail.InternetAddressEditor#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.mail.javamail.InternetAddressEditor#setAsText
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.springframework.mail.javamail.InternetAddressEditor#getAsText
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.springframework.mail.javamail.InternetAddressEditor#address#java.lang.String
+    to: result
+- function: org.springframework.mail.javamail.ConfigurableMimeFileTypeMap#getContentType
+  copy:
+  - from:
+    - this
+    - .jakarta.activation.FileTypeMap#Element#java.lang.Object
+    to: result
+- function: org.springframework.mail.javamail.ConfigurableMimeFileTypeMap#setMappings
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .jakarta.activation.FileTypeMap#Element#java.lang.Object
+- function: org.springframework.mail.javamail.InternetAddressEditor#setAsText
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.mail.javamail.InternetAddressEditor#address#java.lang.String
+- function: org.springframework.mail.javamail.ConfigurableMimeFileTypeMap#createFileTypeMap
+  copy:
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - result
+    - .jakarta.activation.FileTypeMap#Element#java.lang.Object
+- function: org.springframework.mail.javamail.ConfigurableMimeFileTypeMap#getFileTypeMap
+  copy:
+  - from:
+    - this
+    - .jakarta.activation.FileTypeMap#Element#java.lang.Object
+    to:
+    - result
+    - .jakarta.activation.FileTypeMap#Element#java.lang.Object

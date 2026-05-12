@@ -1,0 +1,58 @@
+passThrough:
+- function: java.util.logging.Logger#getLogger
+  signature: (java.lang.String) java.util.logging.Logger
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.util.logging.Logger#name#java.lang.Object
+- function: java.util.logging.LogRecord#<init>
+  signature: (java.util.logging.Level, java.lang.String) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.logging.LogRecord#<rule-storage>#java.lang.Object
+- function: java.util.logging.LogRecord#<init>
+  signature: (java.util.logging.Level, java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: this
+- function: java.util.logging.LogRecord#getThrown
+  signature: () java.lang.Throwable
+  copy:
+  - from:
+    - this
+    - .java.util.logging.LogRecord#message#java.lang.String
+    to:
+    - result
+    - .java.lang.Throwable#message#java.lang.String
+- function: java.util.logging.Logger#getName
+  signature: () java.lang.String
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.logging.Logger#name#java.lang.Object
+    to: result
+- function: java.util.logging.LogRecord#setLongThreadID
+  signature: (*) java.util.logging.LogRecord
+  copy:
+  - from:
+    - this
+    - .java.util.logging.LogRecord#message#java.lang.String
+    to:
+    - result
+    - .java.util.logging.LogRecord#message#java.lang.String
+- function: java.util.logging.LogRecord#<init>
+  signature:
+    params:
+    - index: 1
+      type: java.lang.String
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.util.logging.LogRecord#message#java.lang.String

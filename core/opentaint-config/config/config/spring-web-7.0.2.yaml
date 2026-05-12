@@ -1,0 +1,1039 @@
+library: org.springframework:spring-web:7.0.2
+dependencies:
+- jakarta.servlet:jakarta.servlet-api:6.1.0
+- io.projectreactor:reactor-core:3.8.2
+passThrough:
+- function: org.springframework.web.util.UriComponentsBuilder#encode
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#allow
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.multipart.MultipartFile#getName
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.multipart.MultipartFile#originalFilename#java.lang.String
+    to: result
+- function: org.springframework.http.RequestEntity$BodyBuilder#body
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#acceptCharset
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#path
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getRequest
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#get
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.HttpHeaders#readOnlyHttpHeaders
+  signature: (*) org.springframework.http.HttpHeaders
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#headerValues#java.util.List
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#headerValues#java.util.List
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#headerValue#java.lang.String
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#headerValue#java.lang.String
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#headerValue#java.lang.String
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#headerValue#java.lang.String
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#allow#org.springframework.http.HttpMethod
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#allow#org.springframework.http.HttpMethod
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#allowedMethods#java.util.Set
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#allowedMethods#java.util.Set
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#contentDisposition#org.springframework.http.ContentDisposition
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#contentDisposition#org.springframework.http.ContentDisposition
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#acceptLanguage#java.util.Locale
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#acceptLanguage#java.util.Locale
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#contentType#org.springframework.http.MediaType
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#contentType#org.springframework.http.MediaType
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#ifModifiedSince#java.time.ZonedDateTime
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#ifModifiedSince#java.time.ZonedDateTime
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#host#java.net.InetSocketAddress
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#host#java.net.InetSocketAddress
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#headerMap#java.util.Map
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#headerMap#java.util.Map
+- function:
+    package: org.springframework.http
+    class: HttpHeaders
+    name:
+      pattern: set.+
+  signature:
+    params:
+    - index: 0
+      type: java.util.Set
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpHeaders#allowedMethods#java.util.Set
+- function:
+    package: org.springframework.http
+    class: HttpHeaders
+    name:
+      pattern: set.+
+  signature:
+    params:
+    - index: 0
+      type: java.util.Locale
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpHeaders#acceptLanguage#java.util.Locale
+- function: org.springframework.http.HttpEntity#getBody
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+    to: result
+- function: org.springframework.web.util.UriBuilder#port
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$BodyBuilder#contentType
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#patch
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#eTag
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getResponse
+  signature:
+    return: org.springframework.http.server.reactive.ServerHttpResponse
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.server.ServerWebExchange#response#org.springframework.http.server.reactive.ServerHttpResponse
+    to: result
+- function: org.springframework.http.HttpEntity#<init>
+  bypassVerification: true
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+- function: org.springframework.web.util.UriBuilder#replaceQueryParam
+  copy:
+  - from: this
+    to: result
+- function:
+    package: org.springframework.http
+    class: HttpHeaders
+    name:
+      pattern: set.+
+  signature:
+    params:
+    - index: 0
+      type: java.time.ZonedDateTime
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpHeaders#ifModifiedSince#java.time.ZonedDateTime
+- function: org.springframework.web.util.UriBuilder#replacePath
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriComponentsBuilder#uriComponents
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+- function: org.springframework.web.server.ServerWebExchange#getRequest
+  signature:
+    return: org.springframework.http.server.reactive.ServerHttpRequest
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.server.ServerWebExchange#request#org.springframework.http.server.reactive.ServerHttpRequest
+    to: result
+- function: org.springframework.web.multipart.MultipartFile#getBytes
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$BodyBuilder#body
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+- function: org.springframework.web.multipart.MultipartFile#getOriginalFilename
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.multipart.MultipartFile#originalFilename#java.lang.String
+    to: result
+- function: org.springframework.web.util.UriBuilder#host
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriTemplate#match
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#headers
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.http.RequestEntity#put
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#header
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.web.multipart.MultipartFile#getContentType
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.multipart.MultipartFile#originalFilename#java.lang.String
+    to: result
+- function: org.springframework.web.multipart.MultipartFile#getInputStream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function:
+    package: org.springframework.http
+    class: HttpHeaders
+    name:
+      pattern: set.+
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpHeaders#<rule-storage>#java.lang.Object
+- function: org.springframework.web.util.UriComponentsBuilder#cloneBuilder
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#delete
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.http.RequestEntity#post
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.http.RequestEntity#head
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriComponents$UriTemplateVariables#getValue
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.util.UriComponents$UriTemplateVariables#MapValue#java.lang.Object
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#ifNoneMatch
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#header
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#headers
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#<init>
+  signature:
+    params:
+    - index: 1
+      type: java.net.URI
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.http.RequestEntity#url#java.net.URI
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#lastModified
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#method
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#pathSegment
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#accept
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$BodyBuilder#contentType
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriTemplate#<init>
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.http.RequestEntity#head
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.http.ResponseEntity#ok
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+- function: org.springframework.web.multipart.MultipartFile#getName
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#queryParam
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#header
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$BodyBuilder#body
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.http.ResponseEntity#status
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.util.UriComponentsBuilder#uriVariables
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.HttpHeaders#copyOf
+  signature: (*) org.springframework.http.HttpHeaders
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#headerValues#java.util.List
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#headerValues#java.util.List
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#headerValue#java.lang.String
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#headerValue#java.lang.String
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#headerValue#java.lang.String
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#headerValue#java.lang.String
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#allow#org.springframework.http.HttpMethod
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#allow#org.springframework.http.HttpMethod
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#allowedMethods#java.util.Set
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#allowedMethods#java.util.Set
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#contentDisposition#org.springframework.http.ContentDisposition
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#contentDisposition#org.springframework.http.ContentDisposition
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#acceptLanguage#java.util.Locale
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#acceptLanguage#java.util.Locale
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#contentType#org.springframework.http.MediaType
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#contentType#org.springframework.http.MediaType
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#ifModifiedSince#java.time.ZonedDateTime
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#ifModifiedSince#java.time.ZonedDateTime
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#host#java.net.InetSocketAddress
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#host#java.net.InetSocketAddress
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#headerMap#java.util.Map
+    to:
+    - result
+    - .org.springframework.http.HttpHeaders#headerMap#java.util.Map
+- function: org.springframework.web.util.UriBuilder#queryParams
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriTemplate#expand
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#options
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#location
+  copy:
+  - from: this
+    to: result
+- function:
+    package: org.springframework.http
+    class: HttpHeaders
+    name:
+      pattern: set.+
+  signature:
+    params:
+    - index: 0
+      type: java.util.List
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpHeaders#headerValues#java.util.List
+- function: org.springframework.http.RequestEntity#<init>
+  signature:
+    params:
+    - index: 1
+      type: org.springframework.http.HttpMethod
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.springframework.http.RequestEntity#method#org.springframework.http.HttpMethod
+- function: org.springframework.web.server.ServerWebExchange#getMultipartData
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function:
+    package: org.springframework.web.server
+    class: ServerWebExchange
+    name: getAttributeOrDefault
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getResponse
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#scheme
+  copy:
+  - from: this
+    to: result
+- function:
+    package: org.springframework.http
+    class: HttpHeaders
+    name:
+      pattern: set.+
+  signature:
+    params:
+    - index: 0
+      type: org.springframework.http.ContentDisposition
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpHeaders#contentDisposition#org.springframework.http.ContentDisposition
+- function: org.springframework.http.ResponseEntity#getBody
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+    to: result
+- function:
+    package: org.springframework.http
+    class: HttpHeaders
+    name:
+      pattern: set.+
+  signature:
+    params:
+    - index: 0
+      type: java.net.InetSocketAddress
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpHeaders#host#java.net.InetSocketAddress
+- function: org.springframework.web.util.UriBuilder#userInfo
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UrlPathHelper#decodeMatrixVariables
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.springframework.http.ResponseEntity$BodyBuilder#body
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.multipart.MultipartFile#getBytes
+  signature:
+    return: byte[]
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.multipart.MultipartFile#bytes#byte[]
+    to: result
+  - from:
+    - this
+    - .org.springframework.web.multipart.MultipartFile#originalFilename#java.lang.String
+    - .java.lang.String#bytes#byte[]
+    to: result
+- function: org.springframework.http.RequestEntity#method
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.web.util.HtmlUtils#htmlEscapeDecimal
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.http.RequestEntity#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.springframework.http.RequestEntity#post
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.HttpEntity#getHeaders
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.HttpEntity#Body#java.lang.Object
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#ifModifiedSince
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#eTag
+  signature: (java.lang.String) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#header
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#headers
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#query
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#put
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#location
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getAttributes
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#build
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.multipart.MultipartFile#getContentType
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getRequiredAttribute
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function:
+    package: org.springframework.http
+    class: HttpHeaders
+    name:
+      pattern: set.+
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpHeaders#headerValue#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+    - .java.net.URI#value#java.lang.String
+- function: org.springframework.http.RequestEntity#<init>
+  signature:
+    params:
+    - index: 0
+      type: org.springframework.http.HttpMethod
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.RequestEntity#method#org.springframework.http.HttpMethod
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#headers
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.springframework.web.util.UriComponentsBuilder#schemeSpecificPart
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$BodyBuilder#contentLength
+  signature: (long) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.HtmlUtils#htmlEscapeHex
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.util.UriComponentsBuilder#uri
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$BodyBuilder#contentLength
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$BodyBuilder#contentLength
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#getFormData
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.web.util.HtmlUtils#htmlEscape
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.multipart.MultipartFile#getOriginalFilename
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#get
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: org.springframework.web.server
+    class: ServerWebExchange
+    name: getAttributeOrDefault
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#allow
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#build
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#replaceQuery
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#replaceQueryParams
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity#options
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.server.ServerWebExchange#mutate
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#varyBy
+  signature: (*) *
+  copy:
+  - from: this
+    to: result
+- function:
+    package: org.springframework.http
+    class: HttpHeaders
+    name:
+      pattern: set.+
+  signature:
+    params:
+    - index: 0
+      type: java.net.URI
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+- function: org.springframework.web.server.ServerWebExchange#getAttribute
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.web.util.UrlPathHelper#decodePathVariables
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function:
+    package: org.springframework.http
+    class: HttpHeaders
+    name:
+      pattern: set.+
+  signature:
+    params:
+    - index: 0
+      type: org.springframework.http.MediaType
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpHeaders#contentType#org.springframework.http.MediaType
+- function:
+    package: org.springframework.http
+    class: HttpHeaders
+    name:
+      pattern: set.+
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function:
+    package: org.springframework.http
+    class: HttpHeaders
+    name:
+      pattern: set.+
+  signature:
+    params:
+    - index: 0
+      type: java.util.Map
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpHeaders#headerMap#java.util.Map
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#cacheControl
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#fragment
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.ResponseEntity#created
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.http.RequestEntity#delete
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.UriBuilder#queryParamIfPresent
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.WebUtils#findParameterValue
+  signature: (*, java.lang.String) *
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.Map#MapValue#java.lang.Object
+    to: result
+- function: org.springframework.http.HttpHeaders#getLocation
+  signature: () java.net.URI
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#headerValue#java.lang.String
+    to:
+    - result
+    - .java.net.URI#value#java.lang.String
+  - from:
+    - this
+    - .org.springframework.http.HttpHeaders#location#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to:
+    - result
+    - .java.net.URI#value#java.lang.String
+- function: org.springframework.http.RequestEntity#patch
+  copy:
+  - from:
+    - this
+    - .org.springframework.http.RequestEntity#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.http.ResponseEntity$HeadersBuilder#header
+  signature: (java.lang.String, *) *
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.JavaScriptUtils#javaScriptEscape
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.http.RequestEntity$BodyBuilder#contentType
+  copy:
+  - from: this
+    to: result
+- function:
+    package: org.springframework.http
+    class: HttpHeaders
+    name:
+      pattern: set.+
+  signature:
+    params:
+    - index: 0
+      type: org.springframework.http.HttpMethod
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.http.HttpHeaders#allow#org.springframework.http.HttpMethod

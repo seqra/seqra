@@ -1,0 +1,51 @@
+passThrough:
+- function: org.xml.sax.InputSource#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.xml.sax.InputSource#systemId#java.lang.String
+- function: org.xml.sax.InputSource#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.io.Reader
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.xml.sax.InputSource#characterStream#java.io.Reader
+- function: org.xml.sax.InputSource#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.io.InputStream
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.xml.sax.InputSource#byteStream#java.io.InputStream
+- function: org.xml.sax.InputSource#setByteStream
+  signature:
+    params:
+    - index: 0
+      type: java.io.InputStream
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.xml.sax.InputSource#byteStream#java.io.InputStream
+- function: org.xml.sax.InputSource#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.xml.sax.InputSource#setByteStream
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this

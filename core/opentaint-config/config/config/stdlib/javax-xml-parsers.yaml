@@ -1,0 +1,200 @@
+passThrough:
+- function:
+    package: javax.xml.parsers
+    class: SAXParser
+    name:
+      pattern: get(.)*
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.xml.parsers.SAXParser#property#java.lang.Object
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (java.io.File) org.w3c.dom.Document
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: DocumentBuilderFactory
+    name:
+      pattern: get(.)*
+  signature:
+    return: javax.xml.validation.Schema
+  copy:
+  - from:
+    - this
+    - .javax.xml.parsers.DocumentBuilderFactory#schema#javax.xml.validation.Schema
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (java.io.InputStream) org.w3c.dom.Document
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: DocumentBuilderFactory
+    name:
+      pattern: new(.)*
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (org.xml.sax.InputSource) org.w3c.dom.Document
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: DocumentBuilderFactory
+    name:
+      pattern: get(.)*
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.xml.parsers.DocumentBuilderFactory#attribute#java.lang.Object
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: DocumentBuilder
+    name:
+      pattern: get(.)*
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: SAXParserFactory
+    name:
+      pattern: get(.)*
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: javax.xml.parsers.DocumentBuilderFactory#getAttribute
+  signature: (java.lang.String) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: DocumentBuilderFactory
+    name:
+      pattern: get(.)*
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    return: org.w3c.dom.Document
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .org.w3c.dom.Document#documentElement#org.w3c.dom.Node
+    - .org.w3c.dom.Node#nodeValue#java.lang.String
+- function:
+    package: javax.xml.parsers
+    class: SAXParserFactory
+    name:
+      pattern: new(.)*
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: SAXParser
+    name:
+      pattern: get(.)*
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (java.io.InputStream, java.lang.String) org.w3c.dom.Document
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: DocumentBuilder
+    name:
+      pattern: new(.)*
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.parsers
+    class: SAXParserFactory
+    name:
+      pattern: get(.)*
+  signature:
+    return: javax.xml.validation.Schema
+  copy:
+  - from:
+    - this
+    - .javax.xml.parsers.SAXParserFactory#schema#javax.xml.validation.Schema
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature:
+    params:
+    - index: 1
+      type: java.lang.String
+    return: org.w3c.dom.Document
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .org.w3c.dom.Document#documentElement#org.w3c.dom.Node
+    - .org.w3c.dom.Node#nodeValue#java.lang.String
+- function: javax.xml.parsers.DocumentBuilderFactory#getAttribute
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.xml.parsers.DocumentBuilderFactory#attribute#java.lang.Object
+    to: result
+- function: javax.xml.parsers.DocumentBuilder#parse
+  signature: (java.lang.String) org.w3c.dom.Document
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result

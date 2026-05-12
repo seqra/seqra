@@ -1,0 +1,10 @@
+library: org.springframework:spring-core:2.5.6
+passThrough:
+- function: org.springframework.util.DefaultPropertiesPersister#unescape
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.util.DefaultPropertiesPersister#escape
+  copy:
+  - from: arg(0)
+    to: result

@@ -1,0 +1,572 @@
+library: org.springframework:spring-webflux:6.1.5
+passThrough:
+- function: org.springframework.web.reactive.function.client.WebClient$RequestBodySpec#contentType
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec#header
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#attribute
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse$HeadersBuilder#build
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest$Headers#header
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse#temporaryRedirect
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec#exchange
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#queryParams
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#body
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientResponse#headers
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientRequest#method
+  signature:
+    return: org.springframework.http.HttpMethod
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.reactive.function.client.ClientRequest#method#org.springframework.http.HttpMethod
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#clientConnector
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest$Headers#host
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse$HeadersBuilder#headers
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec#ifNoneMatch
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse$HeadersBuilder#eTag
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse#ok
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientRequest#from
+  signature:
+    params:
+    - index: 0
+      type: org.springframework.web.reactive.function.client.ClientRequest
+    return: org.springframework.web.reactive.function.client.ClientRequest$Builder
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .org.springframework.web.reactive.function.client.ClientRequest$Builder#request#org.springframework.web.reactive.function.client.ClientRequest
+- function: org.springframework.web.reactive.function.BodyInserters#fromServerSentEvents
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#pathVariables
+  signature:
+    return: java.util.Map
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.reactive.function.server.ServerRequest#pathVariables#java.util.Map
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient#post
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.BodyInserters#fromObject
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientResponse#body
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest$Headers#acceptCharset
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientRequest$Builder#attributes
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$UriSpec#uri
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientResponse#bodyToFlux
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#exchangeFunction
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient#method
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse#status
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#attributes
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#baseUrl
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientRequest$Builder#body
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientResponse$Headers#asHttpHeaders
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#defaultHeader
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#clone
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#pathVariable
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientRequest$Builder#cookies
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#apply
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#defaultUriVariables
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#bodyToMono
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#bodyToFlux
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse$HeadersBuilder#varyBy
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse$BodyBuilder#contentLength
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#filter
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientRequest#from
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientRequest$Builder#headers
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec#cookies
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#uri
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient#patch
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientResponse#cookies
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#queryParam
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse$HeadersBuilder#cacheControl
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient#builder
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec#attribute
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient#mutate
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#uriBuilderFactory
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse$BodyBuilder#hint
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest$Headers#asHttpHeaders
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec#attributes
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientRequest$Builder#build
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientResponse#toEntityList
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient#get
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#attributes
+  signature:
+    return: java.util.Map
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.reactive.function.server.ServerRequest#pathVariables#java.util.Map
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientResponse#bodyToMono
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient#head
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest$Headers#contentType
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientRequest$Builder#header
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient#delete
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest$Headers#acceptLanguage
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.BodyInserters#fromPublisher
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#filters
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient#options
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#method
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest$Headers#accept
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse#noContent
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#exchangeStrategies
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse$BodyBuilder#contentType
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#cookies
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestBodySpec#contentLength
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse#unprocessableEntity
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#defaultCookies
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#path
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse$HeadersBuilder#header
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$ResponseSpec#onStatus
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#pathVariables
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec#ifModifiedSince
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient#put
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientRequest$Builder#attribute
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec#headers
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse#seeOther
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient#create
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerRequest#headers
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse#from
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientRequest$Builder#cookie
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse$HeadersBuilder#allow
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestBodySpec#syncBody
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec#cookie
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse#notFound
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$ResponseSpec#bodyToMono
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse#accepted
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.BodyInserters#fromResource
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse#created
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientResponse#toEntity
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#build
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec#retrieve
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec#accept
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse#badRequest
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientRequest#method
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse$HeadersBuilder#location
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientResponse$Headers#header
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#defaultCookie
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestBodySpec#body
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.ClientRequest$Builder#build
+  signature:
+    return: org.springframework.web.reactive.function.client.ClientRequest
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.reactive.function.client.ClientRequest$Builder#request#org.springframework.web.reactive.function.client.ClientRequest
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse#permanentRedirect
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$ResponseSpec#bodyToFlux
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$RequestHeadersSpec#acceptCharset
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.server.ServerResponse$HeadersBuilder#lastModified
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.reactive.function.client.WebClient$Builder#defaultHeaders
+  copy:
+  - from: this
+    to: result

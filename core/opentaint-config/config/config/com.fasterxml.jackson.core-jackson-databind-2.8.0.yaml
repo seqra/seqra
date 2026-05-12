@@ -1,0 +1,36 @@
+library: com.fasterxml.jackson.core:jackson-databind:2.8.0
+passThrough:
+- function: com.fasterxml.jackson.databind.util.ArrayBuilders#addToList
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.TokenBuffer$Segment#appendRaw
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(2)
+    to:
+    - this
+    - .com.fasterxml.jackson.databind.util.TokenBuffer$Segment#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+- function: com.fasterxml.jackson.databind.util.ArrayBuilders#setAndArray
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ArrayBuilders#insertInList
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: com.fasterxml.jackson.databind.util.ArrayBuilders#arrayToList
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result

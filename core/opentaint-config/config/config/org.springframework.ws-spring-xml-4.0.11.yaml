@@ -1,0 +1,23 @@
+library: org.springframework.ws:spring-xml:4.0.11
+passThrough:
+- function: org.springframework.xml.transform.StringSource#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.xml.transform.StringSource#<rule-storage>#java.lang.Object
+- function: org.springframework.xml.transform.StringSource#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.xml.transform.StringSource#content#java.lang.String
+- function: org.springframework.xml.transform.StringSource#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this

@@ -1,0 +1,963 @@
+passThrough:
+- function: java.sql.Clob#getAsciiStream
+  signature: () java.io.InputStream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getRef
+  signature: (int) java.sql.Ref
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getBlob
+  signature: (int) java.sql.Blob
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Connection#prepareStatement
+  signature: (java.lang.String, java.lang.String[]) java.sql.PreparedStatement
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.sql.Connection#prepareCall
+  signature: (java.lang.String, int, int) java.sql.CallableStatement
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.sql.ResultSet#getURL
+  signature: (java.lang.String) java.net.URL
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getClob
+  signature: (java.lang.String) java.sql.Clob
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Array#getArray
+  signature: (long, int) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.sql.Array#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Ref#getObject
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getObject
+  signature: (int, java.lang.Class) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getBytes
+  signature: (int) byte[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Array#getArray
+  signature: (long, int, java.util.Map) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.sql.Array#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#updateObject
+  signature: (java.lang.String, java.lang.Object, int) void
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+- function: java.sql.ResultSet#getObject
+  signature: (java.lang.String, java.util.Map) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getBytes
+  signature:
+    return: byte[]
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#rawBytes#byte[]
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#blob#java.sql.Blob
+    - .java.sql.Blob#data#byte[]
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#columnText#java.lang.String
+    - .java.lang.String#bytes#byte[]
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#rawBytes#byte[]
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#blob#java.sql.Blob
+    - .java.sql.Blob#data#byte[]
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#columnText#java.lang.String
+    - .java.lang.String#bytes#byte[]
+    to: result
+- function: java.sql.ResultSet#getObject
+  signature: (java.lang.String) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Array#getArray
+  signature: (java.util.Map) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.sql.Array#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Struct#getAttributes
+  signature: (java.util.Map) java.lang.Object[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#updateObject
+  signature: (java.lang.String, java.lang.Object, java.sql.SQLType) void
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+- function: java.sql.ResultSet#getBlob
+  signature:
+    return: java.sql.Blob
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#blob#java.sql.Blob
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#blob#java.sql.Blob
+    to: result
+- function: java.sql.ResultSet#getUnicodeStream
+  signature: (int) java.io.InputStream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Connection#prepareStatement
+  signature: (java.lang.String) java.sql.PreparedStatement
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.sql.ResultSet#getArray
+  signature: (int) java.sql.Array
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Array#getArray
+  signature: (long, int, java.util.Map) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Clob#getCharacterStream
+  signature: (long, long) java.io.Reader
+  copy:
+  - from:
+    - this
+    - .java.sql.Clob#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getBytes
+  signature: (int) byte[]
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getObject
+  signature: (java.lang.String, java.util.Map) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Array#getResultSet
+  signature: () java.sql.ResultSet
+  copy:
+  - from:
+    - this
+    - .java.sql.Array#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Array#getResultSet
+  signature: (java.util.Map) java.sql.ResultSet
+  copy:
+  - from:
+    - this
+    - .java.sql.Array#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Struct#getAttributes
+  signature: () java.lang.Object[]
+  copy:
+  - from:
+    - this
+    - .java.sql.Struct#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getUnicodeStream
+  signature: (java.lang.String) java.io.InputStream
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getString
+  signature: (int) java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getCharacterStream
+  signature:
+    return: java.io.Reader
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#characterStream#java.io.Reader
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#characterStream#java.io.Reader
+    to: result
+- function: java.sql.Array#getArray
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Clob#getAsciiStream
+  signature: () java.io.InputStream
+  copy:
+  - from:
+    - this
+    - .java.sql.Clob#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#updateObject
+  signature: (int, java.lang.Object, java.sql.SQLType, int) void
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+- function: java.sql.Blob#getBytes
+  signature:
+    return: byte[]
+  copy:
+  - from:
+    - this
+    - .java.sql.Blob#data#byte[]
+    to: result
+- function: java.sql.Array#getArray
+  signature: (long, int) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getUnicodeStream
+  signature:
+    return: java.io.InputStream
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#binaryStream#java.io.InputStream
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#binaryStream#java.io.InputStream
+    to: result
+- function: java.sql.Blob#getBinaryStream
+  signature: (long, long) java.io.InputStream
+  copy:
+  - from:
+    - this
+    - .java.sql.Blob#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Blob#getBytes
+  signature: (long, int) byte[]
+  copy:
+  - from:
+    - this
+    - .java.sql.Blob#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getArray
+  signature: (int) java.sql.Array
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Clob#getCharacterStream
+  signature: (long, long) java.io.Reader
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Connection#prepareCall
+  signature: (java.lang.String, int, int, int) java.sql.CallableStatement
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.sql.ResultSet#getString
+  signature: (int) java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getCharacterStream
+  signature: (int) java.io.Reader
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getURL
+  signature: (int) java.net.URL
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Ref#getObject
+  signature: (java.util.Map) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Clob#getCharacterStream
+  signature: () java.io.Reader
+  copy:
+  - from:
+    - this
+    - .java.sql.Clob#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getRef
+  signature: (java.lang.String) java.sql.Ref
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getAsciiStream
+  signature:
+    return: java.io.InputStream
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#binaryStream#java.io.InputStream
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#binaryStream#java.io.InputStream
+    to: result
+- function: java.sql.Array#getResultSet
+  signature: () java.sql.ResultSet
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getObject
+  signature: (int, java.lang.Class) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#updateObject
+  signature: (java.lang.String, java.lang.Object) void
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+- function: java.sql.ResultSet#getClob
+  signature: (int) java.sql.Clob
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getObject
+  signature: (int) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getBlob
+  signature: (int) java.sql.Blob
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Array#getArray
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.sql.Array#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Clob#getSubString
+  signature: (long, int) java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getRef
+  signature: (java.lang.String) java.sql.Ref
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Clob#getCharacterStream
+  signature: () java.io.Reader
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getBlob
+  signature: (java.lang.String) java.sql.Blob
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getObject
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#columnValue#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#ref#java.sql.Ref
+    - .java.sql.Ref#value#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#columnValue#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#ref#java.sql.Ref
+    - .java.sql.Ref#value#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#columnValue#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#ref#java.sql.Ref
+    - .java.sql.Ref#value#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#columnValue#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#ref#java.sql.Ref
+    - .java.sql.Ref#value#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#columnValue#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#ref#java.sql.Ref
+    - .java.sql.Ref#value#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#columnValue#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#ref#java.sql.Ref
+    - .java.sql.Ref#value#java.lang.Object
+    to: result
+- function: java.sql.Array#getResultSet
+  signature: (long, int) java.sql.ResultSet
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Array#getResultSet
+  signature: (java.util.Map) java.sql.ResultSet
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Blob#getBinaryStream
+  signature: (long, long) java.io.InputStream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getURL
+  signature: (int) java.net.URL
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getClob
+  signature: (int) java.sql.Clob
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Array#getResultSet
+  signature: (long, int, java.util.Map) java.sql.ResultSet
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getArray
+  signature: (java.lang.String) java.sql.Array
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Ref#getObject
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.sql.Ref#value#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.sql.Ref#value#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getObject
+  signature: (int, java.util.Map) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getBytes
+  signature: (java.lang.String) byte[]
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getObject
+  signature: (int) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Connection#prepareCall
+  signature: (java.lang.String) java.sql.CallableStatement
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.sql.Ref#getObject
+  signature: (java.util.Map) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.sql.Ref#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getArray
+  signature: (java.lang.String) java.sql.Array
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Clob#getSubString
+  signature: (long, int) java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.sql.Clob#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Blob#getBinaryStream
+  signature: () java.io.InputStream
+  copy:
+  - from:
+    - this
+    - .java.sql.Blob#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getAsciiStream
+  signature: (int) java.io.InputStream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getURL
+  signature:
+    return: java.net.URL
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#url#java.net.URL
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#url#java.net.URL
+    to: result
+- function: java.sql.Blob#getBinaryStream
+  signature: () java.io.InputStream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Blob#getBytes
+  signature: (long, int) byte[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getClob
+  signature:
+    return: java.sql.Clob
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#clob#java.sql.Clob
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#clob#java.sql.Clob
+    to: result
+- function: java.sql.ResultSet#getCharacterStream
+  signature: (int) java.io.Reader
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getObject
+  signature: (int, java.util.Map) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getString
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#columnText#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#clob#java.sql.Clob
+    - .java.sql.Clob#value#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#columnText#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#clob#java.sql.Clob
+    - .java.sql.Clob#value#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to: result
+- function: java.sql.Struct#getAttributes
+  signature: () java.lang.Object[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getAsciiStream
+  signature: (java.lang.String) java.io.InputStream
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getUnicodeStream
+  signature: (java.lang.String) java.io.InputStream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Array#getResultSet
+  signature: (long, int) java.sql.ResultSet
+  copy:
+  - from:
+    - this
+    - .java.sql.Array#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Connection#prepareStatement
+  signature: (java.lang.String, int[]) java.sql.PreparedStatement
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.sql.Array#getResultSet
+  signature: (long, int, java.util.Map) java.sql.ResultSet
+  copy:
+  - from:
+    - this
+    - .java.sql.Array#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Clob#getSubString
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.sql.Clob#value#java.lang.String
+    to: result
+- function: java.sql.Connection#prepareStatement
+  signature: (java.lang.String, int, int, int) java.sql.PreparedStatement
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.sql.Connection#prepareStatement
+  signature: (java.lang.String, int) java.sql.PreparedStatement
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.sql.Struct#getAttributes
+  signature: (java.util.Map) java.lang.Object[]
+  copy:
+  - from:
+    - this
+    - .java.sql.Struct#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getURL
+  signature: (java.lang.String) java.net.URL
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getString
+  signature: (java.lang.String) java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getBlob
+  signature: (java.lang.String) java.sql.Blob
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getAsciiStream
+  signature: (int) java.io.InputStream
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#updateObject
+  signature: (int, java.lang.Object, java.sql.SQLType) void
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+- function: java.sql.ResultSet#getCharacterStream
+  signature: (java.lang.String) java.io.Reader
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getObject
+  signature: (java.lang.String, java.lang.Class) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getRef
+  signature: (int) java.sql.Ref
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getObject
+  signature: (java.lang.String) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#updateObject
+  signature: (int, java.lang.Object) void
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+- function: java.sql.ResultSet#getAsciiStream
+  signature: (java.lang.String) java.io.InputStream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Ref#getObject
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.sql.Ref#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getRef
+  signature:
+    return: java.sql.Ref
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#ref#java.sql.Ref
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#ref#java.sql.Ref
+    to: result
+- function: java.sql.ResultSet#updateObject
+  signature: (int, java.lang.Object, int) void
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+- function: java.sql.ResultSet#getClob
+  signature: (java.lang.String) java.sql.Clob
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getUnicodeStream
+  signature: (int) java.io.InputStream
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.ResultSet#getBytes
+  signature: (java.lang.String) byte[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.ResultSet#getObject
+  signature: (java.lang.String, java.lang.Class) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result
+- function: java.sql.Connection#nativeSQL
+  signature: (java.lang.String) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.sql.ResultSet#getCharacterStream
+  signature: (java.lang.String) java.io.Reader
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Array#getArray
+  signature: (java.util.Map) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.sql.Connection#prepareStatement
+  signature: (java.lang.String, int, int) java.sql.PreparedStatement
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.sql.ResultSet#updateObject
+  signature: (java.lang.String, java.lang.Object, java.sql.SQLType, int) void
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+- function: java.sql.ResultSet#getArray
+  signature:
+    return: java.sql.Array
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#array#java.sql.Array
+    to: result
+  - from:
+    - this
+    - .java.sql.ResultSet#array#java.sql.Array
+    to: result
+- function: java.sql.ResultSet#getString
+  signature: (java.lang.String) java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.sql.ResultSet#<rule-storage>#java.lang.Object
+    to: result

@@ -1,0 +1,38 @@
+library: commons-beanutils:commons-beanutils:1.11.0
+passThrough:
+- function: org.apache.commons.beanutils.MethodUtils#toNonPrimitiveClass
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.beanutils.PropertyUtils#describe
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: org.apache.commons.beanutils
+    class: PropertyUtils
+    name:
+      pattern: get.*
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.beanutils.PropertyUtils#copyProperties
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function:
+    package: org.apache.commons.beanutils
+    class: MethodUtils
+    name:
+      pattern: get.*
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result

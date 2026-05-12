@@ -1,0 +1,1034 @@
+passThrough:
+- function: java.net.URL#<init>
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+- function: java.net.URI#toASCIIString
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URI#<rule-storage>#java.lang.Object
+    to: result
+- function: java.net.URI#<init>
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(*)
+    to:
+    - this
+    - .java.net.URI#<rule-storage>#java.lang.Object
+- function: java.net.URL#<init>
+  signature: (java.lang.String, java.lang.String, int, java.lang.String) void
+  copy:
+  - from: arg(2)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+- function: java.net.URL#toExternalForm
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URL#<init>
+  signature:
+    params:
+    - index: 1
+      type: java.lang.String
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+  - from: arg(1)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+  - from: arg(1)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+  - from: arg(1)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+  - from: arg(1)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+- function: java.net.URL#getContent
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URI#<init>
+  signature: (java.lang.String, java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+- function: java.net.URLConnection#getHeaderField
+  signature: (java.lang.String) java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function:
+    package: java.net
+    class: URL
+    name:
+      pattern: get.*
+  copy:
+  - from:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+    to: result
+- function: java.net.URLConnection#getContent
+  signature: (java.lang.Class[]) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URLConnection#getContentType
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URLConnection#headerField#java.lang.String
+    to: result
+- function: java.net.URL#fabricateNewURL
+  signature: () java.net.URL
+  copy:
+  - from:
+    - this
+    - .java.net.URL#context#java.net.URL
+    to:
+    - result
+    - .java.net.URL#context#java.net.URL
+- function: java.net.URL#getPath
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URL#spec#java.lang.String
+    to: result
+- function: java.net.URI#<init>
+  signature: () void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+- function: java.net.URL#<init>
+  signature: (java.net.URL, java.lang.String) void
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+- function: java.net.InetAddress#toString
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URL#<init>
+  signature: (java.lang.String, java.lang.String, int, java.lang.String, java.net.URLStreamHandler)
+    void
+  copy:
+  - from: arg(2)
+    to: this
+  - from: arg(4)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+- function:
+    package: java.net
+    class: URI
+    name:
+      pattern: get.*
+  copy:
+  - from:
+    - this
+    - .java.net.URI#<rule-storage>#java.lang.Object
+    to: result
+- function: java.net.URI#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.String, int, java.lang.String,
+    java.lang.String, java.lang.String) void
+  copy:
+  - from: arg(*)
+    to:
+    - this
+    - .java.net.URI#<rule-storage>#java.lang.Object
+- function: java.net.URLConnection#getContentEncoding
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URL#<init>
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(0)
+    to: this
+- function: java.net.URL#getContent
+  signature: (java.lang.Class[]) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+    to: result
+- function: java.net.URL#getContent
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+    to: result
+- function: java.net.URI#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.String, java.lang.String,
+    java.lang.String) void
+  copy:
+  - from: arg(*)
+    to:
+    - this
+    - .java.net.URI#<rule-storage>#java.lang.Object
+- function: java.net.HttpCookie#<init>
+  signature:
+    params:
+    - index: 1
+      type: java.lang.String
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.net.HttpCookie#value#java.lang.String
+- function: java.net.URLConnection#<init>
+  signature: (java.net.URL) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - this
+    - .java.net.URLConnection#headerField#java.lang.String
+- function: java.net.URI#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.String, int, java.lang.String,
+    java.lang.String, java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+- function: java.net.HttpCookie#parseInternal
+  signature: (*, *) java.net.HttpCookie
+  copy:
+  - from:
+    - this
+    - .java.net.HttpCookie#value#java.lang.String
+    to:
+    - result
+    - .java.net.HttpCookie#value#java.lang.String
+- function: java.net.URI#<init>
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+- function:
+    package: java.net
+    class: URI
+    name:
+      pattern: get.*
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URL#<init>
+  signature:
+    params:
+    - index: 2
+      type: java.net.URLStreamHandler
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .java.net.URL#handler#java.net.URLStreamHandler
+- function: java.net.HttpURLConnection#getResponseMessage
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URI#toASCIIString
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URI#value#java.lang.String
+    to: result
+- function: java.net.URL#set
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+- function: java.net.URLConnection#getHeaderFieldKey
+  signature: (int) java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URI#create
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    return: java.net.URI
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.net.URI#value#java.lang.String
+- function: java.net.URL#getQuery
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URL#spec#java.lang.String
+    to: result
+- function: java.net.URLConnection#getContent
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URL#getFile
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URL#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(1)
+    to: this
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to: this
+- function: java.net.HttpCookie#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.HttpCookie#value#java.lang.String
+- function: java.net.URI#<init>
+  signature: () void
+  copy:
+  - from: arg(*)
+    to:
+    - this
+    - .java.net.URI#<rule-storage>#java.lang.Object
+- function: java.net.URI#toURL
+  signature: () java.net.URL
+  copy:
+  - from:
+    - this
+    - .java.net.URI#<rule-storage>#java.lang.Object
+    to: result
+- function: java.net.URI#toURL
+  signature: () java.net.URL
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URL#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.String) void
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+- function: java.net.URLConnection#getHeaderFieldKey
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URLConnection#headerField#java.lang.String
+    to: result
+- function: java.net.URI#create
+  signature: (java.lang.String) java.net.URI
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.net.URL#getFile
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+    to: result
+- function: java.net.URL#getHost
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.HttpCookie#setComment
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.HttpCookie#value#java.lang.String
+- function: java.net.URI#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.String, java.lang.String,
+    java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+- function: java.net.URL#toExternalForm
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+    to: result
+- function: java.net.URLDecoder#decode
+  signature: (java.lang.String, java.nio.charset.Charset) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.net.URL#of
+  signature: (*, *) java.net.URL
+  copy:
+  - from:
+    - this
+    - .java.net.URL#context#java.net.URL
+    to:
+    - result
+    - .java.net.URL#context#java.net.URL
+- function:
+    package: java.net
+    class: URI
+    name:
+      pattern: get.*
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URI#value#java.lang.String
+    to: result
+- function: java.net.URL#toExternalForm
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URL#spec#java.lang.String
+    to: result
+- function: java.net.HttpURLConnection#<init>
+  signature: (java.net.URL) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.net.URL#spec#java.lang.String
+    to:
+    - this
+    - .java.net.HttpURLConnection#requestMethod#java.lang.String
+- function: java.net.URL#toURI
+  signature: () java.net.URI
+  copy:
+  - from:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: java.net
+    class: URL
+    name:
+      pattern: get.*
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URL#spec#java.lang.String
+    to: result
+- function: java.net.URLConnection#getHeaderField
+  signature: (int) java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.InetAddress#getHostName
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URI#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.String, java.lang.String)
+    void
+  copy:
+  - from: arg(*)
+    to:
+    - this
+    - .java.net.URI#<rule-storage>#java.lang.Object
+- function: java.net.HttpCookie#setValue
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.net.URL#set
+  signature: (java.lang.String, java.lang.String, int, java.lang.String, java.lang.String,
+    java.lang.String, java.lang.String, java.lang.String) void
+  copy:
+  - from: arg(*)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+- function: java.net.HttpCookie#setDomain
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.net.HttpCookie#setPath
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.HttpCookie#value#java.lang.String
+- function: java.net.URL#<init>
+  signature: (java.net.URL, java.lang.String, java.net.URLStreamHandler) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(1)
+    to: this
+  - from: arg(2)
+    to: this
+- function: java.net.URL#getQuery
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+    to: result
+- function: java.net.URL#getHost
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+    to: result
+- function: java.net.HttpCookie#setComment
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.net.URL#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+- function: java.net.InetAddress#getByAddress
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    - index: 1
+      type: .byte[]
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function: java.net.HttpCookie#setValue
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.HttpCookie#value#java.lang.String
+- function: java.net.URL#<init>
+  signature: (java.net.URL, java.lang.String, java.net.URLStreamHandler) void
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+- function: java.net.URLConnection#getContentType
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URI#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.String) void
+  copy:
+  - from: arg(*)
+    to:
+    - this
+    - .java.net.URI#<rule-storage>#java.lang.Object
+- function: java.net.URL#getFile
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URL#spec#java.lang.String
+    to: result
+- function: java.net.URLConnection#getContentEncoding
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URLConnection#headerField#java.lang.String
+    to: result
+- function: java.net.URLDecoder#decode
+  signature: (java.lang.String) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.net.URL#<init>
+  signature:
+    params:
+    - index: 2
+      type: java.lang.String
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+- function: java.net.URL#getPath
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URL#toURI
+  signature: () java.net.URI
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URI#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URI#value#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URI#value#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URI#value#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URI#value#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URI#value#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URI#value#java.lang.String
+- function: java.net.InetAddress#getHostName
+  signature: (boolean) java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URI#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.String, java.lang.String)
+    void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+- function: java.net.URL#getHost
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URL#spec#java.lang.String
+    to: result
+- function: java.net.URL#set
+  signature: (java.lang.String, java.lang.String, int, java.lang.String, java.lang.String,
+    java.lang.String, java.lang.String, java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+- function: java.net.URL#<init>
+  signature: (java.lang.String, java.lang.String, int, java.lang.String, java.net.URLStreamHandler)
+    void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(3)
+    to: this
+  - from: arg(4)
+    to: this
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: java.net.URI#<init>
+  signature: (java.lang.String, java.lang.String) void
+  copy:
+  - from: arg(*)
+    to:
+    - this
+    - .java.net.URI#<rule-storage>#java.lang.Object
+- function: java.net.URL#getContent
+  signature: (java.lang.Class[]) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URLConnection#getHeaderFields
+  signature: () java.util.Map
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.HttpCookie#setDomain
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.HttpCookie#value#java.lang.String
+- function: java.net.URL#getQuery
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.HttpCookie#setPath
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.net.URI#toASCIIString
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URL#<init>
+  signature: (java.lang.String, java.lang.String, int, java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(3)
+    to: this
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: java.net.HttpURLConnection#getResponseMessage
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.HttpURLConnection#requestMethod#java.lang.String
+    to: result
+- function: java.net.URL#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.net.URL
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#context#java.net.URL
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.URL#context#java.net.URL
+- function: java.net.URL#getPath
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URL#<rule-storage>#java.lang.Object
+    to: result
+- function: java.net.URLDecoder#decode
+  signature: (java.lang.String, java.lang.String) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: java.net
+    class: URL
+    name:
+      pattern: get.*
+  signature:
+    return: java.net.URLStreamHandler
+  copy:
+  - from:
+    - this
+    - .java.net.URL#handler#java.net.URLStreamHandler
+    to: result
+- function: java.net.URL#<init>
+  signature: (java.net.URL, java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(1)
+    to: this
+- function: java.net.URL#<init>
+  signature:
+    params:
+    - index: 3
+      type: java.lang.String
+  copy:
+  - from: arg(3)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+  - from: arg(3)
+    to:
+    - this
+    - .java.net.URL#spec#java.lang.String
+- function: java.net.HttpCookie#setCommentURL
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.net.URL#setDeserializedFields
+  signature: (*) java.net.URL
+  copy:
+  - from:
+    - this
+    - .java.net.URL#context#java.net.URL
+    to:
+    - result
+    - .java.net.URL#context#java.net.URL
+- function: java.net.URL#<init>
+  signature:
+    params:
+    - index: 4
+      type: java.net.URLStreamHandler
+  copy:
+  - from: arg(4)
+    to:
+    - this
+    - .java.net.URL#handler#java.net.URLStreamHandler
+- function: java.net.InetAddress#getCanonicalHostName
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.HttpCookie#setCommentURL
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.net.HttpCookie#value#java.lang.String
+- function: java.net.HttpCookie#<init>
+  signature: (java.lang.String, java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(1)
+    to: this
+- function:
+    package: java.net
+    class: URL
+    name:
+      pattern: get.*
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.net.URI#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+- function: java.net.URLConnection#getHeaderField
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.net.URLConnection#headerField#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.net.URLConnection#headerField#java.lang.String
+    to: result

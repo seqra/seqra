@@ -1,0 +1,7 @@
+library: org.springframework:spring-web-reactive:5.0.0.M4
+passThrough:
+- function: org.springframework.web.reactive.function.client.ClientRequest$BodyBuilder#body
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result

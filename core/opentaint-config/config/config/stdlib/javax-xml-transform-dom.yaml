@@ -1,0 +1,311 @@
+passThrough:
+- function: javax.xml.transform.dom.DOMSource#getNode
+  signature: () org.w3c.dom.Node
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.transform.dom.DOMResult#getNextSibling
+  signature:
+    return: org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.dom.DOMResult#node#org.w3c.dom.Node
+    to: result
+- function: javax.xml.transform.dom.DOMResult#setNode
+  signature: (org.w3c.dom.Node) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.dom.DOMResult#setNextSibling
+  signature: (org.w3c.dom.Node) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function:
+    package: javax.xml.transform.dom
+    class: DOMResult
+    name:
+      pattern: <init>
+  signature:
+    params:
+    - index: 1
+      type: org.w3c.dom.Node
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#node#org.w3c.dom.Node
+- function: javax.xml.transform.dom.DOMResult#getNode
+  signature:
+    return: org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.dom.DOMResult#node#org.w3c.dom.Node
+    to: result
+- function:
+    package: javax.xml.transform.dom
+    class: DOMResult
+    name:
+      pattern: <init>
+  signature:
+    params:
+    - index: 0
+      type: org.w3c.dom.Node
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#node#org.w3c.dom.Node
+- function: javax.xml.transform.dom.DOMSource#setNode
+  signature: (org.w3c.dom.Node) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.dom.DOMResult#setNextSibling
+  signature:
+    params:
+    - index: 0
+      type: org.w3c.dom.Node
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#node#org.w3c.dom.Node
+- function: javax.xml.transform.dom.DOMSource#getNode
+  signature: () org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.dom.DOMSource#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.dom.DOMSource#getNode
+  signature:
+    return: org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.dom.DOMSource#node#org.w3c.dom.Node
+    to: result
+- function:
+    package: javax.xml.transform.dom
+    class: DOMResult
+    name:
+      pattern: <init>
+  signature:
+    params:
+    - index: 1
+      type: java.lang.String
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#systemId#java.lang.String
+  - from: arg(1)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#node#org.w3c.dom.Node
+    - .org.w3c.dom.Node#nodeValue#java.lang.String
+- function: javax.xml.transform.dom.DOMResult#getNode
+  signature: () org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.dom.DOMResult#systemId#java.lang.String
+    to:
+    - result
+    - .org.w3c.dom.Node#nodeValue#java.lang.String
+  - from:
+    - this
+    - .javax.xml.transform.dom.DOMResult#node#org.w3c.dom.Node
+    - .org.w3c.dom.Node#nodeValue#java.lang.String
+    to:
+    - result
+    - .org.w3c.dom.Node#nodeValue#java.lang.String
+- function: javax.xml.transform.dom.DOMSource#<init>
+  signature:
+    params:
+    - index: 0
+      type: org.w3c.dom.Node
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMSource#node#org.w3c.dom.Node
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMSource#node#org.w3c.dom.Node
+- function: javax.xml.transform.dom.DOMResult#getNextSibling
+  signature: () org.w3c.dom.Node
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.transform.dom.DOMResult#setNode
+  signature:
+    params:
+    - index: 0
+      type: org.w3c.dom.Node
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#node#org.w3c.dom.Node
+- function:
+    package: javax.xml.transform.dom
+    class: DOMResult
+    name:
+      pattern: <init>
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.dom.DOMSource#setNode
+  signature: (org.w3c.dom.Node) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.dom.DOMResult#getNode
+  signature: () org.w3c.dom.Node
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.transform.dom.DOMSource#<init>
+  signature: (org.w3c.dom.Node) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.dom.DOMResult#getNextSibling
+  signature: () org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.dom.DOMResult#systemId#java.lang.String
+    to:
+    - result
+    - .org.w3c.dom.Node#nodeValue#java.lang.String
+  - from:
+    - this
+    - .javax.xml.transform.dom.DOMResult#node#org.w3c.dom.Node
+    - .org.w3c.dom.Node#nodeValue#java.lang.String
+    to:
+    - result
+    - .org.w3c.dom.Node#nodeValue#java.lang.String
+- function: javax.xml.transform.dom.DOMSource#<init>
+  signature: (org.w3c.dom.Node, java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.dom.DOMResult#setNode
+  signature: (org.w3c.dom.Node) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.dom.DOMResult#setNextSibling
+  signature: (org.w3c.dom.Node) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.dom.DOMSource#setNode
+  signature:
+    params:
+    - index: 0
+      type: org.w3c.dom.Node
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMSource#node#org.w3c.dom.Node
+- function: javax.xml.transform.dom.DOMSource#<init>
+  signature: (org.w3c.dom.Node, java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.dom.DOMSource#<init>
+  signature: (org.w3c.dom.Node) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.dom.DOMSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+- function:
+    package: javax.xml.transform.dom
+    class: DOMResult
+    name:
+      pattern: <init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this

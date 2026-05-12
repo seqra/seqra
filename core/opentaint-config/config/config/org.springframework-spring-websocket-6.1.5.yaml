@@ -1,0 +1,118 @@
+library: org.springframework:spring-websocket:6.1.5
+passThrough:
+- function: org.springframework.web.socket.TextMessage#toStringPayload
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.socket.TextMessage#payload#java.lang.CharSequence
+    to:
+    - result
+    - .java.lang.String#content#java.lang.CharSequence
+- function: org.springframework.web.socket.TextMessage#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.CharSequence
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.web.socket.TextMessage#payload#java.lang.CharSequence
+- function: org.springframework.web.socket.BinaryMessage#toStringPayload
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.socket.BinaryMessage#payload#byte[]
+    to:
+    - result
+    - .java.lang.String#bytes#byte[]
+- function: org.springframework.web.socket.PongMessage#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.springframework.web.socket.PingMessage#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.springframework.web.socket.PongMessage#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.web.socket.PongMessage#<rule-storage>#java.lang.Object
+- function: org.springframework.web.socket.BinaryMessage#<init>
+  signature:
+    params:
+    - index: 0
+      type: byte[]
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.web.socket.BinaryMessage#payload#byte[]
+- function: org.springframework.web.socket.TextMessage#<init>
+  signature:
+    params:
+    - index: 0
+      type: byte[]
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.web.socket.TextMessage#payloadBytes#byte[]
+- function: org.springframework.web.socket.TextMessage#asBytes
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.socket.TextMessage#asBytes
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.socket.TextMessage#<rule-storage>#java.lang.Object
+    to: result
+- function: org.springframework.web.socket.TextMessage#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.web.socket.TextMessage#<rule-storage>#java.lang.Object
+- function: org.springframework.web.socket.WebSocketMessage#getPayload
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.socket.PingMessage#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.web.socket.PingMessage#<rule-storage>#java.lang.Object
+- function: org.springframework.web.socket.BinaryMessage#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.springframework.web.socket.BinaryMessage#<rule-storage>#java.lang.Object
+- function: org.springframework.web.socket.TextMessage#asBytes
+  signature:
+    return: byte[]
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.socket.TextMessage#payloadBytes#byte[]
+    to: result
+- function: org.springframework.web.socket.BinaryMessage#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.springframework.web.socket.TextMessage#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this

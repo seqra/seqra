@@ -1,0 +1,454 @@
+passThrough:
+- function: javax.naming.directory.ModificationItem#<init>
+  signature: (int, javax.naming.directory.Attribute) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: this
+- function: javax.naming.directory.SearchControls#getReturningAttributes
+  signature: () java.lang.String[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.directory.SearchControls#<init>
+  signature: (int, long, int, java.lang.String[], boolean, boolean) void
+  copy:
+  - from:
+    - arg(3)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.directory.SearchControls#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.directory.SearchControls#<rule-storage>#java.lang.Object
+- function:
+    package: javax.naming.directory
+    class: Attribute
+    name:
+      pattern: get.*
+  signature:
+    return: javax.naming.directory.DirContext
+  copy:
+  - from:
+    - this
+    - .javax.naming.directory.Attribute#attributeSyntaxDefinition#javax.naming.directory.DirContext
+    to: result
+- function: javax.naming.directory.ModificationItem#getAttribute
+  signature:
+    return: javax.naming.directory.Attribute
+  copy:
+  - from:
+    - this
+    - .javax.naming.directory.ModificationItem#attribute#javax.naming.directory.Attribute
+    to: result
+- function:
+    package: javax.naming.directory
+    class: Attribute
+    name:
+      pattern: get.*
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.directory.SearchResult#getAttributes
+  signature:
+    return: javax.naming.directory.Attributes
+  copy:
+  - from:
+    - this
+    - .javax.naming.directory.SearchResult#attributes#javax.naming.directory.Attributes
+    to: result
+- function: javax.naming.directory.ModificationItem#getAttribute
+  signature: () javax.naming.directory.Attribute
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.directory.SearchResult#setAttributes
+  signature: (javax.naming.directory.Attributes) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+- function: javax.naming.directory.SearchResult#<init>
+  signature:
+    params:
+    - index: 3
+      type: javax.naming.directory.Attributes
+  copy:
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#attributes#javax.naming.directory.Attributes
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#attributes#javax.naming.directory.Attributes
+- function: javax.naming.directory.SearchControls#<init>
+  signature:
+    params:
+    - index: 3
+      type: java.lang.String[]
+  copy:
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.directory.SearchControls#returningAttributes#java.lang.String[]
+- function: javax.naming.directory.SearchControls#<init>
+  signature: (int, long, int, java.lang.String[], boolean, boolean) void
+  taintCopyOnly: true
+  copy:
+  - from:
+    - arg(3)
+    - '[*]'
+    to: this
+  - from: arg(3)
+    to: this
+- function: javax.naming.directory.Attribute#set
+  signature: (int, java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.directory.Attribute#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.naming.directory.SearchControls#setReturningAttributes
+  signature: (java.lang.String[]) void
+  taintCopyOnly: true
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: this
+  - from: arg(0)
+    to: this
+- function: javax.naming.directory.SearchResult#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#name#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#name#java.lang.String
+- function: javax.naming.directory.SearchControls#setReturningAttributes
+  signature: (java.lang.String[]) void
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.naming.directory.SearchControls#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.directory.SearchControls#<rule-storage>#java.lang.Object
+- function: javax.naming.directory.ModificationItem#getAttribute
+  signature: () javax.naming.directory.Attribute
+  copy:
+  - from:
+    - this
+    - .javax.naming.directory.ModificationItem#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: javax.naming.directory
+    class: Attribute
+    name:
+      pattern: get.*
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.directory.Attribute#id#java.lang.String
+    to: result
+- function: javax.naming.directory.SearchResult#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.Object, javax.naming.directory.Attributes,
+    boolean) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(3)
+    to: this
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: javax.naming.directory.SearchResult#setAttributes
+  signature: (javax.naming.directory.Attributes) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.naming.directory.SearchResult#getAttributes
+  signature: () javax.naming.directory.Attributes
+  copy:
+  - from:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.directory.Attributes#getAll
+  signature: () javax.naming.NamingEnumeration
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.directory.SearchResult#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.Object, javax.naming.directory.Attributes)
+    void
+  taintCopyOnly: true
+  copy:
+  - from: arg(3)
+    to: this
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: javax.naming.directory.Attributes#getIDs
+  signature: () javax.naming.NamingEnumeration
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.directory.SearchResult#setAttributes
+  signature:
+    params:
+    - index: 0
+      type: javax.naming.directory.Attributes
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#attributes#javax.naming.directory.Attributes
+- function: javax.naming.directory.SearchControls#getReturningAttributes
+  signature: () java.lang.String[]
+  copy:
+  - from:
+    - this
+    - .javax.naming.directory.SearchControls#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.directory.SearchControls#setReturningAttributes
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String[]
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.directory.SearchControls#returningAttributes#java.lang.String[]
+- function: javax.naming.directory.ModificationItem#<init>
+  signature:
+    params:
+    - index: 1
+      type: javax.naming.directory.Attribute
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.directory.ModificationItem#attribute#javax.naming.directory.Attribute
+- function:
+    package: javax.naming.directory
+    class: Attribute
+    name:
+      pattern: get.*
+  copy:
+  - from:
+    - this
+    - .javax.naming.directory.Attribute#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.directory.SearchResult#<init>
+  signature:
+    params:
+    - index: 1
+      type: java.lang.String
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#name#java.lang.String
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#name#java.lang.String
+- function: javax.naming.directory.SearchResult#getAttributes
+  signature: () javax.naming.directory.Attributes
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.directory.SearchResult#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.Object, javax.naming.directory.Attributes,
+    boolean) void
+  copy:
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+- function: javax.naming.directory.BasicAttribute#remove
+  signature: (int) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.directory.BasicAttribute#remove
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.naming.directory.BasicAttribute#value#java.lang.Object
+    to: result
+- function: javax.naming.directory.SearchControls#getReturningAttributes
+  signature:
+    return: java.lang.String[]
+  copy:
+  - from:
+    - this
+    - .javax.naming.directory.SearchControls#returningAttributes#java.lang.String[]
+    to: result
+- function: javax.naming.directory.SearchResult#<init>
+  signature: (java.lang.String, java.lang.String, java.lang.Object, javax.naming.directory.Attributes)
+    void
+  copy:
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.directory.SearchResult#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+- function: javax.naming.directory.ModificationItem#<init>
+  signature: (int, javax.naming.directory.Attribute) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.directory.ModificationItem#<rule-storage>#java.lang.Object
+- function:
+    package: javax.naming.directory
+    class: Attribute
+    name:
+      pattern: get.*
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.naming.directory.Attribute#value#java.lang.Object
+    to: result

@@ -1,0 +1,10 @@
+library: org.apache.axis2:axis2-kernel:1.6.2
+passThrough:
+- function: org.apache.axis2.client.async.AsyncResult#getResponseEnvelope
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axis2.client.async.AsyncResult#getResponseMessageContext
+  copy:
+  - from: this
+    to: result

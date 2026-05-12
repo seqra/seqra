@@ -1,0 +1,32 @@
+passThrough:
+- function: java.lang.ref.Reference#get
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.ref.Reference#<rule-storage>#java.lang.Object
+    to: result
+- function: java.lang.ref.Reference#<init>
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.ref.Reference#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: java.lang.ref.Reference#<init>
+  signature: (java.lang.Object, java.lang.ref.ReferenceQueue) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.ref.Reference#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: java.lang.ref.Reference#get
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result

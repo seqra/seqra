@@ -1,0 +1,312 @@
+library: org.apache.hadoop:hadoop-core:1.2.1
+dependencies:
+- org.apache.hadoop:hadoop-common:3.3.6
+passThrough:
+- function: org.apache.hadoop.mapred.JobHistory$TaskAttempt#getValues
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#recoverJobHistoryFile
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$ReduceAttempt#getLong
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$MapAttempt#getValues
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.record.XmlRecordInput#<init>
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.record.XmlRecordInput#<rule-storage>#java.lang.Object
+- function: org.apache.hadoop.record.XmlRecordInput#readByte
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.record.XmlRecordInput#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapred.FileOutputFormat#getPathForCustomFile
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#getInt
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobID#read
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$ReduceAttempt#getValues
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$TaskAttempt#getLong
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$MapAttempt#getLong
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#encodeJobHistoryFileName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.record.XmlRecordOutput#writeByte
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapred.FileOutputFormat#getUniqueName
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#encodeJobHistoryFilePath
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$Task#getValues
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.metrics.ContextFactory#getContext
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$ReduceAttempt#get
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#getJobHistoryFileName
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#getAllTasks
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$Task#getTaskAttempts
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#getJobHistoryLogLocationForUser
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#getLong
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$MapAttempt#get
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.FileOutputFormat#getTaskOutputPath
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.hadoop.record.CsvRecordInput#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.record.CsvRecordInput#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.record.CsvRecordInput#readByte
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.record.CsvRecordInput#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#getLocalJobFilePath
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapred.DefaultJobHistoryParser#parseJobTasks
+  copy:
+  - from: arg(0)
+    to: arg(1)
+  - from: arg(2)
+    to: arg(1)
+- function: org.apache.hadoop.util.StringUtils#capitalize
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.record.CsvRecordInput#readBuffer
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.record.CsvRecordInput#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$ReduceAttempt#getInt
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$TaskAttempt#get
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.FileOutputFormat#getWorkOutputPath
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.hadoop.record.XmlRecordInput#readString
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.record.XmlRecordInput#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$TaskAttempt#getInt
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#getValues
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.FileOutputFormat#getOutputPath
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$MapAttempt#getInt
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$Task#getLong
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$MapAttempt#getTaskAttempts
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#getUserName
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.record.XmlRecordOutput#writeString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapred.TaskLog#captureDebugOut
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$TaskAttempt#getTaskAttempts
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#decodeJobHistoryFileName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$Task#getInt
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#get
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$ReduceAttempt#getTaskAttempts
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.record.XmlRecordInput#readBuffer
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.record.XmlRecordInput#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$JobInfo#getJobHistoryLogLocation
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobHistory$JobInfo#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.record.CsvRecordInput#readString
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.record.CsvRecordInput#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobHistory$Task#get
+  copy:
+  - from: this
+    to: result

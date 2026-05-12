@@ -1,0 +1,28 @@
+library: org.hibernate:hibernate-entitymanager:3.5.0-Final
+passThrough:
+- function: org.hibernate.ejb.packaging.XmlHelper#getChildrenByTagName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.ejb.packaging.XmlHelper#getUniqueChildContent
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.ejb.packaging.XmlHelper#getUniqueChild
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.ejb.packaging.XmlHelper#getOptionalChild
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.ejb.packaging.XmlHelper#getOptionalChildContent
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.ejb.packaging.XmlHelper#getElementContent
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result

@@ -1,0 +1,22 @@
+library: xml-apis:xml-apis:1.4.01
+passThrough:
+- function: org.xml.sax.InputSource#setCharacterStream
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.w3c.dom.Node#replaceChild
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#removeChild
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result

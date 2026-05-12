@@ -1,0 +1,401 @@
+library: org.apache.httpcomponents:httpcore:4.4.16
+passThrough:
+- function: org.apache.http.impl.io.AbstractSessionInputBuffer#read
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.http.impl.io.AbstractSessionInputBuffer#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.apache.http.impl.io.AbstractSessionInputBuffer#<rule-storage>#java.lang.Object
+    to: arg(0)
+  - from: this
+    to: arg(0)
+- function: org.apache.http.util.EntityUtils#getContentMimeType
+  signature:
+    params:
+    - index: 0
+      type: org.apache.http.HttpEntity
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.http.impl.io.AbstractSessionOutputBuffer#write
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.http.impl.io.AbstractSessionOutputBuffer#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.http.NameValuePair#getName
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.http.NameValuePair#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: org.apache.http
+    class: HeaderElement
+    name:
+      pattern: get.*
+  copy:
+  - from:
+    - this
+    - .org.apache.http.HeaderElement#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.http.util.Args#notBlank
+  signature: (*, java.lang.String) *
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.http.util.EntityUtils#getContentCharSet
+  signature:
+    params:
+    - index: 0
+      type: org.apache.http.HttpEntity
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: org.apache.http.entity
+    class: AbstractHttpEntity
+    name:
+      pattern: set.*
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.http.entity.AbstractHttpEntity#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.http.impl.io.AbstractSessionInputBuffer#init
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.http.impl.io.AbstractSessionInputBuffer#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.http.HttpEntity#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.http.HttpEntity#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.http.HeaderElement#<init>
+  copy:
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.http.HeaderElement#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to: this
+- function: org.apache.http.util.Args#notNull
+  signature: (java.lang.Object, java.lang.String) *
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.http.HeaderIterator#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.http.HeaderIterator#<rule-storage>#java.lang.Object
+- function:
+    package: org.apache.http
+    class: HeaderIterator
+    name:
+      pattern: next.*
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.http.HeaderIterator#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.http.HttpHost#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.http.HttpHost#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.http.HttpEntity#getContent
+  copy:
+  - from:
+    - this
+    - .org.apache.http.HttpEntity#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.http.message.BasicTokenIterator#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.http.message.BasicTokenIterator#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.http.Header#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.http.Header#<rule-storage>#java.lang.Object
+- function: org.apache.http.NameValuePair#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.http.NameValuePair#<rule-storage>#java.lang.Object
+- function: org.apache.http.RequestLine#getUri
+  copy:
+  - from: this
+    to: result
+- function: org.apache.http.HttpEntity#getContentEncoding
+  copy:
+  - from:
+    - this
+    - .org.apache.http.HttpEntity#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.http.util.ByteArrayBuffer#append
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.http.util.ByteArrayBuffer#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function:
+    package: org.apache.http.util
+    class: EncodingUtils
+    name:
+      pattern: get.*
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.http.params.HttpParams#getIntParameter
+  signature: (java.lang.String, int) *
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.apache.http.TokenIterator#nextToken
+  copy:
+  - from: this
+    to: result
+- function: org.apache.http.NameValuePair#clone
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.http.NameValuePair#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.http.message.BasicStatusLine#<init>
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.http.message.BasicStatusLine#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+- function: org.apache.http.params.HttpParams#getLongParameter
+  signature: (java.lang.String, long) *
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.apache.http.params.HttpParams#getDoubleParameter
+  signature: (java.lang.String, double) *
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.apache.http.util.CharArrayBuffer#append
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.http.util.CharArrayBuffer#<rule-storage>#java.lang.Object
+- function: org.apache.http.util.EntityUtils#toString
+  signature:
+    params:
+    - index: 0
+      type: org.apache.http.HttpEntity
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.http.Header#toString
+  copy:
+  - from:
+    - this
+    - .org.apache.http.Header#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.http.HeaderElementIterator#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.http.HeaderElementIterator#<rule-storage>#java.lang.Object
+- function: org.apache.http.util.Args#notEmpty
+  signature: (*, java.lang.String) *
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: org.apache.http
+    class: Header
+    name:
+      pattern: get.*
+  copy:
+  - from:
+    - this
+    - .org.apache.http.Header#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.http.NameValuePair#getValue
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.http.NameValuePair#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.http.util.EntityUtils#updateEntity
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: org.apache.http.impl.io.AbstractSessionInputBuffer#readLine
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.http.impl.io.AbstractSessionInputBuffer#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.apache.http.impl.io.AbstractSessionInputBuffer#<rule-storage>#java.lang.Object
+    to: arg(0)
+  - from: this
+    to: arg(0)
+- function: org.apache.http.util.Args#containsNoBlanks
+  signature: (*, java.lang.String) *
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: org.apache.http
+    class: HeaderElementIterator
+    name:
+      pattern: next.*
+  copy:
+  - from:
+    - this
+    - .org.apache.http.HeaderElementIterator#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.http.HeaderElement#toString
+  copy:
+  - from:
+    - this
+    - .org.apache.http.HeaderElement#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.http.HttpEntity#writeTo
+  copy:
+  - from:
+    - this
+    - .org.apache.http.HttpEntity#<rule-storage>#java.lang.Object
+    to: arg(0)
+  - from: this
+    to: arg(0)
+- function: org.apache.http.StatusLine#getReasonPhrase
+  copy:
+  - from: this
+    to: result
+- function: org.apache.http.util.CharArrayBuffer#substring
+  copy:
+  - from:
+    - this
+    - .org.apache.http.util.CharArrayBuffer#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.http.util.EntityUtils#toByteArray
+  signature:
+    params:
+    - index: 0
+      type: org.apache.http.HttpEntity
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.http.impl.io.AbstractSessionOutputBuffer#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.io.OutputStream
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.http.impl.io.AbstractSessionOutputBuffer#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.http.util.CharArrayBuffer#substringTrimmed
+  copy:
+  - from:
+    - this
+    - .org.apache.http.util.CharArrayBuffer#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.http.impl.io.AbstractSessionOutputBuffer#writeLine
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.http.impl.io.AbstractSessionOutputBuffer#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.http.message.BasicRequestLine#<init>
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.http.message.BasicRequestLine#<rule-storage>#java.lang.Object
+- function: org.apache.http.NameValuePair#toString
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.http.NameValuePair#<rule-storage>#java.lang.Object
+    to: result
