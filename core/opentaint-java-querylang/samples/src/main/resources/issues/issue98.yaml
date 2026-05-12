@@ -17,7 +17,7 @@ rules:
     pattern-sinks:
       - patterns:
           - pattern-inside: |
-              Builder $X = new Builder();
+              $X = new Builder();
               ...
           - patterns:
               - pattern-not-inside: $X.cfg("Content-Type", $V)
