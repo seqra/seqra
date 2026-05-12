@@ -75,6 +75,8 @@ rules:
           - pattern-either:
               - patterns:
                   - pattern-either:
+                      - pattern: |
+                          return ResponseEntity.ok($UNTRUSTED);
                       - patterns:
                           - patterns:
                               - pattern-not-inside: | 
