@@ -36,7 +36,7 @@ rules:
                   $RETURNTYPE $ENTRYPOINT(..., javax.servlet.http.HttpServletResponse $RESPONSE, ...) {
                   ...
                   }
-            - pattern-inside: |
+              - pattern-inside: |
                   $RETURNTYPE $ENTRYPOINT(..., jakarta.servlet.http.HttpServletResponse $RESPONSE, ...) {
                   ...
                   }
