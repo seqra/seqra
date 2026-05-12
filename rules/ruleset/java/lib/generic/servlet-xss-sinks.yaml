@@ -10,16 +10,18 @@ rules:
       - java
     mode: taint
     pattern-sanitizers:
-      - pattern-either:
-          - pattern: Encode.forHtml(...)
-          - pattern: (PolicyFactory $POLICY).sanitize(...)
-          - pattern: (AntiSamy $AS).scan(...)
-          - pattern: JSoup.clean(...)
-          - pattern: HtmlUtils.htmlEscape(...)
-          - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(...)
-          - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(...)
-          - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(...)
-          - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(...)
+      - patterns:
+          - pattern-either:
+              - pattern: Encode.forHtml(..., $UNTRUSTED, ...)
+              - pattern: (PolicyFactory $POLICY).sanitize(..., $UNTRUSTED, ...)
+              - pattern: (AntiSamy $AS).scan(..., $UNTRUSTED, ...)
+              - pattern: JSoup.clean(..., $UNTRUSTED, ...)
+              - pattern: HtmlUtils.htmlEscape(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(..., $UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $UNTRUSTED, ...)
+          - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:
       - patterns:

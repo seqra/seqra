@@ -73,77 +73,142 @@ rules:
           # Body-typed returns feed via `return $UNTRUSTED;`;
           # DeferredResult<$T> feeds via `$DR.setResult(tainted)` before returning the wrapper.
           - pattern-either:
-              - pattern-either:
-                  - patterns:
+              - patterns:
+                  - pattern-either:
                       - patterns:
-                          - pattern-not-inside: $X.contentType(MediaType.APPLICATION_JSON)
-                          - pattern-not-inside: $X.contentType(MediaType.APPLICATION_PDF)
-                          - pattern-not-inside: $X.contentType(MediaType.APPLICATION_OCTET_STREAM)
-                          - pattern-not-inside: $X.contentType(MediaType.TEXT_PLAIN)
-                          - pattern-not-inside: $X.contentType(MediaType.APPLICATION_XML)
-                          - pattern-not-inside: $X.contentType(MediaType.IMAGE_PNG)
-                          - pattern-not-inside: $X.contentType(MediaType.IMAGE_JPEG)
-                          - pattern-not-inside: $X.contentType(MediaType.IMAGE_GIF)
-                          - pattern-not-inside: $X.header("Content-Type", "application/json")
-                          - pattern-not-inside: $X.header("Content-Type", "application/pdf")
-                          - pattern-not-inside: $X.header("Content-Type", "application/octet-stream")
-                          - pattern-not-inside: $X.header("Content-Type", "text/plain")
-                          - pattern-not-inside: $X.header("Content-Type", "application/xml")
-                          - pattern-not-inside: $X.header("Content-Type", "image/png")
-                          - pattern-not-inside: $X.header("Content-Type", "image/jpeg")
-                          - pattern-not-inside: $X.header("Content-Type", "image/gif")
-                          - pattern-not-inside: $X.header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
-                          - pattern-not-inside: $X.header("Content-Type", MediaType.APPLICATION_PDF_VALUE)
-                          - pattern-not-inside: $X.header("Content-Type", MediaType.APPLICATION_OCTET_STREAM_VALUE)
-                          - pattern-not-inside: $X.header("Content-Type", MediaType.TEXT_PLAIN_VALUE)
-                          - pattern-not-inside: $X.header("Content-Type", MediaType.APPLICATION_XML_VALUE)
-                          - pattern-not-inside: $X.header("Content-Type", MediaType.IMAGE_PNG_VALUE)
-                          - pattern-not-inside: $X.header("Content-Type", MediaType.IMAGE_JPEG_VALUE)
-                          - pattern-not-inside: $X.header("Content-Type", MediaType.IMAGE_GIF_VALUE)
-                      - pattern-either:
-                          - pattern-inside: |
-                              $X = ResponseEntity.status(...);
-                              ...
-                          - pattern-inside: |
-                              $X = ResponseEntity.ok();
-                              ...
-                          - pattern-inside: |
-                              $X = ResponseEntity.internalServerError();
-                              ...
-                          - pattern-inside: |
-                              $X = ResponseEntity.accepted();
-                              ...
-                          - pattern-inside: |
-                              $X = ResponseEntity.badRequest();
-                              ...
-                          - pattern-inside: |
-                              $X = ResponseEntity.created(...);
-                              ...
-                          - pattern-inside: |
-                              $X = ResponseEntity.unprocessableContent();
-                              ...
-                          - pattern-inside: |
-                              $X = ResponseEntity.unprocessableEntity();
-                              ...
-                      - pattern: |
-                          return (ResponseEntity.BodyBuilder $X).body($UNTRUSTED);
+                          - patterns:
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.APPLICATION_JSON);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.APPLICATION_PDF);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.APPLICATION_OCTET_STREAM);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.TEXT_PLAIN);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.APPLICATION_XML);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.IMAGE_PNG);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.IMAGE_JPEG);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.IMAGE_GIF);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "application/json");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "application/pdf");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "application/octet-stream");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "text/plain");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "application/xml");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "image/png");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "image/jpeg");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "image/gif");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.APPLICATION_PDF_VALUE);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.APPLICATION_OCTET_STREAM_VALUE);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.TEXT_PLAIN_VALUE);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.APPLICATION_XML_VALUE);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.IMAGE_PNG_VALUE);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.IMAGE_JPEG_VALUE);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.IMAGE_GIF_VALUE);
+                                  ...
+                          - pattern-either:
+                              - pattern-inside: |
+                                  $X = ResponseEntity.status(...);
+                                  ...
+                              - pattern-inside: |
+                                  $X = ResponseEntity.ok();
+                                  ...
+                              - pattern-inside: |
+                                  $X = ResponseEntity.internalServerError();
+                                  ...
+                              - pattern-inside: |
+                                  $X = ResponseEntity.accepted();
+                                  ...
+                              - pattern-inside: |
+                                  $X = ResponseEntity.badRequest();
+                                  ...
+                              - pattern-inside: |
+                                  $X = ResponseEntity.created(...);
+                                  ...
+                              - pattern-inside: |
+                                  $X = ResponseEntity.unprocessableContent();
+                                  ...
+                              - pattern-inside: |
+                                  $X = ResponseEntity.unprocessableEntity();
+                                  ...
+                          - pattern: |
+                              return $X.body($UNTRUSTED);
 
-                  - patterns:
                       - patterns:
-                          - pattern-not-inside: $H.setContentType(MediaType.APPLICATION_JSON)
-                          - pattern-not-inside: $H.setContentType(MediaType.APPLICATION_PDF)
-                          - pattern-not-inside: $H.setContentType(MediaType.APPLICATION_OCTET_STREAM)
-                          - pattern-not-inside: $H.setContentType(MediaType.TEXT_PLAIN)
-                          - pattern-not-inside: $H.setContentType(MediaType.APPLICATION_XML)
-                          - pattern-not-inside: $H.setContentType(MediaType.IMAGE_PNG)
-                          - pattern-not-inside: $H.setContentType(MediaType.IMAGE_JPEG)
-                          - pattern-not-inside: $H.setContentType(MediaType.IMAGE_GIF)
-                      - pattern-either:
-                          - pattern-inside: |
-                              $H = new Headers(...);
-                              ...
-                      - pattern: |
-                          return new ResponseEntity($UNTRUSTED, $H, ...);
+                          - patterns:
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.APPLICATION_JSON);
+                                  ...
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.APPLICATION_PDF);
+                                  ...
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+                                  ...
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.TEXT_PLAIN);
+                                  ...
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.APPLICATION_XML);
+                                  ...
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.IMAGE_PNG);
+                                  ...
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.IMAGE_JPEG);
+                                  ...
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.IMAGE_GIF);
+                                  ...
+                          - pattern-either:
+                              - pattern-inside: |
+                                  $H = new HttpHeaders(...);
+                                  ...
+                          - pattern: |
+                              return new ResponseEntity($UNTRUSTED, $H, ...);
                   - pattern-either:
                       - pattern-inside: |
                           @$ANNOTATION(...)
