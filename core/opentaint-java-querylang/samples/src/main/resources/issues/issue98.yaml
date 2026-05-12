@@ -1,10 +1,11 @@
 rules:
   - id: i98
     message: >
-      Chained-expression pattern-not-inside is ignored when the pattern
-      constrains the call arity with literal or metavariable args. The same
-      pattern with variadic args (`$X.cfg(...)`) is honored. See
-      issue98.java for the demonstration and motivating XSS rule context.
+      pattern-not-inside silently ignored when the pattern constrains call
+      arguments, even with every metavariable bound by a sibling positive
+      pattern. See issue98.java for the demonstration and the motivating
+      XSS rule context (`servlet-xss-html-response-sinks.yaml` subtractor on
+      `(HttpServletResponse $R).setContentType("application/json"); ...`).
     severity: ERROR
     languages:
       - java
@@ -13,6 +14,10 @@ rules:
       - pattern: source()
     pattern-sinks:
       - patterns:
+          - pattern-inside: |
+              $RETURNTYPE $METHOD(...) {
+                ...
+              }
           - pattern-not-inside: $X.cfg("Content-Type", "application/json")
-          - pattern: $B.sink($UNTRUSTED)
+          - pattern: $X.sink($UNTRUSTED)
           - focus-metavariable: $UNTRUSTED

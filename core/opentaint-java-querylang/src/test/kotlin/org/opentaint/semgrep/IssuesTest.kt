@@ -107,7 +107,7 @@ class IssuesTest : SampleBasedTest() {
     fun `issue 97`() = runTest<issue97>()
 
     @Test
-    @Disabled // todo: pattern-not-inside ignored for chained-expression calls with constrained-arity args
+    @Disabled // todo: pattern-not-inside ignored even when all metavariables are wired through a sibling positive pattern
     fun `issue 98`() = runTest<issue98>()
 
     @AfterAll

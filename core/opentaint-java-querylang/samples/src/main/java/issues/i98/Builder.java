@@ -1,7 +1,7 @@
 package issues.i98;
 
 public class Builder {
-    public Builder cfg(String key, String value) { return this; }
+    public void cfg(String key, String value) { }
 
     public void sink(String taint) { }
 

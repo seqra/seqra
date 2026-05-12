@@ -5,42 +5,53 @@ import base.RuleSet;
 import issues.i98.Builder;
 
 /**
- * Engine bug: pattern-not-inside ignored for chained-expression calls when the
- * pattern constrains the call arity (literal or metavariable args at a fixed
- * arity). The same pattern matches when the args list is variadic (`...`).
+ * Engine bug: pattern-not-inside is ignored when the pattern constrains a
+ * call's argument shape with literal arguments, even when every metavariable
+ * in the pattern-not-inside is bound by a sibling positive pattern.
  *
- * Concretely, given a chain
- *   new Builder().cfg("Content-Type", "application/json").sink(taint)
- * the rule's pattern-not-inside `$X.cfg("Content-Type", "application/json")`
- * should subtract the match on `.sink($UNTRUSTED)`, but it does not. Replacing
- * the pattern with `$X.cfg(...)` does subtract — confirming the engine matches
- * `.cfg()` in chained-expression context only when the args are variadic.
+ * Rule (issue98.yaml) anchors a positive sink `$X.sink($UNTRUSTED)` inside a
+ * void method scope and tries to subtract matches where the same receiver
+ * `$X` also has a `$X.cfg("Content-Type", "application/json")` call somewhere
+ * in the method body. `$X` is bound by the sink pattern; no free
+ * metavariables remain in the pattern-not-inside.
  *
- * The same shape surfaced in the spring-xss-html-response-sinks rule, where
- * `.header("Content-Type", "application/json")` could not be used to subtract
- * a chained ResponseEntity builder, while `.contentType(MediaType.X)` (single
- * arg, identifier) could.
+ * Expected:
+ *   - PositiveStmtNoCfg fires (no .cfg call in scope).
+ *   - NegativeStmtWithCfg is subtracted (`.cfg("Content-Type",
+ *     "application/json")` matches the pattern-not-inside).
+ *
+ * Actual: NegativeStmtWithCfg also fires — the pattern-not-inside subtraction
+ * is silently ignored.
+ *
+ * This is the same family as issue90 ("ignored pattern-not-inside") but
+ * confirmed with the metavariable explicitly wired through a sibling positive
+ * pattern, ruling out a "free metavariable" interpretation. Motivation:
+ * matches the `(HttpServletResponse $R).setContentType("application/json"); …`
+ * subtractor in `servlet-xss-html-response-sinks.yaml` that fails to clear
+ * the `SafeChainedWriterJsonServlet` / `SafeOutputStreamOctetServlet` FPs.
  */
 @RuleSet("issues/issue98.yaml")
 public abstract class issue98 implements RuleSample {
-    /** No discriminator in the chain — sink should fire on the tainted value. */
-    static class PositiveChainNoCfg extends issue98 {
+    /** No discriminator call in scope — sink should fire. */
+    static class PositiveStmtNoCfg extends issue98 {
         @Override
         public void entrypoint() {
-            new Builder().sink(Builder.source());
+            Builder b = new Builder();
+            b.sink(Builder.source());
         }
     }
 
     /**
-     * Discriminator `.cfg("Content-Type", "application/json")` is present in
-     * the chain — the rule's pattern-not-inside should subtract this match,
-     * but currently does not. Disabled in IssuesTest until the engine learns
-     * to match constrained-arity calls in chained-expression contexts.
+     * Discriminator `b.cfg("Content-Type", "application/json")` appears in the
+     * method body. The pattern-not-inside should subtract this match — but
+     * does not. Disabled until the engine honors the subtraction.
      */
-    static class NegativeChainWithCfg extends issue98 {
+    static class NegativeStmtWithCfg extends issue98 {
         @Override
         public void entrypoint() {
-            new Builder().cfg("Content-Type", "application/json").sink(Builder.source());
+            Builder b = new Builder();
+            b.cfg("Content-Type", "application/json");
+            b.sink(Builder.source());
         }
     }
 }
