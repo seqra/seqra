@@ -1,11 +1,13 @@
 rules:
   - id: i98
     message: >
-      pattern-not-inside silently ignored when the pattern constrains call
-      arguments, even with every metavariable bound by a sibling positive
-      pattern. See issue98.java for the demonstration and the motivating
-      XSS rule context (`servlet-xss-html-response-sinks.yaml` subtractor on
-      `(HttpServletResponse $R).setContentType("application/json"); ...`).
+      pattern-not-inside whose discriminator-arg metavariable is narrowed by
+      a sibling metavariable-pattern is silently ignored. Replacing the
+      metavariable with the equivalent literal makes the subtraction work.
+      See issue98.java for the demonstration and the motivating XSS rule
+      context (`servlet-xss-html-response-sinks.yaml` subtractor on
+      `(HttpServletResponse $R).setContentType($CT_SAFE); ...` plus
+      `metavariable-pattern: $CT_SAFE ∈ {non-HTML strings}`).
     severity: ERROR
     languages:
       - java
@@ -15,9 +17,14 @@ rules:
     pattern-sinks:
       - patterns:
           - pattern-inside: |
-              $RETURNTYPE $METHOD(...) {
-                ...
-              }
-          - pattern-not-inside: $X.cfg("Content-Type", "application/json")
+              Builder $X = new Builder();
+              ...
+          - patterns:
+              - pattern-not-inside: $X.cfg("Content-Type", $V)
+              - metavariable-pattern:
+                  metavariable: $V
+                  patterns:
+                    - pattern-either:
+                        - pattern: '"application/json"'
           - pattern: $X.sink($UNTRUSTED)
           - focus-metavariable: $UNTRUSTED

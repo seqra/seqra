@@ -107,7 +107,7 @@ class IssuesTest : SampleBasedTest() {
     fun `issue 97`() = runTest<issue97>()
 
     @Test
-    @Disabled // todo: pattern-not-inside ignored even when all metavariables are wired through a sibling positive pattern
+    @Disabled // todo: pattern-not-inside ignored when its discriminator metavariable is narrowed by a sibling metavariable-pattern
     fun `issue 98`() = runTest<issue98>()
 
     @AfterAll
