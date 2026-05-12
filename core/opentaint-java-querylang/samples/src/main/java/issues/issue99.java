@@ -6,39 +6,52 @@ import issues.i99.Response;
 import issues.i99.Writer;
 
 /**
- * Positive control for the `"$V"` + `metavariable-regex` subtractor shape.
+ * Engine bug: a sibling `pattern-inside` at the wrong indentation level
+ * (placed alongside `pattern-either` instead of inside it) interacts
+ * pathologically with `pattern-not-inside` + `metavariable-regex` and
+ * causes the subtractor to over-fire — even on samples whose content
+ * does not match the subtractor's regex.
  *
- * Verifies that in an isolated `mode: taint` rule with the same structural
- * elements found in `servlet-xss-html-response-sinks.yaml`:
- *   - outer `pattern-inside` binding `$R` at the method-parameter position
- *   - `metavariable-pattern` narrowing `$METHOD` to a name set
- *   - inner `pattern-inside` binding `$W = $R.getWriter(); ...`
- *   - subtractor `pattern-not-inside: $R.setHtmlType("$V"); ...` plus
- *     sibling `metavariable-regex` on `$V`
- * the engine correctly honors the regex constraint and discriminates
- * `text/html` (positive) from `application/json` (negative).
+ * Rule shape (issue99.yaml):
+ *   - patterns:
+ *       - patterns:                # entrypoint constraint
+ *           - pattern-either:
+ *             - pattern-inside: $RT $METHOD(..., Response $R, ...) { ... }
+ *           - pattern-inside: $RT $METHOD(..., Response2 $R, ...) { ... }  # sibling-not-child
+ *           - metavariable-pattern: $METHOD ∈ {doStuff}
+ *       - patterns:                # sink shape
+ *           - pattern-inside: $W = $R.getWriter(); ...
+ *           - pattern: $W.write($UNTRUSTED)
+ *       - patterns:                # subtractor
+ *           - pattern-not-inside: $R.setHtmlType("$V"); ...
+ *           - metavariable-regex: $V matches '^application/json$'
+ *       - focus-metavariable: $UNTRUSTED
  *
- * Probed variants that all pass:
- *   - 1-arg call (`setHtmlType("$V")`), 2-arg call (`cfg("Content-Type", "$V")`)
- *   - single-line subtractor (`pattern-not-inside: $R.setHtmlType("$V")`)
- *     vs multi-line (`pattern-not-inside: | ...setHtmlType("$V"); ...`)
- *   - assignment-bound `$R` (`$R = new Response();`) vs parameter-bound
- *     (`void doStuff(Response $R)`) outer scope
- *   - cast vs no-cast receivers (`(Response $R)` vs `$R`)
- *   - extra sibling `pattern-not-inside` entries for `MediaType.X_VALUE`-style
- *     constants
- *   - `pattern-sanitizers` added to the sink-lib rule
+ * Expected:
+ *   - PositiveHtmlType fires (`setHtmlType("text/html")` doesn't match
+ *     the JSON regex; subtraction must NOT apply).
+ *   - NegativeJsonType is subtracted (regex matches).
  *
- * The actual `servlet-xss-html-response-sinks.yaml` rule with the same
- * subtractor shape OVER-subtracts (4 FPs cleared, 8 TPs flip to FN). The
- * bug therefore lives in some structural element of that rule that isn't
- * captured here — likely the `mode: join` parent rule wrapping the sink
- * lib (the engine-test framework doesn't support cross-file join refs, so
- * that variant couldn't be reproduced).
+ * Actual: PositiveHtmlType is also subtracted — the
+ * `metavariable-regex` constraint is dropped and the subtractor matches
+ * every flow regardless of the literal content-type argument.
+ *
+ * Without the bug-trigger sibling `pattern-inside` for `Response2`, the
+ * same rule discriminates correctly. Was reproduced in two layers
+ * during diagnosis of the `servlet-xss-html-response-sinks.yaml`
+ * `SafeChainedWriterJsonServlet` / `SafeOutputStreamOctetServlet` FPs:
+ *   1. The XSS rule itself has the same sibling-at-wrong-indent shape
+ *      in its `javax`/`jakarta` entrypoint pattern-either (the jakarta
+ *      `pattern-inside` is at the outer level, not inside the OR).
+ *   2. Reproducing that shape in `i99-probe-sink.yaml` (analyzer
+ *      pipeline) flipped PositiveHtmlType to FN; removing the sibling
+ *      restored correct discrimination.
+ *   3. Mirroring it here in the engine-test framework reproduces the
+ *      same over-subtraction.
  */
 @RuleSet("issues/issue99.yaml")
 public abstract class issue99 implements RuleSample {
-    /** Content type is `text/html` — pattern-not-inside regex does NOT match, sink fires. */
+    /** Content type is `text/html` — subtractor regex must NOT match, sink should fire. */
     static class PositiveHtmlType extends issue99 {
         @Override
         public void entrypoint() {
@@ -52,7 +65,7 @@ public abstract class issue99 implements RuleSample {
         }
     }
 
-    /** Content type is `application/json` — pattern-not-inside regex matches, sink subtracted. */
+    /** Content type is `application/json` — subtractor regex matches, sink subtracted. */
     static class NegativeJsonType extends issue99 {
         @Override
         public void entrypoint() {
