@@ -33,7 +33,18 @@ data class PIRSettings(
     val sources: List<String>,
     val pythonExecutable: String = defaultPirServerPythonExecutable(),
     val pythonVersion: String? = null,
+    /**
+     * CLI-style mypy flags passed through to the server. Currently honored flags:
+     * `--ignore-missing-imports`, `--namespace-packages`, `--explicit-package-bases`.
+     * Any other flag is forwarded but silently ignored.
+     */
     val mypyFlags: List<String> = emptyList(),
+    /**
+     * Directories passed to mypy as its module-search path (mypy's `mypy_path` /
+     * `MYPYPATH`). Use this to point mypy at project roots — including PEP 420
+     * namespace-package roots, in which case the caller must also include
+     * `--namespace-packages` and `--explicit-package-bases` in [mypyFlags].
+     */
     val searchPaths: List<String> = emptyList(),
     val serverModule: String = "pir_server",
     val serverStartupTimeout: Duration = Duration.ofSeconds(30),

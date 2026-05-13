@@ -43,9 +43,13 @@ class ProjectBuilder:
             if len(parts) >= 2:
                 options.python_version = (int(parts[0]), int(parts[1]))
         options.ignore_missing_imports = "--ignore-missing-imports" in self.mypy_flags
+        options.namespace_packages = "--namespace-packages" in self.mypy_flags
+        options.explicit_package_bases = "--explicit-package-bases" in self.mypy_flags
         options.incremental = False
         options.preserve_asts = True
         options.export_types = True
+        if self.search_paths:
+            options.mypy_path = list(self.search_paths)
 
         mypy_sources = []
         all_file_paths = []
