@@ -75,25 +75,22 @@ rules:
               - pattern: (javax.servlet.jsp.JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
 
           # String-literal arg variant: `"$CT_SAFE"` binds to the literal
-          # contents and is honored by `metavariable-regex`. `$R_STR` is
-          # local to this subtractor to avoid metavar unification with the
-          # sink shapes' `$RESPONSE` binding.
+          # contents and is honored by `metavariable-regex`.
           - patterns:
               - pattern-not-inside: |
-                  (HttpServletResponse $R_STR).setContentType("$CT_SAFE");
+                  (HttpServletResponse $RESPONSE).setContentType("$CT_SAFE");
                   ...
               - metavariable-regex:
                   metavariable: $CT_SAFE
                   regex: '^(application/(json|pdf|octet-stream|xml)|text/(plain|xml)|image/(png|jpeg|gif))(\s*;.*)?$'
           # Identifier-arg variant: bare `$CT_CONST` matches Java identifier
           # expressions; `metavariable-pattern` enumerates `MediaType.X_VALUE`
-          # constants. `$R_CONST` is local to this subtractor for the same
-          # unification-avoidance reason. Dev analyzer constant-folds these,
-          # but the enumeration is kept explicit for analyzer-regression
-          # and older-build robustness.
+          # constants. Dev analyzer constant-folds these, but the
+          # enumeration is kept explicit for analyzer-regression and
+          # older-build robustness.
           - patterns:
               - pattern-not-inside: |
-                  (HttpServletResponse $R_CONST).setContentType($CT_CONST);
+                  (HttpServletResponse $RESPONSE).setContentType($CT_CONST);
                   ...
               - metavariable-pattern:
                   metavariable: $CT_CONST
