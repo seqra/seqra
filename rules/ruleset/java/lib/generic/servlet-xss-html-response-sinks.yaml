@@ -31,7 +31,7 @@ rules:
     pattern-sinks:
       - patterns:
           - pattern-inside: |
-              $RETURNTYPE $ENTRYPOINT(..., HttpServletResponse $RESPONSE, ...) {
+              $RETURNTYPE $ENTRYPOINT(HttpServletRequest $_, HttpServletResponse $RESPONSE) {
               ...
               }
           - metavariable-pattern:
@@ -53,8 +53,7 @@ rules:
                   ...
                   $S.$WRITE(..., $UNTRUSTED, ...);
               - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
-              - pattern: (jakarta.servlet.jsp.JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
-              - pattern: (javax.servlet.jsp.JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
+              - pattern: (JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
 
           # String-literal arg variant: `"$CT_SAFE"` binds to the literal
           # contents and is honored by `metavariable-regex`.
