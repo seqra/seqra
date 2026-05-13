@@ -5,7 +5,10 @@ import org.opentaint.ir.impl.python.flat.FlatCFG
 import org.opentaint.ir.impl.python.flat.FlatLocal
 import org.opentaint.ir.impl.python.flat.FlatParameter
 import org.opentaint.ir.impl.python.flat.FlatParameterRef
+import org.opentaint.ir.impl.python.protoToFlat.ImportManager
 import org.opentaint.ir.impl.python.protoToFlat.ModuleContext
+import org.opentaint.ir.impl.python.protoToFlat.recordImports
+import org.opentaint.ir.impl.python.protoToFlat.recordImportsFrom
 import org.opentaint.ir.impl.python.protoToFlat.toPhysicalLocation
 import org.opentaint.ir.impl.python.proto.MypyBlockProto
 import org.opentaint.ir.impl.python.proto.MypyStmtProto
@@ -58,11 +61,13 @@ internal object CfgBuild {
         parameters: List<FlatParameter>,
         sourceLabel: String = qualifiedName,
         errorPrefix: String = "Failed to build CFG for $qualifiedName",
+        imports: ImportManager = module.imports.nestedChild(),
     ): CfgBuildResult {
         val session = CfgSession(
             module = module,
             currentFunctionQualifiedName = qualifiedName,
             currentFunctionName = functionName,
+            imports = imports,
         )
         return runOrEmpty(module, sourceLabel, errorPrefix) {
             for (param in parameters) {
@@ -80,18 +85,33 @@ internal object CfgBuild {
     }
 
     /**
-     * Build the synthetic module-init CFG from the top-level assignment
-     * statements pulled out of the module's def list. Function/class defs
-     * are extracted separately and not included here.
+     * Build the synthetic module-init CFG from the top-level statements pulled
+     * out of the module's def list (assignments + module-level `Import` /
+     * `ImportFrom`). Function/class defs are extracted separately and not
+     * included here.
      *
-     * Each [MypyStmtProto] wraps its inner `MypyAssignmentStmtProto` and
-     * carries the source span on the outer wrapper, so module-level
-     * assignments get the same physical-location attribution as in-function
-     * statements.
+     * Each [MypyStmtProto] wraps its inner statement and carries the source
+     * span on the outer wrapper, so module-level statements get the same
+     * physical-location attribution as in-function statements.
+     *
+     * Two-pass shape:
+     *  1. **Import-recording pass** — walk every stmt and record `import` /
+     *     `from … import …` bindings into [ModuleContext.imports]. This is
+     *     done up-front so that a lambda RHS in a module-level assignment
+     *     (lowered during pass 2) referencing a textually-later import
+     *     still sees the canonical binding.
+     *  2. **Emission pass** — walk again, this time dispatching assignments
+     *     into the CFG. Import statements are no-ops at this point (pass 1
+     *     already updated the import scope; they emit no `FlatInst`).
+     *
+     * Module-init's [CfgSession] uses [ModuleContext.imports] directly (not a
+     * nested child), so writes in pass 1 are visible to every subsequent
+     * lowering — including top-level functions and classes, which are lowered
+     * AFTER module-init in [ModuleLowering.lower].
      */
     fun buildModuleInitCfg(
         module: ModuleContext,
-        assignments: List<MypyStmtProto>,
+        statements: List<MypyStmtProto>,
     ): FlatCFG {
         val session = CfgSession(module = module)
         // `nonlocal` / `global` declarations collected by the session are
@@ -102,9 +122,30 @@ internal object CfgBuild {
             sourceLabel = "__module_init__",
             errorPrefix = "Failed to build module_init CFG for ${module.moduleName}",
         ) {
-            for (stmt in assignments) {
+            // Pass 1: record imports into module.imports so any lambda RHSs
+            // emitted in pass 2 see the full module-level import map.
+            for (stmt in statements) {
+                when {
+                    stmt.hasImportStmt() -> recordImports(module.imports, stmt.importStmt)
+                    stmt.hasImportFromStmt() -> recordImportsFrom(module.imports, stmt.importFromStmt)
+                }
+            }
+            // Pass 2: emit FlatInst for assignments. Import statements are
+            // already recorded — skip them. Any other stmt kind in this slot
+            // is a programming error; surface it.
+            for (stmt in statements) {
                 if (session.currentBlockTerminated()) break
-                session.visitAssignment(stmt.assignment, location = stmt.toPhysicalLocation())
+                val location = stmt.toPhysicalLocation()
+                when {
+                    stmt.hasAssignment() -> session.visitAssignment(stmt.assignment, location)
+                    stmt.hasImportStmt() || stmt.hasImportFromStmt() -> Unit
+                    else -> module.reportError(
+                        message = "buildModuleInitCfg: unexpected stmt kind ${stmt.kindCase} " +
+                            "in MypyDefinitionProto.assignment slot",
+                        source = "__module_init__",
+                        code = "ModuleInitUnexpectedStmt",
+                    )
+                }
             }
             if (!session.currentBlockTerminated()) session.emitReturn(null)
             CfgBuildResult(session.finalizeCfg(), session.nonlocalNames, session.globalNames)

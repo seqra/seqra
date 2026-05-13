@@ -35,6 +35,7 @@ internal object FunctionLowering {
                 body = funcDef.body,
                 parameters = parameters,
                 sourceLabel = funcDef.name,
+                imports = module.imports.nestedChild(),
             )
         } else CfgBuild.CfgBuildResult.EMPTY
 
@@ -71,6 +72,7 @@ internal object FunctionLowering {
         decorators: List<FlatDecorator>,
         enclosingQualifiedName: String,
         enclosingName: String,
+        enclosingImports: ImportManager,
     ): FlatFunctionIR {
         val uniqueName = module.freshNestedName(enclosingName, funcDef.name)
         val qualifiedName = "${module.moduleName}.$uniqueName"
@@ -85,6 +87,7 @@ internal object FunctionLowering {
                 parameters = parameters,
                 sourceLabel = funcDef.name,
                 errorPrefix = "Failed to build CFG for nested $qualifiedName",
+                imports = enclosingImports.nestedChild(),
             )
         } else CfgBuild.CfgBuildResult.EMPTY
 
@@ -113,6 +116,7 @@ internal object FunctionLowering {
         module: ModuleContext,
         expr: MypyLambdaExprProto,
         parentQualifiedName: String?,
+        enclosingImports: ImportManager,
     ): FlatFunctionIR {
         val name = module.freshLambdaName()
         val qualifiedName = "${module.moduleName}.$name"
@@ -126,6 +130,7 @@ internal object FunctionLowering {
             parameters = parameters,
             sourceLabel = name,
             errorPrefix = "Failed to build CFG for lambda $qualifiedName",
+            imports = enclosingImports.nestedChild(),
         )
 
         return FlatFunctionIR(

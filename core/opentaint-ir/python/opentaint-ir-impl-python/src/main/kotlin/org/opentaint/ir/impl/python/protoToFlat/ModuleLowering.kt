@@ -26,34 +26,69 @@ internal object ModuleLowering {
             context.reportError(error, astModule.name, "MypyBuildError")
         }
 
-        val classes = mutableListOf<FlatClass>()
-        val topLevelFunctions = mutableListOf<FlatFunctionIR>()
+        // Pass 1: partition the top-level defs.
+        //
+        // `moduleInitStmts` carries every module-level statement that needs
+        // to participate in module-init's CFG, in source order:
+        //   - `Import` / `ImportFrom`           — update [ModuleContext.imports]
+        //   - `Assignment`                      — emit FlatInst into module-init
+        // `defQueue` holds the class and function definitions, lowered AFTER
+        // module-init so they see the populated import map.
+        //
+        // Limitation: imports nested in module-level control flow
+        // (`try: import …`, `if cond: import …`) never reach Kotlin —
+        // `_serialize_definitions` in ast_serializer.py drops module-level
+        // `If` / `Try` / `With` statements entirely today. Such imports still
+        // mis-classify as `FlatGlobalRef("scope.x")` when mypy can't resolve
+        // them. Pre-existing limitation, called out for future maintainers.
         val moduleFields = mutableListOf<FlatModuleField>()
-        // Keep the wrapping MypyStmtProto so the per-stmt physical location
-        // (line/col span) is available when lowering module-init.
-        val moduleInitAssignments = mutableListOf<MypyStmtProto>()
+        val moduleInitStmts = mutableListOf<MypyStmtProto>()
+        val defQueue = mutableListOf<MypyDefinitionProto>()
 
         for (def in astModule.defsList) {
+            when (def.kindCase) {
+                MypyDefinitionProto.KindCase.CLASS_DEF,
+                MypyDefinitionProto.KindCase.FUNC_DEF,
+                MypyDefinitionProto.KindCase.DECORATOR -> defQueue.add(def)
+                MypyDefinitionProto.KindCase.ASSIGNMENT -> {
+                    val stmt = def.assignment
+                    if (stmt.hasAssignment()) {
+                        moduleFields.addAll(extractFields(stmt.assignment) { name, type ->
+                            FlatModuleField(name = name, type = type, hasInitializer = true)
+                        })
+                    }
+                    moduleInitStmts.add(stmt)
+                }
+                else -> {}
+            }
+        }
+
+        // Pass 2: build module-init first. Its two-pass walk (inside
+        // [CfgBuild.buildModuleInitCfg]) records all module-level imports
+        // BEFORE emitting any FlatInst, so a lambda RHS in a module-level
+        // assignment that references a textually-later import still sees
+        // the import.
+        val moduleInit = lowerModuleInit(context, moduleInitStmts)
+
+        // Pass 3: lower classes and top-level functions. [ModuleContext.imports]
+        // is now fully populated, so any function/method body or lambda within
+        // these defs reads the complete module-level import map.
+        val classes = mutableListOf<FlatClass>()
+        val topLevelFunctions = mutableListOf<FlatFunctionIR>()
+        for (def in defQueue) {
             when (def.kindCase) {
                 MypyDefinitionProto.KindCase.CLASS_DEF ->
                     classes.add(lowerClass(context, def.classDef, enclosingQualifier = null))
                 MypyDefinitionProto.KindCase.FUNC_DEF,
                 MypyDefinitionProto.KindCase.DECORATOR ->
                     topLevelFunctions.add(lowerFuncOrDecorator(context, def, enclosingClassQualifiedName = null))
-                MypyDefinitionProto.KindCase.ASSIGNMENT -> {
-                    moduleFields.addAll(extractFields(def.assignment.assignment) { name, type ->
-                        FlatModuleField(name = name, type = type, hasInitializer = true)
-                    })
-                    moduleInitAssignments.add(def.assignment)
-                }
-                else -> {}
+                else -> error("defQueue must contain only class/func/decorator defs; got ${def.kindCase}")
             }
         }
 
-        val moduleInit = lowerModuleInit(context, moduleInitAssignments)
-
-        // Read after module-init lowering: any lambdas/nested defs registered
-        // while building module-init's CFG must be included.
+        // Read after all lowering: any lambdas/nested defs registered along
+        // the way (in module-init, class methods, function bodies) must be
+        // included in the module's function list.
         val syntheticFunctions = context.registeredFunctions
 
         val rawModule = FlatModuleIR(
@@ -101,12 +136,21 @@ internal object ModuleLowering {
                 MypyDefinitionProto.KindCase.FUNC_DEF,
                 MypyDefinitionProto.KindCase.DECORATOR ->
                     methods.add(lowerFuncOrDecorator(context, def, enclosingClassQualifiedName = qualifiedName))
-                MypyDefinitionProto.KindCase.ASSIGNMENT ->
-                    // TODO: pir_server doesn't carry an `is_class_var` flag; once it does,
-                    //  thread it through MypyAssignmentStmtProto and read it here.
-                    classFields.addAll(extractFields(def.assignment.assignment) { name, type ->
-                        FlatClassField(name = name, type = type, isClassVar = false, hasInitializer = true)
-                    })
+                MypyDefinitionProto.KindCase.ASSIGNMENT -> {
+                    // The `assignment` slot now also carries module-level
+                    // `Import` / `ImportFrom` stmts (see comment on
+                    // [_serialize_definitions] in ast_serializer.py). Inside a
+                    // class body imports bind on the class namespace (which
+                    // taint analysis doesn't track today) — skip non-assignment
+                    // stmts so `extractFields` only ever sees actual assigns.
+                    if (def.assignment.hasAssignment()) {
+                        // TODO: pir_server doesn't carry an `is_class_var` flag; once it does,
+                        //  thread it through MypyAssignmentStmtProto and read it here.
+                        classFields.addAll(extractFields(def.assignment.assignment) { name, type ->
+                            FlatClassField(name = name, type = type, isClassVar = false, hasInitializer = true)
+                        })
+                    }
+                }
                 MypyDefinitionProto.KindCase.CLASS_DEF ->
                     nestedClasses.add(lowerClass(context, def.classDef, enclosingQualifier = qualifiedName))
                 else -> {}

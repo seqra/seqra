@@ -6,6 +6,8 @@ import org.opentaint.ir.impl.python.protoToFlat.DecoratorLowering
 import org.opentaint.ir.impl.python.protoToFlat.FunctionLowering
 import org.opentaint.ir.impl.python.protoToFlat.toPhysicalLocation
 import org.opentaint.ir.impl.python.proto.*
+import org.opentaint.ir.impl.python.protoToFlat.recordImports
+import org.opentaint.ir.impl.python.protoToFlat.recordImportsFrom
 
 /**
  * Statement-level lowering. Extension functions on [CfgSession] — no class
@@ -43,6 +45,8 @@ private fun CfgSession.visitStmt(stmt: MypyStmtProto) {
             visitNestedFuncDef(stmt.decorator.func, stmt.decorator.originalDecoratorsList, loc)
         stmt.hasGlobalDecl() -> recordGlobal(stmt.globalDecl.namesList)
         stmt.hasNonlocalDecl() -> recordNonlocal(stmt.nonlocalDecl.namesList)
+        stmt.hasImportStmt() -> recordImports(imports, stmt.importStmt)
+        stmt.hasImportFromStmt() -> recordImportsFrom(imports, stmt.importFromStmt)
         // PassStmt, ClassDef inside body: no-op
     }
 }
@@ -435,6 +439,9 @@ private fun CfgSession.visitNestedFuncDef(
         decorators = decorators,
         enclosingQualifiedName = enclosing,
         enclosingName = enclosingFnName,
+        // Chain the child's manager off this scope's so resolution walks
+        // outward through enclosing function scopes up to the module.
+        enclosingImports = imports,
     )
     module.register(nested)
 

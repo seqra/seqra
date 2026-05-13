@@ -672,8 +672,8 @@ message MypyBlockProto {
 message MypyStmtProto {
   int32 line = 1;
   int32 col = 2;
-  // Tags 100/101 leave the 30..99 band free for future statement variants
-  // (oneof entries today end at decorator = 29).
+  // Tags 100/101 leave the 32..99 band free for future statement variants
+  // (oneof entries today end at import_from_stmt = 31).
   int32 end_line = 100;
   int32 end_col = 101;
 
@@ -698,6 +698,8 @@ message MypyStmtProto {
     MypyClassDefProto class_def = 27;
     MypyNonlocalDeclProto nonlocal_decl = 28;
     MypyDecoratorDefProto decorator = 29;
+    MypyImportStmtProto import_stmt = 30;
+    MypyImportFromStmtProto import_from_stmt = 31;
   }
 }
 
@@ -780,6 +782,46 @@ message MypyAssertStmtProto {
 
 message MypyGlobalDeclProto {
   repeated string names = 1;
+}
+
+// `import m`, `import m.sub`, `import m.sub as a`, `import m1.s, m2.t`.
+//
+// Each `MypyImportIdProto` is one comma-separated entry. `module` is the dotted
+// canonical module path as written in source (relative resolution is N/A — only
+// `from`-imports can be relative). `alias` is empty when no `as` clause is
+// present (mypy stores `None` there; the wire-level sentinel is the empty
+// string).
+//
+// The bound name in the enclosing scope is:
+//   - `alias` if non-empty, else
+//   - the root segment of `module` (`split(".")[0]`).
+// This mirrors the cpython runtime: `import m.sub` binds only `m`.
+message MypyImportStmtProto {
+  repeated MypyImportIdProto ids = 1;
+}
+
+message MypyImportIdProto {
+  string module = 1;
+  string alias = 2;
+}
+
+// `from m import x [as y], ...`. `module` is the absolute module path AFTER
+// relative-import resolution on the Python side (so `relative` is purely
+// informational here; consumers MUST NOT re-resolve it). `relative` is the
+// original dot-count from the source statement, preserved for debugging.
+//
+// `from m import *` is intentionally not modeled here — it produces no
+// statically-known bindings. The existing module-level `imports` summary
+// retains the `*`-import target string for downstream metadata.
+message MypyImportFromStmtProto {
+  string module = 1;
+  int32 relative = 2;
+  repeated MypyImportNameProto names = 3;
+}
+
+message MypyImportNameProto {
+  string name = 1;
+  string alias = 2;
 }
 
 // ─── Expressions ───────────────────────────────────────────

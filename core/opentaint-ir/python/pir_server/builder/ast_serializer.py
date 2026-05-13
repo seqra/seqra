@@ -71,6 +71,7 @@ from mypy.nodes import (
     ARG_STAR2,
 )
 from mypy.types import CallableType
+from mypy.util import correct_relative_import
 from pir_server.proto import pir_pb2
 from pir_server.builder.type_mapper import TypeMapper
 
@@ -181,6 +182,16 @@ class AstSerializer:
             # Wrap in MypyStmtProto so the module-level assignment carries
             # its physical location alongside the assignment payload (mirrors
             # how nested statements look in `_serialize_block`).
+            return [
+                pir_pb2.MypyDefinitionProto(
+                    assignment=self._serialize_stmt(defn)
+                )
+            ]
+        elif isinstance(defn, (Import, ImportFrom)):
+            # Module-level Import / ImportFrom: route through the same
+            # `assignment` slot (which is typed as MypyStmtProto and so accepts
+            # any statement variant). Module-level lowering peeks at this slot
+            # to register import bindings before any function body is lowered.
             return [
                 pir_pb2.MypyDefinitionProto(
                     assignment=self._serialize_stmt(defn)
@@ -522,6 +533,48 @@ class AstSerializer:
             proto.nonlocal_decl.CopyFrom(
                 pir_pb2.MypyNonlocalDeclProto(names=list(stmt.names))
             )
+        elif isinstance(stmt, Import):
+            import_proto = pir_pb2.MypyImportStmtProto()
+            for module_id, as_id in stmt.ids:
+                import_proto.ids.append(
+                    pir_pb2.MypyImportIdProto(
+                        module=module_id,
+                        alias=as_id or "",
+                    )
+                )
+            proto.import_stmt.CopyFrom(import_proto)
+        elif isinstance(stmt, ImportFrom):
+            # Resolve the module path on the Python side so the Kotlin
+            # statement lowering doesn't need to know the current module
+            # name or its package-init status.
+            resolved_module, ok = correct_relative_import(
+                cur_mod_id=self.module_name,
+                relative=stmt.relative,
+                target=stmt.id,
+                is_cur_package_init_file=self.tree.is_package_init_file(),
+            )
+            if not ok:
+                # Over-relative import — mypy itself errors here. The
+                # `correct_relative_import` helper still returns a string but
+                # it's composed from negative-indexed slicing and may not be a
+                # real module path. Fall back to the raw target so downstream
+                # FlatGlobalRefs at least carry a recognizable prefix.
+                resolved_module = stmt.id
+            from_proto = pir_pb2.MypyImportFromStmtProto(
+                module=resolved_module,
+                relative=stmt.relative,
+            )
+            for name, as_name in stmt.names:
+                from_proto.names.append(
+                    pir_pb2.MypyImportNameProto(
+                        name=name,
+                        alias=as_name or "",
+                    )
+                )
+            proto.import_from_stmt.CopyFrom(from_proto)
+        elif isinstance(stmt, ImportAll):
+            # `from m import *` has no statically-known bindings — skip.
+            return None
         elif isinstance(stmt, Block):
             # Inline block — serialize each statement
             # Return None and let caller handle

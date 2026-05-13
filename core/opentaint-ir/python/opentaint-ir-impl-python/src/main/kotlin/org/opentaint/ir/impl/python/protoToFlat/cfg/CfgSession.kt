@@ -2,6 +2,7 @@ package org.opentaint.ir.impl.python.protoToFlat.cfg
 
 import org.opentaint.ir.api.python.PIRPhysicalLocation
 import org.opentaint.ir.impl.python.flat.*
+import org.opentaint.ir.impl.python.protoToFlat.ImportManager
 import org.opentaint.ir.impl.python.protoToFlat.ModuleContext
 import org.opentaint.ir.impl.python.protoToFlat.Scope
 
@@ -31,6 +32,13 @@ internal class CfgSession(
      * `"$enclosingName$$childSourceName"`. `null` for module-init.
      */
     val currentFunctionName: String? = null,
+    /**
+     * The scope's import-binding view. Default = the module's root manager,
+     * which is correct for module-init (whose scope IS the module scope).
+     * Top-level functions and nested defs pass a `nestedChild()` of their
+     * enclosing scope's manager so resolution walks the lexical chain.
+     */
+    val imports: ImportManager = module.imports,
 ) {
     // ─── CFG state (private) ───────────────────────────────
 

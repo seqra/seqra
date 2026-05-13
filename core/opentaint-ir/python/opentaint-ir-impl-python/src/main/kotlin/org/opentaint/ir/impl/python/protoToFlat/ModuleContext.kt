@@ -51,6 +51,19 @@ internal class ModuleContext(val moduleName: String) {
         return if (count == 0) base else "$base$${count + 1}"
     }
 
+    /**
+     * Root of the import-scope chain for this module. Populated by a
+     * pre-walk in [ModuleLowering] *before* any function bodies are lowered,
+     * so that top-level functions see the module-level `import` bindings even
+     * though module-init's CFG is built after the top-level functions.
+     *
+     * Top-level function / class-method [CfgSession]s use
+     * `imports.nestedChild()` as their own manager; nested defs / lambdas
+     * chain off their enclosing function's manager. Module-init's CFG
+     * session uses this same root directly (module-init IS the module scope).
+     */
+    val imports: ImportManager = ImportManager()
+
     fun reportError(message: String, source: String, code: String) {
         _diagnostics.add(PIRDiagnostic(PIRDiagnosticSeverity.ERROR, message, source, code))
     }

@@ -115,14 +115,32 @@ private fun CfgSession.lowerName(expr: MypyNameExprProto): FlatValue {
         // `builtins.print`); aliases like `from m import x as y` already
         // arrive with the canonical fullname `m.x`, so no extra alias
         // handling is needed.
+        //
+        // Exception: a module-scope `import missing_pkg` where mypy can't
+        // resolve `missing_pkg` falls through to `add_unknown_imported_symbol`,
+        // which creates a GDEF binding with a scope-prefixed fullname
+        // (`__test__.missing_pkg`) — looks dotted, but the dot is the
+        // enclosing module path, not the import target. We detect this by
+        // consulting the import-scope maps populated from `Import` /
+        // `ImportFrom` statements; for genuinely resolved GDEF bindings the
+        // maps don't contain the bound name, so the override is a no-op.
         MypyNameKind.NAME_GLOBAL -> {
+            imports.resolve(name)?.let { return it }
             val fullname = expr.fullname
             check('.' in fullname) {
                 "NAME_GLOBAL fullname must be dotted; got '$fullname' for name '$name'"
             }
             FlatGlobalRef(fullname)
         }
-        else -> FlatLocal(scope.resolveLocal(name))
+        else -> {
+            // Function-scope suppressed imports surface as LDEF with a
+            // single-segment fullname (or, after a rebind, a bound `Var`
+            // whose canonical target was discarded by mypy). The import-scope
+            // chain recovers the original canonical name; if there's no
+            // entry, this is a real local.
+            imports.resolve(name)?.let { return it }
+            FlatLocal(scope.resolveLocal(name))
+        }
     }
 }
 
@@ -379,6 +397,7 @@ private fun CfgSession.lowerLambda(expr: MypyLambdaExprProto): FlatValue {
         module = module,
         expr = expr,
         parentQualifiedName = currentFunctionQualifiedName,
+        enclosingImports = imports,
     )
     module.register(lambda)
     val ref = FlatGlobalRef(lambda.qualifiedName)
