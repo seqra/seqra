@@ -30,66 +30,59 @@ rules:
 
     pattern-sinks:
       - patterns:
-          - patterns:
-            - pattern-inside: |
-                $RETURNTYPE $ENTRYPOINT(..., HttpServletResponse $RESPONSE, ...) {
-                ...
-                }
-            - metavariable-pattern:
-                metavariable: $ENTRYPOINT
-                pattern-either:
-                  - pattern: doDelete
-                  - pattern: doGet
-                  - pattern: doPost
-                  - pattern: doPut
-                  - pattern: doTrace
-                  - pattern: _jspService
+          - pattern-inside: |
+              $RETURNTYPE $ENTRYPOINT(..., HttpServletResponse $RESPONSE, ...) {
+              ...
+              }
+          - metavariable-pattern:
+              metavariable: $ENTRYPOINT
+              pattern-either:
+                - pattern: doDelete
+                - pattern: doGet
+                - pattern: doPost
+                - pattern: doPut
+                - pattern: doTrace
+                - pattern: _jspService
           - pattern-either:
-              - patterns:
-                - pattern-inside: |
-                    $W = (HttpServletResponse $RESPONSE).getWriter(...);
-                    ...
-                - pattern: |
-                    $W.$WRITE(..., $UNTRUSTED, ...);
-              - patterns:
-                - pattern-inside: |
-                    $S = (HttpServletResponse $RESPONSE).getOutputStream(...);
-                    ...
-                - pattern: |
-                    $S.$WRITE(..., $UNTRUSTED, ...);
+              - pattern: |
+                  $W = (HttpServletResponse $RESPONSE).getWriter(...);
+                  ...
+                  $W.$WRITE(..., $UNTRUSTED, ...);
+              - pattern: |
+                  $S = (HttpServletResponse $RESPONSE).getOutputStream(...);
+                  ...
+                  $S.$WRITE(..., $UNTRUSTED, ...);
               - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
               - pattern: (jakarta.servlet.jsp.JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
               - pattern: (javax.servlet.jsp.JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
 
           # String-literal arg variant: `"$CT_SAFE"` binds to the literal
           # contents and is honored by `metavariable-regex`.
-          - patterns:
-              - pattern-not-inside: |
-                  (HttpServletResponse $RESPONSE).setContentType("$CT_SAFE");
-                  ...
-              - metavariable-regex:
-                  metavariable: $CT_SAFE
-                  regex: '^(application/(json|pdf|octet-stream|xml)|text/(plain|xml)|image/(png|jpeg|gif))(\s*;.*)?$'
+          - pattern-not-inside: |
+              (HttpServletResponse $RESPONSE).setContentType("$CT_SAFE");
+              ...
+          - metavariable-regex:
+              metavariable: $CT_SAFE
+              regex: '^(application/(json|pdf|octet-stream|xml)|text/(plain|xml)|image/(png|jpeg|gif))(\s*;.*)?$'
           # Identifier-arg variant: bare `$CT_CONST` matches Java identifier
           # expressions; `metavariable-pattern` enumerates `MediaType.X_VALUE`
           # constants. Dev analyzer constant-folds these, but the
           # enumeration is kept explicit for analyzer-regression and
           # older-build robustness.
-          - patterns:
-              - pattern-not-inside: |
-                  (HttpServletResponse $RESPONSE).setContentType($CT_CONST);
-                  ...
-              - metavariable-pattern:
-                  metavariable: $CT_CONST
-                  patterns:
-                    - pattern-either:
-                        - pattern: MediaType.APPLICATION_JSON_VALUE
-                        - pattern: MediaType.TEXT_PLAIN_VALUE
-                        - pattern: MediaType.APPLICATION_PDF_VALUE
-                        - pattern: MediaType.APPLICATION_OCTET_STREAM_VALUE
-                        - pattern: MediaType.APPLICATION_XML_VALUE
-                        - pattern: MediaType.TEXT_XML_VALUE
-                        - pattern: MediaType.IMAGE_PNG_VALUE
-                        - pattern: MediaType.IMAGE_JPEG_VALUE
-                        - pattern: MediaType.IMAGE_GIF_VALUE
+          - pattern-not-inside: |
+              (HttpServletResponse $RESPONSE).setContentType($CT_CONST);
+              ...
+          - metavariable-pattern:
+              metavariable: $CT_CONST
+              patterns:
+                - pattern-either:
+                    - pattern: MediaType.APPLICATION_JSON_VALUE
+                    - pattern: MediaType.TEXT_PLAIN_VALUE
+                    - pattern: MediaType.APPLICATION_PDF_VALUE
+                    - pattern: MediaType.APPLICATION_OCTET_STREAM_VALUE
+                    - pattern: MediaType.APPLICATION_XML_VALUE
+                    - pattern: MediaType.TEXT_XML_VALUE
+                    - pattern: MediaType.IMAGE_PNG_VALUE
+                    - pattern: MediaType.IMAGE_JPEG_VALUE
+                    - pattern: MediaType.IMAGE_GIF_VALUE
           - focus-metavariable: $UNTRUSTED
