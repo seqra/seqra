@@ -581,8 +581,6 @@ class JIRMethodSequentFlowFunction(
 
         irrelevant.forEach { fact -> propagateFact(fact) }
         aliased.forEach { (fact, alias) ->
-            check(fact.startsWithAccessor(accessor))
-
             val hasElementAccessor = alias?.accessors.orEmpty().any { it is JIRLocalAliasAnalysis.AliasAccessor.Array }
             val newAp =
                 // todo hack: keep fact on the array elements
