@@ -78,6 +78,8 @@ class MavenProjectResolver(
 
         projectSourceRoot.visitFileTree {
             onPreVisitDirectory { directory, _ ->
+                if (directory.isHiddenSubDirOf(projectSourceRoot)) return@onPreVisitDirectory FileVisitResult.SKIP_SUBTREE
+
                 if (isMavenProjectRoot(directory)) {
                     val classes = directory.resolve("target").resolve("classes")
                     if (classes.isDirectory()) {

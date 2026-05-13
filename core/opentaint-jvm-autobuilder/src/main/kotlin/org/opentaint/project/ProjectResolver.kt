@@ -52,6 +52,8 @@ sealed interface ProjectResolver {
             rootDir.visitFileTree {
                 onPreVisitDirectory { directory, _ ->
                     when {
+                        directory.isHiddenSubDirOf(rootDir) -> FileVisitResult.SKIP_SUBTREE
+
                         GradleProjectResolver.isGradleProjectRoot(directory) -> {
                             logger.info { "Detect gradle project at $directory" }
 
@@ -132,3 +134,6 @@ fun Path.resolve(other: List<String>): Path = other.fold(this) { path, o -> path
 fun Path.createParentDirectories() = also {
     parent?.createDirectories()
 }
+
+fun Path.isHiddenSubDirOf(root: Path): Boolean =
+    this != root && fileName?.toString()?.startsWith(".") == true

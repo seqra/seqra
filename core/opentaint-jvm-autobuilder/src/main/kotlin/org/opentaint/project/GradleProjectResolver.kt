@@ -64,6 +64,8 @@ class GradleProjectResolver(
 
         projectSourceRoot.visitFileTree {
             onPreVisitDirectory { directory, _ ->
+                if (directory.isHiddenSubDirOf(projectSourceRoot)) return@onPreVisitDirectory FileVisitResult.SKIP_SUBTREE
+
                 if (isGradleProjectRoot(directory)) {
                     val classesDir = directory.resolve("build").resolve("classes")
                     if (classesDir.isDirectory()) {
