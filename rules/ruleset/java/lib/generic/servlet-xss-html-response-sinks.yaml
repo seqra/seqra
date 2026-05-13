@@ -74,28 +74,28 @@ rules:
               - pattern: (jakarta.servlet.jsp.JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
               - pattern: (javax.servlet.jsp.JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
 
-          # $CT_SAFE OUTSIDE quotes binds to the whole string-literal expression;
-          # bare `application/json` can't be used — engine parses `/` `-` as Java operators.
+          # String-literal arg variant: `"$CT_SAFE"` binds to the literal
+          # contents and is honored by `metavariable-regex`.
           - patterns:
               - pattern-not-inside: |
-                  (HttpServletResponse $RESPONSE).setContentType($CT_SAFE);
+                  (HttpServletResponse $RESPONSE).setContentType("$CT_SAFE");
+                  ...
+              - metavariable-regex:
+                  metavariable: $CT_SAFE
+                  regex: '^(application/(json|pdf|octet-stream|xml)|text/(plain|xml)|image/(png|jpeg|gif))(\s*;.*)?$'
+          # Identifier-arg variant: bare `$CT_CONST` matches Java identifier
+          # expressions; `metavariable-pattern` enumerates `MediaType.X_VALUE`
+          # constants. Dev analyzer constant-folds these, but the
+          # enumeration is kept explicit for analyzer-regression and
+          # older-build robustness.
+          - patterns:
+              - pattern-not-inside: |
+                  (HttpServletResponse $RESPONSE).setContentType($CT_CONST);
                   ...
               - metavariable-pattern:
-                  metavariable: $CT_SAFE
+                  metavariable: $CT_CONST
                   patterns:
                     - pattern-either:
-                        - pattern: '"application/json"'
-                        - pattern: '"application/json;charset=UTF-8"'
-                        - pattern: '"text/plain"'
-                        - pattern: '"application/pdf"'
-                        - pattern: '"application/octet-stream"'
-                        - pattern: '"application/xml"'
-                        - pattern: '"text/xml"'
-                        - pattern: '"image/png"'
-                        - pattern: '"image/jpeg"'
-                        - pattern: '"image/gif"'
-                        # MediaType.X_VALUE constants — dev analyzer constant-folds; kept
-                        # explicit for analyzer-regression / older-build robustness.
                         - pattern: MediaType.APPLICATION_JSON_VALUE
                         - pattern: MediaType.TEXT_PLAIN_VALUE
                         - pattern: MediaType.APPLICATION_PDF_VALUE
