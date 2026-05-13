@@ -557,16 +557,12 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 31: @RestController + class-level @RequestMapping(produces=JSON) — FP
-    // Class-level @RequestMapping(produces = APPLICATION_JSON_VALUE)
-    // propagates to every handler in the class. The handler reflects
-    // user-controlled data, but Spring sets Content-Type:
-    // application/json; Chromium does not MIME-sniff JSON to HTML,
+    // ── Row 31: @RestController + class-level @RequestMapping(produces=JSON) — TN
+    // Class-level @RequestMapping(produces = "application/json") propagates
+    // to every handler in the class. Spring sets Content-Type:
+    // application/json; Chromium does not MIME-sniff JSON to HTML, so
     // alert(1) does not fire. The rule's class-level pattern-not-inside
-    // is intended to exclude these. See the engine-limitations comment in
-    // spring-xss-html-response-sinks.yaml — currently this still reports
-    // an FP because pattern-not-inside on annotation arguments is not
-    // honored end-to-end.
+    // subtracts this match.
 
     @RestController
     @org.springframework.web.bind.annotation.RequestMapping(value = "/xss-in-spring-app/row-31", produces = "application/json")

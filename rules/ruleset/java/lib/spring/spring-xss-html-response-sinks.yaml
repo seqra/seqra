@@ -435,6 +435,38 @@ rules:
                         - pattern: MediaType.IMAGE_PNG_VALUE
                         - pattern: MediaType.IMAGE_JPEG_VALUE
                         - pattern: MediaType.IMAGE_GIF_VALUE
+          # Class-level produces=: @RestController/@Controller with
+          # @RequestMapping(produces=non-html) inherits to every handler.
+          # Method-level subtractor above misses these because produces lives
+          # on the enclosing class.
+          - patterns:
+              - pattern-not-inside: |
+                  @RequestMapping(..., produces = $CPRODUCES, ...)
+                  class $CLAZZ {
+                    ...
+                  }
+              - metavariable-pattern:
+                  metavariable: $CPRODUCES
+                  patterns:
+                    - pattern-either:
+                        - pattern: '"application/json"'
+                        - pattern: '"text/plain"'
+                        - pattern: '"application/pdf"'
+                        - pattern: '"application/octet-stream"'
+                        - pattern: '"application/xml"'
+                        - pattern: '"text/xml"'
+                        - pattern: '"image/png"'
+                        - pattern: '"image/jpeg"'
+                        - pattern: '"image/gif"'
+                        - pattern: MediaType.APPLICATION_JSON_VALUE
+                        - pattern: MediaType.TEXT_PLAIN_VALUE
+                        - pattern: MediaType.APPLICATION_PDF_VALUE
+                        - pattern: MediaType.APPLICATION_OCTET_STREAM_VALUE
+                        - pattern: MediaType.APPLICATION_XML_VALUE
+                        - pattern: MediaType.TEXT_XML_VALUE
+                        - pattern: MediaType.IMAGE_PNG_VALUE
+                        - pattern: MediaType.IMAGE_JPEG_VALUE
+                        - pattern: MediaType.IMAGE_GIF_VALUE
           - focus-metavariable: $UNTRUSTED
 
       # Branch 1b: explicit HTML/SVG produces= — fires regardless of @RestController
