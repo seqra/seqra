@@ -307,7 +307,7 @@ class JIRBasicAtomEvaluator(
             }
         } else {
             val allAliases = aa.getAllAliasAtStatement(statement)
-            for ((_, aliasSet) in allAliases) {
+            for (aliasSet in allAliases) {
                 for (info in aliasSet) {
                     if (info !is AliasApInfo || info.base != base) continue
                     val singleAccessor = info.accessors.singleOrNull() ?: continue

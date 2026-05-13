@@ -30,6 +30,7 @@ class JIRLocalAliasAnalysis(
     class MethodAliasInfo(
         val aliasBeforeStatement: Array<Int2ObjectOpenHashMap<Array<Any>>?>?,
         val aliasAfterStatement: Array<Int2ObjectOpenHashMap<Array<Any>>?>?,
+        val unboundBeforeStatement: Array<Array<Array<Any>>?>?,
     )
 
     private fun getLocalVarAliases(
@@ -46,10 +47,19 @@ class JIRLocalAliasAnalysis(
         return getLocalVarAliases(aliasBefore, idx, base)
     }
 
-    fun getAllAliasAtStatement(statement: CommonInst): Int2ObjectOpenHashMap<List<AliasInfo>> {
-        val aliasBefore = aliasInfo.aliasBeforeStatement ?: return Int2ObjectOpenHashMap()
+    fun getAllAliasAtStatement(statement: CommonInst): List<List<AliasInfo>> {
+        val result = mutableListOf<List<AliasInfo>>()
         val idx = languageManager.getInstIndex(statement)
-        return aliasBefore[idx]?.let { wrapAllInfo(it) } ?: Int2ObjectOpenHashMap()
+
+        aliasInfo.aliasBeforeStatement?.let { aliasBefore ->
+            aliasBefore[idx]?.let { wrapAllInfo(it) }?.let { result.addAll(it.values) }
+        }
+
+        aliasInfo.unboundBeforeStatement?.let { unboundBefore ->
+            unboundBefore[idx]?.let { aliases -> aliases.map { wrapAliasSet(it) } }?.let { result.addAll(it) }
+        }
+
+        return result
     }
 
     fun findAliasAfterStatement(base: AccessPathBase.LocalVar, statement: CommonInst): List<AliasInfo>? {
@@ -89,21 +99,26 @@ class JIRLocalAliasAnalysis(
         fun wrapAllInfo(info: Int2ObjectOpenHashMap<Array<Any>>): Int2ObjectOpenHashMap<List<AliasInfo>> {
             val result = Int2ObjectOpenHashMap<List<AliasInfo>>()
             for ((key, aliases) in info) {
-                result.put(key, List(aliases.size) { aliases[it].wrapAliasInfo() })
+                result.put(key, wrapAliasSet(aliases))
             }
             return result
         }
+
+        fun wrapAliasSet(aliases: Array<Any>): List<AliasInfo> =
+            List(aliases.size) { aliases[it].wrapAliasInfo() }
 
         fun unwrapAllInfo(info: Int2ObjectOpenHashMap<List<AliasInfo>>): Int2ObjectOpenHashMap<Array<Any>> {
             val result = Int2ObjectOpenHashMap<Array<Any>>(info.size, 0.99f)
             val iter = info.int2ObjectEntrySet().fastIterator()
             while (iter.hasNext()) {
                 val entry = iter.next()
-                val value = entry.value
-                val unwrapped = Array(value.size) { value[it].unwrap() }
+                val unwrapped = unwrapAliasSet(entry.value)
                 result.put(entry.intKey, unwrapped)
             }
             return result
         }
+
+        fun unwrapAliasSet(aliases: List<AliasInfo>): Array<Any> =
+            Array(aliases.size) { aliases[it].unwrap() }
     }
 }
