@@ -506,9 +506,9 @@ class DSUAliasAnalysis(
 
         is Stmt.Copy -> evalCopy(stmt, state)
 
-        is Stmt.FieldStore -> evalFieldStore(stmt, state)
+        is Stmt.FieldStore -> evalFieldStore(stmt, callFrame, state)
 
-        is Stmt.ArrayStore -> evalArrayStore(stmt, state)
+        is Stmt.ArrayStore -> evalArrayStore(stmt, callFrame, state)
 
         // no effect on alias info
         is Stmt.Return,
@@ -602,6 +602,23 @@ class DSUAliasAnalysis(
         instance: RefValue,
         value: ExprOrValue,
         state: State,
+        stmt: Stmt,
+        callFrame: CallTreeNode,
+        heapAppender: (Int) -> HeapAlias
+    ): State {
+        val valueInfo = when (value) {
+            is Expr -> evalExpr(value, stmt, callFrame, state)
+            is RefValue -> aliasSetFromInfo(value.aliasInfo())
+        }
+
+        return evalHeapStore(isFieldStore, instance, valueInfo, state, heapAppender)
+    }
+
+    private fun evalHeapStore(
+        isFieldStore: Boolean,
+        instance: RefValue,
+        value: AliasSet,
+        state: State,
         heapAppender: (Int) -> HeapAlias
     ): State {
         val instanceInfo = instance.aliasInfo()
@@ -614,18 +631,16 @@ class DSUAliasAnalysis(
             resultState = resultState.remove(heapAlias)
         }
 
-        if (value is RefValue) {
-            resultState = resultState.mergeWith(value.aliasInfo().index(), heapAlias)
-        }
+        resultState = resultState.mergeWith(value.repr, heapAlias)
 
         return resultState
     }
 
-    private fun evalArrayStore(stmt: Stmt.ArrayStore, state: State): State =
-        evalHeapStore(isFieldStore = false, stmt.instance, stmt.value, state, ::createArrayAlias)
+    private fun evalArrayStore(stmt: Stmt.ArrayStore, callFrame: CallTreeNode, state: State): State =
+        evalHeapStore(isFieldStore = false, stmt.instance, stmt.value, state, stmt, callFrame, ::createArrayAlias)
 
-    private fun evalFieldStore(stmt: Stmt.FieldStore, state: State): State =
-        evalHeapStore(isFieldStore = true, stmt.instance, stmt.value, state) { createFieldAlias(it, stmt.field) }
+    private fun evalFieldStore(stmt: Stmt.FieldStore, callFrame: CallTreeNode, state: State): State =
+        evalHeapStore(isFieldStore = true, stmt.instance, stmt.value, state, stmt, callFrame) { createFieldAlias(it, stmt.field) }
 
     private fun State.containsMultipleConcreteOrOuterLocations(instance: AAInfo): Boolean =
         containsMultipleConcreteOrOuterLocations(instance.index(), IntOpenHashSet())
