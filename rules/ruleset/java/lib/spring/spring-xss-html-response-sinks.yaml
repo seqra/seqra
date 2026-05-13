@@ -515,7 +515,8 @@ rules:
       # via setContentType / setHeader / addHeader.
 
       # $CT_HTML INSIDE quotes ("$CT_HTML") binds to literal contents (OUTSIDE is silently
-      # ignored). Writer-call arities are split (engine issue 99 — name-metavar intersection).
+      # ignored). Writer-call arities are split — name-metavar intersection across arities
+      # over-restricts and drops matches.
       - patterns:
           - pattern-either:
               - pattern: |
