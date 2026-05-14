@@ -2,8 +2,8 @@ rules:
   - id: xss-in-servlet-app
     severity: ERROR
     message: >-
-      XSS: writing user input directly to an HTML response. The response content type is set to
-      text/html, making this directly exploitable in a browser.
+      Cross-site scripting (XSS): tainted data is written to a Servlet response with text/html
+      content type, so injected scripts will execute in the browser.
     metadata:
       cwe: CWE-79
       short-description: Cross-site scripting (XSS) in HTML response
@@ -85,7 +85,8 @@ rules:
   - id: response-injection-in-servlet-app
     severity: NOTE
     message: >-
-      Potential XSS: writing user input directly to a web page.
+      Potential cross-site scripting (XSS): tainted data is written to a Servlet response writer
+      without HTML encoding.
     metadata:
       cwe: CWE-79
       short-description: Potential cross-site scripting (XSS)
@@ -220,8 +221,8 @@ rules:
   - id: xss-in-spring-app
     severity: ERROR
     message: >-
-      XSS: writing user input directly to an HTML response. The response content type is set to
-      text/html, making this directly exploitable in a browser.
+      Cross-site scripting (XSS): tainted data flows into a Spring response with text/html
+      content type, so injected scripts will execute in the browser.
     metadata:
       cwe: CWE-79
       short-description: Cross-site scripting (XSS) in HTML response
@@ -314,7 +315,8 @@ rules:
   - id: response-injection-in-spring-app
     severity: NOTE
     message: >-
-      Potential XSS: writing user input directly to a web page.
+      Potential cross-site scripting (XSS): tainted data is rendered in a Spring view or response
+      without HTML encoding.
     metadata:
       cwe: CWE-79
       short-description: Potential cross-site scripting (XSS)
