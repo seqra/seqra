@@ -1,0 +1,58 @@
+rules:
+  - id: java-servlet-response-injection-sink
+    options:
+      lib: true
+    severity: NOTE
+    message: Direct write of unvalidated user input into response
+    metadata:
+      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/xss/no-direct-response-writer.yaml
+    languages:
+      - java
+    mode: taint
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: Encode.forHtml(..., $UNTRUSTED, ...)
+              - pattern: (PolicyFactory $POLICY).sanitize(..., $UNTRUSTED, ...)
+              - pattern: (AntiSamy $AS).scan(..., $UNTRUSTED, ...)
+              - pattern: JSoup.clean(..., $UNTRUSTED, ...)
+              - pattern: HtmlUtils.htmlEscape(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(..., $UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $UNTRUSTED, ...)
+          - focus-metavariable: $UNTRUSTED
+
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - patterns:
+                - patterns:
+                  - pattern-inside: |
+                      $RETURNTYPE $ENTRYPOINT(HttpServletRequest $_, HttpServletResponse $RESPONSE) {
+                      ...
+                      }
+                  - metavariable-pattern:
+                      metavariable: $ENTRYPOINT
+                      pattern-either:
+                        - pattern: doDelete
+                        - pattern: doGet
+                        - pattern: doPost
+                        - pattern: doPut
+                        - pattern: doTrace
+                        - pattern: _jspService
+                - patterns:
+                  - pattern-inside: |
+                      $W = (HttpServletResponse $RESPONSE).getWriter(...);
+                      ...
+                  - pattern: |
+                      $W.$WRITE(..., $UNTRUSTED, ...);
+                - patterns:
+                  - pattern-inside: |
+                      $S = (HttpServletResponse $RESPONSE).getOutputStream(...);
+                      ...
+                  - pattern: |
+                      $S.$WRITE(..., $UNTRUSTED, ...);
+              - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
+              - pattern: (JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
+          - focus-metavariable: $UNTRUSTED

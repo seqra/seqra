@@ -1,0 +1,78 @@
+rules:
+  - id: java-servlet-xss-html-response-sink
+    options:
+      lib: true
+    severity: NOTE
+    message: Direct write of unvalidated user input into a response without safe content type
+    metadata:
+      provenance:
+        - https://github.com/github/codeql/blob/main/java/ql/lib/semmle/code/java/security/XSS.qll
+    languages:
+      - java
+    mode: taint
+
+
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: Encode.forHtml(..., $UNTRUSTED, ...)
+              - pattern: (PolicyFactory $POLICY).sanitize(..., $UNTRUSTED, ...)
+              - pattern: (AntiSamy $AS).scan(..., $UNTRUSTED, ...)
+              - pattern: JSoup.clean(..., $UNTRUSTED, ...)
+              - pattern: HtmlUtils.htmlEscape(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(..., $UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $UNTRUSTED, ...)
+          - focus-metavariable: $UNTRUSTED
+
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: |
+              $RETURNTYPE $ENTRYPOINT(HttpServletRequest $_, HttpServletResponse $RESPONSE) {
+              ...
+              }
+          - metavariable-pattern:
+              metavariable: $ENTRYPOINT
+              pattern-either:
+                - pattern: doDelete
+                - pattern: doGet
+                - pattern: doPost
+                - pattern: doPut
+                - pattern: doTrace
+                - pattern: _jspService
+          - pattern-either:
+              - pattern: |
+                  $W = (HttpServletResponse $RESPONSE).getWriter(...);
+                  ...
+                  $W.$WRITE(..., $UNTRUSTED, ...);
+              - pattern: |
+                  $S = (HttpServletResponse $RESPONSE).getOutputStream(...);
+                  ...
+                  $S.$WRITE(..., $UNTRUSTED, ...);
+              - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
+              - pattern: (JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
+
+          - pattern-not-inside: |
+              (HttpServletResponse $RESPONSE).setContentType("$CT_SAFE");
+              ...
+          - metavariable-regex:
+              metavariable: $CT_SAFE
+              regex: '^(application/(json|pdf|octet-stream|xml)|text/(plain|xml)|image/(png|jpeg|gif))(\s*;.*)?$'
+          - pattern-not-inside: |
+              (HttpServletResponse $RESPONSE).setContentType($CT_CONST);
+              ...
+          - metavariable-pattern:
+              metavariable: $CT_CONST
+              patterns:
+                - pattern-either:
+                    - pattern: MediaType.APPLICATION_JSON_VALUE
+                    - pattern: MediaType.TEXT_PLAIN_VALUE
+                    - pattern: MediaType.APPLICATION_PDF_VALUE
+                    - pattern: MediaType.APPLICATION_OCTET_STREAM_VALUE
+                    - pattern: MediaType.APPLICATION_XML_VALUE
+                    - pattern: MediaType.TEXT_XML_VALUE
+                    - pattern: MediaType.IMAGE_PNG_VALUE
+                    - pattern: MediaType.IMAGE_JPEG_VALUE
+                    - pattern: MediaType.IMAGE_GIF_VALUE
+          - focus-metavariable: $UNTRUSTED

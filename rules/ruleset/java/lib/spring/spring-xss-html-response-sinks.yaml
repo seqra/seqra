@@ -1,0 +1,508 @@
+rules:
+  - id: spring-xss-html-response-sink
+    options:
+      lib: true
+    severity: NOTE
+    message: Return of unvalidated user input from a Spring handler vulnerable to XSS
+    metadata:
+      provenance:
+        - https://github.com/github/codeql/blob/main/java/ql/lib/semmle/code/java/frameworks/spring/SpringHttp.qll
+    languages:
+      - java
+    mode: taint
+
+
+    pattern-sanitizers:
+      - patterns:
+          - pattern-either:
+              - pattern: Encode.forHtml(..., $UNTRUSTED, ...)
+              - pattern: (PolicyFactory $POLICY).sanitize(..., $UNTRUSTED, ...)
+              - pattern: (AntiSamy $AS).scan(..., $UNTRUSTED, ...)
+              - pattern: JSoup.clean(..., $UNTRUSTED, ...)
+              - pattern: HtmlUtils.htmlEscape(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(..., $UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $UNTRUSTED, ...)
+          - focus-metavariable: $UNTRUSTED
+
+
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  $H.setContentType(MediaType.APPLICATION_JSON);
+                  ...
+                  new ResponseEntity($UNTRUSTED, $H, ...);
+              - pattern: |
+                  $H.setContentType(MediaType.APPLICATION_PDF);
+                  ...
+                  new ResponseEntity($UNTRUSTED, $H, ...);
+              - pattern: |
+                  $H.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+                  ...
+                  new ResponseEntity($UNTRUSTED, $H, ...);
+              - pattern: |
+                  $H.setContentType(MediaType.TEXT_PLAIN);
+                  ...
+                  new ResponseEntity($UNTRUSTED, $H, ...);
+              - pattern: |
+                  $H.setContentType(MediaType.APPLICATION_XML);
+                  ...
+                  new ResponseEntity($UNTRUSTED, $H, ...);
+          - focus-metavariable: $UNTRUSTED
+
+    pattern-sinks:
+      - patterns:
+          - metavariable-pattern:
+              metavariable: $ANNOTATION
+              patterns:
+                - pattern-either:
+                    - pattern: GetMapping
+                    - pattern: PostMapping
+                    - pattern: PutMapping
+                    - pattern: PatchMapping
+                    - pattern: DeleteMapping
+                    - pattern: RequestMapping
+          - pattern-either:
+              - patterns:
+                  - pattern-either:
+                      - pattern: |
+                          return ResponseEntity.ok($UNTRUSTED);
+                      - patterns:
+                          - patterns:
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.APPLICATION_JSON);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.APPLICATION_PDF);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.APPLICATION_OCTET_STREAM);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.TEXT_PLAIN);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.APPLICATION_XML);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.IMAGE_PNG);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.IMAGE_JPEG);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.contentType(MediaType.IMAGE_GIF);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "application/json");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "application/pdf");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "application/octet-stream");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "text/plain");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "application/xml");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "image/png");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "image/jpeg");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", "image/gif");
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.APPLICATION_PDF_VALUE);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.APPLICATION_OCTET_STREAM_VALUE);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.TEXT_PLAIN_VALUE);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.APPLICATION_XML_VALUE);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.IMAGE_PNG_VALUE);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.IMAGE_JPEG_VALUE);
+                                  ...
+                              - pattern-not-inside: | 
+                                  $X.header("Content-Type", MediaType.IMAGE_GIF_VALUE);
+                                  ...
+                          - pattern-either:
+                              - pattern-inside: |
+                                  $X = ResponseEntity.status(...);
+                                  ...
+                              - pattern-inside: |
+                                  $X = ResponseEntity.ok();
+                                  ...
+                              - pattern-inside: |
+                                  $X = ResponseEntity.internalServerError();
+                                  ...
+                              - pattern-inside: |
+                                  $X = ResponseEntity.accepted();
+                                  ...
+                              - pattern-inside: |
+                                  $X = ResponseEntity.badRequest();
+                                  ...
+                              - pattern-inside: |
+                                  $X = ResponseEntity.created(...);
+                                  ...
+                              - pattern-inside: |
+                                  $X = ResponseEntity.unprocessableContent();
+                                  ...
+                              - pattern-inside: |
+                                  $X = ResponseEntity.unprocessableEntity();
+                                  ...
+                          - pattern: |
+                              return $X.body($UNTRUSTED);
+
+                      - patterns:
+                          - patterns:
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.APPLICATION_JSON);
+                                  ...
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.APPLICATION_PDF);
+                                  ...
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+                                  ...
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.TEXT_PLAIN);
+                                  ...
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.APPLICATION_XML);
+                                  ...
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.IMAGE_PNG);
+                                  ...
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.IMAGE_JPEG);
+                                  ...
+                              - pattern-not-inside: |
+                                  $H.setContentType(MediaType.IMAGE_GIF);
+                                  ...
+                          - pattern-either:
+                              - pattern-inside: |
+                                  $H = new HttpHeaders(...);
+                                  ...
+                          - pattern: |
+                              return new ResponseEntity($UNTRUSTED, $H, ...);
+                  - pattern-either:
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<Object> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<String> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<byte[]> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<Resource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<InputStreamResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<ByteArrayResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<ClassPathResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<FileSystemResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ResponseEntity<UrlResource> $METHOD(...) {
+                            ...
+                          }
+              - patterns:
+                  - pattern-either:
+
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          String $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          byte[] $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          Resource $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          InputStreamResource $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ByteArrayResource $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          ClassPathResource $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          FileSystemResource $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          UrlResource $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<String> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<byte[]> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<Object> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<Resource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<InputStreamResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<ByteArrayResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<ClassPathResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<FileSystemResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          CompletableFuture<UrlResource> $METHOD(...) {
+                            ...
+                          }
+                  - pattern: return $UNTRUSTED;
+              - patterns:
+                  - pattern-either:
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<String> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<byte[]> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<Object> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<Resource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<InputStreamResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<ByteArrayResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<ClassPathResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<FileSystemResource> $METHOD(...) {
+                            ...
+                          }
+                      - pattern-inside: |
+                          @$ANNOTATION(...)
+                          DeferredResult<UrlResource> $METHOD(...) {
+                            ...
+                          }
+                  - pattern: $DR.setResult(..., $UNTRUSTED, ...);
+
+
+          - patterns:
+              - pattern-not-inside: |
+                  @$ANNOTATION(..., produces = $PRODUCES, ...)
+                  $RETURNTYPE $METHOD(...) { ... }
+              - metavariable-pattern:
+                  metavariable: $PRODUCES
+                  patterns:
+                    - pattern-either:
+                        - pattern: '"application/json"'
+                        - pattern: '"text/plain"'
+                        - pattern: '"application/pdf"'
+                        - pattern: '"application/octet-stream"'
+                        - pattern: '"application/xml"'
+                        - pattern: '"text/xml"'
+                        - pattern: '"image/png"'
+                        - pattern: '"image/jpeg"'
+                        - pattern: '"image/gif"'
+                        - pattern: MediaType.APPLICATION_JSON_VALUE
+                        - pattern: MediaType.TEXT_PLAIN_VALUE
+                        - pattern: MediaType.APPLICATION_PDF_VALUE
+                        - pattern: MediaType.APPLICATION_OCTET_STREAM_VALUE
+                        - pattern: MediaType.APPLICATION_XML_VALUE
+                        - pattern: MediaType.TEXT_XML_VALUE
+                        - pattern: MediaType.IMAGE_PNG_VALUE
+                        - pattern: MediaType.IMAGE_JPEG_VALUE
+                        - pattern: MediaType.IMAGE_GIF_VALUE
+          - patterns:
+              - pattern-not-inside: |
+                  @RequestMapping(..., produces = $CPRODUCES, ...)
+                  class $CLAZZ {
+                    ...
+                  }
+              - metavariable-pattern:
+                  metavariable: $CPRODUCES
+                  patterns:
+                    - pattern-either:
+                        - pattern: '"application/json"'
+                        - pattern: '"text/plain"'
+                        - pattern: '"application/pdf"'
+                        - pattern: '"application/octet-stream"'
+                        - pattern: '"application/xml"'
+                        - pattern: '"text/xml"'
+                        - pattern: '"image/png"'
+                        - pattern: '"image/jpeg"'
+                        - pattern: '"image/gif"'
+                        - pattern: MediaType.APPLICATION_JSON_VALUE
+                        - pattern: MediaType.TEXT_PLAIN_VALUE
+                        - pattern: MediaType.APPLICATION_PDF_VALUE
+                        - pattern: MediaType.APPLICATION_OCTET_STREAM_VALUE
+                        - pattern: MediaType.APPLICATION_XML_VALUE
+                        - pattern: MediaType.TEXT_XML_VALUE
+                        - pattern: MediaType.IMAGE_PNG_VALUE
+                        - pattern: MediaType.IMAGE_JPEG_VALUE
+                        - pattern: MediaType.IMAGE_GIF_VALUE
+          - focus-metavariable: $UNTRUSTED
+
+      - patterns:
+          - pattern-inside: |
+              @$ANNOTATION(..., produces = $PRODUCES_HTML, ...)
+              $RT $METHOD(...) { ... }
+          - metavariable-pattern:
+              metavariable: $PRODUCES_HTML
+              patterns:
+                - pattern-either:
+                    - pattern: '"text/html"'
+                    - pattern: '"text/html;charset=UTF-8"'
+                    - pattern: '"text/html;charset=utf-8"'
+                    - pattern: '"image/svg+xml"'
+                    - pattern: MediaType.TEXT_HTML_VALUE
+                    - pattern: MediaType.IMAGE_SVG_XML_VALUE
+          - pattern: return $UNTRUSTED;
+          - focus-metavariable: $UNTRUSTED
+
+      - patterns:
+          - metavariable-pattern:
+              metavariable: $ANNOTATION
+              patterns:
+                - pattern-either:
+                    - pattern: GetMapping
+                    - pattern: PostMapping
+                    - pattern: PutMapping
+                    - pattern: PatchMapping
+                    - pattern: DeleteMapping
+                    - pattern: RequestMapping
+          - pattern-inside: |
+                @$ANNOTATION(...)
+                $RETURNTYPE $METHOD(...) {
+                  ...
+                }
+          - pattern-either:
+              - pattern: return $X.contentType(MediaType.TEXT_HTML).body($UNTRUSTED);
+              - pattern: return $X.contentType(MediaType.IMAGE_SVG_XML).body($UNTRUSTED);
+          - focus-metavariable: $UNTRUSTED
+
+
+      - patterns:
+          - pattern-either:
+              - pattern: |
+                  (HttpServletResponse $R).setContentType("$CT_HTML");
+                  ...
+                  $W = (HttpServletResponse $R).getWriter(...);
+                  ...
+                  $W.$WRITE(..., $UNTRUSTED, ...);
+              - pattern: |
+                  (HttpServletResponse $R).setHeader("Content-Type", "$CT_HTML");
+                  ...
+                  $W = (HttpServletResponse $R).getWriter(...);
+                  ...
+                  $W.$WRITE(..., $UNTRUSTED, ...);
+              - pattern: |
+                  (HttpServletResponse $R).addHeader("Content-Type", "$CT_HTML");
+                  ...
+                  $W = (HttpServletResponse $R).getWriter(...);
+                  ...
+                  $W.$WRITE(..., $UNTRUSTED, ...);
+          - metavariable-regex:
+              metavariable: $CT_HTML
+              regex: '^text/html(\s*;.*)?$'
+          - focus-metavariable: $UNTRUSTED

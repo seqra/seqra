@@ -59,11 +59,11 @@ lib/
       command-injection-sinks.yaml
       servlet-sqli-sinks.yaml
       servlet-untrusted-data-source.yaml
-      servlet-xss-sinks.yaml
+      servlet-response-injection-sinks.yaml
       xxe-sinks.yaml
     spring/
       jdbc-sqli-sinks.yaml
-      spring-xss-sinks.yaml
+      spring-response-injection-sinks.yaml
       untrusted-data-source.yaml
 ```
 

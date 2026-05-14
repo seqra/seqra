@@ -1,5 +1,5 @@
 rules:
-  - id: spring-xss-sink
+  - id: spring-response-injection-sink
     options:
       lib: true
     severity: NOTE
@@ -41,7 +41,6 @@ rules:
                       - pattern: PatchMapping
                       - pattern: PostMapping
                       - pattern: PutMapping
-          - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
           - pattern: |
               (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
           - pattern: |
