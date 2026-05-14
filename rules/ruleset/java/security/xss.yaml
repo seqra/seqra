@@ -2,7 +2,7 @@ rules:
   - id: xss-in-servlet-app
     severity: ERROR
     message: >-
-      Cross-site scripting (XSS): tainted data is written to a Servlet response with text/html
+      Cross-site scripting (XSS): untrusted input is written to a Servlet response with text/html
       content type, so injected scripts will execute in the browser.
     metadata:
       cwe: CWE-79
@@ -10,9 +10,8 @@ rules:
       full-description: |-
         Cross-site scripting (XSS) occurs when untrusted input reaches a Servlet's response writer
         without proper HTML encoding, allowing an attacker to inject client-side code (usually JavaScript)
-        into pages viewed by other users.
-        This rule fires at ERROR severity because the servlet explicitly sets the response content type
-        to `text/html`, confirming the browser will render the response as HTML and execute any injected scripts.
+        into pages viewed by other users. Here the servlet explicitly sets the response content type
+        to `text/html`, so the browser will render the response as HTML and execute any injected scripts.
 
         Vulnerable example:
 
@@ -85,7 +84,7 @@ rules:
   - id: response-injection-in-servlet-app
     severity: NOTE
     message: >-
-      Potential cross-site scripting (XSS): tainted data is written to a Servlet response writer
+      Potential cross-site scripting (XSS): untrusted input is written to a Servlet response writer
       without HTML encoding.
     metadata:
       cwe: CWE-79
@@ -97,6 +96,12 @@ rules:
         (e.g., request parameters, headers, form fields, query strings) is included in the HTTP response without proper output encoding.
         Attackers can leverage this to steal session cookies, perform actions on behalf of victims, modify page content,
         or conduct phishing attacks within the trusted site context.
+
+        Make sure the response is actually rendered as HTML by the browser. This rule fires for any direct
+        write of untrusted input to a Servlet response writer; if the response is served with a non-HTML
+        content type (`application/json`, `text/plain`, an attachment, etc.) the impact is usually limited.
+        When the content type is statically confirmed to be `text/html`, the ERROR-tier sibling rule
+        `xss-in-servlet-app` reports the same flow at higher severity.
 
         **Vulnerable code sample**
 
@@ -221,7 +226,7 @@ rules:
   - id: xss-in-spring-app
     severity: ERROR
     message: >-
-      Cross-site scripting (XSS): tainted data flows into a Spring response with text/html
+      Cross-site scripting (XSS): untrusted input flows into a Spring response with text/html
       content type, so injected scripts will execute in the browser.
     metadata:
       cwe: CWE-79
@@ -229,11 +234,11 @@ rules:
       full-description: |-
         Cross-site scripting (XSS) occurs when untrusted input is included in an HTML response without
         proper encoding, allowing an attacker to inject client-side code (usually JavaScript) into pages
-        viewed by other users. In Spring applications, this happens when a handler writes tainted data
-        directly to `HttpServletResponse` with an HTML content type, or returns tainted data from a
-        handler annotated with `produces = "text/html"`.
-        This rule fires at ERROR severity because the response content type is confirmed to be `text/html`,
-        so the browser will render the response as HTML and execute any injected scripts.
+        viewed by other users. In Spring applications, this happens when a handler writes untrusted input
+        directly to `HttpServletResponse` with an HTML content type, or returns untrusted input from a
+        handler annotated with `produces = "text/html"`. Here the response content type is statically
+        confirmed to be `text/html`, so the browser will render the response as HTML and execute any
+        injected scripts.
 
         Vulnerable example:
 
@@ -315,7 +320,7 @@ rules:
   - id: response-injection-in-spring-app
     severity: NOTE
     message: >-
-      Potential cross-site scripting (XSS): tainted data is rendered in a Spring view or response
+      Potential cross-site scripting (XSS): untrusted input is rendered in a Spring view or response
       without HTML encoding.
     metadata:
       cwe: CWE-79
@@ -327,6 +332,13 @@ rules:
         is added to the model and then rendered in a view (JSP, Thymeleaf, etc.) without proper output encoding.
         If the view engine renders user data as raw HTML, an attacker can inject scripts that execute in the victim's browser
         in the context of your application (stealing cookies, hijacking sessions, modifying content, etc.).
+
+        Make sure the response is actually rendered as HTML by the browser. This rule fires whenever
+        untrusted input flows into a Spring response or view; if the endpoint serves the response as
+        `application/json`, `text/plain`, or as an attachment, the impact is usually limited. When the
+        content type is statically confirmed to be `text/html` (for example via `produces = "text/html"`
+        or an explicit `setContentType`), the ERROR-tier sibling rule `xss-in-spring-app` reports the
+        same flow at higher severity.
 
         **Vulnerable code sample**
 
