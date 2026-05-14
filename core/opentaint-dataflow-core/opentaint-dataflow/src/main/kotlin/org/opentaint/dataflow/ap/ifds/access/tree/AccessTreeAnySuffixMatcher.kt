@@ -4,15 +4,18 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode.Companion.create
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.ANY_ACCESSOR_IDX
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.ELEMENT_ACCESSOR_IDX
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.FINAL_ACCESSOR_IDX
+import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isFieldAccessor
 
 class AccessTreeAnySuffixMatcher(suffixNode: AccessTree.AccessNode) {
     private val manager = suffixNode.manager
-    private val root = TrieNode(false, null)
+    private val root = TrieNode(false, null, 0)
 
     private data class TrieNode(
         val isAbstract: Boolean,
         val prefixLink: TrieNode?,
+        val depth: Int,
         val children: Int2ObjectOpenHashMap<TrieNode> = Int2ObjectOpenHashMap<TrieNode>()
     ) {
         fun findChild(accessor: Int): TrieNode? {
@@ -21,30 +24,47 @@ class AccessTreeAnySuffixMatcher(suffixNode: AccessTree.AccessNode) {
                 return child
             return prefixLink?.findChild(accessor)
         }
+
+        override fun toString(): String {
+            return "(isAbstract=$isAbstract, children=$children)"
+        }
     }
+
+    private fun AccessorIdx.coveredByAny(): Boolean =
+        this == ELEMENT_ACCESSOR_IDX || this.isFieldAccessor()
 
     private data class RawNodeWithParent(
         val node: AccessTree.AccessNode,
-        val accessor: Int,
-        val parent: TrieNode
+        val accessor: AccessorIdx,
+        val parent: TrieNode,
+        val depth: Int,
+        val notCoveredByAny: Int?,
     )
 
     init {
         if (suffixNode.accessors != null && suffixNode.accessorNodes != null) {
             val unprocessed = ArrayDeque<RawNodeWithParent>()
             suffixNode.forEachAccessor { accessor, accessorNode ->
-                unprocessed.addLast(RawNodeWithParent(accessorNode, accessor, root))
+                val notCoveredByAny = if (accessor.coveredByAny()) null else 1
+                unprocessed.addLast(RawNodeWithParent(accessorNode, accessor, root, 1, notCoveredByAny))
             }
 
             while (unprocessed.isNotEmpty()) {
-                val (node, accessor, triePar) = unprocessed.removeFirst()
+                val (node, accessor, triePar, depth, notCoveredByAny) = unprocessed.removeFirst()
                 // disallowing [any]->...->[any]
                 check(accessor != ANY_ACCESSOR_IDX)
+
+                val curNotCoveredByAny = when {
+                    notCoveredByAny != null -> notCoveredByAny
+                    !accessor.coveredByAny() -> depth
+                    else -> null
+                }
 
                 var prefix = triePar.prefixLink
                 while (prefix != null) {
                     val next = prefix.children.get(accessor)
-                    if (next != null) {
+                    val notCoveredStillInSuffix = curNotCoveredByAny == null || depth - next.depth > curNotCoveredByAny
+                    if (next != null && notCoveredStillInSuffix) {
                         prefix = next
                         break
                     }
@@ -56,11 +76,11 @@ class AccessTreeAnySuffixMatcher(suffixNode: AccessTree.AccessNode) {
                 if (prefix == null) {
                     prefix = root.children.get(accessor) ?: root
                 }
-                val newTrieNode = TrieNode(node.isAbstract || prefix.isAbstract, prefix)
+                val newTrieNode = TrieNode(node.isAbstract || prefix.isAbstract, prefix, depth)
                 triePar.children.put(accessor, newTrieNode)
 
                 node.forEachAccessor{ accessor, accessorNode ->
-                    unprocessed.addLast(RawNodeWithParent(accessorNode, accessor, newTrieNode))
+                    unprocessed.addLast(RawNodeWithParent(accessorNode, accessor, newTrieNode, depth + 1, curNotCoveredByAny))
                 }
             }
         }
@@ -71,15 +91,15 @@ class AccessTreeAnySuffixMatcher(suffixNode: AccessTree.AccessNode) {
         val accessorNodes = mutableListOf<AccessTree.AccessNode>()
 
         node.forEachAccessor { accessor, accessorNode ->
-            if (accessor != ANY_ACCESSOR_IDX) {
-                val child = getNonMatchingNode(root, accessorNode)
+            if (accessor.coveredByAny()) {
+                val child = getNonMatchingNode(root, accessorNode, true)
                 if (child != null) {
                     accessorIdx.add(accessor)
                     accessorNodes.add(child)
                 }
             }
             else {
-                // two [any]-branches can be merged naturally
+                // two [any]-branches can be merged naturally, as those not accepted by [any]
                 accessorIdx.add(accessor)
                 accessorNodes.add(accessorNode)
             }
@@ -88,15 +108,18 @@ class AccessTreeAnySuffixMatcher(suffixNode: AccessTree.AccessNode) {
         return accessorIdx.toIntArray() to accessorNodes.toTypedArray()
     }
 
-    private fun getNonMatchingNode(trie: TrieNode, node: AccessTree.AccessNode): AccessTree.AccessNode? {
+    private fun getNonMatchingNode(trie: TrieNode, node: AccessTree.AccessNode, prefixCoveredByAny: Boolean): AccessTree.AccessNode? {
         val accessorIdx = mutableListOf<AccessorIdx>()
         val accessorNodes = mutableListOf<AccessTree.AccessNode>()
 
         node.forEachAccessor { accessor, accessorNode ->
+            val prefixStillCovered = prefixCoveredByAny && accessor.coveredByAny()
+            // prefix has an accessor not covered by [any], so the whole suffix is not matched
+            val fallback = if (prefixStillCovered) root else null
             val next =
-                if (accessor == ANY_ACCESSOR_IDX) root
-                else trie.findChild(accessor) ?: root
-            val child = getNonMatchingNode(next, accessorNode)
+                if (accessor == ANY_ACCESSOR_IDX) fallback
+                else trie.findChild(accessor) ?: fallback
+            val child = next?.let { getNonMatchingNode(it, accessorNode, prefixStillCovered) }
             if (child != null) {
                 accessorIdx.add(accessor)
                 accessorNodes.add(child)
