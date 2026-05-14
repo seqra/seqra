@@ -583,8 +583,20 @@ class AccessTree(
 
             val isFinal = this.isFinal || other.isFinal
 
+            val thisAny = this.getChild(ANY_ACCESSOR_IDX)
+            val (otherAccessors, otherAccessorNodes) =
+                if (thisAny != null)
+                    AccessTreeAnySuffixMatcher(thisAny).getNonMatchingNode(other)
+                else other.accessors to other.accessorNodes
+
+            val otherAny = other.getChild(ANY_ACCESSOR_IDX)
+            val (thisAccessors, thisAccessorNodes) =
+                if (otherAny != null)
+                    AccessTreeAnySuffixMatcher(otherAny).getNonMatchingNode(this)
+                else accessors to accessorNodes
+
             val mergedAccessors = mergeAccessors(
-                other.accessors, other.accessorNodes, onOtherNode = { _, _ -> }
+                thisAccessors, thisAccessorNodes, otherAccessors, otherAccessorNodes, onOtherNode = { _, _ -> }
             ) { _, thisNode, otherNode ->
                 thisNode.mergeAdd(otherNode)
             }
@@ -1345,7 +1357,7 @@ class AccessTree(
                 )
 
             @JvmStatic
-            private fun TreeApManager.create(
+            fun TreeApManager.create(
                 isAbstract: Boolean,
                 isFinal: Boolean,
                 accessors: IntArray?,
