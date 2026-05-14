@@ -8,15 +8,64 @@ rules:
       cwe: CWE-79
       short-description: Cross-site scripting (XSS) in HTML response
       full-description: |-
-        Cross-Site Scripting (XSS) is a class of vulnerabilities that allows an attacker to inject malicious
-        client-side code (usually JavaScript) into web pages viewed by other users.
-        This finding is reported at ERROR severity because the servlet explicitly sets
-        the response content type to text/html, confirming that the browser will render the response
-        as HTML and execute any injected scripts.
+        Cross-site scripting (XSS) occurs when untrusted input reaches a Servlet's response writer
+        without proper HTML encoding, allowing an attacker to inject client-side code (usually JavaScript)
+        into pages viewed by other users.
+        This rule fires at ERROR severity because the servlet explicitly sets the response content type
+        to `text/html`, confirming the browser will render the response as HTML and execute any injected scripts.
 
-        To remediate, apply context-appropriate output encoding (e.g., HTML-escape with
-        `StringEscapeUtils.escapeHtml4()` or `HtmlUtils.htmlEscape()`) before writing user input
-        to the response.
+        Vulnerable example:
+
+        ```java
+        import java.io.PrintWriter;
+        import javax.servlet.annotation.WebServlet;
+        import javax.servlet.http.HttpServlet;
+        import javax.servlet.http.HttpServletRequest;
+        import javax.servlet.http.HttpServletResponse;
+
+        @WebServlet("/greet")
+        public class GreetingServlet extends HttpServlet {
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response) throws java.io.IOException {
+                response.setContentType("text/html;charset=UTF-8");
+                PrintWriter out = response.getWriter();
+
+                String name = request.getParameter("name"); // untrusted
+
+                // VULNERABLE: tainted data reaches an HTML response unencoded
+                out.println("<h1>Hello, " + name + "!</h1>");
+            }
+        }
+        ```
+
+        Safe example:
+
+        ```java
+        import java.io.PrintWriter;
+        import javax.servlet.annotation.WebServlet;
+        import javax.servlet.http.HttpServlet;
+        import javax.servlet.http.HttpServletRequest;
+        import javax.servlet.http.HttpServletResponse;
+        import org.apache.commons.text.StringEscapeUtils;
+
+        @WebServlet("/greet")
+        public class GreetingServlet extends HttpServlet {
+            @Override
+            protected void doGet(HttpServletRequest request, HttpServletResponse response) throws java.io.IOException {
+                response.setContentType("text/html;charset=UTF-8");
+                PrintWriter out = response.getWriter();
+
+                String name = request.getParameter("name");
+                String safe = StringEscapeUtils.escapeHtml4(name == null ? "" : name);
+
+                out.println("<h1>Hello, " + safe + "!</h1>");
+            }
+        }
+        ```
+
+        Key vulnerable patterns covered by this rule include `PrintWriter.print*` / `write` and
+        `ServletOutputStream.print*` / `write` on responses whose content type is `text/html`,
+        plus `HttpServletResponse.sendError(code, message)` and `JspWriter.write*` calls with tainted data.
       references:
         - https://owasp.org/www-community/attacks/xss/
       provenance:
@@ -151,9 +200,9 @@ rules:
         - Avoid constructing HTML/JavaScript by string concatenation where possible;
           use safe templating or tag libraries that handle encoding (e.g., JSP `<c:out>`).
         - Use security libraries and frameworks that provide standard encoding utilities.
-        references:
-          - https://owasp.org/www-community/attacks/xss/
-        provenance:
+      references:
+        - https://owasp.org/www-community/attacks/xss/
+      provenance:
         - https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/injection/tainted-html-string.yaml
         - https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/xss/no-direct-response-writer.yaml
     languages:
@@ -163,7 +212,7 @@ rules:
       refs:
         - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
           as: untrusted-data
-        - rule: java/lib/generic/servlet-xss-sinks.yaml#java-servlet-xss-sink
+        - rule: java/lib/generic/servlet-response-injection-sinks.yaml#java-servlet-response-injection-sink
           as: sink
       on:
         - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
@@ -177,18 +226,75 @@ rules:
       cwe: CWE-79
       short-description: Cross-site scripting (XSS) in HTML response
       full-description: |-
-        Cross-Site Scripting (XSS) is a class of vulnerabilities that allows an attacker to inject malicious
-        client-side code (usually JavaScript) into web pages viewed by other users.
-        This finding is reported at ERROR severity because the response content type is determined
-        to be text/html, confirming that the browser will render the response as HTML and execute
-        any injected scripts.
+        Cross-site scripting (XSS) occurs when untrusted input is included in an HTML response without
+        proper encoding, allowing an attacker to inject client-side code (usually JavaScript) into pages
+        viewed by other users. In Spring applications, this happens when a handler writes tainted data
+        directly to `HttpServletResponse` with an HTML content type, or returns tainted data from a
+        handler annotated with `produces = "text/html"`.
+        This rule fires at ERROR severity because the response content type is confirmed to be `text/html`,
+        so the browser will render the response as HTML and execute any injected scripts.
 
-        In Spring applications, this occurs when a handler method writes untrusted input
-        directly to HttpServletResponse with an HTML content type, or returns untrusted data
-        from a handler annotated with produces = "text/html".
+        Vulnerable example:
 
-        To remediate, apply context-appropriate output encoding (e.g., `HtmlUtils.htmlEscape()`)
-        before writing user input to the response.
+        ```java
+        import org.springframework.web.bind.annotation.GetMapping;
+        import org.springframework.web.bind.annotation.RequestParam;
+        import org.springframework.web.bind.annotation.RestController;
+
+        @RestController
+        public class GreetingController {
+            @GetMapping(value = "/greet", produces = "text/html")
+            public String greet(@RequestParam String name) {
+                // VULNERABLE: tainted data returned from a text/html handler unencoded
+                return "<h1>Hello, " + name + "!</h1>";
+            }
+        }
+        ```
+
+        Safe example — encode before returning HTML:
+
+        ```java
+        import org.springframework.web.bind.annotation.GetMapping;
+        import org.springframework.web.bind.annotation.RequestParam;
+        import org.springframework.web.bind.annotation.RestController;
+        import org.springframework.web.util.HtmlUtils;
+
+        @RestController
+        public class GreetingController {
+            @GetMapping(value = "/greet", produces = "text/html")
+            public String greet(@RequestParam String name) {
+                return "<h1>Hello, " + HtmlUtils.htmlEscape(name) + "!</h1>";
+            }
+        }
+        ```
+
+        Safe example — return a typed DTO so Jackson serializes as JSON instead of HTML:
+
+        ```java
+        import org.springframework.http.ResponseEntity;
+        import org.springframework.web.bind.annotation.GetMapping;
+        import org.springframework.web.bind.annotation.RequestParam;
+        import org.springframework.web.bind.annotation.RestController;
+
+        @RestController
+        public class GreetingController {
+            public static class GreetingDto {
+                public String name;
+                public GreetingDto(String name) { this.name = name; }
+            }
+
+            @GetMapping("/greet")
+            public ResponseEntity<GreetingDto> greet(@RequestParam(required = false, defaultValue = "") String name) {
+                // Jackson serializes the DTO as application/json — the browser will not render it as HTML
+                return ResponseEntity.ok(new GreetingDto(name));
+            }
+        }
+        ```
+
+        Key vulnerable patterns covered by this rule include controller returns from handlers with
+        `produces = "text/html"`, direct writes to `HttpServletResponse.getWriter` / `getOutputStream`
+        from a handler that sets a `text/html` content type, and `ResponseEntity` bodies with an
+        HTML content type built from tainted strings.
       references:
         - https://owasp.org/www-community/attacks/xss/
       provenance:
@@ -321,7 +427,7 @@ rules:
       refs:
         - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
           as: untrusted-data
-        - rule: java/lib/spring/spring-xss-sinks.yaml#spring-xss-sink
+        - rule: java/lib/spring/spring-response-injection-sinks.yaml#spring-response-injection-sink
           as: sink
       on:
         - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'

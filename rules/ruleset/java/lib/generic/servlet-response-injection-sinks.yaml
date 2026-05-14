@@ -1,5 +1,5 @@
 rules:
-  - id: java-servlet-xss-sink
+  - id: java-servlet-response-injection-sink
     options:
       lib: true
     severity: NOTE

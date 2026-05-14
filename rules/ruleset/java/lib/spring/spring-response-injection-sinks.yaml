@@ -1,5 +1,5 @@
 rules:
-  - id: spring-xss-sink
+  - id: spring-response-injection-sink
     options:
       lib: true
     severity: NOTE
