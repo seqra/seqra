@@ -112,7 +112,7 @@ AI 編寫的程式碼越多，你就越需要底層的形式化方法。
 
 **安裝指令碼 (Linux/macOS)**
 ```
-curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
+curl -fsSL https://opentaint.org/install.sh | bash
 ```
 
 **透過 Homebrew 安裝 (Linux/macOS)：**
@@ -122,7 +122,7 @@ brew install --cask seqra/tap/opentaint
 
 **安裝指令碼 (Windows PowerShell)**
 ```
-irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1 | iex
+irm https://opentaint.org/install.ps1 | iex
 ```
 
 **掃描你的專案：**

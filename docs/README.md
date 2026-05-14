@@ -103,9 +103,9 @@ Each finding includes the HTTP endpoint, making it easy to map your application'
 | Method | Command |
 |--------|---------|
 | **Homebrew** (Linux/macOS) | `brew install --cask seqra/tap/opentaint` |
-| **Install script** (Linux/macOS) | `curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh \| bash` |
-| **Install script** (Windows PowerShell) | `irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1 \| iex` |
-| **Install script** (Windows CMD) | `curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.cmd -o install.cmd && install.cmd && del install.cmd` |
+| **Install script** (Linux/macOS) | `curl -fsSL https://opentaint.org/install.sh \| bash` |
+| **Install script** (Windows PowerShell) | `irm https://opentaint.org/install.ps1 \| iex` |
+| **Install script** (Windows CMD) | `curl -fsSL https://opentaint.org/install.cmd -o install.cmd && install.cmd && del install.cmd` |
 | **Docker** | See [Docker docs](docker.md) |
 | **Binary** | [Download from releases](https://github.com/seqra/opentaint/releases/latest) |
 

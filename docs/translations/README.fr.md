@@ -112,7 +112,7 @@ Plus l'IA écrit du code, plus vous avez besoin de méthodes formelles en dessou
 
 **Script d'installation (Linux/macOS)**
 ```
-curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
+curl -fsSL https://opentaint.org/install.sh | bash
 ```
 
 **Installation via Homebrew (Linux/macOS) :**
@@ -122,7 +122,7 @@ brew install --cask seqra/tap/opentaint
 
 **Script d'installation (Windows PowerShell)**
 ```
-irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1 | iex
+irm https://opentaint.org/install.ps1 | iex
 ```
 
 **Analysez votre projet :**

@@ -15,28 +15,28 @@ The install scripts accept an optional version argument. Without one, the latest
 **Linux/macOS:**
 ```bash
 # Latest
-curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
+curl -fsSL https://opentaint.org/install.sh | bash
 
 # Specific version (leading 'v' is optional)
-curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash -s -- 1.2.3
+curl -fsSL https://opentaint.org/install.sh | bash -s -- 1.2.3
 ```
 
 **Windows (PowerShell):**
 ```powershell
 # Latest
-irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1 | iex
+irm https://opentaint.org/install.ps1 | iex
 
 # Specific version
-& ([scriptblock]::Create((irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1))) -Version 1.2.3
+& ([scriptblock]::Create((irm https://opentaint.org/install.ps1))) -Version 1.2.3
 ```
 
 **Windows (CMD):**
 ```cmd
 :: Latest
-curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.cmd -o install.cmd && install.cmd && del install.cmd
+curl -fsSL https://opentaint.org/install.cmd -o install.cmd && install.cmd && del install.cmd
 
 :: Specific version
-curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.cmd -o install.cmd && install.cmd 1.2.3 && del install.cmd
+curl -fsSL https://opentaint.org/install.cmd -o install.cmd && install.cmd 1.2.3 && del install.cmd
 ```
 
 ### Environment variables
@@ -92,7 +92,7 @@ Use the install script (recommended) or download and extract manually:
 
 ```bash
 # Install script (recommended — handles placement automatically)
-curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
+curl -fsSL https://opentaint.org/install.sh | bash
 
 # Or for opentaint-cli variant (binary only):
 curl -L https://github.com/seqra/opentaint/releases/latest/download/opentaint-cli_linux_amd64.tar.gz | tar xz
