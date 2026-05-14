@@ -24,26 +24,11 @@ import org.springframework.web.util.HtmlUtils;
 
 import java.nio.charset.Charset;
 
-
-/**
- * Spring MVC samples for xss-in-spring-app (ERROR).
- *
- * XSS in Spring is ERROR by default because:
- * - StringHttpMessageConverter negotiates to text/html for String returns
- * - Servlet spec defaults to text/html for direct response writers
- * - ResponseEntity without explicit content type is subject to content sniffing
- */
 public class XssHtmlResponseSpringSamples {
-
-    // ── String return from @RestController (content negotiation → text/html) ─
 
     @RestController
     public static class UnsafeStringReturnController {
 
-        /**
-         * String return from @RestController without produces.
-         * StringHttpMessageConverter negotiates to text/html with browser Accept header.
-         */
         @GetMapping("/xss-in-spring-app/unsafe-string-return")
         @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
         public String unsafeStringReturn(@RequestParam(required = false) String name) {
@@ -51,14 +36,9 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── ResponseEntity<String> return ───────────────────────────────────────
-
     @Controller
     public static class UnsafeResponseEntityStringController {
 
-        /**
-         * ResponseEntity&lt;String&gt; — body goes through StringHttpMessageConverter.
-         */
         @PostMapping("/xss-in-spring-app/unsafe-response-entity-string")
         @ResponseBody
         @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
@@ -68,8 +48,6 @@ public class XssHtmlResponseSpringSamples {
                     .body(errorMessage);
         }
     }
-
-    // ── Direct response writer with text/html content type ──────────────────
 
     @Controller
     public static class UnsafeSetContentTypeController {
@@ -83,8 +61,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── setHeader("Content-Type", "text/html") ──────────────────────────────
-
     @Controller
     public static class UnsafeSetHeaderController {
 
@@ -96,8 +72,6 @@ public class XssHtmlResponseSpringSamples {
             out.println("<h1>Hello, " + name + "!</h1>");
         }
     }
-
-    // ── Negative: sanitized HTML output ─────────────────────────────────────
 
     @Controller
     public static class SafeHtmlController {
@@ -112,19 +86,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── ResponseEntity<byte[]> WITH produces = "text/html" — XSS ────────────
-    // Explicit HTML content type forces the browser to render the bytes as
-    // HTML, so untrusted input embedded in those bytes is exploitable.
-    //
-    // Note on ResponseEntity<byte[]> WITHOUT produces: Spring's
-    // ByteArrayHttpMessageConverter defaults to application/octet-stream, so a
-    // raw ResponseEntity<byte[]> response is not rendered as HTML by modern
-    // browsers and is generally not XSS-exploitable in practice. The current
-    // Spring XSS sink rule cannot distinguish the body type and will flag
-    // byte[]-body controllers that reflect untrusted input — this is an
-    // acceptable over-approximation given that any downstream change to the
-    // handler's content type would make the response vulnerable.
-
     @Controller
     public static class UnsafeResponseEntityBytesHtmlController {
 
@@ -137,8 +98,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── String return WITH produces = "application/json" — NOT XSS ──────────
-
     @RestController
     public static class SafeJsonStringReturnController {
 
@@ -148,8 +107,6 @@ public class XssHtmlResponseSpringSamples {
             return "{\"name\":\"" + name + "\"}";
         }
     }
-
-    // ── Negative: sanitized String return ────────────────────────────────────
 
     @RestController
     public static class SafeStringReturnController {
@@ -162,8 +119,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 02: String, produces="text/html" — TP ──────────────────────────
-
     @RestController
     public static class Row02StringProducesHtmlController {
 
@@ -173,8 +128,6 @@ public class XssHtmlResponseSpringSamples {
             return "<h1>Hello, " + name + "!</h1>";
         }
     }
-
-    // ── Row 04: String, produces="text/plain" — FP ─────────────────────────
 
     @RestController
     public static class Row04StringProducesTextPlainController {
@@ -186,8 +139,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 05: String, produces="application/pdf" — FP ────────────────────
-
     @RestController
     public static class Row05StringProducesPdfController {
 
@@ -197,8 +148,6 @@ public class XssHtmlResponseSpringSamples {
             return "<h1>Hello, " + name + "!</h1>";
         }
     }
-
-    // ── Row 06: String, produces="application/octet-stream" — FP ───────────
 
     @RestController
     public static class Row06StringProducesOctetStreamController {
@@ -210,8 +159,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 08: ResponseEntity<String>, produces="application/json" — FP ───
-
     @RestController
     public static class Row08ResponseEntityStringProducesJsonController {
 
@@ -221,8 +168,6 @@ public class XssHtmlResponseSpringSamples {
             return ResponseEntity.ok("{\"name\":\"" + name + "\"}");
         }
     }
-
-    // ── Row 09: ResponseEntity<String>.contentType(TEXT_HTML) — TP ─────────
 
     @RestController
     public static class Row09ResponseEntityStringContentTypeHtmlController {
@@ -236,15 +181,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 10: ResponseEntity<String>.contentType(APPLICATION_JSON) — FP ──
-    // Empirical browser verdict (Playwright Chromium, Appendix A.2): no XSS
-    // — the response is delivered as Content-Type: application/json,
-    // Chromium does not MIME-sniff JSON to HTML, the injected <script>
-    // is not parsed, alert(1) does not fire. The rule currently lacks a
-    // discriminator for builder-chain content types, so it over-flags
-    // this sample. This FP is the expected behavior until opentaint
-    // gains expression-level sanitizer propagation (see Appendix D).
-
     @RestController
     public static class Row10ResponseEntityStringContentTypeJsonController {
 
@@ -256,8 +192,6 @@ public class XssHtmlResponseSpringSamples {
                     .body("{\"name\":\"" + name + "\"}");
         }
     }
-
-    // ── Row 11: ResponseEntity<String>.header("Content-Type","text/html") — TP
 
     @RestController
     public static class Row11ResponseEntityStringHeaderHtmlController {
@@ -271,14 +205,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 12: ResponseEntity<String>.header("Content-Type","application/json") — FP
-    // Empirical browser verdict (Playwright Chromium, Appendix A.2): no
-    // XSS — the builder `.header("Content-Type", "application/json")`
-    // pins the response to application/json; Chromium does not
-    // MIME-sniff it to HTML, alert(1) does not fire. The rule currently
-    // over-flags this because opentaint cannot discriminate builder-
-    // chain non-HTML content types (see Appendix D).
-
     @RestController
     public static class Row12ResponseEntityStringHeaderJsonController {
 
@@ -290,14 +216,6 @@ public class XssHtmlResponseSpringSamples {
                     .body("{\"name\":\"" + name + "\"}");
         }
     }
-
-    // ── Row 13: new ResponseEntity<>(body, headers, status), HttpHeaders sets JSON — FP
-    // Empirical browser verdict (Playwright Chromium, Appendix A.2): no
-    // XSS — HttpHeaders.setContentType(APPLICATION_JSON) pins the
-    // response content type; Chromium does not MIME-sniff JSON to HTML,
-    // alert(1) does not fire. The rule currently over-flags this because
-    // opentaint cannot track content-type state on a separate HttpHeaders
-    // object passed to the ResponseEntity constructor (see Appendix D).
 
     @RestController
     public static class Row13NewResponseEntityHeadersJsonController {
@@ -311,8 +229,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 14: raw ResponseEntity, no contentType — TP ────────────────────
-
     @RestController
     @SuppressWarnings({"rawtypes", "unchecked"})
     public static class Row14RawResponseEntityNoContentTypeController {
@@ -323,14 +239,6 @@ public class XssHtmlResponseSpringSamples {
             return ResponseEntity.ok("<h1>Hello, " + name + "!</h1>");
         }
     }
-
-    // ── Row 15: raw ResponseEntity.contentType(APPLICATION_JSON) — FP ─────
-    // Empirical browser verdict (Playwright Chromium, Appendix A.2): no
-    // XSS — raw ResponseEntity with .contentType(APPLICATION_JSON) pins
-    // the response content type; Chromium does not MIME-sniff JSON to
-    // HTML, alert(1) does not fire. The rule currently over-flags this
-    // because opentaint cannot discriminate builder-chain non-HTML
-    // content types (see Appendix D).
 
     @RestController
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -345,8 +253,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 16: Stirling-PDF ResponseEntity<byte[]> no content type — TP ───
-
     @RestController
     public static class Row16StirlingPdfShapeController {
 
@@ -358,14 +264,6 @@ public class XssHtmlResponseSpringSamples {
                     .body(err.getBytes(StandardCharsets.UTF_8));
         }
     }
-
-    // ── Row 18: ResponseEntity<byte[]>.contentType(APPLICATION_PDF) — FP ─
-    // Empirical browser verdict (Playwright Chromium, Appendix A.2): no
-    // XSS — Content-Type: application/pdf triggers a download prompt;
-    // Chromium does not render the bytes inline as HTML, alert(1) does
-    // not fire. The rule currently over-flags this because opentaint
-    // cannot discriminate builder-chain non-HTML content types (see
-    // Appendix D).
 
     @RestController
     public static class Row18ResponseEntityBytesContentTypePdfController {
@@ -380,14 +278,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 19: ResponseEntity<byte[]>.contentType(APPLICATION_OCTET_STREAM) — FP
-    // Empirical browser verdict (Playwright Chromium, Appendix A.2): no
-    // XSS — Content-Type: application/octet-stream triggers a download
-    // prompt; Chromium does not render the bytes inline as HTML,
-    // alert(1) does not fire. The rule currently over-flags this because
-    // opentaint cannot discriminate builder-chain non-HTML content types
-    // (see Appendix D).
-
     @RestController
     public static class Row19ResponseEntityBytesContentTypeOctetStreamController {
 
@@ -400,8 +290,6 @@ public class XssHtmlResponseSpringSamples {
                     .body(body);
         }
     }
-
-    // ── Row 20: HttpServletResponse.setContentType("application/json") — FP
 
     @Controller
     public static class Row20ServletSetContentTypeJsonController {
@@ -416,8 +304,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 21: HttpServletResponse.setHeader("Content-Type","application/json") — FP
-
     @Controller
     public static class Row21ServletSetHeaderJsonController {
 
@@ -431,14 +317,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 22: String, produces = MediaType.APPLICATION_JSON_VALUE — FP ───
-    // Empirical browser verdict (Playwright Chromium, Appendix A.2 / E):
-    // no XSS — the handler annotation's produces = APPLICATION_JSON_VALUE
-    // causes Spring to set Content-Type: application/json, Chromium does
-    // not MIME-sniff JSON to HTML, alert(1) does not fire. The rule
-    // excludes this via a pattern-not-inside on the MediaType constant
-    // form of the annotation.
-
     @RestController
     public static class Row22StringProducesMediaTypeJsonConstantController {
 
@@ -448,12 +326,6 @@ public class XssHtmlResponseSpringSamples {
             return "{\"payload\":\"" + name + "\"}";
         }
     }
-
-    // ── Row 23: String, produces = MediaType.TEXT_HTML_VALUE — TP ─────────
-    // Empirical browser verdict (Playwright Chromium, Appendix E): XSS
-    // fires — Content-Type: text/html;charset=UTF-8, alert(1) executes.
-    // Rule matches via the handler annotation's pattern-inside (the
-    // MediaType.TEXT_HTML_VALUE constant is NOT in any pattern-not-inside).
 
     @RestController
     public static class Row23StringProducesMediaTypeTextHtmlConstantController {
@@ -465,13 +337,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 24: String, produces = "application/xml" — FP ─────────────────
-    // Empirical browser verdict (Playwright Chromium, Appendix E): no
-    // XSS — Content-Type: application/xml; Chromium renders the response
-    // as an XML document (raw XML source, no script execution), alert(1)
-    // does not fire. The rule excludes this via pattern-not-inside for
-    // application/xml and MediaType.APPLICATION_XML_VALUE.
-
     @RestController
     public static class Row24StringProducesApplicationXmlController {
 
@@ -481,13 +346,6 @@ public class XssHtmlResponseSpringSamples {
             return "<note>" + name + "</note>";
         }
     }
-
-    // ── Row 25: String, produces = "image/svg+xml" — TP ───────────────────
-    // Empirical browser verdict (Playwright Chromium, Appendix E): XSS
-    // fires — SVG documents loaded as top-level navigation render as
-    // image/svg+xml and can host inline <script> that Chromium executes,
-    // so untrusted input injected into a served SVG body is exploitable.
-    // The rule does NOT exclude image/svg+xml — it correctly fires here.
 
     @RestController
     public static class Row25StringProducesSvgController {
@@ -501,12 +359,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 27: DeferredResult<String> resolved with tainted data — TP ────
-    // Empirical browser verdict (Playwright Chromium, Appendix E): XSS
-    // fires — Spring resolves the DeferredResult via String content
-    // negotiation against the browser's Accept header, the response lands
-    // on Content-Type: text/html;charset=UTF-8, alert(1) executes.
-
     @RestController
     public static class Row27DeferredResultStringController {
 
@@ -519,12 +371,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 28: CompletableFuture<String> with tainted data — TP ──────────
-    // Empirical browser verdict (Playwright Chromium, Appendix E): XSS
-    // fires — Spring resolves the future via String content negotiation,
-    // response lands on Content-Type: text/html;charset=UTF-8, alert(1)
-    // executes.
-
     @RestController
     public static class Row28CompletableFutureStringController {
 
@@ -534,15 +380,6 @@ public class XssHtmlResponseSpringSamples {
             return CompletableFuture.completedFuture("<h1>Hello, " + name + "!</h1>");
         }
     }
-
-    // ── Row 30: setContentType("text/html;charset=utf-16") + writer — TP ──
-    // Empirical browser verdict (Playwright Chromium, Appendix E): XSS
-    // fires — Content-Type: text/html;charset=utf-16, Chromium decodes
-    // the body and alert(1) executes. NOTE: the rule's block 2
-    // pattern-inside list enumerates charsets UTF-8 / utf-8 / ISO-8859-1
-    // but NOT utf-16. This sample is therefore an exposed FN — see
-    // Appendix E for the discussion on whether to enumerate all charset
-    // variants or switch to a charset-agnostic regex.
 
     @Controller
     public static class Row30ServletSetContentTypeHtmlUtf16Controller {
@@ -557,13 +394,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 31: @RestController + class-level @RequestMapping(produces=JSON) — TN
-    // Class-level @RequestMapping(produces = "application/json") propagates
-    // to every handler in the class. Spring sets Content-Type:
-    // application/json; Chromium does not MIME-sniff JSON to HTML, so
-    // alert(1) does not fire. The rule's class-level pattern-not-inside
-    // subtracts this match.
-
     @RestController
     @org.springframework.web.bind.annotation.RequestMapping(value = "/xss-in-spring-app/row-31", produces = "application/json")
     public static class Row31RestControllerClassLevelJsonController {
@@ -575,11 +405,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 32: @RestController + class-level @RequestMapping(produces=text/html) — TP
-    // Same class-level inheritance, but produces is text/html — handler
-    // returns are HTML, so reflected user input IS XSS. The rule must
-    // still fire here.
-
     @RestController
     @org.springframework.web.bind.annotation.RequestMapping(value = "/xss-in-spring-app/row-32", produces = "text/html")
     public static class Row32RestControllerClassLevelHtmlController {
@@ -590,11 +415,6 @@ public class XssHtmlResponseSpringSamples {
             return "<h1>Hello, " + name + "!</h1>";
         }
     }
-
-    // ── Row 34: setHeader("Content-Type", "text/html") + writer + tainted — TP
-    // Reflected XSS through setHeader rather than setContentType.
-    // The rule's pattern-inside list in the writer block enumerates this
-    // form, so the rule fires.
 
     @org.springframework.stereotype.Controller
     public static class Row34ServletSetHeaderTextHtmlController {
@@ -609,13 +429,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 35: addHeader("Content-Type", "application/json") + writer — FP
-    // addHeader (vs setHeader / setContentType) form for the safe
-    // content-type signal. Currently the writer block's pattern-not-inside
-    // covers addHeader for application/json, so the writer call should
-    // not be flagged. Same pattern-not-inside engine limitation applies as
-    // for setHeader / setContentType.
-
     @org.springframework.stereotype.Controller
     public static class Row35ServletAddHeaderJsonController {
 
@@ -629,13 +442,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 36: assignment-form ResponseEntity safe builder chain — should be FP-free
-    // Same `.contentType(MediaType.APPLICATION_JSON).body(...)` shape as
-    // Row10, but written with an explicit LHS assignment. The
-    // assignment-form sanitizer (pattern: `$RESULT = $X.contentType($CT).body(...);`,
-    // focus-metavariable $RESULT) should sanitize the `result` variable
-    // and the subsequent `return result;` should see clean data.
-
     @RestController
     public static class Row36ResponseEntityAssignmentJsonController {
 
@@ -648,24 +454,6 @@ public class XssHtmlResponseSpringSamples {
             return result;
         }
     }
-
-    // ── Rows 40/41/42/43: @RestController + parameterized return cases ─────
-    // Moved to dedicated `spring-app-tests/` sub-projects so they're
-    // analyzed via Spring dispatch rather than direct method-as-entry:
-    //   - rules/test/spring-app-tests/xss-rest-controller-string-positive
-    //   - rules/test/spring-app-tests/xss-rest-controller-dto-negative
-    //   - rules/test/spring-app-tests/xss-rest-controller-html-positive
-    // Method-as-entry analysis (the default for samples in this file)
-    // does not honor class-level `pattern-not-inside` end-to-end, so
-    // these cases need the SpringTestSample wrapper to reflect what
-    // `opentaint scan` actually produces.
-
-    // ── Row 37: assignment-form servlet writer with safe setContentType
-    // Same shape as Row20, but the writer call is on a separate line and
-    // the data argument is held in a variable. Multi-statement single-
-    // pattern sanitizer should match
-    //   $R.setContentType("application/json"); ... $R.getWriter()....print($UNTRUSTED);
-    // and sanitize $UNTRUSTED at the writer's argument position.
 
     @org.springframework.stereotype.Controller
     public static class Row37ServletSetContentTypeJsonAssignmentController {
@@ -681,14 +469,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 50: setContentType(MediaType.TEXT_HTML_VALUE) + writer — TP
-    // `setContentType` accepts `String`, so passing the
-    // `MediaType.TEXT_HTML_VALUE` constant (which IS a `String`) is
-    // valid Spring code. Equivalent to `setContentType("text/html")` at
-    // runtime, so reflected user input is XSS-exploitable. The Branch 2
-    // sink alternatives currently only enumerate the bare-string form;
-    // this sample pins the constant-form coverage.
-
     @org.springframework.stereotype.Controller
     public static class Row50ServletSetContentTypeHtmlConstantController {
 
@@ -701,8 +481,6 @@ public class XssHtmlResponseSpringSamples {
             out.println("<h1>Hello, " + name + "!</h1>");
         }
     }
-
-    // ── Row 51: setHeader("Content-Type", MediaType.TEXT_HTML_VALUE) + writer — TP
 
     @org.springframework.stereotype.Controller
     public static class Row51ServletSetHeaderHtmlConstantController {
@@ -717,8 +495,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 52: addHeader("Content-Type", MediaType.TEXT_HTML_VALUE) + writer — TP
-
     @org.springframework.stereotype.Controller
     public static class Row52ServletAddHeaderHtmlConstantController {
 
@@ -732,16 +508,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 53: Object return + chained `return`-anchored builder + tainted body — TP
-    // Return type `Object` is NOT in Branch 1's default-dangerous
-    // enumeration (String / ResponseEntity<String|byte[]> / etc.) and
-    // there is no `produces=` annotation, so Branch 1 / 1b do not
-    // match this method-decl shape. The builder chain's explicit
-    // `.contentType(MediaType.TEXT_HTML)` is the runtime HTML signal
-    // (it overrides any framework default). Branch 1c is the only
-    // branch that catches this pattern; the sink is the `return`
-    // statement itself, not the bare `.body(...)` call.
-
     @RestController
     public static class Row53BuilderChainHtmlObjectReturnController {
 
@@ -753,11 +519,6 @@ public class XssHtmlResponseSpringSamples {
                     .body("<h1>Hello, " + name + "!</h1>");
         }
     }
-
-    // ── Row 54: Object return + multi-statement (local-var) builder + return — TP
-    // Same default-`produces` case as Row 53, but the entity is built
-    // into a local variable and then returned on a subsequent line.
-    // Pins the multi-statement form of Branch 1c.
 
     @RestController
     public static class Row54BuilderChainHtmlMultiStatementController {
@@ -772,15 +533,6 @@ public class XssHtmlResponseSpringSamples {
         }
     }
 
-    // ── Row 55: builder-chain HTML entity built but NOT returned — TN
-    // The handler constructs a `ResponseEntity` with
-    // `MediaType.TEXT_HTML` and a tainted body, but the entity is
-    // discarded — the method is `void` and the entity never reaches
-    // the dispatcher. No HTTP response carries the tainted data, so
-    // no XSS. Branch 1c is anchored at the `return` statement, so it
-    // correctly does NOT fire here. (An earlier `.body($UNTRUSTED)`-
-    // anchored Branch 1c would have raised an FP on this sample.)
-
     @RestController
     public static class Row55BuilderChainHtmlEntityDiscardedController {
 
@@ -791,23 +543,9 @@ public class XssHtmlResponseSpringSamples {
             ResponseEntity<String> entity = ResponseEntity.ok()
                     .contentType(MediaType.TEXT_HTML)
                     .body("<h1>Hello, " + name + "!</h1>");
-            // `entity` is never returned, never written to the response.
+
         }
     }
-
-    // ── Row 56: plain @Controller + @ResponseBody + String + no produces — TP
-    // Empirical browser verdict (Playwright Chromium, see
-    // `spring-app-tests/xss-in-spring-app-dynamic`): XSS fires —
-    // `@ResponseBody` makes Spring write the return value through
-    // `StringHttpMessageConverter`, which content-negotiates against the
-    // browser's `Accept: text/html` and serves
-    // `Content-Type: text/html;charset=UTF-8`. `alert(1)` executes.
-    //
-    // This is the case the previous rule missed: it had a
-    // `pattern-not-inside @ResponseBody` exclusion on the `String`
-    // return shape under the (incorrect) assumption that `text/plain`
-    // was the converter's default. Removing the exclusion is what makes
-    // this row a true positive.
 
     @Controller
     public static class Row56ControllerResponseBodyStringController {

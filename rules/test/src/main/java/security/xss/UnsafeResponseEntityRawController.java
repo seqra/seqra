@@ -6,8 +6,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// @RestController + raw ResponseEntity wrapping a String body — caught by the
-// parameterized ResponseEntity<String> pattern (raw matches any parameterization at decl).
 @RestController
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class UnsafeResponseEntityRawController {

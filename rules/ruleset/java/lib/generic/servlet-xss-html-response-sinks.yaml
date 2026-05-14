@@ -11,8 +11,6 @@ rules:
       - java
     mode: taint
 
-    # Servlet defaults Content-Type to text/html — writer/OutputStream is XSS
-    # unless setContentType pins non-HTML. Spring sibling for raw HttpServlet handlers.
 
     pattern-sanitizers:
       - patterns:
@@ -55,19 +53,12 @@ rules:
               - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
               - pattern: (JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
 
-          # String-literal arg variant: `"$CT_SAFE"` binds to the literal
-          # contents and is honored by `metavariable-regex`.
           - pattern-not-inside: |
               (HttpServletResponse $RESPONSE).setContentType("$CT_SAFE");
               ...
           - metavariable-regex:
               metavariable: $CT_SAFE
               regex: '^(application/(json|pdf|octet-stream|xml)|text/(plain|xml)|image/(png|jpeg|gif))(\s*;.*)?$'
-          # Identifier-arg variant: bare `$CT_CONST` matches Java identifier
-          # expressions; `metavariable-pattern` enumerates `MediaType.X_VALUE`
-          # constants. Dev analyzer constant-folds these, but the
-          # enumeration is kept explicit for analyzer-regression and
-          # older-build robustness.
           - pattern-not-inside: |
               (HttpServletResponse $RESPONSE).setContentType($CT_CONST);
               ...

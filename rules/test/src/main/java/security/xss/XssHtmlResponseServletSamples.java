@@ -13,15 +13,7 @@ import javax.servlet.http.HttpServletResponse;
 import org.opentaint.sast.test.util.NegativeRuleSample;
 import org.opentaint.sast.test.util.PositiveRuleSample;
 
-/**
- * Servlet-based samples for xss-in-servlet-app (ERROR).
- *
- * XSS in servlets is ERROR by default because the Servlet spec defaults
- * to text/html when no content type is set.
- */
 public class XssHtmlResponseServletSamples {
-
-    // ── Positive: explicit text/html ────────────────────────────────────────
 
     @WebServlet("/xss-in-servlet-app/unsafe-html-explicit")
     public static class UnsafeHtmlServlet extends HttpServlet {
@@ -38,8 +30,6 @@ public class XssHtmlResponseServletSamples {
         }
     }
 
-    // ── Positive: no content type (servlet defaults to text/html) ───────────
-
     @WebServlet("/xss-in-servlet-app/unsafe-no-content-type")
     public static class UnsafeNoContentTypeServlet extends HttpServlet {
 
@@ -54,8 +44,6 @@ public class XssHtmlResponseServletSamples {
         }
     }
 
-    // ── Positive: chained getWriter().write() (no local var) ────────────────
-
     @WebServlet("/xss-in-servlet-app/unsafe-chained-writer")
     public static class UnsafeChainedWriterServlet extends HttpServlet {
 
@@ -69,8 +57,6 @@ public class XssHtmlResponseServletSamples {
         }
     }
 
-    // ── Positive: chained getOutputStream().write() ─────────────────────────
-
     @WebServlet("/xss-in-servlet-app/unsafe-chained-output-stream")
     public static class UnsafeChainedOutputStreamServlet extends HttpServlet {
 
@@ -83,8 +69,6 @@ public class XssHtmlResponseServletSamples {
             response.getOutputStream().write(("<h1>Hello, " + name + "!</h1>").getBytes());
         }
     }
-
-    // ── Positive: getOutputStream() local-var assignment ────────────────────
 
     @WebServlet("/xss-in-servlet-app/unsafe-output-stream-local")
     public static class UnsafeOutputStreamLocalServlet extends HttpServlet {
@@ -100,8 +84,6 @@ public class XssHtmlResponseServletSamples {
         }
     }
 
-    // ── Positive: sendError(code, message) renders message as text/html ─────
-
     @WebServlet("/xss-in-servlet-app/unsafe-send-error")
     public static class UnsafeSendErrorServlet extends HttpServlet {
 
@@ -114,8 +96,6 @@ public class XssHtmlResponseServletSamples {
             response.sendError(400, "Bad input: " + name);
         }
     }
-
-    // ── Positive: pre-existing typed PrintWriter local ──────────────────────
 
     @WebServlet("/xss-in-servlet-app/unsafe-typed-print-writer")
     public static class UnsafeTypedPrintWriterServlet extends HttpServlet {
@@ -135,8 +115,6 @@ public class XssHtmlResponseServletSamples {
         }
     }
 
-    // ── Negative: chained getWriter().write() with JSON content type ────────
-
     @WebServlet("/xss-in-servlet-app/safe-chained-writer-json")
     public static class SafeChainedWriterJsonServlet extends HttpServlet {
 
@@ -151,8 +129,6 @@ public class XssHtmlResponseServletSamples {
         }
     }
 
-    // ── Negative: getOutputStream() with octet-stream content type ──────────
-
     @WebServlet("/xss-in-servlet-app/safe-output-stream-octet")
     public static class SafeOutputStreamOctetServlet extends HttpServlet {
 
@@ -166,8 +142,6 @@ public class XssHtmlResponseServletSamples {
             response.getOutputStream().write(name.getBytes());
         }
     }
-
-    // ── Negative: sanitized output ──────────────────────────────────────────
 
     @WebServlet("/xss-in-servlet-app/safe-html-explicit")
     public static class SafeHtmlServlet extends HttpServlet {

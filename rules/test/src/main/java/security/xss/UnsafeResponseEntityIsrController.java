@@ -10,8 +10,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// @RestController + ResponseEntity<InputStreamResource>. Same Resource-family wildcard
-// converter mechanics; the inner stream is served as text/html under browser Accept.
 @RestController
 public class UnsafeResponseEntityIsrController {
 

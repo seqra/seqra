@@ -449,7 +449,6 @@ rules:
   - id: xssrequestwrapper-is-insecure
     severity: WARNING
     options:
-      # todo: clarify this pattern
       disabled: pattern with concrete class name
     message: >-
       It looks like you're using an implementation of XSSRequestWrapper from dzone.

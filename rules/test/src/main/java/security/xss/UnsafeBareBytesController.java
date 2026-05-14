@@ -7,8 +7,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// @RestController + bare byte[] return. ByteArrayHttpMessageConverter advertises wildcard,
-// so browser Accept lifts the response to text/html and the inline <script> executes.
 @RestController
 public class UnsafeBareBytesController {
 

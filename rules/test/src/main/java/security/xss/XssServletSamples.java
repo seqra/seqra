@@ -12,14 +12,8 @@ import javax.servlet.http.HttpServletResponse;
 import org.opentaint.sast.test.util.NegativeRuleSample;
 import org.opentaint.sast.test.util.PositiveRuleSample;
 
-/**
- * Servlet-based samples for xss-in-servlet-app.
- */
 public class XssServletSamples {
 
-    /**
-     * Unsafe servlet that writes untrusted input directly into the HTML response without encoding.
-     */
     @WebServlet("/xss-in-servlet-app/unsafe")
     public static class UnsafeGreetingServlet extends HttpServlet {
 
@@ -31,22 +25,17 @@ public class XssServletSamples {
             response.setContentType("text/html;charset=UTF-8");
             PrintWriter out = response.getWriter();
 
-            // Untrusted input taken directly from the request
             String name = request.getParameter("name");
 
-            // VULNERABLE: Unencoded user input is directly embedded into HTML
             out.println("<html>");
             out.println("<head><title>Greeting</title></head>");
             out.println("<body>");
-            out.println("<h1>Hello, " + name + "!</h1>"); // XSS if 'name' contains HTML/JS
+            out.println("<h1>Hello, " + name + "!</h1>");
             out.println("</body>");
             out.println("</html>");
         }
     }
 
-    /**
-     * Safe servlet that encodes untrusted input before including it in the HTML response.
-     */
     @WebServlet("/xss-in-servlet-app/safe")
     public static class SafeGreetingServlet extends HttpServlet {
 
@@ -63,7 +52,6 @@ public class XssServletSamples {
                 name = "";
             }
 
-            // Encode untrusted input for HTML context
             String safeName = org.apache.commons.text.StringEscapeUtils.escapeHtml4(name);
 
             out.println("<html>");
@@ -75,10 +63,6 @@ public class XssServletSamples {
         }
     }
 
-    /**
-     * Unsafe servlet with JSON content type — positive for INFO rule.
-     * The ERROR rule should NOT fire (safe content type excludes it).
-     */
     @WebServlet("/response-injection-in-servlet-app/unsafe-json")
     public static class UnsafeJsonInfoServlet extends HttpServlet {
 

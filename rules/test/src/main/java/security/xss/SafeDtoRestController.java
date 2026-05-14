@@ -6,8 +6,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// @RestController + ResponseEntity<DTO> — Jackson converter serializes as application/json.
-// Suppressed by exact type-arg matching at the method-decl return position.
 @RestController
 public class SafeDtoRestController {
 

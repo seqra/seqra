@@ -11,11 +11,8 @@ rules:
       - java
     mode: taint
 
-    # Branches 1/1b/1c: DEFAULT-DANGEROUS handler returns unless a non-HTML signal subtracts.
-    # Branch 2 (servlet writer): DEFAULT-SAFE — fires only on explicit text/html.
 
     pattern-sanitizers:
-      # HTML encoders. focus-metavariable scopes sanitization to the encoded argument.
       - patterns:
           - pattern-either:
               - pattern: Encode.forHtml(..., $UNTRUSTED, ...)
@@ -30,8 +27,6 @@ rules:
           - focus-metavariable: $UNTRUSTED
 
 
-      # new ResponseEntity(body, headers, status) with non-HTML preset on headers.
-      # Same engine TODO as above (no-op until focus-metavariable on sanitizers lands).
       - patterns:
           - pattern-either:
               - pattern: |
@@ -57,8 +52,6 @@ rules:
           - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:
-      # Branch 1: DEFAULT-DANGEROUS return types. Use pattern-not-inside (not
-      # pattern-not — automata bug SemgrepRuleToAutomata.kt:82-84).
       - patterns:
           - metavariable-pattern:
               metavariable: $ANNOTATION
@@ -70,8 +63,6 @@ rules:
                     - pattern: PatchMapping
                     - pattern: DeleteMapping
                     - pattern: RequestMapping
-          # Body-typed returns feed via `return $UNTRUSTED;`;
-          # DeferredResult<$T> feeds via `$DR.setResult(tainted)` before returning the wrapper.
           - pattern-either:
               - patterns:
                   - pattern-either:
@@ -259,18 +250,12 @@ rules:
                           }
               - patterns:
                   - pattern-either:
-                      # Type-arg matching is exact at the return position; <String>/<byte[]>
-                      # are discriminators, not placeholders (Stirling-PDF rescan: 42 → 9 FPs).
 
-                      # String return NOT gated by @ResponseBody/@RestController: StringHttpMessageConverter
-                      # negotiates to text/html under browser Accept; @Controller view-name shape doesn't dataflow.
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           String $METHOD(...) {
                             ...
                           }
-                      # Bare byte[] / Resource family — converters advertise wildcard, browser
-                      # Accept lifts to text/html. Object excluded (subsumes class returns, FP).
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           byte[] $METHOD(...) {
@@ -306,8 +291,6 @@ rules:
                           UrlResource $METHOD(...) {
                             ...
                           }
-                      # Raw ResponseEntity is caught by the parameterized branches above —
-                      # raw matches any parameterization at the decl position, so no dedicated branch needed.
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           CompletableFuture<String> $METHOD(...) {
@@ -318,7 +301,6 @@ rules:
                           CompletableFuture<byte[]> $METHOD(...) {
                             ...
                           }
-                      # CompletableFuture: Spring unwraps and applies converters to the inner value.
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           CompletableFuture<Object> $METHOD(...) {
@@ -367,7 +349,6 @@ rules:
                           DeferredResult<byte[]> $METHOD(...) {
                             ...
                           }
-                      # DeferredResult: same wrapper-unwrap as CompletableFuture.
                       - pattern-inside: |
                           @$ANNOTATION(...)
                           DeferredResult<Object> $METHOD(...) {
@@ -405,10 +386,7 @@ rules:
                           }
                   - pattern: $DR.setResult(..., $UNTRUSTED, ...);
 
-          # image/svg+xml NOT excluded — SVG can host inline <script>.
 
-          # $PRODUCES OUTSIDE quotes binds to whole annotation-arg (string OR MediaType.X_VALUE);
-          # bare `application/json` can't appear — engine parses `/` `-` as Java operators.
           - patterns:
               - pattern-not-inside: |
                   @$ANNOTATION(..., produces = $PRODUCES, ...)
@@ -435,10 +413,6 @@ rules:
                         - pattern: MediaType.IMAGE_PNG_VALUE
                         - pattern: MediaType.IMAGE_JPEG_VALUE
                         - pattern: MediaType.IMAGE_GIF_VALUE
-          # Class-level produces=: @RestController/@Controller with
-          # @RequestMapping(produces=non-html) inherits to every handler.
-          # Method-level subtractor above misses these because produces lives
-          # on the enclosing class.
           - patterns:
               - pattern-not-inside: |
                   @RequestMapping(..., produces = $CPRODUCES, ...)
@@ -469,8 +443,6 @@ rules:
                         - pattern: MediaType.IMAGE_GIF_VALUE
           - focus-metavariable: $UNTRUSTED
 
-      # Branch 1b: explicit HTML/SVG produces= — fires regardless of @RestController
-      # ($PRODUCES_HTML must be a bare metavar at the annotation-arg position).
       - patterns:
           - pattern-inside: |
               @$ANNOTATION(..., produces = $PRODUCES_HTML, ...)
@@ -488,8 +460,6 @@ rules:
           - pattern: return $UNTRUSTED;
           - focus-metavariable: $UNTRUSTED
 
-      # Branch 1c: explicit HTML/SVG on a ResponseEntity builder chain. Sink is the return —
-      # .contentType() overrides the framework default; only MediaType instance constants apply.
       - patterns:
           - metavariable-pattern:
               metavariable: $ANNOTATION
@@ -511,12 +481,7 @@ rules:
               - pattern: return $X.contentType(MediaType.IMAGE_SVG_XML).body($UNTRUSTED);
           - focus-metavariable: $UNTRUSTED
 
-      # Branch 2: servlet writer — DEFAULT-SAFE; fires only on explicit text/html
-      # via setContentType / setHeader / addHeader.
 
-      # $CT_HTML INSIDE quotes ("$CT_HTML") binds to literal contents (OUTSIDE is silently
-      # ignored). Writer-call arities are split — name-metavar intersection across arities
-      # over-restricts and drops matches.
       - patterns:
           - pattern-either:
               - pattern: |

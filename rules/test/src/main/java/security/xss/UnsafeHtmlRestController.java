@@ -5,8 +5,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// @RestController + explicit produces = "text/html". Branch 1b fires regardless of
-// @RestController — explicit produces overrides Spring's converter default.
 @RestController
 public class UnsafeHtmlRestController {
 

@@ -10,8 +10,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-// @RestController + ResponseEntity<Resource>. Same wildcard-converter mechanics as
-// bare Resource — browser Accept ranks text/html first, bytes labeled text/html.
 @RestController
 public class UnsafeResponseEntityResourceController {
 
