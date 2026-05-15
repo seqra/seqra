@@ -558,13 +558,16 @@ class NormalMethodAnalyzer(
     }
 
     private fun addInitialF2FEdge(edge: FactToFact) {
-        if (edgeExceedLimit(edge)) {
-            registerDelayed()
-            delayedF2FInitialEdges.add(edge)
-            return
-        }
-
+        if (delayInitialEdge(edge)) return
         addSequentialEdge(edge)
+    }
+
+    private fun delayInitialEdge(edge: FactToFact): Boolean {
+        if (!edgeExceedLimit(edge)) return false
+
+        registerDelayed()
+        delayedF2FInitialEdges.add(edge)
+        return true
     }
 
     private fun registerDelayed() {
@@ -599,6 +602,12 @@ class NormalMethodAnalyzer(
     private fun addSequentialEdge(edge: Edge) {
         edges.add(edge).forEach { newEdge ->
             enqueueNewEdge(newEdge)
+        }
+    }
+
+    private fun addSequentialUnchangedEdge(edge: Edge) {
+        if (enqueuedUnchangedEdges.add(edge)) {
+            enqueueNewEdge(edge)
         }
     }
 
@@ -662,9 +671,7 @@ class NormalMethodAnalyzer(
             if (!edgeUnchanged) {
                 addSequentialEdge(nextEdge)
             } else {
-                if (enqueuedUnchangedEdges.add(nextEdge)) {
-                    enqueueNewEdge(nextEdge)
-                }
+                addSequentialUnchangedEdge(nextEdge)
             }
         }
     }
@@ -688,19 +695,25 @@ class NormalMethodAnalyzer(
         if (edge is ZeroToZero) {
             runner.addNewSummaryEdges(methodEntryPoint, listOf(edge))
         } else {
-            if (edge is FactToFact) {
-                if (edgeExceedLimit(edge)) {
-                    registerDelayed()
-                    delayedF2FSummaries.add(edge)
-                    return
-                }
-            }
+            if (delaySummaryEdge(edge)) return
+            addNewSummaryEdge(edge)
+        }
+    }
 
-            pendingSummaryEdges.add(edge)
+    private fun delaySummaryEdge(edge: Edge): Boolean {
+        if (edge !is FactToFact) return false
+        if (!edgeExceedLimit(edge)) return false
 
-            if (!analyzerEnqueued) {
-                flushPendingSummaryEdges()
-            }
+        registerDelayed()
+        delayedF2FSummaries.add(edge)
+        return true
+    }
+
+    private fun addNewSummaryEdge(edge: Edge) {
+        pendingSummaryEdges.add(edge)
+
+        if (!analyzerEnqueued) {
+            flushPendingSummaryEdges()
         }
     }
 

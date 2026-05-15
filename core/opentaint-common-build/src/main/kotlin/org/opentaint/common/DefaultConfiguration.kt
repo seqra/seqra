@@ -37,6 +37,7 @@ fun Project.configureDefaultKotlin() {
             jvmTarget = JvmTarget.JVM_1_8
             allWarningsAsErrors = false
             freeCompilerArgs.add("-Xsam-conversions=class")
+            freeCompilerArgs.add("-Xno-param-assertions")
         }
     }
 }

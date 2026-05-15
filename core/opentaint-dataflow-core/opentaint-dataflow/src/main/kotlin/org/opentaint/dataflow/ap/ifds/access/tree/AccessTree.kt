@@ -4,6 +4,8 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.ints.IntObjectImmutablePair
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap
+import it.unimi.dsi.fastutil.objects.ObjectOpenHashSet
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
@@ -1510,6 +1512,9 @@ class AccessTree(
                         else -> create(accessor, node)
                     }
                 }
+
+            private fun <K, V: Any> Object2ObjectOpenHashMap<K, V>.getComputedResult(key: K): V =
+                get(key) ?: error("Result for $key was not computed")
         }
     }
 }
