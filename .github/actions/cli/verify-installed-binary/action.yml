@@ -1,0 +1,30 @@
+name: 'Verify installed opentaint binary'
+description: 'Runs `<binary> --version`, falling back to the standard per-OS install location when no binary path is provided'
+
+inputs:
+  binary-path:
+    description: 'Path to the opentaint binary (typically from an install step output). Falls back to the standard per-OS install location when empty.'
+    required: false
+    default: ''
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Verify (unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      env:
+        BINARY_PATH: ${{ inputs.binary-path }}
+      run: |
+        if [ -z "$BINARY_PATH" ]; then BINARY_PATH="$HOME/.opentaint/install/opentaint"; fi
+        "$BINARY_PATH" --version
+
+    - name: Verify (windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      env:
+        BINARY_PATH: ${{ inputs.binary-path }}
+      run: |
+        $binaryPath = $env:BINARY_PATH
+        if ([string]::IsNullOrEmpty($binaryPath)) { $binaryPath = "$env:LOCALAPPDATA\opentaint\install\opentaint.exe" }
+        & $binaryPath --version

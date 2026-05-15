@@ -30,3 +30,4 @@ config.local.*
 
 # Optional: Allow the .gitignore file itself to be tracked
 !.gitignore
+!.github

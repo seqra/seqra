@@ -1,0 +1,43 @@
+name: 'Serve test archive over HTTP (unix only)'
+description: |
+  Starts a Python http.server in a directory and waits until it is reachable.
+  Linux/macOS only: on Windows the GitHub Actions Job Object kills background
+  processes at step end, so the server would not survive into the next step.
+  Windows callers must inline the server start, readiness poll, and consumer
+  command in a single step.
+
+inputs:
+  archive-dir:
+    description: 'Directory whose contents to serve'
+    required: true
+  port:
+    description: 'Port to listen on'
+    required: false
+    default: '8080'
+  timeout-seconds:
+    description: 'How long to wait for the server to become ready'
+    required: false
+    default: '30'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Reject Windows runner
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        Write-Error 'cli/serve-archive does not support Windows runners. Inline the server start, readiness poll, and the consumer command in a single step.'
+        exit 1
+
+    - name: Start server
+      if: runner.os != 'Windows'
+      shell: bash
+      working-directory: ${{ inputs.archive-dir }}
+      env:
+        SERVE_PORT: ${{ inputs.port }}
+        SERVE_TIMEOUT: ${{ inputs.timeout-seconds }}
+      run: |
+        LOG="${RUNNER_TEMP}/http-server.log"
+        python3 -m http.server "$SERVE_PORT" > "$LOG" 2>&1 &
+        bash "${GITHUB_WORKSPACE}/scripts/ci/wait-for-http-server.sh" \
+          "http://127.0.0.1:${SERVE_PORT}/" "$SERVE_TIMEOUT" "$LOG"
