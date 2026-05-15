@@ -237,8 +237,9 @@ jobs:
           # JRE-bundled archives. The script is order-independent and exits
           # non-zero if a block can't be patched, so a silent format change
           # cannot ship stale hashes.
+          CASK_FILE="dist/homebrew/Casks/opentaint.rb"
           python3 scripts/patch-cask-sha256.py \
-            --cask dist/homebrew/Casks/opentaint.rb \
+            --cask "$CASK_FILE" \
             --dist dist
 
           # Push updated cask to Homebrew tap
