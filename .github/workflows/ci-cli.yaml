@@ -398,9 +398,15 @@ jobs:
           Start-Process -NoNewWindow python -ArgumentList "-m", "http.server", "8080" -WorkingDirectory cli
           Start-Sleep -Seconds 2
           $output = pwsh -File scripts/install/install.ps1 2>&1 | Out-String
-          $output -match 'OPENTAINT_BINARY_PATH=(.+)'
-          $binaryPath = $matches[1]
-          Write-Host "::set-output name=OPENTAINT_BINARY_PATH::$binaryPath"
+          Write-Host $output
+          if ($LASTEXITCODE -ne 0) {
+            throw "install.ps1 exited with code $LASTEXITCODE"
+          }
+          if ($output -notmatch 'OPENTAINT_BINARY_PATH=(.+)') {
+            throw "install.ps1 did not emit OPENTAINT_BINARY_PATH"
+          }
+          $binaryPath = $Matches[1].Trim()
+          "OPENTAINT_BINARY_PATH=$binaryPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
       - name: Verify installation
         shell: pwsh
         run: |
