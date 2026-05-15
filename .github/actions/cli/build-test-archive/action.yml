@@ -1,0 +1,39 @@
+name: 'Build opentaint test archive'
+description: 'Builds the opentaint CLI and packages it into the per-OS archive plus checksums.txt that the installers expect at the download URL'
+
+inputs:
+  working-directory:
+    description: 'Directory containing the Go module to build'
+    required: false
+    default: 'cli'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build archive (linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        go build -o opentaint .
+        tar -czf opentaint-full_linux_amd64.tar.gz opentaint
+        sha256sum opentaint-full_linux_amd64.tar.gz > checksums.txt
+
+    - name: Build archive (macos)
+      if: runner.os == 'macOS'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        go build -o opentaint .
+        tar -czf opentaint-full_darwin_arm64.tar.gz opentaint
+        shasum -a 256 opentaint-full_darwin_arm64.tar.gz > checksums.txt
+
+    - name: Build archive (windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        go build -o opentaint.exe .
+        Compress-Archive -Path opentaint.exe -DestinationPath opentaint-full_windows_amd64.zip
+        $hash = (Get-FileHash -Path opentaint-full_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
+        "$hash  opentaint-full_windows_amd64.zip" | Out-File -FilePath checksums.txt -Encoding utf8NoBOM

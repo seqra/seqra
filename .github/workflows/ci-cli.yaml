@@ -327,11 +327,7 @@ jobs:
         with:
           python-version: '3.x'
       - name: Build test archive
-        working-directory: cli
-        run: |
-          go build -o opentaint .
-          tar -czf opentaint-full_linux_amd64.tar.gz opentaint
-          sha256sum opentaint-full_linux_amd64.tar.gz > checksums.txt
+        uses: ./.github/actions/cli/build-test-archive
       - name: Serve test archive
         uses: ./.github/actions/cli/serve-archive
         with:
@@ -340,8 +336,7 @@ jobs:
         id: install-linux
         env:
           OPENTAINT_DOWNLOAD_BASE_URL: http://127.0.0.1:8080
-        run: |
-          echo "OPENTAINT_BINARY_PATH=$(bash scripts/install/install.sh | grep ^OPENTAINT_BINARY_PATH= | cut -d= -f2)" >> $GITHUB_OUTPUT
+        run: bash scripts/ci/run-installer-sh.sh scripts/install/install.sh
       - name: Verify installation
         uses: ./.github/actions/cli/verify-installed-binary
         with:
@@ -359,11 +354,7 @@ jobs:
         with:
           python-version: '3.x'
       - name: Build test archive
-        working-directory: cli
-        run: |
-          go build -o opentaint .
-          tar -czf opentaint-full_darwin_arm64.tar.gz opentaint
-          shasum -a 256 opentaint-full_darwin_arm64.tar.gz > checksums.txt
+        uses: ./.github/actions/cli/build-test-archive
       - name: Serve test archive
         uses: ./.github/actions/cli/serve-archive
         with:
@@ -372,8 +363,7 @@ jobs:
         id: install-macos
         env:
           OPENTAINT_DOWNLOAD_BASE_URL: http://127.0.0.1:8080
-        run: |
-          echo "OPENTAINT_BINARY_PATH=$(bash scripts/install/install.sh | grep ^OPENTAINT_BINARY_PATH= | cut -d= -f2)" >> $GITHUB_OUTPUT
+        run: bash scripts/ci/run-installer-sh.sh scripts/install/install.sh
       - name: Verify installation
         uses: ./.github/actions/cli/verify-installed-binary
         with:
@@ -391,13 +381,7 @@ jobs:
         with:
           python-version: '3.x'
       - name: Build test archive
-        shell: pwsh
-        working-directory: cli
-        run: |
-          go build -o opentaint.exe .
-          Compress-Archive -Path opentaint.exe -DestinationPath opentaint-full_windows_amd64.zip
-          $hash = (Get-FileHash -Path opentaint-full_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
-          "$hash  opentaint-full_windows_amd64.zip" | Out-File -FilePath checksums.txt -Encoding utf8NoBOM
+        uses: ./.github/actions/cli/build-test-archive
       # Server start, readiness poll and install must share a single step:
       # on windows-latest the runner's Job Object kills background processes
       # at step end, so the python server cannot live across steps.
@@ -425,17 +409,8 @@ jobs:
               -Process $server `
               -StdoutLog $logOut `
               -StderrLog $logErr
-
-            $output = pwsh -File scripts/install/install.ps1 2>&1 | Out-String
-            Write-Host $output
-            if ($LASTEXITCODE -ne 0) {
-              throw "install.ps1 exited with code $LASTEXITCODE"
-            }
-            if ($output -notmatch 'OPENTAINT_BINARY_PATH=(.+)') {
-              throw 'install.ps1 did not emit OPENTAINT_BINARY_PATH'
-            }
-            $binaryPath = $Matches[1].Trim()
-            "OPENTAINT_BINARY_PATH=$binaryPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+            & "$env:GITHUB_WORKSPACE/scripts/ci/run-installer-pwsh.ps1" `
+              -Script scripts/install/install.ps1
           } finally {
             if ($server -and -not $server.HasExited) {
               Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
