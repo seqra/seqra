@@ -147,16 +147,21 @@ data class PIRGlobalRef(
 }
 
 /**
- * Reference to a module itself (e.g. `os` in `os.getcwd()`). Distinct
- * from [PIRGlobalRef], which names a value inside a module.
+ * Reference to a module by its top-level segment (e.g. `os` in
+ * `os.getcwd()`). Distinct from [PIRGlobalRef], which names a value
+ * inside a module.
  *
- * `module` is the canonical module fullname; any source-level alias has
- * been resolved away during lowering.
+ * `module` is a single segment with no dots; sub-module access (e.g.
+ * `os.path`) is uniformly represented as a `PIRLoadAttr` chain rooted at
+ * this ref. Source-level aliases are resolved away during lowering.
  */
 data class PIRModuleRef(
     val module: String,
     override val type: PIRType = PIRAnyType,
 ) : PIRValue {
+    init {
+        require('.' !in module) { "PIRModuleRef.module must be a single segment, got '$module'" }
+    }
     override fun toString(): String = module
     override fun <T> accept(visitor: PIRValueVisitor<T>): T = visitor.visitModuleRef(this)
 }

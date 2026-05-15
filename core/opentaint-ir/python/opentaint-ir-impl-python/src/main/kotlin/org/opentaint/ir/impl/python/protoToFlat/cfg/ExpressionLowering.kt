@@ -3,6 +3,8 @@ package org.opentaint.ir.impl.python.protoToFlat.cfg
 import org.opentaint.ir.api.python.PIRPhysicalLocation
 import org.opentaint.ir.impl.python.flat.*
 import org.opentaint.ir.impl.python.protoToFlat.FunctionLowering
+import org.opentaint.ir.impl.python.protoToFlat.ImportBinding
+import org.opentaint.ir.impl.python.protoToFlat.moduleChain
 import org.opentaint.ir.impl.python.protoToFlat.toPhysicalLocation
 import org.opentaint.ir.impl.python.proto.*
 
@@ -60,7 +62,7 @@ internal fun CfgSession.lowerExpr(expr: MypyExprProto): FlatValue {
         MypyExprProto.KindCase.BYTES_EXPR -> FlatBytesConst(expr.bytesExpr.value.toByteArray())
         MypyExprProto.KindCase.COMPLEX_EXPR -> FlatComplexConst(expr.complexExpr.real, expr.complexExpr.imag)
         MypyExprProto.KindCase.ELLIPSIS_EXPR -> FlatEllipsisConst
-        MypyExprProto.KindCase.NAME_EXPR -> lowerName(expr.nameExpr)
+        MypyExprProto.KindCase.NAME_EXPR -> lowerName(expr.nameExpr, loc)
         MypyExprProto.KindCase.MEMBER_EXPR -> lowerMember(expr.memberExpr, loc)
         MypyExprProto.KindCase.CALL_EXPR -> lowerCall(expr.callExpr, loc)
         MypyExprProto.KindCase.OP_EXPR -> lowerOp(expr.opExpr, loc)
@@ -95,7 +97,7 @@ private fun intConst(proto: MypyIntExprProto): FlatValue =
 
 // ─── Names & Attributes ──────────────────────────────
 
-private fun CfgSession.lowerName(expr: MypyNameExprProto): FlatValue {
+private fun CfgSession.lowerName(expr: MypyNameExprProto, location: PIRPhysicalLocation?): FlatValue {
     val name = expr.name
 
     when (name) {
@@ -109,7 +111,11 @@ private fun CfgSession.lowerName(expr: MypyNameExprProto): FlatValue {
         // `import os.path` (which binds `os`). mypy stores the canonical
         // module fullname in `fullname`; `name` may be an alias which we
         // discard (downstream consumers match against canonical paths).
-        MypyNameKind.NAME_MODULE -> FlatModuleRef(expr.fullname.ifEmpty { name })
+        // Multi-segment fullnames (`os.path` reached via `import os.path
+        // as p`) chain through `LoadAttr` so `FlatModuleRef` stays
+        // single-segment.
+        MypyNameKind.NAME_MODULE ->
+            materializeImport(moduleChain(expr.fullname.ifEmpty { name }), location)
         // Module-level / imported / builtin values. mypy populates a dotted
         // canonical fullname for every GDEF binding (`pkg.x`, `os.getcwd`,
         // `builtins.print`); aliases like `from m import x as y` already
@@ -124,13 +130,22 @@ private fun CfgSession.lowerName(expr: MypyNameExprProto): FlatValue {
         // consulting the import-scope maps populated from `Import` /
         // `ImportFrom` statements; for genuinely resolved GDEF bindings the
         // maps don't contain the bound name, so the override is a no-op.
+        //
+        // Cross-module invariant: a `FlatGlobalRef` names a symbol of the
+        // *current* module. References to symbols of any other user module
+        // are split into `ModuleRef(owner) + LoadAttr(name)` — this happens
+        // both via the `imports.resolve` path (recorded `from m import n`)
+        // and as a fallback for dotted GDEF fullnames whose owner is not
+        // the current module. Builtins (`builtins.*`) are exempt — they're
+        // ambient, not imported, and downstream passes already special-case
+        // the `builtins.` prefix.
         MypyNameKind.NAME_GLOBAL -> {
-            imports.resolve(name)?.let { return it }
+            imports.resolve(name)?.let { return materializeImport(it, location) }
             val fullname = expr.fullname
             check('.' in fullname) {
                 "NAME_GLOBAL fullname must be dotted; got '$fullname' for name '$name'"
             }
-            FlatGlobalRef(fullname)
+            lowerGlobalFullname(fullname, location)
         }
         else -> {
             // Function-scope suppressed imports surface as LDEF with a
@@ -138,10 +153,72 @@ private fun CfgSession.lowerName(expr: MypyNameExprProto): FlatValue {
             // whose canonical target was discarded by mypy). The import-scope
             // chain recovers the original canonical name; if there's no
             // entry, this is a real local.
-            imports.resolve(name)?.let { return it }
+            imports.resolve(name)?.let { return materializeImport(it, location) }
             FlatLocal(scope.resolveLocal(name))
         }
     }
+}
+
+/**
+ * Materialize an [ImportBinding] into a `FlatValue`, recursively emitting
+ * the `FlatLoadAttr` chain along the way.
+ *
+ * - [ImportBinding.Module] → `FlatModuleRef(name)`; no instructions
+ *   emitted.
+ * - [ImportBinding.Attr] → materialize the parent, then emit
+ *   `FlatLoadAttr(tmp, parent_result, name)`. This handles both submodule
+ *   access (`import os.path as p` → `Attr(Module(os), path)`) and from-
+ *   import (`from os import getcwd` → `Attr(Module(os), getcwd)`) and
+ *   nested chains (`from collections.abc import Iterable` →
+ *   `Attr(Attr(Module(collections), abc), Iterable)`). Each read site
+ *   gets fresh temps; we don't hoist or cache, which matches Python's
+ *   re-resolve-on-every-access semantics.
+ * - [ImportBinding.BareGlobal] → `FlatGlobalRef(name)`. Used only when
+ *   mypy couldn't resolve the base of a relative `from . import x`. The
+ *   KDoc on `ImportManager.recordImportFrom` documents this carve-out.
+ */
+private fun CfgSession.materializeImport(
+    binding: ImportBinding,
+    location: PIRPhysicalLocation?,
+): FlatValue = when (binding) {
+    is ImportBinding.Module -> FlatModuleRef(binding.name)
+    is ImportBinding.Attr -> {
+        val parentVal = materializeImport(binding.parent, location)
+        val tmp = newTempValue()
+        emit(FlatLoadAttr(tmp, parentVal, binding.name, physicalLocation = location))
+        tmp
+    }
+    is ImportBinding.BareGlobal -> FlatGlobalRef(binding.name)
+}
+
+/**
+ * Lower a dotted mypy `NAME_GLOBAL.fullname` that wasn't matched by the
+ * import-scope chain. If [fullname] names a symbol in the current module
+ * or in `builtins` (including nested names like `builtins.str.join`), it
+ * stays as a `FlatGlobalRef`. Otherwise it's a cross-module reference
+ * and we materialize a `ModuleRef`-rooted `LoadAttr` chain from the full
+ * dotted path via [moduleChain].
+ *
+ * The classification splits the fullname into a `(moduleSegments, last)`
+ * pair on the *last* dot — the prefix is the owning module path, the
+ * tail is the symbol name. Same-module / builtins checks compare the
+ * module prefix as a whole, so a current module whose own name is dotted
+ * (e.g. `pkg.sub` for a file at `pkg/sub.py`) classifies its own globals
+ * correctly. Sibling modules like `pkg.sub_other` cannot collide with
+ * `pkg.sub` because the dotted comparison is segment-aligned by
+ * construction (we split on actual dot characters).
+ */
+private fun CfgSession.lowerGlobalFullname(
+    fullname: String,
+    location: PIRPhysicalLocation?,
+): FlatValue {
+    val owner = fullname.substringBeforeLast('.')
+    if (owner == module.moduleName || owner == "builtins" ||
+        owner.startsWith("${module.moduleName}.") || owner.startsWith("builtins.")
+    ) {
+        return FlatGlobalRef(fullname)
+    }
+    return materializeImport(moduleChain(fullname), location)
 }
 
 private fun CfgSession.lowerMember(expr: MypyMemberExprProto, location: PIRPhysicalLocation?): FlatValue {

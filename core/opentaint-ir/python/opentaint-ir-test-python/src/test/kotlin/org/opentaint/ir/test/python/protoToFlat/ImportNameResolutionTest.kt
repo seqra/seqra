@@ -45,6 +45,7 @@ import org.opentaint.ir.impl.python.flat.FlatYieldFrom
 import org.opentaint.ir.impl.python.transforms.closure.FlatClosureTransformer
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
@@ -53,10 +54,14 @@ import kotlin.test.assertTrue
  * - `import os` (and aliases like `import os.path as p`) bind a module:
  *   they lower to [FlatModuleRef] carrying the canonical fullname; the
  *   alias is resolved away.
- * - `from os import getcwd` binds a value inside a module: it lowers to
- *   [FlatGlobalRef("getcwd", "os")].
+ * - `from os import getcwd` binds a value inside a module: each read
+ *   lowers to `FlatLoadAttr(tmp, FlatModuleRef("os"), "getcwd")`. The
+ *   cross-module invariant is that `FlatGlobalRef` only ever names a
+ *   symbol of the *current* module (or a builtin); references to symbols
+ *   defined in any other user module are split into ModuleRef + attribute
+ *   read.
  *
- * In both cases the bound name must NOT surface as [FlatLocal] — otherwise
+ * In all cases the bound name must NOT surface as [FlatLocal] — otherwise
  * the closure analyzer treats every imported name in every nested function
  * body as a fake capture, corrupting the downstream closure transform.
  */
@@ -98,6 +103,27 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
         for (block in fn.cfg.blocks) {
             for (inst in block.instructions) {
                 forEachOperand(inst) { v -> if (v is FlatModuleRef) out.add(v.module) }
+            }
+        }
+        return out
+    }
+
+    /**
+     * Harvest cross-module attribute reads, i.e. instructions of the shape
+     * `FlatLoadAttr(_, FlatModuleRef(m), attr)`. Returns `(attr, m)` pairs,
+     * mirroring [globalRefs] so individual tests can assert against the
+     * same `(simpleName, module)` tuple regardless of whether the read
+     * surfaced as a `FlatGlobalRef` (legacy/builtin path) or a
+     * ModuleRef+LoadAttr (new cross-module-user-import path).
+     */
+    private fun importedAttrReads(fn: FlatFunctionIR): Set<Pair<String, String>> {
+        val out = HashSet<Pair<String, String>>()
+        for (block in fn.cfg.blocks) {
+            for (inst in block.instructions) {
+                if (inst is FlatLoadAttr) {
+                    val obj = inst.obj
+                    if (obj is FlatModuleRef) out.add(inst.attribute to obj.module)
+                }
             }
         }
         return out
@@ -178,7 +204,7 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
     }
 
     @Test
-    fun `from os import getcwd surfaces as FlatGlobalRef`() {
+    fun `from os import getcwd splits into ModuleRef plus LoadAttr`() {
         val source = """
             from os import getcwd
 
@@ -190,18 +216,28 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
 
         val locals = localReads(f)
         val globals = globalRefs(f)
+        val modules = moduleRefs(f)
+        val attrReads = importedAttrReads(f)
         assertFalse(
             "getcwd" in locals,
-            "'getcwd' must not surface as FlatLocal. locals=$locals, globals=$globals",
+            "'getcwd' must not surface as FlatLocal. locals=$locals, attrReads=$attrReads",
         )
         assertTrue(
-            globals.any { it.first == "getcwd" },
-            "expected a FlatGlobalRef for 'getcwd'. globals=$globals",
+            "getcwd" to "os" in attrReads,
+            "expected `LoadAttr(ModuleRef(os), getcwd)` for cross-module import; got attrReads=$attrReads",
+        )
+        assertTrue(
+            "os" in modules,
+            "expected the cross-module split to introduce a FlatModuleRef(os); got modules=$modules",
+        )
+        assertFalse(
+            globals.any { it.first == "getcwd" && it.second == "os" },
+            "cross-module `from os import getcwd` must NOT surface as FlatGlobalRef(os.getcwd); got globals=$globals",
         )
     }
 
     @Test
-    fun `import alias surfaces as FlatModuleRef with canonical module name`() {
+    fun `import alias for nested module chains through LoadAttr`() {
         val source = """
             import os.path as p
 
@@ -213,17 +249,26 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
 
         val locals = localReads(f)
         val modules = moduleRefs(f)
+        val attrReads = importedAttrReads(f)
         assertFalse(
             "p" in locals,
             "alias 'p' must not surface as FlatLocal. locals=$locals, modules=$modules",
         )
         assertTrue(
+            "os" in modules,
+            "alias 'p' should resolve to a chain rooted at FlatModuleRef(os); got modules=$modules",
+        )
+        assertFalse(
             "os.path" in modules,
-            "alias 'p' should resolve to canonical module 'os.path'. modules=$modules",
+            "FlatModuleRef must be single-segment; the dotted form 'os.path' must not appear. modules=$modules",
         )
         assertFalse(
             "p" in modules,
-            "alias 'p' should be discarded; canonical 'os.path' is the only ref. modules=$modules",
+            "alias 'p' must be discarded — only the canonical root segment appears. modules=$modules",
+        )
+        assertTrue(
+            "path" to "os" in attrReads,
+            "alias 'p' must lower as `LoadAttr(ModuleRef(os), path)`; got attrReads=$attrReads",
         )
     }
 
@@ -269,7 +314,7 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
     }
 
     @Test
-    fun `from import getcwd as alias resolves to canonical FlatGlobalRef`() {
+    fun `from import getcwd as alias resolves to canonical LoadAttr`() {
         val source = """
             from os import getcwd as g
 
@@ -281,17 +326,23 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
 
         val locals = localReads(f)
         val globals = globalRefs(f)
+        val attrReads = importedAttrReads(f)
         assertFalse(
             "g" in locals,
-            "alias 'g' must not surface as FlatLocal. locals=$locals, globals=$globals",
+            "alias 'g' must not surface as FlatLocal. locals=$locals, attrReads=$attrReads",
         )
         assertTrue(
-            "getcwd" to "os" in globals,
-            "alias 'g' should resolve to canonical FlatGlobalRef(getcwd, os); got globals=$globals",
+            "getcwd" to "os" in attrReads,
+            "alias 'g' should resolve to `LoadAttr(ModuleRef(os), getcwd)` — the canonical name, " +
+                "not the alias. attrReads=$attrReads",
         )
         assertFalse(
-            globals.any { it.first == "g" },
-            "alias 'g' should be discarded; only canonical name appears. globals=$globals",
+            attrReads.any { it.first == "g" },
+            "alias 'g' should be discarded; only the canonical attribute 'getcwd' appears. attrReads=$attrReads",
+        )
+        assertFalse(
+            globals.any { it.first == "getcwd" && it.second == "os" },
+            "cross-module from-import must not surface as FlatGlobalRef(os.getcwd); got globals=$globals",
         )
     }
 
@@ -361,7 +412,7 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
     }
 
     @Test
-    fun `suppressed import with alias resolves to canonical module`() {
+    fun `suppressed import with alias chains through LoadAttr`() {
         val source = """
             def f():
                 import missing_pkg.sub as alias
@@ -372,13 +423,22 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
 
         val locals = localReads(f)
         val modules = moduleRefs(f)
+        val attrReads = importedAttrReads(f)
         assertFalse(
             "alias" in locals,
             "alias 'alias' must not surface as FlatLocal. locals=$locals",
         )
         assertTrue(
+            "missing_pkg" in modules,
+            "alias should resolve to a chain rooted at FlatModuleRef(missing_pkg). modules=$modules",
+        )
+        assertFalse(
             "missing_pkg.sub" in modules,
-            "alias should resolve to canonical 'missing_pkg.sub'. modules=$modules",
+            "FlatModuleRef must be single-segment; the dotted form must not appear. modules=$modules",
+        )
+        assertTrue(
+            "sub" to "missing_pkg" in attrReads,
+            "alias should lower as `LoadAttr(ModuleRef(missing_pkg), sub)`; got attrReads=$attrReads",
         )
         assertFalse(
             "alias" in modules,
@@ -387,7 +447,7 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
     }
 
     @Test
-    fun `from suppressed module import value surfaces as FlatGlobalRef`() {
+    fun `from suppressed module import value splits into ModuleRef plus LoadAttr`() {
         val source = """
             def f():
                 from missing_pkg import value
@@ -397,19 +457,19 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
         val f = fn(mod, ".f")
 
         val locals = localReads(f)
-        val globals = globalRefs(f)
+        val attrReads = importedAttrReads(f)
         assertFalse(
             "value" in locals,
-            "'value' must not surface as FlatLocal. locals=$locals, globals=$globals",
+            "'value' must not surface as FlatLocal. locals=$locals, attrReads=$attrReads",
         )
         assertTrue(
-            "value" to "missing_pkg" in globals,
-            "expected FlatGlobalRef(value, missing_pkg) for suppressed `from`-import. globals=$globals",
+            "value" to "missing_pkg" in attrReads,
+            "expected `LoadAttr(ModuleRef(missing_pkg), value)` for suppressed `from`-import. attrReads=$attrReads",
         )
     }
 
     @Test
-    fun `from suppressed module import value as alias resolves to canonical`() {
+    fun `from suppressed module import value as alias resolves to canonical LoadAttr`() {
         val source = """
             def f():
                 from missing_pkg import value as v
@@ -419,30 +479,31 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
         val f = fn(mod, ".f")
 
         val locals = localReads(f)
-        val globals = globalRefs(f)
+        val attrReads = importedAttrReads(f)
         assertFalse(
             "v" in locals,
-            "alias 'v' must not surface as FlatLocal. locals=$locals, globals=$globals",
+            "alias 'v' must not surface as FlatLocal. locals=$locals, attrReads=$attrReads",
         )
         assertTrue(
-            "value" to "missing_pkg" in globals,
-            "alias 'v' should resolve to canonical FlatGlobalRef(value, missing_pkg). globals=$globals",
+            "value" to "missing_pkg" in attrReads,
+            "alias 'v' should resolve to `LoadAttr(ModuleRef(missing_pkg), value)`. attrReads=$attrReads",
         )
         assertFalse(
-            globals.any { it.first == "v" },
-            "alias 'v' must be discarded; only canonical name appears. globals=$globals",
+            attrReads.any { it.first == "v" },
+            "alias 'v' must be discarded; only canonical attribute 'value' appears. attrReads=$attrReads",
         )
     }
 
     /**
      * `from m import submodule` where `submodule` is *actually* a module
      * (not a value) is an accepted limitation: without resolving `m` we
-     * can't disambiguate value from submodule, so we default to
-     * FlatGlobalRef. This is consistent with how the existing NAME_GLOBAL
-     * fast path handles the resolved case.
+     * can't disambiguate value from submodule. Both cases share the same
+     * lowered shape — `LoadAttr(ModuleRef(m), submodule)` — which is also
+     * a faithful representation of submodule access at runtime (Python
+     * imports populate `m.submodule` as an attribute of `m`).
      */
     @Test
-    fun `from suppressed module import submodule defaults to FlatGlobalRef`() {
+    fun `from suppressed module import submodule defaults to LoadAttr`() {
         val source = """
             def f():
                 from missing_pkg import submodule
@@ -451,10 +512,10 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
         val mod = lowerSourceToFlat(source)
         val f = fn(mod, ".f")
 
-        val globals = globalRefs(f)
+        val attrReads = importedAttrReads(f)
         assertTrue(
-            "submodule" to "missing_pkg" in globals,
-            "without resolution we default to FlatGlobalRef(submodule, missing_pkg). globals=$globals",
+            "submodule" to "missing_pkg" in attrReads,
+            "without resolution we still produce `LoadAttr(ModuleRef(missing_pkg), submodule)`. attrReads=$attrReads",
         )
     }
 
@@ -508,15 +569,17 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
         val f = fn(mod, ".f")
 
         val modules = moduleRefs(f)
-        val globals = globalRefs(f)
+        val attrReads = importedAttrReads(f)
         assertTrue(
-            "missing_pkg" to "other_pkg" in globals,
+            "missing_pkg" to "other_pkg" in attrReads,
             "function-scope `from other_pkg import missing_pkg` must shadow the module-level " +
-                "`import missing_pkg`. globals=$globals, modules=$modules",
+                "`import missing_pkg` and emit `LoadAttr(ModuleRef(other_pkg), missing_pkg)`. " +
+                "attrReads=$attrReads, modules=$modules",
         )
         assertFalse(
             "missing_pkg" in modules,
-            "the shadowed module-level FlatModuleRef must NOT appear inside f. modules=$modules",
+            "the shadowed module-level FlatModuleRef(missing_pkg) must NOT appear inside f. " +
+                "Only FlatModuleRef(other_pkg) (the from-import owner) is expected. modules=$modules",
         )
     }
 
@@ -538,14 +601,16 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
         val f = fn(mod, ".f")
 
         val modules = moduleRefs(f)
-        val globals = globalRefs(f)
+        val attrReads = importedAttrReads(f)
         assertTrue(
-            "x" to "missing_pkg" in globals,
-            "last write `from missing_pkg import x` should win; got globals=$globals, modules=$modules",
+            "x" to "missing_pkg" in attrReads,
+            "last write `from missing_pkg import x` should win and emit " +
+                "`LoadAttr(ModuleRef(missing_pkg), x)`; got attrReads=$attrReads, modules=$modules",
         )
         assertFalse(
             "x" in modules,
-            "the earlier `import x` binding must be replaced. modules=$modules",
+            "the earlier `import x` binding must be replaced — only the from-import owner " +
+                "FlatModuleRef(missing_pkg) is expected. modules=$modules",
         )
     }
 
@@ -675,6 +740,156 @@ class ImportNameResolutionTest : RawFlatModuleTestBase() {
         assertFalse(
             globals.any { it.first == "missing_pkg" && it.second == "__test__" },
             "lambda body must not emit a scope-prefixed FlatGlobalRef(__test__.missing_pkg). globals=$globals",
+        )
+    }
+
+    /**
+     * Builtins are exempt from the cross-module split: `int`, `str`, etc.
+     * surface as `FlatGlobalRef("builtins.int")`, not as
+     * `LoadAttr(ModuleRef(builtins), int)`. Downstream passes already
+     * special-case the `builtins.` prefix and treat builtins as ambient
+     * rather than imported.
+     */
+    @Test
+    fun `bare builtin name stays as FlatGlobalRef`() {
+        val source = """
+            def f():
+                return int
+        """
+        val mod = lowerSourceToFlat(source)
+        val f = fn(mod, ".f")
+
+        val globals = globalRefs(f)
+        val attrReads = importedAttrReads(f)
+        assertTrue(
+            "int" to "builtins" in globals,
+            "bare builtin 'int' should surface as FlatGlobalRef(builtins.int). globals=$globals",
+        )
+        assertFalse(
+            attrReads.any { it.second == "builtins" },
+            "builtins are exempt — must not surface as `LoadAttr(ModuleRef(builtins), …)`. attrReads=$attrReads",
+        )
+    }
+
+    /**
+     * Hard-coded synthetic refs to nested builtins (e.g. the `builtins.set`
+     * emitted by set-comprehension lowering) live as `FlatGlobalRef`. The
+     * `splitForeignFullname` builtins carve-out is prefix-based so it also
+     * covers hypothetical mypy-resolved `builtins.str.join`-style names
+     * if they ever surface as NAME_GLOBAL.
+     */
+    @Test
+    fun `set comprehension emits FlatGlobalRef for builtins set`() {
+        val source = """
+            def f(xs):
+                return {x for x in xs}
+        """
+        val mod = lowerSourceToFlat(source)
+        val f = fn(mod, ".f")
+
+        val globals = globalRefs(f)
+        val attrReads = importedAttrReads(f)
+        assertTrue(
+            "set" to "builtins" in globals,
+            "set comprehension's synthetic ref should be FlatGlobalRef(builtins.set); got globals=$globals",
+        )
+        assertFalse(
+            attrReads.any { it.second == "builtins" },
+            "synthetic builtins refs must not split into ModuleRef+LoadAttr. attrReads=$attrReads",
+        )
+    }
+
+    /**
+     * Same-module top-level references stay as `FlatGlobalRef` — they're
+     * the canonical case for the in-module invariant. mypy emits a
+     * `NAME_GLOBAL` fullname `__test__.helper` for the reference to `helper`
+     * inside `caller`; the lowering must NOT split this into a foreign
+     * `LoadAttr(ModuleRef(__test__), helper)`.
+     */
+    @Test
+    fun `same-module top-level reference stays as FlatGlobalRef`() {
+        val source = """
+            def helper():
+                return 1
+
+            def caller():
+                return helper()
+        """
+        val mod = lowerSourceToFlat(source)
+        val caller = fn(mod, ".caller")
+
+        val globals = globalRefs(caller)
+        val attrReads = importedAttrReads(caller)
+        val modules = moduleRefs(caller)
+        assertTrue(
+            "helper" to "__test__" in globals,
+            "same-module reference should be FlatGlobalRef(__test__.helper); got globals=$globals",
+        )
+        assertFalse(
+            "__test__" in modules,
+            "must not introduce a FlatModuleRef(__test__) for same-module refs. modules=$modules",
+        )
+        assertFalse(
+            attrReads.any { it.second == "__test__" },
+            "same-module refs must not split into `LoadAttr(ModuleRef(__test__), …)`. attrReads=$attrReads",
+        )
+    }
+
+    /**
+     * `from collections.abc import Iterable; Iterable(...)` lowers as a
+     * nested `LoadAttr` chain rooted at a single-segment `FlatModuleRef`:
+     *
+     *   t1 = LoadAttr(ModuleRef(collections), abc)
+     *   t2 = LoadAttr(t1, Iterable)
+     *
+     * This pins the invariant that `FlatModuleRef.module` is always a
+     * single segment; multi-segment module paths are reached via attribute
+     * access, never embedded into the `ModuleRef`'s name.
+     */
+    @Test
+    fun `from nested module import value chains through LoadAttr`() {
+        val source = """
+            from collections.abc import Iterable
+
+            def f():
+                return Iterable
+        """
+        val mod = lowerSourceToFlat(source)
+        val f = fn(mod, ".f")
+
+        val locals = localReads(f)
+        val modules = moduleRefs(f)
+        val attrReads = importedAttrReads(f)
+        assertFalse(
+            "Iterable" in locals,
+            "'Iterable' must not surface as FlatLocal. locals=$locals, attrReads=$attrReads",
+        )
+        assertTrue(
+            "collections" in modules,
+            "expected the chain to root at FlatModuleRef(collections); got modules=$modules",
+        )
+        assertFalse(
+            "collections.abc" in modules,
+            "FlatModuleRef must be single-segment; the dotted form must not appear. modules=$modules",
+        )
+        assertTrue(
+            "abc" to "collections" in attrReads,
+            "expected `LoadAttr(ModuleRef(collections), abc)` as the first link in the chain; got attrReads=$attrReads",
+        )
+        // The final `Iterable` LoadAttr's obj is a FlatLocal temp (the
+        // result of the first LoadAttr), not a ModuleRef — so it does not
+        // appear in `importedAttrReads`, which intentionally only harvests
+        // LoadAttr-off-ModuleRef pairs (the first link of every chain).
+        // We walk the raw instructions here to confirm the second link
+        // exists AND that its obj is the expected temp shape — the
+        // stronger assertion is the FlatLocal check, which proves the
+        // ModuleRef stays single-segment instead of swallowing `collections.abc`.
+        val instructions = f.cfg.blocks.flatMap { it.instructions }
+        val iterableLoad = instructions.filterIsInstance<FlatLoadAttr>().firstOrNull { it.attribute == "Iterable" }
+        assertNotNull(iterableLoad, "expected a FlatLoadAttr reading `Iterable`; got $instructions")
+        assertTrue(
+            iterableLoad.obj is FlatLocal,
+            "the `Iterable` LoadAttr's obj must be the FlatLocal temp returned by the previous LoadAttr; got ${iterableLoad.obj}",
         )
     }
 }

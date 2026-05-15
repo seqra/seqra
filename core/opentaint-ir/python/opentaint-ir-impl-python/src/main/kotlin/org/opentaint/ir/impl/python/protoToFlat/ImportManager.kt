@@ -1,8 +1,46 @@
 package org.opentaint.ir.impl.python.protoToFlat
 
-import org.opentaint.ir.impl.python.flat.FlatGlobalRef
-import org.opentaint.ir.impl.python.flat.FlatModuleRef
-import org.opentaint.ir.impl.python.flat.FlatValue
+/**
+ * Recursive descriptor of a resolved import binding, returned by
+ * [ImportManager.resolve]. Every dotted path is pre-built into a chain
+ * of single-segment nodes at recording time so the lowering site never
+ * has to parse a string.
+ *
+ * - [Module]: root of the chain. Names a top-level module by a single
+ *   segment (e.g. `os`, `collections`). The lowering materializes this
+ *   as `FlatModuleRef(name)` with no instructions emitted.
+ * - [Attr]: attribute-of-binding link. The attribute may be a submodule
+ *   (`os.path` is `Attr(Module(os), "path")`) or a value imported from a
+ *   module (`from os import getcwd` is `Attr(Module(os), "getcwd")`).
+ *   The lowering materializes this as a `FlatLoadAttr` off the
+ *   materialized parent. Submodule-vs-value is intentionally unmarked —
+ *   the IR shape is the same either way, matching Python's
+ *   `LOAD_ATTR`-on-module runtime semantics.
+ * - [BareGlobal]: fallback for `from . import x` where mypy itself
+ *   couldn't resolve the relative-import base. There's no module object
+ *   to attribute off of, so the lowering produces `FlatGlobalRef(name)`.
+ *
+ * Worked examples:
+ *
+ * - `import os`                          → `Module("os")`
+ * - `import os.path`                     → `Module("os")` (only root bound)
+ * - `import os.path as p`                → `Attr(Module("os"), "path")`
+ * - `from os import getcwd`              → `Attr(Module("os"), "getcwd")`
+ * - `from collections.abc import It`     → `Attr(Attr(Module("collections"), "abc"), "It")`
+ */
+internal sealed interface ImportBinding {
+    data class Module(val name: String) : ImportBinding {
+        init {
+            require('.' !in name) { "Module.name must be a single segment, got '$name'" }
+        }
+    }
+    data class Attr(val parent: ImportBinding, val name: String) : ImportBinding {
+        init {
+            require('.' !in name) { "Attr.name must be a single segment, got '$name'" }
+        }
+    }
+    data class BareGlobal(val name: String) : ImportBinding
+}
 
 /**
  * Per-scope record of `import` / `from … import …` bindings, used to recover
@@ -15,6 +53,11 @@ import org.opentaint.ir.impl.python.flat.FlatValue
  * resolution order. Writes go to the own scope only, so a child can shadow
  * an ancestor binding by recording the same name without disturbing the
  * ancestor's map.
+ *
+ * A single bound name is either a module *or* a value, never both — Python's
+ * "textually-last write wins" rule for same-scope rebinds is enforced by
+ * the single [bindings] map: every record overwrites the previous entry
+ * under the same key.
  *
  * Mutation safety: parent writes that happen AFTER a child manager is
  * created but BEFORE the child manager is queried would be visible to the
@@ -32,86 +75,106 @@ import org.opentaint.ir.impl.python.flat.FlatValue
  * rules (e.g. `import m.sub` binds the root `m`, `import m.sub as a` binds
  * `a` to canonical `m.sub`) live INSIDE those methods so all canonical-name
  * logic has one home.
+ *
+ * The manager itself does not produce `FlatValue` instances — it returns a
+ * recursive [ImportBinding] descriptor. The lowering site materializes the
+ * binding into IR (a `FlatModuleRef` rooted chain of `FlatLoadAttr`s).
+ * Keeping that materialization outside the manager preserves the
+ * cross-module invariant: every cross-module reference appears in the
+ * instruction stream as an explicit attribute read, not as a
+ * `FlatGlobalRef` carrying a dotted foreign fullname.
  */
 internal class ImportManager(private val parent: ImportManager? = null) {
 
-    private val modules = mutableMapOf<String, String>()
-    private val values = mutableMapOf<String, String>()
+    private val bindings = mutableMapOf<String, ImportBinding>()
 
     /**
      * Record one entry of an `import` statement, given its written-source
      * `module` (e.g. `m.sub`) and optional `alias` (`""` when absent).
-     * Derives the bound name and canonical module per Python's runtime rules:
+     * Derives the bound name and canonical binding per Python's runtime
+     * rules:
      *
-     * - `import m`          → bound=`m`,  canonical=`m`
-     * - `import m.sub`      → bound=`m`,  canonical=`m`    — only the root is
-     *                                                       bound; the deeper
-     *                                                       module is reached
-     *                                                       via attribute
-     *                                                       access on it
-     * - `import m as a`     → bound=`a`,  canonical=`m`
-     * - `import m.sub as a` → bound=`a`,  canonical=`m.sub` — alias names the
-     *                                                       deep module
+     * - `import m`          → bound=`m`,  binding=`Module(m)`
+     * - `import m.sub`      → bound=`m`,  binding=`Module(m)`       — only
+     *                                                                 the root
+     *                                                                 is bound
+     * - `import m as a`     → bound=`a`,  binding=`Module(m)`
+     * - `import m.sub as a` → bound=`a`,  binding=`Attr(Module(m), sub)` —
+     *                                                                 alias
+     *                                                                 names the
+     *                                                                 deep
+     *                                                                 module
      *
-     * If the bound name was previously a value binding in this same scope
-     * (e.g. `from pkg import x` then `import x`), the prior value binding
-     * is dropped so that [resolve] sees only the latest write — matching
-     * Python's rule that the textually-last binding wins within a scope.
+     * Any prior binding under the same name is dropped — Python's "the
+     * textually-last binding wins within a scope" rule.
      */
     fun recordImport(module: String, alias: String) {
         val bound: String
-        val canonical: String
+        val binding: ImportBinding
         if (alias.isNotEmpty()) {
             bound = alias
-            canonical = module
+            binding = moduleChain(module)
         } else {
             // No alias: only the root segment becomes a name; the deeper
             // module is reached at runtime via attribute access on that root.
             bound = module.substringBefore('.')
-            canonical = bound
+            binding = ImportBinding.Module(bound)
         }
-        values.remove(bound)
-        modules[bound] = canonical
+        bindings[bound] = binding
     }
 
     /**
-     * Record one entry of a `from m import x [as y]` statement.
+     * Record one entry of a `from m.sub import x [as y]` statement.
      *
      * [module] is the ALREADY-RESOLVED absolute module path — relative
      * imports must be resolved upstream (currently in `ast_serializer.py` via
      * `mypy.util.correct_relative_import`). When [module] is empty (mypy
-     * itself errored on the relative import), the recorded canonical name is
-     * just [name].
+     * itself errored on the relative import), the binding is a
+     * [ImportBinding.BareGlobal] — downstream materialization falls back
+     * to `FlatGlobalRef(name)` for that case (no module object to
+     * attribute off of).
      *
      * `from m import x` ambiguously binds either a global value or a
-     * submodule; without resolution we default to GLOBAL. The resolved case
-     * is handled by mypy's `NAME_GLOBAL` fast path in `lowerName`, so this
-     * fallback only fires when resolution failed.
+     * submodule; without resolution we default to an [ImportBinding.Attr]
+     * over the module chain — the correct shape for the value case, and
+     * a faithful representation of the submodule case (attribute-of-module
+     * access at runtime).
      *
-     * Same-scope rebind: if the bound name was previously a module binding
-     * (e.g. `import x` then `from pkg import x`), the prior module binding
-     * is dropped so that [resolve] returns the latest write.
+     * Any prior binding under the same name is dropped — last write wins.
      */
     fun recordImportFrom(module: String, name: String, alias: String) {
         require(name.isNotEmpty()) { "recordImportFrom: `name` must not be empty" }
         val bound = alias.ifEmpty { name }
-        val qualified = if (module.isEmpty()) name else "$module.$name"
-        modules.remove(bound)
-        values[bound] = qualified
+        bindings[bound] = if (module.isEmpty()) {
+            ImportBinding.BareGlobal(name)
+        } else {
+            ImportBinding.Attr(moduleChain(module), name)
+        }
     }
 
     /**
-     * Resolve [name] up the scope chain. Module bindings shadow value
-     * bindings at the same level (a name can't be both in one scope).
-     * Returns null when [name] isn't a recorded import anywhere in the chain;
-     * the caller falls back to its default name classification.
+     * Resolve [name] up the scope chain. Returns null when [name] isn't a
+     * recorded import anywhere in the chain; the caller falls back to its
+     * default name classification.
      */
-    fun resolve(name: String): FlatValue? {
-        modules[name]?.let { return FlatModuleRef(it) }
-        values[name]?.let { return FlatGlobalRef(it) }
+    fun resolve(name: String): ImportBinding? {
+        bindings[name]?.let { return it }
         return parent?.resolve(name)
     }
 
     /** Construct a manager whose lookups fall through to this one on miss. */
     fun nestedChild(): ImportManager = ImportManager(parent = this)
+}
+
+internal fun moduleChain(dottedPath: String): ImportBinding {
+    require(dottedPath.isNotEmpty()) {
+        "Dotted path must be non-empty"
+    }
+
+    val segments = dottedPath.split(".")
+    var node: ImportBinding = ImportBinding.Module(segments.first())
+    for (i in 1 until segments.size) {
+        node = ImportBinding.Attr(node, segments[i])
+    }
+    return node
 }

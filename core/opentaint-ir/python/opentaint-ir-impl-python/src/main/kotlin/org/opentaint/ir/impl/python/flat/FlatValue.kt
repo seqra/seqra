@@ -44,16 +44,23 @@ data class FlatParameterRef(
 data class FlatGlobalRef(val qualifiedName: String) : FlatValue
 
 /**
- * Reference to an entire module (e.g. `os` in `os.getcwd()`, or `p` after
- * `import os.path as p`). Distinct from [FlatGlobalRef], which names a
- * value defined inside a module.
+ * Reference to an entire module by its top-level segment (e.g. `os` in
+ * `os.getcwd()`, or the root `collections` of `from collections.abc
+ * import Iterable`). Distinct from [FlatGlobalRef], which names a value
+ * defined inside a module.
  *
- * `module` holds the canonical fullname (`os`, `os.path`); aliases are
+ * `module` is a single segment with no dots — sub-module access (e.g.
+ * `os.path` reached via `import os.path as p`, or `collections.abc`
+ * reached via `from collections.abc import Iterable`) is uniformly
+ * represented as a `FlatLoadAttr` chain rooted at this ref. Aliases are
  * resolved at lowering time so downstream consumers only ever see the
- * canonical name. Attribute access on a module (`p.join` → `os.path.join`)
- * stays as a regular `FlatLoadAttr` whose object is this ref.
+ * canonical root segment.
  */
-data class FlatModuleRef(val module: String) : FlatValue
+data class FlatModuleRef(val module: String) : FlatValue {
+    init {
+        require('.' !in module) { "FlatModuleRef.module must be a single segment, got '$module'" }
+    }
+}
 
 sealed interface FlatConst : FlatValue
 data class FlatIntConst(val value: Long) : FlatConst
