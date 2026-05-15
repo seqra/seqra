@@ -9,7 +9,7 @@
 <h3 align="center">Die Open-Source-Taint-Analyse-Engine fur das KI-Zeitalter</h3>
 
 <p align="center">
-  Formale interprozedurale Taint-Analyse — findet, was Pattern-Matching-Engines ubersehen, setzt um, was LLM-Agenten als Regeln entdecken, skaliert, wo keines von beiden allein ausreicht.
+  Formale Taint-Analyse fur Anwendungssicherheit — findet, was AST-Pattern-Matching-Engines ubersehen, lasst LLM-Agenten Schwachstellen als Regeln umsetzen, skaliert, wo keines von beiden allein ausreicht.
 </p>
 
 <p align="center">
@@ -104,8 +104,8 @@ LLM-Sicherheitsagenten finden Schwachstellen, die Menschen ubersehen, verbrauche
 
 Je mehr KI Code schreibt, desto mehr braucht man formale Methoden als Grundlage.
 
-- **Findet, was Pattern-Matching-Engines ubersehen.** Die interprozedurale Dataflow-Engine verfolgt nicht vertrauenswurdige Daten uber Funktionsgrenzen, Persistenzschichten, Aliase und asynchronen Code hinweg.
-- **Ein Fund wird zur vollstandigen Abdeckung.** Code-native Regeln ermoglichen es, jede entdeckte Schwachstelle als Regel umzusetzen, wobei die Engine sie deterministisch in wenigen CPU-Minuten auf die gesamte Codebasis anwendet.
+- **Findet, was AST-Pattern-Matching-Engines ubersehen.** Die interprozedurale Dataflow-Engine verfolgt nicht vertrauenswurdige Daten uber Funktionsgrenzen, Persistenzschichten, Aliase und asynchronen Code hinweg.
+- **Ein Fund wird zur vollstandigen Abdeckung.** AST-Pattern-Regeln ermoglichen es, jede entdeckte Schwachstelle als Regel umzusetzen, wobei die Engine sie deterministisch in wenigen CPU-Minuten auf die gesamte Codebasis anwendet.
 - **Open Source, alles inklusive.** Engine, Regeln, CI-Integrationen — der gesamte Stack wird unter Apache 2.0 und MIT ausgeliefert. Kein kostenpflichtiges Tier zum Freischalten der Taint-Verfolgung, keine Einschrankungen beim Erstellen eigener Regeln.
 
 ## Schnellstart

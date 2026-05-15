@@ -9,7 +9,7 @@
 <h3 align="center">O motor de análise de taint de código aberto para a era da IA</h3>
 
 <p align="center">
-  Análise de taint interprocedural formal — encontra o que motores de correspondência de padrões deixam passar, aplica regras descobertas por agentes LLM, escala onde nenhum deles consegue sozinho.
+  Análise de taint formal para segurança de aplicações — encontra o que motores de correspondência de padrões AST deixam passar, permite que agentes LLM apliquem vulnerabilidades como regras, escala onde nenhum deles consegue sozinho.
 </p>
 
 <p align="center">
@@ -104,8 +104,8 @@ Agentes de segurança LLM encontram vulnerabilidades que humanos não percebem, 
 
 Quanto mais código a IA escreve, mais você precisa de métodos formais como base.
 
-- **Encontre o que motores de correspondência de padrões deixam passar.** O motor interprocedural de análise de fluxo de dados rastreia dados não confiáveis através de fronteiras de funções, camadas de persistência, aliases e código assíncrono.
-- **Uma descoberta se torna cobertura total.** Regras nativas de código permitem transformar cada vulnerabilidade descoberta em uma regra que o motor aplica em toda a base de código, de forma determinística, em minutos de CPU.
+- **Encontre o que motores de correspondência de padrões AST deixam passar.** O motor interprocedural de análise de fluxo de dados rastreia dados não confiáveis através de fronteiras de funções, camadas de persistência, aliases e código assíncrono.
+- **Uma descoberta se torna cobertura total.** Regras de padrões AST permitem transformar cada vulnerabilidade descoberta em uma regra que o motor aplica em toda a base de código, de forma determinística, em minutos de CPU.
 - **Código aberto, com tudo incluso.** Motor, regras, integrações de CI — toda a stack é distribuída sob as licenças Apache 2.0 e MIT. Sem plano pago para desbloquear rastreamento de taint, sem restrições para escrever suas próprias regras.
 
 ## Início Rápido

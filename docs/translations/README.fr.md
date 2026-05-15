@@ -9,7 +9,7 @@
 <h3 align="center">Le moteur open source d'analyse de taint pour l'ère de l'IA</h3>
 
 <p align="center">
-  Analyse de taint inter-procédurale formelle — trouve ce que les moteurs de correspondance de motifs manquent, applique ce que les agents LLM découvrent en tant que règles, passe à l'échelle là où aucun des deux ne peut le faire seul.
+  Analyse de taint formelle pour la sécurité applicative — trouve ce que les moteurs de correspondance de motifs AST manquent, permet aux agents LLM d'appliquer les vulnérabilités en tant que règles, passe à l'échelle là où aucun des deux ne peut le faire seul.
 </p>
 
 <p align="center">
@@ -104,8 +104,8 @@ Les agents de sécurité LLM trouvent des vulnérabilités que les humains manqu
 
 Plus l'IA écrit du code, plus vous avez besoin de méthodes formelles en dessous.
 
-- **Trouvez ce que les moteurs de correspondance de motifs manquent.** Le moteur de flux de données inter-procédural suit les données non fiables à travers les frontières de fonctions, les couches de persistance, les alias et le code asynchrone.
-- **Une découverte devient une couverture totale.** Les règles natives au code vous permettent de transformer chaque vulnérabilité découverte en règle, le moteur l'appliquant sur l'ensemble de la base de code, de manière déterministe, en quelques minutes de CPU.
+- **Trouvez ce que les moteurs de correspondance de motifs AST manquent.** Le moteur de flux de données inter-procédural suit les données non fiables à travers les frontières de fonctions, les couches de persistance, les alias et le code asynchrone.
+- **Une découverte devient une couverture totale.** Les règles de motifs AST vous permettent de transformer chaque vulnérabilité découverte en règle, le moteur l'appliquant sur l'ensemble de la base de code, de manière déterministe, en quelques minutes de CPU.
 - **Open source, tout inclus.** Moteur, règles, intégrations CI — toute la pile est distribuée sous Apache 2.0 et MIT. Pas de niveau payant pour débloquer le suivi de taint, pas de restrictions sur l'écriture de vos propres règles.
 
 ## Démarrage rapide

@@ -9,7 +9,7 @@
 <h3 align="center">Open source taint-analysemotoren til AI-æraen</h3>
 
 <p align="center">
-  Formel inter-procedural taint-analyse — finder det mønstergenkendelsesmotorer overser, håndhæver det LLM-agenter opdager som regler, skalerer hvor ingen af dem kan alene.
+  Formel taint-analyse til applikationssikkerhed — finder det AST-mønstergenkendelsesmotorer overser, lader LLM-agenter omsætte sårbarheder til regler, skalerer hvor ingen af dem kan alene.
 </p>
 
 <p align="center">
@@ -104,8 +104,8 @@ LLM-sikkerhedsagenter finder sårbarheder mennesker overser, bruger tokens på h
 
 Jo mere AI skriver kode, desto mere har du brug for formelle metoder som fundament.
 
-- **Find det mønstergenkendelsesmotorer overser.** Den inter-procedurale dataflow-motor sporer utroværdige data på tværs af funktionsgrænser, persistenslag, aliasser og asynkron kode.
-- **Ét fund bliver til total dækning.** Kode-native regler lader dig håndhæve enhver afdækket sårbarhed som en regel, hvor motoren anvender den på tværs af hele kodebasen, deterministisk, på få minutters CPU-tid.
+- **Find det AST-mønstergenkendelsesmotorer overser.** Den inter-procedurale dataflow-motor sporer utroværdige data på tværs af funktionsgrænser, persistenslag, aliasser og asynkron kode.
+- **Ét fund bliver til total dækning.** AST-mønsterregler lader dig håndhæve enhver afdækket sårbarhed som en regel, hvor motoren anvender den på tværs af hele kodebasen, deterministisk, på få minutters CPU-tid.
 - **Open source, alt inkluderet.** Motor, regler, CI-integrationer — hele stakken leveres under Apache 2.0 og MIT. Ingen betalt plan for at låse op for taint-sporing, ingen begrænsninger på at skrive dine egne regler.
 
 ## Hurtig start

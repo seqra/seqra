@@ -9,7 +9,7 @@
 <h3 align="center">Taint analiza otvorenog koda za eru vještačke inteligencije</h3>
 
 <p align="center">
-  Formalna inter-proceduralna taint analiza — pronalazi ono što mehanizmi za podudaranje obrazaca propuštaju, primjenjuje ono što LLM agenti otkriju kao pravila, skalira tamo gdje nijedno od njih ne može samo.
+  Formalna taint analiza za sigurnost aplikacija — pronalazi ono što mehanizmi za podudaranje AST-obrazaca propuštaju, omogućava LLM agentima da primijene ranjivosti kao pravila, skalira tamo gdje nijedno od njih ne može samo.
 </p>
 
 <p align="center">
@@ -104,8 +104,8 @@ LLM sigurnosni agenti pronalaze ranjivosti koje ljudi propuštaju, troše tokene
 
 Što više AI piše kod, to više trebate formalne metode u osnovi.
 
-- **Pronađite ono što mehanizmi za podudaranje obrazaca propuštaju.** Inter-proceduralni mehanizam za tok podataka prati nepouzdane podatke preko granica funkcija, slojeva persistencije, aliasa i asinhronog koda.
-- **Jedan nalaz postaje potpuna pokrivenost.** Pravila zasnovana na kodu omogućavaju vam da svaku otkrivenu ranjivost pretvorite u pravilo, a mehanizam ga primjenjuje na cijelu bazu koda, deterministički, za nekoliko minuta CPU vremena.
+- **Pronađite ono što mehanizmi za podudaranje AST-obrazaca propuštaju.** Inter-proceduralni mehanizam za tok podataka prati nepouzdane podatke preko granica funkcija, slojeva persistencije, aliasa i asinhronog koda.
+- **Jedan nalaz postaje potpuna pokrivenost.** Pravila AST-obrazaca omogućavaju vam da svaku otkrivenu ranjivost pretvorite u pravilo, a mehanizam ga primjenjuje na cijelu bazu koda, deterministički, za nekoliko minuta CPU vremena.
 - **Otvoreni kod, sve uključeno.** Mehanizam, pravila, CI integracije — cijeli stek se isporučuje pod Apache 2.0 i MIT licencom. Nema plaćenog nivoa za otključavanje taint praćenja, nema prepreka za pisanje vlastitih pravila.
 
 ## Brzi početak

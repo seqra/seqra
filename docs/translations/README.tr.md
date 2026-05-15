@@ -9,7 +9,7 @@
 <h3 align="center">Yapay zeka çağı için açık kaynaklı taint analizi motoru</h3>
 
 <p align="center">
-  Formal prosedürler arası taint analizi — kalıp eşleme motorlarının kaçırdığını bulur, LLM ajanlarının kural olarak keşfettiğini uygular, hiçbirinin tek başına ölçeklenemediği yerde ölçeklenir.
+  Uygulama güvenliği için formal taint analizi — AST kalıp eşleme motorlarının kaçırdığını bulur, LLM ajanlarının güvenlik açıklarını kural olarak uygulamasını sağlar, hiçbirinin tek başına ölçeklenemediği yerde ölçeklenir.
 </p>
 
 <p align="center">
@@ -104,8 +104,8 @@ LLM güvenlik ajanları insanların kaçırdığı güvenlik açıklarını bulu
 
 Yapay zeka ne kadar çok kod yazarsa, altında formal yöntemlere o kadar çok ihtiyaç duyarsınız.
 
-- **Kalıp eşleme motorlarının kaçırdığını bulun.** Prosedürler arası veri akışı motoru, güvenilmeyen verileri fonksiyon sınırları, kalıcılık katmanları, takma adlar ve asenkron kod boyunca takip eder.
-- **Bir bulgu toplam kapsama dönüşür.** Koda özgü kurallar, keşfedilen her güvenlik açığını bir kural olarak tanımlamanıza olanak tanır; motor bunu tüm kod tabanına deterministik olarak, dakikalar içinde uygular.
+- **AST kalıp eşleme motorlarının kaçırdığını bulun.** Prosedürler arası veri akışı motoru, güvenilmeyen verileri fonksiyon sınırları, kalıcılık katmanları, takma adlar ve asenkron kod boyunca takip eder.
+- **Bir bulgu toplam kapsama dönüşür.** AST kalıp kuralları, keşfedilen her güvenlik açığını bir kural olarak tanımlamanıza olanak tanır; motor bunu tüm kod tabanına deterministik olarak, dakikalar içinde uygular.
 - **Açık kaynak, her şey dahil.** Motor, kurallar, CI entegrasyonları — tüm yığın Apache 2.0 ve MIT altında dağıtılır. Taint takibini açmak için ücretli katman yok, kendi kurallarınızı yazmak için engel yok.
 
 ## Hızlı Başlangıç
