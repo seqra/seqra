@@ -1,0 +1,4612 @@
+entryPoint:
+- function: .*
+  taint:
+  - kind: remote
+    decoratedWith: flask.Flask.route
+    pos: arg(*)
+  - kind: remote
+    decoratedWith: flask.Flask.route
+    pos: class(flask.request)
+  - kind: remote
+    decoratedWith: flask.Blueprint.route
+    pos: arg(*)
+  - kind: remote
+    decoratedWith: flask.Blueprint.route
+    pos: class(flask.request)
+- function: dispatch_request
+  taint:
+  - kind: remote
+    baseClass: flask.views.View
+    pos: arg(*)
+  - kind: remote
+    baseClass: flask.views.View
+    pos: class(flask.request)
+  - kind: remote
+    baseClass: flask.views.MethodView
+    pos: arg(*)
+  - kind: remote
+    baseClass: flask.views.MethodView
+    pos: class(flask.request)
+source:
+- function: os.getenv
+  taint:
+  - kind: environment
+    pos: result
+- function: os.getenvb
+  taint:
+  - kind: environment
+    pos: result
+- attribute: os.environ
+  taint:
+  - kind: environment
+    pos: result
+- attribute: os.environb
+  taint:
+  - kind: environment
+    pos: result
+- attribute: posix.environ
+  taint:
+  - kind: environment
+    pos: result
+- attribute: sys.argv
+  taint:
+  - kind: commandargs
+    pos: result
+- attribute: sys.orig_argv
+  taint:
+  - kind: commandargs
+    pos: result
+- attribute: sys.stdin
+  taint:
+  - kind: stdin
+    pos: result
+- function: builtins.input
+  taint:
+  - kind: stdin
+    pos: result
+- function: builtins.raw_input
+  taint:
+  - kind: stdin
+    pos: result
+- function: argparse.ArgumentParser.parse_known_args
+  signature: () *
+  taint:
+  - kind: commandargs
+    pos: result
+- function: argparse.ArgumentParser.parse_args
+  signature: () *
+  taint:
+  - kind: commandargs
+    pos: result
+- function: os.read
+  taint:
+  - kind: file
+    pos: result
+- attribute: flask.request
+  taint:
+  - kind: remote
+    pos: result
+- attribute: flask_restful.request
+  taint:
+  - kind: remote
+    pos: result
+- function: sqlite3.Cursor.fetchone
+  taint:
+  - kind: database
+    pos: result
+- function: sqlite3.Cursor.fetchmany
+  taint:
+  - kind: database
+    pos: result
+- function: sqlite3.Cursor.fetchall
+  taint:
+  - kind: database
+    pos: result
+- function: sqlite3.dbapi2.Cursor.fetchone
+  taint:
+  - kind: database
+    pos: result
+- function: sqlite3.dbapi2.Cursor.fetchmany
+  taint:
+  - kind: database
+    pos: result
+- function: sqlite3.dbapi2.Cursor.fetchall
+  taint:
+  - kind: database
+    pos: result
+- function: sqlite3.Connection.fetchone
+  taint:
+  - kind: database
+    pos: result
+- function: sqlite3.Connection.fetchmany
+  taint:
+  - kind: database
+    pos: result
+- function: sqlite3.Connection.fetchall
+  taint:
+  - kind: database
+    pos: result
+- function: sqlite3.dbapi2.Connection.fetchone
+  taint:
+  - kind: database
+    pos: result
+- function: sqlite3.dbapi2.Connection.fetchmany
+  taint:
+  - kind: database
+    pos: result
+- function: sqlite3.dbapi2.Connection.fetchall
+  taint:
+  - kind: database
+    pos: result
+sink:
+- function: zipfile.ZipFile.extractall
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(path)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(path)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(path)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(path)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(path)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(path)
+  cwe:
+  - 22
+  note: path-injection
+- function: socket.socket.bind
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(address)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(address)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(address)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(address)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(address)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(address)
+  cwe:
+  - 605
+  note: bind-socket-all-interfaces
+- function: asyncpg.Connection.fetchval
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(query)
+  cwe:
+  - 89
+  note: sql-injection
+- function: asyncpg.ConnectionPool.fetchval
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(query)
+  cwe:
+  - 89
+  note: sql-injection
+- function: asyncpg.Connection.fetchrow
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(query)
+  cwe:
+  - 89
+  note: sql-injection
+- function: asyncpg.ConnectionPool.fetchrow
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(query)
+  cwe:
+  - 89
+  note: sql-injection
+- function: asyncpg.Connection.fetch
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(query)
+  cwe:
+  - 89
+  note: sql-injection
+- function: asyncpg.ConnectionPool.fetch
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(query)
+  cwe:
+  - 89
+  note: sql-injection
+- function: asyncpg.Connection.execute
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(query)
+  cwe:
+  - 89
+  note: sql-injection
+- function: asyncpg.ConnectionPool.execute
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(query)
+  cwe:
+  - 89
+  note: sql-injection
+- function: asyncpg.Connection.copy_from_query
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(query)
+  cwe:
+  - 89
+  note: sql-injection
+- function: asyncpg.ConnectionPool.copy_from_query
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(query)
+  cwe:
+  - 89
+  note: sql-injection
+- function: asyncpg.Connection.executemany
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(command)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(command)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(command)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(command)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(command)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(command)
+  cwe:
+  - 89
+  note: sql-injection
+- function: asyncpg.ConnectionPool.executemany
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(command)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(command)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(command)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(command)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(command)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(command)
+  cwe:
+  - 89
+  note: sql-injection
+- function: asyncpg.Connection.copy_from_table
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: kwarg(output)
+    - tainted: commandargs
+      pos: kwarg(output)
+    - tainted: environment
+      pos: kwarg(output)
+    - tainted: stdin
+      pos: kwarg(output)
+    - tainted: file
+      pos: kwarg(output)
+    - tainted: database
+      pos: kwarg(output)
+  cwe:
+  - 22
+  note: path-injection
+- function: asyncpg.ConnectionPool.copy_from_table
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: kwarg(output)
+    - tainted: commandargs
+      pos: kwarg(output)
+    - tainted: environment
+      pos: kwarg(output)
+    - tainted: stdin
+      pos: kwarg(output)
+    - tainted: file
+      pos: kwarg(output)
+    - tainted: database
+      pos: kwarg(output)
+  cwe:
+  - 22
+  note: path-injection
+- function: asyncpg.Connection.copy_from_query
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: kwarg(output)
+    - tainted: commandargs
+      pos: kwarg(output)
+    - tainted: environment
+      pos: kwarg(output)
+    - tainted: stdin
+      pos: kwarg(output)
+    - tainted: file
+      pos: kwarg(output)
+    - tainted: database
+      pos: kwarg(output)
+  cwe:
+  - 22
+  note: path-injection
+- function: asyncpg.ConnectionPool.copy_from_query
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: kwarg(output)
+    - tainted: commandargs
+      pos: kwarg(output)
+    - tainted: environment
+      pos: kwarg(output)
+    - tainted: stdin
+      pos: kwarg(output)
+    - tainted: file
+      pos: kwarg(output)
+    - tainted: database
+      pos: kwarg(output)
+  cwe:
+  - 22
+  note: path-injection
+- function: asyncpg.Connection.copy_to_table
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: kwarg(source)
+    - tainted: commandargs
+      pos: kwarg(source)
+    - tainted: environment
+      pos: kwarg(source)
+    - tainted: stdin
+      pos: kwarg(source)
+    - tainted: file
+      pos: kwarg(source)
+    - tainted: database
+      pos: kwarg(source)
+  cwe:
+  - 22
+  note: path-injection
+- function: asyncpg.ConnectionPool.copy_to_table
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: kwarg(source)
+    - tainted: commandargs
+      pos: kwarg(source)
+    - tainted: environment
+      pos: kwarg(source)
+    - tainted: stdin
+      pos: kwarg(source)
+    - tainted: file
+      pos: kwarg(source)
+    - tainted: database
+      pos: kwarg(source)
+  cwe:
+  - 22
+  note: path-injection
+- function: asyncpg.Connection.prepare
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(query)
+  cwe:
+  - 89
+  note: sql-injection
+- function: azure.keyvault.certificates.CertificateClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(vault_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(vault_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(vault_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(vault_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(vault_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(vault_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.keyvault.certificates.DeletedCertificate
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: kwarg(recovery_id)
+    - tainted: commandargs
+      pos: kwarg(recovery_id)
+    - tainted: environment
+      pos: kwarg(recovery_id)
+    - tainted: stdin
+      pos: kwarg(recovery_id)
+    - tainted: file
+      pos: kwarg(recovery_id)
+    - tainted: database
+      pos: kwarg(recovery_id)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.keyvault.keys.KeyClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(vault_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(vault_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(vault_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(vault_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(vault_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(vault_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.keyvault.secrets.SecretClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(vault_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(vault_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(vault_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(vault_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(vault_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(vault_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.blob.BlobClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(account_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(account_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(account_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(account_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(account_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(account_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.blob.BlobClient.append_block_from_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(copy_source_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(copy_source_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(copy_source_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(copy_source_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(copy_source_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(copy_source_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.blob.BlobClient.get_page_range_diff_for_managed_disk
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(previous_snapshot_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(previous_snapshot_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(previous_snapshot_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(previous_snapshot_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(previous_snapshot_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(previous_snapshot_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.blob.BlobClient.stage_block_from_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(1)
+    - tainted: remote
+      pos: kwarg(source_url)
+    - tainted: commandargs
+      pos: arg(1)
+    - tainted: commandargs
+      pos: kwarg(source_url)
+    - tainted: environment
+      pos: arg(1)
+    - tainted: environment
+      pos: kwarg(source_url)
+    - tainted: stdin
+      pos: arg(1)
+    - tainted: stdin
+      pos: kwarg(source_url)
+    - tainted: file
+      pos: arg(1)
+    - tainted: file
+      pos: kwarg(source_url)
+    - tainted: database
+      pos: arg(1)
+    - tainted: database
+      pos: kwarg(source_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.blob.BlobClient.start_copy_from_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(source_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(source_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(source_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(source_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(source_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(source_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.blob.BlobClient.upload_blob_from_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(source_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(source_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(source_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(source_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(source_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(source_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.blob.BlobClient.upload_pages_from_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(source_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(source_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(source_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(source_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(source_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(source_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.blob.BlobClient.from_blob_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(blob_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(blob_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(blob_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(blob_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(blob_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(blob_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.blob.BlobServiceClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(account_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(account_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(account_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(account_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(account_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(account_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.blob.ContainerClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(account_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(account_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(account_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(account_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(account_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(account_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.blob.ContainerClient.from_container_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(container_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(container_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(container_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(container_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(container_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(container_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.blob.download_blob_from_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(blob_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(blob_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(blob_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(blob_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(blob_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(blob_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.blob.upload_blob_to_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(blob_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(blob_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(blob_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(blob_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(blob_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(blob_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.filedatalake.DataLakeDirectoryClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(account_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(account_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(account_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(account_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(account_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(account_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.filedatalake.DataLakeFileClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(account_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(account_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(account_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(account_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(account_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(account_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.filedatalake.DataLakeServiceClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(account_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(account_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(account_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(account_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(account_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(account_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.filedatalake.FileSystemClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(account_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(account_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(account_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(account_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(account_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(account_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.fileshare.ShareClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(account_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(account_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(account_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(account_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(account_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(account_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.fileshare.ShareClient.from_share_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(share_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(share_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(share_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(share_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(share_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(share_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.fileshare.ShareDirectoryClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(account_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(account_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(account_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(account_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(account_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(account_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.fileshare.ShareDirectoryClient.from_directory_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(directory_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(directory_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(directory_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(directory_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(directory_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(directory_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.fileshare.ShareFileClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(account_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(account_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(account_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(account_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(account_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(account_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.fileshare.ShareFileClient.from_file_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(file_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(file_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(file_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(file_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(file_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(file_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.fileshare.ShareFileClient.start_copy_from_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(source_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(source_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(source_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(source_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(source_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(source_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.fileshare.ShareFileClient.upload_range_from_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(source_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(source_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(source_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(source_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(source_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(source_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.fileshare.ShareServiceClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(account_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(account_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(account_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(account_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(account_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(account_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.queue.QueueClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(account_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(account_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(account_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(account_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(account_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(account_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.queue.QueueClient.from_queue_url
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(queue_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(queue_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(queue_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(queue_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(queue_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(queue_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: azure.storage.queue.QueueServiceClient
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(account_url)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(account_url)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(account_url)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(account_url)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(account_url)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(account_url)
+  cwe:
+  - 918
+  note: request-forgery
+- function: Anthropic.messages.create
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: kwarg(system)
+    - tainted: commandargs
+      pos: kwarg(system)
+    - tainted: environment
+      pos: kwarg(system)
+    - tainted: stdin
+      pos: kwarg(system)
+    - tainted: file
+      pos: kwarg(system)
+    - tainted: database
+      pos: kwarg(system)
+  note: prompt-injection
+- function: Anthropic.messages.stream
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: kwarg(system)
+    - tainted: commandargs
+      pos: kwarg(system)
+    - tainted: environment
+      pos: kwarg(system)
+    - tainted: stdin
+      pos: kwarg(system)
+    - tainted: file
+      pos: kwarg(system)
+    - tainted: database
+      pos: kwarg(system)
+  note: prompt-injection
+- function: Anthropic.beta.messages.create
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: kwarg(system)
+    - tainted: commandargs
+      pos: kwarg(system)
+    - tainted: environment
+      pos: kwarg(system)
+    - tainted: stdin
+      pos: kwarg(system)
+    - tainted: file
+      pos: kwarg(system)
+    - tainted: database
+      pos: kwarg(system)
+  note: prompt-injection
+- function: Anthropic.messages.create
+  condition:
+    anyOf:
+    - tainted: remote
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: commandargs
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: environment
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: stdin
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: file
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: database
+      pos:
+      - kwarg(messages)
+      - '[*]'
+  note: prompt-injection
+- function: Anthropic.messages.stream
+  condition:
+    anyOf:
+    - tainted: remote
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: commandargs
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: environment
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: stdin
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: file
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: database
+      pos:
+      - kwarg(messages)
+      - '[*]'
+  note: prompt-injection
+- function: Anthropic.beta.messages.create
+  condition:
+    anyOf:
+    - tainted: remote
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: commandargs
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: environment
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: stdin
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: file
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: database
+      pos:
+      - kwarg(messages)
+      - '[*]'
+  note: prompt-injection
+- function: OpenAI.beta.assistants.create
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: kwarg(instructions)
+    - tainted: commandargs
+      pos: kwarg(instructions)
+    - tainted: environment
+      pos: kwarg(instructions)
+    - tainted: stdin
+      pos: kwarg(instructions)
+    - tainted: file
+      pos: kwarg(instructions)
+    - tainted: database
+      pos: kwarg(instructions)
+  note: prompt-injection
+- function: OpenAI.chat.completions.create
+  condition:
+    anyOf:
+    - tainted: remote
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: commandargs
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: environment
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: stdin
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: file
+      pos:
+      - kwarg(messages)
+      - '[*]'
+    - tainted: database
+      pos:
+      - kwarg(messages)
+      - '[*]'
+  note: prompt-injection
+- function: OpenAI.responses.create
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: kwarg(instructions)
+    - tainted: commandargs
+      pos: kwarg(instructions)
+    - tainted: environment
+      pos: kwarg(instructions)
+    - tainted: stdin
+      pos: kwarg(instructions)
+    - tainted: file
+      pos: kwarg(instructions)
+    - tainted: database
+      pos: kwarg(instructions)
+  note: prompt-injection
+- function: OpenAI.responses.create
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: kwarg(input)
+    - tainted: commandargs
+      pos: kwarg(input)
+    - tainted: environment
+      pos: kwarg(input)
+    - tainted: stdin
+      pos: kwarg(input)
+    - tainted: file
+      pos: kwarg(input)
+    - tainted: database
+      pos: kwarg(input)
+  note: prompt-injection
+- function: agents.Agent
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: kwarg(instructions)
+    - tainted: commandargs
+      pos: kwarg(instructions)
+    - tainted: environment
+      pos: kwarg(instructions)
+    - tainted: stdin
+      pos: kwarg(instructions)
+    - tainted: file
+      pos: kwarg(instructions)
+    - tainted: database
+      pos: kwarg(instructions)
+  note: prompt-injection
+- function: flask.send_from_directory
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(directory)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(directory)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(directory)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(directory)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(directory)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(directory)
+  cwe:
+  - 22
+  note: path-injection
+- function: flask.send_file
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(filename_or_fp)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(filename_or_fp)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(filename_or_fp)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(filename_or_fp)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(filename_or_fp)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(filename_or_fp)
+  cwe:
+  - 22
+  note: path-injection
+- function: flask.redirect
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(location)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(location)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(location)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(location)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(location)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(location)
+  cwe:
+  - 601
+  note: url-redirection
+- function: flask.render_template_string
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: file
+      pos: arg(0)
+    - tainted: database
+      pos: arg(0)
+  note: template-injection
+- function: flask.stream_template_string
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: file
+      pos: arg(0)
+    - tainted: database
+      pos: arg(0)
+  note: template-injection
+- function: sqlite3.Cursor.execute
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.Cursor.executemany
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.Cursor.executescript
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.Cursor.execute_insert
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.Cursor.execute_fetchall
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.dbapi2.Cursor.execute
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.dbapi2.Cursor.executemany
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.dbapi2.Cursor.executescript
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.dbapi2.Cursor.execute_insert
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.dbapi2.Cursor.execute_fetchall
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.Connection.execute
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.Connection.executemany
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.Connection.executescript
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.Connection.execute_insert
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.Connection.execute_fetchall
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.dbapi2.Connection.execute
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.dbapi2.Connection.executemany
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.dbapi2.Connection.executescript
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.dbapi2.Connection.execute_insert
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+- function: sqlite3.dbapi2.Connection.execute_fetchall
+  condition:
+    anyOf:
+    - tainted: remote
+      pos: arg(0)
+    - tainted: remote
+      pos: kwarg(sql)
+    - tainted: remote
+      pos: kwarg(statement)
+    - tainted: remote
+      pos: kwarg(operation)
+    - tainted: remote
+      pos: kwarg(query)
+    - tainted: remote
+      pos: kwarg(query_string)
+    - tainted: remote
+      pos: kwarg(sql_script)
+    - tainted: commandargs
+      pos: arg(0)
+    - tainted: commandargs
+      pos: kwarg(sql)
+    - tainted: commandargs
+      pos: kwarg(statement)
+    - tainted: commandargs
+      pos: kwarg(operation)
+    - tainted: commandargs
+      pos: kwarg(query)
+    - tainted: commandargs
+      pos: kwarg(query_string)
+    - tainted: commandargs
+      pos: kwarg(sql_script)
+    - tainted: environment
+      pos: arg(0)
+    - tainted: environment
+      pos: kwarg(sql)
+    - tainted: environment
+      pos: kwarg(statement)
+    - tainted: environment
+      pos: kwarg(operation)
+    - tainted: environment
+      pos: kwarg(query)
+    - tainted: environment
+      pos: kwarg(query_string)
+    - tainted: environment
+      pos: kwarg(sql_script)
+    - tainted: stdin
+      pos: arg(0)
+    - tainted: stdin
+      pos: kwarg(sql)
+    - tainted: stdin
+      pos: kwarg(statement)
+    - tainted: stdin
+      pos: kwarg(operation)
+    - tainted: stdin
+      pos: kwarg(query)
+    - tainted: stdin
+      pos: kwarg(query_string)
+    - tainted: stdin
+      pos: kwarg(sql_script)
+    - tainted: file
+      pos: arg(0)
+    - tainted: file
+      pos: kwarg(sql)
+    - tainted: file
+      pos: kwarg(statement)
+    - tainted: file
+      pos: kwarg(operation)
+    - tainted: file
+      pos: kwarg(query)
+    - tainted: file
+      pos: kwarg(query_string)
+    - tainted: file
+      pos: kwarg(sql_script)
+    - tainted: database
+      pos: arg(0)
+    - tainted: database
+      pos: kwarg(sql)
+    - tainted: database
+      pos: kwarg(statement)
+    - tainted: database
+      pos: kwarg(operation)
+    - tainted: database
+      pos: kwarg(query)
+    - tainted: database
+      pos: kwarg(query_string)
+    - tainted: database
+      pos: kwarg(sql_script)
+  cwe:
+  - 89
+  note: sql-injection
+passThrough:
+- function: argparse.ArgumentParser._read_args_from_files
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(arg_strings)
+    to: result
+- function: argparse.ArgumentParser._parse_known_args
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(arg_strings)
+    to: result
+- function: argparse.ArgumentParser.parse_known_args
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(args)
+    to: result
+- function: argparse.ArgumentParser.parse_args
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(args)
+    to: result
+- function: cgi.FieldStorage.getvalue
+  copy:
+  - from: this
+    to: result
+- function: cgi.FieldStorage.getlist
+  copy:
+  - from: this
+    to: result
+- function: cgi.FieldStorage.getfirst
+  copy:
+  - from: this
+    to: result
+- function: collections.abc.Mapping.get
+  copy:
+  - from: arg(1)
+    to: result
+  - from: kwarg(default)
+    to: result
+- function: contextlib.ExitStack.enter_context
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(cm)
+    to: result
+- function: copy.replace
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(x)
+    to: result
+- function: copy.deepcopy
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(x)
+    to: result
+- function: copy.copy
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(x)
+    to: result
+- function: ctypes.create_unicode_buffer
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(init)
+    to: result
+  - from: kwarg(init_or_size)
+    to: result
+- function: ctypes.create_string_buffer
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(init)
+    to: result
+  - from: kwarg(init_or_size)
+    to: result
+- function: distutils.util.change_root
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(new_root)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: kwarg(pathname)
+    to: result
+- function: email.header.Header
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(s)
+    to: result
+- function: email.utils.parseaddr
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(addr)
+    to: result
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(addr)
+    to:
+    - result
+    - '[*]'
+- function: fnmatch.filter
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+  - from:
+    - kwarg(names)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+  - from: arg(0)
+    to: result
+  - from: kwarg(names)
+    to: result
+- function: getopt.getopt
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(args)
+    to:
+    - result
+    - '[*]'
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(shortopts)
+    to:
+    - result
+    - '[*]'
+  - from: arg(2)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(longopts)
+    to:
+    - result
+    - '[*]'
+- function: gettext.gettext
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(message)
+    to: result
+- function: glob.iglob
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(pathname)
+    to: result
+- function: glob.glob
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(pathname)
+    to: result
+- function: gzip.GzipFile
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(filename)
+    to: result
+- function: html.unescape
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(s)
+    to: result
+- function: html.escape
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(s)
+    to: result
+- function: html.parser.HTMLParser.feed
+  copy:
+  - from: arg(0)
+    to: this
+  - from: kwarg(data)
+    to: this
+- function: imp.find_module
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(name)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: kwarg(path)
+    to: result
+- function: logging.getLevelName
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(level)
+    to: result
+- function: logging.LogRecord.getMessage
+  copy:
+  - from: this
+    to: result
+- function: mimetypes.guess_type
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(url)
+    to: result
+- function: nturl2path.pathname2url
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(p)
+    to: result
+- function: nturl2path.url2pathname
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(url)
+    to: result
+- function: optparse.OptionParser.parse_args
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(args)
+    to:
+    - result
+    - '[*]'
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(values)
+    to:
+    - result
+    - '[*]'
+- function: os.walk
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(top)
+    to: result
+- function: pathlib.Path.__enter__
+  copy:
+  - from: this
+    to: result
+- function: pathlib.PurePath.__fspath__
+  copy:
+  - from: this
+    to: result
+- function: queue.Queue.get_nowait
+  copy:
+  - from:
+    - this
+    - '[*]'
+    to: result
+  - from: this
+    to: result
+- function: queue.Queue.get
+  copy:
+  - from:
+    - this
+    - '[*]'
+    to: result
+  - from: this
+    to: result
+- function: queue.Queue.put_nowait
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - '[*]'
+  - from: kwarg(item)
+    to:
+    - this
+    - '[*]'
+  - from: arg(0)
+    to: this
+  - from: kwarg(item)
+    to: this
+- function: queue.Queue.put
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - '[*]'
+  - from: kwarg(item)
+    to:
+    - this
+    - '[*]'
+  - from: arg(0)
+    to: this
+  - from: kwarg(item)
+    to: this
+- function: random.choice
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+  - from:
+    - kwarg(seq)
+    - '[*]'
+    to: result
+  - from: arg(0)
+    to: result
+  - from: kwarg(seq)
+    to: result
+- function: random.Random.choice
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+  - from:
+    - kwarg(seq)
+    - '[*]'
+    to: result
+  - from: arg(0)
+    to: result
+  - from: kwarg(seq)
+    to: result
+- function: shlex.quote
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(s)
+    to: result
+- function: shutil.which
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(cmd)
+    to: result
+  - from: arg(2)
+    to: result
+  - from: kwarg(path)
+    to: result
+- function: subprocess.Popen
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(args)
+    to: result
+- function: tarfile.open
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(name)
+    to: result
+  - from: arg(2)
+    to: result
+  - from: kwarg(fileobj)
+    to: result
+- function: tarfile.TarFile.open
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(name)
+    to: result
+  - from: arg(2)
+    to: result
+  - from: kwarg(fileobj)
+    to: result
+- function: tempfile.mkdtemp
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(suffix)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: kwarg(prefix)
+    to: result
+  - from: arg(2)
+    to: result
+  - from: kwarg(dir)
+    to: result
+- function: tempfile.mkstemp
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(suffix)
+    to:
+    - result
+    - '[*]'
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(prefix)
+    to:
+    - result
+    - '[*]'
+  - from: arg(2)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(dir)
+    to:
+    - result
+    - '[*]'
+- function: textwrap.dedent
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(text)
+    to: result
+- function: traceback.StackSummary.from_list
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(a_list)
+    to: result
+- function: typing.cast
+  copy:
+  - from: arg(1)
+    to: result
+  - from: kwarg(val)
+    to: result
+- function: urllib.parse.parse_qs
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(qs)
+    to: result
+- function: urllib.parse.urlparse
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(urlstring)
+    to: result
+- function: urllib.parse.quote
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(string)
+    to: result
+- function: urllib.parse.quote_plus
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(string)
+    to: result
+- function: urllib.parse.splitquery
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+  - from: kwarg(url)
+    to:
+    - result
+    - '[*]'
+- function: urllib.parse.unquote
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(string)
+    to: result
+- function: urllib.parse.unquote_plus
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(string)
+    to: result
+- function: urllib.parse.urlencode
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(query)
+    to: result
+- function: urllib.parse.urljoin
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(base)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: kwarg(url)
+    to: result
+- function: zipfile.CompleteDirs.namelist
+  copy:
+  - from: this
+    to: result
+- function: zipfile.ZipFile
+  copy:
+  - from: arg(0)
+    to: result
+  - from: kwarg(file)
+    to: result
+  - from: arg(0)
+    to:
+    - result
+    - .filelist
+    - '[*]'
+    - .filename
+  - from: kwarg(file)
+    to:
+    - result
+    - .filelist
+    - '[*]'
+    - .filename
+- function: zipfile.ZipFile._extract_member
+  copy:
+  - from: arg(1)
+    to: result
+  - from: kwarg(targetpath)
+    to: result
+- function: zipfile.ZipFile.infolist
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .filelist
+    to: result
+- function: zipfile.ZipFile.namelist
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.path
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.full_path
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.base_url
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.url
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.access_control_request_method
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.content_encoding
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.content_md5
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.content_type
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.data
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.method
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.mimetype
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.origin
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.query_string
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.referrer
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.remote_addr
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.remote_user
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.user_agent
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.environ
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.cookies
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.mimetype_params
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.view_args
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.json
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.access_route
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.stream
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.input_stream
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.args
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.values
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.form
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.files
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.access_control_request_headers
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.pragma
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.accept_charsets
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.accept_encodings
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.accept_languages
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.accept_mimetypes
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.authorization
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.cache_control
+  copy:
+  - from: this
+    to: result
+- attribute: flask.request.headers
+  copy:
+  - from: this
+    to: result
+- function: flask.request.get_data
+  copy:
+  - from: this
+    to: result
+- function: flask.request.get_json
+  copy:
+  - from: this
+    to: result
+- function: flask.render_template_string
+  copy:
+  - from: arg(0)
+    to: result
+- function: flask.stream_template_string
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - '[*]'
+cleaner:
+- function: django.utils.http.url_has_allowed_host_and_scheme
+  cleans:
+  - taintKind: remote
+    pos: arg(0)
+  - taintKind: commandargs
+    pos: arg(0)
+  - taintKind: environment
+    pos: arg(0)
+  - taintKind: stdin
+    pos: arg(0)
+  - taintKind: file
+    pos: arg(0)
+  - taintKind: database
+    pos: arg(0)
+  for: url-redirection
+- function: django.utils.http.url_has_allowed_host_and_scheme
+  cleans:
+  - taintKind: remote
+    pos: kwarg(url)
+  - taintKind: commandargs
+    pos: kwarg(url)
+  - taintKind: environment
+    pos: kwarg(url)
+  - taintKind: stdin
+    pos: kwarg(url)
+  - taintKind: file
+    pos: kwarg(url)
+  - taintKind: database
+    pos: kwarg(url)
+  for: url-redirection
+- function: AntiSSRF.URIValidator.in_azure_storage_domain
+  cleans:
+  - taintKind: remote
+    pos: arg(0)
+  - taintKind: commandargs
+    pos: arg(0)
+  - taintKind: environment
+    pos: arg(0)
+  - taintKind: stdin
+    pos: arg(0)
+  - taintKind: file
+    pos: arg(0)
+  - taintKind: database
+    pos: arg(0)
+  for: request-forgery
+- function: AntiSSRF.URIValidator.in_azure_keyvault_domain
+  cleans:
+  - taintKind: remote
+    pos: arg(0)
+  - taintKind: commandargs
+    pos: arg(0)
+  - taintKind: environment
+    pos: arg(0)
+  - taintKind: stdin
+    pos: arg(0)
+  - taintKind: file
+    pos: arg(0)
+  - taintKind: database
+    pos: arg(0)
+  for: request-forgery
+- function: AntiSSRF.URIValidator.in_domain
+  cleans:
+  - taintKind: remote
+    pos: arg(0)
+  - taintKind: commandargs
+    pos: arg(0)
+  - taintKind: environment
+    pos: arg(0)
+  - taintKind: stdin
+    pos: arg(0)
+  - taintKind: file
+    pos: arg(0)
+  - taintKind: database
+    pos: arg(0)
+  for: request-forgery
