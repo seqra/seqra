@@ -398,26 +398,49 @@ jobs:
           Compress-Archive -Path opentaint.exe -DestinationPath opentaint-full_windows_amd64.zip
           $hash = (Get-FileHash -Path opentaint-full_windows_amd64.zip -Algorithm SHA256).Hash.ToLower()
           "$hash  opentaint-full_windows_amd64.zip" | Out-File -FilePath checksums.txt -Encoding utf8NoBOM
-      - name: Serve test archive
-        uses: ./.github/actions/cli/serve-archive
-        with:
-          archive-dir: cli
-      - name: Run install.ps1
+      # Server start, readiness poll and install must share a single step:
+      # on windows-latest the runner's Job Object kills background processes
+      # at step end, so the python server cannot live across steps.
+      - name: Serve archive and run install.ps1
         id: install-windows
         shell: pwsh
         env:
           OPENTAINT_DOWNLOAD_BASE_URL: http://127.0.0.1:8080
+          SERVE_PORT: '8080'
+          SERVE_TIMEOUT: '30'
         run: |
-          $output = pwsh -File scripts/install/install.ps1 2>&1 | Out-String
-          Write-Host $output
-          if ($LASTEXITCODE -ne 0) {
-            throw "install.ps1 exited with code $LASTEXITCODE"
+          $port = [int]$env:SERVE_PORT
+          $logOut = Join-Path $env:RUNNER_TEMP 'http-server.out.log'
+          $logErr = Join-Path $env:RUNNER_TEMP 'http-server.err.log'
+          $server = Start-Process -NoNewWindow -PassThru `
+            -FilePath python `
+            -ArgumentList '-m', 'http.server', "$port" `
+            -WorkingDirectory cli `
+            -RedirectStandardOutput $logOut `
+            -RedirectStandardError $logErr
+          try {
+            & "$env:GITHUB_WORKSPACE/scripts/ci/wait-for-http-server.ps1" `
+              -Url "http://127.0.0.1:$port/" `
+              -TimeoutSec ([int]$env:SERVE_TIMEOUT) `
+              -Process $server `
+              -StdoutLog $logOut `
+              -StderrLog $logErr
+
+            $output = pwsh -File scripts/install/install.ps1 2>&1 | Out-String
+            Write-Host $output
+            if ($LASTEXITCODE -ne 0) {
+              throw "install.ps1 exited with code $LASTEXITCODE"
+            }
+            if ($output -notmatch 'OPENTAINT_BINARY_PATH=(.+)') {
+              throw 'install.ps1 did not emit OPENTAINT_BINARY_PATH'
+            }
+            $binaryPath = $Matches[1].Trim()
+            "OPENTAINT_BINARY_PATH=$binaryPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          } finally {
+            if ($server -and -not $server.HasExited) {
+              Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue
+            }
           }
-          if ($output -notmatch 'OPENTAINT_BINARY_PATH=(.+)') {
-            throw 'install.ps1 did not emit OPENTAINT_BINARY_PATH'
-          }
-          $binaryPath = $Matches[1].Trim()
-          "OPENTAINT_BINARY_PATH=$binaryPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
       - name: Verify installation
         uses: ./.github/actions/cli/verify-installed-binary
         with:
