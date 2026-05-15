@@ -1,0 +1,74 @@
+name: 'Serve test archive over HTTP'
+description: 'Starts a Python http.server in a directory and waits until it is reachable'
+
+inputs:
+  archive-dir:
+    description: 'Directory whose contents to serve'
+    required: true
+  port:
+    description: 'Port to listen on'
+    required: false
+    default: '8080'
+  timeout-seconds:
+    description: 'How long to wait for the server to become ready'
+    required: false
+    default: '30'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Start server (unix)
+      if: runner.os != 'Windows'
+      shell: bash
+      working-directory: ${{ inputs.archive-dir }}
+      env:
+        SERVE_PORT: ${{ inputs.port }}
+        SERVE_TIMEOUT: ${{ inputs.timeout-seconds }}
+      run: |
+        LOG="${RUNNER_TEMP}/http-server.log"
+        python3 -m http.server "$SERVE_PORT" > "$LOG" 2>&1 &
+        for i in $(seq 1 "$SERVE_TIMEOUT"); do
+          if curl -fsS "http://127.0.0.1:${SERVE_PORT}/" -o /dev/null 2>/dev/null; then
+            echo "Server ready after ${i}s"
+            exit 0
+          fi
+          sleep 1
+        done
+        echo "Server failed to start within ${SERVE_TIMEOUT}s. Log:"
+        cat "$LOG" || true
+        exit 1
+
+    - name: Start server (windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      env:
+        SERVE_DIR: ${{ inputs.archive-dir }}
+        SERVE_PORT: ${{ inputs.port }}
+        SERVE_TIMEOUT: ${{ inputs.timeout-seconds }}
+      run: |
+        $port = [int]$env:SERVE_PORT
+        $timeout = [int]$env:SERVE_TIMEOUT
+        $logOut = Join-Path $env:RUNNER_TEMP 'http-server.out.log'
+        $logErr = Join-Path $env:RUNNER_TEMP 'http-server.err.log'
+        $server = Start-Process -NoNewWindow -PassThru `
+          -FilePath python `
+          -ArgumentList '-m', 'http.server', "$port" `
+          -WorkingDirectory $env:SERVE_DIR `
+          -RedirectStandardOutput $logOut `
+          -RedirectStandardError $logErr
+        for ($i = 1; $i -le $timeout; $i++) {
+          if ($server.HasExited) { break }
+          try {
+            Invoke-WebRequest -Uri "http://127.0.0.1:$port/" -UseBasicParsing -TimeoutSec 2 -ErrorAction Stop | Out-Null
+            Write-Host "Server ready after ${i}s"
+            exit 0
+          } catch {
+            Start-Sleep -Seconds 1
+          }
+        }
+        Write-Host "Server failed to start within ${timeout}s."
+        Write-Host '--- stdout ---'
+        Get-Content $logOut -ErrorAction SilentlyContinue
+        Write-Host '--- stderr ---'
+        Get-Content $logErr -ErrorAction SilentlyContinue
+        throw 'Local HTTP server did not become ready'
