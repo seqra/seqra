@@ -686,9 +686,14 @@ class MethodTaintConfigurationResolver(
     private fun SerializedTypeNameMatcher.asAnnotationConstraint(): AnnotationConstraint =
         AnnotationConstraint(this, params = null)
 
-    private fun JIRAnnotated.matched(constraint: AnnotationConstraint): Boolean =
-        matchedAnnotations { constraint.type.match(patternManager, it) }
-            .any { it.paramsMatched(constraint) }
+    private val annotationMatchingCache = hashMapOf<JIRAnnotated, MutableMap<AnnotationConstraint, Boolean>>()
+
+    private fun JIRAnnotated.matched(constraint: AnnotationConstraint): Boolean = annotationMatchingCache
+        .getOrPut(this, ::hashMapOf)
+        .getOrPut(constraint) {
+            matchedAnnotations { constraint.type.match(patternManager, it) }
+                .any { it.paramsMatched(constraint) }
+        }
 
     private fun JIRAnnotation.paramsMatched(constraint: AnnotationConstraint): Boolean {
         val paramMatchers = constraint.params ?: return true
