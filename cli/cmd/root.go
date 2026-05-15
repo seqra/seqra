@@ -53,8 +53,11 @@ var rootCmd = &cobra.Command{
 		// Reconcile install-tier version marker if needed (lightweight: a few Stat calls).
 		utils.ReconcileInstallMarker()
 
-		// Start async update check (non-blocking, at most once per day)
-		if !globals.Config.Output.Quiet {
+		// Start async update check (non-blocking, at most once per day).
+		// Skip for the update command itself: the running process holds the OLD
+		// version, so the check would queue an "update available" hint for the
+		// version the user is in the process of installing.
+		if !globals.Config.Output.Quiet && cmd.Name() != "update" {
 			go checkForUpdateAsync()
 		}
 
