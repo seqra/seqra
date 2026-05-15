@@ -9,7 +9,7 @@
 <h3 align="center">Den åpen kildekode taint-analysemotoren for AI-æraen</h3>
 
 <p align="center">
-  Formell inter-prosedyrell taint-analyse — finner det mønstergjenkjenningsmotorer overser, håndhever det LLM-agenter oppdager som regler, skalerer der ingen av dem klarer det alene.
+  Formell taint-analyse for applikasjonssikkerhet — finner det AST-mønstergjenkjenningsmotorer overser, lar LLM-agenter omsette sårbarheter til regler, skalerer der ingen av dem klarer det alene.
 </p>
 
 <p align="center">
@@ -104,15 +104,15 @@ LLM-sikkerhetsagenter finner sårbarheter mennesker overser, bruker tokens på h
 
 Jo mer AI skriver kode, desto mer trenger du formelle metoder i bunnen.
 
-- **Finn det mønstergjenkjenningsmotorer overser.** Den inter-prosedyrelle dataflytmotoren sporer upålitelige data på tvers av funksjonsgrenser, persistenslag, aliaser og asynkron kode.
-- **Ett funn blir total dekning.** Kodenære regler lar deg gjøre hver avdekket sårbarhet om til en regel, og motoren bruker den på hele kodebasen, deterministisk, på minutter med CPU.
+- **Finn det AST-mønstergjenkjenningsmotorer overser.** Den inter-prosedyrelle dataflytmotoren sporer upålitelige data på tvers av funksjonsgrenser, persistenslag, aliaser og asynkron kode.
+- **Ett funn blir total dekning.** AST-mønsterregler lar deg gjøre hver avdekket sårbarhet om til en regel, og motoren bruker den på hele kodebasen, deterministisk, på minutter med CPU.
 - **Åpen kildekode, alt inkludert.** Motor, regler, CI-integrasjoner — hele stakken leveres under Apache 2.0 og MIT. Ingen betalt nivå for å låse opp taint-sporing, ingen sperrer på å skrive egne regler.
 
 ## Hurtigstart
 
 **Installasjonsskript (Linux/macOS)**
 ```
-curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
+curl -fsSL https://opentaint.org/install.sh | bash
 ```
 
 **Installer via Homebrew (Linux/macOS):**
@@ -122,7 +122,7 @@ brew install --cask seqra/tap/opentaint
 
 **Installasjonsskript (Windows PowerShell)**
 ```
-irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1 | iex
+irm https://opentaint.org/install.ps1 | iex
 ```
 
 **Skann prosjektet ditt:**

@@ -9,7 +9,7 @@
 <h3 align="center">Il motore open source di taint analysis per l'era dell'IA</h3>
 
 <p align="center">
-  Taint analysis inter-procedurale formale — trova ciò che i motori di pattern matching non rilevano, applica ciò che gli agenti LLM scoprono come regole, scala dove nessuno dei due può farlo da solo.
+  Taint analysis formale per la sicurezza delle applicazioni — trova ciò che i motori di AST-pattern matching non rilevano, consente agli agenti LLM di applicare vulnerabilità come regole, scala dove nessuno dei due può farlo da solo.
 </p>
 
 <p align="center">
@@ -104,15 +104,15 @@ Gli agenti di sicurezza LLM trovano vulnerabilità che gli umani non vedono, con
 
 Più l'IA scrive codice, più hai bisogno di metodi formali alla base.
 
-- **Trova ciò che i motori di pattern matching non rilevano.** Il motore di dataflow inter-procedurale traccia i dati non attendibili attraverso i confini delle funzioni, i livelli di persistenza, gli alias e il codice asincrono.
-- **Una scoperta diventa copertura totale.** Le regole native al codice ti permettono di trasformare ogni vulnerabilità scoperta in una regola, con il motore che la applica sull'intera codebase, in modo deterministico, in pochi minuti di CPU.
+- **Trova ciò che i motori di AST-pattern matching non rilevano.** Il motore di dataflow inter-procedurale traccia i dati non attendibili attraverso i confini delle funzioni, i livelli di persistenza, gli alias e il codice asincrono.
+- **Una scoperta diventa copertura totale.** Le regole AST-pattern ti permettono di trasformare ogni vulnerabilità scoperta in una regola, con il motore che la applica sull'intera codebase, in modo deterministico, in pochi minuti di CPU.
 - **Open source, tutto incluso.** Motore, regole, integrazioni CI — l'intero stack è distribuito sotto Apache 2.0 e MIT. Nessun livello a pagamento per sbloccare il tracciamento taint, nessuna restrizione sulla scrittura delle proprie regole.
 
 ## Avvio rapido
 
 **Script di installazione (Linux/macOS)**
 ```
-curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
+curl -fsSL https://opentaint.org/install.sh | bash
 ```
 
 **Installazione tramite Homebrew (Linux/macOS):**
@@ -122,7 +122,7 @@ brew install --cask seqra/tap/opentaint
 
 **Script di installazione (Windows PowerShell)**
 ```
-irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1 | iex
+irm https://opentaint.org/install.ps1 | iex
 ```
 
 **Scansiona il tuo progetto:**

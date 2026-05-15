@@ -9,7 +9,7 @@
 <h3 align="center">AI 시대를 위한 오픈 소스 오염 분석 엔진</h3>
 
 <p align="center">
-  정형적 프로시저 간 오염 분석 — 패턴 매칭 엔진이 놓치는 것을 찾아내고, LLM 에이전트가 발견한 규칙을 실행하며, 어느 쪽도 단독으로는 불가능한 규모로 확장합니다.
+  애플리케이션 보안을 위한 정형적 오염 분석 — AST 패턴 매칭 엔진이 놓치는 것을 찾아내고, LLM 에이전트가 취약점을 규칙으로 적용하도록 하며, 어느 쪽도 단독으로는 불가능한 규모로 확장합니다.
 </p>
 
 <p align="center">
@@ -104,15 +104,15 @@ LLM 보안 에이전트는 사람이 놓치는 취약점을 찾아내지만, 모
 
 AI가 코드를 더 많이 작성할수록, 그 아래에 정형적 방법이 더 필요합니다.
 
-- **패턴 매칭 엔진이 놓치는 것을 찾아냅니다.** 프로시저 간 데이터플로우 엔진은 함수 경계, 영속성 계층, 별칭, 비동기 코드를 가로질러 신뢰할 수 없는 데이터를 추적합니다.
-- **하나의 발견이 전체 커버리지가 됩니다.** 코드 네이티브 규칙을 통해 발견된 모든 취약점을 규칙으로 만들 수 있으며, 엔진이 이를 전체 코드베이스에 걸쳐 결정론적으로, 수 분의 CPU 시간 내에 적용합니다.
+- **AST 패턴 매칭 엔진이 놓치는 것을 찾아냅니다.** 프로시저 간 데이터플로우 엔진은 함수 경계, 영속성 계층, 별칭, 비동기 코드를 가로질러 신뢰할 수 없는 데이터를 추적합니다.
+- **하나의 발견이 전체 커버리지가 됩니다.** AST 패턴 규칙을 통해 발견된 모든 취약점을 규칙으로 만들 수 있으며, 엔진이 이를 전체 코드베이스에 걸쳐 결정론적으로, 수 분의 CPU 시간 내에 적용합니다.
 - **오픈 소스, 모든 것이 포함되어 있습니다.** 엔진, 규칙, CI 통합 — 전체 스택이 Apache 2.0 및 MIT 라이선스로 제공됩니다. 오염 추적을 잠금 해제하기 위한 유료 티어도, 자체 규칙 작성에 대한 제한도 없습니다.
 
 ## 빠른 시작
 
 **설치 스크립트 (Linux/macOS)**
 ```
-curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
+curl -fsSL https://opentaint.org/install.sh | bash
 ```
 
 **Homebrew를 통한 설치 (Linux/macOS):**
@@ -122,7 +122,7 @@ brew install --cask seqra/tap/opentaint
 
 **설치 스크립트 (Windows PowerShell)**
 ```
-irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1 | iex
+irm https://opentaint.org/install.ps1 | iex
 ```
 
 **프로젝트 스캔:**

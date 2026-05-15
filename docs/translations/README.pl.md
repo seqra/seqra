@@ -9,7 +9,7 @@
 <h3 align="center">Silnik analizy taint o otwartym kodzie źródłowym dla ery AI</h3>
 
 <p align="center">
-  Formalna międzyproceduralna analiza taint — znajduje to, co pomijają silniki dopasowywania wzorców, wdraża reguły odkryte przez agentów LLM, skaluje się tam, gdzie żadne z nich nie poradzi sobie samodzielnie.
+  Formalna analiza taint dla bezpieczeństwa aplikacji — znajduje to, co pomijają silniki dopasowywania wzorców AST, pozwala agentom LLM wdrażać podatności jako reguły, skaluje się tam, gdzie żadne z nich nie poradzi sobie samodzielnie.
 </p>
 
 <p align="center">
@@ -104,15 +104,15 @@ Agenci bezpieczeństwa LLM znajdują luki, które umykają ludziom, zużywają t
 
 Im więcej kodu pisze AI, tym bardziej potrzebujesz metod formalnych u podstaw.
 
-- **Znajdź to, co pomijają silniki dopasowywania wzorców.** Międzyproceduralny silnik analizy przepływu danych śledzi niezaufane dane przez granice funkcji, warstwy persystencji, aliasy i kod asynchroniczny.
-- **Jedno wykrycie to pełne pokrycie.** Reguły na poziomie kodu pozwalają przekształcić każdą odkrytą lukę w regułę, którą silnik zastosuje do całej bazy kodu, deterministycznie, w minuty czasu procesora.
+- **Znajdź to, co pomijają silniki dopasowywania wzorców AST.** Międzyproceduralny silnik analizy przepływu danych śledzi niezaufane dane przez granice funkcji, warstwy persystencji, aliasy i kod asynchroniczny.
+- **Jedno wykrycie to pełne pokrycie.** Reguły wzorców AST pozwalają przekształcić każdą odkrytą lukę w regułę, którą silnik zastosuje do całej bazy kodu, deterministycznie, w minuty czasu procesora.
 - **Otwarty kod źródłowy, wszystko w zestawie.** Silnik, reguły, integracje CI — cały stos jest udostępniony na licencjach Apache 2.0 i MIT. Brak płatnego poziomu do odblokowania śledzenia taint, brak ograniczeń w pisaniu własnych reguł.
 
 ## Szybki start
 
 **Skrypt instalacyjny (Linux/macOS)**
 ```
-curl -fsSL https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.sh | bash
+curl -fsSL https://opentaint.org/install.sh | bash
 ```
 
 **Instalacja przez Homebrew (Linux/macOS):**
@@ -122,7 +122,7 @@ brew install --cask seqra/tap/opentaint
 
 **Skrypt instalacyjny (Windows PowerShell)**
 ```
-irm https://raw.githubusercontent.com/seqra/opentaint/main/scripts/install/install.ps1 | iex
+irm https://opentaint.org/install.ps1 | iex
 ```
 
 **Skanuj swój projekt:**
