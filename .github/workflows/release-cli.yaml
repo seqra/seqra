@@ -233,15 +233,13 @@ jobs:
           # Import GPG key for signed commits
           echo "$GPG_PRIVATE_KEY" | gpg --batch --import
 
-          # Fix SHA256 values in GoReleaser-generated cask file
-          CASK_FILE="dist/homebrew/Casks/opentaint.rb"
-          for f in dist/opentaint-full_*.tar.gz dist/opentaint-full_*.zip; do
-            [ -f "$f" ] || continue
-            name="$(basename "$f")"
-            sha="$(sha256sum "$f" | awk '{print $1}')"
-            escaped_name="${name//./\\.}"
-            sed -i "/${escaped_name}/{ n; s/sha256 \"[a-f0-9]\{64\}\"/sha256 \"${sha}\"/; }" "$CASK_FILE"
-          done
+          # Rewrite sha256 in the GoReleaser-generated cask to match the
+          # JRE-bundled archives. The script is order-independent and exits
+          # non-zero if a block can't be patched, so a silent format change
+          # cannot ship stale hashes.
+          python3 scripts/patch-cask-sha256.py \
+            --cask dist/homebrew/Casks/opentaint.rb \
+            --dist dist
 
           # Push updated cask to Homebrew tap
           git clone "https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/${{ github.repository_owner }}/homebrew-tap.git" /tmp/homebrew-tap
