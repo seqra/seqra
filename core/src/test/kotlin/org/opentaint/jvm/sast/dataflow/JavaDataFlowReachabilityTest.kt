@@ -18,6 +18,7 @@ class JavaDataFlowReachabilityTest : AnalysisTest() {
         private const val OPTIONAL_RULE_ID = "optional-flow-rule"
         private const val STREAM_RULE_ID = "stream-flow-rule"
         private const val ASYNC_RULE_ID = "async-flow-rule"
+        private const val CAPTURED_ARRAY_RULE_ID = "captured-array-alias-rule"
     }
 
     override val sourceFileExtension: String = "java"
@@ -481,6 +482,34 @@ class JavaDataFlowReachabilityTest : AnalysisTest() {
         )
     }
 
+    @Test
+    fun `lambda capture - sink invoked inside lambda body`() {
+        val testCls = "$SAMPLE_PACKAGE.LambdaCapturedArrayAliasSample"
+        val config = capturedArrayConfig(testCls)
+
+        assertReachable(
+            config = config,
+            testCls = testCls,
+            entryPointName = "sinkInsideLambda",
+            ruleId = CAPTURED_ARRAY_RULE_ID,
+            testName = "lambda capture sink inside lambda"
+        )
+    }
+
+    @Test
+    fun `lambda capture - tainted value written to captured array, read in outer scope`() {
+        val testCls = "$SAMPLE_PACKAGE.LambdaCapturedArrayAliasSample"
+        val config = capturedArrayConfig(testCls)
+
+        assertReachable(
+            config = config,
+            testCls = testCls,
+            entryPointName = "capturedArrayOuterRead",
+            ruleId = CAPTURED_ARRAY_RULE_ID,
+            testName = "lambda captured array outer read"
+        )
+    }
+
     private fun collectionConfig(testCls: String) = SerializedTaintConfig(
         source = listOf(sourceRule(testCls, "source", TAINT_MARK)),
         sink = listOf(sinkRule(testCls, "sink", COLLECTION_RULE_ID, listOf(Argument(0) to TAINT_MARK)))
@@ -509,5 +538,10 @@ class JavaDataFlowReachabilityTest : AnalysisTest() {
     private fun asyncConfig(testCls: String) = SerializedTaintConfig(
         source = listOf(sourceRule(testCls, "source", TAINT_MARK)),
         sink = listOf(sinkRule(testCls, "sink", ASYNC_RULE_ID, listOf(Argument(0) to TAINT_MARK)))
+    )
+
+    private fun capturedArrayConfig(testCls: String) = SerializedTaintConfig(
+        source = listOf(sourceRule(testCls, "source", TAINT_MARK)),
+        sink = listOf(sinkRule(testCls, "sink", CAPTURED_ARRAY_RULE_ID, listOf(Argument(0) to TAINT_MARK)))
     )
 }
