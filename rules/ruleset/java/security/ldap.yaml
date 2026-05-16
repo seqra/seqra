@@ -64,6 +64,26 @@ rules:
         - 'servlet-untrusted-data.$UNTRUSTED -> sink.$QUERY'
         - 'spring-untrusted-data.$UNTRUSTED -> sink.$QUERY'
 
+  - id: ldap-injection-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential LDAP injection: untrusted Spring input flows into an LDAP query.
+    metadata:
+      cwe: CWE-90
+      short-description: LDAP injection via untrusted Spring input
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/LdapInjection.qll
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/ldap-injection-sinks.yaml#java-ldap-injection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$QUERY'
+
   - id: ldap-entry-poisoning
     severity: WARNING
     message: >-

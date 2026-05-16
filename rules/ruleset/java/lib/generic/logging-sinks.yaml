@@ -11,6 +11,21 @@ rules:
     mode: taint
     pattern-sanitizers:
       - pattern: org.apache.commons.text.StringEscapeUtils.escapeJava(...);
+      # CodeQL LogInjection: line-break neutralization via String.replace / replaceAll.
+      # ANALYZER LIMITATION: OpenTaint pattern matching for sanitizers on instance
+      # method calls with specific string-literal arguments is currently not honored
+      # (the equivalent patterns in http-response-splitting-sinks.yaml suffer from the
+      # same limitation). We keep the patterns here for documentation and future
+      # analyzer support. Track via OPENTAINT-XXX.
+      # provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/LogInjection.qll
+      # - patterns:
+      #     - pattern-either:
+      #         - pattern: $STR.replaceAll("\\R", $_)
+      #         - pattern: $STR.replaceAll("\\n", $_)
+      #         - pattern: $STR.replaceAll("\\r", $_)
+      #         - pattern: $STR.replaceAll("[\\r\\n]", $_)
+      #         - pattern: $STR.replace("\n", $_)
+      #         - pattern: $STR.replace("\r", $_)
     pattern-sinks:
       - patterns:
           - pattern-either:

@@ -267,6 +267,91 @@ rules:
         - 'servlet-untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
         - 'spring-untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
 
+  - id: groovy-injection-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential code injection: Groovy execution with untrusted Spring input.
+    metadata:
+      cwe:
+        - CWE-94
+      short-description: Groovy code execution with untrusted Spring input
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/GroovyInjection.qll
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/code-injection-sinks.yaml#dangerous-groovy-shell
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: ognl-injection-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential code injection: OGNL expression evaluation with untrusted Spring input.
+    metadata:
+      cwe:
+        - CWE-94
+      short-description: OGNL expression construction from untrusted Spring input
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/OgnlInjection.qll
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/code-injection-sinks.yaml#ognl-injection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$INPUT'
+
+  - id: script-engine-injection-in-spring-app
+    severity: ERROR
+    message: |
+      Potential code injection: ScriptEngine executes user-controlled Spring input.
+    metadata:
+      cwe:
+        - CWE-94
+      short-description: Injection into javax.script.ScriptEngine via Spring input
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/ScriptInjection.qll
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/code-injection-sinks.yaml#dangerous-script-engine-eval
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: ssti-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential template injection: unvalidated user data from Spring flows into template engine.
+    metadata:
+      cwe:
+        - CWE-94
+        - CWE-1336
+      short-description: Server-side template injection via untrusted Spring input
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/TemplateInjection.qll
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/template-injection-sinks.yaml#java-ssti-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
 
   - id: el-injection-in-servlet-app
     severity: ERROR

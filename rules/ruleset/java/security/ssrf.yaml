@@ -80,6 +80,27 @@ rules:
         - 'servlet-untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
         - 'spring-untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
 
+  - id: ssrf-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential server-side request forgery: untrusted Spring input flows into an outbound request endpoint.
+    metadata:
+      cwe:
+        - CWE-918
+      short-description: SSRF via untrusted Spring input
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/RequestForgery.qll
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/ssrf-sinks.yaml#java-ssrf-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
   - id: java-servlet-parameter-pollution
     severity: ERROR
     message: |

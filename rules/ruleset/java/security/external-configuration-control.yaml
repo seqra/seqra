@@ -292,3 +292,25 @@ rules:
       on:
         - 'servlet-untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
         - 'spring-untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: unsafe-reflection-in-spring-app
+    severity: WARNING
+    message: >-
+      Unsafe reflection: untrusted Spring input controls a reflection target (class/method) and may let the attacker
+      manipulate program flow.
+    metadata:
+      cwe:
+        - CWE-470
+      short-description: Unsafe reflection driven by untrusted Spring input
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/UnsafeReflection.qll
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/unsafe-reflection.yaml#java-unsafe-reflection-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'

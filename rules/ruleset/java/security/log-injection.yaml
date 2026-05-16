@@ -64,6 +64,27 @@ rules:
         - 'servlet-untrusted-data.$UNTRUSTED -> sink.$DATA'
         - 'spring-untrusted-data.$UNTRUSTED -> sink.$DATA'
 
+  - id: log-injection-in-spring-app
+    severity: WARNING
+    message: >-
+      Log injection: untrusted Spring input is logged without sanitization and may allow log-entry forgery.
+    metadata:
+      cwe:
+        - CWE-117
+      short-description: Log injection via untrusted Spring input
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/LogInjection.qll
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/generic/logging-sinks.yaml#java-logging-sinks
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$DATA'
+
   - id: seam-log-injection
     severity: ERROR
     message: >-

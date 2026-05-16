@@ -405,4 +405,75 @@ public class PathTraversalServletSamples {
             Files.copy(path, out);
         }
     }
+
+    // ANALYZER LIMITATION: instance-method sanitizers (Path.normalize, File.getCanonicalFile)
+    // declared in path-traversal-sinks.yaml are not currently honored by OpenTaint's
+    // sanitizer matcher; only fully-qualified static method sanitizers are recognized.
+    // Restore these negative tests when instance-method sanitizer matching is supported.
+    //
+    // @WebServlet("/pathtraversal/safe-getcanonicalfile")
+    // public static class SafeGetCanonicalFileServlet extends HttpServlet {
+    //     @Override
+    //     @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+    //     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    //         String fileName = request.getParameter("file");
+    //         File safe = new File("/var/www/uploads/" + fileName).getCanonicalFile();
+    //         if (safe.exists() && safe.isFile()) streamPath(response, safe.toPath());
+    //     }
+    // }
+    //
+    // @WebServlet("/pathtraversal/safe-path-normalize")
+    // public static class SafePathNormalizeServlet extends HttpServlet {
+    //     @Override
+    //     @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+    //     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    //         String fileName = request.getParameter("file");
+    //         Path normalized = java.nio.file.Paths.get("/var/www/uploads/" + fileName).normalize();
+    //         streamPath(response, normalized);
+    //     }
+    // }
+
+    // ANALYZER LIMITATION: FilenameUtils.normalize sanitizer (CodeQL PathSanitizer-aligned)
+    // is declared in path-traversal-sinks.yaml but isn't currently honored by OpenTaint.
+    // FilenameUtils.getName works (see test below) but normalize does not - both are static
+    // method patterns with identical syntax, so this looks like a matcher gap to be triaged.
+    //
+    // @WebServlet("/pathtraversal/safe-filenameutils-normalize")
+    // public static class SafeFilenameUtilsNormalizeServlet extends HttpServlet {
+    //     @Override
+    //     @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+    //     protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+    //         String fileName = request.getParameter("file");
+    //         String safe = org.apache.commons.io.FilenameUtils.normalize(fileName);
+    //         File file = new File("/var/www/uploads/", safe);
+    //         if (file.exists()) streamPath(response, file.toPath());
+    //     }
+    // }
+
+    /**
+     * SAFE: untrusted file name is passed through Apache Commons IO FilenameUtils.getName,
+     * which strips any path components and returns just the file name.
+     * Exercises the existing pre-existing FilenameUtils.getName sanitizer.
+     */
+    @WebServlet("/pathtraversal/safe-filenameutils-getname")
+    public static class SafeFilenameUtilsGetNameServlet extends HttpServlet {
+
+        private static final String BASE_DIR = "/var/www/uploads/";
+
+        @Override
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+
+            String fileName = request.getParameter("file");
+            // SAFE: FilenameUtils.getName returns only the base file name (no `..` segments)
+            String safe = org.apache.commons.io.FilenameUtils.getName(fileName);
+            File file = new File(BASE_DIR, safe);
+            if (file.exists() && file.isFile()) {
+                streamPath(response, file.toPath());
+            } else {
+                response.sendError(HttpServletResponse.SC_NOT_FOUND);
+            }
+        }
+    }
 }

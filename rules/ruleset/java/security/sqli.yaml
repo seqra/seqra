@@ -71,3 +71,47 @@ rules:
       on:
         - 'servlet-untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
         - 'spring-untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: sql-injection-in-servlet-app
+    severity: ERROR
+    message: >-
+      Potential SQL injection: untrusted Servlet input flows into a SQL execution call or statement.
+    metadata:
+      cwe: CWE-89
+      short-description: SQL injection via untrusted Servlet input
+      references:
+        - https://owasp.org/www-community/attacks/SQL_Injection
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/src/Security/CWE/CWE-089
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/spring/jdbc-sqli-sinks.yaml#spring-sqli-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
+
+  - id: sql-injection-in-spring-app
+    severity: ERROR
+    message: >-
+      Potential SQL injection: untrusted Spring input flows into a SQL execution call or statement.
+    metadata:
+      cwe: CWE-89
+      short-description: SQL injection via untrusted Spring input
+      references:
+        - https://owasp.org/www-community/attacks/SQL_Injection
+      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/src/Security/CWE/CWE-089
+    languages:
+      - java
+    mode: join
+    join:
+      refs:
+        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
+          as: untrusted-data
+        - rule: java/lib/spring/jdbc-sqli-sinks.yaml#spring-sqli-sink
+          as: sink
+      on:
+        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'

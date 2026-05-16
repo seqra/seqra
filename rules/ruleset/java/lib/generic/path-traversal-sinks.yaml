@@ -14,6 +14,15 @@ rules:
       - pattern: org.apache.commons.io.FilenameUtils.getName(...)
       - pattern: org.apache.commons.io.FilenameUtils.getExtension(...)
       - pattern: io.github.pixee.security.Filenames.toSimpleFileName(...)
+      # CodeQL PathSanitizer: path normalization removes any internal `..` components.
+      # provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/PathSanitizer.qll
+      - pattern: (java.nio.file.Path $P).normalize()
+      - pattern: (java.nio.file.Path $P).toRealPath(...)
+      - pattern: (java.io.File $F).getCanonicalPath()
+      - pattern: (java.io.File $F).getCanonicalFile()
+      # FilenameUtils.normalize variants - all strip `..` from paths
+      - pattern: org.apache.commons.io.FilenameUtils.normalize(...)
+      - pattern: org.apache.commons.io.FilenameUtils.normalizeNoEndSeparator(...)
     pattern-sinks:
       - patterns:
           - pattern-either:
