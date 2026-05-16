@@ -262,6 +262,31 @@ public class SsrfSamples {
         }
     }
 
+    /**
+     * SAFE: untrusted query argument is URL-encoded via java.net.URLEncoder.encode
+     * before being concatenated into the URL. Exercises an existing static method
+     * sanitizer (CodeQL RequestForgerySanitizer-aligned encoding helper).
+     */
+    @WebServlet("/ssrf/parameter-pollution/safe-encoded")
+    public static class SafeEncodedParameterPollutionServlet extends HttpServlet {
+
+        @Override
+        @NegativeRuleSample(value = "java/security/ssrf.yaml", id = "java-servlet-parameter-pollution")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String key = request.getParameter("key");
+            String encoded = java.net.URLEncoder.encode(key);
+            try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+                String url = "https://example.com/getId?key=" + encoded;
+                HttpGet httpget = new HttpGet(url);
+                try (CloseableHttpResponse clientResponse = httpClient.execute(httpget)) {
+                    byte[] data = clientResponse.getEntity().getContent().readAllBytes();
+                    response.getOutputStream().write(data);
+                }
+            }
+        }
+    }
+
     @WebServlet("/ssrf/parameter-pollution/safe")
     public static class SafeParameterPollutionServlet extends HttpServlet {
 

@@ -9,6 +9,16 @@ rules:
     languages:
       - java
     mode: taint
+    pattern-sanitizers:
+      # CodeQL LdapInjectionSanitizer-aligned LDAP encoding helpers (static methods).
+      # provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/LdapInjection.qll
+      - pattern: org.owasp.encoder.Encode.forLdap(...)
+      - pattern: org.owasp.encoder.Encode.forDN(...)
+      - pattern: org.springframework.ldap.support.LdapEncoder.nameEncode(...)
+      - pattern: org.springframework.ldap.support.LdapEncoder.filterEncode(...)
+      # OWASP ESAPI LDAP encoders.
+      - pattern: org.owasp.esapi.ESAPI.encoder().encodeForLDAP(...)
+      - pattern: org.owasp.esapi.ESAPI.encoder().encodeForDN(...)
     pattern-sinks:
       - pattern: new javax.naming.ldap.LdapName(...)
       - pattern: (javax.naming.directory.Context $C).lookup(...)

@@ -304,7 +304,13 @@ rules:
     mode: taint
     pattern-sanitizers:
       - pattern: java.net.URLEncoder.encode($UNTRUSTED)
+      # CodeQL RequestForgerySanitizer: a URL-encoded value is no longer attacker-controlled
+      # for the purpose of host/path manipulation.
+      # provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/RequestForgery.qll
+      - pattern: java.net.URLEncoder.encode($UNTRUSTED, $_)
       - pattern: com.google.common.net.UrlEscapers.urlPathSegmentEscaper().escape($UNTRUSTED)
+      - pattern: com.google.common.net.UrlEscapers.urlFormParameterEscaper().escape($UNTRUSTED)
+      - pattern: com.google.common.net.UrlEscapers.urlFragmentEscaper().escape($UNTRUSTED)
     pattern-sinks:
       - pattern: new org.apache.http.client.methods.HttpGet(..., $UNTRUSTED, ...)
       - pattern: new org.apache.commons.httpclient.methods.GetMethod(..., $UNTRUSTED, ...)
