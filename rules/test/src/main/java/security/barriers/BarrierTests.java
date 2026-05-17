@@ -448,6 +448,56 @@ public class BarrierTests {
         }
     }
 
+    // ── unvalidated-redirect ──────────────────────────────────────────────
+
+    /** UrlRedirect — URLEncoder.encode before sendRedirect. */
+    @WebServlet("/barrier/redirect-urlencoder")
+    public static class SafeRedirectUrlEncoderServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/unvalidated-redirect.yaml", id = "unvalidated-redirect-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String target = request.getParameter("target");
+            String encoded = java.net.URLEncoder.encode(target, "UTF-8");
+            response.sendRedirect("/safe?next=" + encoded);
+        }
+    }
+
+    /** UrlRedirect — Guava urlPathSegmentEscaper before sendRedirect. */
+    @WebServlet("/barrier/redirect-guava-pathseg")
+    public static class SafeRedirectGuavaServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/unvalidated-redirect.yaml", id = "unvalidated-redirect-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String target = request.getParameter("target");
+            String encoded = com.google.common.net.UrlEscapers.urlPathSegmentEscaper().escape(target);
+            response.sendRedirect("/safe/" + encoded);
+        }
+    }
+
+    // ── smtp-crlf-injection ───────────────────────────────────────────────
+
+    /** SmtpInjection — Apache Commons Text escapeJava strips CR/LF before setSubject. */
+    @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "smtp-crlf-injection")
+    public void safeSmtpEscapeJava(HttpServletRequest request) throws Exception {
+        String subject = request.getParameter("subject");
+        String safe = org.apache.commons.text.StringEscapeUtils.escapeJava(subject);
+        java.util.Properties props = new java.util.Properties();
+        javax.mail.Session session = javax.mail.Session.getDefaultInstance(props, null);
+        javax.mail.internet.MimeMessage msg = new javax.mail.internet.MimeMessage(session);
+        msg.setSubject(safe);
+    }
+
+    /** SmtpInjection — replaceAll("[\r\n]", _) strips CR/LF before setHeader. */
+    @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "smtp-crlf-injection")
+    public void safeSmtpReplaceAllBracket(HttpServletRequest request) throws Exception {
+        String headerValue = request.getParameter("header");
+        String safe = headerValue.replaceAll("[\\r\\n]", "_");
+        java.util.Properties props = new java.util.Properties();
+        javax.mail.Session session = javax.mail.Session.getDefaultInstance(props, null);
+        javax.mail.internet.MimeMessage msg = new javax.mail.internet.MimeMessage(session);
+        msg.setHeader("X-Custom", safe);
+    }
+
     // ── http-response-splitting (CRLF) ────────────────────────────────────
 
     /** ResponseSplitting — Apache Commons Text escapeJava neutralises CR/LF. */
@@ -473,6 +523,46 @@ public class BarrierTests {
             String userInput = request.getParameter("name");
             String safe = userInput.replaceAll("[\\r\\n]+", "_");
             response.setHeader("X-User", safe);
+        }
+    }
+
+    // ── xss-in-spring-app ─────────────────────────────────────────────────
+
+    @org.springframework.web.bind.annotation.RestController
+    @org.springframework.web.bind.annotation.RequestMapping("/barrier/xss-spring")
+    public static class SpringXssBarrierController {
+
+        /** XSS-in-spring — HtmlUtils.htmlEscape. */
+        @org.springframework.web.bind.annotation.GetMapping("/htmlescape")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public void safeSpringHtmlEscape(
+                @org.springframework.web.bind.annotation.RequestParam("name") String name,
+                HttpServletResponse response) throws IOException {
+            String safe = org.springframework.web.util.HtmlUtils.htmlEscape(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<h1>Hello, " + safe + "!</h1>");
+        }
+
+        /** XSS-in-spring — OWASP Encode.forHtml. */
+        @org.springframework.web.bind.annotation.GetMapping("/owaspforhtml")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public void safeSpringOwaspForHtml(
+                @org.springframework.web.bind.annotation.RequestParam("name") String name,
+                HttpServletResponse response) throws IOException {
+            String safe = org.owasp.encoder.Encode.forHtml(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<h1>" + safe + "</h1>");
+        }
+
+        /** XSS-in-spring — Apache Commons Text escapeHtml4. */
+        @org.springframework.web.bind.annotation.GetMapping("/commonstext")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-spring-app")
+        public void safeSpringEscapeHtml4(
+                @org.springframework.web.bind.annotation.RequestParam("name") String name,
+                HttpServletResponse response) throws IOException {
+            String safe = org.apache.commons.text.StringEscapeUtils.escapeHtml4(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<h1>" + safe + "</h1>");
         }
     }
 
@@ -510,6 +600,29 @@ public class BarrierTests {
                 throw new ServletException(e);
             }
         }
+    }
+
+    // ── ldap (extra encoder variants) ─────────────────────────────────────
+
+    /** LdapInjection — OWASP ESAPI encodeForLDAP. */
+    @NegativeRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
+    public void safeLdapEsapiEncodeForLdap(HttpServletRequest request) throws Exception {
+        String username = request.getParameter("username");
+        String encoded = org.owasp.esapi.ESAPI.encoder().encodeForLDAP(username);
+        String filter = "(uid=" + encoded + ")";
+        javax.naming.directory.SearchControls ctls = new javax.naming.directory.SearchControls();
+        javax.naming.directory.DirContext ctx = null;
+        if (ctx != null) ctx.search("dc=example,dc=com", filter, ctls);
+    }
+
+    /** LdapInjection — OWASP ESAPI encodeForDN. */
+    @NegativeRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
+    public void safeLdapEsapiEncodeForDn(HttpServletRequest request) throws Exception {
+        String dn = request.getParameter("dn");
+        String encoded = org.owasp.esapi.ESAPI.encoder().encodeForDN(dn);
+        javax.naming.directory.SearchControls ctls = new javax.naming.directory.SearchControls();
+        javax.naming.directory.DirContext ctx = null;
+        if (ctx != null) ctx.search(encoded, "(objectClass=*)", ctls);
     }
 
     // ── template-injection (SSTI) ──────────────────────────────────────────

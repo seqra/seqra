@@ -8,7 +8,16 @@ rules:
       provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/audit/spring-unvalidated-redirect.yaml
     languages:
       - java
-    pattern-either:
+    mode: taint
+    pattern-sanitizers:
+      # CodeQL UrlRedirect.qll — URL encoding stops user input from
+      # controlling the host or scheme portion of the target.
+      - pattern: java.net.URLEncoder.encode($UNTRUSTED)
+      - pattern: java.net.URLEncoder.encode($UNTRUSTED, $_)
+      - pattern: com.google.common.net.UrlEscapers.urlPathSegmentEscaper().escape($UNTRUSTED)
+      - pattern: com.google.common.net.UrlEscapers.urlFormParameterEscaper().escape($UNTRUSTED)
+      - pattern: com.google.common.net.UrlEscapers.urlFragmentEscaper().escape($UNTRUSTED)
+    pattern-sinks:
       - pattern: new RedirectView($URL);
       - pattern: new ModelAndView("redirect:" + $URL);
       - pattern: (HttpServletResponse $RES).sendRedirect($URL);

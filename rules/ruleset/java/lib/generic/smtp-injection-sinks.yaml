@@ -9,6 +9,28 @@ rules:
     languages:
       - java
     mode: taint
+    pattern-sanitizers:
+      # SMTP CRLF injection: same family as HTTP response-splitting / log
+      # injection. Apache Commons Text escapeJava and string replace with
+      # CR/LF target neutralise the line-break payload.
+      # provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/SmtpInjection.qll
+      - pattern: org.apache.commons.text.StringEscapeUtils.escapeJava(...);
+      - pattern: org.apache.commons.lang.StringEscapeUtils.escapeJava(...);
+      - pattern: org.apache.commons.lang3.StringEscapeUtils.escapeJava(...);
+      - patterns:
+        - pattern: |
+            $CLEAN = $STR.replaceAll($REPLACER, $_);
+        - metavariable-regex:
+            metavariable: "$REPLACER"
+            regex: '"(\\\\R|\\\\n|\\\\r|\\\\\\\\R|\[[^]]*\\\\[nrR]+[^]]*\])"'
+        - focus-metavariable: $CLEAN
+      - patterns:
+        - pattern: |
+            $CLEAN = $STR.replace($REPLACER, $_);
+        - metavariable-regex:
+            metavariable: "$REPLACER"
+            regex: '("\\\\n"|"\\\\r"|''\\\\n''|''\\\\r'')'
+        - focus-metavariable: $CLEAN
     pattern-sinks:
       - patterns:
           - pattern-either:

@@ -54,6 +54,8 @@ allprojects {
 
         // Apache Commons Email & HttpClient for mail and HTTP samples
         implementation("org.apache.commons:commons-email:1.6.0")
+        // JavaMail API for MimeMessage SMTP barrier samples
+        implementation("com.sun.mail:javax.mail:1.6.2")
         implementation("org.apache.httpcomponents:httpclient:4.5.14")
 
         // Apache Commons FileUpload for file upload samples
@@ -333,6 +335,9 @@ allprojects {
 
         // pixee security toolkit for path-traversal barrier samples
         implementation("io.github.pixee:java-security-toolkit:1.2.3")
+
+        // OWASP ESAPI for LDAP encoder barrier samples
+        implementation("org.owasp.esapi:esapi:2.5.5.0")
 
         // Note: CXF XPathUtils is in cxf-core (already added above for LogUtils)
         // Note: CXF XSLTUtils is in cxf-rt-features-transform; test is omitted (pattern uses Argument[this]/Argument[0] taint propagation)

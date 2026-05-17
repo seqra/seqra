@@ -39,3 +39,11 @@ rules:
       - patterns:
         - pattern: $URL = (HttpServletRequest $REQ).getContextPath();
         - focus-metavariable: $URL
+      # CodeQL UrlRedirect.qll / RequestForgery.qll — URL encoding stops a
+      # tainted value from controlling the host or scheme portion of the
+      # target. Encoded user input is treated as a barrier.
+      - pattern: java.net.URLEncoder.encode($UNTRUSTED)
+      - pattern: java.net.URLEncoder.encode($UNTRUSTED, $_)
+      - pattern: com.google.common.net.UrlEscapers.urlPathSegmentEscaper().escape($UNTRUSTED)
+      - pattern: com.google.common.net.UrlEscapers.urlFormParameterEscaper().escape($UNTRUSTED)
+      - pattern: com.google.common.net.UrlEscapers.urlFragmentEscaper().escape($UNTRUSTED)
