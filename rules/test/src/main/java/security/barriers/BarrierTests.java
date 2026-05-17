@@ -469,6 +469,136 @@ public class BarrierTests {
         }
     }
 
+    /** XSS — Spring HtmlUtils.htmlEscapeHex. */
+    @WebServlet("/barrier/xss-htmlescape-hex")
+    public static class SafeHtmlEscapeHexServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.springframework.web.util.HtmlUtils.htmlEscapeHex(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<h1>" + safe + "</h1>");
+        }
+    }
+
+    /** XSS — OWASP Encode.forCDATA. */
+    @WebServlet("/barrier/xss-owasp-forCDATA")
+    public static class SafeOwaspForCDATAServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.encoder.Encode.forCDATA(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<![CDATA[" + safe + "]]>");
+        }
+    }
+
+    /** XSS — OWASP Encode.forJavaScript. */
+    @WebServlet("/barrier/xss-owasp-forJavaScript")
+    public static class SafeOwaspForJavaScriptServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.encoder.Encode.forJavaScript(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<script>var n = '" + safe + "';</script>");
+        }
+    }
+
+    /** XSS — OWASP Encode.forJavaScriptAttribute. */
+    @WebServlet("/barrier/xss-owasp-forJsAttr")
+    public static class SafeOwaspForJsAttrServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.encoder.Encode.forJavaScriptAttribute(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<a href=\"javascript:foo('" + safe + "');\">go</a>");
+        }
+    }
+
+    /** XSS — OWASP Encode.forCssString. */
+    @WebServlet("/barrier/xss-owasp-forCssString")
+    public static class SafeOwaspForCssStringServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.encoder.Encode.forCssString(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<style>.x { content: '" + safe + "'; }</style>");
+        }
+    }
+
+    /** XSS — Apache Commons Text escapeXml10. */
+    @WebServlet("/barrier/xss-commons-escapeXml10")
+    public static class SafeCommonsEscapeXml10Servlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.apache.commons.text.StringEscapeUtils.escapeXml10(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<h1>" + safe + "</h1>");
+        }
+    }
+
+    /** XSS — Apache Commons Text escapeEcmaScript. */
+    @WebServlet("/barrier/xss-commons-escapeEcmaScript")
+    public static class SafeCommonsEscapeEcmaScriptServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<script>var n = \"" + safe + "\";</script>");
+        }
+    }
+
+    /** XSS — OWASP ESAPI encodeForJavaScript. */
+    @WebServlet("/barrier/xss-esapi-forJavaScript")
+    public static class SafeEsapiForJsServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.esapi.ESAPI.encoder().encodeForJavaScript(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<script>var n = '" + safe + "';</script>");
+        }
+    }
+
+    /** XSS — OWASP ESAPI encodeForHTMLAttribute. */
+    @WebServlet("/barrier/xss-esapi-forHtmlAttribute")
+    public static class SafeEsapiForHtmlAttrServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.esapi.ESAPI.encoder().encodeForHTMLAttribute(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<input value=\"" + safe + "\">");
+        }
+    }
+
+    /** XSS — OWASP ESAPI encodeForCSS. */
+    @WebServlet("/barrier/xss-esapi-forCss")
+    public static class SafeEsapiForCssServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.esapi.ESAPI.encoder().encodeForCSS(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<style>.x { content: '" + safe + "'; }</style>");
+        }
+    }
+
     // ── unvalidated-redirect ──────────────────────────────────────────────
 
     /** UrlRedirect — URLEncoder.encode before sendRedirect. */

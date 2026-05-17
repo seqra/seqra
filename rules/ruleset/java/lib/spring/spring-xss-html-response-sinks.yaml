@@ -46,6 +46,16 @@ rules:
               - pattern: org.springframework.web.util.HtmlUtils.htmlEscape(..., $UNTRUSTED, ...)
               - pattern: org.springframework.web.util.HtmlUtils.htmlEscapeDecimal(..., $UNTRUSTED, ...)
               - pattern: org.springframework.web.util.HtmlUtils.htmlEscapeHex(..., $UNTRUSTED, ...)
+              # Apache Commons Text escapeEcmaScript / Apache lang3 variant.
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(..., $UNTRUSTED, ...)
+              # OWASP ESAPI URL / CSS / JavaScript encoders.
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForURL(..., $UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForCSS(..., $UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForJavaScript(..., $UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForXML(..., $UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForXMLAttribute(..., $UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTMLAttribute(..., $UNTRUSTED, ...)
           - focus-metavariable: $UNTRUSTED
 
 
