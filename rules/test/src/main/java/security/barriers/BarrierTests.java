@@ -813,4 +813,156 @@ public class BarrierTests {
             }
         }
     }
+
+    // ── response-injection ────────────────────────────────────────────────
+    // These samples mirror the XSS encoder barriers but without any safe
+    // content type, so they hit the lower-severity response-injection sink.
+
+    /** response-injection — Apache Commons Text escapeEcmaScript. */
+    @WebServlet("/barrier/respinj-escapeEcmaScript")
+    public static class SafeRespInjEscapeEcmaScriptServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(name);
+            response.getWriter().println(safe);
+        }
+    }
+
+    /** response-injection — Apache Commons Lang3 escapeEcmaScript. */
+    @WebServlet("/barrier/respinj-lang3-escapeEcmaScript")
+    public static class SafeRespInjLang3EscapeEcmaScriptServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(name);
+            response.getWriter().println(safe);
+        }
+    }
+
+    /** response-injection — OWASP ESAPI encodeForURL. */
+    @WebServlet("/barrier/respinj-esapi-url")
+    public static class SafeRespInjEsapiUrlServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            try {
+                String safe = org.owasp.esapi.ESAPI.encoder().encodeForURL(name);
+                response.getWriter().println(safe);
+            } catch (org.owasp.esapi.errors.EncodingException e) {
+                throw new ServletException(e);
+            }
+        }
+    }
+
+    /** response-injection — OWASP ESAPI encodeForCSS. */
+    @WebServlet("/barrier/respinj-esapi-css")
+    public static class SafeRespInjEsapiCssServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.esapi.ESAPI.encoder().encodeForCSS(name);
+            response.getWriter().println(safe);
+        }
+    }
+
+    /** response-injection — OWASP ESAPI encodeForJavaScript. */
+    @WebServlet("/barrier/respinj-esapi-js")
+    public static class SafeRespInjEsapiJsServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.esapi.ESAPI.encoder().encodeForJavaScript(name);
+            response.getWriter().println(safe);
+        }
+    }
+
+    /** response-injection — OWASP ESAPI encodeForXML. */
+    @WebServlet("/barrier/respinj-esapi-xml")
+    public static class SafeRespInjEsapiXmlServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.esapi.ESAPI.encoder().encodeForXML(name);
+            response.getWriter().println(safe);
+        }
+    }
+
+    /** response-injection — OWASP ESAPI encodeForXMLAttribute. */
+    @WebServlet("/barrier/respinj-esapi-xmlattr")
+    public static class SafeRespInjEsapiXmlAttrServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.esapi.ESAPI.encoder().encodeForXMLAttribute(name);
+            response.getWriter().println(safe);
+        }
+    }
+
+    /** response-injection — OWASP ESAPI encodeForHTMLAttribute. */
+    @WebServlet("/barrier/respinj-esapi-htmlattr")
+    public static class SafeRespInjEsapiHtmlAttrServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.esapi.ESAPI.encoder().encodeForHTMLAttribute(name);
+            response.getWriter().println(safe);
+        }
+    }
+
+    /** response-injection — OWASP Encode.forJavaScriptAttribute. */
+    @WebServlet("/barrier/respinj-owasp-jsAttr")
+    public static class SafeRespInjOwaspJsAttrServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.encoder.Encode.forJavaScriptAttribute(name);
+            response.getWriter().println(safe);
+        }
+    }
+
+    /** response-injection — OWASP Encode.forCssString. */
+    @WebServlet("/barrier/respinj-owasp-cssString")
+    public static class SafeRespInjOwaspCssStringServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.encoder.Encode.forCssString(name);
+            response.getWriter().println(safe);
+        }
+    }
+
+    /** response-injection — Spring HtmlUtils.htmlEscapeDecimal. */
+    @WebServlet("/barrier/respinj-spring-decimal")
+    public static class SafeRespInjSpringDecimalServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.springframework.web.util.HtmlUtils.htmlEscapeDecimal(name);
+            response.getWriter().println(safe);
+        }
+    }
+
+    /** response-injection — Apache Commons Text escapeXml11. */
+    @WebServlet("/barrier/respinj-escapeXml11")
+    public static class SafeRespInjEscapeXml11Servlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.apache.commons.text.StringEscapeUtils.escapeXml11(name);
+            response.getWriter().println(safe);
+        }
+    }
 }
