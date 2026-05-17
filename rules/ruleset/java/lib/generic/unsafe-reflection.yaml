@@ -6,6 +6,15 @@ rules:
     message: Using reflection on user-manipulated name
     languages:
       - java
-    pattern-either:
-      - pattern: java.lang.Class.forName($UNTRUSTED,...)
-      - pattern: java.lang.reflect.Method.invoke($UNTRUSTED,...)
+    mode: taint
+    pattern-sanitizers:
+      # The pixee security toolkit ships an allow-list wrapper that only
+      # loads a Class if it appears in a developer-supplied whitelist.
+      # Treat any return value of those helpers as untainted.
+      - pattern: io.github.pixee.security.ObjectInputFilters.createAllowList(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: java.lang.Class.forName($UNTRUSTED,...)
+              - pattern: java.lang.reflect.Method.invoke($UNTRUSTED,...)
+          - focus-metavariable: $UNTRUSTED

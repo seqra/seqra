@@ -63,6 +63,17 @@ rules:
     languages:
       - java
     mode: taint
+    pattern-sanitizers:
+      # CodeQL UnsafeDeserialization.qll — Apache Commons IO ships a
+      # type-restricted ObjectInputStream whose constructor wraps the
+      # tainted byte stream into a safe reader. Treat that wrapping as
+      # a barrier (provenance: SafeObjectInputStreamType).
+      # provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/UnsafeDeserializationQuery.qll
+      - pattern: new org.apache.commons.io.serialization.ValidatingObjectInputStream(...)
+      - pattern: new org.nibblesec.tools.SerialKiller(...)
+      # pixee SafeObjectInputStream wraps any user ObjectInputStream behind
+      # an explicit class allow-list.
+      - pattern: io.github.pixee.security.ObjectInputFilters.enableObjectFilterIfUnprotected(...)
     pattern-sinks:
       # Caucho Hessian - constructor sinks (practical detection for Argument[this])
       - pattern: new com.caucho.hessian.io.HessianInput($SINK)

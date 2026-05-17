@@ -306,11 +306,41 @@ public class BarrierTests {
         logger.info("Got input: {}", safe);
     }
 
-    // ANALYZER LIMITATION: LineBreaksLogInjectionSanitizer (String.replace[All]
-    // with CR/LF target) is a real CodeQL barrier but cannot be encoded as a
-    // pattern-sanitizer in OpenTaint today — the matcher does not honour
-    // typed-receiver instance-method patterns with literal-string arguments.
-    // Restore these negative samples once the matcher supports that shape.
+    /** LineBreaksLogInjectionSanitizer — replaceAll("[\r\n]", _) assigned to var. */
+    @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
+    public void safeLogStripCrLfBracket(HttpServletRequest request) {
+        String input = request.getParameter("input");
+        String safe = input.replaceAll("[\\r\\n]", "_");
+        org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(getClass());
+        logger.info("Got input: {}", safe);
+    }
+
+    /** LineBreaksLogInjectionSanitizer — replaceAll("\\R", _) assigned to var. */
+    @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
+    public void safeLogStripCrLfAnyLineBreak(HttpServletRequest request) {
+        String input = request.getParameter("input");
+        String safe = input.replaceAll("\\R", "_");
+        org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(getClass());
+        logger.info("Got input: {}", safe);
+    }
+
+    /** LineBreaksLogInjectionSanitizer — replace("\n", _) assigned to var. */
+    @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
+    public void safeLogReplaceNewline(HttpServletRequest request) {
+        String input = request.getParameter("input");
+        String safe = input.replace("\n", "_");
+        org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(getClass());
+        logger.info("Got input: {}", safe);
+    }
+
+    /** LineBreaksLogInjectionSanitizer — replace("\r", _) assigned to var. */
+    @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
+    public void safeLogReplaceCarriageReturn(HttpServletRequest request) {
+        String input = request.getParameter("input");
+        String safe = input.replace("\r", "_");
+        org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(getClass());
+        logger.info("Got input: {}", safe);
+    }
 
     // ── xss ────────────────────────────────────────────────────────────────
 
@@ -350,6 +380,173 @@ public class BarrierTests {
             String safe = org.apache.commons.text.StringEscapeUtils.escapeHtml4(name);
             response.setContentType("text/html;charset=UTF-8");
             response.getWriter().println("<h1>Hello, " + safe + "!</h1>");
+        }
+    }
+
+    /** XSS — Apache Commons Text escapeHtml3. */
+    @WebServlet("/barrier/xss-commons-text-escapeHtml3")
+    public static class SafeApacheEscapeHtml3Servlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.apache.commons.text.StringEscapeUtils.escapeHtml3(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<h1>" + safe + "</h1>");
+        }
+    }
+
+    /** XSS — OWASP Encode.forHtmlContent. */
+    @WebServlet("/barrier/xss-owasp-forHtmlContent")
+    public static class SafeOwaspForHtmlContentServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.encoder.Encode.forHtmlContent(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<h1>" + safe + "</h1>");
+        }
+    }
+
+    /** XSS — OWASP Encode.forHtmlAttribute. */
+    @WebServlet("/barrier/xss-owasp-forHtmlAttribute")
+    public static class SafeOwaspForHtmlAttributeServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.owasp.encoder.Encode.forHtmlAttribute(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<input value=\"" + safe + "\">");
+        }
+    }
+
+    /** XSS — Spring HtmlUtils.htmlEscape (2-arg with encoding). */
+    @WebServlet("/barrier/xss-htmlescape-2arg")
+    public static class SafeHtmlEscape2ArgServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.springframework.web.util.HtmlUtils.htmlEscape(name, "UTF-8");
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<h1>Hello, " + safe + "!</h1>");
+        }
+    }
+
+    /** XSS — Spring HtmlUtils.htmlEscapeDecimal. */
+    @WebServlet("/barrier/xss-htmlescape-decimal")
+    public static class SafeHtmlEscapeDecimalServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = org.springframework.web.util.HtmlUtils.htmlEscapeDecimal(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<h1>" + safe + "</h1>");
+        }
+    }
+
+    // ── http-response-splitting (CRLF) ────────────────────────────────────
+
+    /** ResponseSplitting — Apache Commons Text escapeJava neutralises CR/LF. */
+    @WebServlet("/barrier/crlf-escapeJava")
+    public static class SafeCrlfEscapeJavaServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "http-response-splitting")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String userInput = request.getParameter("name");
+            String safe = org.apache.commons.text.StringEscapeUtils.escapeJava(userInput);
+            response.setHeader("X-User", safe);
+        }
+    }
+
+    /** ResponseSplitting — replaceAll("[\r\n]+", _) assigned to var. */
+    @WebServlet("/barrier/crlf-replaceAll-bracket")
+    public static class SafeCrlfReplaceAllBracketServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "http-response-splitting")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String userInput = request.getParameter("name");
+            String safe = userInput.replaceAll("[\\r\\n]+", "_");
+            response.setHeader("X-User", safe);
+        }
+    }
+
+    // ── xpath ──────────────────────────────────────────────────────────────
+
+    /** XPath — OWASP Encode.forXml neutralises XML metacharacters. */
+    @WebServlet("/barrier/xpath-owasp-forXml")
+    public static class SafeXpathOwaspForXmlServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/data-query-injection.yaml", id = "xpath-injection")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String userInput = request.getParameter("user");
+            String encoded = org.owasp.encoder.Encode.forXml(userInput);
+            try {
+                javax.xml.xpath.XPath xpath = javax.xml.xpath.XPathFactory.newInstance().newXPath();
+                xpath.evaluate("//user[@name='" + encoded + "']", "<root/>");
+            } catch (Exception e) {
+                throw new ServletException(e);
+            }
+        }
+    }
+
+    /** XPath — Apache Commons Text escapeXml10. */
+    @WebServlet("/barrier/xpath-commons-escapeXml10")
+    public static class SafeXpathCommonsEscapeXml10Servlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/data-query-injection.yaml", id = "xpath-injection")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String userInput = request.getParameter("user");
+            String encoded = org.apache.commons.text.StringEscapeUtils.escapeXml10(userInput);
+            try {
+                javax.xml.xpath.XPath xpath = javax.xml.xpath.XPathFactory.newInstance().newXPath();
+                xpath.evaluate("//user[@name='" + encoded + "']", "<root/>");
+            } catch (Exception e) {
+                throw new ServletException(e);
+            }
+        }
+    }
+
+    // ── template-injection (SSTI) ──────────────────────────────────────────
+
+    /** SSTI — OWASP Encode.forHtml prevents template metacharacter injection. */
+    @WebServlet("/barrier/ssti-owasp-forHtml")
+    public static class SafeSstiOwaspForHtmlServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "ssti")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String template = request.getParameter("template");
+            String safe = org.owasp.encoder.Encode.forHtml(template);
+            try {
+                org.apache.velocity.VelocityContext ctx = new org.apache.velocity.VelocityContext();
+                StringWriter writer = new StringWriter();
+                org.apache.velocity.app.Velocity.evaluate(ctx, writer, "tag", safe);
+            } catch (Exception e) {
+                throw new ServletException(e);
+            }
+        }
+    }
+
+    /** SSTI — Spring HtmlUtils.htmlEscape. */
+    @WebServlet("/barrier/ssti-htmlescape")
+    public static class SafeSstiHtmlEscapeServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "ssti")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String template = request.getParameter("template");
+            String safe = org.springframework.web.util.HtmlUtils.htmlEscape(template);
+            try {
+                org.apache.velocity.VelocityContext ctx = new org.apache.velocity.VelocityContext();
+                StringWriter writer = new StringWriter();
+                org.apache.velocity.app.Velocity.evaluate(ctx, writer, "tag", safe);
+            } catch (Exception e) {
+                throw new ServletException(e);
+            }
         }
     }
 }

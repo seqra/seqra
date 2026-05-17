@@ -8,43 +8,58 @@ rules:
       provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/tainted-xpath-from-http-request.yaml
     languages:
       - java
-    pattern-either:
-      - pattern: |
-          (javax.xml.xpath.XPath $XP).evaluate($UNTRUSTED, ...)
-      - pattern: |
-          (javax.xml.xpath.XPath $XP).evaluateExpression($UNTRUSTED, ...)
-      - pattern: |
-          (javax.xml.xpath.XPath $XP).compile($UNTRUSTED, ...).evaluate(...)
-      - pattern: |
-          (javax.xml.xpath.XPath $XP).compile(...).evaluate($UNTRUSTED, ...)
-      # Apache CXF XPathUtils
+    mode: taint
+    pattern-sanitizers:
+      # CodeQL's XPath.qll has no static-method XPath sanitizers; the
+      # closest barrier is the SimpleTypeSanitizer set, which is implicit.
+      # We add the OWASP Encoder forXml entries here as defensive sanitizers
+      # since XML-encoded content can no longer compile as XPath operators.
+      - pattern: org.owasp.encoder.Encode.forXml(...)
+      - pattern: org.owasp.encoder.Encode.forXmlAttribute(...)
+      - pattern: org.owasp.encoder.Encode.forXmlContent(...)
+      - pattern: org.apache.commons.text.StringEscapeUtils.escapeXml(...)
+      - pattern: org.apache.commons.text.StringEscapeUtils.escapeXml10(...)
+      - pattern: org.apache.commons.text.StringEscapeUtils.escapeXml11(...)
+    pattern-sinks:
       - patterns:
-          - pattern: (org.apache.cxf.helpers.XPathUtils $XP).$METHOD($UNTRUSTED, ...)
-          - metavariable-regex:
-              metavariable: $METHOD
-              regex: ^(getValue|getValueList|getValueNode|getValueString|isExist)$
-      # dom4j DocumentFactory (covers ProxyDocumentFactory via subtyping)
-      - patterns:
-          - pattern: (org.dom4j.DocumentFactory $F).$METHOD($UNTRUSTED, ...)
-          - metavariable-regex:
-              metavariable: $METHOD
-              regex: ^(createPattern|createXPath|createXPathFilter)$
-      # dom4j DocumentHelper static methods (Argument[0])
-      - patterns:
-          - pattern: org.dom4j.DocumentHelper.$METHOD($UNTRUSTED, ...)
-          - metavariable-regex:
-              metavariable: $METHOD
-              regex: ^(createPattern|createXPath|createXPathFilter|selectNodes)$
-      # dom4j DocumentHelper.sort (Argument[1] is the XPath expression)
-      - pattern: org.dom4j.DocumentHelper.sort($_, $UNTRUSTED, ...)
-      # dom4j Node methods (covers AbstractNode implementations via subtyping)
-      - patterns:
-          - pattern: (org.dom4j.Node $N).$METHOD($UNTRUSTED, ...)
-          - metavariable-regex:
-              metavariable: $METHOD
-              regex: ^(createXPath|matches|numberValueOf|selectNodes|selectObject|selectSingleNode|valueOf)$
-      # dom4j Node.selectNodes 2-arg overload (Argument[1] is also XPath)
-      - pattern: (org.dom4j.Node $N).selectNodes($_, $UNTRUSTED)
+        - pattern-either:
+            - pattern: |
+                (javax.xml.xpath.XPath $XP).evaluate($UNTRUSTED, ...)
+            - pattern: |
+                (javax.xml.xpath.XPath $XP).evaluateExpression($UNTRUSTED, ...)
+            - pattern: |
+                (javax.xml.xpath.XPath $XP).compile($UNTRUSTED, ...).evaluate(...)
+            - pattern: |
+                (javax.xml.xpath.XPath $XP).compile(...).evaluate($UNTRUSTED, ...)
+            # Apache CXF XPathUtils
+            - patterns:
+                - pattern: (org.apache.cxf.helpers.XPathUtils $XP).$METHOD($UNTRUSTED, ...)
+                - metavariable-regex:
+                    metavariable: $METHOD
+                    regex: ^(getValue|getValueList|getValueNode|getValueString|isExist)$
+            # dom4j DocumentFactory (covers ProxyDocumentFactory via subtyping)
+            - patterns:
+                - pattern: (org.dom4j.DocumentFactory $F).$METHOD($UNTRUSTED, ...)
+                - metavariable-regex:
+                    metavariable: $METHOD
+                    regex: ^(createPattern|createXPath|createXPathFilter)$
+            # dom4j DocumentHelper static methods (Argument[0])
+            - patterns:
+                - pattern: org.dom4j.DocumentHelper.$METHOD($UNTRUSTED, ...)
+                - metavariable-regex:
+                    metavariable: $METHOD
+                    regex: ^(createPattern|createXPath|createXPathFilter|selectNodes)$
+            # dom4j DocumentHelper.sort (Argument[1] is the XPath expression)
+            - pattern: org.dom4j.DocumentHelper.sort($_, $UNTRUSTED, ...)
+            # dom4j Node methods (covers AbstractNode implementations via subtyping)
+            - patterns:
+                - pattern: (org.dom4j.Node $N).$METHOD($UNTRUSTED, ...)
+                - metavariable-regex:
+                    metavariable: $METHOD
+                    regex: ^(createXPath|matches|numberValueOf|selectNodes|selectObject|selectSingleNode|valueOf)$
+            # dom4j Node.selectNodes 2-arg overload (Argument[1] is also XPath)
+            - pattern: (org.dom4j.Node $N).selectNodes($_, $UNTRUSTED)
+        - focus-metavariable: $UNTRUSTED
 
   - id: java-mongodb-nosql-injection
     options:

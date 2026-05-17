@@ -8,7 +8,18 @@ rules:
       provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext
     languages:
       - java
-    pattern-either:
+    mode: taint
+    pattern-sanitizers:
+      # CodeQL TemplateInjection.qll has no static-method sanitizers
+      # (defaults to SimpleTypeSanitizer). HTML/XML encoders neutralise
+      # the user input so it can no longer compile as template syntax.
+      - pattern: org.owasp.encoder.Encode.forHtml(...)
+      - pattern: org.owasp.encoder.Encode.forXml(...)
+      - pattern: org.springframework.web.util.HtmlUtils.htmlEscape(...)
+      - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(...)
+      - pattern: org.apache.commons.text.StringEscapeUtils.escapeXml(...)
+    pattern-sinks:
+
       # ── Freemarker ────────────────────────────────
       - patterns:
           - pattern: |
