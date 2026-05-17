@@ -52,3 +52,6 @@ rules:
       - pattern: org.owasp.esapi.ESAPI.validator().getValidRedirectLocation(...)
       # pixee Urls.create — policy-filtered URL construction.
       - pattern: io.github.pixee.security.Urls.create(...)
+      # pixee jakarta.PathValidator.validateDispatcherPath — JAX-RS path
+      # validation that rejects ".." traversal in forward targets.
+      - pattern: io.github.pixee.security.jakarta.PathValidator.validateDispatcherPath(...)
