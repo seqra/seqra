@@ -47,6 +47,10 @@ rules:
       # ── Velocity (static) ─────────────────────────
       - pattern: (org.apache.velocity.app.Velocity $VELOCITY).evaluate($_, $_, $_, $UNTRUSTED, ...);
       - pattern: (org.apache.velocity.app.Velocity $VELOCITY).mergeTemplate($_, $_, $UNTRUSTED, ...);
+      # Static-call form of the same (no typed receiver) — required when the
+      # caller invokes Velocity.evaluate(...) without an instance binding.
+      - pattern: org.apache.velocity.app.Velocity.evaluate($_, $_, $_, $UNTRUSTED, ...);
+      - pattern: org.apache.velocity.app.Velocity.mergeTemplate($_, $_, $UNTRUSTED, ...);
       # ── VelocityEngine (instance) ─────────────────
       - patterns:
           - pattern-either:
@@ -61,6 +65,10 @@ rules:
       - pattern: (org.apache.velocity.runtime.RuntimeServices $VELOCITY_RUNTIME).evaluate($_, $_, $_, $UNTRUSTED, ...);
       - pattern: (org.apache.velocity.runtime.RuntimeServices $VELOCITY_RUNTIME).parse($UNTRUSTED, ...);
       - pattern: (org.apache.velocity.runtime.RuntimeSingleton $VELOCITY_RUNTIME).parse($UNTRUSTED, ...);
+      # Static-call form: RuntimeSingleton.parse(reader, template) takes the
+      # Reader as the first argument with the template content inside it.
+      - pattern: org.apache.velocity.runtime.RuntimeSingleton.parse($UNTRUSTED, ...);
+      - pattern: org.apache.velocity.runtime.RuntimeSingleton.getRuntimeServices().parse($UNTRUSTED, ...);
       - pattern: (org.apache.velocity.runtime.resource.util.StringResourceRepository $VELOCITY_REPO).putStringResource($_, $UNTRUSTED, ...);
       # ── Thymeleaf ─────────────────────────────────
       - patterns:

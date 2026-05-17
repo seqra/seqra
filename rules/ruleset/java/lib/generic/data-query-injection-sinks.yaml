@@ -75,6 +75,20 @@ rules:
               String $JSON = new JSONObject($MAP).toString();
               ...
               (com.mongodb.BasicDBObject $QUERY).parse((String $JSON));
+          - pattern: |
+              (java.util.Map $MAP).put("$where", $INPUT);
+              ...
+              $JSON = new JSONObject($MAP).toString();
+              ...
+              (com.mongodb.BasicDBObject $QUERY).parse($JSON);
+          # Static-call form of BasicDBObject.parse — MongoDB driver's
+          # parse(String) is static but is often invoked through an instance.
+          - pattern: |
+              (java.util.Map $MAP).put("$where", $INPUT);
+              ...
+              $JSON = new JSONObject($MAP).toString();
+              ...
+              com.mongodb.BasicDBObject.parse($JSON);
           - pattern: com.mongodb.BasicDBObjectBuilder.start().add("$where", $INPUT);
           - pattern: com.mongodb.BasicDBObjectBuilder.start().append("$where", $INPUT);
           - pattern: com.mongodb.BasicDBObjectBuilder.start("$where", $INPUT);

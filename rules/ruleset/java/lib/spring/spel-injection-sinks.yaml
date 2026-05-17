@@ -22,6 +22,15 @@ rules:
           - pattern-not-inside: |
               org.springframework.expression.spel.support.SimpleEvaluationContext $EVALUATION_CONTEXT =
                 (org.springframework.expression.spel.support.SimpleEvaluationContext.Builder).build();
+        # Java EE EL APIs that Spring-managed code commonly uses for dynamic
+        # expressions. Inlined here so spring-el-injection picks them up via
+        # its single sink ref.
+        - pattern: (javax.el.ExpressionFactory $EXP).createMethodExpression(..., $UNTRUSTED, ...)
+        - pattern: (jakarta.el.ExpressionFactory $EXP).createMethodExpression(..., $UNTRUSTED, ...)
+        - pattern: (javax.el.ExpressionFactory $EXP).createValueExpression(..., $UNTRUSTED, ...)
+        - pattern: (jakarta.el.ExpressionFactory $EXP).createValueExpression(..., $UNTRUSTED, ...)
+        - pattern: (javax.validation.ConstraintValidatorContext $CTX).buildConstraintViolationWithTemplate($UNTRUSTED, ...)
+        - pattern: (jakarta.validation.ConstraintValidatorContext $CTX).buildConstraintViolationWithTemplate($UNTRUSTED, ...)
       - metavariable-pattern:
           metavariable: $SPEL_EXPR_FUNC
           pattern-either:

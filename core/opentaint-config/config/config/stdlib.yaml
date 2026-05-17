@@ -21510,3 +21510,67 @@ passThrough:
   copy:
     - from: this
       to: result
+
+# ── Map.of small overloads ──
+# Java 9+ Map.of(K, V) and small variants store value in the result map.
+# stdlib.yaml ships the 5..10 key/value forms but skipped the small ones.
+- function: java.util.Map#of
+  signature: (java.lang.Object, java.lang.Object) java.util.Map
+  overrides: false
+  copy:
+    - from: arg(0)
+      to:
+        - result
+        - .java.util.Map#MapKey#java.lang.Object
+    - from: arg(1)
+      to:
+        - result
+        - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Map#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object) java.util.Map
+  overrides: false
+  copy:
+    - from: arg(1)
+      to:
+        - result
+        - .java.util.Map#MapValue#java.lang.Object
+    - from: arg(3)
+      to:
+        - result
+        - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Map#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object) java.util.Map
+  overrides: false
+  copy:
+    - from: arg(1)
+      to:
+        - result
+        - .java.util.Map#MapValue#java.lang.Object
+    - from: arg(3)
+      to:
+        - result
+        - .java.util.Map#MapValue#java.lang.Object
+    - from: arg(5)
+      to:
+        - result
+        - .java.util.Map#MapValue#java.lang.Object
+- function: java.util.Map#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object) java.util.Map
+  overrides: false
+  copy:
+    - from: arg(1)
+      to:
+        - result
+        - .java.util.Map#MapValue#java.lang.Object
+    - from: arg(3)
+      to:
+        - result
+        - .java.util.Map#MapValue#java.lang.Object
+    - from: arg(5)
+      to:
+        - result
+        - .java.util.Map#MapValue#java.lang.Object
+    - from: arg(7)
+      to:
+        - result
+        - .java.util.Map#MapValue#java.lang.Object
