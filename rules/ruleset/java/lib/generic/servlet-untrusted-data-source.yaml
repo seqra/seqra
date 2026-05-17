@@ -86,7 +86,7 @@ rules:
                 $UNTRUSTED = (HttpServletRequest $REQ).$METHOD(...);
             - metavariable-regex:
                 metavariable: $METHOD
-                regex: getHeaderNames|getParameterNames|getParameterValues|getPathInfo|getQueryString|getRemoteUser|getRequestURI|getRequestURL|getServletPath
+                regex: getHeaderNames|getInputStream|getParameter|getParameterNames|getParameterValues|getPathInfo|getQueryString|getReader|getRemoteUser|getRequestURI|getRequestURL|getServletPath
 
           # ── Servlet: Cookie return-value methods ──
           # Covers javax.servlet.http.Cookie and jakarta.servlet.http.Cookie
@@ -113,7 +113,7 @@ rules:
                 $UNTRUSTED = (ServletRequest $REQ).$METHOD(...);
             - metavariable-regex:
                 metavariable: $METHOD
-                regex: getParameterNames|getParameterValues|getReader
+                regex: getInputStream|getParameter|getParameterNames|getParameterValues|getReader
 
           # ── JSF: ExternalContext return-value methods ──
           # Covers javax.faces.context.ExternalContext and jakarta.faces.context.ExternalContext

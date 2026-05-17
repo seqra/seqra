@@ -21358,3 +21358,96 @@ passThrough:
     to:
     - this
     - .java.io.InputStream#<rule-storage>#java.lang.Object
+
+# ── Third-party library propagators added to fix FNs from AnalyzerPropagatorRepros ──
+
+# Apache Commons IO ── IOUtils.toString(InputStream, Charset) reads bytes from the
+# stream and returns them as a String; taint on the input stream flows to the result.
+- function: org.apache.commons.io.IOUtils#toString
+  signature: (java.io.InputStream, java.nio.charset.Charset) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.io.IOUtils#toString
+  signature: (java.io.InputStream, java.lang.String) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.io.IOUtils#toString
+  signature: (java.io.InputStream) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.io.IOUtils#toString
+  signature: (java.io.Reader) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.io.IOUtils#toString
+  signature: (byte[]) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.io.IOUtils#toString
+  signature: (byte[], java.lang.String) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.io.IOUtils#toString
+  signature: (java.net.URI) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.io.IOUtils#toString
+  signature: (java.net.URI, java.nio.charset.Charset) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.io.IOUtils#toString
+  signature: (java.net.URL) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.io.IOUtils#toString
+  signature: (java.net.URL, java.nio.charset.Charset) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+
+# Apache Commons Codec ── Base64 encode/decode are pure data transformations: the
+# encoded/decoded output is fully derived from the input and carries the same taint.
+- function: org.apache.commons.codec.binary.Base64#encodeBase64String
+  signature: (byte[]) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.codec.binary.Base64#encodeBase64
+  signature: (byte[]) byte[]
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.codec.binary.Base64#encodeBase64
+  signature: (byte[], boolean) byte[]
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.codec.binary.Base64#encodeBase64URLSafe
+  signature: (byte[]) byte[]
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.codec.binary.Base64#encodeBase64URLSafeString
+  signature: (byte[]) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.codec.binary.Base64#decodeBase64
+  signature: (byte[]) byte[]
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.codec.binary.Base64#decodeBase64
+  signature: (java.lang.String) byte[]
+  copy:
+  - from: arg(0)
+    to: result
