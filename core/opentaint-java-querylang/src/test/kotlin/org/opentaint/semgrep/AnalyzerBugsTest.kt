@@ -75,5 +75,25 @@ class AnalyzerBugsTest : SampleBasedTest(configurationRequired = true) {
     fun `Files writeString fires under join-mode source-sink binding`() =
         runTest<analyzerbugs.FilesWriteStringJoinBug>()
 
+    /**
+     * The {@code $UNTRUSTED = ($TYPE $X).getter(...)} source pattern must
+     * fire regardless of the enclosing method's name. Many rules/test
+     * source-coverage samples use harness methods named, e.g.,
+     * doGet_getQueryString that do not match the rule's entry-point
+     * alternative; the assignment alternative must still kick in.
+     */
+    @Test
+    fun `assignment-from-getter source fires inside non-doGet entry`() =
+        runTest<analyzerbugs.AssignmentSourceBug>()
+
+    /**
+     * Source pattern `$UNTRUSTED = ($TYPE $X).$METHOD(...)` with metavariable-regex
+     * on $METHOD must match assignment-from-getter inside any method body, not
+     * only inside methods whose name matches a separate entry-point alternative.
+     */
+    @Test
+    fun `assignment-from-typed-getter source fires inside non-canonical entry`() =
+        runTest<analyzerbugs.ServletParamSourceBug>()
+
     @AfterAll fun tearDown() = closeRunner()
 }

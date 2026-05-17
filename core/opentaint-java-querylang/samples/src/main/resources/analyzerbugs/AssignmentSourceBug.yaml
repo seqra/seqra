@@ -1,0 +1,15 @@
+rules:
+  - id: assignment-source-bug
+    languages:
+      - java
+    severity: ERROR
+    message: tainted assignment reaches sink
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: $UNTRUSTED = ($T $H).getValue();
+          - focus-metavariable: $UNTRUSTED
+    pattern-sinks:
+      - patterns:
+          - pattern: sink($Y);
+          - focus-metavariable: $Y

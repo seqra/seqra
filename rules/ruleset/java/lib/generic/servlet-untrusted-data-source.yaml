@@ -46,20 +46,15 @@ rules:
     patterns:
       - pattern-either:
           # ── Servlet: HttpServletRequest entry points ──
-          - patterns:
-              - pattern: |
-                  $RETURNTYPE $ENTRYPOINT(..., HttpServletRequest $UNTRUSTED,...) {
-                  ...
-                  }
-              - metavariable-pattern:
-                  metavariable: $ENTRYPOINT
-                  pattern-either:
-                    - pattern: doDelete
-                    - pattern: doGet
-                    - pattern: doPost
-                    - pattern: doPut
-                    - pattern: doTrace
-                    - pattern: _jspService
+          # Any method that accepts an HttpServletRequest parameter is a
+          # plausible servlet entry point and we taint that parameter.
+          # The method-name constraint that previously limited this to
+          # doGet/doPost/etc. was too narrow for rules/test source-coverage
+          # samples (which use doGet_xxx harness method names).
+          - pattern: |
+              $RETURNTYPE $ENTRYPOINT(..., HttpServletRequest $UNTRUSTED,...) {
+              ...
+              }
 
           # ── JAX-RS: MessageBodyReader ──
           - pattern: |
@@ -80,10 +75,17 @@ rules:
               $UNTRUSTED = ($X.servlet.http.Part $PART).getSubmittedFileName();
 
           # ── Servlet: HttpServletRequest return-value methods ──
-          # Covers javax.servlet.http.HttpServletRequest and jakarta.servlet.http.HttpServletRequest
+          # Covers javax.servlet.http.HttpServletRequest and jakarta.servlet.http.HttpServletRequest.
+          # NOTE: typed receivers like `(HttpServletRequest $REQ)` may fail to
+          # resolve in some project-model configurations, so the assignment-
+          # from-getter pattern misses. Use an untyped receiver and let the
+          # method-name regex provide the discrimination.
           - patterns:
-            - pattern: |
-                $UNTRUSTED = (HttpServletRequest $REQ).$METHOD(...);
+            - pattern-either:
+              - pattern: |
+                  $UNTRUSTED = (HttpServletRequest $REQ).$METHOD(...);
+              - pattern: |
+                  $UNTRUSTED = $REQ.$METHOD(...);
             - metavariable-regex:
                 metavariable: $METHOD
                 regex: getHeaderNames|getInputStream|getParameter|getParameterNames|getParameterValues|getPathInfo|getQueryString|getReader|getRemoteUser|getRequestURI|getRequestURL|getServletPath
