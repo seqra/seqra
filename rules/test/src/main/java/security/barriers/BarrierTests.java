@@ -666,6 +666,19 @@ public class BarrierTests {
         }
     }
 
+    /** XSS — Jenkins hudson.Util.escape HTML-escapes the value. */
+    @WebServlet("/barrier/xss-hudson-escape")
+    public static class SafeHudsonEscapeServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = hudson.Util.escape(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<h1>" + safe + "</h1>");
+        }
+    }
+
     // ── unvalidated-redirect ──────────────────────────────────────────────
 
     /** UrlRedirect — URLEncoder.encode before sendRedirect. */

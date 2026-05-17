@@ -53,6 +53,9 @@ rules:
               # OWASP ESAPI Validator.getValidSafeHTML — returns AntiSamy-cleaned HTML.
               # provenance: codeql/java/ql/lib/ext/org.owasp.esapi.model.yml
               - pattern: org.owasp.esapi.ESAPI.validator().getValidSafeHTML(..., $UNTRUSTED, ...)
+              # CodeQL barrierModel hudson.Util.escape(String).
+              # provenance: codeql/java/ql/lib/ext/hudson.model.yml
+              - pattern: hudson.Util.escape($UNTRUSTED)
           - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:
