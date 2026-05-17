@@ -386,6 +386,15 @@ public class BarrierTests {
         logger.info("Got input: {}", safe);
     }
 
+    /** LogInjection — pixee Newlines.stripAll. */
+    @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
+    public void safeLogPixeeNewlines(HttpServletRequest request) {
+        String input = request.getParameter("input");
+        String safe = io.github.pixee.security.Newlines.stripAll(input);
+        org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(getClass());
+        logger.info("Got input: {}", safe);
+    }
+
     /** LineBreaksLogInjectionSanitizer — replaceAll("\\R", _) assigned to var. */
     @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
     public void safeLogStripCrLfAnyLineBreak(HttpServletRequest request) {
@@ -680,6 +689,19 @@ public class BarrierTests {
         }
     }
 
+    /** XSS — pixee HtmlEncoder.encode HTML-escapes the value. */
+    @WebServlet("/barrier/xss-pixee-htmlEncoder")
+    public static class SafePixeeHtmlEncoderServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String name = request.getParameter("name");
+            String safe = io.github.pixee.security.HtmlEncoder.encode(name);
+            response.setContentType("text/html;charset=UTF-8");
+            response.getWriter().println("<h1>" + safe + "</h1>");
+        }
+    }
+
     // ── unvalidated-redirect ──────────────────────────────────────────────
 
     /** UrlRedirect — URLEncoder.encode before sendRedirect. */
@@ -724,6 +746,17 @@ public class BarrierTests {
     }
 
     // ── smtp-crlf-injection ───────────────────────────────────────────────
+
+    /** SmtpInjection — pixee Newlines.stripAll strips CR/LF before setSubject. */
+    @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "smtp-crlf-injection")
+    public void safeSmtpPixeeNewlines(HttpServletRequest request) throws Exception {
+        String subject = request.getParameter("subject");
+        String safe = io.github.pixee.security.Newlines.stripAll(subject);
+        java.util.Properties props = new java.util.Properties();
+        javax.mail.Session session = javax.mail.Session.getDefaultInstance(props);
+        javax.mail.internet.MimeMessage msg = new javax.mail.internet.MimeMessage(session);
+        msg.setSubject(safe);
+    }
 
     /** SmtpInjection — Apache Commons Text escapeJava strips CR/LF before setSubject. */
     @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "smtp-crlf-injection")
@@ -797,6 +830,19 @@ public class BarrierTests {
                 throws ServletException, IOException {
             String userInput = request.getParameter("name");
             String safe = com.google.common.net.UrlEscapers.urlFormParameterEscaper().escape(userInput);
+            response.setHeader("X-User", safe);
+        }
+    }
+
+    /** ResponseSplitting — pixee Newlines.stripAll. */
+    @WebServlet("/barrier/crlf-pixee-newlines")
+    public static class SafeCrlfPixeeNewlinesServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "http-response-splitting")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String userInput = request.getParameter("name");
+            String safe = io.github.pixee.security.Newlines.stripAll(userInput);
             response.setHeader("X-User", safe);
         }
     }

@@ -31,6 +31,8 @@ rules:
             metavariable: "$REPLACER"
             regex: '("\\\\n"|"\\\\r"|''\\\\n''|''\\\\r'')'
         - focus-metavariable: $CLEAN
+      # pixee java-security-toolkit Newlines.stripAll.
+      - pattern: io.github.pixee.security.Newlines.stripAll(...)
     pattern-sinks:
       - patterns:
           - pattern-either:

@@ -33,6 +33,9 @@ rules:
             metavariable: "$REPLACER"
             regex: '("\\\\n"|"\\\\r"|''\\\\n''|''\\\\r'')'
         - focus-metavariable: $CLEAN
+      # pixee java-security-toolkit Newlines.stripAll — removes CR/LF from
+      # arbitrary input before logging.
+      - pattern: io.github.pixee.security.Newlines.stripAll(...)
     pattern-sinks:
       - patterns:
           - pattern-either:

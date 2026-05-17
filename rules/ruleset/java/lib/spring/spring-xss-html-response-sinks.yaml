@@ -59,6 +59,8 @@ rules:
               # OWASP ESAPI Validator.getValidSafeHTML — returns AntiSamy-cleaned HTML.
               # provenance: codeql/java/ql/lib/ext/org.owasp.esapi.model.yml
               - pattern: org.owasp.esapi.ESAPI.validator().getValidSafeHTML(..., $UNTRUSTED, ...)
+              # pixee java-security-toolkit HtmlEncoder.encode.
+              - pattern: io.github.pixee.security.HtmlEncoder.encode($UNTRUSTED)
           - focus-metavariable: $UNTRUSTED
 
 

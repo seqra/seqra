@@ -64,6 +64,8 @@ rules:
               # CodeQL barrierModel hudson.Util.escape(String) — Jenkins HTML escape.
               # provenance: codeql/java/ql/lib/ext/hudson.model.yml
               - pattern: hudson.Util.escape($UNTRUSTED)
+              # pixee java-security-toolkit HtmlEncoder.encode — HTML escape.
+              - pattern: io.github.pixee.security.HtmlEncoder.encode($UNTRUSTED)
           - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:
