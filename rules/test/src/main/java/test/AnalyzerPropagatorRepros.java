@@ -78,6 +78,18 @@ public class AnalyzerPropagatorRepros {
      * Commons Codec {@code Base64.encodeBase64String(byte[])} before reaching
      * the JDBC sink.
      */
+    // Note: a minimal Files.writeString repro lives in
+    // PathTraversalNioSinksSamples$UnsafeWriteStringServlet. It exhibits a
+    // real analyzer FN: with the path-traversal-in-servlet-app rule,
+    // Files.write fires but Files.writeString (and Files.readString) do not,
+    // even when path-traversal-sinks.yaml is reduced to just the three Files
+    // patterns. The synthetic equivalents in
+    // core/opentaint-java-querylang/src/test (AnalyzerBugsTest +
+    // analyzerbugs.FilesWriteStringBug / FilesWriteStringJoinBug) all pass,
+    // so the bug only manifests against an `opentaint compile`-built project
+    // model — the trigger is elsewhere in the pipeline (not the pattern
+    // matcher in isolation).
+
     @WebServlet("/repro/base64-encode")
     public static class Base64EncodeServlet extends HttpServlet {
         @Override
