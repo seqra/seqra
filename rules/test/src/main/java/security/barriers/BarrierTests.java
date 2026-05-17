@@ -323,6 +323,7 @@ public class BarrierTests {
         }
     }
 
+
     // ── ldap-injection ─────────────────────────────────────────────────────
 
     /** LdapInjection — Spring LdapEncoder.filterEncode. */
