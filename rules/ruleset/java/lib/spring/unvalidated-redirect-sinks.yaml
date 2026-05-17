@@ -20,6 +20,8 @@ rules:
       # OWASP ESAPI Validator.getValidRedirectLocation
       # provenance: codeql/java/ql/lib/ext/org.owasp.esapi.model.yml
       - pattern: org.owasp.esapi.ESAPI.validator().getValidRedirectLocation(...)
+      # pixee Urls.create — policy-filtered URL construction.
+      - pattern: io.github.pixee.security.Urls.create(...)
     pattern-sinks:
       - pattern: new RedirectView($URL);
       - pattern: new ModelAndView("redirect:" + $URL);
