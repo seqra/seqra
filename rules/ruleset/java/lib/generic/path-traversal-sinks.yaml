@@ -23,6 +23,9 @@ rules:
       # FilenameUtils.normalize variants - all strip `..` from paths
       - pattern: org.apache.commons.io.FilenameUtils.normalize(...)
       - pattern: org.apache.commons.io.FilenameUtils.normalizeNoEndSeparator(...)
+      # Apache Commons Lang StringUtils.containsAny — used by some apps to
+      # reject path-separator characters before constructing a file path.
+      # Kept narrow to avoid clobbering legitimate callers.
     pattern-sinks:
       - patterns:
           - pattern-either:

@@ -8,61 +8,70 @@ rules:
       provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/inject/rule-CommandInjection.yml
     languages:
       - java
-    patterns:
-      - pattern-either:
-          - pattern: |
-              (ProcessBuilder $PB).command(..., $UNTRUSTED, ...);
-          - pattern:
-              new ProcessBuilder(..., $UNTRUSTED, ...);
-          - pattern:
-              (java.util.List $ARGS).add($UNTRUSTED);
-              ...
-              new ProcessBuilder(..., $ARGS, ...);
-          - pattern:
-              (java.util.List $ARGS) = List.of(..., $UNTRUSTED, ...);
-              ...
-              new ProcessBuilder(..., $ARGS, ...);
-          - pattern:
-              (java.util.List $ARGS).add($UNTRUSTED);
-              ...
-              (ProcessBuilder $PB).command($ARGS);
-          - pattern:
-              (java.util.List $ARGS) = List.of(..., $UNTRUSTED, ...);
-              ...
-              (ProcessBuilder $PB).command($ARGS);
-          - patterns:
+    mode: taint
+    pattern-sanitizers:
+      # CodeQL CommandLineQuery — pixee SafeCommand wrappers neutralise the
+      # untrusted portion before it reaches a process launch.
+      # provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/CommandLineQuery.qll
+      - pattern: io.github.pixee.security.SystemCommand.runCommand(...)
+      - pattern: io.github.pixee.security.SystemCommand.runCommandAsString(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
               - pattern: |
-                  (ProcessBuilder $PB).command().$ADD(..., $UNTRUSTED, ...);
-              - metavariable-regex:
-                  metavariable: $ADD
-                  regex: (add|addAll)
-          - patterns:
+                  (ProcessBuilder $PB).command(..., $UNTRUSTED, ...);
+              - pattern:
+                  new ProcessBuilder(..., $UNTRUSTED, ...);
+              - pattern:
+                  (java.util.List $ARGS).add($UNTRUSTED);
+                  ...
+                  new ProcessBuilder(..., $ARGS, ...);
+              - pattern:
+                  (java.util.List $ARGS) = List.of(..., $UNTRUSTED, ...);
+                  ...
+                  new ProcessBuilder(..., $ARGS, ...);
+              - pattern:
+                  (java.util.List $ARGS).add($UNTRUSTED);
+                  ...
+                  (ProcessBuilder $PB).command($ARGS);
+              - pattern:
+                  (java.util.List $ARGS) = List.of(..., $UNTRUSTED, ...);
+                  ...
+                  (ProcessBuilder $PB).command($ARGS);
+              - patterns:
+                  - pattern: |
+                      (ProcessBuilder $PB).command().$ADD(..., $UNTRUSTED, ...);
+                  - metavariable-regex:
+                      metavariable: $ADD
+                      regex: (add|addAll)
+              - patterns:
+                  - pattern: |
+                      (java.lang.Runtime $R).$EXEC(..., $UNTRUSTED, ...);
+                  - metavariable-regex:
+                      metavariable: $EXEC
+                      regex: (exec|loadLibrary|load)
+              # Apache Commons Exec - CommandLine.parse (static, Argument[0])
+              - pattern: org.apache.commons.exec.CommandLine.parse($UNTRUSTED, ...)
+              # Apache Commons Exec - CommandLine.addArguments (Argument[0])
+              - pattern: (org.apache.commons.exec.CommandLine $CL).addArguments($UNTRUSTED, ...)
+              # Apache Ant - Execute.runCommand (static, Argument[1])
+              - pattern: org.apache.tools.ant.taskdefs.Execute.runCommand($T, $UNTRUSTED)
+              # Hudson Launcher - launch/launchChannel (Argument[0])
+              - patterns:
+                  - pattern: |
+                      (hudson.Launcher $L).$METHOD($UNTRUSTED, ...);
+                  - metavariable-regex:
+                      metavariable: $METHOD
+                      regex: (launch|launchChannel)
+              # ANALYZER LIMITATION: Inner class types not supported in typed metavariables.
+              # hudson.Launcher$ProcStarter.cmdAsSingleString/cmds (Argument[0])
+              # TODO: Re-enable when analyzer supports inner class types.
+              # - pattern: (hudson.Launcher$ProcStarter $PS).cmdAsSingleString($UNTRUSTED)
+              # - pattern: (hudson.Launcher$ProcStarter $PS).cmds($UNTRUSTED, ...)
+              # ProcessBuilder.directory (Argument[0] - sets working directory)
               - pattern: |
-                  (java.lang.Runtime $R).$EXEC(..., $UNTRUSTED, ...);
-              - metavariable-regex:
-                  metavariable: $EXEC
-                  regex: (exec|loadLibrary|load)
-          # Apache Commons Exec - CommandLine.parse (static, Argument[0])
-          - pattern: org.apache.commons.exec.CommandLine.parse($UNTRUSTED, ...)
-          # Apache Commons Exec - CommandLine.addArguments (Argument[0])
-          - pattern: (org.apache.commons.exec.CommandLine $CL).addArguments($UNTRUSTED, ...)
-          # Apache Ant - Execute.runCommand (static, Argument[1])
-          - pattern: org.apache.tools.ant.taskdefs.Execute.runCommand($T, $UNTRUSTED)
-          # Hudson Launcher - launch/launchChannel (Argument[0])
-          - patterns:
-              - pattern: |
-                  (hudson.Launcher $L).$METHOD($UNTRUSTED, ...);
-              - metavariable-regex:
-                  metavariable: $METHOD
-                  regex: (launch|launchChannel)
-          # ANALYZER LIMITATION: Inner class types not supported in typed metavariables.
-          # hudson.Launcher$ProcStarter.cmdAsSingleString/cmds (Argument[0])
-          # TODO: Re-enable when analyzer supports inner class types.
-          # - pattern: (hudson.Launcher$ProcStarter $PS).cmdAsSingleString($UNTRUSTED)
-          # - pattern: (hudson.Launcher$ProcStarter $PS).cmds($UNTRUSTED, ...)
-          # ProcessBuilder.directory (Argument[0] - sets working directory)
-          - pattern: |
-              (ProcessBuilder $PB).directory($UNTRUSTED);
+                  (ProcessBuilder $PB).directory($UNTRUSTED);
+          - focus-metavariable: $UNTRUSTED
 
   - id: java-expression-language-sinks
     options:

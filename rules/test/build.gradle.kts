@@ -328,6 +328,12 @@ allprojects {
         // Portlet API for PortletContext url-forward sink samples
         implementation("javax.portlet:portlet-api:2.0")
 
+        // OWASP Encoder for XSS / LDAP barrier samples
+        implementation("org.owasp.encoder:encoder:1.3.1")
+
+        // pixee security toolkit for path-traversal barrier samples
+        implementation("io.github.pixee:java-security-toolkit:1.2.3")
+
         // Note: CXF XPathUtils is in cxf-core (already added above for LogUtils)
         // Note: CXF XSLTUtils is in cxf-rt-features-transform; test is omitted (pattern uses Argument[this]/Argument[0] taint propagation)
     }
