@@ -14,7 +14,10 @@ rules:
       # untrusted portion before it reaches a process launch.
       # provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/CommandLineQuery.qll
       - pattern: io.github.pixee.security.SystemCommand.runCommand(...)
-      - pattern: io.github.pixee.security.SystemCommand.runCommandAsString(...)
+      # NOTE: SystemCommand.runProcessBuilder is NOT useful as a sanitizer:
+      # the ProcessBuilder constructor itself is the sink and fires before
+      # the wrapping call is reached. Only runCommand (which itself takes
+      # the tainted command array) is reachable as a barrier.
     pattern-sinks:
       - patterns:
           - pattern-either:
