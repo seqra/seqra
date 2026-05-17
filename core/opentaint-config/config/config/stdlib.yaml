@@ -21511,6 +21511,47 @@ passThrough:
     - from: this
       to: result
 
+# Part.getHeaders / getHeaderNames return Collection<String>. Without
+# explicit element-level propagation the downstream `.iterator().next()`
+# pattern (CodeQL-aligned source flow) cannot find the element taint.
+# Seed both the Collection reference and its Iterable Element accessor.
+- function: javax.servlet.http.Part#getHeaders
+  signature: (java.lang.String) java.util.Collection
+  copy:
+    - from: this
+      to: result
+    - from: this
+      to:
+        - result
+        - .java.lang.Iterable#Element#java.lang.Object
+- function: javax.servlet.http.Part#getHeaderNames
+  signature: () java.util.Collection
+  copy:
+    - from: this
+      to: result
+    - from: this
+      to:
+        - result
+        - .java.lang.Iterable#Element#java.lang.Object
+- function: jakarta.servlet.http.Part#getHeaders
+  signature: (java.lang.String) java.util.Collection
+  copy:
+    - from: this
+      to: result
+    - from: this
+      to:
+        - result
+        - .java.lang.Iterable#Element#java.lang.Object
+- function: jakarta.servlet.http.Part#getHeaderNames
+  signature: () java.util.Collection
+  copy:
+    - from: this
+      to: result
+    - from: this
+      to:
+        - result
+        - .java.lang.Iterable#Element#java.lang.Object
+
 # ── Map.of small overloads ──
 # Java 9+ Map.of(K, V) and small variants store value in the result map.
 # stdlib.yaml ships the 5..10 key/value forms but skipped the small ones.

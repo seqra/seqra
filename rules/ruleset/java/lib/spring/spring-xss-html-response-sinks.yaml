@@ -539,7 +539,44 @@ rules:
                   $W = (HttpServletResponse $R).getWriter(...);
                   ...
                   $W.$WRITE(..., $UNTRUSTED, ...);
+              # CodeQL XssVulnerableWriterSource — getOutputStream is the
+              # binary-mode counterpart to getWriter and also writes the
+              # response body verbatim. Gated by the same text/html content
+              # type so JSON/PDF/etc handlers don't trigger.
+              - pattern: |
+                  (HttpServletResponse $R).setContentType("$CT_HTML");
+                  ...
+                  $S = (HttpServletResponse $R).getOutputStream(...);
+                  ...
+                  $S.$WRITE(..., $UNTRUSTED, ...);
+              - pattern: |
+                  (HttpServletResponse $R).setHeader("Content-Type", "$CT_HTML");
+                  ...
+                  $S = (HttpServletResponse $R).getOutputStream(...);
+                  ...
+                  $S.$WRITE(..., $UNTRUSTED, ...);
+              - pattern: |
+                  (HttpServletResponse $R).addHeader("Content-Type", "$CT_HTML");
+                  ...
+                  $S = (HttpServletResponse $R).getOutputStream(...);
+                  ...
+                  $S.$WRITE(..., $UNTRUSTED, ...);
+              # Inline-chained form: response.getOutputStream().write(...)
+              - pattern: |
+                  (HttpServletResponse $R).setContentType("$CT_HTML");
+                  ...
+                  (HttpServletResponse $R).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...);
           - metavariable-regex:
               metavariable: $CT_HTML
               regex: '^text/html(\s*;.*)?$'
+          - focus-metavariable: $UNTRUSTED
+
+      # HttpServletResponse.sendError(int, String) — the message is rendered
+      # as the body of the error page (servlet containers render text/html by
+      # default), so a tainted message yields XSS. The focus-metavariable
+      # restricts the match to the message argument so literal messages do
+      # not trigger.
+      # provenance: codeql/java/ql/lib/ext/javax.servlet.http.model.yml
+      - patterns:
+          - pattern: (HttpServletResponse $R).sendError($CODE, $UNTRUSTED)
           - focus-metavariable: $UNTRUSTED

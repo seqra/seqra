@@ -109,6 +109,37 @@ rules:
               - metavariable-regex:
                   metavariable: $METHOD
                   regex: (findPattern|findString)
+          # Inlined Map.of(...) flow into setProperties — OpenTaint's Map.of
+          # propagator stores taint on the MapValue accessor, not on the Map
+          # reference itself, so the bare $INPUT pattern misses the case where
+          # the caller wraps a tainted string in a Map first. Match the Map
+          # construction explicitly so $INPUT binds to the value.
+          - patterns:
+              - pattern-either:
+                  - pattern: |
+                      $M = java.util.Map.of($K1, $INPUT);
+                      ...
+                      $P.setProperties($M, ...);
+                  - pattern: |
+                      $M = java.util.Map.of($K1, $V1, $K2, $INPUT);
+                      ...
+                      $P.setProperties($M, ...);
+                  - pattern: |
+                      $M = java.util.Map.of($K1, $INPUT, $K2, $V2);
+                      ...
+                      $P.setProperties($M, ...);
+                  - pattern: |
+                      $P.setProperties(java.util.Map.of($K1, $INPUT), ...);
+                  - pattern: |
+                      $P.setProperties(java.util.Map.of($K1, $V1, $K2, $INPUT), ...);
+                  - pattern: |
+                      $P.setProperties(java.util.Map.of($K1, $INPUT, $K2, $V2), ...);
+              - metavariable-pattern:
+                  metavariable: $P
+                  pattern-either:
+                      - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $X)
+                      - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $X)
+              - focus-metavariable: $INPUT
 
   - id: dangerous-groovy-shell
     options:
