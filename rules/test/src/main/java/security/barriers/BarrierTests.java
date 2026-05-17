@@ -323,6 +323,21 @@ public class BarrierTests {
         }
     }
 
+    /** RequestForgery — pixee Urls.create checks protocol + host policy. */
+    @WebServlet("/barrier/ssrf-main-pixee-urls")
+    public static class SafeMainPixeeUrlsServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String target = request.getParameter("target");
+            java.net.URL url = io.github.pixee.security.Urls.create(
+                    target,
+                    io.github.pixee.security.Urls.HTTP_PROTOCOLS,
+                    io.github.pixee.security.HostValidator.ALLOW_ALL);
+            url.openConnection().connect();
+        }
+    }
+
 
     // ── ldap-injection ─────────────────────────────────────────────────────
 
