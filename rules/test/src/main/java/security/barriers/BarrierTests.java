@@ -965,4 +965,75 @@ public class BarrierTests {
             response.getWriter().println(safe);
         }
     }
+
+    // ── spring-response-injection ─────────────────────────────────────────
+
+    @org.springframework.web.bind.annotation.RestController
+    @org.springframework.web.bind.annotation.RequestMapping("/barrier/respinj-spring")
+    public static class SpringRespInjBarrierController {
+
+        /** spring-response-injection — Apache Commons Text escapeEcmaScript. */
+        @org.springframework.web.bind.annotation.GetMapping("/escapeEcmaScript")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-spring-app")
+        public void safeSpringRespEscapeEcmaScript(
+                @org.springframework.web.bind.annotation.RequestParam("name") String name,
+                HttpServletResponse response) throws IOException {
+            String safe = org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(name);
+            response.getWriter().println(safe);
+        }
+
+        /** spring-response-injection — OWASP ESAPI encodeForURL. */
+        @org.springframework.web.bind.annotation.GetMapping("/esapiUrl")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-spring-app")
+        public void safeSpringRespEsapiUrl(
+                @org.springframework.web.bind.annotation.RequestParam("name") String name,
+                HttpServletResponse response) throws IOException {
+            try {
+                String safe = org.owasp.esapi.ESAPI.encoder().encodeForURL(name);
+                response.getWriter().println(safe);
+            } catch (org.owasp.esapi.errors.EncodingException e) {
+                throw new IOException(e);
+            }
+        }
+
+        /** spring-response-injection — OWASP ESAPI encodeForJavaScript. */
+        @org.springframework.web.bind.annotation.GetMapping("/esapiJs")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-spring-app")
+        public void safeSpringRespEsapiJs(
+                @org.springframework.web.bind.annotation.RequestParam("name") String name,
+                HttpServletResponse response) throws IOException {
+            String safe = org.owasp.esapi.ESAPI.encoder().encodeForJavaScript(name);
+            response.getWriter().println(safe);
+        }
+
+        /** spring-response-injection — OWASP Encode.forJavaScript. */
+        @org.springframework.web.bind.annotation.GetMapping("/owaspJs")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-spring-app")
+        public void safeSpringRespOwaspJs(
+                @org.springframework.web.bind.annotation.RequestParam("name") String name,
+                HttpServletResponse response) throws IOException {
+            String safe = org.owasp.encoder.Encode.forJavaScript(name);
+            response.getWriter().println(safe);
+        }
+
+        /** spring-response-injection — Apache Commons Text escapeXml10. */
+        @org.springframework.web.bind.annotation.GetMapping("/escapeXml10")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-spring-app")
+        public void safeSpringRespEscapeXml10(
+                @org.springframework.web.bind.annotation.RequestParam("name") String name,
+                HttpServletResponse response) throws IOException {
+            String safe = org.apache.commons.text.StringEscapeUtils.escapeXml10(name);
+            response.getWriter().println(safe);
+        }
+
+        /** spring-response-injection — Spring HtmlUtils.htmlEscapeHex. */
+        @org.springframework.web.bind.annotation.GetMapping("/htmlEscapeHex")
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "response-injection-in-spring-app")
+        public void safeSpringRespHtmlEscapeHex(
+                @org.springframework.web.bind.annotation.RequestParam("name") String name,
+                HttpServletResponse response) throws IOException {
+            String safe = org.springframework.web.util.HtmlUtils.htmlEscapeHex(name);
+            response.getWriter().println(safe);
+        }
+    }
 }
