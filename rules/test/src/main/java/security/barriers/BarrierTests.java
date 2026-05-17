@@ -193,6 +193,21 @@ public class BarrierTests {
 
     // ── unsafe-deserialization ────────────────────────────────────────────
 
+    /** UnsafeDeserialization — pixee ValidatingObjectInputStreams.from. */
+    @WebServlet("/barrier/deser-pixee-validating")
+    public static class SafePixeeValidatingOisServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-deserialization-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            try (java.io.InputStream raw = request.getInputStream();
+                 java.io.ObjectInputStream ois = io.github.pixee.security.ValidatingObjectInputStreams.from(raw)) {
+                ois.readObject();
+            } catch (ClassNotFoundException e) {
+                throw new ServletException(e);
+            }
+        }
+    }
+
     /** UnsafeDeserialization — Apache Commons IO ValidatingObjectInputStream wrap. */
     @WebServlet("/barrier/deser-validating-ois")
     public static class SafeValidatingOisServlet extends HttpServlet {
@@ -211,6 +226,24 @@ public class BarrierTests {
         }
     }
 
+
+    // ── unsafe-reflection ─────────────────────────────────────────────────
+
+    /** UnsafeReflection — pixee Reflection.loadAndVerify allow-list. */
+    @WebServlet("/barrier/refl-pixee-loadAndVerify")
+    public static class SafePixeeLoadAndVerifyServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/external-configuration-control.yaml", id = "unsafe-reflection")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String className = request.getParameter("class");
+            try {
+                Class<?> cls = io.github.pixee.security.Reflection.loadAndVerify(className);
+                cls.getName();
+            } catch (ClassNotFoundException e) {
+                throw new ServletException(e);
+            }
+        }
+    }
 
     // ── ssrf ───────────────────────────────────────────────────────────────
 

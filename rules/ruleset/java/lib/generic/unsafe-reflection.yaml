@@ -12,6 +12,10 @@ rules:
       # loads a Class if it appears in a developer-supplied whitelist.
       # Treat any return value of those helpers as untainted.
       - pattern: io.github.pixee.security.ObjectInputFilters.createAllowList(...)
+      # pixee Reflection.loadAndVerify enforces a class allow-list before
+      # returning a Class object.
+      - pattern: io.github.pixee.security.Reflection.loadAndVerify(...)
+      - pattern: io.github.pixee.security.Reflection.loadAndVerifyPackage(...)
     pattern-sinks:
       - patterns:
           - pattern-either:

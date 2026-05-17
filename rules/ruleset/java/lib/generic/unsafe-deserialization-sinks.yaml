@@ -74,6 +74,9 @@ rules:
       # pixee SafeObjectInputStream wraps any user ObjectInputStream behind
       # an explicit class allow-list.
       - pattern: io.github.pixee.security.ObjectInputFilters.enableObjectFilterIfUnprotected(...)
+      # pixee ValidatingObjectInputStreams.from — returns a class-filtered
+      # ObjectInputStream over the tainted byte stream.
+      - pattern: io.github.pixee.security.ValidatingObjectInputStreams.from(...)
     pattern-sinks:
       # Caucho Hessian - constructor sinks (practical detection for Argument[this])
       - pattern: new com.caucho.hessian.io.HessianInput($SINK)
