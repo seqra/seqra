@@ -57,6 +57,10 @@ rules:
               - pattern: org.owasp.esapi.ESAPI.encoder().encodeForXML(..., $UNTRUSTED, ...)
               - pattern: org.owasp.esapi.ESAPI.encoder().encodeForXMLAttribute(..., $UNTRUSTED, ...)
               - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTMLAttribute(..., $UNTRUSTED, ...)
+              # OWASP ESAPI Validator.getValidSafeHTML — returns HTML that has
+              # been sanitised against a configured allowlist (AntiSamy).
+              # provenance: codeql/java/ql/lib/ext/org.owasp.esapi.model.yml
+              - pattern: org.owasp.esapi.ESAPI.validator().getValidSafeHTML(..., $UNTRUSTED, ...)
           - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:

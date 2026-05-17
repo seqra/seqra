@@ -14,6 +14,15 @@ rules:
       - pattern: org.apache.commons.io.FilenameUtils.getName(...)
       - pattern: org.apache.commons.io.FilenameUtils.getExtension(...)
       - pattern: io.github.pixee.security.Filenames.toSimpleFileName(...)
+      # CodeQL barrierModel java.io.File.getName() — returns just the basename
+      # so any directory-traversal characters are stripped.
+      # provenance: codeql/java/ql/lib/ext/java.io.model.yml
+      - pattern: (java.io.File $F).getName()
+      # OWASP ESAPI Validator path/filename validators throw on invalid input
+      # so the returned value is sanitised.
+      # provenance: codeql/java/ql/lib/ext/org.owasp.esapi.model.yml
+      - pattern: org.owasp.esapi.ESAPI.validator().getValidFileName(...)
+      - pattern: org.owasp.esapi.ESAPI.validator().getValidDirectoryPath(...)
       # CodeQL PathSanitizer: path normalization removes any internal `..` components.
       # provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/PathSanitizer.qll
       - pattern: (java.nio.file.Path $P).normalize()

@@ -129,6 +129,55 @@ public class BarrierTests {
         }
     }
 
+    /** CodeQL barrierModel java.io.File.getName() — basename strips directory traversal. */
+    @WebServlet("/barrier/path-file-getName")
+    public static class SafeFileGetNameServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String fileName = request.getParameter("file");
+            String basename = new File(fileName).getName();
+            Files.readAllBytes(Paths.get("/var/data/", basename));
+        }
+    }
+
+    /** ESAPI Validator.getValidFileName — throws on invalid filename. */
+    @WebServlet("/barrier/path-esapi-fileName")
+    public static class SafeEsapiFileNameServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String fileName = request.getParameter("file");
+            try {
+                String safe = org.owasp.esapi.ESAPI.validator().getValidFileName(
+                        "filename", fileName, java.util.Arrays.asList(".txt", ".log"), false);
+                Files.readAllBytes(Paths.get("/var/data/", safe));
+            } catch (org.owasp.esapi.errors.ValidationException e) {
+                throw new ServletException(e);
+            }
+        }
+    }
+
+    /** ESAPI Validator.getValidDirectoryPath — sanitised path under a parent. */
+    @WebServlet("/barrier/path-esapi-directoryPath")
+    public static class SafeEsapiDirectoryPathServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String dir = request.getParameter("dir");
+            try {
+                String safe = org.owasp.esapi.ESAPI.validator().getValidDirectoryPath(
+                        "dir", dir, new File("/var/data"), false);
+                Files.readAllBytes(Paths.get(safe, "file.txt"));
+            } catch (org.owasp.esapi.errors.ValidationException e) {
+                throw new ServletException(e);
+            }
+        }
+    }
+
     // ── command-injection ─────────────────────────────────────────────────
 
     /** CommandLineQuery — pixee SafeCommand wrappers. */
@@ -599,6 +648,24 @@ public class BarrierTests {
         }
     }
 
+    /** XSS — OWASP ESAPI Validator.getValidSafeHTML returns AntiSamy-cleaned HTML. */
+    @WebServlet("/barrier/xss-esapi-safeHtml")
+    public static class SafeEsapiSafeHtmlServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String html = request.getParameter("html");
+            try {
+                String safe = org.owasp.esapi.ESAPI.validator()
+                        .getValidSafeHTML("comment", html, 2000, false);
+                response.setContentType("text/html;charset=UTF-8");
+                response.getWriter().println("<div>" + safe + "</div>");
+            } catch (org.owasp.esapi.errors.ValidationException e) {
+                throw new ServletException(e);
+            }
+        }
+    }
+
     // ── unvalidated-redirect ──────────────────────────────────────────────
 
     /** UrlRedirect — URLEncoder.encode before sendRedirect. */
@@ -622,6 +689,23 @@ public class BarrierTests {
             String target = request.getParameter("target");
             String encoded = com.google.common.net.UrlEscapers.urlPathSegmentEscaper().escape(target);
             response.sendRedirect("/safe/" + encoded);
+        }
+    }
+
+    /** UrlRedirect — ESAPI Validator.getValidRedirectLocation. */
+    @WebServlet("/barrier/redirect-esapi-location")
+    public static class SafeRedirectEsapiLocationServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/unvalidated-redirect.yaml", id = "unvalidated-redirect-in-servlet-app")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            String target = request.getParameter("target");
+            try {
+                String safe = org.owasp.esapi.ESAPI.validator()
+                        .getValidRedirectLocation("redirect", target, false);
+                response.sendRedirect(safe);
+            } catch (org.owasp.esapi.errors.ValidationException e) {
+                throw new ServletException(e);
+            }
         }
     }
 

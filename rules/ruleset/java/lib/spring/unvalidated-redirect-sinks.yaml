@@ -17,6 +17,10 @@ rules:
       - pattern: com.google.common.net.UrlEscapers.urlPathSegmentEscaper().escape($UNTRUSTED)
       - pattern: com.google.common.net.UrlEscapers.urlFormParameterEscaper().escape($UNTRUSTED)
       - pattern: com.google.common.net.UrlEscapers.urlFragmentEscaper().escape($UNTRUSTED)
+      # OWASP ESAPI Validator.getValidRedirectLocation / getValidURI
+      # provenance: codeql/java/ql/lib/ext/org.owasp.esapi.model.yml
+      - pattern: org.owasp.esapi.ESAPI.validator().getValidRedirectLocation(...)
+      - pattern: org.owasp.esapi.ESAPI.validator().getValidURI(...)
     pattern-sinks:
       - pattern: new RedirectView($URL);
       - pattern: new ModelAndView("redirect:" + $URL);
