@@ -142,6 +142,27 @@ public class BarrierTests {
         }
     }
 
+    // ── unsafe-deserialization ────────────────────────────────────────────
+
+    /** UnsafeDeserialization — Apache Commons IO ValidatingObjectInputStream wrap. */
+    @WebServlet("/barrier/deser-validating-ois")
+    public static class SafeValidatingOisServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-deserialization-in-servlet-app")
+        protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
+            try (java.io.InputStream in = request.getInputStream();
+                 org.apache.commons.io.serialization.ValidatingObjectInputStream ois =
+                         new org.apache.commons.io.serialization.ValidatingObjectInputStream(in)) {
+                ois.accept(String.class, Integer.class);
+                Object result = ois.readObject();
+                response.getWriter().write(String.valueOf(result));
+            } catch (Exception e) {
+                throw new ServletException(e);
+            }
+        }
+    }
+
+
     // ── ssrf ───────────────────────────────────────────────────────────────
 
     /** RequestForgery — java.net.URLEncoder.encode(String). */
