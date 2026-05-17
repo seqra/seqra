@@ -25,6 +25,13 @@ rules:
         patterns:
           - pattern: org.apache.commons.text.StringEscapeUtils.unescapeJava($CLEAN);
           - focus-metavariable: $CLEAN
+      # URL encoding maps CR/LF (0x0D, 0x0A) to %0D / %0A so they no longer
+      # break out of the header line.
+      - pattern: java.net.URLEncoder.encode(...)
+      # Guava UrlEscapers similarly percent-encode CR/LF.
+      - pattern: com.google.common.net.UrlEscapers.urlPathSegmentEscaper().escape(...)
+      - pattern: com.google.common.net.UrlEscapers.urlFormParameterEscaper().escape(...)
+      - pattern: com.google.common.net.UrlEscapers.urlFragmentEscaper().escape(...)
     pattern-sinks:
       - patterns:
         - pattern-either:

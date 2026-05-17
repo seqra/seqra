@@ -761,6 +761,32 @@ public class BarrierTests {
         }
     }
 
+    /** ResponseSplitting — URLEncoder.encode percent-encodes CR/LF (%0D, %0A). */
+    @WebServlet("/barrier/crlf-urlencoder")
+    public static class SafeCrlfUrlEncoderServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "http-response-splitting")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String userInput = request.getParameter("name");
+            String safe = java.net.URLEncoder.encode(userInput, "UTF-8");
+            response.setHeader("X-User", safe);
+        }
+    }
+
+    /** ResponseSplitting — Guava UrlEscapers.urlPathSegmentEscaper percent-encodes CR/LF. */
+    @WebServlet("/barrier/crlf-guava-urlescaper")
+    public static class SafeCrlfGuavaUrlEscaperServlet extends HttpServlet {
+        @Override
+        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "http-response-splitting")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String userInput = request.getParameter("name");
+            String safe = com.google.common.net.UrlEscapers.urlFormParameterEscaper().escape(userInput);
+            response.setHeader("X-User", safe);
+        }
+    }
+
     // ── xss-in-spring-app ─────────────────────────────────────────────────
 
     @org.springframework.web.bind.annotation.RestController
