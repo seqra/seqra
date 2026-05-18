@@ -1,0 +1,8 @@
+passThrough:
+# Apache Commons IO: IOUtils.toString(InputStream|Reader|URL, ...) just
+# reads bytes/chars from its input and produces a String — taint flows
+# from the input source argument to the resulting String.
+- function: org.apache.commons.io.IOUtils#toString
+  copy:
+  - from: arg(0)
+    to: result

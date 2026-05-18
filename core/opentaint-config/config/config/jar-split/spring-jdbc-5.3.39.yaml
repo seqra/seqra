@@ -1,0 +1,9 @@
+passThrough:
+# Spring JDBC: NamedParameterUtils.parseSqlStatement(sql) returns a
+# ParsedSql wrapping the original SQL, which is then passed to
+# (Named)JdbcTemplate query/update sinks. The parse step itself just
+# preserves taint into the result.
+- function: org.springframework.jdbc.core.namedparam.NamedParameterUtils#parseSqlStatement
+  copy:
+  - from: arg(0)
+    to: result

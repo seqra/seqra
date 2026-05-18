@@ -1,0 +1,7 @@
+passThrough:
+# hudson.FilePath wrapper constructor — taint flows from any
+# String/File/URL argument into the constructed FilePath instance.
+- function: hudson.FilePath#<init>
+  copy:
+  - from: arg(*)
+    to: this

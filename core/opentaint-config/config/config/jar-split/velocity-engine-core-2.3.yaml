@@ -1,0 +1,13 @@
+passThrough:
+# Apache Velocity: VelocityContext.put($k, $v) and the AbstractContext
+# super-class — taint flows from the value argument into the context
+# instance so a tainted value carried into the context reaches a
+# subsequent VelocityEngine.evaluate / Template.merge sink.
+- function: org.apache.velocity.VelocityContext#put
+  copy:
+  - from: arg(1)
+    to: this
+- function: org.apache.velocity.context.AbstractContext#put
+  copy:
+  - from: arg(1)
+    to: this

@@ -1,0 +1,5 @@
+passThrough:
+- function: com.unboundid.ldap.sdk.SearchRequest#<init>
+  copy:
+  - from: arg(*)
+    to: this

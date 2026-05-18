@@ -1,0 +1,7 @@
+passThrough:
+# Apache HttpComponents 5 — String-arg wrapper constructor that the
+# SSRF sink rules use as an inline taint carrier.
+- function: org.apache.hc.core5.http.io.entity.StringEntity#<init>
+  copy:
+  - from: arg(*)
+    to: this

@@ -1,0 +1,109 @@
+passThrough:
+# Spring LDAP query builder chain:
+#   LdapQueryBuilder.query().base(dn).where(attr).is(val) ... -> LdapQuery
+#
+# The chain mixes the public LdapQueryBuilder/ConditionCriteria/
+# ContainerCriteria interfaces with the package-private
+# DefaultConditionCriteria / DefaultContainerCriteria impls. The
+# analyzer's chain-split sees the impl-class call sites, so both
+# interface and impl entries are needed.
+#
+# The direct `arg(0) → result` form is what actually propagates taint
+# through the chain; the two-step `arg(0)→this` + `this→result` form
+# alone wasn't enough (the chain has too many implicit intermediates
+# for two-step propagation to reach end-to-end without the direct
+# shortcut).
+- function: org.springframework.ldap.query.LdapQueryBuilder#base
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: this
+  - from: this
+    to: result
+- function: org.springframework.ldap.query.LdapQueryBuilder#where
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: this
+  - from: this
+    to: result
+- function: org.springframework.ldap.query.LdapQueryBuilder#filter
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: this
+  - from: this
+    to: result
+- function: org.springframework.ldap.query.ConditionCriteria#is
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: this
+  - from: this
+    to: result
+- function: org.springframework.ldap.query.ConditionCriteria#like
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: this
+  - from: this
+    to: result
+- function: org.springframework.ldap.query.ConditionCriteria#whitespaceWildcardsLike
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: this
+  - from: this
+    to: result
+- function: org.springframework.ldap.query.ContainerCriteria#and
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.ldap.query.ContainerCriteria#or
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.ldap.query.DefaultConditionCriteria#is
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.ldap.query.DefaultConditionCriteria#like
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.ldap.query.DefaultConditionCriteria#whitespaceWildcardsLike
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: org.springframework.ldap.query.DefaultContainerCriteria#and
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.ldap.query.DefaultContainerCriteria#or
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.ldap.query.DefaultContainerCriteria#append
+  copy:
+  - from: arg(0)
+    to: this
+  - from: this
+    to: result

@@ -1,0 +1,16 @@
+passThrough:
+# OkHttp Request.Builder — `new Request.Builder().url($X).build()` chain.
+# `.url()` mutates the builder and returns it (taint flows arg→this and
+# arg→result and this→result so the chain propagates through `.build()`).
+- function: okhttp3.Request$Builder#url
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: this
+  - from: this
+    to: result
+- function: okhttp3.Request$Builder#build
+  copy:
+  - from: this
+    to: result

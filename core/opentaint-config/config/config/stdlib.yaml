@@ -21359,165 +21359,31 @@ passThrough:
     - this
     - .java.io.InputStream#<rule-storage>#java.lang.Object
 
-# ── Hudson FilePath ─────────────────────────────────────────────────────
-- function: hudson.FilePath#<init>
+# ── Collection / Iterator / Iterable / Enumeration ─────────────────────
+- function: java.util.Collection#iterator
   copy:
-  - from: arg(*)
-    to: this
-
-# ── JMX ServiceURL / connector ──────────────────────────────────────────
-- function: javax.management.remote.JMXServiceURL#<init>
-  copy:
-  - from: arg(*)
-    to: this
-
-# ── UnboundID SearchRequest ─────────────────────────────────────────────
-- function: com.unboundid.ldap.sdk.SearchRequest#<init>
-  copy:
-  - from: arg(*)
-    to: this
-
-# ── javax.xml.transform.stream.StreamSource ─────────────────────────────
-- function: javax.xml.transform.stream.StreamSource#<init>
-  copy:
-  - from: arg(*)
-    to: this
-
-# ── Apache HC5 StringEntity ─────────────────────────────────────────────
-- function: org.apache.hc.core5.http.io.entity.StringEntity#<init>
-  copy:
-  - from: arg(*)
-    to: this
-
-# ── OkHttp3 Request.Builder ─────────────────────────────────────────────
-- function: okhttp3.Request$Builder#url
-  copy:
-  - from: arg(0)
-    to: this
   - from: this
     to: result
-- function: okhttp3.Request$Builder#build
+- function: java.lang.Iterable#iterator
+  copy:
+  - from: this
+    to: result
+- function: java.util.Iterator#next
+  copy:
+  - from: this
+    to: result
+- function: java.util.Enumeration#nextElement
   copy:
   - from: this
     to: result
 
-# ── java.net.http.HttpRequest$Builder ───────────────────────────────────
-- function: java.net.http.HttpRequest#newBuilder
-  copy:
-  - from: arg(*)
-    to: result
-- function: java.net.http.HttpRequest$Builder#uri
-  copy:
-  - from: arg(0)
-    to: this
-  - from: this
-    to: result
-- function: java.net.http.HttpRequest$Builder#build
-  copy:
-  - from: this
-    to: result
-- function: java.net.http.HttpRequest$Builder#GET
+# ── java.lang.String#getBytes (String → byte[]) ────────────────────────
+- function: java.lang.String#getBytes
   copy:
   - from: this
     to: result
 
-# ── Spring LDAP query builder ───────────────────────────────────────────
-- function: org.springframework.ldap.query.LdapQueryBuilder#base
-  copy:
-  - from: arg(0)
-    to: this
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.LdapQueryBuilder#where
-  copy:
-  - from: arg(0)
-    to: this
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.LdapQueryBuilder#filter
-  copy:
-  - from: arg(0)
-    to: this
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.ConditionCriteria#is
-  copy:
-  - from: arg(0)
-    to: this
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.ConditionCriteria#like
-  copy:
-  - from: arg(0)
-    to: this
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.ConditionCriteria#whitespaceWildcardsLike
-  copy:
-  - from: arg(0)
-    to: this
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.ContainerCriteria#and
-  copy:
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.ContainerCriteria#or
-  copy:
-  - from: this
-    to: result
-
-# ── MVEL compile (static + JSR-223) ─────────────────────────────────────
-- function: org.mvel2.MVEL#compileExpression
-  copy:
-  - from: arg(0)
-    to: result
-- function: org.mvel2.MVEL#compileSetExpression
-  copy:
-  - from: arg(0)
-    to: result
-- function: org.mvel2.MVEL#compileGetExpression
-  copy:
-  - from: arg(0)
-    to: result
-- function: org.mvel2.jsr223.MvelScriptEngine#compile
-  copy:
-  - from: arg(0)
-    to: result
-- function: org.mvel2.jsr223.MvelScriptEngine#compiledScript
-  copy:
-  - from: arg(0)
-    to: result
-
-# ── Apache Velocity ─────────────────────────────────────────────────────
-- function: org.apache.velocity.VelocityContext#put
-  copy:
-  - from: arg(1)
-    to: this
-- function: org.apache.velocity.context.AbstractContext#put
-  copy:
-  - from: arg(1)
-    to: this
-
-# ── Groovy CompilationUnit.addSource ────────────────────────────────────
-- function: org.codehaus.groovy.control.CompilationUnit#addSource
-  copy:
-  - from: arg(1)
-    to: this
-
-# ── Spring NamedParameterUtils ──────────────────────────────────────────
-- function: org.springframework.jdbc.core.namedparam.NamedParameterUtils#parseSqlStatement
-  copy:
-  - from: arg(0)
-    to: result
-
-# ── Apache Commons IO IOUtils ───────────────────────────────────────────
-- function: org.apache.commons.io.IOUtils#toString
-  copy:
-  - from: arg(0)
-    to: result
-
-# ── Base64 encoders ─────────────────────────────────────────────────────
+# ── java.util.Base64$Encoder ──────────────────────────────────────────
 - function: java.util.Base64$Encoder#encodeToString
   copy:
   - from: arg(0)
@@ -21527,153 +21393,38 @@ passThrough:
   - from: arg(0)
     to: result
 
-# ── Collection/Iterator chain ─────────────────────────────────────────
-- function: java.util.Collection#iterator
-  copy:
-  - from: this
-    to: result
-- function: java.util.Iterator#next
-  copy:
-  - from: this
-    to: result
-- function: java.lang.Iterable#iterator
-  copy:
-  - from: this
-    to: result
-- function: java.util.Enumeration#nextElement
-  copy:
-  - from: this
-    to: result
-
-# ── Spring LDAP DefaultConditionCriteria / DefaultContainerCriteria impl ─
-- function: org.springframework.ldap.query.DefaultConditionCriteria#is
-  copy:
-  - from: arg(0)
-    to: this
-  - from: arg(0)
-    to: result
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.DefaultConditionCriteria#like
-  copy:
-  - from: arg(0)
-    to: this
-  - from: arg(0)
-    to: result
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.DefaultConditionCriteria#whitespaceWildcardsLike
-  copy:
-  - from: arg(0)
-    to: this
-  - from: arg(0)
-    to: result
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.DefaultContainerCriteria#and
-  copy:
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.DefaultContainerCriteria#or
-  copy:
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.DefaultContainerCriteria#append
-  copy:
-  - from: arg(0)
-    to: this
-  - from: this
-    to: result
-
-# ── Re-strengthened URL/URI constructor propagators ─────────────────────
-# (existing entries use arg(*) which doesn't seem to apply consistently)
+# ── java.net.URL (String) constructor (direct arg→this; the existing
+#    URL#<init>(String) entry uses arg(*) which doesn't apply consistently
+#    enough for tests like UnsafeStaplerServeFileServlet) ────────────────
 - function: java.net.URL#<init>
   signature: (java.lang.String) void
   copy:
   - from: arg(0)
     to: this
+
+# ── java.net.URI ──────────────────────────────────────────────────────
 - function: java.net.URI#create
   copy:
   - from: arg(0)
     to: result
 
-# ── Apache Commons Codec Base64 ─────────────────────────────────────────
-- function: org.apache.commons.codec.binary.Base64#encodeBase64String
+# ── javax.management JMX (stdlib management API) ───────────────────────
+- function: javax.management.remote.JMXServiceURL#<init>
   copy:
-  - from: arg(0)
-    to: result
-- function: org.apache.commons.codec.binary.Base64#encodeBase64
-  copy:
-  - from: arg(0)
-    to: result
-- function: org.apache.commons.codec.binary.Base64#decodeBase64
+  - from: arg(*)
+    to: this
+- function: javax.management.remote.JMXConnectorFactory#newJMXConnector
   copy:
   - from: arg(0)
     to: result
 
-# ── String.getBytes propagation (String → byte[]) ──────────────────────
-- function: java.lang.String#getBytes
+# ── javax.xml.transform.stream.StreamSource ────────────────────────────
+- function: javax.xml.transform.stream.StreamSource#<init>
   copy:
-  - from: this
-    to: result
+  - from: arg(*)
+    to: this
 
-# ── Re-strengthened LDAP propagators (direct arg→result) ───────────────
-- function: org.springframework.ldap.query.LdapQueryBuilder#base
-  copy:
-  - from: arg(0)
-    to: result
-  - from: arg(0)
-    to: this
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.LdapQueryBuilder#where
-  copy:
-  - from: arg(0)
-    to: result
-  - from: arg(0)
-    to: this
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.LdapQueryBuilder#filter
-  copy:
-  - from: arg(0)
-    to: result
-  - from: arg(0)
-    to: this
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.ConditionCriteria#is
-  copy:
-  - from: arg(0)
-    to: result
-  - from: arg(0)
-    to: this
-  - from: this
-    to: result
-- function: org.springframework.ldap.query.ConditionCriteria#like
-  copy:
-  - from: arg(0)
-    to: result
-  - from: arg(0)
-    to: this
-  - from: this
-    to: result
-
-# ── Re-strengthened OkHttp Request.Builder ─────────────────────────────
-- function: okhttp3.Request$Builder#url
-  copy:
-  - from: arg(0)
-    to: result
-  - from: arg(0)
-    to: this
-  - from: this
-    to: result
-- function: okhttp3.Request$Builder#build
-  copy:
-  - from: this
-    to: result
-
-# ── Re-strengthened HttpRequest.Builder ────────────────────────────────
+# ── java.net.http.HttpRequest$Builder (Java 11+ HttpClient) ───────────
 - function: java.net.http.HttpRequest#newBuilder
   copy:
   - from: arg(0)
@@ -21693,34 +21444,4 @@ passThrough:
 - function: java.net.http.HttpRequest$Builder#GET
   copy:
   - from: this
-    to: result
-
-# ── Spring RequestEntity ───────────────────────────────────────────────
-- function: org.springframework.http.RequestEntity#get
-  copy:
-  - from: arg(0)
-    to: result
-- function: org.springframework.http.RequestEntity$BodyBuilder#build
-  copy:
-  - from: this
-    to: result
-- function: org.springframework.http.RequestEntity$HeadersBuilder#build
-  copy:
-  - from: this
-    to: result
-
-# ── Ant FileSet ─────────────────────────────────────────────────────────
-- function: org.apache.tools.ant.types.FileSet#setDir
-  copy:
-  - from: arg(0)
-    to: this
-- function: org.apache.tools.ant.types.FileSet#setFile
-  copy:
-  - from: arg(0)
-    to: this
-
-# ── JMX JMXConnectorFactory ─────────────────────────────────────────────
-- function: javax.management.remote.JMXConnectorFactory#newJMXConnector
-  copy:
-  - from: arg(0)
     to: result

@@ -1,0 +1,9 @@
+passThrough:
+# Groovy compiler: CompilationUnit.addSource(name, source) — the
+# source text becomes part of the CompilationUnit instance that's
+# later compiled by .compile(), so the source-text argument taints
+# the unit.
+- function: org.codehaus.groovy.control.CompilationUnit#addSource
+  copy:
+  - from: arg(1)
+    to: this

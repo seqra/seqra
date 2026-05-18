@@ -1,0 +1,16 @@
+passThrough:
+# Spring RequestEntity static factories + builder .build() — used by
+# the SSRF rule's chained-builder pattern:
+#   RequestEntity.get(URI.create($X)).build()
+- function: org.springframework.http.RequestEntity#get
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.http.RequestEntity$BodyBuilder#build
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.http.RequestEntity$HeadersBuilder#build
+  copy:
+  - from: this
+    to: result

@@ -1,0 +1,26 @@
+passThrough:
+# MVEL compile / executeExpression chain — compileExpression(expr)
+# returns a Serializable that's later passed to executeExpression /
+# MVELRuntime.execute as a tainted compiled program. The compile
+# methods just pass the input expression text through to the result.
+- function: org.mvel2.MVEL#compileExpression
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.mvel2.MVEL#compileSetExpression
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.mvel2.MVEL#compileGetExpression
+  copy:
+  - from: arg(0)
+    to: result
+# JSR-223 ScriptEngine compile / compiledScript
+- function: org.mvel2.jsr223.MvelScriptEngine#compile
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.mvel2.jsr223.MvelScriptEngine#compiledScript
+  copy:
+  - from: arg(0)
+    to: result

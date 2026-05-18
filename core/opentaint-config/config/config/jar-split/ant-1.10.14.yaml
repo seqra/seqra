@@ -1,0 +1,13 @@
+passThrough:
+# Apache Ant: FileSet.setDir(File) / setFile(File) — the file argument
+# is stored on the FileSet instance, so a subsequent
+# `copy.addFileset(fs)` sink that requires a tainted $FILE detects
+# the flow.
+- function: org.apache.tools.ant.types.FileSet#setDir
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.apache.tools.ant.types.FileSet#setFile
+  copy:
+  - from: arg(0)
+    to: this

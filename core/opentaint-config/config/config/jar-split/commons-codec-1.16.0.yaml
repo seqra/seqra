@@ -1,0 +1,16 @@
+passThrough:
+# Apache Commons Codec — Base64 encode/decode just re-codes bytes
+# without disturbing the underlying tainted data, so taint should
+# flow from input to output.
+- function: org.apache.commons.codec.binary.Base64#encodeBase64String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.codec.binary.Base64#encodeBase64
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.codec.binary.Base64#decodeBase64
+  copy:
+  - from: arg(0)
+    to: result
