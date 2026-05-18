@@ -404,28 +404,31 @@ rules:
               - pattern-inside: |
                   $URL = new java.net.URI($UNTRUSTED);
                   ...
-          - pattern-inside: |
+          - pattern: |
               $BUILDER = $_.uri($URL);
-              ...
-          - pattern-inside: |
+              ...;
               $TYPE $REQ = $BUILDER.build();
-              ...
-          - pattern: (java.net.http.HttpClient $C).send($REQ, ...)
+              ...;
+              (java.net.http.HttpClient $C).send($REQ, ...);
 
       # OkHttp Request.Builder().url(String).build() inlined into a Request;
       # consumed by OkHttpClient.newCall / newWebSocket. Same chained
-      # metavar trick: capture $BUILDER from .url($UNTRUSTED), then bind
-      # $REQ to $BUILDER.build(), then match the sink call on $REQ.
-      - patterns:
-          - pattern-inside: |
+      # metavar trick: capture $BUILDER from .url($UNTRUSTED), bind
+      # $REQ to $BUILDER.build(), then match the sink call on $REQ —
+      # all in a single multi-line pattern separated by `...;`.
+      - pattern-either:
+          - pattern: |
               $BUILDER = $_.url($UNTRUSTED);
-              ...
-          - pattern-inside: |
+              ...;
               $TYPE $REQ = $BUILDER.build();
-              ...
-          - pattern-either:
-              - pattern: (okhttp3.OkHttpClient $C).newCall($REQ)
-              - pattern: (okhttp3.OkHttpClient $C).newWebSocket($REQ, ...)
+              ...;
+              (okhttp3.OkHttpClient $C).newCall($REQ);
+          - pattern: |
+              $BUILDER = $_.url($UNTRUSTED);
+              ...;
+              $TYPE $REQ = $BUILDER.build();
+              ...;
+              (okhttp3.OkHttpClient $C).newWebSocket($REQ, ...);
 
   - id: java-http-parameter-pollution-sinks
     options:
