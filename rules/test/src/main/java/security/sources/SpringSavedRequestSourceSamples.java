@@ -21,7 +21,7 @@ public class SpringSavedRequestSourceSamples {
     private SavedRequest savedRequest;
 
     @GetMapping("/saved-request-source")
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public String savedRequestGetRedirectUrl() throws Exception {
         String url = savedRequest.getRedirectUrl();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {

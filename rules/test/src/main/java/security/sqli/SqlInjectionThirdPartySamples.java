@@ -35,7 +35,7 @@ public class SqlInjectionThirdPartySamples {
         }
 
         @GetMapping("/createQuery")
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String unsafeCreateQuery(@RequestParam("filter") String filter) {
             String hql = "FROM User WHERE " + filter;
             session.createQuery(hql);
@@ -43,7 +43,7 @@ public class SqlInjectionThirdPartySamples {
         }
 
         @GetMapping("/createSQLQuery")
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String unsafeCreateSQLQuery(@RequestParam("filter") String filter) {
             String sql = "SELECT * FROM users WHERE " + filter;
             session.createSQLQuery(sql);
@@ -64,7 +64,7 @@ public class SqlInjectionThirdPartySamples {
         }
 
         @GetMapping("/createQuery")
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String unsafeCreateQuery(@RequestParam("filter") String filter) {
             String hql = "FROM User WHERE " + filter;
             queryProducer.createQuery(hql);
@@ -72,7 +72,7 @@ public class SqlInjectionThirdPartySamples {
         }
 
         @GetMapping("/createNativeQuery")
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String unsafeCreateNativeQuery(@RequestParam("filter") String filter) {
             String sql = "SELECT * FROM users WHERE " + filter;
             queryProducer.createNativeQuery(sql);
@@ -81,7 +81,7 @@ public class SqlInjectionThirdPartySamples {
 
         @SuppressWarnings("deprecation")
         @GetMapping("/createSQLQuery")
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String unsafeCreateSQLQuery(@RequestParam("filter") String filter) {
             String sql = "SELECT * FROM users WHERE " + filter;
             queryProducer.createSQLQuery(sql);
@@ -102,7 +102,7 @@ public class SqlInjectionThirdPartySamples {
         }
 
         @GetMapping("/selectOne")
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String unsafeSelectOne(@RequestParam("filter") String filter) throws SQLException {
             SqlRunner runner = new SqlRunner(connection);
             String sql = "SELECT * FROM users WHERE " + filter;
@@ -111,7 +111,7 @@ public class SqlInjectionThirdPartySamples {
         }
 
         @GetMapping("/delete")
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String unsafeDelete(@RequestParam("table") String table) throws SQLException {
             SqlRunner runner = new SqlRunner(connection);
             String sql = "DELETE FROM " + table;
@@ -120,7 +120,7 @@ public class SqlInjectionThirdPartySamples {
         }
 
         @GetMapping("/run")
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String unsafeRun(@RequestParam("stmt") String stmt) throws SQLException {
             SqlRunner runner = new SqlRunner(connection);
             runner.run(stmt);
@@ -141,7 +141,7 @@ public class SqlInjectionThirdPartySamples {
         }
 
         @GetMapping("/query")
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String unsafeQuery(@RequestParam("filter") String filter) {
             String n1ql = "SELECT * FROM bucket WHERE " + filter;
             cluster.query(n1ql);
@@ -149,7 +149,7 @@ public class SqlInjectionThirdPartySamples {
         }
 
         @GetMapping("/analyticsQuery")
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String unsafeAnalyticsQuery(@RequestParam("filter") String filter) {
             String n1ql = "SELECT * FROM dataset WHERE " + filter;
             cluster.analyticsQuery(n1ql);
@@ -159,7 +159,7 @@ public class SqlInjectionThirdPartySamples {
         // Couchbase Cluster.queryStreaming is not available in SDK 3.x (may be from SDK 2.x).
         // Pattern kept in rule for backward compatibility, no test possible with current dependency.
         // @GetMapping("/queryStreaming")
-        // @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        // @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         // public String unsafeQueryStreaming(@RequestParam("filter") String filter) {
         //     String n1ql = "SELECT * FROM bucket WHERE " + filter;
         //     cluster.queryStreaming(n1ql, row -> {});
@@ -180,7 +180,7 @@ public class SqlInjectionThirdPartySamples {
         }
 
         @GetMapping("/prepareStatement")
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String unsafePrepareStatement(@RequestParam("stmt") String stmt) throws Exception {
             JdbcConnection jdbcConn = new JdbcConnection(connection);
             jdbcConn.prepareStatement(stmt);
@@ -188,7 +188,7 @@ public class SqlInjectionThirdPartySamples {
         }
 
         @GetMapping("/rawSqlStatement")
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String unsafeRawSqlStatement(@RequestParam("stmt") String stmt) {
             new RawSqlStatement(stmt);
             return "done";
@@ -202,7 +202,7 @@ public class SqlInjectionThirdPartySamples {
     public static class DruidController {
 
         @GetMapping("/console")
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String unsafeConsole(@RequestParam("sql") String sql) {
             SchemaRepository repo = new SchemaRepository();
             repo.console(sql);
@@ -223,7 +223,7 @@ public class SqlInjectionThirdPartySamples {
         }
 
         @GetMapping("/safe")
-        @NegativeRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+        @NegativeRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public String safeSelectOne(@RequestParam("id") String id) throws SQLException {
             SqlRunner runner = new SqlRunner(connection);
             runner.selectOne("SELECT * FROM users WHERE id = ?", id);

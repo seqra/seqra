@@ -23,7 +23,7 @@ public class SpringRestTemplateSourceSamples {
     private RestTemplate restTemplate;
 
     @GetMapping("/rest-template-source")
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public String restTemplateGetForEntity() throws Exception {
         ResponseEntity<String> response = restTemplate.getForEntity("http://external-service/data", String.class);
         String body = response.getBody();

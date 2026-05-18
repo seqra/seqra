@@ -4,6 +4,7 @@ import java.io.IOException;
 
 import javax.servlet.http.HttpServletResponse;
 
+import org.opentaint.sast.test.util.NegativeRuleSample;
 import org.opentaint.sast.test.util.PositiveRuleSample;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -39,51 +40,6 @@ public class HttpResponseSplittingSpringSamples {
 
             // VULNERABLE: user-controlled path concatenated into redirect target
             response.sendRedirect("/home?next=" + next);
-        }
-    }
-
-    @Controller
-    public static class SafeHttpResponseSplittingController {
-
-        /**
-         * Safe endpoint that validates header and redirect values.
-         */
-        @GetMapping("/http-response-splitting-in-spring/safe")
-// TODO: restore this when conditional validators are implemented
-//        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "http-response-splitting")
-        public void safe(@RequestParam(name = "user", required = false) String user,
-                         @RequestParam(name = "next", required = false) String next,
-                         HttpServletResponse response) throws IOException {
-
-            if (user == null) {
-                user = "anonymous";
-            }
-
-            if (user.contains("\r") || user.contains("\n")) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid user");
-                return;
-            }
-
-            if (!user.matches("^[A-Za-z0-9_-]{1,32}$")) {
-                user = "anonymous";
-            }
-
-            response.setHeader("X-User", user);
-
-            if (next == null || next.isBlank()) {
-                next = "/home";
-            }
-
-            if (next.contains("\r") || next.contains("\n")) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid next");
-                return;
-            }
-
-            if (!next.startsWith("/")) {
-                next = "/home";
-            }
-
-            response.sendRedirect(next);
         }
     }
 }

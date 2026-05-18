@@ -20,7 +20,7 @@ public class SpringWebSocketSourceSamples extends AbstractWebSocketHandler {
     private DataSource dataSource;
 
     @Override
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void handleMessage(WebSocketSession session, WebSocketMessage<?> message) throws Exception {
         String payload = message.getPayload().toString();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -29,7 +29,7 @@ public class SpringWebSocketSourceSamples extends AbstractWebSocketHandler {
     }
 
     @Override
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
         String payload = message.getPayload();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {

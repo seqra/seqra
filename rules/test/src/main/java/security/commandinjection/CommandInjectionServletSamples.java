@@ -9,6 +9,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.opentaint.sast.test.util.NegativeRuleSample;
 import org.opentaint.sast.test.util.PositiveRuleSample;
 
 /**
@@ -37,41 +38,6 @@ public class CommandInjectionServletSamples {
                 // In a real application, the output would be streamed back to the client.
                 PrintWriter out = response.getWriter();
                 out.println("Started ping for host: " + host + ", process: " + process);
-            } catch (Exception e) {
-                throw new ServletException(e);
-            }
-        }
-    }
-
-
-    /**
-     * Safe servlet that validates the host and avoids shell interpretation by using
-     * a ProcessBuilder with separated arguments.
-     */
-    @WebServlet("/os-command-injection-in-servlet/safe")
-    public static class SafeCommandServlet extends HttpServlet {
-
-        @Override
-// TODO: restore this when conditional validators are implemented
-//        @NegativeRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection")
-        protected void doGet(HttpServletRequest request, HttpServletResponse response)
-                throws ServletException, IOException {
-            String host = request.getParameter("host");
-
-            // Basic validation: allow only simple hostnames / IPs with restricted characters
-            if (host == null || !host.matches("^[a-zA-Z0-9._-]{1,255}$")) {
-                response.sendError(HttpServletResponse.SC_BAD_REQUEST, "Invalid host");
-                return;
-            }
-
-            try {
-                // SAFE: do not invoke a shell, use arguments list instead
-                ProcessBuilder pb = new ProcessBuilder("ping", "-c", "4", host);
-                pb.redirectErrorStream(true);
-                Process process = pb.start();
-
-                PrintWriter out = response.getWriter();
-                out.println("Started safe ping for host: " + host + ", process: " + process);
             } catch (Exception e) {
                 throw new ServletException(e);
             }

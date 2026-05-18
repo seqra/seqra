@@ -18,7 +18,7 @@ public class JsfSourceSamples {
 
     private DataSource dataSource;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void externalContextRequestPathInfo() throws Exception {
         ExternalContext ctx = FacesContext.getCurrentInstance().getExternalContext();
         String pathInfo = ctx.getRequestPathInfo();

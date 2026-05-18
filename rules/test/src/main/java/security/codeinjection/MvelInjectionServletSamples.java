@@ -21,7 +21,7 @@ public class MvelInjectionServletSamples {
     public static class UnsafeMvelServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
             String expr = request.getParameter("expr");
 

@@ -22,7 +22,7 @@ public class SpringUrlPathHelperSourceSamples {
     private UrlPathHelper urlPathHelper = new UrlPathHelper();
 
     @GetMapping("/url-path-helper-source")
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public String urlPathHelperGetRequestUri(HttpServletRequest request) throws Exception {
         String uri = urlPathHelper.getRequestUri(request);
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {

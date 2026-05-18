@@ -16,7 +16,7 @@ public class XmlPullSourceSamples {
 
     private DataSource dataSource;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void xmlPullParserGetText(XmlPullParser parser) throws Exception {
         String text = parser.getText();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {

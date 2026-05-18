@@ -105,10 +105,18 @@ rules:
               - pattern: java.nio.file.Files.writeString($FILE, ...)
 
               # ── java.nio.channels ─────────────────────────────────────────────
-              # ANALYZER LIMITATION: Method name `open` causes "Unreachable" parser error.
-              # TODO: Re-enable when analyzer supports `open` as a method name in patterns.
-              # - pattern: java.nio.channels.FileChannel.open($FILE, ...)
-              # - pattern: java.nio.channels.AsynchronousFileChannel.open($FILE, ...)
+              # Workaround: `open` literal triggers an "Unreachable" parser error,
+              # so match via metavariable-regex on a method-name metavar instead.
+              - patterns:
+                  - pattern: java.nio.channels.FileChannel.$NC($FILE, ...)
+                  - metavariable-regex:
+                      metavariable: $NC
+                      regex: ^open$
+              - patterns:
+                  - pattern: java.nio.channels.AsynchronousFileChannel.$NC($FILE, ...)
+                  - metavariable-regex:
+                      metavariable: $NC
+                      regex: ^open$
 
               # ── java.nio.file.FileSystems ─────────────────────────────────────
               - pattern: java.nio.file.FileSystems.newFileSystem($FILE, ...)
@@ -143,6 +151,7 @@ rules:
 
               # ── javax.xml.transform / javax.activation ────────────────────────
               - pattern: new javax.xml.transform.StreamSource($FILE, ...)
+              - pattern: new javax.xml.transform.stream.StreamSource($FILE, ...)
               - pattern: new javax.xml.transform.stream.StreamResult($FILE)
               - pattern: new javax.activation.FileDataSource($FILE, ...)
 
@@ -276,13 +285,20 @@ rules:
               - pattern: new org.antlr.runtime.ANTLRFileStream($FILE, ...)
 
               # ── Kotlin stdlib (kotlin.io.FilesKt) ─────────────────────────────
+              # The `kotlin.io.FilesKt` facade has NO methods of its own — the actual
+              # static methods live on the FilesKt__*Kt super-classes. Match both.
               - patterns:
-                  - pattern: kotlin.io.FilesKt.$KT_METHOD($FILE, ...)
+                  - pattern-either:
+                      - pattern: kotlin.io.FilesKt.$KT_METHOD($FILE, ...)
+                      - pattern: kotlin.io.FilesKt__FileReadWriteKt.$KT_METHOD($FILE, ...)
+                      - pattern: kotlin.io.FilesKt__UtilsKt.$KT_METHOD($FILE, ...)
                   - metavariable-regex:
                       metavariable: $KT_METHOD
                       regex: (appendBytes|appendText|bufferedWriter|deleteRecursively|inputStream|outputStream|printWriter|readBytes|readText|writeBytes|writeText|writer)
               - pattern: kotlin.io.FilesKt.copyRecursively(..., $FILE, ...)
               - pattern: kotlin.io.FilesKt.copyTo(..., $FILE, ...)
+              - pattern: kotlin.io.FilesKt__UtilsKt.copyRecursively(..., $FILE, ...)
+              - pattern: kotlin.io.FilesKt__UtilsKt.copyTo(..., $FILE, ...)
 
               # ── Apache CXF ───────────────────────────────────────────────────
               - pattern: org.apache.cxf.common.classloader.ClassLoaderUtils.getResourceAsStream($FILE, ...)

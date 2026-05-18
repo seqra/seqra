@@ -15,7 +15,7 @@ public class SystemPropertySourceSamples {
 
     private DataSource dataSource;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void systemGetProperty() throws Exception {
         String val = System.getProperty("user.input");
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -23,7 +23,7 @@ public class SystemPropertySourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void systemGetPropertyWithDefault() throws Exception {
         String val = System.getProperty("user.input", "default");
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -31,7 +31,7 @@ public class SystemPropertySourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void systemGetProperties() throws Exception {
         Properties props = System.getProperties();
         String val = props.getProperty("user.input");

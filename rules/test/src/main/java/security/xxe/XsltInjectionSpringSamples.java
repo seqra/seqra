@@ -34,7 +34,7 @@ public class XsltInjectionSpringSamples {
         // does not reach the transformer object without summaries for the Saxon compilation chain.
         // TODO: Re-enable when Saxon compilation taint propagation summaries are added to opentaint-config.
         @PostMapping("/unsafe/transform")
-        // @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe-in-spring-app")
+        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe")
         public String unsafeTransform(@RequestParam("xslt") String xsltContent) throws Exception {
             Processor processor = new Processor(false);
             XsltCompiler compiler = processor.newXsltCompiler();
@@ -51,7 +51,7 @@ public class XsltInjectionSpringSamples {
         // ANALYZER LIMITATION: Same as above — taint does not propagate through Saxon compilation chain.
         // TODO: Re-enable when Saxon compilation taint propagation summaries are added to opentaint-config.
         @PostMapping("/unsafe/applyTemplates")
-        // @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe-in-spring-app")
+        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe")
         public String unsafeApplyTemplates(@RequestParam("xslt") String xsltContent) throws Exception {
             Processor processor = new Processor(false);
             XsltCompiler compiler = processor.newXsltCompiler();
@@ -75,7 +75,7 @@ public class XsltInjectionSpringSamples {
         // ANALYZER LIMITATION: Same as Xslt30Transformer — taint does not propagate through Saxon compilation chain.
         // TODO: Re-enable when Saxon compilation taint propagation summaries are added to opentaint-config.
         @PostMapping("/unsafe/transform")
-        // @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe-in-spring-app")
+        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe")
         public String unsafeTransform(@RequestParam("xslt") String xsltContent) throws Exception {
             Processor processor = new Processor(false);
             XsltCompiler compiler = processor.newXsltCompiler();
@@ -111,7 +111,7 @@ public class XsltInjectionSpringSamples {
         // but the XXE rule pattern matches on the untrusted XML source argument.
         // TODO: Re-enable when analyzer can distinguish XSLT-injection (tainted transformer) from XXE (tainted XML input)
         @PostMapping("/safe")
-        // @NegativeRuleSample(value = "java/security/xxe.yaml", id = "xxe-in-spring-app")
+        // @NegativeRuleSample(value = "java/security/xxe.yaml", id = "xxe")
         public String safeTransform(@RequestParam("data") String xmlData) throws Exception {
             // SAFE from XSLT injection: XSLT is loaded from a server-controlled resource, not user input
             Processor processor = new Processor(false);

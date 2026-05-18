@@ -27,7 +27,7 @@ public class MongoDBInjectionExtraSpringSamples {
     public static class UnsafeBasicDBObjectPutController {
 
         @GetMapping("/unsafe/put")
-        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection")
         public String unsafePut(@RequestParam("js") String jsExpr) {
             BasicDBObject query = new BasicDBObject();
             query.put("$where", jsExpr);
@@ -42,7 +42,7 @@ public class MongoDBInjectionExtraSpringSamples {
     public static class UnsafeBasicDBObjectAppendController {
 
         @GetMapping("/unsafe/append")
-        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection")
         public String unsafeAppend(@RequestParam("js") String jsExpr) {
             BasicDBObject query = new BasicDBObject();
             query.append("$where", jsExpr);
@@ -57,7 +57,7 @@ public class MongoDBInjectionExtraSpringSamples {
     public static class UnsafePutAllController {
 
         @GetMapping("/unsafe/putAll")
-        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection")
         public String unsafePutAll(@RequestParam("js") String jsExpr) {
             Map<String, Object> map = new HashMap<>();
             map.put("$where", jsExpr);
@@ -74,7 +74,7 @@ public class MongoDBInjectionExtraSpringSamples {
     public static class UnsafeMapConstructorController {
 
         @GetMapping("/unsafe/mapConstructor")
-        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection")
         public String unsafeMapConstructor(@RequestParam("js") String jsExpr) {
             Map<String, Object> map = new HashMap<>();
             map.put("$where", jsExpr);
@@ -90,7 +90,7 @@ public class MongoDBInjectionExtraSpringSamples {
     public static class UnsafeJsonParseController {
 
         @GetMapping("/unsafe/jsonParse")
-        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection")
         public String unsafeJsonParse(@RequestParam("js") String jsExpr) {
             Map<String, Object> map = new HashMap<>();
             map.put("$where", jsExpr);
@@ -108,7 +108,7 @@ public class MongoDBInjectionExtraSpringSamples {
     public static class UnsafeBuilderAddController {
 
         @GetMapping("/unsafe/builderAdd")
-        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection")
         public String unsafeBuilderAdd(@RequestParam("js") String jsExpr) {
             BasicDBObjectBuilder.start().add("$where", jsExpr);
             return "ok";
@@ -122,7 +122,7 @@ public class MongoDBInjectionExtraSpringSamples {
     public static class UnsafeBuilderAppendController {
 
         @GetMapping("/unsafe/builderAppend")
-        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection")
         public String unsafeBuilderAppend(@RequestParam("js") String jsExpr) {
             BasicDBObjectBuilder.start().append("$where", jsExpr);
             return "ok";
@@ -136,7 +136,7 @@ public class MongoDBInjectionExtraSpringSamples {
     public static class UnsafeBuilderStartController {
 
         @GetMapping("/unsafe/builderStart")
-        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection")
         public String unsafeBuilderStart(@RequestParam("js") String jsExpr) {
             BasicDBObjectBuilder.start("$where", jsExpr);
             return "ok";
@@ -150,7 +150,7 @@ public class MongoDBInjectionExtraSpringSamples {
     public static class UnsafeBuilderStartMapController {
 
         @GetMapping("/unsafe/builderStartMap")
-        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "mongodb-injection")
         public String unsafeBuilderStartMap(@RequestParam("js") String jsExpr) {
             Map<String, Object> map = new HashMap<>();
             map.put("$where", jsExpr);

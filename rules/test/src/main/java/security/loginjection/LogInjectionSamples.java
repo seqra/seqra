@@ -45,37 +45,37 @@ public class LogInjectionSamples {
     // ANALYZER LIMITATION: instance-method String.replace/replaceAll sanitizers
     // (CodeQL LineBreaksLogInjectionSanitizer) are not honored by OpenTaint's
     // pattern-sanitizer matcher today. Restore these once the limitation is fixed.
-    // @WebServlet("/log-injection-in-servlet/safe-crlf")
-    // public static class SafeLogServlet extends HttpServlet {
-    //
-    //     @Override
-    //     @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
-    //     protected void doGet(HttpServletRequest request, HttpServletResponse response)
-    //             throws ServletException, IOException {
-    //         String username = request.getParameter("username");
-    //         Logger logger = LoggerFactory.getLogger(SafeLogServlet.class);
-    //
-    //         // SAFE: CRLF neutralization via String.replaceAll on [\r\n]
-    //         String safe = username.replaceAll("[\\r\\n]", "_");
-    //         logger.warn("Failed login attempt for user [{}]", safe);
-    //     }
-    // }
-    //
-    // @WebServlet("/log-injection-in-servlet/safe-replace")
-    // public static class SafeLogReplaceServlet extends HttpServlet {
-    //
-    //     @Override
-    //     @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
-    //     protected void doGet(HttpServletRequest request, HttpServletResponse response)
-    //             throws ServletException, IOException {
-    //         String username = request.getParameter("username");
-    //         Logger logger = LoggerFactory.getLogger(SafeLogReplaceServlet.class);
-    //
-    //         // SAFE: line break neutralization via String.replace on each newline char
-    //         String stripped = username.replace("\n", "_").replace("\r", "_");
-    //         logger.warn("Failed login attempt for user [{}]", stripped);
-    //     }
-    // }
+    @WebServlet("/log-injection-in-servlet/safe-crlf")
+    public static class SafeLogServlet extends HttpServlet {
+
+        @Override
+        @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String username = request.getParameter("username");
+            Logger logger = LoggerFactory.getLogger(SafeLogServlet.class);
+
+            // SAFE: CRLF neutralization via String.replaceAll on [\r\n]
+            String safe = username.replaceAll("[\\r\\n]", "_");
+            logger.warn("Failed login attempt for user [{}]", safe);
+        }
+    }
+
+    @WebServlet("/log-injection-in-servlet/safe-replace")
+    public static class SafeLogReplaceServlet extends HttpServlet {
+
+        @Override
+        @NegativeRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            String username = request.getParameter("username");
+            Logger logger = LoggerFactory.getLogger(SafeLogReplaceServlet.class);
+
+            // SAFE: line break neutralization via String.replace on each newline char
+            String stripped = username.replace("\n", "_").replace("\r", "_");
+            logger.warn("Failed login attempt for user [{}]", stripped);
+        }
+    }
 
     @WebServlet("/log-injection-in-servlet/safe-escape")
     public static class SafeLogEscapeServlet extends HttpServlet {

@@ -20,7 +20,7 @@ public class SpringWebRequestSourceSamples {
     private DataSource dataSource;
 
     @GetMapping("/web-request-source")
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public String webRequestGetParameter(WebRequest request) throws Exception {
         String param = request.getParameter("name");
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {

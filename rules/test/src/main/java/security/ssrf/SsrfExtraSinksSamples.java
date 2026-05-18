@@ -22,7 +22,7 @@ public class SsrfExtraSinksSamples {
     public static class UnsafeUrlOpenStreamController {
 
         @GetMapping("/open-stream")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> unsafeOpenStream(@RequestParam("url") String url) throws Exception {
             // VULNERABLE: taint on $UNTRUSTED in new URL constructor, then openStream
             InputStream is = new URL(url).openStream();
@@ -39,7 +39,7 @@ public class SsrfExtraSinksSamples {
     public static class UnsafeUrlGetContentController {
 
         @GetMapping("/get-content")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> unsafeGetContent(@RequestParam("url") String url) throws Exception {
             // VULNERABLE: taint on $UNTRUSTED in new URL constructor, then getContent
             Object content = new URL(url).getContent();
@@ -51,22 +51,22 @@ public class SsrfExtraSinksSamples {
 
     // TODO: Analyzer FN – taint does not propagate through HttpRequest.newBuilder chain;
     // re-enable when taint propagation summaries for HttpRequest.Builder are added.
-    // @RestController
-    // @RequestMapping("/ssrf-extra")
-    // public static class UnsafeHttpClientSendController {
-    //
-    //     @GetMapping("/http-client-send")
-    //     @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
-    //     public ResponseEntity<String> unsafeSend(@RequestParam("url") String url) throws Exception {
-    //         java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
-    //                 .uri(java.net.URI.create(url))
-    //                 .GET()
-    //                 .build();
-    //         java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
-    //         java.net.http.HttpResponse<String> resp = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
-    //         return ResponseEntity.ok(resp.body());
-    //     }
-    // }
+    @RestController
+    @RequestMapping("/ssrf-extra")
+    public static class UnsafeHttpClientSendController {
+
+        @GetMapping("/http-client-send")
+        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
+        public ResponseEntity<String> unsafeSend(@RequestParam("url") String url) throws Exception {
+            java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
+                    .uri(java.net.URI.create(url))
+                    .GET()
+                    .build();
+            java.net.http.HttpClient client = java.net.http.HttpClient.newHttpClient();
+            java.net.http.HttpResponse<String> resp = client.send(request, java.net.http.HttpResponse.BodyHandlers.ofString());
+            return ResponseEntity.ok(resp.body());
+        }
+    }
 
     // ── Eclipse Jetty HttpClient.GET ────────────────────────────────────
 
@@ -75,7 +75,7 @@ public class SsrfExtraSinksSamples {
     public static class UnsafeJettyGetController {
 
         @GetMapping("/jetty-get")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> unsafeJettyGet(@RequestParam("url") String url) throws Exception {
             org.eclipse.jetty.client.HttpClient httpClient = new org.eclipse.jetty.client.HttpClient();
             // VULNERABLE: user-controlled URL passed directly to Jetty GET

@@ -22,7 +22,7 @@ public class JexlInjectionServletSamples {
     public static class UnsafeJexlServlet extends HttpServlet {
 
         @Override
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "jexl-injection-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "jexl-injection")
         protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
             String expr = request.getParameter("expr");
 

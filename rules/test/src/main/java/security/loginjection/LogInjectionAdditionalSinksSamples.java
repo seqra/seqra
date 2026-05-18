@@ -25,7 +25,7 @@ public class LogInjectionAdditionalSinksSamples {
                 org.apache.log4j.Category.getInstance(Log4j1CategoryController.class);
 
         @GetMapping("/fatal")
-        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
         public ResponseEntity<String> fatal(@RequestParam String input) {
             cat.fatal("User data: " + input);
             return ResponseEntity.ok("ok");
@@ -42,7 +42,7 @@ public class LogInjectionAdditionalSinksSamples {
                 org.apache.logging.log4j.LogManager.getLogger(Log4j2LogBuilderController.class);
 
         @GetMapping("/fluent")
-        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
         public ResponseEntity<String> fluent(@RequestParam String input) {
             logger.atInfo().log("User data: " + input);
             return ResponseEntity.ok("ok");
@@ -59,7 +59,7 @@ public class LogInjectionAdditionalSinksSamples {
                 org.apache.logging.log4j.LogManager.getLogger(Log4j2ExtrasController.class);
 
         @GetMapping("/printf")
-        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
         public ResponseEntity<String> printf(@RequestParam String input) {
             logger.printf(org.apache.logging.log4j.Level.INFO, "User data: %s", input);
             return ResponseEntity.ok("ok");
@@ -76,7 +76,7 @@ public class LogInjectionAdditionalSinksSamples {
                 com.google.common.flogger.FluentLogger.forEnclosingClass();
 
         @GetMapping("/log")
-        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
         public ResponseEntity<String> log(@RequestParam String input) {
             flogger.atInfo().log("User data: " + input);
             return ResponseEntity.ok("ok");
@@ -93,7 +93,7 @@ public class LogInjectionAdditionalSinksSamples {
                 org.jboss.logging.Logger.getLogger(JBossLoggerController.class);
 
         @GetMapping("/infof")
-        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
         public ResponseEntity<String> infof(@RequestParam String input) {
             jbossLogger.infof("User data: %s", input);
             return ResponseEntity.ok("ok");
@@ -107,7 +107,7 @@ public class LogInjectionAdditionalSinksSamples {
     public static class JBossBasicLoggerController {
 
         @GetMapping("/warnv")
-        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
         public ResponseEntity<String> warnv(@RequestParam String input) {
             org.jboss.logging.BasicLogger logger = org.jboss.logging.Logger.getLogger(JBossBasicLoggerController.class);
             logger.warnv("User data: {0}", input);
@@ -125,7 +125,7 @@ public class LogInjectionAdditionalSinksSamples {
                 org.slf4j.LoggerFactory.getLogger(Slf4jFluentController.class);
 
         @GetMapping("/log")
-        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
         public ResponseEntity<String> log(@RequestParam String input) {
             slf4jLogger.atInfo().log("User data: " + input);
             return ResponseEntity.ok("ok");
@@ -142,7 +142,7 @@ public class LogInjectionAdditionalSinksSamples {
                 java.util.logging.Logger.getLogger(CxfLogUtilsController.class.getName());
 
         @GetMapping("/log")
-        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
         public ResponseEntity<String> log(@RequestParam String input) {
             org.apache.cxf.common.logging.LogUtils.log(julLogger, Level.INFO, "User data: " + input);
             return ResponseEntity.ok("ok");
@@ -156,7 +156,7 @@ public class LogInjectionAdditionalSinksSamples {
     public static class SciJavaLoggerController {
 
         @GetMapping("/alwaysLog")
-        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/log-injection.yaml", id = "log-injection")
         public ResponseEntity<String> alwaysLog(@RequestParam String input) {
             org.scijava.log.Logger logger = new org.scijava.log.StderrLogService();
             logger.alwaysLog(0, "User data: " + input, null);

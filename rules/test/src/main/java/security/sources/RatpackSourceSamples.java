@@ -16,7 +16,7 @@ public class RatpackSourceSamples {
 
     private DataSource dataSource;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void ratpackRequestGetRawUri(Request request) throws Exception {
         String uri = request.getRawUri();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {

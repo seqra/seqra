@@ -19,7 +19,7 @@ public class JexlInjectionSpringSamples {
     public static class UnsafeJexl2CreateExpressionController {
 
         @GetMapping("/jexl2/create-expression")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "jexl-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "jexl-injection")
         public String unsafeCreateExpression(@RequestParam("expr") String expr) throws Exception {
             JexlEngine engine = new JexlEngine();
             // VULNERABLE: creating JEXL expression from user input
@@ -34,7 +34,7 @@ public class JexlInjectionSpringSamples {
     public static class UnsafeJexl2GetPropertyController {
 
         @GetMapping("/jexl2/get-property")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "jexl-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "jexl-injection")
         public String unsafeGetProperty(@RequestParam("prop") String prop) throws Exception {
             JexlEngine engine = new JexlEngine();
             Object target = new Object();
@@ -49,7 +49,7 @@ public class JexlInjectionSpringSamples {
     public static class UnsafeJexl2SetPropertyController {
 
         @GetMapping("/jexl2/set-property")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "jexl-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "jexl-injection")
         public String unsafeSetProperty(@RequestParam("prop") String prop) throws Exception {
             JexlEngine engine = new JexlEngine();
             Object target = new Object();
@@ -67,7 +67,7 @@ public class JexlInjectionSpringSamples {
 
         @GetMapping("/expression-evaluate")
         // TODO: Analyzer FN – taint does not propagate through engine.createExpression() to Expression object; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "jexl-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "jexl-injection")
         public String unsafeExpressionEvaluate(@RequestParam("expr") String expr) throws Exception {
             JexlEngine engine = new JexlEngine();
             // Taint on Argument[this]: the Expression itself is tainted
@@ -84,7 +84,7 @@ public class JexlInjectionSpringSamples {
     public static class SafeJexlController {
 
         @GetMapping("/safe")
-        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "jexl-injection-in-spring-app")
+        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "jexl-injection")
         public String safeJexl(@RequestParam(value = "action", required = false) String action) {
             // Safer: no JEXL evaluation on user input
             if ("compute".equals(action)) {

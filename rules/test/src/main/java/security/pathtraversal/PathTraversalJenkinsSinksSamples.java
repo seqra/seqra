@@ -24,7 +24,7 @@ public class PathTraversalJenkinsSinksSamples {
     public static class UnsafeFilePathExistsServlet extends HttpServlet {
         @Override
         // TODO: Analyzer FN – taint does not propagate through new hudson.FilePath() constructor; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -41,7 +41,7 @@ public class PathTraversalJenkinsSinksSamples {
     public static class UnsafeFilePathReadServlet extends HttpServlet {
         @Override
         // TODO: Analyzer FN – taint does not propagate through new hudson.FilePath() constructor; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -59,7 +59,7 @@ public class PathTraversalJenkinsSinksSamples {
     public static class UnsafeFilePathReadToStringServlet extends HttpServlet {
         @Override
         // TODO: Analyzer FN – taint does not propagate through new hudson.FilePath() constructor; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -76,7 +76,7 @@ public class PathTraversalJenkinsSinksSamples {
     public static class UnsafeFilePathWriteServlet extends HttpServlet {
         @Override
         // TODO: Analyzer FN – taint does not propagate through new hudson.FilePath() constructor; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -95,7 +95,7 @@ public class PathTraversalJenkinsSinksSamples {
     public static class UnsafeFilePathCopyFromServlet extends HttpServlet {
         @Override
         // TODO: Analyzer FN – taint does not propagate through new hudson.FilePath() constructor; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String src = request.getParameter("src");
@@ -113,7 +113,7 @@ public class PathTraversalJenkinsSinksSamples {
     public static class UnsafeFilePathCopyRecursiveToServlet extends HttpServlet {
         @Override
         // TODO: Analyzer FN – taint does not propagate through new hudson.FilePath() constructor; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String dest = request.getParameter("dest");
@@ -131,7 +131,7 @@ public class PathTraversalJenkinsSinksSamples {
     public static class UnsafeFilePathCopyToServlet extends HttpServlet {
         @Override
         // TODO: Analyzer FN – taint does not propagate through new hudson.FilePath() constructor; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String dest = request.getParameter("dest");
@@ -149,7 +149,7 @@ public class PathTraversalJenkinsSinksSamples {
     public static class UnsafeFilePathCopyToWithPermServlet extends HttpServlet {
         @Override
         // TODO: Analyzer FN – taint does not propagate through new hudson.FilePath() constructor; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String dest = request.getParameter("dest");
@@ -168,7 +168,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/xmlfile")
     public static class UnsafeXmlFileServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -184,7 +184,7 @@ public class PathTraversalJenkinsSinksSamples {
     public static class UnsafeDirectoryBrowserSupportServlet extends HttpServlet {
         @Override
         // TODO: Analyzer FN – taint does not propagate through new hudson.FilePath() constructor; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String dirName = request.getParameter("dir");
@@ -198,7 +198,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/items-load")
     public static class UnsafeItemsLoadServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String dirName = request.getParameter("dir");
@@ -212,7 +212,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/atomicfilewriter")
     public static class UnsafeAtomicFileWriterServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -228,7 +228,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/classpathbuilder-add")
     public static class UnsafeClasspathBuilderAddServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String path = request.getParameter("path");
@@ -244,7 +244,7 @@ public class PathTraversalJenkinsSinksSamples {
     public static class UnsafeHttpResponsesStaticResourceServlet extends HttpServlet {
         @Override
         // TODO: Analyzer FN – taint does not propagate through new URL() wrapper; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        // @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String resource = request.getParameter("resource");
@@ -258,7 +258,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/ioutils-mkdirs")
     public static class UnsafeIOUtilsMkdirsServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String dirName = request.getParameter("dir");
@@ -272,7 +272,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/streamtasklistener")
     public static class UnsafeStreamTaskListenerServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String logFile = request.getParameter("logfile");
@@ -288,7 +288,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/lifecycle-rewritewar")
     public static class UnsafeLifecycleRewriteWarServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String warFile = request.getParameter("war");
@@ -306,7 +306,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/reopenablefileoutputstream")
     public static class UnsafeReopenableFileOutputStreamServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -322,7 +322,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/rewindablefileoutputstream")
     public static class UnsafeRewindableFileOutputStreamServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -338,7 +338,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/stapler-servefile")
     public static class UnsafeStaplerServeFileServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String resource = request.getParameter("resource");
@@ -356,7 +356,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/stapler-servelocalizedfile")
     public static class UnsafeStaplerServeLocalizedFileServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String resource = request.getParameter("resource");
@@ -374,7 +374,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/stapler-largetext")
     public static class UnsafeStaplerLargeTextServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -388,7 +388,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/changelogparser-parse")
     public static class UnsafeChangeLogParserServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -407,7 +407,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/scm-checkout")
     public static class UnsafeSCMCheckoutServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String dest = request.getParameter("dest");
@@ -427,7 +427,7 @@ public class PathTraversalJenkinsSinksSamples {
     public static class UnsafeSCMCompareRemoteServlet extends HttpServlet {
         @Override
         // TODO: Analyzer FN – taint does not propagate through new hudson.FilePath() constructor; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String dir = request.getParameter("dir");
@@ -446,7 +446,7 @@ public class PathTraversalJenkinsSinksSamples {
     @WebServlet("/pt-jenkins/kernel32-movefileex")
     public static class UnsafeKernel32MoveFileExServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String dest = request.getParameter("dest");

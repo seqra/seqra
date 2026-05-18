@@ -35,7 +35,7 @@ public class UnsafeReflectionSpringSamples {
     public static class UnsafeMethodInvokeController {
 
         @GetMapping("/unsafe-invoke")
-        @PositiveRuleSample(value = "java/security/external-configuration-control.yaml", id = "unsafe-reflection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/external-configuration-control.yaml", id = "unsafe-reflection")
         public String unsafeInvoke(@RequestParam String className) throws Exception {
             // VULNERABLE: user-controlled class loaded and invoked via reflection
             Class<?> clazz = Class.forName(className);

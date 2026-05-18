@@ -45,7 +45,7 @@ public class BarrierTests {
     @WebServlet("/barrier/path-normalize")
     public static class SafePathNormalizeServlet extends HttpServlet {
         @Override
-        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -58,7 +58,7 @@ public class BarrierTests {
     @WebServlet("/barrier/path-canonicalFile")
     public static class SafeCanonicalFileServlet extends HttpServlet {
         @Override
-        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -73,7 +73,7 @@ public class BarrierTests {
     @WebServlet("/barrier/path-canonicalPath")
     public static class SafeCanonicalPathServlet extends HttpServlet {
         @Override
-        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -86,7 +86,7 @@ public class BarrierTests {
     @WebServlet("/barrier/path-filenameutils-normalize")
     public static class SafeFilenameUtilsNormalizeServlet extends HttpServlet {
         @Override
-        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -103,7 +103,7 @@ public class BarrierTests {
     @WebServlet("/barrier/path-filenameutils-normalize-noend")
     public static class SafeFilenameUtilsNormalizeNoEndSeparatorServlet extends HttpServlet {
         @Override
-        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -120,7 +120,7 @@ public class BarrierTests {
     @WebServlet("/barrier/path-pixee")
     public static class SafePixeeFilenameServlet extends HttpServlet {
         @Override
-        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -133,7 +133,7 @@ public class BarrierTests {
     @WebServlet("/barrier/path-file-getName")
     public static class SafeFileGetNameServlet extends HttpServlet {
         @Override
-        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -146,7 +146,7 @@ public class BarrierTests {
     @WebServlet("/barrier/path-esapi-fileName")
     public static class SafeEsapiFileNameServlet extends HttpServlet {
         @Override
-        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -164,7 +164,7 @@ public class BarrierTests {
     @WebServlet("/barrier/path-esapi-directoryPath")
     public static class SafeEsapiDirectoryPathServlet extends HttpServlet {
         @Override
-        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String dir = request.getParameter("dir");
@@ -197,7 +197,7 @@ public class BarrierTests {
     @WebServlet("/barrier/deser-pixee-validating")
     public static class SafePixeeValidatingOisServlet extends HttpServlet {
         @Override
-        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-deserialization-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-deserialization")
         protected void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
             try (java.io.InputStream raw = request.getInputStream();
                  java.io.ObjectInputStream ois = io.github.pixee.security.ValidatingObjectInputStreams.from(raw)) {
@@ -212,7 +212,7 @@ public class BarrierTests {
     @WebServlet("/barrier/deser-validating-ois")
     public static class SafeValidatingOisServlet extends HttpServlet {
         @Override
-        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-deserialization-in-servlet-app")
+        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "unsafe-deserialization")
         protected void doPost(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
             try (java.io.InputStream in = request.getInputStream();
                  org.apache.commons.io.serialization.ValidatingObjectInputStream ois =

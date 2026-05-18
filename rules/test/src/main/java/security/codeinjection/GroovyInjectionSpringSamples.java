@@ -38,7 +38,7 @@ public class GroovyInjectionSpringSamples {
     public static class UnsafeGroovyParseClassController {
 
         @GetMapping("/parse-class")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection")
         public String unsafeParseClass(@RequestParam("code") String code) throws Exception {
             GroovyClassLoader loader = new GroovyClassLoader();
             // VULNERABLE: parsing attacker-controlled code into a class
@@ -54,7 +54,7 @@ public class GroovyInjectionSpringSamples {
     public static class UnsafeEvalMeController {
 
         @GetMapping("/eval-me")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection")
         public String unsafeEvalMe(@RequestParam("expr") String expr) {
             // VULNERABLE: evaluating attacker-controlled Groovy expression
             Object result = Eval.me(expr);
@@ -69,7 +69,7 @@ public class GroovyInjectionSpringSamples {
     public static class UnsafeEvalXController {
 
         @GetMapping("/eval-x")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection")
         public String unsafeEvalX(@RequestParam("expr") String expr) {
             // VULNERABLE: evaluating attacker-controlled Groovy expression with binding
             Object result = Eval.x("data", expr);
@@ -84,7 +84,7 @@ public class GroovyInjectionSpringSamples {
     public static class UnsafeEvalXyController {
 
         @GetMapping("/eval-xy")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection")
         public String unsafeEvalXy(@RequestParam("expr") String expr) {
             // VULNERABLE: evaluating attacker-controlled Groovy expression with two bindings
             Object result = Eval.xy("a", "b", expr);
@@ -99,7 +99,7 @@ public class GroovyInjectionSpringSamples {
     public static class UnsafeEvalXyzController {
 
         @GetMapping("/eval-xyz")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection")
         public String unsafeEvalXyz(@RequestParam("expr") String expr) {
             // VULNERABLE: evaluating attacker-controlled Groovy expression with three bindings
             Object result = Eval.xyz("a", "b", "c", expr);
@@ -112,20 +112,20 @@ public class GroovyInjectionSpringSamples {
     // TODO: Analyzer FN – taint does not propagate through CompilationUnit.addSource to compile();
     // the sink is on Argument[this] but taint flows through addSource, not the compile call itself.
     // Re-enable when taint propagation summaries for CompilationUnit are added.
-    // @RestController
-    // @RequestMapping("/groovy-injection-in-spring")
-    // public static class UnsafeCompilationUnitController {
-    //
-    //     @GetMapping("/compilation-unit")
-    //     @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection-in-spring-app")
-    //     public String unsafeCompile(@RequestParam("code") String code) {
-    //         org.codehaus.groovy.control.CompilationUnit cu =
-    //                 new org.codehaus.groovy.control.CompilationUnit();
-    //         cu.addSource("UserScript", code);
-    //         cu.compile();
-    //         return "compiled";
-    //     }
-    // }
+    @RestController
+    @RequestMapping("/groovy-injection-in-spring")
+    public static class UnsafeCompilationUnitController {
+
+        @GetMapping("/compilation-unit")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection")
+        public String unsafeCompile(@RequestParam("code") String code) {
+            org.codehaus.groovy.control.CompilationUnit cu =
+                    new org.codehaus.groovy.control.CompilationUnit();
+            cu.addSource("UserScript", code);
+            cu.compile();
+            return "compiled";
+        }
+    }
 
     @RestController
     public static class SafeGroovyController {

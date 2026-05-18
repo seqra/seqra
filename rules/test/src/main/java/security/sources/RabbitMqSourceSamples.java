@@ -22,7 +22,7 @@ public class RabbitMqSourceSamples {
 
     private DataSource dataSource;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void commandGetContentBody(Command cmd) throws Exception {
         byte[] body = cmd.getContentBody();
         String str = new String(body);
@@ -31,7 +31,7 @@ public class RabbitMqSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void rpcClientStringCall(RpcClient rpc) throws Exception {
         String result = rpc.stringCall("request");
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -39,7 +39,7 @@ public class RabbitMqSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws Exception {
         String str = new String(body);
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -47,7 +47,7 @@ public class RabbitMqSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void frameGetPayload(Frame frame) throws Exception {
         byte[] payload = frame.getPayload();
         String str = new String(payload);
@@ -56,7 +56,7 @@ public class RabbitMqSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void frameHandlerReadFrame(FrameHandler fh) throws Exception {
         Frame frame = fh.readFrame();
         String str = new String(frame.getPayload());
@@ -66,7 +66,7 @@ public class RabbitMqSourceSamples {
     }
 
     /** RpcServer callback - handleCall with byte[] param */
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public byte[] handleCall(byte[] requestBody, AMQP.BasicProperties replyProperties) {
         String str = new String(requestBody);
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -78,7 +78,7 @@ public class RabbitMqSourceSamples {
     }
 
     /** StringRpcServer callback */
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public String handleStringCall(String requestBody, AMQP.BasicProperties replyProperties) {
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
             s.executeQuery("SELECT * FROM t WHERE x = '" + requestBody + "'");

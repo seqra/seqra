@@ -5,6 +5,7 @@ import javax.naming.directory.DirContext;
 import javax.naming.directory.SearchControls;
 import javax.naming.directory.SearchResult;
 
+import org.opentaint.sast.test.util.NegativeRuleSample;
 import org.opentaint.sast.test.util.PositiveRuleSample;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -79,24 +80,6 @@ public class LdapInjectionSpringSamples {
         public boolean unsafeSearch(@RequestParam("username") String username) throws Exception {
             // VULNERABLE: username flows into vulnerableSearch(), which builds an LDAP filter via concatenation
             return ldapService.vulnerableSearch(username);
-        }
-    }
-
-    @RestController
-    @RequestMapping("/ldap-injection")
-    public static class SafeLdapSpringController {
-
-        private final LdapInjectionSpringService ldapService;
-
-        public SafeLdapSpringController(LdapInjectionSpringService ldapService) {
-            this.ldapService = ldapService;
-        }
-
-        @GetMapping("/safe")
-// TODO: restore this when conditional validators are implemented
-//        @NegativeRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
-        public boolean safeSearch(@RequestParam("username") String username) throws Exception {
-            return ldapService.safeSearch(username);
         }
     }
 }

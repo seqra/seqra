@@ -57,8 +57,7 @@ public class SmtpCrlfInjectionSpringSamples {
         }
 
         @PostMapping("/smtp-crlf/spring/safe")
-//      TODO: restore this when conditional validators are implemented
-//        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "smtp-crlf-injection")
+        @NegativeRuleSample(value = "java/security/crlf-injection.yaml", id = "smtp-crlf-injection")
         public void safe(@RequestParam("to") String to,
                          @RequestParam("subject") String subject,
                          @RequestParam(value = "trackingId", required = false) String trackingId,

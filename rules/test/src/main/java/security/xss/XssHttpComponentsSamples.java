@@ -58,7 +58,7 @@ public class XssHttpComponentsSamples {
 
         @Override
         // TODO: Analyzer FN - taint does not propagate through new HC5 StringEntity(); re-enable when HC5 summaries are added
-        // @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/xss.yaml", id = "xss-in-servlet-app")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String input = request.getParameter("input");

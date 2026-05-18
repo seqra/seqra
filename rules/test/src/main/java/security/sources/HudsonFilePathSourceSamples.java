@@ -18,7 +18,7 @@ public class HudsonFilePathSourceSamples {
 
     private DataSource dataSource;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void filePathReadToString(FilePath fp) throws Exception {
         String content = fp.readToString();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -26,7 +26,7 @@ public class HudsonFilePathSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void filePathRead(FilePath fp) throws Exception {
         InputStream is = fp.read();
         byte[] bytes = is.readAllBytes();
@@ -36,7 +36,7 @@ public class HudsonFilePathSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void filePathReadFromOffset(FilePath fp) throws Exception {
         InputStream is = fp.readFromOffset(0);
         byte[] bytes = is.readAllBytes();
@@ -46,7 +46,7 @@ public class HudsonFilePathSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void filePathStaticOpenInputStream() throws Exception {
         InputStream is = FilePath.openInputStream(new File("/tmp/data"), new java.nio.file.OpenOption[0]);
         byte[] bytes = is.readAllBytes();
@@ -56,7 +56,7 @@ public class HudsonFilePathSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void filePathStaticNewInputStream() throws Exception {
         InputStream is = FilePath.newInputStreamDenyingSymlinkAsNeeded(new File("/tmp/data"), "/tmp", new java.nio.file.OpenOption[0]);
         byte[] bytes = is.readAllBytes();

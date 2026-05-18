@@ -98,19 +98,6 @@ public class LdapInjectionServletSamples extends HttpServlet {
     }
 
     @Override
-//  TODO: restore this when conditional validators are implemented
-//    @NegativeRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
-    protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        // SAFE: request parameters flow into safeAuthenticate(), which uses filter arguments
-        String username = req.getParameter("username");
-        String password = req.getParameter("password");
-
-        try {
-            authService.safeAuthenticate(username, password);
-        } catch (Exception e) {
-            throw new ServletException(e);
-        }
-    }
 
     /**
      * SAFE: username/password are passed through Spring LDAP's LdapEncoder.filterEncode,

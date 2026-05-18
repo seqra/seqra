@@ -22,7 +22,7 @@ public class ApacheHttpCore5SourceSamples implements HttpRequestHandler {
     private DataSource dataSource;
 
     @Override
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void handle(ClassicHttpRequest request, ClassicHttpResponse response, HttpContext context)
             throws HttpException, IOException {
         String uri = request.getRequestUri();

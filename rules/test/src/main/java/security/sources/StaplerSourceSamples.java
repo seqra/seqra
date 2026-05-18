@@ -25,7 +25,7 @@ public class StaplerSourceSamples {
         this.dataSource = null;
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void staplerRequestGetParameter(StaplerRequest req) throws Exception {
         String param = req.getParameter("name");
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -33,7 +33,7 @@ public class StaplerSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void staplerRequestBindJSON(StaplerRequest req) throws Exception {
         Object obj = req.bindJSON(Object.class, req.getSubmittedForm());
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -41,14 +41,14 @@ public class StaplerSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void queryParameterAnnotation(@QueryParameter String name) throws Exception {
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
             s.executeQuery("SELECT * FROM t WHERE x = '" + name + "'");
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     @JavaScriptMethod
     public String javaScriptMethod(String input) throws Exception {
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -59,7 +59,7 @@ public class StaplerSourceSamples {
 
     private String value;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     @DataBoundSetter
     public void setValue(String value) {
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -70,7 +70,7 @@ public class StaplerSourceSamples {
     }
 
     /** Descriptor callback: configure */
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public boolean configure(StaplerRequest req, JSONObject json) throws Exception {
         String val = req.getParameter("key");
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {

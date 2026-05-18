@@ -32,7 +32,7 @@ public class SsrfAdditionalSinksSamples {
     public static class UnsafeInetSocketAddress {
 
         @GetMapping("/connect")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> connect(@RequestParam("host") String host) {
             InetSocketAddress addr = new InetSocketAddress(host, 8080);
             return ResponseEntity.ok("resolved: " + addr);
@@ -46,7 +46,7 @@ public class SsrfAdditionalSinksSamples {
     public static class UnsafeSocket {
 
         @GetMapping("/connect")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> connect(@RequestParam("host") String host) throws IOException {
             Socket socket = new Socket(host, 8080);
             socket.close();
@@ -62,7 +62,7 @@ public class SsrfAdditionalSinksSamples {
 
         @GetMapping("/fetch")
         // TODO: Analyzer FN – taint does not propagate through URI.create() wrapper; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> fetch(@RequestParam("url") String url) throws Exception {
             HttpRequest request = HttpRequest.newBuilder(URI.create(url)).GET().build();
             HttpClient client = HttpClient.newHttpClient();
@@ -78,7 +78,7 @@ public class SsrfAdditionalSinksSamples {
     public static class UnsafeHc5HttpGet {
 
         @GetMapping("/fetch")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> fetch(@RequestParam("url") String url) {
             org.apache.hc.client5.http.classic.methods.HttpGet httpGet =
                     new org.apache.hc.client5.http.classic.methods.HttpGet(url);
@@ -93,7 +93,7 @@ public class SsrfAdditionalSinksSamples {
     public static class UnsafeHc4RequestBuilder {
 
         @GetMapping("/fetch")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> fetch(@RequestParam("url") String url) {
             org.apache.http.client.methods.RequestBuilder builder =
                     org.apache.http.client.methods.RequestBuilder.get(url);
@@ -109,7 +109,7 @@ public class SsrfAdditionalSinksSamples {
 
         @GetMapping("/fetch")
         // TODO: Analyzer FN – taint does not propagate through URI.create() wrapper; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> fetch(@RequestParam("url") String url) {
             RequestEntity<Void> request = RequestEntity.get(URI.create(url)).build();
             return ResponseEntity.ok("request entity to: " + request.getUrl());
@@ -123,7 +123,7 @@ public class SsrfAdditionalSinksSamples {
     public static class UnsafeDriverManagerDataSource {
 
         @GetMapping("/connect")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> connect(@RequestParam("url") String url) {
             DriverManagerDataSource ds = new DriverManagerDataSource(url);
             return ResponseEntity.ok("datasource: " + ds.getUrl());
@@ -137,7 +137,7 @@ public class SsrfAdditionalSinksSamples {
     public static class UnsafeWebClient {
 
         @GetMapping("/fetch")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> fetch(@RequestParam("url") String url) {
             WebClient client = WebClient.create(url);
             return ResponseEntity.ok("webclient created for: " + url);
@@ -151,7 +151,7 @@ public class SsrfAdditionalSinksSamples {
     public static class UnsafeNettyHttpRequest {
 
         @GetMapping("/fetch")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> fetch(@RequestParam("url") String url) {
             io.netty.handler.codec.http.DefaultHttpRequest request =
                     new io.netty.handler.codec.http.DefaultHttpRequest(
@@ -169,7 +169,7 @@ public class SsrfAdditionalSinksSamples {
     public static class UnsafeHikariConfig {
 
         @GetMapping("/connect")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> connect(@RequestParam("url") String url) {
             com.zaxxer.hikari.HikariConfig config = new com.zaxxer.hikari.HikariConfig();
             config.setJdbcUrl(url);
@@ -184,7 +184,7 @@ public class SsrfAdditionalSinksSamples {
     public static class UnsafeJettyHttpClient {
 
         @GetMapping("/fetch")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> fetch(@RequestParam("url") String url) throws Exception {
             org.eclipse.jetty.client.HttpClient httpClient = new org.eclipse.jetty.client.HttpClient();
             httpClient.newRequest(url);
@@ -199,7 +199,7 @@ public class SsrfAdditionalSinksSamples {
     public static class UnsafeJSchSession {
 
         @GetMapping("/connect")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> connect(@RequestParam("host") String host) throws Exception {
             com.jcraft.jsch.JSch jsch = new com.jcraft.jsch.JSch();
             com.jcraft.jsch.Session session = jsch.getSession("user", host, 22);
@@ -214,7 +214,7 @@ public class SsrfAdditionalSinksSamples {
     public static class UnsafeDriverManager {
 
         @GetMapping("/connect")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> connect(@RequestParam("url") String url) throws Exception {
             java.sql.Connection conn = java.sql.DriverManager.getConnection(url);
             conn.close();
@@ -230,7 +230,7 @@ public class SsrfAdditionalSinksSamples {
 
         @GetMapping("/download")
         // TODO: Analyzer FN – taint does not propagate through new URL() wrapper; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> download(@RequestParam("url") String url) throws Exception {
             File tempFile = File.createTempFile("download", ".tmp");
             org.apache.commons.io.FileUtils.copyURLToFile(new URL(url), tempFile);
@@ -245,7 +245,7 @@ public class SsrfAdditionalSinksSamples {
     public static class UnsafeCommonsNetConnect {
 
         @GetMapping("/connect")
-        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> connect(@RequestParam("host") String host) throws Exception {
             org.apache.commons.net.SocketClient client = new org.apache.commons.net.ftp.FTPClient();
             client.connect(host, 21);

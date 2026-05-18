@@ -22,7 +22,7 @@ public class SpringMultipartSourceSamples {
     private DataSource dataSource;
 
     @PostMapping("/multipart-file-source")
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public String multipartFileGetOriginalFilename(@RequestParam("file") MultipartFile file) throws Exception {
         String filename = file.getOriginalFilename();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -32,7 +32,7 @@ public class SpringMultipartSourceSamples {
     }
 
     @PostMapping("/multipart-request-source")
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-spring-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public String multipartRequestGetFile(MultipartRequest request) throws Exception {
         MultipartFile file = request.getFile("upload");
         String name = file.getOriginalFilename();

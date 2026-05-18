@@ -27,7 +27,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/filereader")
     public static class UnsafeFileReaderServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -41,7 +41,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/filewriter")
     public static class UnsafeFileWriterServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -56,7 +56,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/fileoutputstream")
     public static class UnsafeFileOutputStreamServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -71,7 +71,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/randomaccessfile")
     public static class UnsafeRandomAccessFileServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -85,7 +85,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/createtempfile")
     public static class UnsafeCreateTempFileServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String dirName = request.getParameter("dir");
@@ -100,7 +100,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/canexecute")
     public static class UnsafeCanExecuteServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -112,7 +112,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/canwrite")
     public static class UnsafeCanWriteServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -124,7 +124,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/isdirectory")
     public static class UnsafeIsDirectoryServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -136,7 +136,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/ishidden")
     public static class UnsafeIsHiddenServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -148,7 +148,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/delete")
     public static class UnsafeDeleteServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -160,7 +160,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/deleteonexit")
     public static class UnsafeDeleteOnExitServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -172,7 +172,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/createnewfile")
     public static class UnsafeCreateNewFileServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -184,7 +184,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/mkdir")
     public static class UnsafeMkdirServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String dirName = request.getParameter("dir");
@@ -196,7 +196,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/mkdirs")
     public static class UnsafeMkdirsServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String dirName = request.getParameter("dir");
@@ -208,7 +208,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/setexecutable")
     public static class UnsafeSetExecutableServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -220,7 +220,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/setlastmodified")
     public static class UnsafeSetLastModifiedServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -232,7 +232,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/setreadable")
     public static class UnsafeSetReadableServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -244,7 +244,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/setreadonly")
     public static class UnsafeSetReadOnlyServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");
@@ -256,7 +256,7 @@ public class PathTraversalJavaIoSinksSamples {
     @WebServlet("/pt-io/setwritable")
     public static class UnsafeSetWritableServlet extends HttpServlet {
         @Override
-        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/path-traversal.yaml", id = "path-traversal")
         protected void doGet(HttpServletRequest request, HttpServletResponse response)
                 throws ServletException, IOException {
             String fileName = request.getParameter("file");

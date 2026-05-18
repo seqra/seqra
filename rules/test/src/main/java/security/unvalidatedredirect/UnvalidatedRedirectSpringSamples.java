@@ -1,11 +1,7 @@
 package security.unvalidatedredirect;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Map;
-import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
 
 import org.opentaint.sast.test.util.NegativeRuleSample;
 import org.opentaint.sast.test.util.PositiveRuleSample;
@@ -46,44 +42,19 @@ public class UnvalidatedRedirectSpringSamples {
     }
 
     @Controller
-    public static class SafeValidatedRedirectController {
+    public static class SafeMapLookupRedirectController {
 
         private static final Map<String, String> ALLOWED_TARGETS = Map.of(
                 "home", "/home",
                 "profile", "/user/profile",
                 "orders", "/orders/list");
 
-        private static final Set<String> ALLOWED_DOMAINS = Set.of("example.com", "trusted-partner.com");
-
         @GetMapping("/redirect/safe-internal")
         @NegativeRuleSample(value = "java/security/unvalidated-redirect.yaml", id = "unvalidated-redirect-in-spring-app")
         public String safeInternalRedirect(@RequestParam(value = "target", required = false) String target) {
-            // SAFE: only internal paths from controlled mapping
+            // SAFE: tainted `target` is only used as a Map key; the returned value is a constant from ALLOWED_TARGETS.
             String path = ALLOWED_TARGETS.getOrDefault(target, "/home");
             return "redirect:" + path;
-        }
-
-        @GetMapping("/redirect/safe-external")
-// TODO: uncomment it when conditional sanitizers are implemented
-//        @NegativeRuleSample(value = "java/security/unvalidated-redirect.yaml", id = "unvalidated-redirect-in-spring-app")
-        public String safeExternalRedirect(@RequestParam("url") String url, HttpServletRequest request) {
-            // SAFE: external redirects validated against an allowlist of domains
-            try {
-                URI uri = new URI(url);
-                String host = uri.getHost();
-                String scheme = uri.getScheme();
-
-                if (host != null
-                        && ("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))
-                        && ALLOWED_DOMAINS.contains(host.toLowerCase())) {
-                    return "redirect:" + uri.toString();
-                }
-            } catch (URISyntaxException e) {
-                // fall through to safe default
-            }
-
-            // Fallback to a safe internal page on any failure or disallowed host
-            return "redirect:/home";
         }
     }
 }

@@ -23,7 +23,7 @@ public class ApacheHttpSourceSamples {
 
     private DataSource dataSource;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void httpEntityGetContent(HttpEntity entity) throws Exception {
         InputStream is = entity.getContent();
         byte[] bytes = is.readAllBytes();
@@ -39,7 +39,7 @@ public class ApacheHttpSourceSamples {
         private DataSource dataSource;
 
         @Override
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public void handle(HttpRequest request, HttpResponse response, HttpContext context)
                 throws HttpException, IOException {
             String uri = request.getRequestLine().getUri();

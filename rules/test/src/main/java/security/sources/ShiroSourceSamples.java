@@ -16,7 +16,7 @@ public class ShiroSourceSamples {
 
     private DataSource dataSource;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void authTokenGetCredentials(AuthenticationToken token) throws Exception {
         Object creds = token.getCredentials();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {

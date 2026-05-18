@@ -24,7 +24,7 @@ public class NettySourceSamples {
         private DataSource dataSource;
 
         @Override
-        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
             String str = msg.toString();
             try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -44,7 +44,7 @@ public class NettySourceSamples {
         // propagation summaries for ByteBuf.readBytes() and similar ByteBuf read methods.
         // TODO: Re-enable when ByteBuf taint propagation summaries are added to opentaint-config.
         @Override
-        // @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+        // @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
             byte[] bytes = new byte[in.readableBytes()];
             in.readBytes(bytes);
@@ -67,7 +67,7 @@ public class NettySourceSamples {
         // callback parameter when matched via the generic channelRead0 signature.
         // TODO: Re-enable when analyzer handles generic callback parameter taint propagation.
         @Override
-        // @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+        @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
         protected void channelRead0(ChannelHandlerContext ctx, String msg) throws Exception {
             try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
                 s.executeQuery("SELECT * FROM t WHERE x = '" + msg + "'");

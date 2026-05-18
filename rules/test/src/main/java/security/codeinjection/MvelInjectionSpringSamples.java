@@ -27,7 +27,7 @@ public class MvelInjectionSpringSamples {
     public static class UnsafeMvelEvalController {
 
         @GetMapping("/eval")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection")
         public String unsafeEval(@RequestParam("expr") String expr) {
             // VULNERABLE: evaluating user-controlled MVEL expression
             Object result = MVEL.eval(expr);
@@ -40,7 +40,7 @@ public class MvelInjectionSpringSamples {
     public static class UnsafeMvelEvalToBooleanController {
 
         @GetMapping("/eval-to-boolean")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection")
         public String unsafeEvalToBoolean(@RequestParam("expr") String expr) {
             Map<String, Object> vars = new HashMap<>();
             // VULNERABLE: evaluating user-controlled MVEL expression
@@ -54,7 +54,7 @@ public class MvelInjectionSpringSamples {
     public static class UnsafeMvelEvalToStringController {
 
         @GetMapping("/eval-to-string")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection")
         public String unsafeEvalToString(@RequestParam("expr") String expr) {
             // VULNERABLE: evaluating user-controlled MVEL expression
             return MVEL.evalToString(expr);
@@ -68,7 +68,7 @@ public class MvelInjectionSpringSamples {
         @GetMapping("/execute-expression")
         // TODO: Analyzer FN – taint does not propagate through MVEL.compileExpression() to compiled expression;
         // re-enable when taint propagation summaries for MVEL compile are added
-        // @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection")
         public String unsafeExecuteExpression(@RequestParam("expr") String expr) {
             // VULNERABLE: compiling and executing user-controlled MVEL expression
             Object compiled = MVEL.compileExpression(expr);
@@ -82,7 +82,7 @@ public class MvelInjectionSpringSamples {
     public static class UnsafeMvelTemplateController {
 
         @GetMapping("/template")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection")
         public String unsafeTemplate(@RequestParam("template") String template) {
             Map<String, Object> vars = new HashMap<>();
             vars.put("name", "World");
@@ -97,7 +97,7 @@ public class MvelInjectionSpringSamples {
     public static class UnsafeMvelScriptEngineEvalController {
 
         @GetMapping("/script-engine-eval")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection")
         public String unsafeScriptEngineEval(@RequestParam("expr") String expr) throws Exception {
             // VULNERABLE: evaluating user-controlled MVEL expression via JSR-223
             MvelScriptEngine engine = new MvelScriptEngine();
@@ -113,7 +113,7 @@ public class MvelInjectionSpringSamples {
         @GetMapping("/execute-all-expression")
         // TODO: Analyzer FN – taint does not propagate through MVEL.compileExpression() to compiled expression;
         // re-enable when taint propagation summaries for MVEL compile are added
-        // @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection")
         public String unsafeExecuteAllExpression(@RequestParam("expr") String expr) {
             // VULNERABLE: compiling and executing user-controlled MVEL expressions
             Serializable compiled = MVEL.compileExpression(expr);
@@ -129,7 +129,7 @@ public class MvelInjectionSpringSamples {
         @GetMapping("/execute-set-expression")
         // TODO: Analyzer FN – taint does not propagate through MVEL.compileExpression() to compiled expression;
         // re-enable when taint propagation summaries for MVEL compile are added
-        // @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection")
         public String unsafeExecuteSetExpression(@RequestParam("expr") String expr) {
             // VULNERABLE: compiling and executing user-controlled MVEL set expression
             Serializable compiled = MVEL.compileSetExpression(expr);
@@ -145,7 +145,7 @@ public class MvelInjectionSpringSamples {
         @GetMapping("/runtime-execute")
         // TODO: Analyzer FN – taint does not propagate through MVEL.compileExpression() to CompiledExpression;
         // re-enable when taint propagation summaries for MVEL compile are added
-        // @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection")
         public String unsafeRuntimeExecute(@RequestParam("expr") String expr) {
             // VULNERABLE: compiling and executing user-controlled MVEL expression via MVELRuntime
             CompiledExpression compiled = (CompiledExpression) MVEL.compileExpression(expr);
@@ -161,7 +161,7 @@ public class MvelInjectionSpringSamples {
         @GetMapping("/script-engine-evaluate")
         // TODO: Analyzer FN – taint does not propagate through MvelScriptEngine.compiledScript() to Serializable;
         // re-enable when taint propagation summaries for MVEL compile are added
-        // @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection")
         public String unsafeScriptEngineEvaluate(@RequestParam("expr") String expr) throws Exception {
             // VULNERABLE: compiling and evaluating user-controlled MVEL expression
             MvelScriptEngine engine = new MvelScriptEngine();
@@ -178,7 +178,7 @@ public class MvelInjectionSpringSamples {
         @GetMapping("/compiled-script-eval")
         // TODO: Analyzer FN – taint does not propagate through MvelScriptEngine.compile() to MvelCompiledScript;
         // re-enable when taint propagation summaries for MVEL compile are added
-        // @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection")
         public String unsafeCompiledScriptEval(@RequestParam("expr") String expr) throws Exception {
             // VULNERABLE: compiling and evaluating user-controlled MVEL expression
             MvelScriptEngine engine = new MvelScriptEngine();
@@ -193,7 +193,7 @@ public class MvelInjectionSpringSamples {
     public static class SafeMvelController {
 
         @GetMapping("/safe")
-        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection-in-spring-app")
+        @NegativeRuleSample(value = "java/security/code-injection.yaml", id = "mvel-injection")
         public String safeMvel(@RequestParam("name") String name) {
             // SAFE: expression is static, user input only as data
             Map<String, Object> vars = new HashMap<>();

@@ -23,7 +23,7 @@ public class PlaySourceSamples {
     // source patterns like ($TYPE $VAR).$METHOD(...). The rule is correct but the
     // analyzer cannot match the inner class type in the pattern to the actual code.
     // TODO: Re-enable when analyzer supports inner class types in typed metavariables.
-    // @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void httpRequestHeaderUri(RequestHeader request) throws Exception {
         String uri = request.uri();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -34,7 +34,7 @@ public class PlaySourceSamples {
     // ANALYZER LIMITATION: Same as above — inner class type play.mvc.Http.Request
     // is not resolved in typed metavariable patterns.
     // TODO: Re-enable when analyzer supports inner class types in typed metavariables.
-    // @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    // @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void httpRequestBody(Request request) throws Exception {
         Http.RequestBody requestBody = request.body();
         String str = requestBody.asText();
@@ -45,7 +45,7 @@ public class PlaySourceSamples {
 
     // ANALYZER LIMITATION: Same as above — inner class type play.mvc.Http.RequestHeader.
     // TODO: Re-enable when analyzer supports inner class types in typed metavariables.
-    // @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void httpRequestHeaderHost(RequestHeader request) throws Exception {
         String host = request.host();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -55,7 +55,7 @@ public class PlaySourceSamples {
 
     // ANALYZER LIMITATION: Same as above — inner class type play.mvc.Http.RequestHeader.
     // TODO: Re-enable when analyzer supports inner class types in typed metavariables.
-    // @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void httpRequestHeaderPath(RequestHeader request) throws Exception {
         String path = request.path();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {

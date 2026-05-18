@@ -17,7 +17,7 @@ public class FileUploadSourceSamples {
 
     private DataSource dataSource;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void fileItemGetString(FileItem item) throws Exception {
         String content = item.getString();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -25,7 +25,7 @@ public class FileUploadSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void fileItemStreamGetName(FileItemStream stream) throws Exception {
         String name = stream.getName();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {

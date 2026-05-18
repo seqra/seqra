@@ -54,14 +54,14 @@ public class LdapInjectionSinkSamples {
 
         @GetMapping("/async-search")
         // TODO: Analyzer FN – taint does not propagate through new SearchRequest() constructor; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public void asyncSearch(@RequestParam("filter") String filter) throws LDAPException {
             SearchRequest request = new SearchRequest("dc=example,dc=com", SearchScope.SUB, filter);
             connection.asyncSearch(request);
         }
 
         @GetMapping("/search-for-entry")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public void searchForEntry(@RequestParam("baseDn") String baseDn) throws LDAPException {
             connection.searchForEntry(baseDn, SearchScope.SUB, "(objectClass=*)");
         }
@@ -76,7 +76,7 @@ public class LdapInjectionSinkSamples {
         private LdapConnection connection;
 
         @GetMapping("/search")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public void search(@RequestParam("baseDn") String baseDn) throws LdapException {
             connection.search(baseDn, "(objectClass=*)",
                     org.apache.directory.api.ldap.model.message.SearchScope.SUBTREE, "*");
@@ -96,50 +96,50 @@ public class LdapInjectionSinkSamples {
         private EventDirContext eventDirContext;
 
         @GetMapping("/ldap-name")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object ldapName(@RequestParam("dn") String dn) throws Exception {
             return new LdapName(dn);
         }
 
         @GetMapping("/context-lookup")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object contextLookup(@RequestParam("name") String name) throws NamingException {
             return context.lookup(name);
         }
 
         @GetMapping("/dir-context-lookup")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object dirContextLookup(@RequestParam("name") String name) throws NamingException {
             return dirContext.lookup(name);
         }
 
         @GetMapping("/initial-dir-context-lookup")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object initialDirContextLookup(@RequestParam("name") String name) throws NamingException {
             return initialDirContext.lookup(name);
         }
 
         @GetMapping("/ldap-context-lookup")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object ldapContextLookup(@RequestParam("name") String name) throws NamingException {
             return ldapContext.lookup(name);
         }
 
         @GetMapping("/event-dir-context-lookup")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object eventDirContextLookup(@RequestParam("name") String name) throws NamingException {
             return eventDirContext.lookup(name);
         }
 
         @GetMapping("/ldap-context-search")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object ldapContextSearch(@RequestParam("filter") String filter) throws NamingException {
             SearchControls controls = new SearchControls();
             return ldapContext.search("dc=example,dc=com", filter, controls);
         }
 
         @GetMapping("/event-dir-context-search")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object eventDirContextSearch(@RequestParam("filter") String filter) throws NamingException {
             SearchControls controls = new SearchControls();
             return eventDirContext.search("dc=example,dc=com", filter, controls);
@@ -155,14 +155,14 @@ public class LdapInjectionSinkSamples {
         private LdapTemplate ldapTemplate;
 
         @GetMapping("/authenticate")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public boolean authenticate(@RequestParam("filter") String filter) {
             return ldapTemplate.authenticate("ou=users,dc=example,dc=com", filter, "password");
         }
 
         @GetMapping("/find")
         // TODO: Analyzer FN – taint does not propagate through LdapQueryBuilder builder chain; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object find(@RequestParam("baseDn") String baseDn) {
             LdapQuery query = LdapQueryBuilder.query().base(baseDn).where("cn").is("test");
             return ldapTemplate.find(query, Object.class);
@@ -170,7 +170,7 @@ public class LdapInjectionSinkSamples {
 
         @GetMapping("/find-one")
         // TODO: Analyzer FN – taint does not propagate through LdapQueryBuilder builder chain; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object findOne(@RequestParam("baseDn") String baseDn) {
             LdapQuery query = LdapQueryBuilder.query().base(baseDn).where("cn").is("test");
             return ldapTemplate.findOne(query, Object.class);
@@ -178,26 +178,26 @@ public class LdapInjectionSinkSamples {
 
         @GetMapping("/search-for-context")
         // TODO: Analyzer FN – taint does not propagate through LdapQueryBuilder builder chain; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object searchForContext(@RequestParam("baseDn") String baseDn) {
             LdapQuery query = LdapQueryBuilder.query().base(baseDn).where("cn").is("test");
             return ldapTemplate.searchForContext(query);
         }
 
         @GetMapping("/search-for-object")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object searchForObject(@RequestParam("filter") String filter) {
             return ldapTemplate.searchForObject("ou=users,dc=example,dc=com", filter, ctx -> ctx);
         }
 
         @GetMapping("/list")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object list(@RequestParam("baseDn") String baseDn) {
             return ldapTemplate.list(baseDn);
         }
 
         @GetMapping("/lookup")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object lookup(@RequestParam("dn") String dn) {
             return ldapTemplate.lookup(dn);
         }
@@ -212,14 +212,14 @@ public class LdapInjectionSinkSamples {
         private LdapOperations ldapOperations;
 
         @GetMapping("/authenticate")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public boolean authenticate(@RequestParam("filter") String filter) {
             return ldapOperations.authenticate("ou=users,dc=example,dc=com", filter, "password");
         }
 
         @GetMapping("/find")
         // TODO: Analyzer FN – taint does not propagate through LdapQueryBuilder builder chain; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object find(@RequestParam("baseDn") String baseDn) {
             LdapQuery query = LdapQueryBuilder.query().base(baseDn).where("cn").is("test");
             return ldapOperations.find(query, Object.class);
@@ -227,7 +227,7 @@ public class LdapInjectionSinkSamples {
 
         @GetMapping("/find-one")
         // TODO: Analyzer FN – taint does not propagate through LdapQueryBuilder builder chain; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object findOne(@RequestParam("baseDn") String baseDn) {
             LdapQuery query = LdapQueryBuilder.query().base(baseDn).where("cn").is("test");
             return ldapOperations.findOne(query, Object.class);
@@ -235,26 +235,26 @@ public class LdapInjectionSinkSamples {
 
         @GetMapping("/search-for-context")
         // TODO: Analyzer FN – taint does not propagate through LdapQueryBuilder builder chain; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object searchForContext(@RequestParam("baseDn") String baseDn) {
             LdapQuery query = LdapQueryBuilder.query().base(baseDn).where("cn").is("test");
             return ldapOperations.searchForContext(query);
         }
 
         @GetMapping("/search-for-object")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object searchForObject(@RequestParam("filter") String filter) {
             return ldapOperations.searchForObject("ou=users,dc=example,dc=com", filter, ctx -> ctx);
         }
 
         @GetMapping("/list")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object list(@RequestParam("baseDn") String baseDn) {
             return ldapOperations.list(baseDn);
         }
 
         @GetMapping("/lookup")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object lookup(@RequestParam("dn") String dn) {
             return ldapOperations.lookup(dn);
         }
@@ -269,19 +269,19 @@ public class LdapInjectionSinkSamples {
         private javax.naming.Context context;
 
         @GetMapping("/context-list-bindings")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object contextListBindings(@RequestParam("name") String name) throws NamingException {
             return context.listBindings(name);
         }
 
         @GetMapping("/context-lookup-link")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object contextLookupLink(@RequestParam("name") String name) throws NamingException {
             return context.lookupLink(name);
         }
 
         @GetMapping("/initial-context-do-lookup")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object initialContextDoLookup(@RequestParam("name") String name) throws NamingException {
             return InitialContext.doLookup(name);
         }
@@ -296,7 +296,7 @@ public class LdapInjectionSinkSamples {
         private JndiTemplate jndiTemplate;
 
         @GetMapping("/lookup")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object jndiLookup(@RequestParam("name") String name) throws NamingException {
             return jndiTemplate.lookup(name);
         }
@@ -311,7 +311,7 @@ public class LdapInjectionSinkSamples {
         private org.apache.shiro.jndi.JndiTemplate shiroJndiTemplate;
 
         @GetMapping("/lookup")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object shiroJndiLookup(@RequestParam("name") String name) throws NamingException {
             return shiroJndiTemplate.lookup(name);
         }
@@ -325,7 +325,7 @@ public class LdapInjectionSinkSamples {
 
         @GetMapping("/connector-factory-connect")
         // TODO: Analyzer FN – taint does not propagate through new JMXServiceURL() constructor; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object jmxConnectorFactoryConnect(@RequestParam("url") String url) throws Exception {
             JMXServiceURL serviceUrl = new JMXServiceURL(url);
             return JMXConnectorFactory.connect(serviceUrl);
@@ -333,7 +333,7 @@ public class LdapInjectionSinkSamples {
 
         @GetMapping("/connector-connect")
         // TODO: Analyzer FN – taint does not propagate through new JMXServiceURL() + JMXConnectorFactory.newJMXConnector(); re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public void jmxConnectorConnect(@RequestParam("url") String url) throws Exception {
             JMXServiceURL serviceUrl = new JMXServiceURL(url);
             JMXConnector connector = JMXConnectorFactory.newJMXConnector(serviceUrl, null);
@@ -352,26 +352,26 @@ public class LdapInjectionSinkSamples {
 
         @GetMapping("/find-by-dn")
         // TODO: Analyzer FN – taint does not propagate through new LdapName() constructor; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object findByDn(@RequestParam("dn") String dn) throws Exception {
             javax.naming.ldap.LdapName name = new javax.naming.ldap.LdapName(dn);
             return ldapTemplate.findByDn(name, Object.class);
         }
 
         @GetMapping("/list-bindings")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object listBindings(@RequestParam("baseDn") String baseDn) {
             return ldapTemplate.listBindings(baseDn);
         }
 
         @GetMapping("/lookup-context")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object lookupContext(@RequestParam("dn") String dn) {
             return ldapTemplate.lookupContext(dn);
         }
 
         @GetMapping("/rename")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public void rename(@RequestParam("oldDn") String oldDn) {
             ldapTemplate.rename(oldDn, "cn=new,ou=users,dc=example,dc=com");
         }
@@ -380,26 +380,26 @@ public class LdapInjectionSinkSamples {
 
         @GetMapping("/ops-find-by-dn")
         // TODO: Analyzer FN – taint does not propagate through new LdapName() constructor; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object opsFindByDn(@RequestParam("dn") String dn) throws Exception {
             javax.naming.ldap.LdapName name = new javax.naming.ldap.LdapName(dn);
             return ldapOperations.findByDn(name, Object.class);
         }
 
         @GetMapping("/ops-list-bindings")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object opsListBindings(@RequestParam("baseDn") String baseDn) {
             return ldapOperations.listBindings(baseDn);
         }
 
         @GetMapping("/ops-lookup-context")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public Object opsLookupContext(@RequestParam("dn") String dn) {
             return ldapOperations.lookupContext(dn);
         }
 
         @GetMapping("/ops-rename")
-        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/ldap.yaml", id = "ldap-injection")
         public void opsRename(@RequestParam("oldDn") String oldDn) {
             ldapOperations.rename(oldDn, "cn=new,ou=users,dc=example,dc=com");
         }

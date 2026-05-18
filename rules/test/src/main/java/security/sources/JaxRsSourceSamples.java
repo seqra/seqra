@@ -18,7 +18,7 @@ public class JaxRsSourceSamples implements ContainerRequestFilter {
     private DataSource dataSource;
 
     @Override
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void filter(ContainerRequestContext requestContext) throws IOException {
         String header = requestContext.getHeaderString("X-Custom");
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {

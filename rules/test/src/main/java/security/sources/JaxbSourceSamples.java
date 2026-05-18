@@ -15,7 +15,7 @@ public class JaxbSourceSamples {
 
     private DataSource dataSource;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void attachmentUnmarshallerByteArray(AttachmentUnmarshaller unmarshaller) throws Exception {
         byte[] data = unmarshaller.getAttachmentAsByteArray("cid:123");
         String str = new String(data);

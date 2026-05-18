@@ -19,7 +19,7 @@ public class JmsSourceSamples {
 
     private DataSource dataSource;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void jmsConsumerReceive(JMSConsumer consumer) throws Exception {
         Message msg = consumer.receive();
         String body = msg.getBody(String.class);
@@ -28,7 +28,7 @@ public class JmsSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void messageConsumerReceive(MessageConsumer consumer) throws Exception {
         Message msg = consumer.receive();
         String body = msg.getBody(String.class);
@@ -37,7 +37,7 @@ public class JmsSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void queueRequestorRequest(QueueRequestor requestor, Message request) throws Exception {
         Message response = requestor.request(request);
         String body = response.getBody(String.class);
@@ -46,7 +46,7 @@ public class JmsSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void topicRequestorRequest(TopicRequestor requestor, Message request) throws Exception {
         Message response = requestor.request(request);
         String body = response.getBody(String.class);

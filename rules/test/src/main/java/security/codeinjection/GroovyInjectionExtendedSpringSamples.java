@@ -18,7 +18,7 @@ public class GroovyInjectionExtendedSpringSamples {
     public static class UnsafeTemplateEngineController {
 
         @GetMapping("/template-engine")
-        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/code-injection.yaml", id = "groovy-injection")
         public String unsafeTemplateEngine(@RequestParam("template") String template) throws Exception {
             TemplateEngine engine = new SimpleTemplateEngine();
             // VULNERABLE: creating Groovy template from user input

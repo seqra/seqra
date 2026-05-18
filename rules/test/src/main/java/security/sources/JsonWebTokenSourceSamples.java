@@ -20,7 +20,7 @@ public class JsonWebTokenSourceSamples implements SigningKeyResolver {
     private DataSource dataSource;
 
     @Override
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public Key resolveSigningKey(JwsHeader header, Claims claims) {
         String kid = header.getKeyId();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {

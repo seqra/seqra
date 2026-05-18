@@ -23,7 +23,7 @@ public class ServletRequestSourceSamples {
 
     private DataSource dataSource;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_getQueryString(HttpServletRequest request, HttpServletResponse response) throws Exception {
         String qs = request.getQueryString();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -31,7 +31,7 @@ public class ServletRequestSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_getRequestURI(HttpServletRequest request, HttpServletResponse response) throws Exception {
         String uri = request.getRequestURI();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -39,7 +39,7 @@ public class ServletRequestSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_getPathInfo(HttpServletRequest request, HttpServletResponse response) throws Exception {
         String path = request.getPathInfo();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -47,7 +47,7 @@ public class ServletRequestSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_getServletPath(HttpServletRequest request, HttpServletResponse response) throws Exception {
         String sp = request.getServletPath();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -55,7 +55,7 @@ public class ServletRequestSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_getRemoteUser(HttpServletRequest request, HttpServletResponse response) throws Exception {
         String user = request.getRemoteUser();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -63,7 +63,7 @@ public class ServletRequestSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_cookieName(HttpServletRequest request, HttpServletResponse response) throws Exception {
         Cookie cookie = request.getCookies()[0];
         String name = cookie.getName();
@@ -72,7 +72,7 @@ public class ServletRequestSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_partHeader(HttpServletRequest request, HttpServletResponse response) throws Exception {
         Part part = request.getPart("file");
         String ct = part.getContentType();
@@ -81,7 +81,7 @@ public class ServletRequestSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_servletRequestReader(HttpServletRequest request, HttpServletResponse response) throws Exception {
         BufferedReader reader = ((ServletRequest) request).getReader();
         String line = reader.readLine();
@@ -92,7 +92,7 @@ public class ServletRequestSourceSamples {
 
     // ── HttpServletRequest.getHeaderNames ────────────────────────────────
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_getHeaderNames(HttpServletRequest request, HttpServletResponse response) throws Exception {
         Enumeration<String> headers = request.getHeaderNames();
         String headerName = headers.nextElement();
@@ -103,7 +103,7 @@ public class ServletRequestSourceSamples {
 
     // ── HttpServletRequest.getParameterNames ─────────────────────────────
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_getParameterNames(HttpServletRequest request, HttpServletResponse response) throws Exception {
         Enumeration<String> params = request.getParameterNames();
         String paramName = params.nextElement();
@@ -114,7 +114,7 @@ public class ServletRequestSourceSamples {
 
     // ── HttpServletRequest.getParameterValues ────────────────────────────
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_getParameterValues(HttpServletRequest request, HttpServletResponse response) throws Exception {
         String[] values = request.getParameterValues("key");
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -124,7 +124,7 @@ public class ServletRequestSourceSamples {
 
     // ── HttpServletRequest.getRequestURL ─────────────────────────────────
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_getRequestURL(HttpServletRequest request, HttpServletResponse response) throws Exception {
         StringBuffer url = request.getRequestURL();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -134,7 +134,7 @@ public class ServletRequestSourceSamples {
 
     // ── Cookie.getComment ────────────────────────────────────────────────
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_cookieComment(HttpServletRequest request, HttpServletResponse response) throws Exception {
         Cookie cookie = request.getCookies()[0];
         String comment = cookie.getComment();
@@ -145,7 +145,7 @@ public class ServletRequestSourceSamples {
 
     // ── Part.getHeader ───────────────────────────────────────────────────
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_partGetHeader(HttpServletRequest request, HttpServletResponse response) throws Exception {
         Part part = request.getPart("file");
         String header = part.getHeader("Content-Disposition");
@@ -156,7 +156,7 @@ public class ServletRequestSourceSamples {
 
     // ── Part.getHeaderNames ──────────────────────────────────────────────
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_partGetHeaderNames(HttpServletRequest request, HttpServletResponse response) throws Exception {
         Part part = request.getPart("file");
         Collection<String> headerNames = part.getHeaderNames();
@@ -168,7 +168,7 @@ public class ServletRequestSourceSamples {
 
     // ── Part.getHeaders ──────────────────────────────────────────────────
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_partGetHeaders(HttpServletRequest request, HttpServletResponse response) throws Exception {
         Part part = request.getPart("file");
         Collection<String> headers = part.getHeaders("Content-Disposition");
@@ -180,7 +180,7 @@ public class ServletRequestSourceSamples {
 
     // ── Part.getInputStream ──────────────────────────────────────────────
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_partGetInputStream(HttpServletRequest request, HttpServletResponse response) throws Exception {
         Part part = request.getPart("file");
         InputStream is = part.getInputStream();
@@ -192,7 +192,7 @@ public class ServletRequestSourceSamples {
 
     // ── Part.getName ─────────────────────────────────────────────────────
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     protected void doGet_partGetName(HttpServletRequest request, HttpServletResponse response) throws Exception {
         Part part = request.getPart("file");
         String name = part.getName();

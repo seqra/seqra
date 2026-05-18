@@ -17,7 +17,7 @@ public class FtpSourceSamples {
 
     private DataSource dataSource;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void ftpClientListNames(FTPClient ftp) throws Exception {
         String[] names = ftp.listNames();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
@@ -25,7 +25,7 @@ public class FtpSourceSamples {
         }
     }
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void ftpClientListFiles(FTPClient ftp) throws Exception {
         FTPFile[] files = ftp.listFiles();
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {

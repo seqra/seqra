@@ -28,7 +28,7 @@ public class XxeExtraSpringSamples {
     public static class UnsafeTransformerFactoryController {
 
         @PostMapping("/unsafe/newTransformer")
-        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe-in-spring-app")
+        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe")
         public String unsafeNewTransformer(@RequestParam("xslt") String xsltContent) throws Exception {
             TransformerFactory factory = TransformerFactory.newInstance();
             StreamSource source = new StreamSource(new StringReader(xsltContent));
@@ -45,7 +45,7 @@ public class XxeExtraSpringSamples {
     public static class UnsafeXMLDecoderController {
 
         @PostMapping("/unsafe/decoder1arg")
-        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe-in-spring-app")
+        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe")
         public String unsafeDecoder1Arg(@RequestParam("xml") String xmlContent) throws Exception {
             InputStream in = new ByteArrayInputStream(xmlContent.getBytes(StandardCharsets.UTF_8));
             java.beans.XMLDecoder decoder = new java.beans.XMLDecoder(in);
@@ -55,7 +55,7 @@ public class XxeExtraSpringSamples {
         }
 
         @PostMapping("/unsafe/decoder2arg")
-        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe-in-spring-app")
+        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe")
         public String unsafeDecoder2Arg(@RequestParam("xml") String xmlContent) throws Exception {
             InputStream in = new ByteArrayInputStream(xmlContent.getBytes(StandardCharsets.UTF_8));
             java.beans.XMLDecoder decoder = new java.beans.XMLDecoder(in, this);
@@ -65,7 +65,7 @@ public class XxeExtraSpringSamples {
         }
 
         @PostMapping("/unsafe/decoder3arg")
-        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe-in-spring-app")
+        @PositiveRuleSample(value = "java/security/xxe.yaml", id = "xxe")
         public String unsafeDecoder3Arg(@RequestParam("xml") String xmlContent) throws Exception {
             InputStream in = new ByteArrayInputStream(xmlContent.getBytes(StandardCharsets.UTF_8));
             java.beans.XMLDecoder decoder = new java.beans.XMLDecoder(in, this, null);

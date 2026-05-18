@@ -15,7 +15,7 @@ public class CommonsExecCommandInjectionSamples {
     public static class UnsafeCommonsExecParseController {
 
         @GetMapping("/command-injection/commons-exec/parse")
-        @PositiveRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection")
         public String unsafeParse(@RequestParam("cmd") String cmd) throws Exception {
             // VULNERABLE: parsing user-controlled command string
             CommandLine cmdLine = CommandLine.parse(cmd);
@@ -27,7 +27,7 @@ public class CommonsExecCommandInjectionSamples {
     public static class UnsafeCommonsExecAddArgumentsController {
 
         @GetMapping("/command-injection/commons-exec/add-args")
-        @PositiveRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/command-injection.yaml", id = "os-command-injection")
         public String unsafeAddArguments(@RequestParam("args") String args) throws Exception {
             // VULNERABLE: adding user-controlled arguments
             CommandLine cmdLine = new CommandLine("mycommand");

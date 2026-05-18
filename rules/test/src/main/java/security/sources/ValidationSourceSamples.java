@@ -17,7 +17,7 @@ public class ValidationSourceSamples implements ConstraintValidator<Override, St
     private DataSource dataSource;
 
     @Override
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public boolean isValid(String value, ConstraintValidatorContext context) {
         try (Connection c = dataSource.getConnection(); Statement s = c.createStatement()) {
             s.executeQuery("SELECT * FROM t WHERE x = '" + value + "'");

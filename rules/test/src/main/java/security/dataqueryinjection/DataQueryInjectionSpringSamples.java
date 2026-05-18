@@ -73,7 +73,7 @@ public class DataQueryInjectionSpringSamples {
         private final org.w3c.dom.Document usersDoc = null; // simplified
 
         @GetMapping("/data-query/xpath/spring/unsafe/evaluateExpression")
-        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "xpath-injection-in-spring-app")
+        @PositiveRuleSample(value = "java/security/data-query-injection.yaml", id = "xpath-injection")
         public String unsafeEvaluateExpression(@RequestParam("xpath") String expression) throws Exception {
             // VULNERABLE: user data passed directly as XPath expression
             return String.valueOf(xPath.evaluateExpression(expression, usersDoc));

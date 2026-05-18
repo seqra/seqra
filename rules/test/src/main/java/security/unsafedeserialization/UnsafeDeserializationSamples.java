@@ -125,29 +125,6 @@ public class UnsafeDeserializationSamples {
         }
     }
 
-    public static class SafeJmsListener implements MessageListener {
-
-        @Override
-// TODO: no rules for such validation for now
-//        @NegativeRuleSample(value = "java/security/unsafe-deserialization.yaml", id = "insecure-jms-deserialization")
-        public void onMessage(Message message) {
-            try {
-                // SAFE-ish: only accept a specific expected type and ignore others
-                if (message instanceof ObjectMessage) {
-                    ObjectMessage objectMessage = (ObjectMessage) message;
-                    Object obj = objectMessage.getObject();
-                    if (!(obj instanceof SafeDto)) {
-                        throw new IllegalArgumentException("Unexpected JMS payload type");
-                    }
-                    SafeDto dto = (SafeDto) obj;
-                    System.out.println("Processed: " + dto.name);
-                }
-            } catch (JMSException e) {
-                throw new RuntimeException(e);
-            }
-        }
-    }
-
     // unsafe-jackson-deserialization
 
     @WebServlet("/deserialize/jackson/unsafe")

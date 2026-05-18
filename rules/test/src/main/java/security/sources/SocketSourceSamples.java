@@ -16,7 +16,7 @@ public class SocketSourceSamples {
 
     private DataSource dataSource;
 
-    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection-in-servlet-app")
+    @PositiveRuleSample(value = "java/security/sqli.yaml", id = "sql-injection")
     public void socketGetInputStream(Socket socket) throws Exception {
         InputStream is = socket.getInputStream();
         byte[] bytes = is.readAllBytes();
