@@ -404,12 +404,18 @@ rules:
               - pattern-inside: |
                   $URL = new java.net.URI($UNTRUSTED);
                   ...
-          # `$_` is the anonymous intermediate from the chain split
-          # `HttpRequest.newBuilder().uri(...)` → `$t = newBuilder(); $BUILDER = $t.uri(...)`.
-          # The proper constraint would be `(HttpRequest.Builder $_).uri($URL)`,
-          # but inner-class types aren't supported as typed metavariables
-          # in the analyzer's semgrep matcher (see the matching TODO in
-          # the HttpRequest.Builder block above).
+          # `$_` (not `java.net.http.HttpRequest.newBuilder()`) is required
+          # here because the analyzer auto-splits a chained static call
+          # `HttpRequest.newBuilder().uri(...)` into an implicit
+          # let-binding `$t = newBuilder(); $BUILDER = $t.uri(...)`, so
+          # the receiver of `.uri(...)` is the anonymous $t, not the
+          # literal `newBuilder()` call. Constructor calls (`new X()`)
+          # are kept literal — see the OkHttp `new Request.Builder()`
+          # pattern below for the version where the literal form works.
+          # A typed `(HttpRequest.Builder $_).uri(...)` constraint isn't
+          # available because inner-class types aren't supported as
+          # typed metavariables (see the matching `# ANALYZER LIMITATION`
+          # TODO higher up in this file).
           - pattern: |
               $BUILDER = $_.uri($URL);
               ...;
@@ -422,19 +428,15 @@ rules:
       # metavar trick: capture $BUILDER from .url($UNTRUSTED), bind
       # $REQ to $BUILDER.build(), then match the sink call on $REQ —
       # all in a single multi-line pattern separated by `...;`.
-      # Same `$_` reasoning as above — receiver of `.url(...)` is the
-      # anonymous intermediate from the `new Request.Builder().url(...)`
-      # chain split, and `Request.Builder` is an inner class so it
-      # can't be used as a typed metavariable.
       - pattern-either:
           - pattern: |
-              $BUILDER = $_.url($UNTRUSTED);
+              $BUILDER = new okhttp3.Request.Builder().url($UNTRUSTED);
               ...;
               $TYPE $REQ = $BUILDER.build();
               ...;
               (okhttp3.OkHttpClient $C).newCall($REQ);
           - pattern: |
-              $BUILDER = $_.url($UNTRUSTED);
+              $BUILDER = new okhttp3.Request.Builder().url($UNTRUSTED);
               ...;
               $TYPE $REQ = $BUILDER.build();
               ...;
