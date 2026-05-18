@@ -52,20 +52,10 @@ rules:
       - pattern: new java.net.URLClassLoader($UNTRUSTED, ...)
       - pattern: new java.net.URLClassLoader($NAME, $UNTRUSTED, ...)
       - pattern: java.net.URLClassLoader.newInstance($UNTRUSTED, ...)
-      # Inline-array form: new URLClassLoader(new URL[]{ new URL(x) }, ...)
-      - pattern: new java.net.URLClassLoader(new URL[]{ new URL($UNTRUSTED) }, ...)
-      - pattern: new java.net.URLClassLoader($NAME, new URL[]{ new URL($UNTRUSTED) }, ...)
-      - pattern: java.net.URLClassLoader.newInstance(new URL[]{ new URL($UNTRUSTED) }, ...)
 
       # ── java.net.http ──────────────────────────────────────────────────
       - pattern: java.net.http.HttpRequest.newBuilder($UNTRUSTED)
-      - pattern: java.net.http.HttpRequest.newBuilder(URI.create($UNTRUSTED))
-      - pattern: java.net.http.HttpRequest.newBuilder(new URI($UNTRUSTED))
       - pattern: (java.net.http.HttpClient $C).send($UNTRUSTED, ...)
-      # Builder-chain variants: HttpRequest.newBuilder().uri(URI.create(...)).GET().build()
-      - pattern: java.net.http.HttpRequest.newBuilder().uri(URI.create($UNTRUSTED)).GET().build()
-      - pattern: java.net.http.HttpRequest.newBuilder().uri(URI.create($UNTRUSTED)).build()
-      - pattern: java.net.http.HttpRequest.newBuilder().uri(new URI($UNTRUSTED)).build()
       # ANALYZER LIMITATION: Inner class types not supported in typed metavariables.
       # TODO: Re-enable when analyzer supports inner class types (HttpRequest.Builder).
       # - pattern: (java.net.http.HttpRequest.Builder $B).uri($UNTRUSTED)
@@ -89,18 +79,7 @@ rules:
           - metavariable-regex:
               metavariable: $METHOD
               regex: ^(delete|get|head|options|patch|post|put)$
-      - patterns:
-          - pattern: org.springframework.http.RequestEntity.$METHOD(URI.create($UNTRUSTED), ...)
-          - metavariable-regex:
-              metavariable: $METHOD
-              regex: ^(delete|get|head|options|patch|post|put)$
-      - patterns:
-          - pattern: org.springframework.http.RequestEntity.$METHOD(URI.create($UNTRUSTED), ...).build()
-          - metavariable-regex:
-              metavariable: $METHOD
-              regex: ^(delete|get|head|options|patch|post|put)$
       - pattern: org.springframework.http.RequestEntity.method($M, $UNTRUSTED)
-      - pattern: org.springframework.http.RequestEntity.method($M, URI.create($UNTRUSTED))
 
       # ── Spring WebClient ───────────────────────────────────────────────
       - pattern: org.springframework.web.reactive.function.client.WebClient.create($UNTRUSTED)
@@ -283,32 +262,13 @@ rules:
       - pattern: (org.apache.commons.net.SocketClient $C).connect($UNTRUSTED, ...)
 
       # ── Apache Commons IO ──────────────────────────────────────────────
-      # Each pattern is duplicated with `new URL($UNTRUSTED)` and
-      # `URI.create($UNTRUSTED).toURL()` inline variants so the sink fires
-      # when callers wrap a tainted string at the call site instead of
-      # routing through a tainted-URL variable. The analyzer alias-expands
-      # `URL u = new URL(x); sink(u)` but only matches inline-form sinks.
       - pattern: org.apache.commons.io.FileUtils.copyURLToFile($UNTRUSTED, ...)
-      - pattern: org.apache.commons.io.FileUtils.copyURLToFile(new URL($UNTRUSTED), ...)
-      - pattern: org.apache.commons.io.FileUtils.copyURLToFile(URI.create($UNTRUSTED).toURL(), ...)
       - pattern: org.apache.commons.io.IOUtils.copy((java.net.URL $UNTRUSTED), ...)
-      - pattern: org.apache.commons.io.IOUtils.copy(new URL($UNTRUSTED), ...)
-      - pattern: org.apache.commons.io.IOUtils.copy(URI.create($UNTRUSTED).toURL(), ...)
       - pattern: org.apache.commons.io.IOUtils.toByteArray($UNTRUSTED)
-      - pattern: org.apache.commons.io.IOUtils.toByteArray(new URL($UNTRUSTED))
-      - pattern: org.apache.commons.io.IOUtils.toByteArray(URI.create($UNTRUSTED).toURL())
       - pattern: org.apache.commons.io.IOUtils.toString($UNTRUSTED, ...)
-      - pattern: org.apache.commons.io.IOUtils.toString(new URL($UNTRUSTED), ...)
-      - pattern: org.apache.commons.io.IOUtils.toString(URI.create($UNTRUSTED).toURL(), ...)
       - pattern: org.apache.commons.io.file.PathUtils.copyFile($UNTRUSTED, ...)
-      - pattern: org.apache.commons.io.file.PathUtils.copyFile(new URL($UNTRUSTED), ...)
-      - pattern: org.apache.commons.io.file.PathUtils.copyFile(URI.create($UNTRUSTED).toURL(), ...)
       - pattern: org.apache.commons.io.file.PathUtils.copyFileToDirectory($UNTRUSTED, ...)
-      - pattern: org.apache.commons.io.file.PathUtils.copyFileToDirectory(new URL($UNTRUSTED), ...)
-      - pattern: org.apache.commons.io.file.PathUtils.copyFileToDirectory(URI.create($UNTRUSTED).toURL(), ...)
       - pattern: new org.apache.commons.io.input.XmlStreamReader($UNTRUSTED)
-      - pattern: new org.apache.commons.io.input.XmlStreamReader(new URL($UNTRUSTED))
-      - pattern: new org.apache.commons.io.input.XmlStreamReader(URI.create($UNTRUSTED).toURL())
 
       # ── Kotlin ─────────────────────────────────────────────────────────
       - pattern: kotlin.io.TextStreamsKt.readBytes($UNTRUSTED)
@@ -317,24 +277,12 @@ rules:
       # ── Activation (javax / jakarta) ───────────────────────────────────
       - pattern: new javax.activation.URLDataSource($UNTRUSTED)
       - pattern: new jakarta.activation.URLDataSource($UNTRUSTED)
-      - pattern: new javax.activation.URLDataSource(new URL($UNTRUSTED))
-      - pattern: new jakarta.activation.URLDataSource(new URL($UNTRUSTED))
-      - pattern: new javax.activation.URLDataSource(URI.create($UNTRUSTED).toURL())
-      - pattern: new jakarta.activation.URLDataSource(URI.create($UNTRUSTED).toURL())
 
       # ── Jenkins / Hudson ───────────────────────────────────────────────
       - pattern: new hudson.cli.FullDuplexHttpStream($UNTRUSTED, ...)
-      - pattern: new hudson.cli.FullDuplexHttpStream(new URL($UNTRUSTED), ...)
-      - pattern: new hudson.cli.FullDuplexHttpStream(URI.create($UNTRUSTED).toURL(), ...)
       - pattern: hudson.model.DownloadService.loadJSON($UNTRUSTED)
-      - pattern: hudson.model.DownloadService.loadJSON(new URL($UNTRUSTED))
-      - pattern: hudson.model.DownloadService.loadJSON(URI.create($UNTRUSTED).toURL())
       - pattern: hudson.model.DownloadService.loadJSONHTML($UNTRUSTED)
-      - pattern: hudson.model.DownloadService.loadJSONHTML(new URL($UNTRUSTED))
-      - pattern: hudson.model.DownloadService.loadJSONHTML(URI.create($UNTRUSTED).toURL())
       - pattern: (hudson.FilePath $FP).installIfNecessaryFrom($UNTRUSTED, ...)
-      - pattern: (hudson.FilePath $FP).installIfNecessaryFrom(new URL($UNTRUSTED), ...)
-      - pattern: (hudson.FilePath $FP).installIfNecessaryFrom(URI.create($UNTRUSTED).toURL(), ...)
       # ANALYZER LIMITATION: Inner class types not supported in typed metavariables.
       # TODO: Re-enable when analyzer supports inner class types (UpdateCenter.UpdateCenterConfiguration).
       # - pattern: (hudson.model.UpdateCenter.UpdateCenterConfiguration $C).download($J, $UNTRUSTED)
@@ -349,8 +297,6 @@ rules:
 
       # ── Kohsuke Stapler ────────────────────────────────────────────────
       - pattern: (org.kohsuke.stapler.StaplerResponse $R).reverseProxyTo($UNTRUSTED, ...)
-      - pattern: (org.kohsuke.stapler.StaplerResponse $R).reverseProxyTo(new URL($UNTRUSTED), ...)
-      - pattern: (org.kohsuke.stapler.StaplerResponse $R).reverseProxyTo(URI.create($UNTRUSTED).toURL(), ...)
 
       # ── JSON Slurper (Jenkins) ─────────────────────────────────────────
       - pattern: (net.sf.json.groovy.JsonSlurper $S).parse($UNTRUSTED)
@@ -359,6 +305,114 @@ rules:
       # ANALYZER LIMITATION: Inner class types not supported in typed metavariables.
       # TODO: Re-enable when analyzer supports inner class types (Retrofit.Builder).
       # - pattern: (retrofit2.Retrofit.Builder $B).baseUrl($UNTRUSTED)
+
+      # ── URL/URI let-binding wrapper into any URL/URI-taking sink ───────
+      # `pattern-inside` declares the let-binding form `URL $X = new URL($UNTRUSTED);`
+      # introducing $X (the local URL variable) and $UNTRUSTED (the
+      # tainted string). The outer pattern-either then matches sinks that
+      # take $X. The analyzer also alias-expands `new URL($Y)` inline,
+      # so $X resolves both for explicit assignments and for direct
+      # `sink(new URL(...))` call shapes.
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  $TYPE $X = new URL($UNTRUSTED);
+                  ...
+              - pattern-inside: |
+                  $TYPE $X = new java.net.URL($UNTRUSTED);
+                  ...
+              - pattern-inside: |
+                  $TYPE $X = URI.create($UNTRUSTED).toURL();
+                  ...
+              - pattern-inside: |
+                  $TYPE $X = java.net.URI.create($UNTRUSTED).toURL();
+                  ...
+          - pattern-either:
+              # Apache Commons IO
+              - pattern: org.apache.commons.io.FileUtils.copyURLToFile($X, ...)
+              - pattern: org.apache.commons.io.IOUtils.copy($X, ...)
+              - pattern: org.apache.commons.io.IOUtils.toByteArray($X)
+              - pattern: org.apache.commons.io.IOUtils.toString($X, ...)
+              - pattern: org.apache.commons.io.file.PathUtils.copyFile($X, ...)
+              - pattern: org.apache.commons.io.file.PathUtils.copyFileToDirectory($X, ...)
+              - pattern: new org.apache.commons.io.input.XmlStreamReader($X)
+              # javax / jakarta activation
+              - pattern: new javax.activation.URLDataSource($X)
+              - pattern: new jakarta.activation.URLDataSource($X)
+              # Jenkins / Hudson
+              - pattern: new hudson.cli.FullDuplexHttpStream($X, ...)
+              - pattern: hudson.model.DownloadService.loadJSON($X)
+              - pattern: hudson.model.DownloadService.loadJSONHTML($X)
+              - pattern: (hudson.FilePath $FP).installIfNecessaryFrom($X, ...)
+              # Apache Commons Jelly
+              - pattern: new org.apache.commons.jelly.JellyContext($X, ...)
+              # Apache CXF
+              - pattern: org.apache.cxf.catalog.OASISCatalogManager.loadCatalog($X)
+              - pattern: org.apache.cxf.common.classloader.ClassLoaderUtils.getURLClassLoader($X, ...)
+              # Kohsuke Stapler
+              - pattern: (org.kohsuke.stapler.StaplerResponse $R).reverseProxyTo($X, ...)
+              # JSON Slurper
+              - pattern: (net.sf.json.groovy.JsonSlurper $S).parse($X)
+
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  $TYPE $X = URI.create($UNTRUSTED);
+                  ...
+              - pattern-inside: |
+                  $TYPE $X = java.net.URI.create($UNTRUSTED);
+                  ...
+              - pattern-inside: |
+                  $TYPE $X = new URI($UNTRUSTED);
+                  ...
+              - pattern-inside: |
+                  $TYPE $X = new java.net.URI($UNTRUSTED);
+                  ...
+          - pattern-either:
+              # java.net.http.HttpRequest builder
+              - pattern: java.net.http.HttpRequest.newBuilder($X)
+              - pattern: java.net.http.HttpRequest.newBuilder().uri($X).$_().build()
+              - pattern: java.net.http.HttpRequest.newBuilder().uri($X).build()
+              # Spring RequestEntity static factories
+              - patterns:
+                  - pattern: org.springframework.http.RequestEntity.$METHOD($X, ...)
+                  - metavariable-regex:
+                      metavariable: $METHOD
+                      regex: ^(delete|get|head|method|options|patch|post|put)$
+              - pattern: new org.springframework.http.RequestEntity(..., $X, ...)
+
+      # ── Builder-chain inline forms (no intermediate URL/URI variable) ──
+      # Match `X = ChainedBuilder(URI.create($UNTRUSTED)).build()` and friends
+      # where the chain is assigned directly to the sink variable.
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  $TYPE $REQ = java.net.http.HttpRequest.newBuilder().uri(URI.create($UNTRUSTED)).$_().build();
+                  ...
+              - pattern-inside: |
+                  $TYPE $REQ = java.net.http.HttpRequest.newBuilder().uri(URI.create($UNTRUSTED)).build();
+                  ...
+              - pattern-inside: |
+                  $TYPE $REQ = java.net.http.HttpRequest.newBuilder().uri(java.net.URI.create($UNTRUSTED)).$_().build();
+                  ...
+              - pattern-inside: |
+                  $TYPE $REQ = java.net.http.HttpRequest.newBuilder().uri(java.net.URI.create($UNTRUSTED)).build();
+                  ...
+          - pattern: (java.net.http.HttpClient $C).send($REQ, ...)
+
+      # OkHttp Request.Builder().url(String).build() inlined into a Request
+      # let-binding; consumed by OkHttpClient.newCall / newWebSocket.
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  $TYPE $REQ = new okhttp3.Request.Builder().url($UNTRUSTED).build();
+                  ...
+              - pattern-inside: |
+                  $TYPE $REQ = new okhttp3.Request.Builder().url($UNTRUSTED).$_().build();
+                  ...
+          - pattern-either:
+              - pattern: (okhttp3.OkHttpClient $C).newCall($REQ)
+              - pattern: (okhttp3.OkHttpClient $C).newWebSocket($REQ, ...)
 
   - id: java-http-parameter-pollution-sinks
     options:
