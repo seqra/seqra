@@ -5,13 +5,14 @@ rules:
     severity: NOTE
     message: Call of LDAP injection-sensitive function with untrusted data.
     metadata:
-      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/inject/rule-LDAPInjection.yml
+      provenance:
+        - https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/inject/rule-LDAPInjection.yml
+        - https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/LdapInjection.qll
     languages:
       - java
     mode: taint
     pattern-sanitizers:
       # CodeQL LdapInjectionSanitizer-aligned LDAP encoding helpers (static methods).
-      # provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/LdapInjection.qll
       - pattern: org.owasp.encoder.Encode.forLdap(...)
       - pattern: org.owasp.encoder.Encode.forDN(...)
       - pattern: org.springframework.ldap.support.LdapEncoder.nameEncode(...)

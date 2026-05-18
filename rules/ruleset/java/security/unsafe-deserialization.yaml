@@ -12,7 +12,7 @@ rules:
         Unsafe object deserialization occurs when untrusted data is deserialized with ObjectInputStream or equivalent object stream APIs.
         In Servlet and Spring applications, request-controlled byte streams must not be deserialized into arbitrary object graphs.
         Attackers can trigger gadget chains during deserialization and achieve remote code execution or severe integrity impact.
-        
+
         Do not deserialize untrusted native Java objects. Prefer safer formats and explicit data transfer object mappings.
         If legacy deserialization is unavoidable, enforce strict class allowlists and isolate deserialization boundaries.
       references:
@@ -89,7 +89,7 @@ rules:
         Unsafe Jackson deserialization occurs when untrusted JSON is deserialized into dangerous or overly broad target types.
         In Servlet and Spring applications, this can happen when request bodies are bound to polymorphic types without strict controls.
         Attackers may instantiate unexpected classes or trigger gadget-based behavior depending on mapper configuration and dependencies.
-        
+
         Deserialize into explicit, fixed DTO classes and avoid permissive polymorphic typing for untrusted data.
         Keep Jackson and dependent libraries updated, and validate request payload shape before deserialization.
       references:
@@ -153,7 +153,7 @@ rules:
         Unsafe SnakeYAML deserialization occurs when untrusted YAML is loaded with constructors that instantiate arbitrary object types.
         In Servlet and Spring applications, request data parsed this way can create dangerous objects and trigger unsafe code paths.
         This can result in remote code execution or denial of service in vulnerable configurations.
-        
+
         Do not load untrusted YAML into arbitrary object graphs. Use safe loader options and map input to simple, explicit data structures.
         Disable features that allow implicit type instantiation from attacker-controlled YAML tags.
       references:
@@ -241,7 +241,6 @@ rules:
           @Consumes(...)
           public class $CLASSNAME { ... }
 
-
   - id: apache-rpc-enabled-extensions
     severity: WARNING
     message: |
@@ -266,7 +265,7 @@ rules:
                   ...
               - pattern: $VAR.setEnabledForExtensions(true);
 
-  - id: unsafe-deserialization-in-servlet-app
+  - id: unsafe-deserialization
     severity: ERROR
     message: >-
       Deserialization of untrusted data can lead to remote code execution.
@@ -277,37 +276,18 @@ rules:
       short-description: Unsafe deserialization of untrusted data
       references:
         - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/16-Testing_for_HTTP_Incoming_Requests
+      provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/UnsafeDeserializationQuery.qll
     languages:
       - java
     mode: join
     join:
       refs:
         - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
-          as: untrusted-data
-        - rule: java/lib/generic/unsafe-deserialization-sinks.yaml#java-unsafe-deserialization-sinks
-          as: sink
-      on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$SINK'
-
-  - id: unsafe-deserialization-in-spring-app
-    severity: ERROR
-    message: >-
-      Deserialization of untrusted data can lead to remote code execution.
-      Ensure that only trusted, validated data is deserialized.
-    metadata:
-      cwe:
-        - CWE-502
-      short-description: Unsafe deserialization of untrusted data
-      references:
-        - https://owasp.org/www-project-web-security-testing-guide/latest/4-Web_Application_Security_Testing/07-Input_Validation_Testing/16-Testing_for_HTTP_Incoming_Requests
-    languages:
-      - java
-    mode: join
-    join:
-      refs:
+          as: servlet-untrusted-data
         - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
-          as: untrusted-data
+          as: spring-untrusted-data
         - rule: java/lib/generic/unsafe-deserialization-sinks.yaml#java-unsafe-deserialization-sinks
           as: sink
       on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$SINK'
+        - 'servlet-untrusted-data.$UNTRUSTED -> sink.$SINK'
+        - 'spring-untrusted-data.$UNTRUSTED -> sink.$SINK'

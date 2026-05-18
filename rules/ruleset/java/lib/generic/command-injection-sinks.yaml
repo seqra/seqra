@@ -5,14 +5,15 @@ rules:
     severity: NOTE
     message: Executing OS command with user-controlled data
     metadata:
-      provenance: https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/inject/rule-CommandInjection.yml
+      provenance:
+        - https://gitlab.com/gitlab-org/security-products/sast-rules/-/blob/main/java/inject/rule-CommandInjection.yml
+        - https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/CommandLineQuery.qll
     languages:
       - java
     mode: taint
     pattern-sanitizers:
       # CodeQL CommandLineQuery — pixee SafeCommand wrappers neutralise the
       # untrusted portion before it reaches a process launch.
-      # provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/CommandLineQuery.qll
       - pattern: io.github.pixee.security.SystemCommand.runCommand(...)
       # NOTE: SystemCommand.runProcessBuilder is NOT useful as a sanitizer:
       # the ProcessBuilder constructor itself is the sink and fires before
@@ -21,32 +22,35 @@ rules:
     pattern-sinks:
       - patterns:
           - pattern-either:
+              # ── java.lang.ProcessBuilder direct ──
               - pattern: |
                   (ProcessBuilder $PB).command(..., $UNTRUSTED, ...);
-              - pattern:
-                  new ProcessBuilder(..., $UNTRUSTED, ...);
-              - pattern:
+              - pattern: new ProcessBuilder(..., $UNTRUSTED, ...);
+              # ── java.lang.ProcessBuilder via List arg ──
+              - pattern: |
                   (java.util.List $ARGS).add($UNTRUSTED);
                   ...
                   new ProcessBuilder(..., $ARGS, ...);
-              - pattern:
+              - pattern: |
                   (java.util.List $ARGS) = List.of(..., $UNTRUSTED, ...);
                   ...
                   new ProcessBuilder(..., $ARGS, ...);
-              - pattern:
+              - pattern: |
                   (java.util.List $ARGS).add($UNTRUSTED);
                   ...
                   (ProcessBuilder $PB).command($ARGS);
-              - pattern:
+              - pattern: |
                   (java.util.List $ARGS) = List.of(..., $UNTRUSTED, ...);
                   ...
                   (ProcessBuilder $PB).command($ARGS);
+              # ── java.lang.ProcessBuilder via in-place command() mutation ──
               - patterns:
                   - pattern: |
                       (ProcessBuilder $PB).command().$ADD(..., $UNTRUSTED, ...);
                   - metavariable-regex:
                       metavariable: $ADD
                       regex: (add|addAll)
+              # ── java.lang.Runtime ──
               - patterns:
                   - pattern: |
                       (java.lang.Runtime $R).$EXEC(..., $UNTRUSTED, ...);

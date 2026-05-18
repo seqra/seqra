@@ -283,10 +283,8 @@ rules:
                 metavariable: $METHOD
                 regex: decode|decodeLast|callDecode
 
-          # ── Netty: ByteToMessageCodec.decode / decodeLast ──
-          # Same pattern as above, already covered by the regex
-
-          # ── Netty: MessageToMessageDecoder.decode / acceptInboundMessage ──
+          # ── Netty: MessageToMessageDecoder.acceptInboundMessage ──
+          # (decode / decodeLast are matched by the ByteToMessageDecoder rule above.)
           - patterns:
             - pattern: |
                 $RTYPE $METHOD($PTYPE $UNTRUSTED, ...) {
@@ -295,9 +293,6 @@ rules:
             - metavariable-regex:
                 metavariable: $METHOD
                 regex: acceptInboundMessage
-
-          # ── Netty: MessageToMessageCodec.decode ──
-          # Already covered by decode regex above
 
           # ── Netty: Http2FrameListener callbacks ──
           - patterns:

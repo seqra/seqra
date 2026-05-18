@@ -60,28 +60,6 @@ rules:
         - 'servlet-untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
         - 'spring-untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
 
-  - id: http-response-splitting-in-servlet-app
-    severity: WARNING
-    message: >-
-      HTTP response splitting may occur when untrusted Servlet input reaches HTTP-header APIs without CRLF
-      neutralization.
-    metadata:
-      cwe:
-        - CWE-113
-      short-description: HTTP response splitting via untrusted Servlet input
-      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/ResponseSplitting.qll
-    languages:
-      - java
-    mode: join
-    join:
-      refs:
-        - rule: java/lib/generic/servlet-untrusted-data-source.yaml#java-servlet-untrusted-data-source
-          as: untrusted-data
-        - rule: java/lib/generic/http-response-splitting-sinks.yaml#java-http-response-splitting-sink
-          as: sink
-      on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
-
   - id: smtp-crlf-injection
     severity: ERROR
     message: >-

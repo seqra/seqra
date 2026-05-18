@@ -5,58 +5,66 @@ rules:
     severity: NOTE
     message: Direct write of unvalidated user input into response
     metadata:
-      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/xss/no-direct-response-writer.yaml
+      provenance:
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/lang/security/audit/xss/no-direct-response-writer.yaml
+        - https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/XSS.qll
+        - https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext/org.owasp.esapi.model.yml
+        - https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext/hudson.model.yml
     languages:
       - java
     mode: taint
+    # MIRROR of the canonical HTML-encoder sanitizer set defined in
+    # java/lib/generic/servlet-xss-html-response-sinks.yaml. Do not edit this
+    # block in isolation — update the source-of-truth file and re-sync.
     pattern-sanitizers:
       - patterns:
           - pattern-either:
+              # ── short-form / unqualified aliases ──
               - pattern: Encode.forHtml(..., $UNTRUSTED, ...)
               - pattern: (PolicyFactory $POLICY).sanitize(..., $UNTRUSTED, ...)
               - pattern: (AntiSamy $AS).scan(..., $UNTRUSTED, ...)
               - pattern: JSoup.clean(..., $UNTRUSTED, ...)
               - pattern: HtmlUtils.htmlEscape(..., $UNTRUSTED, ...)
-              - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(..., $UNTRUSTED, ...)
-              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(..., $UNTRUSTED, ...)
-              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(..., $UNTRUSTED, ...)
-              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $UNTRUSTED, ...)
-              # Mirror the spring-xss-html-response-sink encoder set.
+              # ── OWASP Encoder ──
               - pattern: org.owasp.encoder.Encode.forHtml(..., $UNTRUSTED, ...)
               - pattern: org.owasp.encoder.Encode.forHtmlContent(..., $UNTRUSTED, ...)
               - pattern: org.owasp.encoder.Encode.forHtmlAttribute(..., $UNTRUSTED, ...)
               - pattern: org.owasp.encoder.Encode.forHtmlUnquotedAttribute(..., $UNTRUSTED, ...)
+              - pattern: org.owasp.encoder.Encode.forCDATA(..., $UNTRUSTED, ...)
               - pattern: org.owasp.encoder.Encode.forXml(..., $UNTRUSTED, ...)
               - pattern: org.owasp.encoder.Encode.forXmlContent(..., $UNTRUSTED, ...)
               - pattern: org.owasp.encoder.Encode.forXmlAttribute(..., $UNTRUSTED, ...)
-              - pattern: org.owasp.encoder.Encode.forCDATA(..., $UNTRUSTED, ...)
               - pattern: org.owasp.encoder.Encode.forJavaScript(..., $UNTRUSTED, ...)
               - pattern: org.owasp.encoder.Encode.forJavaScriptAttribute(..., $UNTRUSTED, ...)
               - pattern: org.owasp.encoder.Encode.forJavaScriptBlock(..., $UNTRUSTED, ...)
               - pattern: org.owasp.encoder.Encode.forJavaScriptSource(..., $UNTRUSTED, ...)
               - pattern: org.owasp.encoder.Encode.forCssString(..., $UNTRUSTED, ...)
               - pattern: org.owasp.encoder.Encode.forCssUrl(..., $UNTRUSTED, ...)
+              # ── Apache Commons Text / Lang StringEscapeUtils ──
+              - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(..., $UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(..., $UNTRUSTED, ...)
               - pattern: org.apache.commons.text.StringEscapeUtils.escapeXml(..., $UNTRUSTED, ...)
               - pattern: org.apache.commons.text.StringEscapeUtils.escapeXml10(..., $UNTRUSTED, ...)
               - pattern: org.apache.commons.text.StringEscapeUtils.escapeXml11(..., $UNTRUSTED, ...)
               - pattern: org.apache.commons.text.StringEscapeUtils.escapeEcmaScript(..., $UNTRUSTED, ...)
               - pattern: org.apache.commons.lang3.StringEscapeUtils.escapeEcmaScript(..., $UNTRUSTED, ...)
+              # ── Spring Framework HtmlUtils ──
               - pattern: org.springframework.web.util.HtmlUtils.htmlEscape(..., $UNTRUSTED, ...)
               - pattern: org.springframework.web.util.HtmlUtils.htmlEscapeDecimal(..., $UNTRUSTED, ...)
               - pattern: org.springframework.web.util.HtmlUtils.htmlEscapeHex(..., $UNTRUSTED, ...)
+              # ── OWASP ESAPI Encoder / Validator ──
+              # Validator.getValidSafeHTML returns AntiSamy-cleaned HTML.
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTMLAttribute(..., $UNTRUSTED, ...)
               - pattern: org.owasp.esapi.ESAPI.encoder().encodeForURL(..., $UNTRUSTED, ...)
               - pattern: org.owasp.esapi.ESAPI.encoder().encodeForCSS(..., $UNTRUSTED, ...)
               - pattern: org.owasp.esapi.ESAPI.encoder().encodeForJavaScript(..., $UNTRUSTED, ...)
               - pattern: org.owasp.esapi.ESAPI.encoder().encodeForXML(..., $UNTRUSTED, ...)
               - pattern: org.owasp.esapi.ESAPI.encoder().encodeForXMLAttribute(..., $UNTRUSTED, ...)
-              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTMLAttribute(..., $UNTRUSTED, ...)
-              # OWASP ESAPI Validator.getValidSafeHTML — returns AntiSamy-cleaned HTML.
-              # provenance: codeql/java/ql/lib/ext/org.owasp.esapi.model.yml
               - pattern: org.owasp.esapi.ESAPI.validator().getValidSafeHTML(..., $UNTRUSTED, ...)
-              # CodeQL barrierModel hudson.Util.escape(String).
-              # provenance: codeql/java/ql/lib/ext/hudson.model.yml
+              # ── Jenkins / pixee ──
               - pattern: hudson.Util.escape($UNTRUSTED)
-              # pixee java-security-toolkit HtmlEncoder.encode — HTML escape.
               - pattern: io.github.pixee.security.HtmlEncoder.encode($UNTRUSTED)
           - focus-metavariable: $UNTRUSTED
 
@@ -93,7 +101,7 @@ rules:
               - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
               - pattern: (JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
           - focus-metavariable: $UNTRUSTED
-      # JSF response writer/stream + Apache HttpComponents response entity + Jenkins FormValidation.respond
+      # ── JSF response writer / stream ──
       - patterns:
           - pattern-either:
               - pattern: |
@@ -104,14 +112,21 @@ rules:
                   (jakarta.faces.context.ResponseWriter $WRITER).write($UNTRUSTED, ...)
               - pattern: |
                   (jakarta.faces.context.ResponseStream $STREAM).write($UNTRUSTED, ...)
+          - focus-metavariable: $UNTRUSTED
+      # ── Apache HttpComponents response entity ──
+      - patterns:
+          - pattern-either:
               - pattern: |
                   (org.apache.hc.core5.http.HttpEntityContainer $CONTAINER).setEntity($UNTRUSTED)
               - pattern: |
                   (org.apache.http.HttpResponse $RESPONSE).setEntity($UNTRUSTED)
               - pattern: |
                   org.apache.http.util.EntityUtils.updateEntity($RESPONSE, $UNTRUSTED)
-              - pattern: |
-                  hudson.util.FormValidation.respond($KIND, $UNTRUSTED)
+          - focus-metavariable: $UNTRUSTED
+      # ── Jenkins FormValidation.respond ──
+      - patterns:
+          - pattern: |
+              hudson.util.FormValidation.respond($KIND, $UNTRUSTED)
           - focus-metavariable: $UNTRUSTED
       # Jenkins FormValidation HTML markup sinks
       - patterns:

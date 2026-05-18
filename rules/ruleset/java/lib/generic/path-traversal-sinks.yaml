@@ -6,7 +6,11 @@ rules:
     message: Use a file with untrusted path
     metadata:
       short-description: Unvalidated user data flows into template engine
-      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/injection/tainted-file-path.yaml
+      provenance:
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/injection/tainted-file-path.yaml
+        - https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext/java.io.model.yml
+        - https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext/org.owasp.esapi.model.yml
+        - https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/PathSanitizer.qll
     languages:
       - java
     mode: taint
@@ -16,15 +20,12 @@ rules:
       - pattern: io.github.pixee.security.Filenames.toSimpleFileName(...)
       # CodeQL barrierModel java.io.File.getName() — returns just the basename
       # so any directory-traversal characters are stripped.
-      # provenance: codeql/java/ql/lib/ext/java.io.model.yml
       - pattern: (java.io.File $F).getName()
       # OWASP ESAPI Validator path/filename validators throw on invalid input
       # so the returned value is sanitised.
-      # provenance: codeql/java/ql/lib/ext/org.owasp.esapi.model.yml
       - pattern: org.owasp.esapi.ESAPI.validator().getValidFileName(...)
       - pattern: org.owasp.esapi.ESAPI.validator().getValidDirectoryPath(...)
       # CodeQL PathSanitizer: path normalization removes any internal `..` components.
-      # provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/PathSanitizer.qll
       - pattern: (java.nio.file.Path $P).normalize()
       - pattern: (java.nio.file.Path $P).toRealPath(...)
       - pattern: (java.io.File $F).getCanonicalPath()
@@ -32,9 +33,6 @@ rules:
       # FilenameUtils.normalize variants - all strip `..` from paths
       - pattern: org.apache.commons.io.FilenameUtils.normalize(...)
       - pattern: org.apache.commons.io.FilenameUtils.normalizeNoEndSeparator(...)
-      # Apache Commons Lang StringUtils.containsAny — used by some apps to
-      # reject path-separator characters before constructing a file path.
-      # Kept narrow to avoid clobbering legitimate callers.
     pattern-sinks:
       - patterns:
           - pattern-either:

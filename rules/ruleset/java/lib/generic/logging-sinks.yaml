@@ -5,7 +5,9 @@ rules:
     severity: NOTE
     message: Logging the data
     metadata:
-      provenance: https://semgrep.dev/r/gitlab.find_sec_bugs.CRLF_INJECTION_LOGS-1
+      provenance:
+        - https://semgrep.dev/r/gitlab.find_sec_bugs.CRLF_INJECTION_LOGS-1
+        - https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/LogInjection.qll
     languages:
       - java
     mode: taint
@@ -18,7 +20,6 @@ rules:
       # http-response-splitting-sinks.yaml's CRLF sanitizer: the assigned
       # result of a String.replaceAll/replace whose target neutralises CR/LF
       # is clean.
-      # provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/LogInjection.qll
       - patterns:
         - pattern: |
             $CLEAN = $STR.replaceAll($REPLACER, $_);

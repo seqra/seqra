@@ -60,6 +60,7 @@ rules:
     message: Deserialization of untrusted data can lead to remote code execution.
     metadata:
       cwe: CWE-502
+      provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/UnsafeDeserializationQuery.qll
     languages:
       - java
     mode: taint
@@ -67,8 +68,7 @@ rules:
       # CodeQL UnsafeDeserialization.qll — Apache Commons IO ships a
       # type-restricted ObjectInputStream whose constructor wraps the
       # tainted byte stream into a safe reader. Treat that wrapping as
-      # a barrier (provenance: SafeObjectInputStreamType).
-      # provenance: https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/UnsafeDeserializationQuery.qll
+      # a barrier (CodeQL SafeObjectInputStreamType).
       - pattern: new org.apache.commons.io.serialization.ValidatingObjectInputStream(...)
       - pattern: new org.nibblesec.tools.SerialKiller(...)
       # pixee SafeObjectInputStream wraps any user ObjectInputStream behind

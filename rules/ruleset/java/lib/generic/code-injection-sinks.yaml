@@ -10,7 +10,9 @@ rules:
       - java
     patterns:
       - pattern-either:
+          # ── ognl.Ognl core ──
           - pattern: ognl.Ognl.getValue($INPUT,...);
+          # ── Struts2 OgnlReflectionProvider ──
           - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getGetMethod($T, $INPUT,...);
           - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getSetMethod($T, $INPUT,...);
           - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getField($T, $INPUT,...);
@@ -18,6 +20,7 @@ rules:
           - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).setProperty($INPUT,...);
           - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).getValue($INPUT,...);
           - pattern: (com.opensymphony.xwork2.ognl.OgnlReflectionProvider $P).setValue($INPUT,...);
+          # ── Struts2 ReflectionProvider (interface) ──
           - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getGetMethod($T, $INPUT,...);
           - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getSetMethod($T, $INPUT,...);
           - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getField($T, $INPUT,...);
@@ -26,11 +29,12 @@ rules:
           - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).getValue($INPUT,...);
           - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).setValue($INPUT,...);
           - pattern: (com.opensymphony.xwork2.util.reflection.ReflectionProvider $P).translateVariables($INPUT,...);
+          # ── Struts2 TextParseUtil ──
           - pattern: com.opensymphony.xwork2.util.TextParseUtil.translateVariables($INPUT, ...);
           - pattern: com.opensymphony.xwork2.util.TextParseUtil.translateVariablesCollection($INPUT,...);
           - pattern: com.opensymphony.xwork2.util.TextParseUtil.shallBeIncluded($INPUT,...);
-    # TODO: commaDelimitedStringToSet is propagator!
           - pattern: com.opensymphony.xwork2.util.TextParseUtil.commaDelimitedStringToSet($INPUT,...);
+          # ── Struts2 OgnlTextParser / OgnlUtil ──
           - pattern: (com.opensymphony.xwork2.util.OgnlTextParser $P).evaluate($INPUT,...);
           - pattern: (com.opensymphony.xwork2.util.OgnlTextParser $P).setProperties($INPUT,...);
           - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).setProperty($INPUT,...);
@@ -38,6 +42,7 @@ rules:
           - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).setValue($INPUT,...);
           - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).callMethod($INPUT,...);
           - pattern: (com.opensymphony.xwork2.ognl.OgnlUtil $P).compile($INPUT,...);
+          # ── Struts2 StrutsUtil / VelocityStrutsUtil / OgnlTool ──
           - pattern: (org.apache.struts2.util.VelocityStrutsUtil $P).evaluate($INPUT,...);
           - pattern: (org.apache.struts2.util.StrutsUtil $P).isTrue($INPUT,...);
           - pattern: (org.apache.struts2.util.StrutsUtil $P).findString($INPUT,...);
@@ -46,6 +51,7 @@ rules:
           - pattern: (org.apache.struts2.util.StrutsUtil $P).translateVariables($INPUT,...);
           - pattern: (org.apache.struts2.util.StrutsUtil $P).makeSelectList($INPUT,...);
           - pattern: (org.apache.struts2.views.jsp.ui.OgnlTool $P).findValue($INPUT,...);
+          # ── Struts2 ValueStack ──
           - pattern: (com.opensymphony.xwork2.util.ValueStack $P).findString($INPUT,...);
           - pattern: (com.opensymphony.xwork2.util.ValueStack $P).findValue($INPUT,...);
           - pattern: (com.opensymphony.xwork2.util.ValueStack $P).setValue($INPUT,...);

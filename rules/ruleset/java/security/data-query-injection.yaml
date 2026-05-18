@@ -69,26 +69,6 @@ rules:
         - 'servlet-untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
         - 'spring-untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
 
-  - id: xpath-injection-in-spring-app
-    severity: ERROR
-    message: >-
-      Potential XPath injection: untrusted Spring input flows into an XPath evaluate or compile call.
-    metadata:
-      cwe: CWE-643
-      short-description: XPath injection via untrusted Spring input
-      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/XPath.qll
-    languages:
-      - java
-    mode: join
-    join:
-      refs:
-        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
-          as: untrusted-data
-        - rule: java/lib/generic/data-query-injection-sinks.yaml#java-xpath-injection-sinks
-          as: sink
-      on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$UNTRUSTED'
-
   - id: mongodb-injection
     severity: ERROR
     message: >-
@@ -151,22 +131,3 @@ rules:
         - 'servlet-untrusted-data.$UNTRUSTED -> sink.$INPUT'
         - 'spring-untrusted-data.$UNTRUSTED -> sink.$INPUT'
 
-  - id: mongodb-injection-in-spring-app
-    severity: ERROR
-    message: >-
-      Potential NoSQL injection: untrusted Spring input flows into a MongoDB `$where` JavaScript expression.
-    metadata:
-      cwe: CWE-943
-      short-description: MongoDB query injection via untrusted Spring input
-      provenance: https://github.com/github/codeql/tree/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/semmle/code/java/security/MongoInjection.qll
-    languages:
-      - java
-    mode: join
-    join:
-      refs:
-        - rule: java/lib/spring/untrusted-data-source.yaml#spring-untrusted-data-source
-          as: untrusted-data
-        - rule: java/lib/generic/data-query-injection-sinks.yaml#java-mongodb-nosql-injection
-          as: sink
-      on:
-        - 'untrusted-data.$UNTRUSTED -> sink.$INPUT'

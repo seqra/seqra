@@ -5,7 +5,9 @@ rules:
     severity: NOTE
     message: Potential redirect to an untrusted URL
     metadata:
-      provenance: https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/audit/spring-unvalidated-redirect.yaml
+      provenance:
+        - https://github.com/semgrep/semgrep-rules/blob/develop/java/spring/security/audit/spring-unvalidated-redirect.yaml
+        - https://github.com/github/codeql/blob/cdd8aa49e16650a96b8993e8745c7672600fe930/java/ql/lib/ext/org.owasp.esapi.model.yml
     languages:
       - java
     mode: taint
@@ -18,7 +20,6 @@ rules:
       - pattern: com.google.common.net.UrlEscapers.urlFormParameterEscaper().escape($UNTRUSTED)
       - pattern: com.google.common.net.UrlEscapers.urlFragmentEscaper().escape($UNTRUSTED)
       # OWASP ESAPI Validator.getValidRedirectLocation
-      # provenance: codeql/java/ql/lib/ext/org.owasp.esapi.model.yml
       - pattern: org.owasp.esapi.ESAPI.validator().getValidRedirectLocation(...)
       # pixee Urls.create — policy-filtered URL construction.
       - pattern: io.github.pixee.security.Urls.create(...)
