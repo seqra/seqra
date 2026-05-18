@@ -16,6 +16,7 @@ import issues.issue94
 import issues.issue95
 import issues.issue96
 import issues.issue97
+import issues.issueChain
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.TestInstance
@@ -104,6 +105,15 @@ class IssuesTest : SampleBasedTest() {
 
     @Test
     fun `issue 97`() = runTest<issue97>()
+
+    @Test
+    // Reproducer for a chained-builder pattern with a literal static-method
+    // receiver. Should match the `req = newBuilder().uri(URI.create(t)).GET().build();`
+    // shape but does not — see `issueChain.yaml` and `issueChain.java` for
+    // the failing pattern and its passing `$_.uri($URL)` counterpart.
+    // (`EXPECT_STATE_VAR` because the multi-statement sink pattern with
+    // `$BUILDER`/`$REQ` introduces state-vars during taint config build.)
+    fun `issue chain-pattern literal static receiver`() = runTest<issueChain>(EXPECT_STATE_VAR)
 
     @AfterAll
     fun close() {

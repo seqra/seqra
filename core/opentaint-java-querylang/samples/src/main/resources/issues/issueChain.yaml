@@ -1,0 +1,36 @@
+rules:
+  - id: issue-chain
+    message: "Reproducer: literal static-method receiver inside chained-builder pattern doesn't match"
+    severity: WARNING
+    languages: [java]
+    mode: taint
+
+    pattern-sources:
+      - pattern: $UNTRUSTED = issues.iChain.Source.taint();
+
+    pattern-sinks:
+      # FAILING FORM — uses `issues.iChain.HttpRequest.newBuilder()` as
+      # the literal receiver of `.uri(...)`. The source is the chained
+      # call:
+      #     HttpRequest req = HttpRequest.newBuilder()
+      #             .uri(URI.create(t))
+      #             .GET()
+      #             .build();
+      #     client.send(req);
+      # Replacing the literal receiver with `$_.uri($URL)` makes the
+      # exact same test pass (see the production `ssrf-sinks.yaml`
+      # `java-ssrf-sink` block at the `Builder-chain inline forms`
+      # comment — that's the workaround currently used in the SSRF
+      # rule). The literal form should also match the same shape but
+      # does not.
+      - patterns:
+          - pattern-either:
+              - pattern-inside: |
+                  $URL = issues.iChain.URI.create($UNTRUSTED);
+                  ...
+          - pattern: |
+              $BUILDER = issues.iChain.HttpRequest.newBuilder().uri($URL);
+              ...;
+              $TYPE $REQ = $BUILDER.build();
+              ...;
+              (issues.iChain.HttpClient $C).send($REQ, ...);
