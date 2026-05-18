@@ -1,0 +1,2116 @@
+library: org.apache.commons:commons-lang3:3.14.0
+passThrough:
+- function: org.apache.commons.lang3.text.WordUtils#uncapitalize
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang3.exception.ExceptionUtils#getThrowableList
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.tuple.MutableTriple#setMiddle
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.MutableTriple#middle#java.lang.Object
+- function: org.apache.commons.lang3.ObjectUtils#clone
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.tuple.Pair#of
+  signature: (java.lang.Object, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.ImmutablePair#right#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.ImmutablePair#left#java.lang.Object
+- function: org.apache.commons.lang3.tuple.Triple#getMiddle
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.tuple.ImmutableTriple#middle#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.tuple.MutableTriple#middle#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#removeAllOccurrences
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.ArrayUtils#toArray
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.mutable.MutableObject#<init>
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.mutable.MutableObject#<rule-storage>#java.lang.Object
+- function: org.apache.commons.lang3.text.CompositeFormat#format
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.concurrent.ConstantInitializer#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.concurrent.ConstantInitializer#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.lang3.text.WordUtils#capitalizeFully
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang3.tuple.ImmutablePair#<init>
+  signature: (java.lang.Object, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.ImmutablePair#right#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.ImmutablePair#left#java.lang.Object
+- function: org.apache.commons.lang3.StringEscapeUtils#escapeHtml4
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#joinWith
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#charAt
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#identityToString
+  signature:
+    params:
+    - index: 0
+      type: java.lang.StringBuilder
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: org.apache.commons.lang3.ClassUtils#getPackageCanonicalName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#setCharAt
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#asTokenizer
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#getChars
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: arg(0)
+  - from: this
+    to: arg(0)
+- function: org.apache.commons.lang3.ObjectUtils#median
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendFixedWidthPadRight
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringUtils#splitByCharacterTypeCamelCase
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.EnumUtils#getEnumList
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#CONST
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#removeEndIgnoreCase
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.translate.CharSequenceTranslator#hex
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#removeElements
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.tuple.ImmutablePair#of
+  signature: (java.lang.Object, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.ImmutablePair#right#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.ImmutablePair#left#java.lang.Object
+- function: org.apache.commons.lang3.ArrayUtils#add
+  signature: (*, short) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.text.WordUtils#swapCase
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#leftString
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#defaultIfNull
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#removeStart
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#toStringBuilder
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#replace
+  signature:
+    params:
+    - index: 0
+      type: int
+    - index: 1
+      type: int
+    - index: 2
+      type: java.lang.String
+  copy:
+  - from: arg(2)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.CharSet#getInstance
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#substringAfter
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.tuple.MutablePair#setRight
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.MutablePair#right#java.lang.Object
+- function: org.apache.commons.lang3.ArrayUtils#add
+  signature: (*, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.ArrayUtils#add
+  signature: (*, int) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.ArrayUtils#toPrimitive
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.ObjectUtils#identityToString
+  signature:
+    params:
+    - index: 0
+      type: java.lang.StringBuffer
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: org.apache.commons.lang3.text.StrTokenizer#previousToken
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrTokenizer#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.StringUtils#join
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#replaceEachRepeatedly
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#lowerCase
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendAll
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringUtils#prependIfMissing
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#setLength
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ClassUtils#convertClassNamesToClasses
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.tuple.Pair#getLeft
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.tuple.ImmutablePair#left#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.tuple.MutablePair#left#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.tuple.Pair#getValue
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.tuple.ImmutablePair#right#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.tuple.MutablePair#right#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#toString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#toPrimitive
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.mutable.Mutable#setValue
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.mutable.MutableObject#value#java.lang.Object
+- function: org.apache.commons.lang3.tuple.ImmutablePair#left
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.ImmutablePair#left#java.lang.Object
+- function: org.apache.commons.lang3.ArrayUtils#nullToEmpty
+  signature: (*) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.CharUtils#toChar
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#rightString
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringUtils#replacePattern
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#defaultIfEmpty
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#trim
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#replaceFirst
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#setLength
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.tuple.MutableTriple#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.MutableTriple#right#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.MutableTriple#left#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.MutableTriple#middle#java.lang.Object
+- function: org.apache.commons.lang3.StringUtils#stripToEmpty
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#removeAllOccurences
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.StringUtils#difference
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#splitByWholeSeparator
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#asWriter
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.CharUtils#unicodeEscaped
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#trim
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#replaceFirst
+  copy:
+  - from: arg(1)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#trim
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendTo
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: arg(0)
+  - from: this
+    to: arg(0)
+- function: org.apache.commons.lang3.StringUtils#normalizeSpace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.translate.CharSequenceTranslator#translate
+  signature:
+    params:
+    - index: 0
+      type: java.lang.CharSequence
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#addFirst
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.StringUtils#leftPad
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#remove
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#mode
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#ensureCapacity
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#toString
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrSubstitutor#<init>
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.text.StrSubstitutor#<rule-storage>#java.lang.Object
+- function: org.apache.commons.lang3.ObjectUtils#identityToString
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.builder.ToStringBuilder#appendSuper
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringUtils#substringBeforeLast
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#reverse
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringUtils#wrap
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#splitByWholeSeparatorPreserveAllTokens
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendWithSeparators
+  copy:
+  - from: arg(*)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.tuple.MutablePair#setValue
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.MutablePair#right#java.lang.Object
+- function: org.apache.commons.lang3.StringUtils#deleteWhitespace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.tuple.MutableTriple#<init>
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.MutableTriple#left#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.MutableTriple#middle#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.MutableTriple#right#java.lang.Object
+- function: org.apache.commons.lang3.StringUtils#replace
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.translate.CharSequenceTranslator#translate
+  signature:
+    params:
+    - index: 0
+      type: java.lang.CharSequence
+    - index: 1
+      type: int
+    - index: 2
+      type: java.io.Writer
+  copy:
+  - from: arg(0)
+    to: arg(2)
+- function: org.apache.commons.lang3.StringUtils#reverseDelimited
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#setCharAt
+  copy:
+  - from: arg(1)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#median
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#add
+  signature: (*, char) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.ClassUtils#convertClassesToClassNames
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.tuple.MutablePair#of
+  signature: (java.lang.Object, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.MutablePair#right#java.lang.Object
+  - from: arg(0)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.MutablePair#left#java.lang.Object
+- function: org.apache.commons.lang3.ObjectUtils#max
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+- function: org.apache.commons.lang3.text.StrTokenizer#previous
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrTokenizer#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.text.StrTokenizer#reset
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#defaultIfNull
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#midString
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#readFrom
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.lang3.tuple.MutablePair#<init>
+  signature: (java.lang.Object, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.MutablePair#right#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.MutablePair#left#java.lang.Object
+- function: org.apache.commons.lang3.StringUtils#split
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.tuple.Triple#getRight
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.tuple.MutableTriple#right#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.tuple.ImmutableTriple#right#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.text.CompositeFormat#parseObject
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.exception.ExceptionUtils#getStackTrace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrTokenizer#next
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrTokenizer#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#subarray
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.text.StrTokenizer#getContent
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrTokenizer#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.StringUtils#splitPreserveAllTokens
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#toObject
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendln
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ClassUtils#getShortCanonicalName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#delete
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#getIfNull
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#subarray
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#deleteAll
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.EnumUtils#getEnum
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#substringAfterLast
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#delete
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringUtils#appendIfMissing
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#strip
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendln
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringEscapeUtils#unescapeCsv
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ClassPathUtils#toFullyQualifiedName
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.exception.ExceptionUtils#getRootCause
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#substringBefore
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#substringBetween
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.mutable.Mutable#getValue
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.mutable.MutableObject#value#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#toObject
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.StringUtils#toEncodedString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.exception.ExceptionUtils#getStackFrames
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ClassUtils#getClass
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    - index: 1
+      type: boolean
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.mutable.MutableObject#<init>
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.mutable.MutableObject#value#java.lang.Object
+- function: org.apache.commons.lang3.ObjectUtils#toString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#removeAll
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.tuple.Pair#getKey
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.tuple.ImmutablePair#left#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.tuple.MutablePair#left#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.CharSetUtils#squeeze
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#abbreviate
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#stripEnd
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#firstNonNull
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#defaultString
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.text.StrLookup#mapLookup
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#replaceOnce
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.tuple.Pair#getRight
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.tuple.ImmutablePair#right#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.tuple.MutablePair#right#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#identityToString
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Appendable
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: org.apache.commons.lang3.ArrayUtils#clone
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#reverse
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendSeparator
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#add
+  signature: (*, byte) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.StringUtils#abbreviateMiddle
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#chomp
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#getCommonPrefix
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.WordUtils#capitalize
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#stripAccents
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#mode
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang3.StringEscapeUtils#escapeHtml3
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.tuple.Triple#getLeft
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.tuple.ImmutableTriple#left#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.tuple.MutableTriple#left#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.StringEscapeUtils#escapeCsv
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#subSequence
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringUtils#trimToEmpty
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendWithSeparators
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#replace
+  signature:
+    params:
+    - index: 0
+      type: org.apache.commons.lang3.text.StrMatcher
+    - index: 1
+      type: java.lang.String
+    - index: 2
+      type: int
+    - index: 3
+      type: int
+    - index: 4
+      type: int
+  copy:
+  - from: arg(1)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#minimizeCapacity
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringUtils#substring
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.builder.ToStringBuilder#append
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.WordUtils#wrap
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#center
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#left
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#ensureCapacity
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringUtils#toString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.exception.ExceptionUtils#getRootCauseStackTrace
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.CharUtils#toCharacterObject
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#max
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#deleteFirst
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#removeElement
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.text.StrBuilder#toCharArray
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringUtils#stripAll
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendNull
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.tuple.ImmutablePair#right
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.ImmutablePair#right#java.lang.Object
+- function: org.apache.commons.lang3.ObjectUtils#identityToString
+  signature:
+    params:
+    - index: 0
+      type: org.apache.commons.lang3.text.StrBuilder
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: org.apache.commons.lang3.exception.ExceptionUtils#getRootCauseMessage
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#get
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+- function: org.apache.commons.lang3.concurrent.ConstantInitializer#getObject
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.concurrent.ConstantInitializer#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#setNullText
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendAll
+  copy:
+  - from: arg(*)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#toStringBuffer
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.builder.ToStringBuilder#appendAsObjectToString
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.builder.ToStringBuilder#appendToString
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendNewLine
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#toMap
+  overrides: false
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    - '[*]'
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    - '[*]'
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.util.Map#MapValue#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapValue#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    - .java.util.Map#MapKey#java.lang.Object
+    to:
+    - result
+    - .java.util.Map#MapKey#java.lang.Object
+- function: org.apache.commons.lang3.ClassUtils#getPackageName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#prependIfMissingIgnoreCase
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#appendIfMissingIgnoreCase
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.tuple.MutablePair#setLeft
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.MutablePair#left#java.lang.Object
+- function: org.apache.commons.lang3.tuple.Triple#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.ImmutableTriple#left#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.ImmutableTriple#right#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.ImmutableTriple#middle#java.lang.Object
+- function: org.apache.commons.lang3.text.StrBuilder#append
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    - index: 1
+      type: java.lang.Object[]
+  copy:
+  - from: arg(1)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ClassPathUtils#toFullyQualifiedPath
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.text.StrLookup#lookup
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringUtils#rotate
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendFixedWidthPadLeft
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringUtils#replaceChars
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendFixedWidthPadLeft
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ClassUtils#getClass
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#replaceAll
+  copy:
+  - from: arg(1)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#replaceAll
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#add
+  signature: (*, boolean) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.StringUtils#mid
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#defaultIfBlank
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrTokenizer#getTokenArray
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrTokenizer#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#add
+  overrides: false
+  copy:
+  - from: arg(2)
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.text.StrBuilder#appendSeparator
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#get
+  signature: (*, int, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(2)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#swapCase
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendFixedWidthPadRight
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.CharSequenceUtils#subSequence
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#clone
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#removeStartIgnoreCase
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#substring
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.tuple.MutableTriple#setRight
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.MutableTriple#right#java.lang.Object
+- function: org.apache.commons.lang3.StringUtils#uncapitalize
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.CharSetUtils#delete
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#substringsBetween
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.tuple.MutableTriple#setLeft
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.MutableTriple#left#java.lang.Object
+- function: org.apache.commons.lang3.text.StrBuilder#replace
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#CONST_BYTE
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#deleteFirst
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#addAll
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.ArrayUtils#nullToEmpty
+  signature: (*, java.lang.Class) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#firstNonNull
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#toString
+  signature: (java.lang.Object, java.lang.String) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#replaceEach
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#add
+  signature: (*, double) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.text.translate.CharSequenceTranslator#translate
+  signature:
+    params:
+    - index: 0
+      type: java.lang.CharSequence
+    - index: 1
+      type: java.io.Writer
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: org.apache.commons.lang3.ArrayUtils#insert
+  overrides: false
+  copy:
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+  - from:
+    - arg(2)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.text.StrBuilder#setNullText
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.WordUtils#initials
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#right
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#minimizeCapacity
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.concurrent.ConcurrentInitializer#get
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringUtils#chop
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#reverse
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.CompositeFormat#reformat
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#toArray
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.exception.ExceptionUtils#getCause
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.CharUtils#toString
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#removePattern
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#remove
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.exception.ExceptionUtils#getThrowables
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#capitalize
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.EnumUtils#getEnumMap
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#requireNonEmpty
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#deleteCharAt
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.ClassUtils#getAbbreviatedName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#cloneIfPossible
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#add
+  signature: (*, long) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.ArrayUtils#add
+  signature: (*, float) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.StringUtils#rightPad
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.exception.ExceptionUtils#getMessage
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#build
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.tuple.ImmutableTriple#<init>
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.ImmutableTriple#middle#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.ImmutableTriple#left#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.commons.lang3.tuple.ImmutableTriple#right#java.lang.Object
+- function: org.apache.commons.lang3.text.StrBuilder#setNewLineText
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#asReader
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#deleteCharAt
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrTokenizer#getTokenList
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrTokenizer#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#setNewLineText
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.StringUtils#trimToNull
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#cloneIfPossible
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ClassUtils#getClass
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#min
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.commons.lang3.text.StrTokenizer#nextToken
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrTokenizer#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#min
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+- function: org.apache.commons.lang3.StringUtils#repeat
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#splitByCharacterType
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#overlay
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#firstNonEmpty
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+- function: org.apache.commons.lang3.StringUtils#upperCase
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#firstNonBlank
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: result
+- function: org.apache.commons.lang3.StringUtils#stripStart
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#insert
+  copy:
+  - from: arg(1)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#insert
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.CharSetUtils#keep
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.tuple.ImmutableTriple#of
+  signature: (java.lang.Object, java.lang.Object, java.lang.Object) *
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.ImmutableTriple#left#java.lang.Object
+  - from: arg(2)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.ImmutableTriple#right#java.lang.Object
+  - from: arg(1)
+    to:
+    - result
+    - .org.apache.commons.lang3.tuple.ImmutableTriple#middle#java.lang.Object
+- function: org.apache.commons.lang3.StringUtils#removeEnd
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.text.StrTokenizer#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.text.StrTokenizer#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.lang3.ClassUtils#getShortClassName
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ObjectUtils#CONST_SHORT
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.StringUtils#stripToNull
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.lang3.ArrayUtils#clone
+  overrides: false
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: org.apache.commons.lang3.text.StrBuilder#append
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function:
+    package: org.apache.commons.lang3.text
+    class: StrBuilder
+    name:
+      pattern: <init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.lang3.text.StrBuilder#append
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.commons.lang3.text.StrBuilder#appendPadding
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.lang3.text.StrBuilder#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result

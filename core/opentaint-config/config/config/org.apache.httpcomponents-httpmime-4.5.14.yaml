@@ -1,0 +1,42 @@
+library: org.apache.httpcomponents:httpmime:4.5.14
+passThrough:
+- function: org.apache.http.entity.mime.content.FileBody#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.http.entity.mime.content.FileBody#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.http.entity.mime.FormBodyPart#addField
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.http.entity.mime.FormBodyPart#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: org.apache.http.entity.mime.content.ByteArrayBody#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.http.entity.mime.content.ByteArrayBody#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.http.entity.mime.content.StringBody#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.http.entity.mime.content.StringBody#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.http.entity.mime.content.InputStreamBody#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.http.entity.mime.content.InputStreamBody#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this

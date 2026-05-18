@@ -1,0 +1,66 @@
+library: javax.xml.xquery:xqj-api:1.0
+passThrough:
+- function: javax.xml.xquery.XQResultSequence#getItem
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQSequence#getObject
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQResultSequence#getSequenceAsString
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQSequence#getItem
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQSequence#getItemAsStream
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQSequence#getAtomicValue
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQResultSequence#getNode
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQSequence#getNode
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQResultSequence#getSequenceAsStream
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQSequence#getItemAsString
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQResultSequence#getAtomicValue
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQResultSequence#getItemAsString
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQSequence#getSequenceAsStream
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQResultSequence#getItemAsStream
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQResultSequence#getObject
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.xquery.XQSequence#getSequenceAsString
+  copy:
+  - from: this
+    to: result

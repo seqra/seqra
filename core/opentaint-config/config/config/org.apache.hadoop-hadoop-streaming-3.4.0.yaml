@@ -1,0 +1,54 @@
+library: org.apache.hadoop:hadoop-streaming:3.4.0
+passThrough:
+- function: org.apache.hadoop.record.BinaryRecordInput#readString
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.record.BinaryRecordInput#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.record.BinaryRecordInput#readBuffer
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.record.BinaryRecordInput#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.record.CsvRecordOutput#writeByte
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.record.BinaryRecordInput#<init>
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.record.BinaryRecordInput#<rule-storage>#java.lang.Object
+- function: org.apache.hadoop.record.CsvRecordOutput#writeString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.record.BinaryRecordOutput#writeByte
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.record.BinaryRecordOutput#writeString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.streaming.StreamJob#<init>
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.record.BinaryRecordInput#readByte
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.record.BinaryRecordInput#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result

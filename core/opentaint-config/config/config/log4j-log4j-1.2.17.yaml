@@ -1,0 +1,10 @@
+library: log4j:log4j:1.2.17
+passThrough:
+- function: org.apache.log4j.PropertyConfigurator#doConfigure
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: org.apache.log4j.helpers.Transform#appendEscapingCDATA
+  copy:
+  - from: arg(1)
+    to: arg(0)

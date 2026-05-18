@@ -1,0 +1,146 @@
+library: ecs:ecs:1.4.2
+dependencies:
+- org.apache.hadoop:hadoop-common:3.3.6
+passThrough:
+- function: org.apache.ecs.storage.Array#elements
+  copy:
+  - from:
+    - this
+    - .org.apache.ecs.storage.Array#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.ecs.ElementAttributes#attributes
+  copy:
+  - from: this
+    to: result
+- function: org.apache.ecs.storage.Array#get
+  copy:
+  - from:
+    - this
+    - .org.apache.ecs.storage.Array#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.ecs.ElementContainer#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.ecs.ElementContainer#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.ecs.ElementRegistry#addElementToRegistry
+  copy:
+  - from: arg(*)
+    to: result
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.ecs.ElementRegistry#<rule-storage>#java.lang.Object
+- function: org.apache.ecs.Attributes#setAttributeFilter
+  copy:
+  - from: arg(*)
+    to: result
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.ecs.Attributes#<rule-storage>#java.lang.Object
+- function: org.apache.ecs.ElementRegistry#removeElementFromRegistry
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.ecs.ElementRegistry#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.ecs.Filter#addAttribute
+  copy:
+  - from: arg(*)
+    to: result
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.ecs.Filter#<rule-storage>#java.lang.Object
+- function: org.apache.ecs.StringElement#addElement
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.ecs.StringElement#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.ecs.storage.Array#add
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.ecs.storage.Array#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.ecs.ConcreteElement#elements
+  copy:
+  - from: this
+    to: result
+- function: org.apache.ecs.StringElement#append
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.ecs.StringElement#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.ecs.StringElement#removeElement
+  copy:
+  - from:
+    - this
+    - .org.apache.ecs.StringElement#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.ecs.ElementContainer#addElement
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.ecs.ElementContainer#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.ecs.storage.Array#add
+  signature:
+    params:
+    - index: 0
+      type: int
+    - index: 1
+      type: java.lang.Object
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.ecs.storage.Array#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: org.apache.ecs.StringElement#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.ecs.StringElement#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this

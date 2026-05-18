@@ -1,0 +1,58 @@
+library: org.apache.axis2:axis2-kernel:1.8.0
+passThrough:
+- function: org.apache.axis2.client.Stub#createEnvelope
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.axis2.addressing.EndpointReference#addAttribute
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis2.addressing.EndpointReference#<rule-storage>#java.lang.Object
+- function: org.apache.axis2.addressing.EndpointReference#addReferenceParameter
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis2.addressing.EndpointReference#<rule-storage>#java.lang.Object
+- function: org.apache.axis2.builder.Builder#processDocument
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.axis2.addressing.EndpointReference#setAddress
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis2.addressing.EndpointReference#<rule-storage>#java.lang.Object
+- function: org.apache.axis2.addressing.EndpointReference#addExtensibleElement
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis2.addressing.EndpointReference#<rule-storage>#java.lang.Object
+- function: org.apache.axis2.addressing.EndpointReference#addMetaData
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis2.addressing.EndpointReference#<rule-storage>#java.lang.Object
+- function: org.apache.axis2.addressing.EndpointReference#setName
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis2.addressing.EndpointReference#<rule-storage>#java.lang.Object

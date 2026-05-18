@@ -1,0 +1,29 @@
+passThrough:
+- function: javax.naming.spi.DirStateFactory$Result#getAttributes
+  signature:
+    return: javax.naming.directory.Attributes
+  copy:
+  - from:
+    - this
+    - .javax.naming.spi.DirStateFactory$Result#attributes#javax.naming.directory.Attributes
+    to: result
+- function: javax.naming.spi.DirStateFactory$Result#getObject
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.naming.spi.DirStateFactory$Result#stateObject#java.lang.Object
+    to: result
+- function: javax.naming.spi.DirStateFactory$Result#getAttributes
+  signature: () javax.naming.directory.Attributes
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.spi.DirStateFactory$Result#getObject
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result

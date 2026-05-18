@@ -1,0 +1,30 @@
+library: org.yaml:snakeyaml:2.2
+passThrough:
+- function: org.yaml.snakeyaml.Yaml#loadAs
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - arg(0)
+    - .java.lang.String#<serialized-value>#java.lang.Object
+    to: result
+- function: org.yaml.snakeyaml.Yaml#load
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - arg(0)
+    - .java.lang.String#<serialized-value>#java.lang.Object
+    to: result
+- function: org.yaml.snakeyaml.Yaml#loadAll
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object
+  - from:
+    - arg(0)
+    - .java.lang.String#<serialized-value>#java.lang.Object
+    to:
+    - result
+    - .java.lang.Iterable#Element#java.lang.Object

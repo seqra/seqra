@@ -1,0 +1,1243 @@
+passThrough:
+- function: javax.naming.CompositeName#<init>
+  signature: (java.util.Enumeration) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+- function: javax.naming.Reference#get
+  signature: (int) javax.naming.RefAddr
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.Binding#getObject
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.CompositeName#addAll
+  signature: (javax.naming.Name) javax.naming.Name
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.naming.Reference#getAll
+  signature: () java.util.Enumeration
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.NameClassPair#getName
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.CompositeName#add
+  signature: (*, *) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+  - from:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+    - .javax.naming.Name#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+- function: javax.naming.CompositeName#get
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#component#java.lang.String
+    to: result
+  - from:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+    - .javax.naming.Name#component#java.lang.String
+    to: result
+- function: javax.naming.CompositeName#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#component#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+    - .javax.naming.Name#component#java.lang.String
+- function: javax.naming.CompoundName#getSuffix
+  signature: (*) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompoundName#component#java.lang.String
+    to:
+    - result
+    - .javax.naming.Name#component#java.lang.String
+  - from:
+    - this
+    - .javax.naming.CompoundName#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+- function: javax.naming.Name#add
+  signature:
+    params:
+    - index: 1
+      type: java.lang.String
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Name#component#java.lang.String
+- function: javax.naming.LinkRef#getLinkName
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.Reference#get
+  signature:
+    return: javax.naming.RefAddr
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#address#javax.naming.RefAddr
+    to: result
+  - from:
+    - this
+    - .javax.naming.Reference#address#javax.naming.RefAddr
+    to: result
+- function: javax.naming.NameClassPair#setNameInNamespace
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#name#java.lang.String
+- function: javax.naming.Reference#getFactoryClassLocation
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.CompositeName#addAll
+  signature:
+    params:
+    - index: 0
+      type: javax.naming.Name
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+- function: javax.naming.Name#add
+  signature: (int, java.lang.String) javax.naming.Name
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+- function: javax.naming.Name#remove
+  signature: (int) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.NamingEnumeration#next
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.naming.NamingEnumeration#element#java.lang.Object
+    to: result
+- function: javax.naming.Binding#getObject
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.NameClassPair#setName
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.naming.Reference#getFactoryClassName
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.CompositeName#get
+  signature: (int) java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.Reference#remove
+  signature: (int) java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.CompositeName#addAll
+  signature: (javax.naming.Name) javax.naming.Name
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+- function: javax.naming.NameClassPair#setClassName
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.naming.Reference#getFactoryClassName
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.CompoundName#addAll
+  signature: (*) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompoundName#component#java.lang.String
+    to:
+    - result
+    - .javax.naming.Name#component#java.lang.String
+  - from:
+    - this
+    - .javax.naming.CompoundName#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+- function: javax.naming.Name#getPrefix
+  signature: (int) javax.naming.Name
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.CompositeName#getSuffix
+  signature:
+    return: javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+    to: result
+- function: javax.naming.CompositeName#<init>
+  signature: (java.util.Enumeration) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.naming.Name#getSuffix
+  signature: (int) javax.naming.Name
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.CompositeName#add
+  signature: (int, java.lang.String) javax.naming.Name
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: this
+- function: javax.naming.Reference#add
+  signature: (int, javax.naming.RefAddr) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: this
+- function: javax.naming.CompositeName#<init>
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.naming.CompoundName#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.util.Enumeration
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompoundName#components#java.util.Enumeration
+- function: javax.naming.NameClassPair#getNameInNamespace
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.NameClassPair#name#java.lang.String
+    to: result
+- function: javax.naming.Reference#get
+  signature: (java.lang.String) javax.naming.RefAddr
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.CompositeName#add
+  signature: (*) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+  - from:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+    - .javax.naming.Name#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+- function: javax.naming.CompoundName#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompoundName#component#java.lang.String
+- function: javax.naming.Name#add
+  signature: (int, java.lang.String) javax.naming.Name
+  taintCopyOnly: true
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(1)
+    to: result
+  - from: arg(1)
+    to: this
+- function: javax.naming.NameClassPair#setName
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#name#java.lang.String
+- function: javax.naming.Reference#getClassName
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#className#java.lang.String
+    to: result
+  - from:
+    - this
+    - .javax.naming.Reference#address#javax.naming.RefAddr
+    - .javax.naming.RefAddr#type#java.lang.String
+    to: result
+- function: javax.naming.RefAddr#getContent
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.Reference#getAll
+  signature: () java.util.Enumeration
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.Context#composeName
+  signature: (javax.naming.Name, javax.naming.Name) javax.naming.Name
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: javax.naming.Binding#setObject
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Binding#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.naming.Name#get
+  signature: (int) java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.NameClassPair#getClassName
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.NameClassPair#name#java.lang.String
+    to: result
+- function: javax.naming.Reference#getFactoryClassLocation
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.CompositeName#getPrefix
+  signature:
+    return: javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+    to: result
+- function: javax.naming.NameClassPair#setClassName
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+- function: javax.naming.Context#composeName
+  signature: (java.lang.String, java.lang.String) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: javax.naming.RefAddr#getType
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.Binding#getObject
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.naming.Binding#boundObject#java.lang.Object
+    to: result
+- function: javax.naming.Name#getAll
+  signature:
+    return: java.util.Enumeration
+  copy:
+  - from:
+    - this
+    - .javax.naming.Name#components#java.util.Enumeration
+    to: result
+- function: javax.naming.CompoundName#add
+  signature: (*) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompoundName#component#java.lang.String
+    to:
+    - result
+    - .javax.naming.Name#component#java.lang.String
+  - from:
+    - this
+    - .javax.naming.CompoundName#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+- function: javax.naming.Reference#get
+  signature: (java.lang.String) javax.naming.RefAddr
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.CompositeName#<init>
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+- function: javax.naming.NamingEnumeration#next
+  signature: () java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.CompositeName#add
+  signature: (int, java.lang.String) javax.naming.Name
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+- function: javax.naming.NameClassPair#setClassName
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#name#java.lang.String
+- function: javax.naming.CompositeName#addAll
+  signature: (*) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+  - from:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+    - .javax.naming.Name#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+- function: javax.naming.CompositeName#add
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#component#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+    - .javax.naming.Name#component#java.lang.String
+- function: javax.naming.LinkRef#<init>
+  signature: (javax.naming.Name) *
+  copy:
+  - from:
+    - arg(0)
+    - .javax.naming.Name#component#java.lang.String
+    to:
+    - this
+    - .javax.naming.LinkRef#linkName#java.lang.String
+- function: javax.naming.Reference#add
+  signature:
+    params:
+    - index: 1
+      type: javax.naming.RefAddr
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Reference#address#javax.naming.RefAddr
+- function: javax.naming.Context#getNameParser
+  signature: (java.lang.String) javax.naming.NameParser
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.naming.CompoundName#<init>
+  signature: (java.lang.String, java.util.Properties) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompoundName#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.CompoundName#<rule-storage>#java.lang.Object
+- function: javax.naming.Reference#add
+  signature: (int, javax.naming.RefAddr) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+- function: javax.naming.CompositeName#add
+  signature: (java.lang.String) javax.naming.Name
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: this
+- function: javax.naming.LinkRef#getLinkName
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.LinkRef#linkName#java.lang.String
+    to: result
+- function: javax.naming.CompoundName#<init>
+  signature: (java.util.Enumeration, java.util.Properties) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompoundName#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.CompoundName#<rule-storage>#java.lang.Object
+- function: javax.naming.Reference#add
+  signature: (javax.naming.RefAddr) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.naming.CompositeName#getSuffix
+  signature: (int) javax.naming.Name
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.Reference#remove
+  signature: (int) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.Name#get
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.Name#component#java.lang.String
+    to: result
+- function: javax.naming.Referenceable#getReference
+  signature: () javax.naming.Reference
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.CompoundName#<init>
+  signature: (java.lang.String, java.util.Properties) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: javax.naming.Name#addAll
+  signature: (javax.naming.Name) javax.naming.Name
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: this
+- function: javax.naming.Reference#getFactoryClassName
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#className#java.lang.String
+    to: result
+  - from:
+    - this
+    - .javax.naming.Reference#address#javax.naming.RefAddr
+    - .javax.naming.RefAddr#type#java.lang.String
+    to: result
+- function: javax.naming.Name#add
+  signature:
+    params:
+    - index: 1
+      type: java.lang.String
+    return: javax.naming.Name
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .javax.naming.Name#component#java.lang.String
+- function: javax.naming.CompositeName#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.util.Enumeration
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#components#java.util.Enumeration
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+    - .javax.naming.Name#components#java.util.Enumeration
+- function: javax.naming.Name#get
+  signature: (int) java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.CompositeName#getPrefix
+  signature: (int) javax.naming.Name
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.Name#getAll
+  signature: () java.util.Enumeration
+  copy:
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.NameClassPair#getName
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.NameClassPair#getClassName
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.CompoundName#<init>
+  signature: (java.util.Enumeration, java.util.Properties) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: javax.naming.NameClassPair#setNameInNamespace
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.naming.NameParser#parse
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    return: javax.naming.Name
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .javax.naming.Name#component#java.lang.String
+- function: javax.naming.Reference#add
+  signature:
+    params:
+    - index: 0
+      type: javax.naming.RefAddr
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Reference#address#javax.naming.RefAddr
+- function: javax.naming.Name#getAll
+  signature: () java.util.Enumeration
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.CompositeName#getSuffix
+  signature: (int) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.Reference#get
+  signature: (int) javax.naming.RefAddr
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.CompositeName#getPrefix
+  signature: (int) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.NameClassPair#setName
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+- function: javax.naming.Reference#getClassName
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.Name#add
+  signature: (java.lang.String) javax.naming.Name
+  taintCopyOnly: true
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: this
+- function: javax.naming.CompositeName#addAll
+  signature: (*, *) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+  - from:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+    - .javax.naming.Name#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+- function: javax.naming.CompositeName#add
+  signature:
+    params:
+    - index: 1
+      type: java.lang.String
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.CompositeName#component#java.lang.String
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+    - .javax.naming.Name#component#java.lang.String
+- function: javax.naming.CompositeName#getPrefix
+  signature: (*) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+  - from:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+    - .javax.naming.Name#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+- function: javax.naming.Context#getNameParser
+  signature: (javax.naming.Name) javax.naming.NameParser
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.naming.Reference#add
+  signature: (javax.naming.RefAddr) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Reference#<rule-storage>#java.lang.Object
+- function: javax.naming.CompositeName#addAll
+  signature:
+    params:
+    - index: 1
+      type: javax.naming.Name
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+- function: javax.naming.Name#remove
+  signature: (int) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.NameClassPair#getNameInNamespace
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.naming.CompositeName#addAll
+  signature: (int, javax.naming.Name) javax.naming.Name
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: this
+- function: javax.naming.Reference#getClassName
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.CompositeName#get
+  signature: (int) java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.NameClassPair#getNameInNamespace
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.CompositeName#add
+  signature: (java.lang.String) javax.naming.Name
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+- function: javax.naming.CompositeName#add
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    return: javax.naming.Name
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .javax.naming.Name#component#java.lang.String
+- function: javax.naming.NameClassPair#getClassName
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.naming.NameClassPair#getName
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.NameClassPair#name#java.lang.String
+    to: result
+- function: javax.naming.CompositeName#addAll
+  signature: (int, javax.naming.Name) javax.naming.Name
+  copy:
+  - from: arg(1)
+    to: result
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .javax.naming.CompositeName#<rule-storage>#java.lang.Object
+- function: javax.naming.CompoundName#getPrefix
+  signature: (*) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompoundName#component#java.lang.String
+    to:
+    - result
+    - .javax.naming.Name#component#java.lang.String
+  - from:
+    - this
+    - .javax.naming.CompoundName#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+- function: javax.naming.CompoundName#add
+  signature: (*, *) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompoundName#component#java.lang.String
+    to:
+    - result
+    - .javax.naming.Name#component#java.lang.String
+  - from:
+    - this
+    - .javax.naming.CompoundName#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+- function: javax.naming.CompositeName#getSuffix
+  signature: (*) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompositeName#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+  - from:
+    - this
+    - .javax.naming.CompositeName#suffix#javax.naming.Name
+    - .javax.naming.Name#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+- function: javax.naming.Name#add
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#component#java.lang.String
+- function: javax.naming.CompoundName#addAll
+  signature: (*, *) javax.naming.Name
+  copy:
+  - from:
+    - this
+    - .javax.naming.CompoundName#component#java.lang.String
+    to:
+    - result
+    - .javax.naming.Name#component#java.lang.String
+  - from:
+    - this
+    - .javax.naming.CompoundName#components#java.util.Enumeration
+    to:
+    - result
+    - .javax.naming.Name#components#java.util.Enumeration
+- function: javax.naming.NameClassPair#setNameInNamespace
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.NameClassPair#<rule-storage>#java.lang.Object
+- function: javax.naming.RefAddr#getType
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.RefAddr#type#java.lang.String
+    to: result
+- function: javax.naming.NameParser#parse
+  signature: (java.lang.String) javax.naming.Name
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.naming.Reference#getFactoryClassLocation
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.naming.Reference#className#java.lang.String
+    to: result
+  - from:
+    - this
+    - .javax.naming.Reference#address#javax.naming.RefAddr
+    - .javax.naming.RefAddr#type#java.lang.String
+    to: result
+- function: javax.naming.Name#addAll
+  signature: (int, javax.naming.Name) javax.naming.Name
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(1)
+    to: result
+  - from: arg(1)
+    to: this
+- function: javax.naming.Name#add
+  signature: (java.lang.String) javax.naming.Name
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.naming.Name#<rule-storage>#java.lang.Object
+- function: javax.naming.Name#add
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    return: javax.naming.Name
+  condition:
+    allOf:
+    - not:
+        typeIs: org.springframework.ldap.support.DistinguishedName
+        pos: this
+    - not:
+        typeIs: javax.naming.ldap.LdapName
+        pos: this
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .javax.naming.Name#component#java.lang.String

@@ -1,0 +1,45 @@
+library: org.springframework:spring-web:4.2.7.RELEASE
+passThrough:
+- function: org.springframework.web.util.CookieGenerator#getCookiePath
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.WebUtils#extractFilenameFromUrlPath
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.web.util.CookieGenerator#getCookieDomain
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.CookieGenerator#getCookieDomain
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.util.CookieGenerator#cookieName#java.lang.String
+    to: result
+- function: org.springframework.web.util.CookieGenerator#getCookieName
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.web.util.CookieGenerator#getCookiePath
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.util.CookieGenerator#cookieName#java.lang.String
+    to: result
+- function: org.springframework.web.util.CookieGenerator#getCookieName
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.springframework.web.util.CookieGenerator#cookieName#java.lang.String
+    to: result

@@ -1,0 +1,75 @@
+passThrough:
+- function: java.security.CodeSource#getCertificates
+  signature: () java.security.cert.Certificate[]
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.security.CodeSource#certificates#java.lang.Object
+    - '[*]'
+    to:
+    - result
+    - '[*]'
+- function: java.security.Key#getEncoded
+  signature:
+    return: byte[]
+  copy:
+  - from:
+    - this
+    - .java.security.Key#encoded#byte[]
+    to: result
+- function: java.security.CodeSource#<init>
+  signature: (java.net.URL, java.security.cert.Certificate[]) void
+  overrides: false
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - this
+    - .java.security.CodeSource#codeSigners#java.lang.Object
+    - '[*]'
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - this
+    - .java.security.CodeSource#certificates#java.lang.Object
+    - '[*]'
+- function: java.security.Key#getEncoded
+  signature: () byte[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.security.CodeSource#<init>
+  signature: (java.net.URL, java.security.CodeSigner[]) void
+  overrides: false
+  bypassVerification: true
+  copy:
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - this
+    - .java.security.CodeSource#codeSigners#java.lang.Object
+    - '[*]'
+  - from:
+    - arg(1)
+    - '[*]'
+    to:
+    - this
+    - .java.security.CodeSource#certificates#java.lang.Object
+    - '[*]'
+- function: java.security.CodeSource#getCodeSigners
+  signature: () java.security.CodeSigner[]
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.security.CodeSource#codeSigners#java.lang.Object
+    - '[*]'
+    to:
+    - result
+    - '[*]'

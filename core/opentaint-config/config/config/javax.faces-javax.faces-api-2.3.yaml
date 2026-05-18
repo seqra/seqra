@@ -1,0 +1,431 @@
+library: javax.faces:javax.faces-api:2.3
+dependencies:
+- javax.servlet.jsp.jstl:jstl-api:1.2
+passThrough:
+- function: javax.faces.model.ScalarDataModel#<init>
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.DataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.ScalarDataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.faces.context.ExternalContext#encodeNamespace
+  signature: (java.lang.String) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.faces.convert.Converter#getAsObject
+  signature: (javax.faces.context.FacesContext, javax.faces.component.UIComponent,
+    java.lang.String) java.lang.Object
+  copy:
+  - from: arg(2)
+    to: result
+- function: javax.faces.el.ValueBinding#getValue
+  signature: (javax.faces.context.FacesContext) java.lang.Object
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.faces.el.ValueBinding#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.faces.model.ArrayDataModel#<init>
+  signature: () void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.DataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.ArrayDataModel#<rule-storage>#java.lang.Object
+- function: javax.faces.model.ResultSetDataModel#<init>
+  signature: (java.sql.ResultSet) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.DataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.ResultSetDataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.faces.model.SelectItemGroup#<init>
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(3)
+    to:
+    - this
+    - .javax.faces.model.SelectItemGroup#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.faces.model.SelectItemGroup#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.SelectItemGroup#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.faces.model.DataModelEvent#<init>
+  signature: (javax.faces.model.DataModel, int, java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.DataModelEvent#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .javax.faces.model.DataModelEvent#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.EventObject#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to:
+    - this
+    - .java.util.EventObject#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to: this
+- function: javax.faces.model.DataModelEvent#getDataModel
+  signature: () javax.faces.model.DataModel
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.faces.model.DataModelEvent#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.EventObject#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.faces.model.ScalarDataModel#<init>
+  signature: () void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.DataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.ScalarDataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.faces.model.SelectItemGroup#<init>
+  signature: (java.lang.String, java.lang.String, boolean, javax.faces.model.SelectItem[])
+    void
+  copy:
+  - from:
+    - arg(3)
+    - '[*]'
+    to:
+    - this
+    - .javax.faces.model.SelectItemGroup#<rule-storage>#java.lang.Object
+  - from:
+    - arg(3)
+    - '[*]'
+    to: this
+  - from: arg(3)
+    to:
+    - this
+    - .javax.faces.model.SelectItemGroup#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.faces.model.SelectItemGroup#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.SelectItemGroup#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.faces.model.ResultDataModel#<init>
+  signature: () void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.ResultDataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.DataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.faces.model.ResultDataModel#<init>
+  signature: (javax.servlet.jsp.jstl.sql.Result) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.ResultDataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.DataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.faces.model.ArrayDataModel#<init>
+  signature: (java.lang.Object[]) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.DataModel#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.faces.model.ArrayDataModel#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.faces.model.DataModel#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.ArrayDataModel#<rule-storage>#java.lang.Object
+- function: javax.faces.model.DataModel#getRowData
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.faces.model.DataModel#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.faces.context.ExternalContext#encodeActionURL
+  signature: (java.lang.String) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.faces.convert.Converter#getAsString
+  signature: (javax.faces.context.FacesContext, javax.faces.component.UIComponent,
+    java.lang.Object) java.lang.String
+  copy:
+  - from: arg(2)
+    to: result
+- function: javax.faces.el.ValueBinding#setValue
+  signature: (javax.faces.context.FacesContext, java.lang.Object) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.faces.el.ValueBinding#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.faces.model.ListDataModel#<init>
+  signature: () void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.DataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.ListDataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.faces.model.SelectItemGroup#getSelectItems
+  signature: () javax.faces.model.SelectItem[]
+  copy:
+  - from:
+    - this
+    - .javax.faces.model.SelectItemGroup#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.faces.model.SelectItemGroup#setSelectItems
+  signature: (javax.faces.model.SelectItem[]) void
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to: this
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .javax.faces.model.SelectItemGroup#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.SelectItemGroup#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.faces.context.ExternalContext#encodeResourceURL
+  signature: (java.lang.String) java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.faces.model.ResultSetDataModel#<init>
+  signature: () void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.DataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.ResultSetDataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.faces.model.ListDataModel#<init>
+  signature: (java.util.List) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.DataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.ListDataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.faces.model.DataModel#getWrappedData
+  signature: () java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.faces.model.DataModel#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.faces.model.DataModel#setWrappedData
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.DataModel#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Iterable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.faces.model.DataModelEvent#getRowData
+  signature: () java.lang.Object
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.faces.model.DataModelEvent#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.util.EventObject#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.faces.model.SelectItemGroup#<init>
+  signature: () void
+  copy:
+  - from: arg(3)
+    to:
+    - this
+    - .javax.faces.model.SelectItemGroup#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.faces.model.SelectItemGroup#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.faces.model.SelectItemGroup#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this

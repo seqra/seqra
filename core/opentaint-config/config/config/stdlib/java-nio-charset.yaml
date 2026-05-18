@@ -1,0 +1,51 @@
+passThrough:
+- function: java.nio.charset.Charset#encode
+  signature: (java.lang.String) java.nio.ByteBuffer
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.nio.charset.CharsetEncoder#encode
+  signature: (java.nio.CharBuffer) java.nio.ByteBuffer
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.nio.charset.CharsetEncoder#encode
+  signature: (java.nio.CharBuffer, java.nio.ByteBuffer, boolean) java.nio.charset.CoderResult
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: arg(1)
+  - from: arg(0)
+    to: result
+- function: java.nio.charset.CharsetEncoder#encodeLoop
+  signature: (java.nio.CharBuffer, java.nio.ByteBuffer) java.nio.charset.CoderResult
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: java.nio.charset.CharsetDecoder#decode
+  signature: (java.nio.ByteBuffer, java.nio.CharBuffer, boolean) java.nio.charset.CoderResult
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: java.nio.charset.Charset#encode
+  signature: (java.nio.CharBuffer) java.nio.ByteBuffer
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.nio.charset.CharsetDecoder#decodeLoop
+  signature: (java.nio.ByteBuffer, java.nio.CharBuffer) java.nio.charset.CoderResult
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: java.nio.charset.Charset#decode
+  signature: (java.nio.ByteBuffer) java.nio.CharBuffer
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result

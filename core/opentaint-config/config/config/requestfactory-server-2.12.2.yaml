@@ -1,0 +1,102 @@
+library: org.gwtproject.web.bindery:requestfactory-server:2.12.2
+passThrough:
+- function:
+    package: com.google.web.bindery.requestfactory.shared
+    class: EntityProxy
+    name:
+      pattern: set.*
+  bypassVerification: true
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.EntityProxy#<rule-storage>#java.lang.Object
+- function: com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#setMessage
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#setPath
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function:
+    package: com.google.web.bindery.requestfactory.shared
+    class: EntityProxy
+    name:
+      pattern: get.*
+  bypassVerification: true
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.EntityProxy#<rule-storage>#java.lang.Object
+    to: result
+- function: com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#getPath
+  copy:
+  - from:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function:
+    package: com.google.web.bindery.requestfactory.shared
+    class: ValueProxy
+    name:
+      pattern: get.*
+  bypassVerification: true
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.ValueProxy#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: com.google.web.bindery.requestfactory.shared
+    class: ValueProxy
+    name:
+      pattern: set.*
+  bypassVerification: true
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.ValueProxy#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#getMessageTemplate
+  copy:
+  - from:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#setMessageTemplate
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#getMessage
+  copy:
+  - from:
+    - this
+    - .com.google.web.bindery.requestfactory.shared.messages.ViolationMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result

@@ -1,0 +1,27 @@
+library: org.apache.httpcomponents.core5:httpcore5:5.3.1
+passThrough:
+- function: org.apache.hc.core5.util.Args#notEmpty
+  signature: (java.lang.Object, java.lang.String) *
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hc.core5.util.Args#notNull
+  signature: (java.lang.Object, java.lang.String) *
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hc.core5.util.Args#containsNoBlanks
+  signature: (*, java.lang.String) *
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hc.core5.util.Args#notEmpty
+  signature: (*, java.lang.String) *
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hc.core5.util.Args#notBlank
+  signature: (*, java.lang.String) *
+  copy:
+  - from: arg(0)
+    to: result

@@ -1,0 +1,10 @@
+library: org.apache.wicket:wicket-util:9.16.0
+passThrough:
+- function: org.apache.wicket.util.crypt.ICrypt#decryptUrlSafe
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.wicket.util.crypt.NoCrypt#encryptUrlSafe
+  copy:
+  - from: arg(0)
+    to: result

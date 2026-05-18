@@ -1,0 +1,338 @@
+library: javax.jms:javax.jms-api:2.0
+passThrough:
+- function:
+    package: javax.jms
+    class: BytesMessage
+    name:
+      pattern: read.*
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.jms.BytesMessage#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.jms.MapMessage#getChar
+  copy:
+  - from:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.jms.MapMessage#getLong
+  copy:
+  - from:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.jms
+    class: Message
+    name:
+      pattern: set.*Property
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jms.Message#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function:
+    package: javax.jms
+    class: Message
+    name:
+      pattern: setJMS.*
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.jms.Message#<rule-storage>#java.lang.Object
+- function: javax.jms.MapMessage#getString
+  copy:
+  - from:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.jms.MapMessage#setByte
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.jms.MapMessage#setBoolean
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.jms.ObjectMessage#setObject
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.jms.ObjectMessage#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.jms.Session#createTextMessage
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.jms.MapMessage#getBoolean
+  copy:
+  - from:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.jms.MapMessage#getBytes
+  copy:
+  - from:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.jms.MapMessage#getDouble
+  copy:
+  - from:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.jms.MapMessage#setBytes
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.jms.MapMessage#getShort
+  copy:
+  - from:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.jms.ObjectMessage#getObject
+  copy:
+  - from:
+    - this
+    - .javax.jms.ObjectMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.jms.MapMessage#setFloat
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function:
+    package: javax.jms
+    class: Message
+    name:
+      pattern: (get.*Property)
+  copy:
+  - from:
+    - this
+    - .javax.jms.Message#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.jms
+    class: Topic
+    name:
+      pattern: get.*Name
+  copy:
+  - from: this
+    to: result
+- function: javax.jms.MapMessage#getByte
+  copy:
+  - from:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.jms.TextMessage#getText
+  copy:
+  - from:
+    - this
+    - .javax.jms.TextMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.jms.MapMessage#getInt
+  copy:
+  - from:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.jms
+    class: StreamMessage
+    name:
+      pattern: read.*
+  copy:
+  - from:
+    - this
+    - .javax.jms.StreamMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.jms
+    class: Message
+    name:
+      pattern: (getJMS.*)
+  copy:
+  - from:
+    - this
+    - .javax.jms.Message#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.jms.Session#createObjectMessage
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.jms.MapMessage#setInt
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.jms.MapMessage#getObject
+  copy:
+  - from:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.jms.MapMessage#setLong
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function:
+    package: javax.jms
+    class: StreamMessage
+    name:
+      pattern: write.*
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.jms.StreamMessage#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.jms.MapMessage#setObject
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.jms.MapMessage#getFloat
+  copy:
+  - from:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: javax.jms.MapMessage#setChar
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.jms.MapMessage#setShort
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.jms.MapMessage#setDouble
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: javax.jms.BytesMessage#getBodyLength
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.jms.BytesMessage#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: javax.jms
+    class: Queue
+    name:
+      pattern: get.*Name
+  copy:
+  - from: this
+    to: result
+- function: javax.jms.TextMessage#setText
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .javax.jms.TextMessage#<rule-storage>#java.lang.Object
+- function:
+    package: javax.jms
+    class: BytesMessage
+    name:
+      pattern: write.*
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.jms.BytesMessage#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.jms.MapMessage#setString
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jms.MapMessage#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this

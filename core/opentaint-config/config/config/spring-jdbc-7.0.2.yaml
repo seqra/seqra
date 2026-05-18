@@ -1,0 +1,81 @@
+library: org.springframework:spring-jdbc:7.0.2
+passThrough:
+- function: org.springframework.jdbc.support.xml.SqlXmlHandler#getXmlAsString
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.jdbc.support.xml.SqlXmlHandler#newSqlXmlValue
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.jdbc.support.xml.SqlXmlHandler#getXmlAsSource
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.jdbc.support.rowset.SqlRowSet#getString
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.springframework.jdbc.support.rowset.SqlRowSet#columnText#java.lang.String
+    to: result
+- function: org.springframework.jdbc.support.xml.SqlXmlHandler#newSqlXmlValue
+  signature:
+    params:
+    - index: 0
+      type: org.w3c.dom.Document
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.jdbc.support.rowset.SqlRowSet#getString
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.jdbc.support.rowset.SqlRowSet#getObject
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .org.springframework.jdbc.support.rowset.SqlRowSet#columnValue#java.lang.Object
+    to: result
+- function: org.springframework.jdbc.support.xml.SqlXmlHandler#getXmlAsString
+  signature:
+    params:
+    - index: 0
+      type: java.sql.ResultSet
+    return: java.lang.String
+  copy:
+  - from:
+    - arg(0)
+    - .java.sql.ResultSet#columnText#java.lang.String
+    to: result
+  - from:
+    - arg(0)
+    - .java.sql.ResultSet#clob#java.sql.Clob
+    - .java.sql.Clob#value#java.lang.String
+    to: result
+  - from:
+    - arg(0)
+    - .java.sql.ResultSet#url#java.net.URL
+    - .java.net.URL#spec#java.lang.String
+    to: result
+- function: org.springframework.jdbc.core.support.SqlLobValue#<init>
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.jdbc.support.rowset.SqlRowSet#getObject
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result

@@ -1,0 +1,35 @@
+passThrough:
+- function: javax.sql.RowSetInternal#getOriginalRow
+  signature: () java.sql.ResultSet
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.sql.RowSetInternal#getOriginal
+  signature:
+    return: java.sql.ResultSet
+  copy:
+  - from:
+    - this
+    - .javax.sql.RowSetInternal#originalResultSet#java.sql.ResultSet
+    to: result
+- function: javax.sql.RowSetInternal#getOriginal
+  signature: () java.sql.ResultSet
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.sql.RowSetInternal#getOriginalRow
+  signature:
+    return: java.sql.ResultSet
+  copy:
+  - from:
+    - this
+    - .javax.sql.RowSetInternal#originalResultSet#java.sql.ResultSet
+    to: result
+- function: javax.sql.RowSetInternal#getParams
+  signature: () java.lang.Object[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result

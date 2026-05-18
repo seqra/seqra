@@ -1,0 +1,369 @@
+passThrough:
+- function:
+    package: javax.xml.transform
+    class: Templates
+    name:
+      pattern: get(.)*
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Result
+    name:
+      pattern: set(.)*
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#systemId#java.lang.String
+- function:
+    package: javax.xml.transform
+    class: TransformerFactory
+    name:
+      pattern: get(.)*
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.TransformerFactory#attribute#java.lang.Object
+    to: result
+- function:
+    package: javax.xml.transform
+    class: TransformerFactory
+    name:
+      pattern: get(.)*
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.xml.transform
+    class: TransformerFactory
+    name:
+      pattern: new(.)*
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Source
+    name:
+      pattern: set(.)*
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+- function:
+    package: javax.xml.transform
+    class: Transformer
+    name:
+      pattern: get(.)*
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: javax.xml.transform
+    class: SourceLocator
+    name:
+      pattern: get(.)*
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Result
+    name:
+      pattern: get(.)*
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Source
+    name:
+      pattern: get(.)*
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Result
+    name:
+      pattern: get(.)*
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.Result#systemId#java.lang.String
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Transformer
+    name:
+      pattern: get(.)*
+  signature:
+    return: java.util.Properties
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.Transformer#outputProperties#java.util.Properties
+    to: result
+- function: javax.xml.transform.URIResolver#resolve
+  signature:
+    params:
+    - index: 1
+      type: java.lang.String
+    return: javax.xml.transform.Source
+  copy:
+  - from: arg(1)
+    to:
+    - result
+    - .javax.xml.transform.Source#systemId#java.lang.String
+- function:
+    package: javax.xml.transform
+    class: Source
+    name:
+      pattern: get(.)*
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.xml.transform
+    class: SourceLocator
+    name:
+      pattern: get(.)*
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.SourceLocator#systemId#java.lang.String
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Templates
+    name:
+      pattern: new(.)*
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.transform.URIResolver#resolve
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    return: javax.xml.transform.Source
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .javax.xml.transform.Source#systemId#java.lang.String
+- function:
+    package: javax.xml.transform
+    class: Result
+    name:
+      pattern: get(.)*
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Transformer
+    name:
+      pattern: get(.)*
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.Transformer#outputProperty#java.lang.Object
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Transformer
+    name:
+      pattern: get(.)*
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.Transformer#parameter#java.lang.String
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Source
+    name:
+      pattern: get(.)*
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.Source#systemId#java.lang.String
+    to: result
+- function:
+    package: javax.xml.transform
+    class: TransformerFactory
+    name:
+      pattern: get(.)*
+  signature:
+    return: javax.xml.transform.URIResolver
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.TransformerFactory#uriResolver#javax.xml.transform.URIResolver
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Transformer
+    name:
+      pattern: get(.)*
+  signature:
+    return: javax.xml.transform.ErrorListener
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.Transformer#errorListener#javax.xml.transform.ErrorListener
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Transformer
+    name:
+      pattern: get(.)*
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.transform.Transformer#transform
+  signature: (javax.xml.transform.Source, javax.xml.transform.Result) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: arg(1)
+  - from: this
+    to: arg(1)
+- function:
+    package: javax.xml.transform
+    class: Templates
+    name:
+      pattern: get(.)*
+  signature:
+    return: java.util.Properties
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.Templates#outputProperties#java.util.Properties
+    to: result
+- function: javax.xml.transform.URIResolver#resolve
+  signature: (java.lang.String, java.lang.String) javax.xml.transform.Source
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: this
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Transformer
+    name:
+      pattern: get(.)*
+  signature:
+    return: javax.xml.transform.URIResolver
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.Transformer#uriResolver#javax.xml.transform.URIResolver
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Result
+    name:
+      pattern: set(.)*
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+- function:
+    package: javax.xml.transform
+    class: Result
+    name:
+      pattern: set(.)*
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function:
+    package: javax.xml.transform
+    class: Source
+    name:
+      pattern: set(.)*
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Source#systemId#java.lang.String
+- function:
+    package: javax.xml.transform
+    class: TransformerFactory
+    name:
+      pattern: new(.)*
+  copy:
+  - from: this
+    to: result
+- function:
+    package: javax.xml.transform
+    class: Source
+    name:
+      pattern: set(.)*
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function:
+    package: javax.xml.transform
+    class: TransformerFactory
+    name:
+      pattern: get(.)*
+  signature:
+    return: javax.xml.transform.ErrorListener
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.TransformerFactory#errorListener#javax.xml.transform.ErrorListener
+    to: result

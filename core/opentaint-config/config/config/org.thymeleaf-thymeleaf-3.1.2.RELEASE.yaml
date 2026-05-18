@@ -1,0 +1,10 @@
+library: org.thymeleaf:thymeleaf:3.1.2.RELEASE
+passThrough:
+- function: org.thymeleaf.TemplateSpec#<init>
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.thymeleaf.TemplateSpec#getTemplate
+  copy:
+  - from: this
+    to: result

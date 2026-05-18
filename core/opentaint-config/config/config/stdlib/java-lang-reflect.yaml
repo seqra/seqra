@@ -1,0 +1,434 @@
+passThrough:
+- function: java.lang.reflect.Field#setBoolean
+  signature: (java.lang.Object, boolean) void
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: arg(0)
+- function: java.lang.reflect.Field#setDouble
+  signature: (java.lang.Object, double) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.lang.reflect.Field#setLong
+  signature: (java.lang.Object, long) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.lang.reflect.Field#setInt
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Field#value#java.lang.Object
+    to: arg(0)
+- function: java.lang.reflect.Field#get
+  signature: (java.lang.Object) java.lang.Object
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.lang.reflect.Member#getName
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Member#name#java.lang.String
+    to: result
+- function: java.lang.reflect.Field#setDouble
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Field#value#java.lang.Object
+    to: arg(0)
+- function: java.lang.reflect.Field#getDouble
+  signature: (java.lang.Object) double
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: java.lang.reflect.Field#setFloat
+  signature: (java.lang.Object, float) void
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: arg(0)
+- function: java.lang.reflect.Field#setShort
+  signature: (java.lang.Object, short) void
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: arg(0)
+- function: java.lang.reflect.Member#getModifiers
+  signature: () int
+  copy:
+  - from: this
+    to: result
+- function: java.lang.reflect.Method#getParameterTypes
+  signature: () java.lang.Class[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function:
+    package: java.lang.reflect
+    class: Proxy
+    name:
+      pattern: (get.*)
+  signature:
+    params:
+    - index: 0
+      type: java.lang.ClassLoader
+    return: java.lang.Class
+  copy:
+  - from: arg(0)
+    to:
+    - result
+    - .java.lang.Class#classLoader#java.lang.ClassLoader
+- function: java.lang.reflect.Field#get
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Field#value#java.lang.Object
+    to: result
+- function: java.lang.reflect.Field#getLong
+  signature: (java.lang.Object) long
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: java.lang.reflect.Field#setFloat
+  signature: (java.lang.Object, float) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.lang.reflect.Constructor#getParameterTypes
+  signature: () java.lang.Class[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.lang.reflect.Field#setByte
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Field#value#java.lang.Object
+    to: arg(0)
+- function:
+    package: java.lang.reflect
+    class: Array
+    name:
+      pattern: set.*
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.lang.reflect.Field#setLong
+  signature: (java.lang.Object, long) void
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: arg(0)
+- function: java.lang.reflect.Field#get
+  signature: (java.lang.Object) java.lang.Object
+  copy:
+  - from: arg(0)
+    to: result
+- function: java.lang.reflect.Field#setBoolean
+  signature: (java.lang.Object, boolean) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.lang.reflect.Field#getInt
+  signature: (java.lang.Object) int
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: java.lang.reflect.Method#getReturnType
+  signature: () java.lang.Class
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.lang.reflect.Field#setChar
+  signature: (java.lang.Object, char) void
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: arg(0)
+- function: java.lang.reflect.Field#setBoolean
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Field#value#java.lang.Object
+    to: arg(0)
+- function: java.lang.reflect.Field#getByte
+  signature: (java.lang.Object) byte
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: java.lang.reflect.Field#getFloat
+  signature: (java.lang.Object) float
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: java.lang.reflect.Method#getExceptionTypes
+  signature: () java.lang.Class[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.lang.reflect.Field#set
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Field#value#java.lang.Object
+    to: arg(0)
+- function: java.lang.reflect.Field#setShort
+  signature: (java.lang.Object, short) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.lang.reflect.Field#setChar
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Field#value#java.lang.Object
+    to: arg(0)
+- function: java.lang.reflect.Constructor#getExceptionTypes
+  signature: () java.lang.Class[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.lang.reflect.Member#getDeclaringClass
+  signature: () java.lang.Class
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.lang.reflect.Field#setLong
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Field#value#java.lang.Object
+    to: arg(0)
+- function: java.lang.reflect.Field#setChar
+  signature: (java.lang.Object, char) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.lang.reflect.Field#getShort
+  signature: (java.lang.Object) short
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: java.lang.reflect.Field#setInt
+  signature: (java.lang.Object, int) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.lang.reflect.Field#getType
+  signature: () java.lang.Class
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.lang.reflect.Field#setByte
+  signature: (java.lang.Object, byte) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.lang.reflect.Field#getChar
+  signature: (java.lang.Object) char
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: java.lang.reflect.Field#setInt
+  signature: (java.lang.Object, int) void
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: arg(0)
+- function: java.lang.reflect.Member#getName
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.lang.reflect.Field#set
+  signature: (java.lang.Object, java.lang.Object) void
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: arg(0)
+- function: java.lang.reflect.Field#setFloat
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Field#value#java.lang.Object
+    to: arg(0)
+- function: java.lang.reflect.Method#getParameterTypes
+  signature:
+    return: java.lang.Class[]
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Method#parameterTypes#java.lang.Class[]
+    to: result
+- function: java.lang.reflect.Field#setShort
+  signature:
+    params:
+    - index: 0
+      type: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Field#value#java.lang.Object
+    to: arg(0)
+- function: java.lang.reflect.Constructor#getParameterTypes
+  signature:
+    return: java.lang.Class[]
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Constructor#parameterTypes#java.lang.Class[]
+    to: result
+- function: java.lang.reflect.Field#setByte
+  signature: (java.lang.Object, byte) void
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: arg(0)
+- function: java.lang.reflect.Field#getBoolean
+  signature: (java.lang.Object) boolean
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: java.lang.reflect.Field#setDouble
+  signature: (java.lang.Object, double) void
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: arg(0)
+- function: java.lang.reflect.Method#getReturnType
+  signature:
+    return: java.lang.Class
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Method#returnType#java.lang.Class
+    to: result
+- function:
+    package: java.lang.reflect
+    class: Array
+    name:
+      pattern: get.*
+  copy:
+  - from: arg(0)
+    to: result
+- function:
+    package: java.lang.reflect
+    class: Proxy
+    name:
+      pattern: (is.*)
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: java.lang.reflect.Field#set
+  signature: (java.lang.Object, java.lang.Object) void
+  copy:
+  - from: arg(1)
+    to: arg(0)
+- function: java.lang.reflect.Method#getExceptionTypes
+  signature:
+    return: java.lang.Class[]
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Method#parameterTypes#java.lang.Class[]
+    to: result
+- function:
+    package: java.lang.reflect
+    class: Proxy
+    name:
+      pattern: (get.*)
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: java.lang.reflect.Member#getDeclaringClass
+  signature:
+    return: java.lang.Class
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Member#declaringClass#java.lang.Class
+    to: result
+- function: java.lang.reflect.Field#getType
+  signature:
+    return: java.lang.Class
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Field#declaringClass#java.lang.Class
+    to: result
+- function: java.lang.reflect.Constructor#getExceptionTypes
+  signature:
+    return: java.lang.Class[]
+  copy:
+  - from:
+    - this
+    - .java.lang.reflect.Constructor#parameterTypes#java.lang.Class[]
+    to: result

@@ -1,0 +1,24 @@
+library: org.json:json:20240303
+passThrough:
+- function: org.json.JSONObject#<init>
+  signature: (java.lang.String) void
+  overrides: false
+  copy:
+  - from: arg(0)
+    to: this
+- function:
+    package: org.json
+    class: JSONObject
+    name:
+      pattern: opt.*
+  copy:
+  - from: this
+    to: result
+- function:
+    package: org.json
+    class: JSONObject
+    name:
+      pattern: get.*
+  copy:
+  - from: this
+    to: result

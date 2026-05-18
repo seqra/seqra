@@ -1,0 +1,82 @@
+library: org.hibernate:hibernate-core:5.6.15.Final
+passThrough:
+- function: org.hibernate.LobHelper#createNClob
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.ScrollableResults#getClob
+  copy:
+  - from: this
+    to: result
+- function: org.hibernate.usertype.UserType#deepCopy
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.ScrollableResults#getBlob
+  copy:
+  - from: this
+    to: result
+- function: org.hibernate.ScrollableResults#getText
+  copy:
+  - from: this
+    to: result
+- function: org.hibernate.ScrollableResults#getString
+  copy:
+  - from: this
+    to: result
+- function: org.hibernate.ScrollableResults#getBinary
+  copy:
+  - from: this
+    to: result
+- function: org.hibernate.loader.Loader#preprocessSQL
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.criterion.Restrictions#in
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.hibernate.criterion.Restrictions#idEq
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.usertype.UserType#nullSafeGet
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.LobHelper#createClob
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.ScrollableResults#get
+  copy:
+  - from: this
+    to: result
+- function: org.hibernate.loader.Loader#applyLocks
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.LobHelper#createBlob
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.loader.criteria.CriteriaLoader#applyLocks
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.usertype.UserType#disassemble
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.dialect.Dialect#getLimitString
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.hibernate.criterion.Restrictions#eq
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.hibernate.usertype.UserType#assemble
+  copy:
+  - from: arg(0)
+    to: result

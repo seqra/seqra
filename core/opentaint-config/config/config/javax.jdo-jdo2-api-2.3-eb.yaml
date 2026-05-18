@@ -1,0 +1,254 @@
+library: javax.jdo:jdo2-api:2.3-eb
+passThrough:
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#storeCharField
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchStringField
+  copy:
+  - from: this
+    to: result
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#storeDoubleField
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#storeIntField
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+- function: javax.jdo.spi.StateManager#setShortField
+  copy:
+  - from: arg(3)
+    to: arg(0)
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchObjectField
+  copy:
+  - from: this
+    to: result
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#storeFloatField
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchBooleanField
+  copy:
+  - from: this
+    to: result
+- function: javax.jdo.spi.JDOImplHelper#construct
+  copy:
+  - from: arg(1)
+    to: result
+- function: javax.jdo.spi.StateManager#setStringField
+  copy:
+  - from: arg(3)
+    to: arg(0)
+- function: javax.jdo.spi.StateManager#setCharField
+  copy:
+  - from: arg(3)
+    to: arg(0)
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchFloatField
+  copy:
+  - from: this
+    to: result
+- function: javax.jdo.spi.StateManager#setLongField
+  copy:
+  - from: arg(3)
+    to: arg(0)
+- function: javax.jdo.datastore.Sequence#next
+  copy:
+  - from: this
+    to: result
+- function: javax.jdo.spi.JDOImplHelper$StringConstructor#construct
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.jdo.spi.StateManager#setIntField
+  copy:
+  - from: arg(3)
+    to: arg(0)
+- function: javax.jdo.spi.JDOImplHelper#newObjectIdInstance
+  copy:
+  - from: arg(1)
+    to: result
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#storeShortField
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchLongField
+  copy:
+  - from: this
+    to: result
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#storeBooleanField
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+- function: javax.jdo.Extent#iterator
+  copy:
+  - from: this
+    to: result
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#storeObjectField
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#storeByteField
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#storeLongField
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchShortField
+  copy:
+  - from: this
+    to: result
+- function: javax.jdo.spi.PersistenceCapable#jdoCopyFields
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.jdo.spi.PersistenceCapable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchDoubleField
+  copy:
+  - from: this
+    to: result
+- function: javax.jdo.spi.StateManager#setByteField
+  copy:
+  - from: arg(3)
+    to: arg(0)
+- function: javax.jdo.spi.JDOImplHelper#newInstance
+  copy:
+  - from: arg(2)
+    to: result
+- function: javax.jdo.spi.I18NHelper#msg
+  copy:
+  - from: arg(3)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: arg(7)
+    to: result
+  - from: arg(5)
+    to: result
+  - from: arg(11)
+    to: result
+  - from: arg(9)
+    to: result
+  - from: arg(15)
+    to: result
+  - from: arg(13)
+    to: result
+  - from: arg(19)
+    to: result
+  - from: arg(17)
+    to: result
+  - from: arg(23)
+    to: result
+  - from: arg(21)
+    to: result
+  - from: arg(27)
+    to: result
+  - from: arg(25)
+    to: result
+  - from: arg(2)
+    to: result
+  - from: arg(6)
+    to: result
+  - from: arg(4)
+    to: result
+  - from: arg(10)
+    to: result
+  - from: arg(8)
+    to: result
+  - from: arg(14)
+    to: result
+  - from: arg(12)
+    to: result
+  - from: arg(18)
+    to: result
+  - from: arg(16)
+    to: result
+  - from: arg(22)
+    to: result
+  - from: arg(20)
+    to: result
+  - from: arg(26)
+    to: result
+  - from: arg(24)
+    to: result
+- function: javax.jdo.spi.StateManager#setFloatField
+  copy:
+  - from: arg(3)
+    to: arg(0)
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchCharField
+  copy:
+  - from: this
+    to: result
+- function: javax.jdo.datastore.Sequence#current
+  copy:
+  - from: this
+    to: result
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchByteField
+  copy:
+  - from: this
+    to: result
+- function: javax.jdo.spi.StateManager#setDoubleField
+  copy:
+  - from: arg(3)
+    to: arg(0)
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldSupplier#fetchIntField
+  copy:
+  - from: this
+    to: result
+- function: javax.jdo.spi.StateManager#setBooleanField
+  copy:
+  - from: arg(3)
+    to: arg(0)
+- function: javax.jdo.spi.StateManager#setObjectField
+  copy:
+  - from: arg(3)
+    to: arg(0)
+- function: javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#storeStringField
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .javax.jdo.spi.PersistenceCapable$ObjectIdFieldConsumer#<rule-storage>#java.lang.Object

@@ -1,0 +1,38 @@
+library: org.apache.commons:commons-email:1.6.0
+passThrough:
+- function: org.apache.commons.mail.util.MimeMessageUtils#writeMimeMessage
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: org.apache.commons.mail.util.MimeMessageParser#<init>
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.mail.util.MimeMessageParser#<rule-storage>#java.lang.Object
+- function: org.apache.commons.mail.util.MimeMessageUtils#createMimeMessage
+  copy:
+  - from: arg(1)
+    to: result
+- function: org.apache.commons.mail.util.MimeMessageParser#findAttachmentByName
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.mail.util.MimeMessageParser#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: org.apache.commons.mail.util
+    class: MimeMessageParser
+    name:
+      pattern: get.*
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.commons.mail.util.MimeMessageParser#<rule-storage>#java.lang.Object
+    to: result

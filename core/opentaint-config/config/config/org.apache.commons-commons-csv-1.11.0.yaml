@@ -1,0 +1,54 @@
+library: org.apache.commons:commons-csv:1.11.0
+passThrough:
+- function: org.apache.commons.csv.CSVFormat#parse
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.csv.CSVFormat#print
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.csv.CSVPrinter#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.csv.CSVPrinter#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.csv.CSVRecord#toMap
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.csv.CSVRecord#getComment
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.csv.CSVParser#getHeaderMap
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.csv.CSVParser#parse
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.csv.CSVRecord#get
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.csv.CSVParser#parse
+  signature:
+    params:
+    - index: 0
+      type: java.net.URL
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.csv.CSVParser#getRecords
+  copy:
+  - from: arg(0)
+    to: result

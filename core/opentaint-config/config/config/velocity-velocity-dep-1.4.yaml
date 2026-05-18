@@ -1,0 +1,96 @@
+library: velocity:velocity-dep:1.4
+passThrough:
+- function: org.apache.velocity.util.StringUtils#split
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.velocity.app.VelocityEngine#mergeTemplate
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    - index: 1
+      type: org.apache.velocity.context.Context
+    - index: 2
+      type: java.io.Writer
+  copy:
+  - from: arg(1)
+    to: arg(2)
+- function: org.apache.velocity.util.StringUtils#concat
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.velocity.util.StringUtils#firstLetterCaps
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.velocity.runtime.Runtime#parse
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.velocity.app.Velocity#mergeTemplate
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    - index: 1
+      type: org.apache.velocity.context.Context
+    - index: 2
+      type: java.io.Writer
+  copy:
+  - from: arg(1)
+    to: arg(2)
+- function: org.apache.velocity.util.StringUtils#stringSubstitution
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.velocity.util.StringUtils#sub
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(0)
+    to: result
+- function: org.apache.velocity.util.StringUtils#getPackageAsPath
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.velocity.util.StringUtils#removeUnderScores
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.velocity.util.StringUtils#chop
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.velocity.util.StringUtils#collapseNewlines
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.velocity.util.StringUtils#collapseSpaces
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.velocity.util.StringUtils#normalizePath
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.velocity.util.StringUtils#select
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.velocity.util.StringUtils#capitalizeFirstLetter
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.velocity.util.StringUtils#removeAndHump
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result

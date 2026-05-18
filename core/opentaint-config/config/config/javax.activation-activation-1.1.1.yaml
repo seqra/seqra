@@ -1,0 +1,74 @@
+library: javax.activation:activation:1.1.1
+passThrough:
+- function: javax.activation.DataHandler#writeTo
+  copy:
+  - from:
+    - this
+    - .javax.activation.DataHandler#<rule-storage>#java.lang.Object
+    to: arg(0)
+  - from: this
+    to: arg(0)
+- function: javax.activation.FileDataSource#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.activation.FileDataSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.activation.DataHandler#getInputStream
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.activation.DataHandler#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.activation.DataContentHandler#getContent
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.activation.DataSource#getInputStream
+  copy:
+  - from: this
+    to: result
+- function: javax.activation.DataHandler#getContent
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.activation.DataHandler#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.activation.DataHandler#getDataSource
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .javax.activation.DataHandler#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.activation.DataContentHandler#getTransferData
+  copy:
+  - from: arg(0)
+    to: result
+- function: javax.activation.DataContentHandler#writeTo
+  copy:
+  - from: arg(0)
+    to: arg(2)
+- function: javax.activation.DataHandler#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.activation.DataHandler#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: javax.activation.URLDataSource#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.activation.URLDataSource#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this

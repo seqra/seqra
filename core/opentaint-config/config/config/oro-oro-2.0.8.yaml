@@ -1,0 +1,486 @@
+library: oro:oro:2.0.8
+passThrough:
+- function:
+    package: org.apache.oro.text.regex
+    class: PatternMatcherInput
+    name:
+      pattern: set.+
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcherInput#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcherInput#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcherInput#<rule-storage>#java.lang.Object
+- function: org.apache.oro.text.regex.PatternMatcherInput#match
+  copy:
+  - from:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcherInput#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.oro.text.regex.PatternMatcherInput#postMatch
+  copy:
+  - from:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcherInput#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.oro.text.PatternCacheRandom#addPattern
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.oro.text.PatternCacheRandom#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.oro.text.PatternCacheRandom#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.apache.oro.text.regex.Util#split
+  signature:
+    params:
+    - index: 0
+      type: java.util.Collection
+    - index: 1
+      type: org.apache.oro.text.regex.PatternMatcher
+    - index: 2
+      type: org.apache.oro.text.regex.Pattern
+    - index: 3
+      type: java.lang.String
+  copy:
+  - from: arg(4)
+    to: arg(0)
+  - from: arg(3)
+    to: arg(0)
+  - from: arg(2)
+    to: arg(0)
+  - from: arg(1)
+    to: arg(0)
+- function: org.apache.oro.text.regex.Util#substitute
+  signature:
+    params:
+    - index: 0
+      type: org.apache.oro.text.regex.PatternMatcher
+    - index: 1
+      type: org.apache.oro.text.regex.Pattern
+    - index: 2
+      type: org.apache.oro.text.regex.Substitution
+    - index: 3
+      type: java.lang.String
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(3)
+    to: result
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: arg(4)
+    to: result
+- function: org.apache.oro.text.regex.Perl5Compiler#quotemeta
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(0)
+    to: result
+- function:
+    package: org.apache.oro.text.regex
+    class: Perl5Substitution
+    name:
+      pattern: <init>
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.oro.text.regex.Perl5Substitution#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.oro.text.regex.Perl5Substitution#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.apache.oro.text.regex.PatternMatcherInput#preMatch
+  copy:
+  - from:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcherInput#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.oro.text.regex.Util#substitute
+  signature:
+    params:
+    - index: 0
+      type: java.lang.StringBuffer
+    - index: 1
+      type: org.apache.oro.text.regex.PatternMatcher
+    - index: 2
+      type: org.apache.oro.text.regex.Pattern
+    - index: 3
+      type: org.apache.oro.text.regex.Substitution
+    - index: 4
+      type: org.apache.oro.text.regex.PatternMatcherInput
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(3)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: arg(4)
+    to: result
+  - from: arg(4)
+    to: arg(0)
+  - from: arg(3)
+    to: arg(0)
+  - from: arg(2)
+    to: arg(0)
+  - from: arg(1)
+    to: arg(0)
+- function: org.apache.oro.text.PatternCacheLRU#addPattern
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.oro.text.PatternCacheLRU#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.oro.text.PatternCacheLRU#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.apache.oro.text.regex.Perl5Substitution#setSubstitution
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.oro.text.regex.Perl5Substitution#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.oro.text.regex.Perl5Substitution#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.apache.oro.text.regex.Util#substitute
+  signature:
+    params:
+    - index: 0
+      type: java.lang.StringBuffer
+    - index: 1
+      type: org.apache.oro.text.regex.PatternMatcher
+    - index: 2
+      type: org.apache.oro.text.regex.Pattern
+    - index: 3
+      type: org.apache.oro.text.regex.Substitution
+    - index: 4
+      type: java.lang.String
+    - index: 5
+      type: int
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(3)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: arg(4)
+    to: result
+  - from: arg(5)
+    to: result
+  - from: arg(5)
+    to: arg(0)
+  - from: arg(4)
+    to: arg(0)
+  - from: arg(3)
+    to: arg(0)
+  - from: arg(2)
+    to: arg(0)
+  - from: arg(1)
+    to: arg(0)
+- function: org.apache.oro.text.regex.PatternMatcher#contains
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcher#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcher#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcher#<rule-storage>#java.lang.Object
+- function: org.apache.oro.text.regex.PatternMatcherInput#charAt
+  copy:
+  - from: arg(0)
+    to: result
+  - from:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcherInput#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.oro.text.regex.PatternMatcherInput#<init>
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcherInput#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcherInput#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcherInput#<rule-storage>#java.lang.Object
+- function: org.apache.oro.text.regex.Util#substitute
+  signature:
+    params:
+    - index: 0
+      type: java.lang.StringBuffer
+    - index: 1
+      type: org.apache.oro.text.regex.PatternMatcher
+    - index: 2
+      type: org.apache.oro.text.regex.Pattern
+    - index: 3
+      type: org.apache.oro.text.regex.Substitution
+    - index: 4
+      type: org.apache.oro.text.regex.PatternMatcherInput
+    - index: 5
+      type: int
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(3)
+    to: result
+  - from: arg(1)
+    to: result
+  - from: arg(4)
+    to: result
+  - from: arg(5)
+    to: result
+  - from: arg(5)
+    to: arg(0)
+  - from: arg(4)
+    to: arg(0)
+  - from: arg(3)
+    to: arg(0)
+  - from: arg(2)
+    to: arg(0)
+  - from: arg(1)
+    to: arg(0)
+- function: org.apache.oro.text.regex.PatternMatcher#matches
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcher#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcher#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcher#<rule-storage>#java.lang.Object
+- function: org.apache.oro.text.PatternCache#addPattern
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.oro.text.PatternCache#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.oro.text.PatternCache#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.apache.oro.text.regex.PatternMatcherInput#substring
+  copy:
+  - from:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcherInput#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.oro.text.PatternCacheFIFO2#addPattern
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.oro.text.PatternCacheFIFO2#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.oro.text.PatternCacheFIFO2#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.oro.text.regex.MatchResult#endOffset
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: org.apache.oro.text.MatchActionProcessor#addAction
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.oro.text.MatchActionProcessor#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.oro.text.MatchActionProcessor#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.oro.text.MatchActionProcessor#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.apache.oro.text.regex.PatternMatcherInput#length
+  copy:
+  - from:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcherInput#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.oro.text.regex.MatchResult#length
+  copy:
+  - from: this
+    to: result
+- function:
+    package: org.apache.oro.text.regex
+    class: PatternMatcherInput
+    name:
+      pattern: get.+
+  copy:
+  - from:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcherInput#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.oro.text.regex.PatternMatcher#matchesPrefix
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcher#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcher#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to: this
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcher#<rule-storage>#java.lang.Object
+- function: org.apache.oro.text.regex.PatternMatcher#getMatch
+  copy:
+  - from:
+    - this
+    - .org.apache.oro.text.regex.PatternMatcher#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.oro.text.regex.MatchResult#beginOffset
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: org.apache.oro.text.regex.MatchResult#end
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: org.apache.oro.text.regex.MatchResult#begin
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result
+- function: org.apache.oro.text.PatternCacheFIFO#addPattern
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.oro.text.PatternCacheFIFO#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.oro.text.PatternCacheFIFO#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.apache.oro.text.regex.MatchResult#groups
+  copy:
+  - from: this
+    to: result
+- function: org.apache.oro.text.regex.MatchResult#group
+  copy:
+  - from: arg(0)
+    to: result
+  - from: this
+    to: result

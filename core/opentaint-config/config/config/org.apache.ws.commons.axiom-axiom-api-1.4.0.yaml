@@ -1,0 +1,150 @@
+library: org.apache.ws.commons.axiom:axiom-api:1.4.0
+passThrough:
+- function: org.apache.axiom.om.OMComment#setValue
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.axiom.om.OMComment#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.axiom.soap.SOAPHeader#examineMustUnderstandHeaderBlocks
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axiom.soap.SOAPHeader#extractHeaderBlocks
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axiom.om.OMComment#getValue
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.axiom.om.OMComment#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.axiom.om.OMElement#toStringWithConsume
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.axiom.om.OMElement#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.axiom.om.OMElement#setText
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.axiom.om.OMElement#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.axiom.soap.SOAPHeaderBlock#getRole
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.axiom.soap.SOAPHeaderBlock#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.axiom.soap.SOAPHeader#examineAllHeaderBlocks
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axiom.om.OMNode#serializeAndConsume
+  copy:
+  - from: this
+    to: arg(0)
+- function: org.apache.axiom.soap.SOAPHeaderBlock#setRole
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axiom.soap.SOAPHeaderBlock#<rule-storage>#java.lang.Object
+- function: org.apache.axiom.om.OMElement#cloneOMElement
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.axiom.om.OMElement#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.axiom.soap.SOAPHeader#examineHeaderBlocks
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axiom.om.OMElement#addAttribute
+  signature:
+    params:
+    - index: 0
+      type: org.apache.axiom.om.OMAttribute
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.axiom.om.OMElement#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.axiom.soap.SOAPFault#setException
+  copy:
+  - from: arg(0)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.axiom.soap.SOAPFault#<rule-storage>#java.lang.Object
+- function: org.apache.axiom.soap.SOAPEnvelope#getHeader
+  copy:
+  - from:
+    - this
+    - .org.apache.axiom.soap.SOAPEnvelope#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.axiom.om.OMElement#addAttribute
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+    - index: 1
+      type: java.lang.String
+    - index: 2
+      type: org.apache.axiom.om.OMNamespace
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.axiom.om.OMElement#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+- function: org.apache.axiom.soap.SOAPHeader#getHeaderBlocksWithNSURI
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axiom.om.OMDataSource#getReader
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axiom.om.OMNode#serialize
+  copy:
+  - from: this
+    to: arg(0)
+- function: org.apache.axiom.soap.SOAPFault#getException
+  copy:
+  - from:
+    - this
+    - .org.apache.axiom.soap.SOAPFault#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.axiom.om.OMNode#detach
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axiom.soap.SOAPHeader#extractAllHeaderBlocks
+  copy:
+  - from: this
+    to: result

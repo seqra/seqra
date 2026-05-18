@@ -1,0 +1,789 @@
+passThrough:
+- function:
+    package: java.io
+    class: ObjectOutput
+    name:
+      pattern: write.*
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.io.File#listFiles
+  signature: () java.io.File[]
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.Writer#<init>
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.Writer#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Appendable#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: java.io.Reader#read
+  signature: () int
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.io.Reader#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.File#getName
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.Reader#read
+  signature: (char[], int, int) int
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.io.Reader#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.File#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.net.URI
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.File#uri#java.net.URI
+- function: java.io.File#getAbsolutePath
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.io.File#getParent
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.File#<init>
+  signature: (java.lang.String, java.io.File) void
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+- function: java.io.ByteArrayOutputStream#toByteArray
+  signature: () byte[]
+  copy:
+  - from:
+    - this
+    - .java.io.ByteArrayOutputStream#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .java.io.OutputStream#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.ByteArrayOutputStream#write
+  signature: (byte[], int, int) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.io.File#toString
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.io.ByteArrayOutputStream#write
+  signature:
+    params:
+    - index: 0
+      type: byte[]
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.ByteArrayOutputStream#buffer#byte[]
+- function: java.io.File#toURL
+  signature: () java.net.URL
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.InputStream#read
+  signature:
+    params:
+    - index: 0
+      type: .byte[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: arg(0)
+- function: java.io.File#<init>
+  signature: (java.lang.String, java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: java.io.File#listFiles
+  signature: (java.io.FilenameFilter) java.io.File[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.io.File#listFiles
+  signature: (java.io.FileFilter) java.io.File[]
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+- function:
+    package: java.io
+    class: ObjectOutput
+    name:
+      pattern: write.*
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.io.ObjectOutput#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.ObjectOutput#<rule-storage>#java.lang.Object
+- function: java.io.InputStream#read
+  signature: (byte[]) int
+  copy:
+  - from:
+    - this
+    - .java.io.InputStream#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.io.StringBufferInputStream#<init>
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.io.ByteArrayInputStream#<init>
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.io.File#getName
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.io.IOException#<init>
+  signature: (java.lang.String) void
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Throwable#message#java.lang.Object
+- function: java.io.File#<init>
+  signature: (java.io.File, java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(1)
+    to: this
+- function: java.io.File#<init>
+  signature:
+    params:
+    - index: 1
+      type: java.lang.String
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.io.File#path#java.lang.String
+  - from: arg(1)
+    to:
+    - this
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from: arg(1)
+    to:
+    - this
+    - .java.io.File#path#java.lang.String
+  - from: arg(1)
+    to:
+    - this
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+- function: java.io.File#getParent
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.io.Reader#read
+  signature: (char[]) int
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.io.Reader#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.ByteArrayOutputStream#toByteArray
+  signature:
+    return: byte[]
+  copy:
+  - from:
+    - this
+    - .java.io.ByteArrayOutputStream#buffer#byte[]
+    to: result
+- function: java.io.InputStream#read
+  signature: () int
+  copy:
+  - from:
+    - this
+    - .java.io.InputStream#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.io.File#getCanonicalPath
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.io.File#path#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to: result
+- function: java.io.File#getCanonicalFile
+  signature: () java.io.File
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.io.File#getAbsolutePath
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.File#listFiles
+  signature: (java.io.FilenameFilter) java.io.File[]
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.ByteArrayInputStream#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.ByteArrayInputStream#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.InputStream#<rule-storage>#java.lang.Object
+- function: java.io.File#getPath
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.io.File#path#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to: result
+- function: java.io.File#toURI
+  signature:
+    return: java.net.URI
+  copy:
+  - from:
+    - this
+    - .java.io.File#uri#java.net.URI
+    to: result
+- function: java.io.File#<init>
+  signature: (java.lang.String, java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+- function: java.io.StringReader#<init>
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.io.File#<init>
+  signature: (java.io.File, java.lang.String) void
+  copy:
+  - from: arg(1)
+    to:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function:
+    package: java.io
+    class: InputStream
+    name:
+      pattern: read.+
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.io.InputStream#read
+  signature:
+    params:
+    - index: 0
+      type: .byte[]
+  copy:
+  - from:
+    - this
+    - .java.io.InputStream#<rule-storage>#java.lang.Object
+    to: arg(0)
+- function: java.io.ByteArrayInputStream#<init>
+  signature:
+    params:
+    - index: 0
+      type: byte[]
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.ByteArrayInputStream#buffer#byte[]
+- function: java.io.File#getAbsoluteFile
+  signature: () java.io.File
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.io.File#getCanonicalPath
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.File#getPath
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.File#<init>
+  signature: (java.net.URI) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+- function:
+    package: java.io
+    class: InputStream
+    name:
+      pattern: read.+
+  copy:
+  - from:
+    - this
+    - .java.io.InputStream#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.File#getAbsolutePath
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.io.File#path#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to: result
+- function: java.io.File#<init>
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.File#path#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.File#path#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.File#path#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.File#path#java.lang.String
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+- function: java.io.File#toString
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.io.File#path#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to: result
+- function:
+    package: java.io
+    class: Reader
+    name:
+      pattern: read.+
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.io.Reader#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.BufferedReader#lines
+  signature: () java.util.stream.Stream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.io.StringReader#<init>
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.Reader#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.StringReader#<rule-storage>#java.lang.Object
+- function: java.io.Reader#<init>
+  signature: (java.lang.Object) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.Reader#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: java.io.File#getParentFile
+  signature: () java.io.File
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.io.File#toPath
+  signature: () java.nio.file.Path
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.File#getName
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.io.File#path#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to: result
+- function: java.io.ByteArrayOutputStream#write
+  signature: (byte[], int, int) void
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.io.ByteArrayOutputStream#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.io.OutputStream#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.ByteArrayOutputStream#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.OutputStream#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to: this
+- function: java.io.File#<init>
+  signature: (java.lang.String, java.io.File) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.io.File#<init>
+  signature: (java.net.URI) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.io.File#toString
+  signature: () java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.ByteArrayOutputStream#write
+  signature: (int) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.ByteArrayOutputStream#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.OutputStream#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: java.io.File#listFiles
+  signature: () java.io.File[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.io.File#getParent
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.io.File#path#java.lang.String
+    to: result
+  - from:
+    - this
+    - .java.io.File#uri#java.net.URI
+    - .java.net.URI#value#java.lang.String
+    to: result
+- function: java.io.ByteArrayOutputStream#toByteArray
+  signature: () byte[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.io.File#<init>
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+- function: java.io.File#listFiles
+  signature: (java.io.FileFilter) java.io.File[]
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.io.File#<init>
+  signature: (java.lang.String, int) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.io.File#toURI
+  signature: () java.net.URI
+  copy:
+  - from:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.Reader#read
+  signature: (java.nio.CharBuffer) int
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .java.io.Reader#<rule-storage>#java.lang.Object
+    to: result
+- function: java.io.OutputStream#write
+  signature: (byte[]) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.io.UncheckedIOException#<init>
+  signature: (java.io.IOException) void
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.lang.Throwable#cause#java.lang.Object
+- function: java.io.StringBufferInputStream#<init>
+  signature: (java.lang.String) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.StringBufferInputStream#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.InputStream#<rule-storage>#java.lang.Object
+- function: java.io.File#toPath
+  signature: () java.nio.file.Path
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.io.File#<init>
+  signature: (java.lang.String, int) void
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .java.io.File#<rule-storage>#java.lang.Object
+- function: java.io.File#toURL
+  signature: () java.net.URL
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.io.OutputStream#write
+  signature: (byte[]) void
+  copy:
+  - from:
+    - arg(0)
+    - '[*]'
+    to:
+    - this
+    - .java.io.OutputStream#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .java.io.OutputStream#<rule-storage>#java.lang.Object
+  - from:
+    - arg(0)
+    - '[*]'
+    to: this
+- function: java.io.File#toURI
+  signature: () java.net.URI
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.io.File#<init>
+  signature: (java.lang.String) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: java.io.InputStream#read
+  signature: (byte[], int, int) int
+  copy:
+  - from:
+    - this
+    - .java.io.InputStream#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: java.io.File#getCanonicalPath
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.io.File#getPath
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result

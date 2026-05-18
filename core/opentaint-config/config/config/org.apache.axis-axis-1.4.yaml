@@ -1,0 +1,287 @@
+library: org.apache.axis:axis:1.4
+dependencies:
+- jakarta.xml.soap:jakarta.xml.soap-api:1.4.2
+- jakarta.xml.rpc:jakarta.xml.rpc-api:1.1.4
+passThrough:
+- function: org.apache.axis.AxisFault#setFaultReason
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function: org.apache.axis.SOAPPart#getElementsByTagName
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axis.SOAPPart#getDocumentElement
+  copy:
+  - from: this
+    to: result
+- function:
+    package: org.apache.axis.types
+    class:
+      pattern: .*
+    name:
+      pattern: <init>
+  bypassVerification: true
+  copy:
+  - from: arg(*)
+    to: this
+- function: org.apache.axis.utils.StringUtils#strip
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.axis.utils.ArrayUtil#convertObjectToArray
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.axis.MessageContext#getPropertyNames
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axis.utils.StringUtils#split
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.axis.types.HexBinary#decode
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.axis.AxisFault#makeFault
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function: org.apache.axis.AxisFault#setFaultString
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function: org.apache.axis.MessageContext#getCurrentContext
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axis.SOAPPart#getElementById
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axis.AxisFault#addFaultSubCode
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function: org.apache.axis.utils.ArrayUtil#convertArrayToObject
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.axis.utils.StringUtils#stripEnd
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.axis.utils.StringUtils#stripStart
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.axis.AxisFault#setFaultCodeAsString
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function:
+    package: org.apache.axis.types
+    class:
+      pattern: .*
+    name:
+      pattern: set.*
+  bypassVerification: true
+  copy:
+  - from: arg(*)
+    to: this
+- function: org.apache.axis.AxisFault#setFaultRole
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function: org.apache.axis.SOAPPart#getElementsByTagNameNS
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axis.AxisFault#setFaultDetailString
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function: org.apache.axis.AxisFault#addFaultSubCodeAsString
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function:
+    package: org.apache.axis
+    class: AxisFault
+    name:
+      pattern: <init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function: org.apache.axis.AxisFault#setFaultNode
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function: org.apache.axis.SOAPPart#getCurrentMessage
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axis.SOAPPart#getMessage
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axis.Message#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.Message#<rule-storage>#java.lang.Object
+- function: org.apache.axis.AxisFault#addFaultDetailString
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function:
+    package: org.apache.axis.types
+    class:
+      pattern: .*
+    name:
+      pattern: get.*
+  bypassVerification: true
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axis.Message#getMessageType
+  copy:
+  - from:
+    - this
+    - .org.apache.axis.Message#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.axis.MessageContext#getCurrentMessage
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axis.AxisFault#addHeader
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function: org.apache.axis.types.HexBinary#encode
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.axis.Message#getContentDescription
+  copy:
+  - from:
+    - this
+    - .org.apache.axis.Message#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.axis.SOAPPart#getAsSOAPEnvelope
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axis.SOAPPart#getAsString
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axis.AxisFault#setFaultActor
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function: org.apache.axis.SOAPPart#getAsBytes
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axis.AxisFault#setFaultDetail
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function: org.apache.axis.AxisFault#addHostname
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function: org.apache.axis.MessageContext#getMessage
+  copy:
+  - from: this
+    to: result
+- function: org.apache.axis.utils.IOUtils#readFully
+  copy:
+  - from: arg(0)
+    to: arg(1)
+- function: org.apache.axis.AxisFault#addFaultDetail
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object
+- function: org.apache.axis.AxisFault#setFaultCode
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.axis.AxisFault#<rule-storage>#java.lang.Object

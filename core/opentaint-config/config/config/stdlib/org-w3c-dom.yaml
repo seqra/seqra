@@ -1,0 +1,417 @@
+passThrough:
+- function: org.w3c.dom.Node#getAttributes
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Document#createEntityReference
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Document#getElementById
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#setNodeValue
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.w3c.dom.Node#getPrefix
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Document#createElementNS
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Node#getFirstChild
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Document#getDocumentElement
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.NamedNodeMap#getNamedItemNS
+  signature:
+    return: org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.NamedNodeMap#namedItem#org.w3c.dom.Node
+    to: result
+- function: org.w3c.dom.Document#importNode
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.w3c.dom.Node#getNodeName
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Document#createComment
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Node#appendChild
+  copy:
+  - from: arg(0)
+    to: this
+- function: org.w3c.dom.Node#getAttributes
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Node#getNodeValue
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Node#getNextSibling
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Document#importNode
+  signature:
+    params:
+    - index: 0
+      type: org.w3c.dom.Node
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.w3c.dom.Document#documentElement#org.w3c.dom.Node
+- function: org.w3c.dom.NamedNodeMap#setNamedItemNS
+  signature:
+    return: org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.NamedNodeMap#namedItem#org.w3c.dom.Node
+    to: result
+- function: org.w3c.dom.Node#getPrefix
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Node#nodeValue#java.lang.String
+    to: result
+- function: org.w3c.dom.NamedNodeMap#item
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.NamedNodeMap#getNamedItem
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Node#getNodeValue
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getChildNodes
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Node#setNodeValue
+  signature:
+    params:
+    - index: 0
+      type: java.lang.String
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.w3c.dom.Node#nodeValue#java.lang.String
+- function: org.w3c.dom.NamedNodeMap#removeNamedItemNS
+  signature:
+    return: org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.NamedNodeMap#namedItem#org.w3c.dom.Node
+    to: result
+- function: org.w3c.dom.NodeList#item
+  signature:
+    return: org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.NodeList#item#org.w3c.dom.Node
+    to: result
+- function: org.w3c.dom.Document#getElementsByTagNameNS
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Document#getElementById
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Node#getNodeName
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Node#nodeValue#java.lang.String
+    to: result
+- function: org.w3c.dom.Node#getChildNodes
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.NamedNodeMap#getNamedItemNS
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.NamedNodeMap#removeNamedItem
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Node#getPreviousSibling
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getOwnerDocument
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Document#createCDATASection
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Document#getElementsByTagName
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Document#getElementsByTagNameNS
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Node#getOwnerDocument
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Document#createProcessingInstruction
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Node#getTextContent
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Document#createElement
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.NamedNodeMap#setNamedItem
+  signature:
+    return: org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.NamedNodeMap#namedItem#org.w3c.dom.Node
+    to: result
+- function: org.w3c.dom.Node#cloneNode
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.NamedNodeMap#item
+  signature:
+    return: org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.NamedNodeMap#namedItem#org.w3c.dom.Node
+    to: result
+- function: org.w3c.dom.Node#getLastChild
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getParentNode
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Node#getTextContent
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Node#nodeValue#java.lang.String
+    to: result
+- function: org.w3c.dom.Document#createTextNode
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Document#getElementsByTagName
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.NamedNodeMap#setNamedItem
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Node#setNodeValue
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+- function: org.w3c.dom.Node#getTextContent
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Document#createAttributeNS
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.Node#getPrefix
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result
+- function: org.w3c.dom.Document#getDocumentElement
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.NodeList#item
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.NamedNodeMap#removeNamedItemNS
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Document#createAttribute
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.w3c.dom.NamedNodeMap#getNamedItem
+  signature:
+    return: org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.NamedNodeMap#namedItem#org.w3c.dom.Node
+    to: result
+- function: org.w3c.dom.NamedNodeMap#removeNamedItem
+  signature:
+    return: org.w3c.dom.Node
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.NamedNodeMap#namedItem#org.w3c.dom.Node
+    to: result
+- function: org.w3c.dom.NamedNodeMap#setNamedItemNS
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.w3c.dom.Document#importNode
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.w3c.dom.Document#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+- function: org.w3c.dom.Node#getNodeValue
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Node#nodeValue#java.lang.String
+    to: result
+- function: org.w3c.dom.Node#getNodeName
+  copy:
+  - from:
+    - this
+    - .org.w3c.dom.Node#<rule-storage>#java.lang.Object
+    to: result

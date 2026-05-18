@@ -1,0 +1,30 @@
+passThrough:
+- function: java.util.zip.ZipEntry#getName
+  signature:
+    return: java.lang.String
+  copy:
+  - from:
+    - this
+    - .java.util.zip.ZipEntry#name#java.lang.String
+    to: result
+- function: java.util.zip.ZipEntry#getName
+  signature: () java.lang.String
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.zip.ZipFile#stream
+  signature: () java.util.stream.Stream
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: java.util.zip.ZipEntry#<init>
+  signature: (java.util.zip.ZipEntry) *
+  copy:
+  - from:
+    - arg(0)
+    - .java.util.zip.ZipEntry#name#java.lang.String
+    to:
+    - this
+    - .java.util.zip.ZipEntry#name#java.lang.String

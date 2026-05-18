@@ -1,0 +1,32 @@
+library: org.springframework:spring-jms:6.1.5
+passThrough:
+- function: org.springframework.jms.listener.adapter.JmsResponse#forTopic
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.jms.listener.adapter.JmsResponse#getResponse
+  signature:
+    return: java.lang.Object
+  copy:
+  - from:
+    - this
+    - .org.springframework.jms.listener.adapter.JmsResponse#response#java.lang.Object
+    to: result
+- function: org.springframework.jms.listener.adapter.JmsResponse#forQueue
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.jms.listener.adapter.JmsResponse#getResponse
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: org.springframework.jms.support.JmsMessageHeaderAccessor#wrap
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.springframework.jms.listener.adapter.JmsResponse#forDestination
+  copy:
+  - from: arg(0)
+    to: result

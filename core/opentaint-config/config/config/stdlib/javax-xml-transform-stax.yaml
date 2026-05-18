@@ -1,0 +1,209 @@
+passThrough:
+- function: javax.xml.transform.stax.StAXResult#getXMLStreamWriter
+  signature: () javax.xml.stream.XMLStreamWriter
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.stax.StAXResult#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.stax.StAXSource#getXMLEventReader
+  signature: () javax.xml.stream.XMLEventReader
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.stax.StAXSource#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.stax.StAXSource#getXMLStreamReader
+  signature:
+    return: javax.xml.stream.XMLStreamReader
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.stax.StAXSource#xmlStreamReader#javax.xml.stream.XMLStreamReader
+    to: result
+- function: javax.xml.transform.stax.StAXResult#getXMLEventWriter
+  signature: () javax.xml.stream.XMLEventWriter
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.transform.stax.StAXSource#<init>
+  signature:
+    params:
+    - index: 0
+      type: javax.xml.stream.XMLEventReader
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stax.StAXSource#xmlEventReader#javax.xml.stream.XMLEventReader
+- function: javax.xml.transform.stax.StAXResult#getXMLStreamWriter
+  signature:
+    return: javax.xml.stream.XMLStreamWriter
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.stax.StAXResult#xmlStreamWriter#javax.xml.stream.XMLStreamWriter
+    to: result
+- function: javax.xml.transform.stax.StAXSource#<init>
+  signature:
+    params:
+    - index: 0
+      type: javax.xml.stream.XMLStreamReader
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stax.StAXSource#xmlStreamReader#javax.xml.stream.XMLStreamReader
+- function: javax.xml.transform.stax.StAXResult#getXMLEventWriter
+  signature: () javax.xml.stream.XMLEventWriter
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.stax.StAXResult#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.stax.StAXSource#<init>
+  signature: (javax.xml.stream.XMLStreamReader) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+- function: javax.xml.transform.stax.StAXSource#getXMLEventReader
+  signature:
+    return: javax.xml.stream.XMLEventReader
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.stax.StAXSource#xmlEventReader#javax.xml.stream.XMLEventReader
+    to: result
+- function: javax.xml.transform.stax.StAXResult#<init>
+  signature: (javax.xml.stream.XMLStreamWriter) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stax.StAXResult#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.stax.StAXSource#<init>
+  signature: (javax.xml.stream.XMLEventReader) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(*)
+    to: this
+- function: javax.xml.transform.stax.StAXSource#getXMLStreamReader
+  signature: () javax.xml.stream.XMLStreamReader
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.transform.stax.StAXSource#<init>
+  signature: (javax.xml.stream.XMLStreamReader) void
+  copy:
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.stax.StAXSource#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.stax.StAXResult#getXMLEventWriter
+  signature:
+    return: javax.xml.stream.XMLEventWriter
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.stax.StAXResult#xmlEventWriter#javax.xml.stream.XMLEventWriter
+    to: result
+- function: javax.xml.transform.stax.StAXSource#<init>
+  signature: (javax.xml.stream.XMLEventReader) void
+  copy:
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+  - from: arg(*)
+    to:
+    - this
+    - .javax.xml.transform.stax.StAXSource#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.stax.StAXResult#<init>
+  signature: (javax.xml.stream.XMLEventWriter) void
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.Result#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stax.StAXResult#<rule-storage>#java.lang.Object
+- function: javax.xml.transform.stax.StAXResult#<init>
+  signature:
+    params:
+    - index: 0
+      type: javax.xml.stream.XMLEventWriter
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stax.StAXResult#xmlEventWriter#javax.xml.stream.XMLEventWriter
+- function: javax.xml.transform.stax.StAXSource#getXMLStreamReader
+  signature: () javax.xml.stream.XMLStreamReader
+  copy:
+  - from:
+    - this
+    - .javax.xml.transform.stax.StAXSource#<rule-storage>#java.lang.Object
+    to: result
+  - from:
+    - this
+    - .javax.xml.transform.Source#<rule-storage>#java.lang.Object
+    to: result
+- function: javax.xml.transform.stax.StAXResult#getXMLStreamWriter
+  signature: () javax.xml.stream.XMLStreamWriter
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.transform.stax.StAXResult#<init>
+  signature:
+    params:
+    - index: 0
+      type: javax.xml.stream.XMLStreamWriter
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .javax.xml.transform.stax.StAXResult#xmlStreamWriter#javax.xml.stream.XMLStreamWriter
+- function: javax.xml.transform.stax.StAXSource#getXMLEventReader
+  signature: () javax.xml.stream.XMLEventReader
+  taintCopyOnly: true
+  copy:
+  - from: this
+    to: result
+- function: javax.xml.transform.stax.StAXResult#<init>
+  signature: (javax.xml.stream.XMLEventWriter) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this
+- function: javax.xml.transform.stax.StAXResult#<init>
+  signature: (javax.xml.stream.XMLStreamWriter) void
+  taintCopyOnly: true
+  copy:
+  - from: arg(0)
+    to: this

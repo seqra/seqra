@@ -1,0 +1,25 @@
+passThrough:
+- function: java.util.concurrent.atomic.AtomicReference#get
+  signature: () java.lang.Object
+  overrides: false
+  copy:
+  - from:
+    - this
+    - .java.util.concurrent.atomic.AtomicReference#value#java.lang.Object
+    to: result
+- function: java.util.concurrent.atomic.AtomicReference#set
+  signature: (java.lang.Object) void
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.concurrent.atomic.AtomicReference#value#java.lang.Object
+- function: java.util.concurrent.atomic.AtomicReference#<init>
+  signature: (java.lang.Object) void
+  overrides: false
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .java.util.concurrent.atomic.AtomicReference#value#java.lang.Object

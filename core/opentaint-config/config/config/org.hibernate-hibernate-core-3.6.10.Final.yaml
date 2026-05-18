@@ -1,0 +1,6 @@
+library: org.hibernate:hibernate-core:3.6.10.Final
+passThrough:
+- function: org.hibernate.hql.classic.QueryTranslatorImpl#applyLocks
+  copy:
+  - from: arg(0)
+    to: result

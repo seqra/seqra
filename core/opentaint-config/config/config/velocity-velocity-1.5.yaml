@@ -1,0 +1,10 @@
+library: velocity:velocity:1.5
+passThrough:
+- function: org.apache.velocity.util.StringUtils#trimStrings
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.velocity.util.StringUtils#nullTrim
+  copy:
+  - from: arg(0)
+    to: result

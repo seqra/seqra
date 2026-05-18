@@ -1,0 +1,10 @@
+library: org.apache.commons:commons-compress:1.26.2
+passThrough:
+- function: org.apache.commons.compress.archivers.ArchiveEntry#getName
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.compress.archivers.zip.ZipArchiveEntry#getName
+  copy:
+  - from: this
+    to: result

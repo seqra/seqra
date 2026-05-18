@@ -1,0 +1,6 @@
+library: commons-lang:commons-lang:2.0
+passThrough:
+- function: org.apache.commons.lang.enum.Enum#iterator
+  copy:
+  - from: arg(0)
+    to: result

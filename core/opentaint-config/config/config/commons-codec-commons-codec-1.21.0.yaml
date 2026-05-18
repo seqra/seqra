@@ -1,0 +1,10 @@
+library: commons-codec:commons-codec:1.21.0
+passThrough:
+- function: org.apache.commons.codec.binary.Base64#decodeBase64
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.codec.binary.Base64#encodeBase64
+  copy:
+  - from: arg(0)
+    to: result

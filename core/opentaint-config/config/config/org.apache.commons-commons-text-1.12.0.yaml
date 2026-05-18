@@ -1,0 +1,278 @@
+library: org.apache.commons:commons-text:1.12.0
+passThrough:
+- function: org.apache.commons.text.TextStringBuilder#appendAll
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#appendWithSeparators
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#appendFixedWidthPadRight
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#appendNull
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#deleteCharAt
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#trim
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#appendFixedWidthPadLeft
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#appendSeparator
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#appendln
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#appendPadding
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#deleteAll
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#replaceAll
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#deleteAll
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#reverse
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StringEscapeUtils#escapeHtml3
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#setNullText
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#deleteFirst
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#deleteFirst
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#setCharAt
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#setCharAt
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StringEscapeUtils#escapeCsv
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.text.StrBuilder#ensureCapacity
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#appendNewLine
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#reverse
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#insert
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#trim
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#appendNewLine
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#deleteCharAt
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#ensureCapacity
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#appendFixedWidthPadRight
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#appendSeparator
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#replaceFirst
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#appendWithSeparators
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#appendAll
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#append
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#appendNull
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#minimizeCapacity
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#replace
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#appendln
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#minimizeCapacity
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#setNewLineText
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#setLength
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#replace
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StringEscapeUtils#escapeHtml4
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#appendFixedWidthPadLeft
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#setNullText
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#append
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#replaceFirst
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#setNewLineText
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#delete
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#insert
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#replaceAll
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#appendPadding
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StrBuilder#delete
+  overrides: false
+  copy:
+  - from: this
+    to: result
+- function: org.apache.commons.text.StringEscapeUtils#unescapeCsv
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.commons.text.TextStringBuilder#setLength
+  overrides: false
+  copy:
+  - from: this
+    to: result

@@ -1,0 +1,600 @@
+library: org.apache.hadoop:hadoop-mapreduce-client-core:3.3.6
+dependencies:
+- org.apache.hadoop:hadoop-common:3.3.6
+passThrough:
+- function: org.apache.hadoop.filecache.DistributedCache#addLocalArchives
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapred.JobID#appendTo
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobID#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapred.JobID#toString
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobID#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapreduce.lib.output.FileOutputCommitter#getWorkPath
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.mapreduce.lib.output.FileOutputCommitter#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapreduce.lib.output.FileOutputCommitter#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapreduce.lib.output.FileOutputCommitter#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.hadoop.mapreduce.lib.output.FileOutputCommitter#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapred.JobConf#setQueueName
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapred.JobConf#getQueueName
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapreduce.JobID#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.hadoop.mapreduce.JobID#<rule-storage>#java.lang.Object
+- function: org.apache.hadoop.mapred.JobClient#getReduceTaskReports
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#getJobEndNotificationURI
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapreduce.TaskID#getJobID
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.mapreduce.TaskID#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapred.FileSplit#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.FileSplit#<rule-storage>#java.lang.Object
+- function: org.apache.hadoop.mapred.JobConf#getReduceDebugScript
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobID#read
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#getKeepTaskFilesPattern
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#getJobName
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.RunningJob#getCounters
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#getKeyFieldPartitionerOption
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapreduce.JobID#forName
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.hadoop.mapreduce.TaskAttemptID#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.hadoop.mapreduce.TaskAttemptID#<rule-storage>#java.lang.Object
+- function: org.apache.hadoop.mapred.JobConf#findContainingJar
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapred.JobClient#getSetupTaskReports
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapreduce.JobID#getJtIdentifier
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapreduce.JobID#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.TaskID#read
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.hadoop.mapred.JobClient#getJobsFromQueue
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapreduce.TaskAttemptID#getTaskID
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapreduce.TaskAttemptID#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.TaskAttemptID#appendTo
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.TaskAttemptID#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapred.TaskID#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.TaskID#<rule-storage>#java.lang.Object
+- function: org.apache.hadoop.mapred.TaskID#appendTo
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.TaskID#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#setWorkingDirectory
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapred.JobClient#getMapTaskReports
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapreduce.TaskID#forName
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.hadoop.mapred.JobClient#getJob
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapreduce.TaskID#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.hadoop.mapreduce.TaskID#<rule-storage>#java.lang.Object
+- function: org.apache.hadoop.mapred.JobConf#setKeyFieldPartitionerOptions
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapred.RunningJob#getTrackingURL
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapreduce.TaskAttemptID#appendTo
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapreduce.TaskAttemptID#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapreduce.TaskID#appendTo
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.mapreduce.TaskID#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapred.TaskAttemptID#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.TaskAttemptID#<rule-storage>#java.lang.Object
+- function: org.apache.hadoop.mapred.FileSplit#getPath
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.FileSplit#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapred.JobID#getJtIdentifier
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobID#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapred.TaskID#forName
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#getSessionId
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#setJar
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapred.JobID#forName
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.hadoop.mapred.TaskAttemptID#getTaskID
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.TaskAttemptID#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapred.TaskLog#addCommand
+  copy:
+  - from: arg(*)
+    to: result
+- function: org.apache.hadoop.mapred.FileInputFormat#getRecordReader
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.hadoop.mapred.JobClient#getDelegationToken
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapred.JobID#<init>
+  copy:
+  - from: arg(*)
+    to: this
+  - from: arg(*)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobID#<rule-storage>#java.lang.Object
+- function: org.apache.hadoop.mapred.JobConf#getProfileParams
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapreduce.Job#getTrackingURL
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#getKeyFieldComparatorOption
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#setUser
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapred.RunningJob#getJobID
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#setReduceDebugScript
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapred.JobConf#setMapDebugScript
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapred.JobConf#setJobEndNotificationURI
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapreduce.JobID#toString
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapreduce.JobID#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#setKeyFieldComparatorOptions
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapreduce.JobID#appendTo
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapreduce.JobID#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.filecache.DistributedCache#addCacheArchive
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapred.FileInputFormat#getSplits
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#setSessionId
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapred.FileInputFormat#getInputPaths
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#getUser
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#getWorkingDirectory
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.filecache.DistributedCache#addLocalFiles
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapred.RunningJob#getJobName
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.filecache.DistributedCache#addArchiveToClassPath
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapreduce.Job#getJar
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#setJobName
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapreduce.TaskAttemptID#toString
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapreduce.TaskAttemptID#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.filecache.DistributedCache#addFileToClassPath
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#setKeepTaskFilesPattern
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapred.TaskID#getJobID
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.TaskID#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.TaskAttemptID#getJobID
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.TaskAttemptID#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapred.InputSplit#getLocations
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#getMapDebugScript
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.RunningJob#getID
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.RunningJob#getJobFile
+  copy:
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#getJar
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapreduce.TaskID#toString
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.mapreduce.TaskID#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapreduce.TaskAttemptID#getJobID
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapreduce.TaskAttemptID#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapred.TaskAttemptID#toString
+  copy:
+  - from: this
+    to: result
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.TaskAttemptID#<rule-storage>#java.lang.Object
+    to: result
+- function: org.apache.hadoop.mapred.TaskID#toString
+  copy:
+  - from:
+    - this
+    - .org.apache.hadoop.mapred.TaskID#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function: org.apache.hadoop.mapreduce.Job#setWorkingDirectory
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapred.JobClient#getQueueInfo
+  copy:
+  - from: arg(0)
+    to: result
+- function: org.apache.hadoop.mapred.JobConf#setProfileParams
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.hadoop.mapred.JobConf#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.hadoop.mapred.TaskLog#captureOutAndError
+  copy:
+  - from: arg(*)
+    to: result

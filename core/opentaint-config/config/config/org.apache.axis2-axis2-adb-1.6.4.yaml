@@ -1,0 +1,6 @@
+library: org.apache.axis2:axis2-adb:1.6.4
+passThrough:
+- function: org.apache.axis2.databinding.ADBBean#getPullParser
+  copy:
+  - from: this
+    to: result

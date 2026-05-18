@@ -1,0 +1,122 @@
+library: commons-digester:commons-digester:2.1
+passThrough:
+- function:
+    package: org.apache.commons.digester
+    class: Digester
+    name:
+      pattern: push.*
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.digester.xmlrules.DigesterLoader#load
+  copy:
+  - from: arg(2)
+    to: result
+  - from: arg(3)
+    to: result
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function:
+    package: org.apache.commons.digester
+    class: Digester
+    name:
+      pattern: get.*
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function:
+    package: org.apache.commons.digester
+    class: Digester
+    name:
+      pattern: (pop.*)
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function:
+    package: org.apache.commons.digester
+    class: Digester
+    name:
+      pattern: add.*
+  copy:
+  - from: arg(2)
+    to:
+    - this
+    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to:
+    - this
+    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+  - from: arg(3)
+    to: this
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+  - from: arg(2)
+    to: this
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.digester.xmlrules.DigesterLoader#createDigester
+  copy:
+  - from: arg(0)
+    to: result
+  - from: arg(1)
+    to: result
+- function:
+    package: org.apache.commons.digester
+    class: Digester
+    name:
+      pattern: (peek.*)
+  copy:
+  - from:
+    - this
+    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+    to: result
+  - from: this
+    to: result
+- function:
+    package: org.apache.commons.digester
+    class: Digester
+    name:
+      pattern: set.*
+  copy:
+  - from: arg(1)
+    to: this
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+  - from: arg(1)
+    to:
+    - this
+    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
+- function: org.apache.commons.digester.Digester#<init>
+  copy:
+  - from: arg(0)
+    to:
+    - this
+    - .org.apache.commons.digester.Digester#<rule-storage>#java.lang.Object
+  - from: arg(0)
+    to: this
