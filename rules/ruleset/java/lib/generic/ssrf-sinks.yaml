@@ -382,34 +382,47 @@ rules:
               - pattern: new org.springframework.http.RequestEntity(..., $X, ...)
 
       # ── Builder-chain inline forms (no intermediate URL/URI variable) ──
-      # Match `X = ChainedBuilder(URI.create($UNTRUSTED)).build()` and friends
-      # where the chain is assigned directly to the sink variable.
+      # Match `client.send(HttpRequest.newBuilder().uri(URI.create($X))....build(), ...)`
+      # where the URI wrapper is nested inside the chained-builder
+      # expression. The analyzer's alias expansion folds an intermediate
+      # `HttpRequest req = ...; client.send(req, ...)` let-binding into
+      # this inline form, so the single sink pattern below covers both.
+      # The first pattern-either introduces $UNTRUSTED from the URI
+      # wrapper; the outer pattern matches the send call with the
+      # builder chain inlined into its first argument.
       - patterns:
           - pattern-either:
               - pattern-inside: |
-                  $TYPE $REQ = java.net.http.HttpRequest.newBuilder().uri(URI.create($UNTRUSTED)).$_().build();
+                  $URL = URI.create($UNTRUSTED);
                   ...
               - pattern-inside: |
-                  $TYPE $REQ = java.net.http.HttpRequest.newBuilder().uri(URI.create($UNTRUSTED)).build();
+                  $URL = java.net.URI.create($UNTRUSTED);
                   ...
               - pattern-inside: |
-                  $TYPE $REQ = java.net.http.HttpRequest.newBuilder().uri(java.net.URI.create($UNTRUSTED)).$_().build();
+                  $URL = new URI($UNTRUSTED);
                   ...
               - pattern-inside: |
-                  $TYPE $REQ = java.net.http.HttpRequest.newBuilder().uri(java.net.URI.create($UNTRUSTED)).build();
+                  $URL = new java.net.URI($UNTRUSTED);
                   ...
+          - pattern-inside: |
+              $BUILDER = $_.uri($URL);
+              ...
+          - pattern-inside: |
+              $TYPE $REQ = $BUILDER.build();
+              ...
           - pattern: (java.net.http.HttpClient $C).send($REQ, ...)
 
-      # OkHttp Request.Builder().url(String).build() inlined into a Request
-      # let-binding; consumed by OkHttpClient.newCall / newWebSocket.
+      # OkHttp Request.Builder().url(String).build() inlined into a Request;
+      # consumed by OkHttpClient.newCall / newWebSocket. Same chained
+      # metavar trick: capture $BUILDER from .url($UNTRUSTED), then bind
+      # $REQ to $BUILDER.build(), then match the sink call on $REQ.
       - patterns:
-          - pattern-either:
-              - pattern-inside: |
-                  $TYPE $REQ = new okhttp3.Request.Builder().url($UNTRUSTED).build();
-                  ...
-              - pattern-inside: |
-                  $TYPE $REQ = new okhttp3.Request.Builder().url($UNTRUSTED).$_().build();
-                  ...
+          - pattern-inside: |
+              $BUILDER = $_.url($UNTRUSTED);
+              ...
+          - pattern-inside: |
+              $TYPE $REQ = $BUILDER.build();
+              ...
           - pattern-either:
               - pattern: (okhttp3.OkHttpClient $C).newCall($REQ)
               - pattern: (okhttp3.OkHttpClient $C).newWebSocket($REQ, ...)
