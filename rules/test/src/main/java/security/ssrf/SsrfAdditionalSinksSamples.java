@@ -62,7 +62,7 @@ public class SsrfAdditionalSinksSamples {
 
         @GetMapping("/fetch")
         // TODO: Analyzer FN – taint does not propagate through URI.create() wrapper; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> fetch(@RequestParam("url") String url) throws Exception {
             HttpRequest request = HttpRequest.newBuilder(URI.create(url)).GET().build();
             HttpClient client = HttpClient.newHttpClient();
@@ -109,7 +109,7 @@ public class SsrfAdditionalSinksSamples {
 
         @GetMapping("/fetch")
         // TODO: Analyzer FN – taint does not propagate through URI.create() wrapper; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> fetch(@RequestParam("url") String url) {
             RequestEntity<Void> request = RequestEntity.get(URI.create(url)).build();
             return ResponseEntity.ok("request entity to: " + request.getUrl());
@@ -230,7 +230,7 @@ public class SsrfAdditionalSinksSamples {
 
         @GetMapping("/download")
         // TODO: Analyzer FN – taint does not propagate through new URL() wrapper; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> download(@RequestParam("url") String url) throws Exception {
             File tempFile = File.createTempFile("download", ".tmp");
             org.apache.commons.io.FileUtils.copyURLToFile(new URL(url), tempFile);

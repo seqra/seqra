@@ -328,7 +328,7 @@ public class SsrfComprehensiveSinksSamples {
     public static class UnsafeCommonsIOUsage {
         @GetMapping("/test")
         // TODO: Analyzer FN – taint does not propagate through new URL() wrapper; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> test(@RequestParam("url") String url) throws Exception {
             URL u = new URL(url);
 
@@ -373,7 +373,7 @@ public class SsrfComprehensiveSinksSamples {
     public static class UnsafeActivationUsage {
         @GetMapping("/test")
         // TODO: Analyzer FN – taint does not propagate through new URL() wrapper; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> test(@RequestParam("url") String url) throws Exception {
             URL u = new URL(url);
             new javax.activation.URLDataSource(u);
@@ -389,7 +389,7 @@ public class SsrfComprehensiveSinksSamples {
     public static class UnsafeHudsonUsage {
         @GetMapping("/test")
         // TODO: Analyzer FN – taint does not propagate through new URL() wrapper; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> test(@RequestParam("url") String url) throws Exception {
             URL u = new URL(url);
 
@@ -415,7 +415,7 @@ public class SsrfComprehensiveSinksSamples {
     public static class UnsafeStaplerUsage {
         @GetMapping("/test")
         // TODO: Analyzer FN – taint does not propagate through new URL() wrapper; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> test(@RequestParam("url") String url) throws Exception {
             URL u = new URL(url);
             org.kohsuke.stapler.StaplerResponse response = null;
@@ -510,7 +510,7 @@ public class SsrfComprehensiveSinksSamples {
     public static class UnsafeCommonsIOCopy {
         @GetMapping("/test")
         // TODO: Analyzer FN – taint does not propagate through new URL() wrapper; re-enable when summaries are added
-        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> test(@RequestParam("url") String url) throws Exception {
             URL u = new URL(url);
             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();

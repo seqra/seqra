@@ -56,7 +56,7 @@ public class SsrfExtraSinksSamples {
     public static class UnsafeHttpClientSendController {
 
         @GetMapping("/http-client-send")
-        // @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
+        @PositiveRuleSample(value = "java/security/ssrf.yaml", id = "ssrf")
         public ResponseEntity<String> unsafeSend(@RequestParam("url") String url) throws Exception {
             java.net.http.HttpRequest request = java.net.http.HttpRequest.newBuilder()
                     .uri(java.net.URI.create(url))
