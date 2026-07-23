@@ -22,6 +22,10 @@ class Phase3IoNioCoverageTest : SampleBasedTest(configurationRequired = true) {
     fun `security passthrough coverage`() =
         runTest<phase3.CoverageSecurity>(unrollStrategy = TestAnalysisRunner.AnyAccessorEnabled)
 
+    @Test
+    fun `nio buffer coverage`() =
+        runTest<phase3.CoverageBuffers>(unrollStrategy = TestAnalysisRunner.AnyAccessorEnabled)
+
     @AfterAll
     fun close() {
         closeRunner()
