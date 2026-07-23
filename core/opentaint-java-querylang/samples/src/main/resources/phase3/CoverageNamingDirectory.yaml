@@ -1,0 +1,15 @@
+rules:
+  - id: phase3-coverage-naming-directory
+    languages:
+      - java
+    severity: ERROR
+    message: taint reaches sink through a javax.naming.directory passthrough
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: $X = asrc();
+          - focus-metavariable: $X
+    pattern-sinks:
+      - patterns:
+          - pattern: arrSink($Y);
+          - focus-metavariable: $Y

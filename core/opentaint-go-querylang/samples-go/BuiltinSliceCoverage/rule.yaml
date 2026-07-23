@@ -1,0 +1,10 @@
+rules:
+  - id: builtin-slice-coverage
+    languages: [go]
+    severity: WARNING
+    message: "taint survives a changed builtin slice passthrough and reaches Sink"
+    mode: taint
+    pattern-sources:
+      - pattern: "BuiltinSliceCoverage.Source(...)"
+    pattern-sinks:
+      - pattern: "BuiltinSliceCoverage.Sink($X)"

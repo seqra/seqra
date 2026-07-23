@@ -1,0 +1,21 @@
+rules:
+  - id: phase3-stdlib-coverage
+    languages:
+      - java
+    severity: ERROR
+    message: taint reaches sink through a changed stdlib passthrough
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: $X = asrc();
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: $X = csrc();
+          - focus-metavariable: $X
+    pattern-sinks:
+      - patterns:
+          - pattern: arrSink($Y);
+          - focus-metavariable: $Y
+      - patterns:
+          - pattern: strSink($Y);
+          - focus-metavariable: $Y

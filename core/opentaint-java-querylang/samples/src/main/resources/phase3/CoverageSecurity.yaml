@@ -1,0 +1,18 @@
+rules:
+  - id: phase3-coverage-security
+    languages:
+      - java
+    severity: ERROR
+    message: taint reaches sink through a java.security.CodeSource passthrough
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: $X = certSrc();
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: $X = signerSrc();
+          - focus-metavariable: $X
+    pattern-sinks:
+      - patterns:
+          - pattern: objSink($Y);
+          - focus-metavariable: $Y

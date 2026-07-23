@@ -1,0 +1,10 @@
+rules:
+  - id: slices-coverage
+    languages: [go]
+    severity: WARNING
+    message: "taint survives a folded slices passthrough and reaches Sink"
+    mode: taint
+    pattern-sources:
+      - pattern: "SlicesCoverage.Source(...)"
+    pattern-sinks:
+      - pattern: "SlicesCoverage.Sink($X)"

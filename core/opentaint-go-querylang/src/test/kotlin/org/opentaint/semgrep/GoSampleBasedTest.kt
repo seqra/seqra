@@ -89,6 +89,16 @@ class GoSampleBasedTest: GoSampleBasedTestBase("GO_SAMPLES_DIR") {
 
     @Test fun cookieValueFieldRead() = runSample("CookieValueFieldRead")
 
+    // Phase 3 config coverage: taint must survive the changed builtin/fmt passthroughs.
+    @Test fun builtinSliceCoverage() = runSample("BuiltinSliceCoverage", useDefaultConfig = true)
+
+    @Test fun fmtCoverage() = runSample("FmtCoverage", useDefaultConfig = true)
+
+    @Disabled // slices.* are generic (Clone[S ~[]E, E any]); the config key does not match the
+    // generic-instantiated call, so these entries were already inert before the fold (element
+    // flow undetected even with the pre-fold stars). Un-disable if generic config matching lands.
+    @Test fun slicesCoverage() = runSample("SlicesCoverage", useDefaultConfig = true)
+
     @Disabled // todo: support struct-literal field matching (issues.md #8)
     @Test fun insecureCookieLiteral() = runSample("InsecureCookieLiteral")
 

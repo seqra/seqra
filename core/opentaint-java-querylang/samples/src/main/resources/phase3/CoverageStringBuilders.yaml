@@ -1,0 +1,15 @@
+rules:
+  - id: phase3-coverage-string-builders
+    languages:
+      - java
+    severity: ERROR
+    message: taint reaches sink through a string-builder char[] passthrough
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: $X = csrc();
+          - focus-metavariable: $X
+    pattern-sinks:
+      - patterns:
+          - pattern: strSink($Y);
+          - focus-metavariable: $Y

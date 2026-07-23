@@ -1,0 +1,10 @@
+rules:
+  - id: fmt-coverage
+    languages: [go]
+    severity: WARNING
+    message: "taint survives a changed fmt passthrough and reaches Sink"
+    mode: taint
+    pattern-sources:
+      - pattern: "FmtCoverage.Source(...)"
+    pattern-sinks:
+      - pattern: "FmtCoverage.Sink($X)"

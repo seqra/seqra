@@ -1,0 +1,39 @@
+rules:
+  - id: phase3-coverage-streams
+    languages:
+      - java
+    severity: ERROR
+    message: taint reaches sink through a java.io / java.nio / java.util.stream passthrough
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: $X = bsrc();
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: $X = csrc();
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: $X = isrc();
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: $X = lsrc();
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: $X = ssrc();
+          - focus-metavariable: $X
+    pattern-sinks:
+      - patterns:
+          - pattern: bSink($Y);
+          - focus-metavariable: $Y
+      - patterns:
+          - pattern: cSink($Y);
+          - focus-metavariable: $Y
+      - patterns:
+          - pattern: iSink($Y);
+          - focus-metavariable: $Y
+      - patterns:
+          - pattern: lSink($Y);
+          - focus-metavariable: $Y
+      - patterns:
+          - pattern: strSink($Y);
+          - focus-metavariable: $Y
