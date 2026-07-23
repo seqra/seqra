@@ -318,6 +318,8 @@ tests:
   - rule-id: java/security/insecure-design.yaml#trust-boundary-violation
     positive:
       - security.insecuredesign.InsecureDesignSamples#mixesTrustedAndUntrustedInSessionInsecure
+      - security.insecuredesign.InsecureDesignSamples#storesWrappedUntrustedInSessionInsecure
+      - security.insecuredesign.InsecureDesignSamples#storesUntrustedAttributeNameInSessionInsecure
     negative:
       - security.insecuredesign.InsecureDesignSamples#validateBeforeCrossingTrustBoundarySecure
   - rule-id: java/security/ldap.yaml#java-anonymous-ldap
