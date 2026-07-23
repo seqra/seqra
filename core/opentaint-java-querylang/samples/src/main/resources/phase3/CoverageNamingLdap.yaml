@@ -14,5 +14,5 @@ rules:
           - focus-metavariable: $X
     pattern-sinks:
       - patterns:
-          - pattern: ctrlSink($Y);
+          - pattern: ctrlSink($*Y);
           - focus-metavariable: $Y
