@@ -144,6 +144,17 @@ public abstract class CoverageRuleStorageFixes implements RuleSample {
         }
     }
 
+    // Companion positive case: proves the localPatternChars slot itself still
+    // carries taint end to end now that the generic whole-object channel above
+    // is closed.
+    static class PositiveDateFormatSymbolsLocalPatternChars extends CoverageRuleStorageFixes {
+        @Override public void entrypoint() {
+            java.text.DateFormatSymbols dfs = new java.text.DateFormatSymbols();
+            dfs.setLocalPatternChars(ssrc());
+            strSink(dfs.getLocalPatternChars());
+        }
+    }
+
     // 9. java.text.DecimalFormatSymbols: four String setters were funnelled into
     // one slot.
     static class PositiveDecimalFormatSymbolsNaN extends CoverageRuleStorageFixes {
