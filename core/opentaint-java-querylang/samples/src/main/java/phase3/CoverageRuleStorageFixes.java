@@ -133,6 +133,17 @@ public abstract class CoverageRuleStorageFixes implements RuleSample {
         }
     }
 
+    // Probes whether the generic {set.+}/{get.+} whole-object channel on
+    // DateFormatSymbols is still live. getLocalPatternChars returns a scalar
+    // String, so unlike the array getters it can observe a base-level mark.
+    static class NegativeDateFormatSymbolsLocalPatternChars extends CoverageRuleStorageFixes {
+        @Override public void entrypoint() {
+            java.text.DateFormatSymbols dfs = new java.text.DateFormatSymbols();
+            dfs.setMonths(new String[]{ ssrc() });
+            strSink(dfs.getLocalPatternChars());
+        }
+    }
+
     // 9. java.text.DecimalFormatSymbols: four String setters were funnelled into
     // one slot.
     static class PositiveDecimalFormatSymbolsNaN extends CoverageRuleStorageFixes {
