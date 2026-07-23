@@ -209,7 +209,7 @@ class SpringRuleProvider(
         // Controller-return XSS sinks must still fire on F2F edges, i.e. STORED / second-order
         // flows where taint enters the GET handler as an initial fact (e.g. POST writes tainted
         // data into a repository, GET returns repo.findById(...)). This reproduces the load-bearing
-        // null bypass of the removed unfoldSpringExitObject hack; the $VAR* stars in the rules now
+        // null bypass of the removed unfoldSpringExitObject hack; the $*VAR stars in the rules now
         // handle the any-field widening that the deleted ContainsMarkRewriter used to do.
         return base.sinkRulesForMethodExit(method, statement, fact, initialFacts = null, allRelevant)
     }
