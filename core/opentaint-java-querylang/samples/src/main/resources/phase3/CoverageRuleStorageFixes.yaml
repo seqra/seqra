@@ -1,0 +1,24 @@
+rules:
+  - id: phase3-coverage-rule-storage-fixes
+    languages:
+      - java
+    severity: ERROR
+    message: taint reaches sink through a passthrough fixed by the rule-storage cleanup
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: $X = ssrc();
+          - focus-metavariable: $X
+      - patterns:
+          - pattern: $X = bsrc();
+          - focus-metavariable: $X
+    pattern-sinks:
+      - patterns:
+          - pattern: strSink($Y);
+          - focus-metavariable: $Y
+      - patterns:
+          - pattern: bytesSink($Y);
+          - focus-metavariable: $Y
+      - patterns:
+          - pattern: objSink($Y);
+          - focus-metavariable: $Y
