@@ -35,8 +35,8 @@ rules:
               import "os/exec"
               ...
           - pattern-either:
-              - pattern: "exec.Command(\"$NAME\", ..., $UNTRUSTED, ...)"
-              - pattern: "exec.CommandContext($CTX, \"$NAME\", ..., $UNTRUSTED, ...)"
+              - pattern: "exec.Command(\"$NAME\", ..., $*UNTRUSTED, ...)"
+              - pattern: "exec.CommandContext($CTX, \"$NAME\", ..., $*UNTRUSTED, ...)"
           - metavariable-regex:
               metavariable: $NAME
               regex: sh

@@ -878,12 +878,16 @@ rules:
       - kt
     options:
       primitive-tracking: true
+    # Star the digest at its assignment ($*DIGEST) so its element (any-field) taint is produced;
+    # the byte-by-byte read `$DIGEST[...]` at the use routes to the same any-field check (via the
+    # $X[...] -> star routing), so this matches both `digest[i]` indexing and a `for (byte b :
+    # digest)` loop where b is an element. The safe idiom uses String.format("%02X", ...).
     pattern: |-
       $X $METHOD(...) {
         ...
         MessageDigest $MD = ...;
         ...
-        $DIGEST = $MD.digest(...);
+        $*DIGEST = $MD.digest(...);
         ...
         Integer.toHexString($DIGEST[...]);
       }

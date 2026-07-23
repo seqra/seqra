@@ -145,8 +145,8 @@ rules:
     pattern-sinks:
       - patterns:
           - pattern-either:
-              - pattern: (BeanUtilsBean $B).populate(..., $UNTRUSTED);
-              - pattern: org.apache.commons.beanutils.BeanUtils.populate(..., $UNTRUSTED);
+              - pattern: (BeanUtilsBean $B).populate(..., $*UNTRUSTED);
+              - pattern: org.apache.commons.beanutils.BeanUtils.populate(..., $*UNTRUSTED);
           - focus-metavariable: $UNTRUSTED
 
   - id: sql-catalog-external-manipulation

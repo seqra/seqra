@@ -47,13 +47,13 @@ rules:
               - pattern: |
                   $W = (HttpServletResponse $RESPONSE).getWriter(...);
                   ...
-                  $W.$WRITE(..., $UNTRUSTED, ...);
+                  $W.$WRITE(..., $*UNTRUSTED, ...);
               - pattern: |
                   $S = (HttpServletResponse $RESPONSE).getOutputStream(...);
                   ...
-                  $S.$WRITE(..., $UNTRUSTED, ...);
+                  $S.$WRITE(..., $*UNTRUSTED, ...);
               - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
-              - pattern: (JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
+              - pattern: (JspWriter $W).$WRITE(..., $*UNTRUSTED, ...)
 
           - pattern-not-inside: |
               (HttpServletResponse $RESPONSE).setContentType("$CT_SAFE");
@@ -86,37 +86,37 @@ rules:
                   ...
                   $W = (HttpServletResponse $R).getWriter(...);
                   ...
-                  $W.$WRITE(..., $UNTRUSTED, ...);
+                  $W.$WRITE(..., $*UNTRUSTED, ...);
               - pattern: |
                   (HttpServletResponse $R).setHeader("Content-Type", "$CT_HTML");
                   ...
                   $W = (HttpServletResponse $R).getWriter(...);
                   ...
-                  $W.$WRITE(..., $UNTRUSTED, ...);
+                  $W.$WRITE(..., $*UNTRUSTED, ...);
               - pattern: |
                   (HttpServletResponse $R).addHeader("Content-Type", "$CT_HTML");
                   ...
                   $W = (HttpServletResponse $R).getWriter(...);
                   ...
-                  $W.$WRITE(..., $UNTRUSTED, ...);
+                  $W.$WRITE(..., $*UNTRUSTED, ...);
               - pattern: |
                   (HttpServletResponse $R).setContentType("$CT_HTML");
                   ...
                   $S = (HttpServletResponse $R).getOutputStream(...);
                   ...
-                  $S.$WRITE(..., $UNTRUSTED, ...);
+                  $S.$WRITE(..., $*UNTRUSTED, ...);
               - pattern: |
                   (HttpServletResponse $R).setHeader("Content-Type", "$CT_HTML");
                   ...
                   $S = (HttpServletResponse $R).getOutputStream(...);
                   ...
-                  $S.$WRITE(..., $UNTRUSTED, ...);
+                  $S.$WRITE(..., $*UNTRUSTED, ...);
               - pattern: |
                   (HttpServletResponse $R).addHeader("Content-Type", "$CT_HTML");
                   ...
                   $S = (HttpServletResponse $R).getOutputStream(...);
                   ...
-                  $S.$WRITE(..., $UNTRUSTED, ...);
+                  $S.$WRITE(..., $*UNTRUSTED, ...);
           - metavariable-regex:
               metavariable: $CT_HTML
               regex: '^text/html(\s*;.*)?$'

@@ -51,5 +51,5 @@ rules:
           - pattern: new org.apache.commons.httpclient.methods.GetMethod(..., $UNTRUSTED, ...)
           - focus-metavariable: $UNTRUSTED
       - patterns:
-          - pattern: (org.apache.commons.httpclient.methods.GetMethod $GM).setQueryString(..., $UNTRUSTED, ...)
+          - pattern: (org.apache.commons.httpclient.methods.GetMethod $GM).setQueryString(..., $*UNTRUSTED, ...)
           - focus-metavariable: $UNTRUSTED

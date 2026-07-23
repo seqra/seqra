@@ -74,8 +74,14 @@ rules:
                         - pattern: doPost
                         - pattern: doDelete
                         - pattern: doTrace
-          - pattern: |
-              $REQ.$FUNC(...)
+          - pattern-either:
+              # Star the assigned result so an array-typed request value (e.g.
+              # getParameterValues() -> String[]) taints its elements too; for a scalar
+              # result $* is base-or-any-field, so the base still matches.
+              - pattern: |
+                  $*RESULT = $REQ.$FUNC(...)
+              - pattern: |
+                  $REQ.$FUNC(...)
           - pattern-not: |
               $REQ.getSession()
     pattern-propagators:

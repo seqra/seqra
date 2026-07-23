@@ -48,21 +48,21 @@ rules:
                       $W = (HttpServletResponse $RESPONSE).getWriter(...);
                       ...
                   - pattern: |
-                      $W.$WRITE(..., $UNTRUSTED, ...);
+                      $W.$WRITE(..., $*UNTRUSTED, ...);
                 - patterns:
                   - pattern-inside: |
                       $S = (HttpServletResponse $RESPONSE).getOutputStream(...);
                       ...
                   - pattern: |
-                      $S.$WRITE(..., $UNTRUSTED, ...);
+                      $S.$WRITE(..., $*UNTRUSTED, ...);
               - pattern: (HttpServletResponse $RESPONSE).sendError($CODE, $UNTRUSTED)
-              - pattern: (JspWriter $W).$WRITE(..., $UNTRUSTED, ...)
+              - pattern: (JspWriter $W).$WRITE(..., $*UNTRUSTED, ...)
               - pattern: |
-                  (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $UNTRUSTED, ...)
+                  (HttpServletResponse $RESPONSE).getWriter(...).$WRITE(..., $*UNTRUSTED, ...)
               - pattern: |
-                  (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $UNTRUSTED, ...)
+                  (HttpServletResponse $RESPONSE).getOutputStream(...).$WRITE(..., $*UNTRUSTED, ...)
               - pattern: |
-                  (javax.servlet.ServletOutputStream $WRITER).$WRITE(..., $UNTRUSTED, ...)
+                  (javax.servlet.ServletOutputStream $WRITER).$WRITE(..., $*UNTRUSTED, ...)
               - pattern: |
-                  (ServletOutputStream $WRITER).$WRITE(..., $UNTRUSTED, ...)
+                  (ServletOutputStream $WRITER).$WRITE(..., $*UNTRUSTED, ...)
           - focus-metavariable: $UNTRUSTED
