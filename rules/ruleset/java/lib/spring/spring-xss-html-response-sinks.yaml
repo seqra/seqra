@@ -69,11 +69,11 @@ rules:
               - patterns:
                   - pattern-either:
                       - pattern: |
-                          return ResponseEntity.ok($UNTRUSTED);
+                          return ResponseEntity.ok($UNTRUSTED*);
                       - pattern: |
-                            return new ResponseEntity($UNTRUSTED, (HttpStatusCode $STATUS));
+                            return new ResponseEntity($UNTRUSTED*, (HttpStatusCode $STATUS));
                       - pattern: |
-                            return new ResponseEntity($UNTRUSTED, (HttpStatus $STATUS));
+                            return new ResponseEntity($UNTRUSTED*, (HttpStatus $STATUS));
                       - patterns:
                           - patterns:
                               - pattern-not-inside: | 
@@ -174,7 +174,7 @@ rules:
                                   $X = ResponseEntity.unprocessableEntity();
                                   ...
                           - pattern: |
-                              return $X.body($UNTRUSTED);
+                              return $X.body($UNTRUSTED*);
 
                       - patterns:
                           - patterns:
@@ -207,7 +207,7 @@ rules:
                                   $H = new HttpHeaders(...);
                                   ...
                           - pattern: |
-                              return new ResponseEntity($UNTRUSTED, $H, ...);
+                              return new ResponseEntity($UNTRUSTED*, $H, ...);
                   - pattern-either:
                       - pattern-inside: |
                           @$ANNOTATION(...)
@@ -342,7 +342,7 @@ rules:
                           CompletableFuture<UrlResource> $METHOD(...) {
                             ...
                           }
-                  - pattern: return $UNTRUSTED;
+                  - pattern: return $UNTRUSTED*;
               - patterns:
                   - pattern-either:
                       - pattern-inside: |
@@ -463,7 +463,7 @@ rules:
                     - pattern: '"image/svg+xml"'
                     - pattern: MediaType.TEXT_HTML_VALUE
                     - pattern: MediaType.IMAGE_SVG_XML_VALUE
-          - pattern: return $UNTRUSTED;
+          - pattern: return $UNTRUSTED*;
           - focus-metavariable: $UNTRUSTED
 
       - patterns:
@@ -483,6 +483,6 @@ rules:
                   ...
                 }
           - pattern-either:
-              - pattern: return $X.contentType(MediaType.TEXT_HTML).body($UNTRUSTED);
-              - pattern: return $X.contentType(MediaType.IMAGE_SVG_XML).body($UNTRUSTED);
+              - pattern: return $X.contentType(MediaType.TEXT_HTML).body($UNTRUSTED*);
+              - pattern: return $X.contentType(MediaType.IMAGE_SVG_XML).body($UNTRUSTED*);
           - focus-metavariable: $UNTRUSTED

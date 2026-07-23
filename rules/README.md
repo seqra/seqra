@@ -173,6 +173,43 @@ Rules follow Semgrep syntax and concepts:
   - External references (OWASP, CWE, upstream rule sources)
   - Optional `license` and `provenance`
 
+### Whole-Object Taint: the `$VAR*` Star Operator
+
+A metavariable occurrence in pattern text can be **starred** — `$VAR*` — to mark it as
+**whole-object** taint scope: the metavariable's value *and* all of its nested fields, at
+any depth (`{ $VAR, $VAR.* }`), instead of just the value itself.
+
+- **Adjacency matters.** The `*` must directly abut the metavariable with no whitespace.
+  `$X*` is the star operator; `$X * y` (space before `*`) is ordinary multiplication.
+  Write multiplication with a space to avoid ambiguity.
+- **Where it's valid**: any metavariable occurrence inside pattern text —
+  `pattern-sources`, `pattern-sinks`, `pattern-sanitizers`, `pattern-propagators`,
+  `pattern-not` / `pattern-not-inside`. It's a per-occurrence annotation, not part of the
+  metavariable's identity: `$X` and `$X*` in the same rule still bind to the same value.
+- **Not valid** in the `focus-metavariable` YAML field — that field always stays a plain,
+  starless name.
+- Per operation: a starred **source** taints the value and all its fields; a starred
+  **sink**/condition matches if the value *or* any of its fields is tainted; a starred
+  **sanitizer** clears taint on the value and all its fields; a starred **propagator**
+  copies taint from/to the value and all its fields on the starred side.
+
+Example — a sink that should fire when a *field* of the returned object is tainted, not
+just the top-level value:
+
+```yaml
+# before: only matches when $X itself carries a taint mark
+pattern-sinks:
+  - patterns:
+      - pattern: return $X;
+```
+
+```yaml
+# after: also matches when a nested field of the returned object is tainted
+pattern-sinks:
+  - patterns:
+      - pattern: return $X*;
+```
+
 ---
 
 ## Testing and Rule Coverage
@@ -277,6 +314,46 @@ When introducing or changing rules, follow these guidelines:
    - From the `test/root` subdirectory execute `../gradlew verification/checkRulesCoverage` to ensure:
      - No YAML errors
      - All executable rules are covered by tests
+
+---
+
+## Migration Notes
+
+### Spring controller-return sinks: implicit whole-object taint removed
+
+Previously, OpenTaint's Spring integration applied an **implicit** whole-object/any-field
+widening to *every* controller-return taint sink, via a hardcoded internal mechanism
+(`SpringRuleProvider`) that rewrote any method-exit sink whose position was the return
+value into an any-field check — regardless of whether the rule itself asked for it. The
+same mechanism implicitly tainted every field of a Spring controller-parameter source, not
+just the parameter value.
+
+That hardcoded mechanism has been **removed**. The bundled Spring rules that relied on it
+(`spring-response-injection-sink`, `spring-xss-html-response-sink`,
+`spring-unvalidated-redirect-sink`, and the Spring untrusted-data/path sources) have been
+updated to opt in explicitly with the `$VAR*` star operator described above, so their
+behavior is unchanged.
+
+**If you maintain custom rules**, this is a behavior change to be aware of: a custom rule
+with a return-value sink inside a Spring controller —
+
+```yaml
+pattern-sinks:
+  - patterns:
+      - pattern: return $X;
+```
+
+— **no longer implicitly matches** when only a field of the returned object is tainted
+(rather than `$X` itself). To restore that behavior, star the occurrence:
+
+```yaml
+pattern-sinks:
+  - patterns:
+      - pattern: return $X*;
+```
+
+Likewise, a custom source rule matching a Spring controller parameter now taints only the
+parameter value unless you star the occurrence (`$VAR*`) to also taint its fields.
 
 ---
 

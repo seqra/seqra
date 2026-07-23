@@ -51,12 +51,12 @@ rules:
           - patterns:
               - pattern: |
                   @$ANNOTATION(...)
-                  $RETURNTYPE $METHODNAME(..., $TYPE $UNTRUSTED,...) {
+                  $RETURNTYPE $METHODNAME(..., $TYPE $UNTRUSTED*,...) {
                     ...
                   }
               - metavariable-regex:
                   metavariable: $TYPE
-                  regex: ^(?!(Integer|Long|Float|Double|Char|Boolean|int|long|float|double|char|boolean|BindingResult|HttpMethod|java.util.TimeZone|java.util.Locale|java.util.ZoneId))
+                  regex: ^(?!(Integer|Long|Float|Double|Char|Boolean|int|long|float|double|char|boolean|byte|short|BindingResult|HttpMethod|Continuation|java.util.TimeZone|java.util.Locale|java.util.ZoneId|.*\[\]))
               - metavariable-pattern:
                   metavariable: $ANNOTATION
                   patterns:
@@ -68,8 +68,8 @@ rules:
                         - pattern: PostMapping
                         - pattern: PutMapping
           - pattern: |
-              $UNTRUSTED = (MessageBodyReader $READER).readFrom(...);
+              $UNTRUSTED* = (MessageBodyReader $READER).readFrom(...);
           - pattern: |
               Cookie $COOKIE = org.springframework.web.util.WebUtils.getCookie(...);
               ...
-              $UNTRUSTED = $COOKIE.getValue();
+              $UNTRUSTED* = $COOKIE.getValue();
