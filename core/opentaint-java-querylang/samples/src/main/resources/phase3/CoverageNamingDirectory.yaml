@@ -9,7 +9,13 @@ rules:
       - patterns:
           - pattern: $X = asrc();
           - focus-metavariable: $X
+      - patterns:
+          - pattern: $X = ssrc();
+          - focus-metavariable: $X
     pattern-sinks:
       - patterns:
           - pattern: arrSink($Y);
+          - focus-metavariable: $Y
+      - patterns:
+          - pattern: strSink($Y);
           - focus-metavariable: $Y

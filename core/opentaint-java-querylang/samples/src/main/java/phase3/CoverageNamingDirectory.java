@@ -11,6 +11,8 @@ import base.RuleSet;
 public abstract class CoverageNamingDirectory implements RuleSample {
     public String[] asrc() { return new String[]{"tainted"}; }
     public void arrSink(String[] s) {}
+    public String ssrc() { return "tainted"; }
+    public void strSink(String s) {}
 
     // SearchControls#setReturningAttributes(String[]) : arg0 -> this.returningAttributes,
     // read back via getReturningAttributes() : this.returningAttributes -> result.
@@ -39,6 +41,23 @@ public abstract class CoverageNamingDirectory implements RuleSample {
             javax.naming.directory.SearchControls sc = new javax.naming.directory.SearchControls();
             sc.setReturningAttributes(a);
             arrSink(sc.getReturningAttributes());
+        }
+    }
+
+    // NameClassPair: setName must reach getName and must NOT reach getClassName.
+    static class PositiveNamePropertyRoundTrip extends CoverageNamingDirectory {
+        @Override public void entrypoint() {
+            javax.naming.NameClassPair p = new javax.naming.NameClassPair("a", "b");
+            p.setName(ssrc());
+            strSink(p.getName());
+        }
+    }
+
+    static class NegativeNameDoesNotLeakToClassName extends CoverageNamingDirectory {
+        @Override public void entrypoint() {
+            javax.naming.NameClassPair p = new javax.naming.NameClassPair("a", "b");
+            p.setName(ssrc());
+            strSink(p.getClassName());
         }
     }
 }
