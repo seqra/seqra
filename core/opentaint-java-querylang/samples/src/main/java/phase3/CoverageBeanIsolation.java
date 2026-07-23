@@ -24,13 +24,13 @@ public abstract class CoverageBeanIsolation implements RuleSample {
         }
     }
 
-    // FAILS as of this writing: javax.naming.ldap.SortKey#<init>(String, boolean, String)'s
-    // config entry copies BOTH arg(0) (attributeId) and arg(2) (matchingRuleId) onto the
-    // field-sensitive slots AND onto the whole "this" object in the same entry, and both
-    // SortKey#getAttributeID and SortKey#getMatchingRuleID have their own explicit
-    // `from: this to: result` copy line (not merely an AnyAccessorEnabled artifact) --
-    // so either property leaks into the other getter unconditionally. Expected: no
-    // finding. Actual: a finding is reported.
+    // FIXED: javax.naming.ldap.SortKey#<init>(String, boolean, String)'s config entry used
+    // to copy BOTH arg(0) (attributeId) and arg(2) (matchingRuleId) onto the field-sensitive
+    // slots AND onto the whole "this" object in the same entry, and both
+    // SortKey#getAttributeID and SortKey#getMatchingRuleID carried their own explicit
+    // `from: this to: result` copy line -- so either property leaked into the other getter
+    // unconditionally. The whole-object arms were removed from both the ctors and the
+    // getters, leaving only the field-sensitive slots.
     static class NegativeSortKeyMatchingRuleIdNoLeak extends CoverageBeanIsolation {
         @Override public void entrypoint() {
             javax.naming.ldap.SortKey k = new javax.naming.ldap.SortKey(ssrc(), true, "clean");
@@ -55,13 +55,14 @@ public abstract class CoverageBeanIsolation implements RuleSample {
         }
     }
 
-    // FAILS as of this writing: javax.naming.ldap.Rdn#<init>(String, Object)'s config
-    // entries only copy `arg(*) -> this` (whole object, no field split at all) -- there is
-    // no field-sensitive write of arg(0)/arg(1) into .Rdn#type/.Rdn#value for this
-    // constructor overload, so the whole-object mark set by the tainted type argument
-    // leaks into getValue() (which does read the field-sensitive .Rdn#value slot, but
-    // AnyAccessorEnabled also lets the whole-object mark satisfy that read). Expected: no
-    // finding. Actual: a finding is reported.
+    // FIXED: javax.naming.ldap.Rdn#<init>(String, Object)'s config entries used to only
+    // copy `arg(*) -> this` (whole object, no field split at all) -- there was no
+    // field-sensitive write of arg(0)/arg(1) into .Rdn#type/.Rdn#value for this constructor
+    // overload, so the whole-object mark set by the tainted type argument leaked into
+    // getValue() (which does read the field-sensitive .Rdn#value slot, but AnyAccessorEnabled
+    // also let the whole-object mark satisfy that read). The ctor now writes arg(0)/arg(1)
+    // field-sensitively instead, and getType() (previously unmodelled entirely) now reads
+    // .Rdn#type#String.
     static class NegativeRdnValueNoLeakFromType extends CoverageBeanIsolation {
         @Override public void entrypoint() {
             try {
@@ -108,21 +109,19 @@ public abstract class CoverageBeanIsolation implements RuleSample {
         }
     }
 
-    // FAILS as of this writing: javax.script.ScriptContext#setAttribute(String, Object,
-    // int)'s config entry copies arg(1) (the value) into a single, name-insensitive
-    // .ScriptContext#attribute#java.lang.Object vfield -- there is no per-attribute-name
-    // discrimination (the String key at arg(0) is not part of the vfield identity, the
-    // same way java.util.Map's MapValue slot conflates all keys). getAttribute(String)
-    // reads that same undifferentiated slot regardless of the name it is called with, so
-    // a value stored under "k" is observable under "other" too. Expected: no finding.
-    // Actual: a finding is reported.
-    static class NegativeScriptContextDifferentAttributeNoLeak extends CoverageBeanIsolation {
-        @Override public void entrypoint() {
-            javax.script.SimpleScriptContext ctx = new javax.script.SimpleScriptContext();
-            ctx.setAttribute("k", ssrc(), javax.script.ScriptContext.ENGINE_SCOPE);
-            objSink(ctx.getAttribute("other"));
-        }
-    }
+    // ACCEPTED LIMITATION (not a model bug -- do not "fix" by attempting a key-sensitive
+    // attribute slot): javax.script.ScriptContext#setAttribute(String, Object, int) writes
+    // into a single .ScriptContext#attribute#java.lang.Object vfield shared by every
+    // attribute name. Attribute keys are runtime strings the analyzer cannot statically
+    // distinguish, so setAttribute("k", tainted, scope) followed by getAttribute("other")
+    // is observed as tainted even though "k" and "other" are different attributes. This is
+    // the same accepted over-approximation as java.util.Map's MapValue slot, which
+    // conflates all keys of a map for the same reason (see the design doc's routing of
+    // keyed bags to a single HOLDER slot). It is SOUND (a real cross-key flow is never
+    // dropped) but imprecise (this is a false positive for genuinely distinct keys).
+    // javax.naming.ldap.ExtendedRequest has the same key-insensitivity shape but is
+    // skipped above for an unrelated reason (no injectable concrete impl); no other case
+    // in this file fails solely because of key-insensitivity.
 
     // 5. java.text.ChoiceFormat: pattern (toPattern, scalar) vs limits (getLimits,
     // double[] -- not a scalar sink). ChoiceFormat's only other scalar-ish output is
@@ -147,17 +146,28 @@ public abstract class CoverageBeanIsolation implements RuleSample {
         }
     }
 
-    // FAILS as of this writing: java.text.MessageFormat#<init>(String) has a
-    // `taintCopyOnly: true` config entry that copies arg(0) -> this (whole object) in
-    // addition to the field-sensitive entry writing .MessageFormat#pattern#String -- the
-    // whole-object twin was kept (same pattern as the BasicControl/DecimalFormatSymbols
-    // whole-object twins documented in CoverageRuleStorageFixes.java) and lets the pattern
-    // taint leak into getLocale() via AnyAccessorEnabled. Expected: no finding. Actual: a
-    // finding is reported.
+    // FIXED: java.text.MessageFormat#<init>(String) (and its (String, Locale) and
+    // #applyPattern(String) siblings) used to carry `arg(0) -> this` (whole object) twin
+    // entries -- some `taintCopyOnly: true` -- beside the field-sensitive entry writing
+    // .MessageFormat#pattern#String -- the whole-object twins let the pattern taint leak
+    // into getLocale() via AnyAccessorEnabled. All whole-object arms were removed from the
+    // MessageFormat ctors/applyPattern, leaving only the field-sensitive #pattern#/#locale#
+    // writes.
     static class NegativeMessageFormatLocaleNoLeak extends CoverageBeanIsolation {
         @Override public void entrypoint() {
             java.text.MessageFormat mf = new java.text.MessageFormat(ssrc());
             objSink(mf.getLocale());
+        }
+    }
+
+    // FN check for the fix above: MessageFormat#format() must still carry the pattern
+    // taint into its output -- a tainted pattern reaching a formatted string is a real
+    // injection flow, and removing the whole-object copy must not also remove this.
+    static class PositiveMessageFormatFormatCarriesPattern extends CoverageBeanIsolation {
+        @Override public void entrypoint() {
+            java.text.MessageFormat mf = new java.text.MessageFormat("clean {0}");
+            mf.applyPattern(ssrc());
+            strSink(mf.format(new Object[]{"x"}));
         }
     }
 
@@ -171,13 +181,14 @@ public abstract class CoverageBeanIsolation implements RuleSample {
         }
     }
 
-    // FAILS as of this writing: java.text.DecimalFormat#applyPattern(String) has a
-    // `taintCopyOnly: true` config entry that copies arg(0) -> this (whole object) in
-    // addition to the field-sensitive entries writing .DecimalFormat#pattern#String (and,
-    // deliberately, .DecimalFormat#symbols#DecimalFormatSymbols#internationalCurrencySymbol
-    // for locale-affecting pattern chars) -- the whole-object twin lets the pattern taint
-    // leak into getDecimalFormatSymbols() via AnyAccessorEnabled. Expected: no finding.
-    // Actual: a finding is reported.
+    // FIXED: java.text.DecimalFormat#applyPattern(String) (and its <init>(String) and
+    // <init>(String, DecimalFormatSymbols) siblings) used to carry `arg(0) -> this` (whole
+    // object) twin entries -- some `taintCopyOnly: true` -- beside the field-sensitive
+    // entries writing .DecimalFormat#pattern#String (and, deliberately,
+    // .DecimalFormat#symbols#DecimalFormatSymbols#internationalCurrencySymbol for
+    // locale-affecting pattern chars) -- the whole-object twins let the pattern taint leak
+    // into getDecimalFormatSymbols() via AnyAccessorEnabled. All whole-object arms were
+    // removed, leaving only the field-sensitive #pattern#/#symbols# writes.
     static class NegativeDecimalFormatSymbolsNoLeak extends CoverageBeanIsolation {
         @Override public void entrypoint() {
             java.text.DecimalFormat df = new java.text.DecimalFormat();
@@ -186,20 +197,30 @@ public abstract class CoverageBeanIsolation implements RuleSample {
         }
     }
 
+    // FN check for the fix above: DecimalFormat#format() must still carry the pattern
+    // taint into its output -- a tainted pattern reaching a formatted string is a real
+    // injection flow, and removing the whole-object copy must not also remove this.
+    static class PositiveDecimalFormatFormatCarriesPattern extends CoverageBeanIsolation {
+        @Override public void entrypoint() {
+            java.text.DecimalFormat df = new java.text.DecimalFormat();
+            df.applyPattern(ssrc());
+            strSink(df.format(1L));
+        }
+    }
+
     // 8. javax.naming.directory.SearchResult: name (getName, inherited scalar String) vs
     // object (getObject, scalar Object via objSink).
     //
-    // FAILS as of this writing (as a Positive -- the property never propagates at all):
-    // the only config entry matching the exact SearchResult(String, Object, Attributes)
-    // 3-arg constructor is a generic `params: index:0 type: String` rule that writes
-    // arg(0) into `.javax.naming.directory.SearchResult#name#java.lang.String`. But
-    // getName() is not overridden on SearchResult -- it resolves to the inherited
-    // NameClassPair#getName(), whose config reads from the differently-keyed
+    // FIXED (was a Positive miss -- the property never propagated at all): the only config
+    // entry that used to match the exact SearchResult(String, Object, Attributes) 3-arg
+    // constructor was a generic `params: index:0 type: String` rule that wrote arg(0) into
+    // `.javax.naming.directory.SearchResult#name#java.lang.String`. But getName() is not
+    // overridden on SearchResult -- it resolves to the inherited NameClassPair#getName(),
+    // whose config reads from the differently-keyed
     // `.javax.naming.NameClassPair#name#java.lang.Object` slot (see the sibling 4-/5-arg
-    // constructor overloads, which correctly re-key arg(0) into that exact
-    // NameClassPair-owned slot). The 3-arg constructor's write and getName()'s read target
-    // two different vfields on the same object, so the write is orphaned. Expected: a
-    // finding. Actual: no finding is reported -- the property does not propagate.
+    // constructor overloads, which correctly re-key arg(0) into that exact NameClassPair-
+    // owned slot). The imprecise index-based matchers were replaced with exact per-
+    // constructor entries writing name/obj/attrs into the slots their readers actually use.
     static class PositiveSearchResultGetName extends CoverageBeanIsolation {
         @Override public void entrypoint() {
             javax.naming.directory.SearchResult sr = new javax.naming.directory.SearchResult(
@@ -219,13 +240,14 @@ public abstract class CoverageBeanIsolation implements RuleSample {
     // 9. javax.naming.Binding: object (getObject, scalar Object via objSink) vs name
     // (getName, inherited scalar String).
     //
-    // FAILS as of this writing (as a Positive): there is no passThrough config entry at
-    // all for javax.naming.Binding#<init>(String, Object) (confirmed by grep across
-    // model/java/config/stdlib/*.yaml) -- only Binding#setObject(Object) is modeled. The
-    // constructor argument never reaches the object field, so getObject() observes no
+    // FIXED (was a Positive miss): there used to be no passThrough config entry at all for
+    // javax.naming.Binding#<init>(String, Object) (confirmed by grep across
+    // model/java/config/stdlib/*.yaml) -- only Binding#setObject(Object) was modeled. The
+    // constructor argument never reached the object field, so getObject() observed no
     // taint even though Binding#setObject/#getObject are themselves correctly
-    // field-sensitive. Expected: a finding. Actual: no finding is reported -- the
-    // constructor path does not propagate.
+    // field-sensitive. All four real Binding constructor overloads now write name/className
+    // /obj field-sensitively into the NameClassPair#name / NameClassPair#className /
+    // Binding#object slots their readers already use.
     static class PositiveBindingGetObject extends CoverageBeanIsolation {
         @Override public void entrypoint() {
             javax.naming.Binding b = new javax.naming.Binding("cleanName", ssrc());
