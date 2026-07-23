@@ -51,7 +51,7 @@ rules:
           - patterns:
               - pattern: |
                   @$ANNOTATION(...)
-                  $RETURNTYPE $METHODNAME(..., $TYPE $UNTRUSTED*,...) {
+                  $RETURNTYPE $METHODNAME(..., $TYPE $*UNTRUSTED,...) {
                     ...
                   }
               - metavariable-regex:
@@ -68,8 +68,8 @@ rules:
                         - pattern: PostMapping
                         - pattern: PutMapping
           - pattern: |
-              $UNTRUSTED* = (MessageBodyReader $READER).readFrom(...);
+              $*UNTRUSTED = (MessageBodyReader $READER).readFrom(...);
           - pattern: |
               Cookie $COOKIE = org.springframework.web.util.WebUtils.getCookie(...);
               ...
-              $UNTRUSTED* = $COOKIE.getValue();
+              $*UNTRUSTED = $COOKIE.getValue();

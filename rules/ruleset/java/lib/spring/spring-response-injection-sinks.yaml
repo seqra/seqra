@@ -31,28 +31,28 @@ rules:
                     @$ANNOTATION(...)
                     String $METHOD(...) {
                       ...
-                      return $UNTRUSTED*;
+                      return $*UNTRUSTED;
                       ...
                     }
                 - pattern: |
                     @$ANNOTATION(...)
                     byte[] $METHOD(...) {
                       ...
-                      return $UNTRUSTED*;
+                      return $*UNTRUSTED;
                       ...
                     }
                 - pattern: |
                     @$ANNOTATION(...)
                     ResponseEntity<String> $METHOD(...) {
                       ...
-                      return $UNTRUSTED*;
+                      return $*UNTRUSTED;
                       ...
                     }
                 - pattern: |
                     @$ANNOTATION(...)
                     ResponseEntity<byte[]> $METHOD(...) {
                       ...
-                      return $UNTRUSTED*;
+                      return $*UNTRUSTED;
                       ...
                     }
             - metavariable-pattern:

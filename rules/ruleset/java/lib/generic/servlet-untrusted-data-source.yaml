@@ -65,7 +65,7 @@ rules:
               $UNTRUSTED = (MessageBodyReader $READER).readFrom(...);
           - patterns:
             - pattern: |
-                $UNTRUSTED* = ($FILE_UPLOAD_TYPE $SFU).parseRequest((HttpServletRequest $REQ));
+                $*UNTRUSTED = ($FILE_UPLOAD_TYPE $SFU).parseRequest((HttpServletRequest $REQ));
             - metavariable-regex:
                 metavariable: $FILE_UPLOAD_TYPE
                 regex: .*FileUpload.*

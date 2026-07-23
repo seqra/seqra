@@ -173,19 +173,20 @@ Rules follow Semgrep syntax and concepts:
   - External references (OWASP, CWE, upstream rule sources)
   - Optional `license` and `provenance`
 
-### Whole-Object Taint: the `$VAR*` Star Operator
+### Whole-Object Taint: the `$*VAR` Star Operator
 
-A metavariable occurrence in pattern text can be **starred** — `$VAR*` — to mark it as
+A metavariable occurrence in pattern text can be **starred** — `$*VAR` — to mark it as
 **whole-object** taint scope: the metavariable's value *and* all of its nested fields, at
 any depth (`{ $VAR, $VAR.* }`), instead of just the value itself.
 
-- **Adjacency matters.** The `*` must directly abut the metavariable with no whitespace.
-  `$X*` is the star operator; `$X * y` (space before `*`) is ordinary multiplication.
-  Write multiplication with a space to avoid ambiguity.
+- **The star is a prefix**, bound directly onto the metavariable token right after the `$`:
+  `$*X` is the star operator. Because the star sits inside the metavar name, there is no
+  ambiguity with multiplication — both `$X * y` and the adjacent `$X*y` stay ordinary
+  multiplication (the retired suffix form `$X*` no longer means whole-object taint).
 - **Where it's valid**: any metavariable occurrence inside pattern text —
   `pattern-sources`, `pattern-sinks`, `pattern-sanitizers`, `pattern-propagators`,
   `pattern-not` / `pattern-not-inside`. It's a per-occurrence annotation, not part of the
-  metavariable's identity: `$X` and `$X*` in the same rule still bind to the same value.
+  metavariable's identity: `$X` and `$*X` in the same rule still bind to the same value.
 - **Not valid** in the `focus-metavariable` YAML field — that field always stays a plain,
   starless name.
 - Per operation: a starred **source** taints the value and all its fields; a starred
@@ -207,7 +208,7 @@ pattern-sinks:
 # after: also matches when a nested field of the returned object is tainted
 pattern-sinks:
   - patterns:
-      - pattern: return $X*;
+      - pattern: return $*X;
 ```
 
 #### Sinks: the star only takes effect under `focus-metavariable`
@@ -218,10 +219,10 @@ with `focus-metavariable`. A bare `pattern` with no focus collapses the sink to 
 metavar in that shape is a no-op.
 
 ```yaml
-# correct: focus-metavariable pins $Y as the sink position, so $Y* is honored
+# correct: focus-metavariable pins $Y as the sink position, so $*Y is honored
 pattern-sinks:
   - patterns:
-      - pattern: Sink($Y*)
+      - pattern: Sink($*Y)
       - focus-metavariable: $Y
 ```
 
@@ -233,10 +234,10 @@ This applies to both Java and Go rules.
 support for the star operator is currently limited. When a `pattern-not` occurrence shares a
 taint metavar with a positive occurrence at the *same position*, the star must match:
 
-- `pattern-not $X*` against a positive `$X*` — supported, excludes the match.
+- `pattern-not $*X` against a positive `$*X` — supported, excludes the match.
 - `pattern-not $X` against a positive plain `$X` — supported (unstarred/unstarred), excludes
   the match.
-- A positive `$X*` combined with an **unstarred** `pattern-not $X` at the same position is
+- A positive `$*X` combined with an **unstarred** `pattern-not $X` at the same position is
   **not yet supported**. The scoped "keep the field, drop the base" semantics this would
   imply isn't implemented; the analyzer emits a non-fatal load-time diagnostic and, for now,
   treats the combination as a full (exclude-all) match — the rule still loads.
@@ -248,7 +249,7 @@ If your positive occurrence is starred, star the corresponding `pattern-not` occ
 pattern-sources:
   - patterns:
       - pattern: |
-          $METHOD(..., @PathVariable $TYPE $UNTRUSTED*, ...) { ... }
+          $METHOD(..., @PathVariable $TYPE $*UNTRUSTED, ...) { ... }
       - pattern-not: |
           $METHOD(..., @PathVariable $TYPE $UNTRUSTED, ...) { ... }
 ```
@@ -258,9 +259,9 @@ pattern-sources:
 pattern-sources:
   - patterns:
       - pattern: |
-          $METHOD(..., @PathVariable $TYPE $UNTRUSTED*, ...) { ... }
+          $METHOD(..., @PathVariable $TYPE $*UNTRUSTED, ...) { ... }
       - pattern-not: |
-          $METHOD(..., @PathVariable $TYPE $UNTRUSTED*, ...) { ... }
+          $METHOD(..., @PathVariable $TYPE $*UNTRUSTED, ...) { ... }
 ```
 
 A scoped exclusion (drop only the field-taint arm while keeping the base-value arm live) is a
@@ -268,20 +269,17 @@ possible future refinement — it is not implemented today.
 
 #### Go support
 
-`$VAR*` works in Go rules with the same semantics as Java — `$X` is base-only taint, `$X*` is
+`$*VAR` works in Go rules with the same semantics as Java — `$X` is base-only taint, `$*X` is
 base-plus-all-nested-fields — across `pattern-sources`, `pattern-sinks`, and
 `pattern-sanitizers`.
 
 **Behavior change for existing Go rules:** plain `$X` sink checks are now strictly
 base-only. Previously, a Go sink's `$X` matched coarsely (base value *or* any field/struct/map
 taint on it). If a Go rule relies on field-taint matching at a sink, it must now star the
-occurrence (`$X*`) to keep matching — see the [Migration Notes](#migration-notes) below.
+occurrence (`$*X`) to keep matching — see the [Migration Notes](#migration-notes) below.
 
 #### Known limitations
 
-- **Go typed-metavar star doesn't parse yet.** `$C* : T` (or `Type $X* = ...`) is not
-  supported in Go patterns. Use the bare-metavar form with `focus-metavariable` instead
-  (e.g. a receiver `$C` pinned via `focus-metavariable: $C`, dropping the type constraint).
 - **The `pattern-not` coincidence diagnostic only fires for method-signature-level
   coincidences** (e.g. a `pattern-not` on the same formal-parameter position as the starred
   positive, as in the example above) — not for call-argument-shaped coincidences. The latter
@@ -408,7 +406,7 @@ just the parameter value.
 That hardcoded mechanism has been **removed**. The bundled Spring rules that relied on it
 (`spring-response-injection-sink`, `spring-xss-html-response-sink`,
 `spring-unvalidated-redirect-sink`, and the Spring untrusted-data/path sources) have been
-updated to opt in explicitly with the `$VAR*` star operator described above, so their
+updated to opt in explicitly with the `$*VAR` star operator described above, so their
 behavior is unchanged.
 
 **If you maintain custom rules**, this is a behavior change to be aware of: a custom rule
@@ -426,15 +424,15 @@ pattern-sinks:
 ```yaml
 pattern-sinks:
   - patterns:
-      - pattern: return $X*;
+      - pattern: return $*X;
 ```
 
 Likewise, a custom source rule matching a Spring controller parameter now taints only the
-parameter value unless you star the occurrence (`$VAR*`) to also taint its fields.
+parameter value unless you star the occurrence (`$*VAR`) to also taint its fields.
 
 ### Go: sink `$X` is now strictly base-only
 
-Go's `$VAR*` star operator support (see above) came with a related default-semantics fix:
+Go's `$*VAR` star operator support (see above) came with a related default-semantics fix:
 previously, a Go sink pattern's plain `$X` matched coarsely — it fired on taint anywhere on
 the value, including its fields, structs, and maps. That coarse default has been corrected:
 a plain `$X` sink now checks the base value only, matching Java's semantics.
@@ -455,7 +453,7 @@ that behavior:
 ```yaml
 pattern-sinks:
   - patterns:
-      - pattern: Sink($X*)
+      - pattern: Sink($*X)
       - focus-metavariable: $X
 ```
 

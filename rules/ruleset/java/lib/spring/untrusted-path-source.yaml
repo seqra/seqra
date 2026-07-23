@@ -51,18 +51,18 @@ rules:
               - pattern-either:
                     - pattern: |
                         @$ANNOTATION($URL)
-                        $RETURNTYPE $METHODNAME(..., @PathVariable $TYPE $UNTRUSTED*,...) {
+                        $RETURNTYPE $METHODNAME(..., @PathVariable $TYPE $*UNTRUSTED,...) {
                           ...
                         }
                     - patterns:
                         - pattern: |
                             @$ANNOTATION(...)
-                            $RETURNTYPE $METHODNAME(..., $TYPE $UNTRUSTED*,...) {
+                            $RETURNTYPE $METHODNAME(..., $TYPE $*UNTRUSTED,...) {
                               ...
                             }
                         - pattern-not: |
                             @$ANNOTATION(...)
-                            $RETURNTYPE $METHODNAME(..., @PathVariable $TYPE $UNTRUSTED*,...) {
+                            $RETURNTYPE $METHODNAME(..., @PathVariable $TYPE $*UNTRUSTED,...) {
                               ...
                             }
               - metavariable-regex:
@@ -82,8 +82,8 @@ rules:
                         - pattern: PostMapping
                         - pattern: PutMapping
           - pattern: |
-              $UNTRUSTED* = (MessageBodyReader $READER).readFrom(...);
+              $*UNTRUSTED = (MessageBodyReader $READER).readFrom(...);
           - pattern: |
               Cookie $COOKIE = org.springframework.web.util.WebUtils.getCookie(...);
               ...
-              $UNTRUSTED* = $COOKIE.getValue();
+              $*UNTRUSTED = $COOKIE.getValue();

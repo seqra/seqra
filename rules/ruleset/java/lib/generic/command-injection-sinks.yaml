@@ -13,18 +13,18 @@ rules:
     patterns:
       - pattern-either:
           - pattern: |
-              (ProcessBuilder $PB).command(..., $UNTRUSTED*, ...);
+              (ProcessBuilder $PB).command(..., $*UNTRUSTED, ...);
           - pattern:
-              new ProcessBuilder(..., $UNTRUSTED*, ...);
+              new ProcessBuilder(..., $*UNTRUSTED, ...);
           - patterns:
               - pattern: |
-                  (ProcessBuilder $PB).command().$ADD(..., $UNTRUSTED*, ...);
+                  (ProcessBuilder $PB).command().$ADD(..., $*UNTRUSTED, ...);
               - metavariable-regex:
                   metavariable: $ADD
                   regex: (add|addAll)
           - patterns:
               - pattern: |
-                  (java.lang.Runtime $R).$EXEC(..., $UNTRUSTED*, ...);
+                  (java.lang.Runtime $R).$EXEC(..., $*UNTRUSTED, ...);
               - metavariable-regex:
                   metavariable: $EXEC
                   regex: (exec|loadLibrary|load)
