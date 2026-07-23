@@ -210,6 +210,83 @@ pattern-sinks:
       - pattern: return $X*;
 ```
 
+#### Sinks: the star only takes effect under `focus-metavariable`
+
+For a starred **sink** metavar to actually widen the check, the occurrence must be pinned
+with `focus-metavariable`. A bare `pattern` with no focus collapses the sink to a generic
+"is *any* argument tainted" position check, which ignores the star entirely — starring the
+metavar in that shape is a no-op.
+
+```yaml
+# correct: focus-metavariable pins $Y as the sink position, so $Y* is honored
+pattern-sinks:
+  - patterns:
+      - pattern: Sink($Y*)
+      - focus-metavariable: $Y
+```
+
+This applies to both Java and Go rules.
+
+#### `pattern-not` and the star operator (current limitation)
+
+`pattern-not` is a structural code-shape restriction, not a taint-scope annotation, but its
+support for the star operator is currently limited. When a `pattern-not` occurrence shares a
+taint metavar with a positive occurrence at the *same position*, the star must match:
+
+- `pattern-not $X*` against a positive `$X*` — supported, excludes the match.
+- `pattern-not $X` against a positive plain `$X` — supported (unstarred/unstarred), excludes
+  the match.
+- A positive `$X*` combined with an **unstarred** `pattern-not $X` at the same position is
+  **not yet supported**. The scoped "keep the field, drop the base" semantics this would
+  imply isn't implemented; the analyzer emits a non-fatal load-time diagnostic and, for now,
+  treats the combination as a full (exclude-all) match — the rule still loads.
+
+If your positive occurrence is starred, star the corresponding `pattern-not` occurrence too:
+
+```yaml
+# not yet supported: emits a load-time diagnostic, treated as a full exclusion
+pattern-sources:
+  - patterns:
+      - pattern: |
+          $METHOD(..., @PathVariable $TYPE $UNTRUSTED*, ...) { ... }
+      - pattern-not: |
+          $METHOD(..., @PathVariable $TYPE $UNTRUSTED, ...) { ... }
+```
+
+```yaml
+# write this instead — star the pattern-not occurrence to match the positive
+pattern-sources:
+  - patterns:
+      - pattern: |
+          $METHOD(..., @PathVariable $TYPE $UNTRUSTED*, ...) { ... }
+      - pattern-not: |
+          $METHOD(..., @PathVariable $TYPE $UNTRUSTED*, ...) { ... }
+```
+
+A scoped exclusion (drop only the field-taint arm while keeping the base-value arm live) is a
+possible future refinement — it is not implemented today.
+
+#### Go support
+
+`$VAR*` works in Go rules with the same semantics as Java — `$X` is base-only taint, `$X*` is
+base-plus-all-nested-fields — across `pattern-sources`, `pattern-sinks`, and
+`pattern-sanitizers`.
+
+**Behavior change for existing Go rules:** plain `$X` sink checks are now strictly
+base-only. Previously, a Go sink's `$X` matched coarsely (base value *or* any field/struct/map
+taint on it). If a Go rule relies on field-taint matching at a sink, it must now star the
+occurrence (`$X*`) to keep matching — see the [Migration Notes](#migration-notes) below.
+
+#### Known limitations
+
+- **Go typed-metavar star doesn't parse yet.** `$C* : T` (or `Type $X* = ...`) is not
+  supported in Go patterns. Use the bare-metavar form with `focus-metavariable` instead
+  (e.g. a receiver `$C` pinned via `focus-metavariable: $C`, dropping the type constraint).
+- **The `pattern-not` coincidence diagnostic only fires for method-signature-level
+  coincidences** (e.g. a `pattern-not` on the same formal-parameter position as the starred
+  positive, as in the example above) — not for call-argument-shaped coincidences. The latter
+  still safely resolve to a full exclusion, but without the load-time diagnostic.
+
 ---
 
 ## Testing and Rule Coverage
@@ -354,6 +431,33 @@ pattern-sinks:
 
 Likewise, a custom source rule matching a Spring controller parameter now taints only the
 parameter value unless you star the occurrence (`$VAR*`) to also taint its fields.
+
+### Go: sink `$X` is now strictly base-only
+
+Go's `$VAR*` star operator support (see above) came with a related default-semantics fix:
+previously, a Go sink pattern's plain `$X` matched coarsely — it fired on taint anywhere on
+the value, including its fields, structs, and maps. That coarse default has been corrected:
+a plain `$X` sink now checks the base value only, matching Java's semantics.
+
+**If you maintain custom Go rules**, this is a behavior change to be aware of: a sink rule
+that used to rely on `$X` catching field/struct/map taint —
+
+```yaml
+pattern-sinks:
+  - patterns:
+      - pattern: Sink($X)
+      - focus-metavariable: $X
+```
+
+— no longer matches when only a field of `$X` is tainted. Star the occurrence to restore
+that behavior:
+
+```yaml
+pattern-sinks:
+  - patterns:
+      - pattern: Sink($X*)
+      - focus-metavariable: $X
+```
 
 ---
 

@@ -56,7 +56,7 @@ rules:
                   }
               - metavariable-regex:
                   metavariable: $TYPE
-                  regex: ^(?!(Integer|Long|Float|Double|Char|Boolean|int|long|float|double|char|boolean|byte|short|BindingResult|HttpMethod|Continuation|java.util.TimeZone|java.util.Locale|java.util.ZoneId|.*\[\]))
+                  regex: ^(?!(Integer|Long|Float|Double|Char|Boolean|int|long|float|double|char|boolean|BindingResult|HttpMethod|Continuation|java.util.TimeZone|java.util.Locale|java.util.ZoneId))
               - metavariable-pattern:
                   metavariable: $ANNOTATION
                   patterns:

@@ -2,6 +2,8 @@ package security.commandinjection;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -27,6 +29,35 @@ public class CommandInjectionSpringSamples {
             StringBuilder output = new StringBuilder();
             try {
                 Process process = Runtime.getRuntime().exec(command);
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(process.getInputStream()))) {
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        output.append(line).append('\n');
+                    }
+                }
+            } catch (Exception e) {
+                return "Error: " + e.getMessage();
+            }
+            return output.toString();
+        }
+
+        /**
+         * Unsafe endpoint that puts untrusted input into an argument list which is then
+         * passed to ProcessBuilder. Taint reaches the process via the list's element field,
+         * so the command-injection sink relies on whole-object (any-field) matching.
+         */
+        @GetMapping("/os-command-injection-in-spring/unsafe-list")
+        public String unsafePingList(@RequestParam String host) {
+            List<String> args = new ArrayList<>();
+            args.add("ping");
+            args.add("-c");
+            args.add("4");
+            args.add(host); // VULNERABLE: untrusted element flows into the argument list
+
+            StringBuilder output = new StringBuilder();
+            try {
+                Process process = new ProcessBuilder(args).start();
                 try (BufferedReader reader = new BufferedReader(
                         new InputStreamReader(process.getInputStream()))) {
                     String line;

@@ -46,6 +46,7 @@ tests:
     positive:
       - security.commandinjection.CommandInjectionServletSamples$UnsafeCommandServlet#doGet
       - security.commandinjection.CommandInjectionSpringSamples$UnsafeCommandInjectionController#unsafePing
+      - security.commandinjection.CommandInjectionSpringSamples$UnsafeCommandInjectionController#unsafePingList
   - rule-id: java/security/crlf-injection.yaml#http-response-splitting
     positive:
       - security.crlfinjection.HttpResponseSplittingServletSamples$UnsafeHeaderServlet#doGet
