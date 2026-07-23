@@ -17,15 +17,15 @@ rules:
     pattern-sanitizers:
       - patterns:
           - pattern-either:
-              - pattern: Encode.forHtml(..., $UNTRUSTED, ...)
-              - pattern: (PolicyFactory $POLICY).sanitize(..., $UNTRUSTED, ...)
-              - pattern: (AntiSamy $AS).scan(..., $UNTRUSTED, ...)
-              - pattern: JSoup.clean(..., $UNTRUSTED, ...)
-              - pattern: HtmlUtils.htmlEscape(..., $UNTRUSTED, ...)
-              - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(..., $UNTRUSTED, ...)
-              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(..., $UNTRUSTED, ...)
-              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(..., $UNTRUSTED, ...)
-              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $UNTRUSTED, ...)
+              - pattern: Encode.forHtml(..., $*UNTRUSTED, ...)
+              - pattern: (PolicyFactory $POLICY).sanitize(..., $*UNTRUSTED, ...)
+              - pattern: (AntiSamy $AS).scan(..., $*UNTRUSTED, ...)
+              - pattern: JSoup.clean(..., $*UNTRUSTED, ...)
+              - pattern: HtmlUtils.htmlEscape(..., $*UNTRUSTED, ...)
+              - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(..., $*UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(..., $*UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(..., $*UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $*UNTRUSTED, ...)
           - focus-metavariable: $UNTRUSTED
 
 
@@ -34,23 +34,23 @@ rules:
               - pattern: |
                   $H.setContentType(MediaType.APPLICATION_JSON);
                   ...
-                  new ResponseEntity($UNTRUSTED, $H, ...);
+                  new ResponseEntity($*UNTRUSTED, $H, ...);
               - pattern: |
                   $H.setContentType(MediaType.APPLICATION_PDF);
                   ...
-                  new ResponseEntity($UNTRUSTED, $H, ...);
+                  new ResponseEntity($*UNTRUSTED, $H, ...);
               - pattern: |
                   $H.setContentType(MediaType.APPLICATION_OCTET_STREAM);
                   ...
-                  new ResponseEntity($UNTRUSTED, $H, ...);
+                  new ResponseEntity($*UNTRUSTED, $H, ...);
               - pattern: |
                   $H.setContentType(MediaType.TEXT_PLAIN);
                   ...
-                  new ResponseEntity($UNTRUSTED, $H, ...);
+                  new ResponseEntity($*UNTRUSTED, $H, ...);
               - pattern: |
                   $H.setContentType(MediaType.APPLICATION_XML);
                   ...
-                  new ResponseEntity($UNTRUSTED, $H, ...);
+                  new ResponseEntity($*UNTRUSTED, $H, ...);
           - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:

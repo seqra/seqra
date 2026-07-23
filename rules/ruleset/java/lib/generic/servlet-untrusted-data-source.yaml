@@ -49,7 +49,7 @@ rules:
       - pattern-either:
           - patterns:
               - pattern: |
-                  $RETURNTYPE $ENTRYPOINT(..., HttpServletRequest $UNTRUSTED,...) {
+                  $RETURNTYPE $ENTRYPOINT(..., HttpServletRequest $*UNTRUSTED,...) {
                   ...
                   }
               - metavariable-pattern:

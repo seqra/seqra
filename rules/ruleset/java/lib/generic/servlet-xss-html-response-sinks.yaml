@@ -17,15 +17,15 @@ rules:
     pattern-sanitizers:
       - patterns:
           - pattern-either:
-              - pattern: Encode.forHtml(..., $UNTRUSTED, ...)
-              - pattern: (PolicyFactory $POLICY).sanitize(..., $UNTRUSTED, ...)
-              - pattern: (AntiSamy $AS).scan(..., $UNTRUSTED, ...)
-              - pattern: JSoup.clean(..., $UNTRUSTED, ...)
-              - pattern: HtmlUtils.htmlEscape(..., $UNTRUSTED, ...)
-              - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(..., $UNTRUSTED, ...)
-              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(..., $UNTRUSTED, ...)
-              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(..., $UNTRUSTED, ...)
-              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $UNTRUSTED, ...)
+              - pattern: Encode.forHtml(..., $*UNTRUSTED, ...)
+              - pattern: (PolicyFactory $POLICY).sanitize(..., $*UNTRUSTED, ...)
+              - pattern: (AntiSamy $AS).scan(..., $*UNTRUSTED, ...)
+              - pattern: JSoup.clean(..., $*UNTRUSTED, ...)
+              - pattern: HtmlUtils.htmlEscape(..., $*UNTRUSTED, ...)
+              - pattern: org.apache.commons.lang.StringEscapeUtils.escapeHtml(..., $*UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml3(..., $*UNTRUSTED, ...)
+              - pattern: org.apache.commons.text.StringEscapeUtils.escapeHtml4(..., $*UNTRUSTED, ...)
+              - pattern: org.owasp.esapi.ESAPI.encoder().encodeForHTML(..., $*UNTRUSTED, ...)
           - focus-metavariable: $UNTRUSTED
 
     pattern-sinks:
