@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -50,6 +51,12 @@ public class UnvalidatedRedirectSpringSamples {
             return "redirect:" + path;
         }
 
+        @GetMapping("/redirect/safe-request-uri")
+        public void safeRequestUriRedirect(HttpServletRequest request, HttpServletResponse response)
+                throws java.io.IOException {
+            response.sendRedirect(request.getRequestURI() + "/");
+        }
+
         @GetMapping("/redirect/safe-external")
 // TODO: uncomment it when conditional sanitizers are implemented
 //        @NegativeRuleSample(value = "java/security/unvalidated-redirect.yaml", id = "unvalidated-redirect-in-spring-app")
@@ -73,4 +80,5 @@ public class UnvalidatedRedirectSpringSamples {
             return "redirect:/home";
         }
     }
+
 }

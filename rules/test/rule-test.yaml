@@ -505,7 +505,9 @@ tests:
     negative:
       - security.tagunification.RedirectTagEdgeSamples$SpringParameterToServletResponse#springParamToConstantServletRedirect
       - security.unvalidatedredirect.UnvalidatedRedirectServletSamples$SafeContextPathRedirectServlet#doGet
+      - security.unvalidatedredirect.UnvalidatedRedirectServletSamples$SafeRequestUriRedirectServlet#doGet
       - security.unvalidatedredirect.UnvalidatedRedirectSpringSamples$SafeValidatedRedirectController#safeInternalRedirect
+      - security.unvalidatedredirect.UnvalidatedRedirectSpringSamples$SafeValidatedRedirectController#safeRequestUriRedirect
   - rule-id: java/security/weak-authentication.yaml#java-jwt-decode-without-verify
     positive:
       - security.weakauthentication.WeakAuthenticationSamples#decodeJwtWithoutVerifyInsecure

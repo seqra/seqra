@@ -81,4 +81,17 @@ public class UnvalidatedRedirectServletSamples {
             response.sendRedirect(url + "/home.jsp");
         }
     }
+
+    /**
+     * SAFE: getRequestURI() identifies the current request path rather than an
+     * attacker-selected redirect destination.
+     */
+    public static class SafeRequestUriRedirectServlet extends HttpServlet {
+
+        @Override
+        protected void doGet(HttpServletRequest request, HttpServletResponse response)
+                throws ServletException, IOException {
+            response.sendRedirect(request.getRequestURI() + "/");
+        }
+    }
 }
