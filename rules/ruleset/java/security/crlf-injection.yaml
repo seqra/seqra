@@ -71,8 +71,8 @@ rules:
       cwe: CWE-77
       short-description: CRLF injection into SMTP message
       full-description: |-
-        SMTP header injection occurs when untrusted input reaches `MimeMessage` header-related APIs
-        (`setSubject`, `setHeader`, `addHeader`, and similar methods).
+        SMTP header injection occurs when untrusted input reaches raw `MimeMessage` header APIs
+        (`setHeader` and `addHeader`).
 
         Vulnerable example:
 
@@ -100,8 +100,9 @@ rules:
         }
         ```
 
-        Key vulnerable patterns covered by this rule include `MimeMessage.setSubject`, `setHeader`, `addHeader`,
-        `setDescription`, and `setDisposition` with tainted data.
+        The rule covers raw `MimeMessage.setHeader` and `addHeader` calls. Structured JavaMail
+        setters such as `setSubject`, `setDescription`, and `setDisposition` apply the API's
+        encoding, folding, or validation and are intentionally not treated as raw-header sinks.
       references:
         - https://owasp.org/www-community/vulnerabilities/CRLF_Injection
         - https://owasp.org/www-community/attacks/Email_Injection

@@ -55,6 +55,8 @@ tests:
     positive:
       - security.crlfinjection.SmtpCrlfInjectionServletSamples$UnsafeSmtpServlet#doPost
       - security.crlfinjection.SmtpCrlfInjectionSpringSamples$UnsafeSpringSmtpController#unsafe
+    negative:
+      - security.crlfinjection.SmtpCrlfInjectionSpringSamples$SafeHighLevelMimeFieldsController#highLevelFields
   - rule-id: java/security/crypto.yaml#aes-hardcoded-key
     positive:
       - security.crypto.CipherAndKeyCryptoSamples#aesWithHardcodedKey

@@ -14,9 +14,6 @@ rules:
     pattern-sinks:
       - patterns:
           - pattern-either:
-              - pattern: "(MimeMessage $M).setSubject($UNTRUSTED)"
               - pattern: "(MimeMessage $M).setHeader(..., $UNTRUSTED, ...)"
               - pattern: "(MimeMessage $M).addHeader(..., $UNTRUSTED, ...)"
-              - pattern: "(MimeMessage $M).setDescription($UNTRUSTED)"
-              - pattern: "(MimeMessage $M).setDisposition($UNTRUSTED)"
           - focus-metavariable: $UNTRUSTED

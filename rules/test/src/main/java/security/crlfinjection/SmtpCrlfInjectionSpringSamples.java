@@ -90,4 +90,18 @@ public class SmtpCrlfInjectionSpringSamples {
         }
     }
 
+    @Controller
+    public static class SafeHighLevelMimeFieldsController {
+
+        @PostMapping("/smtp-crlf/spring/high-level-fields")
+        public void highLevelFields(@RequestParam String value) throws MessagingException {
+            MimeMessage mimeMessage = new MimeMessage(Session.getInstance(new Properties()));
+
+            // JavaMail encodes/folds these structured fields. Raw header APIs remain sinks.
+            mimeMessage.setSubject(value);
+            mimeMessage.setDescription(value);
+            mimeMessage.setDisposition(value);
+        }
+    }
+
 }
