@@ -602,6 +602,8 @@ tests:
       - security.xss.XssHtmlResponseSpringSamples$Row36ResponseEntityAssignmentJsonController#row36
       - security.xss.XssHtmlResponseSpringSamples$Row37ServletSetContentTypeJsonAssignmentController#row37
       - security.xss.XssHtmlResponseSpringSamples$Row55BuilderChainHtmlEntityDiscardedController#row55
+      - security.xss.XssHtmlResponseSpringSamples$Row57StringProducesLinksetController#row57
+      - security.xss.XssHtmlResponseSpringSamples$Row58StringProducesLinksetJsonController#row58
       - security.xss.XssHtmlResponseSpringSamples$SafeHtmlController#safeHtmlGreet
       - security.xss.XssHtmlResponseSpringSamples$SafeJsonStringReturnController#safeJsonStringReturn
       - security.xss.XssHtmlResponseSpringSamples$SafeStringReturnController#safeStringReturn

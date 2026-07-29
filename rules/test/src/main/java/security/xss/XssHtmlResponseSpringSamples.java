@@ -510,4 +510,26 @@ public class XssHtmlResponseSpringSamples {
             return "<h1>Hello, " + name + "!</h1>";
         }
     }
+
+    @RestController
+    public static class Row57StringProducesLinksetController {
+
+        @GetMapping(value = "/xss-in-spring-app/row-57", produces = "application/linkset")
+        public String row57(@RequestParam(required = false, defaultValue = "") String name) {
+            return "rel=\"item\"; anchor=\"" + name + "\"";
+        }
+    }
+
+    @RestController
+    @org.springframework.web.bind.annotation.RequestMapping(
+            value = "/xss-in-spring-app/row-58",
+            produces = "application/linkset+json"
+    )
+    public static class Row58StringProducesLinksetJsonController {
+
+        @GetMapping
+        public String row58(@RequestParam(required = false, defaultValue = "") String name) {
+            return "{\"linkset\":[{\"anchor\":\"" + name + "\"}]}";
+        }
+    }
 }
