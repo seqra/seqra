@@ -66,7 +66,8 @@ public class BeanInjectionSamples extends HttpServlet {
     private static final Set<String> ALLOWED_PROPERTIES = Set.of("username", "email");
 
     /**
-     * Negative sample: only whitelisted properties are populated, sensitive ones remain server-controlled.
+     * Positive sample: property names are whitelisted, but request-controlled property values still
+     * reach the generic bean population API.
      */
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse resp) {
@@ -86,6 +87,27 @@ public class BeanInjectionSamples extends HttpServlet {
 
         // admin flag is never bound from the request
         user.setAdmin(false);
+
+        try {
+            BeanUtilsBean.getInstance().populate(user, safeParams);
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Positive sample: an untrusted value is copied under a fixed property name and still reaches
+     * the generic bean population API.
+     */
+    @Override
+    protected void doPut(HttpServletRequest request, HttpServletResponse resp) {
+        UserDto user = new UserDto();
+        Map<String, Object> safeParams = new HashMap<>();
+
+        String[] usernames = request.getParameterMap().get("username");
+        if (usernames != null && usernames.length > 0) {
+            safeParams.put("username", usernames[0]);
+        }
 
         try {
             BeanUtilsBean.getInstance().populate(user, safeParams);

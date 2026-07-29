@@ -247,8 +247,8 @@ tests:
   - rule-id: java/security/external-configuration-control.yaml#bean-injection
     positive:
       - security.externalconfigurationcontrol.BeanInjectionSamples#doGet
-    negative:
       - security.externalconfigurationcontrol.BeanInjectionSamples#doPost
+      - security.externalconfigurationcontrol.BeanInjectionSamples#doPut
   - rule-id: java/security/external-configuration-control.yaml#sql-catalog-external-manipulation
     positive:
       - security.externalconfigurationcontrol.SqlCatalogServletSamples$UnsafeCatalogServlet#doGet
