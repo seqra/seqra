@@ -420,6 +420,7 @@ class SemgrepJavaPatternMatcher(
                     }
                     pattern
                 }
+                is StarMetavarName,
                 is AnonymousName -> TODO()
             }
             if (acc.isEmpty()) cur else "$acc\\.$cur"
@@ -803,6 +804,7 @@ class SemgrepJavaPatternMatcher(
                 )
             }
 
-            AnonymousName -> TODO()
+            is StarMetavarName,
+            is AnonymousName -> TODO()
         }
 }

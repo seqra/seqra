@@ -49,7 +49,7 @@ data class SpecificStringValue(val value: String) : SpecificConstantValue
 data object SpecificNullValue : SpecificConstantValue
 
 @Serializable
-data class IsMetavar(val metavar: MetavarAtom) : ParamCondition.Atom
+data class IsMetavar(val metavar: MetavarAtom, val star: Boolean = false) : ParamCondition.Atom
 
 @Serializable
 sealed interface MetavarAtom {

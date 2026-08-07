@@ -10,6 +10,7 @@ import org.opentaint.semgrep.pattern.Name
 import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
 import org.opentaint.semgrep.pattern.ResolvedMetaVarInfo
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
+import org.opentaint.semgrep.pattern.StarMetavarName
 import org.opentaint.semgrep.pattern.TypeName
 import org.opentaint.semgrep.pattern.flatMap
 import org.opentaint.semgrep.pattern.transform
@@ -100,6 +101,7 @@ private fun MetaVarConstraintFormula<List<String>>.transformNext(
             }
         }
 
+        is StarMetavarName -> TODO("TypeName metavar is star")
         is AnonymousName ->  TODO("TypeName metavar is anonymous")
     }
 }

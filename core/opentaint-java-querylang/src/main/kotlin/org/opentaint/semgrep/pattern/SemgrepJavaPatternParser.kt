@@ -121,14 +121,18 @@ class SemgrepJavaPatternParser {
     }
 }
 
+private fun String.stripStar(): String = "$" + substring(2)
+
 private fun IdentifierContext.parseName(): Name = withRule {
     tryRule(IdentifierContext::METAVAR) { return MetavarName(it.text) }
+    tryRule(IdentifierContext::STARRED_METAVAR) { return StarMetavarName(it.text.stripStar()) }
     tryRule(IdentifierContext::ANONYMOUS_METAVAR) { return AnonymousName }
     return ConcreteName(text)
 }
 
 private fun TypeIdentifierContext.parseTypeIdentifierName(): Name = withRule {
     tryRule(TypeIdentifierContext::METAVAR) { return MetavarName(it.text) }
+    tryRule(TypeIdentifierContext::STARRED_METAVAR) { return StarMetavarName(it.text.stripStar()) }
     tryRule(TypeIdentifierContext::ANONYMOUS_METAVAR) { this@parseTypeIdentifierName.todo() }
     return ConcreteName(text)
 }
@@ -278,10 +282,14 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
 
     override fun visitTypedVariableExpression(ctx: TypedVariableExpressionContext): TypedMetavar = ctx.withRule {
         val type = value(TypedVariableExpressionContext::typeTypeOrVoid).accept(typenameParser)
-        val name = value(TypedVariableExpressionContext::identifier).parseName() as? MetavarName
-            ?: ctx.parsingFailed("Expected variable name to be a metavar name")
+        val name = value(TypedVariableExpressionContext::identifier).parseName()
 
-        return TypedMetavar(name.metavarName, type)
+        return when (name) {
+            is MetavarName -> TypedMetavar(name.metavarName, type, star = false)
+            is StarMetavarName -> TypedMetavar(name.metavarName, type, star = true)
+            is AnonymousName,
+            is ConcreteName -> ctx.parsingFailed("Expected variable name to be a metavar name")
+        }
     }
 
     override fun visitVariableDeclarator(ctx: VariableDeclaratorContext): VariableAssignment = ctx.withRule {
@@ -344,6 +352,7 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
 
     private fun parseFormalParameterMetavar(ctx: FormalParameterMetavarContext): SemgrepJavaPattern = ctx.withRule {
         tryRule(FormalParameterMetavarContext::METAVAR) { return Metavar(it.text) }
+        tryRule(FormalParameterMetavarContext::STARRED_METAVAR) { return Metavar(it.text.stripStar(), star = true) }
         tryRule(FormalParameterMetavarContext::ANONYMOUS_METAVAR) { ctx.todo() }
         unreachable()
     }
@@ -643,7 +652,8 @@ private class SemgrepJavaPatternParserVisitor : JavaParserBaseVisitor<SemgrepJav
         val name = ctx.parseName()
         return when (name) {
             is ConcreteName -> Identifier(name.name)
-            is MetavarName -> Metavar(name.metavarName)
+            is MetavarName -> Metavar(name.metavarName, star = false)
+            is StarMetavarName -> Metavar(name.metavarName, star = true)
             is AnonymousName -> AnonymousMetavar
         }
     }

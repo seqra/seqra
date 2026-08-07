@@ -28,7 +28,7 @@ data class MetavarName(val name: String) : Name
 // 5.1 Pattern atoms
 // ----------------------------------------------------------------------------
 
-data class Metavar(val name: String) : SemgrepGoPattern {
+data class Metavar(val name: String, val star: Boolean = false) : SemgrepGoPattern {
     override val children: List<SemgrepGoPattern> get() = emptyList()
 }
 
@@ -44,7 +44,7 @@ data class DeepExpr(val nested: SemgrepGoPattern) : SemgrepGoPattern {
     override val children: List<SemgrepGoPattern> get() = listOf(nested)
 }
 
-data class TypedMetavar(val name: String, val type: TypeName) : SemgrepGoPattern {
+data class TypedMetavar(val name: String, val type: TypeName, val star: Boolean = false) : SemgrepGoPattern {
     override val children: List<SemgrepGoPattern> get() = emptyList()
 }
 

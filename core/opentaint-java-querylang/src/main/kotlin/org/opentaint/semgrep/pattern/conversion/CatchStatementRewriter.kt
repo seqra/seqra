@@ -9,6 +9,7 @@ import org.opentaint.semgrep.pattern.Name
 import org.opentaint.semgrep.pattern.NormalizedSemgrepRule
 import org.opentaint.semgrep.pattern.PatternSequence
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
+import org.opentaint.semgrep.pattern.StarMetavarName
 import org.opentaint.semgrep.pattern.TypeName
 
 // todo: for now we rewrite all catch statements as typed assign
@@ -19,13 +20,13 @@ fun rewriteCatchStatement(rule: NormalizedSemgrepRule<SemgrepJavaPattern>): List
             exceptionVariable: Name,
             handlerBlock: SemgrepJavaPattern
         ): List<SemgrepJavaPattern> {
-            val exceptionMetaVarName = when (exceptionVariable) {
+            val exceptionMetaVar = when (exceptionVariable) {
                 is ConcreteName,
                 is AnonymousName -> return super.createCatchStatement(exceptionTypes, exceptionVariable, handlerBlock)
-                is MetavarName -> exceptionVariable.metavarName
-            }
 
-            val exceptionMetaVar = Metavar(exceptionMetaVarName)
+                is MetavarName -> Metavar(exceptionVariable.metavarName, star = false)
+                is StarMetavarName -> Metavar(exceptionVariable.metavarName, star = true)
+            }
 
             return exceptionTypes.flatMap { type ->
                 super.createVariableAssignment(type, exceptionMetaVar, value = Ellipsis).map { assign ->

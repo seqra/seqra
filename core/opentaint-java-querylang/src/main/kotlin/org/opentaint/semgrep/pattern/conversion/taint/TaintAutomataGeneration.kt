@@ -473,7 +473,7 @@ private fun MethodConstraint.replaceMetavar(replace: (MetavarAtom) -> MetavarAto
     }
 
     val newCondition = when (condition) {
-        is IsMetavar -> IsMetavar(replace(condition.metavar) ?: return null)
+        is IsMetavar -> IsMetavar(replace(condition.metavar) ?: return null, condition.star)
         is ParamCondition.StringValueMetaVar -> ParamCondition.StringValueMetaVar(
             replace(condition.metaVar) ?: return null
         )

@@ -34,6 +34,7 @@ import org.opentaint.semgrep.pattern.PatternSequence
 import org.opentaint.semgrep.pattern.ReturnStmt
 import org.opentaint.semgrep.pattern.SemgrepJavaPattern
 import org.opentaint.semgrep.pattern.SemgrepRuleLoadStepTrace
+import org.opentaint.semgrep.pattern.StarMetavarName
 import org.opentaint.semgrep.pattern.StaticFieldAccess
 import org.opentaint.semgrep.pattern.StringEllipsis
 import org.opentaint.semgrep.pattern.StringLiteral
@@ -134,6 +135,7 @@ class PatternToActionListConverter: ActionListBuilder<SemgrepJavaPattern> {
             is StringLiteral -> when (val value = pattern.content) {
                 is ConcreteName -> SpecificStringValue(value.name)
                 is MetavarName -> StringValueMetaVar(MetavarAtom.create(value.metavarName))
+                is StarMetavarName -> transformationFailed("String literal is star metavar")
                 is AnonymousName -> ParamCondition.AnyStringLiteral
             }
 
@@ -142,7 +144,7 @@ class PatternToActionListConverter: ActionListBuilder<SemgrepJavaPattern> {
             }
 
             is Metavar -> {
-                IsMetavar(MetavarAtom.create(pattern.name))
+                IsMetavar(MetavarAtom.create(pattern.name), star = pattern.star)
             }
 
             is AnonymousMetavar -> {
@@ -157,7 +159,7 @@ class PatternToActionListConverter: ActionListBuilder<SemgrepJavaPattern> {
                 val typeName = transformTypeName(pattern.type)
                 ParamCondition.And(
                     listOf(
-                        IsMetavar(MetavarAtom.create(pattern.name)),
+                        IsMetavar(MetavarAtom.create(pattern.name), star = pattern.star),
                         ParamCondition.TypeIs(typeName)
                     )
                 )
@@ -171,7 +173,7 @@ class PatternToActionListConverter: ActionListBuilder<SemgrepJavaPattern> {
                         ParamCondition.SpecificStaticFieldValue(fn.name, type)
                     }
 
-                    is MetavarName, is AnonymousName -> {
+                    is MetavarName, is StarMetavarName, is AnonymousName -> {
                         transformationFailed("Static field name is metavar")
                     }
                 }
@@ -182,12 +184,14 @@ class PatternToActionListConverter: ActionListBuilder<SemgrepJavaPattern> {
                     transformationFailed("Array access index is not ellipsis")
                 }
 
-                when (pattern.obj) {
-                    is Metavar,
-                    is TypedMetavar -> {
-                        // todo: dirty hack. We can ignore array access here due to the `hackResultArray` in taint configuration
-                        return transformPatternIntoParamCondition(pattern.obj)
-                    }
+                when (val obj = pattern.obj) {
+                    // `$X[...]` array-element access: we don't model the concrete index. Force the
+                    // metavar starred so it compiles to whole-object / any-field taint, which
+                    // subsumes array-element (`[*]`) taint via the any-accessor machinery — the same
+                    // mechanism that now backs array/vararg sinks in the taint config (the old
+                    // runtime array-element condition reader has been replaced by an any-field check).
+                    is Metavar -> return transformPatternIntoParamCondition(obj.copy(star = true))
+                    is TypedMetavar -> return transformPatternIntoParamCondition(obj.copy(star = true))
                     else -> transformationFailed("Array access object is not metavar")
                 }
             }
@@ -325,6 +329,7 @@ class PatternToActionListConverter: ActionListBuilder<SemgrepJavaPattern> {
         val methodName = when (val name = pattern.methodName) {
             is ConcreteName -> SignatureName.Concrete(name.name)
             is MetavarName -> SignatureName.MetaVar(name.metavarName)
+            is StarMetavarName -> transformationFailed("Method name is star")
             is AnonymousName -> transformationFailed("Method name is anonymous")
         }
 
@@ -441,11 +446,11 @@ class PatternToActionListConverter: ActionListBuilder<SemgrepJavaPattern> {
 
         when (val v = pattern.variable) {
             is Metavar -> {
-                conditions += IsMetavar(MetavarAtom.create(v.name))
+                conditions += IsMetavar(MetavarAtom.create(v.name), star = v.star)
             }
 
             is TypedMetavar -> {
-                conditions += IsMetavar(MetavarAtom.create(v.name))
+                conditions += IsMetavar(MetavarAtom.create(v.name), star = v.star)
 
                 val typeName = transformTypeName(v.type)
                 conditions += ParamCondition.TypeIs(typeName)
@@ -566,6 +571,7 @@ class PatternToActionListConverter: ActionListBuilder<SemgrepJavaPattern> {
         val methodName = when (val name = pattern.name) {
             is ConcreteName -> SignatureName.Concrete(name.name)
             is MetavarName -> SignatureName.MetaVar(name.metavarName)
+            is StarMetavarName -> transformationFailed("Method name is star")
             is AnonymousName -> transformationFailed("Method name is anonymous")
         }
 
@@ -583,6 +589,7 @@ class PatternToActionListConverter: ActionListBuilder<SemgrepJavaPattern> {
                         val positionName = when (val name = param.name) {
                             is ConcreteName -> name.name
                             is MetavarName -> name.metavarName
+                            is StarMetavarName -> name.metavarName
                             is AnonymousName -> "*"
                         }
                         ParamPosition.Any(paramClassifier = positionName)
@@ -597,9 +604,17 @@ class PatternToActionListConverter: ActionListBuilder<SemgrepJavaPattern> {
                         is MetavarName -> {
                             paramConditions += ParamPattern(
                                 position,
-                                IsMetavar(MetavarAtom.create(name.metavarName))
+                                IsMetavar(MetavarAtom.create(name.metavarName), star = false)
                             )
                         }
+
+                        is StarMetavarName -> {
+                            paramConditions += ParamPattern(
+                                position,
+                                IsMetavar(MetavarAtom.create(name.metavarName), star = true)
+                            )
+                        }
+
                         is AnonymousName -> {}
                         is ConcreteName -> transformationFailed("MethodDeclaration_param_name_not_metavar")
                     }
@@ -674,7 +689,7 @@ class PatternToActionListConverter: ActionListBuilder<SemgrepJavaPattern> {
     ): SignatureModifierValue = when (pattern) {
         is StringLiteral -> {
             when (val value = pattern.content) {
-                is MetavarName -> {
+                is MetavarName, is StarMetavarName -> {
                     transformationFailed("Annotation_argument_is_string_with_meta_var")
                 }
 

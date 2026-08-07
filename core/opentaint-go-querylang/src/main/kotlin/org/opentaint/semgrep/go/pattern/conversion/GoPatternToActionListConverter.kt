@@ -353,12 +353,17 @@ class GoPatternToActionListConverter : ActionListBuilder<SemgrepGoPattern> {
             is MetavarName -> Triple(emptyList(), IsMetavar(MetavarAtom.create(n.name)), null)
         }
 
-        is Metavar -> Triple(emptyList(), IsMetavar(MetavarAtom.create(recv.name)), null)
+        is Metavar -> Triple(emptyList(), IsMetavar(MetavarAtom.create(recv.name), star = recv.star), null)
         is TypedMetavar -> {
             val t = transformType(recv.type)
             Triple(
                 emptyList(),
-                ParamCondition.And(listOf(IsMetavar(MetavarAtom.create(recv.name)), ParamCondition.TypeIs(t))),
+                ParamCondition.And(
+                    listOf(
+                        IsMetavar(MetavarAtom.create(recv.name), star = recv.star),
+                        ParamCondition.TypeIs(t),
+                    ),
+                ),
                 null,
             )
         }
@@ -458,10 +463,10 @@ class GoPatternToActionListConverter : ActionListBuilder<SemgrepGoPattern> {
             is MetavarName -> ParamCondition.StringValueMetaVar(MetavarAtom.create(c.name))
         }
         is StringEllipsis -> ParamCondition.AnyStringLiteral
-        is Metavar -> IsMetavar(MetavarAtom.create(pattern.name))
+        is Metavar -> IsMetavar(MetavarAtom.create(pattern.name), star = pattern.star)
         is TypedMetavar -> ParamCondition.And(
             listOf(
-                IsMetavar(MetavarAtom.create(pattern.name)),
+                IsMetavar(MetavarAtom.create(pattern.name), star = pattern.star),
                 ParamCondition.TypeIs(transformType(pattern.type)),
             ),
         )
@@ -482,7 +487,7 @@ class GoPatternToActionListConverter : ActionListBuilder<SemgrepGoPattern> {
         if (names.size == 1) {
             val name = names.first()
             if (name != null) {
-                conditions += IsMetavar(MetavarAtom.create(name))
+                conditions += IsMetavar(MetavarAtom.create(name.name), star = name.star)
             }
 
             return transformAssignmentValue(conditions, value)
@@ -498,22 +503,27 @@ class GoPatternToActionListConverter : ActionListBuilder<SemgrepGoPattern> {
         }
 
         val assignedName = names[assignedNameIdx]!!
-        conditions += IsMetavar(MetavarAtom.create(assignedName))
+        conditions += IsMetavar(MetavarAtom.create(assignedName.name), star = assignedName.star)
         conditions += createFieldModifier(prevModifier = null, "tuple$$assignedNameIdx")
 
         return transformAssignmentValue(conditions, value)
     }
 
+    // Name + star of an assignment target. A bare `Metavar` (`$*X`) or a typed metavar (`($*X : T)`)
+    // can be starred; other target shapes carry star = false. Threading star lets `$*X = src()` (or
+    // its typed form) taint every nested field.
+    private data class AssignmentTarget(val name: String, val star: Boolean)
+
     private fun SemgrepGoPattern.assignmentTargetName(
         conditions: MutableList<ParamCondition>
-    ): String? = when {
-        this is Metavar -> name
+    ): AssignmentTarget? = when {
+        this is Metavar -> AssignmentTarget(name, star)
         this is TypedMetavar -> {
             conditions += ParamCondition.TypeIs(transformType(type))
-            name
+            AssignmentTarget(name, star = star)
         }
 
-        this is Identifier && name is MetavarName -> name.name
+        this is Identifier && name is MetavarName -> AssignmentTarget(name.name, star = false)
         this is Identifier && name is ConcreteName && name.name == "_" -> null
 
         else -> transformationFailed("Assignment_target_not_metavar")
