@@ -1,6 +1,7 @@
 package org.opentaint.jvm.sast.dataflow
 
 import org.opentaint.dataflow.ap.ifds.access.FactAp
+import org.opentaint.dataflow.configuration.jvm.ActionPosition
 import org.opentaint.dataflow.configuration.jvm.Argument
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.Result
@@ -24,7 +25,7 @@ class StringConcatRuleProvider(private val base: TaintRulesProvider) : TaintRule
         return TaintPassThrough(
             method = method,
             condition = mkTrue(),
-            actionsAfter = possibleArgs.map { CopyAllMarks(from = it, to = Result) },
+            actionsAfter = possibleArgs.map { CopyAllMarks(from = ActionPosition.Exact(it), to = ActionPosition.Exact(Result)) },
             info = null
         )
     }

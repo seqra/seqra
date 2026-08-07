@@ -8,6 +8,7 @@ import org.opentaint.dataflow.configuration.CommonTaintConfigurationSource
 import org.opentaint.dataflow.configuration.isTrue
 import org.opentaint.dataflow.go.GoFlowFunctionUtils
 import org.opentaint.dataflow.go.GoFlowFunctionUtils.resolvePosAccess
+import org.opentaint.dataflow.go.rules.ActionPosition
 import org.opentaint.dataflow.go.rules.GoAssignAction
 import org.opentaint.dataflow.go.rules.TaintRule
 import org.opentaint.dataflow.taint.PositionAccess
@@ -59,7 +60,7 @@ inline fun <T> applyGlobalOrFieldReadSourceRules(
     }
 }
 
-fun GoAssignAction.resolvePosAccess(): PositionAccess = when (this) {
-    is GoAssignAction.Direct -> pos.resolvePosAccess()
-    is GoAssignAction.AnyAccessor -> PositionAccess.Complex(pos.resolvePosAccess(), AnyAccessor)
+fun GoAssignAction.resolvePosAccess(): PositionAccess = when (val actionPos = pos) {
+    is ActionPosition.Exact -> actionPos.position.resolvePosAccess()
+    is ActionPosition.AnyAccessorAfter -> PositionAccess.Complex(actionPos.position.resolvePosAccess(), AnyAccessor)
 }

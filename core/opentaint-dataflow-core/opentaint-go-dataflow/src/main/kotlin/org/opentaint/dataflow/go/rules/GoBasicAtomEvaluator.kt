@@ -57,6 +57,7 @@ class GoBasicAtomEvaluator(
         is Position.Argument -> callExpr.explicitArgs.getOrNull(pos.index)
         is Position.Result -> returnValue
         is Position.This -> callExpr.effectiveReceiver
+        is Position.ClassStatic -> null
     }
 
     private inline fun cmpConstant(

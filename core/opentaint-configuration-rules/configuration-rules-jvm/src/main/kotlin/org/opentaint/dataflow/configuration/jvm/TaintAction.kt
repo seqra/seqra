@@ -2,32 +2,35 @@ package org.opentaint.dataflow.configuration.jvm
 
 import org.opentaint.dataflow.configuration.CommonTaintAction
 import org.opentaint.dataflow.configuration.CommonTaintAssignAction
-import org.opentaint.dataflow.configuration.TaintCleanReach
 
 sealed interface Action: CommonTaintAction
 
+sealed interface ActionPosition {
+    data class Exact(val position: Position) : ActionPosition
+    data class AnyAccessorAfter(val position: Position): ActionPosition
+}
+
 data class CopyAllMarks(
-    val from: Position,
-    val to: Position,
+    val from: ActionPosition,
+    val to: ActionPosition,
 ) : Action
 
 data class CopyMark(
     val mark: TaintMark,
-    val from: Position,
-    val to: Position,
+    val from: ActionPosition,
+    val to: ActionPosition,
 ) : Action
 
 data class AssignMark(
     val mark: TaintMark,
-    val position: Position,
+    val position: ActionPosition,
 ) : Action, CommonTaintAssignAction
 
 data class RemoveAllMarks(
-    val position: Position,
+    val position: ActionPosition,
 ) : Action
 
 data class RemoveMark(
     val mark: TaintMark,
-    val position: Position,
-    val reach: TaintCleanReach = TaintCleanReach.Exact,
+    val position: ActionPosition,
 ) : Action

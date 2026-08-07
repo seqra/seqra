@@ -5,6 +5,7 @@ import org.opentaint.dataflow.configuration.go.serialized.GoSerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
+import org.opentaint.dataflow.configuration.jvm.serialized.beforeFirstAnyField
 import org.opentaint.dataflow.configuration.mkAnd
 import org.opentaint.dataflow.configuration.mkFalse
 import org.opentaint.dataflow.configuration.mkOr
@@ -33,12 +34,15 @@ private fun GoSerializedCondition.resolveImpl(signature: GoFunctionSignature): C
     is GoSerializedCondition.Or -> mkOr(anyOf.map { it.resolveImpl(signature) })
     is GoSerializedCondition.Not -> CommonCondition.Not(not.resolveImpl(signature))
 
-    is GoSerializedCondition.ContainsMark -> pos.resolveAny(signature, PositionBaseWithModifiers::resolve) {
-        GoRuleCondition.ContainsMark(it, tainted)
-    }
-
-    is GoSerializedCondition.ContainsMarkOnAnyAccessor -> pos.resolveAny(signature, PositionBaseWithModifiers::resolve) {
-        GoRuleCondition.ContainsMarkOnAnyAccessor(it, tainted)
+    is GoSerializedCondition.ContainsMark -> {
+        val (position, hasAnyField) = pos.beforeFirstAnyField()
+        position.resolveAny(signature, PositionBaseWithModifiers::resolve) {
+            if (hasAnyField) {
+                GoRuleCondition.ContainsMarkOnAnyAccessor(it, tainted)
+            } else {
+                GoRuleCondition.ContainsMark(it, tainted)
+            }
+        }
     }
 
     is GoSerializedCondition.ConstantCmp -> {
@@ -109,7 +113,7 @@ fun PositionBase.resolve(signature: GoFunctionSignature): List<Position.Simple> 
         }
     }
 
-    is PositionBase.ClassStatic -> error("Unused")
+    is PositionBase.ClassStatic -> listOf(Position.ClassStatic(className))
     is PositionBase.Result -> listOf(Position.Result)
     is PositionBase.This -> if (signature.hasReceiver) listOf(Position.This) else emptyList()
 }
@@ -141,6 +145,7 @@ fun PositionBaseWithModifiers.resolve(signature: GoFunctionSignature): List<Posi
 
 private fun GoFunctionSignature.positionType(pos: Position.Simple): List<GoIRType> = when (pos) {
     is Position.Argument -> listOfNotNull(paramTypes.getOrNull(pos.index))
+    is Position.ClassStatic -> emptyList()
     is Position.Result -> {
         val types = mutableListOf(resultType)
         if (resultType is GoIRTupleType) {
@@ -178,7 +183,7 @@ private fun List<PositionModifier>.resolveUntyped(): List<PositionAccessor>? {
                 PositionAccessor.FieldAccessor(mod.className, mod.fieldName, mod.fieldType)
             }
 
-            is PositionModifier.AnyField -> PositionAccessor.AnyAccessor
+            is PositionModifier.AnyField -> error("AnyField must be specialized before resolving Position")
         }
     }
 }

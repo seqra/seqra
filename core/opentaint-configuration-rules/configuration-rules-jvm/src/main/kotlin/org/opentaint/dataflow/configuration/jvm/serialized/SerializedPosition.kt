@@ -88,6 +88,29 @@ sealed interface PositionBaseWithModifiers {
         PositionBaseWithModifiers
 }
 
+data class PositionBeforeAnyField(
+    val position: PositionBaseWithModifiers,
+    val hasAnyField: Boolean,
+)
+
+fun PositionBaseWithModifiers.beforeFirstAnyField(): PositionBeforeAnyField {
+    return when (this) {
+        is PositionBaseWithModifiers.BaseOnly -> PositionBeforeAnyField(this, hasAnyField = false)
+        is PositionBaseWithModifiers.WithModifiers -> {
+            val firstAnyField = modifiers.indexOfFirst { it == PositionModifier.AnyField }
+            if (firstAnyField < 0) return PositionBeforeAnyField(this, hasAnyField = false)
+            val retained = modifiers.take(firstAnyField)
+
+            val position = if (retained.isEmpty()) {
+                PositionBaseWithModifiers.BaseOnly(base)
+            } else {
+                PositionBaseWithModifiers.WithModifiers(base, retained)
+            }
+            PositionBeforeAnyField(position, hasAnyField = true)
+        }
+    }
+}
+
 class PositionBaseWithModifiersSerializer :
     YamlContentPolymorphicSerializer<PositionBaseWithModifiers>(PositionBaseWithModifiers::class) {
 

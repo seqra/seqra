@@ -3,8 +3,7 @@ package org.opentaint.dataflow.jvm.ap.ifds.analysis
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.access.ApManager
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
-import org.opentaint.dataflow.configuration.TaintCleanReach
-import org.opentaint.dataflow.configuration.jvm.Position
+import org.opentaint.dataflow.configuration.jvm.ActionPosition
 import org.opentaint.dataflow.configuration.jvm.RemoveMark
 import org.opentaint.dataflow.configuration.jvm.TaintConfigurationItem
 import org.opentaint.dataflow.configuration.jvm.TaintMark
@@ -48,13 +47,13 @@ class JIRMethodCallRuleBasedSummaryRewriter(
 
     private data class UserRuleDefinedAction(
         val rule: TaintConfigurationItem,
-        val positions: Set<Position>,
+        val positions: Set<ActionPosition>,
     )
 
     private val userRuleDefinedActions: Map<AccessPathBase, Map<String, List<UserRuleDefinedAction>>> by lazy {
         val result = hashMapOf<AccessPathBase, MutableMap<String, MutableList<UserRuleDefinedAction>>>()
 
-        fun indexRule(rule: TaintConfigurationItem, positions: Set<Position>, marks: Set<String>) {
+        fun indexRule(rule: TaintConfigurationItem, positions: Set<ActionPosition>, marks: Set<String>) {
             positions.groupBy { it.resolveBaseAp() }.forEach { (base, basePositions) ->
                 val actionsByMark = result.computeIfAbsent(base) { hashMapOf() }
                 val action = UserRuleDefinedAction(rule, basePositions.toSet())
@@ -101,9 +100,7 @@ class JIRMethodCallRuleBasedSummaryRewriter(
                 itemRule = { it.rule },
                 itemActions = { ruleDefinedAction ->
                     val taintMark = TaintMark(mark)
-                    ruleDefinedAction.positions.map {
-                        RemoveMark(taintMark, it, TaintCleanReach.Exact)
-                    }
+                    ruleDefinedAction.positions.map { RemoveMark(taintMark, it) }
                 },
                 initial = current
             )

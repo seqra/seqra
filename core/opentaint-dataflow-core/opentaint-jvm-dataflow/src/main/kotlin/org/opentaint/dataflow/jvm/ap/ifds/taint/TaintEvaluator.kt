@@ -7,6 +7,8 @@ import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationItem
+import org.opentaint.dataflow.configuration.TaintCleanReach
+import org.opentaint.dataflow.configuration.jvm.ActionPosition
 import org.opentaint.dataflow.configuration.jvm.Argument
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
 import org.opentaint.dataflow.configuration.jvm.Condition
@@ -47,16 +49,17 @@ class JIRTaintCleanActionEvaluator(
     ): List<EvaluatedCleanAction> {
         val variable = action.position.resolveAp()
         val mark = TaintMarkAccessor(action.mark.name)
-        val cleaned = evaluator.removeFinalFact(initialFact, variable, mark, rule, action, action.reach)
+        val cleaned = evaluator.removeFinalFact(initialFact, variable, mark, rule, action, action.position.cleanReach())
 
         val positionType = positionTypeResolver.resolve(variable)
         if (positionType?.typeName != STRING) {
             return cleaned
         }
 
-        val stringBytesVar = PositionWithAccess(action.position, stringBytes).resolveAp()
+        val stringBytesPosition = action.position.append(stringBytes)
+        val stringBytesVar = stringBytesPosition.resolveAp()
         return cleaned.flatMap { f ->
-            evaluator.removeFinalFact(f, stringBytesVar, mark, rule, action, action.reach)
+            evaluator.removeFinalFact(f, stringBytesVar, mark, rule, action, stringBytesPosition.cleanReach())
         }
     }
 
@@ -70,12 +73,32 @@ class JIRTaintCleanActionEvaluator(
     }
 }
 
+fun ActionPosition.resolveBaseAp(): AccessPathBase = when (this) {
+    is ActionPosition.Exact -> position.resolveBaseAp()
+    is ActionPosition.AnyAccessorAfter -> position.resolveBaseAp()
+}
+
 fun Position.resolveBaseAp(): AccessPathBase = when (this) {
     is Argument -> AccessPathBase.Argument(index)
     is This -> AccessPathBase.This
     is Result -> AccessPathBase.Return
     is ClassStatic -> AccessPathBase.ClassStatic
     is PositionWithAccess -> base.resolveBaseAp()
+}
+
+fun ActionPosition.resolveAp(): PositionAccess = when (this) {
+    is ActionPosition.Exact -> position.resolveAp()
+    is ActionPosition.AnyAccessorAfter -> PositionAccess.Complex(position.resolveAp(), AnyAccessor)
+}
+
+fun ActionPosition.cleanReach(): TaintCleanReach = when (this) {
+    is ActionPosition.Exact -> TaintCleanReach.Exact
+    is ActionPosition.AnyAccessorAfter -> TaintCleanReach.ExactAndAnyField
+}
+
+private fun ActionPosition.append(accessor: PositionAccessor): ActionPosition = when (this) {
+    is ActionPosition.Exact -> ActionPosition.Exact(PositionWithAccess(position, accessor))
+    is ActionPosition.AnyAccessorAfter -> ActionPosition.AnyAccessorAfter(PositionWithAccess(position, accessor))
 }
 
 fun Position.resolveAp(): PositionAccess = resolveAp(resolveBaseAp())
@@ -101,7 +124,6 @@ fun Position.resolveAp(baseAp: AccessPathBase): PositionAccess {
 }
 
 fun PositionAccessor.toApAccessor() = when(this) {
-    PositionAccessor.AnyFieldAccessor -> AnyAccessor
     PositionAccessor.ElementAccessor -> ElementAccessor
     is PositionAccessor.FieldAccessor -> FieldAccessor(className, fieldName, fieldType)
 }

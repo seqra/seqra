@@ -6,6 +6,7 @@ import org.opentaint.dataflow.ap.ifds.analysis.alias.AAInfo
 import org.opentaint.dataflow.ap.ifds.analysis.alias.AnalysisResult
 import org.opentaint.dataflow.ap.ifds.analysis.alias.ContextInfo
 import org.opentaint.dataflow.ap.ifds.analysis.alias.LocalAliasAnalysis
+import org.opentaint.dataflow.configuration.jvm.ActionPosition
 import org.opentaint.dataflow.configuration.jvm.Argument
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
@@ -87,6 +88,11 @@ class JIRLocalAliasAnalysis(
             return externalAssigns
         }
 
+        private fun ActionPosition.toExternalObject(): ExternalObject? = when (this) {
+            is ActionPosition.Exact -> position.toExternalObject()
+            is ActionPosition.AnyAccessorAfter -> null
+        }
+
         private fun Position.toExternalObject(): ExternalObject? {
             val base = when (this) {
                 is Argument -> ExternalCallModelProvider.Position.Arg(index)
@@ -105,7 +111,6 @@ class JIRLocalAliasAnalysis(
         }
 
         private fun PositionAccessor.toAaAccessor(): AAHeapAccessor? = when (this) {
-            is PositionAccessor.AnyFieldAccessor -> null
             is PositionAccessor.ElementAccessor -> ArrayAlias
             is PositionAccessor.FieldAccessor -> FieldAlias(
                 AliasAccessor.Field(className, fieldName, fieldType),

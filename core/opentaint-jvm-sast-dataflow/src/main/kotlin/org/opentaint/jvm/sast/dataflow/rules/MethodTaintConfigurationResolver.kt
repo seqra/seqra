@@ -20,7 +20,6 @@ import org.opentaint.dataflow.configuration.jvm.ConstantMatches
 import org.opentaint.dataflow.configuration.jvm.ConstantStringValue
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
-import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.dataflow.configuration.jvm.CopyMark
 import org.opentaint.dataflow.configuration.jvm.IsConstant
 import org.opentaint.dataflow.configuration.jvm.IsNull
@@ -48,6 +47,7 @@ import org.opentaint.dataflow.configuration.jvm.matchType
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
+import org.opentaint.dataflow.configuration.jvm.serialized.beforeFirstAnyField
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationConstraint
@@ -67,6 +67,7 @@ import org.opentaint.dataflow.configuration.mkFalse
 import org.opentaint.dataflow.configuration.mkOr
 import org.opentaint.dataflow.configuration.mkTrue
 import org.opentaint.dataflow.configuration.simplify
+import org.opentaint.dataflow.jvm.ap.ifds.taint.ContainsMarkOnAnyField
 import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRClassType
@@ -444,18 +445,20 @@ class MethodTaintConfigurationResolver(
             }
         }
 
-        is SerializedCondition.ContainsMark -> mkOr(
-            pos.resolvePosition(ctx)
-                .flatMap { it.resolveArrayPosition() }
-                .map { position ->
-                    val mark = taintMarkManager.taintMark(tainted)
-                    if (position is PositionWithAccess && position.access == PositionAccessor.AnyFieldAccessor) {
-                        ContainsMarkOnAnyField(position.base, mark).atom()
+        is SerializedCondition.ContainsMark -> {
+            val (position, hasAnyField) = pos.beforeFirstAnyField()
+            val mark = taintMarkManager.taintMark(tainted)
+            mkOr(
+                position.resolvePosition(ctx).map {
+                    if (hasAnyField) {
+                        ContainsMarkOnAnyField(it, mark).atom()
                     } else {
-                        ContainsMark(position, mark).atom()
+                        ContainsMark(it, mark).atom()
                     }
                 }
-        )
+            )
+        }
+
 
         is SerializedCondition.IsType -> resolveIsType(ctx)
 
@@ -543,13 +546,11 @@ class MethodTaintConfigurationResolver(
     }
 
     private fun SerializedTaintAssignAction.resolveWithArray(ctx: AnyArgSpecializationCtx): List<AssignMark> =
-        pos.resolvePositionWithAnnotationConstraint(ctx, annotatedWith?.asAnnotationConstraint())
-            .flatMap { it.resolveArrayPosition() }
+        pos.resolveActionPosition(ctx, annotatedWith?.asAnnotationConstraint())
             .map { AssignMark(taintMarkManager.taintMark(kind), it) }
 
     private fun SerializedTaintAssignAction.resolveNoArray(ctx: AnyArgSpecializationCtx): List<AssignMark> =
-        pos.resolvePositionWithAnnotationConstraint(ctx, annotatedWith?.asAnnotationConstraint())
-            .flatMap { it.resolveArrayPosition() }
+        pos.resolveActionPosition(ctx, annotatedWith?.asAnnotationConstraint())
             .map { AssignMark(taintMarkManager.taintMark(kind), it) }
 
     private fun Position.resolveArrayPosition(): List<Position> = when (this) {
@@ -571,8 +572,8 @@ class MethodTaintConfigurationResolver(
     }
 
     private fun SerializedTaintPassAction.resolve(ctx: AnyArgSpecializationCtx): List<Action> =
-        from.resolvePosition(ctx).flatMap { fromPos ->
-            to.resolvePosition(ctx).map { toPos ->
+        from.resolveActionPosition(ctx).flatMap { fromPos ->
+            to.resolveActionPosition(ctx).map { toPos ->
                 val taintKind = taintKind
                 if (taintKind == null) {
                     CopyAllMarks(fromPos, toPos)
@@ -583,15 +584,19 @@ class MethodTaintConfigurationResolver(
         }
 
     private fun SerializedTaintCleanAction.resolve(ctx: AnyArgSpecializationCtx): List<Action> =
-        pos.resolvePosition(ctx)
-            .map { pos ->
-                val taintKind = taintKind
-                if (taintKind == null) {
-                    RemoveAllMarks(pos)
-                } else {
-                    RemoveMark(taintMarkManager.taintMark(taintKind), pos, reach)
-                }
-            }
+        pos.resolveActionPosition(ctx).map { pos ->
+            taintKind?.let { RemoveMark(taintMarkManager.taintMark(it), pos) } ?: RemoveAllMarks(pos)
+        }
+
+    private fun PositionBaseWithModifiers.resolveActionPosition(
+        ctx: AnyArgSpecializationCtx,
+        annotation: AnnotationConstraint? = null,
+    ): List<ActionPosition> {
+        val (position, hasAnyField) = beforeFirstAnyField()
+        return position.resolvePositionWithAnnotationConstraint(ctx, annotation).map {
+            if (hasAnyField) AnyAccessorAfter(it) else Exact(it)
+        }
+    }
 
     private fun PositionBaseWithModifiers.resolvePosition(
         ctx: AnyArgSpecializationCtx,
@@ -617,7 +622,7 @@ class MethodTaintConfigurationResolver(
                 resolvedBase.map { b ->
                     modifiers.fold(b) { basePos, modifier ->
                         val accessor = when (modifier) {
-                            PositionModifier.AnyField -> PositionAccessor.AnyFieldAccessor
+                            PositionModifier.AnyField -> error("AnyField must be resolved before ordinary positions")
                             PositionModifier.ArrayElement -> PositionAccessor.ElementAccessor
                             is PositionModifier.Field -> {
                                 PositionAccessor.FieldAccessor(
