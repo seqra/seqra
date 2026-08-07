@@ -1,8 +1,9 @@
 package org.opentaint.semgrep.pattern.conversion.taint
 
-import org.opentaint.dataflow.configuration.TaintCleanReach
+
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.Companion.mkFalse
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedFunctionNameMatcher
@@ -13,6 +14,13 @@ import org.opentaint.semgrep.pattern.Mark.GeneratedMark
 
 fun PositionBase.base(): PositionBaseWithModifiers =
     PositionBaseWithModifiers.BaseOnly(this)
+
+fun PositionBaseWithModifiers.withAnyField(): PositionBaseWithModifiers = when (this) {
+    is PositionBaseWithModifiers.BaseOnly ->
+        PositionBaseWithModifiers.WithModifiers(base, listOf(PositionModifier.AnyField))
+    is PositionBaseWithModifiers.WithModifiers ->
+        PositionBaseWithModifiers.WithModifiers(base, modifiers + PositionModifier.AnyField)
+}
 
 fun anyName() = SerializedSimpleNameMatcher.Pattern(".*")
 
@@ -50,8 +58,4 @@ fun GeneratedMark.mkAssignMark(pos: PositionBaseWithModifiers) =
     SerializedTaintAssignAction(taintMarkStr(), pos = pos)
 
 fun GeneratedMark.mkCleanMark(pos: PositionBaseWithModifiers) =
-    SerializedTaintCleanAction(
-        taintMarkStr(),
-        pos = pos,
-        reach = TaintCleanReach.Exact,
-    )
+    SerializedTaintCleanAction(taintMarkStr(), pos = pos)
