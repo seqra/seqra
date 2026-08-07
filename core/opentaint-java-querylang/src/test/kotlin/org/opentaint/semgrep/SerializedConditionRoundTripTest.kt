@@ -25,7 +25,7 @@ class SerializedConditionRoundTripTest {
 
     @Test
     fun `ContainsMarkOnAnyField survives a YAML round-trip`() {
-        val original: SerializedCondition = SerializedCondition.ContainsMarkOnAnyField(
+        val original: SerializedCondition = SerializedCondition.ContainsMark(
             tainted = "untrusted",
             pos = pos,
         )
@@ -34,7 +34,7 @@ class SerializedConditionRoundTripTest {
         val decoded = yaml.decodeFromString(SerializedCondition.serializer(), encoded)
 
         assertTrue(
-            decoded is SerializedCondition.ContainsMarkOnAnyField,
+            decoded is SerializedCondition.ContainsMark,
             "round-trip must preserve ContainsMarkOnAnyField, got ${decoded::class.simpleName}; yaml=\n$encoded",
         )
         assertEquals(original, decoded)

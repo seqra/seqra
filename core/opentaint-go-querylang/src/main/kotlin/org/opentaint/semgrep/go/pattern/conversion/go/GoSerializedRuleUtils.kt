@@ -6,6 +6,7 @@ import org.opentaint.dataflow.configuration.go.serialized.GoSerializedCleanActio
 import org.opentaint.dataflow.configuration.go.serialized.GoSerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
 import org.opentaint.semgrep.pattern.Mark.GeneratedMark
 
 internal fun PositionBase.baseGo(): PositionBaseWithModifiers.BaseOnly = PositionBaseWithModifiers.BaseOnly(this)
@@ -19,13 +20,15 @@ internal fun GeneratedMark.mkGoContainsMark(pos: PositionBaseWithModifiers): GoS
     GoSerializedCondition.ContainsMark(taintMarkStr(), pos)
 
 internal fun GeneratedMark.mkGoContainsMarkOnAnyAccessor(pos: PositionBaseWithModifiers): GoSerializedCondition =
-    GoSerializedCondition.ContainsMarkOnAnyAccessor(taintMarkStr(), pos)
+    GoSerializedCondition.ContainsMark(taintMarkStr(), pos.withAnyField())
 
 internal fun GeneratedMark.mkGoAssignMark(pos: PositionBaseWithModifiers): GoSerializedAssignAction =
-    GoSerializedAssignAction.Direct(taintMarkStr(), pos)
+    GoSerializedAssignAction(taintMarkStr(), pos)
 
-internal fun GeneratedMark.mkGoAssignMarkOnAnyAccessor(pos: PositionBaseWithModifiers): GoSerializedAssignAction =
-    GoSerializedAssignAction.AnyAccessor(taintMarkStr(), pos)
+internal fun PositionBaseWithModifiers.withAnyField(): PositionBaseWithModifiers = when (this) {
+    is PositionBaseWithModifiers.BaseOnly -> PositionBaseWithModifiers.WithModifiers(base, listOf(PositionModifier.AnyField))
+    is PositionBaseWithModifiers.WithModifiers -> copy(modifiers = modifiers + PositionModifier.AnyField)
+}
 
 internal fun GeneratedMark.mkGoCleanMark(pos: PositionBaseWithModifiers): GoSerializedCleanAction =
     GoSerializedCleanAction(taintMarkStr(), pos)

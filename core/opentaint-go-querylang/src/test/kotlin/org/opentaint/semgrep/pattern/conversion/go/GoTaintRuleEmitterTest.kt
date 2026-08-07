@@ -9,6 +9,8 @@ import org.opentaint.dataflow.configuration.go.serialized.GoSerializedPassAction
 import org.opentaint.dataflow.configuration.go.serialized.GoSerializedRule
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
+import org.opentaint.dataflow.go.rules.ActionPosition
 import org.opentaint.dataflow.go.GoFunctionSignature
 import org.opentaint.dataflow.go.rules.GoTaintConfiguration
 import org.opentaint.dataflow.go.rules.Position
@@ -48,7 +50,7 @@ class GoTaintRuleEmitterTest {
         val src = cfg.sourceForFunction("util.Source".signature(0), allRelevant = false).single()
         assertEquals("util.Source", src.function)
         assertEquals("taint", src.actionsAfter.single().mark)
-        assertEquals(Position.Result, src.actionsAfter.single().rawPosition())
+        assertEquals(ActionPosition.Exact(Position.Result), src.actionsAfter.single().pos)
     }
 
     @Test
@@ -115,7 +117,7 @@ class GoTaintRuleEmitterTest {
                 pkg = GoNameMatcher.Simple("util"),
                 function = GoNameMatcher.Pattern(".*"),
                 condition = null,
-                taint = listOf(GoSerializedAssignAction.Direct("taint", baseOnly(PositionBase.Result))),
+                taint = listOf(GoSerializedAssignAction("taint", baseOnly(PositionBase.Result))),
                 info = null
             ),
         )
@@ -146,14 +148,18 @@ class GoTaintRuleEmitterTest {
     }
 
     @Test
-    fun `any-accessor cleaner lowers to RemoveMark with onAnyAccessor while direct stays false`() {
+    fun `any-accessor cleaner lowers to RemoveMark with specialized position while direct stays exact`() {
         val pos = baseOnly(PositionBase.Argument(0))
+        val anyPos = PositionBaseWithModifiers.WithModifiers(
+            PositionBase.Argument(0),
+            listOf(PositionModifier.AnyField),
+        )
 
         val anyRule = rule(
             GoSerializedRule.Cleaner(
                 pkg = GoNameMatcher.Simple("util"),
                 function = GoNameMatcher.Simple("Clean"),
-                cleans = listOf(GoSerializedCleanAction.AnyAccessor("taint", pos)),
+                cleans = listOf(GoSerializedCleanAction("taint", anyPos)),
                 info = null,
             ),
         )
@@ -161,9 +167,9 @@ class GoTaintRuleEmitterTest {
         val anyAction = anyCfg.cleanerForFunction("util.Clean".signature(1), allRelevant = false)
             .single().actionsAfter.filterIsInstance<RemoveMark>().single()
         assertEquals("taint", anyAction.mark)
-        assertTrue(anyAction.onAnyAccessor)
+        assertEquals(ActionPosition.AnyAccessorAfter(Position.Argument(0)), anyAction.pos)
 
-        // Direct variant via the companion constructor must stay byte-identical (onAnyAccessor = false).
+        // Direct position must remain exact.
         val directRule = rule(
             GoSerializedRule.Cleaner(
                 pkg = GoNameMatcher.Simple("util"),
@@ -176,10 +182,7 @@ class GoTaintRuleEmitterTest {
         val directAction = directCfg.cleanerForFunction("util.Clean".signature(1), allRelevant = false)
             .single().actionsAfter.filterIsInstance<RemoveMark>().single()
         assertEquals("taint", directAction.mark)
-        assertFalse(directAction.onAnyAccessor)
-
-        // Both variants resolve to the same base position; only the any-accessor flag differs.
-        assertEquals(directAction.pos, anyAction.pos)
+        assertEquals(ActionPosition.Exact(Position.Argument(0)), directAction.pos)
     }
 
     private val anyType = GoIRUnsafePointerType

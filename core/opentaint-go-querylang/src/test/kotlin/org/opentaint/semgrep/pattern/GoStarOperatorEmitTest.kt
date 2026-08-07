@@ -5,6 +5,8 @@ import org.opentaint.dataflow.configuration.go.serialized.GoSerializedCleanActio
 import org.opentaint.dataflow.configuration.go.serialized.GoSerializedCondition
 import org.opentaint.dataflow.configuration.go.serialized.GoSerializedItem
 import org.opentaint.dataflow.configuration.go.serialized.GoSerializedRule
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
 import org.opentaint.semgrep.go.pattern.conversion.GoLanguageStrategy
 import kotlin.io.path.Path
 import kotlin.test.Test
@@ -15,10 +17,21 @@ import kotlin.test.assertTrue
  * same semantics as Java: `$X` = base-only taint; `$*X` = base + all nested fields (any-accessor).
  *
  * Mirrors [org.opentaint.semgrep.StarOperatorRuleGenTest] on the Java side, but the Go engine models
- * "any field" as a distinct ACTION/CONDITION variant on the SAME position (AnyAccessor /
- * ContainsMarkOnAnyAccessor), not as an AnyField position modifier.
+ * "any field" on serialized actions as an AnyField position modifier. Conditions retain their
+ * specialized ContainsMarkOnAnyAccessor representation.
  */
 class GoStarOperatorEmitTest {
+
+    private fun PositionBaseWithModifiers.hasAnyField(): Boolean =
+        this is PositionBaseWithModifiers.WithModifiers && PositionModifier.AnyField in modifiers
+
+    private fun PositionBaseWithModifiers.withoutAnyField(): PositionBaseWithModifiers = when (this) {
+        is PositionBaseWithModifiers.BaseOnly -> this
+        is PositionBaseWithModifiers.WithModifiers -> {
+            val prefix = modifiers.takeWhile { it != PositionModifier.AnyField }
+            if (prefix.isEmpty()) PositionBaseWithModifiers.BaseOnly(base) else copy(modifiers = prefix)
+        }
+    }
 
     private fun emitItems(ruleText: String): List<GoSerializedItem> {
         val loader = SemgrepRuleLoader(listOf(GoLanguageStrategy()))
@@ -68,7 +81,7 @@ class GoStarOperatorEmitTest {
         )
         val conditions = sinkConditions(items)
         val base = conditions.filterIsInstance<GoSerializedCondition.ContainsMark>()
-        val anyAccessor = conditions.filterIsInstance<GoSerializedCondition.ContainsMarkOnAnyAccessor>()
+        val anyAccessor = conditions.filterIsInstance<GoSerializedCondition.ContainsMark>()
 
         assertTrue(anyAccessor.isNotEmpty(), "expected a ContainsMarkOnAnyAccessor in the starred sink; got $conditions")
         assertTrue(base.isNotEmpty(), "expected a plain ContainsMark in the starred sink; got $conditions")
@@ -100,8 +113,8 @@ class GoStarOperatorEmitTest {
             """.trimIndent()
         )
         val taint = sourceTaint(items)
-        val direct = taint.filterIsInstance<GoSerializedAssignAction.Direct>()
-        val anyAccessor = taint.filterIsInstance<GoSerializedAssignAction.AnyAccessor>()
+        val direct = taint.filterIsInstance<GoSerializedAssignAction>().filter { !it.pos.hasAnyField() }
+        val anyAccessor = taint.filterIsInstance<GoSerializedAssignAction>().filter { it.pos.hasAnyField() }
 
         assertTrue(direct.isNotEmpty(), "expected a Direct assign in the starred source; got $taint")
         assertTrue(anyAccessor.isNotEmpty(), "expected an AnyAccessor assign in the starred source; got $taint")
@@ -109,7 +122,7 @@ class GoStarOperatorEmitTest {
         // Coherence: every any-accessor assign mirrors a direct one on the same mark and position.
         anyAccessor.forEach { any ->
             assertTrue(
-                direct.any { it.kind == any.kind && it.pos == any.pos },
+                direct.any { it.kind == any.kind && it.pos == any.pos.withoutAnyField() },
                 "any-accessor assign $any has no paired Direct on same mark/pos; direct=$direct"
             )
         }
@@ -136,8 +149,8 @@ class GoStarOperatorEmitTest {
             """.trimIndent()
         )
         val cleans = cleanerCleans(items)
-        val direct = cleans.filterIsInstance<GoSerializedCleanAction.Direct>()
-        val anyAccessor = cleans.filterIsInstance<GoSerializedCleanAction.AnyAccessor>()
+        val direct = cleans.filterIsInstance<GoSerializedCleanAction>().filter { !it.pos.hasAnyField() }
+        val anyAccessor = cleans.filterIsInstance<GoSerializedCleanAction>().filter { it.pos.hasAnyField() }
 
         assertTrue(direct.isNotEmpty(), "expected a Direct clean in the starred sanitizer; got $cleans")
         assertTrue(anyAccessor.isNotEmpty(), "expected an AnyAccessor clean in the starred sanitizer; got $cleans")
@@ -147,7 +160,7 @@ class GoStarOperatorEmitTest {
         // accessor but does NOT reach a concrete base mark, so both must be emitted.
         anyAccessor.forEach { any ->
             assertTrue(
-                direct.any { it.taintKind == any.taintKind && it.pos == any.pos },
+                direct.any { it.taintKind == any.taintKind && it.pos == any.pos.withoutAnyField() },
                 "any-accessor clean $any has no paired Direct on same mark/pos; direct=$direct"
             )
         }
@@ -176,7 +189,7 @@ class GoStarOperatorEmitTest {
         )
         val conditions = sinkConditions(items)
         val base = conditions.filterIsInstance<GoSerializedCondition.ContainsMark>()
-        val anyAccessor = conditions.filterIsInstance<GoSerializedCondition.ContainsMarkOnAnyAccessor>()
+        val anyAccessor = conditions.filterIsInstance<GoSerializedCondition.ContainsMark>()
 
         assertTrue(anyAccessor.isNotEmpty(), "expected a ContainsMarkOnAnyAccessor for the starred typed sink; got $conditions")
         assertTrue(base.isNotEmpty(), "expected a plain ContainsMark for the starred typed sink; got $conditions")
@@ -212,8 +225,8 @@ class GoStarOperatorEmitTest {
         )
         val conditions = sinkConditions(items)
         assertTrue(
-            conditions.none { it is GoSerializedCondition.ContainsMarkOnAnyAccessor },
-            "a non-star \$Y sink must be base-only (no ContainsMarkOnAnyAccessor); got $conditions"
+            conditions.filterIsInstance<GoSerializedCondition.ContainsMark>().none { it.pos.hasAnyField() },
+            "a non-star \$Y sink must be base-only (no AnyField modifier); got $conditions"
         )
         assertTrue(
             conditions.any { it is GoSerializedCondition.ContainsMark },

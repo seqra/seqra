@@ -1,5 +1,7 @@
 package org.opentaint.semgrep
 
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
 import org.opentaint.semgrep.pattern.SemgrepLoadTrace
@@ -89,4 +91,8 @@ class StarPatternNotCoincidenceTest {
         val config = loadConfig(methodRule("structural", positiveStar = true, notMetavar = "${'$'}OTHER"))
         assertTrue(config != null, "a non-coinciding structural pattern-not rule must load")
     }
+    private fun PositionBaseWithModifiers.hasAnyField(): Boolean =
+        this is PositionBaseWithModifiers.WithModifiers &&
+            PositionModifier.AnyField in modifiers
+
 }

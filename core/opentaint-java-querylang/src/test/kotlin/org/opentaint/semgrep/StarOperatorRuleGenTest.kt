@@ -246,7 +246,7 @@ class StarOperatorRuleGenTest {
             """.trimIndent()
         )
         val conditions = allConditions(cfg)
-        val anyField = conditions.filterIsInstance<SerializedCondition.ContainsMarkOnAnyField>()
+        val anyField = conditions.filterIsInstance<SerializedCondition.ContainsMark>()
         assertTrue(anyField.isNotEmpty(), "expected a ContainsMarkOnAnyField in the starred sink config")
 
         // Base coherence: every any-field check must be paired with a plain
@@ -284,7 +284,7 @@ class StarOperatorRuleGenTest {
             """.trimIndent()
         )
         // A starred propagator source occurrence must reference an any-field position
-        val anyField = allConditions(cfg).any { it is SerializedCondition.ContainsMarkOnAnyField } ||
+        val anyField = allConditions(cfg).any { it is SerializedCondition.ContainsMark } ||
             sourceAssignPositions(cfg).any {
                 it is PositionBaseWithModifiers.WithModifiers && it.modifiers.contains(PositionModifier.AnyField)
             }
@@ -311,7 +311,7 @@ class StarOperatorRuleGenTest {
             """.trimIndent()
         )
         assertTrue(
-            allConditions(cfg).any { it is SerializedCondition.ContainsMarkOnAnyField },
+            allConditions(cfg).any { it is SerializedCondition.ContainsMark },
             "pattern-not sink must still carry the any-field check"
         )
     }

@@ -43,7 +43,12 @@ internal data class GoEvaluatedEdgeCondition(
 
 internal data class GoRegisterVarPosition(
     val varName: MetavarAtom,
-    val positions: MutableSet<PositionBaseWithModifiers>,
+    val positions: MutableSet<GoStarredPosition>,
+)
+
+internal data class GoStarredPosition(
+    val position: PositionBaseWithModifiers,
+    val star: Boolean,
 )
 
 data class FieldModifierCtx(

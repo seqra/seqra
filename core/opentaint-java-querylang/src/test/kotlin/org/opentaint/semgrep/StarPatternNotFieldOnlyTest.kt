@@ -1,5 +1,7 @@
 package org.opentaint.semgrep
 
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
+import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
@@ -88,11 +90,11 @@ $sinkPatterns
         // !A ^ A*
         val conds = sinkConditions(config(rule))
         assertTrue(
-            conds.any { it is SerializedCondition.ContainsMarkOnAnyField },
+            conds.anyContainsMark(anyField = true),
             "field-only sink must REQUIRE any-field taint (ContainsMarkOnAnyField); got $conds"
         )
         assertTrue(
-            conds.any { it is SerializedCondition.Not && it.not is SerializedCondition.ContainsMark },
+            conds.anyNotContainsMark(anyField = false),
             "field-only sink must EXCLUDE base/value taint (Not(ContainsMark)); got $conds"
         )
     }
@@ -116,11 +118,11 @@ $sinkPatterns
                       - focus-metavariable: ${'$'}X
         """.trimIndent()))
         assertTrue(
-            conds.any { it is SerializedCondition.ContainsMark },
+            conds.anyContainsMark(anyField = false),
             "A ^ A* must keep the base ContainsMark; got $conds"
         )
         assertTrue(
-            conds.none { it is SerializedCondition.ContainsMarkOnAnyField },
+            conds.noneContainsMark(anyField = true),
             "A ^ A* must drop the redundant any-field (solution is A); got $conds"
         )
     }
@@ -134,4 +136,20 @@ $sinkPatterns
         )
         assertTrue(n == 0, "A ^ !A* must be unsatisfiable (rule dropped); got rules=$n")
     }
+    private fun List<SerializedCondition>.anyContainsMark(anyField: Boolean): Boolean =
+        any { it is SerializedCondition.ContainsMark && it.pos.hasAnyField() == anyField }
+
+    private fun List<SerializedCondition>.noneContainsMark(anyField: Boolean): Boolean =
+        none { it is SerializedCondition.ContainsMark && it.pos.hasAnyField() == anyField }
+
+    private fun List<SerializedCondition>.anyNotContainsMark(anyField: Boolean): Boolean =
+        any { condition ->
+            val negated = (condition as? SerializedCondition.Not)?.not as? SerializedCondition.ContainsMark
+            negated?.pos?.hasAnyField() == anyField
+        }
+
+    private fun PositionBaseWithModifiers.hasAnyField(): Boolean =
+        this is PositionBaseWithModifiers.WithModifiers &&
+            PositionModifier.AnyField in modifiers
+
 }
