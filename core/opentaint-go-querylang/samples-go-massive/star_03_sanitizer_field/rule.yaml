@@ -1,0 +1,14 @@
+rules:
+  - id: star-03-sanitizer-field
+    languages: [go]
+    severity: WARNING
+    message: Tainted struct field reaches the sink unless a starred sanitizer clears the whole object
+    mode: taint
+    pattern-sources:
+      - pattern: star_03_sanitizer_field.Source(...)
+    pattern-sanitizers:
+      - patterns:
+          - pattern: star_03_sanitizer_field.Clean($*C)
+          - focus-metavariable: $C
+    pattern-sinks:
+      - pattern: star_03_sanitizer_field.Sink($Y)

@@ -1,0 +1,10 @@
+rules:
+  - id: star-09-matrix-source
+    languages: [go]
+    severity: WARNING
+    message: Starred source 5 calls deep survives per-hop field unwrapping into a 5-deep sink chain
+    mode: taint
+    pattern-sources:
+      - pattern: $*X = star_09_matrix_source.Source()
+    pattern-sinks:
+      - pattern: star_09_matrix_source.Sink($Y)

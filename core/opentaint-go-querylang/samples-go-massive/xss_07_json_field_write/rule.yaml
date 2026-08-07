@@ -7,4 +7,6 @@ rules:
     pattern-sources:
       - pattern: $R.FormValue($K)
     pattern-sinks:
-      - pattern: $W.Write($B)
+      - patterns:
+          - pattern: $W.Write($*B)
+          - focus-metavariable: $B

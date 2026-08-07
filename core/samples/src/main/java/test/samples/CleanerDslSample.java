@@ -1,29 +1,31 @@
 package test.samples;
 
 public class CleanerDslSample {
-    public static class Node {
+    public interface MatrixValue { }
+
+    public static class Node implements MatrixValue {
         public Level2 k;
         public Node child;
     }
 
-    public static class Level2 {
+    public static class Level2 implements MatrixValue {
         public Level3 k;
         public Node p;
     }
 
-    public static class Level3 {
+    public static class Level3 implements MatrixValue {
         public Level4 k;
     }
 
-    public static class Level4 {
+    public static class Level4 implements MatrixValue {
         public Level5 k;
     }
 
-    public static class Level5 {
+    public static class Level5 implements MatrixValue {
         public Level6 k;
     }
 
-    public static class Level6 {
+    public static class Level6 implements MatrixValue {
     }
 
     public Node sourcePlain() {
@@ -427,95 +429,95 @@ public class CleanerDslSample {
 
     // Every matrix endpoint has a distinct method so its rule id identifies one exact coordinate.
 
-    public void sinkPlainPlainPlainDepth0(Object value) { }
-    public void sinkPlainPlainPlainDepth1(Object value) { }
-    public void sinkPlainPlainPlainDepth2(Object value) { }
-    public void sinkPlainPlainPlainDepth3(Object value) { }
-    public void sinkPlainPlainPlainDepth4(Object value) { }
-    public void sinkPlainPlainPlainDepth5(Object value) { }
-    public void sinkPlainPlainAnyDepth0(Object value) { }
-    public void sinkPlainPlainAnyDepth1(Object value) { }
-    public void sinkPlainPlainAnyDepth2(Object value) { }
-    public void sinkPlainPlainAnyDepth3(Object value) { }
-    public void sinkPlainPlainAnyDepth4(Object value) { }
-    public void sinkPlainPlainAnyDepth5(Object value) { }
-    public void sinkPlainAnyPlainDepth0(Object value) { }
-    public void sinkPlainAnyPlainDepth1(Object value) { }
-    public void sinkPlainAnyPlainDepth2(Object value) { }
-    public void sinkPlainAnyPlainDepth3(Object value) { }
-    public void sinkPlainAnyPlainDepth4(Object value) { }
-    public void sinkPlainAnyPlainDepth5(Object value) { }
-    public void sinkPlainAnyAnyDepth0(Object value) { }
-    public void sinkPlainAnyAnyDepth1(Object value) { }
-    public void sinkPlainAnyAnyDepth2(Object value) { }
-    public void sinkPlainAnyAnyDepth3(Object value) { }
-    public void sinkPlainAnyAnyDepth4(Object value) { }
-    public void sinkPlainAnyAnyDepth5(Object value) { }
-    public void sinkAnyPlainPlainDepth0(Object value) { }
-    public void sinkAnyPlainPlainDepth1(Object value) { }
-    public void sinkAnyPlainPlainDepth2(Object value) { }
-    public void sinkAnyPlainPlainDepth3(Object value) { }
-    public void sinkAnyPlainPlainDepth4(Object value) { }
-    public void sinkAnyPlainPlainDepth5(Object value) { }
-    public void sinkAnyPlainAnyDepth0(Object value) { }
-    public void sinkAnyPlainAnyDepth1(Object value) { }
-    public void sinkAnyPlainAnyDepth2(Object value) { }
-    public void sinkAnyPlainAnyDepth3(Object value) { }
-    public void sinkAnyPlainAnyDepth4(Object value) { }
-    public void sinkAnyPlainAnyDepth5(Object value) { }
-    public void sinkAnyAnyPlainDepth0(Object value) { }
-    public void sinkAnyAnyPlainDepth1(Object value) { }
-    public void sinkAnyAnyPlainDepth2(Object value) { }
-    public void sinkAnyAnyPlainDepth3(Object value) { }
-    public void sinkAnyAnyPlainDepth4(Object value) { }
-    public void sinkAnyAnyPlainDepth5(Object value) { }
-    public void sinkAnyAnyAnyDepth0(Object value) { }
-    public void sinkAnyAnyAnyDepth1(Object value) { }
-    public void sinkAnyAnyAnyDepth2(Object value) { }
-    public void sinkAnyAnyAnyDepth3(Object value) { }
-    public void sinkAnyAnyAnyDepth4(Object value) { }
-    public void sinkAnyAnyAnyDepth5(Object value) { }
+    public void sinkPlainPlainPlainDepth0(MatrixValue value) { }
+    public void sinkPlainPlainPlainDepth1(MatrixValue value) { }
+    public void sinkPlainPlainPlainDepth2(MatrixValue value) { }
+    public void sinkPlainPlainPlainDepth3(MatrixValue value) { }
+    public void sinkPlainPlainPlainDepth4(MatrixValue value) { }
+    public void sinkPlainPlainPlainDepth5(MatrixValue value) { }
+    public void sinkPlainPlainAnyDepth0(MatrixValue value) { }
+    public void sinkPlainPlainAnyDepth1(MatrixValue value) { }
+    public void sinkPlainPlainAnyDepth2(MatrixValue value) { }
+    public void sinkPlainPlainAnyDepth3(MatrixValue value) { }
+    public void sinkPlainPlainAnyDepth4(MatrixValue value) { }
+    public void sinkPlainPlainAnyDepth5(MatrixValue value) { }
+    public void sinkPlainAnyPlainDepth0(MatrixValue value) { }
+    public void sinkPlainAnyPlainDepth1(MatrixValue value) { }
+    public void sinkPlainAnyPlainDepth2(MatrixValue value) { }
+    public void sinkPlainAnyPlainDepth3(MatrixValue value) { }
+    public void sinkPlainAnyPlainDepth4(MatrixValue value) { }
+    public void sinkPlainAnyPlainDepth5(MatrixValue value) { }
+    public void sinkPlainAnyAnyDepth0(MatrixValue value) { }
+    public void sinkPlainAnyAnyDepth1(MatrixValue value) { }
+    public void sinkPlainAnyAnyDepth2(MatrixValue value) { }
+    public void sinkPlainAnyAnyDepth3(MatrixValue value) { }
+    public void sinkPlainAnyAnyDepth4(MatrixValue value) { }
+    public void sinkPlainAnyAnyDepth5(MatrixValue value) { }
+    public void sinkAnyPlainPlainDepth0(MatrixValue value) { }
+    public void sinkAnyPlainPlainDepth1(MatrixValue value) { }
+    public void sinkAnyPlainPlainDepth2(MatrixValue value) { }
+    public void sinkAnyPlainPlainDepth3(MatrixValue value) { }
+    public void sinkAnyPlainPlainDepth4(MatrixValue value) { }
+    public void sinkAnyPlainPlainDepth5(MatrixValue value) { }
+    public void sinkAnyPlainAnyDepth0(MatrixValue value) { }
+    public void sinkAnyPlainAnyDepth1(MatrixValue value) { }
+    public void sinkAnyPlainAnyDepth2(MatrixValue value) { }
+    public void sinkAnyPlainAnyDepth3(MatrixValue value) { }
+    public void sinkAnyPlainAnyDepth4(MatrixValue value) { }
+    public void sinkAnyPlainAnyDepth5(MatrixValue value) { }
+    public void sinkAnyAnyPlainDepth0(MatrixValue value) { }
+    public void sinkAnyAnyPlainDepth1(MatrixValue value) { }
+    public void sinkAnyAnyPlainDepth2(MatrixValue value) { }
+    public void sinkAnyAnyPlainDepth3(MatrixValue value) { }
+    public void sinkAnyAnyPlainDepth4(MatrixValue value) { }
+    public void sinkAnyAnyPlainDepth5(MatrixValue value) { }
+    public void sinkAnyAnyAnyDepth0(MatrixValue value) { }
+    public void sinkAnyAnyAnyDepth1(MatrixValue value) { }
+    public void sinkAnyAnyAnyDepth2(MatrixValue value) { }
+    public void sinkAnyAnyAnyDepth3(MatrixValue value) { }
+    public void sinkAnyAnyAnyDepth4(MatrixValue value) { }
+    public void sinkAnyAnyAnyDepth5(MatrixValue value) { }
 
-    public void sinkPlainPlainPlainStackDepth1(Object value) { }
-    public void sinkPlainPlainPlainStackDepth2(Object value) { }
-    public void sinkPlainPlainPlainStackDepth3(Object value) { }
-    public void sinkPlainPlainPlainStackDepth4(Object value) { }
-    public void sinkPlainPlainPlainStackDepth5(Object value) { }
-    public void sinkPlainPlainAnyStackDepth1(Object value) { }
-    public void sinkPlainPlainAnyStackDepth2(Object value) { }
-    public void sinkPlainPlainAnyStackDepth3(Object value) { }
-    public void sinkPlainPlainAnyStackDepth4(Object value) { }
-    public void sinkPlainPlainAnyStackDepth5(Object value) { }
-    public void sinkPlainAnyPlainStackDepth1(Object value) { }
-    public void sinkPlainAnyPlainStackDepth2(Object value) { }
-    public void sinkPlainAnyPlainStackDepth3(Object value) { }
-    public void sinkPlainAnyPlainStackDepth4(Object value) { }
-    public void sinkPlainAnyPlainStackDepth5(Object value) { }
-    public void sinkPlainAnyAnyStackDepth1(Object value) { }
-    public void sinkPlainAnyAnyStackDepth2(Object value) { }
-    public void sinkPlainAnyAnyStackDepth3(Object value) { }
-    public void sinkPlainAnyAnyStackDepth4(Object value) { }
-    public void sinkPlainAnyAnyStackDepth5(Object value) { }
-    public void sinkAnyPlainPlainStackDepth1(Object value) { }
-    public void sinkAnyPlainPlainStackDepth2(Object value) { }
-    public void sinkAnyPlainPlainStackDepth3(Object value) { }
-    public void sinkAnyPlainPlainStackDepth4(Object value) { }
-    public void sinkAnyPlainPlainStackDepth5(Object value) { }
-    public void sinkAnyPlainAnyStackDepth1(Object value) { }
-    public void sinkAnyPlainAnyStackDepth2(Object value) { }
-    public void sinkAnyPlainAnyStackDepth3(Object value) { }
-    public void sinkAnyPlainAnyStackDepth4(Object value) { }
-    public void sinkAnyPlainAnyStackDepth5(Object value) { }
-    public void sinkAnyAnyPlainStackDepth1(Object value) { }
-    public void sinkAnyAnyPlainStackDepth2(Object value) { }
-    public void sinkAnyAnyPlainStackDepth3(Object value) { }
-    public void sinkAnyAnyPlainStackDepth4(Object value) { }
-    public void sinkAnyAnyPlainStackDepth5(Object value) { }
-    public void sinkAnyAnyAnyStackDepth1(Object value) { }
-    public void sinkAnyAnyAnyStackDepth2(Object value) { }
-    public void sinkAnyAnyAnyStackDepth3(Object value) { }
-    public void sinkAnyAnyAnyStackDepth4(Object value) { }
-    public void sinkAnyAnyAnyStackDepth5(Object value) { }
+    public void sinkPlainPlainPlainStackDepth1(MatrixValue value) { }
+    public void sinkPlainPlainPlainStackDepth2(MatrixValue value) { }
+    public void sinkPlainPlainPlainStackDepth3(MatrixValue value) { }
+    public void sinkPlainPlainPlainStackDepth4(MatrixValue value) { }
+    public void sinkPlainPlainPlainStackDepth5(MatrixValue value) { }
+    public void sinkPlainPlainAnyStackDepth1(MatrixValue value) { }
+    public void sinkPlainPlainAnyStackDepth2(MatrixValue value) { }
+    public void sinkPlainPlainAnyStackDepth3(MatrixValue value) { }
+    public void sinkPlainPlainAnyStackDepth4(MatrixValue value) { }
+    public void sinkPlainPlainAnyStackDepth5(MatrixValue value) { }
+    public void sinkPlainAnyPlainStackDepth1(MatrixValue value) { }
+    public void sinkPlainAnyPlainStackDepth2(MatrixValue value) { }
+    public void sinkPlainAnyPlainStackDepth3(MatrixValue value) { }
+    public void sinkPlainAnyPlainStackDepth4(MatrixValue value) { }
+    public void sinkPlainAnyPlainStackDepth5(MatrixValue value) { }
+    public void sinkPlainAnyAnyStackDepth1(MatrixValue value) { }
+    public void sinkPlainAnyAnyStackDepth2(MatrixValue value) { }
+    public void sinkPlainAnyAnyStackDepth3(MatrixValue value) { }
+    public void sinkPlainAnyAnyStackDepth4(MatrixValue value) { }
+    public void sinkPlainAnyAnyStackDepth5(MatrixValue value) { }
+    public void sinkAnyPlainPlainStackDepth1(MatrixValue value) { }
+    public void sinkAnyPlainPlainStackDepth2(MatrixValue value) { }
+    public void sinkAnyPlainPlainStackDepth3(MatrixValue value) { }
+    public void sinkAnyPlainPlainStackDepth4(MatrixValue value) { }
+    public void sinkAnyPlainPlainStackDepth5(MatrixValue value) { }
+    public void sinkAnyPlainAnyStackDepth1(MatrixValue value) { }
+    public void sinkAnyPlainAnyStackDepth2(MatrixValue value) { }
+    public void sinkAnyPlainAnyStackDepth3(MatrixValue value) { }
+    public void sinkAnyPlainAnyStackDepth4(MatrixValue value) { }
+    public void sinkAnyPlainAnyStackDepth5(MatrixValue value) { }
+    public void sinkAnyAnyPlainStackDepth1(MatrixValue value) { }
+    public void sinkAnyAnyPlainStackDepth2(MatrixValue value) { }
+    public void sinkAnyAnyPlainStackDepth3(MatrixValue value) { }
+    public void sinkAnyAnyPlainStackDepth4(MatrixValue value) { }
+    public void sinkAnyAnyPlainStackDepth5(MatrixValue value) { }
+    public void sinkAnyAnyAnyStackDepth1(MatrixValue value) { }
+    public void sinkAnyAnyAnyStackDepth2(MatrixValue value) { }
+    public void sinkAnyAnyAnyStackDepth3(MatrixValue value) { }
+    public void sinkAnyAnyAnyStackDepth4(MatrixValue value) { }
+    public void sinkAnyAnyAnyStackDepth5(MatrixValue value) { }
 
     public void fieldStorePlainSink(Node value) { }
     public void fieldStoreAnySink(Node value) { }

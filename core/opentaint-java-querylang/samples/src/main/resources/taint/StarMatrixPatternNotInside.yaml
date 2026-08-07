@@ -1,0 +1,21 @@
+rules:
+  - id: taint-StarMatrixPatternNotInside
+    languages:
+      - java
+    severity: ERROR
+    message: match taint/StarMatrixPatternNotInside
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: $*X = src();
+          - focus-metavariable: $X
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: |
+              $G = checker();
+              ...
+          - pattern: use($*Y);
+          - pattern-not-inside: |
+              $G.check($*Y);
+              ...
+          - focus-metavariable: $Y

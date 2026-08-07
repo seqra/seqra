@@ -1,0 +1,14 @@
+rules:
+  - id: star-12-matrix-sanitizer
+    languages: [go]
+    severity: WARNING
+    message: Deep whole-object taint reaches the sink unless a starred sanitizer inside a wrapper clears it
+    mode: taint
+    pattern-sources:
+      - pattern: $*X = star_12_matrix_sanitizer.Source()
+    pattern-sanitizers:
+      - patterns:
+          - pattern: star_12_matrix_sanitizer.Clean($*C)
+          - focus-metavariable: $C
+    pattern-sinks:
+      - pattern: star_12_matrix_sanitizer.Sink($Y)

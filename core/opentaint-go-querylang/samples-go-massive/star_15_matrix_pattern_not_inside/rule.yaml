@@ -1,0 +1,18 @@
+rules:
+  - id: star-15-matrix-pattern-not-inside
+    languages: [go]
+    severity: WARNING
+    message: Starred sink suppressed by a pattern-not-inside guard wired through the pattern-inside
+    mode: taint
+    pattern-sources:
+      - pattern: $*X = star_15_matrix_pattern_not_inside.Source()
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: |
+              $G = star_15_matrix_pattern_not_inside.NewChecker()
+              ...
+          - pattern: star_15_matrix_pattern_not_inside.Use($*Y)
+          - pattern-not-inside: |
+              $G.Check($*Y)
+              ...
+          - focus-metavariable: $Y

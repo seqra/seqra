@@ -1,0 +1,20 @@
+rules:
+  - id: taint-StarMatrixPropagator
+    languages:
+      - java
+    severity: ERROR
+    message: match taint/StarMatrixPropagator
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern: $*X = src();
+          - focus-metavariable: $X
+    pattern-propagators:
+      - patterns:
+          - pattern: $*T = pass($*F);
+        from: $F
+        to: $T
+    pattern-sinks:
+      - patterns:
+          - pattern: sink($Y);
+          - focus-metavariable: $Y

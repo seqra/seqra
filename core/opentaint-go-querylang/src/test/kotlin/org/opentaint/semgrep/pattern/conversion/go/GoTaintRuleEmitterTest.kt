@@ -12,11 +12,13 @@ import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModif
 import org.opentaint.dataflow.go.GoFunctionSignature
 import org.opentaint.dataflow.go.rules.GoTaintConfiguration
 import org.opentaint.dataflow.go.rules.Position
+import org.opentaint.dataflow.go.rules.RemoveMark
 import org.opentaint.ir.go.type.GoIRUnsafePointerType
 import org.opentaint.semgrep.go.pattern.conversion.loadGoTaintConfiguration
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class GoTaintRuleEmitterTest {
@@ -141,6 +143,43 @@ class GoTaintRuleEmitterTest {
         val cfg = GoTaintConfiguration().loadGoTaintConfiguration(rule)
         assertEquals(1, cfg.cleanerForFunction("util.Clean".signature(1), allRelevant = false).size)
         assertEquals("util.Clean", cfg.cleanerForFunction("util.Clean".signature(1), allRelevant = false).single().function)
+    }
+
+    @Test
+    fun `any-accessor cleaner lowers to RemoveMark with onAnyAccessor while direct stays false`() {
+        val pos = baseOnly(PositionBase.Argument(0))
+
+        val anyRule = rule(
+            GoSerializedRule.Cleaner(
+                pkg = GoNameMatcher.Simple("util"),
+                function = GoNameMatcher.Simple("Clean"),
+                cleans = listOf(GoSerializedCleanAction.AnyAccessor("taint", pos)),
+                info = null,
+            ),
+        )
+        val anyCfg = GoTaintConfiguration().loadGoTaintConfiguration(anyRule)
+        val anyAction = anyCfg.cleanerForFunction("util.Clean".signature(1), allRelevant = false)
+            .single().actionsAfter.filterIsInstance<RemoveMark>().single()
+        assertEquals("taint", anyAction.mark)
+        assertTrue(anyAction.onAnyAccessor)
+
+        // Direct variant via the companion constructor must stay byte-identical (onAnyAccessor = false).
+        val directRule = rule(
+            GoSerializedRule.Cleaner(
+                pkg = GoNameMatcher.Simple("util"),
+                function = GoNameMatcher.Simple("Clean"),
+                cleans = listOf(GoSerializedCleanAction("taint", pos)),
+                info = null,
+            ),
+        )
+        val directCfg = GoTaintConfiguration().loadGoTaintConfiguration(directRule)
+        val directAction = directCfg.cleanerForFunction("util.Clean".signature(1), allRelevant = false)
+            .single().actionsAfter.filterIsInstance<RemoveMark>().single()
+        assertEquals("taint", directAction.mark)
+        assertFalse(directAction.onAnyAccessor)
+
+        // Both variants resolve to the same base position; only the any-accessor flag differs.
+        assertEquals(directAction.pos, anyAction.pos)
     }
 
     private val anyType = GoIRUnsafePointerType

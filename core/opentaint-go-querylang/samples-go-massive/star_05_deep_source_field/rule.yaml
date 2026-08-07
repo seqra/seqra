@@ -1,0 +1,10 @@
+rules:
+  - id: star-05-deep-source-field
+    languages: [go]
+    severity: WARNING
+    message: A starred whole-object source taints every nested field; a deep field read reaches the sink
+    mode: taint
+    pattern-sources:
+      - pattern: $*X = star_05_deep_source_field.Source()
+    pattern-sinks:
+      - pattern: star_05_deep_source_field.Sink($Y)

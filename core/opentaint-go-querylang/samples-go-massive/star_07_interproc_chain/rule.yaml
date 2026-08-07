@@ -1,0 +1,10 @@
+rules:
+  - id: star-07-interproc-chain
+    languages: [go]
+    severity: WARNING
+    message: A starred whole-object source survives a 5+ hop hide/expose interprocedural chain
+    mode: taint
+    pattern-sources:
+      - pattern: $*X = star_07_interproc_chain.Source()
+    pattern-sinks:
+      - pattern: star_07_interproc_chain.Sink($Y)
