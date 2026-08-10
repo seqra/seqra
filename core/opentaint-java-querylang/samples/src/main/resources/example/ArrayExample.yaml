@@ -21,8 +21,8 @@ rules:
 
           - pattern: |-
               @EntryPoint
-              $RETURNTYPE $METHOD(String[] $PARAM) {
-                  otherElementSink($PARAM);
+              $RETURNTYPE $METHOD(String[] $*PARAM) {
+                  otherElementSink($*PARAM);
               }
 
           - pattern: |-
@@ -35,5 +35,5 @@ rules:
 #              elementSink($PARAM[...]);
 
           - pattern: |-
-              $PARAM = src();
-              otherElementSink($PARAM);
+              $*PARAM = src();
+              otherElementSink($*PARAM);

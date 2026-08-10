@@ -50,7 +50,6 @@ import org.opentaint.dataflow.configuration.jvm.matchType
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionModifier
-import org.opentaint.dataflow.configuration.jvm.serialized.beforeFirstAnyField
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedCondition.AnnotationConstraint
@@ -65,6 +64,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTypeNameMat
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
 import org.opentaint.dataflow.configuration.jvm.serialized.SinkRule
 import org.opentaint.dataflow.configuration.jvm.serialized.SourceRule
+import org.opentaint.dataflow.configuration.jvm.serialized.beforeFirstAnyField
 import org.opentaint.dataflow.configuration.mkAnd
 import org.opentaint.dataflow.configuration.mkFalse
 import org.opentaint.dataflow.configuration.mkOr
@@ -189,21 +189,21 @@ class MethodTaintConfigurationResolver(
         ctx: AnyArgSpecializationCtx,
     ): TaintConfigurationItem = when (this) {
         is SerializedRule.EntryPoint -> {
-            TaintEntryPointSource(method, condition, taint.flatMap { it.resolveWithArray(ctx) }, info, serializedId)
+            TaintEntryPointSource(method, condition, taint.flatMap { it.resolve(ctx) }, info, serializedId)
         }
 
         is SerializedRule.Source -> {
-            TaintMethodSource(method, condition, taint.flatMap { it.resolveWithArray(ctx) }, info, serializedId)
+            TaintMethodSource(method, condition, taint.flatMap { it.resolve(ctx) }, info, serializedId)
         }
 
         is SerializedRule.MethodExitSource -> {
-            TaintMethodExitSource(method, condition, taint.flatMap { it.resolveWithArray(ctx) }, info, serializedId)
+            TaintMethodExitSource(method, condition, taint.flatMap { it.resolve(ctx) }, info, serializedId)
         }
 
         is SerializedRule.Sink -> {
             TaintMethodSink(
                 method, condition,
-                trackFactsReachAnalysisEnd?.flatMap { it.resolveNoArray(ctx) }.orEmpty(),
+                trackFactsReachAnalysisEnd?.flatMap { it.resolve(ctx) }.orEmpty(),
                 ruleId(), meta(), info, serializedId
             )
         }
@@ -211,7 +211,7 @@ class MethodTaintConfigurationResolver(
         is SerializedRule.MethodExitSink -> {
             TaintMethodExitSink(
                 method, condition,
-                trackFactsReachAnalysisEnd?.flatMap { it.resolveNoArray(ctx) }.orEmpty(),
+                trackFactsReachAnalysisEnd?.flatMap { it.resolve(ctx) }.orEmpty(),
                 ruleId(), meta(), info, serializedId
             )
         }
@@ -219,7 +219,7 @@ class MethodTaintConfigurationResolver(
         is SerializedRule.MethodEntrySink -> {
             TaintMethodEntrySink(
                 method, condition,
-                trackFactsReachAnalysisEnd?.flatMap { it.resolveNoArray(ctx) }.orEmpty(),
+                trackFactsReachAnalysisEnd?.flatMap { it.resolve(ctx) }.orEmpty(),
                 ruleId(), meta(), info, serializedId
             )
         }
@@ -547,14 +547,9 @@ class MethodTaintConfigurationResolver(
         return classType.declaredMethods.find { it.method == method }
     }
 
-    private fun SerializedTaintAssignAction.resolveWithArray(ctx: AnyArgSpecializationCtx): List<AssignMark> =
+    private fun SerializedTaintAssignAction.resolve(ctx: AnyArgSpecializationCtx): List<AssignMark> =
         pos.resolveActionPosition(ctx, annotatedWith?.asAnnotationConstraint())
             .map { AssignMark(taintMarkManager.taintMark(kind), it) }
-
-    private fun SerializedTaintAssignAction.resolveNoArray(ctx: AnyArgSpecializationCtx): List<AssignMark> =
-        pos.resolveActionPosition(ctx, annotatedWith?.asAnnotationConstraint())
-            .map { AssignMark(taintMarkManager.taintMark(kind), it) }
-
 
     private fun SerializedTaintPassAction.resolve(ctx: AnyArgSpecializationCtx): List<Action> =
         from.resolveActionPosition(ctx).flatMap { fromPos ->
