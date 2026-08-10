@@ -19,9 +19,6 @@ internal fun GoNameMatcher.matchAnything(): Boolean =
 internal fun GeneratedMark.mkGoContainsMark(pos: PositionBaseWithModifiers): GoSerializedCondition.ContainsMark =
     GoSerializedCondition.ContainsMark(taintMarkStr(), pos)
 
-internal fun GeneratedMark.mkGoContainsMarkOnAnyAccessor(pos: PositionBaseWithModifiers): GoSerializedCondition =
-    GoSerializedCondition.ContainsMark(taintMarkStr(), pos.withAnyField())
-
 internal fun GeneratedMark.mkGoAssignMark(pos: PositionBaseWithModifiers): GoSerializedAssignAction =
     GoSerializedAssignAction(taintMarkStr(), pos)
 

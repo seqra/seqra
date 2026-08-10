@@ -11,7 +11,6 @@ import org.opentaint.semgrep.go.pattern.conversion.go.matchAnything
 import org.opentaint.semgrep.go.pattern.conversion.go.mkGoAssignMark
 import org.opentaint.semgrep.go.pattern.conversion.go.mkGoCleanMark
 import org.opentaint.semgrep.go.pattern.conversion.go.mkGoContainsMark
-import org.opentaint.semgrep.go.pattern.conversion.go.mkGoContainsMarkOnAnyAccessor
 import org.opentaint.semgrep.pattern.Mark
 import org.opentaint.semgrep.pattern.TaintRuleMatchAnything
 import org.opentaint.semgrep.pattern.conversion.LanguageStrategy.SinkDiscardMode
@@ -51,7 +50,7 @@ data object GoTaintStrategy :
 
     data object GoMarkConditionBuilder : MarkConditionBuilder<GoSerializedCondition> {
         override fun checkTaintMark(mark: Mark.GeneratedMark, pos: PositionBaseWithModifiers): GoSerializedCondition =
-            mark.mkGoContainsMarkOnAnyAccessor(pos)
+            mark.mkGoContainsMark(pos)
 
         override fun negate(cond: GoSerializedCondition) = GoSerializedCondition.not(cond)
         override fun and(args: List<GoSerializedCondition>) = GoSerializedCondition.and(args)
@@ -82,8 +81,6 @@ data object GoTaintStrategy :
         pos: PositionBaseWithModifiers
     ): GoSerializedAssignAction =
         mark.mkGoAssignMark(pos)
-    // todo: cleaners are not ready for any accessor
-//        mark.mkGoAssignMarkOnAnyAccessor(pos)
 
     override fun assignedMark(assign: GoSerializedAssignAction): Mark.GeneratedMark = Mark.parseMark(assign.kind)
 
