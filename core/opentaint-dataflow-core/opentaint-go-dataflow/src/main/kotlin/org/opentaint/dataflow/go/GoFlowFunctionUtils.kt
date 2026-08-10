@@ -8,6 +8,7 @@ import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.go.GoFlowFunctionUtils.Access.RefAccess
 import org.opentaint.dataflow.go.GoFlowFunctionUtils.Access.Simple
+import org.opentaint.dataflow.go.rules.ActionPosition
 import org.opentaint.dataflow.go.rules.Position
 import org.opentaint.dataflow.go.rules.PositionAccessor
 import org.opentaint.dataflow.go.rules.PositionWithAccess
@@ -294,24 +295,29 @@ object GoFlowFunctionUtils {
         return type is GoIRBasicType && type.kind == GoIRBasicTypeKind.STRING
     }
 
+    fun ActionPosition.resolvePosAccess(): PositionAccess = when (this) {
+        is ActionPosition.Exact -> position.resolvePosAccess()
+        is ActionPosition.AnyAccessorAfter -> PositionAccess.Complex(position.resolvePosAccess(), AnyAccessor)
+    }
+
     fun Position.resolvePosAccess(): PositionAccess = when (this) {
         is Position.Simple -> resolvePosAccess()
         is PositionWithAccess -> PositionAccess.Complex(base.resolvePosAccess(), access.resolvePosAccess())
     }
 
-    fun Position.Simple.resolvePosAccess(): PositionAccess.Simple {
-        val base = when (this) {
-            is Position.Argument -> AccessPathBase.Argument(index)
-            is Position.Result -> AccessPathBase.Return
-            is Position.This -> AccessPathBase.This
-        }
-        return PositionAccess.Simple(base)
+    fun Position.Simple.resolvePosAccess(): PositionAccess = when (this) {
+        is Position.Argument -> PositionAccess.Simple(AccessPathBase.Argument(index))
+        is Position.Result -> PositionAccess.Simple(AccessPathBase.Return)
+        is Position.This -> PositionAccess.Simple(AccessPathBase.This)
+        is Position.ClassStatic -> PositionAccess.Complex(
+            PositionAccess.Simple(AccessPathBase.ClassStatic),
+            ClassStaticAccessor(className)
+        )
     }
 
     fun PositionAccessor.resolvePosAccess(): Accessor = when (this) {
         is PositionAccessor.ElementAccessor -> ElementAccessor
         is PositionAccessor.FieldAccessor -> createFieldAccessor(className, fieldName)
-        is PositionAccessor.AnyAccessor -> AnyAccessor
     }
 
     fun detectGlobalReadName(inst: GoIRAssignInst): GoGlobalFieldSignature? {
