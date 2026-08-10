@@ -6,6 +6,9 @@ import org.opentaint.dataflow.configuration.CommonCondition
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.isFalse
 import org.opentaint.dataflow.configuration.jvm.Action
+import org.opentaint.dataflow.configuration.jvm.ActionPosition
+import org.opentaint.dataflow.configuration.jvm.ActionPosition.AnyAccessorAfter
+import org.opentaint.dataflow.configuration.jvm.ActionPosition.Exact
 import org.opentaint.dataflow.configuration.jvm.Argument
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.ClassStatic
@@ -78,7 +81,6 @@ import org.opentaint.ir.api.jvm.JIRTypedMethod
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
 import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.api.jvm.ext.allSuperHierarchySequence
-import org.opentaint.ir.impl.cfg.util.isArray
 import org.opentaint.jvm.sast.dataflow.matchedAnnotations
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -553,23 +555,6 @@ class MethodTaintConfigurationResolver(
         pos.resolveActionPosition(ctx, annotatedWith?.asAnnotationConstraint())
             .map { AssignMark(taintMarkManager.taintMark(kind), it) }
 
-    private fun Position.resolveArrayPosition(): List<Position> = when (this) {
-        is ClassStatic -> listOf(this)
-        is PositionWithAccess -> base.resolveArrayPosition().map { PositionWithAccess(it, access) }
-        is This -> listOf(this)
-        is Argument -> resolveArrayPosition(this, method.parameters.getOrNull(index)?.type)
-        is Result -> resolveArrayPosition(this, method.returnType)
-    }
-
-    private fun resolveArrayPosition(position: Position, positionType: TypeName?): List<Position> {
-        if (positionType == null) return listOf(position)
-
-        if (!positionType.isArray && positionType != objectTypeName) {
-            return listOf(position)
-        }
-
-        return listOf(position, PositionWithAccess(position, PositionAccessor.ElementAccessor))
-    }
 
     private fun SerializedTaintPassAction.resolve(ctx: AnyArgSpecializationCtx): List<Action> =
         from.resolveActionPosition(ctx).flatMap { fromPos ->

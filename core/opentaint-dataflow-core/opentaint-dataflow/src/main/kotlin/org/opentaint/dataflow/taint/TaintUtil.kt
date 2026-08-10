@@ -21,8 +21,6 @@ abstract class TaintUtil<C, Src, Sink, Trace>(val apManager: ApManager) {
 
     abstract fun conditionFact(factReader: FinalFactReader): List<FinalFactReader>
 
-    open fun patchSinkConditionFactReader(factReaders: List<FinalFactReader>): List<FactReader> = factReaders
-
     abstract fun handleReachedSink(rule: Sink, factReader: FinalFactReader?, evaluatedFacts: List<InitialFactAp>)
 
     fun applySinkRules(
@@ -32,8 +30,7 @@ abstract class TaintUtil<C, Src, Sink, Trace>(val apManager: ApManager) {
     ) {
         if (sinkRules.isEmpty()) return
 
-        val normalConditionFactReaders = factReader?.let { conditionFact(it) }.orEmpty()
-        val conditionFactReaders = patchSinkConditionFactReader(normalConditionFactReaders)
+        val conditionFactReaders = factReader?.let { conditionFact(it) }.orEmpty()
 
         sinkRules.applyRuleWithAssumptions(
             apManager,
@@ -45,7 +42,7 @@ abstract class TaintUtil<C, Src, Sink, Trace>(val apManager: ApManager) {
             return@applyRuleWithAssumptions
         }
 
-        factReader?.updateRefinement(normalConditionFactReaders)
+        factReader?.updateRefinement(conditionFactReaders)
     }
 
 
@@ -63,6 +60,7 @@ abstract class TaintUtil<C, Src, Sink, Trace>(val apManager: ApManager) {
         createFinalFact: (FinalFactAp, Trace) -> Unit,
         createEdge: (InitialFactAp, FinalFactAp, Trace) -> Unit,
         createNDEdge: (Set<InitialFactAp>, FinalFactAp, Trace) -> Unit,
+        markAfterAnyFieldResolver: FactWithMarkAfterAnyAccessorResolver? = null,
     ) {
         if (sourceRules.isEmpty()) return
 
@@ -76,7 +74,7 @@ abstract class TaintUtil<C, Src, Sink, Trace>(val apManager: ApManager) {
             apManager,
             initialFacts,
             conditionFactReaders,
-            markAfterAnyFieldResolver = null, // we don't expect such marks in source rules
+            markAfterAnyFieldResolver = markAfterAnyFieldResolver,
             assumptionsManager = sourceAssumptionsManager(),
             applyRule = { rule, evaluatedFacts ->
                 // unconditional sources handled with zero fact
