@@ -42,11 +42,41 @@ class TaintFactAwareConditionEvaluator(
         }
     }
 
+    private val anyFieldMarkEvalCache = hashMapOf<Pair<PositionAccess, TaintMarkAccessor>, MarkEvaluationResult>()
+
     private fun evalContainsMarkOnAnyField(positionAccess: PositionAccess, mark: TaintMarkAccessor): Boolean {
         val conditionBase = positionAccess.base()
         val relevantFacts = basedFacts[conditionBase] ?: return false
 
+        val result = anyFieldMarkEvalCache.computeIfAbsent(positionAccess to mark) {
+            val evaluatedFact = containsMarkOnAnyField(positionAccess, mark, relevantFacts)
+
+            if (evaluatedFact != null) {
+                evaluatedFact
+            } else {
+                markAfterAnyAccessorResolver?.resolve(mark)
+                NoFact
+            }
+        }
+
+        return when (result) {
+            is NoFact -> false
+            is EvaluatedFact -> {
+                hasEvaluatedContainsMark = true
+                evaluatedFacts += result
+
+                true
+            }
+        }
+    }
+
+    private fun containsMarkOnAnyField(
+        positionAccess: PositionAccess,
+        mark: TaintMarkAccessor,
+        relevantFacts: List<FactReader>
+    ): EvaluatedFact? {
         val requiredPosition = positionAccess.withSuffix(listOf(mark))
+
         for (reader in relevantFacts) {
             val positionWithTaintMark = reader.containsAnyPosition(requiredPosition) ?: continue
 
@@ -54,16 +84,9 @@ class TaintFactAwareConditionEvaluator(
             if (!reader.containsPosition(finalPositionWithTaintMark)) continue
 
             val tmPosition = positionWithTaintMark.removeSuffix(listOf(mark))
-
-            hasEvaluatedContainsMark = true
-            evaluatedFacts += EvaluatedFact(reader, tmPosition, mark)
-
-            return true
+            return EvaluatedFact(reader, tmPosition, mark)
         }
-
-        markAfterAnyAccessorResolver?.resolve(mark)
-
-        return false
+        return null
     }
 
     private val markEvalCache = hashMapOf<Pair<PositionAccess, TaintMarkAccessor>, MarkEvaluationResult>()
