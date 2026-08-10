@@ -7,4 +7,6 @@ rules:
     pattern-sources:
       - pattern: $R.PostFormValue($K)
     pattern-sinks:
-      - pattern: log.Print($X)
+      - patterns:
+          - pattern: log.Print($*X)
+          - focus-metavariable: $X

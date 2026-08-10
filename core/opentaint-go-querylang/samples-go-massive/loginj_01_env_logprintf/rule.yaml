@@ -7,4 +7,6 @@ rules:
     pattern-sources:
       - pattern: os.Getenv("USER_NAME")
     pattern-sinks:
-      - pattern: log.Printf($FMT, $X)
+      - patterns:
+          - pattern: log.Printf($FMT, $*X)
+          - focus-metavariable: $X

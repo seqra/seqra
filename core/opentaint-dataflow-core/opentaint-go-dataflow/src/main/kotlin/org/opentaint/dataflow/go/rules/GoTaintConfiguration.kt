@@ -257,10 +257,20 @@ class GoTaintConfiguration : GoTaintRulesProvider {
     }
 
     private fun GoSerializedPassAction.toTaintAction(signature: GoFunctionSignature): List<GoTaintAction> =
-        from.resolveActionPosition(signature).flatMap { f ->
-            to.resolveActionPosition(signature).map<ActionPosition, GoTaintAction> { t ->
-                val kind = taintKind
-                if (kind == null) CopyData(f, t) else CopyTaintMark(kind, f, t)
+        from.resolveActionPosition(signature).flatMap { source ->
+            val sources = buildList {
+                add(source)
+                val exact = source as? ActionPosition.Exact
+                val argument = exact?.position as? Position.Argument
+                if (argument != null && argument.index in signature.variadicArgumentIndexes) {
+                    add(ActionPosition.Exact(PositionWithAccess(argument, PositionAccessor.ElementAccessor)))
+                }
+            }
+            sources.flatMap { f ->
+                to.resolveActionPosition(signature).map { t ->
+                    val kind = taintKind
+                    if (kind == null) CopyData(f, t) else CopyTaintMark(kind, f, t)
+                }
             }
         }
 

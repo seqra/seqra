@@ -65,5 +65,15 @@ fun GoCallExpr.signature(): GoFunctionSignature? {
     val receiverType = effectiveReceiver?.type
     val paramTypes = explicitArgs.map { it.type }
     val resultType = callInfo.resultType
-    return GoFunctionSignature(name, receiverType, paramTypes, resultType, resolvedCallee?.pkg?.name)
+    val variadicArgumentIndexes = resolvedCallee
+        ?.signature
+        ?.takeIf { it.isVariadic && it.params.isNotEmpty() }
+        ?.let { signature ->
+            val firstVariadicIndex = signature.params.lastIndex
+            (firstVariadicIndex until explicitArgs.size).toSet()
+        }
+        .orEmpty()
+    return GoFunctionSignature(
+        name, receiverType, paramTypes, resultType, resolvedCallee?.pkg?.name, variadicArgumentIndexes
+    )
 }

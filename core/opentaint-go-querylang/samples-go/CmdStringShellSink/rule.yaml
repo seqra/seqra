@@ -11,7 +11,7 @@ rules:
           - pattern-inside: |
               import "os/exec"
               ...
-          - pattern: exec.Command("$NAME", ..., $UNTRUSTED, ...)
+          - pattern: exec.Command("$NAME", ..., $*UNTRUSTED, ...)
           - metavariable-regex:
               metavariable: $NAME
               regex: sh
