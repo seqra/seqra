@@ -39,6 +39,69 @@ class DSUAliasAnalysisInvalidateOuterHeapAliasesTest {
     private fun State.invalidate(builder: StateBuilder, start: Set<AAInfo>): State =
         with(analysis) { invalidateOuterHeapAliases(builder.infoIds(start)) }
 
+    /**
+     * KNOWN FALSE NEGATIVE: invalidation drops a still-live heap alias entirely.
+     *
+     * Shape of `o = build(); x = o.f; <opaque call>; x.v = tainted; sink(o)`: o's group holds an
+     * outer element (the call return), and x holds the value loaded from the slot. The opaque call
+     * may reassign `o.f`, so the LIVE slot link must break — a later load of `o.f` must not rejoin
+     * x's set. But the pair itself should survive in some form, so a store through `x` can still be
+     * rebased onto `o.f` as a may-alias.
+     *
+     * The DSU cannot represent a singleton set, so breaking the link removes the whole pair and the
+     * `%tmp ~ o.f` relation is lost. The tainted store through the temp is never rebased onto
+     * `o.f.v`, which is the depth-2 false negative parked as
+     * `taint.StarDeepSink.KnownFnDepth2`. Depth >= 3 escapes it only by accident: the intermediate
+     * temps are dead at the call, so dead-local cleanup has already turned the chain into orphaned
+     * elements that the invalidation cascade cannot see through.
+     *
+     * This test pins the current, lossy behaviour. When the underlying representation gains a way
+     * to keep the relation (without letting a post-call load rejoin the pre-call set), flip the
+     * expectation to keep `x ~ o.f` and unpark `KnownFnDepth2`.
+     */
+    @Test
+    fun invalidateDropsLiveHeapAliasLosingPathRelation() {
+        val builder = fillState {
+            val o = local(0)
+            val outer = outerThis()
+            merge(setOf(o, outer))
+            val x = local(2)
+            val f = fieldAlias(o, "f", isImmutable = false)
+            merge(setOf(x, f))
+        }
+        val state = builder.build()
+
+        val result = state.invalidate(builder, emptySet())
+
+        val expected = buildState {
+            // x's set is gone entirely: the o.f element was removed and x was never merged into
+            // the DSU on its own, so nothing records that x held the value of o.f.
+            val o2 = local(0)
+            val outer2 = outerThis()
+            merge(setOf(o2, outer2))
+        }
+
+        assertEquals(expected, result)
+    }
+
+    @Test
+    fun invalidateIsIdempotent() {
+        val builder = fillState {
+            val o = local(0)
+            val outer = outerThis()
+            merge(setOf(o, outer))
+            val x = local(2)
+            val f = fieldAlias(o, "f", isImmutable = false)
+            merge(setOf(x, f))
+        }
+        val state = builder.build()
+
+        val once = state.invalidate(builder, emptySet())
+        val twice = once.invalidate(builder, emptySet())
+
+        assertEquals(once, twice)
+    }
+
     @Test
     fun invalidateEmptyStartSetIsNoop() {
         val builder = fillState {
