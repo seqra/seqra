@@ -44,18 +44,16 @@ class TaintCleanCompositionStrategy<Item, Cond, Assign, Clean>(
         // star ($*X): clean the any-field of each cleaner position (Result.*, etc.),
         // on the SAME base as the plain value clean — not the raw metavar position.
         val cleanerEmitPositions = if (isStar) cleanerPos.map { it.withAnyField() } else cleanerPos
-        return cleanerEmitPositions
 
-
-//        // Also clean the focus metavar's own position (`pos`, e.g. the sanitized argument). A
-//        // pass-through sanitizer (`clean($C) { return $C }`) carries the argument's taint into its
-//        // result, but the clean runs on the argument-keyed fact at call-to-start, where the Result
-//        // position does not yet exist — cleaning only Result misses it. Cleaning the focus position
-//        // removes the taint on the flow entering the call; it is flow-specific, so a separate use of
-//        // the same variable outside this call stays tainted. For a star clean `pos` already carries
-//        // the AnyField modifier, so this stays coherent with the plain-value arm's base.
-//        val emitPositions = (cleanerEmitPositions + listOfNotNull(pos)).distinct()
-//        return emitPositions
+        // Also clean the focus metavar's own position (`pos`, e.g. the sanitized argument). A
+        // pass-through sanitizer (`clean($C) { return $C }`) carries the argument's taint into its
+        // result, but the clean runs on the argument-keyed fact at call-to-start, where the Result
+        // position does not yet exist — cleaning only Result misses it. Cleaning the focus position
+        // removes the taint on the flow entering the call; it is flow-specific, so a separate use of
+        // the same variable outside this call stays tainted. For a star clean `pos` already carries
+        // the AnyField modifier, so this stays coherent with the plain-value arm's base.
+        val emitPositions = (cleanerEmitPositions + listOfNotNull(pos)).distinct()
+        return emitPositions
     }
 
     override fun stateAccessedMarks(
