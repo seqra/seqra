@@ -27,12 +27,21 @@ class JIRMethodGetDefault(
 
     private fun TypeName.mayBeArray(): Boolean = isArray || this == objectTypeName
 
-    private val getDefaultActions = listOf(
-        CopyAllMarks(from = Exact(This), to = Exact(Result))
+    private fun defaultField(cls: JIRClassOrInterface): PositionAccessor.FieldAccessor =
+        PositionAccessor.FieldAccessor(cls.name, "<get-default>", objectTypeName.typeName)
+
+    private fun defaultPosition(cls: JIRClassOrInterface) =
+        PositionWithAccess(This, defaultField(cls))
+
+    private fun getDefaultActions(cls: JIRClassOrInterface) = listOf(
+        CopyAllMarks(from = Exact(defaultPosition(cls)), to = Exact(Result))
     )
 
-    private val getDefaultArrayActions = listOf(
-        CopyAllMarks(from = Exact(This), to = Exact(PositionWithAccess(Result, PositionAccessor.ElementAccessor)))
+    private fun getDefaultArrayActions(cls: JIRClassOrInterface) = listOf(
+        CopyAllMarks(
+            from = Exact(defaultPosition(cls)),
+            to = Exact(PositionWithAccess(Result, PositionAccessor.ElementAccessor))
+        )
     )
 
     fun defaultPropagationRules(method: JIRMethod): List<RuleWithCondition<TaintPassThrough>> {
@@ -42,9 +51,9 @@ class JIRMethodGetDefault(
 
         if (!config.enableDefaultPropagationForClass(method.enclosingClass)) return emptyList()
 
-        var actions = getDefaultActions
+        var actions = getDefaultActions(method.enclosingClass)
         if (method.returnType.mayBeArray()) {
-            actions = actions + getDefaultArrayActions
+            actions = actions + getDefaultArrayActions(method.enclosingClass)
         }
 
         val getDefaultRule = TaintPassThrough(method, mkTrue(), actions, info = null)
