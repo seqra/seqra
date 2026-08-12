@@ -70,7 +70,7 @@ abstract class TaintAnalyzer<Method: CommonMethod, Statement: CommonInst>(
     open val unrollStrategy: AnyAccessorUnrollStrategy = object : AnyAccessorUnrollStrategy {
         override fun unrollAccessor(accessor: Accessor): Boolean = when (accessor) {
             is ElementAccessor -> true
-            is FieldAccessor -> accessor.fieldName != "<rule-storage>"
+            is FieldAccessor -> true
             is ClassStaticAccessor,
             is AnyAccessor,
             is FinalAccessor,
