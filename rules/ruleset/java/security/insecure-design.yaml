@@ -80,9 +80,13 @@ rules:
           # tainted value to $RESULT; at IR level every used call result is an
           # assignment, so this single form also covers calls used directly as
           # arguments. getSession is excluded as a $FUNC name constraint (the session
-          # object is trusted-side state, not untrusted input).
+          # object is trusted-side state, not untrusted input). The receiver carries its
+          # type in the pattern instead of relying on the $REQ bound by pattern-inside:
+          # that binding is not enforced across sibling patterns, so an untyped $REQ also
+          # matches session.getAttribute(..) - reading back out of the session became a
+          # source and the getSession exclusion never saw the call it was meant to stop.
           - pattern: |
-              $*RESULT = $REQ.$FUNC(...)
+              $*RESULT = (HttpServletRequest $REQ).$FUNC(...)
           - metavariable-regex:
               metavariable: $FUNC
               regex: ^(?!getSession$).*
