@@ -162,7 +162,7 @@ class JIRMethodCallFlowFunction(
             markAfterAnyAccessorResolver = null // we don't expect such marks in pass rules
         )
 
-        val cleaner = JIRTaintCleanActionEvaluator(typeResolver)
+        val cleaner = JIRTaintCleanActionEvaluator()
 
         val factReaderBeforeCleaner = FinalFactReader(callerFact, apManager)
         val cleanRules = taintCtx.cleanRulesForCallStatement(statement, callExpr, returnValue, callerFact)

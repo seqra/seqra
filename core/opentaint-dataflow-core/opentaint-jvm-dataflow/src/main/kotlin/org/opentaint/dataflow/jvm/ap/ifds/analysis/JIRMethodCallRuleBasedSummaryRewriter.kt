@@ -91,7 +91,7 @@ class JIRMethodCallRuleBasedSummaryRewriter(
         val actionsForBase = userRuleDefinedActions[fact.base].orEmpty()
         if (actionsForBase.isEmpty()) return listOf(fact to startFactReader)
 
-        val cleanEvaluator = JIRTaintCleanActionEvaluator(typeResolver)
+        val cleanEvaluator = JIRTaintCleanActionEvaluator()
         val cleanedFact = actionsForBase.entries.applyCleanerActions(
             initial = EvaluatedCleanAction.initial(startFactReader)
         ) { (mark, actions), current ->

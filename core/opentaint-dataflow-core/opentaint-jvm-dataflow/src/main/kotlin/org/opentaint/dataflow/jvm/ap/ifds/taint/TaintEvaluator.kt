@@ -21,16 +21,13 @@ import org.opentaint.dataflow.configuration.jvm.Result
 import org.opentaint.dataflow.configuration.jvm.This
 import org.opentaint.dataflow.taint.EvaluatedCleanAction
 import org.opentaint.dataflow.taint.PositionAccess
-import org.opentaint.dataflow.taint.PositionTypeResolver
 import org.opentaint.dataflow.taint.TaintCleanActionEvaluator
 
 interface ConditionEvaluator<T> {
     fun eval(condition: Condition): T
 }
 
-class JIRTaintCleanActionEvaluator(
-    private val positionTypeResolver: PositionTypeResolver,
-) {
+class JIRTaintCleanActionEvaluator {
     private val evaluator = TaintCleanActionEvaluator()
 
     fun evaluate(
@@ -49,28 +46,9 @@ class JIRTaintCleanActionEvaluator(
     ): List<EvaluatedCleanAction> {
         val variable = action.position.resolveAp()
         val mark = TaintMarkAccessor(action.mark.name)
-        val cleaned = evaluator.removeFinalFact(initialFact, variable, mark, rule, action, action.position.cleanReach())
-
-        val positionType = positionTypeResolver.resolve(variable)
-        if (positionType?.typeName != STRING) {
-            return cleaned
-        }
-
-        val stringBytesPosition = action.position.append(stringBytes)
-        val stringBytesVar = stringBytesPosition.resolveAp()
-        return cleaned.flatMap { f ->
-            evaluator.removeFinalFact(f, stringBytesVar, mark, rule, action, stringBytesPosition.cleanReach())
-        }
+        return evaluator.removeFinalFact(initialFact, variable, mark, rule, action, action.position.cleanReach())
     }
 
-    companion object {
-        private const val STRING = "java.lang.String"
-
-        // todo: fix in config?
-        // string bytes virtual field fully reflects the string content.
-        // So, if we clean string, we should clean its byte content
-        private val stringBytes = PositionAccessor.FieldAccessor(STRING, "<string-bytes>", "byte[]")
-    }
 }
 
 fun ActionPosition.resolveBaseAp(): AccessPathBase = when (this) {
@@ -96,10 +74,6 @@ fun ActionPosition.cleanReach(): TaintCleanReach = when (this) {
     is ActionPosition.AnyAccessorAfter -> TaintCleanReach.ExactAndAnyField
 }
 
-private fun ActionPosition.append(accessor: PositionAccessor): ActionPosition = when (this) {
-    is ActionPosition.Exact -> ActionPosition.Exact(PositionWithAccess(position, accessor))
-    is ActionPosition.AnyAccessorAfter -> ActionPosition.AnyAccessorAfter(PositionWithAccess(position, accessor))
-}
 
 fun Position.resolveAp(): PositionAccess = resolveAp(resolveBaseAp())
 
