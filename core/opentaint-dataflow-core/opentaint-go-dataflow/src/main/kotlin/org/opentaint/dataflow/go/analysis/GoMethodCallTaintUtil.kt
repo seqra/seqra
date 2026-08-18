@@ -1,5 +1,7 @@
 package org.opentaint.dataflow.go.analysis
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
@@ -15,7 +17,10 @@ import org.opentaint.dataflow.go.GoMethodCallFactMapper.mapMethodExitToReturnFlo
 import org.opentaint.dataflow.go.rules.GoAssignAction
 import org.opentaint.dataflow.go.rules.GoRuleCondition
 import org.opentaint.dataflow.go.rules.TaintRule
+import org.opentaint.dataflow.taint.FactReader
 import org.opentaint.dataflow.taint.FinalFactReader
+import org.opentaint.dataflow.taint.FinalFactReaderWithPrefix
+import org.opentaint.dataflow.taint.PositionAccess
 import org.opentaint.dataflow.taint.TaintSourceActionEvaluator
 import org.opentaint.dataflow.taint.TaintUtil
 import org.opentaint.ir.go.inst.GoIRInst
@@ -72,6 +77,16 @@ class GoMethodCallTaintUtil(
             readers += FinalFactReader(fact.rebase(startBase), apManager)
         }
         return readers
+    }
+
+    override fun patchSinkConditionFactReader(factReaders: List<FinalFactReader>): List<FactReader> {
+        val elementWrappedReaders = factReaders.mapNotNull { reader ->
+            val base = reader.factAp.base as? AccessPathBase.Argument ?: return@mapNotNull null
+            val elementPosition = PositionAccess.Complex(PositionAccess.Simple(base), ElementAccessor)
+            if (!reader.containsPosition(elementPosition)) return@mapNotNull null
+            FinalFactReaderWithPrefix(reader, ElementAccessor)
+        }
+        return factReaders + elementWrappedReaders
     }
 
     override fun handleReachedSink(

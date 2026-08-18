@@ -23,6 +23,8 @@ abstract class TaintUtil<C, Src, Sink, Trace>(val apManager: ApManager) {
 
     abstract fun handleReachedSink(rule: Sink, factReader: FinalFactReader?, evaluatedFacts: List<InitialFactAp>)
 
+    open fun patchSinkConditionFactReader(factReaders: List<FinalFactReader>): List<FactReader> = factReaders
+
     fun applySinkRules(
         sinkRules: List<RuleWithCondition<Sink>>,
         factReader: FinalFactReader?,
@@ -30,7 +32,8 @@ abstract class TaintUtil<C, Src, Sink, Trace>(val apManager: ApManager) {
     ) {
         if (sinkRules.isEmpty()) return
 
-        val conditionFactReaders = factReader?.let { conditionFact(it) }.orEmpty()
+        val normalConditionFactReaders = factReader?.let { conditionFact(it) }.orEmpty()
+        val conditionFactReaders = patchSinkConditionFactReader(normalConditionFactReaders)
 
         sinkRules.applyRuleWithAssumptions(
             apManager,
@@ -42,7 +45,7 @@ abstract class TaintUtil<C, Src, Sink, Trace>(val apManager: ApManager) {
             return@applyRuleWithAssumptions
         }
 
-        factReader?.updateRefinement(conditionFactReaders)
+        factReader?.updateRefinement(normalConditionFactReaders)
     }
 
 

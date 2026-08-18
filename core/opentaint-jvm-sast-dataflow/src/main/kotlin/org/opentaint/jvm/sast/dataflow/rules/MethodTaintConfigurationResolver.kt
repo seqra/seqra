@@ -81,6 +81,7 @@ import org.opentaint.ir.api.jvm.JIRTypedMethod
 import org.opentaint.ir.api.jvm.PredefinedPrimitives
 import org.opentaint.ir.api.jvm.TypeName
 import org.opentaint.ir.api.jvm.ext.allSuperHierarchySequence
+import org.opentaint.ir.impl.cfg.util.isArray
 import org.opentaint.jvm.sast.dataflow.matchedAnnotations
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -189,15 +190,15 @@ class MethodTaintConfigurationResolver(
         ctx: AnyArgSpecializationCtx,
     ): TaintConfigurationItem = when (this) {
         is SerializedRule.EntryPoint -> {
-            TaintEntryPointSource(method, condition, taint.flatMap { it.resolve(ctx) }, info, serializedId)
+            TaintEntryPointSource(method, condition, taint.flatMap { it.resolveWithArray(ctx) }, info, serializedId)
         }
 
         is SerializedRule.Source -> {
-            TaintMethodSource(method, condition, taint.flatMap { it.resolve(ctx) }, info, serializedId)
+            TaintMethodSource(method, condition, taint.flatMap { it.resolveWithArray(ctx) }, info, serializedId)
         }
 
         is SerializedRule.MethodExitSource -> {
-            TaintMethodExitSource(method, condition, taint.flatMap { it.resolve(ctx) }, info, serializedId)
+            TaintMethodExitSource(method, condition, taint.flatMap { it.resolveWithArray(ctx) }, info, serializedId)
         }
 
         is SerializedRule.Sink -> {
@@ -550,6 +551,37 @@ class MethodTaintConfigurationResolver(
     private fun SerializedTaintAssignAction.resolve(ctx: AnyArgSpecializationCtx): List<AssignMark> =
         pos.resolveActionPosition(ctx, annotatedWith?.asAnnotationConstraint())
             .map { AssignMark(taintMarkManager.taintMark(kind), it) }
+
+    // Source actions on an array- or Object-typed position taint the element as well as the
+    // position itself. The starred rules that express this explicitly land in 3-rules; until
+    // then the duplication has to stay here or array sources lose their element taint.
+    private fun SerializedTaintAssignAction.resolveWithArray(ctx: AnyArgSpecializationCtx): List<AssignMark> =
+        pos.resolveActionPosition(ctx, annotatedWith?.asAnnotationConstraint())
+            .flatMap { it.resolveArrayActionPosition() }
+            .map { AssignMark(taintMarkManager.taintMark(kind), it) }
+
+    private fun ActionPosition.resolveArrayActionPosition(): List<ActionPosition> = when (this) {
+        is Exact -> position.resolveArrayPosition().map { Exact(it) }
+        is AnyAccessorAfter -> listOf(this)
+    }
+
+    private fun Position.resolveArrayPosition(): List<Position> = when (this) {
+        is ClassStatic -> listOf(this)
+        is PositionWithAccess -> base.resolveArrayPosition().map { PositionWithAccess(it, access) }
+        is This -> listOf(this)
+        is Argument -> resolveArrayPosition(this, method.parameters.getOrNull(index)?.type)
+        is Result -> resolveArrayPosition(this, method.returnType)
+    }
+
+    private fun resolveArrayPosition(position: Position, positionType: TypeName?): List<Position> {
+        if (positionType == null) return listOf(position)
+
+        if (!positionType.isArray && positionType != objectTypeName) {
+            return listOf(position)
+        }
+
+        return listOf(position, PositionWithAccess(position, PositionAccessor.ElementAccessor))
+    }
 
     private fun SerializedTaintPassAction.resolve(ctx: AnyArgSpecializationCtx): List<Action> =
         from.resolveActionPosition(ctx).flatMap { fromPos ->
