@@ -297,7 +297,7 @@ class JIRMethodCallFlowFunction(
                 }
             }
 
-            if (passThroughFacts.isNone) {
+            if (passRules.isEmpty()) {
                 analysisContext.analysisManager.params.defaultGetModel?.run {
                     val defaultRules = defaultPropagationRules(method)
                     val defaultPass = applyPassThrough(defaultRules, conditionEvaluator, passEvaluator)
