@@ -104,10 +104,11 @@ data class ProcessedTaintPassRule<R>(
 data class ProcessedTaintCleanRule<R>(
     val rule: R,
     val bySideEffect: Boolean,
-    val cleans: Set<Mark.GeneratedMark>
+    val cleans: Set<Mark.GeneratedMark>,
+    val focusMetaVars: Set<MetavarAtom>
 ) {
     fun <T> flatMap(body: (R) -> List<T>): List<ProcessedTaintCleanRule<T>> =
-        body(rule).map { ProcessedTaintCleanRule(it, bySideEffect, cleans) }
+        body(rule).map { ProcessedTaintCleanRule(it, bySideEffect, cleans, focusMetaVars) }
 }
 
 data class ProcessedTaintRule<R>(
@@ -140,7 +141,7 @@ private fun <Item, Cond, Assign, Clean> ProcessedTaintPassRule<TaintAutomataEdge
 
 private fun <Item, Cond, Assign, Clean> ProcessedTaintCleanRule<TaintAutomataEdges>.compositionStrategy(
     strategy: TaintRuleStrategy<Item, Cond, Assign, Clean>
-) = TaintCleanCompositionStrategy(rule, bySideEffect, cleans, strategy)
+) = TaintCleanCompositionStrategy(rule, bySideEffect, cleans, focusMetaVars, strategy)
 
 private fun <Item, Cond, Assign, Clean> RuleConversionCtx.generateEdgeCtx(
     rule: ProcessedTaintRule<TaintAutomataEdges>,
@@ -299,7 +300,6 @@ fun RuleConversionCtx.prepareTaintNonSourceRules(
 
     val cleaners = rule.sanitizers.map { clean ->
         // todo: sanitizer by side effect
-        // todo: sanitizer focus metavar
 
         val generatedPos = MetavarAtom.create("generated_clean_pos")
         val cleanAutomata = clean.pattern.map {
@@ -313,7 +313,8 @@ fun RuleConversionCtx.prepareTaintNonSourceRules(
         ProcessedTaintCleanRule(
             cleanAutomata,
             clean.bySideEffect == true,
-            taintMarks.mapTo(hashSetOf()) { it.mark }
+            taintMarks.mapTo(hashSetOf()) { it.mark },
+            clean.pattern.metaVarInfo.focusMetaVars.mapTo(hashSetOf()) { MetavarAtom.create(it) }
         )
     }
 
