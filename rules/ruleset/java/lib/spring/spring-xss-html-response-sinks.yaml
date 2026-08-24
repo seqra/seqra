@@ -13,13 +13,9 @@ rules:
       - java
     mode: taint
     pattern-propagators:
-      # See the same propagator in lib/generic/path-traversal-sinks.yaml: the join reads
-      # `String.valueOf(element)`, so a mark on an element object or on any of its fields
-      # (`File#path` for `dir.listFiles()`) reaches the returned String as a plain value.
-      - pattern: $RES = org.springframework.util.StringUtils.arrayToCommaDelimitedString($*ARR);
-        from: $ARR
+      - pattern: $RES = (Object $*OBJ).toString();
+        from: $OBJ
         to: $RES
-
     pattern-sanitizers:
       - patterns:
           - pattern-either:

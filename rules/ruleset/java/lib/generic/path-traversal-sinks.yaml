@@ -13,13 +13,8 @@ rules:
       - java
     mode: taint
     pattern-propagators:
-      # `arrayToCommaDelimitedString` joins `String.valueOf(element)` for every element, so a mark
-      # sitting on an element *object* -- or on any field of it, e.g. `java.io.File#path` for
-      # `dir.listFiles()` -- lands in the returned String as a plain value. The library model copies
-      # `arg(0)[*]` verbatim, which carries the element's own accessors over into a String result and
-      # is rejected by the type checker; the starred `from` reads through them instead.
-      - pattern: $RES = org.springframework.util.StringUtils.arrayToCommaDelimitedString($*ARR);
-        from: $ARR
+      - pattern: $RES = (Object $*OBJ).toString();
+        from: $OBJ
         to: $RES
     pattern-sanitizers:
       - pattern: org.apache.commons.io.FilenameUtils.getName(...)
