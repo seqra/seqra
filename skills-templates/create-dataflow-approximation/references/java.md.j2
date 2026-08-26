@@ -19,18 +19,16 @@ opentaint approximation init .opentaint/dataflow/<batch> \
 
 Re-invoked for a batch whose project already exists, leave the build file alone unless a model needs a library that isn't pinned yet — then add it with a second `init` carrying the full dependency set, or edit `build.gradle.kts` directly.
 
-Create Java files under `.opentaint/dataflow/<batch>/src/main/java` — one `@Approximate` class per target class. `@Approximate(TargetClass.class)` binds a model to exactly that class, so target the EXACT class the analyzer dropped — the dropped FQN reflects how the call resolved: an interface-typed receiver (`Map m = ...; m.computeIfAbsent(...)`) drops `java.util.Map#computeIfAbsent`, a concrete one (`new HashMap<>()`) drops `java.util.HashMap#computeIfAbsent`. An interface is a valid target — write `@Approximate` on it exactly as on a concrete class, modelling whichever FQN the analyzer dropped. Reach the real object with `(TargetClass) (Object) this`, put functional-interface parameters behind `@ArgumentTypeContext`, and branch with `OpentaintNdUtil.nextBool()` so the analyzer walks both paths. Never leave a body empty.
+Create one Java model for each target class under `.opentaint/dataflow/<batch>/src/main/java`. Add `opentaint.` before the exact target class name. For example, `opentaint.java.util.Map` models `java.util.Map`. Model the exact class or interface from the dropped method report. Use `(TargetClass) (Object) this` to access the real object. Add `@ArgumentTypeContext` to functional-interface parameters. Use `OpentaintNdUtil.nextBool()` when the analyzer must follow two paths. Do not use an empty body.
 
 ```java
-package com.example.approximations.batchpkg;   // per-batch package (e.g. ...approximations.cn_hutool_001) — see the globally-unique rule below
+package opentaint.com.example.lib;
 
-import org.opentaint.ir.approximation.annotation.Approximate;
 import org.opentaint.jvm.dataflow.approximations.ArgumentTypeContext;
 import org.opentaint.jvm.dataflow.approximations.OpentaintNdUtil;
 
 import java.util.function.Function;
 
-@Approximate(com.example.lib.ReactiveProcessor.class)
 public class ReactiveProcessor {
 
     // Model: taint on this flows through the function to the result
@@ -56,7 +54,8 @@ public class ReactiveProcessor {
 Wrapper-returning operators (a `Mono`/`Flux`, `Optional`, `Stream`, a builder — anything where the taint stays inside a container): declare the real concrete return type, not `Object`; in the `nextBool()` branch `return self`, not `null`; and extract → apply → re-wrap so a downstream extractor (`block`, `get`, …) can pull the tainted value back out:
 
 ```java
-@Approximate(reactor.core.publisher.Mono.class)
+package opentaint.reactor.core.publisher;
+
 public class Mono {
     public reactor.core.publisher.Mono map(@ArgumentTypeContext Function fn) throws Throwable {
         reactor.core.publisher.Mono self = (reactor.core.publisher.Mono) (Object) this;
@@ -77,7 +76,7 @@ opentaint test approximation run .opentaint/test-compiled/<batch> \
   --dataflow-approximations .opentaint/dataflow/<batch>
 ```
 
-`test approximation run` applies its own bundled fixed source→sink rule automatically — you don't author or pass one. The CLI builds the approximation project against the dependencies it pins (the approximation API — `@Approximate`, `OpentaintNdUtil`, `ArgumentTypeContext` — comes from the project's own `libs/`); if compilation fails it reports the errors and aborts before the tests. A rebuild happens only when the sources or the pins changed, so re-running an unedited batch skips straight to the tests. To see compilation errors on their own, compile the project alone:
+`test approximation run` applies its bundled source-to-sink rule. The CLI builds the approximation project with its pinned dependencies. The project `libs` directory supplies the name-patch annotations, `OpentaintNdUtil`, and `ArgumentTypeContext`. A build failure stops the test and reports the compiler errors. OpenTaint rebuilds only when the source or dependency pins change. Use this command to compile the project without a test:
 
 ```bash
 opentaint compile approximations .opentaint/dataflow/<batch>
@@ -91,14 +90,15 @@ uv run <skill-dir>/scripts/check-test-result.py <batch>
 
 Fix by the verdict it reports:
 
-- still `falseNegative` → the `@Approximate(...)` target class or a method signature doesn't match what the analyzer sees, or the body doesn't route taint from the real source to the modeled result/argument; diagnose the mismatch, don't rationalize a non-result. Most common: target-class mismatch with the dropped FQN — re-target the exact dropped class and match the cast (`(java.util.HashMap) (Object) this`)
+- still `falseNegative` means that the target class, signature, or taint path is incorrect. Use `opentaint.<exact-dropped-FQN>`. Make the cast use the same target class.
 - `falsePositive` (a negative sample fired) → the model is over-broad: it taints a read it shouldn't, e.g. a field it wasn't stored under. Narrow the propagation until the negative stays non-firing while the positive passes
 
 ## Key patterns
 
 | Pattern | Usage |
 |---|---|
-| `@Approximate(TargetClass.class)` | Link the approximation to its target class. Must be on the compile classpath (a project dependency or a JDK type) |
+| `opentaint.<target-package>.<TargetClass>` | The model name. Remove `opentaint.` to get the target class name. |
+| `@ApproximatedClassName("actual-name")` | Set a target JVM class name that Java source cannot express. The target package still comes from the prefix. |
 | `(TargetClass) (Object) this` | Cast to reach the real object's methods |
 | `@ArgumentTypeContext` | On lambda / functional-interface parameters |
 | `OpentaintNdUtil.nextBool()` | Non-deterministic branch — the analyzer considers both paths |
@@ -107,8 +107,8 @@ Fix by the verdict it reports:
 
 - Java 8 source compatibility
 - A model may only reference libraries its own project pins. A model that needs a type from an unpinned library is a missing `--dependency`, not a reason to weaken the model to `Object`
-- Put the `@Approximate` classes in a neutral package (e.g. `com.example.approximations`) — never the target library's own package. Inside the library's package every bare FQN resolves to your approximation's non-generic class instead of the real type, breaking compilation wholesale
-- Namespace the package PER BATCH (`com.example.approximations.<batch>`, e.g. `...approximations.cn_hutool_001`). Every batch is loaded together into one shared index, and approximation class FQCNs must be GLOBALLY unique across all batches — two batches that both model a `…$Nested` (or any recurring simple name) in the bare `com.example.approximations` package collide on `com.example.approximations.Nested` and crash the whole scan at config-load. A per-batch package guarantees uniqueness.
+- Use `opentaint.<exact-target-package>` as the package. The class name must match the target binary name. Use `@ApproximatedClassName` only when Java cannot express the JVM name.
+- Every target has one canonical model class. Do not model the same target in more than one batch.
 - One approximation class per target class — a strict global bijection enforced at load: each approximation FQCN maps to exactly one target and vice-versa; duplicates or a reused FQCN across batches throw `IllegalArgumentException`
 - Method signatures must match the target class methods exactly
 - Built-in dataflow approximations are first-priority and presumed correct — you cannot override them locally

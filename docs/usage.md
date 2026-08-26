@@ -117,8 +117,51 @@ These flags are to work with custom approximations:
 | `--track-external-methods` | Write external-method coverage files next to the SARIF report |
 | `--passthrough-approximations` | Apply pass-through approximation YAML files or directories (repeatable) |
 | `--dataflow-approximations` | Apply dataflow approximation projects, build outputs, or class directories (repeatable) |
+| `--go-models` | Apply Go model module directories (repeatable) |
 
 Use external-method tracking when a scan may miss flows through library methods. The dropped-methods file shows where taint was killed because no model was available; the approximated-methods file shows methods already covered by built-in or custom models.
+
+#### Go models
+
+A Go model is a separate Go module. Its module path must start with `opentaint`. After `opentaint/`, copy the target import path without a change. Use the target package name in the package declaration.
+
+For example, this model replaces the body of `net/http.Get`:
+
+```text
+my-go-models/
+├── go.mod                  # module opentaint
+└── net/http/model.go       # import path opentaint/net/http
+```
+
+```go
+package http
+
+import target "net/http"
+
+func Get(url string) (*target.Response, error) {
+	return nil, nil
+}
+```
+
+Pass the module root to the scan:
+
+```bash
+opentaint scan ./project --go-models ./my-go-models
+```
+
+To replace a target function or method, use its name and signature. A model can replace only some target functions. Other target bodies do not change.
+
+You can add helper functions, methods, package variables, constants, types, and struct fields. A model struct can list only the fields that its model bodies use. OpenTaint maps an existing field by its name. Its type must match the target field type. OpenTaint adds a new field after all target fields. It marks new functions and methods as model support.
+
+OpenTaint loads the model module and the analyzed project modules in a temporary Go workspace. The model can import target project packages and project dependencies. Use the model `go.mod` file for dependencies that are not in the analyzed project.
+
+OpenTaint does not use model `init` functions. Supply only one model for each target package.
+
+Java models use the same rule with dots. Add `opentaint.` before the target class name. For example, `opentaint.java.util.Optional` models `java.util.Optional`. Its source uses `package opentaint.java.util` and `class Optional`. The old `@Approximate` annotations still work. Use the prefix for new models.
+
+OpenTaint compiles each Java model project with its pinned dependencies and the OpenTaint approximation support classes.
+
+Some Kotlin/JVM names are not valid Java names. For these names, keep the target package after the prefix. Then use `@ApproximatedClassName` to set the final class name. Use `@ApproximatedMethodName` or `@ApproximatedFieldName` for member names. OpenTaint then uses the real JVM name.
 
 ### opentaint health
 
@@ -198,7 +241,7 @@ A dataflow approximation models how taint moves through a method the analyzer ca
 opentaint approximation init .opentaint/dataflow/my-batch \
   --dependency "io.projectreactor:reactor-core:3.8.5"
 
-# write the @Approximate classes under src/main/java/, then apply them
+# write the opentaint-prefixed model classes under src/main/java/, then apply them
 opentaint scan --project-model ./my-project-model \
   --dataflow-approximations .opentaint/dataflow/my-batch
 ```
