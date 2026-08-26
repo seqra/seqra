@@ -1,6 +1,5 @@
-package org.opentaint.jvm.dataflow.approximations.stdlib;
+package opentaint.java.util.stream;
 
-import org.opentaint.ir.approximation.annotation.Approximate;
 import org.opentaint.jvm.dataflow.approximations.ArgumentTypeContext;
 
 import java.util.Comparator;
@@ -20,7 +19,6 @@ import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
-@Approximate(java.util.stream.Stream.class)
 public class Stream {
 
     private static final int GENERATOR_ARRAY_SIZE = 0;

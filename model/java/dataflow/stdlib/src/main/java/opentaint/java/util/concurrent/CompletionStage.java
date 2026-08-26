@@ -1,6 +1,5 @@
-package org.opentaint.jvm.dataflow.approximations.stdlib;
+package opentaint.java.util.concurrent;
 
-import org.opentaint.ir.approximation.annotation.Approximate;
 import org.opentaint.jvm.dataflow.approximations.ArgumentTypeContext;
 import org.opentaint.jvm.dataflow.approximations.OpentaintNdUtil;
 
@@ -11,7 +10,6 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
-@Approximate(java.util.concurrent.CompletionStage.class)
 public class CompletionStage {
 
     public java.util.concurrent.CompletionStage thenApply(@ArgumentTypeContext Function fn) throws Throwable {

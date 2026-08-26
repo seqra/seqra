@@ -1,4 +1,4 @@
-package org.opentaint.jvm.dataflow.approximations.kotlin;
+package opentaint.kotlinx.coroutines;
 
 import kotlin.Unit;
 import kotlin.coroutines.Continuation;
@@ -10,11 +10,11 @@ import kotlinx.coroutines.CoroutineScope;
 import kotlinx.coroutines.CoroutineStart;
 import kotlinx.coroutines.Deferred;
 import kotlinx.coroutines.Job;
-import org.opentaint.ir.approximation.annotation.ApproximateByName;
+import org.opentaint.ir.approximation.annotation.ApproximatedClassName;
 import org.opentaint.jvm.dataflow.approximations.ArgumentTypeContext;
 import org.opentaint.jvm.dataflow.approximations.OpentaintNdUtil;
 
-@ApproximateByName("kotlinx.coroutines.BuildersKt__Builders_commonKt")
+@ApproximatedClassName("BuildersKt__Builders_commonKt")
 public class BuildersBuildersCommon {
 
     public static final Job launch(CoroutineScope scope, CoroutineContext ctx, CoroutineStart start, @ArgumentTypeContext Function2<? super CoroutineScope, ? super Continuation<? super Unit>, ? extends Object> body) {

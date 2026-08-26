@@ -1,21 +1,20 @@
-package org.opentaint.jvm.dataflow.approximations.kotlin;
+package opentaint.kotlinx.coroutines;
 
 import kotlin.Unit;
 import kotlin.coroutines.Continuation;
 import kotlin.coroutines.CoroutineContext;
 import kotlin.jvm.functions.Function2;
-import kotlinx.coroutines.BuildersKt;
 import kotlinx.coroutines.CompletableDeferred;
 import kotlinx.coroutines.CoroutineDispatcher;
 import kotlinx.coroutines.CoroutineScope;
 import kotlinx.coroutines.CoroutineStart;
 import kotlinx.coroutines.Deferred;
 import kotlinx.coroutines.Job;
-import org.opentaint.ir.approximation.annotation.Approximate;
+import org.opentaint.ir.approximation.annotation.ApproximatedClassName;
 import org.opentaint.jvm.dataflow.approximations.ArgumentTypeContext;
 import org.opentaint.jvm.dataflow.approximations.OpentaintNdUtil;
 
-@Approximate(BuildersKt.class)
+@ApproximatedClassName("BuildersKt")
 public class Builders {
 
     public static final <T> T runBlocking(CoroutineContext ctx, @ArgumentTypeContext Function2<? super CoroutineScope, ? super Continuation<? super T>, ? extends Object> body) {
