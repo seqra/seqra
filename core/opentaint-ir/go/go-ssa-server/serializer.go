@@ -67,6 +67,7 @@ type serializer struct {
 
 	mode               pb.LoadMode
 	projectModulePaths map[string]bool
+	onlyListedModules  bool
 	loadInfo           map[string]*packages.Package
 }
 
@@ -87,6 +88,21 @@ func newSerializerForBuild(prog *ssa.Program, pkgs []*ssa.Package, info map[stri
 	s := newSerializerWithIDs(prog, pkgs, newIDAllocator())
 	s.mode = mode
 	s.projectModulePaths = projectModulePaths
+	s.loadInfo = info
+	s.collectAll()
+	return s
+}
+
+func newSerializerForModelBuild(
+	prog *ssa.Program,
+	pkgs []*ssa.Package,
+	info map[string]*packages.Package,
+	projectModulePaths map[string]bool,
+) *serializer {
+	s := newSerializerWithIDs(prog, pkgs, newIDAllocator())
+	s.mode = pb.LoadMode_LOAD_MODE_PROJECT
+	s.projectModulePaths = projectModulePaths
+	s.onlyListedModules = true
 	s.loadInfo = info
 	s.collectAll()
 	return s
@@ -151,7 +167,7 @@ func (s *serializer) shouldEmitBody(fn *ssa.Function) bool {
 	if dp == nil {
 		return fn.Package() == nil
 	}
-	isStdlib, isDep := classifyPackage(s.loadInfo[dp.Pkg.Path()], s.projectModulePaths)
+	isStdlib, isDep := classifyPackage(s.loadInfo[dp.Pkg.Path()], s.projectModulePaths, s.onlyListedModules)
 	return !isDep && !isStdlib
 }
 
@@ -168,7 +184,7 @@ func (s *serializer) serializeProgram() (*pb.ProtoProgram, []*pb.ProtoError) {
 	protoPkgBySSA := make(map[*ssa.Package]*pb.ProtoPackage, len(s.pkgs))
 	for _, pkg := range s.pkgs {
 		pp := s.serializePackage(pkg)
-		isStdlib, isDep := classifyPackage(s.loadInfo[pkg.Pkg.Path()], s.projectModulePaths)
+		isStdlib, isDep := classifyPackage(s.loadInfo[pkg.Pkg.Path()], s.projectModulePaths, s.onlyListedModules)
 		pp.IsStdlib = isStdlib
 		pp.IsDependency = isDep
 		protoPkgBySSA[pkg] = pp

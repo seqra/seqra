@@ -36,6 +36,7 @@ message BuildProgramRequest {
     string working_dir = 8;
     LoadMode mode = 11;
     repeated string project_module_paths = 12;
+    repeated string model_dirs = 13;
 }
 
 message BuildProgramResponse {

@@ -41,6 +41,7 @@ class GoIRClient : AutoCloseable {
             .addAllProjectModulePaths(config.projectModules)
             .setInstantiateGenerics(config.instantiateGenerics)
             .setSanityCheck(config.sanityCheck)
+            .addAllModelDirs(config.modelDirs.map { it.toAbsolutePath().toString() })
             .build()
 
         val totalStart = System.nanoTime()

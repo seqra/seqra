@@ -15,17 +15,35 @@ import (
 )
 
 func buildSSA(req *pb.BuildProgramRequest) (*ssa.Program, []*ssa.Package, map[string]*packages.Package, error) {
+	return buildSSAWithPackageErrors(req, false)
+}
+
+func buildSSAWithPackageErrors(req *pb.BuildProgramRequest, failOnPackageErrors bool) (*ssa.Program, []*ssa.Package, map[string]*packages.Package, error) {
+	return buildSSAWithPackageErrorsAndEnv(req, failOnPackageErrors, nil)
+}
+
+func buildSSAWithPackageErrorsAndEnv(
+	req *pb.BuildProgramRequest,
+	failOnPackageErrors bool,
+	extraEnv []string,
+) (*ssa.Program, []*ssa.Package, map[string]*packages.Package, error) {
 	cfg := &packages.Config{
 		Mode: packages.NeedFiles | packages.NeedSyntax | packages.NeedTypes |
 			packages.NeedTypesInfo | packages.NeedImports | packages.NeedDeps |
 			packages.NeedName | packages.NeedModule,
 		Dir: req.WorkingDir,
 	}
+	if len(extraEnv) > 0 {
+		cfg.Env = append(os.Environ(), extraEnv...)
+	}
 	if len(req.BuildTags) > 0 {
 		cfg.BuildFlags = []string{"-tags=" + strings.Join(req.BuildTags, ",")}
 	}
 	if req.Gopath != "" {
-		cfg.Env = append(os.Environ(), "GOPATH="+req.Gopath)
+		if cfg.Env == nil {
+			cfg.Env = os.Environ()
+		}
+		cfg.Env = append(cfg.Env, "GOPATH="+req.Gopath)
 	}
 	if req.Goroot != "" {
 		if cfg.Env == nil {
@@ -55,6 +73,19 @@ func buildSSA(req *pb.BuildProgramRequest) (*ssa.Program, []*ssa.Package, map[st
 			log.Printf("WARN: package %s: %v", p.PkgPath, e)
 		}
 	}
+	if failOnPackageErrors {
+		var loadErrors []string
+		packages.Visit(loaded, func(p *packages.Package) bool {
+			for _, e := range p.Errors {
+				loadErrors = append(loadErrors, fmt.Sprintf("%s: %v", p.PkgPath, e))
+			}
+			return true
+		}, nil)
+		if len(loadErrors) > 0 {
+			sort.Strings(loadErrors)
+			return nil, nil, nil, fmt.Errorf("Go model does not compile:\n%s", strings.Join(loadErrors, "\n"))
+		}
+	}
 
 	mode := ssa.BuilderMode(0)
 	if req.InstantiateGenerics {
@@ -77,7 +108,11 @@ func buildSSA(req *pb.BuildProgramRequest) (*ssa.Program, []*ssa.Package, map[st
 	return prog, all, info, nil
 }
 
-func classifyPackage(p *packages.Package, projectModulePaths map[string]bool) (isStdlib bool, isDependency bool) {
+func classifyPackage(
+	p *packages.Package,
+	projectModulePaths map[string]bool,
+	onlyListedProjectModules bool,
+) (isStdlib bool, isDependency bool) {
 	if p == nil {
 		return false, true
 	}
@@ -85,6 +120,7 @@ func classifyPackage(p *packages.Package, projectModulePaths map[string]bool) (i
 	if isStdlib {
 		return true, false
 	}
-	isProject := p.Module != nil && (p.Module.Main || projectModulePaths[p.Module.Path])
+	isProject := p.Module != nil && (projectModulePaths[p.Module.Path] ||
+		(!onlyListedProjectModules && p.Module.Main))
 	return false, !isProject
 }

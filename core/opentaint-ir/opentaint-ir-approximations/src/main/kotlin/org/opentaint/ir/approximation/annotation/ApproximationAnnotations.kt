@@ -20,6 +20,17 @@ annotation class ApproximateByName(
     val versions: Array<Version> = [],
 )
 
+/**
+ * Sets the final JVM class name for a prefix-addressed approximation.
+ * The `opentaint.<target-package>` package sets the target package.
+ */
+@Suppress("unused")
+@Target(AnnotationTarget.CLASS)
+annotation class ApproximatedClassName(
+    val value: String,
+    val versions: Array<Version> = [],
+)
+
 @Suppress("unused")
 @Target(AnnotationTarget.FUNCTION)
 annotation class ApproximatedMethodName(val value: String)

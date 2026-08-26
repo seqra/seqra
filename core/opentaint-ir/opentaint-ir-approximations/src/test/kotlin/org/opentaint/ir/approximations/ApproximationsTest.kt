@@ -3,11 +3,13 @@ package org.opentaint.ir.approximations
 import org.opentaint.ir.api.jvm.JavaVersion
 import org.opentaint.ir.api.jvm.LocationType
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
+import org.opentaint.ir.api.jvm.cfg.JIRArgument
 import org.opentaint.ir.api.jvm.cfg.JIRCallInst
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import org.opentaint.ir.api.jvm.cfg.JIRRawAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRRawCallInst
 import org.opentaint.ir.api.jvm.cfg.JIRRawFieldRef
+import org.opentaint.ir.api.jvm.cfg.JIRReturnInst
 import org.opentaint.ir.api.jvm.ext.findClass
 import org.opentaint.ir.api.jvm.ext.findDeclaredFieldOrNull
 import org.opentaint.ir.approximation.Approximations
@@ -16,6 +18,8 @@ import org.opentaint.ir.approximation.JIREnrichedVirtualMethod
 import org.opentaint.ir.approximation.toApproximationName
 import org.opentaint.ir.approximation.toOriginalName
 import org.opentaint.ir.approximations.target.KotlinClass
+import org.opentaint.ir.approximations.target.KotlinNames
+import org.opentaint.ir.approximations.target.LegacyTarget
 import org.opentaint.ir.impl.fs.JarLocation
 import org.opentaint.ir.testing.BaseTest
 import org.opentaint.ir.testing.WithDb
@@ -45,6 +49,7 @@ open class ApproximationsTest : BaseTest() {
         val approximation = approximations.findApproximationByOriginOrNull(originalClassName)
 
         assertNotNull(approximation)
+        assertEquals("opentaint.org.opentaint.ir.approximations.target.KotlinClass", approximation)
         assertEquals(classes.name, approximations.findOriginalByApproximationOrNull(approximation!!.toApproximationName()))
     }
 
@@ -57,7 +62,17 @@ open class ApproximationsTest : BaseTest() {
         val approximation = approximations.findApproximationByOriginOrNull(originalClassName)
 
         assertNotNull(approximation)
+        assertEquals("opentaint.java.lang.Integer", approximation)
         assertEquals(classec.name, approximations.findOriginalByApproximationOrNull(approximation!!.toApproximationName()))
+    }
+
+    @Test
+    fun `legacy annotation addressing remains supported`() {
+        val target = cp.findClass<LegacyTarget>()
+        val approximation = approximations.findApproximationByOriginOrNull(target.name.toOriginalName())
+
+        assertEquals("org.opentaint.ir.approximations.legacy.LegacyTargetApprox", approximation)
+        assertTrue(target.declaredMethods.single { it.name == "identity" } is JIREnrichedVirtualMethod)
     }
 
     @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
@@ -127,6 +142,40 @@ open class ApproximationsTest : BaseTest() {
     }
 
     @Test
+    fun `java approximation patches kotlin names that java cannot express`() {
+        val clazz = cp.findClass<KotlinNames>()
+
+        val field = clazz.declaredFields.single { it.name == "field-with-dash" }
+        assertTrue(field is JIREnrichedVirtualField)
+
+        val method = clazz.declaredMethods.single { it.name == "method-with-dash" }
+        assertTrue(method is JIREnrichedVirtualMethod)
+
+        val returnInstruction = method.flowGraph().instructions
+            .flatMap { instruction ->
+                when (instruction) {
+                    is JIRReturnInst -> listOf(instruction)
+                    else -> emptyList()
+                }
+            }
+            .single()
+        val returnedArgument = returnInstruction.returnValue as JIRArgument
+        assertEquals(0, returnedArgument.index)
+        assertEquals("value", returnedArgument.name)
+    }
+
+    @Test
+    fun `java approximation patches kotlin class name that java cannot express`() {
+        val clazz = cp.findClass("org.opentaint.ir.approximations.target.Kotlin-Class")
+        val method = clazz.declaredMethods.single { it.name == "evaluate" }
+
+        assertTrue(method is JIREnrichedVirtualMethod)
+        val returnInstruction = method.flowGraph().instructions.filterIsInstance<JIRReturnInst>().single()
+        val returnedArgument = returnInstruction.returnValue as JIRArgument
+        assertEquals(0, returnedArgument.index)
+    }
+
+    @Test
     fun `replace approximations in methodBody`() {
         val classec = cp.findClass<KotlinClass>()
         val method = classec.declaredMethods.single { it.name == "useSameApproximationTarget" }
@@ -136,7 +185,7 @@ open class ApproximationsTest : BaseTest() {
         val rawInstructions = method.rawInstList
 
         assertTrue(method.enclosingClass === classec)
-        assertTrue("KotlinClassApprox" !in method.description)
+        assertTrue("opentaint." !in method.description)
 
         val types = hashSetOf<String>()
 

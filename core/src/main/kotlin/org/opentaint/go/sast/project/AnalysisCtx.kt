@@ -6,14 +6,19 @@ import org.opentaint.ir.go.client.GoIRClient
 import org.opentaint.ir.go.client.GoIRLoadConfig
 import org.opentaint.ir.go.client.GoIRLoadMode
 import org.opentaint.project.GoProject
+import java.nio.file.Path
 
 class AnalysisCtx(
     private val prj: GoProject,
     val client: GoIRClient,
+    private val modelPaths: List<Path> = emptyList(),
 ) : AutoCloseable by client {
     val cp: GoIRProgram by lazy {
         logger.info { "Building Go IR for project: ${prj.projectDir}" }
-        client.buildFromDir(prj.projectDir, GoIRLoadConfig(mode = GoIRLoadMode.PROJECT)).program
+        client.buildFromDir(
+            prj.projectDir,
+            GoIRLoadConfig(mode = GoIRLoadMode.PROJECT, modelDirs = modelPaths),
+        ).program
     }
 
     companion object {
