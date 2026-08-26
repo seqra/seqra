@@ -36,6 +36,7 @@ type ScanConfig struct {
 	RuleID                    []string
 	PassthroughApproximations []string
 	DataflowApproximations    []string
+	GoModels                  []string
 	TrackExternalMethods      bool
 
 	DebugFactReachabilitySarif            bool
@@ -144,6 +145,7 @@ func addScanFlags(cmd *cobra.Command) {
 	cmd.Flags().StringArrayVar(&scanFlags.PassthroughApproximations, "passthrough-approximations", nil, "Pass-through approximation YAML file or directory (repeatable)")
 
 	cmd.Flags().StringArrayVar(&scanFlags.DataflowApproximations, "dataflow-approximations", nil, "Dataflow approximation project, build output, or class directory (repeatable)")
+	cmd.Flags().StringArrayVar(&scanFlags.GoModels, "go-models", nil, "Go model source directory using opentaint/<target-package> package paths (repeatable)")
 
 	cmd.Flags().BoolVar(&scanFlags.TrackExternalMethods, "track-external-methods", false, "Write external-method coverage files next to the SARIF report")
 }
@@ -158,6 +160,7 @@ func currentScanBuilder(cfg ScanConfig, sourcePath string) *utils.OpentaintComma
 		WithRuleID(cfg.RuleID).
 		WithPassthroughApproximations(cfg.PassthroughApproximations).
 		WithDataflowApproximations(cfg.DataflowApproximations).
+		WithGoModels(cfg.GoModels).
 		WithTrackExternalMethods(cfg.TrackExternalMethods)
 	if !isDefaultSeverity(cfg.Severity) {
 		b.WithSeverity(cfg.Severity)
@@ -402,6 +405,7 @@ func runScan(cmd *cobra.Command, cfg ScanConfig) {
 	nativeBuilder.SetJarPath(analyzerJarPath)
 
 	addDataflowApproximations(nativeBuilder, cfg.DataflowApproximations, analyzerJarPath)
+	addGoModels(nativeBuilder, cfg.GoModels)
 
 	analyzerJavaRunner := newAnalyzerJavaRunner()
 	if _, err := analyzerJavaRunner.EnsureJava(); err != nil {

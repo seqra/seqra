@@ -64,6 +64,7 @@ type AnalyzerBuilder struct {
 	ruleIDs                               []string
 	passthroughApproximations             []string
 	dataflowApproximations                []string
+	goModels                              []string
 	trackExternalMethods                  bool
 	debugFactReachabilitySarif            bool
 	runRuleTests                          bool
@@ -157,6 +158,11 @@ func (a *AnalyzerBuilder) AddPassthroughApproximations(path string) *AnalyzerBui
 
 func (a *AnalyzerBuilder) AddDataflowApproximations(approxPath string) *AnalyzerBuilder {
 	a.dataflowApproximations = append(a.dataflowApproximations, approxPath)
+	return a
+}
+
+func (a *AnalyzerBuilder) AddGoModel(modelPath string) *AnalyzerBuilder {
+	a.goModels = append(a.goModels, modelPath)
 	return a
 }
 
@@ -259,6 +265,10 @@ func (a *AnalyzerBuilder) BuildNativeCommand() []string {
 
 	for _, approxPath := range a.dataflowApproximations {
 		flags = append(flags, "--java-dataflow-approximations", approxPath)
+	}
+
+	for _, modelPath := range a.goModels {
+		flags = append(flags, "--go-models", modelPath)
 	}
 
 	if a.trackExternalMethods {

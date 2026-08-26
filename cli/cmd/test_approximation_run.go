@@ -13,6 +13,7 @@ var (
 	testApproxTimeout   time.Duration
 	testApproxMaxMemory string
 	testApproxDataflow  []string
+	testApproxGoModels  []string
 )
 
 var testApproximationRunCmd = &cobra.Command{
@@ -42,11 +43,19 @@ approximation-rule.yaml rule with id "approximation-rule".
 			timeout:        testApproxTimeout,
 			maxMemory:      testApproxMaxMemory,
 			dataflowApprox: testApproxDataflow,
+			goModels:       testApproxGoModels,
 		})
 	},
 }
 
 func init() {
 	testApproximationCmd.AddCommand(testApproximationRunCmd)
-	addTestRunFlags(testApproximationRunCmd, &testApproxOutputDir, &testApproxTimeout, &testApproxMaxMemory, &testApproxDataflow)
+	addTestRunFlags(
+		testApproximationRunCmd,
+		&testApproxOutputDir,
+		&testApproxTimeout,
+		&testApproxMaxMemory,
+		&testApproxDataflow,
+		&testApproxGoModels,
+	)
 }

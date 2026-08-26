@@ -199,6 +199,15 @@ func (cb *OpentaintCommandBuilder) WithDataflowApproximations(paths []string) *O
 	return cb
 }
 
+func (cb *OpentaintCommandBuilder) WithGoModels(paths []string) *OpentaintCommandBuilder {
+	for _, p := range paths {
+		if p != "" {
+			cb.arrayFlags["go-models"] = append(cb.arrayFlags["go-models"], p)
+		}
+	}
+	return cb
+}
+
 func (cb *OpentaintCommandBuilder) WithTrackExternalMethods(enabled bool) *OpentaintCommandBuilder {
 	if enabled {
 		cb.boolFlags["track-external-methods"] = true

@@ -214,6 +214,16 @@ func TestScanCommandWithoutArgument(t *testing.T) {
 	}
 }
 
+func TestScanCommandWithGoModels(t *testing.T) {
+	cmd := NewScanCommand("/project").
+		WithGoModels([]string{"/models/stdlib", "/models/http"}).
+		Build()
+	expected := "opentaint scan /project --go-models /models/stdlib --go-models /models/http"
+	if cmd != expected {
+		t.Errorf("Go model flags = %q, want %q", cmd, expected)
+	}
+}
+
 func TestBuildCompileCommandWithDocker(t *testing.T) {
 	base := NewCompileCommand("").WithOutput("/path/to/output")
 	cmd := BuildCompileCommandWithDocker(base, "/path/to/project", "/path/to/output")

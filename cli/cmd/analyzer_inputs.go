@@ -31,3 +31,9 @@ func addPassthroughApproximations(b *AnalyzerBuilder, paths []string) {
 		b.AddPassthroughApproximations(log.AbsPathOrExit(passthrough, "passthrough-approximations"))
 	}
 }
+
+func addGoModels(b *AnalyzerBuilder, paths []string) {
+	for _, modelPath := range paths {
+		b.AddGoModel(log.AbsPathOrExit(modelPath, "go-models"))
+	}
+}
