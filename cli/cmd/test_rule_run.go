@@ -128,7 +128,7 @@ func runTestProject(projectModelArg string, opts testProjectOptions) {
 	}
 	builder.SetJarPath(analyzerJarPath)
 
-	addDataflowApproximations(builder, opts.dataflowApprox, analyzerJarPath, projectPath)
+	addDataflowApproximations(builder, opts.dataflowApprox, analyzerJarPath)
 	addPassthroughApproximations(builder, opts.passthroughApprox)
 
 	javaRunner := newAnalyzerJavaRunner()

@@ -43,5 +43,5 @@ func addTestRunFlags(cmd *cobra.Command, outputDir *string, timeout *time.Durati
 	cmd.Flags().StringVarP(outputDir, "output", "o", "", "Directory for test-result.json and test-results.sarif")
 	cmd.Flags().DurationVar(timeout, "timeout", 600*time.Second, "Analysis timeout")
 	cmd.Flags().StringVar(maxMemory, "max-memory", "8G", "Maximum analyzer heap size (e.g., 8G)")
-	cmd.Flags().StringArrayVar(dataflow, "dataflow-approximations", nil, "Dataflow approximation class directory or Java source directory (repeatable)")
+	cmd.Flags().StringArrayVar(dataflow, "dataflow-approximations", nil, "Dataflow approximation project, build output, or class directory (repeatable)")
 }

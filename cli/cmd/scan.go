@@ -143,7 +143,7 @@ func addScanFlags(cmd *cobra.Command) {
 
 	cmd.Flags().StringArrayVar(&scanFlags.PassthroughApproximations, "passthrough-approximations", nil, "Pass-through approximation YAML file or directory (repeatable)")
 
-	cmd.Flags().StringArrayVar(&scanFlags.DataflowApproximations, "dataflow-approximations", nil, "Dataflow approximation class directory or Java source directory (repeatable)")
+	cmd.Flags().StringArrayVar(&scanFlags.DataflowApproximations, "dataflow-approximations", nil, "Dataflow approximation project, build output, or class directory (repeatable)")
 
 	cmd.Flags().BoolVar(&scanFlags.TrackExternalMethods, "track-external-methods", false, "Write external-method coverage files next to the SARIF report")
 }
@@ -401,8 +401,7 @@ func runScan(cmd *cobra.Command, cfg ScanConfig) {
 	}
 	nativeBuilder.SetJarPath(analyzerJarPath)
 
-	// Process --dataflow-approximations: auto-compile .java sources if needed
-	addDataflowApproximations(nativeBuilder, cfg.DataflowApproximations, analyzerJarPath, absProjectModelPath)
+	addDataflowApproximations(nativeBuilder, cfg.DataflowApproximations, analyzerJarPath)
 
 	analyzerJavaRunner := newAnalyzerJavaRunner()
 	if _, err := analyzerJavaRunner.EnsureJava(); err != nil {

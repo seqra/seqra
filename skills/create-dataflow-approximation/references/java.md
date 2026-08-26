@@ -10,7 +10,16 @@ An app-internal method sits in the project's own sources under `<project-root>`.
 
 ### 2. Write the approximation source
 
-Create Java files under `.opentaint/dataflow/<batch>` — one `@Approximate` class per target class. `@Approximate(TargetClass.class)` binds a model to exactly that class, so target the EXACT class the analyzer dropped — the dropped FQN reflects how the call resolved: an interface-typed receiver (`Map m = ...; m.computeIfAbsent(...)`) drops `java.util.Map#computeIfAbsent`, a concrete one (`new HashMap<>()`) drops `java.util.HashMap#computeIfAbsent`. An interface is a valid target — write `@Approximate` on it exactly as on a concrete class, modelling whichever FQN the analyzer dropped. Reach the real object with `(TargetClass) (Object) this`, put functional-interface parameters behind `@ArgumentTypeContext`, and branch with `OpentaintNdUtil.nextBool()` so the analyzer walks both paths. Never leave a body empty.
+The models live in the batch's own approximation project. Scaffold it once, passing each library the batch's models will reference at the exact version the batch file's `dependencies` records — the same pins the test project took. Those pins are the models' compile environment: nothing about the project under analysis affects it, so the models compile the same way at test time and at scan time.
+
+```bash
+opentaint approximation init .opentaint/dataflow/<batch> \
+  --dependency "io.projectreactor:reactor-core:3.8.5"
+```
+
+Re-invoked for a batch whose project already exists, leave the build file alone unless a model needs a library that isn't pinned yet — then add it with a second `init` carrying the full dependency set, or edit `build.gradle.kts` directly.
+
+Create Java files under `.opentaint/dataflow/<batch>/src/main/java` — one `@Approximate` class per target class. `@Approximate(TargetClass.class)` binds a model to exactly that class, so target the EXACT class the analyzer dropped — the dropped FQN reflects how the call resolved: an interface-typed receiver (`Map m = ...; m.computeIfAbsent(...)`) drops `java.util.Map#computeIfAbsent`, a concrete one (`new HashMap<>()`) drops `java.util.HashMap#computeIfAbsent`. An interface is a valid target — write `@Approximate` on it exactly as on a concrete class, modelling whichever FQN the analyzer dropped. Reach the real object with `(TargetClass) (Object) this`, put functional-interface parameters behind `@ArgumentTypeContext`, and branch with `OpentaintNdUtil.nextBool()` so the analyzer walks both paths. Never leave a body empty.
 
 ```java
 package com.example.approximations.batchpkg;   // per-batch package (e.g. ...approximations.cn_hutool_001) — see the globally-unique rule below
@@ -68,7 +77,13 @@ opentaint test approximation run .opentaint/test-compiled/<batch> \
   --dataflow-approximations .opentaint/dataflow/<batch>
 ```
 
-`test approximation run` applies its own bundled fixed source→sink rule automatically — you don't author or pass one. The CLI auto-compiles the `.java` sources against the analyzer JAR (for `@Approximate`, `OpentaintNdUtil`, `ArgumentTypeContext`) and the project's dependencies; if compilation fails it reports the errors and aborts before the tests. A positive sample is a `falseNegative` until the model propagates taint. Read the result with the bundled script — it prints the pass/fail counts and names each failing sample, so you don't parse the JSON by hand:
+`test approximation run` applies its own bundled fixed source→sink rule automatically — you don't author or pass one. The CLI builds the approximation project against the dependencies it pins (the approximation API — `@Approximate`, `OpentaintNdUtil`, `ArgumentTypeContext` — comes from the project's own `libs/`); if compilation fails it reports the errors and aborts before the tests. A rebuild happens only when the sources or the pins changed, so re-running an unedited batch skips straight to the tests. To see compilation errors on their own, compile the project alone:
+
+```bash
+opentaint compile approximations .opentaint/dataflow/<batch>
+```
+
+A positive sample is a `falseNegative` until the model propagates taint. Read the result with the bundled script — it prints the pass/fail counts and names each failing sample, so you don't parse the JSON by hand:
 
 ```bash
 uv run <skill-dir>/scripts/check-test-result.py <batch>
@@ -91,6 +106,7 @@ Fix by the verdict it reports:
 ## Constraints
 
 - Java 8 source compatibility
+- A model may only reference libraries its own project pins. A model that needs a type from an unpinned library is a missing `--dependency`, not a reason to weaken the model to `Object`
 - Put the `@Approximate` classes in a neutral package (e.g. `com.example.approximations`) — never the target library's own package. Inside the library's package every bare FQN resolves to your approximation's non-generic class instead of the real type, breaking compilation wholesale
 - Namespace the package PER BATCH (`com.example.approximations.<batch>`, e.g. `...approximations.cn_hutool_001`). Every batch is loaded together into one shared index, and approximation class FQCNs must be GLOBALLY unique across all batches — two batches that both model a `…$Nested` (or any recurring simple name) in the bare `com.example.approximations` package collide on `com.example.approximations.Nested` and crash the whole scan at config-load. A per-batch package guarantees uniqueness.
 - One approximation class per target class — a strict global bijection enforced at load: each approximation FQCN maps to exactly one target and vice-versa; duplicates or a reused FQCN across batches throw `IllegalArgumentException`

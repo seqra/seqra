@@ -85,6 +85,7 @@ Use [CodeChecker](https://github.com/Ericsson/codechecker) for advanced result m
 | `opentaint health` | Show resolved paths for the analyzer, autobuilder, rules, and Java runtime |
 | `opentaint test rule` | Create, run, and debug detection-rule tests |
 | `opentaint test approximation` | Create and run dataflow-approximation tests |
+| `opentaint approximation` | Create dataflow approximation projects |
 | `opentaint pull` | Download analyzer dependencies |
 | `opentaint update` | Update to latest version |
 | `opentaint prune` | Remove stale downloaded artifacts and cached models |
@@ -115,7 +116,7 @@ These flags are to work with custom approximations:
 |------|-------------|
 | `--track-external-methods` | Write external-method coverage files next to the SARIF report |
 | `--passthrough-approximations` | Apply pass-through approximation YAML files or directories (repeatable) |
-| `--dataflow-approximations` | Apply dataflow approximation classes or Java source directories (repeatable) |
+| `--dataflow-approximations` | Apply dataflow approximation projects, build outputs, or class directories (repeatable) |
 
 Use external-method tracking when a scan may miss flows through library methods. The dropped-methods file shows where taint was killed because no model was available; the approximated-methods file shows methods already covered by built-in or custom models.
 
@@ -160,7 +161,8 @@ opentaint test rule reachability java/security/my-rule.yaml:my-rule --project-mo
 #### Approximation tests
 
 ```bash
-opentaint test approximation init .opentaint/test-projects/my-approximation
+opentaint test approximation init .opentaint/test-projects/my-approximation \
+  --dependency "io.projectreactor:reactor-core:3.8.5"
 opentaint compile .opentaint/test-projects/my-approximation -o .opentaint/test-compiled/my-approximation
 opentaint test approximation run .opentaint/test-compiled/my-approximation \
   --dataflow-approximations .opentaint/dataflow/my-approximation
@@ -187,6 +189,35 @@ opentaint scan --project-model ./my-project-model
 | `--output`, `-o` | Path to the result project model (required) |
 | `--dry-run` | Validate inputs and show what would run without compiling |
 | `--log-file` | Path to the log file (default: `<cache-dir>/logs/<timestamp>.log`) |
+
+### opentaint approximation
+
+A dataflow approximation models how taint moves through a method the analyzer cannot see into. Because a model references the library type it models, it needs that library to compile — so the models live in their own project, which pins those versions itself:
+
+```bash
+opentaint approximation init .opentaint/dataflow/my-batch \
+  --dependency "io.projectreactor:reactor-core:3.8.5"
+
+# write the @Approximate classes under src/main/java/, then apply them
+opentaint scan --project-model ./my-project-model \
+  --dataflow-approximations .opentaint/dataflow/my-batch
+```
+
+Pin the versions the target application uses. Those pins are the models' compile environment: they, and nothing about the project under analysis, decide what the models compile against, so a model compiles identically wherever it is applied.
+
+`--dataflow-approximations` accepts an approximation project, a build output, or a directory of compiled classes — and a directory holding any of those, so a tree with one project per batch can be passed as a single flag. Projects are built on demand and rebuilt only when their sources or dependency pins change.
+
+| Command | Description |
+|---------|-------------|
+| `opentaint approximation init <output-dir>` | Create a dataflow approximation project |
+| `opentaint compile approximations <approximation-project>` | Compile a dataflow approximation project |
+
+| Flag | Description |
+|------|-------------|
+| `--dependency` | Compile-only Maven dependency coordinates the models are written against (repeatable, `init` only) |
+| `--output`, `-o` | Path to the compiled models (default: `<approximation-project>/.opentaint/build`, `compile approximations` only) |
+
+Compiling ahead of time is optional — scanning and testing build the project themselves. Run it to see compilation errors on their own.
 
 ### opentaint summary
 
