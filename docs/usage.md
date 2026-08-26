@@ -119,11 +119,24 @@ These flags are to work with custom approximations:
 | `--dataflow-approximations` | Apply dataflow approximation projects, build outputs, or class directories (repeatable) |
 | `--go-models` | Apply Go model module directories (repeatable) |
 
-Use external-method tracking when a scan may miss flows through library methods. The dropped-methods file shows where taint was killed because no model was available; the approximated-methods file shows methods already covered by built-in or custom models.
+Use external-method tracking when a scan may miss flows through library methods. The dropped-methods file shows where taint was killed because no model was available. The approximated-methods file shows methods already covered by built-in or custom models.
 
 #### Go models
 
 A Go model is a separate Go module. Its module path must start with `opentaint`. After `opentaint/`, copy the target import path without a change. Use the target package name in the package declaration.
+
+Create the module with this command:
+
+```bash
+opentaint approximation init ./my-go-models --language go
+```
+
+For a third-party module, add the version that the target application uses:
+
+```bash
+opentaint approximation init ./my-go-models --language go \
+  --dependency github.com/acme/library@v1.2.3
+```
 
 For example, this model replaces the body of `net/http.Get`:
 
@@ -153,7 +166,7 @@ To replace a target function or method, use its name and signature. A model can 
 
 You can add helper functions, methods, package variables, constants, types, and struct fields. A model struct can list only the fields that its model bodies use. OpenTaint maps an existing field by its name. Its type must match the target field type. OpenTaint adds a new field after all target fields. It marks new functions and methods as model support.
 
-OpenTaint loads the model module and the analyzed project modules in a temporary Go workspace. The model can import target project packages and project dependencies. Use the model `go.mod` file for dependencies that are not in the analyzed project.
+OpenTaint loads the model module and the analyzed project modules in a temporary Go workspace. The model can import target project packages and project dependencies. Add other dependencies to the model `go.mod` file. You can add them when you run `approximation init` or with standard Go commands.
 
 OpenTaint does not use model `init` functions. Supply only one model for each target package.
 
@@ -235,32 +248,51 @@ opentaint scan --project-model ./my-project-model
 
 ### opentaint approximation
 
-A dataflow approximation models how taint moves through a method the analyzer cannot see into. Because a model references the library type it models, it needs that library to compile — so the models live in their own project, which pins those versions itself:
+A dataflow approximation models how taint moves through a method that the analyzer cannot inspect. Java and Go models use separate projects.
+
+Create a Java project with Maven dependency coordinates:
 
 ```bash
 opentaint approximation init .opentaint/dataflow/my-batch \
   --dependency "io.projectreactor:reactor-core:3.8.5"
 
-# write the opentaint-prefixed model classes under src/main/java/, then apply them
+# Write the model classes under src/main/java, then apply them.
 opentaint scan --project-model ./my-project-model \
   --dataflow-approximations .opentaint/dataflow/my-batch
 ```
 
-Pin the versions the target application uses. Those pins are the models' compile environment: they, and nothing about the project under analysis, decide what the models compile against, so a model compiles identically wherever it is applied.
+The Java dependency pins define the complete model compile environment. The target project does not supply Java model dependencies.
+
+Create a Go project with Go module dependencies:
+
+```bash
+opentaint approximation init .opentaint/dataflow/my-batch \
+  --language go \
+  --dependency github.com/acme/library@v1.2.3
+
+# Write packages under the exact target import paths, then apply them.
+opentaint scan --project-model ./my-project-model \
+  --go-models .opentaint/dataflow/my-batch
+```
+
+OpenTaint loads the Go model and target modules in one temporary Go workspace. Use the dependency versions from the target application. This prevents Go module version selection from changing the target dependency version.
+
+If you run `approximation init` again, it keeps the model sources. It replaces `build.gradle.kts` for Java or `go.mod` for Go. Pass the full dependency list again.
 
 `--dataflow-approximations` accepts an approximation project, a build output, or a directory of compiled classes — and a directory holding any of those, so a tree with one project per batch can be passed as a single flag. A directory counts as compiled classes only when nothing below it still needs building; one that holds compiled classes of its own alongside a project is reported rather than guessed at. Paths may overlap, and the same models may be reached twice, but two of them may not offer the same class with different content — which copy an analysis would read is not defined. Projects are built on demand and rebuilt when their sources, their dependency pins, or the compiler change.
 
 | Command | Description |
 |---------|-------------|
 | `opentaint approximation init <output-dir>` | Create a dataflow approximation project |
-| `opentaint compile approximations <approximation-project>` | Compile a dataflow approximation project |
+| `opentaint compile approximations <approximation-project>` | Compile a Java dataflow approximation project |
 
 | Flag | Description |
 |------|-------------|
-| `--dependency` | Compile-only Maven dependency coordinates the models are written against (repeatable, `init` only) |
+| `--language` | Model language, `java` or `go` (default: `java`, `init` only) |
+| `--dependency` | Maven coordinate for Java or `module@version` for Go (repeatable, `init` only) |
 | `--output`, `-o` | Path to the compiled models (default: `<approximation-project>/.opentaint/build`, `compile approximations` only) |
 
-Compiling ahead of time is optional — scanning and testing build the project themselves. Run it to see compilation errors on their own.
+Java compilation before a scan is optional. Scanning and testing build Java projects when needed. Go models are source modules. Do not run `compile approximations` for a Go model.
 
 ### opentaint summary
 
