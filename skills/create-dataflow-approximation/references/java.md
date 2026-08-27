@@ -14,6 +14,7 @@ The models live in the batch's own approximation project. Scaffold it once, pass
 
 ```bash
 opentaint approximation init .opentaint/dataflow/<batch> \
+  --language java \
   --dependency "io.projectreactor:reactor-core:3.8.5"
 ```
 

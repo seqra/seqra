@@ -113,13 +113,22 @@ def regen_plans(out_dir):
 # ---- partition: shared bin-packing ----
 
 def root_of(fqn, depth=ROOT_DEPTH):
-    segs = class_of(fqn).split(".")
-    return ".".join(segs[:depth]) if len(segs) >= depth else class_of(fqn)
+    cls = class_of(fqn)
+    separator = "/" if "/" in cls else "."
+    segs = cls.split(separator)
+    return separator.join(segs[:depth]) if len(segs) >= depth else cls
 
 
 def in_packages(cls, prefixes):
-    # dotted-boundary match: `a.b.collect` never matches a sibling `a.b.collectX`
-    return any(cls == p or cls.startswith(p + ".") for p in prefixes)
+    # Boundary match for JVM packages and Go import paths. A receiver type
+    # follows a Go import path with a dot.
+    return any(cls == p or cls.startswith(p + ".") or cls.startswith(p + "/")
+               for p in prefixes)
+
+
+def package_parts(package):
+    separator = "/" if "/" in package else "."
+    return separator, package.split(separator)
 
 
 def atomize(fqns, cap):
@@ -132,15 +141,16 @@ def atomize(fqns, cap):
         if len(items) <= cap:
             scopes.append((prefix, items))
             return
-        depth = len(prefix.split("."))
+        separator, prefix_parts = package_parts(prefix)
+        depth = len(prefix_parts)
         buckets, leaf = {}, []
         for f in items:
             pkg = package_of(f)
-            segs = pkg.split(".") if pkg else []
+            pkg_separator, segs = package_parts(pkg) if pkg else (separator, [])
             if pkg == prefix or len(segs) <= depth:
                 leaf.append(f)
             else:
-                child = ".".join(segs[: depth + 1])
+                child = pkg_separator.join(segs[: depth + 1])
                 buckets.setdefault(child, []).append(f)
         if leaf:
             scopes.append((prefix, leaf))
@@ -150,7 +160,8 @@ def atomize(fqns, cap):
     top = {}
     for f in fqns:
         pkg = package_of(f)
-        top.setdefault(pkg.split(".")[0] if pkg else class_of(f), []).append(f)
+        _, segs = package_parts(pkg) if pkg else (".", [])
+        top.setdefault(segs[0] if segs else class_of(f), []).append(f)
     for seg0, items in top.items():
         recurse(seg0, items)
     return scopes
@@ -183,7 +194,7 @@ def write_plans(plans, out_dir, prefix_id):
     paths = []
     for i, scopes in enumerate(plans, 1):
         pid = f"{prefix_id}-{i:03d}"
-        norm = {p.replace(".", "-"): sorted(v, key=lambda x: (x["method"], x.get("signature", ""))
+        norm = {p.replace(".", "-").replace("/", "-"): sorted(v, key=lambda x: (x["method"], x.get("signature", ""))
                                             if isinstance(x, dict) else x)
                 for p, v in sorted(scopes.items())}
         path = out_dir / f"{pid}.yaml"
@@ -234,7 +245,7 @@ def cmd_analyze(args):
         for r in by_root[root]:
             by_fqn.setdefault(fqn_base(r["method"]), []).append(r)
         bins = pack(atomize(sorted(by_fqn), ANALYZE_BUDGET), ANALYZE_BUDGET, ANALYZE_BUDGET)
-        prefix = root.replace(".", "-")
+        prefix = root.replace(".", "-").replace("/", "-")
         start = _root_next_index(prefix)
         for i, b in enumerate(bins):
             scopes = {}
@@ -282,7 +293,7 @@ def is_project_class(cls, packages):
 CALL_RE = re.compile(r"//\s*(?:Interface)?Method\s+(\S+?)\.(<?\w+>?):(\S+)")
 
 
-def extract_usages():
+def extract_jvm_usages():
     # disassemble project classes, collect // Method / // InterfaceMethod call sites with their
     # JVM descriptor; returns (fqn, signature) pairs so an overloaded member stays disambiguated
     fqns = set()
@@ -316,6 +327,50 @@ def extract_usages():
                 for owner, method, sig in CALL_RE.findall(out):
                     fqns.add((f"{owner.replace('/', '.')}#{method}", sig))
     return fqns
+
+
+def go_project_dirs(model_yaml):
+    doc = load_yaml(model_yaml, {}) or {}
+    project_root = Path(doc.get("projectRoot") or ".").resolve()
+    result = []
+    for project in doc.get("goProjects") or []:
+        if not isinstance(project, dict) or not project.get("projectDir"):
+            continue
+        path = Path(str(project["projectDir"]))
+        result.append(path if path.is_absolute() else project_root / path)
+    return result
+
+
+def extract_go_usages():
+    helper = Path(__file__).resolve().parent / "go-usage"
+    fqns = set()
+    for project_dir in go_project_dirs(MODEL / "project.yaml"):
+        try:
+            result = subprocess.run(
+                ["go", "run", ".", "--dir", str(project_dir)],
+                cwd=helper,
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+        except OSError as error:
+            raise SystemExit(f"cannot run the Go usage extractor: {error}") from error
+        except subprocess.CalledProcessError as error:
+            detail = error.stderr.strip() or error.stdout.strip() or str(error)
+            raise SystemExit(f"Go usage extraction failed: {detail}") from error
+        for row in json.loads(result.stdout or "[]"):
+            fqns.add((str(row["method"]), str(row["signature"])))
+    return fqns
+
+
+def extract_usages():
+    state = load_yaml(TRACKING / "state.yaml", {}) or {}
+    language = str(state.get("language") or "java").lower()
+    if language == "go":
+        return extract_go_usages()
+    if language in ("java", "kotlin"):
+        return extract_jvm_usages()
+    raise SystemExit(f"usage extraction is not implemented for language: {language}")
 
 
 def pending_packages():

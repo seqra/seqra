@@ -254,6 +254,7 @@ Create a Java project with Maven dependency coordinates:
 
 ```bash
 opentaint approximation init .opentaint/dataflow/my-batch \
+  --language java \
   --dependency "io.projectreactor:reactor-core:3.8.5"
 
 # Write the model classes under src/main/java, then apply them.
@@ -283,12 +284,12 @@ If you run `approximation init` again, it keeps the model sources. It replaces `
 
 | Command | Description |
 |---------|-------------|
-| `opentaint approximation init <output-dir>` | Create a dataflow approximation project |
+| `opentaint approximation init <output-dir> --language LANGUAGE` | Create a dataflow approximation project |
 | `opentaint compile approximations <approximation-project>` | Compile a Java dataflow approximation project |
 
 | Flag | Description |
 |------|-------------|
-| `--language` | Model language, `java` or `go` (default: `java`, `init` only) |
+| `--language` | Required model language, `java` or `go` (`init` only) |
 | `--dependency` | Maven coordinate for Java or `module@version` for Go (repeatable, `init` only) |
 | `--output`, `-o` | Path to the compiled models (default: `<approximation-project>/.opentaint/build`, `compile approximations` only) |
 
