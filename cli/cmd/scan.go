@@ -304,14 +304,19 @@ func runScan(cmd *cobra.Command, cfg ScanConfig) {
 	}
 
 	if plan.needsCompilation {
-		autobuilderJarPath, err := ensureAutobuilderAvailable()
-		if err != nil {
-			out.Fatalf("Native compile preparation failed: %s", err)
-		}
+		var autobuilderJarPath string
+		var compileJavaRunner java.JavaRunner
+		if !validation.IsGoSourceProject(absUserProjectRoot) {
+			var err error
+			autobuilderJarPath, err = ensureAutobuilderAvailable()
+			if err != nil {
+				out.Fatalf("Native compile preparation failed: %s", err)
+			}
 
-		compileJavaRunner := newAutobuilderJavaRunner()
-		if _, err := compileJavaRunner.EnsureJava(); err != nil {
-			out.Fatalf("Failed to resolve Java for compilation: %s", err)
+			compileJavaRunner = newAutobuilderJavaRunner()
+			if _, err := compileJavaRunner.EnsureJava(); err != nil {
+				out.Fatalf("Failed to resolve Java for compilation: %s", err)
+			}
 		}
 
 		// Wipe any residue from a prior crashed compile before writing new output.
@@ -407,7 +412,19 @@ func runScan(cmd *cobra.Command, cfg ScanConfig) {
 	addDataflowApproximations(nativeBuilder, cfg.DataflowApproximations, analyzerJarPath)
 	addGoModels(nativeBuilder, cfg.GoModels)
 
-	analyzerJavaRunner := newAnalyzerJavaRunner()
+	projectConfig, err := project.LoadConfig(absProjectModelPath)
+	if err != nil {
+		out.Fatalf("Failed to read the project model: %s", err)
+	}
+	goServerPath := ""
+	if len(projectConfig.GoProjects) > 0 {
+		goServerPath, err = ensureGoServerAvailable()
+		if err != nil {
+			out.Fatalf("Go scan preparation failed: %s", err)
+		}
+	}
+
+	analyzerJavaRunner := newAnalyzerJavaRunner(goServerPath)
 	if _, err := analyzerJavaRunner.EnsureJava(); err != nil {
 		out.Fatalf("Failed to resolve Java for analyzer: %s", err)
 	}

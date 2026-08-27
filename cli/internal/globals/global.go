@@ -14,6 +14,7 @@ var versionsYAML []byte
 type versions struct {
 	Analyzer    string `yaml:"analyzer"`
 	Autobuilder string `yaml:"autobuilder"`
+	GoServer    string `yaml:"go_server"`
 	Rules       string `yaml:"rules"`
 	Java        int    `yaml:"java"`
 }
@@ -29,6 +30,7 @@ var BindVersions = func() versions {
 var (
 	AnalyzerBindVersion    = BindVersions.Analyzer
 	AutobuilderBindVersion = BindVersions.Autobuilder
+	GoServerBindVersion    = BindVersions.GoServer
 	RulesBindVersion       = BindVersions.Rules
 	DefaultJavaVersion     = BindVersions.Java
 )
@@ -66,6 +68,11 @@ type Autobuilder struct {
 	JarPath string `mapstructure:"jar_path"`
 }
 
+type GoServer struct {
+	Version    string `mapstructure:"version"`
+	BinaryPath string `mapstructure:"binary_path"`
+}
+
 type Rules struct {
 	Version string `mapstructure:"version"`
 }
@@ -81,6 +88,7 @@ type ConfigType struct {
 	Github      Github      `mapstructure:"github"`
 	Analyzer    Analyzer    `mapstructure:"analyzer"`
 	Autobuilder Autobuilder `mapstructure:"autobuilder"`
+	GoServer    GoServer    `mapstructure:"go_server"`
 	Rules       Rules       `mapstructure:"rules"`
 	Java        Java        `mapstructure:"java"`
 	Owner       string      `mapstructure:"owner"`

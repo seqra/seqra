@@ -6,28 +6,32 @@ func TestArtifacts(t *testing.T) {
 	// Save and restore mutable globals
 	origAnalyzer := AnalyzerBindVersion
 	origAutobuilder := AutobuilderBindVersion
+	origGoServer := GoServerBindVersion
 	origRules := RulesBindVersion
 	origConfig := Config
 	t.Cleanup(func() {
 		AnalyzerBindVersion = origAnalyzer
 		AutobuilderBindVersion = origAutobuilder
+		GoServerBindVersion = origGoServer
 		RulesBindVersion = origRules
 		Config = origConfig
 	})
 
 	AnalyzerBindVersion = "1.0.0"
 	AutobuilderBindVersion = "2.0.0"
+	GoServerBindVersion = "4.0.0"
 	RulesBindVersion = "v3.0.0"
 	Config.Analyzer.Version = "1.0.0"
 	Config.Autobuilder.Version = "2.0.0"
+	Config.GoServer.Version = "4.0.0"
 	Config.Rules.Version = "v3.0.0"
 
 	arts := Artifacts()
-	if len(arts) != 3 {
-		t.Fatalf("expected 3 artifacts, got %d", len(arts))
+	if len(arts) != 4 {
+		t.Fatalf("expected 4 artifacts, got %d", len(arts))
 	}
 
-	names := []string{"Autobuilder", "Analyzer", "Rules"}
+	names := []string{"Autobuilder", "Analyzer", "Go server", "Rules"}
 	for i, want := range names {
 		if arts[i].Name != want {
 			t.Errorf("Artifacts()[%d].Name = %q, want %q", i, arts[i].Name, want)
@@ -41,6 +45,7 @@ func TestCacheName(t *testing.T) {
 	}{
 		{"analyzer_", "1.0.0", ".jar", "analyzer_1.0.0.jar"},
 		{"autobuilder_", "2.0.0", ".jar", "autobuilder_2.0.0.jar"},
+		{"go_server_", "4.0.0", "", "go_server_4.0.0"},
 		{"rules_", "v3.0.0", "", "rules_v3.0.0"},
 	}
 	for _, tt := range tests {
@@ -58,6 +63,7 @@ func TestKind(t *testing.T) {
 	}{
 		{"Autobuilder", "autobuilder"},
 		{"Analyzer", "analyzer"},
+		{"Go server", "go server"},
 		{"Rules", "rules"},
 	}
 	for _, tt := range tests {
@@ -102,9 +108,10 @@ func TestArtifactByKind(t *testing.T) {
 
 	Config.Analyzer.Version = "1.0.0"
 	Config.Autobuilder.Version = "2.0.0"
+	Config.GoServer.Version = "4.0.0"
 	Config.Rules.Version = "v3.0.0"
 
-	for _, kind := range []string{"autobuilder", "analyzer", "rules"} {
+	for _, kind := range []string{"autobuilder", "analyzer", "go server", "rules"} {
 		def := ArtifactByKind(kind)
 		if def.Kind() != kind {
 			t.Errorf("ArtifactByKind(%q).Kind() = %q", kind, def.Kind())

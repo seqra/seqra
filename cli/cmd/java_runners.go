@@ -5,12 +5,16 @@ import (
 	"github.com/seqra/opentaint/internal/utils/java"
 )
 
-func newAnalyzerJavaRunner() java.JavaRunner {
-	return java.NewJavaRunner().
+func newAnalyzerJavaRunner(goServerPath string) java.JavaRunner {
+	runner := java.NewJavaRunner().
 		WithSkipVerify(globals.Config.SkipVerify).
 		WithDebugOutput(out.DebugStream("Analyzer")).
 		WithImageType(java.AdoptiumImageJRE).
 		TrySpecificVersion(globals.DefaultJavaVersion)
+	if goServerPath != "" {
+		runner = runner.WithEnvironment("GOIR_SERVER_BINARY", goServerPath)
+	}
+	return runner
 }
 
 func newAutobuilderJavaRunner() java.JavaRunner {

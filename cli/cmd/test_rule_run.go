@@ -9,6 +9,7 @@ import (
 	"github.com/seqra/opentaint/internal/analyzer"
 	"github.com/seqra/opentaint/internal/utils"
 	"github.com/seqra/opentaint/internal/utils/log"
+	projectutil "github.com/seqra/opentaint/internal/utils/project"
 	"github.com/spf13/cobra"
 )
 
@@ -135,7 +136,19 @@ func runTestProject(projectModelArg string, opts testProjectOptions) {
 	addGoModels(builder, opts.goModels)
 	addPassthroughApproximations(builder, opts.passthroughApprox)
 
-	javaRunner := newAnalyzerJavaRunner()
+	projectConfig, err := projectutil.LoadConfig(projectPath)
+	if err != nil {
+		out.Fatalf("Failed to read the project model: %s", err)
+	}
+	goServerPath := ""
+	if len(projectConfig.GoProjects) > 0 {
+		goServerPath, err = ensureGoServerAvailable()
+		if err != nil {
+			out.Fatalf("Failed to resolve the Go server: %s", err)
+		}
+	}
+
+	javaRunner := newAnalyzerJavaRunner(goServerPath)
 	if _, err := javaRunner.EnsureJava(); err != nil {
 		out.Fatalf("Failed to resolve Java for analyzer: %s", err)
 	}

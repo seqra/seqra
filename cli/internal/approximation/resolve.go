@@ -158,7 +158,7 @@ func emptyPathError(path string) error {
 			"%s holds approximation sources (e.g. %s) but no approximation project: nothing declares "+
 				"the dependencies to compile the models against.\n"+
 				"Create a project per model directory with 'opentaint approximation init <dir> "+
-				"--dependency <group:artifact:version>' and move its sources under <dir>/src/main/java",
+				"--language java --dependency <group:artifact:version>' and move its sources under <dir>/src/main/java",
 			path, source,
 		)
 	}

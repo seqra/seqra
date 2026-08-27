@@ -30,7 +30,7 @@ var approximationInitCmd = &cobra.Command{
 	Short: "Create a dataflow approximation project",
 	Long: `Create an OpenTaint dataflow approximation project.
 
-The default language is Java. A Java project includes:
+Use --language java to create a Java project. A Java project includes:
   - build.gradle.kts with compile-only dependencies, settings.gradle.kts
   - libs/opentaint-approximations-api.jar, the @Approximate annotations and the
     OpentaintNdUtil / ArgumentTypeContext support types
@@ -116,6 +116,7 @@ func init() {
 
 	approximationInitCmd.Flags().StringArrayVar(&initApproximationDeps, "dependency", nil,
 		"Maven coordinate for Java or module@version for Go (repeatable)")
-	approximationInitCmd.Flags().StringVar(&initApproximationLanguage, "language", "java",
+	approximationInitCmd.Flags().StringVar(&initApproximationLanguage, "language", "",
 		"Model language: java or go")
+	_ = approximationInitCmd.MarkFlagRequired("language")
 }

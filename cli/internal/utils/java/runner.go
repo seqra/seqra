@@ -40,6 +40,7 @@ type JavaRunner interface {
 	WithImageType(imageType AdoptiumImageType) JavaRunner
 	WithSkipVerify(skipVerify bool) JavaRunner
 	WithDebugOutput(writer DebugLineWriter) JavaRunner
+	WithEnvironment(name, value string) JavaRunner
 	GetJavaResolutions() []JavaResolution
 	// EnsureJava resolves and downloads Java if needed, returning the path.
 	// Call this before wrapping ExecuteJavaCommand in a spinner to avoid
@@ -59,6 +60,7 @@ type javaRunner struct {
 	skipVerify        bool
 	resolvedJavaPath  string
 	debugOutput       DebugLineWriter
+	environment       map[string]string
 }
 
 type JavaResolution func() (string, ResolutionStrategy, error)
@@ -204,6 +206,13 @@ func (j *javaRunner) executeWithJava(javaPath string, strategy ResolutionStrateg
 		cmd.Env = j.getCleanEnvironment()
 		output.LogDebug("Using clean environment for managed Java version strategy")
 	}
+	if len(j.environment) > 0 {
+		base := cmd.Env
+		if base == nil {
+			base = os.Environ()
+		}
+		cmd.Env = withEnvironment(base, j.environment)
+	}
 
 	output.LogDebugf("Executing Java command: %s %v (full: %s)", javaPath, args, strings.Join(cmdArgs, " "))
 
@@ -290,6 +299,31 @@ func (j *javaRunner) WithSkipVerify(skipVerify bool) JavaRunner {
 func (j *javaRunner) WithDebugOutput(writer DebugLineWriter) JavaRunner {
 	j.debugOutput = writer
 	return j
+}
+
+func (j *javaRunner) WithEnvironment(name, value string) JavaRunner {
+	if j.environment == nil {
+		j.environment = make(map[string]string)
+	}
+	j.environment[name] = value
+	return j
+}
+
+func withEnvironment(base []string, additions map[string]string) []string {
+	result := make([]string, 0, len(base)+len(additions))
+	for _, item := range base {
+		name, _, found := strings.Cut(item, "=")
+		if !found {
+			continue
+		}
+		if _, replace := additions[name]; !replace {
+			result = append(result, item)
+		}
+	}
+	for name, value := range additions {
+		result = append(result, name+"="+value)
+	}
+	return result
 }
 
 // unsetJavaEnvironmentVariables unsets Java-related environment variables
