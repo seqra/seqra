@@ -81,6 +81,7 @@ import org.opentaint.ir.go.proto.ProtoConstValue
 import org.opentaint.ir.go.proto.ProtoFunction
 import org.opentaint.ir.go.proto.ProtoFunctionBody
 import org.opentaint.ir.go.proto.ProtoInstruction
+import org.opentaint.ir.go.proto.ProtoModelProgram
 import org.opentaint.ir.go.proto.ProtoNamedType
 import org.opentaint.ir.go.proto.ProtoNamedTypeKind
 import org.opentaint.ir.go.proto.ProtoPackage
@@ -136,11 +137,14 @@ class GoIRDeserializer {
 
     fun deserialize(responses: Iterator<BuildProgramResponse>): GoIRProgram {
         var program: ProtoProgram? = null
+        val models = mutableListOf<ProtoModelProgram>()
         for (r in responses) {
             when (r.payloadCase) {
                 BuildProgramResponse.PayloadCase.PROGRAM -> {
                     program = r.program
                 }
+
+                BuildProgramResponse.PayloadCase.MODEL_PROGRAM -> models += r.modelProgram
 
                 BuildProgramResponse.PayloadCase.SUMMARY -> serverBuildTimeMs = r.summary.buildTimeMs
                 BuildProgramResponse.PayloadCase.ERROR -> handleError(r.error.message, r.error.fatal)
@@ -152,24 +156,25 @@ class GoIRDeserializer {
         }
 
         check(program != null) { "Unexpected IR build issue" }
+        val mergedProgram = GoModelMerger().merge(program, models)
 
         val resultPackages = hashMapOf<String, GoIRPackage>()
         val anonymousInterfaces = Int2ObjectOpenHashMap<GoIRAnonymousInterfaceType>()
         val result = GoIRProgramImpl(resultPackages, anonymousInterfaces)
 
-        val pkgInfo = deserializePackages(program.packagesList)
+        val pkgInfo = deserializePackages(mergedProgram.packagesList)
         packages.filterNotNull().forEach {
             resultPackages[it.importPath] = it
         }
 
-        TypeDeserializationCtx(result, program.typesList, pkgInfo, anonymousInterfaces)
+        TypeDeserializationCtx(result, mergedProgram.typesList, pkgInfo, anonymousInterfaces)
             .deserializeTypes()
 
         FunctionDeserializationCtx(pkgInfo, result)
             .deserializeFunctions()
 
-        program.packagesList.forEach { deserializePackageMembers(it) }
-        program.functionBodiesList.forEach { deserializeFunctionBody(it) }
+        mergedProgram.packagesList.forEach { deserializePackageMembers(it) }
+        mergedProgram.functionBodiesList.forEach { deserializeFunctionBody(it) }
         pkgInfo.namedTypes.forEach { resolveNamedTypeBindings(it) }
 
         return result

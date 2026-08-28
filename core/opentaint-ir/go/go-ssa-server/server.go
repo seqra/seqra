@@ -90,8 +90,10 @@ func (s *goSSAServer) BuildProgram(req *pb.BuildProgramRequest, stream pb.GoSSAS
 			return err
 		}
 	}
+	if err := stream.Send(&pb.BuildProgramResponse{Payload: &pb.BuildProgramResponse_Program{Program: program}}); err != nil {
+		return fmt.Errorf("streaming program: %w", err)
+	}
 
-	mergeState := newModelMergeState()
 	for _, modelDir := range req.ModelDirs {
 		workspacePath, cleanupWorkspace, workspaceErr := createModelWorkspace(
 			modelDir, info, projectModulePaths,
@@ -131,16 +133,11 @@ func (s *goSSAServer) BuildProgram(req *pb.BuildProgramRequest, stream pb.GoSSAS
 				return err
 			}
 		}
-		if err := mergeGoModel(program, modelProgram, mergeState, modelDir); err != nil {
-			return stream.Send(&pb.BuildProgramResponse{Payload: &pb.BuildProgramResponse_Error{Error: &pb.ProtoError{
-				Message: err.Error(),
-				Fatal:   true,
-			}}})
+		if err := stream.Send(&pb.BuildProgramResponse{Payload: &pb.BuildProgramResponse_ModelProgram{
+			ModelProgram: &pb.ProtoModelProgram{Source: modelDir, Program: modelProgram},
+		}}); err != nil {
+			return fmt.Errorf("streaming Go model %s: %w", modelDir, err)
 		}
-	}
-
-	if err := stream.Send(&pb.BuildProgramResponse{Payload: &pb.BuildProgramResponse_Program{Program: program}}); err != nil {
-		return fmt.Errorf("streaming program: %w", err)
 	}
 
 	return stream.Send(&pb.BuildProgramResponse{
