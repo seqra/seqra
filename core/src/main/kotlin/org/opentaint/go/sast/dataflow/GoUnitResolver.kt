@@ -10,6 +10,13 @@ class GoUnitResolver : UnitResolver<GoIRFunction> {
 
     override fun resolve(method: GoIRFunction): UnitType {
         val pkg = method.pkg ?: return UnknownUnit
-        return if (pkg.isProject) GoPackageUnit(pkg.importPath) else UnknownUnit
+        return if (
+            pkg.isProject || method.syntheticKind == "opentaint model" ||
+            method.syntheticKind == "opentaint model support"
+        ) {
+            GoPackageUnit(pkg.importPath)
+        } else {
+            UnknownUnit
+        }
     }
 }

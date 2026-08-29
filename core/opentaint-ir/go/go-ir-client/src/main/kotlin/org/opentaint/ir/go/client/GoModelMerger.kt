@@ -17,7 +17,6 @@ import org.opentaint.ir.go.proto.ProtoStructType
 import org.opentaint.ir.go.proto.ProtoTypeDefinition
 
 internal class GoModelMerger {
-    private val modeledPackages = mutableMapOf<String, String>()
     private val modeledFunctions = mutableMapOf<Int, String>()
 
     fun merge(base: ProtoProgram, models: List<ProtoModelProgram>): ProtoProgram {
@@ -31,13 +30,6 @@ internal class GoModelMerger {
             ModelPathNormalizer.create(rawModel)
         } catch (error: IllegalArgumentException) {
             throw IllegalArgumentException("invalid Go model $source: ${error.message}", error)
-        }
-
-        normalizer.targets.forEach { target ->
-            val previous = modeledPackages.putIfAbsent(target, source)
-            require(previous == null) {
-                "Go package \"$target\" is modeled more than once ($previous and $source)"
-            }
         }
 
         var model = rawModel
@@ -55,6 +47,12 @@ internal class GoModelMerger {
 
         val ownedOldPackages = model.packagesList
             .filter { it.importPath in normalizer.replacements }
+            .mapTo(mutableSetOf()) { it.id }
+        val importedTargetPackages = model.packagesList
+            .filter { it.id !in ownedOldPackages && it.importPath in normalizer.targets }
+            .mapTo(mutableSetOf()) { it.id }
+        val importedTargetFunctions = modelIndex.functions.values
+            .filter { it.packageId in importedTargetPackages }
             .mapTo(mutableSetOf()) { it.id }
         val initOldFunctions = collectInitializerFunctions(model, ownedOldPackages)
 
@@ -111,6 +109,32 @@ internal class GoModelMerger {
         )
 
         model = normalizeModel(model, normalizer, ownedOldPackages)
+        model = model.toBuilder()
+            .clearFunctionBodies()
+            .addAllFunctionBodies(
+                model.functionBodiesList.filterNot { it.functionId in importedTargetFunctions },
+            )
+            .clearPackages()
+            .addAllPackages(model.packagesList.map { pkg ->
+                if (pkg.id !in importedTargetPackages) {
+                    pkg
+                } else {
+                    pkg.toBuilder()
+                        .setInitFunctionId(0)
+                        .clearFunctions()
+                        .clearGlobals()
+                        .clearConstants()
+                        .clearNamedTypes()
+                        .addAllNamedTypes(pkg.namedTypesList.map { named ->
+                            named.toBuilder()
+                                .clearMethodIds()
+                                .clearPointerMethodIds()
+                                .build()
+                        })
+                        .build()
+                }
+            })
+            .build()
         val ownedPackages = ownedOldPackages.mapTo(mutableSetOf()) { remap.packages.getValue(it) }
         val initFunctions = initOldFunctions.mapTo(mutableSetOf()) { remap.functions.getValue(it) }
         model = try {
@@ -130,6 +154,8 @@ internal class GoModelMerger {
         result = mergePackages(result, model, ownedPackages, initFunctions)
         baseIndex = ProtoIndex(result)
         result = mergeFunctionBodies(result, model, baseIndex, ownedPackages, initFunctions, source)
+        result = mergeGenericInstanceBodies(result, ownedPackages, source, counters)
+        validateReferences(result, source)
         return result
     }
 
@@ -434,7 +460,17 @@ internal class GoModelMerger {
                     .clearFunctions()
                     .addAllFunctions(pkg.functionsList.map { function ->
                         if (function.id in functionsWithBodies) {
-                            function.toBuilder().setHasBody(true).build()
+                            function.toBuilder()
+                                .setHasBody(true)
+                                .setIsSynthetic(true)
+                                .setSyntheticKind(
+                                    if (function.syntheticKind == MODEL_SUPPORT_KIND) {
+                                        MODEL_SUPPORT_KIND
+                                    } else {
+                                        MODEL_KIND
+                                    },
+                                )
+                                .build()
                         } else {
                             function
                         }
@@ -450,11 +486,277 @@ internal class GoModelMerger {
             .build()
     }
 
+    private fun mergeGenericInstanceBodies(
+        program: ProtoProgram,
+        ownedPackages: Set<Int>,
+        source: String,
+        counters: IdCounters,
+    ): ProtoProgram {
+        val index = ProtoIndex(program)
+        val genericOriginIds = index.functions.values
+            .mapNotNullTo(mutableSetOf()) { it.originFunctionId.takeIf { id -> id != 0 } }
+        val modeledGenericBodies = program.functionBodiesList.mapNotNull { body ->
+            val function = index.functions[body.functionId] ?: return@mapNotNull null
+            if (
+                function.packageId !in ownedPackages ||
+                function.id !in genericOriginIds ||
+                modeledFunctions[function.id] != source ||
+                function.syntheticKind != MODEL_KIND
+            ) {
+                return@mapNotNull null
+            }
+            function.id to ModeledGenericBody(function, body)
+        }.toMap()
+        if (modeledGenericBodies.isEmpty()) {
+            return program
+        }
+
+        val bodies = program.functionBodiesList.toMutableList()
+        val bodyIndices = bodies.mapIndexed { position, body -> body.functionId to position }
+            .toMap()
+            .toMutableMap()
+        val bodiesByFunction = program.functionBodiesList.associateBy { it.functionId }
+        val modeledInstances = mutableSetOf<Int>()
+        val instanceAnonymousFunctions = mutableMapOf<Int, List<Int>>()
+        val addedFunctions = mutableListOf<ProtoFunction>()
+        val types = program.typesList.toMutableList()
+        index.functions.values.forEach { function ->
+            val modeled = modeledGenericBodies[function.originFunctionId] ?: return@forEach
+            val previous = modeledFunctions.putIfAbsent(function.id, source)
+            require(previous == null) {
+                "Go function \"${function.fullName}\" is modeled more than once ($previous and $source)"
+            }
+            val typeArgumentsByIndex = modeled.function.typeParamsList.associate { typeParam ->
+                require(typeParam.index in function.typeArgIdsList.indices) {
+                    "Go generic instance ${function.fullName} has no type argument for " +
+                        "parameter ${typeParam.name}[${typeParam.index}]"
+                }
+                typeParam.index to function.typeArgIdsList[typeParam.index]
+            }
+            val specializer = GenericTypeSpecializer(index.types, typeArgumentsByIndex, counters)
+            val anonymousIds = collectAnonymousFunctionIds(modeled.function, index.functions)
+            val functionIds = anonymousIds.associateWith { counters.nextFunction() }.toMutableMap()
+            functionIds[modeled.function.id] = function.id
+            val functionRemap = { id: Int -> functionIds[id] ?: id }
+            val body = specializer.specialize(modeled.body, functionRemap)
+            anonymousIds.forEach { anonymousId ->
+                val original = index.functions.getValue(anonymousId)
+                val suffix = function.name.removePrefix(modeled.function.name)
+                    .ifEmpty { "#${function.id}" }
+                val specializedFunction = specializer.specialize(original, functionRemap)
+                    .toBuilder()
+                    .setName(original.name + suffix)
+                    .setFullName(original.fullName + suffix)
+                    .setIsSynthetic(true)
+                    .setSyntheticKind(MODEL_SUPPORT_KIND)
+                    .build()
+                addedFunctions += specializedFunction
+
+                val originalBody = bodiesByFunction[anonymousId]
+                require(originalBody != null) {
+                    "Go model anonymous function ${original.fullName} has no body"
+                }
+                val specializedBody = specializer.specialize(originalBody, functionRemap)
+                val anonymousBodyPosition = bodyIndices[specializedBody.functionId]
+                if (anonymousBodyPosition == null) {
+                    bodyIndices[specializedBody.functionId] = bodies.size
+                    bodies += specializedBody
+                } else {
+                    bodies[anonymousBodyPosition] = specializedBody
+                }
+            }
+            instanceAnonymousFunctions[function.id] = modeled.function.anonFunctionIdsList.map(functionRemap)
+            types += specializer.addedTypes
+            val position = bodyIndices[function.id]
+            if (position == null) {
+                bodyIndices[function.id] = bodies.size
+                bodies += body
+            } else {
+                bodies[position] = body
+            }
+            modeledInstances += function.id
+        }
+        if (modeledInstances.isEmpty()) {
+            return program
+        }
+
+        val packages = program.packagesList.map { pkg ->
+            val packageAdditions = addedFunctions.filter { it.packageId == pkg.id }
+            if (pkg.functionsList.none { it.id in modeledInstances } && packageAdditions.isEmpty()) {
+                pkg
+            } else {
+                pkg.toBuilder()
+                    .clearFunctions()
+                    .addAllFunctions(pkg.functionsList.map { function ->
+                        if (function.id !in modeledInstances) {
+                            function
+                        } else {
+                            function.toBuilder()
+                                .setHasBody(true)
+                                .setIsSynthetic(true)
+                                .setSyntheticKind(MODEL_KIND)
+                                .clearAnonFunctionIds()
+                                .addAllAnonFunctionIds(instanceAnonymousFunctions.getValue(function.id))
+                                .build()
+                        }
+                    })
+                    .addAllFunctions(packageAdditions)
+                    .build()
+            }
+        }
+        return program.toBuilder()
+            .clearTypes()
+            .addAllTypes(types)
+            .clearPackages()
+            .addAllPackages(packages)
+            .clearFunctionBodies()
+            .addAllFunctionBodies(bodies)
+            .build()
+    }
+
     private fun asModelSupport(function: ProtoFunction): ProtoFunction {
         return function.toBuilder()
             .setIsSynthetic(true)
             .setSyntheticKind(MODEL_SUPPORT_KIND)
             .build()
+    }
+
+    private data class ModeledGenericBody(
+        val function: ProtoFunction,
+        val body: ProtoFunctionBody,
+    )
+
+    private fun collectAnonymousFunctionIds(
+        root: ProtoFunction,
+        functions: Map<Int, ProtoFunction>,
+    ): List<Int> {
+        val result = linkedSetOf<Int>()
+        val pending = ArrayDeque(root.anonFunctionIdsList)
+        while (pending.isNotEmpty()) {
+            val id = pending.removeFirst()
+            if (!result.add(id)) {
+                continue
+            }
+            val function = functions[id]
+                ?: throw IllegalArgumentException("Go model anonymous function $id is missing")
+            pending.addAll(function.anonFunctionIdsList)
+        }
+        return result.toList()
+    }
+}
+
+private class GenericTypeSpecializer(
+    private val definitions: Map<Int, ProtoTypeDefinition>,
+    private val typeArgumentsByIndex: Map<Int, Int>,
+    private val counters: IdCounters,
+) {
+    private val specialized = mutableMapOf<Int, Int>()
+    private val active = mutableSetOf<Int>()
+    val addedTypes = mutableListOf<ProtoTypeDefinition>()
+
+    fun specialize(body: ProtoFunctionBody, remapFunction: (Int) -> Int): ProtoFunctionBody =
+        remapMessageIdsOfClass(
+            remapMessageIdsOfClass(body, MapName.TYPE, ::specializeType),
+            MapName.FUNCTION,
+            remapFunction,
+        ) as ProtoFunctionBody
+
+    fun specialize(function: ProtoFunction, remapFunction: (Int) -> Int): ProtoFunction =
+        remapMessageIdsOfClass(
+            remapMessageIdsOfClass(function, MapName.TYPE, ::specializeType),
+            MapName.FUNCTION,
+            remapFunction,
+        ) as ProtoFunction
+
+    private fun specializeType(id: Int): Int {
+        if (id == 0) {
+            return 0
+        }
+        specialized[id]?.let { return it }
+        val definition = definitions[id]
+            ?: throw IllegalArgumentException("Go model type $id is missing during generic specialization")
+        if (definition.typeCase == ProtoTypeDefinition.TypeCase.TYPE_PARAM) {
+            typeArgumentsByIndex[definition.typeParam.index]?.let { typeArgument ->
+                specialized[id] = typeArgument
+                return typeArgument
+            }
+        }
+        require(active.add(id)) { "recursive Go model type $id cannot be specialized" }
+        val rewritten = rewrite(definition)
+        active -= id
+        if (rewritten == definition) {
+            specialized[id] = id
+            return id
+        }
+        val result = rewritten.toBuilder().setId(counters.nextType()).build()
+        addedTypes += result
+        specialized[id] = result.id
+        return result.id
+    }
+
+    private fun rewrite(definition: ProtoTypeDefinition): ProtoTypeDefinition {
+        val builder = definition.toBuilder()
+        when (definition.typeCase) {
+            ProtoTypeDefinition.TypeCase.POINTER -> builder.setPointer(
+                definition.pointer.toBuilder().setElemTypeId(specializeType(definition.pointer.elemTypeId)),
+            )
+            ProtoTypeDefinition.TypeCase.ARRAY -> builder.setArray(
+                definition.array.toBuilder().setElemTypeId(specializeType(definition.array.elemTypeId)),
+            )
+            ProtoTypeDefinition.TypeCase.SLICE -> builder.setSlice(
+                definition.slice.toBuilder().setElemTypeId(specializeType(definition.slice.elemTypeId)),
+            )
+            ProtoTypeDefinition.TypeCase.MAP_TYPE -> builder.setMapType(
+                definition.mapType.toBuilder()
+                    .setKeyTypeId(specializeType(definition.mapType.keyTypeId))
+                    .setValueTypeId(specializeType(definition.mapType.valueTypeId)),
+            )
+            ProtoTypeDefinition.TypeCase.CHAN_TYPE -> builder.setChanType(
+                definition.chanType.toBuilder().setElemTypeId(specializeType(definition.chanType.elemTypeId)),
+            )
+            ProtoTypeDefinition.TypeCase.STRUCT_TYPE -> builder.setStructType(
+                definition.structType.toBuilder()
+                    .clearFields()
+                    .addAllFields(definition.structType.fieldsList.map { field ->
+                        field.toBuilder().setTypeId(specializeType(field.typeId)).build()
+                    }),
+            )
+            ProtoTypeDefinition.TypeCase.INTERFACE_TYPE -> builder.setInterfaceType(
+                definition.interfaceType.toBuilder()
+                    .clearMethods()
+                    .addAllMethods(definition.interfaceType.methodsList.map { method ->
+                        method.toBuilder()
+                            .setSignatureTypeId(specializeType(method.signatureTypeId))
+                            .build()
+                    })
+                    .clearEmbedTypeIds()
+                    .addAllEmbedTypeIds(definition.interfaceType.embedTypeIdsList.map(::specializeType)),
+            )
+            ProtoTypeDefinition.TypeCase.FUNC_TYPE -> builder.setFuncType(
+                definition.funcType.toBuilder()
+                    .clearParamTypeIds()
+                    .addAllParamTypeIds(definition.funcType.paramTypeIdsList.map(::specializeType))
+                    .clearResultTypeIds()
+                    .addAllResultTypeIds(definition.funcType.resultTypeIdsList.map(::specializeType))
+                    .setRecvTypeId(specializeType(definition.funcType.recvTypeId)),
+            )
+            ProtoTypeDefinition.TypeCase.NAMED_REF -> builder.setNamedRef(
+                definition.namedRef.toBuilder()
+                    .clearTypeArgIds()
+                    .addAllTypeArgIds(definition.namedRef.typeArgIdsList.map(::specializeType)),
+            )
+            ProtoTypeDefinition.TypeCase.TYPE_PARAM -> {}
+            ProtoTypeDefinition.TypeCase.TUPLE -> builder.setTuple(
+                definition.tuple.toBuilder()
+                    .clearElementTypeIds()
+                    .addAllElementTypeIds(definition.tuple.elementTypeIdsList.map(::specializeType)),
+            )
+            ProtoTypeDefinition.TypeCase.BASIC,
+            ProtoTypeDefinition.TypeCase.UNSAFE_POINTER,
+            ProtoTypeDefinition.TypeCase.TYPE_NOT_SET,
+            -> {}
+        }
+        return builder.build()
     }
 }
 
@@ -916,6 +1218,37 @@ private fun remapMessageIds(message: Message, remap: IdRemap): Message {
     return builder.build()
 }
 
+private fun remapMessageIdsOfClass(
+    message: Message,
+    mapName: MapName,
+    remap: (Int) -> Int,
+): Message {
+    val builder = message.toBuilder()
+    message.allFields.forEach { (field, value) ->
+        if (field.isRepeated) {
+            val values = value as List<*>
+            if (field.javaType == FieldDescriptor.JavaType.MESSAGE) {
+                builder.clearField(field)
+                values.forEach { child ->
+                    builder.addRepeatedField(
+                        field,
+                        remapMessageIdsOfClass(child as Message, mapName, remap),
+                    )
+                }
+            } else if (remapClass(message, field) == mapName) {
+                values.forEachIndexed { index, oldId ->
+                    builder.setRepeatedField(field, index, remap(oldId as Int))
+                }
+            }
+        } else if (field.javaType == FieldDescriptor.JavaType.MESSAGE) {
+            builder.setField(field, remapMessageIdsOfClass(value as Message, mapName, remap))
+        } else if (remapClass(message, field) == mapName) {
+            builder.setField(field, remap(value as Int))
+        }
+    }
+    return builder.build()
+}
+
 private fun remapValue(
     oldId: Int,
     values: Map<Int, Int>,
@@ -929,6 +1262,51 @@ private fun remapValue(
         "remapping ${message.descriptorForType.name}.${field.name}: " +
             "wire id $oldId has no model remapping",
     )
+}
+
+private fun validateReferences(program: ProtoProgram, source: String) {
+    val validIds = mapOf(
+        MapName.TYPE to program.typesList.mapTo(mutableSetOf()) { it.id },
+        MapName.PACKAGE to program.packagesList.mapTo(mutableSetOf()) { it.id },
+        MapName.FUNCTION to program.packagesList
+            .flatMapTo(mutableSetOf()) { pkg -> pkg.functionsList.map { it.id } },
+        MapName.NAMED to program.packagesList
+            .flatMapTo(mutableSetOf()) { pkg -> pkg.namedTypesList.map { it.id } },
+        MapName.GLOBAL to program.packagesList
+            .flatMapTo(mutableSetOf()) { pkg -> pkg.globalsList.map { it.id } },
+        MapName.CONST to program.packagesList
+            .flatMapTo(mutableSetOf()) { pkg -> pkg.constantsList.map { it.id } },
+    )
+
+    fun validate(message: Message, path: String) {
+        message.allFields.forEach { (field, value) ->
+            if (field.javaType == FieldDescriptor.JavaType.MESSAGE) {
+                if (field.isRepeated) {
+                    (value as List<*>).forEachIndexed { index, child ->
+                        validate(child as Message, "$path.${field.name}[$index]")
+                    }
+                } else {
+                    validate(value as Message, "$path.${field.name}")
+                }
+                return@forEach
+            }
+            val mapName = remapClass(message, field)
+            if (mapName == MapName.NONE) {
+                return@forEach
+            }
+            val idsInProgram = validIds.getValue(mapName)
+            val ids = if (field.isRepeated) value as List<*> else listOf(value)
+            ids.forEach { rawId ->
+                val id = rawId as Int
+                require(id == 0 || id in idsInProgram) {
+                    "merging Go model $source: $path.${field.name} references missing " +
+                        "${mapName.name.lowercase()} $id"
+                }
+            }
+        }
+    }
+
+    validate(program, "ProtoProgram")
 }
 
 private fun remapClass(message: Message, field: FieldDescriptor): MapName {
@@ -950,7 +1328,7 @@ private fun remapClass(message: Message, field: FieldDescriptor): MapName {
         name == "fn_id" || name == "method_ids" || name == "pointer_method_ids" ||
             "function_id" in name -> MapName.FUNCTION
         name == "global_id" -> MapName.GLOBAL
-        name.endsWith("type_id") || name.endsWith("type_ids") -> MapName.TYPE
+        name == "type_arg_ids" || name.endsWith("type_id") || name.endsWith("type_ids") -> MapName.TYPE
         else -> MapName.NONE
     }
 }
@@ -984,3 +1362,4 @@ private fun <K, V> Map<K, V>.reverse(): MutableMap<V, K> {
 private const val GO_MODEL_PREFIX = "opentaint/"
 private const val UNIVERSE_PACKAGE_PATH = "<universe>"
 private const val MODEL_SUPPORT_KIND = "opentaint model support"
+private const val MODEL_KIND = "opentaint model"

@@ -270,6 +270,7 @@ message ProtoTypeParamDecl {
     string name = 1;
     int32 index = 2;
     int32 constraint_type_id = 3;
+    int32 type_id = 4;
 }
 
 message ProtoFunction {
@@ -291,6 +292,8 @@ message ProtoFunction {
     repeated ProtoTypeParamDecl type_params = 16;
     bool has_body = 17;
     ProtoPosition position = 18;
+    int32 origin_function_id = 19;
+    repeated int32 type_arg_ids = 20;
 }
 
 message ProtoParam {

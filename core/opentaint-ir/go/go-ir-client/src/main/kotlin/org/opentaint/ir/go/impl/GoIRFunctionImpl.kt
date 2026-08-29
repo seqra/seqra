@@ -27,6 +27,7 @@ class GoIRFunctionImpl(
     private val declaredHasBody: Boolean = false,
     override val parent: GoIrFunctionReference?,
     override val anonymousFunctions: List<GoIrFunctionReference>,
+    override val typeParams: List<GoIRTypeParamDecl> = emptyList(),
 ) : GoIRFunction {
     private var _body: GoIRBody? = null
 
@@ -40,8 +41,6 @@ class GoIRFunctionImpl(
 
     override val hasBody: Boolean get() = declaredHasBody
     override val bodyAvailable: Boolean get() = _body != null
-
-    override val typeParams: List<GoIRTypeParamDecl> = emptyList() // TODO: implement
 
     fun setBody(body: GoIRBody) {
         this._body = body

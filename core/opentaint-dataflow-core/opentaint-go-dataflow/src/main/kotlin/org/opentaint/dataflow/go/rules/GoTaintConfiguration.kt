@@ -178,7 +178,12 @@ class GoTaintConfiguration : GoTaintRulesProvider {
         patternRules: List<R>,
         ruleNameMatcher: R.() -> GoNameMatcher,
     ): List<R> {
-        val direct = simpleByName[name].orEmpty()
+        val genericOriginName = name.substringBefore('[', name)
+        val direct = if (genericOriginName == name) {
+            simpleByName[name].orEmpty()
+        } else {
+            simpleByName[name].orEmpty() + simpleByName[genericOriginName].orEmpty()
+        }
         val patternMatches = patternRules.filter { it.ruleNameMatcher().matches(name) }
         if (patternMatches.isEmpty()) return direct
         if (direct.isEmpty()) return patternMatches

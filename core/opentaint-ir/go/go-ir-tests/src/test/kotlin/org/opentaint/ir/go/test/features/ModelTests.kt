@@ -8,6 +8,7 @@ import org.opentaint.ir.go.cfg.GoIRCallTarget
 import org.opentaint.ir.go.client.GoIRLoadConfig
 import org.opentaint.ir.go.client.GoIRLoadMode
 import org.opentaint.ir.go.expr.GoIRFieldAddrExpr
+import org.opentaint.ir.go.expr.GoIRMakeClosureExpr
 import org.opentaint.ir.go.ext.findExpressions
 import org.opentaint.ir.go.ext.findInstructions
 import org.opentaint.ir.go.inst.GoIRCall
@@ -133,7 +134,238 @@ class ModelTests {
     }
 
     @Test
-    fun `one package cannot be modeled twice`(builder: GoIRTestBuilder) {
+    fun `one package can have disjoint partial models`(builder: GoIRTestBuilder) {
+        val project = project(
+            "example.com/app",
+            "package main\nimport \"strings\"\n" +
+                "func Upper(value string) string { return strings.ToUpper(value) }\n" +
+                "func Lower(value string) string { return strings.ToLower(value) }\n",
+        )
+        val firstModel = model(
+            "strings",
+            "package strings\nfunc ToUpper(value string) string { return value }\n",
+        )
+        val secondModel = model(
+            "strings",
+            "package strings\nfunc ToLower(value string) string { return value }\n",
+        )
+
+        val program = builder.buildFromDir(
+            project,
+            GoIRLoadConfig(
+                mode = GoIRLoadMode.PROJECT,
+                modelDirs = listOf(firstModel, secondModel),
+            ),
+        )
+        val strings = program.findPackage("strings")!!
+
+        listOf("ToUpper", "ToLower").forEach { name ->
+            val function = strings.functions.single { it.name == name }
+            val returned = (function.body!!.blocks.single().terminator as GoIRReturn).results.single()
+            assertThat(returned).isInstanceOf(GoIRParameterValue::class.java)
+        }
+    }
+
+    @Test
+    fun `one package can have disjoint generic partial models`(builder: GoIRTestBuilder) {
+        val project = project(
+            "example.com/app",
+            """
+            package main
+            import "slices"
+            func Delete(values []string) []string {
+                return slices.DeleteFunc(values, func(string) bool { return false })
+            }
+            func Contains(values []string) bool {
+                return slices.ContainsFunc(values, func(string) bool { return true })
+            }
+            """.trimIndent(),
+        )
+        val firstModel = model(
+            "slices",
+            "package slices\nfunc DeleteFunc[S ~[]E, E any](values S, _ func(E) bool) S { return values }\n",
+        )
+        val secondModel = model(
+            "slices",
+            "package slices\nfunc ContainsFunc[S ~[]E, E any](_ S, predicate func(E) bool) bool { " +
+                "var value E; return predicate(value) }\n",
+        )
+
+        val program = builder.buildFromDir(
+            project,
+            GoIRLoadConfig(
+                mode = GoIRLoadMode.PROJECT,
+                modelDirs = listOf(firstModel, secondModel),
+            ),
+        )
+        val modeledInstances = program.findPackage("slices")!!.functions.filter {
+            it.fullName.startsWith("slices.DeleteFunc[") ||
+                it.fullName.startsWith("slices.ContainsFunc[")
+        }
+
+        assertThat(modeledInstances).hasSize(2)
+        assertThat(modeledInstances).allMatch { it.syntheticKind == "opentaint model" }
+    }
+
+    @Test
+    fun `generic model instance body uses concrete target types`(builder: GoIRTestBuilder) {
+        val project = project(
+            "example.com/app",
+            "package main\nimport \"slices\"\nfunc Clone(values []string) []string { return slices.Clone(values) }\n",
+        )
+        val model = model(
+            "slices",
+            "package slices\nfunc Clone[S ~[]E, E any](values S) S { return values }\n",
+        )
+
+        val program = builder.buildFromDir(project, modelConfig(model))
+        val clone = program.findPackage("slices")!!.functions.single {
+            it.fullName.startsWith("slices.Clone[")
+        }
+        val returned = (clone.body!!.blocks.single().terminator as GoIRReturn)
+            .results.single() as GoIRParameterValue
+
+        assertThat(clone.typeParams.map { it.name }).containsExactly("S", "E")
+        assertThat(returned.type).isEqualTo(clone.params.single().type)
+        assertThat(returned.type).isEqualTo(clone.signature.results.single())
+    }
+
+    @Test
+    fun `generic model specializes compound body types`(builder: GoIRTestBuilder) {
+        val project = project(
+            "example.com/genericmodel",
+            """
+            package genericmodel
+            type Box[T any] struct { Value T }
+            func Flow[T any](value T) (
+                *T, []T, map[string]T, chan T,
+                [1]T, struct { Value T }, func(T) T, Box[T],
+            ) {
+                var array [1]T
+                var record struct { Value T }
+                var callback func(T) T
+                var box Box[T]
+                return nil, nil, nil, nil, array, record, callback, box
+            }
+            func Use(value string) { Flow[string](value) }
+            """.trimIndent(),
+        )
+        val model = model(
+            "example.com/genericmodel",
+            """
+            package genericmodel
+            type Box[T any] struct { Value T }
+            func Flow[T any](value T) (
+                *T, []T, map[string]T, chan T,
+                [1]T, struct { Value T }, func(T) T, Box[T],
+            ) {
+                pointer := &value
+                values := []T{value}
+                index := map[string]T{"value": value}
+                stream := make(chan T, 1)
+                stream <- value
+                array := [1]T{value}
+                record := struct { Value T }{Value: value}
+                callback := func(input T) T { return input }
+                box := Box[T]{Value: value}
+                return pointer, values, index, stream, array, record, callback, box
+            }
+            """.trimIndent(),
+        )
+
+        val program = builder.buildFromDir(project, modelConfig(model))
+        val flow = program.findPackage("example.com/genericmodel")!!.functions.single {
+            it.fullName.startsWith("example.com/genericmodel.Flow[")
+        }
+        val returned = (flow.body!!.blocks.single { block ->
+            block.terminator is GoIRReturn
+        }.terminator as GoIRReturn).results
+
+        assertThat(returned.map { it.type }).containsExactlyElementsOf(flow.signature.results)
+    }
+
+    @Test
+    fun `generic receiver model instance uses concrete target types`(builder: GoIRTestBuilder) {
+        val project = project(
+            "example.com/genericreceiver",
+            """
+            package genericreceiver
+            type Box[T any] struct { value T }
+            func (box Box[T]) Get() T { return box.value }
+            func Use(box Box[string]) string { return box.Get() }
+            """.trimIndent(),
+        )
+        val model = model(
+            "example.com/genericreceiver",
+            """
+            package genericreceiver
+            type Box[T any] struct { value T }
+            func (box Box[T]) Get() T { return box.value }
+            """.trimIndent(),
+        )
+
+        val program = builder.buildFromDir(project, modelConfig(model))
+        val functions = program.findPackage("example.com/genericreceiver")!!.functions
+        val get = functions.single {
+            it.fullName.contains("Box[string]") && it.name.startsWith("Get[")
+        }
+        val returned = (get.body!!.blocks.single().terminator as GoIRReturn).results.single()
+
+        assertThat(returned.type).isEqualTo(get.signature.results.single())
+    }
+
+    @Test
+    fun `generic model closure uses concrete target types`(builder: GoIRTestBuilder) {
+        val project = project(
+            "example.com/genericclosure",
+            """
+            package genericclosure
+            func Apply[T any](value T) T { return value }
+            func UseString(value string) string { return Apply[string](value) }
+            func UseInt(value int) int { return Apply[int](value) }
+            """.trimIndent(),
+        )
+        val model = model(
+            "example.com/genericclosure",
+            """
+            package genericclosure
+            func Apply[T any](value T) T {
+                nested := func(input T) T {
+                    inner := func() T { return value }
+                    return inner()
+                }
+                return nested(value)
+            }
+            """.trimIndent(),
+        )
+
+        val program = builder.buildFromDir(project, modelConfig(model))
+        val applyInstances = program.findPackage("example.com/genericclosure")!!.functions.filter {
+            it.fullName.startsWith("example.com/genericclosure.Apply[")
+        }
+        assertThat(applyInstances).hasSize(2)
+        applyInstances.forEach { apply ->
+            val outer = apply.findExpressions<GoIRMakeClosureExpr>().single().fn
+            val inner = outer.findExpressions<GoIRMakeClosureExpr>().single().fn
+            val concreteType = apply.signature.results.single()
+
+            assertThat(outer.parent!!.function).isSameAs(apply)
+            assertThat(inner.parent!!.function).isSameAs(outer)
+            assertThat(outer.signature.params.single()).isEqualTo(apply.signature.params.single())
+            assertThat(outer.signature.results.single()).isEqualTo(concreteType)
+            assertThat(inner.signature.results.single()).isEqualTo(concreteType)
+            val returned = (inner.body!!.blocks.single().terminator as GoIRReturn).results.single()
+            assertThat(returned.type).isEqualTo(concreteType)
+        }
+        assertThat(
+            applyInstances.map { apply ->
+                apply.findExpressions<GoIRMakeClosureExpr>().single().fn.fullName
+            },
+        ).doesNotHaveDuplicates()
+    }
+
+    @Test
+    fun `one function cannot be modeled twice`(builder: GoIRTestBuilder) {
         val project = project(
             "example.com/app",
             "package main\nimport \"strings\"\nfunc Use(value string) string { return strings.ToUpper(value) }\n",
@@ -249,6 +481,39 @@ class ModelTests {
         val returned = (identity.body!!.blocks.single().terminator as GoIRReturn).results.single()
 
         assertThat((returned as GoIRParameterValue).paramIndex).isZero()
+    }
+
+    @Test
+    fun `imported target declarations do not damage generic target types`(builder: GoIRTestBuilder) {
+        val project = project(
+            "example.com/genericdependency",
+            """
+            package genericdependency
+            import _ "net/http"
+            type Box[T any] struct { Value T }
+            type Callback func(*Box[string])
+            func Register(Callback) {}
+            """.trimIndent(),
+        )
+        val model = model(
+            "example.com/genericdependency",
+            """
+            package genericdependency
+            import _ "net/http"
+            import target "example.com/genericdependency"
+            func Register(callback target.Callback) { callback(nil) }
+            """.trimIndent(),
+        )
+
+        val program = builder.buildFromDir(project, modelConfig(model))
+        val targetPackage = program.findPackage("example.com/genericdependency")!!
+        val register = targetPackage
+            .functions.single { it.name == "Register" }
+
+        assertThat(targetPackage.findNamedType("Box")!!.typeParams.map { it.name })
+            .containsExactly("T")
+        assertThat(register.findInstructions<GoIRCall>())
+            .anyMatch { it.call.target is GoIRCallTarget.Dynamic }
     }
 
     @Test

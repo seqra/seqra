@@ -354,6 +354,14 @@ func (s *serializer) collectFunction(fn *ssa.Function) {
 func (s *serializer) collectFunctionSignature(fn *ssa.Function) {
 	s.ids.functionID(fn)
 	s.collectType(fn.Signature)
+	if typeParams := fn.TypeParams(); typeParams != nil {
+		for i := 0; i < typeParams.Len(); i++ {
+			s.collectType(typeParams.At(i))
+		}
+	}
+	for _, typeArg := range fn.TypeArgs() {
+		s.collectType(typeArg)
+	}
 
 	// Collect types from parameters
 	for _, p := range fn.Params {
@@ -519,6 +527,12 @@ func (s *serializer) collectType(t types.Type) {
 		}
 	case *types.Named:
 		s.collectType(ut.Underlying())
+		typeParams := ut.TypeParams()
+		if typeParams != nil {
+			for i := 0; i < typeParams.Len(); i++ {
+				s.collectType(typeParams.At(i))
+			}
+		}
 		// Also collect type args for instantiated generics
 		targs := ut.TypeArgs()
 		if targs != nil {
@@ -882,6 +896,23 @@ func (s *serializer) serializeFunction(fn *ssa.Function) *pb.ProtoFunction {
 		pf.PackageId = s.ids.packageID(fnPkg)
 	}
 	pf.SignatureTypeId = s.typeID(fn.Signature)
+	if origin := fn.Origin(); origin != nil && origin != fn {
+		pf.OriginFunctionId = s.ids.functionID(origin)
+	}
+	if typeParams := fn.TypeParams(); typeParams != nil {
+		for i := 0; i < typeParams.Len(); i++ {
+			typeParam := typeParams.At(i)
+			pf.TypeParams = append(pf.TypeParams, &pb.ProtoTypeParamDecl{
+				Name:             typeParam.Obj().Name(),
+				Index:            int32(typeParam.Index()),
+				ConstraintTypeId: s.typeID(typeParam.Constraint()),
+				TypeId:           s.typeID(typeParam),
+			})
+		}
+	}
+	for _, typeArg := range fn.TypeArgs() {
+		pf.TypeArgIds = append(pf.TypeArgIds, s.typeID(typeArg))
+	}
 
 	// Method info
 	if recv := fn.Signature.Recv(); recv != nil {
@@ -1000,6 +1031,17 @@ func (s *serializer) serializeNamedType(named *types.TypeName) *pb.ProtoNamedTyp
 	namedType, _ := named.Type().(*types.Named)
 	if namedType == nil {
 		return nt
+	}
+	if typeParams := namedType.TypeParams(); typeParams != nil {
+		for i := 0; i < typeParams.Len(); i++ {
+			typeParam := typeParams.At(i)
+			nt.TypeParams = append(nt.TypeParams, &pb.ProtoTypeParamDecl{
+				Name:             typeParam.Obj().Name(),
+				Index:            int32(typeParam.Index()),
+				ConstraintTypeId: s.typeID(typeParam.Constraint()),
+				TypeId:           s.typeID(typeParam),
+			})
+		}
 	}
 	mset := s.prog.MethodSets.MethodSet(namedType)
 	for i := 0; i < mset.Len(); i++ {

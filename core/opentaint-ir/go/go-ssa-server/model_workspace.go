@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -53,6 +54,12 @@ func createModelWorkspace(
 	if !version.IsValid(goVersion) {
 		goVersion = "go1.25.0"
 	}
+	goVersion = newerGoVersion(goVersion, moduleGoVersion(modelDir))
+	for _, pkg := range projectInfo {
+		if pkg.Module != nil && moduleDirs[pkg.Module.Dir] {
+			goVersion = newerGoVersion(goVersion, pkg.Module.GoVersion)
+		}
+	}
 
 	var workspace strings.Builder
 	fmt.Fprintf(&workspace, "go %s\n\nuse (\n", strings.TrimPrefix(goVersion, "go"))
@@ -67,6 +74,26 @@ func createModelWorkspace(
 		return "", nil, fmt.Errorf("write Go model workspace: %w", err)
 	}
 	return workspacePath, cleanup, nil
+}
+
+func moduleGoVersion(moduleDir string) string {
+	data, err := os.ReadFile(filepath.Join(moduleDir, "go.mod"))
+	if err != nil {
+		return ""
+	}
+	parsed, err := modfile.Parse("go.mod", data, nil)
+	if err != nil || parsed.Go == nil {
+		return ""
+	}
+	return parsed.Go.Version
+}
+
+func newerGoVersion(current, candidate string) string {
+	candidate = "go" + strings.TrimPrefix(candidate, "go")
+	if version.IsValid(candidate) && version.Compare(candidate, current) > 0 {
+		return candidate
+	}
+	return current
 }
 
 func modelModulePaths(modelDir string, modelInfo map[string]*packages.Package) map[string]bool {

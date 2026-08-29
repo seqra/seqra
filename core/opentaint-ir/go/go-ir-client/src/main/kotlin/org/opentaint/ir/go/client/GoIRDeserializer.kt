@@ -10,6 +10,7 @@ import org.opentaint.ir.go.api.GoIRPackage
 import org.opentaint.ir.go.api.GoIRParameter
 import org.opentaint.ir.go.api.GoIRPosition
 import org.opentaint.ir.go.api.GoIRProgram
+import org.opentaint.ir.go.api.GoIRTypeParamDecl
 import org.opentaint.ir.go.api.GoIrFunctionReference
 import org.opentaint.ir.go.cfg.GoIRCallInfo
 import org.opentaint.ir.go.cfg.GoIRCallTarget
@@ -356,6 +357,13 @@ class GoIRDeserializer {
             underlying = resolveType(nt.underlyingTypeId),
             kind = namedTypeKindFromProto(nt.kind),
             position = positionFromProto(nt.position),
+            typeParams = nt.typeParamsList.map { typeParam ->
+                GoIRTypeParamDecl(
+                    typeParam.name,
+                    typeParam.index,
+                    resolveType(typeParam.constraintTypeId),
+                )
+            },
         )
 
         for (fd in nt.fieldsList) {
@@ -556,6 +564,13 @@ class GoIRDeserializer {
                 declaredHasBody = pf.hasBody,
                 parent = parentFunction,
                 anonymousFunctions = anonymousFunctions,
+                typeParams = pf.typeParamsList.map { typeParam ->
+                    GoIRTypeParamDecl(
+                        typeParam.name,
+                        typeParam.index,
+                        getType(typeParam.constraintTypeId),
+                    )
+                },
             )
         }
     }
