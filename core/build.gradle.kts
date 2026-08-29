@@ -81,6 +81,10 @@ dependencies {
 tasks.withType<Test> {
     dependsOn(project("samples").tasks.withType<Jar>())
     ensureGoEnvInitialized()
+    systemProperty(
+        "opentaint.go.models.root",
+        layout.projectDirectory.dir("../model/go/dataflow").asFile.absolutePath,
+    )
 
     doFirst {
         val resolvedTestSamples = testSamples.resolve()

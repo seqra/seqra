@@ -1,0 +1,9 @@
+language: go
+passThrough:
+- function:
+    package: github.com/google/go-github/v89/github
+    name: Ptr
+    receiver: false
+  copy:
+  - from: arg(0)
+    to: result

@@ -21,6 +21,10 @@ tasks.withType<Test>().configureEach {
     dependsOn(":go:buildGoServer")
     useJUnitPlatform()
     systemProperty("goir.server.binary", goServerBinary)
+    systemProperty(
+        "opentaint.go.models.root",
+        rootProject.layout.projectDirectory.dir("../../model/go/dataflow").asFile.absolutePath,
+    )
 
     // Show test output for debugging (started/passed/failed/skipped)
     testLogging {
