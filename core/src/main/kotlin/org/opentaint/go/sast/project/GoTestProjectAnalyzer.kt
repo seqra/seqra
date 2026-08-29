@@ -44,6 +44,7 @@ class GoTestProjectAnalyzer(
     project, results, providedOptions.common.copy(storeSummaries = false),
 ) {
     private val modelPaths = providedOptions.modelPaths
+    private val useDefaultModels = providedOptions.useDefaultModels
     private val loadedRules = options.loadSemgrepRules(GoLanguageStrategy())
 
     @Serializable
@@ -78,7 +79,7 @@ class GoTestProjectAnalyzer(
             Yaml().decodeFromStream<RuleTests>(it)
         }
 
-        val ctx = AnalysisCtx(project, GoIRClient(), modelPaths)
+        val ctx = AnalysisCtx(project, GoIRClient(), modelPaths, useDefaultModels)
 
         val results = ctx.analyzeTestSamples(ruleTests.tests)
             ?: return ProjectAnalysisStatus.EXCEPTION
