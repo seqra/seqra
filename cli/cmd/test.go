@@ -50,5 +50,5 @@ func addTestRunFlags(
 	cmd.Flags().DurationVar(timeout, "timeout", 600*time.Second, "Analysis timeout")
 	cmd.Flags().StringVar(maxMemory, "max-memory", "8G", "Maximum analyzer heap size (e.g., 8G)")
 	cmd.Flags().StringArrayVar(dataflow, "dataflow-approximations", nil, "Dataflow approximation project, build output, or class directory (repeatable)")
-	cmd.Flags().StringArrayVar(goModels, "go-models", nil, "Go model source directory using opentaint/<target-package> package paths (repeatable)")
+	cmd.Flags().StringArrayVar(goModels, "go-models", nil, "Go model source directory using opentaint/<target-package> package paths, with each target package in only one directory (repeatable)")
 }
