@@ -17,15 +17,17 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.jvm.ap.ifds.taint.PrimitiveTaintExt
 
 /**
- * A whole-object source must find not less than a base-only source.
+ * The star is the only source of element taint on a primitive array.
  *
- * A whole-object source taints the argument twice: the base and the any-field. If the argument
- * is a primitive array, an element read puts the any-field part on a primitive position. The
- * type checker rejected an any-accessor there, and a reject removes the full fact. Thus the
- * base part was also lost.
+ * The array-element mechanism gave element taint to an array position without a rule. It is
+ * deleted. A base-only source thus stops at an element read. A whole-object source continues,
+ * because the star puts the any-field part on the element.
  *
- * These two tests are a pair. Without the fix, only the whole-object test fails. The fault
- * occurs in Tree mode only.
+ * These two tests are a pair. Together they show that the star replaces the deleted mechanism.
+ *
+ * The whole-object test also needs the any-accessor fix. An element read puts the any-field part
+ * on a primitive position. Before the fix the filter removed the full fact there, and the taint
+ * stopped in Tree mode.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 abstract class AnyFieldPrimitiveAnalysisTest : AnalysisTest() {
@@ -61,11 +63,10 @@ abstract class AnyFieldPrimitiveAnalysisTest : AnalysisTest() {
         PositionBaseWithModifiers.WithModifiers(Argument(0), listOf(PositionModifier.AnyField))
 
     @Test
-    fun `base-only source on a primitive array reaches the element sink`() = assertReachable(
+    fun `base-only source on a primitive array does not reach the element sink`() = assertNotReachable(
         config = config(baseOnly()),
         testCls = TEST_CLS,
         entryPointName = "elementFlow",
-        ruleId = RULE_ID,
         testName = "base-only source, primitive array element"
     )
 
