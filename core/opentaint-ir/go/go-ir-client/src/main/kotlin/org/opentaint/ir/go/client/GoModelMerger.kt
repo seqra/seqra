@@ -17,19 +17,29 @@ import org.opentaint.ir.go.proto.ProtoStructType
 import org.opentaint.ir.go.proto.ProtoTypeDefinition
 
 internal class GoModelMerger {
-    private val modeledFunctions = mutableMapOf<Int, String>()
-
     fun merge(base: ProtoProgram, models: List<ProtoModelProgram>): ProtoProgram {
+        val state = ModelMergeState()
         return models.fold(base) { program, model ->
-            mergeModel(program, model.program, model.source)
+            mergeModel(program, model.program, state, model.source)
         }
     }
 
-    private fun mergeModel(base: ProtoProgram, rawModel: ProtoProgram, source: String): ProtoProgram {
+    private fun mergeModel(
+        base: ProtoProgram,
+        rawModel: ProtoProgram,
+        state: ModelMergeState,
+        source: String,
+    ): ProtoProgram {
         val normalizer = try {
             ModelPathNormalizer.create(rawModel)
         } catch (error: IllegalArgumentException) {
             throw IllegalArgumentException("invalid Go model $source: ${error.message}", error)
+        }
+        normalizer.replacements.values.forEach { target ->
+            val previous = state.modeledPackages.putIfAbsent(target, source)
+            require(previous == null) {
+                "Go package \"$target\" is modeled more than once ($previous and $source)"
+            }
         }
 
         var model = rawModel
@@ -153,8 +163,8 @@ internal class GoModelMerger {
 
         result = mergePackages(result, model, ownedPackages, initFunctions)
         baseIndex = ProtoIndex(result)
-        result = mergeFunctionBodies(result, model, baseIndex, ownedPackages, initFunctions, source)
-        result = mergeGenericInstanceBodies(result, ownedPackages, source, counters)
+        result = mergeFunctionBodies(result, model, baseIndex, ownedPackages, initFunctions, state, source)
+        result = mergeGenericInstanceBodies(result, ownedPackages, state, source, counters)
         validateReferences(result, source)
         return result
     }
@@ -424,6 +434,7 @@ internal class GoModelMerger {
         baseIndex: ProtoIndex,
         ownedPackages: Set<Int>,
         initFunctions: Set<Int>,
+        state: ModelMergeState,
         source: String,
     ): ProtoProgram {
         val bodies = base.functionBodiesList.toMutableList()
@@ -438,7 +449,7 @@ internal class GoModelMerger {
             if (function.packageId !in ownedPackages) {
                 return@forEach
             }
-            val previous = modeledFunctions.putIfAbsent(body.functionId, source)
+            val previous = state.modeledFunctions.putIfAbsent(body.functionId, source)
             require(previous == null) {
                 "Go function \"${function.fullName}\" is modeled more than once ($previous and $source)"
             }
@@ -489,6 +500,7 @@ internal class GoModelMerger {
     private fun mergeGenericInstanceBodies(
         program: ProtoProgram,
         ownedPackages: Set<Int>,
+        state: ModelMergeState,
         source: String,
         counters: IdCounters,
     ): ProtoProgram {
@@ -500,7 +512,7 @@ internal class GoModelMerger {
             if (
                 function.packageId !in ownedPackages ||
                 function.id !in genericOriginIds ||
-                modeledFunctions[function.id] != source ||
+                state.modeledFunctions[function.id] != source ||
                 function.syntheticKind != MODEL_KIND
             ) {
                 return@mapNotNull null
@@ -522,7 +534,7 @@ internal class GoModelMerger {
         val types = program.typesList.toMutableList()
         index.functions.values.forEach { function ->
             val modeled = modeledGenericBodies[function.originFunctionId] ?: return@forEach
-            val previous = modeledFunctions.putIfAbsent(function.id, source)
+            val previous = state.modeledFunctions.putIfAbsent(function.id, source)
             require(previous == null) {
                 "Go function \"${function.fullName}\" is modeled more than once ($previous and $source)"
             }
@@ -643,6 +655,11 @@ internal class GoModelMerger {
         }
         return result.toList()
     }
+}
+
+private class ModelMergeState {
+    val modeledPackages = mutableMapOf<String, String>()
+    val modeledFunctions = mutableMapOf<Int, String>()
 }
 
 private class GenericTypeSpecializer(

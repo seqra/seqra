@@ -134,7 +134,7 @@ class ModelTests {
     }
 
     @Test
-    fun `one package can have disjoint partial models`(builder: GoIRTestBuilder) {
+    fun `one package cannot have two partial model modules`(builder: GoIRTestBuilder) {
         val project = project(
             "example.com/app",
             "package main\nimport \"strings\"\n" +
@@ -150,24 +150,20 @@ class ModelTests {
             "package strings\nfunc ToLower(value string) string { return value }\n",
         )
 
-        val program = builder.buildFromDir(
-            project,
-            GoIRLoadConfig(
-                mode = GoIRLoadMode.PROJECT,
-                modelDirs = listOf(firstModel, secondModel),
-            ),
-        )
-        val strings = program.findPackage("strings")!!
-
-        listOf("ToUpper", "ToLower").forEach { name ->
-            val function = strings.functions.single { it.name == name }
-            val returned = (function.body!!.blocks.single().terminator as GoIRReturn).results.single()
-            assertThat(returned).isInstanceOf(GoIRParameterValue::class.java)
-        }
+        assertThatThrownBy {
+            builder.buildFromDir(
+                project,
+                GoIRLoadConfig(
+                    mode = GoIRLoadMode.PROJECT,
+                    modelDirs = listOf(firstModel, secondModel),
+                ),
+            )
+        }.isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("Go package \"strings\" is modeled more than once")
     }
 
     @Test
-    fun `one package can have disjoint generic partial models`(builder: GoIRTestBuilder) {
+    fun `one package cannot have two generic partial model modules`(builder: GoIRTestBuilder) {
         val project = project(
             "example.com/app",
             """
@@ -191,20 +187,16 @@ class ModelTests {
                 "var value E; return predicate(value) }\n",
         )
 
-        val program = builder.buildFromDir(
-            project,
-            GoIRLoadConfig(
-                mode = GoIRLoadMode.PROJECT,
-                modelDirs = listOf(firstModel, secondModel),
-            ),
-        )
-        val modeledInstances = program.findPackage("slices")!!.functions.filter {
-            it.fullName.startsWith("slices.DeleteFunc[") ||
-                it.fullName.startsWith("slices.ContainsFunc[")
-        }
-
-        assertThat(modeledInstances).hasSize(2)
-        assertThat(modeledInstances).allMatch { it.syntheticKind == "opentaint model" }
+        assertThatThrownBy {
+            builder.buildFromDir(
+                project,
+                GoIRLoadConfig(
+                    mode = GoIRLoadMode.PROJECT,
+                    modelDirs = listOf(firstModel, secondModel),
+                ),
+            )
+        }.isInstanceOf(IllegalArgumentException::class.java)
+            .hasMessageContaining("Go package \"slices\" is modeled more than once")
     }
 
     @Test
@@ -365,7 +357,7 @@ class ModelTests {
     }
 
     @Test
-    fun `one function cannot be modeled twice`(builder: GoIRTestBuilder) {
+    fun `one package cannot be modeled twice`(builder: GoIRTestBuilder) {
         val project = project(
             "example.com/app",
             "package main\nimport \"strings\"\nfunc Use(value string) string { return strings.ToUpper(value) }\n",
