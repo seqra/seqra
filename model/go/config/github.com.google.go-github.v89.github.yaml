@@ -6,4 +6,6 @@ passThrough:
     receiver: false
   copy:
   - from: arg(0)
-    to: result
+    to:
+    - result
+    - .<pointer>#<deref>

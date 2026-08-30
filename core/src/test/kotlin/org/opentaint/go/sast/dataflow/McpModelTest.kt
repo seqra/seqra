@@ -23,6 +23,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 
@@ -136,6 +137,30 @@ class McpModelTest {
             assertTrue(findVulnerabilities(withoutModel, passThrough).isEmpty())
             assertTrue(findVulnerabilities(withModel).isEmpty())
             assertTrue(findVulnerabilities(withModel, passThrough).isNotEmpty())
+        }
+    }
+
+    @Test
+    fun `MCP pass-through rules use only semantic copy paths`() {
+        val passThrough = GoDefaultConfigLoader.loadConfig()?.passThrough.orEmpty()
+        val mcpRules = passThrough.filter {
+            it.pkg == GoNameMatcher.Simple("github.com/modelcontextprotocol/go-sdk/mcp")
+        }
+
+        assertEquals(
+            setOf("ResourceNotFoundError", "URLElicitationRequiredError"),
+            mcpRules.mapTo(mutableSetOf()) { (it.function as GoNameMatcher.Simple).name },
+        )
+        mcpRules.forEach { rule ->
+            assertEquals(1, rule.copy.size)
+            assertEquals(
+                PositionBaseWithModifiers.BaseOnly(Argument(0)),
+                rule.copy.single().from,
+            )
+            assertEquals(
+                PositionBaseWithModifiers.BaseOnly(Result),
+                rule.copy.single().to,
+            )
         }
     }
 
@@ -420,29 +445,45 @@ class McpModelTest {
         fun source(
             pkg: GoNameMatcher,
             function: GoNameMatcher,
+            includeNestedValues: Boolean,
         ) = GoSerializedRule.Source(
             pkg = pkg,
             function = function,
             condition = null,
-            taint = listOf(
-                GoSerializedAssignAction(
-                    "taint",
-                    PositionBaseWithModifiers.WithModifiers(Result, listOf(PositionModifier.AnyField)),
-                ),
-            ),
+            taint = buildList {
+                add(
+                    GoSerializedAssignAction(
+                        "taint",
+                        PositionBaseWithModifiers.BaseOnly(Result),
+                    ),
+                )
+                if (includeNestedValues) {
+                    add(
+                        GoSerializedAssignAction(
+                            "taint",
+                            PositionBaseWithModifiers.WithModifiers(Result, listOf(PositionModifier.AnyField)),
+                        ),
+                    )
+                }
+            },
             info = null,
         )
         return GoTaintConfiguration().also {
             it.loadConfig(
                 GoSerializedTaintConfig(
                     source = listOf(
-                        source(GoNameMatcher.Simple("example.com/mcpapp"), GoNameMatcher.Simple("Source")),
+                        source(
+                            GoNameMatcher.Simple("example.com/mcpapp"),
+                            GoNameMatcher.Simple("Source"),
+                            includeNestedValues = false,
+                        ),
                         source(
                             GoNameMatcher.Pattern(
                                 "(?:github.com/modelcontextprotocol/go-sdk/mcp|" +
                                     "github.com/github/github-mcp-server/pkg/inventory)",
                             ),
                             GoNameMatcher.Pattern("opentaintMCPIncoming(?:\\[.*])?"),
+                            includeNestedValues = true,
                         ),
                     ),
                     sink = listOf(sink),
