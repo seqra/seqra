@@ -157,25 +157,64 @@ class GoIRDeserializer {
         }
 
         check(program != null) { "Unexpected IR build issue" }
-        val mergedProgram = GoModelMerger().merge(program, models)
+        val original = deserializeProgram(program)
+        if (models.isEmpty()) {
+            return original
+        }
+
+        val deserializedModels = models.map { model ->
+            val normalizer = try {
+                ModelPathNormalizer.create(model.program)
+            } catch (error: IllegalArgumentException) {
+                throw IllegalArgumentException("invalid Go model ${model.source}: ${error.message}", error)
+            }
+            val ownedPaths = normalizer.replacements.keys
+            val modelProgram = GoIRDeserializer().deserializeProgram(
+                model.program,
+                DeserializationConfig(normalizer, ownedPaths),
+            )
+            GoIRModelDefinition(model.source, modelProgram, normalizer.targets)
+        }
+        return GoIRModelOverlayProgram(original, deserializedModels)
+    }
+
+    private data class DeserializationConfig(
+        val normalizer: ModelPathNormalizer? = null,
+        val ownedPackagePaths: Set<String> = emptySet(),
+    ) {
+        fun path(value: String): String = normalizer?.path(value) ?: value
+        fun symbol(value: String): String = normalizer?.symbol(value) ?: value
+        fun owns(pkg: ProtoPackage): Boolean = pkg.importPath in ownedPackagePaths
+    }
+
+    private fun deserializeProgram(
+        serializedProgram: ProtoProgram,
+        config: DeserializationConfig = DeserializationConfig(),
+    ): GoIRProgram {
 
         val resultPackages = hashMapOf<String, GoIRPackage>()
         val anonymousInterfaces = Int2ObjectOpenHashMap<GoIRAnonymousInterfaceType>()
         val result = GoIRProgramImpl(resultPackages, anonymousInterfaces)
 
-        val pkgInfo = deserializePackages(mergedProgram.packagesList)
-        packages.filterNotNull().forEach {
-            resultPackages[it.importPath] = it
+        val pkgInfo = deserializePackages(serializedProgram.packagesList, config)
+        serializedProgram.packagesList.forEach { serializedPackage ->
+            val deserializedPackage = getPackage(serializedPackage.id)
+            val importPath = deserializedPackage.importPath
+            if (config.owns(serializedPackage)) {
+                resultPackages[importPath] = deserializedPackage
+            } else {
+                resultPackages.putIfAbsent(importPath, deserializedPackage)
+            }
         }
 
-        TypeDeserializationCtx(result, mergedProgram.typesList, pkgInfo, anonymousInterfaces)
+        TypeDeserializationCtx(result, serializedProgram.typesList, pkgInfo, anonymousInterfaces, config)
             .deserializeTypes()
 
-        FunctionDeserializationCtx(pkgInfo, result)
+        FunctionDeserializationCtx(pkgInfo, result, config)
             .deserializeFunctions()
 
-        mergedProgram.packagesList.forEach { deserializePackageMembers(it) }
-        mergedProgram.functionBodiesList.forEach { deserializeFunctionBody(it) }
+        serializedProgram.packagesList.forEach { deserializePackageMembers(it, config) }
+        serializedProgram.functionBodiesList.forEach { deserializeFunctionBody(it) }
         pkgInfo.namedTypes.forEach { resolveNamedTypeBindings(it) }
 
         return result
@@ -195,8 +234,12 @@ class GoIRDeserializer {
         val functionPkgId: Int2IntOpenHashMap,
     )
 
-    private fun deserializePackages(packagesList: List<ProtoPackage>): PackageInfo {
-        val deserialized = arrayOfNulls<GoIRPackageImpl?>(packagesList.size + 1).also {
+    private fun deserializePackages(
+        packagesList: List<ProtoPackage>,
+        config: DeserializationConfig,
+    ): PackageInfo {
+        val maxPackageId = packagesList.maxOfOrNull { it.id } ?: 0
+        val deserialized = arrayOfNulls<GoIRPackageImpl?>(maxPackageId + 1).also {
             packages = it
         }
 
@@ -208,10 +251,10 @@ class GoIRDeserializer {
 
         for (pkg in packagesList) {
             deserialized[pkg.id] = GoIRPackageImpl(
-                importPath = pkg.importPath,
+                importPath = config.path(pkg.importPath),
                 name = pkg.name,
-                isStdlib = pkg.isStdlib,
-                isDependency = pkg.isDependency,
+                isStdlib = pkg.isStdlib && !config.owns(pkg),
+                isDependency = pkg.isDependency || config.owns(pkg),
             )
 
             pkg.namedTypesList.forEach {
@@ -233,6 +276,7 @@ class GoIRDeserializer {
         typesList: List<ProtoTypeDefinition>,
         val pkgInfo: PackageInfo,
         val anonymousInterfaces: Int2ObjectOpenHashMap<GoIRAnonymousInterfaceType>,
+        val config: DeserializationConfig,
     ) {
         val typeDefinitions: Array<ProtoTypeDefinition?> = typesList.toArrayById { id }
         val namedTypeDefs: Array<ProtoNamedType?> = pkgInfo.namedTypes.toArrayById { id }
@@ -352,7 +396,7 @@ class GoIRDeserializer {
 
         val namedType = GoIRNamedTypeImpl(
             name = nt.name,
-            fullName = nt.fullName,
+            fullName = config.symbol(nt.fullName),
             pkg = pkg,
             underlying = resolveType(nt.underlyingTypeId),
             kind = namedTypeKindFromProto(nt.kind),
@@ -525,6 +569,7 @@ class GoIRDeserializer {
     private class FunctionDeserializationCtx(
         val packageInfo: PackageInfo,
         val program: GoIRProgram,
+        val config: DeserializationConfig,
     )
 
     private fun FunctionDeserializationCtx.deserializeFunctions() {
@@ -550,7 +595,7 @@ class GoIRDeserializer {
 
             deserialized[pf.id] = GoIRFunctionImpl(
                 name = pf.name,
-                fullName = pf.fullName,
+                fullName = config.symbol(pf.fullName),
                 pkg = pkg,
                 signature = getFunctionalType(pf.signatureTypeId),
                 params = pf.paramsList.map { p -> GoIRParameter(p.name, getType(p.typeId), p.index) },
@@ -571,6 +616,12 @@ class GoIRDeserializer {
                         getType(typeParam.constraintTypeId),
                     )
                 },
+                originFullName = pf.originFunctionId.takeIf { it != 0 }
+                    ?.let { originId ->
+                        functions.getOrNull(originId)?.fullName
+                            ?.let(config::symbol)
+                    },
+                typeArgs = pf.typeArgIdsList.map(::getType),
             )
         }
     }
@@ -595,7 +646,7 @@ class GoIRDeserializer {
         functions[id]
             ?: error("No function found for $id")
 
-    private fun deserializePackageMembers(pp: ProtoPackage) {
+    private fun deserializePackageMembers(pp: ProtoPackage, config: DeserializationConfig) {
         val pkg = getPackage(pp.id)
 
         for (pf in pp.functionsList) {
@@ -607,7 +658,7 @@ class GoIRDeserializer {
         for (pg in pp.globalsList) {
             val global = GoIRGlobalImpl(
                 name = pg.name,
-                fullName = pg.fullName,
+                fullName = config.symbol(pg.fullName),
                 type = getType(pg.typeId),
                 pkg = pkg,
                 isExported = pg.isExported,
@@ -621,7 +672,7 @@ class GoIRDeserializer {
         for (pc in pp.constantsList) {
             val const = GoIRConstImpl(
                 name = pc.name,
-                fullName = pc.fullName,
+                fullName = config.symbol(pc.fullName),
                 type = getType(pc.typeId),
                 value = constValueFromProto(pc.value),
                 pkg = pkg,

@@ -10,11 +10,12 @@ import org.opentaint.ir.go.api.GoIRPosition
 import org.opentaint.ir.go.api.GoIRTypeParamDecl
 import org.opentaint.ir.go.api.GoIrFunctionReference
 import org.opentaint.ir.go.type.GoIRFuncType
+import org.opentaint.ir.go.type.GoIRType
 
 class GoIRFunctionImpl(
     override val name: String,
     override val fullName: String,
-    override val pkg: GoIRPackage?,
+    pkg: GoIRPackage?,
     override val signature: GoIRFuncType,
     override val params: List<GoIRParameter>,
     override val freeVars: List<GoIRFreeVar>,
@@ -22,13 +23,32 @@ class GoIRFunctionImpl(
     override val isMethod: Boolean,
     override val isPointerReceiver: Boolean,
     override val isExported: Boolean,
-    override val isSynthetic: Boolean,
-    override val syntheticKind: String?,
+    isSynthetic: Boolean,
+    syntheticKind: String?,
     private val declaredHasBody: Boolean = false,
     override val parent: GoIrFunctionReference?,
     override val anonymousFunctions: List<GoIrFunctionReference>,
     override val typeParams: List<GoIRTypeParamDecl> = emptyList(),
+    override val originFullName: String? = null,
+    override val typeArgs: List<GoIRType> = emptyList(),
 ) : GoIRFunction {
+    private var owner = pkg
+    private var synthetic = isSynthetic
+    private var kind = syntheticKind
+
+    override val isSynthetic: Boolean get() = synthetic
+    override val syntheticKind: String? get() = kind
+    override val pkg: GoIRPackage? get() = owner
+
+    internal fun markAsModel(kind: String) {
+        synthetic = true
+        this.kind = kind
+    }
+
+    internal fun rebindPackage(pkg: GoIRPackage) {
+        owner = pkg
+    }
+
     private var _body: GoIRBody? = null
 
     override val body: GoIRBody?

@@ -16,6 +16,7 @@ import org.opentaint.ir.go.inst.GoIRGlobalStore
 import org.opentaint.ir.go.inst.GoIRReturn
 import org.opentaint.ir.go.test.GoIRTestBuilder
 import org.opentaint.ir.go.test.GoIRTestExtension
+import org.opentaint.ir.go.type.GoIRStructType
 import org.opentaint.ir.go.value.GoIRConstValue
 import org.opentaint.ir.go.value.GoIRConstantValue
 import org.opentaint.ir.go.value.GoIRParameterValue
@@ -51,6 +52,39 @@ class ModelTests {
         val returned = (function.body!!.blocks.single().terminator as GoIRReturn).results.single() as GoIRParameterValue
         assertThat(returned.paramIndex).isZero()
         assertThat(returned.type).isEqualTo(function.params.single().type)
+    }
+
+    @Test
+    fun `lazy model lookup keeps the original Go IR visible`(builder: GoIRTestBuilder) {
+        val project = project(
+            "example.com/original",
+            "package original\n" +
+                "func Identity(value string) string { return \"original\" }\n",
+        )
+        val model = model(
+            "example.com/original",
+            "package original\n" +
+                "func helper(value string) string { return value }\n" +
+                "func Identity(value string) string { return helper(value) }\n",
+        )
+
+        val effectiveProgram = builder.buildFromDir(project, modelConfig(model))
+        val effectivePackage = effectiveProgram.findPackage("example.com/original")!!
+        val effectiveIdentity = effectivePackage.functions.single { it.name == "Identity" }
+        val originalProgram = effectiveProgram.originalProgram
+        val originalPackage = originalProgram.findPackage("example.com/original")!!
+        val originalIdentity = originalPackage.functions.single { it.name == "Identity" }
+
+        assertThat(originalProgram).isNotSameAs(effectiveProgram)
+        assertThat(effectiveIdentity.pkg).isSameAs(effectivePackage)
+        assertThat(effectiveIdentity.syntheticKind).isEqualTo("opentaint model")
+        assertThat(effectiveIdentity.findInstructions<GoIRCall>())
+            .anyMatch { it.call.target?.displayName == "example.com/original.helper" }
+        assertThat(originalIdentity.isSynthetic).isFalse()
+        assertThat(originalIdentity.syntheticKind).isNull()
+        assertThat(originalIdentity.body!!.instructions)
+            .noneMatch { instruction -> instruction is GoIRCall }
+        assertThat(originalPackage.functions.map { it.name }).doesNotContain("helper")
     }
 
     @Test
@@ -91,6 +125,8 @@ class ModelTests {
         val box = targetPackage.findNamedType("Box")!!
         assertThat(box.fields.map { it.name to it.index })
             .containsExactly("Original" to 0, "Shadow" to 1)
+        assertThat((box.underlying as GoIRStructType).fields.map { it.name })
+            .containsExactly("Original", "Shadow")
         assertThat(box.pointerMethods.map { it.name }).contains("Put", "Keep", "Helper")
 
         val put = box.pointerMethods.single { it.name == "Put" }
@@ -473,6 +509,55 @@ class ModelTests {
         val returned = (identity.body!!.blocks.single().terminator as GoIRReturn).results.single()
 
         assertThat((returned as GoIRParameterValue).paramIndex).isZero()
+    }
+
+    @Test
+    fun `model call into modeled dependency resolves through effective lookup`(builder: GoIRTestBuilder) {
+        val project = project(
+            "example.com/dependencycall",
+            "package dependencycall\n" +
+                "func Helper(value string) string { return \"original\" }\n" +
+                "func Identity(value string) string { return \"original\" }\n",
+        )
+        val model = model(
+            "example.com/dependencycall",
+            "package dependencycall\n" +
+                "import target \"example.com/dependencycall\"\n" +
+                "func Identity(value string) string { return target.Helper(value) }\n",
+        )
+
+        val program = builder.buildFromDir(project, modelConfig(model))
+        val targetPackage = program.findPackage("example.com/dependencycall")!!
+        val helper = targetPackage.functions.single { it.name == "Helper" && it.parent == null }
+        val identity = targetPackage.functions.single { it.name == "Identity" && it.parent == null }
+        val callTarget = identity.findInstructions<GoIRCall>().single().call.target
+
+        assertThat(callTarget).isInstanceOf(GoIRCallTarget.Function::class.java)
+        assertThat((callTarget as GoIRCallTarget.Function).function).isSameAs(helper)
+    }
+
+    @Test
+    fun `model-only dependency is visible only through effective lookup`(builder: GoIRTestBuilder) {
+        val project = project(
+            "example.com/modeldependency",
+            "package modeldependency\n" +
+                "func Identity(value string) string { return \"original\" }\n",
+        )
+        val model = model(
+            "example.com/modeldependency",
+            "package modeldependency\n" +
+                "import \"net/url\"\n" +
+                "func Identity(value string) string { return url.QueryEscape(value) }\n",
+        )
+
+        val program = builder.buildFromDir(project, modelConfig(model))
+        val identity = program.findPackage("example.com/modeldependency")!!
+            .functions.single { it.name == "Identity" && it.parent == null }
+        val call = identity.findInstructions<GoIRCall>().single()
+
+        assertThat(program.originalProgram.findPackage("net/url")).isNull()
+        assertThat(program.findPackage("net/url")).isNotNull()
+        assertThat(call.call.target?.displayName).isEqualTo("net/url.QueryEscape")
     }
 
     @Test
