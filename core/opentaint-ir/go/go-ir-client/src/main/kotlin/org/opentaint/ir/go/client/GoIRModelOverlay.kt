@@ -102,6 +102,14 @@ internal class GoIRModelOverlayProgram(
         }
     }
 
+    override fun effectiveFunction(function: GoIRFunction): GoIRFunction {
+        val importPath = function.pkg?.importPath ?: return function
+        return findPackage(importPath)
+            ?.functions
+            ?.firstOrNull { it.fullName == function.fullName }
+            ?: function
+    }
+
     override fun allFunctions(): List<GoIRFunction> = packages.values.flatMap { it.functions }
 
     override fun allNamedTypes(): List<GoIRNamedType> = packages.values.flatMap { it.namedTypes }

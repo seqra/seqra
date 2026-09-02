@@ -46,13 +46,13 @@ class GoCallResolver(
 
     private fun resolveDirect(call: GoIRCallInfo): List<GoIRFunction>? {
         val target = call.target as? GoIRCallTarget.Function ?: return null
-        return listOf(target.function)
+        return listOf(resolveEffectiveFunction(target.function))
     }
 
     private fun resolveDynamic(call: GoIRCallInfo, location: GoIRInst): List<GoIRFunction>? {
         val target = call.target ?: return null
         when (target) {
-            is GoIRCallTarget.Function -> return listOf(target.function)
+            is GoIRCallTarget.Function -> return listOf(resolveEffectiveFunction(target.function))
             is GoIRCallTarget.Dynamic -> {
                 val method = location.location.functionBody.function
                 val funcValue = target.value as? GoIRRegister ?: return null
@@ -64,6 +64,10 @@ class GoCallResolver(
             }
             is GoIRCallTarget.Builtin -> return null
         }
+    }
+
+    private fun resolveEffectiveFunction(function: GoIRFunction): GoIRFunction {
+        return cp.effectiveFunction(function)
     }
 
     private fun resolveInvoke(call: GoIRCallInfo): List<GoIRFunction>? {

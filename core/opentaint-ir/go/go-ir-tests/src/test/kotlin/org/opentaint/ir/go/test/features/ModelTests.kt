@@ -48,7 +48,10 @@ class ModelTests {
 
         assertThat(program.findPackage("opentaint/strings")).isNull()
         val function = program.findPackage("strings")!!.functions.single { it.name == "ToUpper" }
+        val caller = program.findPackage("example.com/app")!!.functions.single { it.name == "Upper" }
+        val originalTarget = caller.findInstructions<GoIRCall>().single().call.target as GoIRCallTarget.Function
         assertThat(function.bodyAvailable).isTrue()
+        assertThat(program.effectiveFunction(originalTarget.function)).isSameAs(function)
         val returned = (function.body!!.blocks.single().terminator as GoIRReturn).results.single() as GoIRParameterValue
         assertThat(returned.paramIndex).isZero()
         assertThat(returned.type).isEqualTo(function.params.single().type)
