@@ -514,7 +514,7 @@ class McpModelTest {
         function = GoNameMatcher.Simple(function),
         condition = GoSerializedCondition.ContainsMark(
             "taint",
-            PositionBaseWithModifiers.WithModifiers(position, listOf(PositionModifier.AnyField)),
+            PositionBaseWithModifiers.BaseOnly(position),
         ),
         trackFactsReachAnalysisEnd = emptyList(),
         id = "mcp-github-privileged-action-test",
