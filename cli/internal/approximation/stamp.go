@@ -1,5 +1,7 @@
 package approximation
 
+// Golden model: formal/Opentaint/Cli/Internal/Approximation/Stamp.lean
+
 import (
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,14 +13,19 @@ import (
 	"sort"
 )
 
-// stamp identifies the inputs of a model build.
+// stamp identifies the inputs of a model build: the project, and the compiler that read
+// it. The project alone does not determine the compiled classes, so a build carrying only
+// a source digest would be reused across a compiler upgrade.
 type stamp struct {
-	Sources string `json:"sources"`
+	Sources   string `json:"sources"`
+	Toolchain string `json:"toolchain"`
 }
 
-// computeStamp hashes all source files and build inputs.
+func (s stamp) complete() bool { return s.Sources != "" && s.Toolchain != "" }
+
+// computeSourceDigest hashes all source files and build inputs.
 // It does not hash generated files.
-func computeStamp(projectDir string) (string, error) {
+func computeSourceDigest(projectDir string) (string, error) {
 	var paths []string
 	err := filepath.WalkDir(projectDir, func(path string, entry os.DirEntry, err error) error {
 		if err != nil {
@@ -60,30 +67,30 @@ func computeStamp(projectDir string) (string, error) {
 	return hex.EncodeToString(digest.Sum(nil)), nil
 }
 
-func readStamp(outputDir string) (string, bool) {
+func readStamp(outputDir string) (stamp, bool) {
 	data, err := os.ReadFile(filepath.Join(outputDir, stampFileName))
 	if err != nil {
-		return "", false
+		return stamp{}, false
 	}
 	var s stamp
 	if err := json.Unmarshal(data, &s); err != nil {
-		return "", false
+		return stamp{}, false
 	}
-	return s.Sources, s.Sources != ""
+	return s, s.complete()
 }
 
-func writeStamp(outputDir, sources string) error {
-	data, err := json.MarshalIndent(stamp{Sources: sources}, "", "  ")
+func writeStamp(outputDir string, s stamp) error {
+	data, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(filepath.Join(outputDir, stampFileName), append(data, '\n'), 0o644)
 }
 
-// upToDate reports whether outputDir matches the source stamp.
-func upToDate(outputDir, sources string) bool {
+// upToDate reports whether outputDir was built from these inputs.
+func upToDate(outputDir string, current stamp) bool {
 	previous, ok := readStamp(outputDir)
-	if !ok || previous != sources {
+	if !ok || previous != current {
 		return false
 	}
 	return containsClassFiles(ClassesDir(outputDir))

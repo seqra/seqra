@@ -1,5 +1,7 @@
 package approximation
 
+// Golden model: formal/Opentaint/Cli/Internal/Approximation/Build.lean
+
 import (
 	"fmt"
 	"os"
@@ -11,6 +13,9 @@ import (
 
 // Builder compiles a model project.
 type Builder interface {
+	// Fingerprint identifies the compiler. A build is reused only for the compiler
+	// that produced it.
+	Fingerprint() (string, error)
 	// Prepare updates local build inputs before the source stamp is calculated.
 	Prepare(projectDir string) error
 	// Compile writes a project model to projectModelDir.
@@ -19,16 +24,16 @@ type Builder interface {
 
 // ensureBuilt returns current compiled models for a project.
 func ensureBuilt(projectDir string, builder Builder) (string, error) {
-	sources, err := prepare(projectDir, builder)
+	inputs, err := prepare(projectDir, builder)
 	if err != nil {
 		return "", err
 	}
 
 	outputDir := BuildDir(projectDir)
-	if upToDate(outputDir, sources) {
+	if upToDate(outputDir, inputs) {
 		return ClassesDir(outputDir), nil
 	}
-	if err := build(projectDir, outputDir, sources, builder); err != nil {
+	if err := build(projectDir, outputDir, inputs, builder); err != nil {
 		return "", err
 	}
 	return ClassesDir(outputDir), nil
@@ -36,25 +41,42 @@ func ensureBuilt(projectDir string, builder Builder) (string, error) {
 
 // Build compiles a model project into outputDir.
 func Build(projectDir, outputDir string, builder Builder) error {
-	sources, err := prepare(projectDir, builder)
+	inputs, err := prepare(projectDir, builder)
 	if err != nil {
 		return err
 	}
-	return build(projectDir, outputDir, sources, builder)
+	return build(projectDir, outputDir, inputs, builder)
 }
 
-// prepare updates build inputs and returns their source stamp.
-func prepare(projectDir string, builder Builder) (string, error) {
-	if err := builder.Prepare(projectDir); err != nil {
-		return "", err
+// prepare updates build inputs and returns the stamp identifying them.
+func prepare(projectDir string, builder Builder) (stamp, error) {
+	toolchain, err := builder.Fingerprint()
+	if err != nil {
+		return stamp{}, err
 	}
-	return computeStamp(projectDir)
+	if err := builder.Prepare(projectDir); err != nil {
+		return stamp{}, err
+	}
+	sources, err := computeSourceDigest(projectDir)
+	if err != nil {
+		return stamp{}, err
+	}
+	return stamp{Sources: sources, Toolchain: toolchain}, nil
 }
 
-// stagingSuffix identifies a build that is not complete.
-const stagingSuffix = ".incomplete"
+// stagingDir names the directory a build assembles in. The process id keeps concurrent
+// builders of one output out of each other's staging directory: a shared one lets a build
+// publish a mixture of two compiles, and record it as up to date.
+func stagingDir(outputDir string) string {
+	return fmt.Sprintf("%s.incomplete-%d", outputDir, os.Getpid())
+}
 
-func build(projectDir, outputDir, sources string, builder Builder) error {
+// asideDir names the superseded output while the new one is renamed into place.
+func asideDir(outputDir string) string {
+	return fmt.Sprintf("%s.superseded-%d", outputDir, os.Getpid())
+}
+
+func build(projectDir, outputDir string, inputs stamp, builder Builder) error {
 	if err := checkOutputDir(outputDir); err != nil {
 		return err
 	}
@@ -73,7 +95,7 @@ func build(projectDir, outputDir, sources string, builder Builder) error {
 	}
 
 	// Assemble the new output before it replaces the current output.
-	staging := outputDir + stagingSuffix
+	staging := stagingDir(outputDir)
 	defer func() { _ = os.RemoveAll(staging) }()
 	if err := os.RemoveAll(staging); err != nil {
 		return fmt.Errorf("failed to clear %s: %w", staging, err)
@@ -93,7 +115,7 @@ func build(projectDir, outputDir, sources string, builder Builder) error {
 	if err := writeDescriptor(staging, descriptor{SourceProject: projectDir, Dependencies: dependencies}); err != nil {
 		return err
 	}
-	if err := writeStamp(staging, sources); err != nil {
+	if err := writeStamp(staging, inputs); err != nil {
 		return err
 	}
 
@@ -129,15 +151,36 @@ func checkOutputDir(outputDir string) error {
 }
 
 // replaceDir replaces the current output with a complete build.
+// Both moves are single renames, so anyone reading the output directory sees the previous
+// build, the new build, or nothing at all, and never a directory that is half of each.
 func replaceDir(staging, outputDir string) error {
 	if err := os.MkdirAll(filepath.Dir(outputDir), 0o755); err != nil {
 		return fmt.Errorf("failed to create %s: %w", filepath.Dir(outputDir), err)
 	}
-	if err := os.RemoveAll(outputDir); err != nil {
-		return fmt.Errorf("failed to clear approximation build output %s: %w", outputDir, err)
+
+	aside := asideDir(outputDir)
+	if err := os.RemoveAll(aside); err != nil {
+		return fmt.Errorf("failed to clear %s: %w", aside, err)
 	}
+	superseded := isDir(outputDir)
+	if superseded {
+		if err := os.Rename(outputDir, aside); err != nil {
+			return fmt.Errorf("failed to move the previous build out of %s: %w", outputDir, err)
+		}
+	}
+
 	if err := os.Rename(staging, outputDir); err != nil {
+		// Put the previous build back rather than leave the output missing.
+		if superseded {
+			_ = os.Rename(aside, outputDir)
+		}
 		return fmt.Errorf("failed to move the compiled models into %s: %w", outputDir, err)
+	}
+
+	if superseded {
+		if err := os.RemoveAll(aside); err != nil {
+			return fmt.Errorf("failed to remove the previous build %s: %w", aside, err)
+		}
 	}
 	return nil
 }

@@ -4,6 +4,8 @@
 // The scanned project does not supply these compile dependencies.
 package approximation
 
+// Golden model: formal/Opentaint/Cli/Internal/Approximation/Project.lean
+
 import (
 	"os"
 	"path/filepath"
@@ -74,13 +76,66 @@ func containsClassFiles(dir string) bool {
 			}
 			return nil
 		}
-		if strings.EqualFold(filepath.Ext(entry.Name()), ".class") {
+		if isClassFileName(entry.Name()) {
 			found = true
 			return filepath.SkipAll
 		}
 		return nil
 	})
 	return found
+}
+
+// subtreeFacts records what a directory tree holds.
+// Classifying a directory needs both facts, and one walk answers both.
+type subtreeFacts struct {
+	// classFiles reports a compiled class anywhere in the tree.
+	classFiles bool
+	// unitSource reports a model project or a build output anywhere in the tree,
+	// that is, models this directory does not already hold compiled.
+	unitSource bool
+}
+
+// scanSubtree walks dir once. It does not search generated directories.
+func scanSubtree(dir string) subtreeFacts {
+	var facts subtreeFacts
+	_ = filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			if path != dir && skippedDirs[entry.Name()] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		switch {
+		case isClassFileName(entry.Name()):
+			facts.classFiles = true
+		case entry.Name() == gradleBuildFile:
+			facts.unitSource = true
+		case entry.Name() == descriptorName && isDir(filepath.Join(filepath.Dir(path), classesDirName)):
+			facts.unitSource = true
+		}
+		if facts.classFiles && facts.unitSource {
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return facts
+}
+
+// directClassFile returns one compiled class held by the directory itself.
+func directClassFile(entries []os.DirEntry) (string, bool) {
+	for _, entry := range entries {
+		if !entry.IsDir() && isClassFileName(entry.Name()) {
+			return entry.Name(), true
+		}
+	}
+	return "", false
+}
+
+func isClassFileName(name string) bool {
+	return strings.EqualFold(filepath.Ext(name), ".class")
 }
 
 // firstJavaSource returns one Java source file under dir.

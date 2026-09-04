@@ -3,6 +3,7 @@ package approximation
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"testing"
@@ -12,12 +13,17 @@ import (
 
 // fakeBuilder records builds and writes a test project model.
 type fakeBuilder struct {
-	t        *testing.T
-	compiled []string
+	t           *testing.T
+	compiled    []string
+	fingerprint string
 }
 
 func newFakeBuilder(t *testing.T) *fakeBuilder {
-	return &fakeBuilder{t: t}
+	return &fakeBuilder{t: t, fingerprint: "autobuilder 1.0.0"}
+}
+
+func (b *fakeBuilder) Fingerprint() (string, error) {
+	return b.fingerprint, nil
 }
 
 // Prepare writes the same API content for each call.
@@ -116,6 +122,31 @@ func TestResolveReusesBuildUntilSourcesChange(t *testing.T) {
 	}
 }
 
+// The stamp covers the project, and the project alone does not determine the compiled
+// classes: the compiler does too. See formal/Opentaint/Approximation/Cache.lean, theorem
+// shipped_stamp_serves_a_stale_output.
+func TestResolveRebuildsWhenTheCompilerChanges(t *testing.T) {
+	project := newProject(t, t.TempDir())
+	builder := newFakeBuilder(t)
+
+	for range 2 {
+		if _, err := Resolve(project, builder); err != nil {
+			t.Fatalf("Resolve: %v", err)
+		}
+	}
+	if len(builder.compiled) != 1 {
+		t.Fatalf("an unchanged project was rebuilt: %v", builder.compiled)
+	}
+
+	builder.fingerprint = "autobuilder 2.0.0"
+	if _, err := Resolve(project, builder); err != nil {
+		t.Fatalf("Resolve after the upgrade: %v", err)
+	}
+	if len(builder.compiled) != 2 {
+		t.Errorf("an upgraded compiler did not rebuild the models: %v", builder.compiled)
+	}
+}
+
 func TestResolveRebuildsWhenDependencyPinChanges(t *testing.T) {
 	project := newProject(t, t.TempDir())
 	builder := newFakeBuilder(t)
@@ -193,6 +224,84 @@ func TestResolveTreeOfProjects(t *testing.T) {
 	}
 }
 
+// A tree may mix model projects with directories that are already compiled. Resolving
+// such a tree must build the project and keep the compiled classes, not collapse the
+// whole tree into one classpath root: see formal/Opentaint/Approximation/Shipped.lean,
+// theorem shipped_loses_a_project.
+func TestResolveTreeMixingProjectAndClasses(t *testing.T) {
+	root := t.TempDir()
+	project := newProject(t, filepath.Join(root, "models"))
+	precompiled := filepath.Join(root, "precompiled")
+	writeFile(t, filepath.Join(precompiled, "com", "example", "Other.class"), "bytecode")
+
+	builder := newFakeBuilder(t)
+	classDirs, err := Resolve(root, builder)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	want := []string{ClassesDir(BuildDir(project)), precompiled}
+	if !reflect.DeepEqual(classDirs, want) {
+		t.Fatalf("Resolve() = %v, want %v", classDirs, want)
+	}
+	if !reflect.DeepEqual(builder.compiled, []string{project}) {
+		t.Fatalf("expected the project to be compiled, got %v", builder.compiled)
+	}
+}
+
+// The same tree with a previous build output in place of the loose classes.
+func TestResolveTreeMixingProjectAndBuildOutput(t *testing.T) {
+	root := t.TempDir()
+	project := newProject(t, filepath.Join(root, "models"))
+	prebuilt := filepath.Join(root, "prebuilt")
+	writeFile(t, filepath.Join(prebuilt, descriptorName), "sourceProject: /elsewhere\n")
+	writeFile(t, filepath.Join(prebuilt, classesDirName, "com", "example", "Other.class"), "bytecode")
+
+	builder := newFakeBuilder(t)
+	classDirs, err := Resolve(root, builder)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	want := []string{ClassesDir(BuildDir(project)), ClassesDir(prebuilt)}
+	if !reflect.DeepEqual(classDirs, want) {
+		t.Fatalf("Resolve() = %v, want %v", classDirs, want)
+	}
+	if !reflect.DeepEqual(builder.compiled, []string{project}) {
+		t.Fatalf("expected the project to be compiled, got %v", builder.compiled)
+	}
+}
+
+// A directory that holds classes of its own and a project below it belongs to neither
+// shape: putting it on the classpath hides the project, recursing past it drops the
+// classes. See formal/Opentaint/Approximation/Classes.lean, ambiguous_tree_drops_a_class.
+func TestResolveRejectsAmbiguousDirectory(t *testing.T) {
+	root := t.TempDir()
+	newProject(t, filepath.Join(root, "models"))
+	writeFile(t, filepath.Join(root, "Stray.class"), "bytecode")
+
+	_, err := Resolve(root, newFakeBuilder(t))
+	if err == nil {
+		t.Fatal("expected a directory holding both classes and a project to be rejected")
+	}
+	if !strings.Contains(err.Error(), root) {
+		t.Errorf("error should name the ambiguous directory, got: %v", err)
+	}
+}
+
+// A plain class directory resolves to its root, not to the package directory that
+// happens to hold the class files.
+func TestResolvePrecompiledClassDirectoryKeepsItsRoot(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "com", "example", "Model.class"), "bytecode")
+
+	classDirs, err := Resolve(root, newFakeBuilder(t))
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if !reflect.DeepEqual(classDirs, []string{root}) {
+		t.Fatalf("Resolve() = %v, want the classpath root %s", classDirs, root)
+	}
+}
+
 func TestResolveLooseSourcesReportsMigration(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, filepath.Join(dir, "com", "example", "Model.java"), "package com.example;\n")
@@ -242,6 +351,47 @@ func TestFailedRebuildKeepsThePreviousBuild(t *testing.T) {
 	}
 	if !isBuiltOutput(output) {
 		t.Error("a failed rebuild left the output unusable")
+	}
+}
+
+// A build assembles under a path of its own. A second builder of the same output must
+// not be able to delete or contribute to it: see formal/Opentaint/Approximation/
+// Publish.lean, theorem raceA_output_is_not_sound.
+func TestBuildDoesNotTouchAnotherBuildersStaging(t *testing.T) {
+	project := newProject(t, t.TempDir())
+	output := BuildDir(project)
+
+	// What another builder of the same output would be assembling.
+	foreign := output + ".incomplete"
+	writeFile(t, filepath.Join(foreign, classesDirName, "com", "example", "Other.class"), "bytecode")
+
+	if err := Build(project, output, newFakeBuilder(t)); err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(foreign, classesDirName, "com", "example", "Other.class")); err != nil {
+		t.Errorf("the build deleted another builder's staging directory: %v", err)
+	}
+}
+
+// A completed build leaves no staging or superseded directory behind.
+func TestBuildCleansUpAfterItself(t *testing.T) {
+	project := newProject(t, t.TempDir())
+	output := BuildDir(project)
+
+	for range 2 {
+		if err := Build(project, output, newFakeBuilder(t)); err != nil {
+			t.Fatalf("Build: %v", err)
+		}
+	}
+
+	entries, err := os.ReadDir(filepath.Dir(output))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.Name() != filepath.Base(output) {
+			t.Errorf("build left %s behind next to the output", entry.Name())
+		}
 	}
 }
 

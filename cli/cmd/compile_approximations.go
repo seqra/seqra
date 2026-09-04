@@ -7,6 +7,7 @@ import (
 
 	"github.com/seqra/opentaint/internal/approximation"
 	"github.com/seqra/opentaint/internal/autobuilder"
+	"github.com/seqra/opentaint/internal/globals"
 	"github.com/seqra/opentaint/internal/output"
 )
 
@@ -19,6 +20,24 @@ type approximationBuilder struct {
 
 func newApproximationBuilder(analyzerJarPath string) approximation.Builder {
 	return &approximationBuilder{analyzerJarPath: analyzerJarPath}
+}
+
+// Fingerprint identifies the compiler a build was produced with.
+// The source stamp covers the model project but not the tool that reads it, so without
+// this an upgraded CLI keeps serving models compiled by the previous one.
+func (b *approximationBuilder) Fingerprint() (string, error) {
+	autobuilder := globals.ArtifactByKind("autobuilder")
+	if autobuilder.Override == "" {
+		return "autobuilder " + autobuilder.Version, nil
+	}
+
+	// A local autobuilder has no version to compare, so compare the file itself.
+	info, err := os.Stat(autobuilder.Override)
+	if err != nil {
+		return "", fmt.Errorf("failed to read the autobuilder at %s: %w", autobuilder.Override, err)
+	}
+	return fmt.Sprintf("autobuilder %s %d %d",
+		autobuilder.Override, info.Size(), info.ModTime().UnixNano()), nil
 }
 
 // Prepare updates the approximation API jar in the model project.

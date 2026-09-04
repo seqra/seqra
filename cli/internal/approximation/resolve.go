@@ -1,5 +1,7 @@
 package approximation
 
+// Golden model: formal/Opentaint/Cli/Internal/Approximation/Resolve.lean
+
 import (
 	"fmt"
 	"os"
@@ -46,7 +48,11 @@ func resolveDir(dir string, builder Builder) ([]string, error) {
 		return []string{ClassesDir(dir)}, nil
 	}
 
-	if containsClassFiles(dir) {
+	// A directory is a class directory only when nothing below it still needs building.
+	// Without that condition a tree holding both a project and compiled classes reads as
+	// one class directory, and the project's models never reach the analysis.
+	facts := scanSubtree(dir)
+	if facts.classFiles && !facts.unitSource {
 		return []string{dir}, nil
 	}
 
@@ -55,6 +61,11 @@ func resolveDir(dir string, builder Builder) ([]string, error) {
 		return nil, fmt.Errorf("failed to read approximation directory %s: %w", dir, err)
 	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+
+	// Descending past classes this directory holds itself would leave them unused.
+	if classFile, found := directClassFile(entries); found {
+		return nil, ambiguousDirError(dir, classFile)
+	}
 
 	var classDirs []string
 	for _, entry := range entries {
@@ -68,6 +79,17 @@ func resolveDir(dir string, builder Builder) ([]string, error) {
 		classDirs = append(classDirs, nested...)
 	}
 	return classDirs, nil
+}
+
+// ambiguousDirError reports a directory that is neither a class directory nor a
+// directory of approximation paths.
+func ambiguousDirError(dir, classFile string) error {
+	return fmt.Errorf(
+		"%s holds compiled classes of its own (e.g. %s) and an approximation project or build "+
+			"output below it, so it is neither a class directory nor a directory of them.\n"+
+			"Move the classes into a directory of their own, or pass each approximation path to "+
+			"--dataflow-approximations separately",
+		dir, classFile)
 }
 
 // emptyPathError reports why a path does not contain usable models.
