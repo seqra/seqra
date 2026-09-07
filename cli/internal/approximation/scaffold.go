@@ -40,17 +40,20 @@ func ExtractApiJar(analyzerJarPath string) ([]byte, error) {
 
 	entryName := apiJarResourcePrefix + apiJarName
 	for _, file := range reader.File {
-		if file.Name != entryName {
-			continue
+		if file.Name == entryName {
+			return readZipEntry(file)
 		}
-		content, err := file.Open()
-		if err != nil {
-			return nil, fmt.Errorf("failed to read %s from the analyzer jar: %w", apiJarName, err)
-		}
-		defer func() { _ = content.Close() }()
-		return io.ReadAll(content)
 	}
 	return nil, fmt.Errorf("analyzer jar %s bundles no %s", analyzerJarPath, apiJarName)
+}
+
+func readZipEntry(file *zip.File) ([]byte, error) {
+	content, err := file.Open()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s from the analyzer jar: %w", file.Name, err)
+	}
+	defer func() { _ = content.Close() }()
+	return io.ReadAll(content)
 }
 
 // WriteApiJar writes the approximation API jar to a model project.

@@ -24,7 +24,13 @@ func CompilerDiagnostics(logPath string) string {
 	var diagnostics []string
 	for _, line := range strings.Split(string(log), "\n") {
 		message := buildOutput(line)
-		if isCompilerDiagnostic(message) {
+		switch {
+		case isCompilerDiagnostic(message):
+			diagnostics = append(diagnostics, "  "+message)
+		case len(diagnostics) > 0 && compilerErrorCount.MatchString(message):
+			// javac closes with a count of what it just reported. On its own the line is
+			// only something that reads like one, so it is kept as a trailer and never as
+			// the diagnostic.
 			diagnostics = append(diagnostics, "  "+message)
 		}
 	}
@@ -41,7 +47,5 @@ func buildOutput(logLine string) string {
 
 func isCompilerDiagnostic(message string) bool {
 	// Match javac and kotlinc error formats.
-	return strings.Contains(message, ": error: ") ||
-		strings.HasPrefix(message, "e: ") ||
-		compilerErrorCount.MatchString(message)
+	return strings.Contains(message, ": error: ") || strings.HasPrefix(message, "e: ")
 }

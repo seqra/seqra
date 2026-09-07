@@ -123,8 +123,7 @@ func TestResolveReusesBuildUntilSourcesChange(t *testing.T) {
 }
 
 // The stamp covers the project, and the project alone does not determine the compiled
-// classes: the compiler does too. See formal/Opentaint/Approximation/Cache.lean, theorem
-// shipped_stamp_serves_a_stale_output.
+// classes: the compiler does too.
 func TestResolveRebuildsWhenTheCompilerChanges(t *testing.T) {
 	project := newProject(t, t.TempDir())
 	builder := newFakeBuilder(t)
@@ -226,8 +225,7 @@ func TestResolveTreeOfProjects(t *testing.T) {
 
 // A tree may mix model projects with directories that are already compiled. Resolving
 // such a tree must build the project and keep the compiled classes, not collapse the
-// whole tree into one classpath root: see formal/Opentaint/Approximation/Shipped.lean,
-// theorem shipped_loses_a_project.
+// whole tree into one classpath root.
 func TestResolveTreeMixingProjectAndClasses(t *testing.T) {
 	root := t.TempDir()
 	project := newProject(t, filepath.Join(root, "models"))
@@ -272,7 +270,7 @@ func TestResolveTreeMixingProjectAndBuildOutput(t *testing.T) {
 
 // A directory that holds classes of its own and a project below it belongs to neither
 // shape: putting it on the classpath hides the project, recursing past it drops the
-// classes. See formal/Opentaint/Approximation/Classes.lean, ambiguous_tree_drops_a_class.
+// classes.
 func TestResolveRejectsAmbiguousDirectory(t *testing.T) {
 	root := t.TempDir()
 	newProject(t, filepath.Join(root, "models"))
@@ -299,6 +297,59 @@ func TestResolvePrecompiledClassDirectoryKeepsItsRoot(t *testing.T) {
 	}
 	if !reflect.DeepEqual(classDirs, []string{root}) {
 		t.Fatalf("Resolve() = %v, want the classpath root %s", classDirs, root)
+	}
+}
+
+// The analyzer is handed every path's answer at once, so a directory reached twice must
+// contribute once.
+func TestResolveAllPassesEachDirectoryOnce(t *testing.T) {
+	project := newProject(t, t.TempDir())
+	builder := newFakeBuilder(t)
+
+	classDirs, err := ResolveAll([]string{project, project}, builder)
+	if err != nil {
+		t.Fatalf("ResolveAll: %v", err)
+	}
+	if !reflect.DeepEqual(classDirs, []string{ClassesDir(BuildDir(project))}) {
+		t.Fatalf("ResolveAll() = %v, want the class directory once", classDirs)
+	}
+}
+
+// Copies of one class are the ordinary result of passing overlapping paths, and the
+// analyzer reads the same class whichever copy it picks.
+func TestResolveAllAcceptsIdenticalCopiesOfAClass(t *testing.T) {
+	root := t.TempDir()
+	first := filepath.Join(root, "first")
+	second := filepath.Join(root, "second")
+	writeFile(t, filepath.Join(first, "com", "example", "Model.class"), "bytecode")
+	writeFile(t, filepath.Join(second, "com", "example", "Model.class"), "bytecode")
+
+	classDirs, err := ResolveAll([]string{first, second}, newFakeBuilder(t))
+	if err != nil {
+		t.Fatalf("ResolveAll: %v", err)
+	}
+	if !reflect.DeepEqual(classDirs, []string{first, second}) {
+		t.Fatalf("ResolveAll() = %v, want both directories", classDirs)
+	}
+}
+
+// Two directories offering one class with different content leave the analyzer to pick,
+// and nothing says which it picks: the directories must agree on the class content.
+func TestResolveAllRejectsClashingClasses(t *testing.T) {
+	root := t.TempDir()
+	first := filepath.Join(root, "first")
+	second := filepath.Join(root, "second")
+	writeFile(t, filepath.Join(first, "com", "example", "Model.class"), "one bytecode")
+	writeFile(t, filepath.Join(second, "com", "example", "Model.class"), "another bytecode")
+
+	_, err := ResolveAll([]string{first, second}, newFakeBuilder(t))
+	if err == nil {
+		t.Fatal("expected two different copies of one class to be rejected")
+	}
+	for _, want := range []string{"com/example/Model.class", first, second} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error should mention %s, got: %v", want, err)
+		}
 	}
 }
 
@@ -354,22 +405,51 @@ func TestFailedRebuildKeepsThePreviousBuild(t *testing.T) {
 	}
 }
 
-// A build assembles under a path of its own. A second builder of the same output must
-// not be able to delete or contribute to it: see formal/Opentaint/Approximation/
-// Publish.lean, theorem raceA_output_is_not_sound.
-func TestBuildDoesNotTouchAnotherBuildersStaging(t *testing.T) {
+// A build assembles under a path of its own. A second builder of the same output must not
+// be able to delete or contribute to it.
+func TestBuildKeepsStagingOfARunningBuild(t *testing.T) {
 	project := newProject(t, t.TempDir())
 	output := BuildDir(project)
 
-	// What another builder of the same output would be assembling.
-	foreign := output + ".incomplete"
+	// What another builder of the same output would be assembling. Process 1 always runs.
+	foreign := filepath.Join(stagingRoot(output), filepath.Base(output)+"-1")
 	writeFile(t, filepath.Join(foreign, classesDirName, "com", "example", "Other.class"), "bytecode")
 
 	if err := Build(project, output, newFakeBuilder(t)); err != nil {
 		t.Fatalf("Build: %v", err)
 	}
 	if _, err := os.Stat(filepath.Join(foreign, classesDirName, "com", "example", "Other.class")); err != nil {
-		t.Errorf("the build deleted another builder's staging directory: %v", err)
+		t.Errorf("the build deleted a running builder's staging directory: %v", err)
+	}
+}
+
+// A build killed outright leaves its staging directory behind. The next build reclaims it,
+// but only once its owner is gone.
+func TestBuildSweepsStagingOfAKilledBuild(t *testing.T) {
+	project := newProject(t, t.TempDir())
+	output := BuildDir(project)
+
+	abandoned := filepath.Join(stagingRoot(output), filepath.Base(output)+"-2147483646")
+	writeFile(t, filepath.Join(abandoned, classesDirName, "com", "example", "Other.class"), "bytecode")
+
+	if err := Build(project, output, newFakeBuilder(t)); err != nil {
+		t.Fatalf("Build: %v", err)
+	}
+	if _, err := os.Stat(abandoned); !os.IsNotExist(err) {
+		t.Errorf("a killed build's staging directory was not reclaimed: %v", err)
+	}
+}
+
+// Whatever is left behind must be invisible to the resolver: staged classes are not
+// compiled models, and resolving them would apply a half-built batch to a scan.
+func TestStagingIsInvisibleToTheResolver(t *testing.T) {
+	root := t.TempDir()
+	output := filepath.Join(root, "out")
+	abandoned := filepath.Join(stagingRoot(output), filepath.Base(output)+"-1")
+	writeFile(t, filepath.Join(abandoned, classesDirName, "com", "example", "Other.class"), "bytecode")
+
+	if _, err := Resolve(root, newFakeBuilder(t)); err == nil {
+		t.Error("a leftover staging directory was resolved as compiled models")
 	}
 }
 
@@ -443,8 +523,13 @@ func TestBuildWritesReadableDescriptor(t *testing.T) {
 	if err := yaml.Unmarshal(raw, &parsed); err != nil {
 		t.Fatalf("descriptor is not valid YAML: %v\n%s", err, raw)
 	}
-	if parsed.SourceProject != project {
-		t.Errorf("sourceProject = %q, want %q", parsed.SourceProject, project)
+	// The descriptor must mean the same thing wherever the output is read, so it may not
+	// carry a path that only exists on the machine that built it.
+	if filepath.IsAbs(parsed.SourceProject) {
+		t.Errorf("sourceProject = %q, want a path relative to the output", parsed.SourceProject)
+	}
+	if resolved := filepath.Clean(filepath.Join(output, parsed.SourceProject)); resolved != project {
+		t.Errorf("sourceProject resolves to %q, want %q", resolved, project)
 	}
 	if parsed.Dependencies == nil {
 		t.Error("dependencies should be an empty list, not null")

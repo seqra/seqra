@@ -1,13 +1,71 @@
 package approximation
 
-// Golden model: formal/Opentaint/Cli/Internal/Approximation/Resolve.lean
-
 import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sort"
 )
+
+// ResolveAll returns the class directories for every model path, in the order the paths
+// were given. A directory reached more than once contributes once, and the directories
+// must agree about every class they share: which copy an analysis reads is not defined, so
+// two different copies of one class would leave the result of the scan unpinned.
+func ResolveAll(paths []string, builder Builder) ([]string, error) {
+	var classDirs []string
+	resolved := make(map[string]bool)
+	for _, path := range paths {
+		dirs, err := Resolve(path, builder)
+		if err != nil {
+			return nil, err
+		}
+		for _, dir := range dirs {
+			dir = filepath.Clean(dir)
+			if resolved[dir] {
+				continue
+			}
+			resolved[dir] = true
+			classDirs = append(classDirs, dir)
+		}
+	}
+	if err := checkClasspathAgrees(classDirs); err != nil {
+		return nil, err
+	}
+	return classDirs, nil
+}
+
+// checkClasspathAgrees rejects class directories that offer one class with different
+// content. Identical copies are the ordinary result of overlapping paths and are left
+// alone: what has to hold is that the same class is read whichever copy is picked.
+func checkClasspathAgrees(classDirs []string) error {
+	offeredBy := make(map[string]string)
+	for _, dir := range classDirs {
+		classes, err := classFilesIn(dir)
+		if err != nil {
+			return err
+		}
+		for _, class := range classes {
+			previous, offered := offeredBy[class]
+			if !offered {
+				offeredBy[class] = dir
+				continue
+			}
+			same, err := sameContent(
+				filepath.Join(previous, filepath.FromSlash(class)),
+				filepath.Join(dir, filepath.FromSlash(class)))
+			if err != nil {
+				return err
+			}
+			if !same {
+				return fmt.Errorf(
+					"%s is offered with different content by %s and by %s; which one an analysis "+
+						"reads is not defined.\nDrop one of the copies, or pass only one of these "+
+						"approximation paths",
+					class, previous, dir)
+			}
+		}
+	}
+	return nil
+}
 
 // Resolve returns the class directories for one model path.
 // The path can have one of these forms:
@@ -56,11 +114,12 @@ func resolveDir(dir string, builder Builder) ([]string, error) {
 		return []string{dir}, nil
 	}
 
+	// os.ReadDir returns entries sorted by name, so the answer does not depend on the
+	// order the filesystem happens to hand them back.
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read approximation directory %s: %w", dir, err)
 	}
-	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
 
 	// Descending past classes this directory holds itself would leave them unused.
 	if classFile, found := directClassFile(entries); found {

@@ -1,7 +1,5 @@
 package approximation
 
-// Golden model: formal/Opentaint/Cli/Internal/Approximation/Stamp.lean
-
 import (
 	"crypto/sha256"
 	"encoding/hex"

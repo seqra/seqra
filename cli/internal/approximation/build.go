@@ -1,11 +1,14 @@
 package approximation
 
-// Golden model: formal/Opentaint/Cli/Internal/Approximation/Build.lean
-
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
+	"strings"
+	"syscall"
 
 	"github.com/seqra/opentaint/internal/utils"
 	"github.com/seqra/opentaint/internal/utils/project"
@@ -64,22 +67,82 @@ func prepare(projectDir string, builder Builder) (stamp, error) {
 	return stamp{Sources: sources, Toolchain: toolchain}, nil
 }
 
-// stagingDir names the directory a build assembles in. The process id keeps concurrent
-// builders of one output out of each other's staging directory: a shared one lets a build
-// publish a mixture of two compiles, and record it as up to date.
+// stagingDirName holds the directories builds assemble in. It sits beside the output so
+// that publishing is a single rename, and it is on the skip list so that a directory a
+// killed build left behind is never mistaken for compiled models.
+const stagingDirName = ".opentaint-staging"
+
+func stagingRoot(outputDir string) string {
+	return filepath.Join(filepath.Dir(outputDir), stagingDirName)
+}
+
+// stagingDir names this process's staging directory for one output. The process id keeps
+// concurrent builders of one output out of each other's staging directory: a shared one
+// lets a build publish a mixture of two compiles, and record it as up to date.
 func stagingDir(outputDir string) string {
-	return fmt.Sprintf("%s.incomplete-%d", outputDir, os.Getpid())
+	return filepath.Join(stagingRoot(outputDir),
+		fmt.Sprintf("%s-%d", filepath.Base(outputDir), os.Getpid()))
 }
 
 // asideDir names the superseded output while the new one is renamed into place.
 func asideDir(outputDir string) string {
-	return fmt.Sprintf("%s.superseded-%d", outputDir, os.Getpid())
+	return filepath.Join(stagingRoot(outputDir),
+		fmt.Sprintf("%s-superseded-%d", filepath.Base(outputDir), os.Getpid()))
+}
+
+// sweepStaging reclaims staging directories left behind by builds that are no longer
+// running. A directory is removed only when its owner is known to be gone, so a build in
+// progress is never disturbed; being wrong the other way costs a directory that stays
+// until its process id comes round again.
+func sweepStaging(outputDir string) {
+	root := stagingRoot(outputDir)
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		return
+	}
+	prefix := filepath.Base(outputDir) + "-"
+	for _, entry := range entries {
+		if !entry.IsDir() || !strings.HasPrefix(entry.Name(), prefix) {
+			continue
+		}
+		owner, named := stagingOwner(entry.Name())
+		if !named || owner == os.Getpid() || processRunning(owner) {
+			continue
+		}
+		_ = os.RemoveAll(filepath.Join(root, entry.Name()))
+	}
+}
+
+// stagingOwner reads the process id a staging directory name ends with.
+func stagingOwner(name string) (int, bool) {
+	separator := strings.LastIndex(name, "-")
+	if separator < 0 {
+		return 0, false
+	}
+	owner, err := strconv.Atoi(name[separator+1:])
+	return owner, err == nil
+}
+
+// processRunning reports whether a process is still running. It errs towards "running":
+// a staging directory is reclaimed only when its owner is known to be gone.
+func processRunning(pid int) bool {
+	if runtime.GOOS == "windows" {
+		return true
+	}
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return true
+	}
+	// A process that exists but belongs to someone else answers with EPERM.
+	err = process.Signal(syscall.Signal(0))
+	return err == nil || errors.Is(err, syscall.EPERM)
 }
 
 func build(projectDir, outputDir string, inputs stamp, builder Builder) error {
 	if err := checkOutputDir(outputDir); err != nil {
 		return err
 	}
+	sweepStaging(outputDir)
 
 	buildTempDir, err := os.MkdirTemp("", "opentaint-approximation-build-*")
 	if err != nil {
@@ -112,14 +175,23 @@ func build(projectDir, outputDir string, inputs stamp, builder Builder) error {
 		return fmt.Errorf("approximation project %s compiled to no classes; it has no models under src/main/java", projectDir)
 	}
 
-	if err := writeDescriptor(staging, descriptor{SourceProject: projectDir, Dependencies: dependencies}); err != nil {
+	if err := writeDescriptor(staging, descriptor{
+		SourceProject: relativeSourceProject(outputDir, projectDir),
+		Dependencies:  dependencies,
+	}); err != nil {
 		return err
 	}
 	if err := writeStamp(staging, inputs); err != nil {
 		return err
 	}
 
-	return replaceDir(staging, outputDir)
+	if err := replaceDir(staging, outputDir); err != nil {
+		return err
+	}
+
+	// Leave nothing beside the output once no build is using it.
+	_ = os.Remove(stagingRoot(outputDir))
+	return nil
 }
 
 // checkOutputDir prevents replacement of an unrelated directory.

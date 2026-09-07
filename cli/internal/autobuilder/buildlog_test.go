@@ -37,9 +37,17 @@ func TestCompilerDiagnostics(t *testing.T) {
 			want: "  e: file:///tmp/batch/Model.kt:7:1 unresolved reference",
 		},
 		{
-			name: "plural error count",
+			name: "a count of errors follows the errors it counts",
+			log: `12:00:00.000 |D| ProjectResolver - Model.java:4: error: cannot find symbol
+12:00:00.000 |D| ProjectResolver - Model.java:9: error: cannot find symbol
+12:00:00.000 |D| ProjectResolver - 2 errors
+`,
+			want: "  Model.java:4: error: cannot find symbol\n  Model.java:9: error: cannot find symbol\n  2 errors",
+		},
+		{
+			name: "a line that only reads like a count is not a diagnostic",
 			log:  "12:00:00.000 |D| ProjectResolver - 3 errors\n",
-			want: "  3 errors",
+			want: "",
 		},
 		{
 			name: "raw build output with no log prefix",

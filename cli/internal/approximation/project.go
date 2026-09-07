@@ -4,9 +4,9 @@
 // The scanned project does not supply these compile dependencies.
 package approximation
 
-// Golden model: formal/Opentaint/Cli/Internal/Approximation/Project.lean
-
 import (
+	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,6 +32,7 @@ const opentaintDirName = ".opentaint"
 // skippedDirs contains generated and version-control directories.
 var skippedDirs = map[string]bool{
 	opentaintDirName: true,
+	stagingDirName:   true,
 	"build":          true,
 	".gradle":        true,
 	".git":           true,
@@ -136,6 +137,49 @@ func directClassFile(entries []os.DirEntry) (string, bool) {
 
 func isClassFileName(name string) bool {
 	return strings.EqualFold(filepath.Ext(name), ".class")
+}
+
+// classFilesIn returns the compiled classes a class directory offers, as slash-separated
+// paths relative to that directory.
+func classFilesIn(dir string) ([]string, error) {
+	var classes []string
+	err := filepath.WalkDir(dir, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			if path != dir && skippedDirs[entry.Name()] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !isClassFileName(entry.Name()) {
+			return nil
+		}
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return err
+		}
+		classes = append(classes, filepath.ToSlash(rel))
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the compiled models in %s: %w", dir, err)
+	}
+	return classes, nil
+}
+
+// sameContent reports whether two files hold the same bytes.
+func sameContent(first, second string) (bool, error) {
+	firstBytes, err := os.ReadFile(first)
+	if err != nil {
+		return false, fmt.Errorf("failed to read %s: %w", first, err)
+	}
+	secondBytes, err := os.ReadFile(second)
+	if err != nil {
+		return false, fmt.Errorf("failed to read %s: %w", second, err)
+	}
+	return bytes.Equal(firstBytes, secondBytes), nil
 }
 
 // firstJavaSource returns one Java source file under dir.

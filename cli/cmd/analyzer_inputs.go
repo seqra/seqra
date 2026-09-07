@@ -5,19 +5,24 @@ import (
 	"github.com/seqra/opentaint/internal/utils/log"
 )
 
-// addDataflowApproximations resolves each path to compiled model directories.
+// addDataflowApproximations resolves the paths to compiled model directories.
 // It rebuilds a model project when its inputs change.
 func addDataflowApproximations(b *AnalyzerBuilder, paths []string, analyzerJarPath string) {
-	builder := newApproximationBuilder(analyzerJarPath)
+	if len(paths) == 0 {
+		return
+	}
+
+	absPaths := make([]string, 0, len(paths))
 	for _, approxPath := range paths {
-		absApproxPath := log.AbsPathOrExit(approxPath, "dataflow-approximations")
-		classDirs, err := approximation.Resolve(absApproxPath, builder)
-		if err != nil {
-			out.Fatalf("Failed to apply dataflow approximations: %s", err)
-		}
-		for _, classDir := range classDirs {
-			b.AddDataflowApproximations(classDir)
-		}
+		absPaths = append(absPaths, log.AbsPathOrExit(approxPath, "dataflow-approximations"))
+	}
+
+	classDirs, err := approximation.ResolveAll(absPaths, newApproximationBuilder(analyzerJarPath))
+	if err != nil {
+		out.Fatalf("Failed to apply dataflow approximations: %s", err)
+	}
+	for _, classDir := range classDirs {
+		b.AddDataflowApproximations(classDir)
 	}
 }
 
