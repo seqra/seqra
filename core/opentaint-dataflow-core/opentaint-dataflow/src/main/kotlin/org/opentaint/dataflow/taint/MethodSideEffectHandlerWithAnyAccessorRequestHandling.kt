@@ -20,11 +20,12 @@ interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffe
         summaryEffect: MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication,
         kind: SideEffectKind
     ): Set<MethodSequentFlowFunction.Sequent> {
-        if (kind is TaintMarkFieldUnfoldRequest) {
-            handleUnfoldRequest(summaryEffect, kind)
+        if (kind !is TaintMarkFieldUnfoldRequest) {
+            return super.handleZeroToFact(currentFactAp, summaryEffect, kind)
         }
 
-        return super.handleZeroToFact(currentFactAp, summaryEffect, kind)
+        handleUnfoldRequest(summaryEffect, kind)
+        return emptySet()
     }
 
     override fun handleFactToFact(
@@ -38,7 +39,9 @@ interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffe
             return super.handleFactToFact(methodEntryPoint, currentInitialFactAp, currentFactAp, summaryEffect, kind)
         }
 
-        handleUnfoldRequest(summaryEffect, kind)
+        if (handleUnfoldRequest(summaryEffect, kind)) {
+            return emptySet()
+        }
 
         val fact = currentInitialFactAp.replaceExclusions(ExclusionSet.Empty)
         val newKind = TaintMarkFieldUnfoldRequest(methodEntryPoint, fact, kind.mark)
@@ -48,11 +51,11 @@ interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffe
     private fun handleUnfoldRequest(
         summaryEffect: MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication,
         request: TaintMarkFieldUnfoldRequest
-    ) {
+    ): Boolean {
         when (summaryEffect) {
             is MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryApRefinement -> {
                 if (!summaryEffect.delta.isEmpty) {
-                    handleMarkAfterAnyFieldRequest(summaryEffect.delta, request)
+                    return handleMarkAfterAnyFieldRequest(summaryEffect.delta, request)
                 }
             }
 
@@ -60,15 +63,17 @@ interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffe
                 // taint mark requested -> mark not in initial fact, delta is empty -> mark not in fact
             }
         }
+
+        return false
     }
 
     private fun handleMarkAfterAnyFieldRequest(
         delta: FinalFactAp.Delta,
         request: TaintMarkFieldUnfoldRequest
-    ) {
+    ): Boolean {
         val mark = request.mark
         val allAccessors = delta.getAllAccessors()
-        if (mark !in allAccessors) return
+        if (mark !in allAccessors) return false
 
         val requests = mutableListOf<InitialFactAp>()
         traverseAllAccessorToMarkChains(mark, delta, request.fact, hashSetOf(), requests)
@@ -76,6 +81,8 @@ interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffe
         requests.forEach {
             runner.manager.handleCrossUnitSideEffectReq(request.method, it)
         }
+
+        return true
     }
 
     private fun traverseAllAccessorToMarkChains(
