@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.ap.ifds.analysis
 
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
+import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryApRefinement
 import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryExclusionRefinement
@@ -24,6 +25,7 @@ interface MethodSideEffectSummaryHandler {
     }
 
     fun handleFactToFact(
+        methodEntryPoint: MethodEntryPoint,
         currentInitialFactAp: InitialFactAp,
         currentFactAp: FinalFactAp,
         summaryEffect: SummaryEdgeApplication,
