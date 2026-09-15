@@ -5,7 +5,7 @@ import org.opentaint.dataflow.ap.ifds.AnalysisRunner
 import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
-import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils
+import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication
 import org.opentaint.dataflow.ap.ifds.SideEffectKind
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
@@ -17,7 +17,7 @@ interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffe
 
     override fun handleZeroToFact(
         currentFactAp: FinalFactAp,
-        summaryEffect: MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication,
+        summaryEffect: SummaryEdgeApplication,
         kind: SideEffectKind
     ): Set<MethodSequentFlowFunction.Sequent> {
         if (kind !is TaintMarkFieldUnfoldRequest) {
@@ -32,7 +32,7 @@ interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffe
         methodEntryPoint: MethodEntryPoint,
         currentInitialFactAp: InitialFactAp,
         currentFactAp: FinalFactAp,
-        summaryEffect: MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication,
+        summaryEffect: SummaryEdgeApplication,
         kind: SideEffectKind
     ): Set<MethodSequentFlowFunction.Sequent> {
         if (kind !is TaintMarkFieldUnfoldRequest) {
@@ -43,23 +43,30 @@ interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffe
             return emptySet()
         }
 
+        val suffix = when (summaryEffect) {
+            is SummaryEdgeApplication.SummaryExclusionRefinement -> kind.suffix
+            is SummaryEdgeApplication.SummaryApRefinement -> {
+                kind.suffix ?: summaryEffect.delta.takeIf { !it.isEmpty }
+            }
+        }
+
+        val newKind = kind.copy(suffix = suffix)
         val fact = currentInitialFactAp.replaceExclusions(ExclusionSet.Empty)
-        val newKind = TaintMarkFieldUnfoldRequest(methodEntryPoint, fact, kind.mark)
         return setOf(MethodSequentFlowFunction.Sequent.FactSideEffect(fact, newKind))
     }
 
     private fun handleUnfoldRequest(
-        summaryEffect: MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication,
+        summaryEffect: SummaryEdgeApplication,
         request: TaintMarkFieldUnfoldRequest
     ): Boolean {
         when (summaryEffect) {
-            is MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryApRefinement -> {
+            is SummaryEdgeApplication.SummaryApRefinement -> {
                 if (!summaryEffect.delta.isEmpty) {
                     return handleMarkAfterAnyFieldRequest(summaryEffect.delta, request)
                 }
             }
 
-            is MethodSummaryEdgeApplicationUtils.SummaryEdgeApplication.SummaryExclusionRefinement -> {
+            is SummaryEdgeApplication.SummaryExclusionRefinement -> {
                 // taint mark requested -> mark not in initial fact, delta is empty -> mark not in fact
             }
         }
@@ -75,42 +82,16 @@ interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffe
         val allAccessors = delta.getAllAccessors()
         if (mark !in allAccessors) return false
 
-        val requests = mutableListOf<InitialFactAp>()
-        traverseAllAccessorToMarkChains(mark, delta, request.fact, hashSetOf(), requests)
+        val nextAccessors = request.suffix?.startAccessors()
+            ?: delta.relevantStartAccessors(mark)
 
-        requests.forEach {
-            runner.manager.handleCrossUnitSideEffectReq(request.method, it)
-        }
+        val exclusion = nextAccessors.fold(ExclusionSet.Empty as ExclusionSet, ExclusionSet::add)
+        runner.manager.handleCrossUnitSideEffectReq(request.method, request.fact.replaceExclusions(exclusion))
 
         return true
     }
 
-    private fun traverseAllAccessorToMarkChains(
-        mark: Accessor,
-        current: FinalFactAp.Delta,
-        fact: InitialFactAp,
-        visited: MutableSet<FinalFactAp.Delta>,
-        result: MutableList<InitialFactAp>
-    ) {
-        if (!visited.add(current)) return
-
-        val relevantStartAccessors = current.relevantStartAccessors(mark)
-        if (relevantStartAccessors.isEmpty()) return
-
-        val exclusion = relevantStartAccessors.fold(ExclusionSet.Empty as ExclusionSet, ExclusionSet::add)
-        result += fact.replaceExclusions(exclusion)
-
-        for (accessor in relevantStartAccessors) {
-            if (accessor == mark) continue
-
-            val nextDelta = current.readAccessor(accessor) ?: continue
-            val nextFact = fact.append(accessor)
-
-            traverseAllAccessorToMarkChains(mark, nextDelta, nextFact, visited, result)
-        }
-    }
-
-    private fun FinalFactAp.Delta.relevantStartAccessors(mark: Accessor): List<Accessor> {
+    private fun FinalFactAp.Delta.startAccessors(): Set<Accessor> {
         val startAccessors = hashSetOf<Accessor>()
         for (accessor in getStartAccessors()) {
             if (accessor !is AnyAccessor) {
@@ -123,16 +104,11 @@ interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffe
 
             anySuccessors.filterTo(startAccessors) { it !is AnyAccessor }
         }
+        return startAccessors
+    }
 
-        return startAccessors.filter { accessor ->
+    private fun FinalFactAp.Delta.relevantStartAccessors(mark: Accessor): List<Accessor> =
+        startAccessors().filter { accessor ->
             accessor == mark || readAccessor(accessor)?.getAllAccessors()?.contains(mark) ?: false
         }
-    }
-
-    private fun InitialFactAp.append(accessor: Accessor): InitialFactAp = with(runner.apManager) {
-        val singleAccessorFact = mostAbstractInitialAp(base).prependAccessor(accessor)
-        val empty = mostAbstractFinalAp(base)
-        val singleAccessorDelta = singleAccessorFact.splitDelta(empty).first().second
-        return concat(singleAccessorDelta)
-    }
 }
