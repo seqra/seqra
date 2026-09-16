@@ -43,16 +43,24 @@ interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffe
             return emptySet()
         }
 
-        val suffix = when (summaryEffect) {
-            is SummaryEdgeApplication.SummaryExclusionRefinement -> kind.suffix
-            is SummaryEdgeApplication.SummaryApRefinement -> {
-                kind.suffix ?: summaryEffect.delta.takeIf { !it.isEmpty }
+        val nextRequests = kind.nextRequests(summaryEffect)
+        val fact = currentInitialFactAp.replaceExclusions(ExclusionSet.Empty)
+        return nextRequests.mapTo(hashSetOf()) {
+            MethodSequentFlowFunction.Sequent.FactSideEffect(fact, it)
+        }
+    }
+
+    private fun TaintMarkFieldUnfoldRequest.nextRequests(
+        effect: SummaryEdgeApplication
+    ): List<TaintMarkFieldUnfoldRequest> = when (effect) {
+        is SummaryEdgeApplication.SummaryExclusionRefinement -> listOf(this)
+        is SummaryEdgeApplication.SummaryApRefinement -> {
+            if (suffix != null || effect.delta.isEmpty) {
+                listOf(this)
+            } else {
+                effect.delta.startAccessors().map { copy(suffix = it) }
             }
         }
-
-        val newKind = kind.copy(suffix = suffix)
-        val fact = currentInitialFactAp.replaceExclusions(ExclusionSet.Empty)
-        return setOf(MethodSequentFlowFunction.Sequent.FactSideEffect(fact, newKind))
     }
 
     private fun handleUnfoldRequest(
@@ -82,7 +90,7 @@ interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffe
         val allAccessors = delta.getAllAccessors()
         if (mark !in allAccessors) return false
 
-        val nextAccessors = request.suffix?.startAccessors()
+        val nextAccessors = request.suffix?.let { setOf(it) }
             ?: delta.relevantStartAccessors(mark)
 
         val exclusion = nextAccessors.fold(ExclusionSet.Empty as ExclusionSet, ExclusionSet::add)

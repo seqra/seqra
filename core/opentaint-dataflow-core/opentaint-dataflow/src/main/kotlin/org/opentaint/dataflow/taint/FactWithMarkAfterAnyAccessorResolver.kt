@@ -1,9 +1,9 @@
 package org.opentaint.dataflow.taint
 
+import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.SideEffectKind
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
-import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 
 interface FactWithMarkAfterAnyAccessorResolver {
@@ -14,7 +14,7 @@ data class TaintMarkFieldUnfoldRequest(
     val method: MethodEntryPoint,
     val fact: InitialFactAp,
     val mark: TaintMarkAccessor,
-    val suffix: FinalFactAp.Delta?
+    val suffix: Accessor?
 ) : SideEffectKind
 
 data class DefaultFactWithMarkAfterAnyFieldResolver(
