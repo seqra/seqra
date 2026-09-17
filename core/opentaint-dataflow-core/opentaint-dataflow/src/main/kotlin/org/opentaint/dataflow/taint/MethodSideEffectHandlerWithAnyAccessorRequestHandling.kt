@@ -44,7 +44,11 @@ interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffe
         }
 
         val nextRequests = kind.nextRequests(summaryEffect)
-        val fact = currentInitialFactAp.replaceExclusions(ExclusionSet.Empty)
+        val ex = when (summaryEffect) {
+            is SummaryEdgeApplication.SummaryApRefinement -> ExclusionSet.Empty
+            is SummaryEdgeApplication.SummaryExclusionRefinement -> summaryEffect.exclusion
+        }
+        val fact = currentInitialFactAp.replaceExclusions(ex)
         return nextRequests.mapTo(hashSetOf()) {
             MethodSequentFlowFunction.Sequent.FactSideEffect(fact, it)
         }
