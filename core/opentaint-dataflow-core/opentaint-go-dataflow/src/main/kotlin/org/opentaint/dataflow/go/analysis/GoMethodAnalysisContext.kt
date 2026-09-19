@@ -3,6 +3,7 @@ package org.opentaint.dataflow.go.analysis
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisManager
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
+import org.opentaint.dataflow.taint.MarkUnfoldDemand
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper
 import org.opentaint.dataflow.go.GoClosureTracker.ClosureTracker
 import org.opentaint.dataflow.go.GoMethodCallFactMapper
@@ -20,6 +21,8 @@ class GoMethodAnalysisContext(
     val taint: GoTaintAnalysisContext,
     val aliasAnalysis: GoLocalAliasAnalysis,
 ) : MethodAnalysisContext {
+    override val markUnfoldDemand: MarkUnfoldDemand = MarkUnfoldDemand()
+
     init {
         taint.bindAnalysisContext(this)
     }

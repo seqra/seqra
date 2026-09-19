@@ -5,6 +5,7 @@ import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisManager.Phase
 import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
+import org.opentaint.dataflow.taint.MarkUnfoldDemand
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLambdaTracker
@@ -25,6 +26,8 @@ class JIRMethodAnalysisContext(
     val aliasAnalysis: JIRLocalAliasAnalysis?,
     val taint: JIRTaintAnalysisContext,
 ) : MethodAnalysisContext {
+    override val markUnfoldDemand: MarkUnfoldDemand = MarkUnfoldDemand()
+
     init {
         taint.bindAnalysisContext(this)
     }

@@ -9,11 +9,15 @@ import org.opentaint.dataflow.ap.ifds.MethodSummaryEdgeApplicationUtils.SummaryE
 import org.opentaint.dataflow.ap.ifds.SideEffectKind
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
+import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSequentFlowFunction
 import org.opentaint.dataflow.ap.ifds.analysis.MethodSideEffectSummaryHandler
 
 interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffectSummaryHandler {
     val runner: AnalysisRunner
+
+    /** The method being analysed -- the frame these requests are arriving at, not the one that asked. */
+    val analysisContext: MethodAnalysisContext
 
     override fun handleZeroToFact(
         currentFactAp: FinalFactAp,
@@ -97,7 +101,20 @@ interface MethodSideEffectHandlerWithAnyAccessorRequestHandling : MethodSideEffe
         val nextAccessors = request.suffix?.let { setOf(it) }
             ?: delta.relevantStartAccessors(mark)
 
-        val exclusion = nextAccessors.fold(ExclusionSet.Empty as ExclusionSet, ExclusionSet::add)
+        // The demand for one question only grows. An accessor already demanded for it does not
+        // refine the abstraction a second time -- the split it asks for ends in `[any]` again,
+        // one accessor further down, and re-raises the same question. See [MarkUnfoldDemand].
+        val newAccessors = analysisContext.markUnfoldDemand.demand(
+            request.method, request.fact.base, mark, nextAccessors
+        )
+
+        // Nothing fresh: this answer asks for a split that has already been asked for. The
+        // request itself is NOT consumed -- it keeps climbing, because a caller further up may
+        // hold an accessor nobody has contributed yet, and consuming it here measurably stalls
+        // the analysis instead.
+        if (newAccessors.isEmpty()) return false
+
+        val exclusion = newAccessors.fold(ExclusionSet.Empty as ExclusionSet, ExclusionSet::add)
         runner.manager.handleCrossUnitSideEffectReq(request.method, request.fact.replaceExclusions(exclusion))
 
         return true
