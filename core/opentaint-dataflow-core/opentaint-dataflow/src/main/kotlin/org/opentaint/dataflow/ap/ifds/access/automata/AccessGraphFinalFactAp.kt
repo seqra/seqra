@@ -6,9 +6,10 @@ import org.opentaint.dataflow.ap.ifds.AnyAccessor
 import org.opentaint.dataflow.ap.ifds.ExclusionSet
 import org.opentaint.dataflow.ap.ifds.FactTypeChecker
 import org.opentaint.dataflow.ap.ifds.access.DeepAccessorExclusion
+import org.opentaint.dataflow.ap.ifds.access.DeepAccessorExclusion.Companion.addAccessorFromDepth0
+import org.opentaint.dataflow.ap.ifds.access.DeepAccessorExclusion.Companion.addAccessorFromDepth1
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.ap.ifds.access.add
 import org.opentaint.dataflow.ap.ifds.tryAnyAccessorOrNull
 
 data class AccessGraphFinalFactAp(
@@ -55,7 +56,12 @@ data class AccessGraphFinalFactAp(
         var result = access.clearAllAccessorOccurrences(accessor.idx, keepStartAccessor) ?: return null
 
         if (exclusions !is ExclusionSet.Universe) {
-            result = result.withAnyFieldAccessorExclusions(result.deepAccessorExclusion.add(accessor.idx))
+            val deepExclusion = if (keepStartAccessor && access.initialNodeIsFinal()) {
+                result.deepAccessorExclusion.addAccessorFromDepth1(accessor.idx)
+            } else {
+                result.deepAccessorExclusion.addAccessorFromDepth0(accessor.idx)
+            }
+            result = result.withAnyFieldAccessorExclusions(deepExclusion)
         }
 
         if (result === access) this@AccessGraphFinalFactAp
@@ -131,10 +137,18 @@ data class AccessGraphFinalFactAp(
         val filter = access.manager.createFilter(access, typeChecker)
         val filteredDelta = structurallyFilteredDelta.filter(filter) ?: return null
 
+        val resultAnyFieldAccessorExclusions = if (delta.access.initialNodeIsFinal()) {
+            composedAnyFieldAccessorExclusions
+        } else {
+            DeepAccessorExclusion.merge(
+                access.deepAccessorExclusion?.collapseToDepth0(), delta.access.deepAccessorExclusion
+            )
+        }
+
         if (access.isEmpty()) {
             return AccessGraphFinalFactAp(
                 base,
-                filteredDelta.withAnyFieldAccessorExclusions(composedAnyFieldAccessorExclusions),
+                filteredDelta.withAnyFieldAccessorExclusions(resultAnyFieldAccessorExclusions),
                 exclusions,
             )
         }
@@ -142,7 +156,7 @@ data class AccessGraphFinalFactAp(
         val concatenatedGraph = access.concat(filteredDelta)
         return AccessGraphFinalFactAp(
             base,
-            concatenatedGraph.withAnyFieldAccessorExclusions(composedAnyFieldAccessorExclusions),
+            concatenatedGraph.withAnyFieldAccessorExclusions(resultAnyFieldAccessorExclusions),
             exclusions,
         )
     }
