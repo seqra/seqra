@@ -361,3 +361,32 @@ run_elab do
   if !ApSpec.CurrentAliasGuard.Certificate.check then
     throw (IO.userError "Executable alias origin/layer guard failed.")
   IO.println "Executable alias origin/layer guard passed."
+
+-- Matched TAINT literals need no second coverage traversal to select their layer.
+#eval do
+  let expected : List (Bool × Bool × Bool) :=
+    [(true, false, false), (false, false, false), (true, false, false), (true, true, true)]
+  if ApSpec.CurrentProposal.LiteralLayer.Certificate.cases != expected then
+    throw (IO.userError "Executable matched literal layer failed.")
+  IO.println "Executable matched literal layer passed."
+
+-- W7 targets are uncorrelated: a full combination only joins member layers.
+#eval do
+  if !ApSpec.CurrentProposal.Combination.Certificate.check then
+    throw (IO.userError "Executable summary combination layer join failed.")
+  IO.println "Executable summary combination layer join passed."
+
+-- T2 preserves union denotation but defeats mutual single-leaf coverage.
+#eval do
+  if !ApSpec.CurrentProposal.T2Oracle.Certificate.check then
+    throw (IO.userError "Executable summary union comparison boundary failed.")
+  IO.println "Executable summary union comparison boundary passed."
+
+-- Demotion and a general field read do not commute. This is a local AP boundary.
+#eval do
+  if ApSpec.CurrentProposal.RecordTiming.constructed != [ApSpec.CurrentProposal.RecordTiming.g] ||
+      ApSpec.CurrentProposal.RecordTiming.late != [] ||
+      ApSpec.CurrentProposal.RecordTiming.early !=
+        ([⟨⟨⟨6, [], .any, .conc 7⟩, true⟩, ApSpec.Excl.empty⟩] : List ApSpec.AnyTaintEx.XFact) then
+    throw (IO.userError "Executable record demotion timing boundary failed.")
+  IO.println "Executable record demotion timing boundary passed."

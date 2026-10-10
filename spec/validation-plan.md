@@ -7,6 +7,31 @@ closure version they name. Current demand tests use the structural selection
 rule of ap.md §9.2; current record-view tests use F76. The build and axiom
 audit are in [proof-status.md](proof-status.md).
 
+## Implementation proposal review
+
+Review [ap-impl.md](ap-impl.md) and [analyzer-impl.md](analyzer-impl.md) against
+the current normative rules before implementation. Check these boundaries:
+
+1. Emit from the current demand; retain the added mark for concrete patterns and
+   use the shared FLOW form for abstract patterns. Reduce publications with the
+   whole-premise and exit-mark tests. Retain raw records before reduction.
+2. Select hand-off pieces by raw layer, premise count and backward zero only.
+   Selection preserves the layer. Reader-result DEMAND does not add callee demand.
+3. Apply record read views as transient patterns. Keep side marks, exclusions,
+   exact-target suffix dropping and same-direction must-record demotion.
+4. Keep F74 read/clean/write order and its cut points. F75 selects same-base
+   abstract marks before the spatial test; only run 1 stores its request.
+5. Join forward literal contributions; split backward conjunctions into independent
+   DEMAND edges. On a matched TAINT literal, check the layer-only equivalence in
+   `CurrentProposal.LiteralLayer`; no second coverage walk is needed.
+6. Preserve joint support, action order, current-layer alias selection, reliable
+   replay/delivery, immutable run inputs and barrier/report rules.
+
+Use the local proofs listed in [proof-status.md](proof-status.md) for each
+behavioral simplification. Historical closure results do not prove the current
+iteration. Check local links, section references and public signatures after a
+proposal rewrite. The tests below remain the implementation acceptance plan.
+
 ## AP tests
 
 Bare rule references in this part name `ap.md`. Test item numbers and §13 refer
