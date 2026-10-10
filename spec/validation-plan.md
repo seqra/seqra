@@ -18,8 +18,10 @@ Write the tests first. Each test names the spec item that it checks. The interpr
 
 1. Vector tests (`ApplyEdgeVectorsTest`): one test per `example` in `Cases.lean` and `RestrictedCases.lean`, on the
    concept implementation (§4.1 reference form) and on the tree implementation. These Lean files are the test data:
-   each `example` gives the inputs and the expected result. Some vectors (the `lostCorr` vectors,
-   and the §4.2 vector `a = b.f` on a normal-layer `(b, ., [any], {}, *)`) show the model result: an `[any]` result in
+   each `example` gives the inputs and the expected result. Historical `lostCorr` vectors exercise generic
+   algebra outside the reachable W2/S8 domain; they are not a below-case demotion rule. Check the gated
+   `CurrentSimplifications` equivalence for legal facts, including equal requests. Some vectors (such as
+   the §4.2 vector `a = b.f` on a normal-layer `(b, ., [any], {}, *)`) show the model result: an `[any]` result in
    the normal layer. The implementation applies W6T, so the test asserts the same fact in the layer of §4.1: in the
    demand layer for a may `[any]` target or an `[any]` input, and as a normal `[any-taint]` fact for a taint edge or a
    normal `.any` input with a CONCRETE mark; a `.any` input with the mark `*` (the §4.2 vector above) gives `[any]` in
@@ -80,11 +82,15 @@ Write the tests first. Each test names the spec item that it checks. The interpr
 6. Type filter tests: a fact on an accepted path passes, also with a `*` tail; a fact on a rejected path is dropped; the
    predicate is prefix-closed.
 7. ND tests: a conjunction from two facts of different premises gives the union premise set; the last arriving fact
-   completes it; a fact that only overlaps its literal enters the store and gives a demand-layer result, unless it is a
+   completes it; one missing literal produces no result. Two NORMAL contributions give a NORMAL result; either
+   DEMAND contribution gives DEMAND. A normal multi-premise publication remains NORMAL when selected for demand
+   hand-off, which creates a pattern per member. The backward form has no conjunction and has one independent DEMAND
+   branch per literal (`CurrentConjunction`). A fact that only overlaps its literal enters the store and gives a
+   demand-layer result, unless it is a
    normal `[any-taint]` fact (§4.6); an `[any]`
    literal (`ContainsMarkOnAnyField`) accepts a fact below its position; a summary with several premises needs one
-   link per premise; ND conclusions have no `*` tail; a vulnerability through a conjunction is confirmed only if every
-   premise of its sink edge is exact and the premise set is supported jointly at one call statement (§4.9 condition 3);
+   link per premise; ND conclusions have no `*` tail; a vulnerability through a conjunction is confirmed only if its
+   premise members are admissible and its premise set is supported jointly at one call statement (§4.9 condition 3);
    the negative test `NDConfirmed.CexSites`: two premises supplied at two different calls are not confirmed. A
    conjunction of a zero-premise fact and a fact of the premise `i` gives the premise set `{i}` (the zero fact is
    dropped), and two zero-premise facts give `{zero}`. Today's `ExampleTest.test nd rule` as an analysis test. The
@@ -120,7 +126,10 @@ Write the tests first. Each test names the spec item that it checks. The interpr
     `inside`; through a demand `[any]` link its result is demand; a must record applied by `applicable` only gives a
     demand result with the same fact and no exclusion (the program `AnyTaintExact.CexApp`); `inside` reads the
     exclusions of the added fact and of a must-premise (`AnyTaintEx.Vec.sat_vectors`); a summary with an
-    `[any-taint]/E` conclusion gives its exclusion to the result (`AnyTaintEx.Vec.summary_ann`).
+    `[any-taint]/E` conclusion gives its exclusion to the result (`AnyTaintEx.Vec.summary_ann`). Canonical FLOW
+    matching (`*/{}` with mark `*`) equals annotated overlap: exact below, admitted must above, blocked must above,
+    and must at the same path with `inside=false` but `applicable=true`. Keep general matching for a nonempty STAR
+    exclusion and a concrete STAR reader with a different mark (`CurrentSimplifications.Flow.Certificate`).
 11. Abstraction tests: run 1 emits the most abstract fact; every row of the three tables of §6.3 (every cell of the
     meet table: `AnyTaintEx.Vec.emit_at`, `emit_above_excluded`, `emit_above_exact`, `emit_below`; without the
     exclusion `AnyTaint.EmitVec`); the emitted fact is exactly `a ∩ D-c` with the mark of `a`; the same result for two

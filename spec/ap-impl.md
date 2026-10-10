@@ -53,7 +53,7 @@ The sections below cite these decisions by their id.
 | DD15 | `applyCompiledEdge` is tree delta-concat. `MarkCheck` checks literals; `MarkGate` is the shared mark gate for transfer, checks and satisfaction. | Give the same rule one implementation. | §5.3, §5.8 |
 | DD16 | Forward normal TAINT any leaves mean `[any-taint]` and share E; exact leaves ignore E. Backward runs have no must tail. Demotion drops E. Must leaves never absorb exact leaves. `MicroEdge.may` reads the forward ANY target or reversed-conjunction flag. | `ap.md` W6/W8: retain normal exact facts through later demotion. No rule-kind field or new trie payload is needed. | §3.2, §3.4, §4.3, §5.3, §5.6, §5.7, §7.8, §23.1 |
 | DD17 | Persist raw normal R1 summaries. Omit them from callee demand. Keep demand-layer, multi-premise and backward zero-premise summaries, and restrict their publications. Keep reversed conjunction results demand and retain end-fact triggers. | Replay supplies normal singleton summaries; a demand result from a read view propagates in the caller. | §5.9, §7.6, §7.8; `analyzer-impl.md` §4.7, §7.2 |
-| DD18 | Abstract entry marks share one emitted FLOW premise. Concrete entries emit marked intersections. Restricted FLOW uses applicable or inside; concrete satisfaction uses inside. Reduction tests premise containment, exit marks and locations. Normalize abstract mark exclusions at hand-off. | Current `ap.md` §6.3, §6.4, §9.2. | §5.4, §5.9, §6, §7.7 |
+| DD18 | Abstract entry marks share one emitted FLOW premise. Concrete entries emit marked intersections. Restricted canonical FLOW uses overlap; other FLOW shapes retain applicable or inside; concrete satisfaction uses inside. Reduction tests premise containment, exit marks and locations. Normalize abstract mark exclusions at hand-off. | Current `ap.md` §6.3, §6.4, §9.2. | §5.4, §5.9, §6, §7.7 |
 
 ---
 
@@ -1688,8 +1688,8 @@ internal class EdgeApplication(private val m: ApManager, private val ce: Compile
         if (mode.run1 && !requested) { out.markRequest(t); requested = true }
     }
 
-    /** TAINT: at a node the marks of the `$` leaves and of the any leaves. No `*` leaf, so no `lostCorr` (§4.1 step 3; an
-     *  `[any-taint]` target is a taint edge with a concrete premise mark, S15). `must`: the any leaves of c are
+    /** TAINT: at a node the marks of the `$` leaves and of the any leaves. An
+     *  `[any-taint]` target is a taint edge with a concrete premise mark (S15). `must`: the any leaves of c are
      *  `[any-taint]` with the tree exclusion `e` (a normal tree, DD16); in a demand tree they are `[any]` and `e` is Empty.
      *  THE EXCLUSION ROWS (A2, above): no row demotes; `E` filters the case `above`, and goes to the results. */
     fun taint(c: TaintTree) {
@@ -1771,7 +1771,12 @@ The rows of `ap.md` §4.2 and `interpreter.md` §2.4 with an `[any-taint]` fact,
 
 ### 5.4 `satisfying`, `applySummary`, `applyCombination` (`ap.md` §4.3, §4.6; DD4)
 
-`satisfying` reads the leaves of a trie as tails (`ap.md` §3.4 `tailSub`, `tailAdmits`). The kind gives the tails:
+`satisfying` reads the leaves of a trie as tails (`ap.md` §3.4 `tailSub`, `tailAdmits`). For a restricted canonical
+FLOW premise `(base, path, STAR, Empty, *)`, satisfaction is location overlap, including the added fact's exclusion
+(`CurrentSimplifications.Flow.canonical_flow_satisfaction_X`). The tree implementation below retains the union of
+`applicablePart` and `insidePart`, which computes that predicate per leaf. The shortcut does not apply to a concrete
+record reader, a nonempty premise exclusion or a restricted concrete mark. No trie lookup or tree walk changes.
+The kind gives the tails:
 
 ```kotlin
 /** The tails of the leaves of one trie: a FLOW flag is `*/Ea` (normal) or `[any]` (demand); a TAINT node has `$` and
@@ -1786,7 +1791,8 @@ private fun flowTails(a: FlowTree) = Tails<FlowLeaf>(a.exclusion) { p, star, any
 private fun ApOps.taintTails(a: TaintTree) = Tails<TaintLeaves>(ExclusionSet.Empty, a.exclusion) { p, _, any, exact ->
     manager.taintLeaves(if (exact) p.exact else MarkSet.EMPTY, if (any) p.any else MarkSet.EMPTY) }
 
-/** The part of the added fact `a` whose facts satisfy `j`: `applicable` (run 1), `inside` (restricted), both (a record,
+/** The part of the added fact `a` whose facts satisfy `j`: `applicable` (run 1), `inside` (restricted concrete),
+ *  overlap (restricted canonical FLOW, computed by the same applicable/inside union), both (a record,
  *  §8.7 R4). ONE function for the replay and the delivery (analyzer-core.md P4).
  *  A MUST-PREMISE `j` (`[any-taint]` with its exclusion `Ej`; forward restricted runs only, W8 (c)) is satisfied only by
  *  `inside` (§4.3; Lean AnyTaint.SatInside, satI_inside): `a` covers every location of `j`, so it is an any leaf at or
@@ -2675,7 +2681,8 @@ private inline fun taintPatterns(f: TaintTree, path: IntArray, leaf: TaintLeaves
 
 `Reference.kt` uses the current rules of `ap.md` §3.4, §4.1, §6.3 and §6.4. Its per-path `emit`,
 `satisfies` and `restrict` are the reference for their tree operations. A `*` demand entry emits its FLOW form;
-restricted FLOW satisfaction reads both `applicable` and `inside`; all restricted request branches return no request.
+restricted canonical FLOW satisfaction uses overlap; other FLOW shapes retain `applicable` and `inside`. All
+restricted request branches return no request.
 Both hand-offs remove abstract mark exclusions. Keep field exclusions and concrete marks except the explicit
 forward `[any-taint]/E` to backward `[any]` view of `ap.md` §9.2.
 
@@ -2774,26 +2781,31 @@ fun summaryEdge(j: Pattern, g: Conclusion): PathEdge {
         toExclusion = if (gOwn) g.exclusion else ExclusionSet.Empty)
 }
 
-/** Raw normal singleton record only. CurrentMustReverse checks the new forward must shapes.
- *  Preserve the old conclusion E on STAR; generic micro-edge revEdge remains unchanged. */
+/** The native forward must shapes accepted by CurrentMustReverse. Keep the guards separate from the two
+ *  side conversions: a must conclusion becomes a STAR/E read premise; a must input becomes an ANY demand result. */
+private fun mustRecordReadView(p: Pattern, g: Conclusion): RecordLeafView? {
+    val concrete = p.fact.mark is MarkSlot.Concrete && g.fact.mark is MarkSlot.Concrete
+    val accepted = !g.demand && concrete && when (p.fact.tail) {
+        Tail.EXACT -> p.exclusion == ExclusionSet.Empty && g.fact.tail == Tail.ANY_TAINT
+        Tail.ANY_TAINT -> g.fact.tail == Tail.ANY_TAINT ||
+            (g.fact.tail == Tail.EXACT && g.exclusion == ExclusionSet.Empty)
+        else -> false
+    }
+    if (!accepted) return null
+    val readPremise = if (g.fact.tail == Tail.ANY_TAINT)
+        Pattern(g.fact.copy(tail = Tail.STAR), g.exclusion)          // retain the old conclusion E and concrete mark
+    else Pattern(g.fact, ExclusionSet.Empty)                        // exact conclusion stays exact
+    val demand = p.fact.tail == Tail.ANY_TAINT
+    val resultFact = if (demand) p.fact.copy(tail = Tail.ANY) else p.fact
+    return RecordLeafView(readPremise, Conclusion(resultFact, ExclusionSet.Empty, demand))   // forget old must-input E
+}
+
+/** Raw normal singleton record only. CurrentSimplifications.MustViews.readView_factored_equiv checks the accepted
+ *  must constructor. Retain generic micro-edge revEdge and its fallback guards for every other native shape. */
 fun reverseRecordLeaf(direction: Direction, p: Pattern, g: Conclusion): RecordLeafView? {
     if (g.demand) return null
-    val concrete = p.fact.mark is MarkSlot.Concrete && g.fact.mark is MarkSlot.Concrete
-    if (direction == Direction.FORWARD && p.fact.tail == Tail.EXACT && p.exclusion == ExclusionSet.Empty &&
-        concrete && g.fact.tail == Tail.ANY_TAINT)
-        return RecordLeafView(Pattern(g.fact.copy(tail = Tail.STAR), g.exclusion),
-            Conclusion(p.fact, ExclusionSet.Empty, demand = false))
-    if (direction == Direction.FORWARD && p.fact.tail == Tail.ANY_TAINT && g.fact.tail == Tail.ANY_TAINT) {
-        if (!concrete) return null
-        return RecordLeafView(Pattern(g.fact.copy(tail = Tail.STAR), g.exclusion),
-            Conclusion(p.fact.copy(tail = Tail.ANY), ExclusionSet.Empty, demand = true))
-    }
-    if (p.fact.tail == Tail.ANY_TAINT) {
-        if (direction != Direction.FORWARD || !concrete || g.fact.tail != Tail.EXACT || g.exclusion != ExclusionSet.Empty)
-            return null
-        return RecordLeafView(Pattern(g.fact, ExclusionSet.Empty),
-            Conclusion(p.fact.copy(tail = Tail.ANY), ExclusionSet.Empty, demand = true))
-    }
+    if (direction == Direction.FORWARD) mustRecordReadView(p, g)?.let { return it }
+    if (p.fact.tail == Tail.ANY_TAINT) return null                   // no unsupported native must-input fallback
     if (p.fact.tail == Tail.STAR && p.fact.mark is MarkSlot.Concrete) return null   // invalid native normal shape
     val rev = revEdge(summaryEdge(p, g)) ?: return null
     return RecordLeafView(Pattern(rev.from, ExclusionSet.Empty), Conclusion(rev.to, rev.exclusion, demand = false))
@@ -2855,8 +2867,10 @@ fun commonPart(d: Pattern, a: Pattern): Pattern? {
 
 fun satisfies(j: Pattern, a: Pattern, restricted: Boolean): Boolean =
     if (!restricted) applicable(j, a)       // run 1: a inside j (run 1 has no `[any-taint]` premise)
-    else inside(j, a) ||                    // restricted run: j inside a (the only test of a must-premise)
-        (j.fact.mark == MarkSlot.STAR && applicable(j, a))   // F72: a FLOW premise also covers a
+    else if (j.fact.tail == Tail.STAR && j.exclusion == ExclusionSet.Empty && j.fact.mark == MarkSlot.STAR)
+        overlap(j, a)                      // canonical FLOW only; reads the exclusion of the added fact
+    else inside(j, a) ||                   // concrete/must premise: inside; noncanonical FLOW retains both tests
+        (j.fact.mark == MarkSlot.STAR && applicable(j, a))
 
 fun recordDemand(j: Pattern, a: Pattern, resultDemand: Boolean): Boolean =
     resultDemand || (j.fact.tail == Tail.ANY_TAINT && !inside(j, a))
@@ -2917,7 +2931,11 @@ data class PathEdge(val from: PathFact, val to: PathFact, val exclusion: Exclusi
 ```
 
 The reference edge application below supplies `concat` and `normalize` to the forms oracle. It applies spatial
-tests before the mark gate. Static and mark requests are suppressed in restricted runs.
+tests before the mark gate. Static and mark requests are suppressed in restricted runs. A below-case exact or must
+target needs a concrete premise mark (S7, S8, W8). Legal STAR input has an abstract mark (W2), so that gate gives no
+fact. The below shape therefore has no separate correlation-loss bit; the above-case demand rule stays.
+`CurrentSimplifications.LostCorr.applySimple_eq` checks the gated local equality; `applySimple_may_eq` checks a may
+target, whose normalization already forces DEMAND.
 
 ```kotlin
 private fun PathEdge.premiseAdmits(r: List<AccessorIdx>): Boolean = when (from.tail) {
@@ -2941,8 +2959,7 @@ private fun below(c: Conclusion, edge: PathEdge, r: List<AccessorIdx>): Shape? {
         Tail.ANY -> Shape(to.path, Tail.ANY, ExclusionSet.Empty, demand = true)               // W6: a may
         Tail.ANY_TAINT, Tail.EXACT -> Shape(to.path, to.tail,                                  // a must, or `$`
             if (to.tail == Tail.ANY_TAINT) edge.toExclusion else ExclusionSet.Empty,           // Et (W8)
-            demand = c.fact.tail == Tail.STAR &&                                               // lostCorr
-                (if (r.isEmpty()) c.exclusion.union(edge.exclusion) else c.exclusion) != ExclusionSet.Empty)
+            demand = false)        // W2 and the concrete premise gate reject STAR input; geometry still precedes that gate
     }
 }
 
@@ -3762,10 +3779,11 @@ loops above; no line of logic is in both.
 ```kotlin
 /** ap.md §8.9. RUN. The literals of a source conjunction (an ND source) and of a conjunctive sink; a pass rule never
  *  makes a conjunction (interpreter.md §4.2). A combination has the union of the input premise sets WITHOUT the zero
- *  fact (ApManager.union): `{zero}` only if every input has `{zero}`. */
+ *  fact (ApManager.union): `{zero}` only if every input has `{zero}`. Its layer is NORMAL if all literal contributions
+ *  are NORMAL, otherwise DEMAND. Premise count and next-run hand-off selection do not decide that layer. */
 class ConjunctionStore(private val m: ApManager) {
     /** One input of a literal: its premise set and the layer of its contribution (§4.6: MarkCheck.Holds.normalPart gives
-     *  a NORMAL input, demandPart a DEMAND input; both can hold), and for a conjunctive sink the facts on which the literal
+     *  a NORMAL input, demandPart a DEMAND input; one layer per Holds value), and for a conjunctive sink the facts on which the literal
      *  holds (§4.9: MarkCheck.Holds.facts). */
     data class Input(val premise: PremiseKey, val layer: Layer, val facts: Facts? = null)
     class Combination(val premise: PremiseKey, val layer: Layer, val inputs: List<Input>)
@@ -3953,9 +3971,9 @@ merge (DD10). It is not today's merge:
   (`:62`), and a `Fact` node replaces a `WithRequirement` node (`:79`). The premise sets of the dropped witness are lost.
 * This merge joins only witnesses of the SAME shape: the same alternative, the same method key, the same run and, per
   literal, the same premise set, the same layer and the same group key of the facts. The confirmation of `ap.md` §4.9
-  reads only the method key and these: condition 1 (the layer of each sink edge), condition 2 (each member of the premise
-  set is zero, exact concrete or a forward must-premise: `confirmableMember`) and condition 3 (the premise set is
-  supported jointly in the method key; per (member, link): `supplies`). So the merged entry is confirmed
+  reads only the method key, condition 1 (the layer of each sink edge), and condition 3 (joint support in that method
+  key). Joint support includes condition 2: each member is zero, exact concrete or a forward must-premise
+  (`confirmableMember`); each nonzero member has a supplier (`supplies`). So the merged entry is confirmed
   exactly when each of its witnesses is confirmed. `analyzer-core.md` §7.5 step 2 gives the same answer.
 * The alternative is part of the shape. So the union never joins the sink edges of two alternatives: two alternatives
   on `arg0` and on `arg1` (an `Argument(*)` sink) with the same premise set stay two entries, and each literal of a union
@@ -4515,7 +4533,7 @@ opentaint-dataflow  (language-neutral)
     MicroEdges.kt         MicroEdge, keepEdge, strongKeep, starEdge, ZERO_FACT, ZERO_KEEP, ZERO_PATTERN
     StatementSummary.kt   StatementSummary + reversed()
     Rules.kt              SinkRule, RuleStatement + reversed(), ExitRules + reversed(), CleanStep
-    CallPlan.kt           CallPoint, StageKind, Origin, Guard, CallStage + reversed(), CallPlan + reversed()
+    CallPlan.kt           CallPoint, StageKind, Guard, CallStage + reversed(), CallPlan + reversed()
     MicroEdgeBuilder.kt   MicroEdgeBuilder (ADAPT of StatementSummaryBuilder)
     Forms.kt              FormsCache, MethodForms, DirectedForms        (analyzer-core.md §4.8, §4.9 direction table)
     FormApplier.kt        FormApplier, FactAlgebra, Place: the three application modes, once (§23.3)
@@ -4603,9 +4621,9 @@ Part II uses these names of Part I with the signatures of the Part I section.
 | `revEdge(e: PathEdge): PathEdge?` | §6 | every `reversed()` (no rule kind: a forward `[any-taint]` target reverses to the premise `[any]`) |
 | `Cleaner(base, path: PathNode?, reach: CleanReach, mark: TaintMark?)`, `enum class CleanReach { EXACT, BELOW, AT_AND_BELOW }` | §6 | `CleanStep.Clean`, the summary rewriter |
 | `Facts` (`base`, `layer`), `Reach`, `FlowTree`, `TaintTree`, `Layer` | §7.2 of `ap.md`; Part I §3, §4 | the conclusions that the core applies the forms to (§23.3); `FormsReference.conclusions` |
-| `PremiseKey` (`size`, `member(k)`, `isZero`, `nonZeroCount`), `InitialAp : PremiseKey` | §3.4 | `Origin.SUMMARY_EFFECT` (`j.isZero`), the zero premise of the exit rules (§29 step 4) |
+| `PremiseKey` (`size`, `member(k)`, `isZero`, `nonZeroCount`), `InitialAp : PremiseKey` | §3.4 | summary identity classification (`j.isZero`), the zero premise of the exit rules (§29 step 4) |
 | `MarkCheck` (`None`, `Request(mark)`, `Holds(facts, covered)`), `ApOps.checkMark(c: Facts, p: Pattern, mode)` | §5.8 | the patterns of a `SinkRule` and the literals of a `ConjunctiveEdge` (§23.3, §23.4, §29) |
-| `ApOps.applyEdge(c, premise, e, statementEdge, mode, out, may)` (its internal tree step: `applyCompiledEdge`; `may` from `MicroEdge.may`, §23.1), `ApOut`, `ApMode`, `RequestKind`, `ApOps.leaves(f: Facts): Sequence<Pattern>`, `ApOps.targetTree(target, layer)`, `ApOps.without(c, part)`, `ApOps.withoutMarks(c, marks)`, `ApOps.startFact(j)`, `ConjunctionStore` (its k-ary join), `rootOrClass` | §3.2, §5, §6, §7.9, §7.10 | the application of a micro edge (§23.3, `EngineAlgebra` of `analyzer-impl.md`); `ReferenceAlgebra`, `FormsReference`; the end facts, the global-state rule and the entry marks (§29); `Origin` |
+| `ApOps.applyEdge(c, premise, e, statementEdge, mode, out, may)` (its internal tree step: `applyCompiledEdge`; `may` from `MicroEdge.may`, §23.1), `ApOut`, `ApMode`, `RequestKind`, `ApOps.leaves(f: Facts): Sequence<Pattern>`, `ApOps.targetTree(target, layer)`, `ApOps.without(c, part)`, `ApOps.withoutMarks(c, marks)`, `ApOps.startFact(j)`, `ConjunctionStore` (its k-ary join), `rootOrClass` | §3.2, §5, §6, §7.9, §7.10 | the application of a micro edge (§23.3, `EngineAlgebra` of `analyzer-impl.md`); `ReferenceAlgebra`, `FormsReference`; the end facts, the global-state rule and the entry marks (§29); `identityCandidate` |
 
 ### 22.2 Additions to the interface of `analyzer-core.md` §4.9
 
@@ -4615,8 +4633,8 @@ Three rows are now in the spec (RESOLVED (F68)); they stay here as a record.
 | What | Why | Code |
 |---|---|---|
 | `StatementSummary.resultFilters` (default empty) | `interpreter.md` §2.1 step 5 and the binding-back filters of `interpreter.md` §3.1 act on the results. One map per base cannot hold the operand filter and the result filter of one base (`x = x.f`; `o.m(this)`). RESOLVED (F68): `analyzer-core.md` §4.9 `StatementSummary` has the two maps (SI8). | §23.2 |
-| `CallStage.Edges.kind: StageKind`, with the member `StageKind.statementEdges` | The core must find the sources stage (the source seeds and the source hits), the statement micro edges (the static exception of `ap.md` §4.10 item 1) and the `Origin` of a fact. RESOLVED (F68): `analyzer-core.md` §4.9 has `StageKind` and `CallStage.Edges.kind`; `statementEdges` stays an addition (the spec names the two kinds, SOURCES and UNRESOLVED, in its comment). | §23.5 |
-| `Origin`; the `Guard` members `SinkTriggered(sink)` and `MemoryEffect` (`admits(origin, layer)`) | `analyzer-core.md` §4.9 defines the guards; §4.5 THE ALIAS GUARD gives the rule. Part II supplies the code and the `Origin` of each stage kind (`StageKind.originOf`, below). The guard reads the current layer too: every demand result reaches aliases (`interpreter.md` §3.8 AC3, AC4). | §23.5 |
+| `CallStage.Edges.kind: StageKind`, with the member `StageKind.statementEdges` | The core must find the sources stage (the source seeds and the source hits), the statement micro edges (the static exception of `ap.md` §4.10 item 1) and the `identityCandidate` of a fact. RESOLVED (F68): `analyzer-core.md` §4.9 has `StageKind` and `CallStage.Edges.kind`; `statementEdges` stays an addition (the spec names the two kinds, SOURCES and UNRESOLVED, in its comment). | §23.5 |
+| `identityCandidate: Boolean?`; the `Guard` members `SinkTriggered(sink)` and `MemoryEffect` (`admits(identityCandidate, layer)`) | `analyzer-core.md` §4.9 defines the guards; §4.5 THE ALIAS GUARD gives the rule. Part II supplies the nullable candidate-flag update of each stage kind (`StageKind.identityCandidateOf`, below). The guard reads the current layer too: every demand result reaches aliases (`interpreter.md` §3.8 AC3, AC4). | §23.5 |
 | `SinkRule.unconditional`, `conjunctive`, `seedPatterns()` | `analyzer-core.md` §4.9 defines `SinkRule(rule, alternative, patterns, endFacts)`; Part II adds these three derived members. `alternative` names the sink alternative of a witness (`ap.md` §8.10: the witnesses of two alternatives never merge). | §23.4 |
 | `ExitRules.entryMarkRemoval(base): MarkSet?` | The marks that the core removes from a zero-premise item on `base` (`interpreter.md` §4.7 step 4, D35): the entry marks on `this` and `arg(i)`; null (nothing to remove) on another base or with no entry mark. The core removes every leaf with such a mark, at any depth and with both tails, with `ApOps.withoutMarks` (Part I §5.8). | §23.4 |
 | `MicroEdge.isSource`, `MicroEdge.isIdentity`, `StatementSummary.edgesOf`, `StatementSummary.targets`, `CallPlan.stagesFrom`, `identityEdge(b)` | The source-seed places (`analyzer-core.md` §4.7), the alias guard (AC4), the edges of one base, the target bases (A5), the stages from one point, the identity edge of `interpreter.md` A5, §3.5 and §3.7. | §23.1, §23.2, §23.6 |
@@ -4626,8 +4644,8 @@ Three rows are now in the spec (RESOLVED (F68)); they stay here as a record.
 | `FormsCache`, `MethodForms`, `DirectedForms` | The forms cache of `analyzer-core.md` §4.8 and the direction table of `analyzer-core.md` §4.9. `analyzer-impl.md` §3.4 uses them. | §23.7 |
 | `UnresolvedCallObserver` (`reached(call, position, plan)`); `JIRInterpreter` implements it; `CallPlan.passReads` | The external method tracker records the taint that reaches an unresolved callee, as today. `passReads`: the positions that a pass rule of the rule set reads (not a default model), for its `ruleApplied`. | §28.5, §23.6 |
 | `FormApplier<P, F>` (`statement`, `stage`, `gen`), `FactAlgebra<P, F>`, `Place(node, statementEdge, sources)` | The three application modes belong to the forms; one implementation for the engine (`EngineAlgebra`, `analyzer-impl.md` §4.3) and both oracles. | §23.3 |
-| `ReferenceAlgebra(mode, request, allowsSource, sourceHit, manager, conjunction)`, `FormsReference(ops, algebra)` (`applier`, `conclusions`, `apply`, `agrees`, `run(plan, inputs, at, hooks, from)`), `PlanItem(premise, c, origin)`, `PlanHooks(guards, atBound, callees, clean, exit, trigger)` | The per-path algebra on `Reference.kt`, with the static exception and the filter test, and the one per-path walk of a call plan; `NaiveClosure` (`analyzer-impl.md` §9.2) passes its hooks. | §23.8 |
-| `StageKind.originOf(me, prev)`; `FormApplier.statement(..., untouched)` | The `Origin` rule of `interpreter.md` §3.8 AC3, AC4, once for the engine and the per-path walk; the unchanged path of the engine through the STATEMENT mode. | §23.3, §23.5 |
+| `ReferenceAlgebra(mode, request, allowsSource, sourceHit, manager, conjunction)`, `FormsReference(ops, algebra)` (`applier`, `conclusions`, `apply`, `agrees`, `run(plan, inputs, at, hooks, from)`), `PlanItem(premise, c, identityCandidate)`, `PlanHooks(guards, atBound, callees, clean, exit, trigger)` | The per-path algebra on `Reference.kt`, with the static exception and the filter test, and the one per-path walk of a call plan; `NaiveClosure` (`analyzer-impl.md` §9.2) passes its hooks. | §23.8 |
+| `StageKind.identityCandidateOf(me, prev)`; `FormApplier.statement(..., untouched)` | The `identityCandidate` rule of `interpreter.md` §3.8 AC3, AC4, once for the engine and the per-path walk; the unchanged path of the engine through the STATEMENT mode. | §23.3, §23.5 |
 
 ---
 
@@ -4833,7 +4851,7 @@ class FormApplier<P, F>(private val alg: FactAlgebra<P, F>) {
 
     /** STAGE: only the edges, with the operand filters on the input and the result filters on the results.
      *  CallStage.Edges.summary; the plan relevance (CallPlan.touched) does the pass-over. Each result comes with the
-     *  micro edge that made it (null: a conjunction), so the plan runner reads its Origin (§23.5). */
+     *  micro edge that made it (null: a conjunction), so the plan runner reads its identity-candidate flag (§23.5). */
     fun stage(s: StatementSummary, premise: P, c: F, at: Place, emit: (P, F, MicroEdge?) -> Unit) {
         val input = filterBy(s.typeFilters, c) ?: return                                       // operand filters
         for (me in s.edgesOf(alg.base(input)))
@@ -4993,7 +5011,7 @@ The serializer, language position resolvers and trace code reject it too. The ol
 `StageKind` is in `analyzer-core.md` §4.9 (it was an addition of §22.2; RESOLVED (F68)); `statementEdges` is the one
 addition. The core needs it for three things: the static
 exception (the statement micro edges at a call, `ap.md` §4.10 item 1), the source seeds and the source hits of the
-sources stage (`analyzer-core.md` §4.7), and the `Origin` of a fact for the alias guard.
+sources stage (`analyzer-core.md` §4.7), and the `identityCandidate` of a fact for the alias guard.
 
 ```kotlin
 enum class CallPoint { BEFORE, BOUND, ADDED, RETURNED, REWRITTEN, AFTER }
@@ -5005,30 +5023,15 @@ enum class StageKind {
     val statementEdges: Boolean get() = this == SOURCES || this == UNRESOLVED
 }
 
-/** interpreter.md §3.8 AC3, AC4: where a forward fact at REWRITTEN comes from. The core sets it at the stage that made
- *  the fact and keeps it through the rewriter. IDENTITY is a candidate identity origin. The alias guard skips it only
- *  when the current result is NORMAL. Every DEMAND result goes to aliases, including an identity route that a cleaner
- *  demoted. A demand start fact can be coarser than its premise, so the alias need not hold it. */
-enum class Origin {
-    SOURCE,          // StageKind.SOURCES                                                       (AC3)
-    END_FACT,        // StageKind.END_FACTS                                                     (AC3)
-    PASS,            // StageKind.UNRESOLVED, an edge that is not `isIdentity`                  (AC3)
-    SUMMARY_EFFECT,  // a summary or record result j -> g that is not IDENTITY: a DEMAND-layer result (always),
-                     // a NORMAL-layer g != ops.startFact(j), every j with j.isZero                (AC3)
-    IDENTITY,        // a candidate identity route: a normal summary equal to its start fact,
-                     // an identity edge of UNRESOLVED, or StageKind.CONSTRUCTOR. Effective identity
-                     // also requires the current result layer NORMAL.                              (AC4)
-}
-
-/** interpreter.md §3.8 AC3, AC4: the Origin of a result of an `Edges` stage of this kind, made by the micro edge `me`
- *  (null: a conjunction result, from an ND source), from an input with the Origin `prev`. The bindings and the aliases keep `prev`; the
- *  cleaners and the rewriter keep it too (they are not `Edges` stages). The callees stage gives SUMMARY_EFFECT or IDENTITY
- *  by the summary (above). Users: the plan runner of the engine (analyzer-impl.md §4.5), `FormsReference.run` (§23.8). */
-fun StageKind.originOf(me: MicroEdge?, prev: Origin?): Origin? = when (this) {
-    StageKind.SOURCES -> Origin.SOURCE
-    StageKind.END_FACTS -> Origin.END_FACT
-    StageKind.UNRESOLVED -> if (me?.isIdentity == true) Origin.IDENTITY else Origin.PASS
-    StageKind.CONSTRUCTOR -> Origin.IDENTITY
+/** interpreter.md §3.8 AC3, AC4: update the nullable identity-candidate flag for an Edges result.
+ *  Null means no producing stage has classified it yet. Sources, end facts and nonidentity pass rules are effects;
+ *  default identity and constructor pass-over are candidates. Bindings, aliases, cleaners and the rewriter keep
+ *  the flag. The callees stage classifies its native summary or record separately.
+ *  Users: the engine plan runner (analyzer-impl.md §4.5) and FormsReference.run (§23.8). */
+fun StageKind.identityCandidateOf(me: MicroEdge?, prev: Boolean?): Boolean? = when (this) {
+    StageKind.SOURCES, StageKind.END_FACTS -> false
+    StageKind.UNRESOLVED -> me?.isIdentity == true
+    StageKind.CONSTRUCTOR -> true
     else -> prev
 }
 
@@ -5042,11 +5045,11 @@ sealed interface Guard {
      *  gives a new full combination (the layer of the combination; ap.md §4.9, §8.9). Then the core applies the stage to
      *  the ZERO fact (the `Reach` conclusion), with that layer: `Zero -> (s, P.$ (T))`, or `Zero -> (s, P.[any-taint]
      *  (T))` for an `AnyField` position (interpreter.md I14), a TAINT conclusion (the end fact has a concrete mark; ap.md
-     *  §7.2). Each result goes to REWRITTEN with `Origin.END_FACT`. */
+     *  §7.2). Each result goes to REWRITTEN with `identityCandidate = false`. */
     class SinkTriggered(val sink: SinkRule) : Guard
     /** interpreter.md §3.8 AC3, AC4. Today: `JIRMethodCallSummaryHandler.kt:59-63, 98-101`, `JIRMethodCallFlowFunction.kt:353-363`. */
     data object MemoryEffect : Guard {
-        fun admits(o: Origin, layer: Layer): Boolean = layer == Layer.DEMAND || o != Origin.IDENTITY
+        fun admits(identityCandidate: Boolean, layer: Layer): Boolean = layer == Layer.DEMAND || !identityCandidate
     }
 }
 
@@ -5065,11 +5068,9 @@ sealed interface CallStage {
         override fun reversed() = Edges(to, from, kind, summary.reversed(), guard = null,       // no guard, no filter;
             trigger = (guard as? Guard.SinkTriggered)?.sink)                                  // the sink of the trigger
     }
-    data class Clean(override val from: CallPoint, override val to: CallPoint, val steps: List<CleanStep>) : CallStage {
-        override fun reversed() = Clean(to, from, steps.asReversed().map { it.reversed() })
-    }
-    data class Rewrite(override val from: CallPoint, override val to: CallPoint, val steps: List<CleanStep>) : CallStage {
-        override fun reversed() = Rewrite(to, from, steps.asReversed().map { it.reversed() })
+    /** The cleaners and rewriter use the same action chain at their own endpoints. */
+    data class Actions(override val from: CallPoint, override val to: CallPoint, val steps: List<CleanStep>) : CallStage {
+        override fun reversed() = Actions(to, from, steps.asReversed().map { it.reversed() })
     }
     data class Callees(override val from: CallPoint, override val to: CallPoint, val callees: List<MethodKey>) : CallStage {
         override fun reversed() = Callees(to, from, callees)                                  // backward summaries
@@ -5079,8 +5080,10 @@ sealed interface CallStage {
 
 Each `Facts` group has one layer. The engine passes that layer to `MemoryEffect.admits`; the per-path walk passes
 the layer of its `Conclusion`. `CurrentAliasGuard.selection_iff` checks this guard: every demand result passes,
-and a normal candidate identity is skipped. Its executable regression retains a demand identity that the old
-origin-only guard skipped. Alias-edge application and the full call walk remain separate validation obligations.
+and a normal candidate identity is skipped. `CurrentSimplifications.Analyzer.origin_quotient` and `update_commutes`
+check the Boolean flag against the former categories and stage updates. `action_stage_merge` checks the shared
+`Actions` chain; `merge_reverse` checks its reversal. Preserve both action endpoints, action order, statement cuts
+and temporary projection. These are local equivalences; alias application and the full call walk remain open.
 
 ### 23.6 The call plan and its reversal
 
@@ -5117,11 +5120,11 @@ The reversed plan of a JVM call against the backward call order (`interpreter.md
 | 1 the pass-over of the alias bases (alias identity) | none: forward, an alias base is untouched and passes over the call | `AFTER→BEFORE PASS_OVER` |
 | 2 reversed binding back, alias edges | `REWRITTEN→AFTER BIND_BACK`, `REWRITTEN→AFTER ALIASES (MemoryEffect)` | `AFTER→REWRITTEN BIND_BACK`, `AFTER→REWRITTEN ALIASES` (no guard) |
 | 3 reversed sources, end facts | `BOUND→REWRITTEN SOURCES`, `BOUND→REWRITTEN END_FACTS (SinkTriggered)` | `REWRITTEN→BOUND SOURCES` (a reversed `[any]` literal gives an `[any]` requirement, demand; a forward `[any-taint]` target is the reversed premise `[any]`: I14, §4.9; a conjunctive source reverses into one edge per literal, every result demand: `MicroEdge.conjunctive`, F70), `REWRITTEN→BOUND END_FACTS` (no guard; `trigger` = the sink of the forward guard: when the stage gives a result, the sink seeds of that alternative fire at `BOUND`, THE TRIGGER OF AN END FACT, F70) |
-| 4 reversed rewriter | `RETURNED→REWRITTEN Rewrite` | `REWRITTEN→RETURNED Rewrite` |
+| 4 reversed rewriter | `RETURNED→REWRITTEN Actions` | `REWRITTEN→RETURNED Actions` |
 | 5.1 resolved callees | `ADDED→RETURNED Callees` | `RETURNED→ADDED Callees` |
 | 5.2 unresolved callee | `ADDED→RETURNED UNRESOLVED` (identity; pass rules) | `RETURNED→ADDED UNRESOLVED` (both; every result of a reversed pass rule with an `AnyField` target is demand, also a `$` result: `MicroEdge.may`, `interpreter.md` §4.9; argued, `ap.md` §11.2) |
 | 5.3 constructor | `ADDED→REWRITTEN CONSTRUCTOR` | `REWRITTEN→ADDED CONSTRUCTOR` |
-| 6 reversed cleaners, kill | `BOUND→ADDED Clean` | `ADDED→BOUND Clean` (reverse the action order; a field action is reversed write, clean temporary, reversed read) |
+| 6 reversed cleaners, kill | `BOUND→ADDED Actions` | `ADDED→BOUND Actions` (reverse the action order; a field action is reversed write, clean temporary, reversed read) |
 | 7 seeds, read positions | `sinks` at `BOUND` | `sinks` at `BOUND` (the core seeds there: the seeds of the hand-off, and the trigger seeds of step 3) |
 | 8 reversed binding in | `BEFORE→BOUND BIND_IN` | `BOUND→BEFORE BIND_IN` |
 | 9 field limit | exit `AFTER` | exit `BEFORE` |
@@ -5190,13 +5193,13 @@ do nothing; `NaiveClosure` (`analyzer-impl.md` §9.2) passes its own.
 
 `FormsReference` is the oracle of the forms: `FormApplier` over a `ReferenceAlgebra`, plus `conclusions` (the per-path
 view of a `Facts`), `agrees` (the core result and the reference result denote the same locations in each layer) and
-`run`, THE ONE PER-PATH WALK OF A CALL PLAN. It has no mode logic of its own. `run` carries the `Origin` of each item
-(`StageKind.originOf`, §23.5) and takes `PlanHooks`: the forward guards (the sink trigger of `END_FACTS`, the alias
-selection by `Origin`), the sink check at `BOUND`, the callees stage, the cleaners, the field limit at the exit point and,
+`run`, THE ONE PER-PATH WALK OF A CALL PLAN. It has no mode logic of its own. `run` carries the `identityCandidate` of each item
+(`StageKind.identityCandidateOf`, §23.5) and takes `PlanHooks`: the forward guards (the sink trigger of `END_FACTS`, the alias
+selection by the candidate flag and current layer), the sink check at `BOUND`, the callees stage, the cleaners, the field limit at the exit point and,
 backward, the sink seeds that a reversed `END_FACTS` stage fires (`trigger`, THE TRIGGER OF AN END FACT, §23.4).
 With the default hooks it is the walk of the forms tests (§33.3). The closure oracle (`analyzer-impl.md` §9.2) calls it
 with its own hooks and one `FormsReference` per method, so it has no walk of its own. The engine keeps its own plan
-runner (`analyzer-impl.md` §4.5): it is the code under test; it shares `FormApplier` and `originOf`.
+runner (`analyzer-impl.md` §4.5): it is the code under test; it shares `FormApplier` and `identityCandidateOf`.
 
 ```kotlin
 package org.opentaint.dataflow.bidi.interp          // FormsReference.kt
@@ -5263,8 +5266,8 @@ class ReferenceAlgebra(
     }
 }
 
-/** One fact of a per-path plan walk: its premise set, its conclusion and its Origin (interpreter.md §3.8 AC3, AC4). */
-data class PlanItem(val premise: Set<Pattern>, val c: Conclusion, val origin: Origin?)
+/** One fact of a per-path plan walk: its premise set, its conclusion and its nullable identity-candidate flag (interpreter.md §3.8 AC3, AC4). */
+data class PlanItem(val premise: Set<Pattern>, val c: Conclusion, val identityCandidate: Boolean?)
 
 /** The hooks of a per-path plan walk. The defaults give the walk of the forms tests: no guard, no sink, no limit, the
  *  callees give nothing, a cleaner keeps the fact. The closure oracle (analyzer-impl.md §9.2) passes its own. */
@@ -5340,20 +5343,20 @@ class FormsReference(
     /** THE PER-PATH WALK OF A CALL PLAN (analyzer-core.md §4.5; interpreter.md §4.5, §4.9). From `from` (the entry point:
      *  the relevance test of step 1, and the zero fact passes over AND enters), each item goes through every stage from its
      *  point; each `Edges` stage applies its summary in STAGE mode at `at` (`statementEdge` and `sources` by its kind), and
-     *  the result gets `kind.originOf`; `Clean` and `Rewrite` fold their steps; `Callees` calls the hook. An item at the
+     *  the result gets `kind.identityCandidateOf`; `Actions` folds its steps; `Callees` calls the hook. An item at the
      *  exit point goes through `hooks.exit`. Gives every (point, item) that the walk reaches. */
     fun run(plan: CallPlan, inputs: List<PlanItem>, at: Place, hooks: PlanHooks = PlanHooks(),
             from: CallPoint = plan.entry): List<Pair<CallPoint, PlanItem>> {
         fun statement(s: StatementSummary, x: PlanItem): List<PlanItem> = buildList {
             applier.statement(s, x.premise, x.c, at.copy(statementEdge = true, sources = false),
-                sink = { pr, y -> add(hooks.statementCut(PlanItem(pr, y, x.origin))) },
-                untouched = { pr, y -> add(PlanItem(pr, y, x.origin)) })
+                sink = { pr, y -> add(hooks.statementCut(PlanItem(pr, y, x.identityCandidate))) },
+                untouched = { pr, y -> add(PlanItem(pr, y, x.identityCandidate)) })
         }
         fun cleanSteps(steps: List<CleanStep>, inputs: List<PlanItem>): List<PlanItem> =
             steps.fold(inputs) { fs, step -> fs.flatMap { x -> when (step) {
                 is CleanStep.Clean -> hooks.clean(step.cleaner, x)
                 is CleanStep.Kill -> buildList { applier.statement(step.keepEdges, x.premise, x.c,
-                    at.copy(statementEdge = true, sources = false), { pr, y -> add(PlanItem(pr, y, x.origin)) }) }
+                    at.copy(statementEdge = true, sources = false), { pr, y -> add(PlanItem(pr, y, x.identityCandidate)) }) }
                 is CleanStep.Field -> statement(step.read, x).flatMap { hooks.clean(step.cleaner, it) }
                     .flatMap { statement(step.write, it) }.filter { it.c.fact.base != step.temporary }
             } } }
@@ -5383,22 +5386,21 @@ class FormsReference(
                                 for ((sink, layer) in fired) if (sink === guard.sink) {
                                     val zero = Conclusion(ZERO_FACT, ExclusionSet.Empty, demand = layer == Layer.DEMAND)
                                     applier.stage(st.summary, zeroPremise, zero, place) { pr, x, me ->
-                                        out += PlanItem(pr, x, st.kind.originOf(me, null)) }
+                                        out += PlanItem(pr, x, st.kind.identityCandidateOf(me, null)) }
                                 }
                             else -> {
                                 for (i in items) {
-                                    if (guard == Guard.MemoryEffect && !Guard.MemoryEffect.admits(checkNotNull(i.origin),
+                                    if (guard == Guard.MemoryEffect && !Guard.MemoryEffect.admits(checkNotNull(i.identityCandidate),
                                         if (i.c.demand) Layer.DEMAND else Layer.NORMAL)) continue   // AC3, AC4
                                     applier.stage(st.summary, i.premise, i.c, place) { pr, x, me ->
-                                        out += PlanItem(pr, x, st.kind.originOf(me, i.origin)) }
+                                        out += PlanItem(pr, x, st.kind.identityCandidateOf(me, i.identityCandidate)) }
                                 }
                                 val sink = st.trigger                                           // backward: THE TRIGGER OF AN END FACT
                                 if (sink != null && out.isNotEmpty()) out += hooks.trigger(sink)   // st.to == BOUND
                             }
                         }
                     }
-                    is CallStage.Clean -> out += cleanSteps(st.steps, items)
-                    is CallStage.Rewrite -> out += cleanSteps(st.steps, items)
+                    is CallStage.Actions -> out += cleanSteps(st.steps, items)
                     is CallStage.Callees -> for (i in items) out += hooks.callees(st, i)
                 }
                 val next = if (st.to == plan.exit) out.map(hooks.exit) else out
@@ -6177,14 +6179,14 @@ internal class JIRCallPlanBuilder(
                 add(Edges(BOUND, REWRITTEN, END_FACTS, MicroEdgeBuilder().apply { sk.endFacts.forEach { edge(it.edge) } }.buildStage(),
                     Guard.SinkTriggered(sk)))
             add(Edges(BOUND, REWRITTEN, SOURCES, sources()))                                          // step 4
-            add(Clean(BOUND, ADDED, cleanSteps()))                                                    // step 5.1
+            add(Actions(BOUND, ADDED, cleanSteps()))                                                    // step 5.1
             if (callees.isNotEmpty()) add(Callees(ADDED, RETURNED, callees))                          // step 5.2
             if (unresolved) {                                                                         // step 5.3 (Part II §28.5)
                 add(Edges(ADDED, RETURNED, UNRESOLVED, StatementSummary.identities(boundPositions())))   // §3.7 item 1: no filter
                 add(Edges(ADDED, RETURNED, UNRESOLVED, passRules()))                                 // §3.7 items 2, 3: declared types
             }
             if (callee.isConstructor) add(Edges(ADDED, REWRITTEN, CONSTRUCTOR, StatementSummary.identities(boundPositions())))   // §3.5: every added fact, S too (SI5); NORMAL identity takes no alias (SI15)
-            add(Rewrite(RETURNED, REWRITTEN, rewriterSteps()))                                       // step 6
+            add(Actions(RETURNED, REWRITTEN, rewriterSteps()))                                       // step 6
             add(Edges(REWRITTEN, AFTER, BIND_BACK, back))
             aliases(back)?.let { add(Edges(REWRITTEN, AFTER, ALIASES, it, Guard.MemoryEffect)) }
         }
@@ -6993,7 +6995,7 @@ registry facts back: `%reg_f.* -> S.<__spring_registry__>.f.*`. A mark on the ba
 | D20 | `TaintConfigUtils.applyCleaner` (`JVM/TaintConfigUtils.kt:62-92`) | the condition is evaluated on the bound fact (`TaintFactAwareConditionEvaluator`) | only a cleaner with no mark literal left acts (`JIRRuleForms.cleanSteps`, §27.5) |
 | D21 | `JIRMethodExitRuleProvider.sinkRulesForMethodExit` (`core/opentaint-jvm-sast-dataflow/src/main/kotlin/org/opentaint/jvm/sast/dataflow/JIRMethodExitRuleProvider.kt:18-19`) | exit sinks only on zero-premise edges | the rules are read with `initialFacts = null`: every fact (§29) |
 | D22 | `JIRMethodSequentFlowFunction.applyUnconditionalSinks` (:191-200) | a stub | `ZERO_PATTERN` (§27.3): it fires on the zero fact at each exit |
-| D23 | `JIRMethodCallSummaryHandler.prepareFactToFactSummary` (:71-79), `handleZeroToZero` (:29-38); `JIRMethodCallFlowFunction.unresolvedCallDefaultFactPropagation` (:330-339); `JIRMethodCallRuleBasedSummaryRewriter.userRuleDefinedActions` (:67-85) | the rewriter on fact-to-fact and ND summaries; the default identity in caller coordinates; a user cleaner rule is selected when its condition is not statically false (:80-81) | the stage `Rewrite(RETURNED -> REWRITTEN)` on every result at `RETURNED` (§28.1, §28.3); a user source rule with `!isFalse`, a user cleaner rule only with `isTrue` (`rewriterSteps`, §28.3) |
+| D23 | `JIRMethodCallSummaryHandler.prepareFactToFactSummary` (:71-79), `handleZeroToZero` (:29-38); `JIRMethodCallFlowFunction.unresolvedCallDefaultFactPropagation` (:330-339); `JIRMethodCallRuleBasedSummaryRewriter.userRuleDefinedActions` (:67-85) | the rewriter on fact-to-fact and ND summaries; the default identity in caller coordinates; a user cleaner rule is selected when its condition is not statically false (:80-81) | the stage `Actions(RETURNED -> REWRITTEN)` on every result at `RETURNED` (§28.1, §28.3); a user source rule with `!isFalse`, a user cleaner rule only with `isTrue` (`rewriterSteps`, §28.3) |
 | D24 | `TaintConfigUtils.applyPassThrough` (`JVM/TaintConfigUtils.kt:48-60`) | the condition of a pass rule (`CopyAllMarks`, `CopyMark`) is evaluated on the fact | a pass rule with a mark literal is the one rule error that does not reject (`interpreter.md` §1.3): it is logged once (`RuleErrors.applied`) and applies without its mark literals (one check, `passRules`, §28.5); it makes no conjunctive edge (`pass`, §27.4) |
 | D25 | `JIRAnalysisManager.isReachable` (`JVM/analysis/JIRAnalysisManager.kt:293-301`), called by the method analyzer (`DF/ap/ifds/MethodAnalyzer.kt:296`); `JIRLocalVariableReachability` (`JVM/JIRLocalVariableReachability.kt:27-41`) | a fact on a local that is dead at the statement is dropped; in code that reaches no exit every local is dead (the liveness goes backward from `exitPoints()` of the unwired graph) | no liveness member in `Interpreter`, `DirectedForms` or `JIRMethodEntry` (§23.1, §23.7, §31.2): the statement step keeps a fact on a dead local. The alias analysis keeps its own `JIRLocalVariableReachability` input, as today (§31.2) |
 | D26 | `JIRMethodSequentFlowFunction.applyUnconditionalSources` (:228-233), `applyUnconditionalSinks` (:191-200) | the unconditional exit sources fire only at `JMethodExitNormalInst`; the unconditional exit sink is a stub | `exitRules` builds every cube, the empty cube too, and every sink (`ZERO_PATTERN`) at both exits (§29) |
@@ -7069,11 +7071,11 @@ In the column "Pins (`interpreter.md`)", a bare § number names a section of `in
 | 1 | `StatementSummaryReversalTest` (opentaint-dataflow, `bidi.interp`) | `Reference.kt` (`revEdge`) | §4.9 STATEMENTS: touched + targets; A5 identity for a gen-only target; a conjunction gives one edge per literal, each `conjunctive` with `MicroEdge.may` true (F70, THE REVERSAL OF A CONJUNCTION), and a plain edge is never `conjunctive`; no filter; `forward` kept; I14 and A1: no reversed form has `[any-taint]` (the reversed `[any]` literal of a source, also of a conjunctive edge, is `[any]`; a forward `[any-taint]` target is the premise `[any]`), and `MicroEdge.may` of the reversal of `P.$ (T) -> Q.[any] (T)` is true, of the source `P.$ (T) -> Q.[any-taint] (T)` false | `Reverse.Stmt.rev`, `rev_touched`, `revNoId_breaks`, `Stmt.rev_step_iff`, `AnyTaint.Sanity` |
 | 2 | `RuleStatementReversalTest` (same) | `Reference.kt` | §4.9 RULE ROLES; end-fact targets pass; `ExitRules.reversed` drops G2; primitive cleaners unchanged; field actions reverse write, cleaner, read; THE TRIGGER OF AN END FACT (F70): the reversed `RuleStatement` keeps its `sinks`, and the forward form of each reversed end-fact edge is an end-fact edge of a sink of `sinks` (two exit sinks with the same end-fact action: one reversed edge, whose forward form names both) | `Reverse.revInstr` |
 | 3 | `MicroEdgeBuilderTest` (same) | `Reference.kt`, `ExclusionSet.of` | the write rule: `C.s = x` gives two keep edges with one exclusion each; a weak write keeps the base; A2/A3 alias edges; STAGE and GEN modes; `TypeFilter.and` on one base | `Cases.lean` `storeF` |
-| 4 | `CallPlanReversalTest` (same) | `Reference.kt` (`revEdge`, `concat`), `ApManager` | the step table of Part II §23.6; guards and filters go; `PASS_OVER` for alias bases; entry/exit swap; a non-forward plan fails; the zero fact passes over and enters (`FormsReference.run`); forward, `FormsReference.run` with `PlanHooks(guards = true)` on a hand-built plan: `END_FACTS` acts only on the zero fact and gives the layer of the sink that fired at `BOUND`, `ALIASES` skips only a normal `IDENTITY` result and keeps demand results from default identity and constructor pass-over (`CurrentAliasGuard.selection_iff`), each result gets `StageKind.originOf`, a run from `RETURNED` starts at that point; F70 (§33.3, the third and fourth tests): THE TRIGGER OF AN END FACT: the reversed `END_FACTS` stage has no guard and `trigger` = the sink of its forward guard, and backward `FormsReference.run` calls `PlanHooks.trigger` once with that sink when a requirement on the end-fact target reaches the stage, and the seed items go on from `BOUND`; THE REVERSAL OF A CONJUNCTION (the call `ret = lib(p1, p2)` with the conjunctive source `ContainsMark(arg0, T1) ∧ ContainsMark(arg1, T2) → Result.$ (T)`): the reversed `SOURCES` stage takes the NORMAL requirement `(ret, ., $, T)` to `(p1, ., $, T1)` and `(p2, ., $, T2)`, both in the DEMAND layer (before F70 both normal) | `Reverse.Call.rev`, `bindRev_of_star` |
+| 4 | `CallPlanReversalTest` (same) | `Reference.kt` (`revEdge`, `concat`), `ApManager` | the step table of Part II §23.6; guards and filters go; `PASS_OVER` for alias bases; entry/exit swap; a non-forward plan fails; the zero fact passes over and enters (`FormsReference.run`); forward, `FormsReference.run` with `PlanHooks(guards = true)` on a hand-built plan: `END_FACTS` acts only on the zero fact and gives the layer of the sink that fired at `BOUND`, `ALIASES` skips only a normal candidate identity and keeps demand results from default identity and constructor pass-over (`CurrentAliasGuard.selection_iff`), each result gets `StageKind.identityCandidateOf`, a run from `RETURNED` starts at that point; F70 (§33.3, the third and fourth tests): THE TRIGGER OF AN END FACT: the reversed `END_FACTS` stage has no guard and `trigger` = the sink of its forward guard, and backward `FormsReference.run` calls `PlanHooks.trigger` once with that sink when a requirement on the end-fact target reaches the stage, and the seed items go on from `BOUND`; THE REVERSAL OF A CONJUNCTION (the call `ret = lib(p1, p2)` with the conjunctive source `ContainsMark(arg0, T1) ∧ ContainsMark(arg1, T2) → Result.$ (T)`): the reversed `SOURCES` stage takes the NORMAL requirement `(ret, ., $, T)` to `(p1, ., $, T1)` and `(p2, ., $, T2)`, both in the DEMAND layer (before F70 both normal) | `Reverse.Call.rev`, `bindRev_of_star` |
 | 4a | `FormApplierTest` (same) | `Reference.kt`, `ApManager` | the three modes of `FormApplier` over `ReferenceAlgebra` and over a recording algebra: STATEMENT passes an untouched base and kills a touched one; the operand filter acts on the input before every edge, the result filter on each result; STAGE passes nothing by itself and gives the micro edge of each result; GEN adds results, applies no filter and is never a source-seed place; at a source-seed place the seed filter acts before a source edge and the hit is recorded only when a result exists (once per micro edge, before the result goes on); the static exception only with `Place.statementEdge` in run 1; `ReferenceAlgebra.passes` against `ApOps.filter` (Part I §5.5) | `Reverse.Stmt.rev` (the modes), `Statics.genFireB` (the static exception), `Core.filt_keeps` |
 | 5 | `JIRStatementFormsTest` (opentaint-jvm-dataflow, `jvm.bidi.interp`; replaces the edge asserts of `JIRStatementSummaryTest`) | `ApManager` | one test per row of §2.2; §2.4 pinned rows; operand vs result filters; read source at `x = C.s` with `ZERO_KEEP`; a read source with a non-`Result` target is a rule error | `Cases.lean` `loadF`, `loadF'`, `storeF` |
 | 6 | `JIRRuleFormsTest` (same) | `ApManager` | §4.1 rows, AnyField table; §4.2 negated literal, `Or`, cubes; §5.3 conjunctions (ND sources only); `pass`: a `CopyMark(T, P → Q)` gives the one edge `P.t (T) -> Q.t (T)`; §5.2 one test per mapping row with `<string-bytes>`; D20: a cleaner with a mark literal left gives no step and no request; §4.2 array elements: the alternatives of a call sink, with `SinkRule.alternative` = 0, 1, ... in the cube and array-choice order, the same for two builds; §1.3 the two invariants of a rule position: `[arg0, ".*", ".f"]` and `.*.*` in a source, a sink, a pass rule and a cleaner are each one rule error, logged once, and `pos` does not throw (D29); A RULE ERROR REJECTS THE WHOLE RULE (`valid`, Part II §27.1): the sink `Or(ContainsMark(Argument(0).AnyField.f, T), ContainsMark(Argument(1), T))` gives no `SinkRule` (not a sink on `arg1`), the cleaner `RemoveMark(T, Argument(0)), RemoveAllMarks(ClassStatic(C).AnyField)` gives no step (no clean of `arg0`), a bad position in a NEGATED literal rejects the rule too, and the other rules of the method get their forms; `AnyClassStatic` in `RemoveAllMarks` gives `CleanStep.Clean(Cleaner(S, [], AT_AND_BELOW, all))`, in any other rule element a rule error, also in a condition literal (`ContainsMark(AnyClassStatic, T)`, `ContainsMark(PositionWithAccess(AnyClassStatic, f), T)`); a pass rule with a mark literal is not rejected (`RuleErrors.applied`, D24); §1.4 rows and rule errors (`validation-plan.md` → Interpreter tests → §7.2 items 11, 19, 20; Part II §33.5 items 14, 16); THE TAINT ANNOTATION (I14, D32; `validation-plan.md` → Interpreter tests → §7.2 item 29): `AssignMarkOnAnyAccessor` and `AssignMark` on `PositionWithAccess(Argument(0), AnyField)` give the target `arg0.[any-taint] (T)` with the Empty exclusion (at a call, at the start, at an exit, at a read, and the target of a conjunctive source), `ContainsMarkOnAnyField(Q, T')` gives the premise `Q.[any] (T')`, `CopyMark(T, P → Q.AnyField)` gives `P.$ (T) -> Q.[any] (T)` (a may: `MicroEdge.may`), an end fact on a plain position gives `P.$ (T)` and on an AnyField position `P.[any-taint] (T)` (I14, SI19); an `[any-taint]` or `[any]` target on a class position is a rule error; D33: `CopyAllMarks(Argument(0).AnyField → Result)` and `CopyMark(T, Argument(0).AnyField → Result)` are rule errors, logged once, and give no pass edge (`validation-plan.md` → Interpreter tests → §7.2 item 19) | `Statics.SWF`, `Statics.CexAny`, `NDExact.LitConc`, `AnyTaint.TaintConc`, `AnyTaint.Sanity`, `AnyTaintEx.Vec.source_any_target` |
-| 7 | `JIRCallPlanTest` (same) | `ApManager` | §3.1 bindings with filters; §3.3 S and zero; §3.5 constructor (normal identity has no alias; demand results take aliases: SI15); §3.7 two `UNRESOLVED` stages, the identity has no filter, pass rules, default getter; D24: a pass rule (`CopyAllMarks` or `CopyMark`) with a mark literal is logged once (`RuleErrors.applied`, not rejected) and gives its plain pass edge without the literal (a `CopyMark(T, P → Q)` with a literal on another position gives `P.$ (T) -> Q.$ (T)`), and the `UNRESOLVED` stages have no conjunctive edge; `UnresolvedCallObserver` calls the tracker with `ruleApplied`; §3.8 aliases + `MemoryEffect`; §3.9 prescan lambdas (D19: no `UNRESOLVED` stage when the prescan knows a lambda); the forward stage table (Part II §33.5 items 10, 14, 17); `passReads` holds the from-bases of the rule-set pass rules and not the `this` of a default getter rule (the tracker gets `ruleApplied = false` for a library getter with no model); §3.6, D28: a call to a native method of a project class has no `Callees` stage and has the `UNRESOLVED` stages, and a call with an empty and a non-empty callee has only the non-empty one (G12); §3.7: an empty resolution result (a stub `JIRCallResolver` that gives `emptyList()`) gives the `UNRESOLVED` stages and no `Callees` stage; Part II §28.1 a non-immediate call lhs fails (`error`), as today; §5.2, D23 THE REWRITER SELECTION (`rewriterSteps`; `validation-plan.md` → Interpreter tests → §7.2 item 26): at a call with a user source `if IsConstant(...) && ContainsMark(...)` (selected), a user cleaner `if ContainsMark(...)` (not selected) and an unconditional user cleaner (selected), the `Rewrite` stage has exactly the cleaners of the two selected rules; D34: a selected source with the target `PositionWithAccess(Result, AnyField)` gives the cleaner `Cleaner(ret, [], AT_AND_BELOW, T)`, a cleaner `RemoveMark(T, Argument(0).AnyField)` keeps `(arg0, [], BELOW, T)`; a rule with no `UserDefinedRuleInfo` is not selected; a user source `AssignMark(T, Result) if ContainsMark(Argument(0).AnyField.f, U)` (a rule error) gives no source edge AND no `Rewrite` cleaner (`valid`, §1.3). The Spring checks of D27 are test 13 | `Reverse.BindTargetsStar`, `Backward.NoZeroBack` |
+| 7 | `JIRCallPlanTest` (same) | `ApManager` | §3.1 bindings with filters; §3.3 S and zero; §3.5 constructor (normal identity has no alias; demand results take aliases: SI15); §3.7 two `UNRESOLVED` stages, the identity has no filter, pass rules, default getter; D24: a pass rule (`CopyAllMarks` or `CopyMark`) with a mark literal is logged once (`RuleErrors.applied`, not rejected) and gives its plain pass edge without the literal (a `CopyMark(T, P → Q)` with a literal on another position gives `P.$ (T) -> Q.$ (T)`), and the `UNRESOLVED` stages have no conjunctive edge; `UnresolvedCallObserver` calls the tracker with `ruleApplied`; §3.8 aliases + `MemoryEffect`; §3.9 prescan lambdas (D19: no `UNRESOLVED` stage when the prescan knows a lambda); the forward stage table (Part II §33.5 items 10, 14, 17); `passReads` holds the from-bases of the rule-set pass rules and not the `this` of a default getter rule (the tracker gets `ruleApplied = false` for a library getter with no model); §3.6, D28: a call to a native method of a project class has no `Callees` stage and has the `UNRESOLVED` stages, and a call with an empty and a non-empty callee has only the non-empty one (G12); §3.7: an empty resolution result (a stub `JIRCallResolver` that gives `emptyList()`) gives the `UNRESOLVED` stages and no `Callees` stage; Part II §28.1 a non-immediate call lhs fails (`error`), as today; §5.2, D23 THE REWRITER SELECTION (`rewriterSteps`; `validation-plan.md` → Interpreter tests → §7.2 item 26): at a call with a user source `if IsConstant(...) && ContainsMark(...)` (selected), a user cleaner `if ContainsMark(...)` (not selected) and an unconditional user cleaner (selected), the `Actions(RETURNED, REWRITTEN, …)` stage has exactly the cleaners of the two selected rules; D34: a selected source with the target `PositionWithAccess(Result, AnyField)` gives the cleaner `Cleaner(ret, [], AT_AND_BELOW, T)`, a cleaner `RemoveMark(T, Argument(0).AnyField)` keeps `(arg0, [], BELOW, T)`; a rule with no `UserDefinedRuleInfo` is not selected; a user source `AssignMark(T, Result) if ContainsMark(Argument(0).AnyField.f, U)` (a rule error) gives no source edge AND no rewriter action (`valid`, §1.3). The Spring checks of D27 are test 13 | `Reverse.BindTargetsStar`, `Backward.NoZeroBack` |
 | 8 | `JIRBoundaryFormsTest` (same) | `ApManager` | §4.3 context filter; §4.7 `globalStateDrop`, `entryMarks` (the Spring DTO entry rule gives the mark `m` once for its two actions), `entryMarkRemoval` gives the entry marks on `this` and `arg(i)` and null on another base and at the exceptional exit; THE ENTRY-MARK REMOVAL (§4.7 step 4, D35; `validation-plan.md` → Interpreter tests → §7.2 item 35): `ops.withoutMarks` with `entryMarkRemoval(arg0)` on the zero-premise exit fact `{(arg0, [], $, m), (arg0, [], [any-taint], {name}, m), (arg0, [f], $, m), (arg0, [g], $, U)}` leaves only `(arg0, [g], $, U)` (every leaf with `m`, at any depth and with both tails, the `[any-taint]` leaf with its exclusion), and equals `clean` with `(arg0, [], atAndBelow, m)`; §4.7 at `JMethodExitExceptionalInst`: the exit sources and sinks with `Result` read as `exc`, `globalStateDrop = false`, no `entryMarks`; D22, D26: an unconditional exit sink has `ZERO_PATTERN` and an unconditional exit source has its zero edge at both exits; §4.7 step 3: `globalStateDrop` is true at a normal exit with a plain or a conjunctive exit sink (the zero-premise scope of D30 is a rule of the core: `ExitRulesTest`, `analyzer-impl.md` §9.1); §4.7 step 1, D31 (`validation-plan.md` → Interpreter tests → §7.2 item 28): the exit source `AssignMark(S2, ClassStatic(C)) if ContainsMark(ClassStatic(C), S1) && ContainsMark(Result, T)` gives one `ConjunctiveEdge` in `rules.summary.conjunctions` with the target `S.<C>.$ (S2)`, the keep edges `S.* → S.*` and `ret.* → ret.*`, and no rule error; THE BOUNDARY RULE STATEMENTS (`interpreter.md` §4.3, §4.7): the entry rules touch the zero base and each base with a context filter (its identity edge and filter), the exit rules the zero base and each literal base (its identity edge); a source target is not touched; `FormsReference.apply` in STATEMENT mode on the exit fact `arg(0).$ (T)` under `AssignMark(U, Result) if ContainsMark(Argument(0), T)` gives `arg(0).$ (T)` and `ret.$ (U)`; exit nodes (the two boundary exits); a method with no boundary instructions fails the `JIRMethodEntry` assert, and a classpath without the two lambda features fails the `JIRMethodEntries` assert (Part II §31.2); exit wiring of a loop that never returns | `Backward.ExitReach`, `Backward.ZeroKept` |
 | 9 | `JIRFormsContractTest` (same) | `ApManager` | every method of the samples jar: I6, I7 (both `$` clauses), I11 (a)–(d), (f), I12 (a), (b), (c), (e), I14 (only a source edge has the target `[any-taint]`, with concrete marks and the Empty exclusion: no `UNRESOLVED` stage and no binding has it; no forward premise `[any-taint]`; no pass rule has an `AnyField` premise, D33; no binding has an any target) over `allForwardForms` (Part II §33.4; I11 (e) is test 8, I12 (d) a check of the run config) | `Backward.StmtsMarkRev`, `Reverse.BindTargetsStar`, `Backward.NoZeroBack`, `Backward.ZeroKept`, `Statics.SWF`, `Invariant.no_univ_star` |
 | 10 | `JIRTypeFiltersTest` (same) | `ApOps.filter` | §5.1 rows; `*`/`[any]`/`[any-taint]` tails kept; the mark policy on `int` and `Integer`, a `%%primitive%%` mark kept; below `[e]`: on `int[]` and `Integer[]` the policy drops `a.[e].$ (T)` and keeps `a.[e].$ (T%%primitive%%)`, on `int[][]` level 2, on `Object[]` and `String[]` no policy; a leaf off the `[e]` chain stays; prefix-closed | `Exact.FiltValid`, `Core.filt_keeps` |
@@ -7092,7 +7094,7 @@ still test `ops.clean` directly. They do not give the expected results of a name
 | Test class | Field-action checks | Lean scope |
 |---|---|---|
 | `MicroEdgeBuilderTest`, `CallPlanReversalTest` | Preserve the read identity and strong-write keep edges. Use a fresh temporary per cached action. The reversal shares that temporary and runs reversed write, root cleaner, reversed read. Reverse the order of two actions. Project the temporary away before the action returns. | `CleanerLowering.loweredWith_iff`, `lowerWitnessWith`, `backwardKeepWitnessWith`; all three reaches and one or all marks, one field, no aliases. |
-| `JIRRuleFormsTest`, `JIRTypeFiltersTest` | A named field gives `CleanStep.Field` in Clean and Rewrite stages. AnyField changes the reach before lowering. Check root operand and final field-value filters. For `Root.child.value`, do not filter Root as Child; for a primitive value, apply its mark policy on the temporary. A nested String field also gives its `<string-bytes>` action. A static String field resolves through its field accessor and keeps the static cleaner forms. Static and whole-base mappings retain their existing forms. | Ordinary filter contract `Core.filt_keeps`; the JIR type mapping is an implementation check. |
+| `JIRRuleFormsTest`, `JIRTypeFiltersTest` | A named field gives `CleanStep.Field` in the cleaners and rewriter `Actions` stages. AnyField changes the reach before lowering. Check root operand and final field-value filters. For `Root.child.value`, do not filter Root as Child; for a primitive value, apply its mark policy on the temporary. A nested String field also gives its `<string-bytes>` action. A static String field resolves through its field accessor and keeps the static cleaner forms. Static and whole-base mappings retain their existing forms. | Ordinary filter contract `Core.filt_keeps`; the JIR type mapping is an implementation check. |
 | `AnyTaintFormsTest` | On normal `(x, [], [any-taint], {}, T)`, all reaches keep normal `(x, [], [any-taint], {f}, T)`. EXACT also gives demand `(x, [f], [any], T)`; BELOW also gives normal `(x, [f], $, T)`; AT_AND_BELOW gives only the keep result. An excluded field produces no temporary result. | `FieldCleanerX.exact_vector`, `below_vector`, `atAndBelow_vector`; the checked vectors use limit 3 and an empty input exclusion. |
 | `JIRFormsContractTest` | Include both field statements and the temporary root cleaner in the contract scan. Reject a temporary as a summary base and in language position resolution, serialization and traces. | F74 construction condition, `ap.md` S16. |
 | Analyzer regression fixture | Use the historical lowered-field program and tables in [`proof-history.md`](proof-history.md) with limits 1, 2, 3. Compare facts, demands, records and source hits with its finite-program reference. In the F72 fixture the backward keep branch retains `*`, the caller reaches source T, and run 3 reports normal `r.f.n.$ (T)`. | `ReviewFieldCleaner.exact1`, `exact2`, `exact3`, `demand3_all_exact`, `hits_exact`, `lowered_pipeline_preserves`. This is a finite-program F72 fixture; the general F75 X/driver proofs remain pending. |
@@ -7190,15 +7192,15 @@ class CallPlanReversalTest {
         return CallPlan(setOf(S, a, r), listOf(
             CallStage.Edges(BEFORE, BOUND, BIND_IN, stage(keepEdge(S), starEdge(Z, listOf(), Z, listOf()), starEdge(a, listOf(), arg0, listOf()))),
             CallStage.Edges(BOUND, REWRITTEN, SOURCES, stage(ZERO_KEEP, src)),
-            CallStage.Clean(BOUND, ADDED, emptyList()),
+            CallStage.Actions(BOUND, ADDED, emptyList()),
             CallStage.Callees(ADDED, RETURNED, listOf(m)),
-            CallStage.Rewrite(RETURNED, REWRITTEN, emptyList()),
+            CallStage.Actions(RETURNED, REWRITTEN, emptyList()),
             CallStage.Edges(REWRITTEN, AFTER, BIND_BACK, stage(keepEdge(S), starEdge(arg0, listOf(), a, listOf()), starEdge(ret, listOf(), r, listOf()))),
             CallStage.Edges(REWRITTEN, AFTER, ALIASES, stage(starEdge(ret, listOf(), b, listOf(f))), Guard.MemoryEffect),
         ), sinks = emptyList(), entry = BEFORE, exit = AFTER)
     }
 
-    @Test // AC4; CurrentAliasGuard: identity origin skips aliases only in the normal layer
+    @Test // AC4; CurrentAliasGuard: candidate identity skips aliases only in the normal layer
     fun `demand default identity and constructor pass-over reach aliases`() {
         fun stage(vararg es: PathEdge) = MicroEdgeBuilder().apply { es.forEach { edge(it) } }.buildStage()
         val fact = PathFact(arg0, emptyList(), Tail.EXACT, MarkSlot.Concrete(T))
@@ -7212,15 +7214,15 @@ class CallPlanReversalTest {
                     stage(starEdge(arg0, listOf(), b, listOf(f))), Guard.MemoryEffect),
             ), sinks = emptyList(), entry = ADDED, exit = AFTER)
             for (demand in listOf(false, true)) {
-                val input = PlanItem(premise, Conclusion(fact, ExclusionSet.Empty, demand), origin = null)
+                val input = PlanItem(premise, Conclusion(fact, ExclusionSet.Empty, demand), identityCandidate = null)
                 val trace = ref.run(plan, listOf(input), at, PlanHooks(guards = true))
                 val alias = Conclusion(fact.copy(base = b, path = listOf(f)), ExclusionSet.Empty, demand)
                 assertEquals(demand, trace.any { (p, i) -> p == AFTER && i.c == alias })
             }
         }
-        // The current layer also overrides IDENTITY preserved through a cleaner or rewriter.
-        assertTrue(Guard.MemoryEffect.admits(Origin.IDENTITY, Layer.DEMAND))
-        assertFalse(Guard.MemoryEffect.admits(Origin.IDENTITY, Layer.NORMAL))
+        // A cleaner or rewriter keeps the candidate flag; its current DEMAND layer still admits aliases.
+        assertTrue(Guard.MemoryEffect.admits(true, Layer.DEMAND))
+        assertFalse(Guard.MemoryEffect.admits(true, Layer.NORMAL))
     }
 
     @Test // analyzer-core.md §4.5 step table; Lean Reverse.Call.rev
@@ -7232,9 +7234,9 @@ class CallPlanReversalTest {
             Triple(AFTER, REWRITTEN, BIND_BACK), Triple(AFTER, REWRITTEN, ALIASES),       // step 2
             Triple(AFTER, BEFORE, PASS_OVER),                                             // step 1, A5
             Triple(REWRITTEN, BOUND, SOURCES),                                            // step 3
-            Triple(REWRITTEN, RETURNED, null),                                            // step 4 (Rewrite)
+            Triple(REWRITTEN, RETURNED, null),                                            // step 4 (Actions: rewriter)
             Triple(RETURNED, ADDED, null),                                                // step 5.1 (Callees)
-            Triple(ADDED, BOUND, null),                                                   // step 6 (Clean)
+            Triple(ADDED, BOUND, null),                                                   // step 6 (Actions: cleaners)
             Triple(BOUND, BEFORE, BIND_IN),                                               // step 8
         ), rev.stages.map { Triple(it.from, it.to, (it as? CallStage.Edges)?.kind) }.toSet())
         val edges = rev.stages.filterIsInstance<CallStage.Edges>()
@@ -7247,7 +7249,7 @@ class CallPlanReversalTest {
         val rev = forward().reversed()
         val hooks = PlanHooks(callees = { _, i ->                                         // the callee maps ret to arg0
             if (i.c.fact.base == ret) listOf(i.copy(c = i.c.copy(fact = i.c.fact.copy(base = arg0)))) else emptyList() })
-        fun item(c: Conclusion) = listOf(PlanItem(emptySet(), c, origin = null))
+        fun item(c: Conclusion) = listOf(PlanItem(emptySet(), c, identityCandidate = null))
         val req = Conclusion(PathFact(r, emptyList(), Tail.EXACT, MarkSlot.Concrete(T)), ExclusionSet.Empty, demand = false)
         val ref = FormsReference(ApOps(manager))
         val at = Place(testCall(), statementEdge = false, sources = false)            // a fake call statement (FormsFixtures)
@@ -7292,7 +7294,7 @@ class CallPlanReversalTest {
         assertEquals(2, lits.size)
         assertTrue(lits.all { it.may })                                                   // an OR, every result demand
         val req = Conclusion(conc(r, T), ExclusionSet.Empty, demand = false)               // the NORMAL requirement (r, ., $, T)
-        val trace = backward.run(rev, listOf(PlanItem(emptySet(), req, origin = null)), call)
+        val trace = backward.run(rev, listOf(PlanItem(emptySet(), req, identityCandidate = null)), call)
         val atEntry = trace.filter { (p, i) -> p == BEFORE && i.c.fact.base != Z }.map { it.second.c }
         assertEquals(setOf(conc(p1, t1), conc(p2, t2)), atEntry.map { it.fact }.toSet())
         assertTrue(atEntry.all { it.demand })                                              // before F70: both NORMAL
@@ -7319,7 +7321,7 @@ class CallPlanReversalTest {
         val seed = PlanItem(setOf(ZERO_PATTERN), Conclusion(sk.seedPatterns().single().fact, ExclusionSet.Empty, demand = false), null)
         val hooks = PlanHooks(trigger = { s -> fired += s; listOf(seed) })                 // the closure: one seed per pattern
         val req = Conclusion(conc(r, T), ExclusionSet.Empty, demand = false)               // a requirement on the end fact
-        val trace = backward.run(rev, listOf(PlanItem(emptySet(), req, origin = null)), call, hooks)
+        val trace = backward.run(rev, listOf(PlanItem(emptySet(), req, identityCandidate = null)), call, hooks)
         assertEquals(listOf(sk), fired)                                                    // once
         assertTrue(trace.any { (p, i) -> p == BOUND && i.c.fact.base == Z })              // the zero fact, as before F70
         assertTrue(trace.any { (p, i) -> p == BEFORE && i.c.fact == conc(a, u) })         // the seed demands the trigger in the caller
@@ -7389,8 +7391,7 @@ private fun ForwardForms.edgeStages(kind: StageKind) =
     plans.flatMap { p -> p.stages.filterIsInstance<CallStage.Edges>().filter { it.kind == kind } }
 fun ForwardForms.stages(kind: StageKind): List<StatementSummary> = edgeStages(kind).map { it.summary }
 private fun ForwardForms.cleanSteps(): List<CleanStep> = plans.flatMap { p -> p.stages.flatMap { st -> when (st) {
-    is CallStage.Clean -> st.steps
-    is CallStage.Rewrite -> st.steps
+    is CallStage.Actions -> st.steps
     else -> emptyList()
 } } }
 private fun ForwardForms.kills(): List<CleanStep.Kill> = cleanSteps().filterIsInstance<CleanStep.Kill>()
@@ -7411,7 +7412,7 @@ fun ForwardForms.microEdges(): List<MicroEdge> = (statementModeSummaries() +
     plans.flatMap { p -> p.stages.filterIsInstance<CallStage.Edges>().map { it.summary } }).flatMap { it.edges }
 fun ForwardForms.bindBack(): List<PathEdge> = pathEdges(stages(StageKind.BIND_BACK))
 fun ForwardForms.aliasEdges(): List<PathEdge> = pathEdges(stages(StageKind.ALIASES))
-/** Every cleaner: the steps of the `Clean` stages and the rewriter. */
+/** Every cleaner: the steps of both `Actions` stages. */
 fun ForwardForms.cleaners(): List<Cleaner> = cleanSteps().mapNotNull { step -> when (step) {
     is CleanStep.Clean -> step.cleaner
     is CleanStep.Field -> step.cleaner

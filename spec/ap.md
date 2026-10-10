@@ -86,7 +86,7 @@ current iteration remain proof obligations (§11.2).
 | mark-reversible | `i→f` has an abstract conclusion mark, or a concrete premise mark. |
 | exact shape | Excludes `*/E→$` and `*/E→any` with nonempty premise exclusion. |
 | record; must record; read view | A persisted normal single-premise raw summary (§8.7); a record whose premise is a must-premise; a transient premise pattern and conclusion used to read one record leaf from the other direction. A read view is not persisted or started as an initial fact. |
-| demand edge | A published piece of a demand-layer summary, a normal multi-premise summary, or a normal backward zero-premise summary (§8.5). It gives the next run a pattern per premise member (§9.2). Other native normal singleton summaries are records and give no callee demand. Lean's `DemandEdge` instead names a demand pattern. |
+| summary selected for demand; demand edge (hand-off) | A published piece selected by §8.5 for next-run demand construction. Selection does not change its layer: a normal multi-premise summary remains normal. It gives the next run a pattern per premise member (§9.2). Other native normal singleton summaries supply records only. Lean's `DemandEdge` names a demand pattern. |
 | caller fact; bound fact; added fact | A caller edge's conclusion; its value after binding into callee coordinates; its value after call cleaners. Callee summaries apply to added facts. |
 | link | An added fact paired with its caller edge. |
 | summary rewriter | A call-rule override that cleans selected marks/positions on summary and unresolved results. It is not a summary edge. |
@@ -158,9 +158,9 @@ are not the zero fact (§4.6).
 * An UNCORRELATED edge (the conclusion is `$` or has an any tail) has no shared exclusion. Its conclusion has the
   Empty exclusion, except an `[any-taint]/E` conclusion (W8): there `E` restricts the continuation of the conclusion
   only (§3.1). Every operation of §4 gives an uncorrelated result the Empty exclusion, except the rows of §4.1, §4.7
-  and §6.3 that give an `[any-taint]` result its exclusion; if the result loses a restriction, it goes to the demand
-  layer instead (`lostCorr`, §4.1). A `*/E` premise of an uncorrelated edge (before F72 a restricted run could emit
-  one with a concrete mark, §6.3) keeps `E` in its premise: `E` restricts the premise continuation only. The
+  and §6.3 that give an `[any-taint]` result its exclusion. An above-case transfer of a correlated fact loses its
+  correlation and gives a demand result (§4.1). A `*/E` premise of an uncorrelated edge (before F72 a restricted
+  run could emit one with a concrete mark, §6.3) keeps `E` in its premise: `E` restricts the premise continuation only. The
   exclusion of a must-premise (§6.3) does the same.
 * The MARK EXCLUSION `X` of a conclusion `*∖X` stops the marks of `X`: the value at the premise location flows to the
   conclusion location only if its mark is not in `X`. It belongs to the edge, as the exclusion does; a cleaner makes it
@@ -185,7 +185,7 @@ are not the zero fact (§4.6).
   Only these AP operations put a propagation edge in the demand layer:
   * the start fact of an initial fact with the `[any]` tail, or with the `*` tail and a concrete mark (§6.5). An
     `[any-taint]` start fact (a must-premise, forward restricted runs only) is normal;
-  * the case `above` of §4.1 for a fact that is not `[any-taint]`, and a lost correlation (`lostCorr`, §4.1);
+  * the case `above` of §4.1 for a fact that is not `[any-taint]`;
   * an `[any]` result (W6: a may), and the normal form W2 of a `*` result (§4.1 step 6);
   * in the backward run, every result of the reversal of a micro edge whose forward target is `[any]` (a pass rule
     with an `AnyField` target, a may), also a `$` result (§9.1);
@@ -638,19 +638,19 @@ summary conclusion `[any-taint]/Et`; Empty for a micro edge). Then:
 | `*` | `[]` | `[any]` | `to.path` | `[any]` | yes (W6) |
 | `*` | `[]` | `[any-taint]/Ec` | `to.path` | `[any-taint]/(Ec ∪ E)` (the EXCLUSION EDGE, W8) | no |
 | `[any]` | any | any | `to.path` | `[any]` | yes (W6: a may) |
-| `[any-taint]/Et` | any | any | `to.path` | `[any-taint]/Et`; `[any]` in the demand layer (W8) | if `lostCorr` |
-| `$` | any | `*/Ec` | `to.path` | `$` | if the correlation of `c` restricts the premise (`lostCorr`) |
-| `$` | any | an any tail or `$` | `to.path` | `$` | no (an `[any]` `c` is in the demand layer already, W6) |
+| `[any-taint]/Et` | any | any | `to.path` | `[any-taint]/Et`; `[any]` in the demand layer (W8) | no |
+| `$` | any | any | `to.path` | `$` | no (an `[any]` `c` is in the demand layer already, W6) |
 
-`lostCorr` (for a `*/Ec` fact `c` only) is true if `Ec ∪ E ≠ {}` for `r = []`, or `Ec ≠ {}` for `r ≠ []`. Otherwise
-the premise admits every continuation, and the uncorrelated result is exact (`Exact.applyEdge_exact`). An
-`[any-taint]` target is a taint edge or the conclusion of a summary of a concrete premise: its premise mark is
-concrete (S15, §7.2), so `c` has a concrete mark, no `*` tail (W2), and `lostCorr` is false. The exclusion edge (the
-keep edge `x.* →_{f} x.*` of a strong write, a `*/E` summary or record with `E ≠ {}`) gives an `[any-taint]` fact its
+The `$` and `[any-taint]` targets require a concrete premise mark (S8, S7 and W8). A legal `*`-tail fact has an
+abstract mark (W2), so it cannot pass that mark gate: it gives no fact and, in run 1, may request the premise mark
+(step 4). Thus these below-case targets add no demand flag. May `[any]` targets force demand (W6).
+The exclusion edge (the keep edge `x.* →_{f} x.*` of a strong write, a `*/E` summary or record with `E ≠ {}`) gives an `[any-taint]` fact its
 exclusion: the result is `[any-taint]/(Ec ∪ E)` in the layer of `c`, not `[any]` (W8; Lean `AnyTaintEx.Vec.setter_keep`;
 the round-1 rule demoted it, `setter_keep_base`). In the row `*`, `≠ []`, the exclusion `Ec` restricts the
 continuation after `c.path`, not `r`, so the case `below` does not test `r` against `Ec`
 (`AnyTaintEx.Vec.below_keeps_loc`: such a test would lose a real flow).
+The gated base reduction is checked in `CurrentSimplifications.LostCorr.applySimple_eq` and
+`applySimple_may_eq`; geometry still precedes the mark gate and requests.
 
 Case `above r`. The premise decides WHETHER the edge applies: the tail of `c` must admit `r` (`*/Ec` and
 `[any-taint]/Ec`: `Ec` admits `r`; `[any]`: yes; `$`: no overlap). If it does not, the edge gives no result and no
@@ -757,9 +757,7 @@ private fun below(c: Conclusion, edge: PathEdge, r: List<Accessor>): Shape? {
         }                                                                                 // edge on `[any-taint]/Ec` (W8)
         Tail.ANY -> Shape(to.path, Tail.ANY, ExclusionSet.Empty, demand = true)               // W6: a may
         Tail.ANY_TAINT, Tail.EXACT -> Shape(to.path, to.tail,                                  // a must, or `$`
-            if (to.tail == Tail.ANY_TAINT) edge.toExclusion else ExclusionSet.Empty,           // Et (W8)
-            demand = c.fact.tail == Tail.STAR &&                                               // lostCorr
-                (if (r.isEmpty()) c.exclusion.union(edge.exclusion) else c.exclusion) != ExclusionSet.Empty)
+            if (to.tail == Tail.ANY_TAINT) edge.toExclusion else ExclusionSet.Empty, false)    // Et (W8); concrete gate
     }
 }
 
@@ -973,19 +971,17 @@ summary (§5.3 events E2 and E4); `applySummary` does not test it again.
   (§3.4): a premise `j` at the path of `a` needs the exclusion of `a` to be a subset of the exclusion of `j`; a premise
   strictly below `a`, at `a.path ++ r`, needs the exclusion of `a` to admit `r` (Lean: `AnyTaintEx.satX`, the base
   `satI` with `insideExB`; `satX_inside`).
-* A FLOW PREMISE OF A RESTRICTED RUN (the mark `*`: the FLOW form of a `*` pattern, §6.3; F72) is satisfied by
-  `inside` OR by `applicable` (Lean: `Abs.satW` in the base model; the X-tail extension is pending). The FLOW form does not depend on the added fact, so it can lie
-  inside `a` (`a` at or above it), cover `a` (`a` at or below it, as a policy fact of run 1 covers its added fact),
-  or neither. Both tests read the marks: a `*` premise admits every mark of `a`, also `*` and `*∖X`. A concrete
-  premise is satisfied by `inside` only, as before F72. A fact with an abstract mark never satisfies a concrete
-  premise: its marks are not a subset of `{T}`, so it gives nothing and raises no request (§4.5). A FLOW premise with
-  the Empty exclusion covers the added fact or lies inside it at every common location,
-  so one of the two tests holds. With an exclusion `E ≠ {}` this is false: the FLOW premise
-  `(x, ., */{f}, *)` and the added fact `(x, ., */{g}, *)` have common locations, but neither test holds. Such a
-  premise needs a `*` pattern with the tail `*/E`. Native normal singleton summaries give no demand (§8.5).
-  The demand builders must enforce §6.1's entry guard: every abstract entry has
-  tail `[any]`, and every emitted FLOW premise has the Empty exclusion (§6.3).
-  Full preservation of this guard through the current iteration remains open (§11.2).
+* A CANONICAL FLOW PREMISE OF A RESTRICTED RUN `(x, p, *, {}, *)` is satisfied exactly when it OVERLAPS the added
+  fact. The overlap reads the added fact's tail and field exclusion. Its unrestricted mark admits every added mark,
+  including `*` and `*∖X`. This equals `inside OR applicable` on that guarded domain
+  (`CurrentSimplifications.Flow.canonical_flow_satisfaction_X`, the local annotated test).
+  Other FLOW premises retain `inside OR applicable`. In particular, do not use overlap for a nonempty premise
+  exclusion: `(x, ., */{f}, *)` and `(x, ., */{g}, *)` overlap but neither test holds. Concrete summary premises
+  retain `inside` and its mark test; record read views retain R3/R4's matching guards. An abstract added mark never
+  satisfies a concrete premise and raises no restricted-run request (§4.5).
+  The demand builders must enforce §6.1's entry guard: every abstract entry has tail `[any]`, and every emitted
+  FLOW premise has the Empty exclusion (§6.3). Full preservation of this guard through the current iteration
+  remains open (§11.2). The local overlap equality does not prove a store or iteration invariant.
 * AN `[any-taint]` PREMISE (a must-premise; forward restricted runs only, §6.3) is satisfied only by `inside`: the
   added fact covers EVERY admitted location of the premise, so it has an any tail (a concrete fact has no `*` tail, W2) and lies at or
   above the premise. A summary of a must-premise is end-exact, not exact pair by pair (§1), so it needs every
@@ -1152,6 +1148,11 @@ E7 of §5.3 check it per link. Its answer and its climb are §4.10 items 2 and 3
 
 ### 4.6 Mark conjunction: ND edges
 
+A conjunction occurs only in a forward run. Each literal contributes one matched input with its premise set and
+contribution layer. The conclusion requires ALL contributions of the same conjunction alternative at the same
+statement. Write these contributions as `P ∧ Q` for a binary conjunction. They are parts of one joint rule, not
+independently applicable forward summaries: `{a, b} → c` cannot produce `c` from `a` alone.
+
 A CONJUNCTIVE micro edge `x1.ρ1.t1(T1) ∧ … ∧ xk.ρk.tk(Tk) → z.π.t(T)` gives the mark `T` at `z.π` if every literal holds
 at the statement. A literal tail `tj` is `$` (`ContainsMark`) or `[any]` (`ContainsMarkOnAnyField`). The target tail
 `t` is `$` or `[any-taint]` (W7: no `*` tail): a conjunctive micro edge is a source (a pass rule has no mark literal,
@@ -1185,10 +1186,12 @@ alternative has two or more positive literals is a conjunctive micro edge of the
   (`NDZero.dnz_to_dn`, `dn_to_dnz`), so its coverage, exactness and confirmation are the theorems of §10.10.
 * The target of a conjunctive micro edge is not on the zero base (`NDZeroBase.NoZeroGen` item (d); `interpreter.md`
   §5.3).
-* The result is in the demand layer if one input is in the demand layer, or if its literal does not COVER it
-  (`!coversB lit c`: the input has a location that is not a location of the literal, for example an `[any]` input for a
-  `$` literal, or an input above the literal) and the input is not `[any-taint]`. An `[any-taint]/E` input (normal)
-  that overlaps its literal and passes its mark gate gives a NORMAL result also if the literal does not cover it:
+* A literal's contribution is DEMAND if its input is DEMAND, or if the literal does not COVER the input
+  (`!coversB lit c`: the input has a location outside the literal, for example an `[any]` input for a `$` literal,
+  or an input above the literal) and the input is not `[any-taint]`. Otherwise the contribution is NORMAL.
+  The conjunction joins these contribution layers: NORMAL if ALL are NORMAL; DEMAND if ANY is DEMAND.
+  Premise count does not decide the layer. An `[any-taint]/E` input (normal)
+  that overlaps its literal and passes its mark gate gives a NORMAL contribution also if the literal does not cover it:
   every admitted location of the input carries the mark, and the overlap reads `E` (§3.2: an excluded location
   overlaps nothing), so the literal holds at a common location (Lean: `AnyTaintND.conjLayerT`, `lit_loc`, for an input
   with the Empty exclusion; with `E` the rule is argued, §11.2). An `[any-taint]` target gives an `[any-taint]` result,
@@ -1223,9 +1226,10 @@ alternative has two or more positive literals is a conjunctive micro edge of the
   combination at the exit is an exit item with the union of the premise sets, after the field limit; it takes the
   rest of the exit order and becomes a summary at the normal exit (`interpreter.md` §4.7, D31); with two or more
   members it is an ND summary, which the callers apply by event E6.
-* An edge whose premise set has two or more members is never a record: the analysis never persists it and never
-  reverses it (§8.7 R1). The backward run reverses a conjunctive micro edge into one micro edge per literal, with every
-  result in the demand layer (§9.1, THE REVERSAL OF A CONJUNCTION; §9.2).
+* A multi-premise edge can be NORMAL or DEMAND by the contribution rule above. It is never persisted or read as a
+  reversed record (§8.7 R1). The forward hand-off makes one demand pattern per premise member (§9.2), without
+  changing the publication's layer. The backward run has no conjunction: it reverses a conjunctive micro edge into
+  one independent micro edge per literal, with every result in the demand layer (§9.1).
 * The model has binary conjunctions (`ND.Conj`: two literals). A conjunction of `k` literals is argued by chaining
   (§11.2).
 * A conjunctive sink (positive literals on several positions) uses the same store (§4.9, §8.9). The model has no
@@ -1233,7 +1237,9 @@ alternative has two or more positive literals is a conjunctive micro edge of the
 * The concrete semantics of a conjunction is the SUPPORT semantics of §3.5 (`ND.TaintN`); a vulnerability witness is a
   tree.
 
-Lean: `ND.lean` (§10.6).
+Lean: `ND.lean` (§10.6). `CurrentConjunction.part_factor`, `joined_normal_iff`, and `joined_demand_iff` check the
+local binary contribution rule against `AnyTaintND.conjLayerT`; `normal_publication_example` checks that selection
+does not demote a normal multi-premise summary. Full restricted ND integration remains open (§11.2).
 
 ### 4.7 The cleaner
 
@@ -1258,21 +1264,23 @@ then takes the same primitive cleaner, then reverses the read. A normal FLOW fac
 all its marks. The temporary is local to the action and is not a method summary. The table below specifies the
 primitive cleaner; an atomic primitive on `x.f` is not the reference form of this field action.
 
-SELECTED MARK ON AN ABSTRACT FACT (F75). Relevant means `c.base = cleaner.base` in the current AP coordinates.
-Before any path or reach test, a cleaner of T on a same-base fact with mark `*` or `*∖X` gives the same fact with
-mark `*∖(X ∪ {T})`. It preserves the path, tail, field exclusion and layer. Run 1 also requests T on the incoming
-edge's premise, including when T is already in X. The request stands in the request store (§4.5); repeated requests
-have the same key. A restricted run, forward or backward, keeps the exclusion and raises no request. An abstract
-fact on another base passes unchanged. Thus a same-base selected-mark cleaner neither acts nor passes unchanged
-on an abstract T flow: the T flow must use a concrete answer in run 1, then a concrete demand or record.
+PRIMITIVE DISPATCH (F75). Apply the first matching case in the current AP coordinates:
 
-The position test below controls concrete-mark facts and all-marks cleaners. It does not permit a same-base
-selected-mark abstract fact to skip the split. The cleaner compares the location set of a fact `c` with the cleaned locations, marks ignored: `inside` (every location
-is cleaned), `disjoint` (no location is) or `part` (some locations are). The test is exact (Lean: `cleanPos`):
+1. If `c.base ≠ cleaner.base`, keep `c`.
+2. If the cleaner selects T and `c.mark` is `*` or `*∖X`, give the same fact with mark `*∖(X ∪ {T})`, before any
+   path or reach test. Preserve its path, tail, field exclusion and layer. Run 1 also requests T on the incoming
+   edge's premise, including when T is already in X. The request stands in the request store (§4.5); repeated
+   requests have the same key. A restricted run, forward or backward, raises no request.
+3. Otherwise apply the spatial table below: concrete-mark facts and all-marks cleaners use it.
+
+The selected T flow therefore uses a concrete answer in run 1, then a concrete demand or record. A same-base
+abstract fact cannot skip the second case. The spatial test compares the location set of `c` with the cleaned
+locations, marks ignored: `inside` (every location is cleaned), `disjoint` (no location is) or `part` (some
+locations are). The test is exact (Lean: `cleanPos`):
 
 | `c` against the position `x.p` | `exact` | `below` | `atAndBelow` |
 |---|---|---|---|
-| another base, or apart | `disjoint` | `disjoint` | `disjoint` |
+| apart | `disjoint` | `disjoint` | `disjoint` |
 | strictly below (`c.path = p ++ r`, `r ≠ []`) | `disjoint` | `inside` | `inside` |
 | at (`c.path = p`), tail `$` | `inside` | `disjoint` | `inside` |
 | at, tail `*/E` or an any tail | `part` | `part` | `inside` |
@@ -1284,7 +1292,6 @@ The result:
 
 | `c.mark` | cleaner mark | `inside` | `disjoint` | `part` |
 |---|---|---|---|---|
-| `*` or `*∖X` | `T` | same-base split above, with a request in run 1 | same-base split above; another base gives `c` | same-base split above, with a request in run 1 |
 | `*` or `*∖X` | every mark | dropped | `c` | `c` in the demand layer, normalised: a `*` tail becomes `[any]` (W2) |
 | `T` (cleaned) | `T` or every mark | dropped | `c` | the part that the cleaner does not surely clean: a fact with an any tail at `x.p` under a `below` cleaner becomes `(x, p, $, T)`, in the layer of `c` (an `[any-taint]` fact keeps the normal layer); a normal `[any-taint]/E` fact at `x.q` under a cleaner ONE ACCESSOR BELOW it, at `x.q.f` (so `p = q ++ [f]`, and `E` admits `f`): `atAndBelow` gives `(x, q, [any-taint], E ∪ {f}, T)`, and `below` gives `(x, q, [any-taint], E ∪ {f}, T)` and `(x, q.f, $, T)`, both in the layer of `c`; any other `c` goes to the demand layer (it has a concrete mark, so it has no `*` tail, W2; an `[any-taint]/E` fact becomes `[any]` with the Empty exclusion, W8: under the `exact` cleaner at `x.q` or at `x.q.f`, which has no shape for "every location but one", and under every cleaner two or more accessors below `x.q`; the cleaner demotions of §2.2) |
 | `T'` (not cleaned) | `T` | `c` | `c` | `c` |
@@ -1310,12 +1317,10 @@ in `CurrentExact`; full coverage and the combined extensions remain open.
 * A summary conclusion `*∖X` stops an added fact with a concrete mark in `X` (§4.1 step 5). A sink for `T ∈ X` on a
   `*∖X` fact neither triggers nor requests (§4.9). A request for `T ∈ X` does not climb through a `*∖X` fact (§4.5).
 * The mark exclusion is not tied to a position, so a field write, a field read or a cut does not change it.
-* Run 1 requests T for every same-base abstract fact, also an `inside` fact. Its concrete answer can stop at the
-  cleaner. This keeps one request rule for every path and reach; no spatial test suppresses the split or request.
 * IN A RESTRICTED RUN (F72) a fact can have an abstract mark: a fact of a FLOW premise (§6.3). The rows with an
-  abstract mark apply WITH NO REQUEST: a cleaner of `T` on the same base gives `c` with `*∖(X ∪ {T})` for every path and reach, and the
-  mark `T` through the part that the cleaner does not clean comes only from a concrete demand pattern (§4.5). The
-  all-marks rows do not change (they raise no request). Before F72 every fact of a restricted run was concrete
+  abstract mark and the dispatch apply WITH NO REQUEST. The mark T through the part that the cleaner does not
+  clean comes only from a concrete demand pattern (§4.5). The all-marks rows raise no request.
+  Before F72 every fact of a restricted run was concrete
   (`RExact.DR_concrete`, for the emission that copies the mark, for any records): only the rows with a concrete mark
   applied, and no `*∖X` fact occurred. A reused run-1 record with a `*∖X` conclusion gives a concrete mark on a
   concrete fact, or nothing, and `*∖(X ∪ Y)` on a fact with the mark `*` or `*∖Y` (§4.1 step 5).
@@ -1422,7 +1427,7 @@ uses this check too: in run 1 the request on a static premise is answered by the
 An UNCONDITIONAL SINK has no positive mark literal: it has no literal, or every literal is negated (a negated literal
 counts as true, §3.5). Its sink pattern is the zero fact `(zero, [], $, {}, zeroMark)`, so it triggers on the zero fact
 at the sink statement. Its sink edge is the edge of the zero fact there: the premise set `{zero}`, the conclusion the
-zero fact, in the normal layer. The three conditions below confirm it if the premise set `{zero}` is supported
+zero fact, in the normal layer. The two confirmation checks below confirm it if the premise set `{zero}` is supported
 (condition 3): at a root, or through a chain of calls whose caller edges are the zero edges of the callers.
 
 A CONJUNCTIVE SINK has positive mark literals on several positions (`interpreter.md` §4.2). Each literal is a sink
@@ -1443,42 +1448,46 @@ THE BACKWARD RUN has no sink check. Its sink rule is the seed (§9.2). An end fa
 triggers, so the reversed end-fact edge of a sink alternative also fires the sink seeds of that alternative (§9.2, THE
 TRIGGER OF AN END FACT).
 
-A sink witness (§1) is CONFIRMED only if all three conditions hold:
+A sink witness (§1) is CONFIRMED exactly when both checks pass:
 
-1. Each sink edge of the witness is a normal edge (also with the `[any-taint]/E` tail: the test reads the layer only;
-   Lean: `AnyTaintEx.Confirmed6X`, `ConfirmedX`; round 1 `AnyTaint.ConfirmedT6`, `ConfirmedT`,
-   `AnyTaintND.ConfirmedNzT`).
-2. Each member of the premise set of the sink edge (§4.6; the zero fact is a member like every other) is the zero fact,
-   an EXACT concrete fact `(x, p, $, T)` (a request answer in run 1, an emitted fact in a restricted run), or, in a
-   forward restricted run, a must-premise `(x, p, [any-taint], E, T)` (an emitted fact, §6.3).
-3. The premise set is SUPPORTED JOINTLY (Lean: `Confirmed.Sup` in run 1, `RExact.SupM` in a restricted run,
-   `NDConfirmed.SupN` with conjunctions). Support is a property of the premise SET (§1):
-   1. At a root, the premise set is supported if every premise is the zero fact.
-   2. In a callee, the premise set `{j1, …, jk}` is supported if ONE call statement to the callee supplies every
-      premise. For each member `jm` there is a normal caller edge `(Pm, normal) → cm` at that call statement with these
-      properties:
-      1. its own premise set `Pm` is supported (the rule applies again in the caller);
-      2. the binding of `cm` gives the added fact `a`, and `a` is in the normal layer on that link (§8.3);
-      3. `jm = a`: the same base, path, tail and mark. So `jm` and `a` are the zero fact, or `a` is exact with a
-         concrete mark: `jm` is the answer of `a` in run 1 (the chain answer of §4.5, or, on a static premise, the
-         added fact itself, §4.10 item 4), or the emission `a ∩ D-c = a` in a restricted run. OR (a restricted run)
-         `a` has the `[any-taint]` tail (so it is normal on the link) and `jm` lies inside `a` (`inside`, §4.3, with
-         the exclusions) with the SAME concrete mark, and `jm` is an exact fact `$` or a must-premise `[any-taint]`.
-         This branch also holds for `jm = a`, the emission `a ∩ D-c = a` of an `[any-taint]/E` added fact. Every
-         admitted location of `a` carries its mark, so every location of `jm` is supplied. (Lean:
-         `AnyTaintEx.SupLinkX`, `SupX`; round 1 `AnyTaint.SupLink`, `SupT`. The same mark makes the condition
-         explicit: for a concrete premise, `inside` already implies it,
-         `AnyTaintExact.markSub_conc`; without it `AnyTaint.SupLink` would accept a premise with the mark `*`
-         inside `a`, whose locations with other marks `a` does not carry, `AnyTaintExact.CexSupMark.cex_sup_mark`.)
+* NORMAL EDGES (condition 1). Every sink edge of the witness is normal. The test reads the layer only, including
+  `[any-taint]/E` facts (Lean: `AnyTaintEx.Confirmed6X`, `ConfirmedX`; round 1 `AnyTaint.ConfirmedT6`,
+  `ConfirmedT`, `AnyTaintND.ConfirmedNzT`).
+* JOINT SUPPORT (condition 3). The witness's combined premise set is supported. For one edge use its premise set;
+  for several use their union without zero, or `{zero}` if every edge has `{zero}` (§4.6).
 
-      Different premises can use different caller edges at that one call, and those caller edges can be supported
-      through different calls of the caller. So the support is a tree.
-   3. No other premise set is supported.
+ADMISSIBLE MEMBERS (condition 2) are part of the support definition, not an independent confirmation check.
+A member is admissible if it is the zero fact, an EXACT concrete fact `(x, p, $, T)` (a request answer in run 1,
+an emitted fact in a restricted run), or, in a forward restricted run, a must-premise
+`(x, p, [any-taint], E, T)` (an emitted fact, §6.3).
 
-   For one premise this is the chain of supported caller edges. The weaker condition "the premise is exact" is not
-   enough (`Confirmed.Weak.weak_support_gap`, a proved counter-example). For two or more premises, "each premise is
-   supported at some call" is not enough: two premises supplied at two different calls never meet at one execution
-   (`NDConfirmed.CexSites.cex_sites`).
+SUPPORT (condition 3) is a property of the premise SET (§1; Lean: `Confirmed.Sup` in run 1, `RExact.SupM` in a
+restricted run, `NDConfirmed.SupN` with conjunctions):
+
+1. At a root, the premise set is supported if every premise is the zero fact.
+2. In a callee, the premise set `{j1, …, jk}` is supported if ONE call statement supplies every member. Each `jm`
+   must be admissible, and there must be a normal caller edge `(Pm, normal) → cm` at that call with these properties:
+   1. its own premise set `Pm` is supported (the rule applies again in the caller);
+   2. the binding of `cm` gives the added fact `a`, and `a` is normal on that link (§8.3);
+   3. `jm = a`: the same base, path, tail and mark. Thus they are zero or concrete exact facts: `jm` is the answer
+      of `a` in run 1 (the chain answer of §4.5, or the added fact itself on a static premise, §4.10 item 4), or the
+      emission `a ∩ D-c = a` in a restricted run. OR (a forward restricted run) `a` has the `[any-taint]` tail and
+      `jm` lies inside `a` (`inside`, §4.3, with exclusions), with the SAME concrete mark. Here `jm` is exact `$` or
+      a must-premise `[any-taint]`. This branch includes `jm = a`, the emission of an `[any-taint]/E` added fact.
+      Every admitted location of `a` carries its mark, so every location of `jm` is supplied (Lean:
+      `AnyTaintEx.SupLinkX`, `SupX`; round 1 `AnyTaint.SupLink`, `SupT`). For a concrete premise, `inside` already
+      implies the same mark (`AnyTaintExact.markSub_conc`); without that guard an abstract premise inside `a` would
+      demand marks that `a` does not carry (`AnyTaintExact.CexSupMark.cex_sup_mark`).
+
+   Different members can use different caller edges at that one call. Those edges can be supported through
+   different calls of the caller, so support is a tree.
+3. No other premise set is supported.
+
+Support implies member admissibility; repeating condition 2 at confirmation adds no restriction
+(`CurrentSimplifications.Confirmation.confirm_equiv`, a local check with unchanged same-call suppliers).
+For one premise, support is the chain of supported caller edges. Exactness alone is not enough
+(`Confirmed.Weak.weak_support_gap`). For several premises, support at separate calls is not enough: the members
+must meet at one call (`NDConfirmed.CexSites.cex_sites`).
 
 A conjunctive sink is a conjunction to a fresh target with a sink on it: it is confirmed if every sink edge of its set
 is normal and the UNION of their premise sets (without the zero fact, §4.6; `{zero}` if every edge has `{zero}`)
@@ -2195,10 +2204,11 @@ edge gives REACH, a source gives TAINT).
      exclusion `Ec ∪ E` too (the exclusion edge, W8), so it goes to another TAINT tree, in the layer of the tree;
    * an `[any]` target (a may): fold `U` into one `[any]` payload with the Empty exclusion, in the demand layer (W6);
    * an `[any-taint]` target (a taint edge, or a summary conclusion `[any-taint]/Et`): fold `U` into one
-     `[any-taint]` payload with the exclusion `Et` (Empty for a micro edge), in the layer of the tree (a TAINT tree:
-     no `*` leaf, so no `lostCorr`);
-   * a `$` target: fold `U` into one `$` payload with the Empty exclusion. It is in the demand layer if `U` has a `*`
-     leaf and its exclusion is not Empty (`lostCorr`: `Ec ∪ E` for the root leaf of `U`, `Ec` for a leaf below it).
+     `[any-taint]` payload with the exclusion `Et` (Empty for a micro edge), in the layer of the tree;
+   * a `$` target: fold `U` into one `$` payload with the Empty exclusion, in the layer of the tree.
+
+   Both `$` and `[any-taint]` targets require a concrete premise mark. A FLOW leaf therefore gives no fact after
+   the mark gate; no below-case correlation check adds demand (§4.1).
 4. Apply the mark gate per payload mark, then the target mark (§4.1 steps 4, 5; a `*∖X` target adds `X` to the mark
    exclusion and stops the concrete marks in `X`). A payload mark that the gate sends to a request gives no result for
    that mark; it raises the request `(m, i, T)` (run 1, §4.5; a restricted run raises none, F72).
@@ -2342,8 +2352,9 @@ candidates; the store then applies the exact test that the section names (`overl
 * Key: the callee. Value: the subscriptions `(caller edge, call statement, added fact a)`.
 * On a published summary edge of an initial fact `j`: find the subscribed `a` that satisfy `j` (§4.3), and apply. The
   index is a path trie keyed by `base :: a.path`. In run 1 (`applicable`: `a` at or below `j`) the query is
-  `lookupExtensions(j.path)`. In a restricted run (`satI`: `j` inside `a`) the query is `lookupPrefixes(j.path)`; for
-  a FLOW premise (F72: also `applicable`) it is the union of both, `around(base :: j.path)` (§8.7 R2).
+  `lookupExtensions(j.path)`. In a restricted run (`satI`: `j` inside `a`) the query is `lookupPrefixes(j.path)`.
+  A FLOW premise uses their union, `around(base :: j.path)` (§8.7 R2): canonical FLOW matches by overlap; other
+  FLOW matches by `inside OR applicable` (§4.3).
   Then the store applies the exact test of §4.3 (`PipelineStore.deliver_run1`, `deliver_restricted`; the F72 query
   of a FLOW premise has checked base query equivalence in `AbsStore`;
   X-tail/tree pipeline integration remains open, §11.2).
@@ -2363,14 +2374,16 @@ candidates; the store then applies the exact test that the section names (`overl
   normal backward zero-premise summary. Omit all other native normal singleton
   summaries; R1 persists them as records. Tail, mark, exclusion, and read-view
   layer do not add a selection condition.
+  Selection is routing for the next run, not a layer change. A selected normal
+  conjunction remains normal and still requires every premise when applied forward (§4.6).
 * At each summary delta, build publications (§6.4; run 1 keeps the raw delta).
   If selected, store those same publications with `addDemand`; otherwise store
   no demand piece. Selection is uniform within one premise-key/layer group.
   The hand-off reads `demandEdges()` only. Persist the eligible raw summaries,
   including all exclusions, at the barrier (R1).
 * The premise key keeps its tail and its exclusion: a must-premise and the `[any]` premise at the same path have
-  their own summaries (§7.1). A forward summary with the `[any-taint]` tail on its premise or its conclusion is a
-  record if it is normal (§8.7 R1); the backward run has no `[any-taint]` (W8 (d)).
+  their own summaries (§7.1). A native normal singleton forward summary with the `[any-taint]` tail on its premise
+  or its conclusion is a record (§8.7 R1); the backward run has no `[any-taint]` (W8 (d)).
   A normal singleton must-premise record also gives no callee demand. Its
   backward read view can produce a demand-layer result in the caller (R3).
   Any resulting caller summary follows the same selection rule. Selected must
@@ -2416,10 +2429,10 @@ contract; they do not have to satisfy native initial-kind conditions. Current ba
 These theorems do not prove all typed FLOW layer flags; W6 and full packing
 preservation remain open. The concrete runtime stores must enforce the full
 kind/layer requirements of §7.2.
-R1 persistence and §8.5 selection partition native summaries: normal eligible
-singletons are records; the remaining summaries supply demand. Evaluate the
-policy on the raw summary, before restriction. Read-view construction and
-application have separate mark, shape, and exclusion guards.
+Evaluate R1 persistence and §8.5 hand-off selection on the raw summary, before
+restriction. Record eligibility does not define the summary's layer. A normal
+multi-premise conjunction summary is not a singleton record. Read-view
+construction and application have separate mark, shape, and exclusion guards.
 
 One direction-neutral store for the forward and the backward analysis:
 
@@ -2452,7 +2465,7 @@ Rules:
 
 * R1. THE PRINCIPLE: a summary edge is persisted (and so read reversed, leaf by leaf, by R3) ONLY IF IT IS COMPLETE
   (§1). A demand-layer
-  summary edge is never persisted and never reversed. The store adds only a complete summary edge whose premise set
+  summary edge is never persisted or read as a reversed record. The store adds only a complete summary edge whose premise set
   has ONE member:
   * of a forward run: every normal such edge, also a zero-premise edge (the premise set `{zero}`), also an edge with
     `[any-taint]/E` leaves (with their exclusion), also an edge of a must-premise (a MUST RECORD, with the exclusion
@@ -2461,7 +2474,7 @@ Rules:
     (W8 (d)), and its `[any]` results are in the demand layer (W6, §9.1), so a backward record has no any tail. A
     zero-premise backward edge can come from a seed (§9.2): the seed relates the zero location to every location of
     its sink pattern (Lean: `Backward.seed_den`), which is not a flow of the reversed program, so it is never persisted
-    and never reversed. The backward records are exact forward records (Lean: `AnyTaintSim.backRecT`,
+    and never read as a reversed record. The backward records are exact forward records (Lean: `AnyTaintSim.backRecT`,
     `backRecT_sub`, `backRec_exact`, under the hypotheses of `BExact.revRecs_exact`). A backward summary through the
     reversal of a conjunctive micro edge is in the demand layer (§9.1, THE REVERSAL OF A CONJUNCTION), so it is never
     added.
@@ -2485,23 +2498,24 @@ Rules:
   construct an `InitialAp` or a persisted `Record` from it, emit it, or apply
   `startFact`: starting a concrete star would lose its exclusion and demote it.
 
-  For a normal singleton **forward** record, with concrete marks `U` and `T`:
+  For a native normal singleton **forward** record `P → x.p.t(T)`, use the special must view only if both sides
+  have concrete marks, each tail is `$` or `[any-taint]`, and at least one tail is `[any-taint]`. Each `$` side has
+  empty exclusion. Keep the native store and R1 guards. Derive the view by two independent conversions:
 
-  | Native leaf | Backward read view | View layer |
-  |---|---|---|
-  | `P.$(U) → x.p.[any-taint]/E(T)` | `x.p.*/E(T) → P.$(U)` | normal |
-  | `P.[any-taint]/Ej(U) → x.p.[any-taint]/E(T)` | `x.p.*/E(T) → P.[any](U)` | demand |
-  | `P.[any-taint]/Ej(U) → x.p.$(T)` | `x.p.$(T) → P.[any](U)` | demand |
+  * New premise from the old conclusion: keep `x.p.$(T)`; change `x.p.[any-taint]/E(T)` to `x.p.*/E(T)`.
+  * New conclusion from the old premise: keep `P.$(U)` in NORMAL; change `P.[any-taint]/Ej(U)` to `P.[any](U)`
+    in DEMAND, forgetting `Ej`.
 
-  Preserve the old conclusion's `E` on the new star premise. Forget `Ej` when
-  weakening the old must-premise to may `[any]`. `$` sides have empty exclusion.
+  The guard and conversions equal `CurrentMustReverse.readView`
+  (`CurrentSimplifications.MustViews.readView_factored_equiv`). Preserve the old conclusion's `E` on the new star
+  premise. The two marks can differ: each stays with its original side.
   Application also keeps the input's layer: a demand requirement gives demand
   results even through a normal view.
   “Ordinary `[any]`” means the may tail; W6 makes its result demand-layer.
   The star is a **field tail**, still with concrete mark `T`. It does not bypass
   the concrete mark gate or raise a restricted-run request.
 
-  The first view is exactly the annotated converse (`CurrentMustReverse.exact_converse`),
+  A view with an exact old premise is exactly the annotated converse (`CurrentMustReverse.exact_converse`),
   including different marks and paths. Its exact target discards the incoming
   suffix: `x.p.h.$(T)` gives `P.$(U)`, not `P.h.$(U)`. An excluded first accessor
   gives no result. S14 exactness of the native record is still required to infer
@@ -2524,7 +2538,7 @@ Rules:
   in [proof-status.md](proof-status.md). Dropping backward type filters does not
   prove exactness. Full current read-view/closure integration remains open.
   F77 omits callee demand for all native R1-eligible normal singleton summaries,
-  including all three rows. R1 retains the whole raw record. `byExit` finds its
+  including every special must view above. R1 retains the whole raw record. `byExit` finds its
   read view; the next forward run can reuse the native record. A demand-layer
   view result continues analysis in the caller. Its layer does not request
   reanalysis of the summarized method.
@@ -2672,7 +2686,7 @@ A sink witness (Kotlin: `SinkWitness`) has these fields:
 
 Generic `rev(i,f)` (Lean `revEdge`, `revKinds`) reverses a micro edge. R3 also
 uses it for ordinary record leaves. F76 must-summary record views use R3's
-separate table; they do not change interpreter micro edges.
+separate side conversions; they do not change interpreter micro edges.
 
 The generic reversal moves the edge exclusion to the new conclusion. The new
 premise has empty field exclusion. It changes marks as follows: the new premise
@@ -2714,13 +2728,24 @@ demand layer, including `$` results. A reversed source (forward target
 The forward target tail identifies the two cases; no rule-kind flag is needed.
 This rule differs from F76's star premise for a cached must-summary conclusion.
 
-Reverse a conjunction into one edge per literal and put every result in the
-demand layer. One literal alone does not establish the conjunction. Such a
-backward summary cannot become a record. For example, a source in `M(a,b)` needs
-`a.$(T1)` and `b.$(T2)`. Reversing either literal as normal and persisting its
-summary would let a later forward call `M(a,c)` confirm a sink without `c.$(T2)`.
-Demand results instead make the next forward run analyse both literals. Full
-restricted ND integration remains open.
+The backward run has no conjunction. Reverse `{a, b} → c` into independent
+branches `c → a` and `c → b`, and put every result in the demand layer. The
+forward conjunction can be NORMAL; the split branches demand its prerequisites.
+One branch alone does not establish the forward conjunction:
+
+```text
+Forward:  {p.$(A), q.$(B)} → ret.$(C)     NORMAL
+Backward: ret.$(C) → p.$(A)               DEMAND
+          ret.$(C) → q.$(B)               DEMAND
+```
+
+If the first branch were persisted as NORMAL, its forward read would be
+`p.$(A) → ret.$(C)`, dropping the requirement for `q.$(B)`. Then
+`sink_C(M(source_A(), untainted))` could be confirmed falsely. DEMAND branches
+cannot become records and instead guide the next forward run to check the joint
+rule. `CurrentConjunction.ReverseWitness.both_support` and
+`a_alone_not_support` check the local support distinction. Full restricted ND
+integration remains open.
 
 ### 9.2 The backward run
 
@@ -2772,8 +2797,11 @@ The hits are next forward source seeds. A recorded call needs no inner source
 seed; its record supplies the result. Applying a read view is not a source hit;
 record a hit only at an actual reversed source edge. The source filter never removes records.
 
-Hand-offs read stored publications selected by §8.5. Selection uses the raw
-summary's layer, premise count, and backward zero-premise case. Normalize
+Hand-offs read stored publications selected by §8.5. A selected NORMAL conjunction
+remains NORMAL; the builder creates one independent pattern per premise member.
+These patterns guide analysis and are not independently sufficient forward flows.
+Selection uses the raw summary's layer, premise count, and backward zero-premise
+case. Normalize
 each pattern mark `*∖X` to `*`; keep concrete marks. Preserve star-tail **field**
 exclusions. Convert a forward `[any-taint]/E` conclusion or must-premise to a
 pattern `[any]` without `E` or must flag. Patterns never have `[any-taint]`.

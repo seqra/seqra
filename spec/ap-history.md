@@ -15,6 +15,29 @@ matrix is the source for remaining mode, W6/X, and pipeline/iteration obligation
 
 ---
 
+## Conjunction clarification
+
+Conjunctions occur only forward. A complete combination is NORMAL if every literal contribution is NORMAL;
+it is DEMAND if any contribution is DEMAND. A missing literal produces no result. Several premises do not
+force the result to DEMAND. Selecting a normal multi-premise publication for next-run demand leaves it NORMAL.
+The backward run splits the conjunction into independent DEMAND branches; persisting a branch as NORMAL would
+permit a later forward result without the other prerequisites. R1 persistence and F77 selection are unchanged.
+The local layer equivalence and support counterexample are checked in `CurrentConjunction.lean`;
+full restricted ND integration remains open. AP §4.6, §8.5, and §9.1 state the contract.
+
+## Local simplifications
+
+Remove the unreachable below-case correlation-loss branch. Its legal STAR input has an abstract mark,
+while an exact or must target requires a concrete-premise gate; may-any targets already force DEMAND.
+Confirmation checks normal witness edges and joint support; member admissibility is part of support.
+Derive must-record views from two side conversions with their existing guards and exclusions.
+State the F75 cleaner split once before spatial handling. The call plan uses one action-list stage
+for cleaners and the rewriter, and a nullable identity-candidate flag for the alias guard.
+Canonical FLOW matching uses annotated overlap under its empty-exclusion and abstract-mark guard;
+excluded and concrete read premises keep general matching.
+`CurrentSimplifications.lean` checks local equivalences. These changes do not establish the full
+current closure or iteration theorem. R1 persistence and F77 selection remain explicit separate rules.
+
 ## F77: structural summary demand selection
 
 Remove crossability and its extra callee-demand rule. Keep demand-layer

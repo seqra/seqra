@@ -90,7 +90,7 @@ document adds:
 | event | One message in the channel of a runner (§5.1). Its HANDLER is the code that the runner runs for it. |
 | subscription | A caller-side record `(caller edge, call statement, added fact)` (`ap.md` §8.4). |
 | publication | A summary edge that the callee gives to its subscribers. In a restricted run it is the result of the restriction (`ap.md` §6.4): the INTERSECTION of the summary edge with one demand pattern, in the locations AND the marks (`ap-history.md` F71): the premise lies inside `D-c` with its mark, and the mark of the conclusion meets the mark of `D-p` (§4.6). It carries its premise key with the tail of each member and the exclusion of an `[any-taint]` member (§4.1, §4.6). The hand-off reads the publications, not the summary edges before the restriction (§7.3, §7.4). |
-| demand edge | A stored publication selected by AP §8.5: demand-layer summaries, normal multi-premise summaries, and normal backward zero-premise summaries. Other native normal singleton summaries supply records only. Each publication gives a demand pattern per premise member. Zero demand is implicit. A demand-layer read-view result in the caller does not request reanalysis of the summarized callee. |
+| summary selected for demand; demand edge (hand-off) | A stored publication selected by AP §8.5 for next-run demand construction. Selection preserves the layer: a selected normal multi-premise summary remains normal. Each publication gives a pattern per premise member. Other native normal singleton summaries supply records only. Zero demand is implicit. A demand-layer read-view result in the caller does not request reanalysis of the summarized callee. |
 | DEMAND vulnerability | A vulnerability key whose state in the report is DEMAND after a complete forward run (§7.5): the latest complete forward run reports it, and NO complete forward run so far confirmed it. A key that an earlier run confirmed is CONFIRMED (final), also when the latest run reports it only in the demand layer. Only the sink witnesses of the DEMAND vulnerabilities are sink seeds of the hand-off (§7.3). The backward run also fires the sink seeds of a sink whose end fact a requirement reaches, also of a CONFIRMED vulnerability (§4.5 THE TRIGGER OF AN END FACT). |
 | frontier | The part of the program that the later runs still analyse after a complete run: the method keys with a non-zero initial fact in the run, and the demand edges that the run hands off, per method key (§7.8). The driver logs the frontier of each complete run (THE FRONTIER LOG, §7.8). |
 | storage with subscription | The callee-side store of the publications, with the list of the subscribed runners (§5.2). |
@@ -174,7 +174,7 @@ The mode decides these rules (`ap.md` §6.1):
 |---|---|---|---|
 | initial facts of an added fact | the policy fact (`ap.md` §6.2) and the request answers | the emission of `ap.md` §6.3 (§4.4; F72 R2): an entry pattern `D-c` with the mark `*` gives its FLOW FORM, one initial fact for every added fact under it (SHARING); a `D-c` with a concrete mark gives `a ∩ D-c` with the mark of `a`, only for an `a` with that mark: an added fact with the mark `*` or `*∖X` under a concrete pattern emits NOTHING (the user's decision: "The added fact can't satisfy the demand"); the zero fact for the zero added fact | the same emission, with the requirement as the added fact: a `*` pattern weakens the requirement to the FLOW form of the pattern (§4.4); after the hand-off normalization no entry pattern has the mark `*∖X` (§7.3); the zero fact enters every callee (rule `zin`) |
 | the marks of the facts | `*` and `*∖X` (the policy facts and their FLOW edges), and concrete marks (the answers, the zero fact, the sources) | NOT CONCRETE since F72: the edges of a FLOW premise (the mark `*`) have the marks `*` and `*∖X` (FLOW trees, `ap.md` §7.2), and their callees can get added facts with these marks; the edges of a concrete premise and of the zero fact have concrete marks. Before F72 every restricted run was concrete | as the restricted forward run |
-| a summary applies to an added fact `a` if | `applicable(j, a)` | `inside(j, a)`; for a FLOW premise (the mark `*`) also `applicable(j, a)` (`ap.md` §4.3; F72 R3; §5.3 `matches`). This test applies after the restriction in the callee (the INTERSECTION with a demand pattern, in the locations and the marks, `ap.md` §6.4; §4.6). A callee has a non-zero premise only where a demand pattern of it emits one (§4.4): a callee whose only demand pattern is the zero demand publishes no summary of a non-zero premise, and its callers cross it by its records (next row) | as the restricted forward run; a zero-premise summary applies to the zero fact of the caller with no test and no restriction (rule `zret`) |
+| a summary applies to an added fact `a` if | `applicable(j, a)` | location overlap for a canonical FLOW premise `(base, path, STAR, Empty, *)`; otherwise `inside(j, a)`, and for a noncanonical FLOW premise also `applicable(j, a)` (`ap.md` §4.3; F72 R3; §5.3 `matches`). This test applies after the restriction in the callee (the INTERSECTION with a demand pattern, in the locations and the marks, `ap.md` §6.4; §4.6). A callee has a non-zero premise only where a demand pattern of it emits one (§4.4): a callee whose only demand pattern is the zero demand publishes no summary of a non-zero premise, and its callers cross it by its records (next row) | as the restricted forward run; a zero-premise summary applies to the zero fact of the caller with no test and no restriction (rule `zret`) |
 | records (`ap.md` §8.7 R3, R4) | none | same-direction native forward records by `byEntry`; backward records through transient leaf views by `byExit`. Match by `applicable || inside`. A must native record gives demand results on the `applicable`-only part. Native normal singleton summaries give no callee demand; a method with no demand or subtree seed has only zero analysis | native backward records by `byEntry`; transient views of forward records by `byExit`. An exact-premise must conclusion uses a concrete star premise carrying its exclusion and an exact normal target. A must forward premise becomes a may `[any]` demand target. Match the view itself by `applicable || inside`; never start it as an initial fact. Native normal singleton summaries give no callee demand; a demand-layer view result belongs to the caller |
 | mark and position requests, static rule | yes (`ap.md` §4.5, §4.10); a selected-mark cleaner requests T for every same-base abstract fact, before the path test (F75) | no request rule and no static rule (F72 R4). On a fact with the mark `*` or `*∖X`, a concrete mark gate or sink gives nothing; a selected-mark cleaner keeps every same-base fact with mark `*∖(X ∪ {T})`, including disjoint paths (F75, `ap.md` §4.7). No request is raised | as the restricted forward run (the backward run has no sink check) |
 | sinks | the sink check (`ap.md` §4.9) | the sink check; on a `*` or `*∖X` fact it gives nothing (no request, `ap.md` §4.9) | no sink check; the sink seeds (`ap.md` §9.2) |
@@ -196,8 +196,8 @@ demand with `*`, and a concrete demand stays concrete. The core part of each rul
 * R2, THE EMISSION (§4.4). The initial fact is the WEAKEST fact inside `D-c` that covers the common part with the added
   fact (the requirement in the backward run). A `*` pattern gives its FLOW FORM, which does not depend on the added
   fact (SHARING); a concrete pattern gives `a ∩ D-c` with the mark of `a`, as before F72;
-* R3, THE SATISFACTION (§5.3). A summary of a FLOW premise applies by `inside` or by `applicable`; a summary of a
-  concrete premise by `inside`, as before;
+* R3, THE SATISFACTION (§5.3). A canonical FLOW premise `(base, path, STAR, Empty, *)` uses location overlap.
+  Other FLOW shapes retain `inside` or `applicable`; concrete premises use `inside`;
 * R4, NO REQUEST AFTER RUN 1, in both directions (§4.6). On a `*` or `*∖X` fact an operation that needs a concrete
   mark gives nothing (the table above);
 * R5, THE RESTRICTION (§4.6). The mark-aware intersection of F71. A FLOW premise lies inside its own `*` pattern, and
@@ -474,15 +474,15 @@ and of an exit sink (§4.4); an unconditional sink (an entry sink, for example) 
 needs only the zero fact. The analyzer makes these seeds from the forms of the sink (`SinkRule.patterns`), not from
 the `SeedIndex`, so A4 holds. Argued: the model has no end facts (§4.5; [proof-status.md](proof-status.md)).
 
-THE ALIAS GUARD (`Guard.MemoryEffect`; `interpreter.md` §3.8 AC3, AC4). Each forward result at `REWRITTEN` has an
-ORIGIN (`Origin`, §4.9): the stage that made it. The sources stage gives SOURCE, the end-fact stage END_FACT, a pass
-rule of the unresolved stage PASS. The default identity of the unresolved stage and the constructor stage give
-the origin IDENTITY. This origin is a candidate; the guard also reads the current layer. A summary result or a record
-result (the callees stage) has the origin IDENTITY only in one case: it is in the NORMAL
-layer, and it is equal to the start fact of its premise (`ap.md` §6.5). Every other summary result has a memory effect
-(SUMMARY_EFFECT): a DEMAND-layer result always goes to the aliases, and so does every result of a zero-premise
-summary (`ap-history.md` F67). The cleaners and the rewriter keep the origin of their input. The alias stage takes
-every DEMAND-layer result and every result whose origin is not IDENTITY. It skips only NORMAL-layer IDENTITY results.
+THE ALIAS GUARD (`Guard.MemoryEffect`; `interpreter.md` §3.8 AC3, AC4). Each forward result carries
+`identityCandidate: Boolean?`. The flag is null before a stage classifies the result. The default identity of the
+unresolved stage and the constructor stage set it to true. Sources, end facts and nonidentity pass rules set it to
+false. A callee summary or record result sets it to true only when its premise is nonzero, its native conclusion is
+NORMAL, and that conclusion equals the start fact of the premise (`ap.md` §6.5). Every other summary result sets it
+to false, including zero-premise and DEMAND summaries (`ap-history.md` F67). Bindings, cleaners and the rewriter keep
+the flag. The alias stage admits a result exactly when its current layer is DEMAND or the flag is false. It skips
+only a NORMAL candidate identity. The flag does not replace `StageKind`, which also selects statement edges and
+source-seed places.
 
 THE REVERSAL (`CallPlan.reversed`; the rules of `ap.md` §9.1, §9.2):
 
@@ -705,7 +705,7 @@ class MicroEdge(val edge: PathEdge, val forward: PathEdge, val conjunctive: Bool
 class StatementSummary(val touched: Set<AccessPathBase>, val edges: List<MicroEdge>,
                        val conjunctions: List<ConjunctiveEdge>, val typeFilters: Map<AccessPathBase, TypeFilter>,
                        val resultFilters: Map<AccessPathBase, TypeFilter> = emptyMap()) {
-    /** ap.md §9.1, §9.2: each edge reversed; a conjunctive edge gives one edge per literal (an OR of the requirements,
+    /** ap.md §9.1, §9.2: each edge reversed; a conjunctive edge gives one independent edge per literal (requirements,
      *  each with `conjunctive = true`: every result of it is in the demand layer, §4.3); the identity edge
      *  `b.* → b.*` for each target base that the summary does not touch (A5); the touched bases with the targets;
      *  no type filter. The reversal gives no `[any-taint]` (ap.md W8, §9.1): the reversal of an `[any]` condition
@@ -778,10 +778,6 @@ sealed interface CleanStep {
 
 enum class CallPoint { BEFORE, BOUND, ADDED, RETURNED, REWRITTEN, AFTER }
 
-/** interpreter.md §3.8 AC3, AC4: where a forward result at REWRITTEN comes from (§4.5 THE ALIAS GUARD).
- *  IDENTITY is a candidate origin; the current layer determines whether the result skips aliases. */
-enum class Origin { SOURCE, END_FACT, PASS, SUMMARY_EFFECT, IDENTITY }
-
 /** A forward-only selection of the inputs of a stage (§4.5). The reversal drops it. */
 sealed interface Guard {
     /** The end-fact stage: it applies on a trigger of `sink`, to the zero fact (§4.5 THE END-FACT STAGE). The reversal
@@ -790,7 +786,7 @@ sealed interface Guard {
     class SinkTriggered(val sink: SinkRule) : Guard
     /** The alias stage skips only NORMAL identity results (§4.5 THE ALIAS GUARD). */
     data object MemoryEffect : Guard {
-        fun admits(o: Origin, layer: Layer): Boolean = layer == Layer.DEMAND || o != Origin.IDENTITY
+        fun admits(identityCandidate: Boolean, layer: Layer): Boolean = layer == Layer.DEMAND || !identityCandidate
     }
 }
 
@@ -809,8 +805,9 @@ sealed interface CallStage {
      *  of the inputs (the sink trigger, AC3 and AC4); the reversal drops it. */
     data class Edges(override val from: CallPoint, override val to: CallPoint, val kind: StageKind,
                      val summary: StatementSummary, val guard: Guard? = null) : CallStage
-    data class Clean(override val from: CallPoint, override val to: CallPoint, val steps: List<CleanStep>) : CallStage
-    data class Rewrite(override val from: CallPoint, override val to: CallPoint, val steps: List<CleanStep>) : CallStage
+    /** Both action lists: BOUND -> ADDED cleaners, RETURNED -> REWRITTEN rewriter. Preserve their endpoints,
+     *  action order, statement cuts and temporary projection. */
+    data class Actions(override val from: CallPoint, override val to: CallPoint, val steps: List<CleanStep>) : CallStage
     data class Callees(override val from: CallPoint, override val to: CallPoint, val callees: List<MethodKey>) : CallStage
 }
 
@@ -968,7 +965,7 @@ fun matches(sub: Subscription, pub: Publication, config: RunConfig): Boolean {
     if (sub.zeroOnly) return premise.isZero                                  // backward rule zret: no test
     return (0 until premise.size).any { k ->                                 // one member; several members: §5.4
         satisfies(premise.member(k).toPattern(), sub.addedFact, config.restricted)   // ap.md §6.3 `satisfies`:
-        // restricted: inside; for a FLOW premise (the mark *) also applicable (F72 R3)
+        // restricted: canonical FLOW uses overlap; other FLOW retains inside/applicable; concrete uses inside
     }
 }
 
@@ -1020,12 +1017,13 @@ The index queries (`ap.md` §8; keys `base :: path`):
 |---|---|---|
 | run 1, `applicable(j, a)`: `a` at or below `j` | `lookupPrefixes(a.base :: a.path)` | `lookupExtensions(j.base :: j.path)` |
 | restricted, `inside(j, a)`: `j` at or below `a` | `lookupExtensions(a.base :: a.path)` | `lookupPrefixes(j.base :: j.path)` |
-| restricted, a FLOW premise `j` (F72): `inside(j, a)` or `applicable(j, a)` | both lookups of the two rows above, on the publications of FLOW premises | both lookups of the two rows above, for a new FLOW premise `j` |
+| restricted, canonical FLOW: overlap; other FLOW: `inside(j, a)` or `applicable(j, a)` | both lookups of the two rows above, on the publications of FLOW premises | both lookups of the two rows above, for a new FLOW premise `j` |
 | a record, `applicable` or `inside` | `around(a.base :: a.path)` on `byEntry`, and on `byExit` with the reversed premise as the key | (records are read-only) |
 
 Each lookup returns every entry that its exact test accepts (`PipelineStore.replay_run1`, `deliver_run1`,
 `replay_restricted`, `deliver_restricted`, `record_lookup`). For a FLOW premise the union of the two candidate sets
-contains every entry that `inside` or `applicable` accepts. Both paths then call `matches`.
+contains every accepted entry, including the canonical overlap branch. Both paths then call `matches`; the
+candidate queries stay unchanged.
 
 The subscription insert deduplicates exactly. It never drops a subscription that a stored subscription subsumes.
 Reason: the run-1 test is not monotone in the added fact (a fact above `j` does not satisfy `j`). So a subsumed
@@ -1047,7 +1045,7 @@ subsumption part is `Pipeline.StepD`, §5.5). P1 to P4 are necessary: each has a
 ### 5.4 Summaries with several premises (E6)
 
 A publication `{j1, …, jk} → g` (`ap.md` §4.6) reaches the caller by the replay or the delivery like every other
-publication. The caller combines it in its conjunction store (`ap.md` §8.9):
+publication. It can be NORMAL or DEMAND. The caller combines it in its conjunction store (`ap.md` §8.9):
 
 * Key: (callee, premise key, layer of the publication, call statement). Value: the merged conclusion that has arrived
   so far, and per premise index `m` the subscriptions at that call statement whose added fact satisfies `jm`.
@@ -1059,6 +1057,10 @@ publication. The caller combines it in its conjunction store (`ap.md` §8.9):
 * A new subscription under an index: combine it with the stored subscriptions of the other indexes (one per index,
   every combination), and apply the stored conclusion to each full combination.
 * A new conclusion delta: apply it to every full combination.
+
+The combination is NORMAL if the publication and every participating added fact on its link are NORMAL;
+otherwise it is DEMAND. The binding back and field limit then apply as usual. Several premises do not force DEMAND,
+and selecting the publication for the next-run hand-off does not change its layer (`ap.md` §8.5).
 
 The key does not contain the conclusion. So a combination meets every delta of the conclusion, in any order of the
 replays and the deliveries. Both sides of this join are in the caller.
@@ -1392,8 +1394,9 @@ After each complete forward run, at its barrier:
    3 over the run's links, per method key. Start with each root's `{zero}`. One
    call must supply the whole set through normal caller edges with supported
    premise sets. Read the added tails, marks, and exclusions for must support.
-2. Test each sink witness using AP §4.9 conditions 1–3. A conjunctive edge set
-   is tested jointly, not member by member. A FLOW premise cannot confirm a sink.
+2. Test each sink witness for NORMAL edges (AP §4.9 condition 1) and joint support (condition 3).
+   Support includes member admissibility (condition 2), so there is no repeated member test. A conjunctive edge set
+   is tested jointly. A FLOW premise cannot confirm a sink.
 3. Update the vulnerability store and report atomically (AP §8.10).
 
 The support can change until quiescence, so compute it only at this barrier.

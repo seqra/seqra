@@ -253,6 +253,42 @@ run_elab do
     throw (IO.userError "Executable concrete must-view matching certificate failed.")
   IO.println "Executable concrete must-view matching certificates passed."
 
+-- Accepted local simplifications preserve facts, requests, views and stage guards.
+#eval do
+  if !ApSpec.CurrentSimplifications.Certificate.check then
+    throw (IO.userError "Executable local simplification certificates failed.")
+  IO.println "Executable local simplification certificates passed."
+
+-- The forward conjunction layer is separate from next-run demand selection.
+#eval do
+  let normal := ApSpec.CurrentConjunction.completeCombination ApSpec.CurrentConjunction.cj
+    (some ApSpec.CurrentConjunction.fa) (some ApSpec.CurrentConjunction.fb)
+  let mixed := ApSpec.CurrentConjunction.completeCombination ApSpec.CurrentConjunction.cj
+    (some ApSpec.CurrentConjunction.fa) (some ApSpec.CurrentConjunction.demandB)
+  let absent := ApSpec.CurrentConjunction.completeCombination ApSpec.CurrentConjunction.cj
+    (some ApSpec.CurrentConjunction.fa) none
+  let publication := ApSpec.CurrentSummarySelection.publicationPlan .forward
+    ⟨[ApSpec.CurrentConjunction.ja, ApSpec.CurrentConjunction.jb], ApSpec.CurrentConjunction.normalOutput⟩
+    ApSpec.CurrentConjunction.normalOutput
+  if normal != some (⟨ApSpec.CurrentConjunction.c, false⟩ : ApSpec.AFact) ||
+      mixed != some (⟨ApSpec.CurrentConjunction.c, true⟩ : ApSpec.AFact) || absent != none ||
+      !publication.1 || publication.2.af.demand ||
+      ApSpec.CurrentConjunction.memberPatterns [ApSpec.CurrentConjunction.ja, ApSpec.CurrentConjunction.jb]
+        ApSpec.CurrentConjunction.normalOutput !=
+        ([⟨ApSpec.CurrentConjunction.c, some ApSpec.CurrentConjunction.a⟩,
+          ⟨ApSpec.CurrentConjunction.c, some ApSpec.CurrentConjunction.b⟩] : List ApSpec.DemandEdge) ||
+      ApSpec.CurrentConjunction.backwardBranches !=
+        ([⟨ApSpec.CurrentConjunction.a, true⟩, ⟨ApSpec.CurrentConjunction.b, true⟩] : List ApSpec.AFact) ||
+      ApSpec.CurrentConjunction.ReverseWitness.enabled
+        [ApSpec.CurrentConjunction.a, ApSpec.CurrentConjunction.b] [ApSpec.CurrentConjunction.a] ||
+      !ApSpec.CurrentConjunction.ReverseWitness.enabled
+        [ApSpec.CurrentConjunction.a, ApSpec.CurrentConjunction.b]
+        [ApSpec.CurrentConjunction.a, ApSpec.CurrentConjunction.b] ||
+      !ApSpec.CurrentConjunction.ReverseWitness.enabled
+        [ApSpec.CurrentConjunction.a] [ApSpec.CurrentConjunction.a] then
+    throw (IO.userError "Executable conjunction layer and split witness failed.")
+  IO.println "Executable conjunction layer and split witnesses passed."
+
 -- F77 selection: layer, cardinality and backward zero; reader layer is separate.
 #eval do
   let expected := [false, false, false, false, true, true, true, false, false, false, true, true]

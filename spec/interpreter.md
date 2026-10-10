@@ -451,7 +451,7 @@ facts).
 | AC1 | JVM: for each caller local `x` that a binding back writes (`r`, `o`, `ai`), the alias paths `(b, q)` of `x` that hold BOTH before and after the call (`forEachAliasAfterCallStatement`; constant bases skipped). Go: the heap aliases at the statement (`forEachHeapAliasAtStatement`). |
 | AC2 | For each alias: the binding-back edge `P.* → b.q.*` beside `P.* → x.*`. The alias base is a gen-only target (weak, gap G7). |
 | AC3 | The alias edges apply to: every summary result that is not an identity result (AC4), so every demand-layer result and every zero-premise summary result; the source results at the call; the end facts of a sink (§4.1); the pass-rule results. |
-| AC4 | An IDENTITY result is a summary result in the NORMAL layer that is equal to the start fact of its premise (ap.md §6.5). The default identity of an unresolved callee (§3.7) and the constructor pass-over (§3.5) are IDENTITY results too when they are in the NORMAL layer. An identity result is not copied to the aliases (as today): the alias already holds the same facts, because the writes keep the aliases (§2.5). A demand-layer result is never an identity result: it always goes to the aliases, also when it is equal to its start fact (a demand start fact can be coarser than the premise, so the alias does not hold it). |
+| AC4 | An IDENTITY result is a summary result in the NORMAL layer with a nonzero singleton premise and a conclusion equal to the start fact of that premise (ap.md §6.5). The default identity of an unresolved callee (§3.7) and the constructor pass-over (§3.5) are IDENTITY results too when they are in the NORMAL layer. An identity result is not copied to the aliases (as today): the alias already holds the same facts, because the writes keep the aliases (§2.5). A demand-layer result is never an identity result: it always goes to the aliases, also when it is equal to its start fact (a demand start fact can be coarser than the premise, so the alias does not hold it). |
 | AC5 | AC3 and AC4 are an exception to I2: they select the results to which the alias edges apply. The selection leaves out only the normal-layer identity results, which the alias base already holds. The backward run applies the reversed alias edges to every requirement (§4.9). |
 
 ### 3.9 Lambdas and closures
@@ -762,8 +762,9 @@ STATEMENTS. The reversed statement summary of a non-call statement (ap.md §9.1,
 * the touched bases: the forward touched bases and every target base of a forward micro edge;
 * the micro edges: the reversal of every forward micro edge (ap.md §9.1), and the identity edge `b.* → b.*` for every
   target base `b` that the forward statement does not touch (a gen-only alias target, A5);
-* a conjunctive edge `L1 ∧ … ∧ Lk → z` reverses into the k plain edges `rev(Lj, z)` (an OR of the requirements,
-  ap.md §9.2). The backward run makes no ND edge. If the edge has two or more positive literals (a conjunctive source
+* a conjunctive edge `L1 ∧ … ∧ Lk → z` reverses into the k independent plain edges `rev(Lj, z)`
+  (ap.md §9.2). The forward result is NORMAL if every literal contribution is NORMAL, and DEMAND if any is DEMAND
+  (ap.md §4.6). The backward run makes no ND edge. If the edge has two or more positive literals (a conjunctive source
   at a call, §4.1, or at an exit, §4.7 step 1, D31), EVERY result of these plain edges is in the demand layer, also a
   `$` result, as for the reversal of a may (the pass-rule row of RULE ROLES): a requirement that reaches one literal
   is not a converse flow of the conjunction. So no backward summary through such an edge is a record (ap.md §8.7 R1)

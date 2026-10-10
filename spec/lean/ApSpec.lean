@@ -107,3 +107,5 @@ import ApSpec.CurrentDemandFrontier
 import ApSpec.CurrentDepthCache
 import ApSpec.CurrentDemandLink
 import ApSpec.CurrentAliasGuard
+import ApSpec.CurrentConjunction
+import ApSpec.CurrentSimplifications
