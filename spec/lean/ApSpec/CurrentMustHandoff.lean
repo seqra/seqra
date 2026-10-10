@@ -6,14 +6,14 @@
   must exclusion. The computed copy keeps the base, path, tail and concrete
   mark, and forgets the exclusion. It can add locations but loses none.
 
-  The selection theorems use original Handoff.Cross. F76 adds exact-to-must
-  omission through CurrentMustReverse; these are not equivalence proofs for
-  that broadened selector. The copy certificates apply to selected demand pieces.
+  The selection theorems use original Handoff.Cross. F77 instead omits every
+  native normal singleton admitted by R1. These historical selection theorems
+  do not specify that policy. Copy certificates apply to selected demand pieces.
 
   The historical generic demand selector reads the RAW leaf. Restriction then
   publishes a piece, and the handoff copies it. In that older selector every
-  raw must conclusion is selected, also when its piece narrows to exact. F76's
-  complete selector omits native exact-premise must leaves. These local copy
+  raw must conclusion is selected, also when its piece narrows to exact. F77's
+  selector omits all native R1-eligible normal singleton summaries. These local copy
   results still apply to current selected demand pieces; the historical selector
   does not specify current demand ownership.
   The blocked-record vector below uses generic revRec as a diagnostic. F76's

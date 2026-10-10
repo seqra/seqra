@@ -7,7 +7,7 @@ interpretation. The tags F*n*, UD*n* and the resolved Q*n* occur only here.
 
 Language: ASD-STE100 Simplified Technical English.
 
-Current checkpoint: F72/F74/F75/F76 rules, local demand and reduction certificates,
+Current checkpoint: F72/F74/F75/F76/F77 rules, local demand and reduction certificates,
 candidate-index equivalence, and base exactness are described in
 [proof-status.md](proof-status.md). The proposals now use the checked current
 demand reference. Status notes in older rows record their review date; the current
@@ -15,7 +15,27 @@ matrix is the source for remaining mode, W6/X, and pipeline/iteration obligation
 
 ---
 
-## F76: must-summary read views
+## F77: structural summary demand selection
+
+Remove crossability and its extra callee-demand rule. Keep demand-layer
+summaries, normal multi-premise summaries, and normal backward zero-premise
+summaries. All other native normal singleton summaries are persisted records
+and give no callee demand. Reader construction and matching keep their own
+mark, shape, and exclusion guards.
+
+A must-premise record's backward view gives a may `[any]` result in the caller's
+demand layer. That result does not request reanalysis of the summarized method.
+The caller continues ordinary propagation and can produce its own demand
+summaries. Native `[any-taint]` already covers every admitted field chain.
+
+Selection uses one premise-key/layer group check. Restriction preserves that
+key and layer, so selected groups reuse their publications without a second
+reduction. Lean proves equality with per-leaf selection and computes 33 checks
+versus one on the maintained workload. Local read-view and restriction
+certificates remain valid; full closure/iteration integration is still open.
+Earlier rows retain their historical selectors and proof scope.
+
+## F76: must-summary read views (selection superseded by F77)
 
 A normal singleton forward leaf `P.$(U)→x.p.[any-taint]/E(T)` can be read
 backward as `x.p.*/E(T)→P.$(U)`, normal. The star tail accepts admitted field

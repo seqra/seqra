@@ -7,7 +7,8 @@ This document defines facts, edges, AP operations, runs, and stores for
 iteration driver. Each rule has one owner; the other specs use its contract.
 
 The current rules include F72 demand sharing, F74 field-cleaner lowering, F75
-base-dependent cleaner splitting, and F76 must-summary read views. [ap-history.md](ap-history.md) records the decisions.
+base-dependent cleaner splitting, F76 must-summary read views, and F77 structural
+summary demand selection. [ap-history.md](ap-history.md) records the decisions.
 [proof-status.md](proof-status.md) separates current checked results from historical
 proofs and open obligations. Local proof results do not establish the full current
 iteration. A Lean name is evidence; the rules and their conditions are stated here.
@@ -85,8 +86,7 @@ current iteration remain proof obligations (§11.2).
 | mark-reversible | `i→f` has an abstract conclusion mark, or a concrete premise mark. |
 | exact shape | Excludes `*/E→$` and `*/E→any` with nonempty premise exclusion. |
 | record; must record; read view | A persisted normal single-premise raw summary (§8.7); a record whose premise is a must-premise; a transient premise pattern and conclusion used to read one record leaf from the other direction. A read view is not persisted or started as an initial fact. |
-| crossable leaf | A raw normal singleton leaf reused instead of demand. Forward: either `$` or `*/{}` premise, mark reversibility, and no any conclusion (generic case), or the F76 exact-to-must case of §8.7 R3. Backward: nonzero premise and a generic crossable reversal. A must-premise is not crossable. Decide before restriction; persist the whole raw record. |
-| demand edge | A published piece of a **non-crossable raw** summary leaf. It gives the next run a pattern per premise member (§9.2). Determine crossability before restriction. A normal leaf can give demand edges; every demand-layer leaf does. Lean's `DemandEdge` instead names a demand pattern. |
+| demand edge | A published piece of a demand-layer summary, a normal multi-premise summary, or a normal backward zero-premise summary (§8.5). It gives the next run a pattern per premise member (§9.2). Other native normal singleton summaries are records and give no callee demand. Lean's `DemandEdge` instead names a demand pattern. |
 | caller fact; bound fact; added fact | A caller edge's conclusion; its value after binding into callee coordinates; its value after call cleaners. Callee summaries apply to added facts. |
 | link | An added fact paired with its caller edge. |
 | summary rewriter | A call-rule override that cleans selected marks/positions on summary and unresolved results. It is not a summary edge. |
@@ -100,7 +100,7 @@ current iteration remain proof obligations (§11.2).
 | FLOW form; FLOW premise; sharing | §6.3's abstract initial fact for a `*` pattern; an initial fact with mark `*`; one such premise serves all admitted added facts and marks. |
 | satisfies; strong enough | A caller can apply a premise's summary by §4.3; specifically `applicable` for “strong enough”. A fact above a premise is not strong enough because correlation is lost. |
 | concrete flow; witness; real | A chain of §3.5 steps; a root-zero-to-sink chain through calls; present in that reference semantics. |
-| demanded/recorded witness | Each returning call has one pattern covering entry and exit with marks, or a crossable record containing that pair. Each downward entry is demanded. F72 adds the mode conditions of §6.6. |
+| demanded/recorded witness | Each returning call has one pattern covering entry and exit with marks, or a permitted record/read view preserving the required pair. Each downward entry is demanded. F72 adds the mode conditions of §6.6. |
 | vulnerability; sink alternative; sink witness | A `(rule,method,statement)` key; one numbered disjunct of its sink condition; the reached sink edge/set for one alternative and method key in one run. A sink witness is distinct from a concrete witness. |
 | support | One call supplies every member of a premise set through normal edges whose own premise sets are supported, down from root zero (§4.9). It is a property of the whole set. |
 | DEMAND entry | Reported by the latest complete forward run and never confirmed so far. Confirmation is final, even if a later run only has a demand witness. |
@@ -979,13 +979,13 @@ summary (§5.3 events E2 and E4); `applySummary` does not test it again.
   or neither. Both tests read the marks: a `*` premise admits every mark of `a`, also `*` and `*∖X`. A concrete
   premise is satisfied by `inside` only, as before F72. A fact with an abstract mark never satisfies a concrete
   premise: its marks are not a subset of `{T}`, so it gives nothing and raises no request (§4.5). A FLOW premise with
-  the Empty exclusion covers the added fact or lies inside it at every common location (as a crossable `*` premise
-  does, §8.7 R4), so one of the two tests holds. With an exclusion `E ≠ {}` this is false: the FLOW premise
+  the Empty exclusion covers the added fact or lies inside it at every common location,
+  so one of the two tests holds. With an exclusion `E ≠ {}` this is false: the FLOW premise
   `(x, ., */{f}, *)` and the added fact `(x, ., */{g}, *)` have common locations, but neither test holds. Such a
-  premise needs a `*` pattern with the tail `*/E`, and the hand-off gives none: a normal leaf with a `*` conclusion and
-  a premise `$` or `*/{}` is crossable (§1), and every normal backward leaf with a `*` conclusion is crossable, so
-  neither is a demand edge. So every `*` pattern has the entry tail `[any]`, and every FLOW premise has the Empty
-  exclusion (§6.3; argued, PENDING §11.2).
+  premise needs a `*` pattern with the tail `*/E`. Native normal singleton summaries give no demand (§8.5).
+  The demand builders must enforce §6.1's entry guard: every abstract entry has
+  tail `[any]`, and every emitted FLOW premise has the Empty exclusion (§6.3).
+  Full preservation of this guard through the current iteration remains open (§11.2).
 * AN `[any-taint]` PREMISE (a must-premise; forward restricted runs only, §6.3) is satisfied only by `inside`: the
   added fact covers EVERY admitted location of the premise, so it has an any tail (a concrete fact has no `*` tail, W2) and lies at or
   above the premise. A summary of a must-premise is end-exact, not exact pair by pair (§1), so it needs every
@@ -1137,7 +1137,7 @@ NOTHING, with no request:
 
 THE RULE: ANALYSE WITH A CONCRETE MARK ONLY IF A CONCRETE-MARK DEMAND EXISTS. Run 1 keeps its requests. Their answers
 make the concrete-mark summaries where the marks matter, and the hand-off gives them to the next run as concrete
-demand patterns (or the crossable ones as records, §8.7 R5). The backward run keeps the concrete mark of such a
+demand patterns (or retained normal singleton records, §8.7 R5). The backward run keeps the concrete mark of such a
 demand, so every later run has its concrete demand patterns too. The claim that this loses no flow (R6: every flow
 that needs a concrete mark is demanded by a concrete pattern or crossed by a concrete record, and every flow that a
 `*` pattern demands needs no concrete mark) is PENDING proof (§6.6, CONTRACT B WITH MODES; §11.2). BEFORE F72 a
@@ -1878,9 +1878,10 @@ enters each reached callee directly (§9.2). A sink never fires under a FLOW pre
 
 The callee restricts raw summary `j→g` by each demand pattern before publication.
 Restriction keeps `j`, the conclusion mark, and the layer. It reduces the
-conclusion's locations where the representation permits this. Crossability
-and demand-edge ownership are decided on the **raw** leaf before restriction
-(§8.5, §8.7); a reduced piece does not become crossable.
+conclusion's locations where the representation permits this. Decide persistence
+and demand selection on the raw summary (§8.5, §8.7). Restriction preserves the
+layer and complete premise key, so all publications of one group have the same
+selection result. A narrowed publication does not replace the raw record.
 
 Reject the edge if `D-p` is absent, if the **whole** premise is not inside `D-c`
 in locations and marks, if the conclusion mark does not meet the `D-p` mark, or
@@ -2103,8 +2104,9 @@ has no star tail or mark exclusion. The layer names a TAINT any leaf: must in
 normal, may in demand. Distinct must exclusions require distinct TAINT groups.
 
 These are required representation rules, including in restricted runs with FLOW
-premises. Current base tail/mark and paired-demand guards are checked in
-`CurrentKinds`. Full W6/layer, X, conjunction, and static packing preservation
+premises. `CurrentKinds` checks local base tail/mark rules and paired-demand
+guards for its earlier-selector sequence. It does not establish F77 sequence
+preservation. Full W6/layer, X, conjunction, and static packing preservation
 remains open ([proof-status.md](proof-status.md)); the old concrete-run kind
 catalog does not establish it. Runtime constructors enforce the full kind/layer
 rules and must not silently widen or discard an unsupported result.
@@ -2356,23 +2358,23 @@ candidates; the store then applies the exact test that the section names (`overl
 * In a restricted run the callee restricts each new summary edge by every demand pattern of the method (§6.4). It
   PUBLISHES the results to the subscription store. Run 1 publishes every summary edge as it is.
 * At the end of a complete run, the store adds the summary edges that §8.7 R1 admits to the persistent record store.
-* THE HAND-OFF READS THE PUBLICATIONS, not the summary edges before the restriction (§9.2; Lean `Handoff.Pub`:
-  `Handoff.pubD` for run 1, `Handoff.pubR` for a restricted run). For each summary leaf that is not crossable (§1),
-  every publication of it is one DEMAND EDGE of the run: the input of the next run in the other direction (§8.6, §9.2).
-  A crossable leaf gives no demand edge: §8.7 R1 persists it as a record, and the next run of each direction crosses
-  it (§8.7 R3, R4, R5). The store keeps the DEMAND EDGES DURING THE RUN: at each summary delta it takes the part of the
-  summary whose leaves are not crossable, restricts it as the publication (§6.4; run 1 keeps it as it is), and stores
-  the pieces beside the
-  summary edges before the restriction (`ap-impl.md` DD17: `RunSummaryStore.addDemand`, `demandEdges()`). The
-  restriction acts leaf by leaf, so the stored pieces are the publications of the non-crossable leaves (argued; the
-  hand-off reads only them, §9.2). The summary edges before the restriction serve only the records (R1).
+* The hand-off reads publications (§9.2). Select demand on the raw summary:
+  keep every demand-layer summary, every normal multi-premise summary, and every
+  normal backward zero-premise summary. Omit all other native normal singleton
+  summaries; R1 persists them as records. Tail, mark, exclusion, and read-view
+  layer do not add a selection condition.
+* At each summary delta, build publications (§6.4; run 1 keeps the raw delta).
+  If selected, store those same publications with `addDemand`; otherwise store
+  no demand piece. Selection is uniform within one premise-key/layer group.
+  The hand-off reads `demandEdges()` only. Persist the eligible raw summaries,
+  including all exclusions, at the barrier (R1).
 * The premise key keeps its tail and its exclusion: a must-premise and the `[any]` premise at the same path have
   their own summaries (§7.1). A forward summary with the `[any-taint]` tail on its premise or its conclusion is a
   record if it is normal (§8.7 R1); the backward run has no `[any-taint]` (W8 (d)).
-  A raw normal singleton leaf `P.$(U)→x.p.[any-taint]/E(T)` with concrete marks
-  and empty premise exclusion gives **no backward demand**: R3's normal view
-  crosses it. A must-premise leaf still gives demand; its view is demand-layer.
-  Selected must demand pieces become may patterns without exclusions (§9.2).
+  A normal singleton must-premise record also gives no callee demand. Its
+  backward read view can produce a demand-layer result in the caller (R3).
+  Any resulting caller summary follows the same selection rule. Selected must
+  demand pieces become may patterns without exclusions (§9.2).
 
 ### 8.6 Demand store (RUN, read only; callee)
 
@@ -2414,9 +2416,10 @@ contract; they do not have to satisfy native initial-kind conditions. Current ba
 These theorems do not prove all typed FLOW layer flags; W6 and full packing
 preservation remain open. The concrete runtime stores must enforce the full
 kind/layer requirements of §7.2.
-Persistence (R1) and crossability (R5) are different tests: a normal non-crossable
-leaf can be persisted for its own direction and also produce demand pieces.
-Evaluate both on the raw leaf, before restriction.
+R1 persistence and §8.5 selection partition native summaries: normal eligible
+singletons are records; the remaining summaries supply demand. Evaluate the
+policy on the raw summary, before restriction. Read-view construction and
+application have separate mark, shape, and exclusion guards.
 
 One direction-neutral store for the forward and the backward analysis:
 
@@ -2465,8 +2468,9 @@ Rules:
 
   An edge whose premise set has two or more members (§4.6) is never added.
 
-  A CROSSABLE leaf of a record (§1) is never a demand edge of its run (§9.2): the later runs reuse it instead of an
-  analysis (R5). Every other leaf of a summary edge, also a normal one, is a demand edge (§8.5).
+  Each persisted native summary gives no callee demand (§8.5). A read view's
+  demand-layer output belongs to the caller; it does not add demand for the
+  summarized method.
 * R2. `byEntry` is a path trie keyed by `base :: premise path`. For the added fact at `q`, the lookup is
   `lookupPrefixes(base :: q)` for `applicable` (`Store.forward_equiv_prefixes`, `applicable_mem_candidatesB`) and
   `lookupExtensions(base :: q)` for `inside`, then the exact test. The union `around(base :: q)` returns every record
@@ -2519,12 +2523,11 @@ Rules:
   conditions, exact backward input records, and the filter/validity conditions
   in [proof-status.md](proof-status.md). Dropping backward type filters does not
   prove exactness. Full current read-view/closure integration remains open.
-  F76 classifies the exact-to-must raw leaf in the first row as crossable and
-  omits its backward demand (`CurrentMustReverse.omit_eq_guardsB`,
-  `normalMustWitness`). R1 persists the whole raw record, including `E`.
-  `byExit` finds its read view; the next forward run reuses the native record.
-  Must-premise leaves still give demand even when their demand-layer views apply.
-  This decision reads the raw leaf, never a narrowed publication.
+  F77 omits callee demand for all native R1-eligible normal singleton summaries,
+  including all three rows. R1 retains the whole raw record. `byExit` finds its
+  read view; the next forward run can reuse the native record. A demand-layer
+  view result continues analysis in the caller. Its layer does not request
+  reanalysis of the summarized method.
 * R4. In its own direction, a native record applies by `applicable || inside`
   (§4.3) in later runs. It is not restricted. A must native record keeps ordinary
   transfer on its `inside` part; its `applicable`-only part gives DEMAND results
@@ -2538,21 +2541,21 @@ Rules:
   filter/end-fact limits. The local certificates and full integration limits are
   in [proof-status.md](proof-status.md).
 
-  A generic crossable premise matches each concrete added fact covering a common
-  location (`Handoff.cross_applies`). In the F76 branch, the star read premise
+  An exact or empty-exclusion star premise matches a concrete added fact at a
+  common location by one of the two tests. In the F76 branch, the star read premise
   keeps `E` and matches canonical concrete `$` or may `[any]` requirements covering
   an admitted location (`CurrentMustReverse.concrete_read_matches`). Exact chains
-  give the old exact premise without their suffix (`selected_view_transfer`).
+  give the old exact premise without their suffix (`normal_view_transfer`).
   Abstract requirements still need an abstract premise mark;
   concrete record views do not raise restricted-run requests.
 * R5. After run 1, emission reads only demand (§6.3). A record or read view never
-  causes or replaces an emission. Omit demand only for crossable raw leaves of
-  R1-persisted records. A method whose leaves are all crossable gets no demand
-  from them; without a seed in its call subtree, it has only zero analysis.
+  causes an emission. Native normal summaries admitted by R1 give no callee
+  demand. A method with no selected demand and no seed in its call subtree has
+  only zero analysis.
   Returning calls use the native record in the same direction and the permitted
   read view in the other direction. Records remain available even when their
   internal sources are not next-run seeds. Full current no-loss iteration,
-  including the F76 selection, remains open (§11.2).
+  including the F77 selection, remains open (§11.2).
 
 ### 8.8 Request store (RUN 1 only, per method; callee)
 
@@ -2769,8 +2772,8 @@ The hits are next forward source seeds. A recorded call needs no inner source
 seed; its record supplies the result. Applying a read view is not a source hit;
 record a hit only at an actual reversed source edge. The source filter never removes records.
 
-Hand-offs read **stored publications of raw non-crossable leaves**, not arbitrary
-raw exit edges. Crossability is decided before restriction. Normalize
+Hand-offs read stored publications selected by §8.5. Selection uses the raw
+summary's layer, premise count, and backward zero-premise case. Normalize
 each pattern mark `*∖X` to `*`; keep concrete marks. Preserve star-tail **field**
 exclusions. Convert a forward `[any-taint]/E` conclusion or must-premise to a
 pattern `[any]` without `E` or must flag. Patterns never have `[any-taint]`.
@@ -2779,8 +2782,8 @@ only. Swapping patterns is not the relational reversal of §9.1.
 
 | Direction | Demand construction |
 |---|---|
-| Forward to backward | For each publication `j→g'` of a non-crossable raw leaf, add `(D-c=g',D-p=j)`. With several members add one pattern per member. Crossable leaves are crossed by reversed records. |
-| Backward to forward | For each method add `(zero,none)`. For every zero-premise backward summary with conclusion `gb`, add `(gb,none)`. For each publication `jb→gb'` of a non-crossable raw **nonzero** leaf, add `(gb',jb)`. Crossable leaves are crossed by reversed records. |
+| Forward to backward | For each selected publication `j→g'`, add `(D-c=g',D-p=j)`. With several premise members add one pattern per member. Native normal singleton summaries supply records only. |
+| Backward to forward | For each method add `(zero,none)`. For every zero-premise backward summary with conclusion `gb`, add `(gb,none)`. For each selected nonzero publication `jb→gb'`, add `(gb',jb)` per premise member. Native normal nonzero singleton summaries supply records only. |
 
 Normalize both pattern sides in both directions. The backward hand-off also gives
 source hits; the forward hand-off gives DEMAND sink witnesses. Records persist
@@ -2856,7 +2859,7 @@ See [proof-status.md](proof-status.md) for current scope and
 See [proof-status.md](proof-status.md) for current scope and
 [proof-history.md](proof-history.md) for the historical catalog.
 
-### 10.13 F72 to F76: checked results and open obligations
+### 10.13 F72 to F77: checked results and open obligations
 
 See [proof-status.md](proof-status.md) for current scope and
 [proof-history.md](proof-history.md) for the historical catalog.
@@ -2918,11 +2921,12 @@ THE DEMAND ENTRIES OF THE OUTPUT. The output holds the DEMAND vulnerabilities of
 over-approximation of §2.2 (the case `above`, a lost correlation, the field limit cut, W2, W6, and the other
 demand-layer operations of §2.2, whose `[any-taint]` results W8 (b) names `[any]`), so it can be false also for the
 reference semantics. Only a later complete forward run that does not report it
-refutes it (§8.10). The soundness theorems cover the output: at every complete forward run, every real vulnerability
+refutes it (§8.10). The historical soundness theorems cover the output of their
+versions: at every complete forward run, every real vulnerability
 is reported by that run, in some layer, or was confirmed by an earlier complete forward run, and the report keeps
 every confirmed vulnerability (`HandoffMain.iteration_generalN`; with the `[any-taint]` tail and its exclusion
 `HandoffXIter.iteration_generalNX`; the earlier hand-off: `Backward.iteration_general`, `W6.iteration_general6`,
-`AnyTaintExCov.iteration_reportsX`).
+`AnyTaintExCov.iteration_reportsX`). They do not prove F77 iteration coverage.
 
 THE PRECISION LIMITS OF THE `[any-taint]` TAIL. These keep a real `[any]`-target source finding a DEMAND entry. They
 are precision losses, not false positives. The first five items are the demotions of §2.2, the complete list. (An
@@ -2970,7 +2974,8 @@ normal with `f` in its exclusion, §4.1.)
 The current rules are defined, but a local demand contract is not a full iteration
 proof. The remaining obligations are:
 
-* mode coverage and contract B for F72/F75, including F74 lowering and F76 read views;
+* mode coverage and contract B for F72/F75, including F74 lowering, F76 read views,
+  and F77 structural selection;
 * the combined `[any-taint]`/field-exclusion closures, entry guard, static rule,
   and restricted conjunction support;
 * current round-to-round narrowing, method exclusion, source-seeded confirmation,
@@ -3010,5 +3015,5 @@ are in [proof-history.md](proof-history.md).
 
 The test vectors, regressions, and implementation checks are in
 [validation-plan.md](validation-plan.md). Current checks use the F72/F75 demand
-operations and F76 record views with their guards; older closure results apply
+operations, F76 record views with their guards, and F77 structural selection; older closure results apply
 only to their stated version.

@@ -214,33 +214,31 @@ run_elab do
       ApSpec.CurrentMustHandoff.Certificate.xExactHandoff.val != expectedHandoff ||
       ApSpec.CurrentMustHandoff.selectAny ApSpec.CurrentMustHandoff.Certificate.rawLeaves !=
         [(ApSpec.CurrentMustHandoff.Certificate.j, ApSpec.CurrentMustHandoff.Certificate.must.af)] then
-    throw (IO.userError "Executable generic-Cross and must-copy certificate failed.")
-  IO.println "Executable generic-Cross and must-copy certificates passed."
+    throw (IO.userError "Executable historical-selector and must-copy certificate failed.")
+  IO.println "Executable historical-selector and must-copy certificates passed."
 
--- F76 omits only the new normal exact-to-must branch, decided on the raw leaf.
+-- F76 reader guards and source chain; callee selection is checked separately.
 #eval do
-  let raw := ApSpec.CurrentMustReverse.Certificate.omittedNative
-  let view := ApSpec.CurrentMustReverse.Certificate.selectedRead.view
+  let raw := ApSpec.CurrentMustReverse.Certificate.exactReadNative
+  let view := ApSpec.CurrentMustReverse.Certificate.normalRead.view
   let piece := ApSpec.CurrentMustReverse.Certificate.exactPiece
   let mustAny := ApSpec.CurrentMustReverse.mustAnyNative 3 5 [] [2] 1 1 (.set [8]) (.set [4])
   let mustExact := ApSpec.CurrentMustReverse.mustExactNative 3 5 [] [2, 7] 1 1 (.set [8])
   let malformed := { raw with premiseEx := ApSpec.Excl.set [4] }
   let demand := { raw with conclusion := { raw.conclusion with af := { raw.conclusion.af with demand := true } } }
-  let narrowed : ApSpec.CurrentMustReverse.NativeRecord := ⟨raw.premise, false, ApSpec.Excl.empty, piece⟩
-  if !ApSpec.CurrentMustReverse.omitMustDemand raw || view.2.demand ||
+  if !ApSpec.CurrentMustReverse.exactMustGuardsB raw || view.2.demand ||
       view.2.fact != raw.premise ||
-      ApSpec.CurrentMustReverse.omitMustDemand mustAny ||
-      ApSpec.CurrentMustReverse.omitMustDemand mustExact ||
-      ApSpec.CurrentMustReverse.omitMustDemand malformed ||
-      ApSpec.CurrentMustReverse.omitMustDemand demand ||
+      ApSpec.CurrentMustReverse.exactMustGuardsB mustAny ||
+      ApSpec.CurrentMustReverse.exactMustGuardsB mustExact ||
+      ApSpec.CurrentMustReverse.exactMustGuardsB malformed ||
+      ApSpec.CurrentMustReverse.exactMustGuardsB demand ||
       ApSpec.HandoffX.restrictIX raw.premise raw.premiseEx raw.conclusion
         ApSpec.CurrentMustReverse.Certificate.previousDemand != some piece ||
-      ApSpec.CurrentMustReverse.publicationPlan raw piece != (true, piece) ||
-      ApSpec.CurrentMustReverse.omitMustDemand narrowed ||
+      piece.af.demand ||
       ApSpec.CurrentMustReverse.Certificate.upstreamSourceWitness.val !=
         ([⟨ApSpec.zeroFact, false⟩] : List ApSpec.AFact) then
-    throw (IO.userError "Executable raw must-selection and source-chain certificate failed.")
-  IO.println "Executable raw must-selection and source-chain certificates passed."
+    throw (IO.userError "Executable must-reader and source-chain certificate failed.")
+  IO.println "Executable must-reader and source-chain certificates passed."
 
 -- Concrete may requirements match above/at the view by inside, below by applicable.
 #eval do
@@ -255,27 +253,38 @@ run_elab do
     throw (IO.userError "Executable concrete must-view matching certificate failed.")
   IO.println "Executable concrete must-view matching certificates passed."
 
--- Full current raw selection: generic Cross plus F76, cardinality, layer and zero.
+-- F77 selection: layer, cardinality and backward zero; reader layer is separate.
 #eval do
-  let expected := [false, false, true, true, true, true, true, false, true]
+  let expected := [false, false, false, false, true, true, true, false, false, false, true, true]
   let j := ApSpec.CurrentSummarySelection.Certificate.exactEntry
   let m := ApSpec.CurrentSummarySelection.Certificate.mustEntry
   let leaves := ApSpec.CurrentSummarySelection.Certificate.normalLeaves
   let piece := ApSpec.CurrentSummarySelection.Certificate.outputExact
+  let workload := ApSpec.CurrentSummarySelection.Certificate.workload
   let work := ApSpec.CurrentSummarySelection.Certificate.workWitness
   let expectedWork : ApSpec.CurrentSummarySelection.SelectionWork ×
-      ApSpec.CurrentSummarySelection.SelectionWork := (⟨33, 33⟩, ⟨2, 0⟩)
+      ApSpec.CurrentSummarySelection.SelectionWork := (⟨33, 33⟩, ⟨1, 0⟩)
   if ApSpec.CurrentSummarySelection.Certificate.cases != expected ||
       work != expectedWork ||
       ApSpec.CurrentSummarySelection.selectPacked .forward [j] false leaves != [] ||
-      ApSpec.CurrentSummarySelection.selectPacked .forward [m] false leaves != leaves ||
+      ApSpec.CurrentSummarySelection.selectPacked .forward [m] false leaves != [] ||
+      (ApSpec.CurrentSummarySelection.countedPacked .forward [m] false workload).1 !=
+        (ApSpec.CurrentSummarySelection.countedLeaves .forward [m] workload).1 ||
       ApSpec.CurrentSummarySelection.publicationPlan .forward
-        ApSpec.CurrentSummarySelection.Certificate.rawMust piece != (true, piece) ||
+        ApSpec.CurrentSummarySelection.Certificate.rawMust piece != (false, piece) ||
       ApSpec.HandoffX.restrictIX m.fact m.ex
         ApSpec.CurrentSummarySelection.Certificate.outputMust
-        ApSpec.CurrentSummarySelection.Certificate.restrictedDemand != some piece then
+        ApSpec.CurrentSummarySelection.Certificate.restrictedDemand != some piece ||
+      ApSpec.HandoffX.restrictIX m.fact m.ex
+        ApSpec.CurrentSummarySelection.Certificate.outputDemand
+        ApSpec.CurrentSummarySelection.Certificate.restrictedDemand !=
+          some ApSpec.CurrentSummarySelection.Certificate.restrictedDemandPiece ||
+      (ApSpec.applySummary ApSpec.CurrentSummarySelection.Certificate.incoming
+        ApSpec.CurrentSummarySelection.Certificate.mustRead.view.1
+        ApSpec.CurrentSummarySelection.Certificate.mustRead.view.2).facts !=
+        ([⟨⟨3, [], .any, .conc 9⟩, true⟩] : List ApSpec.AFact) then
     throw (IO.userError "Executable full raw summary selector failed.")
-  IO.println "Executable full raw summary selector and packed flags passed."
+  IO.println "Executable structural summary selector and one-group gate passed."
 
 -- A removed final must leaf changes E; lookup uses the actual remainder key.
 #eval do

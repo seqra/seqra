@@ -7,7 +7,9 @@ This file is supporting evidence, not a normative spec. The current rules are in
 The catalogs below retain the proof history at commit `fb789d0ab`. The F70/F71
 closures use concrete restricted runs and the earlier cleaner. F72 permits FLOW
 premises; F75 changes the cleaner in every run. F76 adds transient must-summary
-readers. A theorem about generic reversal does
+readers; F77 removes the old crossability selector and its extra callee demand.
+A theorem about the historical selector does not prove F77 hand-off or iteration.
+A theorem about generic reversal does
 not prove these new views or their closure integration. A theorem about an earlier
 closure is not a theorem about the current closure. Superseded claims and counterexamples
 are recorded for their stated version only. Bare section numbers within an AP

@@ -2,7 +2,9 @@
   F75 base handoff shape and reversal guards. These are closure invariants,
   not assumptions about a finite example. Concrete non-star seeds are explicit.
   This module proves normal-record reversal and the demand emission tail guard;
-  it does not prove source retention or full iteration coverage.
+  it does not prove source retention or full iteration coverage. Alternating
+  shape sequences here use the historical generic Cross selector, not F77.
+  Local shape and reversal lemmas keep their stated assumptions.
 -/
 import ApSpec.CurrentExact
 import ApSpec.AbsHandoff

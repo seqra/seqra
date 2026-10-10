@@ -2,7 +2,8 @@
 
 The normative rules are [ap.md](ap.md), [interpreter.md](interpreter.md), and
 [analyzer-core.md](analyzer-core.md): F72 demand sharing, F74 field-cleaner lowering,
-F75 base-dependent cleaner splitting, and F76 must-summary read views. This file
+F75 base-dependent cleaner splitting, F76 must-summary read views, and F77
+structural summary demand selection. This file
 states proof scope and evidence.
 It adds no analysis rule. [proof-history.md](proof-history.md) retains earlier
 theorem catalogs; F70/F71 concrete-run results do not prove current restricted runs.
@@ -15,10 +16,10 @@ All use `BaseCleaner.cleanRes`; only `RC` has request rules. `FW` and `BW` selec
 the current `emitW`, `satW`, and mark-aware `restrictI` operations.
 These generalized closures do not implement every W6 layer refinement. The
 tail/mark shape proofs alone do not prove the typed FLOW any-demand/star-normal
-flags of the full spec. These closures use the generic record reader and the original no-any crossing
-classifier. F76's
-concrete-star views are checked separately below; they are not native initial
-kinds or an integrated current closure/iteration theorem.
+flags of the full spec. These closures use the generic record reader. Their
+alternating hand-off sequences still use the historical no-any selector.
+F76 read views and F77 structural selection are checked separately below;
+they are not an integrated current closure/iteration theorem.
 
 | Current result | Evidence | Conditions and limits |
 |---|---|---|
@@ -32,17 +33,18 @@ kinds or an integrated current closure/iteration theorem.
 | Current run-1 and restricted-forward normal edges/records are exact | [CurrentExact.lean](lean/ApSpec/CurrentExact.lean): `RC_edge_exact`, `FW_edge_exact`, `FW_records_exact`; valid variants | S7 mark well-formedness; upward-closed filter acceptance (`FiltUp`), or S13 filter/validity conditions. Restricted runs require exact input records. The proof inducts directly on F75 closures, not old-cleaner embeddings. |
 | Current backward nonzero normal edges/records are exact | `Current.BW_edge_exact`, `BW_records_exact`; valid variants | Same mark/filter/record conditions on the backward program; no binding into callee zero. Zero-premise seeds are excluded. |
 | Actual reversed backward normal record pairs are forward flows | `Current.BW_rev_record_exact`; [CurrentHandoff.lean](lean/ApSpec/CurrentHandoff.lean): `BW_rev_record_exact_shape` | Mark well-formedness, upward-closed forward filter acceptance (`FiltUp`), exact backward input records, no forward zero back-binding, mark-reversible/exact-shape statements and calls. Premise is nonzero and has empty exclusion for star; the hand-off shape derives the latter. Dropping real backward filters does not establish this theorem. |
-| Normalized hand-offs preserve the C2 entry-tail guard across an explicit alternating base sequence | `Current.shapeSeq_entry_shape`, `shapeSeq_PatTail` | Concrete non-star sink seeds. The sequence uses F75 base closures and their generic raw crossing tests before publication; it excludes F76's new must-selection branch. Arbitrary record sets suffice for this weaker shape result; their exactness is separate. |
-| Canonical paired demand guards prevent abstract exact FLOW entries and narrowed conclusions | [CurrentKinds.lean](lean/ApSpec/CurrentKinds.lean): `shapeSeq_tree_shape`, `emitW_tree_init`, `restrictI_tree_flow` | S7/S8 on both programs, concrete non-star seeds, and `RecordKinds` for both native stores. Abstract entry patterns are any; exact exit demand implies concrete entry mark. `EntryShape` alone is too weak. `RecordKinds` constrains tails/marks, not all FLOW layers. Full W6/typed-tree packing preservation remains open. |
-| Native record-kind conditions survive raw insertion, generic base reversal, and retained unions | `Current.native_record_kinds`, `revRec_kinds`, `reversed_record_kinds`, `record_kinds_union` | Derive native kinds from reached closure edges, not reduced publications. Reversed reads require their crossable reversed premise and concrete-premise preservation. This is generic/base `revRec`, with field exclusion on the conclusion, not F76's concrete-star read views. |
+| Historical alternating base hand-offs preserve the C2 entry-tail guard | `Current.shapeSeq_entry_shape`, `shapeSeq_PatTail` | Concrete non-star sink seeds and the earlier generic selector. This sequence does not implement F77. Arbitrary record sets suffice for this shape result; their exactness is separate. Current builders must enforce the guard. |
+| Local paired demand guards prevent abstract exact FLOW entries and narrowed conclusions | [CurrentKinds.lean](lean/ApSpec/CurrentKinds.lean): `emitW_tree_init`, `restrictI_tree_flow`; historical sequence `shapeSeq_tree_shape` | S7/S8 and the stated paired guards. The sequence also needs concrete non-star seeds, `RecordKinds`, and the earlier selector. Abstract entry patterns are any; exact exit demand implies concrete entry mark. `EntryShape` alone is too weak. Full F77 guard preservation and W6/typed-tree packing remain open. |
+| Native record-kind conditions survive raw insertion, guarded generic base reversal, and retained unions | `Current.native_record_kinds`, `revRec_kinds`, `reversed_record_kinds`, `record_kinds_union` | Derive native kinds from reached closure edges. Generic reversed reads use the historical eligible-premise predicate and concrete-premise preservation. This is a conditional generic/base result, not a completeness theorem for all native records or F76 concrete-star views. |
 | Exact-premise forward must summary has a computed backward view with exactly its annotated converse pairs | [CurrentMustReverse.lean](lean/ApSpec/CurrentMustReverse.lean): `readView`, `exactCertificate_converse`, `transferCertificate`, `exact_transfer_rejects` | Native normal singleton forward record, concrete premise/target marks, exact premise with empty annotation. Preserve conclusion E on the star read premise; discard the incoming suffix at the exact target. Relation equality is local; S14 native-record exactness is required to infer real program flows. View is transient, never started or persisted. |
 | Computed must-premise views cover every annotated converse pair and every application stays demand-layer | `CurrentMustReverse.mustAnyCertificate_covers`, `mustExactCertificate_covers`, `must_read_demand`, `must_application_demand` | Normal singleton native must record, concrete marks, must or exact conclusion. Keep conclusion E on the star input; forget old must-premise E in the may-any output. These are pair-inclusion and layer results, not pair-exactness or program-flow coverage. |
-| Generic-Cross diagnostic and must-to-may copying preserve published pairs while forgetting must exclusions | [CurrentMustHandoff.lean](lean/ApSpec/CurrentMustHandoff.lean): `normal_any_selection`, `selectAny_equiv`, `copyCertificate`, `handoff_retains_pair`, `x_any_restricted_demand` | The selection equivalence uses the original generic `Handoff.Cross`, not F76's broadened forward classifier. The copying certificate still applies to selected must demand pieces. Select RAW leaves before restriction; copy each published piece, even if narrowed to exact. Must-to-may forgetting can add excluded locations. Local publication/conversion result, not full annotated hand-off coverage. |
-| F76's computed raw exact-to-must selector returns a normal read-view certificate and omits its backward demand | `CurrentMustReverse.omit_eq_guardsB`, `omit_eq_normal_read`, `normalMustWitness`, `publicationPlan` | Raw native singleton forward record; normal must target and concrete marks; exact premise with empty annotation, not a must-premise. Conclusion E is arbitrary and retained. Other shapes keep generic classification; must-premises remain demand. `publicationPlan` preserves the new branch's raw selection bit, not the full generic selector. This adds a local branch to generic Cross; it is not a full current hand-off/closure theorem. |
-| F76's star/E view matches each canonical concrete exact or may-any requirement covering an admitted marked location | `CurrentMustReverse.concrete_read_matches`, `selected_view_transfer` | Arbitrary E. Matching is `inside || applicable`; exact transfer returns the old premise without the suffix. Abstract marks are outside this contract. |
-| Omitted exact-to-must record returns a distinct upstream mark and reaches zero through an actual reversed source edge | `CurrentMustReverse.Certificate.upstreamSourceWitness`, `restricted_publication_keeps_selection` | Executable local chain with U ≠ T and nonempty E; the annotated restriction publishes an exact piece while keeping the raw omission bit. The witness does not model the source-hit store or full iteration. |
-| Complete local raw selector combines generic crossing, F76, cardinality, layer and backward zero | [CurrentSummarySelection.lean](lean/ApSpec/CurrentSummarySelection.lean): `selected_iff`, `demand_iff`, `publication_keeps_selection` | Native typed provenance is supplied by the caller: coherent premise E, must flag/kind, and no normal backward any tail. The backward test rejects must premises and requires mark reversibility. Publication carries the full raw demand bit. No closure or persistence theorem is claimed. |
-| Two TAINT class gates and one FLOW class gate select exactly the per-leaf demand part | `CurrentSummarySelection.packed_selection_equiv`, `counted_selection_equiv`, `concrete_class`, `flow_class` | TAINT leaves have concrete marks, one layer and exact/any tails. Exact/any identities, output E, bases and paths do not affect selection. FLOW has an abstract mark and normal star tail. Equality concerns selected leaves, not output trie packing or shared structural walks. |
+| Must-to-may copying preserves published pairs while forgetting must exclusions | [CurrentMustHandoff.lean](lean/ApSpec/CurrentMustHandoff.lean): `copyCertificate`, `handoff_retains_pair`, `x_any_restricted_demand` | Copy each selected published piece, including an exact narrowed piece. Must-to-may forgetting can add locations. `normal_any_selection` and `selectAny_equiv` describe the historical generic selector only. No full annotated hand-off coverage claim. |
+| Exact-to-must reader guards compute a normal transient view | `CurrentMustReverse.exact_guards_eq_normal_read`, `exact_guards_iff_normal_view`, `normalMustWitness` | Native singleton forward record, normal must target and concrete marks, exact premise with empty annotation. Conclusion E is retained. These are reader guards, not callee-demand selection. |
+| F76's star/E view matches each canonical concrete exact or may-any requirement covering an admitted marked location | `CurrentMustReverse.concrete_read_matches`, `normal_view_transfer` | Arbitrary E. Matching is `inside || applicable`; exact transfer returns the old premise without the suffix. Abstract marks are outside this contract. |
+| Normal exact-to-must view returns a distinct upstream mark and reaches zero through an actual reversed source edge | `CurrentMustReverse.Certificate.upstreamSourceWitness`, `normal_read_reuses_distinct_mark`, `restricted_piece_normal` | Executable local chain with U ≠ T and nonempty E; annotated restriction computes an exact normal publication. No source-hit store or full iteration model. |
+| F77 selector retains exactly demand-layer, multiple-premise, and backward-zero summaries | [CurrentSummarySelection.lean](lean/ApSpec/CurrentSummarySelection.lean): `demand_iff`, `omitted_iff`, `normal_forward_singleton_omitted`, `normal_backward_nonzero_omitted`, `restriction_preserves_selection` | Native summaries have nonempty premise sets and satisfy store-kind rules. The finite carrier conservatively keeps an invalid empty set. Actual annotated restriction preserves selection through the unchanged layer. No closure, persistence, or global no-loss theorem. |
+| A must-premise backward view produces caller DEMAND without callee demand | `CurrentSummarySelection.must_view_omitted`, `Certificate.caller_demand_without_callee_demand` | Actual native record, read view, and summary application. The native normal singleton is omitted regardless of the view's output layer. |
+| One premise-key/layer group check equals per-leaf selection | `CurrentSummarySelection.group_selection_equiv`, `counted_selection_equiv`, `countedPacked_work` | All leaves share the premise key and layer. Equality preserves list order and duplicate multiplicity. Tails, marks, paths, bases, and exclusions do not affect selection. No packing or later-consumer cost claim. |
 | Normalized TAINT destination lookup preserves unique exclusion keys and every retained annotated leaf | [CurrentTaintGroupKeys.lean](lean/ApSpec/CurrentTaintGroupKeys.lean): `insert_unique`, `insert_canonical`, `merge_normalize`, `place_reads` | Local subtraction/factory/destination model. Removing the last must leaf resets E to Empty; lookup uses that remainder key. Does not prove T2, full store delta or trie sharing. |
 | Sink oracle joins positive literals only within one method key | [CurrentSinkJoin.lean](lean/ApSpec/CurrentSinkJoin.lean): `method_isolation`, `scoped_iff`, `same_method_retained` | Finite local join partition; computed counterexample rejects inputs from different contexts. Sink checks and confirmation are separate. |
 | Hand-off counts equal accepted stored patterns, excluding duplicate and implicit-zero insertions | [CurrentDemandFrontier.lean](lean/ApSpec/CurrentDemandFrontier.lean): `method_count_delta`, `build_count` | Local builder/count interface. Pattern tags stand for already normalized canonical patterns; the model does not prove AP normalization. |
@@ -64,12 +66,12 @@ has a separate 33-to-1 base-guard check witness in `BaseCleaner.workWitness`;
 it still maps the residual over all leaves. Neither result claims constant total
 runtime or an optimized sharing theorem for the whole analyzer.
 
-The class selector has a separate work certificate. On 33 sibling must leaves,
+The group selector has a separate work certificate. On 33 sibling must leaves,
 `CurrentSummarySelection.Certificate.workWitness` computes 33 selector calls and
-33 leaf visits for the reference, versus two calls and no leaf walk for the class
-shortcut. `counted_selection_equiv` proves equal results; `countedPacked_uniform`
-proves that equal flags need no leaf walk. Different flags still need a walk.
-These counts exclude construction, mark comparisons, trie packing and consumers.
+33 leaf visits for the reference, versus one call and no leaf walk for the group
+shortcut. `counted_selection_equiv` proves equal results; `countedPacked_work`
+proves the group cost. These counts exclude premise equality, construction,
+trie packing, and consumers.
 
 The regression modules preserve their design versions:
 
@@ -88,7 +90,7 @@ The remaining current obligations are:
 
 1. L1–L4 mode coverage: abstract forward/backward coverage, run-1 mode selection,
    and contract B through F74 lowered actions and F75 cleaners.
-2. Full current no-loss iteration with F76 selection, source-seeded confirmation, method exclusion,
+2. Full current no-loss iteration with F77 selection, source-seeded confirmation, method exclusion,
    and round-to-round narrowing. Mark normalization and AP §6.4 exceptions limit
    exact narrowing claims.
 3. Combined must-tail/X and F76 read-view integration, statics, restricted conjunction support, aliases,

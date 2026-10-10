@@ -1,21 +1,21 @@
 /-
-  Current raw summary demand selection, including F76.
+  Current structural summary demand selection.
 
-  This model checks the complete local selector used by demandPart: cardinality,
-  layer, backward zero, generic crossing, and the forward exact-to-must view.
-  Selection is computed on the raw leaf and kept beside each publication.
-  It does not prove record provenance, summary exactness, or whole-run coverage.
-  Native provenance includes the typed kind guards: a must Entry has concrete
-  mark and ANY kind, and no backward Entry is must. In a native STAR premise,
-  premiseEx and the exclusion in kind must agree. Normal backward conclusions
-  have no ANY tail. The three-tail carrier does not prove these construction rules.
+  A persisted normal singleton summary needs no separate callee demand.
+  Its backward reader may still produce a caller-side DEMAND fact. Keep a
+  DEMAND-layer leaf, a leaf with several premises, and a backward zero-premise
+  leaf. Keep an empty-premise carrier conservatively; native leaves are nonempty.
+
+  The selector does not inspect tails, marks, exclusions or read-view layers.
+  Native R1/S14 eligibility and matching remain reader/store obligations.
+  The finite list model proves the local group shortcut and actual annotated
+  restriction behavior. It does not prove global no-loss or iteration coverage.
 -/
 import ApSpec.CurrentMustReverse
-import ApSpec.HandoffCases
 
 namespace ApSpec.CurrentSummarySelection
-open ApSpec ApSpec.Reverse ApSpec.Handoff ApSpec.HandoffCases
-open ApSpec.AnyTaintEx ApSpec.CurrentMustReverse
+open ApSpec ApSpec.Reverse ApSpec.Handoff ApSpec.AnyTaintEx
+open ApSpec.CurrentMustReverse
 
 inductive Direction where
   | forward | backward
@@ -35,98 +35,67 @@ deriving DecidableEq, Repr
 def native (j : Entry) (g : XFact) : NativeRecord :=
   ⟨j.fact, j.must, j.ex, g⟩
 
-def forwardB (j : Entry) (g : XFact) : Bool :=
-  omitMustDemand (native j g) || crossB j.fact g.af
+/-- One gate per premise/layer group. The normal singleton zero case is kept
+    only when the producer run is backward. No field or mark test is used. -/
+def groupGate (dir : Direction) (js : List Entry) (demand : Bool) : Bool :=
+  demand || match js with
+    | [j] => dir == .backward && j.fact == zeroFact
+    | _ => true
 
-/-- The generic reversal is partial in the proposal. Test its mark guard first.
-    Native S7 records satisfy that guard; arbitrary malformed leaves need not. -/
-def backwardB (j : Entry) (g : XFact) : Bool :=
-  !j.must && !g.af.demand && markRevB j.fact g.af.fact &&
-    crossB (revRec (j.fact, g.af)).1 (revRec (j.fact, g.af)).2
-
-def reuseB : Direction → Entry → XFact → Bool
-  | .forward => forwardB
-  | .backward => backwardB
-
-/-- Zero has its canonical native form; this is the zero-premise seed-path rule. -/
 def selectedB (dir : Direction) (raw : RawLeaf) : Bool :=
-  match raw.premises with
-  | [j] =>
-    if dir == .backward && j.fact == zeroFact then true
-    else !reuseB dir j raw.conclusion
-  | _ => true
+  groupGate dir raw.premises raw.conclusion.af.demand
 
-def Reusable (dir : Direction) (raw : RawLeaf) : Prop :=
-  ∃ j, raw.premises = [j] ∧
-    (dir = .backward → j.fact ≠ zeroFact) ∧
-    match dir with
-    | .forward => RawReusable (native j raw.conclusion)
-    | .backward => j.must = false ∧ MarkRev j.fact raw.conclusion.af.fact ∧
-        CrossB j.fact raw.conclusion.af
-
-theorem forward_iff (j : Entry) (g : XFact) :
-    forwardB j g = true ↔ RawReusable (native j g) := by
-  simp only [forwardB, Bool.or_eq_true, RawReusable, native]
-  rw [← cross_iff]
-  exact or_comm
-
-theorem backward_iff (j : Entry) (g : XFact) :
-    backwardB j g = true ↔ j.must = false ∧ MarkRev j.fact g.af.fact ∧ CrossB j.fact g.af := by
-  simp only [backwardB, Bool.and_eq_true, Bool.not_eq_eq_eq_not, Bool.not_true, ← markRev_iff,
-    ← cross_iff, CrossB]
-  exact ⟨fun h => ⟨h.1.1.1, h.1.2, h.1.1.2, h.2⟩,
-    fun h => ⟨⟨⟨h.1, h.2.2.1⟩, h.2.1⟩, h.2.2.2⟩⟩
-
-theorem selected_iff (dir : Direction) (raw : RawLeaf) :
-    selectedB dir raw = false ↔ Reusable dir raw := by
-  obtain ⟨js, g⟩ := raw
-  cases js with
-  | nil => simp [selectedB, Reusable]
-  | cons j js =>
-    cases js with
-    | cons k ks => simp [selectedB, Reusable]
-    | nil =>
-      cases dir with
-      | forward => simp [selectedB, Reusable, reuseB, forward_iff]
-      | backward =>
-        by_cases hz : j.fact = zeroFact
-        · simp [selectedB, Reusable, hz]
-        · simp [selectedB, Reusable, hz, reuseB, backward_iff]
+def DemandRequired (dir : Direction) (raw : RawLeaf) : Prop :=
+  raw.conclusion.af.demand = true ∨ match raw.premises with
+    | [j] => dir = .backward ∧ j.fact = zeroFact
+    | _ => True
 
 theorem demand_iff (dir : Direction) (raw : RawLeaf) :
-    selectedB dir raw = true ↔ ¬ Reusable dir raw := by
-  rw [← selected_iff]
+    selectedB dir raw = true ↔ DemandRequired dir raw := by
+  obtain ⟨js, g⟩ := raw
+  cases js with
+  | nil => simp [selectedB, groupGate, DemandRequired]
+  | cons j js =>
+    cases js with
+    | nil => simp [selectedB, groupGate, DemandRequired, Bool.or_eq_true, Bool.and_eq_true]
+    | cons k ks => simp [selectedB, groupGate, DemandRequired]
+
+theorem omitted_iff (dir : Direction) (raw : RawLeaf) :
+    selectedB dir raw = false ↔ ¬ DemandRequired dir raw := by
+  rw [← demand_iff]
   cases selectedB dir raw <;> simp
 
-/-- No data are selected from an existential proposition. The caller obtains
-    the concrete normal read view by evaluating normalMustWitness. -/
-def selectedMustView (j : Entry) (g : XFact)
-    (h : omitMustDemand (native j g) = true) : NormalMustWitness (native j g) :=
-  normalMustWitness (native j g) h
+theorem normal_forward_singleton_omitted (j : Entry) (g : XFact)
+    (hn : g.af.demand = false) : selectedB .forward ⟨[j], g⟩ = false := by
+  simp [selectedB, groupGate, hn]
 
-theorem must_view_omitted (j : Entry) (g : XFact)
-    (h : omitMustDemand (native j g) = true) :
-    selectedB .forward ⟨[j], g⟩ = false := by
-  simp [selectedB, reuseB, forwardB, h]
+theorem normal_backward_nonzero_omitted (j : Entry) (g : XFact)
+    (hn : g.af.demand = false) (hz : j.fact ≠ zeroFact) :
+    selectedB .backward ⟨[j], g⟩ = false := by
+  simp [selectedB, groupGate, hn, hz]
+
+theorem empty_selected (dir : Direction) (g : XFact) :
+    selectedB dir ⟨[], g⟩ = true := by simp [selectedB, groupGate]
 
 theorem multi_selected (dir : Direction) (j k : Entry) (rest : List Entry) (g : XFact) :
-    selectedB dir ⟨j :: k :: rest, g⟩ = true := rfl
+    selectedB dir ⟨j :: k :: rest, g⟩ = true := by simp [selectedB, groupGate]
 
 theorem backward_zero_selected (j : Entry) (g : XFact) (hz : j.fact = zeroFact) :
-    selectedB .backward ⟨[j], g⟩ = true := by simp [selectedB, hz]
+    selectedB .backward ⟨[j], g⟩ = true := by simp [selectedB, groupGate, hz]
 
 theorem demand_layer_selected (dir : Direction) (js : List Entry) (g : XFact)
     (hd : g.af.demand = true) : selectedB dir ⟨js, g⟩ = true := by
-  cases js with
-  | nil => rfl
-  | cons j js =>
-    cases js with
-    | cons k ks => rfl
-    | nil => cases dir <;>
-        simp [selectedB, reuseB, forwardB, backwardB, omitMustDemand, native, crossB, hd]
+  simp [selectedB, groupGate, hd]
 
-/-- The publication carries the complete raw demand bit, not just F76's new bit.
-    This is a reference for restricting the already selected demand part. -/
+/-- A caller-side demand result of a backward view does not add callee demand. -/
+theorem must_view_omitted (j : Entry) (g : XFact) (v : ReadView)
+    (hn : g.af.demand = false) (hm : j.must = true)
+    (hv : readView (native j g) = some v) :
+    selectedB .forward ⟨[j], g⟩ = false ∧ v.2.demand = true :=
+  ⟨normal_forward_singleton_omitted j g hn, must_read_demand hm hv⟩
+
+/-- Publication carries the selected raw bit. Actual restriction preserves
+    the layer, so the structural selector gives the same bit on the piece. -/
 def publicationPlan (dir : Direction) (raw : RawLeaf) (piece : XFact) : Bool × XFact :=
   (selectedB dir raw, piece)
 
@@ -134,84 +103,27 @@ theorem publication_keeps_selection (dir : Direction) (raw : RawLeaf) (piece : X
     (publicationPlan dir raw piece).1 = selectedB dir raw ∧
     (publicationPlan dir raw piece).2 = piece := ⟨rfl, rfl⟩
 
-theorem publication_independent (dir : Direction) (raw : RawLeaf) (a b : XFact) :
-    (publicationPlan dir raw a).1 = (publicationPlan dir raw b).1 := rfl
+theorem selection_layer_only (dir : Direction) (js : List Entry) (a b : XFact)
+    (hd : a.af.demand = b.af.demand) :
+    selectedB dir ⟨js, a⟩ = selectedB dir ⟨js, b⟩ := by
+  simp only [selectedB]
+  rw [hd]
 
-/-- A concrete conclusion's base, path, mark identity and must exclusion do
-    not change crossing. The shortcut can test one representative per tail.
-    The premise and its annotation are kept unchanged. -/
-theorem concrete_class (dir : Direction) (j : Entry) (k : Kind) (dm : Bool)
-    (b₁ b₂ : Base) (p₁ p₂ : List Acc) (t₁ t₂ : Mark) (e₁ e₂ : Excl) :
-    reuseB dir j ⟨⟨⟨b₁, p₁, k, .conc t₁⟩, dm⟩, e₁⟩ =
-      reuseB dir j ⟨⟨⟨b₂, p₂, k, .conc t₂⟩, dm⟩, e₂⟩ := by
-  obtain ⟨⟨jb, jp, jk, jm⟩, must, je⟩ := j
-  cases dir <;> cases must <;> cases jk <;> cases jm <;> cases k <;> cases dm <;>
-    simp [reuseB, forwardB, backwardB, native, omitMustDemand, crossB,
-      markRevB, crossKB, revRec, revEdge_eq, revKinds, pmOf, fmOf]
+theorem restriction_preserves_selection (dir : Direction) (js : List Entry)
+    (j : PFact) (jex : Excl) (g piece : XFact) (d : DemandEdge)
+    (h : ApSpec.HandoffX.restrictIX j jex g d = some piece) :
+    selectedB dir ⟨js, g⟩ = selectedB dir ⟨js, piece⟩ :=
+  selection_layer_only dir js g piece (ApSpec.HandoffX.restrictIX_sub_base h).1.symm
 
-/-- Normal FLOW selection also needs one class test. Conclusion field E,
-    base and path do not affect crossing; its abstract mark exclusion stays. -/
-theorem flow_class (dir : Direction) (j : Entry) (m : MarkA)
-    (hm : concB m = false) (b₁ b₂ : Base) (p₁ p₂ : List Acc) (e₁ e₂ : Excl) :
-    reuseB dir j ⟨⟨⟨b₁, p₁, .star e₁, m⟩, false⟩, Excl.empty⟩ =
-      reuseB dir j ⟨⟨⟨b₂, p₂, .star e₂, m⟩, false⟩, Excl.empty⟩ := by
-  obtain ⟨⟨jb, jp, jk, jm⟩, must, je⟩ := j
-  cases m <;> simp only [concB] at hm
-  all_goals cases dir <;> cases must <;> cases jk <;> cases jm <;>
-    simp [reuseB, forwardB, backwardB, native, omitMustDemand, crossB,
-      markRevB, crossKB, revRec, revEdge_eq, revKinds, pmOf, fmOf]
-
-def representative (g : XFact) : XFact :=
-  ⟨⟨⟨0, [], g.af.fact.kind, .conc 0⟩, g.af.demand⟩, Excl.empty⟩
-
-theorem selected_representative (dir : Direction) (js : List Entry) (g : XFact)
-    (t : Mark) (hm : g.af.fact.mark = .conc t) :
-    selectedB dir ⟨js, g⟩ = selectedB dir ⟨js, representative g⟩ := by
-  obtain ⟨⟨⟨b, p, k, m⟩, dm⟩, e⟩ := g
-  dsimp at hm
-  subst m
-  cases js with
-  | nil => rfl
-  | cons j js =>
-    cases js with
-    | cons k ks => rfl
-    | nil =>
-      simp only [selectedB, representative]
-      rw [concrete_class dir j k dm b 0 p [] t 0 e Excl.empty]
-
-/-- Per-leaf reference selection and the class shortcut have exactly the
-    same list, including order and duplicates. No tree packing is assumed. -/
+/-- Per-leaf reference selection retains order and duplicate leaves. -/
 def selectLeaves (dir : Direction) (js : List Entry) (leaves : List XFact) : List XFact :=
   leaves.filter (fun g => selectedB dir ⟨js, g⟩)
 
-def selectClasses (dir : Direction) (js : List Entry) (leaves : List XFact) : List XFact :=
-  leaves.filter (fun g => selectedB dir ⟨js, representative g⟩)
-
-theorem class_selection_equiv (dir : Direction) (js : List Entry) (leaves : List XFact)
-    (hc : ∀ g, g ∈ leaves → ∃ t, g.af.fact.mark = .conc t) :
-    selectLeaves dir js leaves = selectClasses dir js leaves := by
-  apply List.filter_congr
-  intro g hg
-  obtain ⟨t, ht⟩ := hc g hg
-  exact selected_representative dir js g t ht
-
-def taintFlags (dir : Direction) (js : List Entry) (dm : Bool) : Bool × Bool :=
-  (selectedB dir ⟨js, ⟨⟨⟨0, [], .exact, .conc 0⟩, dm⟩, Excl.empty⟩⟩,
-    selectedB dir ⟨js, ⟨⟨⟨0, [], .any, .conc 0⟩, dm⟩, Excl.empty⟩⟩)
-
-def flagFor (flags : Bool × Bool) : Kind → Bool
-  | .exact => flags.1
-  | .any => flags.2
-  | .star _ => false
-
-/-- A normal TAINT tree has exact/must leaves; a demand TAINT tree has
-    exact/may leaves. Compute two gates, then map only when they differ. -/
+/-- A store group has one premise and layer key. Keep or drop the entire group
+    after one gate; no tail partition or leaf walk is required. -/
 def selectPacked (dir : Direction) (js : List Entry) (dm : Bool)
     (leaves : List XFact) : List XFact :=
-  let flags := taintFlags dir js dm
-  if flags.1 && flags.2 then leaves
-  else if !flags.1 && !flags.2 then []
-  else leaves.filter (fun g => flagFor flags g.af.fact.kind)
+  if groupGate dir js dm then leaves else []
 
 private theorem filter_none {α : Type} (p : α → Bool) (xs : List α)
     (h : ∀ x, x ∈ xs → p x = false) : xs.filter p = [] := by
@@ -231,49 +143,24 @@ private theorem filter_all {α : Type} (p : α → Bool) (xs : List α)
     simp only [ite_true]
     exact congrArg (x :: ·) (ih (fun y hy => h y (List.Mem.tail x hy)))
 
-theorem flag_matches (dir : Direction) (js : List Entry) (dm : Bool) (g : XFact)
-    (hd : g.af.demand = dm) (hc : ∃ t, g.af.fact.mark = .conc t)
-    (hk : g.af.fact.kind = .exact ∨ g.af.fact.kind = .any) :
-    selectedB dir ⟨js, g⟩ = flagFor (taintFlags dir js dm) g.af.fact.kind := by
-  obtain ⟨t, ht⟩ := hc
-  rw [selected_representative dir js g t ht]
-  rcases hk with hk | hk <;>
-    simp [flagFor, taintFlags, representative, hk, hd]
-
-theorem packed_selection_equiv (dir : Direction) (js : List Entry) (dm : Bool)
-    (leaves : List XFact)
-    (shape : ∀ g, g ∈ leaves → g.af.demand = dm ∧
-      (∃ t, g.af.fact.mark = .conc t) ∧
-      (g.af.fact.kind = .exact ∨ g.af.fact.kind = .any)) :
+theorem group_selection_equiv (dir : Direction) (js : List Entry) (dm : Bool)
+    (leaves : List XFact) (layer : ∀ g, g ∈ leaves → g.af.demand = dm) :
     selectPacked dir js dm leaves = selectLeaves dir js leaves := by
-  have eq : leaves.filter (fun g => flagFor (taintFlags dir js dm) g.af.fact.kind) =
-      selectLeaves dir js leaves := by
-    apply List.filter_congr
+  have same : ∀ g, g ∈ leaves → selectedB dir ⟨js, g⟩ = groupGate dir js dm := by
     intro g hg
-    obtain ⟨hd, hc, hk⟩ := shape g hg
-    exact (flag_matches dir js dm g hd hc hk).symm
-  unfold selectPacked
-  generalize hf : taintFlags dir js dm = flags at *
-  obtain ⟨fe, fa⟩ := flags
-  cases fe <;> cases fa <;> simp only [Bool.and_self, Bool.false_and,
-    Bool.and_false, Bool.not_true, Bool.not_false, Bool.false_eq_true, ite_true, ite_false]
-  · rw [← eq]
-    symm
-    apply filter_none
-    intro g hg
-    obtain ⟨_, _, hk⟩ := shape g hg
-    rcases hk with hk | hk <;> simp [flagFor, hk]
-  · exact eq
-  · exact eq
-  · rw [← eq]
-    symm
-    apply filter_all
-    intro g hg
-    obtain ⟨_, _, hk⟩ := shape g hg
-    rcases hk with hk | hk <;> simp [flagFor, hk]
+    simp only [selectedB]
+    rw [layer g hg]
+  unfold selectPacked selectLeaves
+  cases h : groupGate dir js dm with
+  | false =>
+    simp only [Bool.false_eq_true, ite_false]
+    exact (filter_none _ leaves (fun g hg => (same g hg).trans h)).symm
+  | true =>
+    simp only [ite_true]
+    exact (filter_all _ leaves (fun g hg => (same g hg).trans h)).symm
 
-/-- Local work counts: selector calls and leaf visits. This excludes mark-set
-    comparisons, input construction, trie packing and later consumers. -/
+/-- Local counts cover gate calls and selection leaf visits. They exclude
+    equality costs, group construction, trie packing and later consumers. -/
 structure SelectionWork where
   calls : Nat
   visits : Nat
@@ -300,37 +187,21 @@ theorem countedLeaves_work (dir : Direction) (js : List Entry) (gs : List XFact)
   | nil => rfl
   | cons g gs ih => simp [countedLeaves, ih]
 
-/-- Two selector calls compute the flags. Equal flags retain or drop the whole
-    value; differing flags require a leaf walk. This models the proposal's gate
-    shortcut, not allocation or the complexity of the whole analyzer. -/
 def countedPacked (dir : Direction) (js : List Entry) (dm : Bool)
     (gs : List XFact) : List XFact × SelectionWork :=
-  let flags := taintFlags dir js dm
-  if flags.1 && flags.2 then (gs, ⟨2, 0⟩)
-  else if !flags.1 && !flags.2 then ([], ⟨2, 0⟩)
-  else (gs.filter (fun g => flagFor flags g.af.fact.kind), ⟨2, gs.length⟩)
+  (selectPacked dir js dm gs, ⟨1, 0⟩)
 
 theorem countedPacked_result (dir : Direction) (js : List Entry) (dm : Bool)
-    (gs : List XFact) : (countedPacked dir js dm gs).1 = selectPacked dir js dm gs := by
-  simp only [countedPacked, selectPacked]
-  split <;> (try split) <;> rfl
+    (gs : List XFact) : (countedPacked dir js dm gs).1 = selectPacked dir js dm gs := rfl
 
-theorem countedPacked_uniform (dir : Direction) (js : List Entry) (dm : Bool)
-    (gs : List XFact) (h : (taintFlags dir js dm).1 = (taintFlags dir js dm).2) :
-    (countedPacked dir js dm gs).2 = ⟨2, 0⟩ := by
-  unfold countedPacked
-  generalize hf : taintFlags dir js dm = flags at *
-  obtain ⟨fe, fa⟩ := flags
-  cases fe <;> cases fa <;> simp_all
+theorem countedPacked_work (dir : Direction) (js : List Entry) (dm : Bool)
+    (gs : List XFact) : (countedPacked dir js dm gs).2 = ⟨1, 0⟩ := rfl
 
 theorem counted_selection_equiv (dir : Direction) (js : List Entry) (dm : Bool)
-    (gs : List XFact)
-    (shape : ∀ g, g ∈ gs → g.af.demand = dm ∧
-      (∃ t, g.af.fact.mark = .conc t) ∧
-      (g.af.fact.kind = .exact ∨ g.af.fact.kind = .any)) :
+    (gs : List XFact) (layer : ∀ g, g ∈ gs → g.af.demand = dm) :
     (countedPacked dir js dm gs).1 = (countedLeaves dir js gs).1 := by
   rw [countedPacked_result, countedLeaves_result]
-  exact packed_selection_equiv dir js dm gs shape
+  exact group_selection_equiv dir js dm gs layer
 
 namespace Certificate
 
@@ -351,36 +222,55 @@ def cases : List Bool := [
   selectedB .forward ⟨[exactEntry, mustEntry], outputExact⟩,
   selectedB .backward ⟨[zeroEntry], zeroOutput⟩,
   selectedB .backward ⟨[exactEntry], outputExact⟩,
-  selectedB .backward ⟨[mustEntry], outputExact⟩]
+  selectedB .backward ⟨[mustEntry], outputExact⟩,
+  selectedB .forward ⟨[zeroEntry], zeroOutput⟩,
+  selectedB .forward ⟨[], outputExact⟩,
+  selectedB .backward ⟨[exactEntry, mustEntry], outputExact⟩]
 
-theorem case_values : cases = [false, false, true, true, true, true, true, false, true] := by decide
+theorem case_values :
+    cases = [false, false, false, false, true, true, true, false, false, false, true, true] := by
+  decide
 
-/-- A must-premise remains selected after it publishes an exact piece. -/
 def rawMust : RawLeaf := ⟨[mustEntry], outputMust⟩
 
 theorem published_raw_bit :
-    publicationPlan .forward rawMust outputExact = (true, outputExact) ∧
-    selectedB .forward ⟨[mustEntry], outputExact⟩ = true := by decide
+    publicationPlan .forward rawMust outputExact = (false, outputExact) ∧
+    selectedB .forward ⟨[mustEntry], outputExact⟩ = false := by decide
 
 def restrictedDemand : DemandEdge := ⟨mustEntry.fact, some outputExact.af.fact⟩
 
 theorem actual_restricted_piece :
     ApSpec.HandoffX.restrictIX mustEntry.fact mustEntry.ex outputMust restrictedDemand =
-      some outputExact := by decide
+      some outputExact ∧ outputExact.af.demand = outputMust.af.demand := by decide
 
-def classLeaves : List XFact := [outputMust, outputExact, outputDemand]
+/-- An actual demand-layer restriction stays demand and remains selected. -/
+def restrictedDemandPiece : XFact := ⟨⟨outputExact.af.fact, true⟩, Excl.empty⟩
 
-theorem class_values :
-    selectLeaves .forward [exactEntry] classLeaves = [outputDemand] ∧
-    selectClasses .forward [exactEntry] classLeaves = [outputDemand] ∧
-    selectLeaves .forward [mustEntry] classLeaves = classLeaves := by decide
+theorem actual_demand_restriction :
+    ApSpec.HandoffX.restrictIX mustEntry.fact mustEntry.ex outputDemand restrictedDemand =
+      some restrictedDemandPiece ∧
+    selectedB .forward ⟨[mustEntry], restrictedDemandPiece⟩ = true := by decide
+
+/-- The read-view result is demand, while no demand enters this callee. -/
+def mustRead : ViewCertificate (native mustEntry outputMust) :=
+  mustAnyCertificate 3 5 [] [2] 9 1 (.set [8]) (.set [4])
+def incoming : AFact := outputExact.af
+
+theorem caller_demand_without_callee_demand :
+    readView (native mustEntry outputMust) = some mustRead.view ∧
+    (applySummary incoming mustRead.view.1 mustRead.view.2).facts =
+      [⟨⟨3, [], .any, .conc 9⟩, true⟩] ∧
+    selectedB .forward rawMust = false := by decide
 
 def normalLeaves : List XFact := [outputMust, outputExact]
 
 theorem packed_values :
     selectPacked .forward [exactEntry] false normalLeaves = [] ∧
-    selectPacked .forward [mustEntry] false normalLeaves = normalLeaves ∧
-    selectPacked .backward [exactEntry] false [outputExact] = [] := by decide
+    selectPacked .forward [mustEntry] false normalLeaves = [] ∧
+    selectPacked .backward [exactEntry] false [outputExact] = [] ∧
+    selectPacked .backward [zeroEntry] false normalLeaves = normalLeaves ∧
+    selectPacked .forward [exactEntry] true [outputDemand] = [outputDemand] ∧
+    selectPacked .forward [exactEntry, mustEntry] false normalLeaves = normalLeaves := by decide
 
 /-- Thirty-three sibling must leaves have distinct paths and the same gate. -/
 def workload : List XFact := (List.range 33).map fun n =>
@@ -388,14 +278,14 @@ def workload : List XFact := (List.range 33).map fun n =>
     fact := { outputMust.af.fact with path := [n] } } }
 
 def workWitness : SelectionWork × SelectionWork :=
-  ((countedLeaves .forward [exactEntry] workload).2,
-    (countedPacked .forward [exactEntry] false workload).2)
+  ((countedLeaves .forward [mustEntry] workload).2,
+    (countedPacked .forward [mustEntry] false workload).2)
 
-theorem work_values : workWitness = (⟨33, 33⟩, ⟨2, 0⟩) := by decide
+theorem work_values : workWitness = (⟨33, 33⟩, ⟨1, 0⟩) := by decide
 
 theorem workload_same_result :
-    (countedPacked .forward [exactEntry] false workload).1 =
-      (countedLeaves .forward [exactEntry] workload).1 := by decide
+    (countedPacked .forward [mustEntry] false workload).1 =
+      (countedLeaves .forward [mustEntry] workload).1 := by decide
 
 end Certificate
 

@@ -2,7 +2,10 @@
 
 This file describes existing code and migration context. It is not normative.
 The current specs define the required behavior. Code here is historical unless
-the current implementation proposals explicitly adopt it.
+the current implementation proposals explicitly adopt it. In particular, the
+crossability APIs, per-leaf demand selector, and `crossableLeaves` counter below
+were removed by F77. Use the structural selector in [ap-impl.md](ap-impl.md)
+and [analyzer-impl.md](analyzer-impl.md); do not port those historical interfaces.
 
 ## Analyzer code reuse
 

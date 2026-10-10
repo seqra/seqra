@@ -19,7 +19,7 @@ The formal model is in [`spec/lean`](lean): `Pipeline.lean`, `PipelineProofs.lea
 is machine-checked. [proof-status.md](proof-status.md) explains constructive
 witnesses and the axiom audit, and lists the limits of each result.
 
-The current AP rules include F72/F74/F75/F76. Checked local contracts, historical
+The current AP rules include F72/F74/F75/F76/F77. Checked local contracts, historical
 protocol proofs, and remaining current pipeline/driver obligations are listed in
 [proof-status.md](proof-status.md). This spec defines the required behavior; it
 does not claim a full current iteration proof.
@@ -90,8 +90,7 @@ document adds:
 | event | One message in the channel of a runner (§5.1). Its HANDLER is the code that the runner runs for it. |
 | subscription | A caller-side record `(caller edge, call statement, added fact)` (`ap.md` §8.4). |
 | publication | A summary edge that the callee gives to its subscribers. In a restricted run it is the result of the restriction (`ap.md` §6.4): the INTERSECTION of the summary edge with one demand pattern, in the locations AND the marks (`ap-history.md` F71): the premise lies inside `D-c` with its mark, and the mark of the conclusion meets the mark of `D-p` (§4.6). It carries its premise key with the tail of each member and the exclusion of an `[any-taint]` member (§4.1, §4.6). The hand-off reads the publications, not the summary edges before the restriction (§7.3, §7.4). |
-| crossable | AP §1's raw-leaf classifier. Forward: the generic normal singleton `$`/empty-star, mark-reversible, no-any case, or F76's normal exact-concrete premise to must-concrete conclusion with empty premise exclusion. Backward: a normal nonzero leaf with generic crossable reversal. R1 persists the whole raw edge. F76's view retains conclusion E and matches admitted concrete field requirements; abstract requirements need an abstract premise mark. |
-| demand edge | A stored publication of a raw non-crossable summary leaf (AP §8.5), plus the backward zero-premise case of §7.4. Select on the raw leaf, then restrict. Each publication gives a demand pattern per premise member. Zero demand is implicit. This is distinct from a DEMAND-LAYER edge: must-premise normal leaves produce demand, but normal singleton exact-to-must leaves use their read views and give no backward demand. |
+| demand edge | A stored publication selected by AP §8.5: demand-layer summaries, normal multi-premise summaries, and normal backward zero-premise summaries. Other native normal singleton summaries supply records only. Each publication gives a demand pattern per premise member. Zero demand is implicit. A demand-layer read-view result in the caller does not request reanalysis of the summarized callee. |
 | DEMAND vulnerability | A vulnerability key whose state in the report is DEMAND after a complete forward run (§7.5): the latest complete forward run reports it, and NO complete forward run so far confirmed it. A key that an earlier run confirmed is CONFIRMED (final), also when the latest run reports it only in the demand layer. Only the sink witnesses of the DEMAND vulnerabilities are sink seeds of the hand-off (§7.3). The backward run also fires the sink seeds of a sink whose end fact a requirement reaches, also of a CONFIRMED vulnerability (§4.5 THE TRIGGER OF AN END FACT). |
 | frontier | The part of the program that the later runs still analyse after a complete run: the method keys with a non-zero initial fact in the run, and the demand edges that the run hands off, per method key (§7.8). The driver logs the frontier of each complete run (THE FRONTIER LOG, §7.8). |
 | storage with subscription | The callee-side store of the publications, with the list of the subscribed runners (§5.2). |
@@ -100,7 +99,7 @@ document adds:
 | delivery | The event that carries a notification to one runner (§5.3). |
 | quiescence | The state of a run with no event in a channel or a local queue, no running handler, no worklist item and no pending publication (§6.2). |
 | barrier | The point between two runs: the first run is quiescent, and the next run has not started (§7.2). |
-| hand-off | What one run gives to the next run: the demand edges and the seeds (`ap.md` §8, §9.2; §7.3, §7.4). The records are PERSISTENT, not a hand-off (`ap.md` §8.7): a crossable leaf goes to the records and not to the hand-off. |
+| hand-off | What one run gives to the next run: demand edges and seeds (`ap.md` §8, §9.2; §7.3, §7.4). Records persist separately (`ap.md` §8.7). An R1-eligible native normal singleton summary gives no callee demand. |
 | complete run | A run that ended at quiescence. A run that ended by a timeout, its memory guard or an exception (every `Throwable`, §6.3) is INCOMPLETE. An incomplete run adds nothing to the report and refutes nothing (§7.5). |
 
 ---
@@ -176,7 +175,7 @@ The mode decides these rules (`ap.md` §6.1):
 | initial facts of an added fact | the policy fact (`ap.md` §6.2) and the request answers | the emission of `ap.md` §6.3 (§4.4; F72 R2): an entry pattern `D-c` with the mark `*` gives its FLOW FORM, one initial fact for every added fact under it (SHARING); a `D-c` with a concrete mark gives `a ∩ D-c` with the mark of `a`, only for an `a` with that mark: an added fact with the mark `*` or `*∖X` under a concrete pattern emits NOTHING (the user's decision: "The added fact can't satisfy the demand"); the zero fact for the zero added fact | the same emission, with the requirement as the added fact: a `*` pattern weakens the requirement to the FLOW form of the pattern (§4.4); after the hand-off normalization no entry pattern has the mark `*∖X` (§7.3); the zero fact enters every callee (rule `zin`) |
 | the marks of the facts | `*` and `*∖X` (the policy facts and their FLOW edges), and concrete marks (the answers, the zero fact, the sources) | NOT CONCRETE since F72: the edges of a FLOW premise (the mark `*`) have the marks `*` and `*∖X` (FLOW trees, `ap.md` §7.2), and their callees can get added facts with these marks; the edges of a concrete premise and of the zero fact have concrete marks. Before F72 every restricted run was concrete | as the restricted forward run |
 | a summary applies to an added fact `a` if | `applicable(j, a)` | `inside(j, a)`; for a FLOW premise (the mark `*`) also `applicable(j, a)` (`ap.md` §4.3; F72 R3; §5.3 `matches`). This test applies after the restriction in the callee (the INTERSECTION with a demand pattern, in the locations and the marks, `ap.md` §6.4; §4.6). A callee has a non-zero premise only where a demand pattern of it emits one (§4.4): a callee whose only demand pattern is the zero demand publishes no summary of a non-zero premise, and its callers cross it by its records (next row) | as the restricted forward run; a zero-premise summary applies to the zero fact of the caller with no test and no restriction (rule `zret`) |
-| records (`ap.md` §8.7 R3, R4) | none | same-direction native forward records by `byEntry`; backward records through transient leaf views by `byExit`. Match by `applicable || inside`. A must native record gives demand results on the `applicable`-only part. Crossable leaves replace callee analysis; a method with no demand or subtree seed has only zero analysis | native backward records by `byEntry`; transient views of forward records by `byExit`. An exact-premise must conclusion uses a concrete star premise carrying its exclusion and an exact normal target. A must forward premise becomes a may `[any]` demand target. Match the view itself by `applicable || inside`; never start it as an initial fact. Crossable leaves replace callee analysis; other records can apply alongside demand |
+| records (`ap.md` §8.7 R3, R4) | none | same-direction native forward records by `byEntry`; backward records through transient leaf views by `byExit`. Match by `applicable || inside`. A must native record gives demand results on the `applicable`-only part. Native normal singleton summaries give no callee demand; a method with no demand or subtree seed has only zero analysis | native backward records by `byEntry`; transient views of forward records by `byExit`. An exact-premise must conclusion uses a concrete star premise carrying its exclusion and an exact normal target. A must forward premise becomes a may `[any]` demand target. Match the view itself by `applicable || inside`; never start it as an initial fact. Native normal singleton summaries give no callee demand; a demand-layer view result belongs to the caller |
 | mark and position requests, static rule | yes (`ap.md` §4.5, §4.10); a selected-mark cleaner requests T for every same-base abstract fact, before the path test (F75) | no request rule and no static rule (F72 R4). On a fact with the mark `*` or `*∖X`, a concrete mark gate or sink gives nothing; a selected-mark cleaner keeps every same-base fact with mark `*∖(X ∪ {T})`, including disjoint paths (F75, `ap.md` §4.7). No request is raised | as the restricted forward run (the backward run has no sink check) |
 | sinks | the sink check (`ap.md` §4.9) | the sink check; on a `*` or `*∖X` fact it gives nothing (no request, `ap.md` §4.9) | no sink check; the sink seeds (`ap.md` §9.2) |
 | unconditional sources | every source fires | only the source seeds fire (`ap.md` §6.1 rule 6); a zero-premise forward record still applies (`ap.md` §9.2) | every reversed source edge, with no seed filter (the backward run is on the full program, Lean `Reverse.Program.rev P`); it records the source hits (`ap.md` §8.11) |
@@ -188,7 +187,7 @@ No run has a liveness check (§4.3).
 THE MARKS OF A RESTRICTED RUN (`ap-history.md` F72; the AP rules are in `ap.md` §4.3, §4.5, §6.1, §6.3, §6.4, §6.6,
 §9.2). THE RULE: a restricted run analyses with a concrete mark only if a concrete-mark demand exists. Run 1 keeps its
 requests; their answers make the concrete-mark summaries where the marks matter, and the hand-off gives them to the
-next run as concrete patterns (or, if they are crossable, as records). A forward demand with `*` gives a backward
+next run as concrete patterns or retained normal singleton records. A forward demand with `*` gives a backward
 demand with `*`, and a concrete demand stays concrete. The core part of each rule:
 
 * R1, THE HAND-OFF NORMALIZATION (§7.3, §7.4). Every hand-off replaces the mark `*∖X` of a demand pattern by `*`, in
@@ -232,8 +231,8 @@ only the forms that the analyzer reads: the forward forms of the interpreter, or
 | `edges` | method edge store (`ap.md` §8.1) | the edges, keyed per kind (`ap.md` §7.2): REACH per (statement, premise key, layer); FLOW per (statement, premise key, layer, base, exclusion, mark exclusion); TAINT per (statement, premise key, layer, base), and a normal TAINT tree also per the one exclusion of its `[any-taint]` leaves (`ap.md` §7.2) |
 | `initials` | initial fact store (`ap.md` §8.2) | the initial facts of the run: zero, emissions, answers |
 | `links` | added fact store (`ap.md` §8.3) | each added fact with its links: the caller reference and the layer of the added fact on the link |
-| `summaries` | run summary store (`ap.md` §8.5) | two parts: the summary edges BEFORE the restriction, per premise key and layer (`persist` takes the records from them, `ap.md` §8.7 R1), and the DEMAND EDGES of the run: the published pieces of the summary leaves that are not crossable (§1, §4.6; `ap-impl.md` DD17, `RunSummaryStore.addDemand`, `demandEdges()`). The hand-off reads only the demand edges (§7.3, §7.4) |
-| `counters` | | the counters of the frontier log (§7.8) and of the stop rule `NO_DEMAND_EDGE` (§7.1): the DEMAND-LAYER OBJECTS of the run (the deltas of `edges.add` in the demand layer, the summary deltas in the demand layer (§4.6) and the new DEMAND LINKS, the links whose added fact is in the demand layer, §4.2 `addLink`, `ap.md` §8.3), the crossable summary leaves (counted at each summary delta, §4.6), the record applications at a call (§4.2 `applyRecord`), a flag that is true if a non-zero initial fact exists, the edges of the zero premise; as an option, the demand-layer results per demotion (§4.3) |
+| `summaries` | run summary store (`ap.md` §8.5) | Raw summaries per premise key and layer supply R1 records. Selected publications supply demand edges (§4.6; `ap-impl.md` DD17, `RunSummaryStore.addDemand`, `demandEdges()`). The hand-off reads only the stored demand edges (§7.3, §7.4). |
+| `counters` | | Frontier and stop-rule counts (§7.1, §7.8): demand-layer edge and summary deltas, new demand links (§4.2), record applications at a call, nonzero initial-fact presence, and zero-premise edges. Demand links have a demand-layer added fact (AP §8.3). Optional counts record demand results per demotion (§4.3). |
 | `requests` | request store (`ap.md` §8.8) | run 1 only: the standing mark and position requests and their answers |
 | `sourceHits` | source hit store (`ap.md` §8.11) | backward run only: the unconditional sources of this method that a requirement reached |
 | `conjunctions` | conjunction store (`ap.md` §8.9) | the standing literal inputs per (conjunctive micro edge or sink alternative, statement, literal index), with the evaluated `S` parts of the exit sinks (§4.7); the combinations of the callee summaries with several premises (§5.4) |
@@ -315,7 +314,7 @@ A new initial fact `j` (from any handler) is event E3: the analyzer adds the sta
     THE REVERSAL OF A CONJUNCTION (`ap.md` §9.1; `ap-history.md` F70). The reversal of a CONJUNCTIVE micro edge with
     two or more positive literals (also of a conjunctive exit source, §4.4) gives EVERY result in the demand layer, as
     the reversal of a may: a requirement that reaches one literal is not a converse flow of the conjunction. So no
-    backward summary through it is a record (`ap.md` §8.7 R1) or crossable (§1), and the hand-off gives it to the next
+    backward summary through it is a record (`ap.md` §8.7 R1), and the hand-off gives it to the next
     forward run (§7.4 case 3), which analyses the callee with all the members. This fixes a false positive that
     existed before F70: a normal backward summary from the conclusion to ONE literal was a record, and its reversal
     (R3) was a forward record of one literal, which drops the other literals (§11). Argued (§11).
@@ -546,17 +545,16 @@ The zero fact at a call. The zero base is not touched, so the zero fact passes o
 
 After end rules, handle each raw summary delta `j→g` (event E4) in this order:
 
-1. Add the raw delta to `summaries`. Count its demand-layer objects and its raw
-   record-eligible leaves (§4.1).
-2. Determine persistence eligibility (R1) and crossability (R5) separately on
-   raw leaves using [ap.md](ap.md) §8.7. Persistable normal leaves remain available
-   at the barrier; only crossable leaves replace next-run analysis.
+1. Add the raw delta to `summaries`. Count its demand-layer objects (§4.1).
+2. Determine raw persistence eligibility using [ap.md](ap.md) §8.7 R1.
+   Retain eligible normal singleton summaries for the barrier.
 3. Build publications: run 1 publishes raw leaves; a restricted run publishes
    each result of AP §6.4 for the demand patterns returned by AP §8.6's query.
    A backward `{zero}`-premise balanced return publishes raw leaves (AP §9.2).
-4. Select **raw non-crossable** leaves with `demandPart`, then apply the same
-   publication rule to them and store their pieces with `addDemand`. Eligibility
-   is not recalculated after reduction. The hand-off reads these stored pieces.
+4. Select demand using AP §8.5: keep demand-layer summaries, normal multi-premise
+   summaries, and normal backward zero-premise summaries. Selection is uniform
+   within the premise-key/layer group. If selected, pass step 3's publications to
+   `addDemand`. No second reduction or selection of narrowed pieces is needed.
 5. Enqueue publications and flush them to `SummaryStorage` before the `Work`
    handler ends (§6.2 W3).
 
@@ -1000,10 +998,10 @@ The exact-premise view has a checked local annotated-converse certificate.
 Actual-flow exactness also needs S14 exactness of the native input record.
 Current native-record and generic-reversal proofs do not certify concrete-star
 views as native initial kinds. Full read-view/closure and X integration remain
-open in [proof-status.md](proof-status.md). F76 omits backward demand for a raw
-normal singleton exact-premise must leaf; the normal view replaces its nonzero
-callee analysis. Must-premise leaves still give demand. Select before restriction
-and retain the whole raw normal record, including its conclusion exclusion.
+open in [proof-status.md](proof-status.md). F77 omits callee demand for every
+R1-eligible native normal singleton summary, including must-premise records.
+Its read view can produce caller DEMAND without requesting callee reanalysis.
+Select before restriction and retain the whole raw record with all exclusions.
 
 A must-premise needs every location of it, so a summary of an `[any-taint]` premise applies only to an added fact that
 the premise lies INSIDE, with the exclusions of both (`ap.md` §4.3; Lean `AnyTaintEx.SatInsideX`: the exactness needs
@@ -1254,7 +1252,7 @@ class IterationDriver(private val policy: IterationPolicy, private val shared: S
             confirm(result)                                           // §7.5 steps 1, 2: the support, the witnesses
             report.add(config, result)                                // §7.5 step 3
         }
-        shared.records.persist(config, result)                        // ap.md §8.7 R1: the crossable leaves among them
+        shared.records.persist(config, result)                        // ap.md §8.7 R1: eligible raw normal singleton summaries
         val handOff = handOffOf(config, result, report)               // §7.3, §7.4: the demand edges and the seeds
         val frontier = frontierOf(config, result, handOff, report)    // §7.8
         frontiers += frontier
@@ -1287,29 +1285,25 @@ class IterationDriver(private val policy: IterationPolicy, private val shared: S
   1. `STOP_RULE`: after the run the report has NO DEMAND VULNERABILITY (§1): every vulnerability that the run reports
      is CONFIRMED, by this run or by an earlier complete forward run (`ReportBuilder.hasDemandVulnerability`, §10).
      Then the hand-off gives no sink seed (§7.3), so the next backward run has no requirement except the zero fact.
-     The CONFIRMED part of the report is final (a CONFIRMED state never changes, §7.5), and every real vulnerability
-     is CONFIRMED in it. Reason: each forward run reports every real vulnerability that no earlier complete forward
-     run confirmed (§7.7, `HandoffMain.iteration_generalN`; for the driver
-     `PipelineHandoffDriverExt.driver_iterationNX_demand`, finite `driver_iterationNX_upto`), and this run reports only
-     CONFIRMED ones. That every later forward run only
-     repeats the zero fact and the records is ARGUED (`HandoffExclusion.zinv_all` with no seed in any method, then
-     `HandoffExclusion.exclusion_demand` per method; the composition is not stated, §7.1 `STOP_RULE`);
+     Confirmation is final (§7.5). Under AP §6.6's no-loss contract, every real
+     vulnerability is confirmed at this stop. The full F77 contract and the
+     claim that later runs repeat only zero work and records remain open (§7.7).
   2. `NO_DEMAND_EDGE` (the user's rule, `task.md`): the run has NO DEMAND-LAYER OBJECT: no demand-layer edge delta,
      no demand-layer summary delta and no DEMAND LINK (a link whose added fact is in the demand layer, `ap.md` §8.3)
      (`RunResult.demandLayerEdges == 0`, the `counters` of §4.1). Then every sink witness and every link of the run is
      normal, so each sink witness satisfies conditions 1 and 2 of `ap.md` §4.9 and the condition on the layer of the
      link, and a DEMAND entry fails only the JOINT support of a premise set with several members (a conjunction,
      `ap.md` §4.6): no one call supplies all its members. That a later forward run cannot supply them at one call
-     either is ARGUED, not proved, and it is an open question (§7.1 `NO_DEMAND_EDGE`). The stop keeps
-     every real vulnerability in the report (§7.5 THE OUTPUT);
+     either is ARGUED, not proved, and it is an open question (§7.1 `NO_DEMAND_EDGE`). Keeping every real vulnerability in the
+     report requires AP §6.6's no-loss contract (§7.7);
   3. `POLICY`: `continueAfter(config, result, frontiers)` gave false (a practical stop strategy that reads the
      frontier log, §7.8; out of scope).
 
-  At every stop after a complete forward run, the report holds every real vulnerability, CONFIRMED or DEMAND (§7.5
-  THE OUTPUT; for the driver `PipelineHandoffDriverExt.driver_iterationNX_upto`, with `C` = confirmed by a complete
-  forward run up to `k`). The three rules differ only in what a later run can still change: after `STOP_RULE` every
-  real vulnerability is CONFIRMED already; after `NO_DEMAND_EDGE` a later run confirms no more (argued, an open
-  question); after `POLICY` a later run can confirm more or refute a DEMAND entry.
+  Under that no-loss contract, every stop after a complete forward run retains
+  every real vulnerability as CONFIRMED or DEMAND. Historical driver instances
+  prove this for their versions; the F77 instance is open (§7.7). `STOP_RULE`
+  leaves only confirmed entries. The claim that `NO_DEMAND_EDGE` permits no later
+  confirmation is open. `POLICY` can stop while later refinement remains possible.
 * The driver applies the stop rules and asks `continueAfter` only after a complete FORWARD run. A complete backward run
   always goes on to the next forward run: its only output is the hand-off of that run (§7.4). So the iteration always
   ends after a forward run, or at an abnormal end (§7.7).
@@ -1354,33 +1348,34 @@ class IterationDriver(private val policy: IterationPolicy, private val shared: S
   checks the `Cancellation` after the barrier, so a hit after the last checkpoint is not lost (the next `RunManager`
   would activate the `Cancellation` again). The barrier has no deadline (§11).
 
-With B1, the hand-off reads the closure of the run (`PipelineDriver.result_D`, `result_DR`, `result_DB`; with the
-tail `[any-taint]` `PipelineAnyTaintEx.result_D6X`, `result_DRX`): the demand edges that the run stored are its
-publications of the non-crossable leaves (§4.6). So the hand-off is exactly the hand-off of `ap.md` §9.2 (Lean
-`Handoff.handF`, `demOfN`; `PipelineHandoffDriver.driver_iterationNX` reads them from the final states, §7.7).
+With B1, the hand-off reads a complete run's stored selected publications (§4.6)
+and builds AP §9.2's patterns. The historical `PipelineDriver.result_D`,
+`result_DR`, `result_DB`, `PipelineAnyTaintEx.result_D6X`, and `result_DRX`
+establish closure delivery for their versions. `PipelineHandoffDriver.driver_iterationNX`
+uses the previous selector; it is not an F77 driver instance (§7.7).
 
 ### 7.3 Forward run `n` to backward run `n + 1`
 
 At the barrier, build an immutable demand store from each method's stored demand
 pieces. Apply AP §9.2's forward-to-backward construction and normalization; do
-not re-test crossability on a reduced piece. The store owns the complete entry and
+not select again on a reduced piece. The store owns the complete entry and
 exit patterns and their base/path indexes (AP §8.6).
 
 Build `SeedIndex` from all witnesses of the report's DEMAND keys after run `n`.
 Confirmed keys add no hand-off sink seed. The interpreter forms supply each
 alternative's patterns. The backward engine can add the end-fact trigger seeds
 defined in AP §9.2 during the run. Retain raw normal single-premise records and
-make their transient leaf read views available (AP §8.7). A normal non-crossable
-leaf can be a same-direction record, have a demand-layer backward view, and
-produce demand pieces. A normal singleton exact-to-must leaf instead gives no
-backward demand and uses its normal star view. Do not synthesize a source hit
+make their transient leaf read views available (AP §8.7). Every R1-eligible normal
+singleton summary gives no callee demand, including must-premise records. A
+demand-layer view result belongs to the caller and follows the usual propagation
+rules there. Do not synthesize a source hit
 from a view; source hits require actual reversed source edges (AP §9.2).
 
 ### 7.4 Backward run `n + 1` to forward run `n + 2`
 
 Build demand using AP §9.2's three cases: implicit zero demand, zero-premise seed
-paths with no exit pattern, and stored publications of non-crossable nonzero raw
-leaves. Normalize both pattern marks. Build source `SeedIndex` from `sourceHits`.
+paths with no exit pattern, and selected nonzero publications. Normal nonzero
+singleton summaries supply records only. Normalize both pattern marks. Build source `SeedIndex` from `sourceHits`.
 The engine does not filter records by source seeds: a recorded call can supply a
 source result without replaying its source.
 
@@ -1456,7 +1451,7 @@ properties from an earlier driver instance.
 
 ### 7.8 Localization and the frontier
 
-Demand restricts nonzero analysis; persistent records cross callees with crossable leaves.
+Demand restricts nonzero analysis; persistent records supply permitted call results.
 Full current method-exclusion and round-to-round narrowing are open (AP §6.6).
 Do not infer exact narrowing from a stable count: normalization can enlarge marks
 and reduction has representability limits. A method with no demand edge and no
@@ -1471,7 +1466,6 @@ analyzer counters and the hand-off:
 |---|---|
 | `analysed` | Method keys with nonzero initial facts |
 | `demandEdges` | Stored outgoing demand pieces per method key |
-| `crossableLeaves` | Crossable raw summary leaves |
 | `recordCrossings` | Record applications at calls, including permitted reversed records |
 | `demandVulnerabilities`, `confirmedVulnerabilities` | Report states after a forward run |
 | `seeds` | Outgoing sink seeds (forward) or source seeds (backward) |

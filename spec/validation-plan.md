@@ -3,7 +3,8 @@
 This plan contains test data and implementation checks. It does not add analysis
 rules. The normative rules are in [ap.md](ap.md), [interpreter.md](interpreter.md),
 and [analyzer-core.md](analyzer-core.md). Historical tests must be run against the
-closure version they name; current demand tests use F72/F75; current record-view tests use F76. The build and axiom
+closure version they name. Current demand tests use the structural selection
+rule of ap.md §9.2; current record-view tests use F76. The build and axiom
 audit are in [proof-status.md](proof-status.md).
 
 ## AP tests
@@ -128,8 +129,8 @@ Write the tests first. Each test names the spec item that it checks. The interpr
     with its exclusion, in the normal layer (§6.5; `AnyTaintEx.Vec.start_must`); the backward run has no must-premise;
     a `*∖{T}` entry pattern emits nothing for an added fact with the mark `T` and emits for the mark `U`, with the
     premise inside the entry pattern with its mark (`Handoff.RVec.vEmit_starEx_T`, `vEmit_starEx_U`;
-    `HandoffX.XVec.vM_emit`; the vectors of F71: since F72 no pattern has `*∖X`). THE EMISSION OF F72 (§6.3; PENDING
-    the Lean model, §11.2): a `*` pattern `(x, .f, [any], *)` emits the FLOW form `(x, .f, *, {}, *)` for every added
+    `HandoffX.XVec.vM_emit`; the vectors of F71: since F72 no pattern has `*∖X`). THE EMISSION OF F72 (§6.3;
+    local certificates in [proof-status.md](proof-status.md), full integration open §11.2): a `*` pattern `(x, .f, [any], *)` emits the FLOW form `(x, .f, *, {}, *)` for every added
     fact with a common location, and for the marks `T` and `U` it is ONE initial fact (SHARING); a `*/E` pattern
     emits itself with the mark `*`; a `*` pattern and an added fact with no common location emit nothing; a concrete
     pattern emits `a ∩ D-c` with the mark of `a`; an added fact with the mark `*` (or `*∖X`) under a concrete pattern
@@ -160,19 +161,20 @@ Write the tests first. Each test names the spec item that it checks. The interpr
     3), so the limit does not decrease (W3); the vulnerability is reported in every forward run. A worker loop with a
     sink that never returns (§9.2). The backward zero rules of §9.2: the zero fact enters every callee, a zero-premise
     backward summary returns to every caller without a restriction. THE HAND-OFF OF THE DEMAND EDGES (§9.2): it reads
-    the publications; a crossable leaf gives no demand pattern and a leaf that is not crossable gives one per
-    publication, in both directions. Must-premise, demand-layer, and multi-premise
-    leaves remain demand edges, including a backward demand leaf with a crossable
-    shape. A raw normal singleton exact-concrete premise → must/E concrete
-    conclusion with empty premise annotation gives no backward demand (F76).
+    the publications. Keep every DEMAND-layer summary and every normal summary with several premises.
+    Omit every other normal singleton summary from callee demand, including must-premise summaries.
+    A zero-premise backward summary gives a seed-path pattern; the implicit zero pattern remains separate.
+    Test both directions and every native singleton shape, including normal must→must and must→exact
+    summaries whose transient backward views produce DEMAND. Their view results propagate in the caller;
+    they do not create a separate demand for the summarized method.
     THE HAND-OFF NORMALIZATION (F72, §9.2): a summary conclusion with the mark `*∖X` gives a pattern
     with the mark `*`, in `D-c` and in `D-p`, in both hand-offs, and the summary keeps `*∖X` (it still stops an added
     fact with a mark in `X`); (F71, before: a `*∖X` entry pattern kept its mark and gave no premise to a requirement
     with a mark in `X`). In selected forward demand pieces, a must conclusion or
     premise becomes the pattern `[any]` with no exclusion. Program WRAP (§6.6, `HandoffCases.Wrap`): forward run 3
     analyses `wrap` only from the zero fact, backward run 2 never enters `wrap` with a non-zero fact (it crosses `wrap`
-    by the reversed record), and forward run 3 still reports the vulnerability. The CEGAR programs ANYW and ANYM
-    (`HandoffCases.AnyW`, `AnyM`) and the getter (`HandoffCases.Getter`) report their vulnerability. THE SEEDS: the
+    by the reversed record), and forward run 3 still reports the vulnerability. Test the getter
+    (`HandoffCases.Getter`) with current selection; historical closure witnesses alone do not prove it. THE SEEDS: the
     backward run seeds the DEMAND entries only, not a CONFIRMED one. THE TRIGGER OF AN END FACT (§9.2): in the program
     of §9.2 a requirement that reaches the reversed end-fact edge of the CONFIRMED sink `sinkCall` fires its sink
     seeds, `source()` is hit, and forward run 3 reports the DEMAND vulnerability `sinkAny(r)` again. THE REVERSAL OF A
@@ -180,7 +182,7 @@ Write the tests first. Each test names the spec item that it checks. The interpr
     is in the demand layer, no record, a demand edge of case 3, and forward run 3 does not report `sinkT(r2)`. THE
     SOURCE SEEDS: a source inside a callee that the backward run crosses by a record is not hit, and the record still
     gives its result (`HandoffSrc.SrcRec.found_unseeded`). THE EXCLUSION: a method key of which a forward run hands
-    off no demand edge (for example: only crossable leaves), with no seed below, leaves the frontier, publishes nothing
+    off no demand edge (for example: only normal singleton leaves), with no seed below, leaves the frontier, publishes nothing
     in the next forward run, and does not come back while this holds. THE NARROWING (the concrete design): no demand
     pattern has a `*` tail, and the demand patterns of forward run 5 with a `D-p` lie inside those of forward run 3, in
     the locations and the marks, with no exception (`HandoffNoStar.narrowing_canon_loc_exactM`); the zero demand and
@@ -213,10 +215,11 @@ Write the tests first. Each test names the spec item that it checks. The interpr
     Generic reversed may and conjunction micro edges still give every result
     in the demand layer, including exact results. Generic reversed source edges
     keep the requirement layer and use `[any]` premises. No backward fact has
-    `[any-taint]`. Forward selection adds the normal exact-to-must branch: it gives
-    no backward demand and retains its raw native record/E. Must-premise leaves
-    still give demand. Select before restriction; a narrowed publication cannot
-    reclassify its raw leaf (`CurrentMustReverse.omitMustDemand`). Test the
+    `[any-taint]`. Every native normal singleton retains its raw record and gives
+    no separate callee demand, including must-premise records. A must-premise
+    view's DEMAND result is propagated in the caller. Select from the raw layer,
+    premise count and backward-zero status before restriction; a narrowed publication
+    cannot reclassify its raw summary (`CurrentSummarySelection`). Test the
     normal exact requirement and may-any demand requirement gates separately.
     A zero-premise cached source view gives zero without a synthetic source hit;
     the native forward record still replays with empty source seeds. A nonzero
@@ -294,17 +297,13 @@ and §13 refer to this part.
    (§5.3).
 6. COUNTER. A handler that sends after a delay: the run does not end before the send (Q2). A new `RunManager` made
    after an aborted one (test harness) analyzes every method (§6.3, §7.6).
-7. HAND-OFF. Programs 1 and 2 of `ap.md` §6.3, §6.4: the demand of run 3 equals `Backward.dem1_exact` (program 1) and
-   `dem2_exact` (program 2); run 3 reports the vulnerability (`Backward.p1_found`, `p2_found`). These Lean results are
-   of the earlier hand-off (`Backward.demOf`, `restrictU`). `dem1_exact` holds for every backward demand and record
-   set, and no call of program 1 returns, so it holds for the hand-off of §7.4 too. With the intersection and the
-   hand-off of the demand edges both programs are proved (`HandoffRCases`): program 1 (`p1_handoff`, `p1_found_I`,
-   `p1_chain`) and program 2 (the summary of `c` is not crossable, `r1_c_not_cross`; the backward summary is in the
-   demand layer, `b2_not_crossB`; the mark tests of the restriction pass, `b2_insideB`, `b2_concMark`, `f3_insideB`,
-   `f3_concMark`; the intersection gives the pieces of `restrictU`, `b2_restrictI_eq_U`, `f3_restrictI_eq_U`;
-   `p2_handoff`, `p2_found_I`, `p2_chain`). The Lean results show that the hand-off CONTAINS
-   these patterns; that it EQUALS them (the demand of run 3 is exactly `dem1_exact`, `dem2_exact`) is checked by hand
-   (`ap.md` §6.4).
+7. HAND-OFF. Run programs 1 and 2 of `ap.md` §6.3, §6.4 with structural summary selection.
+   Check the actual published pieces and normalized patterns in both directions: DEMAND-layer pieces and
+   normal multi-premise pieces give patterns; other normal singleton pieces do not. Backward zero-premise
+   pieces retain their seed-path patterns. The mark-aware restriction must reject a conclusion mark outside
+   `D-p`, and every retained pattern must come from a stored publication. Historical `Backward` and
+   `HandoffRCases` closure results are comparison data, not proofs of the current hand-off. Record-view
+   application is checked separately from callee demand selection.
 8. MODES. A restricted run (forward and backward) raises no request (F72 R4): on a `*` fact the mark gate of a micro
    edge with a concrete premise mark gives no result, the sink check gives no witness, and a partial cleaner of `T`
    gives the fact `*∖{T}`; the run has no request store, and its request counter is 0. Run 1 raises the requests of
@@ -327,7 +326,7 @@ and §13 refer to this part.
    vulnerabilities: a vulnerability that an earlier run confirmed and that the latest run reports in the demand layer
    gives no seed (§7.3).
 10. SOURCE SEEDS. In forward run 3, a source that backward run 2 did not reach does not fire; a source on the witness
-    outside a recorded call fires, and run 3 reports the vulnerability. A source inside a crossable callee is not hit
+    outside a recorded call fires, and run 3 reports the vulnerability. A source inside a callee bypassed by its record is not hit
     and does not fire, and the record of the callee gives its result (`x = mk(); sink(x)`, `mk(): ret = source()`:
     run 3 reports the vulnerability in the normal layer through the record, `HandoffSrc.SrcRec.found_unseeded`). A
     requirement that reaches a source records exactly one hit for that (method key, statement, source edge) (§4.7). A source at a call, at a method entry, at a
@@ -399,7 +398,7 @@ and §13 refer to this part.
     SINCE F72 (PENDING the model; the Lean results above are of the concrete design): the run-1 pattern of `get` is
     `(D-c = (ret, ., [any], *), D-p = (p, ., *, {}, *))`, a `*` pattern, so backward run 2 weakens the requirement
     `(ret, ., [any], T)` to the FLOW premise `(ret, ., *, {}, *)` (§4.4). Its backward summary
-    `(ret, ., *, {}, *) → (p, .f, *, {}, *)` is normal and its reversal is crossable, so `get` hands off no demand edge.
+    `(ret, ., *, {}, *) → (p, .f, *, {}, *)` is a normal singleton, so `get` hands off no demand edge.
     Forward run 3 crosses `get` by the reversed record, which applies to the added fact `(p, ., [any-taint], {}, T)`
     by `inside` with a normal result (the case `above` of an `[any-taint]` fact, `ap.md` §4.3), and the expected
     result is the same: run 3 CONFIRMS the vulnerability. The test asserts the hand-off and the result of run 3.
@@ -467,47 +466,49 @@ and §13 refer to this part.
     limit: the source `dto.f.g = srcAny()` gives `(dto, .f, [any], T)` in the demand layer with no exclusion
     (`AnyTaintCases.Cut.cut_transfer`, a transfer with no exclusion), so a sink below `dto.f` is a DEMAND entry.
 
-The items 32 to 42 test the hand-off of the demand edges, the stop rules and the frontier (`ap-history.md` F70; §4.3,
-§4.5, §7.3 to §7.8), and the marks of the restriction and of the emission (`ap-history.md` F71; §4.4, §4.6). The
+The items 32 to 42 test current structural summary selection, stop rules and the frontier (§4.3,
+§4.5, §7.3 to §7.8), and mark-aware restriction and emission (§4.4, §4.6). Named Lean closure witnesses from
+`ap-history.md` F70/F71 remain historical comparison data. The
 items 22 and 23 cite Lean results of the earlier hand-off (`AnyTaintExCases2.G.handoffX_get`,
-`AnyTaintExCases.B.run3_must`, with `restrictX`): there the summaries that the hand-off reads are not crossable (a
-demand-layer getter, a demand given by hand), and the intersection keeps the same pieces, so the expected values do
-not change (argued).
+`AnyTaintExCases.B.run3_must`, with `restrictX`): their input is a demand-layer getter or a demand given by
+hand. The local intersections remain test data; current hand-off and iteration results require structural selection.
+Historical `HandoffCases`/`HandoffMain` closure witnesses below do not by themselves prove current selection.
 
 32. WRAP (§7.8; `HandoffCases.Wrap`, the field limits 1, 2, 3). `root(): x.a.b.c = source(); r = wrap(x);
-    sink(r.f.a.b.c)`, `wrap(x): z = new Z(); z.f = x; return z`. Run 1: the summary of `wrap` is crossable, and the
+    sink(r.f.a.b.c)`, `wrap(x): z = new Z(); z.f = x; return z`. Run 1: `wrap` has a normal singleton summary, and the
     vulnerability is DEMAND. The frontier of run 1 has no demand edge of `wrap`. Backward run 2 has only the zero fact
     in `wrap`: it crosses `wrap` by the reversed record. Forward run 3 analyses `wrap` only from the zero fact (`wrap`
     is in `zeroOnly`, not in `analysed`), applies the record of `wrap` in the root (one record crossing), cuts in the
     root and reports the vulnerability (`Wrap.wrap_old_vs_new`). A test hand-off that reads every summary edge before
     the restriction (the earlier hand-off) makes runs 2 and 3 analyse `wrap` from a non-zero fact, with a demand-layer
     edge in `wrap` in run 3 (`Wrap.old_b2_wrap_init`, `old_f3_wrap_cut`).
-33. A CROSSABLE CALLEE IS NEVER ENTERED BY THE BACKWARD RUN. A callee whose run-1 summary leaves are all crossable (the
+33. NORMAL SINGLETON SUMMARIES GIVE NO CALLEE DEMAND. A callee whose run-1 summaries are all normal singletons (the
     `wrap` of item 32, a setter `set(v): this.f = v`, an identity `id(p): return p`) has no non-zero initial fact in
-    the backward run (`HandoffCases.Wrap.bn_wrap_zero_only`, `bn_wrap_edges_zero`). The requirement crosses it by the
+    the backward run when no independent seed reaches it. Historical local witnesses:
+    `HandoffCases.Wrap.bn_wrap_zero_only`, `bn_wrap_edges_zero`. The requirement crosses it by the
     reversed record (`bn_cross`, by `applicable`) and still reaches the source in the caller, so the next forward run
     fires that source and reports the vulnerability (`fn_found`).
 34. THE GETTER IS CROSSED BY THE REVERSED BACKWARD RECORD (§7.4; `HandoffCases.Getter`). `root(): x.f.a = source();
     r = get(x); sink(r.a)`, `get(x): ret = x.f`. The run-1 summary of `get` is in the demand layer, so it is a demand
     edge (`Getter.g1_exit_demand`). Backward run 2 enters `get` and gives the NORMAL backward summary
-    `(ret, .a, $, T) → (arg, .f.a, $, T)`; it is normal and its reversal is crossable, so it is not a demand edge
-    (`revRec_g_cross`, `revRec_g_crossB`, `demG_exact`: `get` gets only the zero demand). Forward run 3 analyses `get` only from the zero fact
+    `(ret, .a, $, T) → (arg, .f.a, $, T)`; it is a normal singleton, so it is not a callee demand edge
+    (`demG_exact` is historical comparison data: `get` gets only the zero demand). Forward run 3 analyses `get` only from the zero fact
     (`fg_getter_zero_only`), crosses the call by the reversed record (by `satI`, `fg_record_sat`) and reports the
     vulnerability in the NORMAL layer under the zero premise of the root (`fg_found`), so run 3 confirms it and the
     driver stops (`STOP_RULE`). These Lean results are of the concrete design. SINCE F72 (PENDING the model; §7.4):
     backward run 2 emits the FLOW premise `(ret, ., *, {}, *)` in `get` (the pattern of `get` has the mark `*`), and
-    the backward summary is `(ret, ., *, {}, *) → (arg, .f, *, {}, *)`; it is normal and its reversal is crossable, so
+    the backward summary is `(ret, ., *, {}, *) → (arg, .f, *, {}, *)`; it is a normal singleton, so
     `get` still gets only the zero demand. Forward run 3 crosses the call by the reversed record by `applicable`, and
     the result is the same: the vulnerability in the NORMAL layer, CONFIRMED, `STOP_RULE`.
-35. GENERIC CROSSING AND F76 READ VIEWS. Retain `HandoffCases.AnyW` and `AnyM` as
-    historical regressions for the generic reader: omitting an any conclusion
-    loses the finding when its reversed `[any]` premise cannot match an exact
-    requirement. These models do not test the new native reader. For current
-    native normal singleton records, omit backward demand for exact-concrete
-    premise → must/E concrete conclusion. Check its STAR/E view on admitted and
-    excluded fields, distinct marks, and the next forward replay of the stored
-    raw record. Must-premise views stay demand-layer and keep demand selection.
-    Compare engine and reference selection before publication restriction.
+35. STRUCTURAL SELECTION AND F76 READ VIEWS. Omit callee demand for every native normal singleton:
+    exact→exact, FLOW→FLOW, exact→must/E, must/E→must/E and must/E→exact. Check the actual backward views
+    on admitted and excluded fields, distinct marks, and subsequent forward replay of the stored raw record.
+    In particular, `p.[any-taint](T) → ret.[any-taint](T)` must produce no callee demand. Its backward view
+    accepts `ret.f.g.$(T)` and yields `p.[any](T)` in the DEMAND layer in the caller. A must→exact view likewise
+    yields a caller DEMAND result without selecting the callee summary. Preserve selection for DEMAND-layer
+    summaries, normal multi-premise summaries and backward zero-premise seed paths. Compare the tree shortcut
+    with per-leaf selection before publication restriction (`CurrentSummarySelection`); an input suffix or a
+    view-result layer cannot change the structural decision.
 36. THE RESTRICTION VECTORS (`ap.md` §6.4; §4.6). The intersection against the earlier restriction: `[any]` against
     `D-p = $` gives `$` (`Handoff.RVec.v64_restrictI`; `restrictU` keeps `[any]`, `v64_restrictU`); a premise that only
     overlaps `D-c` gives no result (`vOverlap_restrictI`; `restrictU` gives one, `vOverlap_restrictU`); no `D-p` gives
@@ -530,7 +531,7 @@ not change (argued).
     backward run 2 has at least one reversed crossing, and run 3 at least one record crossing. The condition on the
     seeds is needed: if `wrap` calls a callee with the sink of a DEMAND vulnerability on the argument of `wrap`, the
     seed gives a zero-premise backward edge of `wrap` with a non-zero requirement (§7.4 case 2), and `wrap` is in
-    `analysed` again in the next forward run, although its summary leaves are crossable.
+    `analysed` again in the next forward run, although its summary leaves are normal singletons.
 38. THE SEEDS OF THE DEMAND VULNERABILITIES (§7.3). Two vulnerabilities: run 1 confirms one and reports the other as
     DEMAND. Backward run 2 seeds only the DEMAND one. Forward run 3 need not report the CONFIRMED one; the report after
     run 3 still holds both: the first as CONFIRMED (final), the second as CONFIRMED or DEMAND by run 3 (§7.5).
@@ -550,16 +551,16 @@ not change (argued).
     `M(p1, p2): ret = lib(p1, p2); return ret`, where `lib` is a conjunctive source `ContainsMark(arg0, T1) ∧
     ContainsMark(arg1, T2) → Result.$ (T)` and `c` is clean; the field limits 1, 2, 3. Run 1 reports `sinkT(y.f.g)`
     as DEMAND (the cut) and does not report `sinkT(r2)`. In backward run 2 the reversal of the conjunction in `M` gives
-    `(ret, ., $, T) → (p1, ., $, T1)` and `(ret, ., $, T) → (p2, ., $, T2)` in the DEMAND layer: no record, not
-    crossable, both handed off (§7.4 case 3). Forward run 3 analyses `M` with both members: the first call CONFIRMS
+    `(ret, ., $, T) → (p1, ., $, T1)` and `(ret, ., $, T) → (p2, ., $, T2)` in the DEMAND layer: no record,
+    both handed off (§7.4 case 3). Forward run 3 analyses `M` with both members: the first call CONFIRMS
     `sinkT(y.f.g)`, and the second call gives nothing, so `sinkT(r2)` is not reported. A test reversal that keeps the
     normal layer makes both backward summaries records, and run 3 reports `sinkT(r2)` CONFIRMED (the false positive).
 41. THE MARK-AWARE RESTRICTION (`ap.md` §6.4; §4.6; `ap-history.md` F71). THE USER'S EXAMPLE, a core test: a
     restricted forward run with a demand store given by hand, a method key with the one demand pattern
     `D-c = (x, ., $, T)`, `D-p = (ret, .f, $, U)`, and the summary delta `(x, ., $, T) → (ret, .f, $, T)` at its exit.
     The premise lies inside `D-c`, but the conclusion mark `T` is not the mark `U` of `D-p`: the analyzer publishes
-    nothing for it. The same delta against `D-p = (ret, .f, $, T)` is published; its leaf is crossable (normal, a `$`
-    premise and a `$` leaf, mark-reversible; §1), so it is a record and no demand edge with either `D-p`. A
+    nothing for it. The same delta against `D-p = (ret, .f, $, T)` is published; it is a normal singleton,
+    so its raw leaf is a record and gives no callee demand with either `D-p`. A
     demand-layer form of the same delta (`m(x){ ret.f.g = x; }` at the field limit 1: the leaf `(ret, .f, [any], T)`,
     which the meet with `D-p = (ret, .f, $, T)` makes `(ret, .f, $, T)` in the demand layer) is published and stored
     as a demand edge (`summaries.demandEdges()`) with `D-p = (ret, .f, $, T)`, and not with `D-p = (ret, .f, $, U)`;
@@ -601,7 +602,7 @@ the coordinator gets the program.
     is `(D-c = (ret, ., [any], *), D-p = (p, ., *, {}, *))`, a `*` pattern. Backward run 2 has ONE non-zero initial
     fact in `get`, the FLOW premise `(ret, ., *, {}, *)`, for both requirements (one `initials.add` stores it). A
     restricted run never has more than one initial fact per `*` pattern in `get`: if forward run 3 emits in `get`, it
-    emits ONE FLOW premise for both added facts; if the backward FLOW summary is crossable, run 3 crosses `get` by its
+    emits ONE FLOW premise for both added facts; if the backward FLOW summary is a normal singleton, run 3 crosses `get` by its
     reversed record and has only the zero fact there. Both vulnerabilities are reported. Before F72 the restricted
     runs had one initial fact per mark (NO SHARING).
 44. THE HAND-OFF NORMALIZATION AND THE CONCRETE PATTERN (R1, R2; §7.3, §4.4). `m(x): y = x.f; clean(T, y);
@@ -612,7 +613,7 @@ the coordinator gets the program.
     given by hand, the pattern `D-c = (x, ., $, T)` and the added fact `(x, ., $, *)` (or `(x, ., $, *∖{U})`): no
     initial fact, and no request (§4.4: "The added fact can't satisfy the demand").
 45. NO REQUEST AFTER RUN 1 (R4; CEGAR (ii), (iii); §4.6). In both programs the callee `c` reads a field of its
-    argument, so its run-1 FLOW summary is in the demand layer, not crossable, and its pattern has the mark `*`.
+    argument, so its run-1 FLOW summary is in the demand layer, and its pattern has the mark `*`.
     (ii) A MARK-CHANGING PASS RULE: `root(): a.h = srcT(); r = c(a); sinkU(r)`, `c(p): y = p.h; q = lib(y);
     return q`, where `lib` is unresolved with a pass rule from `arg0` with the mark `T` to `Result` with the mark `U`.
     In each restricted run the FLOW premise of `c` gives no result at the pass rule and no request (the mark gate);

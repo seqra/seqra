@@ -767,7 +767,7 @@ STATEMENTS. The reversed statement summary of a non-call statement (ap.md §9.1,
   at a call, §4.1, or at an exit, §4.7 step 1, D31), EVERY result of these plain edges is in the demand layer, also a
   `$` result, as for the reversal of a may (the pass-rule row of RULE ROLES): a requirement that reaches one literal
   is not a converse flow of the conjunction. So no backward summary through such an edge is a record (ap.md §8.7 R1)
-  or crossable (Lean `Handoff.CrossB`), and the hand-off gives it to the next forward run as a demand edge (ap.md
+  and the hand-off gives it to the next forward run as a demand edge (ap.md
   §9.2, case 3). This removes a false positive that existed before F70: the reversal of such a backward summary was a
   forward record from one literal, which drops the other literals (`ap-history.md` F70, the review round). Argued:
   the model has no restricted run with ND edges (ap.md §11.2);
@@ -1065,7 +1065,7 @@ CALLER premise (§5.4). A cleaner on `Result` acts only through the rewriter (op
   requirement with the tail `[any]`, in the demand layer (W6; the backward run has no `[any-taint]`, I14). If the edge
   has two or more positive literals (a conjunctive source at a call or at an exit), every result of these plain edges
   is in the demand layer, also a `$` result: a requirement that reaches one literal is not a converse flow of the
-  conjunction (§4.9 STATEMENTS; ap.md §9.2). So no backward summary through it is a record or crossable, and the next
+  conjunction (§4.9 STATEMENTS; ap.md §9.2). So no backward summary through it is a record, and the next
   forward run analyses the callee again from the demand of each literal: the conjunction needs all its members there
   (argued, ap.md §11.2).
 

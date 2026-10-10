@@ -56,15 +56,6 @@ def readView (r : NativeRecord) : Option ReadView :=
       else none
     | _, _, _, _, _ => none
 
-/-- Additional forward reuse eligibility, decided on the raw native record.
-    A successful demand read view is not sufficient to omit backward demand. -/
-def omitMustDemand (r : NativeRecord) : Bool :=
-  if r.conclusion.af.demand then false else
-    match r.premise.kind, r.premiseMust, r.premise.mark,
-        r.conclusion.af.fact.kind, r.conclusion.af.fact.mark with
-    | .exact, false, .conc _, .any, .conc _ => r.premiseEx == Excl.empty
-    | _, _, _, _, _ => false
-
 /-- The corresponding explicit local native guards. Singleton provenance and
     R1/S14 remain the caller's obligations, as for readView. -/
 def exactMustGuardsB (r : NativeRecord) : Bool :=
@@ -77,38 +68,13 @@ def normalReadB : Option ReadView → Bool
   | none => false
   | some v => !v.2.demand
 
-theorem omit_eq_guardsB (r : NativeRecord) : omitMustDemand r = exactMustGuardsB r := by
+theorem exact_guards_eq_normal_read (r : NativeRecord) :
+    exactMustGuardsB r = normalReadB (readView r) := by
   obtain ⟨⟨_, _, pk, pm⟩, must, jex, ⟨⟨⟨_, _, xk, xm⟩, dm⟩, ex⟩⟩ := r
   cases dm <;> cases must <;> cases pk <;> cases pm <;> cases xk <;> cases xm <;>
-    simp [omitMustDemand, exactMustGuardsB, concB]
-
-theorem omit_eq_normal_read (r : NativeRecord) :
-    omitMustDemand r = normalReadB (readView r) := by
-  obtain ⟨⟨_, _, pk, pm⟩, must, jex, ⟨⟨⟨_, _, xk, xm⟩, dm⟩, ex⟩⟩ := r
-  cases dm <;> cases must <;> cases pk <;> cases pm <;> cases xk <;> cases xm <;>
-    simp [omitMustDemand, readView, normalReadB]
+    simp [exactMustGuardsB, concB, readView, normalReadB]
   all_goals by_cases hj : jex = Excl.empty <;> by_cases hx : ex = Excl.empty <;>
     simp [hj, hx]
-
-/-- Existing generic reuse is extended only by the new normal exact-to-must
-    view. Generic Cross and generic revEdge are unchanged. -/
-def RawReusable (raw : NativeRecord) : Prop :=
-  Cross raw.premise raw.conclusion.af ∨ omitMustDemand raw = true
-
-def RawDemand (raw : NativeRecord) : Prop := ¬ RawReusable raw
-
-/-- Publication keeps this new branch's raw selection bit beside each reduced
-    piece. It does not run the selector on that piece. The overall reusable
-    classifier additionally includes the existing generic Cross branch. -/
-def publicationPlan (raw : NativeRecord) (piece : XFact) : Bool × XFact :=
-  (omitMustDemand raw, piece)
-
-theorem publication_keeps_raw_selection (raw : NativeRecord) (piece : XFact) :
-    (publicationPlan raw piece).1 = omitMustDemand raw ∧
-    (publicationPlan raw piece).2 = piece := ⟨rfl, rfl⟩
-
-theorem publication_selection_independent (raw : NativeRecord) (a b : XFact) :
-    (publicationPlan raw a).1 = (publicationPlan raw b).1 := rfl
 
 /-- The returned value is the actual computed reader result. -/
 structure ViewCertificate (r : NativeRecord) where
@@ -118,10 +84,6 @@ structure ViewCertificate (r : NativeRecord) where
 def exactNative (pb xb : Base) (pp xp : List Acc) (u t : Mark) (e : Excl) : NativeRecord :=
   ⟨⟨pb, pp, .exact, .conc u⟩, false, Excl.empty,
     ⟨⟨⟨xb, xp, .any, .conc t⟩, false⟩, e⟩⟩
-
-/-- Selection is uniform over base, path, both concrete marks and output E. -/
-theorem omit_exactNative (pb xb : Base) (pp xp : List Acc) (u t : Mark) (e : Excl) :
-    omitMustDemand (exactNative pb xb pp xp u t e) = true := rfl
 
 def exactCertificate (pb xb : Base) (pp xp : List Acc) (u t : Mark) (e : Excl) :
     ViewCertificate (exactNative pb xb pp xp u t e) :=
@@ -167,14 +129,14 @@ theorem exact_converse {pb xb : Base} {pp xp : List Acc} {u t : Mark}
     rw [hσ] at hp0
     exact hp0
 
-/-- The selected actual read value is an exact annotated converse. -/
-theorem selected_view_converse {r : NativeRecord} {v : ReadView}
-    (selected : omitMustDemand r = true) (computed : readView r = some v) (l0 l1 : Loc) :
+/-- The actual normal read value is an exact annotated converse. -/
+theorem normal_view_converse {r : NativeRecord} {v : ReadView}
+    (guards : exactMustGuardsB r = true) (computed : readView r = some v) (l0 l1 : Loc) :
     denX r.premise r.premiseEx r.conclusion.af.fact r.conclusion.ex l0 l1 ↔
       den v.1 v.2.fact l1 l0 := by
   obtain ⟨⟨pb, pp, pk, pm⟩, must, jex, ⟨⟨⟨xb, xp, xk, xm⟩, dm⟩, ex⟩⟩ := r
   cases dm <;> cases must <;> cases pk <;> cases pm <;> cases xk <;> cases xm <;>
-    simp [omitMustDemand] at selected
+    simp [exactMustGuardsB, concB] at guards
   subst jex
   simp [readView] at computed
   cases computed
@@ -187,30 +149,30 @@ structure NormalMustWitness (r : NativeRecord) where
   converse : ∀ l0 l1, denX r.premise r.premiseEx
     r.conclusion.af.fact r.conclusion.ex l0 l1 ↔ den view.1 view.2.fact l1 l0
 
-/-- The selected view is extracted by evaluating readView, not by choosing
+/-- The normal view is extracted by evaluating readView, not by choosing
     a value from an existential proposition. -/
-def normalMustWitness (r : NativeRecord) (selected : omitMustDemand r = true) :
+def normalMustWitness (r : NativeRecord) (guards : exactMustGuardsB r = true) :
     NormalMustWitness r :=
   match he : readView r with
   | some v =>
     ⟨v, he, by
-      have h := (omit_eq_normal_read r).symm.trans selected
+      have h := (exact_guards_eq_normal_read r).symm.trans guards
       rw [he] at h
       cases hd : v.2.demand <;> simp [normalReadB, hd] at h ⊢,
-      fun _ _ => selected_view_converse selected he _ _⟩
+      fun _ _ => normal_view_converse guards he _ _⟩
   | none => False.elim (by
-      have h := (omit_eq_normal_read r).symm.trans selected
+      have h := (exact_guards_eq_normal_read r).symm.trans guards
       rw [he] at h
       cases h)
 
-theorem omit_iff_normal_view {r : NativeRecord} :
-    omitMustDemand r = true ↔ ∃ v, readView r = some v ∧ v.2.demand = false := by
+theorem exact_guards_iff_normal_view {r : NativeRecord} :
+    exactMustGuardsB r = true ↔ ∃ v, readView r = some v ∧ v.2.demand = false := by
   constructor
   · intro h
     let w := normalMustWitness r h
     exact ⟨w.view, w.computed, w.normal⟩
   · rintro ⟨v, hv, hn⟩
-    rw [omit_eq_normal_read, hv]
+    rw [exact_guards_eq_normal_read, hv]
     simp [normalReadB, hn]
 
 theorem exactCertificate_converse (pb xb : Base) (pp xp : List Acc) (u t : Mark)
@@ -286,10 +248,10 @@ def transferCertificate (pb xb : Base) (pp xp suffix : List Acc) (u t : Mark)
     ⟨xb, xp, .star e, .conc t⟩ ⟨⟨pb, pp, .exact, .conc u⟩, false⟩,
     rfl, h.1, h.2.1, h.2.2⟩
 
-/-- The generic transfer certificate also applies to the actual selected
+/-- The generic transfer certificate also applies to the actual normal
     computed read view, for every admitted concrete exact suffix. -/
-theorem selected_view_transfer {r : NativeRecord} {v : ReadView}
-    (selected : omitMustDemand r = true) (computed : readView r = some v)
+theorem normal_view_transfer {r : NativeRecord} {v : ReadView}
+    (guards : exactMustGuardsB r = true) (computed : readView r = some v)
     (suffix : List Acc) (admitted : r.conclusion.ex.admits suffix = true) :
     applicable v.1 ⟨r.conclusion.af.fact.base, r.conclusion.af.fact.path ++ suffix,
       .exact, r.conclusion.af.fact.mark⟩ = true ∧
@@ -299,7 +261,7 @@ theorem selected_view_transfer {r : NativeRecord} {v : ReadView}
       .exact, r.conclusion.af.fact.mark⟩, false⟩ v.1 v.2).reqs = [] := by
   obtain ⟨⟨pb, pp, pk, pm⟩, must, jex, ⟨⟨⟨xb, xp, xk, xm⟩, dm⟩, ex⟩⟩ := r
   cases dm <;> cases must <;> cases pk <;> cases pm <;> cases xk <;> cases xm <;>
-    simp [omitMustDemand] at selected
+    simp [exactMustGuardsB, concB] at guards
   subst jex
   simp [readView] at computed
   cases computed
@@ -360,37 +322,6 @@ theorem must_application_demand {r : NativeRecord} {v : ReadView} {a g : AFact}
     (hm : r.premiseMust = true) (hr : readView r = some v)
     (hg : g ∈ (applySummary a v.1 v.2).facts) : g.demand = true :=
   Invariant.applySummary_demand_monotone (Or.inr (must_read_demand hm hr)) hg
-
-theorem omit_must_premise {r : NativeRecord} (hm : r.premiseMust = true) :
-    omitMustDemand r = false := by
-  unfold omitMustDemand
-  rw [hm]
-  cases r.conclusion.af.demand <;> cases r.premise.kind <;> rfl
-
-theorem omit_star_premise {r : NativeRecord} {e : Excl} (hs : r.premise.kind = .star e) :
-    omitMustDemand r = false := by
-  unfold omitMustDemand
-  rw [hs]
-  cases r.conclusion.af.demand <;> rfl
-
-theorem omit_demand_layer {r : NativeRecord} (hd : r.conclusion.af.demand = true) :
-    omitMustDemand r = false := by simp [omitMustDemand, hd]
-
-theorem omit_nonempty_premiseEx {r : NativeRecord} (he : r.premiseEx ≠ Excl.empty) :
-    omitMustDemand r = false := by
-  rw [omit_eq_guardsB]
-  simp [exactMustGuardsB, he]
-
-/-- A well-formed native must premise has the ANY tail. Its read view is
-    demand and neither the old Cross nor the new omission selects reuse. -/
-theorem must_selected_demand {r : NativeRecord} (hm : r.premiseMust = true)
-    (hk : r.premise.kind = .any) : RawDemand r := by
-  rintro (hc | hn)
-  · unfold Cross at hc
-    rw [hk] at hc
-    exact hc.2.1
-  · rw [omit_must_premise hm] at hn
-    cases hn
 
 /-- Concrete EXACT or ANY backward facts covering a location admitted by the
     new STAR/E reader premise can read it, even for nonempty E. Abstract facts
@@ -507,10 +438,10 @@ def mustExactEndpoints : {locs : Loc × Loc //
 def differentMarkTransfer : TransferCertificate 3 5 [] [2] [7] 9 1 (.set [4]) :=
   transferCertificate 3 5 [] [2] [7] 9 1 (.set [4]) rfl
 
-def omittedNative : NativeRecord := exactNative 3 5 [] [2] 9 1 (.set [4])
-def selectedRead : NormalMustWitness omittedNative := normalMustWitness omittedNative rfl
-def reused : Res := applySummary incoming selectedRead.view.1 selectedRead.view.2
-def source : MicroEdge := (zeroFact, omittedNative.premise)
+def exactReadNative : NativeRecord := exactNative 3 5 [] [2] 9 1 (.set [4])
+def normalRead : NormalMustWitness exactReadNative := normalMustWitness exactReadNative rfl
+def reused : Res := applySummary incoming normalRead.view.1 normalRead.view.2
+def source : MicroEdge := (zeroFact, exactReadNative.premise)
 def reverseSource : MicroEdge := revEdge source.1 source.2
 def upstreamSourceRead : List AFact := reused.facts.flatMap
   (fun fact => (applyEdge fact reverseSource.1 reverseSource.2).facts)
@@ -521,34 +452,24 @@ def upstreamSourceWitness : {facts : List AFact //
     facts = upstreamSourceRead ∧ facts = [⟨zeroFact, false⟩]} :=
   ⟨upstreamSourceRead, rfl, by decide⟩
 
-theorem omission_reuses_distinct_mark :
-    omitMustDemand omittedNative = true ∧
+theorem normal_read_reuses_distinct_mark :
+    exactMustGuardsB exactReadNative = true ∧
     reused.facts = [⟨⟨3, [], .exact, .conc 9⟩, false⟩] ∧
     reverseSource = (⟨3, [], .exact, .conc 9⟩, zeroFact) := by decide
 
-theorem old_generic_cross_stays_false :
-    ¬ Cross omittedNative.premise omittedNative.conclusion.af ∧ RawReusable omittedNative := by
-  constructor
-  · rintro ⟨_, _, _, hk⟩
-    exact hk
-  · exact Or.inr rfl
-
 def exactPiece : XFact := ⟨incoming, Excl.empty⟩
-def previousDemand : DemandEdge := ⟨omittedNative.premise, some incoming.fact⟩
+def previousDemand : DemandEdge := ⟨exactReadNative.premise, some incoming.fact⟩
 
-/-- Actual annotated reduction publishes an exact piece. The omission choice
-    still reads its raw exact-to-must record, not the narrowed piece. -/
-theorem restricted_publication_keeps_selection :
-    HandoffX.restrictIX omittedNative.premise omittedNative.premiseEx
-      omittedNative.conclusion previousDemand = some exactPiece ∧
-    (publicationPlan omittedNative exactPiece).1 = true ∧
-    omitMustDemand ⟨omittedNative.premise, false, Excl.empty, exactPiece⟩ = false := by decide
+/-- Actual annotated reduction publishes an exact normal piece. This local
+    fact does not select demand or establish whole-run coverage. -/
+theorem restricted_piece_normal :
+    HandoffX.restrictIX exactReadNative.premise exactReadNative.premiseEx
+      exactReadNative.conclusion previousDemand = some exactPiece ∧
+    exactPiece.af.demand = exactReadNative.conclusion.af.demand := by decide
 
-theorem successful_must_view_still_demanded :
+theorem successful_must_view_is_demand :
     readView (mustAnyNative 3 5 [] [2] 1 1 (.set [8]) (.set [4])) = some anyMust.view ∧
-    omitMustDemand (mustAnyNative 3 5 [] [2] 1 1 (.set [8]) (.set [4])) = false ∧
-    RawDemand (mustAnyNative 3 5 [] [2] 1 1 (.set [8]) (.set [4])) :=
-  ⟨anyMust.computed, rfl, must_selected_demand rfl rfl⟩
+    anyMust.view.2.demand = true := ⟨anyMust.computed, rfl⟩
 
 theorem local_any_match_cases :
     satW exact.view.1 ⟨5, [], .any, .conc 1⟩ = true ∧
@@ -597,34 +518,31 @@ theorem normal_must_bad_pair :
 #eval mustAnyEndpoints.val
 #eval mustExactEndpoints.val
 #eval differentMarkTransfer.result
-#eval selectedRead.view
+#eval normalRead.view
 #eval upstreamSourceWitness.val
-#eval publicationPlan omittedNative exactPiece
+#eval exactPiece
 
 end Certificate
 
 #print axioms readView
-#print axioms omit_eq_guardsB
-#print axioms omit_eq_normal_read
-#print axioms omit_exactNative
+#print axioms exact_guards_eq_normal_read
 #print axioms normalMustWitness
-#print axioms omit_iff_normal_view
-#print axioms publication_keeps_raw_selection
+#print axioms exact_guards_iff_normal_view
 #print axioms exactCertificate
 #print axioms mustAnyCertificate
 #print axioms mustExactCertificate
 #print axioms exact_converse
+#print axioms normal_view_converse
 #print axioms must_any_converse_covers
 #print axioms must_exact_converse_covers
 #print axioms mustAnyCertificate_covers
 #print axioms mustExactCertificate_covers
 #print axioms transferCertificate
-#print axioms selected_view_transfer
+#print axioms normal_view_transfer
 #print axioms exact_transfer_rejects
 #print axioms must_read_demand
 #print axioms must_read_not_normal
 #print axioms must_application_demand
-#print axioms must_selected_demand
 #print axioms concrete_read_matches
 #print axioms Certificate.literal_star_loses_pair
 #print axioms Certificate.normal_must_bad_pair

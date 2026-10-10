@@ -2,7 +2,8 @@
   F75 FLOW representation invariants. The program's S7/S8 edge conditions,
   abstract emission shape, restriction shape and stored-record shape are
   explicit. Arbitrary AP programs and arbitrary record stores do not imply
-  these properties. The later handoff proof derives the demand shape.
+  these properties. The later handoff proof derives demand shape for the
+  historical generic selector. It does not derive F77 sequence preservation.
 -/
 import ApSpec.CurrentDemandClosure
 
