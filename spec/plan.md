@@ -33,7 +33,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | Steps | Status | Evidence |
 |---|---|---|
 | S00 | Complete | [Baseline](../docs/reports/bidi-baseline.md), [class results](../docs/reports/bidi-baseline-tests.tsv), [contracts](../docs/reports/bidi-contracts.md), [fixtures](../docs/reports/bidi-fixtures.md). All baseline suites pass; all 12 fixture checks pass. SAST has no existing tests. |
-| A01–A09, V1 | Pending | |
+| A01 | Complete | [A01 evidence](../docs/reports/bidi-a01.md). Common 196, JVM 119 and Go 1,313 tests pass. SAST and application compile. |
+| A02–A09, V1 | Pending | |
 | I01–I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
@@ -47,6 +48,11 @@ operations. Raw reference values can represent abstract exact results of generic
 outside typed `Facts`, as stated in `ap-impl.md` §4.1 and §6. Initial and typed-fact factories
 reject abstract exact shapes. Canonical conclusions reject demand STAR tails.
 Key arrays use owned storage and public snapshots so callers cannot change interned content.
+An A01 review found that foreign path suffixes can defeat canonical identity, and that the
+union identity shortcut can bypass manager ownership. Path cells and premise inputs must
+belong to their manager. Test ownership before these shortcuts.
+The same review found the explicit-base `Position.resolveAp` overload. Add its internal-base
+rejection with the other JVM position boundaries and retain valid program-base mappings.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions

@@ -14,6 +14,7 @@ import org.opentaint.dataflow.jvm.util.thisInstance
 import org.opentaint.dataflow.jvm.util.varargParamIdx
 import org.opentaint.dataflow.taint.PositionAccess
 import org.opentaint.dataflow.taint.PositionTypeResolver
+import org.opentaint.dataflow.taint.base
 import org.opentaint.ir.api.common.CommonType
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -78,9 +79,15 @@ class JIRMethodPositionBaseTypeResolver(private val method: JIRMethod) : Positio
     private val cp = method.enclosingClass.classpath
 
     override fun resolve(position: PositionAccess): CommonType? {
+        val base = position.base()
+        check(base != AccessPathBase.Zero && base !is AccessPathBase.CleanerTemporary) {
+            "Internal base is not a JVM position: $base"
+        }
         if (position !is PositionAccess.Simple) return null
 
-        return when (val base = position.base) {
+        return when (base) {
+            AccessPathBase.Zero,
+            is AccessPathBase.CleanerTemporary -> error("Internal base is not a JVM position: $base")
             is AccessPathBase.Argument,
             is AccessPathBase.Return,
             is AccessPathBase.This -> positionType.computeIfAbsent(base) {
@@ -97,6 +104,8 @@ class JIRMethodPositionBaseTypeResolver(private val method: JIRMethod) : Positio
     private val positionType = Object2ObjectOpenHashMap<AccessPathBase, CommonType?>()
 
     private fun AccessPathBase.resolveType(): JIRType? = when (this) {
+        AccessPathBase.Zero,
+        is AccessPathBase.CleanerTemporary -> error("Internal base is not a JVM position: $this")
         is AccessPathBase.Argument -> method.parameters.getOrNull(idx)
             ?.let { cp.findTypeOrNull(it.type.typeName) }
 

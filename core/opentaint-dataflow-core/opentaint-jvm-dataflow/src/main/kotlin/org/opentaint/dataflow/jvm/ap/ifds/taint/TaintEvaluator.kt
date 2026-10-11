@@ -81,6 +81,9 @@ fun Position.resolveBaseAp(): AccessPathBase = when (this) {
 fun Position.resolveAp(): PositionAccess = resolveAp(resolveBaseAp())
 
 fun Position.resolveAp(baseAp: AccessPathBase): PositionAccess {
+    check(baseAp != AccessPathBase.Zero && baseAp !is AccessPathBase.CleanerTemporary) {
+        "Internal base is not a JVM position: $baseAp"
+    }
     return when (this) {
         is Argument,
         is This,

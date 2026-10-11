@@ -38,6 +38,7 @@ object GoMethodCallFactMapper : MethodCallFactMapper {
         factAp: F,
         rebase: F.(AccessPathBase) -> F
     ): List<F> {
+        checkProgramBase(factAp.base)
         val goInst = callStatement as GoIRInst
         val callInfo = GoFlowFunctionUtils.extractCallInfo(goInst) ?: return emptyList()
         val method = goInst.location.functionBody.function
@@ -117,6 +118,7 @@ object GoMethodCallFactMapper : MethodCallFactMapper {
         factAp: F,
         onMappedFact: (F, AccessPathBase) -> Unit,
     ) {
+        checkProgramBase(factAp.base)
         val goCallExpr = callExpr as GoCallExpr
         val method = (callStatement as GoIRInst).location.functionBody.function
 
@@ -152,6 +154,7 @@ object GoMethodCallFactMapper : MethodCallFactMapper {
         callExpr: CommonCallExpr,
         factAp: FactAp,
     ): Boolean {
+        checkProgramBase(factAp.base)
         val goCallExpr = callExpr as GoCallExpr
         val method = (callStatement as GoIRInst).location.functionBody.function
 
@@ -181,7 +184,14 @@ object GoMethodCallFactMapper : MethodCallFactMapper {
     }
 
     override fun isValidMethodExitFact(factAp: FactAp): Boolean {
+        checkProgramBase(factAp.base)
         return factAp.base !is AccessPathBase.LocalVar
+    }
+
+    private fun checkProgramBase(base: AccessPathBase) {
+        check(base != AccessPathBase.Zero && base !is AccessPathBase.CleanerTemporary) {
+            "Internal base is not a Go call fact: $base"
+        }
     }
 
     inline fun GoCallExpr.handleDynamicCall(enclosingFunction: GoIRFunction?, body: (AccessPathBase) -> Unit) {

@@ -128,6 +128,8 @@ class SpringRuleProvider(
     }
 
     private fun FactAp.cleanupPositions(): List<Position>? = when (val b = base) {
+        AccessPathBase.Zero,
+        is AccessPathBase.CleanerTemporary -> error("Internal base is not a Spring rule position: $b")
         is AccessPathBase.Argument -> listOf(Argument(b.idx))
         is AccessPathBase.ClassStatic -> getStartAccessors()
             .filterIsInstance<ClassStaticAccessor>()

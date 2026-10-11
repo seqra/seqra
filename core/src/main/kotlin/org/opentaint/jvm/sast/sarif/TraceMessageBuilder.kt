@@ -813,6 +813,8 @@ class TraceMessageBuilder(
         readAccessor(accessor)?.getStartAccessors()?.firstOrNull()
 
     private fun AccessPathBase.baseInMessage(node: TracePathNode, fact: InitialFactAp?) = when (this) {
+        AccessPathBase.Zero,
+        is AccessPathBase.CleanerTemporary -> error("Internal base cannot appear in a trace: $this")
         is AccessPathBase.This -> traits.printThis(node.statement)
         is AccessPathBase.Argument -> printArgument(node, idx)
         is AccessPathBase.ClassStatic -> {

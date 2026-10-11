@@ -145,6 +145,7 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
         rebaseFact: (F, AccessPathBase) -> F,
     ): F? {
         val base = factAp.base
+        checkProgramBase(base)
 
         val callExpr = callStatement.callExpr
             ?: error("Non call statement")
@@ -154,6 +155,8 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
         }
 
         return when (base) {
+            AccessPathBase.Zero,
+            is AccessPathBase.CleanerTemporary -> error("Internal base is not a JVM call fact: $base")
             is AccessPathBase.ClassStatic,
             is AccessPathBase.Constant -> {
                factAp
@@ -204,8 +207,16 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
         }
     }
 
-    private fun isValidMethodExitFact(factBase: AccessPathBase): Boolean =
-        factBase !is AccessPathBase.LocalVar
+    private fun isValidMethodExitFact(factBase: AccessPathBase): Boolean {
+        checkProgramBase(factBase)
+        return factBase !is AccessPathBase.LocalVar
+    }
+
+    private fun checkProgramBase(base: AccessPathBase) {
+        check(base != AccessPathBase.Zero && base !is AccessPathBase.CleanerTemporary) {
+            "Internal base is not a JVM call fact: $base"
+        }
+    }
 
     private inline fun <F : FactAp> mapMethodCallToStartFlowFact(
         callee: JIRMethod,
@@ -215,6 +226,7 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
         onMappedFact: (F, AccessPathBase) -> Unit,
     ) {
         val factBase = factAp.base
+        checkProgramBase(factBase)
 
         if (factBase is AccessPathBase.ClassStatic) {
             onMappedFact(factAp, factBase)
@@ -249,6 +261,7 @@ object JIRMethodCallFactMapper : MethodCallFactMapper {
         callExpr: JIRCallExpr,
         factBase: AccessPathBase
     ): Boolean {
+        checkProgramBase(factBase)
         if (factBase is AccessPathBase.ClassStatic) {
             return true
         }

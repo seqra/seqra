@@ -29,6 +29,9 @@ abstract class AccessPathBaseStorage<V : Any>(initialStatement: CommonInst) {
     abstract fun forEachConstantValue(body: (AccessPathBase, V) -> Unit)
 
     fun getOrCreate(base: AccessPathBase): V = when (base) {
+        AccessPathBase.Zero,
+        is AccessPathBase.CleanerTemporary -> error("Internal base is not supported by the old store: $base")
+
         AccessPathBase.This -> {
             thisStorage ?: createStorage().also { thisStorage = it }
         }
@@ -60,6 +63,8 @@ abstract class AccessPathBaseStorage<V : Any>(initialStatement: CommonInst) {
 
     @Suppress("UNCHECKED_CAST")
     fun find(base: AccessPathBase): V? = when (base) {
+        AccessPathBase.Zero,
+        is AccessPathBase.CleanerTemporary -> error("Internal base is not supported by the old store: $base")
         AccessPathBase.This -> thisStorage
         is AccessPathBase.Argument -> argsStorage.getOrNull(base.idx) as V?
         AccessPathBase.ClassStatic -> classStaticStorage

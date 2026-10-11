@@ -7,6 +7,8 @@ import java.io.DataOutputStream
 object AccessPathBaseSerializer {
     fun DataOutputStream.writeAccessPathBase(base: AccessPathBase) {
         when (base) {
+            AccessPathBase.Zero,
+            is AccessPathBase.CleanerTemporary -> error("Internal base cannot be serialized: $base")
             is AccessPathBase.Argument -> {
                 writeEnum(AccessPathBaseType.ARGUMENT)
                 writeInt(base.idx)

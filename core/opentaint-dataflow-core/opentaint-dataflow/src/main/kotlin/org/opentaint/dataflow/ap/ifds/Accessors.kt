@@ -5,6 +5,15 @@ import org.opentaint.dataflow.ap.ifds.access.ApManager
 sealed interface AccessPathBase {
     override fun toString(): String
 
+    data object Zero : AccessPathBase {
+        override fun toString(): String = "<zero>"
+    }
+
+    /** Fresh base for one cached field-cleaner action. Reversed actions share this object. */
+    class CleanerTemporary : AccessPathBase {
+        override fun toString(): String = "<cleaner-temporary>"
+    }
+
     data object This : AccessPathBase {
         override fun toString(): String = "<this>"
     }
