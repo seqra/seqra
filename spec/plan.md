@@ -3,7 +3,7 @@
 Implement the JVM bidirectional analyzer in the order below. Each step has tests to write first,
 implementation work, and a validation gate. Use Lean only to clarify unclear specified behavior,
 as described below. Complete the validation gate before the next dependent step. This document
-plans the work; the implementation steps are not complete.
+tracks the work; the implementation steps are not complete.
 
 The behavior is defined by [ap.md](ap.md), [interpreter.md](interpreter.md), and
 [analyzer-core.md](analyzer-core.md). Follow the interfaces and algorithms in
@@ -24,6 +24,29 @@ The phases are those of [bidirectional-task.md](../bidirectional-task.md):
 The interpreter is a phase-2 prerequisite. Phase 4 owns full project benchmarks and trace-aware
 parity. Phase 5 owns full trace resolution. Phase 3 returns the specified simple sink traces.
 Go analysis is outside the feature scope. Shared type changes must still compile for Go consumers.
+
+## Step status
+
+Complete each gate before marking its step complete. Commit the completed step and its evidence.
+The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
+
+| Steps | Status | Evidence |
+|---|---|---|
+| S00 | Complete | [Baseline](../docs/reports/bidi-baseline.md), [class results](../docs/reports/bidi-baseline-tests.tsv), [contracts](../docs/reports/bidi-contracts.md), [fixtures](../docs/reports/bidi-fixtures.md). All baseline suites pass; all 12 fixture checks pass. SAST has no existing tests. |
+| A01–A09, V1 | Pending | |
+| I01–I06, V2 | Pending | |
+| E01–E07, V3 | Pending | |
+| D01–D04, V4 | Pending | |
+| J01–J03, FINAL | Pending | |
+
+Implementation corrections: the earlier FINAL text described this file as a planning-only
+deliverable. `task.md` now requires implementation. FINAL closes that implementation.
+The A01 key factories already use `Pattern` and `InitialAp.toPattern`. Thus A01 adds the
+`PathFact`, `Pattern` and `Conclusion` value declarations in `Reference.kt`; A02 adds their
+operations. Raw reference values can represent abstract exact results of generic reduction
+outside typed `Facts`, as stated in `ap-impl.md` §4.1 and §6. Initial and typed-fact factories
+reject abstract exact shapes. Canonical conclusions reject demand STAR tails.
+Key arrays use owned storage and public snapshots so callers cannot change interned content.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions
@@ -132,6 +155,8 @@ conclusions at shape construction. `InitialAp` and `ApManager.initial` have no m
 schedule backward/run-1 must-initial rejection in A07/E02, where mode is known.
 
 **Implement.** Add `bidi/ap/Facts.kt`, `AccessorTable.kt`, `PathNode.kt` and `Premise.kt`.
+Add the per-path value declarations in `Reference.kt` needed by these factories; A02 adds
+the direct operations. Use private owned arrays and public snapshots for canonical key values.
 Intern accessor and mark values; reserve the zero mark. Count field and element accessors,
 but not class accessors. Store a singleton premise directly; sort and deduplicate multiple
 members. Premise union drops zero unless all members are zero. Full tail, mark and exclusion
@@ -852,8 +877,9 @@ Run one final review after all enabled gates pass:
    be complete. Test results do not establish general theorems.
 
 Commit each reviewed implementation/validation slice with its tests when commits are requested.
-Include clarification evidence when applicable. The deliverable for this task is this plan;
-it does not start runtime implementation or project benchmarking.
+Include clarification evidence when applicable. The deliverable for this task is the complete
+phase-1–3 implementation, its tests, and the gate evidence in this plan. Full project benchmarks
+remain in phase 4.
 
 ## Validation inventory ownership
 
