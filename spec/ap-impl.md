@@ -4128,6 +4128,7 @@ F74 adds `class CleanerTemporary : AccessPathBase` inside `AccessPathBase` in `D
 It uses object identity, with `toString()` equal to `"<cleaner-temporary>"`. A form builder creates one per field
 action; the cached reversal shares that object. It cannot equal a program local, argument, static base or zero.
 It is used only inside `CleanStep.Field`. The method-edge, summary, link and source-hit stores reject this base.
+Initial factories reject it as a premise; native records and demand hand-offs reject it at either stored endpoint.
 The serializer, language position resolvers and trace code reject it too. The old core does not create it.
 
 ### 23.5 Call points, stages, guards
@@ -4949,14 +4950,16 @@ internal class JIRRuleForms(
      *  passes only a `valid` rule (below), so every literal has a position: a rule error rejects the whole rule, never one
      *  cube (§1.3, D29). A pass rule takes no cube: it has no mark literal (§4.2, D24; Part II §28.5). REUSE
      *  removeTrueLiterals (TaintMarkAwareConditionExpr.kt:48-50) and explodeToDNF (:110-123). */
-    fun cubes(rule: Any, cond: ExprOrConstant): List<List<PathFact>> = when {
-        cond.isFalse -> emptyList()
-        cond.isTrue -> listOf(emptyList())
-        else -> {
-            val positive = cond.expr.removeTrueLiterals { it.negated } ?: return listOf(emptyList())
-            positive.explodeToDNF().map { cube ->
-                cube.literals.map { checkNotNull(literal(rule, it)) { "a rejected rule reaches the forms (§1.3): $rule" } }.distinct()
-            }.distinct()
+    fun cubes(rule: Any, cond: ExprOrConstant): List<List<PathFact>> {
+        return when {
+            cond.isFalse -> emptyList()
+            cond.isTrue -> listOf(emptyList())
+            else -> {
+                val positive = cond.expr.removeTrueLiterals { it.negated } ?: return listOf(emptyList())
+                positive.explodeToDNF().map { cube ->
+                    cube.literals.map { checkNotNull(literal(rule, it)) { "a rejected rule reaches the forms (§1.3): $rule" } }.distinct()
+                }.distinct()
+            }
         }
     }
 
@@ -4969,6 +4972,20 @@ internal class JIRRuleForms(
         var ok = true
         fun reject(reason: String) { errors.reject(rule, reason); ok = false }
         fun at(p: Position): RulePos? = pos(rule, p).also { if (it == null) ok = false }
+        // Every raw action position is checked, even when its rule kind ignores that action (§1.3).
+        val actions: List<Action> = when (rule) {
+            is TaintConfigurationSource -> rule.actionsAfter
+            is TaintConfigurationSink -> rule.trackFactsReachAnalysisEnd
+            is TaintPassThrough -> rule.actionsAfter
+            is TaintCleaner -> rule.actionsAfter
+        }
+        for (a in actions) when (a) {
+            is AssignMark -> at(a.position)
+            is CopyAllMarks -> { at(a.from); at(a.to) }
+            is CopyMark -> { at(a.from); at(a.to) }
+            is RemoveMark -> at(a.position)
+            is RemoveAllMarks -> at(a.position)
+        }
         val literals = markLiterals(rule.rawCondition)                                // (position, ContainsMarkOnAnyField)
         val anyLiteral = literals.map { (p, onAny) -> at(p)?.any == true || onAny }.any { it }   // every literal is read
         /** markTarget (Part II §27.2): a class position takes no any target (a source or an end fact: `[any-taint]`,

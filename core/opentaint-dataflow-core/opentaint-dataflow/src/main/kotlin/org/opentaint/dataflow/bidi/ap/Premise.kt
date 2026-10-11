@@ -29,6 +29,7 @@ class InitialAp internal constructor(
     @JvmField internal val manager: ApManager,
 ) : PremiseKey {
     init {
+        check(base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot be a premise" }
         check(mark !is MarkSlot.Star || mark.excluded.isEmpty) { "A premise cannot exclude marks" }
         check(tail == Tail.STAR || tail == Tail.ANY_TAINT || exclusion == ExclusionSet.Empty) {
             "Only a STAR or must premise can exclude fields"

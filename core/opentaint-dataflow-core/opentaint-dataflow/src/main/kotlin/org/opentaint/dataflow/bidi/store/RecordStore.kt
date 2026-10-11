@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.bidi.store
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 
 /** A raw normal singleton summary, retained in the direction in which it was derived. */
@@ -100,6 +101,7 @@ class PersistentRecordStore(private val m: ApManager) : RecordStore {
 }
 
 private fun checkNativeRecord(direction: Direction, premise: InitialAp, conclusion: Facts) {
+    check(conclusion.base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot enter a native record" }
     check(conclusion.layer == Layer.NORMAL) { "R1: a native record must be normal" }
     check((conclusion is FlowTree) == premise.isFlow) { "K6: the conclusion kind follows the native premise" }
     check(premise.isZero || when (premise.mark) {

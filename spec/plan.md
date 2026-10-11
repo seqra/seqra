@@ -46,7 +46,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | I01 | Complete | [Common forms and mode gate](../docs/reports/bidi-i01.md). Reversal, cached directions, all three application modes and the per-path call walk pass 60 new tests. Clean common 707 tests pass; all 559 new common tests are discovered. JVM/Go test, SAST and application compilation pass. |
 | I02 | Complete | [Shared builder gate](../docs/reports/bidi-i02.md). Exact forms and independent per-path/tree vectors pass all 41 new tests, including field-clean actions. Clean common 748 tests pass; all 600 new common tests are discovered. JVM/Go test, SAST and application compilation pass. |
 | I03 | Complete | [JVM statement gate](../docs/reports/bidi-i03.md). All 52 new construction, effect and filter tests pass. Clean common 748 and JVM 171 tests pass; all 600 common and 57 JVM new tests are discovered. Go test, SAST and application compilation pass. |
-| I04–I06, V2 | Pending | |
+| I04 | Complete | Whole-rule validation, rule forms, lowered field actions and temporary lifetime guards. Clean common/JVM and shared-consumer compile gate passed; see `docs/reports/bidi-i04.md`. |
+| I05–I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
@@ -352,6 +353,38 @@ The same run found that the reused `unboxIfNeeded` helper recognizes
 requires primitive or boxed types. Add explicit Character recognition
 to the new mark policy, including element levels. Keep the shared helper
 and old prescan behavior unchanged. Add Character-array coverage.
+The I04 proposal review found that its validation visits only supported
+action kinds. Interpreter §1.3 requires every action position to be
+checked before static evaluation. Add a general action-position pass
+before kind-specific restrictions. A malformed position rejects the whole
+rule, even on an action ignored by that rule kind. Keep otherwise ignored
+action kinds unchanged. Test valid sibling actions and negated literals.
+Complete the deferred temporary lifetime guards in I04. Method-edge,
+raw/publication summary, added-link and source-hit stores reject temporary
+bases before mutation. Native records and demand hand-offs also reject
+temporary conclusions or raw patterns. Requests retain the original
+incoming premise; the field action projects its temporary before storage.
+Use the existing `Severity.Error` enum value in the I04 test rule
+fixture. Keep the shared fixture's `forms` factory as the entry point
+for tests; use the accessor-index extension from its companion import.
+Use a block body for I04 `cubes`: its true-literal shortcut returns from
+the function, which Kotlin does not permit in an expression body.
+The I04 effect review found that a shared FLOW premise was also used for
+concrete TAINT inputs. Make each vector's default premise follow K6:
+an abstract STAR initial for FLOW, and a concrete exact initial for TAINT.
+Reject mixed input kinds in the helper and assert the premise relation.
+Keep explicitly supplied F75 premise objects, expected facts and requests.
+The I04 storage review found that the initial factories still permit a
+temporary base. Reject it in `InitialAp` and before `ApManager.initial`
+interning. This closes temporary premise endpoints in initial, request,
+method, summary, link and native-record stores. Add a failing regression
+for both factory forms and direct internal construction. Keep transient
+`Facts` creation available for the field action.
+The I04 final coverage review adds the reachable run-1 static kill cell:
+an identity static FLOW premise at the root, a `RemoveAllMarks(C.s)`
+action, its root exclusion and class-position request. Also check that
+an excluded class raises no request. Keep the bare-static must vector
+labelled as a direct AP cell outside JVM emission.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions

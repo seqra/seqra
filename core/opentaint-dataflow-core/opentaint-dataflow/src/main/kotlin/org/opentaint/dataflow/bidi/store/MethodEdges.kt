@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.bidi.store
 
 import org.opentaint.dataflow.ap.ifds.LanguageManager
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.BitSet
@@ -19,6 +20,7 @@ class MethodEdgeStore(private val m: ApManager, private val method: MethodKey, p
     /** T4: new leaves, or the whole merged value when a T2 annotation changes. */
     fun add(node: CommonInst, premise: PremiseKey, f: Facts): Facts? {
         m.cancellation.checkpoint()
+        check(f.base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot enter method storage" }
         check((f is FlowTree) == premise.isFlow) { "K6: the conclusion kind follows the premise" }
         check(premise !is PremiseSet || f is TaintTree) { "A multi-premise edge must be TAINT" }
         val index = lm.getInstIndex(node)

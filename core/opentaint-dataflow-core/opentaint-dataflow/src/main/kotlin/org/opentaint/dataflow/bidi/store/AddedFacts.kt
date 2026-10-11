@@ -33,6 +33,7 @@ class AddedFactStore(private val m: ApManager) {
     /** The new links of event E2, including every leaf for a new caller of an existing added fact. */
     fun add(ref: CallerRef, linkLayer: Layer, added: Facts): Facts? {
         m.cancellation.checkpoint()
+        check(added.base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot enter an added link" }
         check(linkLayer == added.layer) { "The link layer must be the added fact's layer" }
         val key = Key(ref, added.groupKey)
         val old = values[key]

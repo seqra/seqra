@@ -68,14 +68,17 @@ class ApManager(val cancellation: Cancellation, refManager: RefManager = RefMana
     fun position(path: IntArray): PathNode = checkNotNull(path(path.copyOf(minOf(2, path.size))))
 
     fun initial(base: AccessPathBase, path: PathNode?, tail: Tail, exclusion: ExclusionSet, mark: MarkSlot): InitialAp {
+        check(base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot be a premise" }
         check(path == null || path.manager === this) { "An initial path must use this AP manager" }
         return initials.computeIfAbsent(InitialKey(base, path, tail, intern(exclusion), mark)) { key ->
             InitialAp(key.base, key.path, key.tail, key.exclusion, key.mark, nextId.getAndIncrement(), this)
         }
     }
 
-    fun initial(pattern: Pattern): InitialAp =
-        initial(pattern.fact.base, path(pattern.fact.path), pattern.fact.tail, pattern.exclusion, pattern.fact.mark)
+    fun initial(pattern: Pattern): InitialAp {
+        check(pattern.fact.base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot be a premise" }
+        return initial(pattern.fact.base, path(pattern.fact.path), pattern.fact.tail, pattern.exclusion, pattern.fact.mark)
+    }
 
     fun premiseOf(members: Collection<InitialAp>): PremiseKey {
         check(members.isNotEmpty()) { "A premise set must be nonempty" }

@@ -28,6 +28,9 @@ class DemandStore private constructor(
             m.cancellation.checkpoint()
             val entry = d.entry
             val exit = d.exit
+            check(entry.fact.base !is AccessPathBase.CleanerTemporary && exit?.fact?.base !is AccessPathBase.CleanerTemporary) {
+                "A field-action temporary cannot enter a demand hand-off"
+            }
             check(entry.fact.tail != Tail.ANY_TAINT && exit?.fact?.tail != Tail.ANY_TAINT) {
                 "W8 (d): a demand pattern cannot have a must tail"
             }

@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.bidi.store
 
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import java.util.IdentityHashMap
 
@@ -27,6 +28,7 @@ class RunSummaryStore(private val m: ApManager) {
     fun demandEdges(): Sequence<Pair<PremiseKey, Facts>> = entries(demand)
 
     private fun checkShape(premise: PremiseKey, facts: Facts) {
+        check(facts.base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot enter a summary" }
         check((facts is FlowTree) == premise.isFlow) { "K6: the conclusion kind follows the premise" }
         check(premise !is PremiseSet || facts is TaintTree) { "A multi-premise summary must be TAINT" }
     }
