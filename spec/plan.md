@@ -56,7 +56,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | E04 | Complete | Locked summary snapshots, complete replay/delivery indexes, native/view reads and actual method dispatch. Clean gate passed; see [E04 evidence](../docs/reports/bidi-e04.md). |
 | E05 | Complete | Cached call walk, native/view returns, late demotion, zero/source rules and actual E6. Clean gate passed; see [E05 evidence](../docs/reports/bidi-e05.md). |
 | E06 | Complete | Shared deadline, scheduling and failure-safe joined release; 50 focused and 1,054 clean common tests. See `docs/reports/bidi-e06.md`. |
-| E07, V3 | Pending | |
+| E07 | Complete | Direct finite closure, 408 seeded executions and fixed protocol controls; 1,083 clean common tests. See [E07 evidence](../docs/reports/bidi-e07.md). |
+| V3 | Pending | |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
 
@@ -1482,6 +1483,104 @@ and occur in fresh XML. See `docs/reports/bidi-e06.md`.
 
 **Requires:** E02–E06. **Proposal:** `analyzer-impl.md` §9.1–§9.3.
 
+The E07 audit needs a multi-method fixture. Existing local fixtures use one
+method and cannot test whole-program context isolation. Add stable forms and
+graphs per full method key. Keep separate raw demand, record and seed input
+lists for reference scans. The production side builds its usual stores.
+Use one test event pool with actual method handlers, actors, summary storage
+and subscriptions. Select events, partial Work, replay and notification on
+one thread. Test one unit per key and direct same-unit calls.
+
+Compare processed closure, including unchanged work, rather than only the
+edge store. Compare stored unions per full key and layer, not schedule-dependent
+delta counts or pairwise leaf coverage. Retain complete raw summary, selected
+publication, link, request, source-hit and witness observations. Add explicit
+finite vectors before the support code and randomized schedules. Concrete
+support confirmation and both hand-off outputs depend on D01/D02; compare
+their raw inputs here and their completed outputs in V4. This stages §9.2's
+driver observations at their implementation dependencies.
+The production handler owns its publication sink. At quiescence, the test
+scheduler may read the private storage publication map with a read-only test
+adapter. This records actual publication unions without replacing the handler
+or recomputing publication selection. The direct reference uses no such map.
+If a scheduled callback fails, retain its seed and trace. Freeze method actors
+only after the whole event pool has closed; removing the failing last event
+does not establish closure.
+Validate the test scheduler's positive quantum before constructing its shared
+owners. This retains the production scheduler's admitted input domain.
+Use actual `ExitRules` members for test diagnostics; read its drop flag from
+the exit object. The first support compile also requires explicit
+`ConcurrentHashMap.containsKey` for the immutable-form check. Use an
+assertion failure in the semantic comparator so the test attaches its
+seed, program and event trace to a mismatch.
+The next fixed compile needs the shared AP `ClassStaticAccessor` import and the
+manager-owned `PathNode` for a non-root cleaner. Correct those test types
+before changing expectations. Build each bounded comparison universe from
+all observed and expected bases, including link and witness facts, with fresh
+accessor and mark values.
+Decode Link, Request and Delivery trace payloads into raw patterns and
+conclusions. Default AP object strings contain identity hashes and omit
+annotations; repeated seeded runs need the same complete value trace.
+The first nine fixed closure tests pass. The comparison audit then finds
+that normal FLOW T2/T2' folds can change stored E and abstract mark exclusions
+while retaining the complete pair union. Add explicit equivalent folds and
+unequal single-group controls before correcting the adapter. For stored
+edge unions, retain method, node, full premise, kind, layer, base and semantic
+component as headers. Decode conclusion E and marks into the cells; do not
+also require an equal number of annotation groups. Keep raw DTOs for exact
+operation checks and full initial/request headers. For links and witnesses,
+retain caller and literal support headers; the downstream T2 control below
+checks their conclusion annotation unions.
+The synthetic assigned-result call helpers must include their written result
+base in `touched`. Existing forward inputs do not use that base, but reverse
+pass-over identities depend on it. Correct the generic and static helpers
+before adding backward call vectors; keep additional alias outputs separate.
+The V3 preparation audit finds that the large subscription fan-out has index
+coverage but lacks an actual complete-program delivery check. Add an E07
+finite program with at least 17 subscribed callers before a callee publication.
+Compare may, must and excluded must added facts above precise premises through
+the actual storage and subscription manager. Retain an admitted sibling and an
+excluded-field negative, and test direct and cross-unit dispatch.
+Record real subscription attempts and their decoded payloads in the schedule
+trace before invoking the actual handler. The fan-out test checks distinct
+nonzero consumer headers before the callee result delivery; use a longer
+finite callee graph to make that order visible, then assert it explicitly.
+Add a fixed E6 producer/consumer loop with the consumer's second literal
+source delayed by a finite chain. Assert that the first literal subscription
+precedes the callee result delivery and the second one follows it, then replay
+completes the same call's combination. Test normal and mixed layers before
+using that shape in the seeded schedule matrix.
+The comparison review also needs a whole-program T2 control. Two equal-root
+must facts with different field exclusions can merge before a call or sink.
+Add a fixed program that exposes the downstream links and root sink witnesses.
+Check their stored unions under §9.2, while retaining the full caller premise,
+method, call, layer and literal support headers. Save the result before changing
+the comparison adapter; exact raw observations remain available for operation
+and support checks.
+The first five-family seeded gate finds a test assertion at native-record
+seed 1. The excluded returned read produces only the raw sibling alias;
+the caller demand selects the result base, not that alias. Require selected
+demand only for an admitted pending read. Retain the raw alias expectation
+and the complete closure comparison.
+The first fixed split-E6 gate agrees on full closure but fails its arrival
+order assertion. The consumer's zero path traverses the whole delay before
+its first nonzero literal. Stop zero at node 2. Emit a separate nonzero delay
+signal before the first literal, then map the signal to the second literal
+at the delayed node. Seed the real signal source at entry; the later map is
+conditional and gives no source seed. Include the signal base and mark in
+the bounded universe. Retain both strict delivery/replay order assertions.
+Both downstream T2 controls fail in all six fixed schedules. Independent
+location unions and all caller/literal support headers agree; every other
+stored observation agrees. Only the comparison header still requires equal
+conclusion E groups. Apply §9.2's stored-union comparison to added link and
+sink conclusion cells too. Keep callee, full caller premise, caller layer,
+call, link layer and component in link headers. Keep full witness method,
+statement, alternative, run, ordered literal premises/layers/kinds/bases and
+confirmation in witness headers. Decode conclusion E and mark exclusions
+into cells, while raw DTOs and actual stores keep their full exact shapes.
+Add equivalent partition controls and unequal annotation/header controls;
+do not change production link or witness merging.
+
 **Tests first.** Write `NaiveClosureTest` and fixed failing schedules before adding
 randomized schedules. Use the Kotlin per-path closure with the current selector, cleaner,
 views and late return order. Keep independent expected vectors for shared helper behavior.
@@ -1500,6 +1599,16 @@ schedules. Shared helper agreement checks integration; independent specified vec
 helper behavior. Run all engine test rows through their enabled scope.
 
 ### V3. Validate the complete one-run analyzer
+
+The preparation audit also needs explicit actual-path controls for a dead
+local reaching a sink, the synthetic two-level write's admitted and excluded
+sinks, all three cleaner reaches at a call, and a normal singleton raw summary
+whose publication is accepted or rejected by its exit mark. Add those fixed
+rows before the V3 gate. Include the setter followed by excluded and admitted
+reads, with actual sink outcomes for Analyzer item 29.
+Analyzer item 42's excluded-mark demand remains a
+generic raw emission vector: canonical `DemandStore.Builder` requires
+normalized marks, so do not describe that input as a reachable stored demand.
 
 Run all AP, forms, engine and protocol tests. Check both directions
 and run-1/restricted modes. Complete the one-run portions of Analyzer validation items 1–6,
