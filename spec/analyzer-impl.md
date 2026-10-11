@@ -462,6 +462,10 @@ class RunMethodContext(val key: MethodKey, val forms: DirectedForms, val config:
 }
 ```
 
+The final implementation keeps the public seven-argument constructor below.
+An internal constructor adds a driver factory for the J03 observation tests;
+its default constructs the same actual `IterationDriver` shown here.
+
 ```kotlin
 package org.opentaint.dataflow.jvm.bidi
 
@@ -1555,19 +1559,45 @@ class EventQueue {
 
 Use one in-flight counter per run. Increment before each accepted event send/local Work enqueue (Q1); decrement
 after a complete handler (Q2). Hold a phantom count while start events are sent (Q3). Old runs are joined before
-a new counter is used (Q4).
+a new counter is used (Q4). A rejected send releases its reservation without incrementing the handled
+count. The manager admission lock serializes reservation, visibility and terminal selection; `onZero` runs
+outside the counter bookkeeping lock, avoiding lock inversion.
 
 The runner's queued-actor set prevents multiple Work events for an analyzer (W1). Requeue without decrement on a partial step (W2).
 End Work only after both queues are empty and publications are flushed (W3).
 
 ```kotlin
+/** One run counts accepted events, live handlers and its start-batch reservation. */
 class InFlight(private val onZero: () -> Unit) {
-    private val count = AtomicLong(0)
-    private val handledCount = AtomicLong(0)
-    val pending: Long get() = count.get()
-    val handled: Long get() = handledCount.get()
-    fun beforeSend() { count.incrementAndGet() }
-    fun afterHandler() { handledCount.incrementAndGet(); if (count.decrementAndGet() == 0L) onZero() }
+    private val lock = Any()
+    private var count = 0L
+    private var handledCount = 0L
+
+    val pending: Long get() = synchronized(lock) { count }
+    val handled: Long get() = synchronized(lock) { handledCount }
+
+    /** Reserve before an event becomes visible in a channel or a local queue. */
+    fun beforeSend() {
+        synchronized(lock) { count++ }
+    }
+
+    /** A completed handler releases only after all its sends and local-work enqueues. */
+    fun afterHandler() = release(countHandled = true)
+
+    /** A failed send releases its reservation without reporting a handled event. */
+    fun rejectedSend() = release(countHandled = false)
+
+    private fun release(countHandled: Boolean) {
+        val zero = synchronized(lock) {
+            check(count > 0L) { "An in-flight release requires a live reservation" }
+            if (countHandled) handledCount++
+            count--
+            count == 0L
+        }
+        // The manager serializes admission and terminal selection with its outer lock.
+        // Keep this callback outside our bookkeeping lock to avoid lock inversion.
+        if (zero) onZero()
+    }
 }
 ```
 
@@ -1607,7 +1637,9 @@ a callback failure. Its barrier-retained stores and counters stay available.
 ### 7.1 `IterationDriver`, `IterationPolicy`
 
 The analysis has one time budget. The policy selects nondecreasing field limits with run 1 at least 1, and gives
-each run a timeout from the remaining budget. Only complete forward runs ask the stop policy; a complete backward
+each run a timeout from the remaining budget. Read the first field limit once. After the timeout callback
+returns, cap its result to the freshly computed remaining budget, so callback time cannot renew the analysis.
+Only complete forward runs ask the stop policy; a complete backward
 run proceeds to its next forward run.
 
 At a complete barrier, after all runners join: confirm and update the forward report; persist raw R1 records;
@@ -1623,13 +1655,18 @@ package org.opentaint.dataflow.bidi.driver
 interface IterationPolicy {
     fun fieldLimit(runIndex: Int): Int
 
-    fun continueAfter(run: RunConfig, result: RunResult, frontiers: List<Frontier>): Boolean
+    /** Called only after a complete forward run and the two fixed stop checks. */
+    fun continueAfter(run: RunConfig, result: RunResult<RunMethodAnalyzer>, frontiers: List<Frontier>): Boolean
+
     fun timeout(run: RunConfig, remaining: Duration): Duration = remaining
 }
 
-class FixedLimits(private val limits: List<Int>) : IterationPolicy {
-    override fun fieldLimit(runIndex: Int) = limits[runIndex - 1]
-    override fun continueAfter(run: RunConfig, result: RunResult, frontiers: List<Frontier>) =
+class FixedLimits(limits: List<Int>) : IterationPolicy {
+    private val limits: List<Int> = Collections.unmodifiableList(ArrayList(limits))
+
+    override fun fieldLimit(runIndex: Int): Int = limits[runIndex - 1]
+
+    override fun continueAfter(run: RunConfig, result: RunResult<RunMethodAnalyzer>, frontiers: List<Frontier>): Boolean =
         run.index + 2 <= limits.size
 }
 
@@ -1638,42 +1675,54 @@ sealed interface Next {
     class End(val status: RunStatus, val reason: EndReason = EndReason.ABNORMAL) : Next
 }
 
-class IterationDriver(private val policy: IterationPolicy, private val shared: SharedObjects, private val budget: Duration) {
+/** Runs fresh engines in sequence and reads their stores only after all runners join. */
+class IterationDriver internal constructor(
+    private val policy: IterationPolicy,
+    private val shared: SharedObjects,
+    private val budget: Duration,
+    private val invokeRun: (RunConfig, SharedObjects, Duration) -> RunResult<RunMethodAnalyzer>,
+    private val guardBarrier: (SharedObjects, () -> Next) -> Next,
+) {
+    constructor(policy: IterationPolicy, shared: SharedObjects, budget: Duration) :
+        this(policy, shared, budget, ::runEngine, ::withBarrierGuard)
 
-    val frontiers: List<Frontier> get() = frontierLog
     private val frontierLog = ArrayList<Frontier>()
+    val frontiers: List<Frontier> get() = Collections.unmodifiableList(ArrayList(frontierLog))
 
     fun analyze(roots: List<MethodKey>): Report {
         val start = TimeSource.Monotonic.markNow()
         val report = ReportBuilder()
         var index = 1
-        fun end(status: RunStatus, reason: EndReason) = report.build(AnalysisEnd(status, index,
+        fun end(status: RunStatus, reason: EndReason): Report = report.build(AnalysisEnd(status, index,
             if (index % 2 == 1) Direction.FORWARD else Direction.BACKWARD, reason))
         try {
-            require(policy.fieldLimit(1) >= 1) { "ap.md S12 (d): run 1 needs a field limit of at least 1" }
-            var config = RunConfig(1, policy.fieldLimit(1), demand = null, records = shared.records.view(),
+            val firstLimit = policy.fieldLimit(1)
+            require(firstLimit >= 1) { "ap.md S12 (d): run 1 needs a field limit of at least 1" }
+            var config = RunConfig(1, firstLimit, demand = null, records = shared.records.view(),
                 seeds = SeedIndex.EMPTY, roots = roots)
             while (true) {
                 index = config.index
-                when (val next = runOnce(config, report, policy.timeout(config, budget - start.elapsedNow()))) {
+                val selectedTimeout = policy.timeout(config, budget - start.elapsedNow())
+                // The callback consumes this same budget and cannot extend it.
+                val timeout = minOf(selectedTimeout, budget - start.elapsedNow())
+                when (val next = runOnce(config, report, timeout)) {
                     is Next.Run -> config = next.config
                     is Next.End -> return end(next.status, next.reason)
                 }
             }
-        } catch (e: Throwable) {
-            logger.error(e) { "Run $index failed; the analysis ends with the report so far" }
+        } catch (error: Throwable) {
+            logger.error(error) { "Run $index failed; the analysis ends with the report so far" }
             return end(RunStatus.FAILED, EndReason.ABNORMAL)
         }
     }
 
+    /** This frame releases its result before the next engine is created. */
     private fun runOnce(config: RunConfig, report: ReportBuilder, timeout: Duration): Next {
-        val result = RunManager(config, shared).run(timeout)
-        if (result.status != RunStatus.COMPLETE)
-            return Next.End(result.status)
-        val guard = MemoryManager(shared.refManager, BARRIER_MEMORY_THRESHOLD) { shared.cancellation.cancel() }
+        val result = invokeRun(config, shared, timeout)
+        if (result.status != RunStatus.COMPLETE) return Next.End(result.status)
         val next = try {
-            guard.runWithMemoryManager { barrier(config, result, report) }
-        } catch (e: Cancellation.Cancelled) {
+            guardBarrier(shared) { barrier(config, result, report) }
+        } catch (error: Cancellation.Cancelled) {
             Next.End(RunStatus.OOM)
         }
         if (shared.cancellation.isActive()) return next
@@ -1681,14 +1730,13 @@ class IterationDriver(private val policy: IterationPolicy, private val shared: S
         return Next.End(RunStatus.OOM)
     }
 
-    private fun barrier(config: RunConfig, result: RunResult, report: ReportBuilder): Next {
+    private fun barrier(config: RunConfig, result: RunResult<RunMethodAnalyzer>, report: ReportBuilder): Next {
         val forward = config.direction == Direction.FORWARD
         if (forward) {
             Support(result, config.roots, config.mode, shared).confirm()
             report.add(config, result)
         }
-        shared.records.persist(config.direction,
-            result.analyzers.asSequence().map { it.key to it.summaries })
+        shared.records.persist(config.direction, result.analyzers.asSequence().map { it.key to it.summaries })
         val handOff = HandOff.of(config, result, report, shared)
         val frontier = frontierOf(config, result, handOff, report)
         frontierLog += frontier
@@ -1703,13 +1751,24 @@ class IterationDriver(private val policy: IterationPolicy, private val shared: S
     }
 
     private fun nextConfig(config: RunConfig, handOff: HandOff): RunConfig {
-        val limit = policy.fieldLimit(config.index + 1)
+        val index = config.index + 1
+        val limit = policy.fieldLimit(index)
         require(limit >= config.fieldLimit) { "ap.md W3: the field limit must not decrease" }
-        return RunConfig(config.index + 1, limit, handOff.demand, shared.records.view(), handOff.seeds, config.roots)
+        return RunConfig(index, limit, handOff.demand, shared.records.view(), handOff.seeds, config.roots)
     }
 
-    companion object { const val BARRIER_MEMORY_THRESHOLD = 0.99 }
+    companion object : KLogging() {
+        const val BARRIER_MEMORY_THRESHOLD = 0.99
+    }
 }
+
+private fun runEngine(config: RunConfig, shared: SharedObjects, timeout: Duration): RunResult<RunMethodAnalyzer> =
+    RunManager(config, shared, RunMethodHandlers(MethodLocalServicesFactory(::RunMethodLocalServices),
+        MethodCallServicesFactory(::RunMethodCallServices))).run(timeout)
+
+private fun withBarrierGuard(shared: SharedObjects, body: () -> Next): Next =
+    MemoryManager(shared.refManager, IterationDriver.BARRIER_MEMORY_THRESHOLD) { shared.cancellation.cancel() }
+        .runWithMemoryManager(body)
 ```
 
 ### 7.2 Forward run `n` → backward run `n + 1` (`analyzer-core.md` §7.3)
@@ -2010,22 +2069,82 @@ a prescan runner.
 Add the release members below to the existing interfaces/classes. In the prescan runner manager,
 `activeApManager` becomes nullable and its existing `apManager` getter requires a nonnull value. Old callers never
 call release. `JIRTaintAnalyzer` supplies the optional `bidiEntry`; null retains its current full-scan path.
+The guarded setup includes prescan construction and the optional entry factory. Before gathering any copy,
+validate that the prescan has run and all runner/progress jobs have joined. Gather values, release old owners,
+then run the new driver. Throwables escaping the guarded prescan/entry factory, gather, release or run
+setup frames (including `Error`) map to EXCEPTION with an empty result. Output conversion and the existing CWE filter follow a successful report.
+
+The outer analysis budget includes prescan and entry creation. The entry starts its own monotonic mark before
+selecting rules and building services, and subtracts that setup time before invoking `IterationDriver`.
+Closing the analyzer accesses the legacy engine only when its lazy owner was already initialized.
 
 The entry returns every report entry with a simple sink-only trace. Choose a confirmed witness's method key
 when one exists, otherwise the first witness. Map COMPLETE/TIMEOUT/OOM/FAILED to current analysis status and
 apply the existing CWE output filter. Trace status is OK because this phase resolves no full trace.
 
 ```kotlin
-    fun releasePrescan() {}
+// Members of TaintAnalysisManager:
+fun releasePrescan() {}
 
+// Members of JIRAnalysisManager:
     fun prescanRuleIds(): Set<String> = relevantRuleIds.toSet()
 
-    override fun releasePrescan() = contexts.clear()
+    /** Copy values only. Enumerating a tracker does not register this callback. */
+    fun prescanLambdas(): PrescanLambdas {
+        val targets = linkedMapOf<JIRMethod, MutableMap<Int, MutableSet<JIRMethod>>>()
+        for (context in contexts) {
+            val caller = context.methodEntryPoint.method as JIRMethod
+            for (entry in context.lambdaCallResolution.int2ObjectEntrySet()) {
+                entry.value.forEachRegisteredLambda(object : JIRLambdaTracker.LambdaSubscriber {
+                    override fun newLambda(method: JIRMethod, lambdaClass: LambdaAnonymousClassFeature.JIRLambdaClass) {
+                        val implementation = lambdaClass.findMethodOrNull(method.name, method.description) ?: return
+                        targets.getOrPut(caller) { linkedMapOf() }
+                            .getOrPut(entry.intKey) { linkedSetOf() }.add(implementation)
+                    }
+                })
+            }
+        }
+        return targets.mapValues { (_, byIndex) ->
+            Int2ObjectOpenHashMap<Set<JIRMethod>>().apply {
+                byIndex.forEach { (index, methods) -> put(index, methods.toSet()) }
+            }
+        }
+    }
 
-    fun releasePrescan() {
+    override fun releasePrescan() {
+        contexts.forEach { it.resetAnalysisCache() }
+        contexts.clear()
+        relevantRuleIds.clear()
+    }
+
+// Members of TaintAnalysisUnitRunnerManager:
+    private val runnerJobs = ConcurrentLinkedQueue<Job>()
+    private val lifecycleLock = Any()
+    private val analysisActive = AtomicBoolean(false)
+    @Volatile private var hasRun = false
+    @Volatile private var progressJob: Job? = null
+    private var stopping = false
+    private var analysisCompletion = CompletableDeferred<Unit>()
+
+    private fun requireStoppedJobs() {
+        check(!analysisActive.get()) { "Analysis is still active" }
+        check(runnerJobs.all { it.isCompleted } && progressJob?.isCompleted != false) {
+            "Prescan jobs have not joined"
+        }
+    }
+
+    fun requirePrescanJoined(): Unit = synchronized(lifecycleLock) {
+        check(hasRun) { "Prescan has not finished" }
+        requireStoppedJobs()
+    }
+
+    fun releasePrescan(): Unit = synchronized(lifecycleLock) {
+        requirePrescanJoined()
         runnerForUnit.clear()
         unitStorage.clear()
         methodDependencies.clear()
+        runnerJobs.clear()
+        progressJob = null
         activeApManager = null
     }
 ```
@@ -2044,6 +2163,7 @@ interface BidiEntry {
 ```kotlin
 package org.opentaint.dataflow.jvm.bidi
 
+/** Phase 3 copies prescan values and returns simple sink traces for both report states. */
 class JIRBidiAnalysis(
     private val cp: JIRClasspath,
     private val graph: JApplicationGraph,
@@ -2055,7 +2175,7 @@ class JIRBidiAnalysis(
 ) : BidiEntry {
     private val cancellation = Cancellation()
 
-    class PrescanResult(
+    private class PrescanResult(
         val ruleIds: Set<String>,
         val lambdas: PrescanLambdas,
         val roots: List<MethodEntryPoint>,
@@ -2066,82 +2186,120 @@ class JIRBidiAnalysis(
     private var prescan: PrescanResult? = null
 
     override fun gather(manager: TaintAnalysisManager, startMethods: List<MethodWithContext>) {
-        val m = manager as JIRAnalysisManager
+        val source = manager as JIRAnalysisManager
         val resolver = JIRMethodEntrypointResolver(graph)
-        val roots = startMethods.flatMap { s ->
-            resolver.resolveEntryPoints(s.method, s.ctx).map { MethodEntryPoint(s.ctx, it) }
+        val roots = startMethods.flatMap { start ->
+            resolver.resolveEntryPoints(start.method, start.ctx).map { MethodEntryPoint(start.ctx, it) }
         }
-        prescan = PrescanResult(m.prescanRuleIds(), m.prescanLambdas(), roots, m.factTypeChecker, m.externalMethodTracker)
+        prescan = PrescanResult(source.prescanRuleIds(), source.prescanLambdas(), roots,
+            source.factTypeChecker, source.externalMethodTracker)
     }
 
     override fun run(budget: Duration): Report {
-        val pre = checkNotNull(prescan) { "gather() comes first" }.also { prescan = null }
-        taintConfig.selectRules(pre.ruleIds)
+        val start = TimeSource.Monotonic.markNow()
+        val copied = checkNotNull(prescan) { "gather() comes first" }.also { prescan = null }
+        taintConfig.selectRules(copied.ruleIds)
         val ap = ApManager(cancellation, refManager)
         val language = JIRLanguageManager(cp)
         val callResolver = JIRCallResolver(cp, unitResolver)
         val entries = JIRMethodEntries(graph, language, callResolver, taintConfig, params.aliasAnalysisParams,
-            cancellation, pre.lambdas)
-        val interpreter = JIRInterpreter(ap, taintConfig, pre.checker, callResolver,
-            JIRMethodEntrypointResolver(graph), entries, params.defaultGetModel, pre.externalMethodTracker)
+            cancellation, copied.lambdas)
+        val interpreter = JIRInterpreter(ap, taintConfig, copied.checker, callResolver,
+            JIRMethodEntrypointResolver(graph), entries, params.defaultGetModel, copied.externalMethodTracker)
         val contexts = MethodContextCache(interpreter, JIRMethodContextCache(interpreter, entries))
         @Suppress("UNCHECKED_CAST")
         SharedObjects(ap, ApOps(ap), interpreter, language, contexts, PersistentRecordStore(ap),
             ConcurrentVulnerabilityStore(ap), unitResolver as UnitResolver<CommonMethod>, refManager, cancellation).use { shared ->
-            return IterationDriver(policy, shared, budget).analyze(pre.roots)
+            return IterationDriver(policy, shared, budget - start.elapsedNow()).analyze(copied.roots)
         }
     }
 
     override fun toVulnerabilities(report: Report): List<VulnerabilityWithTrace> {
-        val count = report.entries.groupingBy { it.state }.eachCount()
-        logger.info { "Bidi analysis: ${count[ReportState.CONFIRMED] ?: 0} CONFIRMED, ${count[ReportState.DEMAND] ?: 0} DEMAND vulnerabilities" }
-        return report.entries.map { e ->
-            val rule = e.key.rule
-            val witness = e.witnesses.firstOrNull { it.confirmed } ?: e.witnesses.first()
+        val counts = report.entries.groupingBy { it.state }.eachCount()
+        logger.info { "Bidi analysis: ${counts[ReportState.CONFIRMED] ?: 0} CONFIRMED, ${counts[ReportState.DEMAND] ?: 0} DEMAND vulnerabilities" }
+        return report.entries.map { entry ->
+            val rule = entry.key.rule
+            val witness = entry.witnesses.firstOrNull { it.confirmed } ?: entry.witnesses.first()
             val node = TaintSinkTracker.TaintVulnerabilityRuleNode.Unconditional(witness.methodKey)
-            VulnerabilityWithTrace(TaintSinkTracker.TaintVulnerability(e.key.statement, rule.id, hashMapOf(rule to node)),
-                TracePathGenerationResult.Simple)
+            VulnerabilityWithTrace(TaintSinkTracker.TaintVulnerability(entry.key.statement, rule.id,
+                hashMapOf(rule to node)), TracePathGenerationResult.Simple)
         }
     }
 
     override fun status(report: Report): TaintAnalysisUnitRunnerManager.Status = when (report.end.status) {
-        RunStatus.COMPLETE -> Status.OK
-        RunStatus.TIMEOUT -> Status.TIMEOUT
-        RunStatus.OOM -> Status.OOM
-        RunStatus.FAILED -> Status.EXCEPTION
+        RunStatus.COMPLETE -> TaintAnalysisUnitRunnerManager.Status.OK
+        RunStatus.TIMEOUT -> TaintAnalysisUnitRunnerManager.Status.TIMEOUT
+        RunStatus.OOM -> TaintAnalysisUnitRunnerManager.Status.OOM
+        RunStatus.FAILED -> TaintAnalysisUnitRunnerManager.Status.EXCEPTION
     }
+
+    companion object : KLogging()
 }
 ```
 
 ```kotlin
+// Members of TaintAnalyzer<Method, Statement>:
+    protected val ifdsAnalysisGraph by lazy { analysisGraph() }
+    private val ifdsEngineOwner = lazy { createIfdsEngine() }
+    val ifdsEngine by ifdsEngineOwner
+
     open fun bidiEntry(): BidiEntry? = null
 
     private fun analyzeStaged(entryPoints: List<Method>): Pair<List<VulnerabilityWithTrace>, Status> {
         val analysisStart = TimeSource.Monotonic.markNow()
+
         val startMethods = entryPoints.map { MethodWithContext(it, EmptyMethodContext) }
-        prescan(startMethods)
-        val bidi = bidiEntry() ?: return fullScan(analysisStart, entryPoints, startMethods)
-        val report = runCatching {
-            bidi.gather(analysisManager, startMethods)
-            analysisManager.releasePrescan()
-            ifdsEngine.releasePrescan()
-            bidi.run(options.ifdsTimeout - analysisStart.elapsedNow())
-        }.getOrElse { e ->
-            logger.error(e) { "Bidi analysis failed" }
+
+        logger.info { "Start prescan phase" }
+        runCatching { prescan(startMethods) }.getOrElse { failure ->
+            logger.error(failure) { "Prescan setup failed" }
             return emptyList<VulnerabilityWithTrace>() to
                 Status(TaintAnalysisUnitRunnerManager.Status.EXCEPTION, TaintAnalysisUnitRunnerManager.Status.OK)
         }
-        var vulnerabilities = bidi.toVulnerabilities(report)
-        if (options.analysisCwe != null) vulnerabilities = vulnerabilities.filter {
-            val cwe = (it.vulnerability.rule.meta as TaintSinkMeta).cwe
-            cwe?.intersect(options.analysisCwe)?.isNotEmpty() ?: true
+        logger.info { "Finish prescan phase" }
+
+        val bidi = runCatching { bidiEntry() }.getOrElse { failure ->
+            logger.error(failure) { "Bidi entry setup failed" }
+            return emptyList<VulnerabilityWithTrace>() to
+                Status(TaintAnalysisUnitRunnerManager.Status.EXCEPTION, TaintAnalysisUnitRunnerManager.Status.OK)
         }
-        return vulnerabilities to Status(bidi.status(report), TaintAnalysisUnitRunnerManager.Status.OK)
+        if (bidi != null) {
+            val report = runCatching {
+                ifdsEngine.requirePrescanJoined()
+                bidi.gather(analysisManager, startMethods)
+                analysisManager.releasePrescan()
+                ifdsEngine.releasePrescan()
+                bidi.run(options.ifdsTimeout - analysisStart.elapsedNow())
+            }.getOrElse { failure ->
+                logger.error(failure) { "Bidi analysis setup failed" }
+                return emptyList<VulnerabilityWithTrace>() to
+                    Status(TaintAnalysisUnitRunnerManager.Status.EXCEPTION, TaintAnalysisUnitRunnerManager.Status.OK)
+            }
+            var vulnerabilities = bidi.toVulnerabilities(report)
+            if (options.analysisCwe != null) vulnerabilities = vulnerabilities.filter {
+                val cwe = (it.vulnerability.rule.meta as TaintSinkMeta).cwe
+                cwe?.intersect(options.analysisCwe)?.isNotEmpty() ?: true
+            }
+            return vulnerabilities to Status(bidi.status(report), TaintAnalysisUnitRunnerManager.Status.OK)
+        }
+
+        logger.info { "Start full scan phase" }
+        val fullScanResult = fullScan(analysisStart, entryPoints, startMethods)
+        logger.info { "Finish full scan phase" }
+        return fullScanResult
     }
 
+    override fun close() {
+        if (ifdsEngineOwner.isInitialized()) ifdsEngineOwner.value.close()
+    }
+
+// Final optional parameter of the existing JIRTaintAnalyzer constructor:
+    val bidiPolicy: IterationPolicy? = null,
+
+// Member of JIRTaintAnalyzer:
     override fun bidiEntry(): BidiEntry? = bidiPolicy?.let { policy ->
-        JIRBidiAnalysis(cp, ifdsAnalysisGraph as JApplicationGraph, analysisUnit, taintConfig, analysisParams, policy,
-            refManager)
+        JIRBidiAnalysis(cp, ifdsAnalysisGraph as JApplicationGraph, analysisUnit, taintConfig,
+            analysisParams, policy, refManager)
     }
 ```
 

@@ -3,7 +3,7 @@
 Implement the JVM bidirectional analyzer in the order below. Each step has tests to write first,
 implementation work, and a validation gate. Use Lean only to clarify unclear specified behavior,
 as described below. Complete the validation gate before the next dependent step. This document
-tracks the work; the implementation steps are not complete.
+records the completed work and its validation evidence. All phase-1–3 steps are complete.
 
 The behavior is defined by [ap.md](ap.md), [interpreter.md](interpreter.md), and
 [analyzer-core.md](analyzer-core.md). Follow the interfaces and algorithms in
@@ -66,7 +66,7 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | J01 | Complete | [J01 evidence](../docs/reports/bidi-j01.md). 14 new tests pass; clean common/JVM/Go gates and consumer compilation pass. |
 | J02 | Complete | JVM entry, two-state output, setup/status and one-budget gates pass. |
 | J03 | Complete | [J03 evidence](../docs/reports/bidi-j03.md). All enabled actual JVM, query and Spring cases pass; clean shared/legacy regressions pass. |
-| FINAL | Pending | |
+| FINAL | Complete | [Final review](../docs/reports/bidi-final.md). Owner/proposal audit, clean runtime closure, discovery and document checks pass. |
 
 Implementation corrections: the earlier FINAL text described this file as a planning-only
 deliverable. `task.md` now requires implementation. FINAL closes that implementation.
@@ -2113,6 +2113,22 @@ are void and present in fresh XML. See [J03 evidence](../docs/reports/bidi-j03.m
 
 ## FINAL. Review, validate and close the implementation
 
+Final read-only review finds five stale proposal fragments. Update owned
+canonical arrays and the dependent manager-owned PathNode factory; immutable
+DemandStore snapshots/guards; in-flight underflow validation and rejected-send
+rollback; read-once first limit and one-budget timeout cap; and the final
+prescan/entry setup guard, successful joined copy/release, elapsed setup
+budget and initialized-only lazy close. These corrections are already
+implemented and tested. Align the proposal examples; preserve normative
+rules and existing proof scope. Document the internal J03 driver-factory
+adaptation while keeping the same public seven-argument entry default.
+
+The clean closing gate ran after every enabled J03 behavior row passed.
+It is the fresh final runtime gate for the unchanged source tree committed
+in J03. FINAL changes only proposal/plan/report text; do not repeat the
+same passing runtime gate without a source change or unresolved concern.
+Run final document and diff checks on the complete committed implementation.
+
 Run one final review after all enabled gates pass:
 
 1. Audit every proposal package, public API, handler, AP operation, store and call stage against
@@ -2139,6 +2155,18 @@ Commit each reviewed implementation/validation slice with its tests when commits
 Include clarification evidence when applicable. The deliverable for this task is the complete
 phase-1–3 implementation, its tests, and the gate evidence in this plan. Full project benchmarks
 remain in phase 4.
+
+**Result.** Final owner review finds no new concrete defect or missing enabled
+requirement. The closing clean gate has 3,897 passing tests and 12 specified
+skips, with no failures or errors. Every new annotated test is void and in
+fresh XML. All 43 reviewed specification/proposal/plan/report files pass:
+153 local links, 184 code-fence pairs and 485 qualified section references.
+The final proposal examples match tested ownership, typed demand guards,
+in-flight rollback, one budget and guarded joined prescan/entry setup.
+`git diff --check` passes. Runtime sources are unchanged after the clean
+gate. No Lean artifact or proof-status change is part of this close.
+See [the final report](../docs/reports/bidi-final.md). All phase-1–3 steps
+are complete; full project benchmarks and full traces remain phases 4–5.
 
 ## Validation inventory ownership
 

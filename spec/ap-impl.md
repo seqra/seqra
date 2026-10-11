@@ -227,6 +227,9 @@ class MarkTable {
 
 ### 3.2 Tails, layers, marks, exclusions
 
+Mark and field-exclusion sets own sorted, distinct arrays. Their public `ids` properties return copies;
+canonical hash keys do not expose their backing storage.
+
 ```kotlin
 enum class Direction { FORWARD, BACKWARD }                                        // ap.md §8.7
 enum class Layer { NORMAL, DEMAND }                                               // ap.md §2.2
@@ -251,17 +254,28 @@ class ApMode(val run1: Boolean, val direction: Direction, val fieldLimit: Int) {
 /** ap.md §3.4: a canonical set of concrete marks (sorted ids, no duplicates): the X of `*∖X`, the marks of a TAINT leaf.
  *  ApManager interns it (T6), so equal sets are mostly the same object; equals also compares the content, so a reference
  *  form can make a set without the manager. */
-class MarkSet(@JvmField val ids: IntArray) {
-    private val hash = ids.contentHashCode()
-    val isEmpty: Boolean get() = ids.isEmpty()
-    operator fun contains(m: TaintMark): Boolean = ids.binarySearch(m.id) >= 0
-    fun isSubsetOf(o: MarkSet): Boolean = this === o || sortedSubset(ids, o.ids)
-    operator fun plus(o: MarkSet): MarkSet = if (o.isSubsetOf(this)) this else MarkSet(sortedUnion(ids, o.ids))
-    operator fun plus(m: TaintMark): MarkSet = if (m in this) this else MarkSet(sortedUnion(ids, intArrayOf(m.id)))
-    operator fun minus(o: MarkSet): MarkSet = MarkSet(ids.filter { it !in o.ids }.toIntArray())   // canonical stays canonical
-    fun intersect(o: MarkSet): MarkSet = MarkSet(ids.filter { o.ids.binarySearch(it) >= 0 }.toIntArray())
-    override fun equals(other: Any?) = this === other || (other is MarkSet && hash == other.hash && ids.contentEquals(other.ids))
-    override fun hashCode() = hash
+class MarkSet(ids: IntArray) {
+    internal val data: IntArray = ids.sortedDistinct()
+    val ids: IntArray get() = data.copyOf()
+    private val hash = data.contentHashCode()
+    val isEmpty: Boolean get() = data.isEmpty()
+
+    operator fun contains(mark: TaintMark): Boolean = data.binarySearch(mark.id) >= 0
+    fun isSubsetOf(other: MarkSet): Boolean = this === other || sortedSubset(data, other.data)
+    operator fun plus(other: MarkSet): MarkSet =
+        if (other.isSubsetOf(this)) this else MarkSet(sortedUnion(data, other.data))
+    operator fun plus(mark: TaintMark): MarkSet =
+        if (mark in this) this else MarkSet(sortedUnion(data, intArrayOf(mark.id)))
+    operator fun minus(other: MarkSet): MarkSet =
+        MarkSet(data.filter { other.data.binarySearch(it) < 0 }.toIntArray())
+    fun intersect(other: MarkSet): MarkSet =
+        MarkSet(data.filter { other.data.binarySearch(it) >= 0 }.toIntArray())
+
+    override fun equals(other: Any?): Boolean = this === other ||
+        (other is MarkSet && hash == other.hash && data.contentEquals(other.data))
+    override fun hashCode(): Int = hash
+    override fun toString(): String = data.joinToString(prefix = "{", postfix = "}")
+
     companion object { val EMPTY = MarkSet(IntArray(0)) }
 }
 
@@ -289,19 +303,29 @@ sealed interface ExclusionSet {
         override fun isSubsetOf(o: ExclusionSet) = true
     }
 
-    class Concrete internal constructor(@JvmField val ids: IntArray) : ExclusionSet {   // sorted AccessorIdx
-        private val hash = ids.contentHashCode()
-        override fun admits(first: AccessorIdx) = ids.binarySearch(first) < 0
-        override fun union(o: ExclusionSet) = if (o is Concrete) of(sortedUnion(ids, o.ids)) else this
-        override fun intersect(o: ExclusionSet) = if (o is Concrete) of(ids.filter { o.ids.binarySearch(it) >= 0 }.toIntArray()) else Empty
-        override fun isSubsetOf(o: ExclusionSet) = o is Concrete && sortedSubset(ids, o.ids)
-        override fun equals(other: Any?) = this === other || (other is Concrete && hash == other.hash && ids.contentEquals(other.ids))
-        override fun hashCode() = hash
+    class Concrete internal constructor(ids: IntArray) : ExclusionSet {
+        internal val data: IntArray = ids.sortedDistinct()
+        val ids: IntArray get() = data.copyOf()
+        private val hash = data.contentHashCode()
+
+        init { check(data.isNotEmpty()) { "A concrete exclusion must be nonempty" } }
+
+        override fun admits(first: AccessorIdx): Boolean = data.binarySearch(first) < 0
+        override fun union(other: ExclusionSet): ExclusionSet =
+            if (other is Concrete) of(sortedUnion(data, other.data)) else this
+        override fun intersect(other: ExclusionSet): ExclusionSet =
+            if (other is Concrete) of(data.filter { other.data.binarySearch(it) >= 0 }.toIntArray()) else Empty
+        override fun isSubsetOf(other: ExclusionSet): Boolean =
+            other is Concrete && sortedSubset(data, other.data)
+        override fun equals(other: Any?): Boolean = this === other ||
+            (other is Concrete && hash == other.hash && data.contentEquals(other.data))
+        override fun hashCode(): Int = hash
+        override fun toString(): String = data.joinToString(prefix = "{", postfix = "}")
     }
 
     companion object {
         /** The only factories: an empty set is Empty (ap.md §3.4). ApManager.intern makes it the shared object. */
-        fun of(ids: IntArray): ExclusionSet = if (ids.isEmpty()) Empty else Concrete(ids.sortedDistinct())
+        fun of(ids: IntArray): ExclusionSet = if (ids.isEmpty()) Empty else Concrete(ids)
         /** `{a}`: the exclusion of one keep edge (interpreter.md §2.1 `strongKeep`). */
         fun of(a: AccessorIdx): ExclusionSet = Concrete(intArrayOf(a))
     }
@@ -315,17 +339,33 @@ sealed interface ExclusionSet {
 ### 3.3 `PathNode`
 
 ```kotlin
-/** Interned concrete path cell. Paths contain no tail or mark accessor; only the field limit bounds depth (W4/W5). */
-class PathNode internal constructor(@JvmField val accessor: AccessorIdx, @JvmField val next: PathNode?) {
-    @JvmField val size: Int = 1 + (next?.size ?: 0)
-    @JvmField val counted: Int = (if (accessor.isCounted()) 1 else 0) + (next?.counted ?: 0)  // W3 checks
+/** An immutable path cell. The manager interns the suffix before the parent. */
+class PathNode internal constructor(
+    @JvmField val accessor: AccessorIdx,
+    @JvmField val next: PathNode?,
+    internal val manager: ApManager,
+) {
+    init { check(accessor.isPathAccessor()) { "W5: $accessor is not a path accessor" } }
+
+    @JvmField val size: Int = Math.addExact(1, next?.size ?: 0)
+    @JvmField val counted: Int = Math.addExact(if (accessor.isCounted()) 1 else 0, next?.counted ?: 0)
     private val hash: Int = accessor + 17 * (next?.hashCode() ?: 0)
 
-    /** Shallow: `next` is interned. The interner of ApManager uses it; after interning it is identity. */
-    override fun equals(other: Any?) = this === other || (other is PathNode && accessor == other.accessor && next === other.next)
-    override fun hashCode() = hash
+    override fun equals(other: Any?): Boolean = this === other ||
+        (other is PathNode && accessor == other.accessor && next === other.next)
+    override fun hashCode(): Int = hash
 
-    fun toIntArray(): IntArray = IntArray(size).also { var n: PathNode? = this; var i = 0; while (n != null) { it[i++] = n.accessor; n = n.next } }
+    fun toIntArray(): IntArray {
+        val result = IntArray(size)
+        var node: PathNode? = this
+        var index = 0
+        while (node != null) {
+            result[index++] = node.accessor
+            node = node.next
+        }
+        return result
+    }
+
     fun toList(): List<AccessorIdx> = toIntArray().asList()
 }
 ```
@@ -341,7 +381,7 @@ sealed interface PremiseKey {
     val nonZeroCount: Int                      // ap.md §4.6: 0 = zero-to-fact ({zero}), 1 = fact-to-fact, >= 2 = ND edge
 }
 
-val PremiseKey.members: List<InitialAp> get() = List(size, ::member)          // on a PremiseSet receiver: its array
+val PremiseKey.members: List<InitialAp> get() = List(size, ::member)          // a detached list of canonical members
 inline fun PremiseKey.forEachMember(body: (InitialAp) -> Unit) { for (k in 0 until size) body(member(k)) }
 
 /** K6, ap.md §7.2: the conclusions of a premise with the mark `*` (a policy fact, a position answer) are FLOW. Every other
@@ -352,20 +392,28 @@ val PremiseKey.isFlow: Boolean get() = this is InitialAp && mark is MarkSlot.Sta
 class InitialAp internal constructor(
     val base: AccessPathBase,
     val path: PathNode?,
-    val tail: Tail,                               // ANY_TAINT: a must-premise, only in a forward restricted run (W8 (c), §6.5)
-    val exclusion: ExclusionSet,                  // Empty unless STAR or ANY_TAINT: an emission can give a `STAR/E` demand exclusion
-                                                  // and a must-premise `[any-taint]/E` (§6.3; Lean AnyTaintEx.emitX)
-    val mark: MarkSlot,                           // `*` or `T`, never `*∖X` (§2.2)
-    @JvmField val id: Int,                        // the intern order: the sort key of a PremiseSet
-    @JvmField internal val manager: ApManager,    // native premise factories; reversed record readers use Pattern (§7.8)
+    val tail: Tail,
+    val exclusion: ExclusionSet,
+    val mark: MarkSlot,
+    @JvmField val id: Int,
+    @JvmField internal val manager: ApManager,
 ) : PremiseKey {
     init {
-        check(mark !is MarkSlot.Star || mark.excluded.isEmpty)
-        check(tail == Tail.STAR || tail == Tail.ANY_TAINT || exclusion == ExclusionSet.Empty)
-        check(tail != Tail.EXACT || mark is MarkSlot.Concrete) { "S8: an exact premise has a concrete mark" }
-        check(tail != Tail.ANY_TAINT || mark is MarkSlot.Concrete) { "W8 (a): `[any-taint]` has a concrete mark" }
+        check(base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot be a premise" }
+        check(mark !is MarkSlot.Star || mark.excluded.isEmpty) { "A premise cannot exclude marks" }
+        check(tail == Tail.STAR || tail == Tail.ANY_TAINT || exclusion == ExclusionSet.Empty) {
+            "Only a STAR or must premise can exclude fields"
+        }
+        check(tail != Tail.EXACT || mark is MarkSlot.Concrete) { "S8: an exact premise needs a concrete mark" }
+        check(tail != Tail.ANY_TAINT || mark is MarkSlot.Concrete) { "W8: a must premise needs a concrete mark" }
+        check(base != AccessPathBase.Zero || (path == null && tail == Tail.EXACT &&
+            exclusion == ExclusionSet.Empty && mark == MarkSlot.Concrete(TaintMark.ZERO))) {
+            "The zero base has only the canonical zero fact"
+        }
     }
-    @JvmField val pathArray: IntArray = path?.toIntArray() ?: EMPTY_PATH
+
+    internal val pathData: IntArray = path?.toIntArray() ?: EMPTY_PATH
+    val pathArray: IntArray get() = pathData.copyOf()
     override val size: Int get() = 1
     override fun member(k: Int): InitialAp = also { check(k == 0) }
     override val isZero: Boolean get() = base == AccessPathBase.Zero
@@ -376,16 +424,23 @@ class InitialAp internal constructor(
 /** ap.md §7.1, §4.6: an ND edge. Two or more members, sorted by the intern id, no duplicates; no member is the zero fact
  *  (the union drops it) and every member has a concrete mark (an input of a conjunction passes the mark gate of its
  *  literal; a member of an E6 summary is satisfied only by a concrete added fact). ApManager.premiseOf interns it. */
-class PremiseSet internal constructor(@JvmField val members: Array<InitialAp>) : PremiseKey {
+class PremiseSet internal constructor(members: Array<InitialAp>) : PremiseKey {
+    private val data = members.copyOf()
+    val members: Array<InitialAp> get() = data.copyOf()
+
     init {
-        check(members.size >= 2)
-        check(members.none { it.isZero }) { "ap.md §4.6: a premise set with two or more members has no zero member" }
-        check(members.all { it.mark is MarkSlot.Concrete }) { "ap.md §4.6: every member of an ND edge is concrete" }
+        check(data.size >= 2)
+        check(data.none { it.isZero }) { "A multiple-member premise cannot include zero" }
+        check(data.all { it.mark is MarkSlot.Concrete }) { "Every multiple-member premise must be concrete" }
+        check((1 until data.size).all { data[it - 1].id < data[it].id }) {
+            "Premise members must be sorted and unique"
+        }
     }
-    override val size: Int get() = members.size
-    override fun member(k: Int): InitialAp = members[k]
+
+    override val size: Int get() = data.size
+    override fun member(k: Int): InitialAp = data[k]
     override val isZero: Boolean get() = false
-    override val nonZeroCount: Int get() = members.size
+    override val nonZeroCount: Int get() = data.size
 }
 
 // In ApManager (Part I §5.1):
@@ -1142,48 +1197,88 @@ class ApManager(val cancellation: Cancellation, refManager: RefManager = RefMana
     val accessors = AccessorTable()
     val marks = MarkTable()
     val flowAlg: FlowAlgebra get() = FlowAlgebra
-    val taintAlg = TaintAlgebra(this)                                              // interns TaintLeaves (T6)
+    val taintAlg = TaintAlgebra(this)
 
     private val markSets = ConcurrentHashMap<MarkSet, MarkSet>()
     private val exclusions = ConcurrentHashMap<ExclusionSet, ExclusionSet>()
-    private val paths = ConcurrentHashMap<PathNode, PathNode>()
+    private val paths = ConcurrentHashMap<PathKey, PathNode>()
     private val initials = ConcurrentHashMap<InitialKey, InitialAp>()
     private val premiseSets = ConcurrentHashMap<List<InitialAp>, PremiseSet>()
     private val nextId = AtomicInteger()
-    private data class InitialKey(val base: AccessPathBase, val path: PathNode?, val tail: Tail, val exclusion: ExclusionSet, val mark: MarkSlot)
 
-    fun intern(s: MarkSet): MarkSet = if (s.isEmpty) MarkSet.EMPTY else markSets.putIfAbsent(s, s) ?: s
-    fun intern(e: ExclusionSet): ExclusionSet = if (e == ExclusionSet.Empty) e else exclusions.putIfAbsent(e, e) ?: e
-    fun markSetOf(t: TaintMark): MarkSet = intern(MarkSet(intArrayOf(t.id)))
-    fun path(a: AccessorIdx, next: PathNode?): PathNode = PathNode(a, next).let { paths.putIfAbsent(it, it) ?: it }
-    fun path(p: List<AccessorIdx>): PathNode? = p.foldRight(null as PathNode?) { a, n -> path(a, n) }
-    fun path(p: IntArray): PathNode? = p.foldRight(null as PathNode?) { a, n -> path(a, n) }
+    /** The suffix is canonical in this manager. Its identity avoids structural-hash clusters. */
+    private class PathKey(val accessor: AccessorIdx, val next: PathNode?) {
+        private val hash = accessor * 31 + System.identityHashCode(next)
+        override fun hashCode(): Int = hash
+        override fun equals(other: Any?): Boolean = other is PathKey && accessor == other.accessor && next === other.next
+    }
 
-    /** §4.10: a position is the path cut to at most two accessors (`[<C>, f]` or `[<C>]`). */
-    fun position(p: IntArray): PathNode = checkNotNull(path(p.copyOf(minOf(2, p.size))))
+    private data class InitialKey(
+        val base: AccessPathBase,
+        val path: PathNode?,
+        val tail: Tail,
+        val exclusion: ExclusionSet,
+        val mark: MarkSlot,
+    )
 
-    fun initial(base: AccessPathBase, path: PathNode?, tail: Tail, exclusion: ExclusionSet, mark: MarkSlot): InitialAp =
-        initials.computeIfAbsent(InitialKey(base, path, tail, intern(exclusion), mark)) { k ->
-            InitialAp(k.base, k.path, k.tail, k.exclusion, k.mark, nextId.getAndIncrement(), this)
+    fun intern(set: MarkSet): MarkSet = if (set.isEmpty) MarkSet.EMPTY else markSets.putIfAbsent(set, set) ?: set
+    fun intern(exclusion: ExclusionSet): ExclusionSet =
+        if (exclusion == ExclusionSet.Empty) exclusion else exclusions.putIfAbsent(exclusion, exclusion) ?: exclusion
+    fun markSetOf(mark: TaintMark): MarkSet = intern(MarkSet(intArrayOf(mark.id)))
+    fun path(accessor: AccessorIdx, next: PathNode?): PathNode {
+        check(next == null || next.manager === this) { "A path suffix must use this AP manager" }
+        return paths.computeIfAbsent(PathKey(accessor, next)) { PathNode(it.accessor, it.next, this) }
+    }
+
+    fun path(path: List<AccessorIdx>): PathNode? {
+        var node: PathNode? = null
+        for (index in path.indices.reversed()) {
+            if (index and 255 == 0) cancellation.checkpoint()
+            node = path(path[index], node)
         }
-    fun initial(p: Pattern): InitialAp = initial(p.fact.base, path(p.fact.path), p.fact.tail, p.exclusion, p.fact.mark)
+        return node
+    }
 
-    /** ap.md §7.1, §4.6, DD13. The zero fact adds no condition (it is at every node that an edge reaches), so it is
-     *  dropped; the result is {zero} only if every member is the zero fact. One member: the InitialAp itself; two or more:
-     *  the interned PremiseSet (an ND edge). */
+    fun path(path: IntArray): PathNode? {
+        var node: PathNode? = null
+        for (index in path.indices.reversed()) {
+            if (index and 255 == 0) cancellation.checkpoint()
+            node = path(path[index], node)
+        }
+        return node
+    }
+
+    fun position(path: IntArray): PathNode = checkNotNull(path(path.copyOf(minOf(2, path.size))))
+
+    fun initial(base: AccessPathBase, path: PathNode?, tail: Tail, exclusion: ExclusionSet, mark: MarkSlot): InitialAp {
+        check(base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot be a premise" }
+        check(path == null || path.manager === this) { "An initial path must use this AP manager" }
+        return initials.computeIfAbsent(InitialKey(base, path, tail, intern(exclusion), mark)) { key ->
+            InitialAp(key.base, key.path, key.tail, key.exclusion, key.mark, nextId.getAndIncrement(), this)
+        }
+    }
+
+    fun initial(pattern: Pattern): InitialAp {
+        check(pattern.fact.base !is AccessPathBase.CleanerTemporary) { "A field-action temporary cannot be a premise" }
+        return initial(pattern.fact.base, path(pattern.fact.path), pattern.fact.tail, pattern.exclusion, pattern.fact.mark)
+    }
+
     fun premiseOf(members: Collection<InitialAp>): PremiseKey {
-        check(members.isNotEmpty()) { "a premise set is never empty" }
+        check(members.isNotEmpty()) { "A premise set must be nonempty" }
+        check(members.all { it.manager === this }) { "All premises must use this AP manager" }
         val sorted = members.filter { !it.isZero }.distinct().sortedBy { it.id }
         return when (sorted.size) {
-            0 -> zero                                                                // every member is the zero fact
-            1 -> sorted[0]                                                           // {zero, i} is {i}
+            0 -> zero
+            1 -> sorted[0]
             else -> premiseSets.computeIfAbsent(sorted) { PremiseSet(it.toTypedArray()) }
         }
     }
 
-    /** ap.md §4.6: the union of two premise sets without the zero fact (a conjunction result, a conjunctive sink, the caller
-     *  edges of E6). {zero} ∪ {zero} = {zero}; {zero} ∪ {i} = {i}; {i} ∪ {k} = {i, k}. */
-    fun union(a: PremiseKey, b: PremiseKey): PremiseKey = if (a === b) a else premiseOf(a.members + b.members)
+    fun union(a: PremiseKey, b: PremiseKey): PremiseKey {
+        a.forEachMember { check(it.manager === this) { "All premises must use this AP manager" } }
+        b.forEachMember { check(it.manager === this) { "All premises must use this AP manager" } }
+        return if (a === b) a else premiseOf(a.members + b.members)
+    }
 
     val zero: InitialAp = initial(AccessPathBase.Zero, null, Tail.EXACT, ExclusionSet.Empty, MarkSlot.Concrete(TaintMark.ZERO))
 
@@ -3243,44 +3338,84 @@ vulnerability (`fn_found`). With the hand-off before F70, runs 2 and 3 enter `wr
 ### 7.7 `DemandStore` (`ap.md` §8.6)
 
 ```kotlin
-/** Demand patterns per method key. The hand-off normalizes mark exclusions and applies
- *  the paired shape guard (§5.9); it alone converts forward must tails to the backward view.
- *  The zero demand is implicit for every key. Keys are atomic base :: D-c.path; marks,
- *  tails and exclusions remain payloads for the exact operation test. */
+/** Immutable demand snapshot. Tails, marks, exclusions and exits remain candidate payloads. */
 class DemandStore private constructor(
-    private val byMethod: Map<MethodKey, PathTrie<DemandPattern>>,      // keyed by `base :: D-c.path`
-    private val zeroDemand: DemandPattern,                              // (zero, none) of EVERY method key (§9.2, analyzer-core.md §4.4)
+    private val byMethod: Map<MethodKey, PathTrie<DemandPattern>>,
+    private val zeroDemand: DemandPattern,
 ) {
-    /** Emission scans prefixes and extensions. Compare each candidate with Reference.emit.
-     *  Include the implicit zero demand on the zero base. */
+    /** Emission tests prefixes and extensions, with the implicit zero demand on the zero base. */
     fun near(method: MethodKey, base: AccessPathBase, path: PathNode?): List<DemandPattern> {
         val stored = byMethod[method]?.around(base, path?.toIntArray() ?: EMPTY_PATH).orEmpty()
         return if (base == AccessPathBase.Zero) stored + zeroDemand else stored
     }
 
-    /** Restriction scans prefixes only. CurrentDemand.restrict_index_equiv proves equivalence
-     *  to the full list scan for every mark/tail cell. Test full containment, output marks and
-     *  exit locations on every payload. The zero demand has no exit and produces no result. */
+    /** Whole-premise restriction needs entry prefixes only. The implicit zero has no exit. */
     fun covering(method: MethodKey, base: AccessPathBase, path: PathNode?): List<DemandPattern> =
         byMethod[method]?.lookupPrefixes(base, path?.toIntArray() ?: EMPTY_PATH).orEmpty()
 
     class Builder(private val m: ApManager) {
-        private val byMethod = HashMap<MethodKey, PathTrie<DemandPattern>>()
-        private val seen = HashSet<Pair<MethodKey, DemandPattern>>()
-        private val zeroDemand = DemandPattern(m.zero.toPattern(), null)
-        /** True only for a new stored pattern. The frontier counts these insertions. */
+        private val seen = LinkedHashSet<Pair<MethodKey, DemandPattern>>()
+        private val zeroDemand = ownDemand(m, DemandPattern(m.zero.toPattern(), null))
+
+        /** Count only a new exact normalized pattern. Validate the typed hand-off boundary. */
         fun add(method: MethodKey, d: DemandPattern): Boolean {
-            check(d.entry.fact.tail != Tail.ANY_TAINT && d.exit?.fact?.tail != Tail.ANY_TAINT) { "W8 (d): a pattern has no [any-taint]" }
-            fun normalized(p: Pattern) = p.fact.mark !is MarkSlot.Star || p.fact.mark.excluded.isEmpty
-            check(normalized(d.entry) && (d.exit == null || normalized(d.exit))) { "normalize mark exclusions at hand-off" }
-            check(d.entry.fact.mark !is MarkSlot.Star || d.entry.fact.tail == Tail.ANY) { "canonical abstract D-c has tail [any]" }
-            check(d.exit?.fact?.tail != Tail.EXACT || d.entry.fact.mark is MarkSlot.Concrete) { "canonical exact D-p has concrete D-c" }
-            if (d == zeroDemand || !seen.add(method to d)) return false     // the zero demand is implicit
-            byMethod.getOrPut(method, ::PathTrie).add(d.entry.fact.base, d.entry.fact.path.toIntArray(), d)
-            return true
+            m.cancellation.checkpoint()
+            val entry = d.entry
+            val exit = d.exit
+            check(entry.fact.base !is AccessPathBase.CleanerTemporary && exit?.fact?.base !is AccessPathBase.CleanerTemporary) {
+                "A field-action temporary cannot enter a demand hand-off"
+            }
+            check(entry.fact.tail != Tail.ANY_TAINT && exit?.fact?.tail != Tail.ANY_TAINT) {
+                "W8 (d): a demand pattern cannot have a must tail"
+            }
+            check(normalizedMarks(entry) && (exit == null || normalizedMarks(exit))) {
+                "Normalize mark exclusions at hand-off"
+            }
+            check(entry.fact.tail != Tail.STAR) { "A canonical demand entry has a non-STAR tail" }
+            check(entry.fact.mark !is MarkSlot.Star || entry.fact.tail == Tail.ANY) {
+                "A canonical abstract demand entry has an ANY tail"
+            }
+            check(exit?.fact?.tail != Tail.EXACT || entry.fact.mark is MarkSlot.Concrete) {
+                "A canonical exact exit demand has a concrete entry mark"
+            }
+            check(validFieldExclusion(entry) && (exit == null || validFieldExclusion(exit))) {
+                "Only a STAR demand exit can exclude fields"
+            }
+            val owned = ownDemand(m, d)
+            return owned != zeroDemand && seen.add(method to owned)
         }
-        fun build(): DemandStore = DemandStore(byMethod, zeroDemand)
+
+        /** The new index has no mutable alias in this builder or in earlier snapshots. */
+        fun build(): DemandStore {
+            m.cancellation.checkpoint()
+            val byMethod = LinkedHashMap<MethodKey, PathTrie<DemandPattern>>()
+            for ((method, demand) in seen) {
+                m.cancellation.checkpoint()
+                byMethod.getOrPut(method) { PathTrie(m.cancellation) }
+                    .add(demand.entry.fact.base, demand.entry.fact.path.toIntArray(), demand)
+            }
+            return DemandStore(Collections.unmodifiableMap(byMethod), zeroDemand)
+        }
     }
+}
+
+private fun normalizedMarks(p: Pattern): Boolean =
+    (p.fact.mark as? MarkSlot.Star)?.excluded?.isEmpty != false
+
+private fun validFieldExclusion(p: Pattern): Boolean =
+    p.exclusion == ExclusionSet.Empty || p.fact.tail == Tail.STAR
+
+private fun ownDemand(m: ApManager, d: DemandPattern): DemandPattern =
+    DemandPattern(ownPattern(m, d.entry), d.exit?.let { ownPattern(m, it) })
+
+private fun ownPattern(m: ApManager, p: Pattern): Pattern {
+    m.cancellation.checkpoint()
+    val path = ArrayList<Int>(p.fact.path.size)
+    for (accessor in p.fact.path) {
+        m.cancellation.checkpoint()
+        path += accessor
+    }
+    return p.copy(fact = p.fact.copy(path = Collections.unmodifiableList(path)))
 }
 ```
 
