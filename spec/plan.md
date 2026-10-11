@@ -58,7 +58,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | E06 | Complete | Shared deadline, scheduling and failure-safe joined release; 50 focused and 1,054 clean common tests. See `docs/reports/bidi-e06.md`. |
 | E07 | Complete | Direct finite closure, 408 seeded executions and fixed protocol controls; 1,083 clean common tests. See [E07 evidence](../docs/reports/bidi-e07.md). |
 | V3 | Complete | One-run acceptance and protocol/store audit; 1,088 common and 339 JVM tests. See [V3 evidence](../docs/reports/bidi-v3.md). |
-| D01–D04, V4 | Pending | |
+| D01 | Complete | Joint support, confirmation and reports. See `docs/reports/bidi-d01.md`: 40 new tests and 1,128 common regressions pass. |
+| D02–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
 
 Implementation corrections: the earlier FINAL text described this file as a planning-only
@@ -1650,6 +1651,11 @@ report. Preserve witnesses without merging contexts or alternatives. Store `Anal
 unsupported. Tails, marks and E affect supplier admission. Mixed confirmed/demand reports and
 all incomplete-run sequences match the specified state transitions.
 
+**Result.** All 40 new support, joined-run confirmation and report tests pass.
+The fresh common gate passes 1,128 tests in 117 classes. JVM and Go test sources,
+JVM SAST and application test sources compile. The report records the failing
+API gates, fixed-point checks, exclusion vectors and discovery evidence.
+
 ### D02. Implement both hand-offs, seeds and frontier counts
 
 **Requires:** D01. **Proposal:** `analyzer-impl.md` §7.2–§7.4, §7.8.
@@ -1670,6 +1676,16 @@ an already confirmed sink alternative. Build next-forward source seeds from actu
 hits; cached source records produce no synthetic hit. Handle backward zero summaries and
 implicit zero patterns by their separate rules. Count accepted stored patterns after exact
 normalization/deduplication, excluding implicit zero from explicit demand counts.
+The D02 preparation review requires COMPLETE results before hand-off or
+frontier scans. Use `RunResult<RunMethodAnalyzer>` for the retained summaries,
+hits and counters. Guard each leaf, member, sink, hit and frontier walk with
+cancellation checks. Own the frontier sets/maps and hand-off count map;
+retain only keys and counts. The current engine has no optional cause counters,
+so leave that field absent rather than inventing counts. Historical
+`crossableLeaves` does not belong to the current frontier contract.
+Derived forward-to-backward sink seeds are exactly deduplicated, as in the
+proposal, while `SeedIndex` itself retains input multiplicity. Test that
+distinction and the implicit zero builder rejection explicitly.
 
 **Gate.** Both hand-offs match direct construction, including excluded abstract marks, distinct
 concrete marks, zero and ND branches. Reader-result DEMAND creates caller propagation only.
