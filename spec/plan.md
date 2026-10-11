@@ -61,7 +61,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | D01 | Complete | Joint support, confirmation and reports. See `docs/reports/bidi-d01.md`: 40 new tests and 1,128 common regressions pass. |
 | D02 | Complete | Both hand-offs, seeds and frontier counts. See `docs/reports/bidi-d02.md`: 29 new tests and 1,157 common regressions pass. |
 | D03 | Complete | Iteration loop, joined barriers, one budget and DLINK 1–5. See `docs/reports/bidi-d03.md`: 23 new and 1,180 common tests pass. |
-| D04, V4 | Pending | |
+| D04 | Complete | 37 acceptance tests; 1,217 clean common tests and consumer compile checks pass. |
+| V4 | Pending | |
 | J01–J03, FINAL | Pending | |
 
 Implementation corrections: the earlier FINAL text described this file as a planning-only
@@ -1769,6 +1770,79 @@ needs a minimized annotated trace; historical output alone is not a semantic ora
 Record the tested program scope and filter, shape, seed and record conditions. Do not claim
 exact round-to-round narrowing in the abstract/representability exception cells.
 
+The D04 preparation review divides the tests by their observation boundary.
+Use real joined driver sequences for G/C/I, setter/factory, two-mark sharing,
+mark-changing pass, lowered partial field cleaner, WRAP, END and CONJ.
+Compare generated legal program shapes with the direct per-path closure.
+The F71 differential backend must keep its historical emission, cleaner and
+hand-off rules explicit. Raw historical demand inputs can be outside the
+current DemandStore construction domain; do not change current guards for them.
+Capture processed facts before release and retained summaries, links, hits,
+counters, records, demands and seeds at the barriers. Use the implemented
+MicroEdgeBuilder and fieldCleanStep for native statement and field-action forms.
+The first WRAP/END/CONJ gate exposes three test expectation errors, with
+RED XML saved under `/tmp/bidi-d04/root-trace-red-xml`. Backward selection
+includes the normal zero-to-zero summary. It has no explicit demand insertion
+and does not make the callee analysed. Check that zero piece separately from
+the nonzero literal branches. A backward frontier counts outgoing source
+seeds, so END has one seed at its backward barrier. Correct these assertions
+under §7.3–§7.4 and §7.8; keep the program shapes and production code unchanged.
+The second WRAP gate also retains the argument identity record from the
+ordinary write and move. R1 stores every eligible native summary group.
+Select the return-base record for the expected wrapper result and check the
+identity record separately. The prior single-record expectation was too narrow.
+The first generated gate passes the direct closure comparison but rejects an
+extra assertion that every run-1 conjunctive result is normal. A mark answer
+for a source below the root policy starts as may ANY and contributes DEMAND
+to the conjunction (§4.5–§4.6). Use that independent geometry/layer matrix,
+including must-to-may normalization. Keep generated long-path assertions exact.
+Use a depth-two denotation for bounded union comparison; enumerating the full
+Cartesian path universe makes this small-program gate take 107 seconds.
+The full paths remain in program inputs, observations and explicit assertions.
+The CONJ negative control first fails to report its expected false positive.
+The fixture call binding consumes the caller argument and omits its ordinary
+pass-over path, so the second call has no tainted first input. Add explicit
+input identity pass-over for these read-only calls. Check a normal first-input
+link at the second call before testing the faulty reversal. The saved failure
+is under `/tmp/bidi-d04/actions-control-first-xml`. Keep the production reversal.
+The lowered partial-cleaner trace has a concrete T(g) backward record and a
+shared abstract U(k) FLOW record. F72 emits U through the abstract pattern,
+not an exact U premise. F74 retains the outside STAR/E{f} part; the reversed
+normal FLOW record keeps the admitted suffix k. Selected backward f pieces
+normalize to abstract f demand for run 3, which does not meet its exact g/k
+inputs. Test these pieces and keep the required final g/k findings and absence
+of f. The raw trace is under `/tmp/bidi-d04/actions-trace-red-xml`.
+An independent review of the test-only raw iteration barriers finds that their
+NO_DEMAND_EDGE scan omits raw demand summaries. Include processed deltas, raw
+summary deltas and links, as §7.1 requires. Add a direct-barrier regression for
+an exit may-pass whose summary is the only demand object before correcting
+both test backends. Production already counts this summary delta.
+The historical comparator review finds three further test-only defects.
+F71 Cross tests the reversed premise with empty field exclusion; the shared
+edge exclusion belongs to its reversed result. The above-path emission keeps
+the demand's STAR exclusion. Add raw table controls before correcting these
+two equations. Tighten the declared historical domain to reject alias guards,
+END_FACTS stages, guarded/triggered edge stages and exit end-fact conjunctions.
+These forms are outside this comparator's stated scope. Generated comparisons
+contain none of these cells; keep their current findings and scope unchanged.
+Compare outgoing demand, exact seeds and direction-separated raw records at
+every complete generated barrier. Add labelled fixed-program counterparts and
+cite historical golden results for forms outside the executable old domain.
+The identity and setter driver fixtures used separate initial limits 1, 2 and
+3 to test an invariant. Keep their first limit at 1, as the user specified;
+vary only the later policy limits. These programs stop in run 1. Positive
+single-run AP/mode cells at limits 2 and 3 remain separate operation tests.
+
+**Result.** All 37 D04 tests pass. The 120 generated program/mode cells use
+240 native schedules. Twenty-four generated alternating iterations and six
+fixed counterparts agree with the independent current raw barriers and keep
+the labelled F71 findings/states. The executable old domain is stated in
+the tests and report. V4 closes the remaining full inventory comparisons.
+The clean common gate passes 1,217 tests in 134 classes. All 1,069 new common
+annotated tests compile to void and appear in fresh XML. JVM, Go, JVM SAST
+and application test sources compile. No D04 production correction is
+needed. See [D04 evidence](../docs/reports/bidi-d04.md).
+
 ### V4. Validate Phase 2
 
 Run the full common AP/forms/engine/driver tests. Complete AP whole-run
@@ -1776,6 +1850,21 @@ items 13, 17–18 and all Analyzer inventory items except the phase-3 wiring/rel
 checks and the full project benchmark work reserved for phase 4. Compare records and raw
 selection independently from current callee demand. Review all public engine/driver APIs and
 every P/Q ownership rule. Phase 3 can now run the new driver through a JVM entry.
+The read-only V4 audit maps the public engine/driver APIs and P1–P6/Q1–Q4.
+Add an actual caller-state acquire/release/after program with conjunctive
+state and Result literals. Test run 1 and an independently seeded restricted
+run 3, with empty records and no caller state pass-over that could hide loss
+at the callee exit. The native run-1 program stops when both sinks confirm.
+Add the earlier-confirmed/latest-demand stop boundary with real joined
+F1/B2/F3 engines and an explicit read-only final witness-store view. Keep
+actual actors, counters and records. Check that Report keeps its first
+confirmation, HandOff makes no sink seed and STOP_RULE precedes policy.
+Close the remaining fixed historical comparisons here. Proven earlier
+D6X/DRXs G/C/I/S/SD reports use literal labelled golden vectors. END has no
+Lean program model; use separately labelled F71 AP equations with the
+specified end-fact interpreter rules for its executable historical check.
+Do not invent a Lean END/factory finding theorem or use current selectors
+to compute historical expected reports.
 
 ## Phase 3: Prescan and JVM analyzer entry
 
