@@ -132,11 +132,13 @@ class MethodAnalysisFixtures(
              demand: DemandStore? = if (index == 1) null else DemandStore.Builder(manager).build(),
              seeds: SeedIndex = SeedIndex.EMPTY,
              localFactory: MethodLocalServicesFactory? = null,
-             callFactory: MethodCallServicesFactory? = null): RunMethodAnalyzer =
-        core(config(index, L, demand, seeds), localFactory, callFactory)
+             callFactory: MethodCallServicesFactory? = null,
+             key: MethodKey = this.key): RunMethodAnalyzer =
+        core(config(index, L, demand, seeds), localFactory, callFactory, key)
 
     fun core(config: RunConfig, localFactory: MethodLocalServicesFactory? = null,
-             callFactory: MethodCallServicesFactory? = null): RunMethodAnalyzer {
+             callFactory: MethodCallServicesFactory? = null,
+             key: MethodKey = this.key): RunMethodAnalyzer {
         lateinit var actor: RunMethodAnalyzer
         val port = object : RunnerPort<RunMethodAnalyzer> {
             override val config = config
@@ -148,7 +150,7 @@ class MethodAnalysisFixtures(
             override fun post(event: RunEvent.Delivery): Boolean { events += event; return true }
             override fun enqueue(analyzer: RunMethodAnalyzer): Boolean { enqueued += analyzer; return true }
             override fun analyzer(key: MethodKey): RunMethodAnalyzer {
-                check(key == this@MethodAnalysisFixtures.key) { "The finite fixture owns one method" }
+                check(key == actor.key) { "The finite port owns one method actor" }
                 return actor
             }
             override val onProcess: (MethodKey, EdgeDelta) -> Unit = { key, edge ->
@@ -173,6 +175,9 @@ class MethodAnalysisFixtures(
     }
 
     private inner class LocalServices(private val core: RunMethodAnalyzer) : MethodLocalServices {
+        private val key get() = core.key
+        override val conjunctions: ConjunctionStore? get() =
+            error("Standing conjunction storage requires an explicit test service")
         private val triggered = HashSet<Pair<CommonInst, SinkRule>>()
         override fun addRequest(premise: InitialAp, kind: RequestKind) { requests += premise to kind }
         override fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts) {

@@ -3,6 +3,7 @@ package org.opentaint.dataflow.bidi.engine
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.interp.SinkRule
 import org.opentaint.dataflow.bidi.store.CallerRef
+import org.opentaint.dataflow.bidi.store.ConjunctionStore
 import org.opentaint.dataflow.bidi.store.RequestKind
 import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.Collections
@@ -26,6 +27,7 @@ class Triggers(fired: List<Pair<SinkRule, Layer>>, parts: List<Facts>) {
 
 /** Required local operations bind to the one actor's stores and run inputs. */
 interface MethodLocalServices {
+    val conjunctions: ConjunctionStore?
     fun addRequest(premise: InitialAp, kind: RequestKind)
     fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts)
     fun conjunction(edge: ConjunctiveEdge, premise: PremiseKey, facts: Facts, node: CommonInst,

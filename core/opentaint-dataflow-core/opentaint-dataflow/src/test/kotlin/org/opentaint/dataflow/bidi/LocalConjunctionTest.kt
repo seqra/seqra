@@ -1,0 +1,265 @@
+package org.opentaint.dataflow.bidi
+
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.bidi.ap.*
+import org.opentaint.dataflow.bidi.driver.Seed
+import org.opentaint.dataflow.bidi.driver.SeedIndex
+import org.opentaint.dataflow.bidi.engine.*
+import org.opentaint.dataflow.bidi.fixtures.MethodAnalysisFixtures
+import org.opentaint.dataflow.bidi.interp.*
+import org.opentaint.dataflow.bidi.store.*
+import kotlin.test.*
+
+class LocalConjunctionTest {
+    private val firstBase = AccessPathBase.Argument(0)
+    private val secondBase = AccessPathBase.Argument(1)
+    private val result = AccessPathBase.Return
+
+    @Test fun `real statement conjunction waits for both inputs in either arrival order and unions full premises`(): Unit {
+        for (reverse in listOf(false, true)) MethodAnalysisFixtures().use { f ->
+            val t = MarkSlot.Concrete(f.mark("T"))
+            val u = MarkSlot.Concrete(f.mark("U"))
+            val v = MarkSlot.Concrete(f.mark("V"))
+            val j1 = f.manager.initial(f.pattern(firstBase, mark = t))
+            val j2 = f.manager.initial(f.pattern(secondBase, mark = u))
+            val target = PathFact(result, emptyList(), Tail.ANY_TAINT, v)
+            val edge = ConjunctiveEdge(listOf(j1.toPattern(), j2.toPattern()), target)
+            f.statement(1, StatementSummary(setOf(firstBase, secondBase), emptyList(), listOf(edge), emptyMap()))
+            val core = localCore(f)
+            val order = if (reverse) listOf(j2, j1) else listOf(j1, j2)
+            core.addInitial(order[0])
+            f.drain(core, quantum = 1)
+            assertTrue(core.summaries.all().none())
+            core.addInitial(order[1])
+            f.drain(core, quantum = 1)
+            val premise = f.manager.union(j1, j2)
+            assertEquals(setOf(j1, j2), premise.members.toSet())
+            assertEquals(setOf(premise to Conclusion(target, ExclusionSet.Empty, false)),
+                methodEntries(f.ops, core.summaries.all()))
+            assertTrue(f.publications.flatten().all { it.premise === premise && it.layer == Layer.NORMAL })
+            assertNotNull((core.localServices as RunMethodLocalServices).conjunctions)
+            assertEquals(0L, core.demandLayerEdges)
+            assertTrue(f.events.isEmpty())
+        }
+    }
+
+    @Test fun `zero contributors disappear from a mixed premise but all zero contributors retain zero`(): Unit {
+        for (allZero in listOf(false, true)) MethodAnalysisFixtures().use { f ->
+            val t = MarkSlot.Concrete(f.mark("T"))
+            val u = MarkSlot.Concrete(f.mark("U"))
+            val v = MarkSlot.Concrete(f.mark("V"))
+            val first = f.manager.initial(f.pattern(firstBase, mark = t))
+            val edge = ConjunctiveEdge(listOf(first.toPattern(), f.pattern(secondBase, mark = u)),
+                PathFact(result, emptyList(), Tail.EXACT, v))
+            f.statement(1, StatementSummary(setOf(firstBase, secondBase), emptyList(), listOf(edge), emptyMap()))
+            val core = localCore(f)
+            if (allZero) core.emitAfter(f.manager.zero, f.inst(0), f.fact(firstBase, mark = t))
+            else core.addInitial(first)
+            f.drain(core)
+            assertTrue(core.summaries.all().none())
+            core.emitAfter(f.manager.zero, f.inst(0), f.fact(secondBase, mark = u))
+            f.drain(core)
+            val premise = if (allZero) f.manager.zero else first
+            assertEquals(setOf(premise to Conclusion(edge.target, ExclusionSet.Empty, false)),
+                methodEntries(f.ops, core.summaries.all()))
+            assertSame(premise, core.summaries.all().single().first)
+        }
+    }
+
+    @Test fun `a DEMAND contributor demotes a must target before the statement cut and NORMAL contributors cut only overflow`(): Unit {
+        for (layer in Layer.entries) MethodAnalysisFixtures().use { f ->
+            val t = MarkSlot.Concrete(f.mark("T"))
+            val u = MarkSlot.Concrete(f.mark("U"))
+            val v = MarkSlot.Concrete(f.mark("V"))
+            val j1 = f.manager.initial(f.pattern(firstBase, mark = t))
+            val j2 = f.manager.initial(f.pattern(secondBase, mark = u))
+            val path = listOf(f.field("f"), f.field("g"))
+            val edge = ConjunctiveEdge(listOf(j1.toPattern(), j2.toPattern()),
+                PathFact(result, path, Tail.ANY_TAINT, v))
+            f.statement(1, StatementSummary(setOf(firstBase, secondBase), emptyList(), listOf(edge), emptyMap()))
+            val core = localCore(f, limit = 1)
+            core.addInitial(j1)
+            f.drain(core)
+            core.emitAfter(j2, f.inst(0), f.fact(secondBase, mark = u, layer = layer))
+            f.drain(core)
+            val premise = f.manager.union(j1, j2)
+            val beforeCut = Conclusion(edge.target.copy(tail = if (layer == Layer.DEMAND) Tail.ANY else Tail.ANY_TAINT),
+                ExclusionSet.Empty, layer == Layer.DEMAND)
+            assertEquals(setOf(beforeCut), methodLeaves(f.ops, f.cuts.filter { it.first == Cut.STATEMENT && it.second.base == result }
+                .map { it.second }))
+            assertEquals(setOf(premise to Conclusion(PathFact(result, path.take(1), Tail.ANY, v), ExclusionSet.Empty, true)),
+                methodEntries(f.ops, core.summaries.all()))
+            assertTrue(core.summaries.all().all { it.second.layer == Layer.DEMAND })
+            assertTrue(core.demandLayerEdges >= 2L)
+        }
+    }
+
+    @Test fun `one satisfying fact fills both repeated literal slots without creating a second publication on replay`(): Unit {
+        MethodAnalysisFixtures().use { f ->
+            val t = MarkSlot.Concrete(f.mark("T"))
+            val v = MarkSlot.Concrete(f.mark("V"))
+            val j = f.manager.initial(f.pattern(firstBase, mark = t))
+            val literal = j.toPattern()
+            val edge = ConjunctiveEdge(listOf(literal, literal), PathFact(result, emptyList(), Tail.EXACT, v))
+            f.statement(1, StatementSummary(setOf(firstBase), emptyList(), listOf(edge), emptyMap()))
+            val core = localCore(f)
+            core.addInitial(j)
+            f.drain(core, quantum = 1)
+            assertEquals(setOf(j to Conclusion(edge.target, ExclusionSet.Empty, false)), methodEntries(f.ops, core.summaries.all()))
+            val publications = f.publications.toList()
+            val cuts = f.cuts.size
+            core.emitAfter(j, f.inst(0), f.fact(firstBase, mark = t))
+            f.drain(core)
+            assertEquals(publications, f.publications)
+            assertEquals(cuts, f.cuts.size)
+            assertEquals(0L, core.demandLayerEdges)
+        }
+    }
+
+    @Test fun `conjunction alternatives at one statement keep their distinct literal requirements`(): Unit {
+        MethodAnalysisFixtures().use { f ->
+            val t = MarkSlot.Concrete(f.mark("T"))
+            val u = MarkSlot.Concrete(f.mark("U"))
+            val w = MarkSlot.Concrete(f.mark("W"))
+            val v = MarkSlot.Concrete(f.mark("V"))
+            val first = f.manager.initial(f.pattern(firstBase, mark = t))
+            val second = f.manager.initial(f.pattern(secondBase, mark = u))
+            val other = f.manager.initial(f.pattern(secondBase, mark = w))
+            val a = ConjunctiveEdge(listOf(first.toPattern(), second.toPattern()), PathFact(result, emptyList(), Tail.EXACT, v))
+            val b = ConjunctiveEdge(listOf(first.toPattern(), other.toPattern()), PathFact(AccessPathBase.This, emptyList(), Tail.EXACT, v))
+            f.statement(1, StatementSummary(setOf(firstBase, secondBase), emptyList(), listOf(a, b), emptyMap()))
+            val core = localCore(f)
+            core.addInitial(first)
+            core.addInitial(second)
+            f.drain(core)
+            val firstResult = f.manager.union(first, second) to Conclusion(a.target, ExclusionSet.Empty, false)
+            assertEquals(setOf(firstResult), methodEntries(f.ops, core.summaries.all()))
+            core.addInitial(other)
+            f.drain(core)
+            assertEquals(setOf(firstResult, f.manager.union(first, other) to Conclusion(b.target, ExclusionSet.Empty, false)),
+                methodEntries(f.ops, core.summaries.all()))
+        }
+    }
+
+    @Test fun `two method contexts cannot complete a conjunction from each others standing inputs`(): Unit {
+        MethodAnalysisFixtures().use { f ->
+            val t = MarkSlot.Concrete(f.mark("T"))
+            val u = MarkSlot.Concrete(f.mark("U"))
+            val v = MarkSlot.Concrete(f.mark("V"))
+            val first = f.manager.initial(f.pattern(firstBase, mark = t))
+            val second = f.manager.initial(f.pattern(secondBase, mark = u))
+            val edge = ConjunctiveEdge(listOf(first.toPattern(), second.toPattern()), PathFact(result, emptyList(), Tail.EXACT, v))
+            f.statement(1, StatementSummary(setOf(firstBase, secondBase), emptyList(), listOf(edge), emptyMap()))
+            val left = localCore(f, key = f.store.key(context = "left"))
+            val right = localCore(f, key = f.store.key(context = "right"))
+            left.addInitial(first)
+            right.addInitial(second)
+            f.drain(left)
+            f.drain(right)
+            assertTrue(left.summaries.all().none())
+            assertTrue(right.summaries.all().none())
+            right.addInitial(first)
+            f.drain(right)
+            assertTrue(left.summaries.all().none())
+            assertEquals(setOf(f.manager.union(first, second) to Conclusion(edge.target, ExclusionSet.Empty, false)),
+                methodEntries(f.ops, right.summaries.all()))
+        }
+    }
+
+    @Test fun `backward conjunction reversal emits independent DEMAND branches and allocates no forward join`(): Unit {
+        MethodAnalysisFixtures().use { f ->
+            val t = MarkSlot.Concrete(f.mark("T"))
+            val u = MarkSlot.Concrete(f.mark("U"))
+            val v = MarkSlot.Concrete(f.mark("V"))
+            val edge = ConjunctiveEdge(listOf(f.pattern(firstBase, mark = t), f.pattern(secondBase, mark = u)),
+                PathFact(result, emptyList(), Tail.ANY_TAINT, v))
+            f.statement(1, StatementSummary(setOf(firstBase, secondBase), emptyList(), listOf(edge), emptyMap()))
+            val core = localCore(f, index = 2)
+            val initial = f.manager.initial(f.pattern(result, mark = v))
+            core.addInitial(initial)
+            f.drain(core, quantum = 1)
+            assertEquals(setOf(initial to Conclusion(PathFact(result, emptyList(), Tail.EXACT, v), ExclusionSet.Empty, false),
+                initial to Conclusion(PathFact(firstBase, emptyList(), Tail.EXACT, t), ExclusionSet.Empty, true),
+                initial to Conclusion(PathFact(secondBase, emptyList(), Tail.EXACT, u), ExclusionSet.Empty, true)),
+                methodEntries(f.ops, core.summaries.all()))
+            assertNull((core.localServices as RunMethodLocalServices).conjunctions)
+            assertTrue(f.vulnerabilities.witnessesOf(2).none())
+            assertTrue(core.sourceHits!!.entries().none())
+            assertTrue(f.events.isEmpty())
+        }
+    }
+
+    @Test fun `a restricted normal must contributor retains its full excluded premise and blocks the excluded literal step`(): Unit {
+        for (blocked in listOf(false, true)) MethodAnalysisFixtures().use { f ->
+            val t = MarkSlot.Concrete(f.mark("T"))
+            val u = MarkSlot.Concrete(f.mark("U"))
+            val v = MarkSlot.Concrete(f.mark("V"))
+            val field = f.field("f")
+            val e = ExclusionSet.of(intArrayOf(if (blocked) field else f.field("g")))
+            val first = f.manager.initial(f.pattern(firstBase, tail = Tail.ANY_TAINT, mark = t, exclusion = e))
+            val second = f.manager.initial(f.pattern(secondBase, mark = u))
+            val edge = ConjunctiveEdge(listOf(f.pattern(firstBase, listOf(field), Tail.EXACT, t), second.toPattern()),
+                PathFact(result, emptyList(), Tail.ANY_TAINT, v))
+            f.statement(1, StatementSummary(setOf(firstBase, secondBase), emptyList(), listOf(edge), emptyMap()))
+            val core = localCore(f, index = 3)
+            core.addInitial(first)
+            core.addInitial(second)
+            f.drain(core)
+            val expected = if (blocked) emptySet() else setOf(f.manager.union(first, second) to Conclusion(edge.target, ExclusionSet.Empty, false))
+            assertEquals(expected, methodEntries(f.ops, core.summaries.all()))
+            assertEquals(e, first.exclusion)
+            assertEquals(0L, core.demandLayerEdges)
+            assertTrue(f.events.isEmpty())
+        }
+    }
+
+    @Test fun `a real conjunctive FLOW read requests its concrete link answer before combining with a zero source`(): Unit {
+        for (index in listOf(1, 3)) MethodAnalysisFixtures().use { f ->
+            val t = MarkSlot.Concrete(f.mark("T"))
+            val u = MarkSlot.Concrete(f.mark("U"))
+            val v = MarkSlot.Concrete(f.mark("V"))
+            val policy = f.manager.initial(f.pattern(firstBase, tail = Tail.STAR, mark = MarkSlot.STAR))
+            val answer = f.manager.initial(f.pattern(firstBase, mark = t))
+            val sourceTarget = PathFact(secondBase, emptyList(), Tail.EXACT, u)
+            val source = MicroEdge.of(PathEdge(ZERO_FACT, sourceTarget, ExclusionSet.Empty))
+            f.entryRules(RuleStatement(StatementSummary(setOf(AccessPathBase.Zero), listOf(MicroEdge.of(ZERO_KEEP), source),
+                emptyList(), emptyMap()), StatementSummary.EMPTY, emptyList()))
+            val target = PathFact(result, emptyList(), Tail.ANY_TAINT, v)
+            val edge = ConjunctiveEdge(listOf(answer.toPattern(), Pattern(sourceTarget, ExclusionSet.Empty)), target)
+            f.statement(1, StatementSummary(setOf(firstBase, secondBase), emptyList(), listOf(edge), emptyMap()))
+            val sink = localSink(listOf(f.pattern(result, mark = v)))
+            f.exitRules(2, ExitRules(localRules(listOf(sink)), false, emptySet()))
+            val demand = if (index == 1) null else DemandStore.Builder(f.manager).apply {
+                add(f.key, DemandPattern(f.pattern(firstBase, tail = Tail.ANY, mark = MarkSlot.STAR),
+                    f.pattern(result, tail = Tail.ANY, mark = MarkSlot.STAR)))
+            }.build()
+            val seeds = SeedIndex.of(listOf(Seed.Source(f.key, f.inst(0), source.forward)))
+            val core = f.core(index = index, L = 1, demand = demand, seeds = seeds,
+                localFactory = MethodLocalServicesFactory(::RunMethodLocalServices))
+            core.addRootZero()
+            core.addLink(CallerRef(f.key, f.manager.zero, Layer.NORMAL, f.inst(1)), Layer.NORMAL, f.fact(firstBase, mark = t))
+            assertEquals(setOf(f.manager.zero, policy), core.initials.all().toSet())
+            assertTrue(core.summaries.all().none())
+            f.drain(core, quantum = 1)
+            assertTrue(f.processed.any { it.premise === f.manager.zero && it.node === f.inst(1) && it.facts.base == secondBase },
+                "The source contributes in both modes, including the restricted control")
+            assertTrue(f.processed.any { it.premise === policy && it.node === f.inst(1) && it.facts is FlowTree })
+            val zero = f.manager.zero to Conclusion(ZERO_FACT, ExclusionSet.Empty, false)
+            if (index == 1) {
+                assertEquals(setOf(f.manager.zero, policy, answer), core.initials.all().toSet())
+                assertEquals(setOf(zero, answer to Conclusion(target, ExclusionSet.Empty, false)),
+                    methodEntries(f.ops, core.summaries.all()))
+                val witness = f.vulnerabilities.witnessesOf(1).single().second
+                assertSame(answer, witness.edges.single().premise, "The zero-source contributor drops out of the union")
+                assertEquals(Layer.NORMAL, witness.edges.single().layer)
+                assertEquals(setOf(Conclusion(target, ExclusionSet.Empty, false)), methodLeaves(f.ops, listOf(witness.edges.single().facts)))
+            } else {
+                assertEquals(setOf(f.manager.zero, policy), core.initials.all().toSet())
+                assertEquals(setOf(zero), methodEntries(f.ops, core.summaries.all()))
+                assertTrue(f.vulnerabilities.witnessesOf(3).none())
+            }
+            assertTrue(f.events.isEmpty())
+            assertEquals(0L, core.demandLayerEdges)
+        }
+    }
+}

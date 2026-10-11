@@ -52,7 +52,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | V2 | Complete | Actual static exit-source requests, matched source/pass effects and contextual construction scan pass. See `docs/reports/bidi-v2.md`. |
 | E01 | Complete | Typed run shell, count protocol, immutable queue priorities and context adapters. Clean gate passed; see `docs/reports/bidi-e01.md`. |
 | E02 | Complete | Method-local transfer, unchanged bursts, boundaries, raw/selected summaries and publication lifetime. Clean gate passed; see [E02 evidence](../docs/reports/bidi-e02.md). |
-| E03–E07, V3 | Pending | |
+| E03 | Complete | Standing requests, sinks, conjunctions and backward end-fact triggers. Clean common and shared-consumer compile gate passed; see [E03 evidence](../docs/reports/bidi-e03.md). |
+| E04–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
 
@@ -1205,6 +1206,44 @@ off-spine facts and raw summaries rejected for publication.
 ### E03. Implement standing requests, sinks and conjunctions
 
 **Requires:** E02. **Proposal:** `analyzer-impl.md` §4.8–§4.9, §4.11.
+
+**Dependency staging and corrections.** Add `RunMethodLocalServices` as the real
+E02 local-service implementation. It owns the run-1 request store and standing
+join, the forward-only conjunction store and the trigger cache. Give
+`MethodLocalServices` a required nullable conjunction-store property. The later
+E6 call adapter must use this same store; it must not allocate a second owner.
+The E02 finite adapter rejects unsupported conjunction-store access explicitly.
+Pass the analysis cancellation to `RequestStore` and check every literal,
+candidate, combination and seed before mutation or emission.
+
+Extend the finite fixture to accept a full actor method key while sharing one AP
+manager, method graph and forms. Use separate actors with the same canonical
+premise in different contexts to check isolation. Keep publisher/call factories
+required. Requests retain the complete caller reference; caller and link layers
+remain independent. Zero links never answer or climb requests.
+Use a zero or concrete caller premise for TAINT request-answer fixtures and a
+policy FLOW premise for abstract climb fixtures. Preserve all expected answers
+and layers. The raw link store does not validate the unseen caller edge's kind.
+The E03 test review found raw `Conclusion` values without their required demand
+flag. Supply explicit false for normal expectations and true for demand ones;
+preserve the expected facts and layers.
+Use `LocalConjunctionTest` for the local literal union and layer cases,
+`SinkEndFactTest` for real witnesses and evaluated parts, `EndFactTriggerTest`
+for backward trigger seeds, and `MethodLocalServicesTest` for allocation,
+cancellation and lifetime. E05 adds the interprocedural `NdJoinAdapterTest`.
+The first focused gate found two draft sink-fixture errors. A DEMAND must input
+normalizes to may with empty E before sink admission. It therefore admits the
+formerly excluded suffix. A mixed static exact/must input needs one common
+header built directly; an exact-only input cannot retain E. Use an empty-E
+exact caller premise and expect an empty-E selected exact witness. Retain E on
+the mixed input and its remaining must summary. These corrections follow AP
+normalization and do not change the local-service implementation.
+The final coverage review adds real run-1 FLOW sink and conjunction requests
+through the standing join and concrete answer, with a restricted abstract
+control. Add two otherwise equal caller references with different caller layers
+on one DEMAND link. Both references must climb independently and retain the
+original premise. E05 checks that actual record replay creates no source hit;
+the E03 finite call service explicitly rejects replay.
 
 **Tests first.** Write `RequestJoinTest`, sink/end-fact tests and the local parts of
 `NdJoinAdapterTest`. Check request/link arrival orders, context-isolated joins, literal layers

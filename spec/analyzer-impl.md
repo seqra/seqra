@@ -529,8 +529,8 @@ class RunMethodAnalyzer(val key: MethodKey, port: RunnerPort) : SummaryApplier {
     val links: AddedFactStore get() = linkStore!!
     val summaries = RunSummaryStore(ap)
     val sourceHits: SourceHitStore? = if (forward) null else SourceHitStore()
-    private var requests: RequestStore? = if (config.run1) RequestStore() else null
-    private var conjunctions: ConjunctionStore? = ConjunctionStore(ap)
+    private var requests: RequestStore? = if (config.run1) RequestStore(ap.cancellation) else null
+    private var conjunctions: ConjunctionStore? = if (forward) ConjunctionStore(ap) else null
     private val triggered = HashSet<Pair<CommonInst, SinkRule>>()
     private val applier = FormApplier(EngineAlgebra())
 
@@ -1135,7 +1135,9 @@ instructions. Record a source hit whenever its reversed unconditional source pro
 deduplication; replayed records and views do not create synthetic hits.
 
 ```kotlin
-    private class Triggers(val fired: List<Pair<SinkRule, Layer>>, val parts: List<Facts>) {
+    private class Triggers(fired: List<Pair<SinkRule, Layer>>, parts: List<Facts>) {
+        val fired: List<Pair<SinkRule, Layer>> = Collections.unmodifiableList(ArrayList(fired))
+        val parts: List<Facts> = Collections.unmodifiableList(ArrayList(parts))
         operator fun plus(o: Triggers) = Triggers((fired + o.fired).distinct(), parts + o.parts)
         companion object { val NONE = Triggers(emptyList(), emptyList()) }
     }
