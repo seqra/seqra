@@ -57,7 +57,7 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | E05 | Complete | Cached call walk, native/view returns, late demotion, zero/source rules and actual E6. Clean gate passed; see [E05 evidence](../docs/reports/bidi-e05.md). |
 | E06 | Complete | Shared deadline, scheduling and failure-safe joined release; 50 focused and 1,054 clean common tests. See `docs/reports/bidi-e06.md`. |
 | E07 | Complete | Direct finite closure, 408 seeded executions and fixed protocol controls; 1,083 clean common tests. See [E07 evidence](../docs/reports/bidi-e07.md). |
-| V3 | Pending | |
+| V3 | Complete | One-run acceptance and protocol/store audit; 1,088 common and 339 JVM tests. See [V3 evidence](../docs/reports/bidi-v3.md). |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
 
@@ -1609,6 +1609,11 @@ reads, with actual sink outcomes for Analyzer item 29.
 Analyzer item 42's excluded-mark demand remains a
 generic raw emission vector: canonical `DemandStore.Builder` requires
 normalized marks, so do not describe that input as a reachable stored demand.
+The first acceptance gate finds a malformed read fixture. Its operand base
+is absent from `StatementSummary.touched`, so both readers take the unchanged
+path. Include the operand and both written result bases, with its keep edge
+and the two read edges. Retain the independent excluded/admitted sink and
+normal must expectations. This is a fixture correction, not a transfer change.
 
 Run all AP, forms, engine and protocol tests. Check both directions
 and run-1/restricted modes. Complete the one-run portions of Analyzer validation items 1–6,
@@ -1629,6 +1634,13 @@ Both the link layer and caller-edge layer must be NORMAL. Preserve the zero/equa
 case and the guarded same-concrete-mark, must/E containment case. Demand links supply no confirmation.
 Require all members jointly at one call under a supported caller premise. Keep member
 admissibility in supplier checks. Confirm a sink witness only from NORMAL and joint support.
+The D01 preparation review finds omitted API guards in the proposal snippets.
+Support reads only a COMPLETE forward result. Report updates from incomplete
+or backward runs leave both report sets unchanged. Guard empty member
+collections at the public support query, because stored premise keys are
+nonempty. Check cancellation during site, member, link and witness scans,
+including direct support queries and confirmation. Test these guards before
+implementation.
 
 Keep confirmed entries final. Replace unconfirmed demand entries from the latest complete
 forward run. An incomplete forward run changes neither set; incomplete run 1 leaves an empty
