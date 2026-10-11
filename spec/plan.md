@@ -39,7 +39,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | A04 | Complete | [A04 evidence](../docs/reports/bidi-a04.md). All 391 common tests pass; none skipped. Merge/delta, T2 unions, 13,325 subsumption cells, normalized keys, deep/DAG operations and cancellation pass. JVM/Go test sources, SAST and application compile. |
 | A05 | Complete | [A05 evidence](../docs/reports/bidi-a05.md). All 444 common tests pass; none skipped. Transfer, selection, all valid summary kinds, native views, deep/cache/concurrency and cancellation checks pass. JVM/Go test sources, SAST and application compile. |
 | A06 | Complete | [A06 evidence](../docs/reports/bidi-a06.md). All 491 common tests pass; none skipped. Cleaner/filter/literal tables, positive cuts, layers/E, sharing, deep walks, state memos and cancellation pass. JVM/Go test sources, SAST and application compile. |
-| A07–A09, V1 | Pending | |
+| A07 | Complete | [A07 evidence](../docs/reports/bidi-a07.md). All 528 common tests pass; none skipped. Emission, reduction, structural selection, request actions, representation guards, deep paths and cancellation pass. JVM/Go test sources, SAST and application compile. |
+| A08–A09, V1 | Pending | |
 | I01–I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
@@ -185,6 +186,19 @@ Extend the deep counted-path cut check to `L = depth - 1`, in addition to the
 all-fit and `L = 1` cases. This exercises a long cut walk with many remaining
 budgets. Check its one known output by a linear path walk, without a quadratic
 test decoder. Retain the deep uncounted-class walk at remaining budget zero.
+A07 adds the `CallerRef` value declaration in `store/AddedFacts.kt`, because the
+specified `requestAction` signature uses it. A08 adds its store and link types.
+`startFact` has no mode parameter, as specified. It constructs the initial's
+normal form; E03's initial-start boundary enforces the restricted-forward
+must-premise condition before this operation.
+The first A07 compile check found that `CommonInst` is in the common `cfg`
+package. Use that existing type for `CallerRef.call`.
+One A07 test passed an unmatched FLOW value to `applySummary` for a concrete
+premise. That operation takes a satisfying part. Check that satisfaction is
+null, then keep the standing-request climb assertion; do not call transfer
+with an input outside its contract.
+The A07 review adds admitted abstract ANY and concrete STAR initials to the
+reduction matrix. Repeat the gate with all 7,722 cells before the commit.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions

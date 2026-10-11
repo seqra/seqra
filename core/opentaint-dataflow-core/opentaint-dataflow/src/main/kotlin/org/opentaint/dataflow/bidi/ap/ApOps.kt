@@ -1,5 +1,8 @@
 package org.opentaint.dataflow.bidi.ap
 
+import org.opentaint.dataflow.bidi.store.CallerRef
+import org.opentaint.dataflow.bidi.store.RequestKind
+
 /** Shared facade. All walk state is local to the call. */
 class ApOps(val manager: ApManager) {
     fun applyEdge(c: Facts, premise: PremiseKey, e: PathEdge, statementEdge: Boolean,
@@ -59,6 +62,17 @@ class ApOps(val manager: ApManager) {
         check(target.mark is MarkSlot.Concrete && target.tail != Tail.STAR) { "W7: a target must be concrete and exact or any" }
         return manager.factsOf(target, ExclusionSet.Empty, layer)
     }
+
+    fun zero(layer: Layer): Reach = Reach.of(layer)
+    fun startFact(i: InitialAp): Facts = initialFacts(manager, i)
+    fun policy(added: Facts): InitialAp = policyInitial(manager, added)
+    fun emit(d: DemandPattern, added: Facts): List<InitialAp> = emitInitials(this, d, added)
+    fun restrictReference(j: InitialAp, g: Facts, d: DemandPattern): List<Conclusion> = restrictRaw(this, j, g, d)
+    fun restrict(j: InitialAp, g: Facts, d: DemandPattern): List<Facts> = restrictFacts(this, j, g, d)
+    fun demandPart(premise: PremiseKey, g: Facts, direction: Direction): Facts? =
+        selectDemand(manager, premise, g, direction)
+    fun requestAction(i: InitialAp, kind: RequestKind, a: Pattern, caller: CallerRef): RequestAction =
+        actOnRequest(manager, i, kind, a, caller)
 }
 
 private fun staticIdentityDepth(c: Facts, premise: PremiseKey, ce: CompiledEdge,
