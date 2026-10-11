@@ -48,7 +48,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | I03 | Complete | [JVM statement gate](../docs/reports/bidi-i03.md). All 52 new construction, effect and filter tests pass. Clean common 748 and JVM 171 tests pass; all 600 common and 57 JVM new tests are discovered. Go test, SAST and application compilation pass. |
 | I04 | Complete | Whole-rule validation, rule forms, lowered field actions and temporary lifetime guards. Clean common/JVM and shared-consumer compile gate passed; see `docs/reports/bidi-i04.md`. |
 | I05 | Complete | [Call-plan and adapter gate](../docs/reports/bidi-i05.md). Clean common 755 and JVM 286 tests pass; all 607 common and 172 JVM new tests are discovered. Go test sources, SAST and application compile. |
-| I06, V2 | Pending | |
+| I06 | Complete | Method boundaries, complete JVM facade/cache, wired graphs and Spring forms. Clean common/JVM and application regression gate passed; see `docs/reports/bidi-i06.md`. |
+| V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
@@ -871,6 +872,107 @@ constructor and lambda calls. No extra compatibility or liveness filter is intro
 
 **Requires:** I03–I05. **Proposal:** `ap-impl.md` §29–§31.
 
+**Implementation staging and corrections.** I03 and I05 expose real builder
+inputs. The facade now wires the statement alias provider, static-read
+source hook, call resolver, entry resolver, per-method aliases and frozen
+lambda targets. The `JIRMethodContextCache` adapter needs
+`MethodContextSource`, which E01 declares. Add that adapter in E01; all
+I06 forms and graphs remain usable without a placeholder interface.
+
+Copy the prescan lambda values at all three collection levels when the
+method entries are constructed. Use owned unmodifiable outer maps,
+primitive maps and sets. J01 later supplies the production extraction
+and subscription release. The proposal's last-instruction check does
+not establish both exits and the entry. Check the final boundary triple
+(`JMethodEnterInst`, normal exit, exceptional exit), as required by the
+single-exit graph and I11. Add a separate test classpath with the linked
+lambda features and boundary feature last; keep the existing test kit.
+
+Own the generated method's cleaner list. The cleanup primitive has a
+null path and mark, so it does not depend on an AP manager. Preserve
+the existing fact-based Spring rule provider. Test the actual private
+dispatcher generator through reflection with nonannotated samples;
+this does not add automatic Spring entry points to unrelated tests.
+Cache synchronization follows the method runner ownership rule:
+one method's contexts use the same runner. The caches keep strong form
+references for standing join identity.
+
+The first Spring test compile exposed fixture API errors beside the
+expected missing I06 APIs. Construct `MethodKey` from context and entry
+statement, use the existing string `typeName()` helper, and build old
+AP facts with `createFinalAp(...).prependAccessor(...)`. Check the old
+provider's registry and outside cases separately; `FinalFactAp` has no
+public merge method.
+
+The Spring call vectors use legal premises: a forward FLOW input uses
+the static STAR initial; forward TAINT inputs use zero. Backward nonzero
+requirements retain their own initial pattern. These are form-level
+pre-cut vectors; they do not claim a completed driver sequence.
+
+Use JVM binary names (`$AComponent`, `$ZComponent`) for the Spring
+sample's nested class lookup, as in the existing resolver fixtures.
+
+The first integrated JVM compile found the facade's accessor-index
+import in the wrong package. Reuse `ap.ifds.access.util.AccessorIdx`,
+as the existing builders do; no new index type is needed.
+
+The integrated test compile also found two `JIRInstList.isEmpty()`
+calls. Use its public `size` property; the list is not a Kotlin collection.
+
+The lambda snapshot review found that fastutil's unmodifiable hash-map
+wrapper exposes entries whose `setValue` mutates the underlying map.
+Add a regression through both primitive and generic entry views before
+the fix. Keep hash lookup and expose detached immutable `BasicEntry`
+views through an owned primitive-map adapter inside the unmodifiable
+wrapper, after local API verification. This avoids a linear call-site lookup.
+The outer map and target sets remain owned and unmodifiable.
+
+The first executed construction scan found two fixture assumptions.
+The IR classpath appends a lookup feature after instruction features;
+check that the boundary feature is the last instruction feature.
+A field action's write also keeps its temporary, so select the write
+edge by both the temporary source and the original target base.
+Keep the existing full-path and strong-keep assertions.
+
+The rich construction scan's first target resolves, so it does not
+exercise its pass rules. Also scan a real unresolved external call
+with rich rules. Require its nonidentity pass edges to include a may
+target and ordinary STAR or exact premise in both cached directions.
+
+The real call-alias fixture compared a caller input base with an edge
+source in callee coordinates. Use callee `arg(0)` on the source side
+and retain the actual caller `arg(0).f` target check. Add diagnostic
+paths to the statement-alias assertion before changing its expectation.
+
+The Spring pre-cut transfer test drops its saved deep fact. Add a
+temporary stage diagnostic for the real save/cleanup/restore forms
+and the declared component field types before changing a path or filter.
+
+That first diagnostic did not distinguish path matching from filtering.
+The actual field path uses declaration coordinates: the enclosing
+class name and the raw field type name, as `mkFieldAccess` does.
+Typed field values can have dotted nested type names, while the raw
+declaration uses binary `$` names. Build the Spring expected static path
+from `ref.field.field`, and its suffix owner from the actual component
+declaration. Keep the filters and full restored-fact assertion.
+The diagnostic log preserves the earlier evidence.
+
+A read-only alias probe confirms the same raw-type mismatch in the
+statement-alias vector: `box` has raw type `$Box`, not `.Box`.
+Correct that expected accessor string; the emitted full heap path
+and real alias provider are correct.
+
+The detached primitive-entry iterator must explicitly implement
+`remove()` in this fastutil API. Make it throw
+`UnsupportedOperationException`; an immutable snapshot has no remove.
+
+The remaining concat scan fails because the JVM samples compile as
+Java 8, which emits StringBuilder calls instead of StringConcatFactory.
+Keep that existing sample setting. Add a separate Java 17 sample source
+set to the sample jar and use its concat method to test the installed
+transformer. Require real String.concat calls and cached form checks.
+This tests the transformer input required by the proposal.
+
 **Tests first.** Write `JIRBoundaryFormsTest`, `JIRFormsContractTest`, method-cache tests
 and `SpringDispatcherFormsTest`. Check entry/end-rule order, normal/exceptional boundary
 wiring, seed placement and zero-premise static/entry-mark removal independently.
@@ -895,6 +997,16 @@ form effects. Full two-controller propagation follows in J03. Construction scans
 invariants I1–I14 and the AP producer duties on every forward/backward form.
 
 ### V2. Validate interpreter integration
+
+The read-only inventory review identified three form-level checks to
+complete in this gate. Apply an actual conditional static exit-source
+form to a run-1 static STAR identity and compare raw/tree facts and
+the original-premise position request; add restricted/backward controls.
+Compare actual matched source-must and pass-may call plans on one exact
+normal input, including the exact backward result's forced DEMAND for
+the may pass. Extend the all-form construction scan with touched-read,
+mark, binding and identity-exclusion clauses, with GEN and binding
+contexts kept distinct. These tests precede any resulting refinement.
 
 Run common-form and JVM-form tests and type/effect equivalence tests.
 Complete all JVM construction cases in the Interpreter inventory; reserve whole-analysis cases

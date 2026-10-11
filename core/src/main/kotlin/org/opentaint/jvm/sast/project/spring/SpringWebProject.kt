@@ -1,6 +1,9 @@
 package org.opentaint.jvm.sast.project.spring
 
 import mu.KLogging
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.bidi.ap.Cleaner
+import org.opentaint.dataflow.bidi.ap.CleanReach
 import org.opentaint.dataflow.jvm.util.JIRInstListBuilder
 import org.opentaint.dataflow.jvm.util.typeName
 import org.opentaint.ir.api.jvm.JIRAnnotated
@@ -305,12 +308,23 @@ private fun SpringWebProjectContext.ndMethodDispatch(
         blockStart to blockEnd
     }
 
-    val loopEnd: JIRInstLocation
+    val registry = componentRegistryField.values.sortedBy { it.name }
+    val saved = registry.mapIndexed { i, field -> JIRLocalVar(1 + i, "%reg_${field.name}", field.type) }
+    var firstSave: JIRInstLocation? = null
+    for ((field, local) in registry.zip(saved)) instructions.addInstWithLocation(dispatcher) { loc ->
+        if (firstSave == null) firstSave = loc
+        JIRAssignInst(loc, local, JIRFieldRef(instance = null, field))
+    }
+    val cleanupLoc: JIRInstLocation
     instructions.addInstWithLocation(dispatcher) { loc ->
-        loopEnd = loc
+        cleanupLoc = loc
         val cleanupCall = JIRStaticCallExpr(cleanupMethod.staticMethodRef(), emptyList())
         JIRCallInst(loc, cleanupCall)
     }
+    for ((field, local) in registry.zip(saved)) instructions.addInstWithLocation(dispatcher) { loc ->
+        JIRAssignInst(loc, JIRFieldRef(instance = null, field), local)
+    }
+    val loopEnd = firstSave ?: cleanupLoc
 
     instructions.addInstWithLocation(dispatcher) { loc ->
         val loopExit = JIREqExpr(cp.boolean, selectValue, JIRInt(-1, cp.int))
@@ -365,7 +379,8 @@ private fun SpringWebProjectContext.generateCleanup(): JIRMethod {
         returnType = returnType,
         description = methodDescription(emptyList(), returnType),
         parameters = emptyList(),
-        instructions = instructions
+        instructions = instructions,
+        callCleaners = listOf(Cleaner(AccessPathBase.ClassStatic, null, CleanReach.AT_AND_BELOW, null)),
     ).also {
         controllerDispatcherMethods += it
         it.bind(controllerDispatcher)

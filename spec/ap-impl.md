@@ -5921,7 +5921,10 @@ class JIRMethodEntry internal constructor(val method: JIRMethod, internal val sh
     init {
         val instructions = method.instList.instructions
         check(instructions.isNotEmpty()) { "Method $method has no instruction: an empty method is never analysed" }   // I8, D28
-        check(instructions.last() is JMethodExitExceptionalInst) {                            // as today, JIRAnalysisManager.kt:118-120
+        val n = instructions.size
+        check(instructions.getOrNull(n - 3) is JMethodEnterInst &&
+            instructions.getOrNull(n - 2) is JMethodExitNormalInst &&
+            instructions.getOrNull(n - 1) is JMethodExitExceptionalInst) {
             "Method $method is analysed without method boundary instructions"
         }
     }
@@ -5977,6 +5980,13 @@ class JIRMethodForms internal constructor(
 
 The exit rules read the key only for `entryMarks`, and the entry sources do not read the context (only the start filter
 does), so the first key that builds them gives the same result as every other key.
+
+The implementation owns the supplied lambda values before any entry reads them:
+copy the outer map, each primitive map and each target set. Make all levels
+unmodifiable. Fastutil's unmodifiable hash-map wrapper does not protect
+`Entry.setValue`; the primitive map must expose detached immutable entries.
+Keep hash lookup for call-site indices. This preserves A4 without retaining
+the prescan's trackers or subscriptions.
 
 MEMORY. The caches keep their forms with strong references for the whole analysis: the forward forms of every reached
 method key, and the reversals after the first backward run. The forms are small against the run stores (one
@@ -6051,12 +6061,13 @@ val loopEnd: JIRInstLocation = firstSave ?: cleanupLoc
      parameters: List<JIRVirtualParameter>,
 -    private val instructions: JIRInstList<JIRInst>
 +    private val instructions: JIRInstList<JIRInst>,
-+    override val callCleaners: List<Cleaner> = emptyList(),
++    callCleaners: List<Cleaner> = emptyList(),
  ) : JIRVirtualMethodImpl(
 @@ -23,3 +26,3 @@
      description = description
 -) {
 +), CallCleaners {
++    override val callCleaners = Collections.unmodifiableList(ArrayList(callCleaners))
      override val instList: JIRInstList<JIRInst> by lazy {
 ```
 
