@@ -24,6 +24,8 @@ import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeMark
+import kotlin.time.TimeSource
 
 /** Fresh routing, completion and coroutine ownership for exactly one run. */
 class RunManager<A : RunActor>(
@@ -47,6 +49,10 @@ class RunManager<A : RunActor>(
     private val completion = CompletableDeferred<RunStatus>()
     private val status = AtomicReference<RunStatus?>(null)
     private val invoked = AtomicBoolean()
+    private class Deadline(private val start: TimeMark, private val timeout: Duration) {
+        val remaining: Duration get() = timeout - start.elapsedNow()
+    }
+    @Volatile private var deadline: Deadline? = null
     @Volatile private var admitting = false
     val ended: Boolean get() = status.get() != null
     val terminalStatus: RunStatus? get() = status.get()
@@ -64,13 +70,14 @@ class RunManager<A : RunActor>(
     }
 
     fun route(event: RunEvent): Boolean {
-        if (!admitting || ended) return false
+        if (!admitting || !withinDeadline()) return false
         val unit = shared.unitResolver.resolve(event.target().method)
-        if (unit == UnknownUnit) return false
+        if (!withinDeadline() || unit == UnknownUnit) return false
         return synchronized(admission) {
-            if (!admitting || ended) return@synchronized false
+            if (!admitting || !withinDeadline()) return@synchronized false
             val runner = runners[unit] ?: UnitRunner(unit, this, factory, quantum).also { r ->
                 runners[unit] = r
+                if (!withinDeadline()) return@synchronized false
                 val exceptionHandler = CoroutineExceptionHandler { _, e ->
                     logger.error(e) { "Runner $unit failed in run ${config.index}" }
                     fail(RunStatus.FAILED)
@@ -79,13 +86,14 @@ class RunManager<A : RunActor>(
                 runnerJobs += runnerJob
                 runnerJob.start()
             }
+            if (!withinDeadline()) return@synchronized false
             runner.postEvent(event)
         }
     }
 
     /** The reservation and its visibility are one admission transition. */
     internal fun accept(send: () -> Boolean): Boolean = synchronized(admission) {
-        if (!admitting || ended) return@synchronized false
+        if (!admitting || !withinDeadline()) return@synchronized false
         inFlight.beforeSend()
         val accepted = try { send() }
         catch (e: Throwable) {
@@ -97,7 +105,16 @@ class RunManager<A : RunActor>(
         accepted
     }
 
-    internal fun afterHandler() = synchronized(admission) { inFlight.afterHandler() }
+    internal fun afterHandler() = synchronized(admission) {
+        withinDeadline()
+        inFlight.afterHandler()
+    }
+
+    /** Routing and setup consume the same budget as the completion wait. */
+    private fun withinDeadline(): Boolean {
+        if (!ended && deadline?.remaining?.let { it <= Duration.ZERO } == true) fail(RunStatus.TIMEOUT)
+        return !ended
+    }
 
     /** Selection precedes cancellation; a later failure preserves the first terminal status. */
     fun fail(end: RunStatus) {
@@ -109,6 +126,7 @@ class RunManager<A : RunActor>(
 
     fun run(timeout: Duration): RunResult<A> {
         check(invoked.compareAndSet(false, true)) { "A run manager can run only once" }
+        deadline = Deadline(TimeSource.Monotonic.markNow(), timeout)
         var joinAttempted = false
         var joined = false
         fun joinRunners() {
@@ -132,7 +150,10 @@ class RunManager<A : RunActor>(
                         }
                         try {
                             startRoots()
-                            withTimeoutOrNull(timeout) { completion.await() } ?: fail(RunStatus.TIMEOUT)
+                            if (withinDeadline()) {
+                                withTimeoutOrNull(checkNotNull(deadline).remaining) { completion.await() }
+                                    ?: fail(RunStatus.TIMEOUT)
+                            }
                         } finally { progress.cancel() }
                     }
                 } catch (e: Throwable) {
@@ -156,22 +177,32 @@ class RunManager<A : RunActor>(
         val end = checkNotNull(status.get())
         val snapshot = synchronized(admission) { runners.values.toList() }
         val analyzers = if (end == RunStatus.COMPLETE) snapshot.flatMap { it.analyzers() } else emptyList()
+        var failure: Throwable? = null
+        fun release(action: () -> Unit) {
+            try { action() }
+            catch (error: Throwable) {
+                val first = failure
+                if (first == null) failure = error
+                else if (error !== first) first.addSuppressed(error)
+            }
+        }
         try {
-            analyzers.forEach { it.freeze() }
-            return RunResult(end, analyzers, config.index, config.direction, shared.vulnerabilities)
+            for (analyzer in analyzers) release { analyzer.freeze() }
         } finally {
-            if (joined) snapshot.forEach { it.release() }
+            if (joined) for (runner in snapshot) release { runner.release() }
             synchronized(admission) {
                 runners.clear()
                 runnerJobs.clear()
                 if (joined) storages.clear()
             }
         }
+        failure?.let { throw it }
+        return RunResult(end, analyzers, config.index, config.direction, shared.vulnerabilities)
     }
 
     private fun startRoots() {
         val reserved = synchronized(admission) {
-            if (ended) false
+            if (!withinDeadline()) false
             else {
                 inFlight.beforeSend()
                 admitting = true
@@ -181,7 +212,7 @@ class RunManager<A : RunActor>(
         if (!reserved) return
         try {
             for (root in config.roots) {
-                if (ended) break
+                if (!withinDeadline()) break
                 route(RunEvent.Start(root))
             }
         } catch (e: Throwable) {

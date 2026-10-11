@@ -134,10 +134,13 @@ class UnitRunner<A : RunActor> internal constructor(
     /** The manager reads and releases these collections only after a successful join. */
     internal fun analyzers(): List<A> = actors.values.toList()
     internal fun release() {
-        (handler as? SubscriptionHandler)?.freeze()
-        queue.clear()
-        queued.clear()
-        actors.clear()
+        try {
+            (handler as? SubscriptionHandler)?.freeze()
+        } finally {
+            queue.clear()
+            queued.clear()
+            actors.clear()
+        }
     }
 
     companion object : KLogging()

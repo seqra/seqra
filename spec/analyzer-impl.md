@@ -1586,6 +1586,22 @@ Activation occurs when the run is created, before any runner or manager publicat
 undo a cancellation. A late failure after a terminal status cannot replace it, except for the required failed-join
 override. The driver catches throwables over construction, run and barrier.
 
+Use one monotonic deadline from entry to `run`. Setup and root routing consume
+that budget. Recheck it after a resolver or runner factory returns, before
+event admission, and before the start phantom can select quiescence. The
+completion wait receives only the remaining budget. Earlier terminal status
+selection keeps priority over a later deadline check.
+
+After a successful join, attempt every complete actor freeze and every runner
+release even when a callback throws. Clear all joined runner, job and storage
+owners, then propagate the first failure with later distinct failures
+suppressed. Return a complete result only when these operations succeed.
+Do not read or release live actor stores after a failed join. Each joined
+runner clears its local containers in `finally`. The actual method actor
+checks its empty-work/publication precondition first, then attempts both
+required service freezes and detaches run-only references before propagating
+a callback failure. Its barrier-retained stores and counters stay available.
+
 ## 7. The driver (`analyzer-core.md` §7)
 
 ### 7.1 `IterationDriver`, `IterationPolicy`

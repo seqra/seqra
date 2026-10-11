@@ -55,7 +55,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | E03 | Complete | Standing requests, sinks, conjunctions and backward end-fact triggers. Clean common and shared-consumer compile gate passed; see [E03 evidence](../docs/reports/bidi-e03.md). |
 | E04 | Complete | Locked summary snapshots, complete replay/delivery indexes, native/view reads and actual method dispatch. Clean gate passed; see [E04 evidence](../docs/reports/bidi-e04.md). |
 | E05 | Complete | Cached call walk, native/view returns, late demotion, zero/source rules and actual E6. Clean gate passed; see [E05 evidence](../docs/reports/bidi-e05.md). |
-| E06–E07, V3 | Pending | |
+| E06 | Complete | Shared deadline, scheduling and failure-safe joined release; 50 focused and 1,054 clean common tests. See `docs/reports/bidi-e06.md`. |
+| E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
 
@@ -1417,6 +1418,39 @@ during release. Test that failure before refining cleanup; complete release of
 joined runner and storage owners even if one callback fails. The E04 concrete
 subscription freeze itself has no throwing callback.
 
+The E06 audit confirms that a slow unknown-unit resolver can release the
+start phantom after the timeout and select COMPLETE. A known-unit resolver
+or runner factory can also admit Start after the budget expires. Use one
+monotonic run deadline from entry to `run`. Check it before and after root
+routing and setup, and before releasing the phantom. Wait only for the
+remaining budget. A previously selected terminal status keeps priority.
+
+After a successful join, a throwing actor or handler freeze must not stop
+release of other joined owners. Attempt all complete actor freezes and all
+runner releases, then clear runner, job and storage maps. Collect failures
+and propagate the first one after cleanup for the guarded driver. Preserve
+the first run status; only a failed join overrides it. Each runner clears its
+queue and actor collections in `finally`, even if its handler freeze throws.
+The failed-join path still exposes no run stores and releases no live owners.
+
+Q1–Q4 and unchanged-loop tests already exist from E01–E02. Add the remaining
+actual-path checks here: zero-phase yield with pending publications, priority
+resampling when a Work event is partial, and a counted publication callback
+that creates more local work. Keep one Work reservation until both local work
+and publication batches are complete. Write deadline and cleanup tests first.
+The cleanup fixture review found nested `it` names in failure selection.
+Use explicit method-key and unit names so the callback throws at the intended
+owner. This test typing correction precedes its first executed check.
+The actual method freeze has the same callback-failure gap: a throwing local
+service prevents call-service freeze and reference release. Keep its empty
+work/publication precondition before any release. After that check succeeds,
+attempt both required-service freezes, detach run-only references, and then
+propagate the first failure with later failures suppressed. Test the actual
+actor before this refinement; keep its barrier-retained stores and counters.
+The combined test compile needs `UnitResolver<CommonMethod>` in the actual
+runner-priority fixture. State the method type explicitly; this changes no
+routing or scheduling expectation.
+
 **Tests first.** Write `DeltaWorklistTest`, delayed-send tests, `RunFailureTest` and
 `LifetimeTest`. Cover Q1–Q4 across partial Work steps, publication flush, cancellation and
 join. Check unchanged-loop termination and repeat keys across quantum boundaries.
@@ -1436,6 +1470,13 @@ release run-only state after its last consumer.
 **Gate.** Delayed handlers cannot cause early completion. Abnormal runs terminate and join without
 publishing partial driver updates. The unchanged loop terminates across quantum boundaries.
 No run-local object is reused by the next engine.
+
+**Completed evidence.** The deadline tests expose four expired-routing cases.
+The cleanup tests expose failures in manager, runner and actual method release.
+All 50 focused tests then pass. The clean common gate passes 1,054 tests in
+108 classes, with no failures, errors or skips. JVM/Go test-source, JVM SAST
+and application compile checks pass. All 906 new common tests return void
+and occur in fresh XML. See `docs/reports/bidi-e06.md`.
 
 ### E07. Compare the engine with a direct closure and varied schedules
 

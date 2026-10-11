@@ -318,18 +318,31 @@ class RunMethodAnalyzer(
 
     override fun freeze() {
         check(worklist.isEmpty && pending.isEmpty()) { "A method cannot freeze with unfinished work" }
-        localServices.freeze()
-        callServices.freeze()
-        local = null
-        calls = null
-        publicationSink = null
-        port = null
-        runContext = null
-        worklist.clear()
-        pending = ArrayList()
-        edgeStore = null
-        initialStore = null
-        if (!forward) linkStore = null
+        var failure: Throwable? = null
+        fun release(action: () -> Unit) {
+            try { action() }
+            catch (error: Throwable) {
+                val first = failure
+                if (first == null) failure = error
+                else if (error !== first) first.addSuppressed(error)
+            }
+        }
+        try {
+            release { localServices.freeze() }
+            release { callServices.freeze() }
+        } finally {
+            local = null
+            calls = null
+            publicationSink = null
+            port = null
+            runContext = null
+            worklist.clear()
+            pending = ArrayList()
+            edgeStore = null
+            initialStore = null
+            if (!forward) linkStore = null
+        }
+        failure?.let { throw it }
     }
 }
 
