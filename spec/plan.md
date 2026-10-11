@@ -1,8 +1,9 @@
 # Implementation plan for phases 1–3
 
-Implement the JVM bidirectional analyzer in the order below. Each step has a Lean model gate,
-tests to write first, implementation work, and a validation gate. Complete the gate before the
-next dependent step. This document plans the work; the implementation steps are not complete.
+Implement the JVM bidirectional analyzer in the order below. Each step has tests to write first,
+implementation work, and a validation gate. Use Lean only to clarify unclear specified behavior,
+as described below. Complete the validation gate before the next dependent step. This document
+plans the work; the implementation steps are not complete.
 
 The behavior is defined by [ap.md](ap.md), [interpreter.md](interpreter.md), and
 [analyzer-core.md](analyzer-core.md). Follow the interfaces and algorithms in
@@ -15,7 +16,7 @@ The phases are those of [bidirectional-task.md](../bidirectional-task.md):
 
 | Phase | Steps | Result |
 |---|---|---|
-| Preparation | S00 | Checked contracts, baseline, test fixtures and proof obligations. |
+| Preparation | S00 | Checked contracts, baseline and test fixtures. |
 | 1: AP and stores | A01–A09, V1 | Typed facts, AP operations, reference operations and all stores. |
 | 2: Analyzer | I01–I06, V2, E01–E07, V3, D01–D04, V4 | JVM forms, fresh run engines, summary communication and iteration driver. |
 | 3: Taint analyzer entry | J01–J03, FINAL | Prescan hand-off, JVM entry and report output. |
@@ -30,34 +31,50 @@ are separate annotations. NORMAL and DEMAND name layers; a selected demand edge 
 
 ## Working method
 
+For phases 1–3, including preparation and validation, the conditional proof policy below replaces
+proof-before-implementation requirements in [task.md](../task.md) and the proposals, including
+`analyzer-impl.md` §9.3. The specified behavior, interfaces, algorithms and tests still apply.
+
 Use the following cycle in every step:
 
-1. State the operation, its admitted inputs and its invariant in Lean. Reuse an existing theorem
-   only when its hypotheses match the current operation. Add a computed witness for each new case.
-2. Define the direct operation before its index, trie or scheduling optimization. Prove equality
-   within the stated scope. For coverage, return the actual output or request that covers the input.
-3. Write Kotlin tests from the certified vectors and the normative table rows. Run them and observe
-   the intended failure. A missing API can be the first failure; rerun after it compiles to check behavior.
+1. Read the relevant specification and proposal sections. Follow behavior that they clearly define.
+   Resolve an unclear case through the clarification rule below.
+2. Write Kotlin tests from the specified table rows, examples and executable reference operations.
+   Compare indexes, tries and scheduling with their direct reference behavior.
+3. Run the tests and observe the intended failure. A missing API can be the first failure;
+   rerun after it compiles to check behavior.
 4. Implement a complete, compilable slice from the proposal. Run its focused tests, then the checks
    affected by the slice. Refactor after these checks pass.
-5. Record the proof scope, test commands, results and any remaining obligation. Advance only when
-   the required scope has no known counterexample and its implementation gate passes.
+5. Record the test commands, results and any unresolved behavior question. Advance when the
+   implementation gate passes and its required behavior is clear.
 
 For a counterexample, retain the smallest program, full fact annotations, requests, links,
-summaries and hand-offs. Refine the model and expected tests before the implementation.
-A behavior conflict with the normative rules needs a user decision. A routine implementation
-choice can follow the proposal and repository code.
+summaries and hand-offs. Compare them with the specified behavior and fix an implementation
+error through a regression test. Use the clarification rule when the expected behavior is unclear.
+A routine implementation choice can follow the proposal and repository code.
 
-Write constructive Lean definitions. Import new modules from `lean/ApSpec.lean` and add executable
-certificates to `lean/audit.lean`. The audit permits only `propext` and `Quot.sound`; `sorryAx`,
-classical choice and native proof oracles fail it. Every existence claim must compute its witness.
+### When behavior needs clarification
 
-Existing proofs are mainly local. They do not prove the full current F72/F75/F76/F77 iteration,
-annotated conjunction closure, interpreter or concurrent pipeline. Where that combined proof is
-open, first build a feature model with an explicit practical scope and prove its invariants.
-Keep wider obligations in `proof-status.md`. Test the remaining integration separately; test
-agreement does not close a general proof. Historical F70/F71 closures supply labeled fixtures,
-not a proof of the current analyzer.
+Use a focused Lean proof or counterexample only when the specification and proposal do not
+clearly cover a particular situation, but the specification supplies the definitions needed
+to decide it. For example, derive the expected facts for an unclear summary-application edge
+case from the specified matching and transfer rules. State the question and relevant rules,
+model that case, then add a regression test and clarify the applicable document.
+
+If a required definition is missing or the documents contradict each other, retain the concrete
+example and get a behavior decision. A proof must not invent a missing rule. Pause only the
+dependent work while the decision is pending.
+
+Ordinary implementation, a new optimization, integration work or an open general proof does
+not require new Lean work. Existing checked vectors can supply test data within their stated
+conditions. Historical vectors retain their version labels. Missing proof coverage alone does
+not block implementation of covered behavior.
+
+When this rule requires Lean changes, use constructive definitions and computed witnesses.
+Import new modules from `lean/ApSpec.lean`, add executable certificates to `lean/audit.lean`,
+and run the build and audit. The audit permits only `propext` and `Quot.sound`; `sorryAx`,
+classical choice and native proof oracles fail it. Update `proof-status.md` for changed results.
+Run these checks when Lean changes, not as an automatic gate for every implementation step.
 
 ### Paths and test observations
 
@@ -86,18 +103,17 @@ For whole runs, also compare raw summaries, reduced publications, selected deman
 links, source hits, sink witnesses, support, seeds and both hand-offs. Finding counts alone do
 not establish equivalence. Preserve method keys, call sites and rule alternatives in observations.
 
-## S00. Establish the baseline and proof work list
+## S00. Establish the baseline and test fixtures
 
 **Requires:** the finalized specifications and proposals.
 
-**Model and red tests.** Read the current proof scopes and the proposal proof maps. Make a test
-fixture for per-path facts, requests, method keys and stable forms. Record which historical
-vectors need the current tail/layer or hand-off expectation. List the missing local proofs for
-each step before writing its Kotlin behavior.
+**Tests first.** Make a test fixture for per-path facts, requests, method keys and stable forms.
+Record which historical vectors need the current tail/layer or hand-off expectation. Read the
+relevant spec/proposal sections and use the clarification rule only for a concrete unclear case.
 
-**Implementation preparation.** Record the starting commit and repository state. Run the Lean
-build and audit, then the existing tests in the affected Gradle builds. Preserve existing
-unrelated work. Inspect the reuse files and the locally available backward/field-limit reference
+**Implementation preparation.** Record the starting commit and repository state. Run the
+existing tests in the affected Gradle builds. Preserve unrelated work. Inspect the reuse files
+and the locally available backward/field-limit reference
 branches; use the proposal contract when a reference branch is unavailable. Keep the old engine
 available for the prescan and old analysis path.
 
@@ -110,11 +126,10 @@ the commands in the command section below. Baseline failures remain visible thro
 
 **Requires:** S00. **Proposal:** `ap-impl.md` §3, §5.1; reuse §2.
 
-**Model and red tests.** Use `CurrentKinds`, `Kinds` and the annotated must-tail definitions.
-State the factory invariants for each admitted initial/conclusion shape and the separate mode guards.
-Add `FactShapeTest`, `PremiseTest` and mark/accessor value tests. Reject invalid abstract exact
-facts and demand STAR conclusions at shape construction. `InitialAp` and `ApManager.initial`
-have no mode argument; schedule backward/run-1 must-initial rejection in A07/E02, where mode is known.
+**Tests first.** Write `FactShapeTest`, `PremiseTest` and mark/accessor value tests for the
+specified factory and union rules. Reject invalid abstract exact facts and demand STAR
+conclusions at shape construction. `InitialAp` and `ApManager.initial` have no mode argument;
+schedule backward/run-1 must-initial rejection in A07/E02, where mode is known.
 
 **Implement.** Add `bidi/ap/Facts.kt`, `AccessorTable.kt`, `PathNode.kt` and `Premise.kt`.
 Intern accessor and mark values; reserve the zero mark. Count field and element accessors,
@@ -133,11 +148,9 @@ remain distinct keys. Compile every consumer of the shared base type, including 
 
 **Requires:** A01. **Proposal:** `ap-impl.md` §6 and the primitive types in §5.
 
-**Model and red tests.** Map each `Reference.kt` operation to its current Lean definition.
-Reuse `BaseCleaner`, `CurrentDemand`, `CurrentSummaryApplication`, `CurrentMustReverse`,
-`CurrentConjunction` and `CurrentSimplifications` with their guards. Add computed cases where
-the reference operation extends their scope. Write denotation, selector and transfer vectors
-before tree algorithms. Label historical vectors and adapt expectations only by a current rule.
+**Tests first.** Write denotation, selector and transfer vectors from the current AP tables
+and examples before tree algorithms. Existing checked vectors can supply cases within their
+stated conditions. Label historical vectors and adapt expectations only by a current rule.
 
 **Implement.** Add `PathFact`, `Pattern`, `Conclusion`, `PathEdge`, result/request values and
 the direct operations in `Reference.kt`. Add the public primitive data types in `Primitives.kt`.
@@ -146,17 +159,16 @@ reversal and native record views. Keep generic reversal and transient native rea
 Implement R1 eligibility and structural demand selection as separate functions.
 
 **Gate.** `DenotationTest`, `ApplyEdgeVectorsTest` and direct operation tests pass for every
-admitted table cell. Output/request witnesses are executable. The oracle uses no production trie
-or candidate index. This reference is the test basis for A03–A09.
+admitted table cell. Outputs and requests match the specified vectors. The oracle uses no
+production trie or candidate index. This reference is the test basis for A03–A09.
 
 ### A03. Add immutable tries, conclusion kinds and interning
 
 **Requires:** A01–A02. **Proposal:** `ap-impl.md` §4.1, §4.5–§4.6, §5.1–§5.2.
 
-**Model and red tests.** Define decoding from typed tries to reference leaves. Prove the factory
-shape and decoding invariants for the admitted scope. Extend `CurrentKinds` where necessary.
-Use `CurrentDepthCache` to establish exact counted metadata at node construction. Write
-`TrieTest`, `KindFactoryTest`, `PathWalkTest` and `InternerTest` before the algorithms.
+**Tests first.** Write `TrieTest`, `KindFactoryTest`, `PathWalkTest` and `InternerTest`.
+Check typed-trie decoding against reference leaves, factory shapes and exact counted-depth
+metadata at node construction.
 
 **Implement.** Add `Trie.kt`, `Conclusions.kt`, `TrieInterner.kt`, `PathWalk.kt` and `ApOut.kt`.
 Implement `TrieNode<P>`, leaf algebras, Reach values, FLOW and TAINT conclusions. The method-edge
@@ -175,10 +187,9 @@ single-writer store interners keep their specified ownership.
 
 **Requires:** A02–A03. **Proposal:** `ap-impl.md` §4.2–§4.4.
 
-**Model and red tests.** Model the list concept and trie operations for T1–T4, subtraction and
-group placement. Prove denotation preservation and the delta law for the intended leaf algebras.
-Use `Tree`, `Subsume`, `CurrentTaintGroupKeys` and the T2 union witness within their scopes.
-Write `TrieMergeDeltaTest`, `GroupMergeTest`, `TaintGroupKeysTest` and `SubsumptionTest`.
+**Tests first.** Write `TrieMergeDeltaTest`, `GroupMergeTest`, `TaintGroupKeysTest` and
+`SubsumptionTest`. Compare T1–T4, subtraction, group placement, stored union and delta behavior
+with the direct list reference. Include the T2 union witness and test both insertion orders.
 
 **Implement.** Add `TrieOps.kt` and `Groups.kt`. Adapt merge, delta, leaf maps, prepend, chain,
 minus, graft, subtraction and filtering from the old tree algorithms. Preserve sharing and
@@ -190,18 +201,17 @@ by later AP operations in this same slice. Use traversal methods that handle the
 without relying on a small JVM call stack.
 
 **Gate.** Stored union and delta properties pass in both insertion orders, including changing
-must exclusions. Optional T5 demand absorption can remain disabled. If enabled, first prove
-and test equivalence and measure its cost; it is not a prerequisite for later steps.
+must exclusions. Optional T5 demand absorption can remain disabled. If enabled, test equivalence
+with the reference and measure its cost; it is not a prerequisite for later steps.
 
 ### A05. Implement transfer, satisfaction and summary application
 
 **Requires:** A02–A04. **Proposal:** `ap-impl.md` §5.3–§5.4, §5.11.
 
-**Model and red tests.** Use the actual annotated application and selectors from
-`CurrentSummaryApplication`. Use `CurrentSimplifications.Flow` only for canonical FLOW
-premises. Use `CurrentMustReverse` for the guarded view shapes. First model decoding of
-tree-selected leaves and prove that it yields the reference matches and outputs.
-Write `EdgeTreeEquivalenceTest`, `SummaryKindsTest`, `ReversalTest` and summary selector tests.
+**Tests first.** Write `EdgeTreeEquivalenceTest`, `SummaryKindsTest`, `ReversalTest` and
+summary selector tests. Compare tree-selected leaves, matches, annotated outputs and requests
+with the per-path reference. Cover canonical and noncanonical FLOW premises and guarded
+must-tail read views.
 
 **Implement.** Add `MarkGate.kt`, `EdgeApplication.kt`, `Summary.kt` and the `ApOps` facade.
 Implement `applyCompiledEdge`, `satisfying`, `applySummary`, `applyRecordLeaf`,
@@ -222,10 +232,9 @@ DEMAND output does not change the native summary's callee-demand classification.
 
 **Requires:** A02–A05. **Proposal:** `ap-impl.md` §5.5–§5.8.
 
-**Model and red tests.** Reuse `BaseCleaner`, `AnyTaintEx`, `CurrentProposal.LiteralLayer`,
-`CurrentConjunction` and `CurrentDepthCache`. Extend the cut/tree model before adding subtree
-shortcuts. Write `CleanerTest`, `TypeFilterTest`, `MarkCheckTest`, `FieldLimitTest` and
-`LayerRulesTest`. Keep primitive cleaners separate from named field actions.
+**Tests first.** Write `CleanerTest`, `TypeFilterTest`, `MarkCheckTest`, `FieldLimitTest`
+and `LayerRulesTest` from the primitive AP tables. Compare full facts and requests, including
+counted-depth and layer behavior. Keep primitive cleaners separate from named field actions.
 
 **Implement.** Add `Clean.kt`, `Limit.kt` and `MarkCheck.kt`. A selected-mark cleaner first
 updates every same-base abstract mark `*∖X` to `*∖(X ∪ {T})`, before any spatial test. Run 1 also requests
@@ -245,11 +254,9 @@ sharing. All required demotion cells match the reference.
 
 **Requires:** A02–A06. **Proposal:** `ap-impl.md` §5.9–§5.10.
 
-**Model and red tests.** Reuse the computed emission/reduction certificates in `CurrentDemand`,
-the local closure certificates in `CurrentDemandClosure`, and `CurrentTreeReduction`.
-Prove the current annotated tree operation equal to a per-leaf rebuild before using structural
-shortcuts. Preserve the demand-entry shape guards. Write `EmissionTest`, `RestrictionTest`,
-`DemandSelectionTest` and `RequestActionTest`.
+**Tests first.** Write `EmissionTest`, `RestrictionTest`, `DemandSelectionTest` and
+`RequestActionTest`. Compare emission and reduction with per-leaf reference results, including
+demand-entry shapes, modes, marks and layers, before using tree shortcuts.
 
 **Implement.** Add `Demand.kt` and the remaining `ApOps` operations. Run 1 emits the policy
 FLOW premise. Abstract demands share a FLOW premise across added concrete marks; concrete
@@ -262,18 +269,17 @@ Implement `demandPart` from raw layer, premise count and backward zero status. S
 keep their layer. Preserve AP §6.4's representability exceptions; do not narrow an abstract mark
 or correlated tail beyond the specified meet.
 
-**Gate.** Emission and publication certificates match the actual operations. The tree reference
-and optimized implementation agree in the proved scope and generated cases. Raw record
+**Gate.** Emission and publication outputs match the specified vectors. The per-leaf reference
+and tree implementation agree on required examples and generated cases. Raw record
 eligibility remains independent of reduction and demand selection.
 
 ### A08. Implement path indexes and the run fact stores
 
 **Requires:** A03–A07. **Proposal:** `ap-impl.md` §7.1–§7.7, §7.9.
 
-**Model and red tests.** Use `Store` lookup lemmas and `CurrentDemand.restrict_index_equiv`.
-For each index, define the complete list scan and prove candidate completeness plus equality
-after full matching. Prove new key/delta contracts before using the index. Write `PathTrieTest`
-and tests for method edges, initials, links, raw summaries, demands and requests.
+**Tests first.** Write `PathTrieTest` and tests for method edges, initials, links, raw
+summaries, demands and requests. For each index, compare candidates followed by full matching
+with a complete list scan. Check new-key and delta behavior against the reference.
 
 **Implement.** Add `PathTrie`, `MethodEdgeStore`, `InitialFactStore`, `AddedFactStore`,
 `RunSummaryStore`, `DemandStore` and `RequestStore`. Added facts group by exact caller reference,
@@ -292,10 +298,10 @@ owning writer.
 
 **Requires:** A05–A08. **Proposal:** `ap-impl.md` §7.8, §7.10–§7.12.
 
-**Model and red tests.** Define finite standing joins and lossless witness storage before indexing
-them. Reuse `CurrentConjunction`, `CurrentSinkJoin`, `CurrentSummarySelection` and the local
-support lemmas. Prove the scoped join/deduplication invariants. Write `KaryJoinTest`,
-`RecordStoreTest`, `ConjunctionStoreTest`, `SourceHitStoreTest` and `VulnerabilityStoreTest`.
+**Tests first.** Write `KaryJoinTest`, `RecordStoreTest`, `ConjunctionStoreTest`,
+`SourceHitStoreTest` and `VulnerabilityStoreTest`. Compare joins with complete finite scans;
+check arrival orders, duplicate inputs, literal slots, contexts, alternatives and support
+shapes. Check that witness merges retain every distinct witness.
 
 **Implement.** Add `KaryJoin`, `StandingJoin`, `ConjunctionStore`, `NdSummaryJoin`, `RecordStore`,
 `SourceHitStore` and `VulnerabilityStore`. Keep rule alternatives and method keys separate in
@@ -315,10 +321,10 @@ reads its completed-run snapshot at the barrier.
 
 ### V1. Validate Phase 1
 
-Run all AP/store tests, the Lean build and audit, and the shared-consumer compile checks.
+Run all AP/store tests and the shared-consumer compile checks.
 Complete the AP/store-local portions of validation items 1–12, 14–15 and 17–18. Keep named form,
 call and whole-run checks assigned to V2/V3/V4/J03. Review every AP public operation and store in `ap-impl.md` §0.2
-against a test and proof obligation. Phase 2 can now use the AP without stub transfer semantics.
+against its specified contract and tests. Phase 2 can now use the AP without stub transfer semantics.
 
 ## Phase 2: Interpreter, engine and driver
 
@@ -326,10 +332,9 @@ against a test and proof obligation. Phase 2 can now use the AP without stub tra
 
 **Requires:** V1. **Proposal:** `ap-impl.md` §23.1–§23.3, §23.5–§23.8.
 
-**Model and red tests.** Extend the local action/candidate results in `CurrentSimplifications`
-to the used stage graph and mode guards. Model ordered filters, source hooks and pass-over
-behavior. Write `StatementSummaryReversalTest`, `RuleStatementReversalTest`,
-`CallPlanReversalTest` and `FormApplierTest` before production mode execution.
+**Tests first.** Write `StatementSummaryReversalTest`, `RuleStatementReversalTest`,
+`CallPlanReversalTest` and `FormApplierTest` before production mode execution. Check action
+order, filters, source hooks, pass-over behavior, mode guards and identity candidates.
 
 **Implement.** Add the `bidi/interp` interfaces, micro edges, statement/rule forms, call points,
 stages, guards, plan reversal, `FactAlgebra`, `FormApplier`, forms cache and `DirectedForms`.
@@ -350,26 +355,26 @@ directions and supported resume points, rather than assuming every lossy reversa
 
 **Requires:** I01. **Proposal:** `ap-impl.md` §24.
 
-**Model and red tests.** Model builder output against the read/write/alias rows of
-`interpreter.md` §2. Use certified AP vectors to check every generated edge. Write
-`MicroEdgeBuilderTest` and construction-invariant assertions.
+**Tests first.** Write `MicroEdgeBuilderTest` and construction-invariant assertions from
+the read/write/alias rows of `interpreter.md` §2. Check each generated edge's effect with the
+per-path AP reference and independent expected vectors.
 
 **Implement.** Adapt `StatementSummaryBuilder` into `MicroEdgeBuilder`. Build explicit targets,
 touched bases, strong and weak keep edges, read identities and alias edges. Combine filters
 without changing their order. A field read has no refine-only edge or exclusion update.
 A strong write adds the specified first-accessor exclusion; a weak write keeps the old part.
 
-**Gate.** Builder rows and decoded effects match the direct model. Test self reads/writes,
-two-accessor static writes, root copies and alias targets. Synthetic two-level AP writes remain
-separate from JVM lowering through local temporaries.
+**Gate.** Builder rows and decoded effects match the specified vectors and per-path reference.
+Test self reads/writes, two-accessor static writes, root copies and alias targets. Synthetic
+two-level AP writes remain separate from JVM lowering through local temporaries.
 
 ### I03. Implement JVM statement forms and type filters
 
 **Requires:** I02. **Proposal:** `ap-impl.md` §25–§26.
 
-**Model and red tests.** State the JIR-to-form contract for each admitted JVM instruction.
-Use explicit form vectors and an executable small statement model where the AP model has no
-JIR instance. Write `JIRStatementFormsTest`, `JIRTypeFiltersTest` and `JIRStatementEffectTest`.
+**Tests first.** Write `JIRStatementFormsTest`, `JIRTypeFiltersTest` and
+`JIRStatementEffectTest`. Use explicit construction and effect vectors for each admitted JVM
+instruction, with the per-path AP reference where applicable.
 
 **Implement.** Add `JIRInterpreter`, `JIRStatementForms` and `JIRTypeFilters`. Reuse JIR values,
 local aliases and the fact type checker. Cover copy, field/static/element read and write, cast,
@@ -387,10 +392,9 @@ tests still pass; the new forms carry the changed expectations in their own test
 
 **Requires:** I01–I03. **Proposal:** `ap-impl.md` §23.4, §27.
 
-**Model and red tests.** Reuse `CleanerLowering`, `FieldCleanerX` and the F75 primitive witnesses
-only within their stated scope. Extend the model to the action chain, temporary projection and
-cut points used here. Write `JIRRuleFormsTest`, cleaner mapping tests and lowered-action vectors
-with limits 1, 2 and 3.
+**Tests first.** Write `JIRRuleFormsTest`, cleaner mapping tests and lowered-action
+vectors with limits 1, 2 and 3. Check action order, temporary projection, result filters,
+touched-output cuts, source tails and the original premise used for a cleaner request.
 
 **Implement.** Validate a complete rule before producing forms. Resolve positions, non-mark
 conditions, DNF cubes and array sink alternatives. Enforce position/mark/source/pass constraints
@@ -420,10 +424,9 @@ conjunctive sources and array sink seeds. Run construction assertions for every 
 
 **Requires:** I03–I04. **Proposal:** `ap-impl.md` §28.
 
-**Model and red tests.** Build an executable plan model for resolved, unresolved and constructor
-paths. Use `CurrentAliasGuard` and `CurrentRecordTiming.LateReturn` for local rules; extend
-the model to returned actions, sibling mappings and cuts before implementing their walk.
-Write `JIRCallPlanTest`, binding tests and forward/backward order vectors.
+**Tests first.** Write `JIRCallPlanTest`, binding tests and forward/backward order
+vectors for resolved, unresolved and constructor paths. Compare with the per-path forms
+reference, including returned actions, sibling mappings, cuts and native pending candidates.
 
 **Implement.** Add `JIRCallPlanBuilder`. Construct BEFORE/BOUND/ADDED/RETURNED/REWRITTEN/AFTER
 stages with the proposal's bindings, sinks, end facts, Actions, callees and alias mappings.
@@ -444,9 +447,9 @@ constructor and lambda calls. No extra compatibility or liveness filter is intro
 
 **Requires:** I03–I05. **Proposal:** `ap-impl.md` §29–§31.
 
-**Model and red tests.** Model entry/end-rule ordering and normal/exceptional boundary wiring.
-Check seed placement and zero-premise static/entry-mark removal independently. Write
-`JIRBoundaryFormsTest`, `JIRFormsContractTest`, method-cache tests and `SpringDispatcherFormsTest`.
+**Tests first.** Write `JIRBoundaryFormsTest`, `JIRFormsContractTest`, method-cache tests
+and `SpringDispatcherFormsTest`. Check entry/end-rule order, normal/exceptional boundary
+wiring, seed placement and zero-premise static/entry-mark removal independently.
 
 **Implement.** Add `JIRBoundaryForms`, `JIRExitWiredGraph`, `JIRMethodEntry`, `JIRMethodForms`,
 `JIRMethodEntries` and `PrescanLambdas`. Reuse backward graph utilities and port exit wiring.
@@ -469,20 +472,17 @@ invariants I1–I14 and the AP producer duties on every forward/backward form.
 
 ### V2. Validate interpreter integration
 
-Run common-form and JVM-form tests, type/effect equivalence tests, the Lean build and audit.
+Run common-form and JVM-form tests and type/effect equivalence tests.
 Complete all JVM construction cases in the Interpreter inventory; reserve whole-analysis cases
 for J03. Compare named field actions with F74, their primitive cleaner with F75, and the pending
 return path with late demotion. Every cached form used by a standing join has stable identity.
 
-### E01. Model the current engine and add the run shell
+### E01. Add the run shell
 
 **Requires:** V1–V2. **Proposal:** `analyzer-impl.md` §3, §6.
 
-**Model and red tests.** Define the current finite engine state and closure using the actual
-typed AP, demand guards, views and native layers. State the encoding scope before adding an
-asynchronous engine. Reuse the generic `Pipeline` results only after supplying their required
-encoding. Model Q1–Q4 ownership/count transitions. Write `InFlightTest`, `EventQueueTest`,
-context-cache and run-lifetime tests.
+**Tests first.** Write `InFlightTest`, `EventQueueTest`, context-cache and run-lifetime
+tests for the Q1–Q4 ownership/count transitions before adding the asynchronous run shell.
 
 **Implement.** Add `SharedObjects`, `RunConfig`, `RunStatus`, `InFlight`, `RunEvent`,
 `RunnerPort`, `UnitRunner`, `RunManager` and `MethodContextCache` in `bidi/engine`.
@@ -499,10 +499,9 @@ zero-work run. Handlers implemented later must use these same count transitions.
 
 **Requires:** E01. **Proposal:** `analyzer-impl.md` §4.1–§4.4, §4.7; `analyzer-core.md` §4.
 
-**Model and red tests.** Add initial emission/start, statement, unchanged and boundary
-transitions to the scoped closure model. Prove kind preservation and no restricted requests
-for these transitions. Write `EngineAlgebraTest`, `ModesTest`, `FactKindsTest`, `ExitRulesTest`
-and `CutPointTest` before each handler.
+**Tests first.** Write `EngineAlgebraTest`, `ModesTest`, `FactKindsTest`, `ExitRulesTest`
+and `CutPointTest` before each handler. Cover initial emission/start, statement, unchanged and
+boundary transitions, kind preservation and the absence of restricted-run requests.
 
 **Implement.** Add `RunMethodAnalyzer`, `DeltaWorklist`, `EdgeDelta`, `EngineAlgebra` and handlers
 for roots, links and initials. Use `FormApplier` for all modes. Emit from links by run-1 policy
@@ -523,10 +522,9 @@ off-spine facts and raw summaries rejected for publication.
 
 **Requires:** E02. **Proposal:** `analyzer-impl.md` §4.8–§4.9, §4.11.
 
-**Model and red tests.** Integrate the local request/literal/join models into the scoped engine
-closure. Prove request/link arrival order independence and context-isolated joins. Use
-`CurrentSinkJoin` and the conjunction layer proofs. Write `RequestJoinTest`, sink/end-fact tests
-and the local parts of `NdJoinAdapterTest`.
+**Tests first.** Write `RequestJoinTest`, sink/end-fact tests and the local parts of
+`NdJoinAdapterTest`. Check request/link arrival orders, context-isolated joins, literal layers
+and source-hit timing against the specified cases and per-path reference.
 
 **Implement.** Add the run-1 request/link standing join, answer and climb handlers. Handle
 request-first, link-first and a later new caller reference to an existing added fact. No
@@ -547,13 +545,10 @@ store input. A real reversed source can record a hit; record replay cannot synth
 
 **Requires:** E02–E03. **Proposal:** `analyzer-impl.md` §5.
 
-**Model and red tests.** Model P1–P6 with the current matching and publication encoding.
-Prove that every applicable list-scan publication/subscription pair is applied at quiescent
-complete termination in the scoped model, including duplicate delivery. State the reliable
-delivery/completion conditions; an eventual-application claim also needs fair processing.
-Reuse `PipelineProofs` and `PipelineStore` only where their assumptions hold.
-Write broken P1–P4 mocks first, then
-`SummaryStorageProtocolTest`, `IndexCompletenessTest` and `AnyDeliveryTest`.
+**Tests first.** Write broken P1–P4 mocks first, then `SummaryStorageProtocolTest`,
+`IndexCompletenessTest` and `AnyDeliveryTest`. Under reliable delivery and completed processing,
+compare applicable publication/subscription pairs with a complete list scan. Cover P1–P6,
+replay, delayed notification and duplicate delivery.
 
 **Implement.** Add `SummaryStorage`, `PublicationIndex`, `SubscriptionManager`,
 `CalleeSubscriptions` and dispatch for `LinkIn`/`Delivery`. Register before replay; insert before
@@ -570,10 +565,10 @@ state without violating runner ownership. P1–P6 each have an explicit test obs
 
 **Requires:** E03–E04. **Proposal:** `analyzer-impl.md` §4.5–§4.6, §4.10–§4.11.
 
-**Model and red tests.** Extend the call closure with link emission, replay/delivery returns,
-zero paths, complete E6 combinations and native record resumption. Compose the annotated
-AP and `CurrentRecordTiming.LateReturn` operations in the admitted plan model. Write
-`CallPlanTest`, `RecordReplayTest`, `RecordDemotionTest` and interprocedural `NdJoinAdapterTest`.
+**Tests first.** Write `CallPlanTest`, `RecordReplayTest`, `RecordDemotionTest` and
+interprocedural `NdJoinAdapterTest`. Compare annotated link/return effects, zero paths,
+complete E6 combinations and native record resumption with `FormsReference.run`, including
+late demotion and record-crossing counts.
 
 **Implement.** Run the cached call stage graph and suspend/resume at the callee stage. Register
 subscriptions and replay before sending link deltas. Apply E6 only forward, at one caller method
@@ -599,9 +594,9 @@ produces no summary application. No intermediate return result enters successor 
 
 **Requires:** E01–E05. **Proposal:** `analyzer-impl.md` §6, §7.7.
 
-**Model and red tests.** Complete the Q1–Q4 transitions for handlers, partial Work steps,
-publication flush, cancellation and join. Model unchanged-loop termination using exact
-repeat keys. Write `DeltaWorklistTest`, delayed-send tests, `RunFailureTest` and `LifetimeTest`.
+**Tests first.** Write `DeltaWorklistTest`, delayed-send tests, `RunFailureTest` and
+`LifetimeTest`. Cover Q1–Q4 across partial Work steps, publication flush, cancellation and
+join. Check unchanged-loop termination and repeat keys across quantum boundaries.
 
 **Implement.** Finish the runner event loop, immutable queue-priority keys, local work quantum,
 `InFlight` transitions and status-first cancellation. Drain unchanged work first; retain its
@@ -623,10 +618,9 @@ No run-local object is reused by the next engine.
 
 **Requires:** E02–E06. **Proposal:** `analyzer-impl.md` §9.1–§9.3.
 
-**Model and red tests.** Finish the executable closure instance for the finite program scope
-used by this gate, with the current selector, cleaner, views and late return order. State which
-global properties remain open. Write `NaiveClosureTest` and fixed failing schedules before
-adding randomized schedules.
+**Tests first.** Write `NaiveClosureTest` and fixed failing schedules before adding
+randomized schedules. Use the Kotlin per-path closure with the current selector, cleaner,
+views and late return order. Keep independent expected vectors for shared helper behavior.
 
 **Implement test support.** Add the per-path `NaiveClosure` with complete candidate list scans.
 Use stable `ReferenceAlgebra` forms and explicit call, action, boundary, trigger and seed hooks.
@@ -638,25 +632,24 @@ replay and notification. Cover separate units and direct same-unit calls. Save t
 program and processed event sequence for every mismatch and minimize it before changing code.
 
 **Gate.** Compare full run observations under replay-first, notify-first, duplicate and split-E6
-schedules. Shared helper agreement checks integration; Lean contracts and independent certified
-vectors check helper semantics. Run all engine test rows through their enabled scope.
+schedules. Shared helper agreement checks integration; independent specified vectors check
+helper behavior. Run all engine test rows through their enabled scope.
 
 ### V3. Validate the complete one-run analyzer
 
-Run all AP, forms, engine and protocol tests plus the Lean build and audit. Check both directions
+Run all AP, forms, engine and protocol tests. Check both directions
 and run-1/restricted modes. Complete the one-run portions of Analyzer validation items 1–6,
 8, 12, 14–18, 21, 25–31, 35–36 and 41–45. Driver-dependent expectations follow in V4.
-Review the current pipeline encoding and store subsumption assumptions; record any wider
-unproved property explicitly. The engine can now supply a joined `RunResult` to the driver.
+Review the current publication protocol and store subsumption assumptions; record any unresolved
+integration concern. The engine can now supply a joined `RunResult` to the driver.
 
 ### D01. Implement joint support, confirmation and reports
 
 **Requires:** V3. **Proposal:** `analyzer-impl.md` §7.5–§7.6; `ap-impl.md` §7.12.
 
-**Model and red tests.** Model the finite support least fixed point and its supplier relation.
-Use `CurrentSimplifications.Confirmation` for the local simplification only. Prove that support
-has a same-call witness, starts from the allowed zero roots and cannot arise from an unsupported
-cycle. Write `SupportTest`, `AnyTaintSupportTest`, witness-key tests and `ReportTest`.
+**Tests first.** Write `SupportTest`, `AnyTaintSupportTest`, witness-key tests and
+`ReportTest`. Cover same-call suppliers, allowed zero roots, unsupported cycles, link and
+caller-edge layers, and tail/mark/E admission against the specified support rules.
 
 **Implement.** Add `Support` and `ReportBuilder` using `confirmableMember` and `supplies`.
 Both the link layer and caller-edge layer must be NORMAL. Preserve the zero/equal-fact supplier
@@ -676,11 +669,9 @@ all incomplete-run sequences match the specified state transitions.
 
 **Requires:** D01. **Proposal:** `analyzer-impl.md` §7.2–§7.4, §7.8.
 
-**Model and red tests.** Compose current structural selection, normalization, must forgetting
-and seed construction in a finite hand-off model. Reuse `CurrentSummarySelection`,
-`CurrentMustHandoff`, `CurrentDemandFrontier` and normalization certificates within their scopes.
-Prove the demand-entry representation guards for this construction. Write `HandOffTest`,
-`NormalizedHandOffTest`, `FrontierPropertyTest`, END and CONJ regression tests.
+**Tests first.** Write `HandOffTest`, `NormalizedHandOffTest`, `FrontierPropertyTest`,
+END and CONJ regression tests. Compare selected publications, normalization, must forgetting
+and seed construction with the direct reference. Check demand-entry shapes and stored counts.
 
 **Implement.** Add `HandOff`, `Seeds`, `SeedIndex` and `Frontier`. Consume the stored
 `RunSummaryStore.demandEdges()` publications. E02 has selected raw DEMAND, multi-premise and
@@ -704,9 +695,9 @@ describe accepted builder contents, not attempted insertions.
 
 **Requires:** D01–D02. **Proposal:** `analyzer-impl.md` §7.1, §7.7–§7.8.
 
-**Model and red tests.** Model sequential forward/backward runs and the barrier
-order. Prove status/report persistence and stop conditions within the finite driver scope.
-Write `DriverTest`, `DemandLinkTest`, end-reason tests and barrier failure tests.
+**Tests first.** Write `DriverTest`, `DemandLinkTest`, end-reason tests and barrier
+failure tests. Check sequential forward/backward runs, barrier order, status/report persistence
+and stop conditions against the specified driver transitions.
 
 **Implement.** Add `IterationDriver` and `IterationPolicy`. Start forward with limit at least 1;
 alternate directions with nondecreasing limits. Use one analysis budget and fresh engine
@@ -725,15 +716,14 @@ and refute nothing. Map failure/timeout/guard results without restarting cancell
 complete/incomplete barriers and all statuses. The DLINK root EXACT fixture continues when its
 only demand object is a link. Optional diagnostic counters cannot change a stop decision.
 
-### D04. Validate current iteration behavior and scoped no-loss claims
+### D04. Validate current iteration behavior
 
 **Requires:** D03. **Proposal:** `analyzer-impl.md` §9–§10; `analyzer-core.md` §7, §11.
 
-**Model and red tests.** Extend the practical sequence model from E07/D02 to cover the selected
-F72/F75/F76/F77 programs with real seeds, support and cleaner lowering. Compute all facts,
-requests, links, raw/reduced summaries, records and demands after each run. Prove the stated
-coverage/confirmation properties for that scope. Use actual current selection, rather than
-the historical no-any hand-off in `CurrentDefs` sequences.
+**Tests first.** Write `AnyTaintIterationTest` and annotated sequence fixtures for the
+specified F72/F75/F76/F77 programs, using real seeds, support and cleaner lowering. Check all
+facts, requests, links, raw/reduced summaries, records and demands after each run. Use current
+selection rules; retain historical fixtures with their original version labels.
 
 **Implement tests and refinements.** Add `AnyTaintIterationTest`, sharing, mode, frontier,
 conjunction and hand-off regressions. Cover getter with two marks, callee sink, identity, setter,
@@ -742,18 +732,17 @@ Use limits 1/2/3 and the DLINK 1–5 sequence. Keep utility L=0 and synthetic mu
 statements outside JVM sequence claims. Preserve documented alias/exception/filter gaps.
 
 Generate small programs with concrete and abstract marks, cleaner bases, depths, calls, static
-paths and conjunctions. Compare the current engine with its direct model, and perform the
-validation inventory's labeled historical/concrete-design differential check. A discrepancy
+paths and conjunctions. Compare the current engine with its direct per-path closure, and perform
+the validation inventory's labeled historical/concrete-design differential check. A discrepancy
 needs a minimized annotated trace; historical output alone is not a semantic oracle.
 
-**Gate.** There is no known no-loss or confirmation counterexample in the admitted program
-scope. Proved claims list all filter, shape, seed and record assumptions. Do not claim exact
-round-to-round narrowing in the abstract/representability exception cells. Keep any general
-iteration or annotated pipeline proof still open in `proof-status.md` with its exact boundary.
+**Gate.** All specified sequence fixtures pass and engine/reference differences are resolved.
+Record the tested program scope and filter, shape, seed and record conditions. Do not claim
+exact round-to-round narrowing in the abstract/representability exception cells.
 
 ### V4. Validate Phase 2
 
-Run the full common AP/forms/engine/driver tests and the Lean audit. Complete AP whole-run
+Run the full common AP/forms/engine/driver tests. Complete AP whole-run
 items 13, 17–18 and all Analyzer inventory items except the phase-3 wiring/release/output
 checks and the full project benchmark work reserved for phase 4. Compare records and raw
 selection independently from current callee demand. Review all public engine/driver APIs and
@@ -765,9 +754,9 @@ every P/Q ownership rule. Phase 3 can now run the new driver through a JVM entry
 
 **Requires:** V4. **Proposal:** `analyzer-impl.md` §8.1; `analyzer-core.md` §9.
 
-**Model and red tests.** State the prescan result value contract, ownership transfer and lifetime
-invariants. Model state transitions as ordinary data; validate JVM reachability separately.
-Write prescan-copy, release and `LifetimeTest` cases before changing existing managers.
+**Tests first.** Write prescan-copy, release and `LifetimeTest` cases before changing
+existing managers. Check the prescan value contract, ownership transfer, failed joins and JVM
+reachability after release.
 
 **Implement.** Add the proposed `prescanRuleIds`, `prescanLambdas` and `releasePrescan` APIs
 to their existing owners. Verify that all prescan jobs have stopped and joined before copying/releasing state and starting
@@ -791,8 +780,8 @@ The old full-scan path, which does not call release, retains its behavior.
 
 **Requires:** J01. **Proposal:** `analyzer-impl.md` §8.1.
 
-**Model and red tests.** Specify report-to-output and status mapping as finite functions with
-executable witnesses. Write `JIRBidiAnalysisTest` and output/status tests before the entry hook.
+**Tests first.** Write `JIRBidiAnalysisTest` and output/status tests before the entry hook.
+Check each specified report-to-output mapping, status mapping and witness choice.
 
 **Implement.** Add `BidiEntry` in DF and `JIRBidiAnalysis` plus `JIRMethodContextCache` in JVM.
 Use copied prescan values to build the reduced rule provider, AP manager, interpreter, method
@@ -815,9 +804,9 @@ run, and phase-3 output does not depend on full trace resolution.
 
 **Requires:** J02. **Proposal:** `analyzer-impl.md` §9; `ap-impl.md` §33.
 
-**Model and red tests.** Instantiate the admitted program/form scope from D04 with JVM builders
-and prescan data. Keep independent form vectors for lowering and mark-policy cases; a shared
-builder/oracle alone cannot validate their semantics. Pin finding identity and report state.
+**Tests first.** Use the D04 program fixtures with JVM builders and prescan data.
+Keep independent form vectors for lowering and mark-policy cases; a shared builder/oracle alone
+cannot validate their semantics. Pin finding identity and report state.
 
 **Implement tests and fixes.** Adapt the existing analysis test fixture to select the bidi entry
 and retain the old-entry control. An unchanged harness invokes the old analyzer. Run
@@ -852,17 +841,19 @@ Run one final review after all enabled gates pass:
    field cuts, source hooks, immutable inputs, joined barriers, report status and object lifetimes.
 4. Run fresh affected-module test suites and the existing JVM analysis acceptance suites with
    explicit composite-build tasks. Run shared-consumer checks for changed common types.
-   Run `lake build`, the axiom/executable audit, and `git diff --check` on the final content.
+   Run `git diff --check` on the final content. If Lean artifacts changed during clarification,
+   run the Lean build and audit under the clarification rule.
 5. Check every local document link, numbered section reference and code fence. Read the three
    normative specs and two proposals together for contradictions and missing definitions.
-   Update references, validation results and proof scope to match the final implementation.
-6. Record the implemented scope, exact commands/results, remaining general proof obligations,
-   known specified gaps and work reserved for phases 4–5. All enabled requirements must be
-   complete. A broader unproved theorem remains explicitly open, not marked proved by tests.
+   Update references and validation results to match the final implementation. Update proof
+   status only for results changed by clarification work.
+6. Record the implemented scope, exact commands/results, clarified behavior, known specified
+   gaps and work reserved for phases 4–5. All enabled implementation and test requirements must
+   be complete. Test results do not establish general theorems.
 
-Commit each reviewed implementation/validation slice with its tests and proof evidence when
-commits are requested. The deliverable for this task is this plan; it does not start runtime
-implementation or project benchmarking.
+Commit each reviewed implementation/validation slice with its tests when commits are requested.
+Include clarification evidence when applicable. The deliverable for this task is this plan;
+it does not start runtime implementation or project benchmarking.
 
 ## Validation inventory ownership
 
@@ -907,26 +898,25 @@ to the corresponding step above. The full validation inventory takes precedence 
 ## Optimization checks
 
 Separate semantics from cost. Run these checks when the corresponding optimization is added,
-after proving its scoped result equal to the direct operation:
+after tests show that its results match the direct reference:
 
 | Optimization | Concept/equality check | Cost check |
 |---|---|---|
-| Demand prefix index | Full demand scan vs prefix candidates followed by full reduction (A08). | `CurrentDemand` counts 33 vs 1 full-reduction calls in its finite witness, excluding construction. Measure lookup and build costs separately. |
-| One demand selector per group | Per-leaf selector vs homogeneous premise/layer group (A07–A08). | Use `CurrentSummarySelection.countedPacked_work`; distinguish selector work from later packing/consumer work. |
+| Demand prefix index | Full demand scan vs prefix candidates followed by full reduction (A08). | Count full-reduction calls; measure lookup and build costs separately. The existing `CurrentDemand` finite witness is optional comparison data, excluding construction. |
+| One demand selector per group | Per-leaf selector vs homogeneous premise/layer group (A07–A08). | Count selector work separately from later packing/consumer work. The existing `CurrentSummarySelection.countedPacked_work` witness is optional comparison data. |
 | Exact depth shortcut | Explicit counted path maximum vs cached depth guard (A06). | Count visited nodes for all-fit and cut-needed trees, including metadata construction. |
 | Same-base cleaner batching | Per-leaf F75 updates/requests vs tree batch (A06). | Count base guards separately from residual leaf visits and action cuts. |
 | Trie sharing and deltas | Decoded union/delta vs list concept (A03–A04). | Count visits, allocations and retained nodes on chains, forks and shared DAGs; use cold and cleared caches. |
 | Standing joins/indexes | Complete finite scan vs every admitted combination (A09, E04–E05). | Count candidate tests and emissions for both arrival orders and duplicate delivery; preserve output cardinality. |
 | Literal/combination simplifications | Matched TAINT literal and full concrete combination equal the annotated reference (A05–A06). | Count avoided coverage traversals and result-flag work separately from matching and output work. |
 
-For a new cost claim, add a counted executable Lean operation and prove the bound over a
-stated finite or structural scope. Report that scope. Measure JVM effects separately on
-representative chain, fork, exclusion and multi-mark fixtures. Do not claim whole-project
-performance from a local count. Full project benchmarks belong to phase 4.
+For a cost claim, record operation counts or JVM measurements and the tested scope.
+Measure JVM effects on representative chain, fork, exclusion and multi-mark fixtures.
+Do not claim whole-project performance from a local count. Full project benchmarks belong to phase 4.
 
 ## Commands and evidence
 
-Run Lean commands from `spec/lean`:
+Run Lean commands from `spec/lean` only when clarification work changes Lean artifacts:
 
 ```bash
 lake build
@@ -973,10 +963,11 @@ When common base/types change, check the Go consumer and run its existing regres
   :opentaint-dataflow-core:opentaint-go-dataflow:test
 ```
 
-Record the task paths, exercised test classes, fresh XML/results directories, failed messages
-and proof scope per gate. New test system properties must be forwarded to workers and declared
-as test-task inputs through the existing build configuration. A cached result with a different
-property is not evidence for the new setting. Do not use a recursive stale-results count.
+Record the task paths, exercised test classes, fresh XML/results directories and failed messages
+per gate. Record the question, assumptions and result for any Lean clarification separately.
+New test system properties must be forwarded to workers and declared as test-task inputs through
+the existing build configuration. A cached result with a different property is not evidence for
+the new setting. Do not use a recursive stale-results count.
 The current composite build can execute included tasks even with `--dry-run`; use task discovery
 for command inspection. Root JVM test filters still initialize the build's Go test environment
 and sample jars. Record environment/setup failures separately from feature failures.
