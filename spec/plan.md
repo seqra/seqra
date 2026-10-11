@@ -38,7 +38,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | A03 | Complete | [A03 evidence](../docs/reports/bidi-a03.md). All 328 common tests pass; none skipped. Deep and shared-DAG checks, concurrent factories and cache epochs pass. JVM/Go test sources, SAST and application compile. |
 | A04 | Complete | [A04 evidence](../docs/reports/bidi-a04.md). All 391 common tests pass; none skipped. Merge/delta, T2 unions, 13,325 subsumption cells, normalized keys, deep/DAG operations and cancellation pass. JVM/Go test sources, SAST and application compile. |
 | A05 | Complete | [A05 evidence](../docs/reports/bidi-a05.md). All 444 common tests pass; none skipped. Transfer, selection, all valid summary kinds, native views, deep/cache/concurrency and cancellation checks pass. JVM/Go test sources, SAST and application compile. |
-| A06–A09, V1 | Pending | |
+| A06 | Complete | [A06 evidence](../docs/reports/bidi-a06.md). All 491 common tests pass; none skipped. Cleaner/filter/literal tables, positive cuts, layers/E, sharing, deep walks, state memos and cancellation pass. JVM/Go test sources, SAST and application compile. |
+| A07–A09, V1 | Pending | |
 | I01–I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
@@ -172,6 +173,18 @@ The A05 review found that the static-depth shortcut omits the premise mark test.
 K6 gives this in stored FLOW edges, but the public operation must test the stated
 condition too. Add a concrete-STAR static-premise regression, observe ordinary
 mark requests, then add the missing `i.mark == MarkSlot.STAR` guard.
+A06 replaces recursive cleaner spines, path filters, element-policy walks and
+field cuts with explicit stacks or loops. A valid positive limit can be 32,768
+or more. Preserve unchanged sharing and cancellation. Path-filter memos key
+both node identity and filter identity; field-cut memos key node identity and
+remaining budget. Their results must not depend on the path to a shared node.
+The first A06 test compile found two `ExclusionSet` types through wildcard
+imports of the old and new AP packages. Add an explicit bidirectional
+`ExclusionSet` import in the filter test. Keep the old API unchanged.
+Extend the deep counted-path cut check to `L = depth - 1`, in addition to the
+all-fit and `L = 1` cases. This exercises a long cut walk with many remaining
+budgets. Check its one known output by a linear path walk, without a quadratic
+test decoder. Retain the deep uncounted-class walk at remaining budget zero.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions
@@ -386,7 +399,7 @@ DEMAND output does not change the native summary's callee-demand classification.
 and `LayerRulesTest` from the primitive AP tables. Compare full facts and requests, including
 counted-depth and layer behavior. Keep primitive cleaners separate from named field actions.
 
-**Implement.** Add `Clean.kt`, `Limit.kt` and `MarkCheck.kt`. A selected-mark cleaner first
+**Implement.** Add `Clean.kt`, `Filter.kt`, `Limit.kt` and `MarkCheck.kt`. A selected-mark cleaner first
 updates every same-base abstract mark `*∖X` to `*∖(X ∪ {T})`, before any spatial test. Run 1 also requests
 T, even when already excluded. Different bases pass; restricted runs create no requests.
 Concrete and all-mark cleaners keep their spatial table. Apply path filters, then mark policy.

@@ -46,6 +46,19 @@ class ApOps(val manager: ApManager) {
     fun reverse(e: PathEdge): PathEdge? = revEdge(e)
     fun leaves(f: Facts): Sequence<Pattern> = leafViews(manager, f)
     fun leavesNear(f: Facts, p: IntArray): Sequence<Pattern> = nearLeafViews(manager, f, p)
+
+    fun clean(c: Facts, premise: PremiseKey, cl: Cleaner, mode: ApMode, out: ApOut) =
+        cleanFacts(manager, c, premise, cl, mode, out)
+
+    fun filter(c: Facts, f: TypeFilter): Facts? = filterFacts(manager, c, f)
+    fun limit(c: Facts, fieldLimit: Int, out: ApOut) = limitFacts(manager, c, fieldLimit, out)
+    fun checkMark(c: Facts, p: Pattern, mode: ApMode): MarkCheck = markCheckFacts(manager, c, p, mode)
+    fun withoutMarks(c: Facts, marks: MarkSet): Facts? = withoutMarksPart(manager, c, marks)
+
+    fun targetTree(target: PathFact, layer: Layer): Facts {
+        check(target.mark is MarkSlot.Concrete && target.tail != Tail.STAR) { "W7: a target must be concrete and exact or any" }
+        return manager.factsOf(target, ExclusionSet.Empty, layer)
+    }
 }
 
 private fun staticIdentityDepth(c: Facts, premise: PremiseKey, ce: CompiledEdge,
