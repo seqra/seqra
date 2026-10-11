@@ -36,7 +36,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | A01 | Complete | [A01 evidence](../docs/reports/bidi-a01.md). Common 196, JVM 119 and Go 1,313 tests pass. SAST and application compile. |
 | A02 | Complete | [A02 evidence](../docs/reports/bidi-a02.md). All 275 common tests pass; none skipped. JVM/Go test sources, SAST and application compile. Both user decisions are applied. |
 | A03 | Complete | [A03 evidence](../docs/reports/bidi-a03.md). All 328 common tests pass; none skipped. Deep and shared-DAG checks, concurrent factories and cache epochs pass. JVM/Go test sources, SAST and application compile. |
-| A04–A09, V1 | Pending | |
+| A04 | Complete | [A04 evidence](../docs/reports/bidi-a04.md). All 391 common tests pass; none skipped. Merge/delta, T2 unions, 13,325 subsumption cells, normalized keys, deep/DAG operations and cancellation pass. JVM/Go test sources, SAST and application compile. |
+| A05–A09, V1 | Pending | |
 | I01–I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
@@ -118,6 +119,38 @@ Use a repeated accessor in the deep interner test to exercise the table-local ha
 correction; distinct accessors do not expose that structural-hash cluster.
 Complete A03's decode/rebuild gate with a mixed sparse FLOW and TAINT round trip.
 The test rebuilds from its local decoded leaf list, without A04 merge operations.
+A04 replaces the recursive proposal helpers with explicit postorder stacks.
+Preserve identity sharing and use identity memos for whole-subtree maps and pair
+memos for merge and subtraction. Leaf enumeration keeps one mutable path buffer,
+then copies it only for a leaf callback, so a deep one-leaf path has linear cost.
+Generic long-walk helpers that have no manager accept an optional cancellation
+argument. Store and result callers pass their analysis cancellation; prepend and
+chain already receive their manager. This preserves cancellation without hidden
+mutable state in the shared FLOW algebra. Keep optional T5 folding disabled.
+The generic-helper contract returns null for an empty result. Apply that rule
+also when `withLeaf` receives an already empty node with an unchanged empty leaf;
+the proposal's identity shortcut must not return an empty subtree there.
+The first A04 compile check requires an explicit nullable-node pair result type
+for the merge/delta loop; otherwise Kotlin infers `Nothing?` from the same-node
+case. A source review also requires `minusNode` to distinguish an absent matching
+child from a present child whose computed remainder is null. The latter removes
+the child; a null-coalescing shortcut must not restore it.
+A04 keeps the proposal's positional callback arguments through forwarding
+overloads. The added cancellation forms must not break calls that pass a named
+predicate or function value as the original positional argument.
+The subtraction review adds a shared-child witness with different inherited
+cover on its two paths. Its memo key must include the cover value as well as both
+node identities; a node-pair-only memo could remove the excluded child too.
+The complete A04 test compile needs explicit `Facts` types for expected REACH
+lists and integer-ID varargs for a mark-set helper. Kotlin does not infer one
+assertion type across those collection element types or allow value-class varargs.
+The A04 deep-path gate exposed a path-cache hash cluster: accessor zero repeated
+32,768 times gives the same public path hash for every suffix. The prepend/chain
+test took 5.488 seconds, while other deep operations took at most 0.062 seconds.
+Keep the proposal's public path hash. Key the manager's private path table by
+accessor value and canonical suffix identity, with a matching local hash. Test
+repeated deep path lookup by both array and list. This changes sharing cost only.
+Add a direct positional function-value check for the generic callback overloads.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions

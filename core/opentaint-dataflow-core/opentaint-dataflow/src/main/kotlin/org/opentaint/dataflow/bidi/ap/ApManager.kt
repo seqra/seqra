@@ -18,10 +18,17 @@ class ApManager(val cancellation: Cancellation, refManager: RefManager = RefMana
 
     private val markSets = ConcurrentHashMap<MarkSet, MarkSet>()
     private val exclusions = ConcurrentHashMap<ExclusionSet, ExclusionSet>()
-    private val paths = ConcurrentHashMap<PathNode, PathNode>()
+    private val paths = ConcurrentHashMap<PathKey, PathNode>()
     private val initials = ConcurrentHashMap<InitialKey, InitialAp>()
     private val premiseSets = ConcurrentHashMap<List<InitialAp>, PremiseSet>()
     private val nextId = AtomicInteger()
+
+    /** The suffix is canonical in this manager. Its identity avoids structural-hash clusters. */
+    private class PathKey(val accessor: AccessorIdx, val next: PathNode?) {
+        private val hash = accessor * 31 + System.identityHashCode(next)
+        override fun hashCode(): Int = hash
+        override fun equals(other: Any?): Boolean = other is PathKey && accessor == other.accessor && next === other.next
+    }
 
     private data class InitialKey(
         val base: AccessPathBase,
@@ -37,7 +44,7 @@ class ApManager(val cancellation: Cancellation, refManager: RefManager = RefMana
     fun markSetOf(mark: TaintMark): MarkSet = intern(MarkSet(intArrayOf(mark.id)))
     fun path(accessor: AccessorIdx, next: PathNode?): PathNode {
         check(next == null || next.manager === this) { "A path suffix must use this AP manager" }
-        return PathNode(accessor, next, this).let { paths.putIfAbsent(it, it) ?: it }
+        return paths.computeIfAbsent(PathKey(accessor, next)) { PathNode(it.accessor, it.next, this) }
     }
 
     fun path(path: List<AccessorIdx>): PathNode? {
@@ -96,6 +103,7 @@ class ApManager(val cancellation: Cancellation, refManager: RefManager = RefMana
         TaintTree(base, layer, root, if (layer == Layer.DEMAND || !root.hasAny) ExclusionSet.Empty else intern(exclusion))
 
     fun taintLeaves(exact: MarkSet, any: MarkSet): TaintLeaves = taintAlg.leaves(exact, any)
+    fun newInterners(): StoreInterners = StoreInterners(softRefs, cancellation)
 
     /** Build one normalized typed leaf. Raw abstract exact values remain in the reference only. */
     fun factsOf(f: PathFact, exclusion: ExclusionSet, layer: Layer): Facts {
@@ -106,25 +114,19 @@ class ApManager(val cancellation: Cancellation, refManager: RefManager = RefMana
         }
         val c = normalize(f, exclusion, layer == Layer.DEMAND)
         val resultLayer = if (c.demand) Layer.DEMAND else Layer.NORMAL
+        val resultPath = path(c.fact.path)
         return when (val mark = c.fact.mark) {
             is MarkSlot.Star -> {
                 check(c.fact.tail != Tail.EXACT) { "S8: a typed exact leaf needs a concrete mark" }
-                flowTree(f.base, resultLayer, c.exclusion, mark.excluded, oneLeaf(FlowAlgebra, c.fact.path, FlowLeaf.LEAF))
+                flowTree(f.base, resultLayer, c.exclusion, mark.excluded,
+                    FlowAlgebra.prepend(this, resultPath, FlowAlgebra.LEAF_NODE))
             }
             is MarkSlot.Concrete -> {
                 val payload = if (c.fact.tail == Tail.EXACT) taintLeaves(markSetOf(mark.mark), MarkSet.EMPTY)
                     else taintLeaves(MarkSet.EMPTY, markSetOf(mark.mark))
-                taintTree(f.base, resultLayer, oneLeaf(taintAlg, c.fact.path, payload), c.exclusion)
+                taintTree(f.base, resultLayer, taintAlg.prepend(this, resultPath, taintAlg.leafNode(payload)), c.exclusion)
             }
         }
     }
 
-    private fun <P : TrieLeaf> oneLeaf(algebra: LeafAlgebra<P>, path: List<AccessorIdx>, leaf: P): TrieNode<P> {
-        var node = algebra.leafNode(leaf)
-        for (index in path.indices.reversed()) {
-            if (index and 255 == 0) cancellation.checkpoint()
-            node = algebra.node(algebra.empty, intArrayOf(path[index]), arrayOf(node))
-        }
-        return node
-    }
 }
