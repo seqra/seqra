@@ -60,7 +60,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | V3 | Complete | One-run acceptance and protocol/store audit; 1,088 common and 339 JVM tests. See [V3 evidence](../docs/reports/bidi-v3.md). |
 | D01 | Complete | Joint support, confirmation and reports. See `docs/reports/bidi-d01.md`: 40 new tests and 1,128 common regressions pass. |
 | D02 | Complete | Both hand-offs, seeds and frontier counts. See `docs/reports/bidi-d02.md`: 29 new tests and 1,157 common regressions pass. |
-| D03–D04, V4 | Pending | |
+| D03 | Complete | Iteration loop, joined barriers, one budget and DLINK 1–5. See `docs/reports/bidi-d03.md`: 23 new and 1,180 common tests pass. |
+| D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
 
 Implementation corrections: the earlier FINAL text described this file as a planning-only
@@ -1736,6 +1737,13 @@ proposal guard and ownership corrections before implementation.
 **Gate.** Check 1/2/3 and 1/2/3/4/5 schedules, equal/nondecreasing limits, exhausted budget,
 complete/incomplete barriers and all statuses. The DLINK root EXACT fixture continues when its
 only demand object is a link. Optional diagnostic counters cannot change a stop decision.
+
+**Result.** All 23 new driver tests pass. Actual 1/2/3 and 1–5 schedules
+check hand-off, records, source identity, frontier order and final confirmation.
+Status, report, guard and budget cases pass with real joined managers. The
+fresh common gate passes 1,180 tests. All affected consumer test sources
+compile. The independent driver review finds no contract defect. See
+[D03 evidence](../docs/reports/bidi-d03.md).
 
 ### D04. Validate current iteration behavior
 
