@@ -390,3 +390,21 @@ run_elab do
         ([⟨⟨⟨6, [], .any, .conc 7⟩, true⟩, ApSpec.Excl.empty⟩] : List ApSpec.AnyTaintEx.XFact) then
     throw (IO.userError "Executable record demotion timing boundary failed.")
   IO.println "Executable record demotion timing boundary passed."
+
+-- Per-leaf summary selectors keep the complete tail/exclusion guards.
+#eval do
+  if !ApSpec.CurrentSummaryApplication.Certificate.check then
+    throw (IO.userError "Executable summary application and selector rows failed.")
+  IO.println "Executable summary application and selector rows passed."
+
+-- Ordinary root mappings commute; the F74 action chain remains outside this check.
+#eval do
+  if !ApSpec.CurrentRecordTiming.Certificate.check then
+    throw (IO.userError "Executable root-mapping record demotion commutation failed.")
+  IO.println "Executable root-mapping record demotion commutation passed."
+
+-- Pending native results keep E through returned operations and demote before the call cut.
+#eval do
+  if !ApSpec.CurrentRecordTiming.LateReturn.Certificate.check then
+    throw (IO.userError "Executable late-return record demotion failed.")
+  IO.println "Executable late-return record demotion passed."

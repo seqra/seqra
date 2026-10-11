@@ -37,7 +37,7 @@ Part II defines its path prefixes at §20. The package maps name new files; the 
 | DD13 | Store a singleton premise directly; use a sorted set for multiple members. Union drops zero unless all inputs are zero. | §3.4, §5.1 |
 | DD14 | Share generic trie algorithms, literal checks, action execution and standing joins. | §4, §5, §7.10, §23.3 |
 | DD15 | Use `applyCompiledEdge` for tree delta-concat and `MarkGate` for transfer/check gates. | §5.3, §5.8 |
-| DD16 | A normal TAINT any leaf means must/E; a demand any leaf means may. Exact leaves ignore E and survive must subsumption. | §4.3, §5.3, §7.8 |
+| DD16 | A normal TAINT any leaf means must/E; a demand any leaf means may. Exact leaves survive must subsumption. A native applicable-only must record retains E through return actions/binding, then demotes before the CALL cut. | §4.3, §5.3, §5.4, §7.8 |
 | DD17 | Select callee demand by raw layer, premise count and backward zero. Persist R1 raw normal singleton summaries separately. | §5.9, §7.6, §7.8 |
 | DD18 | Emit shared FLOW premises from abstract demands. Reduce by marks and locations. Keep native record readers transient. | §5.4, §5.9, §6 |
 
@@ -1665,11 +1665,22 @@ true)`, the per-path reference `recordDemand` (`ap.md` §6.3, Part I §6) is tru
 // `dto.f.[any-taint] (T)`), would give a normal `(x, ., [any-taint], T)` at `x = get(dto)`, but `p.g` carries no taint.
 ```
 
-The native must-record code currently raises the applicable-only result at the callees stage, before later
-call actions. The normative point is after binding back and before the field limit (`ap.md` §4.3). This timing is
-under review with the user; the code retains its current placement until that decision. `CurrentProposal.RecordTiming`
-distinguishes early and late demotion through a general annotated read: clearing E early can admit an excluded
-location. That local witness does not establish a whole JVM call counterexample or timing equivalence.
+`CurrentSummaryApplication.Selectors` checks the per-leaf selection rows against location inclusion and the
+any-tail guard. The mark test rejects a concrete must premise on an abstract FLOW input. These local checks
+do not prove the complete trie walk.
+
+A native must record returns its inside and applicable-only parts as separate batches (`analyzer-impl.md` §4.6).
+The applicable-only batch carries `pendingDemotion = true` on the return walk invocation. Its Facts retain the
+ordinary transfer result, layer and E through RETURNED actions, their filters and statement cuts, binding back,
+and alias mapping. The batch's candidate flag is false, so the ordinary memory-effect guard admits its aliases.
+At the plan exit, raise every surviving result to DEMAND, change a must leaf to may, drop E, then apply the final
+CALL cut. The inside batch uses the same walk with `pendingDemotion = false`. Do not store pending state in Facts
+or merge the two return batches before that finalization. The per-path oracle follows the same order (§23.8).
+
+`CurrentRecordTiming` proves local commutation with root mappings, path/mark filters, field cuts and primitive
+root cleaners on concrete leaves. `CurrentRecordTiming.LateReturn` checks separate-batch bookkeeping, preservation
+of raw operation outputs before finalization, final demotion/cut and alias admission. These local results do not
+permit moving the demotion across a complete F74 action chain. Execute the accepted return order directly.
 A summary of a must-premise needs no record demotion: a restricted run reads it by `inside` only.
 
 RUN 1: A SUMMARY WITH A CONCRETE PREMISE MARK AND A `*` FACT IN THE CALLER. Let `j = (x, [], *, {}, T)` or `(x, [], $, {}, T)` (a chain answer of the policy fact) and
@@ -1760,8 +1771,9 @@ keeps an identity memo over `g`. At an occurring node with occurrences below it,
 Event E6 applies one complete combination of a multi-premise summary (`ap.md` §4.6). The caller supplies a
 nonempty `satisfying(a, jm, mode)` part for every concrete member `jm`, in that link's layer. W7 makes the target
 uncorrelated: every member application returns the same target tree. Only the joined layer is needed.
-`CurrentProposal.Combination.member_application` proves this per annotated leaf; `joined_layers` proves the layer
-join. Both require successful matching and the W7 concrete exact/any target. They do not cover arbitrary unmatched inputs.
+`CurrentSummaryApplication.uncorrelated_member_application` proves this per annotated leaf for every premise
+tail, including a concrete STAR run-1 answer. `CurrentProposal.Combination.joined_layers` proves the layer join.
+Keep successful matching and the W7 concrete exact/any target; unmatched inputs are outside these proofs.
 
 ```kotlin
 /** A complete satisfying combination, supplied by ConjunctionStore. Every part and premise member is concrete;
@@ -2039,7 +2051,7 @@ THE CUT POINTS (`ap.md` §4.4). `analyzer-impl.md` makes each call through its o
 | Cut point (`ap.md` §4.4) | `Cut` of `analyzer-impl.md` §4.3 | Call site | What is cut |
 |---|---|---|---|
 | the statement transfer, after the micro edges and the lhs filter (`ap.md` §4.2 step 6); the read sources; the read and write of a field cleaner (F74) | `STATEMENT` | `runStatement` (`analyzer-impl.md` §4.3), after the result filters; `cleanChain` (§4.5) for the two lowered statements | the results of the statement on the touched bases |
-| the call return: after the rewriter, the binding back and the aliases (`ap.md` §5.3 step 5) | `CALL` | `flow` at the exit point of the plan (`analyzer-impl.md` §4.5): one site for every result of a call (§4.6: `applySummary`, `applyRecord`, `zret`) | the summary results `g.path ++ r`, the record results, the unresolved and pass results, the alias results |
+| the call return: after the rewriter, the binding back, aliases and any pending native-record demotion (`ap.md` §5.3 step 5, §4.3) | `CALL` | `flow` at the exit point of the plan (`analyzer-impl.md` §4.5): one site for every result of a call (§4.6: `applySummary`, `applyRecord`, `zret`) | the summary results `g.path ++ r`, the record results, the unresolved and pass results, the alias results |
 | the source results and the end facts of a sink at a call, after the binding back (`ap.md` §5.3 step 3) | `CALL` | the same site | the source targets and the end facts in caller coordinates |
 | the entry rules (`interpreter.md` §4.3) | `ENTRY_RULES` | `RuleWorklist` of `startAt` (forward, `analyzer-impl.md` §4.4); of `endAt` (backward: the reversed entry rules, §4.7) | the entry-point sources and the end facts of an entry sink |
 | the exit rules, before the summary edge (`interpreter.md` §4.7) | `EXIT_RULES` | `RuleWorklist` of `endAt` (forward, both exits, `analyzer-impl.md` §4.7); of `startAt` (backward: the reversed exit rules, §4.4) | the exit sources and the end facts of an exit sink |
@@ -2216,8 +2228,8 @@ fun ApOps.policy(added: Facts): InitialAp =
 // Also require MarkWF, PremConc, NoUnivE and ExactTargetConc for both program directions,
 // concrete seeds with no STAR tail, and RecordKinds for both stores (InitK premises;
 // abstract premise => FLOW conclusion). These are construction conditions, not a claim
-// about arbitrary demands or record lists. R1 persistence and structural hand-off selection use
-// the same normal-singleton eligibility; backward zero-premise summaries retain their seed paths.
+// about arbitrary demands or record lists. Keep R1 persistence and structural hand-off selection
+// separate. Backward zero-premise summaries retain their seed paths through demand selection.
 
 /** Current per-leaf emission (ap.md §6.3). A star entry produces its FLOW form, independent of the
  *  matching leaf's concrete mark. The set shares that premise across leaves and demand exits.
@@ -3648,7 +3660,7 @@ Generic trie tests run against both leaf algebras. Test numbers remain stable fo
 | 13 | `CleanerTest` | F75 whole same-base abstract split/request, already-excluded T, different base, restricted no-request; concrete/all-mark spatial cells. | `BaseCleaner`, `AnyTaintEx` |
 | 14 | `TypeFilterTest` | Path filter then mark policy at root/element levels; unchanged sharing; backward identity. | Policy is an interpreter gap; Kotlin mapping tests required |
 | 15 | `MarkCheckTest` | Overlap/exclusion before gate; normal must contributes normal; demand contributes demand; exact subtraction. | `CurrentConjunction`, `AnyTaintEx.checkX`, `CurrentProposal.LiteralLayer` |
-| 16 | `SummaryKindsTest` | Every admitted kind pair, full combinations, zero sources, must satisfaction, native-record demotion and transient views. | `CurrentMustReverse`, `CurrentSimplifications.MustViews`, `CurrentProposal.Combination`; §5.4 timing remains under review |
+| 16 | `SummaryKindsTest` | Every admitted kind pair, full combinations, zero sources, must satisfaction and transient views; native record E through actions/binding, demotion before CALL cut. | `CurrentMustReverse`, `CurrentSimplifications.MustViews`, `CurrentSummaryApplication`, `CurrentProposal.Combination`, `CurrentRecordTiming.LateReturn`; §5.4 |
 | 17 | `EmissionTest`, `RestrictionTest` | Shared FLOW emission; concrete meets; premise containment; exit mark/location tests; unchanged layer; paired packing guards. | `CurrentDemand`, `CurrentTreeReduction`, `CurrentKinds` |
 | 18 | `RequestActionTest` | Standing answer/climb; static root/class position requests; no requests in either restricted direction. | `CurrentDemandLink`, `Statics`; §5.10 |
 | 19 | `ReversalTest` | Generic micro reversal vs guarded native must view; side marks/E retained; exact output folds suffix; no view emission/persistence. | `CurrentMustReverse`, `CurrentSimplifications.MustViews` |
@@ -4279,6 +4291,11 @@ view of a `Facts`), `agrees` (raw transfer results have the same complete per-le
 (`StageKind.identityCandidateOf`, §23.5) and takes `PlanHooks`: the forward guards (the sink trigger of `END_FACTS`, the alias
 selection by the candidate flag and current layer), the sink check at `BOUND`, the callees stage, the cleaners, the field limit at the exit point and,
 backward, the sink seeds that a reversed `END_FACTS` stage fires (`trigger`, THE TRIGGER OF AN END FACT, §23.4).
+For native must records, the closure resumes inside and applicable-only outputs separately at RETURNED. Only the
+applicable-only invocation sets `pendingDemotion = true`: the walk keeps E through actions and binding, sets the
+candidate flag false, and demotes surviving exit results before `hooks.exit` applies the CALL cut. This invocation
+state needs no new PlanItem/Facts field or finalization hook. `CurrentRecordTiming.LateReturn` checks this local
+wrapper order and the homogeneous batch split; it does not prove the whole plan DAG.
 Store checks use union denotation after T2/T5. They cannot compare each merged leaf against one original leaf:
 `must/{f}` and `must/{g}` at the same path and mark merge to `must/{}`, but neither original leaf covers that result.
 `CurrentProposal.T2Oracle.union_locations` proves this union; `singleCoverAgrees` rejects the old comparator.
@@ -4365,13 +4382,14 @@ class PlanHooks(
      *  combination). The END_FACTS stage of a fired sink applies to the zero fact with that layer. */
     val atBound: (List<PlanItem>) -> List<Pair<SinkRule, Layer>> = { emptyList() },
     /** The callees stage: the closure adds a link per callee and gives nothing now (a summary resumes the walk at
-     *  `RETURNED`, `run(from = RETURNED)`); a forms test gives the callee results. */
+     *  `RETURNED`, `run(from = RETURNED)`); native applicable-only must results resume in a separate invocation with
+     *  pendingDemotion=true. A forms test gives ordinary callee results. */
     val callees: (CallStage.Callees, PlanItem) -> List<PlanItem> = { _, _ -> emptyList() },
     /** One cleaner on one item (`cleanRes` of Reference.kt; the closure records its F75 request only in run 1, on the incoming premise). */
     val clean: (Cleaner, PlanItem) -> List<PlanItem> = { _, it -> listOf(it) },
     /** The field limit after a lowered ordinary statement. Untouched inputs pass without this cut. */
     val statementCut: (PlanItem) -> PlanItem = { it },
-    /** The exit point: the field limit of the run (`limit` of Reference.kt; ap.md §4.4 rows 2, 3, 6). */
+    /** The exit point: the CALL field limit (`limit`, ap.md §4.4 rows 2, 3, 6), after pending record demotion. */
     val exit: (PlanItem) -> PlanItem = { it },
     /** BACKWARD, THE TRIGGER OF AN END FACT (F70; §23.4): a reversed `END_FACTS` stage with the `trigger` `sink` gave a
      *  result. The hook fires the sink seeds of `sink` (the closure: one zero-premise item per `seedPatterns()`, once per
@@ -4422,9 +4440,20 @@ class FormsReference(
      *  the relevance test of step 1, and the zero fact passes over AND enters), each item goes through every stage from its
      *  point; each `Edges` stage applies its summary in STAGE mode at `at` (`statementEdge` and `sources` by its kind), and
      *  the result gets `kind.identityCandidateOf`; `Actions` folds its steps; `Callees` calls the hook. An item at the
-     *  exit point goes through `hooks.exit`. Gives every (point, item) that the walk reaches. */
+     *  exit point finalizes pending native-record demotion, then goes through hooks.exit. Pending state belongs to this
+     *  invocation, which resumes one applicable-only batch at RETURNED. Ordinary and forms-test calls default to false.
+     *  Gives every (point, item) that the walk reaches. */
     fun run(plan: CallPlan, inputs: List<PlanItem>, at: Place, hooks: PlanHooks = PlanHooks(),
-            from: CallPoint = plan.entry): List<Pair<CallPoint, PlanItem>> {
+            from: CallPoint = plan.entry, pendingDemotion: Boolean = false): List<Pair<CallPoint, PlanItem>> {
+        check(!pendingDemotion || (from == CallPoint.RETURNED && plan.exit == CallPoint.AFTER))
+        fun finish(i: PlanItem): PlanItem {
+            val result = if (!pendingDemotion) i else {
+                check(i.c.fact.mark is MarkSlot.Concrete && i.c.fact.tail != Tail.STAR)
+                val f = if (i.c.fact.tail == Tail.ANY_TAINT) i.c.fact.copy(tail = Tail.ANY) else i.c.fact
+                i.copy(c = Conclusion(f, ExclusionSet.Empty, demand = true), identityCandidate = false)
+            }
+            return hooks.exit(result)
+        }
         fun statement(s: StatementSummary, x: PlanItem): List<PlanItem> = buildList {
             applier.statement(s, x.premise, x.c, at.copy(statementEdge = true, sources = false),
                 sink = { pr, y -> add(hooks.statementCut(PlanItem(pr, y, x.identityCandidate))) },
@@ -4441,11 +4470,14 @@ class FormsReference(
         val seen = LinkedHashSet<Pair<CallPoint, PlanItem>>()
         val work = ArrayDeque<Pair<CallPoint, List<PlanItem>>>()
         val start = ArrayList<PlanItem>()
-        for (i in inputs) when {
-            from != plan.entry -> start += i
-            i.c.fact.base == AccessPathBase.Zero -> { seen += plan.exit to hooks.exit(i); start += i }   // passes over AND enters
-            i.c.fact.base !in plan.touched -> seen += plan.exit to hooks.exit(i)                         // relevance (step 1)
-            else -> start += i
+        for (input in inputs) {
+            val i = if (pendingDemotion) input.copy(identityCandidate = false) else input
+            when {
+                from != plan.entry -> start += i
+                i.c.fact.base == AccessPathBase.Zero -> { seen += plan.exit to finish(i); start += i }   // passes over AND enters
+                i.c.fact.base !in plan.touched -> seen += plan.exit to finish(i)                         // relevance (step 1)
+                else -> start += i
+            }
         }
         if (start.isNotEmpty()) work.addLast(from to start)
         while (work.isNotEmpty()) {
@@ -4481,7 +4513,7 @@ class FormsReference(
                     is CallStage.Actions -> out += cleanSteps(st.steps, items)
                     is CallStage.Callees -> for (i in items) out += hooks.callees(st, i)
                 }
-                val next = if (st.to == plan.exit) out.map(hooks.exit) else out
+                val next = if (st.to == plan.exit) out.map(::finish) else out
                 if (next.isNotEmpty()) work.addLast(st.to to next)
             }
         }
@@ -6045,7 +6077,7 @@ in `core`. Implement each test before the corresponding builder. Keep test numbe
 | 4a | `FormApplierTest` | STATEMENT/STAGE/GEN effects, operand/result filters, source-seed/hit order. |
 | 5 | `JIRStatementFormsTest` | Every `interpreter.md` §2.2/§2.4 row, including static reads and repeated target/source bases. |
 | 6 | `JIRRuleFormsTest` | Positions, complete rule rejection, DNF/array alternatives, static rules, sources/pass tails and cleaners. |
-| 7 | `JIRCallPlanTest` | Binding, S/zero, resolved/unresolved/constructor paths, rewriter selection, aliases and prescan lambdas. |
+| 7 | `JIRCallPlanTest` | Binding, S/zero, resolved/unresolved/constructor paths, rewriter selection, late native must returns, aliases and prescan lambdas. |
 | 8 | `JIRBoundaryFormsTest` | Context entry filters, both exits, exceptional Result=exc, zero-premise static/entry-mark drops, conjunctive exit sources. |
 | 9 | `JIRFormsContractTest` | Scan every forward/backward form against construction invariants (§33.4). |
 | 10 | `JIRTypeFiltersTest` | Path types and mark policy at every element level; named field temporary has the field value's type. |
@@ -6096,6 +6128,13 @@ Backward branches: ret.$(C) → p.$(A)           DEMAND
 A normal backward requirement on `ret.$(C)` produces both independent demand results. It creates no
 backward conjunction. For reversed end facts, fire the owning sink alternative's seeds once when an end-fact
 edge produces a result. Include a confirmed key: confirmation does not suppress this trigger.
+
+For native forward must reuse, resume inside and applicable-only outputs in separate calls to `run` at RETURNED.
+Set `pendingDemotion = true` only for the latter. Observe that RETURNED actions and binding filters receive the
+original must/E result; aliases receive the false candidate flag. At AFTER, the surviving result is DEMAND with
+may tails and empty E before the exit cut. The inside result retains its ordinary layer and E. Exercise a lowered
+field action with both an admitted and an excluded field, including its intermediate statement cuts. A killed
+pending result gives no output; an already-demand result stays demand. Compare these batches with the engine.
 
 ### 33.4 Contract test sketch (`JIRFormsContractTest`; I14 added for F69)
 

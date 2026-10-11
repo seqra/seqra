@@ -263,7 +263,7 @@ The runner calls these handlers. Each handler is part of one event (§5.1).
 | `addZeroEntry()` | backward: the zero fact of a caller reaches a call to this method | the zero fact is an initial fact (rule `zin`) | §9.2 |
 | `addRequest(premise, request)` | run 1: a callee climbs a request through a link of this method | store it (exact deduplication); check it against every link of this method (§4.6) | E5, E7 |
 | `applySummary(sub, pub)` | the `SubscriptionManager` matched a publication with a subscription of this method | one premise: apply the summary to the added fact (`ap.md` §4.3), then the stages after the callees stage (§4.5). Several premises: the combination of §5.4. | §4.3, E2, E4, E6 |
-| `applyRecord(sub, record)` | a new subscription; a same-direction native record covers or contains the added fact | apply the record, then the stages after the callees stage (§4.5). A must-premise record gives demand results on its `applicable`-only part; W8 drops a demoted must exclusion. Each application with a result increments `recordCrossings` | AP §4.3, §8.7 R4 |
+| `applyRecord(sub, record)` | a new subscription; a same-direction native record covers or contains the added fact | apply the record, then the stages after the callees stage (§4.5). Keep its `inside` and `applicable`-only results separate. The latter must-record results keep their exclusions through these stages; demote them immediately before the call field cut. Count one `recordCrossings` increment if either initial result batch is nonempty, before rewriting | AP §4.3, §8.7 R4 |
 | `applyRecordView(sub, view)` | a new subscription; an opposite-direction transient leaf view covers or contains the added fact | apply the view directly with its premise exclusion and result layer, then the stages after the callees stage. Do not emit, start, persist, or demote its premise through `InitialAp`. Count each application with a result as a record crossing | AP §8.7 R3 |
 | `step(quantum)` | a `Work` event | process at most `quantum` worklist items (§4.3) | §6.1 (S6: any order) |
 
@@ -451,6 +451,9 @@ HOW THE ANALYZER RUNS A PLAN (both directions):
   The touched bases of the plan do the pass-over (step 1). The kill on `S` in the cleaners stage applies in the
   STATEMENT mode.
 * A fact at the exit point of the plan gets the field limit and goes to the return node of the call.
+  An `applicable`-only native must-record result is demoted there, immediately before this cut. Its pending
+  demotion belongs to the resumed batch. Its fact and exclusion pass through the preceding stages unchanged
+  by that pending demotion; cleaners, mappings and their statement cuts still apply their own rules.
 * The callees stage is not local: SUBSCRIBE and LINK, and its results arrive later through `applySummary` and
   `applyRecord`, at its end point.
 * At the rule point `BOUND`, the forward run checks the sinks of the call (§4.7). The backward run checks no sink: it
@@ -479,7 +482,9 @@ THE ALIAS GUARD (`Guard.MemoryEffect`; `interpreter.md` §3.8 AC3, AC4). Each fo
 unresolved stage and the constructor stage set it to true. Sources, end facts and nonidentity pass rules set it to
 false. A callee summary or record result sets it to true only when its premise is nonzero, its native conclusion is
 NORMAL, and that conclusion equals the start fact of the premise (`ap.md` §6.5). Every other summary result sets it
-to false, including zero-premise and DEMAND summaries (`ap-history.md` F67). Bindings, cleaners and the rewriter keep
+to false, including zero-premise and DEMAND summaries (`ap-history.md` F67). An `applicable`-only native
+must-record result also sets it to false, so aliases admit the result before its pending demotion at `AFTER`.
+Bindings, cleaners and the rewriter keep
 the flag. The alias stage admits a result exactly when its current layer is DEMAND or the flag is false. It skips
 only a NORMAL candidate identity. The flag does not replace `StageKind`, which also selects statement edges and
 source-seed places.
@@ -971,7 +976,8 @@ fun matches(sub: Subscription, pub: Publication, config: RunConfig): Boolean {
 
 /** ap.md §8.7 R4, Lean `DR.retRec`: a record applies by `applicable` or by `inside`. A record with an `[any-taint]`
  *  premise that only `applicable` accepts gives its results in the demand layer (§4.2 `applyRecord`; Lean
- *  `AnyTaintEx.DRX.retRec` with `recLayerX`). In a restricted run `inside` reads the exclusions of both sides
+ *  `AnyTaintEx.DRX.retRec` with `recLayerX`). Apply that demotion after the returned stages, before the call
+ *  field cut (§4.5). In a restricted run `inside` reads the exclusions of both sides
  *  (ap.md §4.3; Lean `AnyTaintEx.satX`). */
 fun recordApplies(p: Pattern, a: Pattern): Boolean = applicable(p, a) || inside(p, a)
 ```

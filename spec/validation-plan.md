@@ -18,7 +18,8 @@ the current normative rules before implementation. Check these boundaries:
 2. Select hand-off pieces by raw layer, premise count and backward zero only.
    Selection preserves the layer. Reader-result DEMAND does not add callee demand.
 3. Apply record read views as transient patterns. Keep side marks, exclusions,
-   exact-target suffix dropping and same-direction must-record demotion.
+   exact-target suffix dropping and same-direction must-record demotion. Preserve pending results' exclusions
+   through the returned rewriter and mappings; demote them immediately before the call field cut.
 4. Keep F74 read/clean/write order and its cut points. F75 selects same-base
    abstract marks before the spatial test; only run 1 stores its request.
 5. Join forward literal contributions; split backward conjunctions into independent
@@ -459,7 +460,14 @@ and §13 refer to this part.
 25. TWO PREMISE KEYS AND THE MUST RECORD. Keep separate keys for must and may
     premises at one path, and for must-premises with different exclusions.
     Same-direction must-record application still demotes the `applicable`-only
-    part. Backward reads now use F76 transient views: a must-premise record gives
+    part, after the returned rewriter, binding back and aliases, immediately before
+    the call field cut. Check separate inside and pending batches: pending results
+    retain E until demotion, take aliases even if the native leaf was an identity,
+    and end with DEMAND and Empty E. Count one record crossing if either initial
+    batch has a result, including a result that the rewriter later removes.
+    `FormsReference` and `NaiveClosure` must use the same order. Check ordinary
+    inside results and transient views with no pending demotion. Backward reads
+    now use F76 transient views: a must-premise record gives
     a may-any DEMAND result. For the zero-premise factory summary with leaves
     `(ret, [], [any-taint], {name,k}, T)` and `(ret, [k], $, U)`, both leaves
     have views. The must leaf accepts `ret.email.$(T)` and rejects

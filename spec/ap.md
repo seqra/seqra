@@ -999,9 +999,11 @@ summary (§5.3 events E2 and E4); `applySummary` does not test it again.
   THE RECORD DEMOTION. A must record (an `[any-taint]` premise, §8.7) that applies by `applicable` only (the added fact
   lies inside the premise, and `inside` is false) gives its result in the DEMAND layer: the record needs every
   location of its premise, and the added fact has only some of them. By `inside` it gives the result of the
-  application. The fact does not change, only the layer, and W8 (b) drops its exclusion (Lean: `AnyTaint.recLayer`,
-  after the binding back and before the field limit (the two commute: both only raise the layer and drop the
-  exclusion); `recLayer_fact`; with the exclusion `AnyTaintEx.recLayerX`). The
+  application. Keep the result and its exclusion through the summary rewriter, binding back and aliases.
+  Then raise its layer to DEMAND, immediately before the call field limit. Its path and mark do not change;
+  W8 (b) drops its must exclusion (Lean: `AnyTaint.recLayer`, `recLayer_fact`,
+  `AnyTaintEx.recLayerX`). Demotion commutes with the final field cut, including path truncation
+  (`CurrentRecordTiming.cut_commutes`); this does not permit earlier demotion through the rewriter. The
   demotion stays with the exclusion (it is not the demotion that the exclusion replaces), and it is necessary
   (`AnyTaintExact.CexApp.cex_app`): the must record
   `(p, ., [any-taint], T) → (ret, ., [any-taint], T)` of `get(p) { ret = p.g }`, applied at `x = get(dto)` to the
@@ -1703,7 +1705,9 @@ at the call statement:
    (`interpreter.md` §3.1). Then apply the aliases (`interpreter.md` §3.8: they apply to the results that its alias
    rule AC3 names). Among the summary results, only a COMPLETE identity result does not go to the aliases: a
    normal-layer result that equals the start fact of its premise (§6.5; `interpreter.md` AC4). A demand-layer summary
-   result always goes to the aliases. The default identity and the constructor pass-over never go to the aliases
+   result always goes to the aliases. An `applicable`-only must-record result also goes to the aliases;
+   its record demotion follows these mappings, immediately before the field limit (§4.3).
+   A normal default identity or constructor pass-over result skips the aliases
    (`interpreter.md` AC3, AC4).
    Then apply the field limit (§4.4). A constructor pass-over result skips the rewriter. This order is the order of
    `interpreter.md` §4.5 step 6.

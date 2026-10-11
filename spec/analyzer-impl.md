@@ -786,6 +786,8 @@ and filters, so backward transfer does not consult the flag.
 
 Subscribe and link each resolved callee. Later summary/record results resume at that stage's end point. A reversed
 END_FACTS stage carries its sink alternative as `trigger` and fires its seeds when it produces a result.
+An applicable-only native must-record batch resumes with pending demotion. Pass its facts to the returned rewriter
+and mappings without pre-demotion; the call exit raises their layer immediately before `Cut.CALL`.
 
 ```kotlin
     private class PlanFact(val premise: PremiseKey, val facts: Facts, val identityCandidate: Boolean?)
@@ -803,9 +805,12 @@ END_FACTS stage carries its sink alternative as `trigger` and fires its seeds wh
         flow(ctx, ctx.plan.entry, listOf(PlanFact(item.premise, c, null)))
     }
 
-    private fun flow(ctx: CallCtx, point: CallPoint, facts: List<PlanFact>) {
+    private fun flow(ctx: CallCtx, point: CallPoint, facts: List<PlanFact>, pendingDemotion: Boolean = false) {
         if (point == ctx.plan.exit) {
-            for (f in facts) cut(Cut.CALL, f.premise, f.facts) { pr, t -> emitAfter(pr, ctx.node, t) }
+            for (f in facts) {
+                val result = if (pendingDemotion) toDemand(f.facts) else f.facts
+                cut(Cut.CALL, f.premise, result) { pr, t -> emitAfter(pr, ctx.node, t) }
+            }
             return
         }
         val triggers = if (forward && point == CallPoint.BOUND)
@@ -814,7 +819,7 @@ END_FACTS stage carries its sink alternative as `trigger` and fires its seeds wh
         if (config.run1 && point == CallPoint.ADDED) observeUnresolved(ctx, facts)
         for (stage in ctx.plan.stagesFrom[point].orEmpty()) {
             val out = applyStage(ctx, stage, facts, triggers)
-            if (out.isNotEmpty()) flow(ctx, stage.to, out)
+            if (out.isNotEmpty()) flow(ctx, stage.to, out, pendingDemotion)
         }
     }
 
@@ -894,14 +899,16 @@ For aliases, split native NORMAL singleton summary deltas into their exact ident
 includes the complete group key and exclusions. Zero-premise and demand results have a false candidate flag.
 Use `recordLeafIdentity` for a transient view; do not call `startFact` on its premise.
 
-Native same-direction must records divide added leaves into inside and applicable-only parts. The latter results
-are DEMAND with must exclusions removed. Opposite-direction views are supplied by `reverseRecordLeaf`: a must
-conclusion becomes a concrete STAR/E premise; a must forward premise becomes a may ANY demand result. Keep
-all eligibility, mark and exclusion guards in the AP reader.
+Native same-direction must records divide added leaves into inside and applicable-only parts. The latter resume
+without demotion; after the returned rewriter, binding back and aliases, their results become DEMAND immediately
+before the call cut (`ap.md` §4.3). Demotion removes must exclusions. Resume the two batches separately; pending demotion
+belongs to that invocation, not to a stored fact. Set the pending batch's candidate flags false so aliases admit
+it before its layer is raised. Count one record crossing when either initial batch has a result, before rewriting.
 
-The native must-record code below still raises the applicable-only result before later call actions. This timing
-is under review against `ap.md` §4.3; it must not be accepted merely because its intermediate results are a superset.
-The final implementation must use the timing selected by that review.
+Opposite-direction views are supplied by `reverseRecordLeaf`: a must conclusion becomes a concrete STAR/E premise;
+a must forward premise becomes a may ANY demand result. Keep all eligibility, mark and exclusion guards in the AP
+reader. `CurrentRecordTiming.LateReturn` proves local batch data preservation, split/tagged equivalence, pending
+alias admission and final demotion-before-cut. Full F74 and call-plan integration remain separate obligations.
 
 ```kotlin
     override fun applySummary(part: Subscription, pub: Publication, member: Int) {
@@ -915,21 +922,21 @@ The final implementation must use the timing selected by that review.
         }
     }
 
-    override fun applyRecord(part: Subscription, record: Record) = fromCallees(part.ref) { results ->
+    override fun applyRecord(part: Subscription, record: Record) {
         val j = record.premise
-        if (j.tail != Tail.ANY_TAINT) applyParts(part, j, record.conclusion, results)
+        val native = ArrayList<PlanFact>()
+        val pending = ArrayList<PlanFact>()
+        if (j.tail != Tail.ANY_TAINT) applyParts(part, j, record.conclusion, native)
         else {
             check(forward) { "a must record is only forward (ap.md §8.7 R3)" }
             val inside = ops.satisfying(part.added, j, mode)
-            inside?.let { applyParts(part.copy(added = it), j, record.conclusion, results) }
+            inside?.let { applyParts(part.copy(added = it), j, record.conclusion, native) }
             val only = if (inside == null) part.added else ops.without(part.added, inside)
-            if (only != null) {
-                val demoted = ArrayList<PlanFact>()
-                applyParts(part.copy(added = only), j, record.conclusion, demoted)
-                for (x in demoted) results += PlanFact(x.premise, toDemand(x.facts), false)
-            }
+            only?.let { applyParts(part.copy(added = it), j, record.conclusion, pending) }
         }
-        if (results.isNotEmpty()) recordCrossings++
+        if (native.isNotEmpty() || pending.isNotEmpty()) recordCrossings++
+        resumeCallees(part.ref, native)
+        resumeCallees(part.ref, pending.map { PlanFact(it.premise, it.facts, false) }, pendingDemotion = true)
     }
 
     override fun applyRecordView(part: Subscription, view: RecordLeafView) = fromCallees(part.ref) { results ->
@@ -947,10 +954,16 @@ The final implementation must use the timing selected by that review.
     }
 
     private inline fun fromCallees(ref: CallerRef, fill: (MutableList<PlanFact>) -> Unit) {
-        val ctx = ctxOf(ref)
         val results = ArrayList<PlanFact>()
         fill(results)
-        flow(ctx, ctx.plan.callees!!.to, results)
+        resumeCallees(ref, results)
+    }
+
+    private fun resumeCallees(ref: CallerRef, results: List<PlanFact>, pendingDemotion: Boolean = false) {
+        if (results.isEmpty()) return
+        check(!pendingDemotion || forward) { "native must-record demotion is only forward" }
+        val ctx = ctxOf(ref)
+        flow(ctx, ctx.plan.callees!!.to, results, pendingDemotion)
     }
 
     private fun applyParts(part: Subscription, j: InitialAp, g: Facts, results: MutableList<PlanFact>) {
@@ -2082,7 +2095,7 @@ only finding counts. Lowered JVM field actions use read/clean/write; multi-field
 | 23 | `LifetimeTest`, JVM phase-3 test | Prescan release, fresh run machinery, read-only records and both report states in output. |
 | 24 | `AnyTaintTest` | Must source/transfer exclusions, cleaner/cut/may demotions and no normal TAINT absorption. |
 | 25 | `MustPremiseTest` | Concrete restricted emission, exclusions, must starts; run1/backward reject must initials. |
-| 26 | `RecordDemotionTest` | Native inside/applicable-only partition, late timing, factored view guards and no synthetic hits. |
+| 26 | `RecordDemotionTest` | Inside/applicable-only batches; preserve exclusions through rewriter/bindings; aliases admit pending results; demote before call cut; one crossing per application; view guards and no synthetic hits. |
 | 27 | `AnyTaintSupportTest` | Normal must links supply admitted precise members with the same concrete mark; demand links do not. |
 | 28 | `AnyTaintIterationTest` | Getter/source/identity/setter finite programs with current engine expectations. |
 | 29 | `DemandEdgeTest` | Raw R1 persistence independent of selection; eligible normal singletons omitted; backward zero selected; NORMAL ND preserved. |
@@ -2116,6 +2129,11 @@ boundaries, seeds and triggers. Read demand/record candidates by complete list s
 using the production index as the only oracle would hide a missing candidate. Apply the full current per-leaf
 emission, satisfaction, reduction, cleaner, view and support contracts.
 
+Resume applicable-only native must-record results separately with
+`FormsReference.run(..., from = CallPoint.RETURNED, pendingDemotion = true)`. Inside results and record views use
+the default `pendingDemotion = false`. Only finalized `plan.exit` items re-enter the caller closure; intermediate
+items are observations for tests.
+
 Compare raw per-path operation conclusions exactly before store merging. After stores, compare the unions of
 decoded locations and marks in both directions per method, statement, premise and layer. A merged tree can have
 the same denotation without pairwise leaf coverage; use the union comparison for stored observations.
@@ -2147,7 +2165,7 @@ guards, even when its common case has a shorter algorithm.
 | Emission, summary reduction and demand indexes | `ap.md` §6.3–§6.4 | `CurrentDemand`, `CurrentDemandClosure`, `CurrentTreeReduction`; optimized tree and engine comparison pending. |
 | Canonical FLOW matching | `ap.md` §4.3 | `CurrentSimplifications.Flow.canonical_flow_satisfaction_X`; noncanonical guards remain. |
 | Raw summary selection | `ap.md` §8.5, §8.7 R1 | `CurrentSummarySelection`; do not combine R1 persistence with demand selection. |
-| Must record views | `ap.md` §8.7 R3–R4 | `CurrentMustReverse`, `CurrentSimplifications.MustViews`; same-direction demotion timing review remains. |
+| Must records and views | `ap.md` §4.3, §8.7 R3–R4 | `CurrentMustReverse`, `CurrentSimplifications.MustViews`; `CurrentRecordTiming.LateReturn.pending_pipeline_data`, `split_eq_tagged`, `pending_pipeline_admitted`, `pending_finish` verify the local late adapter. Full F74 and plan integration require §9 tests. |
 | Forward conjunctions and independent reversal | `ap.md` §4.6, §9.2 | `CurrentConjunction`; full restricted annotated ND integration remains open. |
 | Ordered Actions and candidate flag | `interpreter.md` §4.5, AC3/AC4 | `CurrentSimplifications.Analyzer`; keep stage endpoints and current-layer alias guard. |
 | Support and confirmation | `ap.md` §4.9 | `CurrentSimplifications.Confirmation`; global support fixed-point integration remains open. |

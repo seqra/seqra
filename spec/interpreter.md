@@ -451,7 +451,7 @@ facts).
 | AC1 | JVM: for each caller local `x` that a binding back writes (`r`, `o`, `ai`), the alias paths `(b, q)` of `x` that hold BOTH before and after the call (`forEachAliasAfterCallStatement`; constant bases skipped). Go: the heap aliases at the statement (`forEachHeapAliasAtStatement`). |
 | AC2 | For each alias: the binding-back edge `P.* → b.q.*` beside `P.* → x.*`. The alias base is a gen-only target (weak, gap G7). |
 | AC3 | The alias edges apply to: every summary result that is not an identity result (AC4), so every demand-layer result and every zero-premise summary result; the source results at the call; the end facts of a sink (§4.1); the pass-rule results. |
-| AC4 | An IDENTITY result is a summary result in the NORMAL layer with a nonzero singleton premise and a conclusion equal to the start fact of that premise (ap.md §6.5). The default identity of an unresolved callee (§3.7) and the constructor pass-over (§3.5) are IDENTITY results too when they are in the NORMAL layer. An identity result is not copied to the aliases (as today): the alias already holds the same facts, because the writes keep the aliases (§2.5). A demand-layer result is never an identity result: it always goes to the aliases, also when it is equal to its start fact (a demand start fact can be coarser than the premise, so the alias does not hold it). |
+| AC4 | An IDENTITY result is a summary result in the NORMAL layer with a nonzero singleton premise and a conclusion equal to the start fact of that premise (ap.md §6.5). The default identity of an unresolved callee (§3.7) and the constructor pass-over (§3.5) are IDENTITY results too when they are in the NORMAL layer. An identity result is not copied to the aliases (as today): the alias already holds the same facts, because the writes keep the aliases (§2.5). A demand-layer result is never an identity result: it always goes to the aliases, also when it is equal to its start fact (a demand start fact can be coarser than the premise, so the alias does not hold it). An `applicable`-only native must-record result also takes aliases: its pending demotion occurs after these mappings (ap.md §4.3). |
 | AC5 | AC3 and AC4 are an exception to I2: they select the results to which the alias edges apply. The selection leaves out only the normal-layer identity results, which the alias base already holds. The backward run applies the reversed alias edges to every requirement (§4.9). |
 
 ### 3.9 Lambdas and closures
@@ -649,7 +649,8 @@ This order is for a caller fact that is not the zero fact. The zero fact uses §
    3. UNRESOLVED callee: the default identity and the pass rules (§3.7), as statement micro edges on the added fact
       (§2.1 step 4, with the static exception on the caller edge).
 6. RETURN. For every result of step 5 (a summary result, an unresolved result): the summary rewriter in callee
-   coordinates (§5.2), then the binding back with its filters, then the aliases (§3.8), then the field limit. A
+   coordinates (§5.2), then the binding back with its filters, then the aliases (§3.8), then any pending native
+   must-record demotion (ap.md §4.3), then the field limit. A
    constructor pass-over result skips the rewriter.
 
 The order has three effects: a sink sees the fact before the cleaners; the pass rules see the cleaned fact; the summary
