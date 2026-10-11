@@ -7,6 +7,9 @@ closure version they name. Current demand tests use the structural selection
 rule of ap.md §9.2; current record-view tests use F76. The build and axiom
 audit are in [proof-status.md](proof-status.md).
 
+Zero-limit Lean vectors are historical data outside the current public API domain. Every current mode and public
+cut rejects nonpositive limits, including on zero and unchanged facts. Use limit 1 with a deeper path to test cuts.
+
 ## Implementation proposal review
 
 Review [ap-impl.md](ap-impl.md) and [analyzer-impl.md](analyzer-impl.md) against
@@ -55,13 +58,17 @@ Write the tests first. Each test names the spec item that it checks. The interpr
    the vectors of the exclusion `AnyTaintEx.Vec` (every vector: the keep edge, the reads, the case `above` with an
    edge exclusion, the cleaners, the cut, the emission, the start, the satisfaction, the summary, the restriction, the
    sink check, the case `below`), the `decide` vectors of `AnyTaintExCases.lean` (`AnyTaintExCases.X.two_results`,
-   `AnyTaintExCases.R.reads`, `AnyTaintExCases.CL.clean_vectors`, `AnyTaintExCases.CUT.cut_ops`,
+   `AnyTaintExCases.R.reads`, `AnyTaintExCases.CL.clean_vectors`,
    `AnyTaintExCases.S.keep_forms`), the refined statement transfer of a source and of a pass rule
    (`AnyTaintExCases2.PassRule.source_vs_pass`), and the round-1 vectors without the exclusion: `AnyTaint.EmitVec`,
    `AnyTaint.Sanity` (a source result is a normal `[any-taint]` edge; the same micro edge as a pass rule is demand),
    `AnyTaintCases.PassRule.source_vs_pass`, `AnyTaintCases.Cut.cut_transfer`. The round-1 vector
    `AnyTaintCases.W.keep_demand` gives the demotion that the exclusion replaces: the test asserts
-   `AnyTaintEx.Vec.setter_keep` instead.
+   `AnyTaintEx.Vec.setter_keep` instead. `AnyTaintExCases.CUT.cut_ops` and `AnyTaintEx.Vec.cut_drops` remain
+   historical zero-limit data outside the current API; current tests use limit 1 and a path at least two counted
+   accessors deep. For a nonempty below continuation to a STAR target, test both premise admission and the shared
+   edge exclusion, including a must-premise with its own exclusion. Test admitted and rejected continuations;
+   rejection precedes the mark gate and gives no request, also on abstract input.
 2. Equivalence property tests (`EdgeTreeEquivalenceTest`): random path facts and micro edges; the tree result denotes
    the same pairs as the concept result, layer and mark exclusion included. The same for the tree restriction (§7.4).
    The tests of §3.4 (`covers`, `overlap`, `applicable`, `inside`) and `cleanPos` (§4.7) against the denotation of §3,
@@ -78,9 +85,10 @@ Write the tests first. Each test names the spec item that it checks. The interpr
    `[any-taint]` with the Empty exclusion; a two-level write in one statement gives two normal results
    (`AnyTaintExCases.X`; a synthetic statement summary with the keep edges `x.* →_{f} x.*`, `x.f.* →_{g} x.f.*` on the
    AP, not a JVM statement: on the JVM `x.f.g = c` is `t = x.f; t.g = c`, the weak alias write of §11.1). THE
-   DEMOTIONS to `[any]` with the Empty exclusion, every item of the list of §2.2: the cut (also with `L = 0`, program
-   CUT, on the AP `limit`), every cleaner `part` row of §4.7 other than `atAndBelow` and `below` one accessor below the
-   fact (the `exact` cleaner at and one accessor below the fact, a cleaner two accessors below), a may `[any]` target,
+   DEMOTIONS to `[any]` with the Empty exclusion, every item of the list of §2.2: the cut with `L = 1` on a path at
+   least two counted accessors deep; reject `L ≤ 0` in all modes and public cut calls, also for zero and unchanged
+   facts. Other demotions are every cleaner `part` row of §4.7 other than `atAndBelow` and `below` one accessor below
+   the fact (the `exact` cleaner at and one accessor below the fact, a cleaner two accessors below), a may `[any]` target,
    a demand input (a demand-layer summary or record, a demand link, a demand conjunction input), the record demotion; a
    demand-layer `[any-taint]` result becomes `[any]` and drops its exclusion; the preconditions fail on an
    `[any-taint]` target or premise with the mark `*`; the `[any-taint]` rows of §4.2.
@@ -271,8 +279,9 @@ Write the tests first. Each test names the spec item that it checks. The interpr
     through a pass rule with an `AnyField` target stays a DEMAND entry
     (`AnyTaintExCases2.PassRule.pass_not_confirmed`), and so does a finding under the `exact` cleaner below the object
     (`AnyTaintExCases.CL.exact_result`) or over the field limit (§8.10; on the JVM with `L = 1` and a write two counted
-    accessors deep). Programs X and CUT are AP-level tests (item 3), not JVM analysis tests: CUT has the field limit
-    `L = 0`, which no run has (§4.4: run 1 needs `L ≥ 1`, and the limit does not decrease); X is a two-level write in
+    accessors deep). Program X is an AP-level test (item 3), not a JVM analysis test. CUT has the field limit
+    `L = 0` and remains historical Lean data outside the current API. Current AP cut fixtures use `L = 1` on a path
+    at least two counted accessors deep. X is a two-level write in
     one statement, and on the JVM `x.f.g = c` is `t = x.f; t.g = c`, the weak alias write (S2, `interpreter.md` A3, gap
     G7), so a JVM analysis test of X expects `sink(x.f.g)` CONFIRMED, the documented false positive of §11.1, and
     `sink(x.f.h)`, `sink(x.k)` CONFIRMED (`validation-plan.md` → Interpreter tests → §7.2 item 30). A weak update of the object (an alias
@@ -480,7 +489,8 @@ and §13 refer to this part.
     an accessor in `E` is not supported; through another accessor it is.
 27. VECTORS. The emission table (§4.4; `AnyTaint.EmitVec`; with the exclusion `AnyTaintEx.Vec.emit_at`,
     `emit_above_excluded`, `emit_above_exact`), the A2 rows (`AnyTaintEx.Vec.setter_keep`, `read_excluded`,
-    `read_admitted`, `above_star_excl`, `below_keeps`, `below_new_fact`, `cut_drops`), the source result as a normal
+    `read_admitted`, `above_star_excl`, `below_keeps`, `below_new_fact`), with a positive-limit cut fixture replacing
+    the historical zero-limit `cut_drops` data, the source result as a normal
     `[any-taint]` edge in run 1 and in a restricted run and the pass-rule result as a demand edge (`AnyTaint.Sanity`),
     the encodings with the exclusion (`PipelineAnyTaintEx.SanityX.d6x_ann`, `drx_ann`), and the conjunction of an
     `[any-taint]` input that its literal does not cover: a normal result, confirmed (`AnyTaintND.Example`).
@@ -501,10 +511,10 @@ and §13 refer to this part.
     CONFIRMED (`AnyTaintExCases.CL.atAndBelow_result`); `below` gives it and
     `(x, .f, $, T)`, both normal, so `sink(x.f)` is CONFIRMED (`CL.below_result`); `exact` gives `(x, ., [any], T)` in
     the demand layer, so every sink is a DEMAND entry (`CL.exact_result`).
-31. THE CUT (program CUT of `AnyTaintExCases`; an AP-level test: the AP field limit with `L = 0` on the results of
-    item 28; no run has `L = 0`, since run 1 needs `L >= 1`, §7.1). Program X with the field limit 0: the cut gives
-    `(x, ., [any], T)` in the demand layer with no exclusion (`AnyTaintExCases.CUT.run1_cut`), and `sink(x.f.h)` is a
-    DEMAND entry (`CUT.cut_reports`). A JVM analysis test of the cut runs with `L = 1` and a fact deeper than the
+31. THE CUT. Reject `L ≤ 0` in every public mode and cut API, also for zero and unchanged facts. An AP cut fixture
+    with `L = 1` turns `(x, .f.g, [any-taint], {h}, T)` into `(x, .f, [any], {}, T)` in the demand layer.
+    `AnyTaintExCases.CUT` uses limit zero; its `run1_cut` and `cut_reports` results remain historical Lean data outside
+    the current public API domain. A JVM analysis test of the cut runs with `L = 1` and a fact deeper than the
     limit: the source `dto.f.g = srcAny()` gives `(dto, .f, [any], T)` in the demand layer with no exclusion
     (`AnyTaintCases.Cut.cut_transfer`, a transfer with no exclusion), so a sink below `dto.f` is a DEMAND entry.
 
@@ -875,11 +885,11 @@ Interpreter migration differences → §6.
     * the reads, program R (S, then `y = dto.name; z = dto.email; sinkAny(y); sinkAny(z)`): the read through the
       excluded `name` gives nothing, the read of `email` gives `(z, [], [any-taint], {}, T)`, normal; `sinkAny(y)` is
       not reported, `sinkAny(z)` is CONFIRMED (`AnyTaintExCases.R.reads`, `R.y_not_reported`, `R.z_confirmed`);
-    * the cut, program CUT (X with the field limit 0), also an AP-LEVEL test: the AP `limit` with `L = 0` on the
-      results of the synthetic statement summary of X (no run has `L = 0`: the field limit of run 1 is at least 1,
-      I12 (d)). The cut makes `(x, [f], [any-taint], {g}, T)` the fact `(x, [], [any], T)` in the demand layer with no
-      exclusion, so `sink(x.f.g)` and `sink(x.f.h)` are DEMAND entries (`AnyTaintExCases.CUT.cut_ops`, `CUT.run1_cut`,
-      `CUT.cut_reports`; the vector `AnyTaintEx.Vec.cut_drops`). The JVM ANALYSIS TEST of the cut uses the field limit
+    * the cut: reject nonpositive limits in modes and public cuts. At limit 1, the AP fixture
+      `(x, [f, g], [any-taint], {h}, T)` becomes `(x, [f], [any], {}, T)` in the demand layer.
+      Program CUT (X with limit zero), `AnyTaintExCases.CUT.cut_ops`, `CUT.run1_cut`, `CUT.cut_reports` and
+      `AnyTaintEx.Vec.cut_drops` remain historical Lean data outside the current public API domain.
+      The JVM ANALYSIS TEST of the cut uses the field limit
       1 and a deeper write: the source `dto.f.g = srcAny()` (JIR `s = srcAny(); t = dto.f; t.g = s`) gives, through
       the alias path `(dto, [f])` of `t`, the result `(dto, [f, g], [any-taint], {}, T)`, which the cut makes
       `(dto, [f], [any], T)` in the demand layer with no exclusion (the same cut on one model statement:

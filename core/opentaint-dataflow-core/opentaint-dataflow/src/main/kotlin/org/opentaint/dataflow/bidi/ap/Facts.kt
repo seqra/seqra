@@ -9,15 +9,13 @@ enum class Tail { STAR, ANY, ANY_TAINT, EXACT }
 val Tail.isAny: Boolean get() = this == Tail.ANY || this == Tail.ANY_TAINT
 infix fun Layer.or(demand: Boolean): Layer = if (demand) Layer.DEMAND else this
 
-/** Run 1 is forward. A zero limit is available for restricted AP utility checks. */
+/** Run 1 is forward. Every run has a positive field limit. */
 class ApMode(val run1: Boolean, val direction: Direction, val fieldLimit: Int) {
     val restricted: Boolean get() = !run1
 
     init {
-        require(fieldLimit >= 0) { "The field limit must be nonnegative" }
-        require(!run1 || (direction == Direction.FORWARD && fieldLimit >= 1)) {
-            "Run 1 must be forward with a field limit of at least one"
-        }
+        require(fieldLimit >= 1) { "The field limit must be positive" }
+        require(!run1 || direction == Direction.FORWARD) { "Run 1 must be forward" }
     }
 }
 

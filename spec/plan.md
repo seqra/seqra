@@ -34,7 +34,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 |---|---|---|
 | S00 | Complete | [Baseline](../docs/reports/bidi-baseline.md), [class results](../docs/reports/bidi-baseline-tests.tsv), [contracts](../docs/reports/bidi-contracts.md), [fixtures](../docs/reports/bidi-fixtures.md). All baseline suites pass; all 12 fixture checks pass. SAST has no existing tests. |
 | A01 | Complete | [A01 evidence](../docs/reports/bidi-a01.md). Common 196, JVM 119 and Go 1,313 tests pass. SAST and application compile. |
-| A02–A09, V1 | Pending | |
+| A02 | Complete | [A02 evidence](../docs/reports/bidi-a02.md). All 275 common tests pass; none skipped. JVM/Go test sources, SAST and application compile. Both user decisions are applied. |
+| A03–A09, V1 | Pending | |
 | I01–I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
@@ -53,6 +54,45 @@ union identity shortcut can bypass manager ownership. Path cells and premise inp
 belong to their manager. Test ownership before these shortcuts.
 The same review found the explicit-base `Position.resolveAp` overload. Add its internal-base
 rejection with the other JVM position boundaries and retain valid program-base mappings.
+A02 adds the `RequestKind` values at `store/RequestStore.kt`, because the public
+`RequestAction` primitive needs them. A08 adds the request store. Add the `PathEdge`
+compiled cache in A05, with its `CompiledEdge` type; the A02 reference has no tree dependency.
+The A02 table review found a generic-cell conflict: the STAR-target row in `ap.md`
+§4.1 tests the edge exclusion on a nonempty continuation, but both reference code
+copies omit that test for a must premise with its own exclusion. The case is outside
+native JVM micro edges and canonical summary kinds, but the generic AP API admits it.
+The user resolved this case: follow the specification table. Test shared E for a
+nonempty continuation to a STAR target, after the premise's own exclusion test and
+before the mark gate. Enable the concrete regression and add admitted and rejected
+suffixes, including abstract inputs that would otherwise raise requests.
+Use the same combined premise/target admission in A05's compiled child filter;
+the reference and tree forms must agree on this generic cell.
+The A02 compile check found Kotlin syntax constraints in the executable snippets and tests.
+Use plain tail names in diagnostic strings and use integer IDs or lists in test helpers;
+Kotlin does not permit a value-class type such as `TaintMark` in a vararg parameter.
+The A02 reference review also adds focused nested-prefix selector checks, all exit-mark
+combinations, and the remaining cleaner and restriction cells. Keep the bounded oracle
+independent; use extra path depth only for these focused cases.
+The same review found a second generic utility conflict in `ap.md` §4.4. The cut rule
+retains uncounted prefixes, and the reference code retains a class prefix at limit zero,
+but the next sentence says that limit zero keeps the empty path. No analysis run uses
+limit zero. The user resolved this case: run 1 starts at limit one, and limit zero
+is impossible. Require a positive limit in `ApMode` and public cut operations. Replace
+zero-limit utility expectations with rejection tests and positive-limit cut vectors.
+Keep historical zero-limit proof data labelled as outside the current API domain.
+The native reversal review found that generic fallback could accept an exact native
+premise with a field exclusion, or a backward native must conclusion, when the target
+exclusion is empty. Those inputs violate the native premise and W8(d) rules. Add explicit
+native-boundary rejection before fallback, with failing regressions for empty target E.
+Keep generic `revEdge` unchanged: it has a different contract.
+One added cleaner test applied the concrete-mark partial-cleaning row to an abstract
+ANY fact. `ap.md` §4.7 gives abstract all-marks partial cleaning its own row: preserve
+the fact in DEMAND. Correct that expected value; do not change the reference operation.
+Run the two retained pending witnesses once with their skip annotations removed.
+Save the observed results, then restore the annotations. This check confirms the
+code behavior; it did not resolve the contradictory rules or close the A02 gate.
+The user has now supplied both decisions. Align the AP reference snippets and the
+validation inventory with these decisions; no new Lean proof is required.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions
@@ -275,7 +315,7 @@ For an accepted TAINT literal, retain its input layer; conjunction joins occur l
 
 Implement exact counted-depth metadata and cuts. Retain class accessors without charging depth.
 Use the specified Empty-E demand conversion for cut or other demoted any results. Preserve W3
-at store insertion. `L = 0` is an AP utility test, not a legal first analysis run.
+at store insertion. All limits are positive. Reject `L = 0` at the public AP boundary.
 
 **Gate.** Full fact and request equality passes, including off-spine leaves, disjoint same-base
 cleaners, root EXACT regressions and the 32,768-depth cache case. Filters preserve unchanged
@@ -759,7 +799,7 @@ selection rules; retain historical fixtures with their original version labels.
 **Implement tests and refinements.** Add `AnyTaintIterationTest`, sharing, mode, frontier,
 conjunction and hand-off regressions. Cover getter with two marks, callee sink, identity, setter,
 factory, WRAP, END, CONJ, root EXACT cleaners, mark-changing pass and partial field cleaner.
-Use limits 1/2/3 and the DLINK 1–5 sequence. Keep utility L=0 and synthetic multi-field AP
+Use limits 1/2/3 and the DLINK 1–5 sequence. Keep invalid-limit checks and synthetic multi-field AP
 statements outside JVM sequence claims. Preserve documented alias/exception/filter gaps.
 
 Generate small programs with concrete and abstract marks, cleaner bases, depths, calls, static

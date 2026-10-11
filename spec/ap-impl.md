@@ -242,7 +242,10 @@ infix fun Layer.or(demand: Boolean): Layer = if (demand) Layer.DEMAND else this
 /** The constants of one run that the AP operations read (ap.md §4.1, §4.4, §6.1). */
 class ApMode(val run1: Boolean, val direction: Direction, val fieldLimit: Int) {
     val restricted: Boolean get() = !run1
-    init { require(!run1 || (direction == Direction.FORWARD && fieldLimit >= 1)) }   // run 1 is forward; S12 (d): L >= 1
+    init {
+        require(fieldLimit >= 1) { "The field limit must be positive" }
+        require(!run1 || direction == Direction.FORWARD)             // run 1 is forward
+    }
 }
 
 /** ap.md §3.4: a canonical set of concrete marks (sorted ids, no duplicates): the X of `*∖X`, the marks of a TAINT leaf.
@@ -475,7 +478,8 @@ abstract class LeafAlgebra<P : TrieLeaf> {
     abstract fun below(p: P): P
     /** ap.md §4.4: the leaves `p` of a cut subtree as one `[any]` leaf at the cut point (the mark stays). The cut trie is a
      *  demand trie, so an `[any-taint]` leaf that the cut reaches becomes `[any]` and loses its exclusion (W8 (b); Lean
-     *  AnyTaintEx.limitFX, the vector AnyTaintEx.Vec.cut_drops; AnyTaintCases.Cut.cut_transfer). */
+     *  AnyTaintEx.limitFX; AnyTaintCases.Cut.cut_transfer). AnyTaintEx.Vec.cut_drops is historical zero-limit data
+     *  outside the current public API domain. */
     abstract fun asAny(p: P): P
     abstract fun intern(p: P): P
     private val leafNodes = ConcurrentHashMap<P, TrieNode<P>>()
@@ -1401,7 +1405,9 @@ loses nothing. THE EXCLUSION ROWS (`ap.md` §4.1, A2; Lean `AnyTaintEx.annX`) gi
   gives `[any-taint]` with the target exclusion (a source: `{}`); an `[any]` target gives `[any]` in the demand layer (W6);
 * the case `below`, `r = []` (the leaf at the premise path): a `*` target gives `[any-taint]` with `E ∪` the exclusion of
   the edge, in the layer of `c`: the keep edge of a strong write (`dto.setName(c)`: `{name}`), a `*/E'` summary or record;
-* the case `below`, `r ≠ []`: a `*` target keeps `E` at the new path end `to.path ++ r` (a copy of the object);
+* the case `below`, `r ≠ []`: a `*` target keeps `E` at the new path end `to.path ++ r` (a copy of the object), only
+  if both the premise admission and the shared edge exclusion admit `r`. A must-premise's own exclusion does not
+  replace the second test;
 * a target that is not `*` folds the subtree as before: `$`, `[any-taint]` with the target exclusion, or `[any]` (W6).
 A demand result (a demand input, a demand summary, a may edge) has no exclusion: the normal form of the tree (§4.1).
 Lean: `AnyTaintEx.applyEdgeX` (the base `applyEdge`, then `annX` and `layerX`), then `w6tX`; the vectors
@@ -1429,8 +1435,14 @@ internal class EdgeApplication(private val m: ApManager, private val ce: Compile
                                private val mode: ApMode, private val out: ApOut) {
     val results = Results(m, ce.toBase)
     private val gate = MarkGate(m, ce.fromMark, ce.toMark)
-    private val admitsRest = { a: AccessorIdx -> when (ce.fromTail) {                                    // §4.1 step 3, row 1
-        Tail.EXACT -> false; Tail.ANY_TAINT -> ce.fromExclusion.admits(a); else -> ce.exclusion.admits(a) } }   // Ej of a must-premise
+    private val admitsRest = { a: AccessorIdx ->                    // §4.1 step 3, nonempty below continuation
+        val premiseAdmits = when (ce.fromTail) {
+            Tail.EXACT -> false
+            Tail.ANY_TAINT -> ce.fromExclusion.admits(a)             // the must-premise's own Ej
+            else -> ce.exclusion.admits(a)
+        }
+        premiseAdmits && (ce.toTail != Tail.STAR || ce.exclusion.admits(a))
+    }
     private val aboveTail = if (ce.toTail == Tail.EXACT) Tail.EXACT else Tail.ANY                        // case `above`
     private val mustAboveTail = when (ce.toTail) {                                                      // ... of `[any-taint]`:
         Tail.EXACT -> Tail.EXACT; Tail.ANY -> Tail.ANY                                                   // `$`; a may `[any]` (W6)
@@ -1993,12 +2005,13 @@ private class TaintClean(val m: ApManager, val c: TaintTree, val cl: Cleaner, va
 
 ```kotlin
 /** ap.md §4.4. A path with more than L counted accessors is cut before the (L+1)-th one; the tail becomes `[any]`, the
- *  exclusion Empty, the mark stays (also `*∖X`), the layer becomes demand. `L = 0` keeps the empty path. An `[any-taint]`
+ *  exclusion Empty, the mark stays (also `*∖X`), the layer becomes demand. The public limit must be positive. An `[any-taint]`
  *  leaf over the limit becomes `[any]` too and LOSES its exclusion: the cut trie is a demand trie (W8, A2: the cut point is
- *  above the leaf, so not every location below it carries the mark; Lean AnyTaintEx.limitFX, the vector
- *  AnyTaintEx.Vec.cut_drops, the program AnyTaintExCases.CUT; AnyTaintCases.Cut.limitF_cut_demand); the kept part keeps
+ *  above the leaf, so not every location below it carries the mark; Lean AnyTaintEx.limitFX and
+ *  AnyTaintCases.Cut.limitF_cut_demand); the kept part keeps
  *  its `[any-taint]` leaves and the exclusion in the layer of c (`withRoot`). */
 fun ApOps.limit(c: Facts, fieldLimit: Int, out: ApOut) {
+    require(fieldLimit >= 1) { "The field limit must be positive" }
     when (c) {
         is Reach -> out.result(c)                                                          // the empty path
         is FlowTree -> limitTrie(FlowAlgebra, c.root, fieldLimit, { out.result(if (it === c.root) c else c.withRoot(it)) }) {
@@ -2023,7 +2036,8 @@ private inline fun <P : TrieLeaf> ApOps.limitTrie(alg: LeafAlgebra<P>, root: Tri
 internal class FieldLimitCut<P : TrieLeaf>(private val alg: LeafAlgebra<P>, private val m: ApManager) {
     private val memo = Int2ObjectOpenHashMap<IdentityHashMap<TrieNode<P>, Pair<TrieNode<P>?, TrieNode<P>?>>>()
 
-    /** (the paths within the budget, the `[any]` leaves at the cut points); both rooted at n, so the memo is path-free. */
+    /** (the paths within the budget, the `[any]` leaves at the cut points); both rooted at n, so the memo is path-free.
+     *  The internal remaining budget can reach zero after counted accessors; the public field limit stays positive. */
     fun keep(n: TrieNode<P>, budget: Int): Pair<TrieNode<P>?, TrieNode<P>?> {
         if (n.boundedDepth <= budget) return n to null
         memo.getOrPut(budget, ::IdentityHashMap)[n]?.let { return it }
@@ -2044,6 +2058,9 @@ internal class FieldLimitCut<P : TrieLeaf>(private val alg: LeafAlgebra<P>, priv
     }
 }
 ```
+
+The zero-limit vectors `AnyTaintEx.Vec.cut_drops` and `AnyTaintExCases.CUT` remain historical Lean data outside
+the current public API domain. Test invalid-limit rejection and a positive-limit cut instead.
 
 THE CUT POINTS (`ap.md` §4.4). `analyzer-impl.md` makes each call through its one `cut(...)` helper; the helper calls
 `ApOps.limit` with `RunConfig.fieldLimit`:
@@ -2519,6 +2536,8 @@ private fun mustRecordReadView(p: Pattern, g: Conclusion): RecordLeafView? {
  *  must constructor. Retain generic micro-edge revEdge and its fallback guards for every other native shape. */
 fun reverseRecordLeaf(direction: Direction, p: Pattern, g: Conclusion): RecordLeafView? {
     if (g.demand) return null
+    if (p.exclusion != ExclusionSet.Empty && p.fact.tail != Tail.STAR && p.fact.tail != Tail.ANY_TAINT) return null
+    if (direction == Direction.BACKWARD && (p.fact.tail == Tail.ANY_TAINT || g.fact.tail == Tail.ANY_TAINT)) return null
     if (direction == Direction.FORWARD) mustRecordReadView(p, g)?.let { return it }
     if (p.fact.tail == Tail.ANY_TAINT) return null                   // no unsupported native must-input fallback
     if (p.fact.tail == Tail.STAR && p.fact.mark is MarkSlot.Concrete) return null   // invalid native normal shape
@@ -2664,6 +2683,7 @@ private class Shape(val path: List<AccessorIdx>, val tail: Tail, val exclusion: 
 private fun below(c: Conclusion, edge: PathEdge, r: List<AccessorIdx>): Shape? {
     if (!edge.premiseAdmits(r)) return null
     val to = edge.to
+    if (to.tail == Tail.STAR && r.isNotEmpty() && !edge.exclusion.admits(r)) return null
     return when (to.tail) {
         Tail.STAR -> when {
             r.isNotEmpty() -> Shape(to.path + r, c.fact.tail, c.exclusion, demand = false)   // keeps Ec (W8)
@@ -2781,6 +2801,7 @@ fun startFact(i: Pattern): Conclusion = when (i.fact.tail) {
 /** ap.md §4.4 (Lean cutPath, limitF; with the exclusion AnyTaintEx.limitFX). An `[any-taint]/E` fact over the limit
  *  becomes `[any]` in the demand layer and loses E (W8, A2). */
 fun limit(c: Conclusion, fieldLimit: Int): Conclusion {
+    require(fieldLimit >= 1) { "The field limit must be positive" }
     var n = 0
     for ((k, a) in c.fact.path.withIndex())
         if (a.isCounted() && ++n > fieldLimit)
@@ -2925,7 +2946,7 @@ fun revEdge(e: PathEdge): PathEdge? {
 fun revTails(i: Tail, f: Tail): Pair<Tail, Tail> = when (i) {             // the table of §9.1
     Tail.STAR -> when (f) {
         Tail.STAR -> Tail.STAR to Tail.STAR; Tail.EXACT -> Tail.EXACT to Tail.ANY; Tail.ANY -> Tail.ANY to Tail.ANY
-        Tail.ANY_TAINT -> error("S15: a taint edge has the premise `$` or `[any]`; a `*` premise has no `[any-taint]` conclusion")
+        Tail.ANY_TAINT -> error("S15: a taint edge has an EXACT or ANY premise; a `*` premise has no `[any-taint]` conclusion")
     }
     Tail.ANY -> when (f) {
         Tail.STAR -> Tail.STAR to Tail.STAR; Tail.EXACT -> Tail.EXACT to Tail.ANY; Tail.ANY -> Tail.ANY to Tail.ANY
@@ -3656,7 +3677,7 @@ Generic trie tests run against both leaf algebras. Test numbers remain stable fo
 | 9 | `MergeRulesTest` | Required merge/subsumption by layer/kind/key; same-content E intersection; exact leaves survive must/E; new-key lookup after last-any subtraction. T5 is optional and has separate equivalence tests. | `CurrentTaintGroupKeys` and §4.3 |
 | 10 | `SubsumptionTest` | Stored leaves drop exactly reference-subsumed leaves in their own layer. | `Subsume` and §6 |
 | 11 | `LayerRulesTest` | Every defined demotion, forced may/backward-conjunction demand, and demand-in/demand-out. | `CurrentConjunction`, `AnyTaintEx` |
-| 12 | `FieldLimitTest` | Counted accessor cut, uncounted class, W3 insertion assertion, primitive L=0 utility case. | `CurrentDepthCache`; full cut test required |
+| 12 | `FieldLimitTest` | Counted accessor cut at L=1, uncounted class, W3 insertion assertion, rejection of nonpositive limits in modes and public cuts. | `CurrentDepthCache`; full cut test required |
 | 13 | `CleanerTest` | F75 whole same-base abstract split/request, already-excluded T, different base, restricted no-request; concrete/all-mark spatial cells. | `BaseCleaner`, `AnyTaintEx` |
 | 14 | `TypeFilterTest` | Path filter then mark policy at root/element levels; unchanged sharing; backward identity. | Policy is an interpreter gap; Kotlin mapping tests required |
 | 15 | `MarkCheckTest` | Overlap/exclusion before gate; normal must contributes normal; demand contributes demand; exact subtraction. | `CurrentConjunction`, `AnyTaintEx.checkX`, `CurrentProposal.LiteralLayer` |

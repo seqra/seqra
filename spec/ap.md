@@ -627,7 +627,8 @@ Step 3 — overlap and result shape.
 
 Case `below r`. The premise must admit `r`: a `*` premise if `E` admits `r`; a `$` premise if `r = []`; an `[any]`
 premise for every `r`; an `[any-taint]/Ej` premise (a must-premise of a summary or a record) if `Ej` admits `r`. For a
-`*` target and `r ≠ []`, `E` must also admit `r` (row 1). `Et` is the exclusion of an `[any-taint]` target (a
+`*` target and `r ≠ []`, `E` must also admit `r` (row 1). This second test applies even when the premise has its
+own `Ej`. Both tests precede the mark gate. `Et` is the exclusion of an `[any-taint]` target (a
 summary conclusion `[any-taint]/Et`; Empty for a micro edge). Then:
 
 | `to.tail` | `r` | `c.tail` | result path | result tail | to the demand layer |
@@ -748,6 +749,7 @@ private class Shape(val path: List<Accessor>, val tail: Tail, val exclusion: Exc
 private fun below(c: Conclusion, edge: PathEdge, r: List<Accessor>): Shape? {
     if (!edge.premiseAdmits(r)) return null
     val to = edge.to
+    if (to.tail == Tail.STAR && r.isNotEmpty() && !edge.exclusion.admits(r)) return null
     return when (to.tail) {
         Tail.STAR -> when {
             r.isNotEmpty() -> Shape(to.path + r, c.fact.tail, c.exclusion, demand = false)   // keeps Ec (W8)
@@ -1036,8 +1038,10 @@ The special cases of the summary application:
 
 ### 4.4 The field limit
 
-A run has the field limit `L`. The analyzer applies `limit_L` to every result of an operation that can make a path
-longer. It never applies it to a micro edge or a summary edge before the application. The cut points:
+A run has a positive field limit `L ≥ 1`. Every public mode and cut operation rejects `L ≤ 0`, before it reads the
+fact. This also applies to the zero fact and an unchanged path. The analyzer applies `limit_L` to every result of
+an operation that can make a path longer. It never applies it to a micro edge or a summary edge before the
+application. The cut points:
 
 * the statement transfer, after the micro edges and the lhs type filter (§4.2 step 6); this covers the read sources
   (`interpreter.md` §4.4);
@@ -1057,13 +1061,16 @@ The cut:
 * If the path has at most `L` counted accessors, the fact does not change.
 * Otherwise, cut the path before the `(L+1)`-th counted accessor. Uncounted accessors before that point stay in the
   prefix. The tail becomes `[any]`, the exclusion Empty, the mark stays (also `*∖X`), and the edge goes to the demand
-  layer. `L = 0` keeps the empty path. An `[any-taint]/E` fact over the limit becomes `[any]` too, and the cut drops
+  layer. An `[any-taint]/E` fact over the limit becomes `[any]` too, and the cut drops
   its exclusion: the cut path is above the fact, so not every location below it carries the mark (W8;
-  `AnyTaintEx.limitFX`, `AnyTaintEx.Vec.cut_drops`; the program `AnyTaintExCases.CUT.cut_reports`; round 1:
+  `AnyTaintEx.limitFX`; round 1:
   `AnyTaintCases.Cut.cut_transfer`, `limitF_cut_demand`).
 
-Run 1 needs `L ≥ 1` (S12 (d), §4.10). The class accessor
+Run 1 starts at limit 1. Every later run also has a positive limit (S12 (d), §4.10). The class accessor
 `<C>` is not counted, so a cut never stops strictly above a static position.
+
+The zero-limit vectors `AnyTaintEx.Vec.cut_drops` and `AnyTaintExCases.CUT` are historical Lean data. They remain
+outside the current public API domain. Current cut tests reject limit zero and use positive limits.
 
 Lean: `cutPath`, `limitF`; `limitF_sound` (the cut only enlarges). The field limit is the only depth bound of the
 analysis. Each run may have its own limit (`RCov.iteration_sound`). The bound W3 needs a limit that does not decrease
@@ -1525,7 +1532,8 @@ strong write into the object does not demote it: the exclusion removes only the 
 `fg_not_reported`); without the exclusion a normal result would confirm the overwritten field, which is not real
 (`AnyTaintCases.W.keep_normal_confirms_unreal`). A vulnerability that rests only on a may `[any]` (a pass rule with an
 `AnyField` target, `AnyTaintExCases2.PassRule.pass_not_confirmed`) or on another demotion of §2.2 (the list is there;
-for example the field limit cut, `AnyTaintExCases.CUT.cut_reports`; the `exact` cleaner below the object,
+for example the field limit cut (`AnyTaintExCases.CUT.cut_reports` is historical zero-limit data outside the current API);
+the `exact` cleaner below the object,
 `AnyTaintExCases.CL.exact_result`) stays a
 demand vulnerability, and the output holds it as a DEMAND entry (§8.10).
 
@@ -2966,7 +2974,8 @@ exclusion does not demote: a strong write into an `[any-taint]` object and a set
 normal with `f` in its exclusion, §4.1.)
 
 * The field limit cut (§4.4): an `[any-taint]/E` fact over the limit becomes `[any]` in the demand layer, and the
-  exclusion is dropped (`AnyTaintExCases.CUT.cut_reports`). A later forward run with a larger limit repairs it (§6.6).
+  exclusion is dropped. `AnyTaintExCases.CUT.cut_reports` gives historical zero-limit data outside the current API;
+  current tests use a positive limit. A later forward run with a larger limit repairs it (§6.6).
 * A primitive cleaner `part` row of §4.7 other than the `atAndBelow` and `below` rows one accessor below the fact: the `exact`
   cleaner at or one accessor below an `[any-taint]` object, or any cleaner two or more accessors below it. The whole
   object becomes `[any]` in the demand layer, in every run (`AnyTaintExCases.CL.exact_result`): no shape exists for

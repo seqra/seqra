@@ -141,11 +141,25 @@ class FactShapeTest {
     }
 
     @Test
-    fun `run one is forward with a positive limit and zero remains a restricted utility limit`() {
-        assertFalse(ApMode(true, Direction.FORWARD, 1).restricted)
-        assertTrue(ApMode(false, Direction.BACKWARD, 0).restricted)
-        assertTrue(ApMode(false, Direction.FORWARD, 0).restricted)
-        assertFails { ApMode(true, Direction.FORWARD, 0) }
-        assertFails { ApMode(true, Direction.BACKWARD, 1) }
+    fun `positive limits support both restricted directions and forward run one`() {
+        for (fieldLimit in listOf(1, 3, Int.MAX_VALUE)) {
+            assertFalse(ApMode(true, Direction.FORWARD, fieldLimit).restricted)
+            assertTrue(ApMode(false, Direction.BACKWARD, fieldLimit).restricted)
+            assertTrue(ApMode(false, Direction.FORWARD, fieldLimit).restricted)
+            assertFails { ApMode(true, Direction.BACKWARD, fieldLimit) }
+        }
+    }
+
+    @Test
+    fun `all directions and run flags reject nonpositive limits`() {
+        for (run1 in listOf(false, true)) {
+            for (direction in Direction.entries) {
+                for (fieldLimit in listOf(0, -1, Int.MIN_VALUE)) {
+                    assertFails("run1=$run1 direction=$direction fieldLimit=$fieldLimit") {
+                        ApMode(run1, direction, fieldLimit)
+                    }
+                }
+            }
+        }
     }
 }
