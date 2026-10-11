@@ -23,9 +23,12 @@ data class HistoricalIterationResult(val findings: Map<HistoricalFinding, Histor
  * ReportBuilder, Support, DemandStore lookup, record index or summary selector computes the answer.
  * A RunConfig is only an ApMode carrier; raw excluded-mark demands remain separate from its empty
  * typed store. The differential domain is validated by HistoricalF71, not widened silently.
+ * Opt-in END rules are argued interpreter semantics, not a theorem of the historical Lean closure.
  */
 class HistoricalConcreteIteration(private val program: FiniteProgramFixtures, private val roots: List<MethodKey>,
-                                  private val limits: List<Int>) {
+                                  private val limits: List<Int>,
+                                  private val allowEndFacts: Boolean = false,
+                                  private val allowMustSources: Boolean = false) {
     init {
         require(limits.isNotEmpty() && limits.all { it >= 1 })
         require(limits.zipWithNext().all { (a, b) -> b >= a })
@@ -45,9 +48,9 @@ class HistoricalConcreteIteration(private val program: FiniteProgramFixtures, pr
                 if (index == 1) null else DemandStore.Builder(program.ap).build(),
                 PersistentRecordStore(program.ap), SeedIndex.of(seeds), roots)
             val inputs = ProgramRunInputs(roots.toList(), demand.toList(), records.toList(), seeds.toList())
-            var observation = HistoricalConcreteClosure(program, config, inputs).run()
+            var observation = HistoricalConcreteClosure(program, config, inputs, allowEndFacts, allowMustSources).run()
             if (config.direction == Direction.FORWARD) {
-                observation = confirm(observation, roots)
+                observation = confirm(observation, roots, config.restricted)
                 currentDemand = LinkedHashMap()
                 for (witness in observation.witnesses) {
                     val key = HistoricalFinding(witness.rule, witness.statement)
@@ -82,8 +85,10 @@ class HistoricalConcreteIteration(private val program: FiniteProgramFixtures, pr
         val result = LinkedHashSet<Pair<MethodKey, DemandPattern>>()
         for (edge in observation.selectedDemand) {
             program.cancellation.checkpoint()
-            val entry = Pattern(edge.conclusion.fact.copy(path = edge.conclusion.fact.path.toList()), edge.conclusion.exclusion)
-            if (direction == Direction.FORWARD) for (member in edge.premise) result += edge.method to DemandPattern(entry, member)
+            fun forgetMust(p: Pattern): Pattern = if (p.fact.tail == Tail.ANY_TAINT)
+                Pattern(p.fact.copy(tail = Tail.ANY), ExclusionSet.Empty) else p
+            val entry = forgetMust(Pattern(edge.conclusion.fact.copy(path = edge.conclusion.fact.path.toList()), edge.conclusion.exclusion))
+            if (direction == Direction.FORWARD) for (member in edge.premise) result += edge.method to DemandPattern(entry, forgetMust(member))
             else {
                 check(edge.premise.size == 1)
                 result += edge.method to DemandPattern(entry, edge.premise.single().takeUnless { it.fact.base == AccessPathBase.Zero })
@@ -106,8 +111,8 @@ class HistoricalConcreteIteration(private val program: FiniteProgramFixtures, pr
         return result.toList()
     }
 
-    /** Direct least joint support at one site. The historical differential excludes must supplies. */
-    private fun confirm(observation: RunObservation, roots: List<MethodKey>): RunObservation {
+    /** Direct least joint support at one site, including AnyTaintExDefs.SupLinkX when opted in. */
+    private fun confirm(observation: RunObservation, roots: List<MethodKey>, restricted: Boolean): RunObservation {
         data class Question(val method: MethodKey, val premise: Set<Pattern>)
         data class Site(val callee: MethodKey, val caller: MethodKey, val call: CommonInst)
         val sites = observation.links.filter { it.linkLayer == Layer.NORMAL && it.callerLayer == Layer.NORMAL }
@@ -117,9 +122,18 @@ class HistoricalConcreteIteration(private val program: FiniteProgramFixtures, pr
         for (w in observation.witnesses) questions += Question(w.methodKey, union(w.edges.map { it.premise }))
         val supported = roots.mapTo(LinkedHashSet()) { Question(it, setOf(ZERO_PATTERN)) }
         fun suppliedAt(site: Site, rows: List<ObservedLink>, members: Set<Pattern>): Boolean = members.all { member ->
-            (member.fact.base == AccessPathBase.Zero ||
-                (member.fact.tail == Tail.EXACT && member.fact.mark is MarkSlot.Concrete)) &&
-                rows.any { link -> link.added == member && Question(site.caller, link.premise) in supported }
+            rows.any { link ->
+                val a = link.added
+                val supplied = when {
+                    member.fact.base == AccessPathBase.Zero -> a.fact.base == AccessPathBase.Zero
+                    member.fact.mark !is MarkSlot.Concrete -> false
+                    a.fact.tail == Tail.EXACT -> member.fact.tail == Tail.EXACT && member == a
+                    allowMustSources && restricted && a.fact.tail == Tail.ANY_TAINT ->
+                        member.fact.mark == a.fact.mark && (member.fact.tail == Tail.EXACT || member.fact.tail == Tail.ANY_TAINT) && inside(member, a)
+                    else -> false
+                }
+                supplied && Question(site.caller, link.premise) in supported
+            }
         }
         var changed: Boolean
         do {

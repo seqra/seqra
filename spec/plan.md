@@ -62,7 +62,7 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | D02 | Complete | Both hand-offs, seeds and frontier counts. See `docs/reports/bidi-d02.md`: 29 new tests and 1,157 common regressions pass. |
 | D03 | Complete | Iteration loop, joined barriers, one budget and DLINK 1–5. See `docs/reports/bidi-d03.md`: 23 new and 1,180 common tests pass. |
 | D04 | Complete | 37 acceptance tests; 1,217 clean common tests and consumer compile checks pass. |
-| V4 | Pending | |
+| V4 | Complete | [V4 evidence](../docs/reports/bidi-v4.md). 1,226 common and 339 JVM tests pass; all new tests are discovered; shared consumers compile. |
 | J01–J03, FINAL | Pending | |
 
 Implementation corrections: the earlier FINAL text described this file as a planning-only
@@ -1865,6 +1865,37 @@ Lean program model; use separately labelled F71 AP equations with the
 specified end-fact interpreter rules for its executable historical check.
 Do not invent a Lean END/factory finding theorem or use current selectors
 to compute historical expected reports.
+For the native factory comparison, add a separate opt-in historical must
+source domain. Keep the default exact-source domain guards. Use F69's
+pre-F76 record reversal rule: must conclusions are not crossable; do not
+reverse a must-premise or a must conclusion with nonempty E. Empty-E must
+results use the ordinary ANY reversal. Test the raw reversal cells before
+the extension. Compare the same native factory's final T/U findings, source
+hits, seeds and callee analysis with the current transient-view sequence.
+The opt-in also needs F69's normal-must emission (`emitTX`): promote an
+emitted ANY intersection to must and retain the added exclusion at the same
+path. Its backward hand-off reads must as ANY/Empty E on both pattern sides.
+Use the historical SupX same-mark must supplier with inside/E membership,
+normal layers and one full caller site. Add raw vectors and actual G/C
+comparisons before these equations. Keep proven I/S/SD golden reports labelled.
+The first 33-test V4 gate passes every full program, emission, reversal and
+domain check. One cleaner vector compares `CleanOut` objects by identity;
+`CleanOut` is not a data class. Compare its facts and request fields instead.
+The saved RED XML is under `/tmp/bidi-v4/historical-first-xml`. No production
+or historical cleaner equation changes for this assertion correction.
+The opt-in restriction review finds uncovered must/E cells. At the same
+path, EXACT narrows a must conclusion to EXACT/Empty E, while STAR/E2 keeps
+must and unions E2. Above STAR/E2, use its chain and E2 if the original
+must exclusion admits the step. Add all three raw RED vectors, then apply
+`HandoffXRestrict.restrictConcIX` without the current restrict helper.
+
+**Result.** The caller-state and explicit final-witness stop checks pass.
+The same named historical programs keep the required findings and states.
+All nine new V4 tests pass. Clean common 1,226 and JVM 339 tests pass with
+no skips. All 1,078 common and 225 JVM new annotated tests are discovered
+and compile to void. Go, JVM SAST and application test sources compile.
+The API/P/Q audit has no unresolved Phase 2 gate. See
+[V4 evidence](../docs/reports/bidi-v4.md).
 
 ## Phase 3: Prescan and JVM analyzer entry
 
@@ -1882,9 +1913,18 @@ the new engine. The current prescan join uses `withTimeoutOrNull`; inspect and h
 join result rather than assuming cleared maps mean joined jobs. If the jobs did not stop, end
 with the specified failure path and expose no live prescan state to the new engine.
 
-Copy selected rule IDs, context-sensitive lambda targets, root method entry points, fact type
+Copy selected rule IDs, context-derived lambda targets, root method entry points, fact type
 checker and external-method tracker. Obtain lambda values from the existing context resolution
 trackers without retaining trackers, subscribers or contexts.
+Union lambda implementations from every context by caller method and call
+index, as `ap-impl.md` §31.1 specifies. Call plans and entry rules still use
+the full MethodKey. Track the progress job as well as runner jobs. Cancel
+all jobs before waiting; an expired join must not skip runner cancellation.
+Put setup inside the termination frame, enforce `requirePrescanJoined`
+before extraction, and repeat the check in engine release. An active or
+cancelled-but-unfinished job rejects release. Reset context caches and
+tracker subscribers before clearing their owners. Test real memory-wrapper
+cleanup and keep copied graph/checker/tracker values alive during GC checks.
 Release contexts, unit/runners, dependency maps and the old active AP-manager reference after
 the copy. A new analysis Cancellation is independent of the prescan cancellation state.
 
@@ -1913,6 +1953,11 @@ Map COMPLETE/TIMEOUT/OOM/FAILED to OK/TIMEOUT/OOM/EXCEPTION. A setup failure ret
 output and EXCEPTION. Log entry counts per report state and set trace-resolution status to OK.
 Use the remaining shared analysis budget after prescan. The null entry
 continues through the current full-scan path.
+Construct the optional entry inside the setup guard. The proposal constructs
+it before `runCatching`, so a hook or graph construction failure can escape
+the specified empty-output/EXCEPTION mapping. Add a throwing entry-factory
+test with the gather/run setup fault tests. Verify prescan joins before
+copying any state, and catch setup Errors as well as ordinary exceptions.
 
 **Gate.** Each state/status mapping and witness choice has an exact test. DEMAND entries remain
 in output. Setup failure and incomplete run 1 produce no entries. Both entry modes compile and

@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.test.*
 import kotlin.time.Duration
 
-/** Current F72/F75/F76/F77 sequences. Historical concrete hand-offs are not expected values here. */
+/** Current F72/F75/F76/F77 sequences; labelled earlier reports are a separate inclusion check. */
 class AnyTaintIterationTest {
     private val argument = AccessPathBase.Argument(0)
     private val result = AccessPathBase.Return
@@ -72,7 +72,11 @@ class AnyTaintIterationTest {
             return RunManager(config, shared, observed, quantum = 1).run(timeout).also(f.results::add)
         }
 
-        fun analyze(root: MethodKey, limits: List<Int>): Pair<Report, List<Frontier>> {
+        fun analyze(root: MethodKey, limits: List<Int>, historicalGolden: Map<String, HistoricalState>? = null,
+                    historicalLabel: String = ""): Pair<Report, List<Frontier>> {
+            val earlier = historicalGolden?.let {
+                HistoricalConcreteIteration(f.program, listOf(root), limits, allowMustSources = true).run()
+            }
             val driver = f.driver(FixedLimits(limits), invokeRun = ::run, guardBarrier = { shared, body ->
                 val next = body()
                 val config = f.configs.last()
@@ -124,6 +128,17 @@ class AnyTaintIterationTest {
                 next
             })
             val final = driver.analyze(listOf(root))
+            if (earlier != null) {
+                assertEquals(historicalGolden, earlier.findings.entries.associate { it.key.rule.id to it.value },
+                    "Earlier labelled report: $historicalLabel")
+                val current = final.entries.associate { HistoricalFinding(it.key.rule, it.key.statement) to
+                    if (it.state == ReportState.CONFIRMED) HistoricalState.CONFIRMED else HistoricalState.DEMAND }
+                for ((key, state) in earlier.findings) {
+                    assertNotNull(current[key], "Earlier finding lost: $historicalLabel key=$key")
+                    if (state == HistoricalState.CONFIRMED)
+                        assertEquals(state, current[key], "Earlier confirmation weakened: $historicalLabel key=$key")
+                }
+            }
             assertEquals(f.configs.size, barriers.size)
             for (barrier in barriers) {
                 if (barrier.config.restricted) assertTrue(barrier.observation.requests.isEmpty())
@@ -196,7 +211,8 @@ class AnyTaintIterationTest {
             val literal = f.program.pattern(result, tail = Tail.ANY, mark = t)
             sink(f, root, 2, SinkRule(rule, 0, listOf(literal), emptyList()))
             val runs = SequenceRun(f, listOf(root, get), listOf(AccessPathBase.Zero, value, argument, result))
-            val (report, frontiers) = runs.analyze(root, listOf(1, 2, 3))
+            val (report, frontiers) = runs.analyze(root, listOf(1, 2, 3), mapOf("G sinkAny" to HistoricalState.CONFIRMED),
+                "Earlier D6X/DRXs: AnyTaintExCases2.G.run3_confirmed_handoff")
             val j = f.program.pattern(argument, tail = Tail.STAR, mark = MarkSlot.STAR)
             val jr = f.program.pattern(result, tail = Tail.STAR, mark = MarkSlot.STAR)
             val demandResult = f.program.pattern(result, tail = Tail.ANY, mark = MarkSlot.STAR)
@@ -242,7 +258,8 @@ class AnyTaintIterationTest {
             val rule = f.rule("C sinkAny name")
             sink(f, use, 1, SinkRule(rule, 0, listOf(f.program.pattern(argument, listOf(name), Tail.ANY, t)), emptyList()))
             val runs = SequenceRun(f, listOf(root, use), listOf(AccessPathBase.Zero, value, argument, result))
-            val (report, frontiers) = runs.analyze(root, listOf(1, 2, 3))
+            val (report, frontiers) = runs.analyze(root, listOf(1, 2, 3), mapOf("C sinkAny name" to HistoricalState.CONFIRMED),
+                "Earlier D6X/DRXs: AnyTaintExCases2.C.run3_confirmed_handoff")
             val flow = f.program.pattern(argument, tail = Tail.STAR, mark = MarkSlot.STAR)
             assertEquals(setOf(ObservedRequest(use, flow, RequestKind.Mark((t as MarkSlot.Concrete).mark))),
                 runs.barriers[0].observation.requests)
@@ -276,7 +293,8 @@ class AnyTaintIterationTest {
             val rule = f.rule("I sinkAny")
             sink(f, root, 2, SinkRule(rule, 0, listOf(f.program.pattern(result, tail = Tail.ANY, mark = t)), emptyList()))
             val runs = SequenceRun(f, listOf(root, id), listOf(AccessPathBase.Zero, value, argument, result))
-            val (report, frontiers) = runs.analyze(root, listOf(1, limit, limit))
+            val (report, frontiers) = runs.analyze(root, listOf(1, limit, limit), mapOf("I sinkAny" to HistoricalState.CONFIRMED),
+                "Earlier D6X/DRXs: AnyTaintExCases2.I.run1_confirmed")
             assertEquals(listOf(1), f.configs.map { it.index })
             assertEquals(setOf(Conclusion(PathFact(result, emptyList(), Tail.ANY_TAINT, t), ExclusionSet.Empty, false)),
                 conclusions(runs.barriers.single().observation.rawSummaries, root, result))
@@ -317,7 +335,8 @@ class AnyTaintIterationTest {
             sink(f, root, 2, SinkRule(overwritten, 0, listOf(f.program.pattern(result, listOf(name), Tail.ANY, t)), emptyList()),
                 SinkRule(admitted, 0, listOf(f.program.pattern(result, listOf(email), Tail.ANY, t)), emptyList()))
             val runs = SequenceRun(f, listOfNotNull(root, set, wrapper), listOf(AccessPathBase.Zero, value, argument, result))
-            val (report, frontiers) = runs.analyze(root, listOf(1, limit, limit))
+            val (report, frontiers) = runs.analyze(root, listOf(1, limit, limit), mapOf("S email" to HistoricalState.CONFIRMED),
+                "Earlier D6X/DRXs: AnyTaintExCases.S.run1_email_confirmed; SD.run1_email_confirmed")
             val exclusion = ExclusionSet.of(name)
             assertEquals(setOf(Conclusion(PathFact(result, emptyList(), Tail.ANY_TAINT, t), exclusion, false)),
                 conclusions(runs.barriers.single().observation.rawSummaries, root, result))
@@ -385,7 +404,10 @@ class AnyTaintIterationTest {
                 SinkRule(excluded, 0, listOf(f.program.pattern(outBlocked, path, mark = t)), emptyList()))
             val runs = SequenceRun(f, listOf(root, factory), listOf(AccessPathBase.Zero, value, argument, result,
                 returned, readT, readU, blocked, outU, outBlocked))
-            val (report, frontiers) = runs.analyze(root, listOf(1, 2, 3))
+            val (report, frontiers) = runs.analyze(root, listOf(1, 2, 3), mapOf(
+                "F76 admitted email T" to HistoricalState.CONFIRMED,
+                "F76 exact k U" to HistoricalState.CONFIRMED),
+                "F69/F71 native factory prior to F76 views; argued, no Lean program theorem")
             val exclusion = ExclusionSet.of(intArrayOf(name, k))
             val nativeT = Native(factory, Direction.FORWARD, zero(f),
                 Conclusion(PathFact(result, emptyList(), Tail.ANY_TAINT, t), exclusion, false))

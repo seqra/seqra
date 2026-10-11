@@ -14,11 +14,14 @@ import java.util.ArrayDeque
  * The copied work-list driver intentionally has separate selector/emission/cleaner implementations.
  * Supported differential domain: finite call/read/move/primitive-cleaner programs, exact concrete
  * sources, ordinary singleton records, literal/conjunctive sinks, no alias guard or end-fact GEN.
- * Must records and their F76 read views are outside this labelled historical domain.
+ * Explicit opt-ins admit specified END interpreter rules or refined F69 must sources; neither
+ * imports F76 read views. The historical reader retains the older R3 policy in every mode.
  * Raw demand entries may carry abstract mark exclusions: no current DemandStore is consulted.
  */
 class HistoricalConcreteClosure(private val program: FiniteProgramFixtures, private val config: RunConfig,
-                                private val inputs: ProgramRunInputs) {
+                                private val inputs: ProgramRunInputs,
+                                private val allowEndFacts: Boolean = false,
+                                private val allowMustSources: Boolean = false) {
     private val forward = config.direction == Direction.FORWARD
     private val zero = setOf(ZERO_PATTERN)
     private val work = ArrayDeque<() -> Unit>()
@@ -58,7 +61,7 @@ class HistoricalConcreteClosure(private val program: FiniteProgramFixtures, priv
     fun run(): RunObservation {
         check(!invoked) { "An oracle instance has one closure" }
         invoked = true
-        HistoricalF71.validate(program, inputs)
+        HistoricalF71.validate(program, inputs, allowEndFacts, allowMustSources)
         for (root in inputs.roots) if (program.isKnown(root)) addInitial(root, ZERO_PATTERN)
         while (work.isNotEmpty()) {
             program.manager.cancellation.checkpoint()

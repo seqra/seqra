@@ -16,10 +16,13 @@ import org.opentaint.ir.api.common.cfg.CommonInst
  * Current finite iteration, with direct raw barriers and least support. No current HandOff,
  * ReportBuilder, Support, DemandStore lookup, record index or summary selector computes the answer.
  * A RunConfig is only an ApMode carrier; raw excluded-mark demands remain separate from its empty
- * typed store. The generated domain is checked by HistoricalF71 to match the historical comparison scope.
+ * typed store. The generated domain and explicitly enabled END/must extensions are checked by
+ * HistoricalF71 to match the historical comparison scope. The current raw selector and Support are coded here.
  */
 class DirectCurrentIteration(private val program: FiniteProgramFixtures, private val roots: List<MethodKey>,
-                                  private val limits: List<Int>) {
+                                  private val limits: List<Int>,
+                                  private val allowEndFacts: Boolean = false,
+                                  private val allowMustSources: Boolean = false) {
     init {
         require(limits.isNotEmpty() && limits.all { it >= 1 })
         require(limits.zipWithNext().all { (a, b) -> b >= a })
@@ -39,10 +42,10 @@ class DirectCurrentIteration(private val program: FiniteProgramFixtures, private
                 if (index == 1) null else DemandStore.Builder(program.ap).build(),
                 PersistentRecordStore(program.ap), SeedIndex.of(seeds), roots)
             val inputs = ProgramRunInputs(roots.toList(), demand.toList(), records.toList(), seeds.toList())
-            HistoricalF71.validate(program, inputs)
+            HistoricalF71.validate(program, inputs, allowEndFacts, allowMustSources)
             var observation = RawCurrentClosure(program, config, inputs).run()
             if (config.direction == Direction.FORWARD) {
-                observation = confirm(observation, roots)
+                observation = confirm(observation, roots, config.restricted)
                 currentDemand = LinkedHashMap()
                 for (witness in observation.witnesses) {
                     val key = HistoricalFinding(witness.rule, witness.statement)
@@ -77,8 +80,10 @@ class DirectCurrentIteration(private val program: FiniteProgramFixtures, private
         val result = LinkedHashSet<Pair<MethodKey, DemandPattern>>()
         for (edge in observation.selectedDemand) {
             program.cancellation.checkpoint()
-            fun normalized(p: Pattern): Pattern = if (p.fact.mark is MarkSlot.Star)
-                p.copy(fact = p.fact.copy(mark = MarkSlot.STAR)) else p
+            fun normalized(p: Pattern): Pattern {
+                val forgotten = if (p.fact.tail == Tail.ANY_TAINT) Pattern(p.fact.copy(tail = Tail.ANY), ExclusionSet.Empty) else p
+                return if (forgotten.fact.mark is MarkSlot.Star) forgotten.copy(fact = forgotten.fact.copy(mark = MarkSlot.STAR)) else forgotten
+            }
             val entry = normalized(Pattern(edge.conclusion.fact.copy(path = edge.conclusion.fact.path.toList()), edge.conclusion.exclusion))
             if (direction == Direction.FORWARD) for (member in edge.premise) result += edge.method to DemandPattern(entry, normalized(member))
             else {
@@ -103,8 +108,8 @@ class DirectCurrentIteration(private val program: FiniteProgramFixtures, private
         return result.toList()
     }
 
-    /** Direct least joint support at one site. This exact-source differential excludes must supplies. */
-    private fun confirm(observation: RunObservation, roots: List<MethodKey>): RunObservation {
+    /** Direct least joint support at one site. No production Support or supplies helper is consulted. */
+    private fun confirm(observation: RunObservation, roots: List<MethodKey>, restricted: Boolean): RunObservation {
         data class Question(val method: MethodKey, val premise: Set<Pattern>)
         data class Site(val callee: MethodKey, val caller: MethodKey, val call: CommonInst)
         val sites = observation.links.filter { it.linkLayer == Layer.NORMAL && it.callerLayer == Layer.NORMAL }
@@ -114,9 +119,14 @@ class DirectCurrentIteration(private val program: FiniteProgramFixtures, private
         for (w in observation.witnesses) questions += Question(w.methodKey, union(w.edges.map { it.premise }))
         val supported = roots.mapTo(LinkedHashSet()) { Question(it, setOf(ZERO_PATTERN)) }
         fun suppliedAt(site: Site, rows: List<ObservedLink>, members: Set<Pattern>): Boolean = members.all { member ->
-            (member.fact.base == AccessPathBase.Zero ||
-                (member.fact.tail == Tail.EXACT && member.fact.mark is MarkSlot.Concrete)) &&
-                rows.any { link -> link.added == member && Question(site.caller, link.premise) in supported }
+            val confirmable = member.fact.base == AccessPathBase.Zero || (member.fact.mark is MarkSlot.Concrete &&
+                (member.fact.tail == Tail.EXACT || (restricted && member.fact.tail == Tail.ANY_TAINT)))
+            confirmable && rows.any { link ->
+                val a = link.added
+                (member == a || (restricted && a.fact.tail == Tail.ANY_TAINT && member.fact.mark == a.fact.mark &&
+                    (member.fact.tail == Tail.EXACT || member.fact.tail == Tail.ANY_TAINT) && inside(member, a))) &&
+                    Question(site.caller, link.premise) in supported
+            }
         }
         var changed: Boolean
         do {

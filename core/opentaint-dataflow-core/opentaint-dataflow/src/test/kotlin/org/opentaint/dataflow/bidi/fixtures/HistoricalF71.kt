@@ -6,36 +6,48 @@ import org.opentaint.dataflow.bidi.interp.CallStage
 import org.opentaint.dataflow.bidi.interp.CleanStep
 import org.opentaint.dataflow.bidi.interp.StatementSummary
 import org.opentaint.dataflow.bidi.interp.StageKind
+import org.opentaint.dataflow.bidi.interp.Guard
 
-/** F71 concrete-design operations, rather than the current F72/F75/F77 selector. */
+/** F71 concrete-design operations. Explicit opt-ins add argued END forms and refined F69 must flags;
+ *  their tests cite those rules separately from the default fb789d0ab finite-program domain. */
 internal object HistoricalF71 {
     const val VERSION = "F71 concrete design / proof snapshot fb789d0ab"
 
-    fun validate(program: FiniteProgramFixtures, inputs: ProgramRunInputs) {
+    fun validate(program: FiniteProgramFixtures, inputs: ProgramRunInputs,
+                 allowEndFacts: Boolean = false, allowMustSources: Boolean = false) {
         fun summary(s: StatementSummary) {
-            for (e in s.edges) if (e.isSource) check(e.forward.to.tail == Tail.EXACT) {
+            for (e in s.edges) if (e.isSource) check(e.forward.to.tail == Tail.EXACT ||
+                (allowMustSources && e.forward.to.tail == Tail.ANY_TAINT && e.forward.to.mark is MarkSlot.Concrete)) {
                 "$VERSION differential excludes must sources and F76 must-record views"
             }
-            check(s.edges.none { it.forward.from.tail == Tail.ANY_TAINT || it.forward.to.tail == Tail.ANY_TAINT })
+            check(s.edges.none { it.forward.from.tail == Tail.ANY_TAINT ||
+                (it.forward.to.tail == Tail.ANY_TAINT && !(allowMustSources && it.isSource)) })
             check(s.conjunctions.none { it.target.tail == Tail.ANY_TAINT })
         }
         program.statementInputs.forEach { summary(it.summary) }
         for (e in program.entryInputs) {
             summary(e.rules.summary)
-            check(e.rules.endFacts.edges.isEmpty() && e.rules.endFacts.conjunctions.isEmpty())
-            check(e.rules.sinks.all { it.endFacts.isEmpty() })
+            summary(e.rules.endFacts)
+            e.rules.sinks.forEach { summary(StatementSummary(emptySet(), it.endFacts, emptyList(), emptyMap())) }
+            check(e.rules.endFacts.conjunctions.isEmpty())
+            if (!allowEndFacts) check(e.rules.endFacts.edges.isEmpty() && e.rules.sinks.all { it.endFacts.isEmpty() })
         }
         for (e in program.exitInputs) {
             summary(e.rules.rules.summary)
-            check(e.rules.rules.endFacts.edges.isEmpty() && e.rules.rules.endFacts.conjunctions.isEmpty() &&
-                e.rules.rules.sinks.all { it.endFacts.isEmpty() })
+            summary(e.rules.rules.endFacts)
+            e.rules.rules.sinks.forEach { summary(StatementSummary(emptySet(), it.endFacts, emptyList(), emptyMap())) }
+            check(e.rules.rules.endFacts.conjunctions.isEmpty())
+            if (!allowEndFacts) check(e.rules.rules.endFacts.edges.isEmpty() && e.rules.rules.sinks.all { it.endFacts.isEmpty() })
         }
         for (row in program.callInputs) {
-            check(row.plan.sinks.all { it.endFacts.isEmpty() })
+            row.plan.sinks.forEach { summary(StatementSummary(emptySet(), it.endFacts, emptyList(), emptyMap())) }
+            if (!allowEndFacts) check(row.plan.sinks.all { it.endFacts.isEmpty() })
             for (stage in row.plan.stages) when (stage) {
                 is CallStage.Edges -> {
-                    check(stage.kind != StageKind.ALIASES && stage.kind != StageKind.END_FACTS &&
-                        stage.guard == null && stage.trigger == null) {
+                    val permittedEnd = allowEndFacts && stage.kind == StageKind.END_FACTS &&
+                        (stage.guard == null || stage.guard is Guard.SinkTriggered)
+                    check(stage.kind != StageKind.ALIASES && (permittedEnd ||
+                        (stage.kind != StageKind.END_FACTS && stage.guard == null && stage.trigger == null))) {
                         "$VERSION differential excludes aliases, guarded stages, and end-fact triggers"
                     }
                     summary(stage.summary)
@@ -47,8 +59,16 @@ internal object HistoricalF71 {
             }
         }
         for (record in inputs.records) {
-            check(record.premise.fact.tail != Tail.ANY_TAINT && record.conclusion.fact.tail != Tail.ANY_TAINT)
-            check(record.premise.exclusion == ExclusionSet.Empty && record.conclusion.exclusion == ExclusionSet.Empty)
+            if (!allowMustSources) {
+                check(record.premise.fact.tail != Tail.ANY_TAINT && record.conclusion.fact.tail != Tail.ANY_TAINT)
+                check(record.premise.exclusion == ExclusionSet.Empty && record.conclusion.exclusion == ExclusionSet.Empty)
+            } else {
+                check(!record.conclusion.demand)
+                check(record.premise.exclusion == ExclusionSet.Empty || record.premise.fact.tail == Tail.STAR ||
+                    record.premise.fact.tail == Tail.ANY_TAINT)
+                check(record.conclusion.exclusion == ExclusionSet.Empty || record.conclusion.fact.tail == Tail.STAR ||
+                    record.conclusion.fact.tail == Tail.ANY_TAINT)
+            }
         }
     }
 
@@ -61,7 +81,7 @@ internal object HistoricalF71 {
         if (d.fact.base != a.fact.base || !admitsMark) return null
         val p = d.fact.path
         val q = a.fact.path
-        return when {
+        val result = when {
             q == p -> {
                 val tail = when {
                     a.fact.tail.isAny -> d.fact.tail
@@ -76,6 +96,11 @@ internal object HistoricalF71 {
                 Pattern(d.fact.copy(mark = a.fact.mark), d.exclusion) else null
             else -> null
         }
+        // AnyTaintExDefs.emitTX: the old model stores a separate must flag on an emitted any tail.
+        // A same-path must keeps its own E; entering an admitted deeper chain forgets the old E.
+        return if (a.fact.tail == Tail.ANY_TAINT && result?.fact?.tail == Tail.ANY)
+            result.copy(fact = result.fact.copy(tail = Tail.ANY_TAINT),
+                exclusion = if (p == q) a.exclusion else result.exclusion) else result
     }
 
     /** Earlier spatial-first cleaner, AnyTaintExDefs.lean cleanResX; F75 has not run yet. */
@@ -87,7 +112,17 @@ internal object HistoricalF71 {
             is MarkSlot.Concrete -> when {
                 selected != null && selected != m.mark -> CleanOut(listOf(c), null)
                 pos == Pos.INSIDE -> CleanOut(emptyList(), null)
-                else -> CleanOut(concPart(cl, c), null)
+                else -> {
+                    val q = cl.path?.toList().orEmpty()
+                    val p = c.fact.path
+                    if (c.fact.tail == Tail.ANY_TAINT && !c.demand && q.size == p.size + 1 &&
+                        q.startsWith(p) && cl.reach != CleanReach.EXACT) {
+                        val field = q.last()
+                        val kept = c.copy(exclusion = c.exclusion.union(ExclusionSet.of(field)))
+                        CleanOut(if (cl.reach == CleanReach.BELOW) listOf(kept,
+                            Conclusion(c.fact.copy(path = q, tail = Tail.EXACT), ExclusionSet.Empty, false)) else listOf(kept), null)
+                    } else CleanOut(concPart(cl, c), null)
+                }
             }
             is MarkSlot.Star -> when {
                 selected != null -> CleanOut(listOf(c.copy(fact = c.fact.copy(mark = MarkSlot.Star(m.excluded + selected)))),
@@ -107,7 +142,8 @@ internal object HistoricalF71 {
         (p.fact.tail == Tail.STAR && p.exclusion == ExclusionSet.Empty)
 
     fun cross(p: Pattern, c: Conclusion): Boolean {
-        if (c.demand || !crossTail(p) || (c.fact.mark !is MarkSlot.Star && p.fact.mark !is MarkSlot.Concrete)) return false
+        if (c.demand || c.fact.tail == Tail.ANY_TAINT || !crossTail(p) ||
+            (c.fact.mark !is MarkSlot.Star && p.fact.mark !is MarkSlot.Concrete)) return false
         val reversed = reverseRecord(p, c) ?: return false
         return crossTail(reversed.premise)
     }
@@ -120,7 +156,9 @@ internal object HistoricalF71 {
 
     fun reverseRecord(p: Pattern, c: Conclusion): RecordLeafView? {
         if (c.demand) return null
-        check(p.fact.tail != Tail.ANY_TAINT && c.fact.tail != Tail.ANY_TAINT)
+        // F69 amendment R3: old native must/E leaves have no F76 STAR read view.
+        if (p.fact.tail == Tail.ANY_TAINT ||
+            (c.fact.tail == Tail.ANY_TAINT && c.exclusion != ExclusionSet.Empty)) return null
         val reversed = revEdge(summaryEdge(p, c)) ?: return null
         return RecordLeafView(Pattern(reversed.from, ExclusionSet.Empty),
             Conclusion(reversed.to, reversed.exclusion, reversed.to.tail == Tail.ANY))
@@ -141,14 +179,21 @@ internal object HistoricalF71 {
         val q = c.fact.path
         val s = out.fact.path
         return when {
-            q == s -> if (c.fact.tail == Tail.ANY && out.fact.tail == Tail.EXACT)
-                c.copy(fact = c.fact.copy(tail = Tail.EXACT)) else c
+            q == s -> when {
+                c.fact.tail.isAny && out.fact.tail == Tail.EXACT ->
+                    c.copy(fact = c.fact.copy(tail = Tail.EXACT), exclusion = ExclusionSet.Empty)
+                c.fact.tail == Tail.ANY_TAINT && out.fact.tail == Tail.STAR ->
+                    c.copy(exclusion = c.exclusion.union(out.exclusion))
+                else -> c
+            }
             q.startsWith(s) -> if (out.tailAdmits(q.drop(s.size))) c else null
             s.startsWith(q) -> when (c.fact.tail) {
                 Tail.ANY -> c.copy(fact = c.fact.copy(path = s, tail = if (out.fact.tail == Tail.EXACT) Tail.EXACT else Tail.ANY))
                 Tail.STAR -> if (c.exclusion.admits(s.drop(q.size))) c else null
                 Tail.EXACT -> null
-                Tail.ANY_TAINT -> error("$VERSION differential excludes must records")
+                Tail.ANY_TAINT -> if (c.exclusion.admits(s.drop(q.size))) c.copy(
+                    fact = c.fact.copy(path = s, tail = if (out.fact.tail == Tail.EXACT) Tail.EXACT else Tail.ANY_TAINT),
+                    exclusion = if (out.fact.tail == Tail.STAR) out.exclusion else ExclusionSet.Empty) else null
             }
             else -> null
         }
