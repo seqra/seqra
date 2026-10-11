@@ -19,13 +19,10 @@ We are working on [bidirectional-task.md](bidirectional-task.md)
 
 Read project memory from the previous session: `~/.claude/projects/-drive-testcomp-opentaint-go-rules-opentaint-w3/`
 
-Now we have a compete spec for the AP and analyzer (see spec/). 
-The current step is: finalize the implementation proposal.
-Here is the checklist:
-1) Precisely analyze the demand edge handling, abstraction and summary emission/reduction. These operations must match the specification precisely
-2) Precisely analyze summary edge application logic. Review the edge case handling.  
-3) All other operations also should match the spec. Review them.
-4) The implementation proposal shouldn't use staled facts or rules. Review that all used rules are actual
-If we found a major gap or misalignment -- aks me for the decision on how to fix it. I will specify the correct behavior.
+Now we have a complete spec and implementation proposal for the phases 1-3.
+Our current task: create a detailed implementation plan.
+The plan should step-by-step follow the implementation proposal. 
+We should interleave between implementation and validation rounds.
+Write it to the spec/plan.md
 
 Use subagents.
