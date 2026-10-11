@@ -238,6 +238,7 @@ fun restrict(sp: Pattern, sc: Conclusion, d: DemandPattern): Conclusion? {
 data class PathEdge(val from: PathFact, val to: PathFact, val exclusion: ExclusionSet,
                     val fromExclusion: ExclusionSet = ExclusionSet.Empty,     // Ej of a must-premise (a summary, a record)
                     val toExclusion: ExclusionSet = ExclusionSet.Empty) {     // Et of an `[any-taint]/Et` summary conclusion
+    @Volatile internal var compiled: CompiledEdge? = null
 }
 
 private fun PathEdge.premiseAdmits(r: List<AccessorIdx>): Boolean = when (from.tail) {

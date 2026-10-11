@@ -37,7 +37,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | A02 | Complete | [A02 evidence](../docs/reports/bidi-a02.md). All 275 common tests pass; none skipped. JVM/Go test sources, SAST and application compile. Both user decisions are applied. |
 | A03 | Complete | [A03 evidence](../docs/reports/bidi-a03.md). All 328 common tests pass; none skipped. Deep and shared-DAG checks, concurrent factories and cache epochs pass. JVM/Go test sources, SAST and application compile. |
 | A04 | Complete | [A04 evidence](../docs/reports/bidi-a04.md). All 391 common tests pass; none skipped. Merge/delta, T2 unions, 13,325 subsumption cells, normalized keys, deep/DAG operations and cancellation pass. JVM/Go test sources, SAST and application compile. |
-| A05–A09, V1 | Pending | |
+| A05 | Complete | [A05 evidence](../docs/reports/bidi-a05.md). All 444 common tests pass; none skipped. Transfer, selection, all valid summary kinds, native views, deep/cache/concurrency and cancellation checks pass. JVM/Go test sources, SAST and application compile. |
+| A06–A09, V1 | Pending | |
 | I01–I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
@@ -151,6 +152,26 @@ Keep the proposal's public path hash. Key the manager's private path table by
 accessor value and canonical suffix identity, with a matching local hash. Test
 repeated deep path lookup by both array and list. This changes sharing cost only.
 Add a direct positional function-value check for the generic callback overloads.
+A05 adds the `without` facade from §5.8 together with satisfaction. A04 already
+provides its generic subtraction. It is needed to expose the native record's
+inside and applicable-only parts at the A05 gate; A06 adds the remaining mark
+check and removal helpers. Both parts retain their ordinary layer and E. The
+caller owns the later pending demotion. Keep per-call cancellation explicit in
+all tree maps, folds, grafts and path walks.
+A05's compiled edge owns its from-path array and exposes a snapshot, with internal
+read access for walks. Reuse a cached to-path only when it belongs to the current
+manager; otherwise compile it again. This preserves A01's path ownership and the
+immutable compiled-cache contract when a raw edge is reused by another manager.
+The static root/class check uses the existing accessor-index `isClass` extension;
+the accessor table supplies values but has no class-test method.
+In `leavesNear`, copy a prefix only when an admitted any leaf is present. Empty
+TAINT prefixes produce no pattern. This avoids quadratic path-array allocation
+on a deep path and preserves the proposal's selected leaves.
+The A05 review found that the static-depth shortcut omits the premise mark test.
+`ap.md` §4.1 requires an abstract `*` premise for the identity static exception.
+K6 gives this in stored FLOW edges, but the public operation must test the stated
+condition too. Add a concrete-STAR static-premise regression, observe ordinary
+mark requests, then add the missing `i.mark == MarkSlot.STAR` guard.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions
