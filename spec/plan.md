@@ -41,7 +41,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | A06 | Complete | [A06 evidence](../docs/reports/bidi-a06.md). All 491 common tests pass; none skipped. Cleaner/filter/literal tables, positive cuts, layers/E, sharing, deep walks, state memos and cancellation pass. JVM/Go test sources, SAST and application compile. |
 | A07 | Complete | [A07 evidence](../docs/reports/bidi-a07.md). All 528 common tests pass; none skipped. Emission, reduction, structural selection, request actions, representation guards, deep paths and cancellation pass. JVM/Go test sources, SAST and application compile. |
 | A08 | Complete | [A08 evidence](../docs/reports/bidi-a08.md). All 581 common tests pass; none skipped. Index/full-scan equality, exact links, deltas, raw/publication separation, immutable snapshots, positive limits, deep paths and cancellation pass. All 433 new annotated tests are discovered. JVM/Go test sources, SAST and application compile. |
-| A09, V1 | Pending | |
+| A09 | Complete | [A09 evidence](../docs/reports/bidi-a09.md). All 635 common tests pass; none skipped. Standing products, native records, concurrent lossless witnesses, immutable stored shapes, deep paths and cancellation pass. All 487 new annotated tests are discovered. JVM/Go test sources, SAST and application compile. |
+| V1 | Pending | |
 | I01–I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
@@ -233,6 +234,36 @@ The A08 XML audit found three annotated tests that JUnit did not discover:
 their Kotlin expression bodies infer a non-Unit return type. Declare `Unit`
 on expression-body test methods. Audit all new bidirectional annotated tests
 against compiled method return types and XML names, then repeat the gate.
+A09 requires arity at least two for k-ary joins, as stated in the join
+contract. Use an iterative product and optional cancellation for large
+literal sets; do not depend on the JVM call stack. Validate the native record
+kind, normal layer and direction guards on direct insertion as well as
+persistence. `ap.md` §8.7 requires these guards even though the record snippet
+omits them. Read views remain transient. Keep witness input collections owned
+so a later caller list change cannot alter stored support shapes or end facts.
+Each conjunction rule/statement has one fixed arity. Check a literal index
+before creating its join, and reject a different arity on a later call for
+the same key. Invalid calls must not leave a stale join shape.
+The A09 concurrent witness test must create its statement and vulnerability
+key before starting worker threads. Its simple statement fixture uses a
+single-writer map; concurrent fixture creation can produce different keys
+and does not test atomic merging of one vulnerability.
+The A09 witness review found that public copied lists can still be cast and
+changed. Such a change makes a stored witness differ from its private shape
+key, or changes its end-fact seed path. Test mutation through returned lists
+and nested paths. Use owned unmodifiable lists for these published values.
+The A09 record scan exposed a generic reversed read with an ANY result.
+The proposal always assigns NORMAL in this fallback, which violates W6.
+Test both native directions and apply the reversed may view in DEMAND;
+retain NORMAL for generic STAR/E views. Align the reference snippet with
+this layer correction. The F76 must-side conversions remain unchanged.
+The A09 ND join review found that returned subscriber tuples share mutable
+lists with retained full combinations. A caller can insert a subscriber
+that was never accepted. Test this alias before the fix, then retain owned
+unmodifiable tuple lists for later conclusion delivery.
+The added reverse-view test must compare the `EdgeOutcome.Fact` value;
+`EdgeOutcome` has no common result property. Correct this test typing before
+the behavioral RED run.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions

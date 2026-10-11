@@ -122,7 +122,8 @@ fun reverseRecordLeaf(direction: Direction, p: Pattern, g: Conclusion): RecordLe
     if (p.fact.tail == Tail.ANY_TAINT) return null                   // no unsupported native must-input fallback
     if (p.fact.tail == Tail.STAR && p.fact.mark is MarkSlot.Concrete) return null   // invalid native normal shape
     val rev = revEdge(summaryEdge(p, g)) ?: return null
-    return RecordLeafView(Pattern(rev.from, ExclusionSet.Empty), Conclusion(rev.to, rev.exclusion, demand = false))
+    return RecordLeafView(Pattern(rev.from, ExclusionSet.Empty),
+        Conclusion(rev.to, rev.exclusion, demand = rev.to.tail == Tail.ANY))
 }
 
 /** Identity classification without starting a transient premise. Concrete STAR readers are effects. */

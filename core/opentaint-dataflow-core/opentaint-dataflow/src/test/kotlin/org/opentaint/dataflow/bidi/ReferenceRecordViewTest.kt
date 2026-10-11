@@ -35,6 +35,20 @@ class ReferenceRecordViewTest {
         concat(input, summaryEdge(view.premise, view.result), edgeDemand = view.result.demand, restricted = true)
 
     @Test
+    fun `generic native may premise reversal gives demand and retains both side marks`(): Unit {
+        val source = p(x, listOf(f), Tail.ANY, mu)
+        val target = c(y, listOf(g), Tail.EXACT, mt)
+        for (direction in Direction.entries) {
+            val view = assertNotNull(reverseRecordLeaf(direction, source, target))
+            assertEquals(RecordLeafView(p(y, listOf(g), Tail.EXACT, mt),
+                c(x, listOf(f), Tail.ANY, mu, demand = true)), view)
+            val outcome = apply(view, target)
+            assertEquals(EdgeOutcome.Fact(c(x, listOf(f), Tail.ANY, mu, demand = true)), outcome)
+            assertFalse(recordLeafIdentity(view))
+        }
+    }
+
+    @Test
     fun `AP 9_1 generic reversal tail table keeps all admitted cells`() {
         val table = listOf(
             (Tail.STAR to Tail.STAR) to (Tail.STAR to Tail.STAR),
