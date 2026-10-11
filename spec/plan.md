@@ -64,7 +64,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | D04 | Complete | 37 acceptance tests; 1,217 clean common tests and consumer compile checks pass. |
 | V4 | Complete | [V4 evidence](../docs/reports/bidi-v4.md). 1,226 common and 339 JVM tests pass; all new tests are discovered; shared consumers compile. |
 | J01 | Complete | [J01 evidence](../docs/reports/bidi-j01.md). 14 new tests pass; clean common/JVM/Go gates and consumer compilation pass. |
-| J02–J03, FINAL | Pending | |
+| J02 | Complete | JVM entry, two-state output, setup/status and one-budget gates pass. |
+| J03, FINAL | Pending | |
 
 Implementation corrections: the earlier FINAL text described this file as a planning-only
 deliverable. `task.md` now requires implementation. FINAL closes that implementation.
@@ -1994,9 +1995,33 @@ the specified empty-output/EXCEPTION mapping. Add a throwing entry-factory
 test with the gather/run setup fault tests. Verify prescan joins before
 copying any state, and catch setup Errors as well as ordinary exceptions.
 
+The six output tests pass with the real empty driver. Add an actual
+nonempty copied-rule/root report test and actual JIRTaintAnalyzer policy
+construction/shared-graph control. Add a failed-join hook control that
+proves gather is not called. Scripted output/status cases remain separate
+from actual driver findings; J03 supplies the larger whole-program gate.
+The nonempty test first uses MarkSet.size, which is not its API. Read the
+owned public ids snapshot size for that literal assertion.
+
+The first 15 focused tests pass. Review finds two setup gaps in the
+proposal wiring. Charge rule selection and new-entry construction to the
+remaining shared analysis budget; do not give their elapsed time back to
+the driver. Add a positive-budget rule-selection exhaustion RED control.
+Prescan forces graph/manager factories before the entry guard. Add their
+Exception/Error/OOM controls, then guard this earlier setup as §9 requires.
+Closing an analyzer after a failed lazy factory must not force that factory
+again. Keep an explicit Lazy owner and close only an initialized engine.
+Healthy null-entry prescan/full-scan behavior stays on its existing path.
+
 **Gate.** Each state/status mapping and witness choice has an exact test. DEMAND entries remain
 in output. Setup failure and incomplete run 1 produce no entries. Both entry modes compile and
 run, and phase-3 output does not depend on full trace resolution.
+
+**Result.** All 17 focused tests pass. The clean gate passes 1,226 common,
+361 JVM and 791 application tests with no failures or errors. Nine application
+skips match the baseline. Go and JVM SAST test sources compile. All 1,078
+common, 247 JVM and 21 application new annotated tests compile to void and
+occur in fresh XML. See [J02 evidence](../docs/reports/bidi-j02.md).
 
 ### J03. Run JVM analysis acceptance checks through the new entry
 

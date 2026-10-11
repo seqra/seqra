@@ -4,6 +4,8 @@ import kotlinx.coroutines.runBlocking
 import org.opentaint.common.sast.dataflow.TaintAnalyzer
 import org.opentaint.common.sast.dataflow.TaintAnalyzerOptions
 import org.opentaint.dataflow.ap.ifds.taint.ExternalMethodTracker
+import org.opentaint.dataflow.bidi.driver.BidiEntry
+import org.opentaint.dataflow.bidi.driver.IterationPolicy
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
@@ -16,6 +18,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodGetDefault
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.ifds.PackageUnit
+import org.opentaint.dataflow.jvm.bidi.JIRBidiAnalysis
 import org.opentaint.ir.api.jvm.JIRClassOrInterface
 import org.opentaint.ir.api.jvm.JIRClasspath
 import org.opentaint.ir.api.jvm.JIRMethod
@@ -24,6 +27,7 @@ import org.opentaint.ir.api.jvm.cfg.JIRInst
 import org.opentaint.ir.api.jvm.ext.packageName
 import org.opentaint.ir.impl.features.usagesExt
 import org.opentaint.jvm.graph.JApplicationGraphImpl
+import org.opentaint.jvm.graph.JApplicationGraph
 import org.opentaint.jvm.graph.JApplicationSingleExitGraph
 import org.opentaint.jvm.sast.dataflow.DataFlowApproximationLoader.isApproximation
 import org.opentaint.util.analysis.ApplicationGraph
@@ -36,6 +40,7 @@ class JIRTaintAnalyzer(
     val jirOptions: JIRAnalysisOptions = JIRAnalysisOptions(),
     val analysisUnit: JIRUnitResolver = PackageUnitResolver(projectClasses),
     externalMethodTracker: ExternalMethodTracker? = null,
+    val bidiPolicy: IterationPolicy? = null,
 ): TaintAnalyzer<JIRMethod, JIRInst>(options, externalMethodTracker) {
     override fun analysisGraph(): ApplicationGraph<JIRMethod, JIRInst> {
         val usages = runBlocking { cp.usagesExt() }
@@ -73,6 +78,11 @@ class JIRTaintAnalyzer(
 
     override fun analysisManager() =
         JIRAnalysisManager(cp, refManager, taintConfig, externalMethodTracker, analysisParams)
+
+    override fun bidiEntry(): BidiEntry? = bidiPolicy?.let { policy ->
+        JIRBidiAnalysis(cp, ifdsAnalysisGraph as JApplicationGraph, analysisUnit, taintConfig,
+            analysisParams, policy, refManager)
+    }
 
     override fun unitResolver() = analysisUnit
 

@@ -34,6 +34,7 @@ import org.opentaint.dataflow.ap.ifds.trace.TraceResolver
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
 import org.opentaint.dataflow.ap.ifds.trace.path.TracePathGenerationResult
 import org.opentaint.dataflow.ap.ifds.trace.path.TracePathResolveParams
+import org.opentaint.dataflow.bidi.driver.BidiEntry
 import org.opentaint.dataflow.configuration.jvm.TaintSinkMeta
 import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.util.Cancellation
@@ -57,11 +58,12 @@ abstract class TaintAnalyzer<Method: CommonMethod, Statement: CommonInst>(
 
     abstract fun analysisGraph(): ApplicationGraph<Method, Statement>
 
-    private val ifdsAnalysisGraph by lazy {
+    protected val ifdsAnalysisGraph by lazy {
         analysisGraph()
     }
 
-    val ifdsEngine by lazy { createIfdsEngine() }
+    private val ifdsEngineOwner = lazy { createIfdsEngine() }
+    val ifdsEngine by ifdsEngineOwner
 
     fun analyzeWithIfds(entryPoints: List<Method>): Pair<List<VulnerabilityWithTrace>, Status> {
         return analyzeStaged(entryPoints)
@@ -101,6 +103,8 @@ abstract class TaintAnalyzer<Method: CommonMethod, Statement: CommonInst>(
 
     abstract fun analysisManager(): TaintAnalysisManager
 
+    open fun bidiEntry(): BidiEntry? = null
+
     abstract fun unitResolver(): UnitResolver<Method>
 
     private val analysisManager by lazy { analysisManager() }
@@ -121,8 +125,37 @@ abstract class TaintAnalyzer<Method: CommonMethod, Statement: CommonInst>(
         val startMethods = entryPoints.map { MethodWithContext(it, EmptyMethodContext) }
 
         logger.info { "Start prescan phase" }
-        prescan(startMethods)
+        runCatching { prescan(startMethods) }.getOrElse { failure ->
+            logger.error(failure) { "Prescan setup failed" }
+            return emptyList<VulnerabilityWithTrace>() to
+                Status(TaintAnalysisUnitRunnerManager.Status.EXCEPTION, TaintAnalysisUnitRunnerManager.Status.OK)
+        }
         logger.info { "Finish prescan phase" }
+
+        val bidi = runCatching { bidiEntry() }.getOrElse { failure ->
+            logger.error(failure) { "Bidi entry setup failed" }
+            return emptyList<VulnerabilityWithTrace>() to
+                Status(TaintAnalysisUnitRunnerManager.Status.EXCEPTION, TaintAnalysisUnitRunnerManager.Status.OK)
+        }
+        if (bidi != null) {
+            val report = runCatching {
+                ifdsEngine.requirePrescanJoined()
+                bidi.gather(analysisManager, startMethods)
+                analysisManager.releasePrescan()
+                ifdsEngine.releasePrescan()
+                bidi.run(options.ifdsTimeout - analysisStart.elapsedNow())
+            }.getOrElse { failure ->
+                logger.error(failure) { "Bidi analysis setup failed" }
+                return emptyList<VulnerabilityWithTrace>() to
+                    Status(TaintAnalysisUnitRunnerManager.Status.EXCEPTION, TaintAnalysisUnitRunnerManager.Status.OK)
+            }
+            var vulnerabilities = bidi.toVulnerabilities(report)
+            if (options.analysisCwe != null) vulnerabilities = vulnerabilities.filter {
+                val cwe = (it.vulnerability.rule.meta as TaintSinkMeta).cwe
+                cwe?.intersect(options.analysisCwe)?.isNotEmpty() ?: true
+            }
+            return vulnerabilities to Status(bidi.status(report), TaintAnalysisUnitRunnerManager.Status.OK)
+        }
 
         logger.info { "Start full scan phase" }
         val fullScanResult = fullScan(analysisStart, entryPoints, startMethods)
@@ -314,7 +347,7 @@ abstract class TaintAnalyzer<Method: CommonMethod, Statement: CommonInst>(
     }
 
     override fun close() {
-        ifdsEngine.close()
+        if (ifdsEngineOwner.isInitialized()) ifdsEngineOwner.value.close()
     }
 
     private fun printVulnSummary(
