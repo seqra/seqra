@@ -59,7 +59,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | E07 | Complete | Direct finite closure, 408 seeded executions and fixed protocol controls; 1,083 clean common tests. See [E07 evidence](../docs/reports/bidi-e07.md). |
 | V3 | Complete | One-run acceptance and protocol/store audit; 1,088 common and 339 JVM tests. See [V3 evidence](../docs/reports/bidi-v3.md). |
 | D01 | Complete | Joint support, confirmation and reports. See `docs/reports/bidi-d01.md`: 40 new tests and 1,128 common regressions pass. |
-| D02–D04, V4 | Pending | |
+| D02 | Complete | Both hand-offs, seeds and frontier counts. See `docs/reports/bidi-d02.md`: 29 new tests and 1,157 common regressions pass. |
+| D03–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
 
 Implementation corrections: the earlier FINAL text described this file as a planning-only
@@ -1681,7 +1682,7 @@ frontier scans. Use `RunResult<RunMethodAnalyzer>` for the retained summaries,
 hits and counters. Guard each leaf, member, sink, hit and frontier walk with
 cancellation checks. Own the frontier sets/maps and hand-off count map;
 retain only keys and counts. The current engine has no optional cause counters,
-so leave that field absent rather than inventing counts. Historical
+so keep that optional field null rather than inventing counts. Historical
 `crossableLeaves` does not belong to the current frontier contract.
 Derived forward-to-backward sink seeds are exactly deduplicated, as in the
 proposal, while `SeedIndex` itself retains input multiplicity. Test that
@@ -1691,6 +1692,13 @@ distinction and the implicit zero builder rejection explicitly.
 concrete marks, zero and ND branches. Reader-result DEMAND creates caller propagation only.
 END retains the later finding; CONJ cannot create a one-literal forward record. Frontier logs
 describe accepted builder contents, not attempted insertions.
+
+**Result.** All 29 new tests pass. Actual END reversal recovers a source seed
+from a confirmed trigger and retains the later demand finding. Actual CONJ
+reversal keeps each literal branch in DEMAND and excludes singleton records.
+The fresh common gate passes 1,157 tests in 122 classes. All affected consumer
+test sources compile. Independent expected patterns and accepted-count checks,
+ownership reviews and discovery evidence are in the report.
 
 ### D03. Implement the iteration loop and complete-run barrier
 
@@ -1712,6 +1720,18 @@ its elapsed time consumes the next run's remaining budget. Apply STOP_RULE, NO_D
 policy in the specified order.
 NO_DEMAND_EDGE checks accepted demand-layer edges, summaries and links. Incomplete runs add
 and refute nothing. Map failure/timeout/guard results without restarting cancelled work.
+
+The D03 preparation review requires the actual generic manager factory:
+`RunMethodHandlers` with the local and call services. Keep the public driver
+constructor from the proposal. Add internal run-invocation and barrier-wrapper
+seams for deterministic status and late-guard tests; their defaults create
+fresh real managers and memory guards. Keep each run result in the one-run
+frame only. Own unmodifiable frontier snapshots for the getter and policy
+input, and copy the FixedLimits list. Read and check the first limit once.
+Enforce §7.1's one analysis budget: a policy timeout cannot renew an expired
+budget or exceed the remaining time. Recompute remaining time after the policy
+callback and cap its selected timeout to that remaining time. Test these
+proposal guard and ownership corrections before implementation.
 
 **Gate.** Check 1/2/3 and 1/2/3/4/5 schedules, equal/nondecreasing limits, exhausted budget,
 complete/incomplete barriers and all statuses. The DLINK root EXACT fixture continues when its
