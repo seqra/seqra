@@ -10,6 +10,9 @@ internal fun leafViews(m: ApManager, f: Facts): Sequence<Pattern> {
         is TaintTree -> buildList {
             m.taintAlg.forEachLeaf(f.root, EMPTY_PATH, m.cancellation) { path, leaf -> taintPatterns(f, path, leaf) { add(it) } }
         }.asSequence()
+    }.map { pattern ->
+        m.cancellation.checkpoint()
+        pattern
     }
 }
 
@@ -33,6 +36,9 @@ internal fun nearLeafViews(m: ApManager, f: Facts, p: IntArray): Sequence<Patter
             }
             u?.let { m.taintAlg.forEachLeaf(it, p, m.cancellation) { path, leaf -> taintPatterns(f, path, leaf) { add(it) } } }
         }.asSequence()
+    }.map { pattern ->
+        m.cancellation.checkpoint()
+        pattern
     }
 }
 

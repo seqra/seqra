@@ -298,4 +298,25 @@ class MethodEdgeStoreTest {
         }
         assertEquals(setOf(key to first), observed(store.edgesAt(fixture.inst(1))))
     }
+
+    @Test
+    fun `cancellation between normal and demand REACH stops key specific and all key iterators`(): Unit = with(v) {
+        for (keySpecific in listOf(true, false)) {
+            val store = store()
+            val node = fixture.inst(1)
+            store.add(node, m.zero, Reach.NORMAL)
+            store.add(node, m.zero, Reach.DEMAND)
+            val iterator = (if (keySpecific) store.edgesAt(node, m.zero) else store.edgesAt(node)).iterator()
+            val first = iterator.next()
+            assertSame(m.zero, first.first)
+            assertSame(Reach.NORMAL, first.second)
+            fixture.cancellation.cancel()
+            try {
+                assertFailsWith<Cancellation.Cancelled>("keySpecific=$keySpecific") { iterator.next() }
+            } finally {
+                fixture.cancellation.activate()
+            }
+            assertEquals(setOf(m.zero to Reach.NORMAL, m.zero to Reach.DEMAND), store.edgesAt(node).toSet())
+        }
+    }
 }

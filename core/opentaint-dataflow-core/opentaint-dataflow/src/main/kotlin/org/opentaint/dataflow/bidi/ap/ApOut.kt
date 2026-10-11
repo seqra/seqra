@@ -32,7 +32,10 @@ internal class Results(private val m: ApManager, private val base: AccessPathBas
     }
 
     fun flush(out: ApOut) {
-        for (layer in Layer.entries) if (reach[layer.ordinal]) out.result(Reach.of(layer))
+        for (layer in Layer.entries) if (reach[layer.ordinal]) {
+            m.cancellation.checkpoint()
+            out.result(Reach.of(layer))
+        }
         for ((key, root) in flow) {
             m.cancellation.checkpoint()
             out.result(m.flowTree(base, key.layer, key.exclusion, key.mx, root))

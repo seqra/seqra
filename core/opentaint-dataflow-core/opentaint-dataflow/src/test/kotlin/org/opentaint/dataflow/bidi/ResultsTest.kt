@@ -6,6 +6,7 @@ import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.util.Cancellation
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -71,5 +72,97 @@ class ResultsTest {
         assertEquals(listOf<Facts>(Reach.NORMAL, Reach.NORMAL), out.results)
         assertEquals(listOf(t, t), out.markRequests)
         assertEquals(listOf(position, position), out.positionRequests)
+    }
+
+    @Test
+    fun `equal-content normal flow results retain separate field and mark exclusions without T2 in both orders`(): Unit {
+        val u = m.marks.mark("U")
+        val keys = listOf(
+            e to MarkSet.EMPTY,
+            ExclusionSet.of(g) to MarkSet.EMPTY,
+            e to MarkSet(intArrayOf(t.id)),
+            e to MarkSet(intArrayOf(u.id)),
+        )
+        val at = FlowAlgebra.LEAF_NODE
+        val below = FlowAlgebra.node(FlowLeaf.NONE, intArrayOf(g), arrayOf(at))
+        val union = FlowAlgebra.node(FlowLeaf.LEAF, intArrayOf(g), arrayOf(at))
+        for (order in listOf(keys, keys.reversed())) {
+            val results = Results(m, base)
+            for ((exclusion, marks) in order) results.flow(Layer.NORMAL, exclusion, marks, at)
+            val first = CollectingOut()
+            results.flush(first)
+            assertEquals(keys.map { (exclusion, marks) -> m.flowTree(base, Layer.NORMAL, exclusion, marks, at) }.toSet(),
+                first.results.toSet())
+            assertEquals(keys.size, first.results.size)
+
+            for ((exclusion, marks) in order) results.flow(Layer.NORMAL, exclusion, marks, below)
+            for ((exclusion, marks) in order.reversed()) {
+                results.flow(Layer.NORMAL, exclusion, marks, at)
+                results.flow(Layer.NORMAL, exclusion, marks, below)
+            }
+            val merged = CollectingOut()
+            results.flush(merged)
+            assertEquals(keys.map { (exclusion, marks) -> m.flowTree(base, Layer.NORMAL, exclusion, marks, union) }.toSet(),
+                merged.results.toSet())
+            assertEquals(keys.size, merged.results.size)
+            assertTrue(merged.markRequests.isEmpty() && merged.positionRequests.isEmpty())
+        }
+    }
+
+    @Test
+    fun `equal-content normal must results retain every exclusion and union same-key leaves without T2 in both orders`(): Unit {
+        val exclusions = listOf(ExclusionSet.Empty, e, ExclusionSet.of(g))
+        val payload = m.taintLeaves(MarkSet.EMPTY, m.markSetOf(t))
+        val at = m.taintAlg.leafNode(payload)
+        val below = m.taintAlg.node(TaintLeaves.EMPTY, intArrayOf(g), arrayOf(at))
+        val union = m.taintAlg.node(payload, intArrayOf(g), arrayOf(at))
+        for (order in listOf(exclusions, exclusions.reversed())) {
+            val results = Results(m, base)
+            for (exclusion in order) results.taint(Layer.NORMAL, at, exclusion)
+            val first = CollectingOut()
+            results.flush(first)
+            assertEquals(exclusions.map { m.taintTree(base, Layer.NORMAL, at, it) }.toSet(), first.results.toSet())
+            assertEquals(exclusions.size, first.results.size)
+
+            for (exclusion in order) results.taint(Layer.NORMAL, below, exclusion)
+            for (exclusion in order.reversed()) {
+                results.taint(Layer.NORMAL, at, exclusion)
+                results.taint(Layer.NORMAL, below, exclusion)
+            }
+            val merged = CollectingOut()
+            results.flush(merged)
+            assertEquals(exclusions.map { m.taintTree(base, Layer.NORMAL, union, it) }.toSet(), merged.results.toSet())
+            assertEquals(exclusions.size, merged.results.size)
+            assertTrue(merged.markRequests.isEmpty() && merged.positionRequests.isEmpty())
+        }
+    }
+
+    @Test
+    fun `reach result flushing observes cancellation before each callback including the first`(): Unit {
+        val results = Results(m, AccessPathBase.Zero)
+        results.reach(Layer.NORMAL)
+        results.reach(Layer.DEMAND)
+        val observed = ArrayList<Facts>()
+        val out = object : ApOut {
+            override fun result(f: Facts) {
+                observed += f
+                m.cancellation.cancel()
+            }
+            override fun markRequest(mark: TaintMark) = error("No mark request is expected")
+            override fun positionRequest(position: PathNode) = error("No position request is expected")
+        }
+        try {
+            assertFailsWith<Cancellation.Cancelled> { results.flush(out) }
+        } finally { m.cancellation.activate() }
+        assertEquals(listOf<Facts>(Reach.NORMAL), observed)
+
+        val beforeFirst = Results(m, AccessPathBase.Zero)
+        beforeFirst.reach(Layer.NORMAL)
+        val untouched = CollectingOut()
+        m.cancellation.cancel()
+        try {
+            assertFailsWith<Cancellation.Cancelled> { beforeFirst.flush(untouched) }
+        } finally { m.cancellation.activate() }
+        assertTrue(untouched.results.isEmpty())
     }
 }

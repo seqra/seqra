@@ -42,7 +42,7 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | A07 | Complete | [A07 evidence](../docs/reports/bidi-a07.md). All 528 common tests pass; none skipped. Emission, reduction, structural selection, request actions, representation guards, deep paths and cancellation pass. JVM/Go test sources, SAST and application compile. |
 | A08 | Complete | [A08 evidence](../docs/reports/bidi-a08.md). All 581 common tests pass; none skipped. Index/full-scan equality, exact links, deltas, raw/publication separation, immutable snapshots, positive limits, deep paths and cancellation pass. All 433 new annotated tests are discovered. JVM/Go test sources, SAST and application compile. |
 | A09 | Complete | [A09 evidence](../docs/reports/bidi-a09.md). All 635 common tests pass; none skipped. Standing products, native records, concurrent lossless witnesses, immutable stored shapes, deep paths and cancellation pass. All 487 new annotated tests are discovered. JVM/Go test sources, SAST and application compile. |
-| V1 | Pending | |
+| V1 | Complete | [Phase 1 audit and gate](../docs/reports/bidi-v1.md). All public AP/store operations have contract coverage. Clean common 647, JVM 119 and Go 1,313 tests pass; none skipped. All 499 new common and five new JVM annotated tests are discovered. SAST and application compile. |
 | I01–I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
@@ -264,6 +264,22 @@ unmodifiable tuple lists for later conclusion delivery.
 The added reverse-view test must compare the `EdgeOutcome.Fact` value;
 `EdgeOutcome` has no common result property. Correct this test typing before
 the behavioral RED run.
+The V1 store audit found a missing checkpoint between two REACH layers
+returned by `MethodEdgeStore.edgesAt`. Test cancellation after NORMAL is
+consumed and before DEMAND is returned. Check each REACH yield, as required
+by the A08 per-value iteration contract.
+The V1 tree review found that `leaves` and `leavesNear` return buffered
+sequences with no checkpoint between emitted patterns. Add cancellation
+regressions after sequence creation and after its first value; check each
+emitted leaf. Complete the direct cancellation checks for satisfaction,
+summary and record application, combinations and subtraction before V1.
+Complete V1 collector coverage with equal-content values that have different
+normal FLOW exclusions, FLOW mark exclusions or normal must exclusions.
+`Results` keeps each complete group key separate; it must not apply store
+T2 intersection to one operation's output.
+The same V1 emission audit found no checkpoint between REACH callbacks in
+`Results.flush`. Test cancellation after the first callback and before the
+second. Apply the existing per-result check to REACH as well as trie facts.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions

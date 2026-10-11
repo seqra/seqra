@@ -48,7 +48,10 @@ class MethodEdgeStore(private val m: ApManager, private val method: MethodKey, p
         for (key in keys) {
             m.cancellation.checkpoint()
             val bits = reach[key]
-            for (layer in Layer.entries) if (bits != null && bits[layer.ordinal][index]) yield(key to Reach.of(layer))
+            for (layer in Layer.entries) if (bits != null && bits[layer.ordinal][index]) {
+                m.cancellation.checkpoint()
+                yield(key to Reach.of(layer))
+            }
             val group = groups[key]?.get(index) ?: continue
             for (value in group.all()) {
                 m.cancellation.checkpoint()
