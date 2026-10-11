@@ -49,7 +49,7 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | I04 | Complete | Whole-rule validation, rule forms, lowered field actions and temporary lifetime guards. Clean common/JVM and shared-consumer compile gate passed; see `docs/reports/bidi-i04.md`. |
 | I05 | Complete | [Call-plan and adapter gate](../docs/reports/bidi-i05.md). Clean common 755 and JVM 286 tests pass; all 607 common and 172 JVM new tests are discovered. Go test sources, SAST and application compile. |
 | I06 | Complete | Method boundaries, complete JVM facade/cache, wired graphs and Spring forms. Clean common/JVM and application regression gate passed; see `docs/reports/bidi-i06.md`. |
-| V2 | Pending | |
+| V2 | Complete | Actual static exit-source requests, matched source/pass effects and contextual construction scan pass. See `docs/reports/bidi-v2.md`. |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
@@ -1008,6 +1008,10 @@ the may pass. Extend the all-form construction scan with touched-read,
 mark, binding and identity-exclusion clauses, with GEN and binding
 contexts kept distinct. These tests precede any resulting refinement.
 
+The first focused compile cannot smart-cast the public mark property
+across module boundaries. Bind the mark to a local value before the
+abstract-premise exclusion assertion. Keep the assertion unchanged.
+
 Run common-form and JVM-form tests and type/effect equivalence tests.
 Complete all JVM construction cases in the Interpreter inventory; reserve whole-analysis cases
 for J03. Compare named field actions with F74, their primitive cleaner with F75, and the pending
@@ -1016,6 +1020,50 @@ return path with late demotion. Every cached form used by a standing join has st
 ### E01. Add the run shell
 
 **Requires:** V1–V2. **Proposal:** `analyzer-impl.md` §3, §6.
+
+**Dependency staging and corrections.** The proposal's shell names the
+method analyzer, summary services and seeds before their implementation
+steps. Advance the complete pure contracts for `EdgeDelta`, `Cut`,
+`Publication`, `Subscription`, `ProtocolSteps`, `SummaryApplier` and
+`Seed`/`SeedIndex` into E01. Keep hand-off construction in D02 and the
+summary algorithms in E04. Add `MethodContextSource`, `RunMethodContext`
+and the real `JIRMethodContextCache` adapter here, as recorded in I06.
+
+Use a required typed handler factory while the later handlers are absent.
+`RunActor` supplies the method key, step/zero-work state, work operation,
+freeze operation and result counters. `RunnerHandler<A>` creates actors
+and handles non-Work events. `RunnerHandlerFactory<A>` receives the
+runner port. `UnitRunner<A>` owns the actual analyzer map, channel,
+queue and queued-actor set. Its loop runs Work directly on its owned
+actor. `RunManager<A>` and `RunResult<A>` retain that concrete analyzer
+type. E02 supplies `RunMethodAnalyzer`; E04 supplies the summary services
+and production event handler. There is no default handler, no empty
+summary service and no cast to an unimplemented analyzer. The E01 gate
+uses finite test actors and complete empty/unknown-unit runs. It does
+not claim program-analysis closure before E02–E05.
+
+Require run index and field limit to be positive. Copy roots and seed
+containers. Own sink requirement paths and delivery publication lists;
+retain forward source edge identities and Facts identities. The record
+input is a read-only live view. The driver must not change the underlying
+record store during a run (A4); do not copy all records per run.
+Use an ordinary `Seed.Sink` class with an owned requirement and explicit
+structural equality/hash. A data-class input property cannot own a mutable
+path in place. Preserve source edge objects and seed-list multiplicity.
+
+The proposal increments the count but ignores a rejected `trySend`.
+Reserve before visibility, then roll back a rejected send without adding
+to the handled count. Work requeue keeps its reservation and gets a new
+fixed priority snapshot. One queued-actor set prevents duplicate Work.
+Unknown units are discarded before any runner or count is created.
+Hold the start reservation until the full root batch is sent.
+
+Select the first terminal status before cancellation. Activate the
+analysis cancellation only in manager construction. Close admission
+and join all created runners on every exit, including caller-thread
+throws. Freeze only after a successful join and COMPLETE status. A
+failed join overrides the status with FAILED and exposes no analyzers.
+Keep counters, queues, actors and run scopes fresh for each run.
 
 **Tests first.** Write `InFlightTest`, `EventQueueTest`, context-cache and run-lifetime
 tests for the Q1–Q4 ownership/count transitions before adding the asynchronous run shell.

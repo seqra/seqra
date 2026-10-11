@@ -402,6 +402,92 @@ class JIRCallTransferTest : BasicTestUtils() {
         }
     }
 
+    @Test fun `matched conditional AnyField source and mark pass give normal must and demand may results`(): Unit {
+        val s = v.call("staticExternal")
+        val sourceRules = CallRules().apply {
+            sources = listOf(source(s, listOf(AssignMark(RuleMark("T"), any(Result))),
+                contains(Argument(0), "T")))
+        }
+        val passRules = CallRules().apply {
+            passes = listOf(pass(s, listOf(CopyMark(RuleMark("T"), Argument(0), any(Result)))))
+        }
+        val sourcePlan = v.builder(s, sourceRules).build()
+        val passPlan = v.builder(s, passRules).build()
+        val sourceEdge = sourcePlan.stages.filterIsInstance<CallStage.Edges>()
+            .single { it.kind == StageKind.SOURCES }.summary.edges.single { it.edge.to.base == ret }
+        val passEdge = passPlan.stages.filterIsInstance<CallStage.Edges>()
+            .filter { it.kind == StageKind.UNRESOLVED }.flatMap { it.summary.edges }
+            .single { it.edge.to.base == ret }
+        assertEquals(PathEdge(PathFact(arg0, emptyList(), Tail.EXACT, mt),
+            PathFact(ret, emptyList(), Tail.ANY_TAINT, mt), ExclusionSet.Empty), sourceEdge.edge)
+        assertEquals(PathEdge(PathFact(arg0, emptyList(), Tail.EXACT, mt),
+            PathFact(ret, emptyList(), Tail.ANY, mt), ExclusionSet.Empty), passEdge.edge)
+        assertSame(sourceEdge.edge, sourceEdge.forward)
+        assertSame(passEdge.edge, passEdge.forward)
+        assertFalse(sourceEdge.may)
+        assertTrue(passEdge.may)
+        assertFalse(sourceEdge.conjunctive)
+        assertFalse(passEdge.conjunctive)
+        assertFalse(sourceEdge.isSource)
+        assertFalse(passEdge.isSource)
+
+        val input = fact(inputBase(s))
+        for (limit in listOf(1, 2, 3)) {
+            val sourceResult = check(sourcePlan, s, listOf(item(input)),
+                setOf(input, must(resultBase(s))), fieldLimit = limit, run1 = true)
+            assertEquals(setOf(copyTo(input, arg0), must(ret)), sourceResult.at(REWRITTEN))
+            val passResult = check(passPlan, s, listOf(item(input)),
+                setOf(input, fact(resultBase(s), tail = Tail.ANY)), fieldLimit = limit, run1 = true)
+            assertEquals(setOf(copyTo(input, arg0), fact(ret, tail = Tail.ANY)), passResult.at(REWRITTEN))
+        }
+    }
+
+    @Test fun `matched reversed AnyField source and mark pass keep exact normal and forced demand results`(): Unit {
+        val s = v.call("staticExternal")
+        val sourceRules = CallRules().apply {
+            sources = listOf(source(s, listOf(AssignMark(RuleMark("T"), any(Result))),
+                contains(Argument(0), "T")))
+        }
+        val passRules = CallRules().apply {
+            passes = listOf(pass(s, listOf(CopyMark(RuleMark("T"), Argument(0), any(Result)))))
+        }
+        val forwardSource = v.builder(s, sourceRules).build()
+        val forwardPass = v.builder(s, passRules).build()
+        val sourcePlan = forwardSource.reversed()
+        val passPlan = forwardPass.reversed()
+        val sourceEdge = sourcePlan.stages.filterIsInstance<CallStage.Edges>()
+            .single { it.kind == StageKind.SOURCES }.summary.edges.single { it.edge.from.base == ret }
+        val passEdge = passPlan.stages.filterIsInstance<CallStage.Edges>()
+            .filter { it.kind == StageKind.UNRESOLVED }.flatMap { it.summary.edges }
+            .single { it.edge.from.base == ret }
+        val reversedEdge = PathEdge(PathFact(ret, emptyList(), Tail.ANY, mt),
+            PathFact(arg0, emptyList(), Tail.EXACT, mt), ExclusionSet.Empty)
+        assertEquals(reversedEdge, sourceEdge.edge)
+        assertEquals(reversedEdge, passEdge.edge)
+        assertSame(forwardSource.stages.filterIsInstance<CallStage.Edges>()
+            .single { it.kind == StageKind.SOURCES }.summary.edges.single { it.edge.to.base == ret }.edge,
+            sourceEdge.forward)
+        assertSame(forwardPass.stages.filterIsInstance<CallStage.Edges>()
+            .filter { it.kind == StageKind.UNRESOLVED }.flatMap { it.summary.edges }
+            .single { it.edge.to.base == ret }.edge, passEdge.forward)
+        assertEquals(Tail.ANY_TAINT, sourceEdge.forward.to.tail)
+        assertEquals(Tail.ANY, passEdge.forward.to.tail)
+        assertFalse(sourceEdge.may)
+        assertTrue(passEdge.may)
+        assertFalse(sourceEdge.conjunctive)
+        assertFalse(passEdge.conjunctive)
+
+        val input = fact(resultBase(s))
+        for (limit in listOf(1, 2, 3)) {
+            val sourceResult = check(sourcePlan, s, listOf(item(input)),
+                setOf(fact(inputBase(s))), fieldLimit = limit, direction = Direction.BACKWARD)
+            assertEquals(setOf(fact(arg0)), sourceResult.at(BOUND))
+            val passResult = check(passPlan, s, listOf(item(input)),
+                setOf(fact(inputBase(s), demand = true)), fieldLimit = limit, direction = Direction.BACKWARD)
+            assertEquals(setOf(fact(arg0, demand = true)), passResult.at(ADDED))
+        }
+    }
+
     @Test fun `reverse may pass returns demand requirements through bindings without requests`(): Unit {
         val s = v.call("staticExternal")
         val rules = CallRules().apply { passes = listOf(pass(s, listOf(CopyAllMarks(Argument(0), any(Result))))) }

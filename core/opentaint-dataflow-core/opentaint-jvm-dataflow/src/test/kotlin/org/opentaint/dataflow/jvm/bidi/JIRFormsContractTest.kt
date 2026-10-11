@@ -36,6 +36,7 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
     override val transformStringConcat = true
     private val stat = AccessPathBase.ClassStatic
     private val zero = AccessPathBase.Zero
+    private enum class Role { STATEMENT, STAGE, BINDING, GEN }
 
     private fun accessor(id: Int) {
         val a = manager.accessors.accessor(id)
@@ -52,7 +53,21 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
             ids.forEach(::accessor)
         }
     }
-    private fun summary(s: StatementSummary, backward: Boolean) {
+    private fun summary(s: StatementSummary, backward: Boolean, role: Role = Role.STATEMENT,
+                        sourceTargets: Boolean = false) {
+        val readsTouched = role != Role.GEN
+        assertTrue(zero !in s.typeFilters && zero !in s.resultFilters)
+        assertTrue(s.typeFilters.keys.all { it in s.touched })
+        assertTrue(s.resultFilters.keys.all { it in s.touched })
+        if (role == Role.GEN) {
+            assertTrue(s.typeFilters.isEmpty() && s.resultFilters.isEmpty())
+            assertTrue(s.conjunctions.isEmpty())
+        }
+        if (role == Role.BINDING) assertTrue(s.conjunctions.isEmpty())
+        if (!backward && zero in s.touched &&
+            (role == Role.STATEMENT || (role == Role.STAGE && sourceTargets))) {
+            assertTrue(s.edges.any { it.edge == ZERO_KEEP })
+        }
         if (backward) {
             assertTrue(s.typeFilters.isEmpty() && s.resultFilters.isEmpty())
             assertTrue(s.conjunctions.isEmpty())
@@ -61,11 +76,42 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
             val e = me.edge
             path(e.from); path(e.to)
             exclusion(e.exclusion); exclusion(e.fromExclusion); exclusion(e.toExclusion)
+            if (readsTouched) assertTrue(e.from.base in s.touched, "$role reads ${e.from.base}")
+            val fromMark = e.from.mark
+            if (fromMark is MarkSlot.Star) assertTrue(fromMark.excluded.isEmpty)
+            if (e.to.mark is MarkSlot.Concrete) assertIs<MarkSlot.Concrete>(e.from.mark)
+            if (e.from.tail == Tail.EXACT) {
+                assertIs<MarkSlot.Concrete>(e.from.mark)
+                assertTrue(e.to.tail != Tail.STAR)
+            }
+            assertEquals(ExclusionSet.Empty, e.fromExclusion)
+            assertEquals(ExclusionSet.Empty, e.toExclusion)
+            if (e.exclusion != ExclusionSet.Empty) {
+                assertEquals(Tail.STAR, e.from.tail)
+                assertEquals(Tail.STAR, e.to.tail)
+                assertEquals(e.from, e.to, "Only a same-path keep carries an exclusion")
+            }
+            if (role == Role.BINDING) {
+                assertEquals(Tail.STAR, e.from.tail)
+                assertEquals(Tail.STAR, e.to.tail)
+                assertEquals(MarkSlot.STAR, e.from.mark)
+                assertEquals(MarkSlot.STAR, e.to.mark)
+                assertTrue(e.from.path.isEmpty() && e.to.path.isEmpty())
+                assertEquals(ExclusionSet.Empty, e.exclusion)
+            }
             assertTrue(e.from.tail != Tail.ANY_TAINT)
             if (backward) assertTrue(e.to.tail != Tail.ANY_TAINT)
             else {
                 assertSame(e, me.forward)
+                if (e.to.base == zero) {
+                    val zeroBinding = role == Role.BINDING && e == keepEdge(zero)
+                    val zeroKeep = e == ZERO_KEEP &&
+                        (role == Role.STATEMENT || (role == Role.STAGE && sourceTargets))
+                    assertTrue(zeroBinding || zeroKeep, "No forward zero generation: $e")
+                }
                 if (e.to.tail == Tail.ANY_TAINT) {
+                    assertTrue(sourceTargets || role == Role.GEN ||
+                        (role == Role.STATEMENT && me.isSource), "Must target outside source/end facts: $e")
                     assertIs<MarkSlot.Concrete>(e.from.mark)
                     assertIs<MarkSlot.Concrete>(e.to.mark)
                     assertEquals(ExclusionSet.Empty, e.exclusion)
@@ -78,16 +124,21 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
             assertFalse(backward)
             path(c.target)
             assertIs<MarkSlot.Concrete>(c.target.mark)
+            assertTrue(c.target.base != zero)
+            assertTrue(c.target.tail == Tail.EXACT || c.target.tail == Tail.ANY_TAINT)
+            if (c.target.tail == Tail.ANY_TAINT) assertTrue(sourceTargets)
             c.literals.forEach {
                 path(it.fact); exclusion(it.exclusion)
+                if (readsTouched) assertTrue(it.fact.base in s.touched)
                 assertIs<MarkSlot.Concrete>(it.fact.mark)
                 assertTrue(it.fact.tail == Tail.EXACT || it.fact.tail == Tail.ANY)
                 assertEquals(ExclusionSet.Empty, it.exclusion)
             }
         }
     }
-    private fun reversedSummary(f: StatementSummary, b: StatementSummary) {
-        summary(f, false); summary(b, true)
+    private fun reversedSummary(f: StatementSummary, b: StatementSummary, role: Role = Role.STATEMENT,
+                                sourceTargets: Boolean = false) {
+        summary(f, false, role, sourceTargets); summary(b, true, role, sourceTargets)
         for (me in f.edges) assertTrue(b.edges.any { it.forward === me.forward && it.edge == revEdge(me.edge) })
         for (c in f.conjunctions) for (lit in c.literals) {
             val edge = PathEdge(lit.fact, c.target, ExclusionSet.Empty)
@@ -103,6 +154,7 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
             assertTrue(p.fact.tail == Tail.EXACT || p.fact.tail == Tail.ANY)
         }
         for (e in s.endFacts) {
+            summary(StatementSummary(emptySet(), listOf(e), emptyList(), emptyMap()), false, Role.GEN)
             assertEquals(ZERO_FACT, e.edge.from)
             assertEquals(ExclusionSet.Empty, e.edge.exclusion)
             assertEquals(ExclusionSet.Empty, e.edge.toExclusion)
@@ -111,8 +163,8 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
         }
     }
     private fun rule(f: RuleStatement, b: RuleStatement) {
-        reversedSummary(f.summary, b.summary)
-        summary(f.endFacts, false); summary(b.endFacts, true)
+        reversedSummary(f.summary, b.summary, sourceTargets = true)
+        summary(f.endFacts, false, Role.GEN); summary(b.endFacts, true, Role.GEN)
         for (e in f.endFacts.edges) {
             assertEquals(ZERO_FACT, e.edge.from)
             assertIs<MarkSlot.Concrete>(e.edge.to.mark)
@@ -127,6 +179,7 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
     private fun action(f: CleanStep, b: CleanStep, i: JIRInterpreter) {
         when (f) {
             is CleanStep.Clean -> {
+                assertTrue(f.cleaner.base != zero)
                 assertSame(f.cleaner, assertIs<CleanStep.Clean>(b).cleaner)
                 f.cleaner.path?.toList()?.forEach(::accessor)
             }
@@ -135,6 +188,7 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
                 val reversed = assertIs<CleanStep.Field>(b)
                 assertIs<AccessPathBase.CleanerTemporary>(f.temporary)
                 assertSame(f.temporary, f.cleaner.base)
+                assertTrue(f.cleaner.base != zero)
                 assertNull(f.cleaner.path)
                 assertSame(f.temporary, reversed.temporary)
                 assertSame(f.cleaner, reversed.cleaner)
@@ -168,7 +222,12 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
                 is CallStage.Edges -> {
                     val r = assertIs<CallStage.Edges>(back)
                     assertNull(r.guard)
-                    reversedSummary(stage.summary, r.summary)
+                    val role = when (stage.kind) {
+                        StageKind.BIND_IN, StageKind.BIND_BACK -> Role.BINDING
+                        StageKind.END_FACTS -> Role.GEN
+                        else -> Role.STAGE
+                    }
+                    reversedSummary(stage.summary, r.summary, role, sourceTargets = stage.kind == StageKind.SOURCES)
                     if (stage.kind == StageKind.END_FACTS) {
                         val owning = assertIs<Guard.SinkTriggered>(stage.guard).sink
                         assertTrue(f.sinks.any { it === owning })
@@ -190,6 +249,16 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
                     stage.callees.forEachIndexed { k, callee -> assertSame(callee, r.callees[k]) }
                 }
             }
+        }
+        for (extra in b.stages.drop(f.stages.size)) {
+            val stage = assertIs<CallStage.Edges>(extra)
+            assertEquals(StageKind.PASS_OVER, stage.kind)
+            assertEquals(CallPoint.AFTER, stage.from)
+            assertEquals(CallPoint.BEFORE, stage.to)
+            assertNull(stage.guard)
+            assertNull(stage.trigger)
+            summary(stage.summary, true, Role.STAGE)
+            assertTrue(stage.summary.edges.all { it.isIdentity })
         }
         val finals = f.stages.filterIsInstance<CallStage.Edges>().filter { it.to == CallPoint.AFTER }
             .flatMap { it.summary.targets }.toSet() - f.touched

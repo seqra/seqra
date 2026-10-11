@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.jvm.bidi
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.ClassStaticAccessor
 import org.opentaint.dataflow.ap.ifds.CombinedMethodContext
 import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
@@ -10,6 +11,7 @@ import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.interp.*
+import org.opentaint.dataflow.bidi.store.RequestKind
 import org.opentaint.dataflow.configuration.CommonCondition
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.mkFalse
@@ -236,6 +238,104 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
             assertTrue(s.conjunctions.all { it.target == target && it.literals.size == 2 })
             assertNotSame(s.conjunctions[0], s.conjunctions[1])
             assertTrue(s.typeFilters.isEmpty() && s.resultFilters.isEmpty())
+        }
+    }
+
+    @Test
+    fun `conditional static exit source requests its position on the original run one identity`(): Unit {
+        val m = method("copy")
+        val cls = manager.accessors.index(ClassStaticAccessor(owner))
+        val staticField = manager.accessors.index(FieldAccessor(owner, "sField", "java.lang.Object"))
+        val position = PositionWithAccess(ClassStatic(owner),
+            PositionAccessor.FieldAccessor(owner, "sField", "java.lang.Object"))
+        val provider = BoundaryRules().apply {
+            exitSources = listOf(exitSource(m, listOf(AssignMark(RuleMark("Out"), Result)), contains(position)))
+        }
+        val i = interp(provider)
+        val entry = start(i, m)
+        val requested = RequestKind.Position(assertNotNull(manager.path(listOf(cls, staticField))))
+
+        fun check(summary: StatementSummary, node: CommonInst, mode: ApMode,
+                  original: Pattern, input: Conclusion, expected: Set<Conclusion>,
+                  expectedRequests: List<RequestKind> = emptyList()) {
+            val premise = setOf(original)
+            val rawRequests = arrayListOf<Pair<Set<Pattern>, RequestKind>>()
+            val raw = linkedSetOf<Conclusion>()
+            val reference = FormsReference(ops, ReferenceAlgebra(mode,
+                request = { pr, request -> rawRequests += pr to request }, manager = manager))
+            val at = Place(node, statementEdge = true, sources = true)
+            reference.applier.statement(summary, premise, input, at, sink = { pr, result ->
+                assertSame(premise, pr)
+                raw += limit(result, mode.fieldLimit)
+            })
+            assertEquals(expected, raw, "raw mode=${mode.direction}/${mode.run1}, input=$input")
+            assertEquals(expectedRequests, rawRequests.map { it.second }, "raw requests")
+            rawRequests.forEach { assertSame(premise, it.first) }
+
+            val treePremise = manager.initial(original)
+            val treeRequests = arrayListOf<Pair<PremiseKey, RequestKind>>()
+            val output = arrayListOf<Facts>()
+            val applier = FormApplier(object : FactAlgebra<PremiseKey, Facts> {
+                override fun base(c: Facts) = c.base
+                override fun filter(c: Facts, filter: TypeFilter) = ops.filter(c, filter)
+                override fun applyEdge(me: MicroEdge, c: Facts, premise: PremiseKey, statementEdge: Boolean,
+                                       out: (PremiseKey, Facts) -> Unit) {
+                    ops.applyEdge(c, premise, me.edge, statementEdge, mode, object : ApOut {
+                        override fun result(f: Facts) = out(premise, f)
+                        override fun markRequest(mark: org.opentaint.dataflow.bidi.ap.TaintMark) {
+                            treeRequests += premise to RequestKind.Mark(mark)
+                        }
+                        override fun positionRequest(position: PathNode) {
+                            treeRequests += premise to RequestKind.Position(position)
+                        }
+                    }, me.may)
+                }
+                override fun conjunction(cj: ConjunctiveEdge, premise: PremiseKey, c: Facts, node: CommonInst,
+                                         out: (PremiseKey, Facts) -> Unit) = error("This exit source has one literal")
+                override fun allowsSource(node: CommonInst, me: MicroEdge) = true
+                override fun sourceHit(node: CommonInst, me: MicroEdge) = Unit
+            })
+            val facts = manager.factsOf(input.fact, input.exclusion,
+                if (input.demand) Layer.DEMAND else Layer.NORMAL)
+            applier.statement(summary, treePremise, facts, at, sink = { pr, result ->
+                assertSame(treePremise, pr)
+                ops.limit(result, mode.fieldLimit, object : ApOut {
+                    override fun result(f: Facts) { output += f }
+                    override fun markRequest(mark: org.opentaint.dataflow.bidi.ap.TaintMark) = error("A cut cannot request a mark")
+                    override fun positionRequest(position: PathNode) = error("A cut cannot request a position")
+                })
+            })
+            assertEquals(expected, output.flatMap(reference::conclusions).toSet(),
+                "tree mode=${mode.direction}/${mode.run1}, input=$input")
+            assertEquals(expectedRequests, treeRequests.map { it.second }, "tree requests")
+            treeRequests.forEach { assertSame(treePremise, it.first) }
+        }
+
+        val run1 = ApMode(run1 = true, Direction.FORWARD, fieldLimit = 1)
+        val restricted = ApMode(run1 = false, Direction.FORWARD, fieldLimit = 1)
+        val backward = ApMode(run1 = false, Direction.BACKWARD, fieldLimit = 1)
+        for ((node, resultBase) in listOf(normalExit(m) to ret, exceptionalExit(m) to exc)) {
+            val forward = end(i, m, node, entry).rules.summary
+            val from = fact(STATIC, listOf(cls, staticField))
+            val target = fact(resultBase, mark = outMark)
+            assertEquals(setOf(AccessPathBase.Zero, STATIC), forward.touched)
+            assertEquals(listOf(ZERO_KEEP, keepEdge(STATIC), edge(from, target)), forward.edges.map { it.edge })
+            assertTrue(forward.conjunctions.isEmpty())
+            val reversed = forward.reversed()
+            for (path in listOf(emptyList(), listOf(cls))) {
+                val original = Pattern(PathFact(STATIC, path, Tail.STAR, MarkSlot.STAR), empty)
+                val input = conclusion(original.fact, exclusion = ExclusionSet.of(g))
+                check(forward, node, run1, original, input, setOf(input), listOf(requested))
+                check(forward, node, restricted, original, input, setOf(input))
+                check(reversed, node, backward, original, input, setOf(input))
+
+                val excluded = if (path.isEmpty()) cls else staticField
+                val blocked = conclusion(original.fact, exclusion = ExclusionSet.of(excluded))
+                check(forward, node, run1, original, blocked, setOf(blocked))
+            }
+            val reached = conclusion(target)
+            check(reversed, node, backward, Pattern(target, empty), reached,
+                setOf(reached, conclusion(from)))
         }
     }
 
