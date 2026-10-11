@@ -3710,7 +3710,7 @@ opentaint-dataflow  (language-neutral)
     Interpreter.kt        Interpreter, ExitNode, UnresolvedCallObserver          (analyzer-core.md §4.9)
     MicroEdges.kt         MicroEdge, keepEdge, strongKeep, starEdge, ZERO_FACT, ZERO_KEEP, ZERO_PATTERN
     StatementSummary.kt   StatementSummary + reversed()
-    Rules.kt              SinkRule, RuleStatement + reversed(), ExitRules + reversed(), CleanStep
+    Rules.kt              SinkRule, RuleStatement + reversed(), ExitRules + reversed(), CleanStep, CallCleaners
     CallPlan.kt           CallPoint, StageKind, Guard, CallStage + reversed(), CallPlan + reversed()
     MicroEdgeBuilder.kt   MicroEdgeBuilder (ADAPT of StatementSummaryBuilder)
     Forms.kt              FormsCache, MethodForms, DirectedForms        (analyzer-core.md §4.8, §4.9 direction table)
@@ -3752,7 +3752,7 @@ Copy algorithms into the new builders when fact-local evaluation differs from th
 | `BWD/JIRBackwardExitWiringGraph`, `DF/graph/BackwardGraphs` | Port exit wiring once; reuse graph reversal. |
 | `JVM/analysis/JIRAnalysisManager`, `JIRMethodAnalysisContext` | Split persistent method data, context-dependent form caches and frozen prescan lambdas. |
 | `DF/ap/ifds/taint/ExternalMethodTracker` | Call through `UnresolvedCallObserver`; it does not control propagation. |
-| Spring dispatcher/rule provider in module `core` | Save/restore registry fields and build the fact-free whole-static cleanup rule (§31.3). |
+| Spring dispatcher/rule provider in module `core` | Save/restore registry fields and attach a direct whole-static cleaner to the generated cleanup method (§31.3). |
 
 Keep form objects strongly cached: run joins use their stable identity. Keep trie node caches soft (§4.5).
 The alias analysis and configured policy gaps remain those of `interpreter.md` §0.1.
@@ -4076,6 +4076,12 @@ class ExitRules(val rules: RuleStatement, val globalStateDrop: Boolean, val entr
     private val entryMarkSet = MarkSet(entryMarks.map { it.id }.toIntArray().sortedDistinct())    // canonical (Part I §3.2)
 
     companion object { val EMPTY = ExitRules(RuleStatement.EMPTY, false, emptySet()) }
+}
+
+/** Immutable callee-coordinate cleaners supplied directly by a generated method (§31.3).
+ *  The call builder lowers them into the cached Actions stage; configuration rule positions are unchanged. */
+interface CallCleaners {
+    val callCleaners: List<Cleaner>
 }
 
 /** analyzer-core.md §4.9. `Kill.keepEdges` is STATEMENT mode with `touched = {S}`. F74: a field action keeps its
@@ -4851,7 +4857,8 @@ and write operand filter use the final value type, including its primitive mark 
 
 Implements `interpreter.md` §1.3, §1.4, §4.1, §4.2, §5.2, §5.3. The rule queries pass `fact = null`: every rule of the
 method in the REDUCED set (`TaintRulesProvider`, the prescan selected it). So no rule of the new analysis needs the
-fact: a provider gives the same rules with no fact (the Spring provider: §31.3). The conditions use the rewriter of today:
+fact. The generated Spring cleanup supplies its primitive cleaner directly (§31.3). The conditions use the
+rewriter of today:
 `JIRMarkAwareConditionRewriter(positionResolver, checker, aliasAnalysis, statement)`
 (`JVM/JIRMarkAwareConditionRewriter.kt:18-25`). It evaluates the non-mark atoms per statement (`JIRBasicAtomEvaluator`)
 and gives the mark literals.
@@ -4885,19 +4892,8 @@ internal class JIRRuleForms(
     /** §1.3: the position of a rule element, or null after a rule error. It NEVER throws.
      *  THE TWO INVARIANTS OF A RULE POSITION: (1) at most one `AnyField` accessor; (2) an `AnyField` is the LAST accessor
      *  (no concrete accessor after it). A position that breaks one (`[arg0, ".*", ".f"]`, `.*.*`) is a rule error: the
-     *  WHOLE RULE is rejected and logged once (`RuleErrors`, `valid` below), as every other rule error (§1.3, §1.4, D29).
-     *  `AnyClassStatic` (Part II §31.3) is the whole static base `S` with the empty path. It is allowed only as the whole
-     *  position of a `RemoveAllMarks` action (`kill = true`); in every other rule element (a mark literal of a condition
-     *  too: `valid` reads the `Position` of each literal with this overload), and with an accessor after it, it is a rule
-     *  error. */
-    fun pos(rule: Any, p: Position, kill: Boolean = false): RulePos? {
-        if (p.root() == AnyClassStatic) {
-            if (kill && p == AnyClassStatic) return RulePos(AccessPathBase.ClassStatic, emptyList(), any = false)
-            errors.reject(rule, "AnyClassStatic outside RemoveAllMarks (§1.3)"); return null
-        }
-        return pos(rule, p.resolveAp())                                    // REUSE TaintEvaluator.kt:81-101
-    }
-    private tailrec fun Position.root(): Position = if (this is PositionWithAccess) base.root() else this
+     *  WHOLE RULE is rejected and logged once (`RuleErrors`, `valid` below), as every other rule error (§1.3, §1.4, D29). */
+    fun pos(rule: Any, p: Position): RulePos? = pos(rule, p.resolveAp())       // REUSE TaintEvaluator.kt:81-101
     fun pos(rule: Any, p: PositionAccess): RulePos? {
         val acc = p.accessors()
         val anyCount = acc.count { it == AnyAccessor }
@@ -4948,7 +4944,7 @@ internal class JIRRuleForms(
     private fun validate(rule: TaintConfigurationItem): Boolean {
         var ok = true
         fun reject(reason: String) { errors.reject(rule, reason); ok = false }
-        fun at(p: Position, kill: Boolean = false): RulePos? = pos(rule, p, kill).also { if (it == null) ok = false }
+        fun at(p: Position): RulePos? = pos(rule, p).also { if (it == null) ok = false }
         val literals = markLiterals(rule.rawCondition)                                // (position, ContainsMarkOnAnyField)
         val anyLiteral = literals.map { (p, onAny) -> at(p)?.any == true || onAny }.any { it }   // every literal is read
         /** markTarget (Part II §27.2): a class position takes no any target (a source or an end fact: `[any-taint]`,
@@ -4969,7 +4965,7 @@ internal class JIRRuleForms(
             }
             is TaintCleaner -> for (a in rule.actionsAfter) when (a) {
                 is RemoveMark -> at(a.position)
-                is RemoveAllMarks -> at(a.position, kill = true)?.let {
+                is RemoveAllMarks -> at(a.position)?.let {
                     if (it.base == AccessPathBase.ClassStatic && it.any) reject("RemoveAllMarks(P.AnyField) on S (§1.4)")
                 }
                 else -> Unit
@@ -5162,8 +5158,8 @@ a rule error (`valid`, §27.1; `interpreter.md` §1.3, D33), so `pass` never mee
     fun cleanSteps(rule: TaintCleaner, cond: ExprOrConstant, types: PositionTypeResolver): List<CleanStep> =
         if (cond.isTrue) rule.actionsAfter.flatMap { unconditional(rule, it, types) } else emptyList()
 
-    /** §5.2 mapping; `RemoveAllMarks` on S is the kill of §1.4; `RemoveAllMarks(AnyClassStatic)` is the whole-base
-     *  cleaner (Part II §31.3). A `valid` rule only: a rule error rejects the whole rule (§1.3, Part II §27.1), so every position
+    /** §5.2 mapping; `RemoveAllMarks` on S is the kill of §1.4.
+     *  A `valid` rule only: a rule error rejects the whole rule (§1.3, Part II §27.1), so every position
      *  here has a form. The rewriter passes the action positions of a valid user rule (Part II §28.3). */
     fun unconditional(rule: TaintConfigurationItem, a: Action, types: PositionTypeResolver): List<CleanStep> = when (a) {
         is RemoveMark -> {
@@ -5179,12 +5175,8 @@ a rule error (`valid`, §27.1; `interpreter.md` §1.3, D33), so `pass` never mee
                 .map { lowerCleaner(it, types) }
         }
         is RemoveAllMarks -> {
-            val p = checkNotNull(pos(rule, a.position, kill = true)) { "a rejected rule reaches the forms (§1.3): $rule" }
+            val p = checkNotNull(pos(rule, a.position)) { "a rejected rule reaches the forms (§1.3): $rule" }
             when {
-                // AnyClassStatic: the WHOLE-BASE CLEANER (S, atAndBelow, all), the empty path (interpreter.md §1.4, I12 (e)).
-                // Every fact on S lies inside it, so it drops the fact whole and raises no request.
-                p.base == AccessPathBase.ClassStatic && p.path.isEmpty() ->
-                    listOf(CleanStep.Clean(Cleaner(AccessPathBase.ClassStatic, path = null, CleanReach.AT_AND_BELOW, mark = null)))
                 p.base == AccessPathBase.ClassStatic && p.any -> error("a rejected rule reaches the forms (§1.4): $rule")   // valid
                 p.base == AccessPathBase.ClassStatic -> listOf(CleanStep.Kill(MicroEdgeBuilder().apply {
                     touch(AccessPathBase.ClassStatic); strongKeep(AccessPathBase.ClassStatic, p.path).forEach { edge(it) }
@@ -5351,9 +5343,13 @@ ADAPT of `JIRMethodCallFactMapper.mapMethodCallToStartFlowFact` (:210-242) and `
         }
     }.buildStage()
 
-    /** §4.5 step 5.1, §4.8: the cleaner rules of the named method, in rule order. */
-    private fun cleanSteps(): List<CleanStep> = interp.rules.cleanerRulesForMethod(callee, s, fact = null)
-        .filter(forms::valid).flatMap { forms.cleanSteps(it, rewriter.rewrite(it.condition), types) }
+    /** §4.5 step 5.1, §4.8: cleaner rules in order, then direct generated-method cleaners (§31.3). */
+    private fun cleanSteps(): List<CleanStep> = buildList {
+        addAll(interp.rules.cleanerRulesForMethod(callee, s, fact = null)
+            .filter(forms::valid).flatMap { forms.cleanSteps(it, rewriter.rewrite(it.condition), types) })
+        for (cleaner in (callee as? CallCleaners)?.callCleaners.orEmpty())
+            add(forms.lowerCleaner(cleaner, types))
+    }
 
     /** Clean relevant marks at the action positions of selected user rules on all RETURNED results.
      *  Select sources unless statically false; select cleaners only when unconditional. Reject invalid rules first.
@@ -5945,12 +5941,13 @@ run (`analyzer-core.md` §4.8).
 
 ### 31.3 The Spring dispatcher: no rule needs the fact
 
-Implements `interpreter.md` §1.3 (`AnyClassStatic`), §1.4, §5.2 and D27. The generated Spring dispatcher calls a
+Implements `interpreter.md` §1.4, §5.2 and D27. The generated Spring dispatcher calls a
 controller, then `__cleanup__()`, and loops (`ndMethodDispatch`). Today the cleaner of `__cleanup__` is built from the
 fact: for a fact on `S`, `RemoveAllMarks(ClassStatic(C))` for each class of the fact except the registry class
 `__spring_registry__` (`SpringRuleProvider.kt:110-143`). The new core queries every rule with `fact = null` (§27), so
-that cleaner would be lost, and static taint would cross the dispatched controllers. Three changes make the cleaner
-fact-free. The effect stays the same: the static content outside the registry goes, and the registry stays.
+that cleaner would be lost, and static taint would cross the dispatched controllers. Registry save/restore and a
+direct primitive cleaner make the new call form fact-free. The static content outside the registry goes, and the
+registry stays.
 
 1. THE GENERATOR saves and restores the registry around each `__cleanup__()` call. The registry class has one static
    field per component (`SpringWebProject.kt:160-200`); the components are registered before the dispatcher is generated
@@ -5982,47 +5979,61 @@ for ((f, local) in registry.zip(saved)) instructions.addInstWithLocation(dispatc
 val loopEnd: JIRInstLocation = firstSave ?: cleanupLoc
 ```
 
-2. THE RULE POSITION `AnyClassStatic`: the whole static base. A new JVM rule position; Part II maps it to `S` with the
-   empty path, only in a `RemoveAllMarks` action (`JIRRuleForms.pos`, §27.1; elsewhere a rule error), and the action is
-   the whole-base cleaner `(S, atAndBelow, all)` (`JIRRuleForms.unconditional`, §27.5). The current core never applies
-   it (item 3), so its readers only map it to `ClassStatic` with the empty path, and the resolvers give no value.
+2. THE GENERATED CLEANUP METHOD supplies the existing primitive `Cleaner` on the whole static base.
+   `SpringGeneratedMethod` implements `CallCleaners` (§23.4), with an empty list by default. Only `generateCleanup`
+   passes a cleaner. These values are immutable, in callee coordinates, and independent of the input fact.
+   The call builder adds them to `BOUND -> ADDED` through `lowerCleaner` (§27.5, §28.3). The cached backward plan
+   reverses that Actions stage in the ordinary way. No configuration position or rule-position reader changes.
 
-```kotlin
-// core/opentaint-configuration-rules/configuration-rules-jvm/src/main/kotlin/org/opentaint/dataflow/configuration/jvm/Position.kt
-/** The whole static base `S` (every class). Only in `RemoveAllMarks` (interpreter.md §1.3, §1.4). */
-data object AnyClassStatic : Position {
-    override fun toString(): String = javaClass.simpleName
-}
-
-// Every exhaustive `when` over `Position` gets a branch:
-//   JVM/taint/TaintEvaluator.kt:73-79   resolveBaseAp:      is AnyClassStatic -> AccessPathBase.ClassStatic
-//   JVM/taint/TaintEvaluator.kt:83-101  resolveAp:          is AnyClassStatic -> PositionAccess.Simple(baseAp)
-//   JVM/JIRCallPositionResolver.kt:39-48, 56-69:           is AnyClassStatic -> CallPositionValue.None
-//   JVM/JIRLocalAliasAnalysis.kt:90-104 toExternalObject:  is AnyClassStatic -> return null
-//   core/opentaint-jvm-sast-dataflow/src/main/kotlin/org/opentaint/jvm/sast/dataflow/rules/MethodTaintConfigurationResolver.kt:499-505, 555-561: as ClassStatic
-//   core/src/test/kotlin/org/opentaint/jvm/sast/project/tester/TestTraces.kt:41-48: as ClassStatic
+```diff
+--- SpringGeneratedMethod.kt
++++ SpringGeneratedMethod.kt
+@@ -3,2 +3,4 @@
+ import org.objectweb.asm.Opcodes
++import org.opentaint.dataflow.bidi.ap.Cleaner
++import org.opentaint.dataflow.bidi.interp.CallCleaners
+ import org.opentaint.ir.api.jvm.TypeName
+@@ -16,3 +18,4 @@
+     parameters: List<JIRVirtualParameter>,
+-    private val instructions: JIRInstList<JIRInst>
++    private val instructions: JIRInstList<JIRInst>,
++    override val callCleaners: List<Cleaner> = emptyList(),
+ ) : JIRVirtualMethodImpl(
+@@ -23,3 +26,3 @@
+     description = description
+-) {
++), CallCleaners {
+     override val instList: JIRInstList<JIRInst> by lazy {
 ```
 
-3. THE RULE PROVIDER gives the whole-base cleaner for a query with no fact, and today's cleaner for a query with a fact.
-
 ```kotlin
-// core/src/main/kotlin/org/opentaint/jvm/sast/project/spring/SpringRuleProvider.kt, cleanerRulesForMethod (:104-128)
-if (method is SpringGeneratedMethod) {
-    if (method.name != GeneratedSpringControllerDispatcherCleanupMethod) return emptyList()
-    // The new core (fact == null): the unconditional cleaner of the whole static base. The dispatcher restores the
-    // registry after the call (item 1), so no rule needs the fact.
-    if (fact == null) return listOf(TaintCleaner(method, mkTrue(), listOf(RemoveAllMarks(AnyClassStatic)), info = null))
-    // The current core of the prescan (with a fact): today's code, unchanged.
-    val cleanupPositions = fact.cleanupPositions() ?: return emptyList()
-    return listOf(TaintCleaner(method, mkTrue(), cleanupPositions.map { RemoveAllMarks(it) }, info = null))
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.bidi.ap.Cleaner
+import org.opentaint.dataflow.bidi.ap.CleanReach
+
+// SpringWebProject.kt, generateCleanup: use the existing constructor with the direct cleaner.
+val cleanupMethod = SpringGeneratedMethod(
+    name = GeneratedSpringControllerDispatcherCleanupMethod,
+    returnType = returnType,
+    description = methodDescription(emptyList(), returnType),
+    parameters = emptyList(),
+    instructions = instructions,
+    callCleaners = listOf(Cleaner(
+        base = AccessPathBase.ClassStatic,
+        path = null,
+        reach = CleanReach.AT_AND_BELOW,
+        mark = null,
+    )),
+).also {
+    controllerDispatcherMethods += it
+    it.bind(controllerDispatcher)
 }
 ```
 
-The current core never applies the fact-free cleaner. It queries the cleaners with a fact (`cleanRulesForCallStatement`,
-`JVM/taint/JIRTaintAnalysisContext.kt:85-94`, from `JIRMethodCallFlowFunction.kt:167`). It queries with `fact = null`
-only outside the prescan (`allRelevantCleanRulesForCallStatement`, `JIRTaintAnalysisContext.kt:58-61`, which gives
-nothing in the prescan), and its only user, the summary rewriter, skips a rule with no `UserDefinedRuleInfo`
-(`JIRMethodCallRuleBasedSummaryRewriter.kt:77-78`). The new rewriter skips it too (§28.3).
+The current `SpringRuleProvider` stays unchanged. Its fact-based cleaner remains available to the prescan and old
+full scan. Its query with `fact = null` returns no cleanup rule; the new call builder receives the primitive from
+the generated method instead. Native cleaners are not user-defined configuration rules and do not enter summary
+rewriter selection. Other generated methods have no native cleaner.
 
 In the new core, the plan of the call `__cleanup__()` (a static call with no argument: only `S` and the zero fact are
 bound) has the step `CleanStep.Clean(Cleaner(S, [], AT_AND_BELOW, all))` at `BOUND -> ADDED`: every fact on `S` goes,

@@ -15,6 +15,14 @@ matrix is the source for remaining mode, W6/X, and pipeline/iteration obligation
 
 ---
 
+## Spring cleanup representation
+
+The whole-static cleanup uses the existing primitive cleaner `(S, [], atAndBelow, all)` directly in the generated
+method's call form. The proposed `AnyClassStatic` configuration position from F67 (6) is removed, with its special
+position validation and exhaustive reader changes. The dispatcher still saves and restores the registry fields.
+The current fact-based Spring provider remains unchanged for the prescan and old full scan. This changes the
+representation, not the cleanup behavior.
+
 ## Conjunction clarification
 
 Conjunctions occur only forward. A complete combination is NORMAL if every literal contribution is NORMAL;

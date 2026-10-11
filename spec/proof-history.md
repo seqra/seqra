@@ -961,8 +961,8 @@ They include the independently checked local F74 lowering and F75 selected-mark 
   iteration that starts from it are proved (`StaticsIter.iteration_general_DS`). The run-1 proof needs that a cleaner
   on `S` names its mark (S12 (e)). The interpreter makes it true: `RemoveAllMarks` on a position of `S`, at any depth,
   is the kill of a strong write, not a cleaner (`interpreter.md` §1.4). The one exception, the whole-base cleaner
-  `(S, atAndBelow, all)` of `AnyClassStatic`, is argued: every fact on `S` lies inside it, so it drops each fact whole
-  and raises no request; its effect is that of a statement that touches `S` with no micro edge on `S`, which S12 (a)
+  `(S, atAndBelow, all)` (then represented by `AnyClassStatic`), is argued: every fact on `S` lies inside it, so it
+  drops each fact whole and raises no request; its effect is that of a statement that touches `S` with no micro edge on `S`, which S12 (a)
   allows. The restricted runs do not need it (`StaticsIter.SWFR`). The
   static rule and the conjunctions are in separate models: a conjunction literal on `S` uses the plain run-1 rules
   (§4.6).

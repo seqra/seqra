@@ -459,9 +459,9 @@ Remove all entry-mark leaves only from eligible zero-premise items. Keep evaluat
 static state and the independent conjunctive exit-source slots.
 
 Adapt the Spring dispatcher in APP: save registry fields, run the fact-free whole-static cleanup,
-then restore them. Add `Position.AnyClassStatic` in the JVM configuration module, update its
-exhaustive consumers, and keep both fact-null and fact-present `SpringRuleProvider` query paths.
-Extend the I04 position builder/validator for this new position, allowed only in `RemoveAllMarks`.
+then restore them. Attach the existing `Cleaner(ClassStatic, null, AT_AND_BELOW, null)` to the
+generated cleanup method. Read it through `CallCleaners` when building the call's Actions stage.
+Keep the current fact-based `SpringRuleProvider` path for the prescan and old full scan.
 Preserve the current alias policy. Use frozen lambda values without retaining
 the prescan subscriptions; J01 supplies the production extraction and release path.
 

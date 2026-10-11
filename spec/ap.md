@@ -1330,8 +1330,8 @@ in `CurrentExact`; full coverage and the combined extensions remain open.
   cleaner on `S` names its mark (S12 (e)): the all-marks `part` row makes an `[any]` static fact above a static
   position. A `RemoveAllMarks` rule on a position of `S` is not a cleaner: it is the kill of a strong write, a
   statement summary with keep edges (`interpreter.md` §1.4). One exception: the WHOLE-BASE CLEANER `(S, atAndBelow,
-  all)` with the empty path (`AnyClassStatic`, S12 (e)). Every fact on `S` lies inside it (the `inside` row), so it
-  drops the fact whole: it raises no request and makes no `[any]` static fact.
+  all)` with the empty path (S12 (e)), used directly by the generated Spring cleanup form. Every fact on `S` lies
+  inside it (the `inside` row), so it drops the fact whole: it raises no request and makes no `[any]` static fact.
 * THE ZERO BASE. No cleaner is on the zero base (S11 (d)).
 * The interpreter places the cleaner (`interpreter.md` §5.2): at a call to a cleaner method, on the bound facts before
   they enter the callee, and on the facts of an unresolved call before its pass rules. The model has no cleaner inside
@@ -1689,9 +1689,9 @@ at the call statement:
    position), then the field limit (§4.4; `interpreter.md` §4.5 step 4). The end facts go the same way.
 4. PER CALLEE POSITION. The cleaners of the call clean `b` (§4.7), chained in the rule order. A `RemoveAllMarks` rule on
    a position of `S` is not a cleaner: at its place in the rule order it applies to `b` as a statement summary, the
-   kill of a strong write (`interpreter.md` §1.4), with the static exception as in step 3. (The whole-base cleaner of
-   `AnyClassStatic` is a cleaner, S12 (e).) Each result `a` is an ADDED FACT (§1), with
-   its own layer on the link (§8.3). Then:
+   kill of a strong write (`interpreter.md` §1.4), with the static exception as in step 3. The generated Spring
+   cleanup form uses the primitive whole-base cleaner `(S, [], atAndBelow, all)` (S12 (e)). Each result `a` is an
+   ADDED FACT (§1), with its own layer on the link (§8.3). Then:
    * for each resolved callee: the CALLEE PROCESSING below, for the link (`a`, caller edge);
    * at a JVM constructor call: `a` also passes over the call (`interpreter.md` §3.5);
    * for an unresolved callee or a resolution failure: the statement summary of the unresolved callee applies to `a`

@@ -785,10 +785,11 @@ Interpreter migration differences → §6.
     `CopyAllMarks(Argument(0).AnyField → Result.AnyField)`, Go `CopyTaintMark` with `AnyAccessor` on the from
     position) is a rule error, logged once and rejected (D33); `CopyMark(T, Argument(0) → Result.AnyField)` is
     accepted.
-20. The whole-base cleaner (§1.4, §5.2, D27): `RemoveAllMarks(AnyClassStatic)` drops every fact on `S`, also `S.*` in
-    run 1, with no request; `AnyClassStatic` in another rule element is a rule error, also in a condition literal
-    (`ContainsMark(AnyClassStatic, T)`). The Spring dispatcher: a static
-    value that one dispatched controller taints does not reach the next one, and the registry fields keep their facts
+20. The generated Spring cleanup form (§1.4, §5.2, D27) contains the primitive cleaner
+    `(S, [], atAndBelow, all)`, built without a fact or a configuration position. It drops every fact on `S`,
+    also `S.*` in run 1, with no request, and passes facts on other bases. The cached backward form uses the same
+    cleaner at the reversed Actions stage. Other generated methods have no native cleaner. The Spring dispatcher:
+    a static value that one dispatched controller taints does not reach the next one, and the registry fields keep their facts
     across `__cleanup__()`.
 21. Empty methods (I8, D28): a call to a native method of the project takes the unresolved path (the pass rules and
     the default identity apply); a call with an empty and a non-empty resolution result enters only the non-empty
