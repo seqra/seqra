@@ -50,7 +50,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | I05 | Complete | [Call-plan and adapter gate](../docs/reports/bidi-i05.md). Clean common 755 and JVM 286 tests pass; all 607 common and 172 JVM new tests are discovered. Go test sources, SAST and application compile. |
 | I06 | Complete | Method boundaries, complete JVM facade/cache, wired graphs and Spring forms. Clean common/JVM and application regression gate passed; see `docs/reports/bidi-i06.md`. |
 | V2 | Complete | Actual static exit-source requests, matched source/pass effects and contextual construction scan pass. See `docs/reports/bidi-v2.md`. |
-| E01–E07, V3 | Pending | |
+| E01 | Complete | Typed run shell, count protocol, immutable queue priorities and context adapters. Clean gate passed; see `docs/reports/bidi-e01.md`. |
+| E02–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
 
@@ -1057,6 +1058,15 @@ to the handled count. Work requeue keeps its reservation and gets a new
 fixed priority snapshot. One queued-actor set prevents duplicate Work.
 Unknown units are discarded before any runner or count is created.
 Hold the start reservation until the full root batch is sent.
+If root routing throws, select FAILED before releasing that reservation;
+otherwise the release could select COMPLETE before the exception handler.
+Use the same order if event enqueue throws after reservation: select
+FAILED, roll back the reservation, then propagate the throwable.
+Resolve units before the admission lock, then recheck run admission
+before runner creation and send. Serialize reservation, acceptance and
+completed-handler release with that lock, so a zero transition cannot
+race an accepted send. A slow resolver does not block handler completion
+or selection of an abnormal status.
 
 Select the first terminal status before cancellation. Activate the
 analysis cancellation only in manager construction. Close admission
@@ -1064,6 +1074,25 @@ and join all created runners on every exit, including caller-thread
 throws. Freeze only after a successful join and COMPLETE status. A
 failed join overrides the status with FAILED and exposes no analyzers.
 Keep counters, queues, actors and run scopes fresh for each run.
+
+The first configuration test review found that `ApMode` uses object
+identity. Compare its four mode fields instead of a separately created
+mode object; this preserves the configuration expectation.
+Construct the shell fixture's AP manager with the same reference manager
+that its memory guard receives. This tests the actual shared lifetime.
+The shell API compile also found two fixture types: compare the optional
+observer through its interface and pass the actual JIR instruction to the
+JVM language manager. Keep the identity and call-location assertions.
+The observer's expected list also needs the declared `AccessPathBase`
+element type; its concrete Argument-only inference does not match the
+recorded base list. Keep the exact expected value.
+The protocol fixture must use valid links: the link layer equals the
+added fact's layer, while the caller layer is independent. Use REACH for
+zero-only subscriptions. Correct the fixture and its description.
+The first executed shell gate found that the finite test actor returns
+true while work remains. The actor contract and proposal use true for
+completion. Return true only when its remaining count is zero; keep
+the partial-quantum, count and freeze expectations unchanged.
 
 **Tests first.** Write `InFlightTest`, `EventQueueTest`, context-cache and run-lifetime
 tests for the Q1–Q4 ownership/count transitions before adding the asynchronous run shell.
@@ -1177,6 +1206,12 @@ produces no summary application. No intermediate return result enters successor 
 ### E06. Complete scheduling, failure and freeze behavior
 
 **Requires:** E01–E05. **Proposal:** `analyzer-impl.md` §6, §7.7.
+
+The E01 shell follows the proposal's wait-timeout fragment. Complete the
+budget audit here: root routing and run setup must consume the same run
+timeout. Do not start a fresh full wait budget after a slow root batch.
+Test the routing/deadline boundary before refining it, with the first
+terminal status and join rules retained (`analyzer-core.md` §0, §7.1).
 
 **Tests first.** Write `DeltaWorklistTest`, delayed-send tests, `RunFailureTest` and
 `LifetimeTest`. Cover Q1–Q4 across partial Work steps, publication flush, cancellation and

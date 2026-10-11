@@ -1,0 +1,33 @@
+package org.opentaint.dataflow.bidi.engine
+
+import org.opentaint.dataflow.bidi.ap.ApMode
+import org.opentaint.dataflow.bidi.ap.Direction
+import org.opentaint.dataflow.bidi.ap.MethodKey
+import org.opentaint.dataflow.bidi.driver.SeedIndex
+import org.opentaint.dataflow.bidi.store.DemandStore
+import org.opentaint.dataflow.bidi.store.RecordStore
+import java.util.Collections
+
+/** Immutable run inputs. The driver writes the backing records only at a completed-run barrier. */
+class RunConfig(
+    val index: Int,
+    val fieldLimit: Int,
+    val demand: DemandStore?,
+    records: RecordStore,
+    val seeds: SeedIndex,
+    roots: List<MethodKey>,
+) {
+    init {
+        require(index >= 1) { "The run index must be positive" }
+        require(fieldLimit >= 1) { "The field limit must be positive" }
+        require((index == 1) == (demand == null)) { "Only run 1 has no demand snapshot" }
+    }
+
+    val records: RecordStore = records.view()
+    val roots: List<MethodKey> = Collections.unmodifiableList(ArrayList(roots))
+    val direction: Direction get() = if (index % 2 == 1) Direction.FORWARD else Direction.BACKWARD
+    val run1: Boolean get() = index == 1
+    val restricted: Boolean get() = index > 1
+    val mode: ApMode = ApMode(run1, direction, fieldLimit)
+    val seededSources: Boolean get() = restricted && direction == Direction.FORWARD
+}

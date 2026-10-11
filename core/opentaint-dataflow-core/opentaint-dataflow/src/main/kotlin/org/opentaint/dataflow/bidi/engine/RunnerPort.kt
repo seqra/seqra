@@ -1,0 +1,22 @@
+package org.opentaint.dataflow.bidi.engine
+
+import org.opentaint.dataflow.bidi.ap.ApOps
+import org.opentaint.dataflow.bidi.ap.Facts
+import org.opentaint.dataflow.bidi.ap.MethodKey
+import org.opentaint.dataflow.bidi.interp.DirectedForms
+
+/** Only post can be called by a publisher on another unit's thread. */
+interface RunnerPort<A : RunActor> {
+    val config: RunConfig
+    val shared: SharedObjects
+    val forms: DirectedForms
+    val ops: ApOps
+    val steps: ProtocolSteps
+    fun send(event: RunEvent): Boolean
+    fun post(event: RunEvent.Delivery): Boolean
+    fun enqueue(analyzer: A): Boolean
+    fun analyzer(key: MethodKey): A
+
+    val onProcess: ((MethodKey, EdgeDelta) -> Unit)? get() = null
+    val onCut: ((Cut, Facts) -> Unit)? get() = null
+}

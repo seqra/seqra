@@ -138,6 +138,30 @@ new demand rule.
 
 ## 3. Entities and lifetimes (`analyzer-core.md` §2)
 
+### 3.0 Implementation staging
+
+The E01 implementation uses `RunManager<A>`, `UnitRunner<A>`,
+`RunnerPort<A>` and `RunResult<A>`, where `A : RunActor`. A required
+`RunnerHandlerFactory<A>` constructs each unit's actor and non-Work
+handlers. The runner owns the actor map, queued-actor set and Work
+dispatch. E02 supplies `RunMethodAnalyzer`; E04 supplies the summary
+services and production event handler. The snippets below show those
+later services together with the shell. E01 itself uses finite test
+actors and completes empty or unknown-unit runs.
+
+`RunActor.work` returns true only when all work and pending publications
+are complete. Partial Work retains its reservation and receives a fresh
+priority key. The runner owns the queued flag through its identity set;
+the method analyzer requests work through `RunnerPort.enqueue`.
+Actor result counters are required values. Completed results retain the
+concrete actor type. Records use a read-only live view and roots, seeds
+and delivery lists own their containers.
+
+The pure event, summary, seed and context contracts are implemented in
+E01. Summary storage and subscription algorithms remain in E04; hand-off
+construction remains in D02. The real JVM context source delegates to
+the I06 method-entry and form cache.
+
 ### 3.1 `SharedObjects`, `RunConfig`
 
 The driver creates `SharedObjects` once. Each run receives immutable `RunConfig` constants, read-only records,
@@ -503,7 +527,6 @@ class RunMethodAnalyzer(val key: MethodKey, port: RunnerPort) : SummaryApplier {
 
     private var worklist = DeltaWorklist()
     private var pending = ArrayList<Publication>()
-    var queued = false; private set
     var steps = 0L; private set
     val hasZeroWork: Boolean get() = worklist.hasZeroWork
 
@@ -681,7 +704,6 @@ enum class Cut { STATEMENT, CALL, ENTRY_RULES, EXIT_RULES, SEED }
             process(worklist.removeNext())
         }
         flushPublications()
-        queued = false
         return true
     }
 
@@ -723,7 +745,7 @@ enum class Cut { STATEMENT, CALL, ENTRY_RULES, EXIT_RULES, SEED }
         check(f !is FlowTree || (premise is InitialAp && premise.mark is MarkSlot.Star))
         check(premise !is PremiseSet || f is TaintTree)
     }
-    private fun requestWork() { if (!queued) { queued = true; p.enqueue(this) } }
+    private fun requestWork() { p.enqueue(this) }
 ```
 
 ### 4.4 The rule order of a boundary; start nodes and start rules (`analyzer-core.md` §4.4)
@@ -1479,7 +1501,7 @@ Use one in-flight counter per run. Increment before each accepted event send/loc
 after a complete handler (Q2). Hold a phantom count while start events are sent (Q3). Old runs are joined before
 a new counter is used (Q4).
 
-`queued` prevents multiple Work events for an analyzer (W1). Requeue without decrement on a partial step (W2).
+The runner's queued-actor set prevents multiple Work events for an analyzer (W1). Requeue without decrement on a partial step (W2).
 End Work only after both queues are empty and publications are flushed (W3).
 
 ```kotlin
