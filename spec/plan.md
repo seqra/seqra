@@ -43,7 +43,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | A08 | Complete | [A08 evidence](../docs/reports/bidi-a08.md). All 581 common tests pass; none skipped. Index/full-scan equality, exact links, deltas, raw/publication separation, immutable snapshots, positive limits, deep paths and cancellation pass. All 433 new annotated tests are discovered. JVM/Go test sources, SAST and application compile. |
 | A09 | Complete | [A09 evidence](../docs/reports/bidi-a09.md). All 635 common tests pass; none skipped. Standing products, native records, concurrent lossless witnesses, immutable stored shapes, deep paths and cancellation pass. All 487 new annotated tests are discovered. JVM/Go test sources, SAST and application compile. |
 | V1 | Complete | [Phase 1 audit and gate](../docs/reports/bidi-v1.md). All public AP/store operations have contract coverage. Clean common 647, JVM 119 and Go 1,313 tests pass; none skipped. All 499 new common and five new JVM annotated tests are discovered. SAST and application compile. |
-| I01–I06, V2 | Pending | |
+| I01 | Complete | [Common forms and mode gate](../docs/reports/bidi-i01.md). Reversal, cached directions, all three application modes and the per-path call walk pass 60 new tests. Clean common 707 tests pass; all 559 new common tests are discovered. JVM/Go test, SAST and application compilation pass. |
+| I02–I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
@@ -280,6 +281,41 @@ T2 intersection to one operation's output.
 The same V1 emission audit found no checkpoint between REACH callbacks in
 `Results.flush`. Test cancellation after the first callback and before the
 second. Apply the existing per-result check to REACH as well as trie facts.
+I01 adds the common sink, exit-rule and clean-step declarations from
+§23.4 because the reversal and action-chain interfaces use them. I04
+retains JVM rule construction and field-cleaner lowering. Cached form
+collections are owned and unmodifiable, so caller list changes cannot
+change the forms used by later runs or their standing-join keys.
+`SinkRule` constructors enforce the normative positive-literal contract:
+at least one pattern, each with a concrete mark and EXACT or ANY tail.
+The proposal's must-only rejection is weaker than interpreter I11(f) and
+the AP sink shape. Keep unconditional zero represented by `ZERO_PATTERN`.
+Own form collection containers and sink-pattern paths. Preserve existing
+micro-edge, forward `PathEdge`, conjunction and sink object identities;
+path-producing helpers own their paths rather than cloning retained forms.
+Use regular value classes for `CallStage.Actions` and `Callees` when an
+owned list cannot replace a data-class primary constructor value. Keep
+the proposed public constructor names, getters and structural equality;
+copy collection containers at construction.
+Apply a summary's result filters to conjunction results as well as plain
+micro-edge results. The proposal omits this in both touched and untouched
+literal-input paths. Interpreter §2.1 step 5 and the STAGE result-filter
+contract require it. An untouched input itself still passes unchanged.
+The I01 test compile found inferred narrow map keys in the collection
+ownership test. Use explicit `AccessPathBase` keys; the public filter maps
+use that type. Complete source-hook coverage for an admitted source with
+no output and for a source edge at a place where source hooks are off.
+The I01 graph tests omitted ZERO from reversed final-stage targets.
+`ZERO_KEEP` has ZERO as a target, so A5 adds its pass-over identity and
+includes ZERO in reversed `touched` when it was untouched forward.
+Correct the two expected sets. The separate zero pass-over-and-entry
+rule still applies in either direction, even when ZERO is touched.
+Complete I01 call-guard coverage with an executed forward END_FACTS
+stage. A fired sink supplies its own layer and the zero premise; it
+does not reuse the incoming premise or call source hooks. Check sink
+object identity, sibling input independence and disabled guards.
+Keep the I01 directed transfer matrix within W8: a backward input has
+no normal must column, and a backward micro edge has no must target.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions
