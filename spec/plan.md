@@ -35,7 +35,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | S00 | Complete | [Baseline](../docs/reports/bidi-baseline.md), [class results](../docs/reports/bidi-baseline-tests.tsv), [contracts](../docs/reports/bidi-contracts.md), [fixtures](../docs/reports/bidi-fixtures.md). All baseline suites pass; all 12 fixture checks pass. SAST has no existing tests. |
 | A01 | Complete | [A01 evidence](../docs/reports/bidi-a01.md). Common 196, JVM 119 and Go 1,313 tests pass. SAST and application compile. |
 | A02 | Complete | [A02 evidence](../docs/reports/bidi-a02.md). All 275 common tests pass; none skipped. JVM/Go test sources, SAST and application compile. Both user decisions are applied. |
-| A03–A09, V1 | Pending | |
+| A03 | Complete | [A03 evidence](../docs/reports/bidi-a03.md). All 328 common tests pass; none skipped. Deep and shared-DAG checks, concurrent factories and cache epochs pass. JVM/Go test sources, SAST and application compile. |
+| A04–A09, V1 | Pending | |
 | I01–I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
@@ -93,6 +94,30 @@ Save the observed results, then restore the annotations. This check confirms the
 code behavior; it did not resolve the contradictory rules or close the A02 gate.
 The user has now supplied both decisions. Align the AP reference snippets and the
 validation inventory with these decisions; no new Lean proof is required.
+A03 uses owned accessor/child arrays with public snapshots and internal read access,
+so external array mutation cannot change immutable trie content or metadata. Validate
+sorted path accessors, aligned arrays and nonempty children at node construction.
+Use iterative structural equality and bottom-up interning: a positive Int field limit
+does not bound valid paths to the JVM recursion stack. Test the 32,768-depth case.
+The A03 fact factories need a one-leaf path builder before the A04 trie operations
+exist. Add a private iterative factory helper in A03; A04 adds generic prepend.
+Typed FLOW and TAINT constructors reject the zero base; only REACH represents zero.
+Raw zero `factsOf` inputs must have the canonical zero geometry and mark.
+The proposal's shifted structural hash repeats on long repeated-accessor paths.
+Keep structural value hashing, but mix canonical child identities in the table-local
+interner hash. Its equality already compares child identity after bottom-up interning.
+This prevents a long chain from occupying one linear-probe cluster. Cache count and
+depth additions fail when their declared numeric type cannot represent the result.
+The first A03 compile check found that Kotlin's generic `assertEquals` cannot infer
+one type for a trie-node pair list and an `Any` pair list. Use the concrete leaf type
+in the walk test's callback list; this is a test typing correction.
+The A03 review adds a compact shared-DAG check at the Long count boundary and
+compares two independent 32-level shared DAGs. These checks exercise checked count
+failure and equality's pair memo without allocating their expanded path count.
+Use a repeated accessor in the deep interner test to exercise the table-local hash
+correction; distinct accessors do not expose that structural-hash cluster.
+Complete A03's decode/rebuild gate with a mixed sparse FLOW and TAINT round trip.
+The test rebuilds from its local decoded leaf list, without A04 merge operations.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions
