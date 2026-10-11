@@ -3,10 +3,10 @@ package org.opentaint.dataflow.ap.ifds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.joinAll
@@ -48,6 +48,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -68,8 +69,8 @@ class TaintAnalysisUnitRunnerManager(
 
     val status = AtomicReference<Status>(Status.OK)
 
-    private lateinit var activeApManager: ApManager
-    val apManager: ApManager get() = activeApManager
+    private var activeApManager: ApManager? = null
+    val apManager: ApManager get() = checkNotNull(activeApManager) { "No active AP manager" }
 
     private fun updateFailureStatus(status: Status) {
         if (status == Status.OK) return
@@ -81,7 +82,34 @@ class TaintAnalysisUnitRunnerManager(
     private val methodDependencies = ConcurrentHashMap<CommonMethod, MutableSet<UnitType>>()
 
     private val runnerJobs = ConcurrentLinkedQueue<Job>()
+    private val lifecycleLock = Any()
+    private val analysisActive = AtomicBoolean(false)
+    @Volatile private var hasRun = false
+    @Volatile private var progressJob: Job? = null
+    private var stopping = false
     private var analysisCompletion = CompletableDeferred<Unit>()
+
+    private fun requireStoppedJobs() {
+        check(!analysisActive.get()) { "Analysis is still active" }
+        check(runnerJobs.all { it.isCompleted } && progressJob?.isCompleted != false) {
+            "Prescan jobs have not joined"
+        }
+    }
+
+    fun requirePrescanJoined(): Unit = synchronized(lifecycleLock) {
+        check(hasRun) { "Prescan has not finished" }
+        requireStoppedJobs()
+    }
+
+    fun releasePrescan(): Unit = synchronized(lifecycleLock) {
+        requirePrescanJoined()
+        runnerForUnit.clear()
+        unitStorage.clear()
+        methodDependencies.clear()
+        runnerJobs.clear()
+        progressJob = null
+        activeApManager = null
+    }
 
     private val totalEventsProcessed = AtomicInteger()
     private val totalEventsEnqueued = AtomicInteger()
@@ -124,7 +152,8 @@ class TaintAnalysisUnitRunnerManager(
         summarySerializationContext.flush()
     }
 
-    fun resetApManager(manager: ApManager) {
+    fun resetApManager(manager: ApManager): Unit = synchronized(lifecycleLock) {
+        requireStoppedJobs()
         this.activeApManager = manager
         runnerForUnit.elements().iterator().forEach { it.resetApManager(manager) }
         unitStorage.elements().iterator().forEach { it.resetApManager(manager) }
@@ -139,62 +168,73 @@ class TaintAnalysisUnitRunnerManager(
         startMethods: List<MethodWithContext>,
         timeout: Duration,
         cancellationTimeout: Duration
-    ) = analysisMemoryManager.runWithMemoryManager {
-        cancellation.activate()
-
-        val timeStart = TimeSource.Monotonic.markNow()
-
-        handleEventEnqueued()
-
-        runnerForUnit.entries.forEach { (u, r) ->
-            startRunner(u, r)
+    ) {
+        synchronized(lifecycleLock) {
+            requireStoppedJobs()
+            check(analysisActive.compareAndSet(false, true)) { "Analysis is already active" }
+            hasRun = true
+            stopping = false
         }
+        try {
+            analysisMemoryManager.runWithMemoryManager {
+                val timeStart = TimeSource.Monotonic.markNow()
+                val currentProgress = AtomicInteger(0)
+                try {
+                    cancellation.activate()
+                    handleEventEnqueued()
+                    runnerForUnit.entries.forEach { (unit, runner) -> startRunner(unit, runner) }
 
-        val unitStartMethods = startMethods.groupBy { unitResolver.resolve(it.method) }.filterKeys { it != UnknownUnit }
+                    val unitStartMethods = startMethods.groupBy { unitResolver.resolve(it.method) }
+                        .filterKeys { it != UnknownUnit }
+                    logger.info { "Starting analysis of ${startMethods.size} methods in ${unitStartMethods.size} units" }
+                    for ((unit, methods) in unitStartMethods) {
+                        getOrSpawnUnitRunner(unit)?.submitStartMethods(methods)
+                    }
+                    handleEventProcessed()
 
-        logger.info { "Starting analysis of ${startMethods.size} methods in ${unitStartMethods.size} units" }
-
-        for ((unit, methods) in unitStartMethods) {
-            val runner = getOrSpawnUnitRunner(unit)
-            runner?.submitStartMethods(methods)
-        }
-
-        handleEventProcessed()
-
-        val currentProgress = AtomicInteger(0)
-
-        // Spawn progress job:
-        val progress = progressScope.launch {
-            while (isActive) {
-                delay(10.seconds)
-                reportRunnerProgress(currentProgress)
+                    progressJob = progressScope.launch {
+                        while (isActive) {
+                            delay(10.seconds)
+                            reportRunnerProgress(currentProgress)
+                        }
+                    }
+                    runBlocking {
+                        if (withTimeoutOrNull(timeout) { analysisCompletion.await() } == null) {
+                            updateFailureStatus(Status.TIMEOUT)
+                            logger.warn { "Ifds analysis timeout" }
+                        }
+                    }
+                } catch (failure: Throwable) {
+                    updateFailureStatus(if (failure is OutOfMemoryError) Status.OOM else Status.EXCEPTION)
+                    throw failure
+                } finally {
+                    // Stop admission and request every cancellation before the bounded wait.
+                    synchronized(lifecycleLock) {
+                        stopping = true
+                        cancellation.cancel()
+                        runnerForUnit.values.forEach { it.cancel() }
+                        progressJob?.cancel()
+                        runnerJobs.forEach { it.cancel() }
+                    }
+                    val joined = runBlocking {
+                        withTimeoutOrNull(cancellationTimeout) {
+                            progressJob?.join()
+                            runnerJobs.joinAll()
+                            Unit
+                        }
+                    }
+                    if (joined != null && runnerJobs.all { it.isCompleted } && progressJob?.isCompleted != false) {
+                        runnerJobs.clear()
+                    } else {
+                        status.set(Status.EXCEPTION)
+                        logger.error { "Analysis jobs did not join within the cancellation timeout" }
+                    }
+                    reportRunnerProgress(currentProgress)
+                    logger.info { "Analysis done in ${timeStart.elapsedNow()}" }
+                }
             }
-        }
-
-        runBlocking {
-            try {
-                val timeoutFailure = withTimeoutOrNull(timeout) {
-                    analysisCompletion.await()
-                }
-
-                if (timeoutFailure == null) {
-                    updateFailureStatus(Status.TIMEOUT)
-                    cancellation.cancel()
-                    logger.warn { "Ifds analysis timeout" }
-                }
-            } finally {
-                runnerForUnit.elements().asSequence().forEach { it.cancel() }
-
-                withTimeoutOrNull(cancellationTimeout) {
-                    progress.cancelAndJoin()
-                    runnerJobs.forEach { it.cancel() }
-                    runnerJobs.joinAll()
-                    runnerJobs.clear()
-                }
-
-                reportRunnerProgress(currentProgress)
-                logger.info { "Analysis done in ${timeStart.elapsedNow()}" }
-            }
+        } finally {
+            analysisActive.set(false)
         }
     }
 
@@ -489,8 +529,15 @@ class TaintAnalysisUnitRunnerManager(
             updateFailureStatus(Status.EXCEPTION)
         }
 
-        val job = analyzerScope.launch(exceptionHandler) { runner.runLoop() }
-        runnerJobs.add(job)
+        synchronized(lifecycleLock) {
+            if (stopping) {
+                runner.cancel()
+                return
+            }
+            val job = analyzerScope.launch(exceptionHandler, start = CoroutineStart.LAZY) { runner.runLoop() }
+            runnerJobs.add(job)
+            job.start()
+        }
     }
 
     fun handleEventEnqueued() {

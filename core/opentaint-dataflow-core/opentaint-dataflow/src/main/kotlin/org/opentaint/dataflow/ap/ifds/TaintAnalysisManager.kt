@@ -16,6 +16,9 @@ interface TaintAnalysisManager : AnalysisManager {
 
     fun selectPhase(phase: Phase)
 
+    /** Drop prescan owners after the caller has copied their values and verified the join. */
+    fun releasePrescan() {}
+
     override fun getMethodAnalysisContext(
         methodEntryPoint: MethodEntryPoint,
         graph: ApplicationGraph<CommonMethod, CommonInst>,

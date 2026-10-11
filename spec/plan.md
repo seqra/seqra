@@ -63,7 +63,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | D03 | Complete | Iteration loop, joined barriers, one budget and DLINK 1–5. See `docs/reports/bidi-d03.md`: 23 new and 1,180 common tests pass. |
 | D04 | Complete | 37 acceptance tests; 1,217 clean common tests and consumer compile checks pass. |
 | V4 | Complete | [V4 evidence](../docs/reports/bidi-v4.md). 1,226 common and 339 JVM tests pass; all new tests are discovered; shared consumers compile. |
-| J01–J03, FINAL | Pending | |
+| J01 | Complete | [J01 evidence](../docs/reports/bidi-j01.md). 14 new tests pass; clean common/JVM/Go gates and consumer compilation pass. |
+| J02–J03, FINAL | Pending | |
 
 Implementation corrections: the earlier FINAL text described this file as a planning-only
 deliverable. `task.md` now requires implementation. FINAL closes that implementation.
@@ -1928,11 +1929,45 @@ cleanup and keep copied graph/checker/tracker values alive during GC checks.
 Release contexts, unit/runners, dependency maps and the old active AP-manager reference after
 the copy. A new analysis Cancellation is independent of the prescan cancellation state.
 
+The tests-first compile gate rejects the absent J01 APIs. One fixture also
+passes a JVM graph to an invariant CommonMethod graph parameter. Add the
+explicit checked fixture cast, as in the existing engine construction.
+Add unfinished progress-job and setup-failure-after-runner-start controls
+before the termination correction; both jobs belong to the join gate.
+Serialize runner-job registration with the stop flag. Register a lazy job
+before starting it, so a cross-unit spawn cannot escape termination.
+The expired-join test also checks EXCEPTION and requested cancellation of
+the unfinished owned job. The join gate rejects use before a real run.
+The first 14-test gate passes 12 tests and fails the zero-budget shutdown
+control. The setup control uses a generic resolver, but JIRAnalysisManager
+requires JIRUnitResolver. Correct that test adapter, then observe its
+termination failure before moving setup inside the protected frame.
+The corrected setup control fails because its restarted job is unfinished.
+Its teardown must cancel and join all injected/observed jobs even on an
+assertion failure, so a RED test cannot leave a coroutine behind.
+
+The first clean common/JVM/Go gate passes. Review finds a remaining
+failed-join reuse path: resetApManager and runAnalysis can reset the stop
+flag and overwrite progress ownership while prior jobs are unfinished.
+Add RED reset/restart checks with unchanged retained owners. Guard both
+operations with the same lifecycle lock and completion checks. For the
+zero-budget join control, inject its real unfinished job during root
+resolution inside the current run, not before the now-guarded restart.
+Serialize release with start/reset so the job check and owner clear form
+one transition. Healthy old prescan/full-scan reuse must still pass.
+
 **Gate.** Copied data still resolves lambda calls after release. Weak-reference checks show
 prescan AP manager, runner and context release, with bounded GC polling as in the inventory.
 Retained checker/tracker values do not retain released run, edge, summary or alias state.
 Keep the intentionally shared application graph and classpath available.
 The old full-scan path, which does not call release, retains its behavior.
+
+**Result.** All 14 prescan tests pass. Joined lambda copies remain usable,
+old run owners pass the bounded collection test, and healthy legacy FullScan
+reuse passes. Reset/restart reject unfinished prior jobs. Clean common 1,226,
+JVM 353 and Go 1,313 tests pass with no skips; all 1,078 common and 239 JVM
+new annotated tests are discovered. JVM SAST and application test sources
+compile. See [J01 evidence](../docs/reports/bidi-j01.md).
 
 ### J02. Wire the phase-3 JVM entry and report conversion
 

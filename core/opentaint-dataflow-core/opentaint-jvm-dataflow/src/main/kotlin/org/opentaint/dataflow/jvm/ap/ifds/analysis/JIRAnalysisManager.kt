@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.jvm.ap.ifds.analysis
 
 import mu.KLogger
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.AnalysisRunner
 import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
@@ -28,6 +29,9 @@ import org.opentaint.dataflow.ifds.UnitResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolver
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLanguageManager
+import org.opentaint.dataflow.jvm.ap.ifds.JIRLambdaTracker
+import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
+import org.opentaint.dataflow.jvm.bidi.interp.PrescanLambdas
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalVariableReachability
 import org.opentaint.dataflow.jvm.ap.ifds.JIRMethodCallFactMapper
@@ -45,6 +49,8 @@ import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.common.cfg.CommonValue
 import org.opentaint.ir.api.jvm.JIRClasspath
+import org.opentaint.ir.api.jvm.JIRMethod
+import org.opentaint.ir.api.jvm.ext.findMethodOrNull
 import org.opentaint.ir.api.jvm.cfg.JIRCallExpr
 import org.opentaint.ir.api.jvm.cfg.JIRImmediate
 import org.opentaint.ir.api.jvm.cfg.JIRInst
@@ -77,6 +83,36 @@ class JIRAnalysisManager(
 
     private var currentPhase: Phase = Phase.Prescan
     val phase: Phase get() = currentPhase
+
+    fun prescanRuleIds(): Set<String> = relevantRuleIds.toSet()
+
+    /** Copy values only. Enumerating a tracker does not register this callback. */
+    fun prescanLambdas(): PrescanLambdas {
+        val targets = linkedMapOf<JIRMethod, MutableMap<Int, MutableSet<JIRMethod>>>()
+        for (context in contexts) {
+            val caller = context.methodEntryPoint.method as JIRMethod
+            for (entry in context.lambdaCallResolution.int2ObjectEntrySet()) {
+                entry.value.forEachRegisteredLambda(object : JIRLambdaTracker.LambdaSubscriber {
+                    override fun newLambda(method: JIRMethod, lambdaClass: LambdaAnonymousClassFeature.JIRLambdaClass) {
+                        val implementation = lambdaClass.findMethodOrNull(method.name, method.description) ?: return
+                        targets.getOrPut(caller) { linkedMapOf() }
+                            .getOrPut(entry.intKey) { linkedSetOf() }.add(implementation)
+                    }
+                })
+            }
+        }
+        return targets.mapValues { (_, byIndex) ->
+            Int2ObjectOpenHashMap<Set<JIRMethod>>().apply {
+                byIndex.forEach { (index, methods) -> put(index, methods.toSet()) }
+            }
+        }
+    }
+
+    override fun releasePrescan() {
+        contexts.forEach { it.resetAnalysisCache() }
+        contexts.clear()
+        relevantRuleIds.clear()
+    }
 
     override fun selectPhase(phase: Phase) {
         currentPhase = phase
