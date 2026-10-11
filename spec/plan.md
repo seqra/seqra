@@ -54,7 +54,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | E02 | Complete | Method-local transfer, unchanged bursts, boundaries, raw/selected summaries and publication lifetime. Clean gate passed; see [E02 evidence](../docs/reports/bidi-e02.md). |
 | E03 | Complete | Standing requests, sinks, conjunctions and backward end-fact triggers. Clean common and shared-consumer compile gate passed; see [E03 evidence](../docs/reports/bidi-e03.md). |
 | E04 | Complete | Locked summary snapshots, complete replay/delivery indexes, native/view reads and actual method dispatch. Clean gate passed; see [E04 evidence](../docs/reports/bidi-e04.md). |
-| E05–E07, V3 | Pending | |
+| E05 | Complete | Cached call walk, native/view returns, late demotion, zero/source rules and actual E6. Clean gate passed; see [E05 evidence](../docs/reports/bidi-e05.md). |
+| E06–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
 
@@ -1344,6 +1345,38 @@ state without violating runner ownership. P1–P6 each have an explicit test obs
 ### E05. Implement calls, record resumption and E6
 
 **Requires:** E03–E04. **Proposal:** `analyzer-impl.md` §4.5–§4.6, §4.10–§4.11.
+
+**Dependency staging.** Add `RunMethodCallServices(core)` as the actual required
+call factory product. It uses the actor's existing AP, forms, context, cut and
+local-service boundaries. E6 uses the same forward conjunction store added in
+E03. The service releases its owner and call-local caches on freeze.
+
+Extend the finite method fixture with cached forward/reversed call plans and
+actual call expressions. Keep the existing no-call adapter explicit. Required
+subscribe/link callbacks can bind a protocol fixture or capture complete
+events; absent callbacks reject call protocol use. Tests for returned stages
+can call the real summary/record adapter directly on a known call plan. E07
+adds the whole-program closure fixture and independent oracle.
+
+The observer contract set in I05 requires new run-1 TAINT added-fact deltas.
+The proposal's sample loop reports all non-REACH batches and does not remove
+duplicates. Keep a call-local TAINT delta store at ADDED, with the full caller
+reference and fact group. Report only its new TAINT deltas at an unresolved
+stage. FLOW, REACH, repeated deltas and restricted runs raise no observation.
+The observer must not select transfer results. Add a capture hook to the
+finite interpreter and test these cases before implementation.
+Declare the fixture's public interpreter as `Interpreter`. Kotlin cannot use
+an anonymous object's two interfaces as its public inferred type. The object
+still implements the observer for the runtime interface check.
+The first focused gate passes 53 of 55 tests. Two call tests inspect the
+method-edge store for an unchanged pass. E02 keeps unchanged items in the
+worklist without inserting them in that store. Drain the actual actor and
+compare its raw summary for untouched and REACH pass controls. Retain the
+empty edge-store and no-call-cut assertions; this changes no transfer rule.
+The native demotion test also contains a forward must-premise-to-REACH
+record. AP §7.2 permits a nonzero REACH premise only backward, so that input
+is outside the native record contract. Remove that loop case. Keep pending
+exact/ANY results and ordinary backward zero returns in their own tests.
 
 **Tests first.** Write `CallPlanTest`, `RecordReplayTest`, `RecordDemotionTest` and
 interprocedural `NdJoinAdapterTest`. Compare annotated link/return effects, zero paths,

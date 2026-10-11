@@ -833,6 +833,9 @@ Subscribe and link each resolved callee. Later summary/record results resume at 
 END_FACTS stage carries its sink alternative as `trigger` and fires its seeds when it produces a result.
 An applicable-only native must-record batch resumes with pending demotion. Pass its facts to the returned rewriter
 and mappings without pre-demotion; the call exit raises their layer immediately before `Cut.CALL`.
+The unresolved-call observer receives only new run-1 TAINT deltas at ADDED.
+Keep exact caller-reference and fact-group keys for this observation. The
+observer does not select transfers. Release its delta cache with the service.
 
 ```kotlin
     private class PlanFact(val premise: PremiseKey, val facts: Facts, val identityCandidate: Boolean?)
@@ -919,10 +922,17 @@ and mappings without pre-demotion; the call exit raises their layer immediately 
         cur.forEach(emit)
     }
 
+    private var unresolvedAdded: AddedFactStore? = if (config.run1) AddedFactStore(ap) else null
+
     private fun observeUnresolved(ctx: CallCtx, facts: List<PlanFact>) {
         val observer = r.shared.unresolvedObserver ?: return
         if (ctx.plan.stagesFrom[CallPoint.ADDED].orEmpty().none { it is CallStage.Edges && it.kind == StageKind.UNRESOLVED }) return
-        for (f in facts) if (f.facts !is Reach) observer.reached(ctx.call, f.facts.base, ctx.plan)
+        for (f in facts) {
+            if (f.facts !is TaintTree) continue
+            val ref = CallerRef(key, f.premise, ctx.callerLayer, ctx.node)
+            val delta = unresolvedAdded!!.add(ref, f.facts.layer, f.facts) ?: continue
+            observer.reached(ctx.call, delta.base, ctx.plan)
+        }
     }
 
     private fun enterCallees(ctx: CallCtx, stage: CallStage.Callees, a: PlanFact) {
@@ -1235,7 +1245,7 @@ and backward hits until source-seed construction. Drop all other run stores.
 
     fun freeze() {
         port = null; rctx = null; worklist = DeltaWorklist(); pending = ArrayList()
-        requests = null; requestJoin = null; conjunctions = null; triggered.clear()
+        requests = null; requestJoin = null; conjunctions = null; triggered.clear(); unresolvedAdded = null
         edgeStore = null; initialStore = null; if (!forward) linkStore = null
     }
 }

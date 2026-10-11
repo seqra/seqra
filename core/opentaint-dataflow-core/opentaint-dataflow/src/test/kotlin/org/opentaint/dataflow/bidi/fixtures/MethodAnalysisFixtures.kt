@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.bidi.fixtures
 
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.driver.Seed
 import org.opentaint.dataflow.bidi.driver.SeedIndex
@@ -15,6 +16,7 @@ import org.opentaint.dataflow.util.Cancellation
 import org.opentaint.dataflow.util.RefManager
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.ir.api.common.cfg.CommonValue
 import java.util.BitSet
 import java.util.Collections
 import java.util.IdentityHashMap
@@ -31,7 +33,15 @@ class MethodAnalysisFixtures(
     val manager = store.manager
     val ops = store.ops
     val key = store.method
-    val language = store.lm
+    val callPlans = mutableMapOf<Int, CallPlan>()
+    val callExpressions = mutableMapOf<Int, CommonCallExpr>()
+    val callExpression = object : CommonCallExpr {
+        override val typeName = "Box"
+        override val args: List<CommonValue> = emptyList()
+    }
+    val language = object : LanguageManager by store.lm {
+        override fun getCallExpr(inst: CommonInst): CommonCallExpr? = callExpressions[inst.location.index]
+    }
     val records = PersistentRecordStore(manager)
     val vulnerabilities = ConcurrentVulnerabilityStore(manager)
     private val adjacency = successors.map { it.toList() }
@@ -41,6 +51,8 @@ class MethodAnalysisFixtures(
     private val reversedStatements = IdentityHashMap<StatementSummary, StatementSummary>()
     private val reversedEntries = IdentityHashMap<RuleStatement, RuleStatement>()
     private val reversedExits = IdentityHashMap<ExitRules, ExitRules>()
+    private val reversedCalls = IdentityHashMap<CallPlan, CallPlan>()
+    val unresolvedCalls = ArrayList<Triple<CommonCallExpr, AccessPathBase, CallPlan>>()
 
     init {
         require(normalExit in adjacency.indices)
@@ -52,6 +64,10 @@ class MethodAnalysisFixtures(
     fun statement(index: Int, summary: StatementSummary) { statements[index] = summary }
     fun entryRules(value: RuleStatement) { entryRules = value }
     fun exitRules(index: Int, value: ExitRules) { exitRules[index] = value }
+    fun call(index: Int, plan: CallPlan, expression: CommonCallExpr = callExpression) {
+        callPlans[index] = plan
+        callExpressions[index] = expression
+    }
 
     private val forms = object : MethodForms {
         override fun statement(direction: Direction, s: CommonInst): StatementSummary {
@@ -67,8 +83,10 @@ class MethodAnalysisFixtures(
             return if (direction == Direction.FORWARD) value
             else reversedExits.getOrPut(value) { ExitRules(value.reversed(), false, emptySet()) }
         }
-        override fun call(direction: Direction, s: CommonInst, call: CommonCallExpr): CallPlan =
-            error("Calls are not part of this finite method fixture")
+        override fun call(direction: Direction, s: CommonInst, call: CommonCallExpr): CallPlan {
+            val plan = checkNotNull(callPlans[s.location.index]) { "The finite call has no plan" }
+            return if (direction == Direction.FORWARD) plan else reversedCalls.getOrPut(plan) { plan.reversed() }
+        }
     }
 
     private fun graph(direction: Direction): MethodInstGraph {
@@ -84,7 +102,10 @@ class MethodAnalysisFixtures(
             })
     }
 
-    val interpreter = object : Interpreter {
+    val interpreter: Interpreter = object : Interpreter, UnresolvedCallObserver {
+        override fun reached(call: CommonCallExpr, position: AccessPathBase, plan: CallPlan) {
+            unresolvedCalls += Triple(call, position, plan)
+        }
         override fun entryNode(method: MethodKey): CommonInst = inst(0)
         override fun exitNodes(method: MethodKey): List<ExitNode> = buildList {
             add(ExitNode(inst(normalExit), false))
@@ -95,7 +116,7 @@ class MethodAnalysisFixtures(
         override fun statementSummary(method: MethodKey, statement: CommonInst): StatementSummary =
             forms.statement(Direction.FORWARD, statement)
         override fun callPlan(caller: MethodKey, statement: CommonInst, call: CommonCallExpr): CallPlan =
-            error("Calls are not part of this finite method fixture")
+            forms.call(Direction.FORWARD, statement, call)
         override fun isSummaryBase(base: AccessPathBase): Boolean =
             base !is AccessPathBase.LocalVar && base !is AccessPathBase.CleanerTemporary
     }
@@ -114,6 +135,10 @@ class MethodAnalysisFixtures(
     val publications: List<List<Publication>> get() = published
     val enqueued = ArrayList<RunMethodAnalyzer>()
     val events = ArrayList<RunEvent>()
+    val subscriptions = ArrayList<Subscription>()
+    val sentLinks = ArrayList<RunEvent.LinkIn>()
+    var onSubscribe: ((Subscription) -> Unit)? = null
+    var onLink: ((RunEvent.LinkIn) -> Unit)? = null
     var onPublish: ((MethodKey, List<Publication>) -> Unit)? = null
     var onPublishInput: ((MethodKey, List<Publication>) -> Unit)? = null
     var onProcess: ((MethodKey, EdgeDelta) -> Unit)? = null
@@ -150,10 +175,17 @@ class MethodAnalysisFixtures(
             override fun post(event: RunEvent.Delivery): Boolean { events += event; return true }
             override fun summaryStorage(key: MethodKey): SummaryStorage =
                 error("Summary storage requires an explicit protocol fixture")
-            override fun subscribe(sub: Subscription): Unit =
-                error("Subscriptions require an explicit protocol fixture")
-            override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts): Unit =
-                error("Calls require an explicit protocol fixture")
+            override fun subscribe(sub: Subscription) {
+                val receive = checkNotNull(onSubscribe) { "Subscriptions require an explicit protocol fixture" }
+                subscriptions += sub
+                receive(sub)
+            }
+            override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
+                val receive = checkNotNull(onLink) { "Links require an explicit protocol fixture" }
+                val event = RunEvent.LinkIn(callee, ref, linkLayer, added)
+                sentLinks += event
+                receive(event)
+            }
             override fun enqueue(analyzer: RunMethodAnalyzer): Boolean { enqueued += analyzer; return true }
             override fun analyzer(key: MethodKey): RunMethodAnalyzer {
                 check(key == actor.key) { "The finite port owns one method actor" }
