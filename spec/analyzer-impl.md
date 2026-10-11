@@ -162,6 +162,15 @@ E01. Summary storage and subscription algorithms remain in E04; hand-off
 construction remains in D02. The real JVM context source delegates to
 the I06 method-entry and form cache.
 
+E02 requires `PublicationSink`, `MethodLocalServicesFactory` and
+`MethodCallServicesFactory`. They bind each actor to the services of E03–E05.
+There are no default implementations that discard requests, sinks, calls or
+publications. `Triggers` owns its result containers and retains Facts identities.
+The actor exposes its actual form algebra to internal mode tests. E04 supplies the
+production event handler and summary sink. The combined snippets below show the
+final algorithms; the staged actor delegates later algorithms through these
+required contracts until their implementation steps.
+
 ### 3.1 `SharedObjects`, `RunConfig`
 
 The driver creates `SharedObjects` once. Each run receives immutable `RunConfig` constants, read-only records,
@@ -567,8 +576,12 @@ class DeltaWorklist {
 
     fun removeNext(): EdgeDelta {
         unchanged.removeLastOrNull()?.let { if (it.zeroToZero) zeroUnchanged--; return it }
-        if (seen.isNotEmpty()) seen = ObjectOpenHashSet()
         return zero.removeLastOrNull() ?: other.removeLast()
+    }
+
+    // Call after processing the item and adding all of its successors.
+    fun afterProcess() {
+        if (unchanged.isEmpty() && seen.isNotEmpty()) seen = ObjectOpenHashSet()
     }
 }
 ```
@@ -645,7 +658,10 @@ An unchanged fact takes no postprocessor. No core liveness test drops a fact.
 
 ```kotlin
     private inner class EngineAlgebra : FactAlgebra<PremiseKey, Facts> {
-        override fun base(c: Facts) = c.base
+        override fun base(c: Facts): AccessPathBase {
+            ap.cancellation.checkpoint()
+            return c.base
+        }
         override fun filter(c: Facts, filter: TypeFilter) = ops.filter(c, filter)
         override fun applyEdge(me: MicroEdge, c: Facts, premise: PremiseKey, statementEdge: Boolean, out: ResultSink) =
             ops.applyEdge(c, premise, me.edge, statementEdge, mode, collect(premise, c, out), may = me.may)
@@ -697,14 +713,21 @@ enum class Cut { STATEMENT, CALL, ENTRY_RULES, EXIT_RULES, SEED }
 
 ```kotlin
     fun work(quantum: Int): Boolean {
+        require(quantum > 0)
         val zeroAtStart = worklist.hasZeroWork
         var n = 0
-        while (!worklist.isEmpty) {
-            if (n++ >= quantum || worklist.hasZeroWork != zeroAtStart) return false
-            process(worklist.removeNext())
+        while (true) {
+            ap.cancellation.checkpoint()
+            while (!worklist.isEmpty) {
+                if (n >= quantum || worklist.hasZeroWork != zeroAtStart) return false
+                n++
+                process(worklist.removeNext())
+                worklist.afterProcess()
+            }
+            flushPublications()
+            ap.cancellation.checkpoint()
+            if (worklist.isEmpty && pending.isEmpty()) return true
         }
-        flushPublications()
-        return true
     }
 
     private fun process(item: EdgeDelta) {
@@ -742,7 +765,7 @@ enum class Cut { STATEMENT, CALL, ENTRY_RULES, EXIT_RULES, SEED }
     }
 
     private fun checkKinds(premise: PremiseKey, f: Facts) {
-        check(f !is FlowTree || (premise is InitialAp && premise.mark is MarkSlot.Star))
+        check((f is FlowTree) == premise.isFlow)
         check(premise !is PremiseSet || f is TaintTree)
     }
     private fun requestWork() { p.enqueue(this) }
@@ -1057,8 +1080,15 @@ nonzero singletons give no callee demand, including must records whose views lat
 
     private fun flushPublications() {
         if (pending.isEmpty()) return
-        p.summaryStorage(key).publish(pending)
+        val detached = pending
         pending = ArrayList()
+        val batch: List<Publication> = Collections.unmodifiableList(detached)
+        try {
+            p.summaryStorage(key).publish(batch)
+        } catch (error: Throwable) {
+            pending.addAll(0, detached)
+            throw error
+        }
     }
 ```
 

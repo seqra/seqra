@@ -5,12 +5,14 @@ import org.opentaint.dataflow.ap.ifds.serialization.MethodContextSerializer
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.ap.ExclusionSet
 import org.opentaint.dataflow.util.Cancellation
+import org.opentaint.dataflow.util.RefManager
 import org.opentaint.ir.api.common.*
 import org.opentaint.ir.api.common.cfg.*
 
 /** Common IR identity and instruction indexes for store and join tests. */
-class StoreFixtures(val cancellation: Cancellation = Cancellation(), val maxIndex: Int = 127) {
-    val manager = ApManager(cancellation)
+class StoreFixtures(val cancellation: Cancellation = Cancellation(), val maxIndex: Int = 127,
+                    refManager: RefManager = RefManager()) {
+    val manager = ApManager(cancellation, refManager)
     val ops = ApOps(manager)
     data class Context(val name: String) : MethodContext
     val commonMethod = object : CommonMethod {

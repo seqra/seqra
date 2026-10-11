@@ -51,7 +51,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | I06 | Complete | Method boundaries, complete JVM facade/cache, wired graphs and Spring forms. Clean common/JVM and application regression gate passed; see `docs/reports/bidi-i06.md`. |
 | V2 | Complete | Actual static exit-source requests, matched source/pass effects and contextual construction scan pass. See `docs/reports/bidi-v2.md`. |
 | E01 | Complete | Typed run shell, count protocol, immutable queue priorities and context adapters. Clean gate passed; see `docs/reports/bidi-e01.md`. |
-| E02–E07, V3 | Pending | |
+| E02 | Complete | Method-local transfer, unchanged bursts, boundaries, raw/selected summaries and publication lifetime. Clean gate passed; see [E02 evidence](../docs/reports/bidi-e02.md). |
+| E03–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
 
@@ -1112,8 +1113,78 @@ zero-work run. Handlers implemented later must use these same count transitions.
 
 **Requires:** E01. **Proposal:** `analyzer-impl.md` §4.1–§4.4, §4.7; `analyzer-core.md` §4.
 
-**Tests first.** Write `EngineAlgebraTest`, `ModesTest`, `FactKindsTest`, `ExitRulesTest`
-and `CutPointTest` before each handler. Cover initial emission/start, statement, unchanged and
+**Dependency staging and corrections.** Require a publication sink and per-actor
+local-service and call-service factories. E03 supplies standing requests, sink and
+conjunction state; E05 supplies call processing and summary/record application.
+Do not add default implementations that discard those operations. E02 tests use
+explicit finite adapters for the tested operations and reject unsupported calls.
+Advance the complete immutable `Triggers` result contract here. The method actor
+owns one set of links, initials, edges, summaries and backward source hits. Expose
+its real AP algebra to mode tests through an internal API. E04 binds the actual
+publication sink and production event handler.
+
+Detach an owned publication batch before publication, then check for new local
+work or publications before reporting completion. Retain Facts identities. A
+publication error must propagate; do not discard an unaccepted batch. Freeze only
+after join, retain forward links, summaries, backward source hits and counters,
+and release run ports, contexts, queues and injected services (§7.6).
+
+The proposal clears the unchanged repeat set on a later removal. That misses a
+terminating unchanged burst when no later removal occurs. Reset this set after
+the final item's processing and successors, when the unchanged queue is empty
+(§4.3). Do not reset it at pop or at a Work quantum boundary while unchanged work
+remains. Test a later identical burst and a cycle across several quanta.
+Use the complete K6 check `(facts is FlowTree) == premise.isFlow`, with
+multi-premise conclusions restricted to TAINT. Add cancellation checks to each
+processing, boundary-drain and candidate loop, including unchanged paths. Allocate
+no backward conjunction state. Keep the unit runner's sole queued-actor set.
+The local fixture must give its AP manager and memory guard the same reference
+manager. Add an optional reference-manager input to the existing store fixture;
+preserve its default and all existing callers.
+For a synchronous publisher that adds fresh actor work, require full drain and
+flush before a true return. The actor may continue within its current quantum or
+return false. Do not require one particular return before checking this invariant.
+The first focused test compile found three fixture typing errors: raw
+`Conclusion` values need the explicit demand flag; a position-request expected
+list needs the declared `RequestKind` element type; clear the fixture's mutable
+publication collector instead of its read-only view. Keep the expected values.
+Use DEMAND as the link layer of a DEMAND added fact. The caller layer can remain
+NORMAL; the link and added-fact layers must agree (§8.3).
+For FLOW added-fact fixtures, use a FLOW caller premise. Preserve the same
+initial and counter checks. The native normal-must publication fixture needs
+a matching exit demand: an entry-only demand has no publication (§6.4).
+Keep the intended publication and raw-selection assertions with that matching
+exit demand.
+The core audit found missing cancellation checks inside the nested reversed
+end-fact matching loops. Check each candidate and each sink edge, not only the
+outer sink loop. Add actual-actor work tests for unchanged cycles across quanta,
+repeat-set reset after drain, cancellation and publication failure propagation.
+The cancellation fixture must reactivate cancellation before reading retained
+store content. First assert that the cancelled store read also stops.
+The final publication callback can cancel the analysis. Check cancellation after
+flush and before returning completion. Check AP-algebra base reads too: GEN must
+check cancellation even for a later candidate whose base does not match and which
+therefore invokes no AP transfer. Add failing regressions before these changes.
+Import the interpreter's zero fact and keep-edge helpers in the actor-work tests;
+these helpers are not in the AP package.
+The executed static-position test incorrectly expected STAGE and GEN to give no
+result. These modes omit the statement-only exception and use the ordinary
+above-premise row: an admitted root FLOW fact produces an abstract ANY result in
+DEMAND without a position request. Correct these expected results; retain the
+statement request and original-premise assertions. The same run reproduces both
+new cancellation failures before their fixes (53 of 56 tests passed).
+Capture the actual publication batch before the fixture copies it. Verify that
+the actor's batch rejects mutation, retains the supplied Facts objects and stays
+unchanged when a later batch is published.
+Complete the final E02 integration rows with an unreachable forward normal exit,
+a second caller reference for the same DEMAND added fact, and an actual exit-rule
+overflow at limit one. Verify no new start work for the second link and verify
+the filtered EXIT_RULES result before its cut. Also check that direct restricted
+request handlers reject before invoking local services.
+
+**Tests first.** Write `EngineAlgebraTest`, `ModesTest`, `FactKindsTest`, `ExitRulesTest`,
+`CutPointTest`, `DeltaWorklistTest`, `MethodWorkTest` and `MethodServicesTest` before each handler.
+Cover initial emission/start, statement, unchanged and
 boundary transitions, kind preservation and the absence of restricted-run requests.
 
 **Implement.** Add `RunMethodAnalyzer`, `DeltaWorklist`, `EdgeDelta`, `EngineAlgebra` and handlers
