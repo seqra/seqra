@@ -8,6 +8,7 @@ import org.opentaint.dataflow.ap.ifds.Accessor
 import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
+import org.opentaint.dataflow.bidi.driver.ReportState
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase.Argument
 import org.opentaint.dataflow.configuration.jvm.serialized.PositionBaseWithModifiers
@@ -26,7 +27,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
  * reaches the value itself, field depths 1..5, and a depth-1 field hidden behind call stacks 1..5.
  * The parameter controls how many independent marks coexist in the facts.
  */
-class CleanerDslAnalysisTest : AnalysisTest() {
+open class CleanerDslAnalysisTest : AnalysisTest() {
     private companion object {
         const val TEST_CLS = "test.samples.CleanerDslSample"
         const val MATRIX_RULE_PREFIX = "cleaner-dsl-matrix"
@@ -459,10 +460,20 @@ class CleanerDslAnalysisTest : AnalysisTest() {
             ),
         )
 
-        assertEquals(
-            setOf("returning-unrelated-exact"),
-            findingIds(config, "returningPlainCleaner"),
-        )
+        if (useBidiEntry) {
+            val result = runBidiAcceptance(config, TEST_CLS, "returningPlainCleaner", bidiLimits)
+            assertEquals(mapOf(
+                "returning-unrelated-exact" to ReportState.CONFIRMED,
+                "returning-cleaned-any" to ReportState.DEMAND,
+            ), result.report.entries.associate { it.key.rule.id to it.state })
+            assertEquals(setOf("returning-unrelated-exact", "returning-cleaned-any"),
+                result.output.mapTo(linkedSetOf()) { it.vulnerability.ruleId })
+        } else {
+            assertEquals(
+                setOf("returning-unrelated-exact"),
+                findingIds(config, "returningPlainCleaner"),
+            )
+        }
     }
 
     @Test

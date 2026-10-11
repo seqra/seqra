@@ -24,7 +24,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SinkMetaData
  * separate sink for every mark, so an assertion detects both missing and unexpectedly retained
  * facts.
  */
-class CleanerDslControlFlowAnalysisTest : AnalysisTest() {
+open class CleanerDslControlFlowAnalysisTest : AnalysisTest() {
     private companion object {
         const val TEST_CLS = "test.samples.CleanerDslControlFlowSample"
         val MARKS = (1..5).map { "m$it" }

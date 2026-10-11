@@ -10,7 +10,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
  * `JApplicationSingleExitGraph` normalizes to a single normal exit and a single exceptional one.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class MultiReturnDataFlowTest : AnalysisTest() {
+open class MultiReturnDataFlowTest : AnalysisTest() {
 
     companion object {
         private const val TEST_CLS = "test.samples.MultiReturnDataFlowSample"

@@ -6,7 +6,7 @@ import org.opentaint.dataflow.configuration.jvm.serialized.PositionBase.Argument
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class KotlinDataFlowReachabilityTest : AnalysisTest() {
+open class KotlinDataFlowReachabilityTest : AnalysisTest() {
 
     companion object {
         private const val SAMPLE_PACKAGE = "test.samples"

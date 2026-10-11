@@ -1,6 +1,7 @@
 package org.opentaint.semgrep.util
 
 import base.RuleSample
+import org.opentaint.dataflow.bidi.driver.IterationPolicy
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintAssignAction
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
@@ -17,7 +18,8 @@ import kotlin.test.assertTrue
 import kotlin.test.fail
 
 abstract class SampleBasedTest(
-    private val configurationRequired: Boolean = false
+    private val configurationRequired: Boolean = false,
+    private val bidiPolicy: IterationPolicy? = null,
 ) {
     inline fun <reified T : RuleSample> runTest(
         expectStateVar: Boolean = false,
@@ -110,7 +112,7 @@ abstract class SampleBasedTest(
 
     private val sampleData by lazy { samplesDb.loadSampleData() }
 
-    private val runner by lazy { TestAnalysisRunner(samplesDb) }
+    private val runner by lazy { TestAnalysisRunner(samplesDb, bidiPolicy) }
 
     fun closeRunner() {
         runner.close()

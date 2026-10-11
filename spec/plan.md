@@ -65,7 +65,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | V4 | Complete | [V4 evidence](../docs/reports/bidi-v4.md). 1,226 common and 339 JVM tests pass; all new tests are discovered; shared consumers compile. |
 | J01 | Complete | [J01 evidence](../docs/reports/bidi-j01.md). 14 new tests pass; clean common/JVM/Go gates and consumer compilation pass. |
 | J02 | Complete | JVM entry, two-state output, setup/status and one-budget gates pass. |
-| J03, FINAL | Pending | |
+| J03 | Complete | [J03 evidence](../docs/reports/bidi-j03.md). All enabled actual JVM, query and Spring cases pass; clean shared/legacy regressions pass. |
+| FINAL | Pending | |
 
 Implementation corrections: the earlier FINAL text described this file as a planning-only
 deliverable. `task.md` now requires implementation. FINAL closes that implementation.
@@ -2046,9 +2047,69 @@ that require full phase-5 traces from phase-3 finding/state assertions; list tha
 results. Retain the specified disabled exception cases and known alias false positives.
 Fix regressions found by the enabled gate before closing the phase.
 
+Record the actual-entry observation seam before installing tests. Preserve
+JIRBidiAnalysis's public seven-argument constructor. Add an internal constructor
+with a driver factory; its default invokes the same actual IterationDriver.
+The test bridge invokes actual RunManager and handlers and the actual barrier
+memory guard. Capture initial/link/request data before joined actor release,
+and copy raw/selected summaries, native source hits, records and witnesses
+after the real barrier. Keep full RuleId, MethodKey, premise, layer, E and
+mark exclusions, plus actual result/actor counters in owned snapshots.
+Do not retain run owners or manufacture an outgoing store for terminal
+Next.End; use its actual Frontier counts and null for the unavailable payload.
+
+Add a default-false hook to the existing AnalysisTest, with positive limits
+starting at 1. Only bidi admits generated lambda methods in its sample unit.
+Keep its rule loading, graph and legacy path as controls. Open only the five
+final DSL/reachability/multiple-return classes to add inherited bidi variants.
+The sequence fixture pins 13 independent current behavior vectors, including
+subtree clean absence and EXACT clean DEMAND residual as separate cells.
+Use actual prescan join/release and require OK/Simple on the bidi path.
+
+Query ExampleTest uses SampleBasedTest and TestAnalysisRunner's anonymous
+analyzer, not ProjectAnalyzer. Add a nullable policy only to these test helpers
+and five opt-in query tests; run legacy ExampleTest as its control. Qualify
+the test runner's outer graph as this@TestAnalysisRunner.ifdsAnalysisGraph:
+the new protected cache has the same name and must not hide that value.
+A repository scan finds no other graph override with that name collision. No CLI or
+project-policy change is required for this gate. Add two whole generated
+Spring dispatcher tests with real component initialization, entry source,
+registry restoration and cleanup. Expect direct, inside-static and registry
+sink keys, with ordinary outside-static absent. Keep provider/form vectors
+as controls; this fixture does not claim annotation discovery coverage.
+
+The first actual sequence gate passes 10 of 13 tests. The three failed
+assertions overstate their Java fixtures. Entry-mark removal applies only to
+zero-premise this/arg facts, not RET (interpreter §4.7 step 4). Assert removal
+on those bases and retain the normal returned must fact. Run both root and
+named-field entry-source vectors to check removal at a nonempty depth. BaseOnly positions
+with Object type also resolve an array-element alternative (§4.2 and the
+existing position resolver): the callee demand emits exact email and its
+[e] alternatives, and the factory has an extra cut k.ANY(U)/DEMAND at limit 1.
+Pin those complete Java cells and require exactly the two normal returned
+factory R1 leaves. The forward zero-to-zero R1 record also remains admitted;
+filter the literal return comparison by RET, as for the raw summary check. Keep all original finding/state and positive-limit checks.
+
+The first broader gate passes every query and Spring test. Of 137 opted-in
+application tests, only the returning EXACT cleaner expectation fails; one
+nested-collection skip is retained. Its final output has one CONFIRMED
+unrelated mark and one DEMAND cleaned-mark residual. This is the required
+same-path must/EXACT PART row of AP §4.7, not full removal. Preserve the legacy
+expectation on the null path and assert both exact states on the bidi path;
+keep the no-clean, subtree and unrelated-mark controls enabled. The query
+gate passes 68 tests, with its two existing skips retained.
+
 **Gate.** Fresh test results show which suites exercised the new entry. Full trace assertions
 are explicitly assigned to phase 5. The new path passes every enabled phase-3 acceptance case;
 shared changes introduce no new baseline regression in the old path.
+
+**Result.** All 13 actual sequence vectors and the 150 opted-in application
+cases pass, with one inherited specified skip. Query 68 tests pass with two
+existing skips. The clean closing gate passes 1,226 common, 361 JVM, 1,313
+Go and 941 application tests with no failures/errors. Ten application skips
+are the nine legacy skips plus the inherited nested-collection case. All
+1,078 common, 247 JVM, 36 application and five query new annotated tests
+are void and present in fresh XML. See [J03 evidence](../docs/reports/bidi-j03.md).
 
 ## FINAL. Review, validate and close the implementation
 

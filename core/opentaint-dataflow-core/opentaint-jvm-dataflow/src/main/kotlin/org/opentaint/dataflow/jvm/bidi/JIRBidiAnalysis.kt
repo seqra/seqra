@@ -41,7 +41,7 @@ import kotlin.time.Duration
 import kotlin.time.TimeSource
 
 /** Phase 3 copies prescan values and returns simple sink traces for both report states. */
-class JIRBidiAnalysis(
+class JIRBidiAnalysis internal constructor(
     private val cp: JIRClasspath,
     private val graph: JApplicationGraph,
     private val unitResolver: JIRUnitResolver,
@@ -49,7 +49,18 @@ class JIRBidiAnalysis(
     private val params: JIRAnalysisManager.Params,
     private val policy: IterationPolicy,
     private val refManager: RefManager,
+    private val driverFactory: (IterationPolicy, SharedObjects, Duration) -> IterationDriver,
 ) : BidiEntry {
+    constructor(
+        cp: JIRClasspath,
+        graph: JApplicationGraph,
+        unitResolver: JIRUnitResolver,
+        taintConfig: TaintRulesProvider,
+        params: JIRAnalysisManager.Params,
+        policy: IterationPolicy,
+        refManager: RefManager,
+    ) : this(cp, graph, unitResolver, taintConfig, params, policy, refManager, ::IterationDriver)
+
     private val cancellation = Cancellation()
 
     private class PrescanResult(
@@ -87,7 +98,7 @@ class JIRBidiAnalysis(
         @Suppress("UNCHECKED_CAST")
         SharedObjects(ap, ApOps(ap), interpreter, language, contexts, PersistentRecordStore(ap),
             ConcurrentVulnerabilityStore(ap), unitResolver as UnitResolver<CommonMethod>, refManager, cancellation).use { shared ->
-            return IterationDriver(policy, shared, budget - start.elapsedNow()).analyze(copied.roots)
+            return driverFactory(policy, shared, budget - start.elapsedNow()).analyze(copied.roots)
         }
     }
 

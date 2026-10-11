@@ -7,6 +7,10 @@ import org.opentaint.config.JavaDefaultConfigLoader
 import org.opentaint.dataflow.ap.ifds.access.AnyAccessorUnrollStrategy
 import org.opentaint.dataflow.ap.ifds.access.ApMode
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
+import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
+import org.opentaint.dataflow.ap.ifds.trace.path.TracePathGenerationResult
+import org.opentaint.dataflow.bidi.driver.IterationPolicy
+import org.opentaint.dataflow.jvm.bidi.JIRBidiAnalysis
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.dataflow.ifds.SingletonUnit
@@ -34,9 +38,13 @@ import org.opentaint.jvm.transformer.JMultiDimArrayAllocationTransformer
 import org.opentaint.jvm.transformer.JStringConcatTransformer
 import org.opentaint.semgrep.pattern.TaintRuleFromSemgrep
 import kotlin.time.Duration.Companion.minutes
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class TestAnalysisRunner(
     private val samples: SamplesDb,
+    private val bidiPolicy: IterationPolicy? = null,
 ) : AutoCloseable {
     private lateinit var cp: JIRClasspath
 
@@ -79,8 +87,12 @@ class TestAnalysisRunner(
             override val unrollStrategy: AnyAccessorUnrollStrategy
                 get() = AnyAccessorUnrollStrategy.AnyAccessorDisabled
 
-            override fun analysisGraph() = ifdsAnalysisGraph
+            override fun analysisGraph() = this@TestAnalysisRunner.ifdsAnalysisGraph
             override fun analysisManager() = JIRAnalysisManager(cp, refManager, configProvider)
+            override fun bidiEntry() = bidiPolicy?.let { policy ->
+                JIRBidiAnalysis(cp, this@TestAnalysisRunner.ifdsAnalysisGraph, unitResolver(),
+                    configProvider, JIRAnalysisManager.Params(), policy, refManager)
+            }
             override fun unitResolver() = object :JIRUnitResolver {
                 override fun locationIsUnknown(loc: RegisteredLocation): Boolean =
                     loc.isRuntime
@@ -107,7 +119,14 @@ class TestAnalysisRunner(
 
             val rulesProvider = rulesProvider(rule, config, useDefaultConfig)
             setupEngine(rulesProvider).use { engine ->
-                val traces = engine.analyzeWithIfds(listOf(ep)).first
+                val (traces, status) = engine.analyzeWithIfds(listOf(ep))
+                if (bidiPolicy != null) {
+                    assertEquals(TaintAnalysisUnitRunnerManager.Status.OK, status.analysisStatus, sample)
+                    assertEquals(TaintAnalysisUnitRunnerManager.Status.OK, status.traceResolutionStatus, sample)
+                    assertTrue(traces.all { it.trace === TracePathGenerationResult.Simple }, sample)
+                    assertTrue(engine.ifdsEngine.allUnits().isEmpty(), sample)
+                    assertFailsWith<IllegalStateException> { engine.ifdsEngine.apManager }
+                }
                 sample to traces
             }
         }
