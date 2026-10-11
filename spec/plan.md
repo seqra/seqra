@@ -44,7 +44,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | A09 | Complete | [A09 evidence](../docs/reports/bidi-a09.md). All 635 common tests pass; none skipped. Standing products, native records, concurrent lossless witnesses, immutable stored shapes, deep paths and cancellation pass. All 487 new annotated tests are discovered. JVM/Go test sources, SAST and application compile. |
 | V1 | Complete | [Phase 1 audit and gate](../docs/reports/bidi-v1.md). All public AP/store operations have contract coverage. Clean common 647, JVM 119 and Go 1,313 tests pass; none skipped. All 499 new common and five new JVM annotated tests are discovered. SAST and application compile. |
 | I01 | Complete | [Common forms and mode gate](../docs/reports/bidi-i01.md). Reversal, cached directions, all three application modes and the per-path call walk pass 60 new tests. Clean common 707 tests pass; all 559 new common tests are discovered. JVM/Go test, SAST and application compilation pass. |
-| I02–I06, V2 | Pending | |
+| I02 | Complete | [Shared builder gate](../docs/reports/bidi-i02.md). Exact forms and independent per-path/tree vectors pass all 41 new tests, including field-clean actions. Clean common 748 tests pass; all 600 new common tests are discovered. JVM/Go test, SAST and application compilation pass. |
+| I03–I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
@@ -316,6 +317,22 @@ does not reuse the incoming premise or call source hooks. Check sink
 object identity, sibling input independence and disabled guards.
 Keep the I01 directed transfer matrix within W8: a backward input has
 no normal must column, and a backward micro edge has no must target.
+I02 retains the I01 producer ownership contract for injected `PathEdge`
+and conjunction objects. The builder preserves those identities; its
+move/read/write helpers own all paths that they create. Go tuple-target
+reads remain with the old Go analyzer; the current new interpreter plan
+is JVM-scoped and does not add a target-path read overload.
+The proposed `JIRInterpreter` constructor depends on rule forms (I04),
+call forms (I05) and method entries (I06), which in turn use the facade.
+Keep I03 compilable by giving `JIRStatementForms` its actual inputs:
+the AP manager, type filters, alias-path provider and read-source hook.
+I04 supplies the real read-source hook. I06 adds and wires the complete
+`JIRInterpreter` facade after all those forms exist. Keep the proposed
+public class names and the common Interpreter behavior; add no runtime
+placeholder for later steps.
+The I02 field-action review found a test that used object identity for
+`TaintMark`, an inline value class. Compare mark values by equality;
+retain identity checks for the cleaner, filter and temporary objects.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions
@@ -674,7 +691,8 @@ two-level AP writes remain separate from JVM lowering through local temporaries.
 `JIRStatementEffectTest`. Use explicit construction and effect vectors for each admitted JVM
 instruction, with the per-path AP reference where applicable.
 
-**Implement.** Add `JIRInterpreter`, `JIRStatementForms` and `JIRTypeFilters`. Reuse JIR values,
+**Implement.** Add `JIRStatementForms` and `JIRTypeFilters`. Add the complete `JIRInterpreter`
+facade in I06, after its rule, call and method-entry dependencies. Reuse JIR values,
 local aliases and the fact type checker. Cover copy, field/static/element read and write, cast,
 operators, allocation, return, throw and the unchanged path. Apply forward path filters and
 mark policy at root and every element level; backward forms omit them. Keep method statement
@@ -749,7 +767,7 @@ constructor and lambda calls. No extra compatibility or liveness filter is intro
 and `SpringDispatcherFormsTest`. Check entry/end-rule order, normal/exceptional boundary
 wiring, seed placement and zero-premise static/entry-mark removal independently.
 
-**Implement.** Add `JIRBoundaryForms`, `JIRExitWiredGraph`, `JIRMethodEntry`, `JIRMethodForms`,
+**Implement.** Add the complete `JIRInterpreter` facade, `JIRBoundaryForms`, `JIRExitWiredGraph`, `JIRMethodEntry`, `JIRMethodForms`,
 `JIRMethodEntries` and `PrescanLambdas`. Reuse backward graph utilities and port exit wiring.
 Cache statements/exit rules per method and calls/entry rules per method key. Run exit rules
 at both exits with exceptional Result=exc; only the normal forward exit emits a summary.
