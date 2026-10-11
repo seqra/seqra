@@ -174,6 +174,9 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
         }
     }
 
+    /** The same local path checks, exposed for the bidirectional type filter. */
+    fun localFilter(type: JIRType): FactApFilter = AccessorFilter(type, isLocalCheck = true)
+
     override fun filterFactByLocalType(actualType: CommonType?, factAp: FinalFactAp): FinalFactAp? {
         if (actualType == null) return factAp
         jIRDowncast<JIRType>(actualType)
@@ -221,11 +224,11 @@ class JIRFactTypeChecker(private val cp: JIRClasspath) : FactTypeChecker {
         }
     }
 
-    private fun fieldAccessorType(accessor: FieldAccessor): JIRType? {
+    fun fieldAccessorType(accessor: FieldAccessor): JIRType? {
         return cp.findTypeOrNull(accessor.fieldType)
     }
 
-    private fun fieldClassType(accessor: FieldAccessor): JIRClassType? {
+    fun fieldClassType(accessor: FieldAccessor): JIRClassType? {
         return cp.findTypeOrNull(accessor.className) as? JIRClassType
     }
 

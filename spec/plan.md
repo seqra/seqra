@@ -45,7 +45,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | V1 | Complete | [Phase 1 audit and gate](../docs/reports/bidi-v1.md). All public AP/store operations have contract coverage. Clean common 647, JVM 119 and Go 1,313 tests pass; none skipped. All 499 new common and five new JVM annotated tests are discovered. SAST and application compile. |
 | I01 | Complete | [Common forms and mode gate](../docs/reports/bidi-i01.md). Reversal, cached directions, all three application modes and the per-path call walk pass 60 new tests. Clean common 707 tests pass; all 559 new common tests are discovered. JVM/Go test, SAST and application compilation pass. |
 | I02 | Complete | [Shared builder gate](../docs/reports/bidi-i02.md). Exact forms and independent per-path/tree vectors pass all 41 new tests, including field-clean actions. Clean common 748 tests pass; all 600 new common tests are discovered. JVM/Go test, SAST and application compilation pass. |
-| I03–I06, V2 | Pending | |
+| I03 | Complete | [JVM statement gate](../docs/reports/bidi-i03.md). All 52 new construction, effect and filter tests pass. Clean common 748 and JVM 171 tests pass; all 600 common and 57 JVM new tests are discovered. Go test, SAST and application compilation pass. |
+| I04–I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
@@ -333,6 +334,24 @@ placeholder for later steps.
 The I02 field-action review found a test that used object identity for
 `TaintMark`, an inline value class. Compare mark values by equality;
 retain identity checks for the cleaner, filter and temporary objects.
+The staged I03 alias provider is called only for a local write base.
+This preserves the existing `forEachAliasPathAtStatement` guard and
+interpreter A1/A4: reads and static or nonlocal writes have no aliases.
+The I03 test compile found a generic assertion with a `JIRType` value
+and a `JIRClassType` value. State their shared `JIRType?` assertion type.
+Keep the checker's existing helper return types and filter behavior.
+The full I03 test compile also requires a shared pair type for alias
+query assertions. Use `Pair<JIRInst, AccessPathBase>` in expected lists;
+the actual provider may receive a typed local assignment.
+The I03 focused run found two fixture assumptions. JIR prints a nested
+type with a dot, although its class name uses `$`. Check each API's own
+name. JIR can lower an ignored non-void call as an assignment. Build a
+direct `JIRCallInst` from that real call to check both admitted call forms.
+The same run found that the reused `unboxIfNeeded` helper recognizes
+`java.lang.Char`, but not Java's `java.lang.Character`. Interpreter §5.1
+requires primitive or boxed types. Add explicit Character recognition
+to the new mark policy, including element levels. Keep the shared helper
+and old prescan behavior unchanged. Add Character-array coverage.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions

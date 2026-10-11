@@ -4849,7 +4849,9 @@ class JIRTypeFilters(private val checker: JIRFactTypeChecker, private val manage
      *  `[e]` carries today, JIRFactTypeChecker.kt:114-123). A level with no known type keeps every mark (today `[e]`
      *  gives `Accept` there, so no mark check runs below it). No primitive or boxed level: no policy. */
     private fun make(t: JIRType): TypeFilter {
-        val primitive = generateSequence(t) { it.ifArrayGetElementType }.map { it.unboxIfNeeded() is JIRPrimitiveType }.toList()
+        // The current shared unbox helper misses Java's Character; keep §5.1's boxed-type behavior here.
+        val primitive = generateSequence(t) { it.ifArrayGetElementType }
+            .map { it.typeName == "java.lang.Character" || it.unboxIfNeeded() is JIRPrimitiveType }.toList()
         return TypeFilter(
             may = checker.localFilter(t),
             markPolicy = if (true !in primitive) null
