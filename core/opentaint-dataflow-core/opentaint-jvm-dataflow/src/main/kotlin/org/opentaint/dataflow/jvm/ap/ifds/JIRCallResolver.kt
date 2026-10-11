@@ -5,13 +5,13 @@ import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.CombinedMethodContext
 import org.opentaint.dataflow.ap.ifds.EmptyMethodContext
 import org.opentaint.dataflow.ap.ifds.MethodContext
+import org.opentaint.dataflow.ap.ifds.MethodEntryPoint
 import org.opentaint.dataflow.ap.ifds.MethodWithContext
 import org.opentaint.dataflow.ap.ifds.combine
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasAllocInfo
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis.AliasApInfo
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature.JIRLambdaClass
-import org.opentaint.dataflow.jvm.ap.ifds.analysis.JIRMethodAnalysisContext
 import org.opentaint.dataflow.jvm.ifds.JIRUnitResolver
 import org.opentaint.dataflow.jvm.util.JIRHierarchyInfo
 import org.opentaint.dataflow.util.cartesianProductMapTo
@@ -35,6 +35,12 @@ import org.opentaint.ir.api.jvm.ext.isSubClassOf
 import org.opentaint.ir.impl.cfg.util.isClass
 import org.opentaint.jvm.util.toJIRClassOrInterface
 import java.util.concurrent.ConcurrentHashMap
+
+/** The caller inputs used by call resolution, shared by prescan and bidirectional analysis. */
+interface JIRCallResolutionContext {
+    val methodEntryPoint: MethodEntryPoint
+    val aliasAnalysis: JIRLocalAliasAnalysis?
+}
 
 class JIRCallResolver(
     val cp: JIRClasspath,
@@ -87,7 +93,7 @@ class JIRCallResolver(
         return methods.ifEmpty { null }
     }
 
-    fun resolve(call: JIRCallExpr, location: JIRInst, context: JIRMethodAnalysisContext): List<MethodResolutionResult> {
+    fun resolve(call: JIRCallExpr, location: JIRInst, context: JIRCallResolutionContext): List<MethodResolutionResult> {
         val method = call.method.method
         val methodIgnored = unitResolver.resolve(method) == UnknownUnit
 
@@ -117,7 +123,7 @@ class JIRCallResolver(
         baseMethod: JIRMethod,
         call: JIRVirtualCallExpr,
         location: JIRInst,
-        context: JIRMethodAnalysisContext
+        context: JIRCallResolutionContext
     ): List<MethodResolutionResult> {
         val instanceTypeConstraints = resolveValueTypeConstraints(call.instance, location, context)
         val classMethods = instanceTypeConstraints.orEmpty().mapNotNullTo(hashSetOf()) { constraint ->
@@ -193,7 +199,7 @@ class JIRCallResolver(
     private fun resolveValueTypeConstraints(
         value: JIRValue,
         location: JIRInst,
-        context: JIRMethodAnalysisContext,
+        context: JIRCallResolutionContext,
     ): Set<TypeConstraintInfo>? {
         val epContext = context.methodEntryPoint.context
         val valueCls = (value.type as? JIRRefType)?.jIRClass ?: return null
@@ -286,7 +292,7 @@ class JIRCallResolver(
     }
 
     private inner class MethodContextCreator(
-        val context: JIRMethodAnalysisContext,
+        val context: JIRCallResolutionContext,
         val call: JIRCallExpr,
         val location: JIRInst,
         instanceTypeConstraints: Set<TypeConstraintInfo>?,

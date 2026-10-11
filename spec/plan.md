@@ -47,7 +47,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | I02 | Complete | [Shared builder gate](../docs/reports/bidi-i02.md). Exact forms and independent per-path/tree vectors pass all 41 new tests, including field-clean actions. Clean common 748 tests pass; all 600 new common tests are discovered. JVM/Go test, SAST and application compilation pass. |
 | I03 | Complete | [JVM statement gate](../docs/reports/bidi-i03.md). All 52 new construction, effect and filter tests pass. Clean common 748 and JVM 171 tests pass; all 600 common and 57 JVM new tests are discovered. Go test, SAST and application compilation pass. |
 | I04 | Complete | Whole-rule validation, rule forms, lowered field actions and temporary lifetime guards. Clean common/JVM and shared-consumer compile gate passed; see `docs/reports/bidi-i04.md`. |
-| I05–I06, V2 | Pending | |
+| I05 | Complete | [Call-plan and adapter gate](../docs/reports/bidi-i05.md). Clean common 755 and JVM 286 tests pass; all 607 common and 172 JVM new tests are discovered. Go test sources, SAST and application compile. |
+| I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
@@ -385,6 +386,61 @@ an identity static FLOW premise at the root, a `RemoveAllMarks(C.s)`
 action, its root exclusion and class-position request. Also check that
 an excluded class raises no request. Keep the bare-static must vector
 labelled as a direct AP cell outside JVM emission.
+I05 uses the same dependency staging as I03. Give `JIRCallPlanBuilder`
+its actual manager, rule forms, checker, type filters, caller, statement,
+call, resolution function, entry-point resolver, frozen lambda map and
+optional alias analysis/default getter. A persisted-alias provider defaults
+to the real analysis helper. I06 wires these services from the complete
+facade and method entry. Keep real condition rewriting, public class names
+and the specified stages; add no runtime placeholder.
+I05 adds the common unresolved-call observer contract and pass-read
+metadata. I06 adds the JVM tracker hook with the facade. E05 calls it
+for each new run-1 TAINT added-fact delta; it never selects transfers.
+The I05 resolution review found that the proposal filters empty concrete
+methods but not frozen lambda implementations. Apply interpreter I8 and
+§3.6 to every expanded target. Drop empty implementations before entry-key
+creation. If all expanded targets are empty, use the unresolved path.
+A mixed empty/nonempty target set keeps the nonempty targets without an
+extra failure; an independent resolver failure remains. Test these cases
+before implementation. Adapt `MethodWithContext.method` to `JIRMethod`
+before checking its instruction list.
+The first I05 test compile found an invariant condition type in a fixture:
+state `CommonCondition<JirCondition>` when building a mark atom. Keep the
+same condition and expected forms.
+The I05 effect review adds a reachable run-1 unresolved static pass:
+the static root identity binds through the call, a field-to-Result pass
+raises its position request on the original caller premise, and the
+blocked class gives no request. Check this through both plan walks.
+The complete I05 test compile requires explicit map/set types for empty
+lambda rows. Build false and mark conditions with the existing condition
+factories; a mark atom is not itself a `Condition`, and `False` is not an
+enum member. Keep the same test inputs and expected results.
+The first executable I05 run found fixture assumptions. `Cleaner` has
+object identity, so compare its base, path, reach and mark fields
+when separate lowering calls make separate cleaners; keep identity checks
+for retained native cleaners. JIR can lower an ignored nonvoid call as an
+assignment. Use a direct `JIRCallInst` from that expression to test no lhs.
+An Object argument has both root and array sink alternatives. Its reversed
+end facts must fire both owning alternatives and seed both paths.
+Investigate actual alias snapshots before changing alias expectations:
+the legacy analysis is reused and its heap/liveness inputs remain in force.
+The alias fixture starts at a virtual entry. Wrap its raw application graph
+in `JApplicationSingleExitGraph`, as production does, so that entry has a
+successor. The raw graph leaves the appended entry disconnected and gives
+empty alias state. Keep the declared alias cases and full-path assertions.
+The remaining connected alias fixture failure needs instruction-level
+diagnosis. Its helper selects the first field-read temporary, which can
+differ from the call result local that the test intends to overwrite.
+Compare the actual call lhs, operands and their alias snapshots before
+changing this fixture. Keep nonvacuous before-only and after-only checks
+with the exact intersection. Do not change the reused alias analysis.
+The diagnostic confirms JIR splits `a = external(a, value)` into a fresh
+call result `%2` and a later `a = %2` copy. At the call, the old `a` still
+has its field alias. Keep that positive timing check. Use a held field
+value with its owner passed to the call for a before-only heap alias;
+the existing analysis invalidates that heap path. For the modeled
+after-only alias, query the actual fresh call lhs. Keep both negative
+checks nonvacuous and retain the same helper intersection contract.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions

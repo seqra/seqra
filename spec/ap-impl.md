@@ -5276,6 +5276,12 @@ Implements `interpreter.md` §3, §4.5, §4.6, §5.1–§5.3 and the stage table
 
 ### 28.1 The builder
 
+I05 builds this class before the complete facade and method entry in I06.
+Its constructor therefore receives the manager, rule forms, checker, type
+filters, caller, statement, call, resolution function, entry-point resolver,
+frozen lambda map and optional alias/default-get services directly. I06
+wires the actual services. The stage graph below remains the same.
+
 ```kotlin
 internal class JIRCallPlanBuilder(
     private val interp: JIRInterpreter,
@@ -5455,20 +5461,27 @@ class JIRMethodAnalysisContext(
         }
         val callees = LinkedHashSet<MethodKey>()
         var unresolved = false
+        var sawTarget = false
         val results = interp.callResolver.resolve(call, s, ctx)
         if (results.isEmpty()) return emptyList<MethodKey>() to true                                // §3.7: as a failure
         for (res in results) when (res) {
             JIRCallResolver.MethodResolutionResult.MethodResolutionFailed -> unresolved = true
-            is JIRCallResolver.MethodResolutionResult.ConcreteMethod ->
-                if (!isEmptyMethod(res.method.method)) callees += keys(res.method)                   // an empty method: dropped
+            is JIRCallResolver.MethodResolutionResult.ConcreteMethod -> {
+                sawTarget = true
+                if (!isEmptyMethod(res.method.method as JIRMethod)) callees += keys(res.method)      // an empty method: dropped
+            }
             is JIRCallResolver.MethodResolutionResult.Lambda -> {
                 val impls = entry.lambdas[s.location.index]
                 if (impls.isNullOrEmpty()) unresolved = true
-                else impls.forEach { callees += keys(MethodWithContext(it, EmptyMethodContext)) }
+                else {
+                    sawTarget = true
+                    impls.filterNot(::isEmptyMethod).forEach {
+                        callees += keys(MethodWithContext(it, EmptyMethodContext))
+                    }
+                }
             }
         }
-        if (results.all { it is JIRCallResolver.MethodResolutionResult.ConcreteMethod && isEmptyMethod(it.method.method) })
-            unresolved = true                                                                        // every result is an empty method: §3.7
+        if (sawTarget && callees.isEmpty()) unresolved = true                                        // every expanded target is empty: I8, §3.6–§3.7
         return callees.toList() to unresolved
     }
 

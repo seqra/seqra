@@ -24,14 +24,15 @@ fun JIRLocalAliasAnalysis.forEachAliasAtStatement(statement: JIRInst, fact: Init
 
 fun JIRLocalAliasAnalysis.forEachAliasAfterCallStatement(statement: JIRInst, fact: FinalFactAp, body: (FinalFactAp) -> Unit) {
     val base = fact.base as? AccessPathBase.LocalVar ?: return
-    val aliasesBefore = findAlias(base, statement) ?: return
-    val aliasesAfter = findAliasAfterStatement(base, statement)?.toSet() ?: return
-    val aliasesPersistedThroughCall = aliasesBefore.filter { it in aliasesAfter }
-
-    aliasesPersistedThroughCall
-        .filterIsInstance<AliasApInfo>()
-        .filterNot { alias -> alias.base is AccessPathBase.Constant }
+    aliasesPersistedThroughCall(base, statement)
         .forEach { alias -> applyAlias(fact, alias, AliasAccessor::apAccessor, body) }
+}
+
+/** Callee outputs use only alias paths that hold both before and after their call. */
+fun JIRLocalAliasAnalysis.aliasesPersistedThroughCall(base: AccessPathBase.LocalVar, statement: JIRInst): List<AliasApInfo> {
+    val before = findAlias(base, statement) ?: return emptyList()
+    val after = findAliasAfterStatement(base, statement)?.toSet() ?: return emptyList()
+    return before.filter { it in after }.mapNotNull { it.relevantApInfo() }
 }
 
 fun JIRLocalAliasAnalysis.forEachHeapAliasBeforeStatement(statement: JIRInst, fact: FinalFactAp, body: (FinalFactAp) -> Unit) =

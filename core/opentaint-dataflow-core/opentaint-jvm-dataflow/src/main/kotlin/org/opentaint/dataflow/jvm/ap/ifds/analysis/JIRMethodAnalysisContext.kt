@@ -7,6 +7,7 @@ import org.opentaint.dataflow.ap.ifds.TaintMarkAccessor
 import org.opentaint.dataflow.ap.ifds.analysis.MethodAnalysisContext
 import org.opentaint.dataflow.ap.ifds.analysis.MethodCallFactMapper
 import org.opentaint.dataflow.jvm.ap.ifds.JIRFactTypeChecker
+import org.opentaint.dataflow.jvm.ap.ifds.JIRCallResolutionContext
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLambdaTracker
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalAliasAnalysis
 import org.opentaint.dataflow.jvm.ap.ifds.JIRLocalVariableReachability
@@ -22,9 +23,9 @@ class JIRMethodAnalysisContext(
     override val methodEntryPoint: MethodEntryPoint,
     val factTypeChecker: JIRFactTypeChecker,
     val localVariableReachability: JIRLocalVariableReachability,
-    val aliasAnalysis: JIRLocalAliasAnalysis?,
+    override val aliasAnalysis: JIRLocalAliasAnalysis?,
     val taint: JIRTaintAnalysisContext,
-) : MethodAnalysisContext {
+) : MethodAnalysisContext, JIRCallResolutionContext {
     init {
         taint.bindAnalysisContext(this)
     }
