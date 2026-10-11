@@ -15,11 +15,13 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import mu.KLogging
 import org.opentaint.dataflow.bidi.interp.DirectedForms
+import org.opentaint.dataflow.bidi.ap.MethodKey
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.ifds.UnknownUnit
 import org.opentaint.dataflow.util.MemoryManager
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -40,6 +42,7 @@ class RunManager<A : RunActor>(
     private val scope = CoroutineScope(shared.dispatcher + job)
     private val admission = Any()
     private val runners = LinkedHashMap<UnitType, UnitRunner<A>>()
+    private val storages = ConcurrentHashMap<MethodKey, SummaryStorage>()
     private val runnerJobs = ArrayList<Job>()
     private val completion = CompletableDeferred<RunStatus>()
     private val status = AtomicReference<RunStatus?>(null)
@@ -52,6 +55,13 @@ class RunManager<A : RunActor>(
     }
     val forms: DirectedForms = shared.contexts.directed(config.direction)
     private val memory = MemoryManager(shared.refManager, OOM_THRESHOLD) { fail(RunStatus.OOM) }
+
+    /** All units in this run share one storage for the complete callee key. */
+    fun summaryStorage(key: MethodKey): SummaryStorage = synchronized(admission) {
+        check(!ended) { "The run has ended" }
+        shared.cancellation.checkpoint()
+        storages.computeIfAbsent(key) { SummaryStorage(it, shared.ap, shared.ops, steps) }
+    }
 
     fun route(event: RunEvent): Boolean {
         if (!admitting || ended) return false
@@ -151,7 +161,11 @@ class RunManager<A : RunActor>(
             return RunResult(end, analyzers, config.index, config.direction, shared.vulnerabilities)
         } finally {
             if (joined) snapshot.forEach { it.release() }
-            synchronized(admission) { runners.clear(); runnerJobs.clear() }
+            synchronized(admission) {
+                runners.clear()
+                runnerJobs.clear()
+                if (joined) storages.clear()
+            }
         }
     }
 

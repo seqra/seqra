@@ -148,6 +148,12 @@ class MethodAnalysisFixtures(
             override val steps = ProtocolSteps.Inline
             override fun send(event: RunEvent): Boolean { events += event; return true }
             override fun post(event: RunEvent.Delivery): Boolean { events += event; return true }
+            override fun summaryStorage(key: MethodKey): SummaryStorage =
+                error("Summary storage requires an explicit protocol fixture")
+            override fun subscribe(sub: Subscription): Unit =
+                error("Subscriptions require an explicit protocol fixture")
+            override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts): Unit =
+                error("Calls require an explicit protocol fixture")
             override fun enqueue(analyzer: RunMethodAnalyzer): Boolean { enqueued += analyzer; return true }
             override fun analyzer(key: MethodKey): RunMethodAnalyzer {
                 check(key == actor.key) { "The finite port owns one method actor" }

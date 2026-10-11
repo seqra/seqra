@@ -1275,6 +1275,20 @@ const val RUNNER_STEPS_QUANT = 1000
 
 ### 5.2 `SummaryStorage` and `PublicationIndex` (callee side)
 
+The implementation keeps these APIs in `bidi/engine`. `RunManager` owns their
+per-run storage map. The generic `RunnerPort` requires storage, subscribe and
+link operations. `RunMethodHandlers` supplies the actual runner-local
+`SubscriptionManager` through `SubscriptionHandler`, with required local and
+call-service factories. Joined runner release freezes that handler and clears
+the run's storages. A released handler or run rejects new storage or
+subscription work. Finite ports explicitly reject unsupported operations.
+
+Publication admission checks K6, multi-premise TAINT and temporary rejection
+before inserting keys. Zero-only admission checks the specified zret shape:
+a zero caller premise, REACH added facts and matching added/link layers.
+Candidate and delta lists are owned immutable snapshots. Every scan uses the
+analysis cancellation; these checks also apply to lazy delivery iteration.
+
 A callee summary storage has one writer and potentially many replay readers. Protect insertion and snapshot
 reads with one lock. Match outside the lock. Register subscribers before replay and publish deltas before notifying.
 An immutable snapshot with a volatile write is an optional equivalent implementation of P3.

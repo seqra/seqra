@@ -53,7 +53,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | E01 | Complete | Typed run shell, count protocol, immutable queue priorities and context adapters. Clean gate passed; see `docs/reports/bidi-e01.md`. |
 | E02 | Complete | Method-local transfer, unchanged bursts, boundaries, raw/selected summaries and publication lifetime. Clean gate passed; see [E02 evidence](../docs/reports/bidi-e02.md). |
 | E03 | Complete | Standing requests, sinks, conjunctions and backward end-fact triggers. Clean common and shared-consumer compile gate passed; see [E03 evidence](../docs/reports/bidi-e03.md). |
-| E04–E07, V3 | Pending | |
+| E04 | Complete | Locked summary snapshots, complete replay/delivery indexes, native/view reads and actual method dispatch. Clean gate passed; see [E04 evidence](../docs/reports/bidi-e04.md). |
+| E05–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
 | J01–J03, FINAL | Pending | |
 
@@ -1268,6 +1269,62 @@ store input. A real reversed source can record a hit; record replay cannot synth
 
 **Requires:** E02–E03. **Proposal:** `analyzer-impl.md` §5.
 
+**Dependency staging and corrections.** Keep the E01 generic run shell. Add
+run-owned summary storages to `RunManager` and required storage, subscribe and
+link operations to `RunnerPort`. Add `SubscriptionPort` and real
+`RunMethodHandlers`, with required local and call factories. The actual method
+handler owns one runner-local subscription manager. A `SubscriptionHandler`
+contract binds subscribe and freeze; a generic handler rejects unsupported
+subscription use. Same-unit links call the actual handler directly; other
+links use events. Runner release freezes subscriptions only after join and
+then clears run-owned storages. Finite test ports reject unsupported operations
+explicitly. E05 supplies the required real call service.
+After run release, storage acquisition must reject instead of creating a new
+map entry. The actual method handler drops its port and subscription-manager
+references on freeze; later dispatch or subscribe rejects.
+
+Expose the proposal's storage/index/subscription APIs. One `matches` function
+serves replay and delivery. Own all list snapshots and deltas while retaining
+the immutable Facts objects. Storage insertion and snapshot reads share one
+lock. Match and invoke callbacks outside it. Use analysis cancellation in every
+member, candidate, record/view and subscriber loop. Records replay only for
+restricted non-zero subscriptions, with ordinary record matching and dedup.
+
+Validate K6, multi-premise TAINT and temporary rejection at publication storage
+admission before inserting index members or groups. Validate zero-only
+subscriptions before inserting their separate zero table: their caller premise
+is zero, added facts are REACH and the link layer equals the added layer, as in
+the specified zret producer. Keep the caller layer independent. These are the same
+producer boundaries as A08 and I04. Keep full tails, exclusions, layers and
+caller references in keys; positional indexes return candidates only.
+The index-test review found four pointer-identity assertions on nonzero AP
+matching results. AP satisfying can create a new Facts wrapper with the same
+value and shared root. Use value equality there, as DD5 requires. Keep the
+zero-only bypass identity assertion and all full-scan comparisons.
+The handler review found that a final subscription-manager field would keep
+the released manager object. Use a nullable field and clear it with the port
+on freeze, as required by the lifetime contract above.
+The first focused compile requires an explicit `RequestKind` element type
+for the handler's expected request list. Preserve the expected request.
+The record-fixture review found exact child inputs used as positive native
+ANY/must matches. The AP `applicable` tail gate rejects those exact children;
+they also cannot contain the root premise. Use admitted any-tail added facts
+for positive ANY/must rows, with explicit expected tails, layers and E. Keep
+an exact root leaf for the exact-record row. Make the excluded-must negative
+use an any-tail blocked location so it tests E after the tail gate.
+The second focused compile found that the test timing helper `notifyAll`
+collides with the final JVM monitor method. Name the helper
+`runNotifications` and update its calls; retain the same queued schedule.
+The first executed gate found the same ANY-tail fixture error in the deep
+index row: an ANY premise does not match the exact added fact at that path.
+Use an exact premise for this exact 32,768-accessor vector. Retain the full
+path, both indexes, all modes and cancellation checks.
+Use policy FLOW caller premises by default for FLOW subscription fixtures, as
+the real call producer requires under K6. Keep zero as the default for other
+facts. Change the independent full-reference variant to a distinct policy
+path so it stays separate. This changes no matching expectation and adds no
+caller-kind guard to the raw subscription or link stores.
+
 **Tests first.** Write broken P1–P4 mocks first, then `SummaryStorageProtocolTest`,
 `IndexCompletenessTest` and `AnyDeliveryTest`. Under reliable delivery and completed processing,
 compare applicable publication/subscription pairs with a complete list scan. Cover P1–P6,
@@ -1322,6 +1379,10 @@ budget audit here: root routing and run setup must consume the same run
 timeout. Do not start a fresh full wait budget after a slow root batch.
 Test the routing/deadline boundary before refining it, with the first
 terminal status and join rules retained (`analyzer-core.md` §0, §7.1).
+Audit throwing actor and handler freeze here too. A required service can throw
+during release. Test that failure before refining cleanup; complete release of
+joined runner and storage owners even if one callback fails. The E04 concrete
+subscription freeze itself has no throwing callback.
 
 **Tests first.** Write `DeltaWorklistTest`, delayed-send tests, `RunFailureTest` and
 `LifetimeTest`. Cover Q1–Q4 across partial Work steps, publication flush, cancellation and

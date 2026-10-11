@@ -7,6 +7,9 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.yield
 import mu.KLogging
 import org.opentaint.dataflow.bidi.ap.MethodKey
+import org.opentaint.dataflow.bidi.ap.Facts
+import org.opentaint.dataflow.bidi.ap.Layer
+import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.ifds.UnitType
 import org.opentaint.dataflow.util.Cancellation
 import java.util.Collections
@@ -39,6 +42,24 @@ class UnitRunner<A : RunActor> internal constructor(
 
     override fun post(event: RunEvent.Delivery): Boolean = postEvent(event)
     override fun send(event: RunEvent): Boolean = run.route(event)
+
+    override fun summaryStorage(key: MethodKey): SummaryStorage = run.summaryStorage(key)
+
+    override fun subscribe(sub: Subscription) {
+        check(!run.ended && !closed.get()) { "The runner is closed" }
+        shared.cancellation.checkpoint()
+        val subscriptions = handler as? SubscriptionHandler
+            ?: error("The runner handler does not support method subscriptions")
+        subscriptions.subscribe(sub)
+    }
+
+    override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts) {
+        check(!run.ended && !closed.get()) { "The runner is closed" }
+        shared.cancellation.checkpoint()
+        val event = RunEvent.LinkIn(callee, ref, linkLayer, added)
+        if (shared.unitResolver.resolve(callee.method) == unit) handler.handle(event)
+        else send(event)
+    }
 
     override fun analyzer(key: MethodKey): A {
         check(!run.ended && !closed.get()) { "The runner is closed" }
@@ -113,6 +134,7 @@ class UnitRunner<A : RunActor> internal constructor(
     /** The manager reads and releases these collections only after a successful join. */
     internal fun analyzers(): List<A> = actors.values.toList()
     internal fun release() {
+        (handler as? SubscriptionHandler)?.freeze()
         queue.clear()
         queued.clear()
         actors.clear()
