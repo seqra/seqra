@@ -40,7 +40,8 @@ The starting commit is `601737d6be69f41fdf5bf05efd3141d288872947`.
 | A05 | Complete | [A05 evidence](../docs/reports/bidi-a05.md). All 444 common tests pass; none skipped. Transfer, selection, all valid summary kinds, native views, deep/cache/concurrency and cancellation checks pass. JVM/Go test sources, SAST and application compile. |
 | A06 | Complete | [A06 evidence](../docs/reports/bidi-a06.md). All 491 common tests pass; none skipped. Cleaner/filter/literal tables, positive cuts, layers/E, sharing, deep walks, state memos and cancellation pass. JVM/Go test sources, SAST and application compile. |
 | A07 | Complete | [A07 evidence](../docs/reports/bidi-a07.md). All 528 common tests pass; none skipped. Emission, reduction, structural selection, request actions, representation guards, deep paths and cancellation pass. JVM/Go test sources, SAST and application compile. |
-| A08–A09, V1 | Pending | |
+| A08 | Complete | [A08 evidence](../docs/reports/bidi-a08.md). All 581 common tests pass; none skipped. Index/full-scan equality, exact links, deltas, raw/publication separation, immutable snapshots, positive limits, deep paths and cancellation pass. All 433 new annotated tests are discovered. JVM/Go test sources, SAST and application compile. |
+| A09, V1 | Pending | |
 | I01–I06, V2 | Pending | |
 | E01–E07, V3 | Pending | |
 | D01–D04, V4 | Pending | |
@@ -199,6 +200,39 @@ null, then keep the standing-request climb assertion; do not call transfer
 with an input outside its contract.
 The A07 review adds admitted abstract ANY and concrete STAR initials to the
 reduction matrix. Repeat the gate with all 7,722 cells before the commit.
+A08 demand snapshots own their index and stored path lists. A later builder
+insertion or caller path-list change must not change a built store. Keep
+single-writer indexes iterative at the tested depths. An optional cancellation
+argument lets run stores check long index walks without changing the proposal's
+no-argument `PathTrie` constructor. Method-edge stores require a positive limit.
+The A08 review found that the publication snippet checks K6 but omits the
+multi-premise TAINT guard from raw summary insertion. Apply that guard to both
+collections, as required by `ap.md` §4.6 and §8.5.
+`DemandStore.Builder` must also reject concrete STAR entry tails. The snippet
+only rejects abstract STAR, but `ap.md` §6.1 and §8.6 require every stored
+entry to have a non-STAR tail. Keep generic STAR emission/reduction cells in
+the direct API; enforce the stronger guard at the typed demand store.
+Validate the stored pattern's own field exclusion too: `ap.md` §3.4 permits
+nonempty E only on STAR or forward must tails. Stored demands have no must
+tails, so only a STAR exit can carry nonempty E. Raw generic patterns remain
+separate from this validated boundary.
+Demand query payloads must not expose a mutable stored path list. Keep owned
+path lists unmodifiable, so a cast by a reader cannot change the snapshot.
+The A08 review extends the initial-store matrix with abstract STAR/E and a
+second nonzero base. It also adds a direct check for the request store's
+optional cancellation argument, before the final gate.
+The first combined A08 compile check found that the repository's
+`fastutil-core` dependency omits `Reference2ObjectOpenHashMap`. Use the JDK
+`IdentityHashMap` for canonical premise-key maps. Keep their identity contract
+and the existing dependency set.
+The A08 sequence review found that buffered path values and added leaf lists
+can emit another item after cancellation during iteration. Add regressions
+that consume one item, cancel, then request the next. Check cancellation on
+each emitted value or link, as well as during the index walk.
+The A08 XML audit found three annotated tests that JUnit did not discover:
+their Kotlin expression bodies infer a non-Unit return type. Declare `Unit`
+on expression-body test methods. Audit all new bidirectional annotated tests
+against compiled method return types and XML names, then repeat the gate.
 
 AP means access path. A fact's denotation is the set of marked locations that it describes;
 a summary describes pairs of input and output locations. Field exclusions and mark exclusions
@@ -222,6 +256,10 @@ Use the following cycle in every step:
    affected by the slice. Refactor after these checks pass.
 5. Record the test commands, results and any unresolved behavior question. Advance when the
    implementation gate passes and its required behavior is clear.
+
+Before closing a gate, check that each new annotated test has a JVM void
+return type and appears in the test XML. Kotlin expression-body tests must
+declare `Unit` when their last assertion returns a value.
 
 For a counterexample, retain the smallest program, full fact annotations, requests, links,
 summaries and hand-offs. Compare them with the specified behavior and fix an implementation
