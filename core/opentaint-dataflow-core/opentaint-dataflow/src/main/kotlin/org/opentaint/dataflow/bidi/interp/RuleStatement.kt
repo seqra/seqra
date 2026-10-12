@@ -8,7 +8,6 @@ import org.opentaint.dataflow.bidi.ap.Pattern
 import org.opentaint.dataflow.bidi.ap.Tail
 import org.opentaint.dataflow.bidi.ap.TaintMark
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSink
-import java.util.Collections
 
 /** One stable sink alternative. Repeated patterns retain separate literal slots. */
 class SinkRule(
@@ -17,11 +16,9 @@ class SinkRule(
     patterns: List<Pattern>,
     endFacts: List<MicroEdge>,
 ) {
-    val patterns: List<Pattern> = Collections.unmodifiableList(patterns.map { p ->
-        p.copy(fact = p.fact.copy(path = Collections.unmodifiableList(ArrayList(p.fact.path))))
-    })
+    val patterns: List<Pattern> = snapshotPatterns(patterns)
     /** Keep cached micro edges and their original forward identities. Their producers own their paths. */
-    val endFacts: List<MicroEdge> = Collections.unmodifiableList(ArrayList(endFacts))
+    val endFacts: List<MicroEdge> = ownedList(endFacts)
 
     init {
         check(this.patterns.isNotEmpty()) { "A sink has a positive literal or the zero pattern" }
@@ -37,9 +34,17 @@ class SinkRule(
     fun seedPatterns(): List<Pattern> = if (unconditional) emptyList() else patterns
 }
 
+private fun snapshotPatterns(patterns: List<Pattern>): List<Pattern> {
+    val iterator = patterns.iterator()
+    return ownedList(patterns.size) {
+        val p = iterator.next()
+        p.copy(fact = p.fact.copy(path = ownedList(p.fact.path)))
+    }
+}
+
 /** Statement-mode rule actions and GEN end facts share stable sink alternatives. */
 class RuleStatement(val summary: StatementSummary, val endFacts: StatementSummary, sinks: List<SinkRule>) {
-    val sinks: List<SinkRule> = Collections.unmodifiableList(ArrayList(sinks))
+    val sinks: List<SinkRule> = ownedList(sinks)
 
     /** Reverse the two action modes separately; untouched forward GEN targets need A5 pass-over identities. */
     fun reversed(): RuleStatement {
@@ -54,8 +59,9 @@ class RuleStatement(val summary: StatementSummary, val endFacts: StatementSummar
 
 /** Forward normal-exit removals. Exceptional exits use no drop flag and an empty entry-mark set. */
 class ExitRules(val rules: RuleStatement, val globalStateDrop: Boolean, entryMarks: Set<TaintMark>) {
-    val entryMarks: Set<TaintMark> = Collections.unmodifiableSet(LinkedHashSet(entryMarks))
-    private val entryMarkSet = MarkSet(this.entryMarks.map { it.id }.toIntArray())
+    val entryMarks: Set<TaintMark> = ownedSet(entryMarks)
+    private val entryMarkSet = if (this.entryMarks.isEmpty()) MarkSet.EMPTY
+        else MarkSet(this.entryMarks.map { it.id }.toIntArray())
 
     /** G2 removals belong only to the forward exit; the reversed value contains rule actions alone. */
     fun reversed(): RuleStatement = rules.reversed()

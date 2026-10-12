@@ -6,7 +6,6 @@ import org.opentaint.dataflow.bidi.ap.ExclusionSet
 import org.opentaint.dataflow.bidi.ap.PathEdge
 import org.opentaint.dataflow.bidi.ap.TypeFilter
 import org.opentaint.dataflow.bidi.ap.revEdge
-import java.util.Collections
 
 /** Cached form containers own their contents and retain the identities of supplied forms and filters. */
 class StatementSummary(
@@ -16,21 +15,22 @@ class StatementSummary(
     typeFilters: Map<AccessPathBase, TypeFilter>,
     resultFilters: Map<AccessPathBase, TypeFilter> = emptyMap(),
 ) {
-    val touched: Set<AccessPathBase> = Collections.unmodifiableSet(LinkedHashSet(touched))
-    val edges: List<MicroEdge> = Collections.unmodifiableList(ArrayList(edges))
-    val conjunctions: List<ConjunctiveEdge> = Collections.unmodifiableList(ArrayList(conjunctions))
-    val typeFilters: Map<AccessPathBase, TypeFilter> = Collections.unmodifiableMap(LinkedHashMap(typeFilters))
-    val resultFilters: Map<AccessPathBase, TypeFilter> = Collections.unmodifiableMap(LinkedHashMap(resultFilters))
+    val touched: Set<AccessPathBase> = ownedSet(touched)
+    val edges: List<MicroEdge> = ownedList(edges)
+    val conjunctions: List<ConjunctiveEdge> = ownedList(conjunctions)
+    val typeFilters: Map<AccessPathBase, TypeFilter> = ownedMap(typeFilters)
+    val resultFilters: Map<AccessPathBase, TypeFilter> = ownedMap(resultFilters)
 
-    private val byBase: Map<AccessPathBase, List<MicroEdge>> = this.edges.groupBy { it.edge.from.base }
-        .mapValues { (_, group) -> Collections.unmodifiableList(ArrayList(group)) }
+    private val byBase: Map<AccessPathBase, List<MicroEdge>> = ownedOrdinalGroups(this.edges) { it.edge.from.base }
 
     fun edgesOf(b: AccessPathBase): List<MicroEdge> = byBase[b].orEmpty()
 
-    val targets: Set<AccessPathBase> = Collections.unmodifiableSet(LinkedHashSet<AccessPathBase>().also { bases ->
-        this.edges.mapTo(bases) { it.edge.to.base }
-        this.conjunctions.mapTo(bases) { it.target.base }
-    })
+    val targets: Set<AccessPathBase> = run {
+        ownedSet(ownedList(this.edges.size + this.conjunctions.size) { index ->
+            if (index < this.edges.size) this.edges[index].edge.to.base
+            else this.conjunctions[index - this.edges.size].target.base
+        })
+    }
 
     /** Conjunctive sources reverse into independent demand branches. Forward filters do not reverse. */
     fun reversed(): StatementSummary {
@@ -44,9 +44,14 @@ class StatementSummary(
         return back.withIdentities(passOverBases(targets, touched))
     }
 
-    fun withIdentities(bases: Collection<AccessPathBase>): StatementSummary =
-        if (bases.isEmpty()) this
-        else StatementSummary(touched + bases, edges + bases.map(::identityEdge), conjunctions, typeFilters, resultFilters)
+    fun withIdentities(bases: Collection<AccessPathBase>): StatementSummary {
+        if (bases.isEmpty()) return this
+        val added = ownedList(bases)
+        val combined = ownedList(edges.size + added.size) { index ->
+            if (index < edges.size) edges[index] else identityEdge(added[index - edges.size])
+        }
+        return StatementSummary(touched + added, combined, conjunctions, typeFilters, resultFilters)
+    }
 
     companion object {
         val EMPTY = StatementSummary(emptySet(), emptyList(), emptyList(), emptyMap())

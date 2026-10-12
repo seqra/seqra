@@ -167,7 +167,8 @@ class JIRCleanerMappingTest : BasicTestUtils() {
         val stage = CallStage.Actions(CallPoint.BEFORE, CallPoint.AFTER, steps)
         actions.clear()
         assertEquals(3, stage.steps.size)
-        assertFailsWith<UnsupportedOperationException> { (stage.steps as MutableList).clear() }
+        assertFails { (stage.steps as MutableList).clear() }
+        assertFailsWith<UnsupportedOperationException> { (stage.steps as java.util.List<*>).clear() }
         val plan = CallPlan(setOf(x), listOf(stage), emptyList(), CallPoint.BEFORE, CallPoint.AFTER)
         val reversed = assertIs<CallStage.Actions>(plan.reversed().stages.single())
         for ((forward, backwardStep) in fields.asReversed().zip(reversed.steps)) {
@@ -178,7 +179,8 @@ class JIRCleanerMappingTest : BasicTestUtils() {
             assertTrue(backward.write.typeFilters.isEmpty() && backward.write.resultFilters.isEmpty())
             assertEquals(forward.write.edges.map { it.forward }.toSet(), backward.read.edges.map { it.forward }.toSet())
             val path = forward.read.edges.single { it.edge.to.base === forward.temporary }.edge.from.path
-            assertFailsWith<UnsupportedOperationException> { (path as MutableList).clear() }
+            assertFails { (path as MutableList).clear() }
+            assertFailsWith<UnsupportedOperationException> { (path as java.util.List<*>).clear() }
         }
         val again = assertIs<CleanStep.Field>(lower(cleaner(listOf(RemoveMark(mark, at(Argument(0), "f"))))).single())
         assertTrue(fields.none { it.temporary === again.temporary })

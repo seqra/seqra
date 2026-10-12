@@ -3,7 +3,7 @@ package org.opentaint.dataflow.bidi.interp
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.Layer
 import org.opentaint.dataflow.bidi.ap.MethodKey
-import java.util.Collections
+import java.util.AbstractMap.SimpleImmutableEntry
 
 enum class CallPoint { BEFORE, BOUND, ADDED, RETURNED, REWRITTEN, AFTER }
 
@@ -57,7 +57,7 @@ sealed interface CallStage {
 
     /** Cleaners and the rewriter keep one ordered, immutable action chain. */
     class Actions(override val from: CallPoint, override val to: CallPoint, steps: List<CleanStep>) : CallStage {
-        val steps: List<CleanStep> = Collections.unmodifiableList(ArrayList(steps))
+        val steps: List<CleanStep> = ownedList(steps)
 
         override fun reversed(): Actions = Actions(to, from, steps.asReversed().map { it.reversed() })
 
@@ -69,7 +69,7 @@ sealed interface CallStage {
 
     /** Callee keys remain the same objects when the graph reverses. */
     class Callees(override val from: CallPoint, override val to: CallPoint, callees: List<MethodKey>) : CallStage {
-        val callees: List<MethodKey> = Collections.unmodifiableList(ArrayList(callees))
+        val callees: List<MethodKey> = ownedList(callees)
 
         override fun reversed(): Callees = Callees(to, from, callees)
 
@@ -89,14 +89,15 @@ class CallPlan(
     val exit: CallPoint,
     passReads: Set<AccessPathBase> = emptySet(),
 ) {
-    val touched: Set<AccessPathBase> = Collections.unmodifiableSet(LinkedHashSet(touched))
-    val stages: List<CallStage> = Collections.unmodifiableList(ArrayList(stages))
-    val sinks: List<SinkRule> = Collections.unmodifiableList(ArrayList(sinks))
-    val passReads: Set<AccessPathBase> = Collections.unmodifiableSet(LinkedHashSet(passReads))
+    val touched: Set<AccessPathBase> = ownedSet(touched)
+    val stages: List<CallStage> = ownedList(stages)
+    val sinks: List<SinkRule> = ownedList(sinks)
+    val passReads: Set<AccessPathBase> = ownedSet(passReads)
 
     /** Every stage from a point reads the same input facts. */
-    val stagesFrom: Map<CallPoint, List<CallStage>> = Collections.unmodifiableMap(
-        this.stages.groupBy { it.from }.mapValues { (_, value) -> Collections.unmodifiableList(value) })
+    val stagesFrom: Map<CallPoint, List<CallStage>> = pointDirectory(this.stages)
+
+    fun stagesAt(point: CallPoint): List<CallStage> = stagesFrom[point].orEmpty()
 
     fun reversed(): CallPlan {
         check(entry == CallPoint.BEFORE && exit == CallPoint.AFTER) { "The core reverses only a forward plan" }
@@ -110,4 +111,43 @@ class CallPlan(
         }
         return CallPlan(touched + aliasBases, reversed, sinks, entry = exit, exit = entry, passReads = passReads)
     }
+}
+
+private fun pointDirectory(stages: List<CallStage>): Map<CallPoint, List<CallStage>> {
+    val groups = ownedOrdinalGroups(stages) { it.from }
+    return if (groups.size <= 1) groups else CallPointDirectory(groups)
+}
+
+/** Fixed six-point lookup; compatibility iteration keeps the first stage's point order. */
+private class CallPointDirectory(groups: Map<CallPoint, List<CallStage>>) : AbstractMap<CallPoint, List<CallStage>>() {
+    override val size: Int = groups.size
+    private val pointOrder = IntArray(size)
+    private val byOrdinal = arrayOfNulls<List<CallStage>>(CallPoint.entries.size)
+    @Volatile private var entryView: Set<Map.Entry<CallPoint, List<CallStage>>>? = null
+
+    init {
+        var index = 0
+        for ((point, stages) in groups) {
+            pointOrder[index++] = point.ordinal
+            byOrdinal[point.ordinal] = stages
+        }
+    }
+
+    override fun get(key: CallPoint): List<CallStage>? = byOrdinal[key.ordinal]
+    override fun containsKey(key: CallPoint): Boolean = byOrdinal[key.ordinal] != null
+
+    override val entries: Set<Map.Entry<CallPoint, List<CallStage>>>
+        get() = entryView ?: object : AbstractSet<Map.Entry<CallPoint, List<CallStage>>>() {
+            override val size: Int get() = this@CallPointDirectory.size
+            override fun iterator(): Iterator<Map.Entry<CallPoint, List<CallStage>>> =
+                object : Iterator<Map.Entry<CallPoint, List<CallStage>>> {
+                    private var next = 0
+                    override fun hasNext(): Boolean = next < size
+                    override fun next(): Map.Entry<CallPoint, List<CallStage>> {
+                        if (!hasNext()) throw NoSuchElementException()
+                        val ordinal = pointOrder[next++]
+                        return SimpleImmutableEntry(CallPoint.entries[ordinal], checkNotNull(byOrdinal[ordinal]))
+                    }
+                }
+        }.also { entryView = it }
 }
