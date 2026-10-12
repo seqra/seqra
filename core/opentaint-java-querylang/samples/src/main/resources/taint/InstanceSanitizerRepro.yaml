@@ -1,0 +1,22 @@
+rules:
+  - id: taint-InstanceSanitizerRepro
+    languages:
+      - java
+    severity: ERROR
+    message: match taint/InstanceSanitizerRepro
+    mode: taint
+    pattern-sources:
+      - pattern: $A = src()
+    pattern-propagators:
+      - pattern: $B = new taint.InstanceSanitizerRepro.Box($A)
+        from: $A
+        to: $B
+      - pattern: $R = ($B).sanitize()
+        from: $B
+        to: $R
+    pattern-sanitizers:
+      - patterns:
+          - pattern: $R = (taint.InstanceSanitizerRepro.Box $B).sanitize()
+          - focus-metavariable: $R
+    pattern-sinks:
+      - pattern: sink(...)

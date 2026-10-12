@@ -29,6 +29,14 @@ class TaintTest : SampleBasedTest() {
     @Test
     fun `test rule with inside`() = runTest<taint.RuleWithInside>()
 
+    // REPRO: a typed-receiver instance-method pattern-sanitizer
+    // `(Box $B).sanitize()` is not honored, so the sanitized value is still
+    // reported (the Negative sample is flagged). Mirrors the rules-level FP with
+    // `(java.io.File $F).getCanonicalFile()`. Expected: passes once the engine
+    // honors typed-receiver instance-method sanitizers.
+    @Test
+    fun `instance-method typed-receiver sanitizer repro`() = runTest<taint.InstanceSanitizerRepro>()
+
     @AfterAll
     fun close() {
         closeRunner()
