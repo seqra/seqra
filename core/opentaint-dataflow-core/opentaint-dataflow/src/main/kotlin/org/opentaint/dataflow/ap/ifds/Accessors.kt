@@ -9,9 +9,17 @@ sealed interface AccessPathBase {
         override fun toString(): String = "<zero>"
     }
 
-    /** Fresh base for one cached field-cleaner action. Reversed actions share this object. */
-    class CleanerTemporary : AccessPathBase {
+    /** Manual actions use fresh identity; generated actions use a stable key across form rebuilds. */
+    class CleanerTemporary private constructor(private val key: Any?) : AccessPathBase {
+        constructor() : this(null)
+        override fun equals(other: Any?): Boolean = this === other ||
+            (key != null && other is CleanerTemporary && key == other.key)
+        override fun hashCode(): Int = key?.hashCode() ?: System.identityHashCode(this)
         override fun toString(): String = "<cleaner-temporary>"
+
+        companion object {
+            fun keyed(key: Any): CleanerTemporary = CleanerTemporary(key)
+        }
     }
 
     data object This : AccessPathBase {
