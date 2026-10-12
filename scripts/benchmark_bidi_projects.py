@@ -119,6 +119,7 @@ def run(args, project, side, config):
     pid = None
     analysis_start = None
     full_start = None
+    workload_finished = False
     peak_rss = 0
     profiles = {}
     profile_jobs = []
@@ -143,6 +144,9 @@ def run(args, project, side, config):
                     analysis_start = now
                 if full_start is None and ('BIDI_RUN_START run=1 ' in lines or 'Start full scan phase' in lines):
                     full_start = now
+                if ('Finish full scan phase' in lines or 'BIDI_ANALYSIS_END ' in lines
+                        or 'Finish IFDS analysis' in lines):
+                    workload_finished = True
             if pid:
                 try:
                     stat = Path(f'/proc/{pid}/stat').read_text().split()
@@ -156,12 +160,14 @@ def run(args, project, side, config):
                     pass
                 windows = [('normal', full_start, 60), ('near-limit', analysis_start, timeout - 60)]
                 for label, anchor, delay in windows:
-                    if anchor and now >= anchor + delay and label not in profiles:
+                    if anchor and not workload_finished and now >= anchor + delay and label not in profiles:
                         output = directory / f'{label}.collapsed'
                         profile_log = (directory / f'{label}-profiler.log').open('w')
                         job = subprocess.Popen([str(ASPROF), '-e', 'cpu', '-d', '30', '-o', 'collapsed',
                                                 '-f', str(output), str(pid)], stdout=profile_log, stderr=subprocess.STDOUT)
-                        profiles[label] = {'start_elapsed': now - start, 'duration_requested': 30}
+                        profiles[label] = {'start_elapsed': now - start, 'duration_requested': 30,
+                                           'requested_delay_seconds': delay,
+                                           'anchor': 'full-analysis' if label == 'normal' else 'ifds'}
                         profile_jobs.append((label, job, profile_log))
             # The project config gives a 1200s outer scan limit. Start at the
             # analyzer launch so Gradle compilation is not charged to the scan.
