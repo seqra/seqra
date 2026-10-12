@@ -149,6 +149,15 @@ def run(args, project, side, config):
                     workload_finished = True
             if pid:
                 try:
+                    if 'analyzer_executable' not in manifest:
+                        command_line = Path(f'/proc/{pid}/cmdline').read_bytes()
+                        executable = os.readlink(f'/proc/{pid}/exe')
+                        (directory / 'analyzer-process.json').write_text(json.dumps({
+                            'pid': pid, 'executable': executable,
+                            'command': [arg.decode(errors='replace') for arg in command_line.split(b'\0') if arg],
+                        }, indent=2) + '\n')
+                        manifest['analyzer_executable'] = executable
+                        manifest['analyzer_command_sha256'] = hashlib.sha256(command_line).hexdigest()
                     stat = Path(f'/proc/{pid}/stat').read_text().split()
                     rss = int(stat[23]) * os.sysconf('SC_PAGE_SIZE')
                     peak_rss = max(peak_rss, rss)
