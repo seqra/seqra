@@ -2229,6 +2229,111 @@ Do not claim whole-project performance from a local count. Full project benchmar
 
 ## Commands and evidence
 
+### Major testing requested after phase 3
+
+The current `task.md` requests full JVM application and Java query-language
+test suites. Run the existing suites first. Then run the same suites with
+the new bidirectional entry. Use a test-only `OPENTAINT_TEST_BIDI=true` mode
+in the two shared test helpers. Declare this mode as an input of both Gradle
+test tasks and pass it to their workers. Start at limit 1 and allow limits
+1 through 9. Preserve explicit limits in the existing sequence tests.
+
+Keep every positive and negative dataflow assertion. For SARIF cases, the
+new entry must still find a vulnerability and produce its sink location.
+Check that simple traces have no code-flow locations. Full path assertions
+remain active in the old entry, because phase 3 has no trace resolution.
+Query tests must report all missed positive samples and unexpected negative
+samples before assertions can stop a case.
+
+Save fresh XML for each mode. Use subagents to review coverage and failure
+causes. Identify the cause of each failure and record all findings in
+`issues.md`. Do not change production behavior to make this test run pass.
+The phase-1–3 completion record above remains unchanged.
+
+The first new-entry run finds no missed positive sample and 28 unexpected
+negative samples in 20 query tests. Retain these strict failures. Add actual
+report diagnostics to identify their states and end-fact requirements. Add
+a test-only, one-shot prescan resolver fault and a positive Semgrep control.
+This probe must check that a joined failed prescan cannot return an OK empty
+result. Enable the probe only in the explicit bidirectional test mode.
+Also compare the SARIF sink regions with the existing sink markers while
+retaining the separate full-path contract of the old entry.
+
+The selected sink IDs rule out a direct negated-condition cause for the two
+source-only return cases. Add two test-mode regression cases with positive
+controls and alias-analysis controls. Use the existing internal driver test
+seam to observe actual processed facts and cached call plans. Keep the real
+run manager, handlers and barrier guard. These observations must identify
+where the old state mark survives; do not substitute a simulated run.
+The concat probe must load the same default library rules as `CustomTest`.
+Without those rules its positive control is not the original test input.
+The diagnostic decoder must name both actual bidi exclusion variants:
+Empty and Concrete. Legacy Universe does not belong to this type.
+
+Actual owner diagnostics identify the two remaining findings at the `clean`
+callee exit. Caller source overrides remove the old state as required. The
+new exit check admits nonzero premises (D21); the old adapter rejects them.
+Rename the two probes to describe method-exit scope. Record this spec/rule
+compatibility gap separately from conditional cleaners and deferred end
+verification. Run both full suites in each mode after these final test
+changes. Save the XML and all cause evidence before later tasks clear it.
+
+The final full runs are complete. The default mode has 496 JVM tests
+and 215 query tests, with no failures and 9 and 26 skips. The new mode has 496 JVM tests
+with no failure and 9 skips. It has 215 query tests with 23 failures and
+23 skips. All results have zero test errors. The 23 query failures are
+20 original sample methods and three new probes. Default mode skips the
+three mode-only probes. All 188 normal positive sample runs are found.
+The 28 unexpected negative samples produce 29 CONFIRMED report entries.
+The failed-prescan probe separately proves EXCEPTION can become OK with
+an empty result. All 22 SARIF sink-region cases pass. Record the full
+counts, commands, cause groups and coverage limits in `issues.md`.
+Fresh XML and summaries are saved under `/tmp/bidi-major/final-gates`.
+
+### Cleaner action normalization and retest
+
+The next user request selects cleaner normalization from
+`saloed/cleaner-action-normalisation`. Port commit `25a5307cf` from the
+available origin branch. It changes the shared JVM method-rule resolver
+and adds five resolver tests. Its parent commit `5768b5bea` changes the
+legacy any-field AP and is outside this request. The origin fetch fails
+because SSH authentication is unavailable; the named local origin ref
+contains the complete normalization commit.
+
+The exact imported resolver and five tests match the branch files.
+The first full default run passes 501 JVM tests and 215 query tests,
+with 9 and 26 skips. A real broad-reach probe then finds a false negative
+in the imported normalization: a root-mark condition becomes true for
+an at-and-below removal, and the removal kills a field-only mark. The
+exact-removal control finds the field sink. The unconditional broad
+control clears it. Retain the root-mark condition for a non-AnyField
+`ExactAndAnyField` action. Terminal AnyField actions keep their own
+containment assumptions. All five imported tests and all three real
+bidirectional reach probes pass with this guard. The reach probes select
+the bidi test mode because their broad-removal control does not pass in
+the legacy resolved-helper flow.
+
+Align interpreter §4.2 with this normalization boundary. Keep the
+true-only interpreter cleaner selection, AP exclusion rules, and
+positive run limits. Retest both full suites in both modes with the
+final source and tests. Save the new XML under
+`/tmp/bidi-cleaner-normalisation` and update `issues.md` with the
+remaining failures and the broad-reach correction.
+
+The final retest is complete. Default mode has 504 JVM tests with no
+failure and 12 skips, and 215 query tests with no failure and 26 skips.
+Bidi mode has 504 JVM tests with no failure and 9 skips, and 215 query
+tests with 10 failures and 23 skips. All results have zero test errors.
+All eight normalization and reach tests pass in bidi mode. All 22 SARIF
+cases pass. All 188 normal positive sample runs are found. Unexpected
+negative samples decrease from 28 to 12, across seven remaining sample
+methods. Ten have end facts and a cleaner after the sink. Two report in
+the unannotated clean callee under a nonzero premise. The other three
+query failures are the existing prescan and exit-scope probes. No new
+unexpected negative class appears. The same nine annotated negative
+findings remain allowed. Record all results and the sixteen cleared
+negative children in `issues.md`.
+
 Run Lean commands from `spec/lean` only when clarification work changes Lean artifacts:
 
 ```bash

@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.TestInstance
 import org.opentaint.common.sast.sarif.SarifGenerationOptions
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
+import org.opentaint.dataflow.ap.ifds.trace.path.TracePathGenerationResult
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
 import org.opentaint.jvm.sast.JIRSourceFileResolver
 import org.opentaint.jvm.sast.dataflow.AnalysisTest
@@ -120,6 +121,22 @@ abstract class AbstractSarifGeneratorTest: AnalysisTest() {
         assertTrue(traces.isNotEmpty(), "Expected at least one vulnerability trace")
 
         val sarifData = generateSarifReport(traces)
+        if (useBidiEntry) {
+            val sinkMarker = expectedLocations.single { "sink" in it }
+            val expectedSink = parseExpectedLocation(getSourcePath(testCls), sinkMarker)
+            assertTrue(traces.all { it.trace === TracePathGenerationResult.Simple },
+                "$testName: Expected phase-3 simple traces")
+            assertTrue(sarifData.resultLocations.isNotEmpty(),
+                "$testName: Expected SARIF sink locations")
+            assertTrue(sarifData.resultLocations.all { it.physicalLocation?.region?.startLine != null },
+                "$testName: Expected sink locations with source lines")
+            assertTrue(sarifData.resultLocations.any { it.physicalLocation?.region?.match(expectedSink) == true },
+                "$testName: Expected sink $sinkMarker ${expectedSink.printRegion()}. " +
+                    "Found:\n${sarifData.resultLocations.printLocations()}")
+            assertTrue(sarifData.threadFlowLocations.isEmpty(),
+                "$testName: Simple traces must not contain code-flow locations")
+            return
+        }
         val sourcePath = getSourcePath(testCls)
         val expected = expectedLocations.map { parseExpectedLocation(sourcePath, it) }
 

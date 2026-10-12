@@ -4,6 +4,7 @@ import kotlinx.collections.immutable.PersistentMap
 import kotlinx.collections.immutable.persistentHashMapOf
 import org.opentaint.dataflow.configuration.CommonCondition
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
+import org.opentaint.dataflow.configuration.TaintCleanReach
 import org.opentaint.dataflow.configuration.isFalse
 import org.opentaint.dataflow.configuration.jvm.Action
 import org.opentaint.dataflow.configuration.jvm.Argument
@@ -67,6 +68,7 @@ import org.opentaint.dataflow.configuration.mkFalse
 import org.opentaint.dataflow.configuration.mkOr
 import org.opentaint.dataflow.configuration.mkTrue
 import org.opentaint.dataflow.configuration.simplify
+import org.opentaint.dataflow.configuration.toNnf
 import org.opentaint.ir.api.jvm.JIRAnnotated
 import org.opentaint.ir.api.jvm.JIRAnnotation
 import org.opentaint.ir.api.jvm.JIRClassType
@@ -173,9 +175,9 @@ class MethodTaintConfigurationResolver(
         }
 
         val contexts = anyArgSpecializationContexts(serializedCondition, actions)
-        return contexts.mapNotNull {
+        return contexts.flatMap {
             val condition = resolveCondition(serializedCondition, it).simplify()
-            if (condition.isFalse()) return@mapNotNull null
+            if (condition.isFalse()) return@flatMap emptyList()
 
             resolveMethodRule(condition, it)
         }
@@ -184,50 +186,91 @@ class MethodTaintConfigurationResolver(
     private fun SerializedRule.resolveMethodRule(
         condition: Condition,
         ctx: AnyArgSpecializationCtx,
-    ): TaintConfigurationItem = when (this) {
+    ): List<TaintConfigurationItem> = when (this) {
         is SerializedRule.EntryPoint -> {
-            TaintEntryPointSource(method, condition, taint.flatMap { it.resolveWithArray(ctx) }, info, serializedId)
+            listOf(TaintEntryPointSource(method, condition, taint.flatMap { it.resolveWithArray(ctx) }, info, serializedId))
         }
 
         is SerializedRule.Source -> {
-            TaintMethodSource(method, condition, taint.flatMap { it.resolveWithArray(ctx) }, info, serializedId)
+            listOf(TaintMethodSource(method, condition, taint.flatMap { it.resolveWithArray(ctx) }, info, serializedId))
         }
 
         is SerializedRule.MethodExitSource -> {
-            TaintMethodExitSource(method, condition, taint.flatMap { it.resolveWithArray(ctx) }, info, serializedId)
+            listOf(TaintMethodExitSource(method, condition, taint.flatMap { it.resolveWithArray(ctx) }, info, serializedId))
         }
 
         is SerializedRule.Sink -> {
-            TaintMethodSink(
+            listOf(TaintMethodSink(
                 method, condition,
                 trackFactsReachAnalysisEnd?.flatMap { it.resolveNoArray(ctx) }.orEmpty(),
                 ruleId(), meta(), info, serializedId
-            )
+            ))
         }
 
         is SerializedRule.MethodExitSink -> {
-            TaintMethodExitSink(
+            listOf(TaintMethodExitSink(
                 method, condition,
                 trackFactsReachAnalysisEnd?.flatMap { it.resolveNoArray(ctx) }.orEmpty(),
                 ruleId(), meta(), info, serializedId
-            )
+            ))
         }
 
         is SerializedRule.MethodEntrySink -> {
-            TaintMethodEntrySink(
+            listOf(TaintMethodEntrySink(
                 method, condition,
                 trackFactsReachAnalysisEnd?.flatMap { it.resolveNoArray(ctx) }.orEmpty(),
                 ruleId(), meta(), info, serializedId
-            )
+            ))
         }
 
         is SerializedRule.PassThrough -> {
-            TaintPassThrough(method, condition, copy.flatMap { it.resolve(ctx) }, info, serializedId)
+            listOf(TaintPassThrough(method, condition, copy.flatMap { it.resolve(ctx) }, info, serializedId))
         }
 
         is SerializedRule.Cleaner -> {
-            TaintCleaner(method, condition, cleans.flatMap { it.resolve(ctx) }, info, serializedId)
+            cleans.flatMap { it.resolve(ctx) }
+                .groupBy { condition.assumeAction(it) }
+                .filterKeys { !it.isFalse() }
+                .map { (actionCondition, actions) -> TaintCleaner(method, actionCondition, actions, info, serializedId) }
         }
+    }
+
+    private fun Condition.assumeAction(action: Action): Condition {
+        val assumed = action.assumedLiterals()
+        if (assumed.isEmpty()) return this
+        return toNnf(negated = false).assume(assumed)
+    }
+
+    private fun Action.assumedLiterals(): Set<JirCondition> {
+        if (this !is RemoveMark) return emptySet()
+        val position = position
+        if (position is PositionWithAccess && position.access == PositionAccessor.AnyFieldAccessor) {
+            return setOf(ContainsMarkOnAnyField(position.base, mark), ContainsMark(position, mark))
+        }
+        // An absent root mark does not make a removal of descendant marks a no-op.
+        if (reach != TaintCleanReach.Exact) return emptySet()
+        return setOf(ContainsMark(position, mark))
+    }
+
+    private fun Condition.assume(assumed: Set<JirCondition>): Condition = when (this) {
+        is CommonCondition.True -> this
+        is CommonCondition.Atom -> if (atom in assumed) mkTrue() else this
+        is CommonCondition.Not -> if ((arg as? CommonCondition.Atom)?.atom in assumed) mkFalse() else this
+        is CommonCondition.And -> args.map { it.assume(assumed) }
+            .junction(absorbing = mkFalse(), neutral = mkTrue(), ::mkAnd) { (it as? CommonCondition.And)?.args }
+
+        is CommonCondition.Or -> args.map { it.assume(assumed) }
+            .junction(absorbing = mkTrue(), neutral = mkFalse(), ::mkOr) { (it as? CommonCondition.Or)?.args }
+    }
+
+    private inline fun List<Condition>.junction(
+        absorbing: Condition,
+        neutral: Condition,
+        make: (List<Condition>) -> Condition,
+        operands: (Condition) -> List<Condition>?,
+    ): Condition {
+        val args = flatMap { operands(it) ?: listOf(it) }.filter { it != neutral }.distinct()
+        return if (absorbing in args) absorbing else make(args)
     }
 
     private val ruleIdGen = AtomicInteger()

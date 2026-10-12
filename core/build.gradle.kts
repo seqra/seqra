@@ -82,6 +82,10 @@ tasks.withType<Test> {
     dependsOn(project("samples").tasks.withType<Jar>())
     ensureGoEnvInitialized()
 
+    val bidiTestMode = providers.environmentVariable("OPENTAINT_TEST_BIDI").orElse("false")
+    inputs.property("bidiTestMode", bidiTestMode)
+    environment("OPENTAINT_TEST_BIDI", bidiTestMode.get())
+
     doFirst {
         val resolvedTestSamples = testSamples.resolve()
         val testSamplesJar = resolvedTestSamples.single { it.name == "samples.jar" }

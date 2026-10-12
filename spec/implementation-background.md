@@ -368,6 +368,12 @@ DEFECTS FOUND (none of them is in the design above).
 
 The columns "Today" use today's notation (§0).
 
+For JVM cleaners, D20 and D23 apply after the shared resolver's action normalization
+(`interpreter.md` §4.2). The normalization from `saloed/cleaner-action-normalisation`
+was added on 12 October 2026. A same-position exact removal can lose its own mark
+condition. A non-AnyField broad removal retains that condition. These rules do not
+change the primitive cleaner or its exclusion table.
+
 | # | Topic | Today | New | Why |
 |---|---|---|---|---|
 | D1 | read `x = y.f` | `y\{f} → y`, `y.f → y.f`, `y.f → x` (keep-except) | `y.* → y.*`, `y.f.* → x.*` | a read never changes an exclusion (I3) |

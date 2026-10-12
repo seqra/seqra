@@ -583,7 +583,16 @@ report holds is in the output, also one whose end facts never reach the end of t
   concrete target mark (ap.md W7). The interpreter
   reports a pass rule with a mark literal as a rule error, logged once and not rejected (§1.3), and applies it without
   its mark literals (it fires more; this is sound, but not precise: gap G11). So a pass rule never makes an ND edge.
-* For a CLEANER the safe direction is the opposite: a cleaner that fires removes real taint. So the interpreter applies
+* JVM CLEANER ACTION NORMALIZATION. Before the interpreter builds forms, the shared method-rule resolver normalizes
+  each resolved cleaner action against its own condition. It writes the condition in negation normal form. For
+  `RemoveMark(T, P, Exact)`, it assumes `ContainsMark(P, T)`: removing an absent mark at that same position is a no-op.
+  For a terminal `P.AnyField` action, it also assumes `ContainsMarkOnAnyField(P, T)`. It folds the condition under these
+  assumptions, drops actions whose condition becomes false, and groups actions with equal resulting conditions.
+  `RemoveAllMarks` has no named-mark assumption. A non-AnyField action with `ExactAndAnyField` reach keeps its mark
+  condition: an absent mark at `P` does not imply that all descendant marks are absent. Both ordinary resolution and
+  relevant-rule resolution use this normalization. The JVM adaptation uses the cleaner normalization of
+  `saloed/cleaner-action-normalisation`, commit `25a5307cf`, with this broad-reach guard.
+* For a resolved CLEANER the safe direction is the opposite: a cleaner that fires removes real taint. So the interpreter applies
   only the UNCONDITIONAL cleaners:
   * a non-mark atom is decided statically: a false atom removes the rule, a true atom drops out of the condition;
   * if no mark literal is left, the cleaner is unconditional, and it applies (§5.2);
@@ -594,8 +603,10 @@ report holds is in the output, also one whose end facts never reach the end of t
   fact-local, path-insensitive engine, as the conjunction is (ap.md §4.6). Cleaning on a condition that the fact does
   not decide is unsound. Today the condition is evaluated on the fact (`TaintFactAwareConditionEvaluator`); this is
   deviation D20 (§6).
-  Examples: `RemoveMark(T, P)` with no condition is `(P, exact, T)`. `RemoveMark(T, P) if ContainsMark(P, T)` and
-  `RemoveMark(T, Argument(0)) if Not(ContainsMark(Argument(1), RAW))` never clean.
+  Examples: `RemoveMark(T, P)` with no condition is `(P, exact, T)`. In JVM resolution,
+  `RemoveMark(T, P, Exact) if ContainsMark(P, T)` becomes this unconditional action.
+  `RemoveMark(T, Argument(0)) if Not(ContainsMark(Argument(1), RAW))` keeps its unrelated mark condition and never cleans
+  in the interpreter. A broad root removal conditioned on the root mark also keeps its condition and never cleans.
   The summary rewriter (§5.2) is not a cleaner placement, and D20 does not govern it. It selects a user-defined
   cleaner rule only if the rule is unconditional, so a conditional user-defined cleaner does not act through it either.
 * Go pass rules have no condition.

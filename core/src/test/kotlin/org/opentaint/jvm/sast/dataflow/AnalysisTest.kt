@@ -119,10 +119,11 @@ abstract class AnalysisTest : BasicTestUtils() {
 
     open val useDefaultConfig = false
 
-    /** Legacy full-scan behavior remains the default for every existing test class. */
-    open val useBidiEntry = false
+    /** Full suite opt-in. An unset environment retains the legacy entry. */
+    open val useBidiEntry = System.getenv("OPENTAINT_TEST_BIDI") == "true"
 
-    open val bidiLimits: List<Int> = listOf(1, 2, 3)
+    open val bidiLimits: List<Int> =
+        if (System.getenv("OPENTAINT_TEST_BIDI") == "true") (1..9).toList() else listOf(1, 2, 3)
 
     open val apMode: ApMode = ApMode.Tree
 
