@@ -90,7 +90,7 @@ class JIRMethodCallSummaryHandler(
         }
 
     private fun applyCallAliases(fact: FinalFactAp, body: (FinalFactAp) -> Unit) {
-        analysisContext.aliasAnalysis?.forEachAliasAfterCallStatement(statement, fact) { aliased ->
+        analysisContext.aliasAnalysis?.forEachHeapAliasBeforeStatement(statement, fact) { aliased ->
             body(aliased)
         }
     }

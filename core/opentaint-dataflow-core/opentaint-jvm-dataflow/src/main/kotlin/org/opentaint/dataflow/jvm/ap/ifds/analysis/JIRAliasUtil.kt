@@ -7,7 +7,6 @@ import org.opentaint.dataflow.ap.ifds.ElementAccessor
 import org.opentaint.dataflow.ap.ifds.FieldAccessor
 import org.opentaint.dataflow.ap.ifds.access.FinalFactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
-import org.opentaint.dataflow.ap.ifds.analysis.alias.applyAlias
 import org.opentaint.dataflow.ap.ifds.analysis.alias.forEachAliasAtStatement
 import org.opentaint.dataflow.ap.ifds.analysis.alias.forEachAliasAtStatementAmongBases
 import org.opentaint.dataflow.ap.ifds.analysis.alias.forEachHeapAliasBeforeStatement
@@ -22,17 +21,6 @@ import org.opentaint.ir.api.jvm.cfg.locals
 fun JIRLocalAliasAnalysis.forEachAliasAtStatement(statement: JIRInst, fact: InitialFactAp, body: (InitialFactAp) -> Unit) =
     forEachAliasAtStatement(statement, fact, AliasInfo::relevantApInfo, AliasAccessor::apAccessor, body)
 
-fun JIRLocalAliasAnalysis.forEachAliasAfterCallStatement(statement: JIRInst, fact: FinalFactAp, body: (FinalFactAp) -> Unit) {
-    val base = fact.base as? AccessPathBase.LocalVar ?: return
-    val aliasesBefore = findAlias(base, statement) ?: return
-    val aliasesAfter = findAliasAfterStatement(base, statement)?.toSet() ?: return
-    val aliasesPersistedThroughCall = aliasesBefore.filter { it in aliasesAfter }
-
-    aliasesPersistedThroughCall
-        .filterIsInstance<AliasApInfo>()
-        .filterNot { alias -> alias.base is AccessPathBase.Constant }
-        .forEach { alias -> applyAlias(fact, alias, AliasAccessor::apAccessor, body) }
-}
 
 fun JIRLocalAliasAnalysis.forEachHeapAliasBeforeStatement(statement: JIRInst, fact: FinalFactAp, body: (FinalFactAp) -> Unit) =
     forEachHeapAliasBeforeStatement(statement, fact, Accessor::aliasAccessor, AliasInfo::relevantApInfo, AliasAccessor::apAccessor, body)
