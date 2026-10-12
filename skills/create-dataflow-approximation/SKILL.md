@@ -28,7 +28,7 @@ Find and read each dataflow method's real source: take methods not yet in `build
 
 ### 2. Write the approximation
 
-Reproduce that propagation in the language-specific code form in the batch's approximation project at `.opentaint/dataflow/<batch>`, following the language reference's artifact layout. The project pins the libraries the models are written against at the same versions the test project takes, because a model references the library type it models. Scaffold it if it doesn't exist yet (the language reference has the command). Cover every assigned callable variant, repair an explicitly handed callable in the existing source, and add new ones there rather than rewriting the file. The engine is field-sensitive — taint is tracked per field — so route data field-to-field exactly as the source does rather than tainting the whole object. The test project's negative samples (if present) verify this by storing taint in one field and reading another, so an over-broad model makes them fire. The concrete constructs and patterns are in the language reference.
+Reproduce that propagation in the language-specific code form in the batch's approximation project at `.opentaint/dataflow/<batch>` — scaffold it if it doesn't exist yet — following the language reference's artifact layout. Cover every assigned callable variant, repair an explicitly handed callable in the existing source, and add new ones there rather than rewriting the file. The engine is field-sensitive — taint is tracked per field — so route data field-to-field exactly as the source does rather than tainting the whole object. The test project's negative samples (if present) verify this by storing taint in one field and reading another, so an over-broad model makes them fire. The concrete constructs and patterns are in the language reference.
 
 ### 3. Test against the test project
 
@@ -42,7 +42,7 @@ When the sample won't converge after ~3 fixes — whether the trace shows a fait
 
 ### Artifacts
 
-- `.opentaint/dataflow/<batch>` — the batch's approximation project: its pinned dependencies plus the language-specific code approximation artifacts that the scan consumes, following the language reference's artifact layout; report the path and the exact test command used
+- `.opentaint/dataflow/<batch>` — the batch's approximation project with the language-specific code approximation artifacts that the scan consumes; report the path and the exact test command used
 - the passing methods present in the batch file's `build.done` (new methods appended; repaired methods already recorded, per Tracking)
 
 ### Summary
