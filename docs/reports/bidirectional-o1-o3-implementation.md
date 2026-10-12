@@ -58,6 +58,12 @@ A source search found no `explodeToDNF`, `cubes` or Cartesian-product call in th
 The production handoff now processes sinks inside the method-form callback. Run state, witness and seed keys do
 not retain a compiled predicate. Optional statistics distinguish compiled nodes from observed proof records,
 support shapes, fact growth and canonical root outcomes. All counts are cumulative, not a live heap census.
+Optional successful-build/reversal samples also count known form shapes, owned container reference entries,
+retained primitive index cells and base/call-point directory cardinalities. They deduplicate shared storage within
+each sample, skip AP/IR payloads and keep compatibility views lazy. Reversal and rebuild sample shared storage
+again, so these totals measure neither new allocations, live retained sizes nor bytes. All six focused counter
+tests pass. They cover empty/singleton/indexed layouts, shared directories, failure/rebuild accounting and
+numeric-only ownership. The complete suites also pass after this diagnostic addition.
 
 The storage benchmark measured 128 container graphs at 0, 1, 2, 4, 8, 9, 16 and 64 keys. It includes backing
 storage, primitive indexes and retained compatibility views, and excludes shared payload objects. At 64 keys,
@@ -68,7 +74,7 @@ savings or a lookup-speed improvement. Exact class hashes, exclusions and data a
 
 ## Final core gate
 
-The final complete common suite passed 1,325 tests. The JVM suite passed 377 tests. Both suites had no failures
+The final complete common suite passed 1,331 tests. The JVM suite passed 377 tests. Both suites had no failures
 or skipped tests. Go, JVM SAST and root consumer test compilation passed. The complete application suite had
 950 tests in each bidi mode: 940 passed and 10 skipped with bidi enabled; 937 passed and 13 skipped with bidi
 disabled. The query suite had 215 tests in each mode. With bidi enabled, it had the same 10 control failures and
@@ -88,7 +94,8 @@ a deeper mark-request answer keeps a root STAR, which starts as ANY/DEMAND at ev
 canonical summary union removes redundant demand terms before handoff. The tests retain the complete independent
 comparisons and separately check the original source's limit-1 cut versus unchanged paths at limits 2 and 3.
 
-The refreshed storage evidence uses the final common classes. It has 128 retained-size rows and 48 copy/lookup
+The refreshed storage evidence uses the common classes before the added diagnostic shape readers, which add
+methods without adding storage fields to form containers. It has 128 retained-size rows and 48 copy/lookup
 rows, with matching shared input hashes and all paired checksums equal. Lookup timing is a diagnostic only.
 The tooling suite passed 25 tests, including cross-midnight profile windows. The benchmark runner now checks
 the unique run marker before stopping an analyzer outside the Gradle wrapper's process group.
@@ -97,8 +104,9 @@ the unique run marker before stopping an analyzer outside the Gradle wrapper's p
 
 The signed folder, NNF source/sink compiler and solver, stable identities, backward scope, managed cache pins,
 compact containers, specification and optional statistics are in place. The ownership review found no remaining
-compiled form in actor proof state, persistent witnesses or seed handles. Commit the implementation before the
-fixed project runs. Unit and synthetic storage evidence does not establish the project resource gates.
+compiled form in actor proof state, persistent witnesses or seed handles. The implementation is committed in
+separate condition, storage and cache changes. Unit and synthetic storage evidence does not establish the
+project resource gates.
 
 Run OWASP, Conductor, ThingsBoard and Stirling-PDF through `runProjectAnalyzer`. Keep the selected configuration,
 heaps and time limits. For each project, record strict finding-location comparison, each iteration time,

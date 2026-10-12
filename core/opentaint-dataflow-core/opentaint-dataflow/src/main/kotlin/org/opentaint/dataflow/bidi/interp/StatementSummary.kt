@@ -27,6 +27,20 @@ class StatementSummary(
 
     fun edgesOf(b: AccessPathBase): List<MicroEdge> = byBase[b].orEmpty()
 
+    internal fun storage(counts: FormStorageCounts) {
+        counts.statementSummaries++
+        counts.include(touched)
+        counts.include(edges)
+        counts.include(conjunctions)
+        counts.include(typeFilters)
+        counts.include(resultFilters)
+        counts.include(sources)
+        counts.include(targets)
+        counts.summaryBaseDirectoryEntries += byBase.size.toLong()
+        ownedDirectoryStorage(byBase, counts)
+        for (source in sources) counts.include(source.actions)
+    }
+
     val targets: Set<AccessPathBase> = run {
         val sourceTargets = this.sources.flatMap { source -> source.actions.map { it.target.base } }
         ownedSet(ownedList(this.edges.size + this.conjunctions.size + sourceTargets.size) { index ->

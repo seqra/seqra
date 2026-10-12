@@ -25,6 +25,16 @@ class FormCacheStatistics {
     private val newRootOutcomes = AtomicLong()
     private val rootGrowthOutcomes = AtomicLong()
     private val rootOutcomes = AtomicLong()
+    private val forwardFormShapes = AtomicLong()
+    private val reversedFormShapes = AtomicLong()
+    private val statementSummaries = AtomicLong()
+    private val callPlans = AtomicLong()
+    private val ruleStatements = AtomicLong()
+    private val exitRules = AtomicLong()
+    private val ownedContainerEntries = AtomicLong()
+    private val primitiveIndexCells = AtomicLong()
+    private val summaryBaseDirectoryEntries = AtomicLong()
+    private val callPointDirectoryEntries = AtomicLong()
 
     internal fun access() { accesses.incrementAndGet() }
     internal fun hit() { hits.incrementAndGet() }
@@ -66,6 +76,25 @@ class FormCacheStatistics {
         rootOutcomes.incrementAndGet()
     }
 
+    /** Cumulative samples after successful known forward/reversed form builds, including rebuilds.
+     *  Shared structural containers/index arrays count once within a sample and again in later
+     *  samples. These are stored reference/index cells, not new allocations, live sizes or bytes.
+     *  AP/IR contents and predicate graphs are opaque; no compatibility view is initialized. */
+    internal fun formBuilt(form: Any, reversed: Boolean) {
+        if (form !is StatementSummary && form !is CallPlan && form !is RuleStatement && form !is ExitRules) return
+        val counts = FormStorageCounts()
+        counts.measure(form)
+        if (reversed) reversedFormShapes.incrementAndGet() else forwardFormShapes.incrementAndGet()
+        statementSummaries.addAndGet(counts.statementSummaries)
+        callPlans.addAndGet(counts.callPlans)
+        ruleStatements.addAndGet(counts.ruleStatements)
+        exitRules.addAndGet(counts.exitRules)
+        ownedContainerEntries.addAndGet(counts.ownedContainerEntries)
+        primitiveIndexCells.addAndGet(counts.primitiveIndexCells)
+        summaryBaseDirectoryEntries.addAndGet(counts.summaryBaseDirectoryEntries)
+        callPointDirectoryEntries.addAndGet(counts.callPointDirectoryEntries)
+    }
+
     data class Snapshot(
         val accesses: Long, val hits: Long,
         val buildAttempts: Long, val buildSuccesses: Long, val buildFailures: Long,
@@ -74,13 +103,20 @@ class FormCacheStatistics {
         val compiledPredicates: Long, val compiledNodes: Long, val compiledLeaves: Long,
         val observedProofRecords: Long, val observedSupportShapes: Long, val supportGrowthUpdates: Long,
         val newRootOutcomes: Long, val rootGrowthOutcomes: Long, val rootOutcomes: Long,
+        val forwardFormShapes: Long, val reversedFormShapes: Long,
+        val statementSummaries: Long, val callPlans: Long, val ruleStatements: Long, val exitRules: Long,
+        val ownedContainerEntries: Long, val primitiveIndexCells: Long,
+        val summaryBaseDirectoryEntries: Long, val callPointDirectoryEntries: Long,
     )
 
     fun snapshot(): Snapshot = Snapshot(accesses.get(), hits.get(), buildAttempts.get(), buildSuccesses.get(),
         buildFailures.get(), reversals.get(), reversalFailures.get(), uncachedBuilds.get(), buildNanos.get(),
         reversalNanos.get(), activePins.get(), peakPins.get(), compiledPredicates.get(), compiledNodes.get(),
         compiledLeaves.get(), observedProofRecords.get(), observedSupportShapes.get(), supportGrowthUpdates.get(),
-        newRootOutcomes.get(), rootGrowthOutcomes.get(), rootOutcomes.get())
+        newRootOutcomes.get(), rootGrowthOutcomes.get(), rootOutcomes.get(),
+        forwardFormShapes.get(), reversedFormShapes.get(), statementSummaries.get(), callPlans.get(),
+        ruleStatements.get(), exitRules.get(), ownedContainerEntries.get(), primitiveIndexCells.get(),
+        summaryBaseDirectoryEntries.get(), callPointDirectoryEntries.get())
 
     companion object {
         const val PROPERTY = "org.opentaint.bidi.formStatistics"

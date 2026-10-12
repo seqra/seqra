@@ -40,7 +40,11 @@ class FormsCache<F : Any>(
                 val start = if (statistics != null) statistics.startReversal() else 0L
                 var success = false
                 try {
-                    reverse(forward).also { backward = it; success = true }
+                    reverse(forward).also {
+                        backward = it
+                        success = true
+                        statistics?.formBuilt(it, reversed = true)
+                    }
                 } finally {
                     statistics?.finishReversal(start, success)
                     reversing = false
@@ -69,6 +73,7 @@ class FormsCache<F : Any>(
                     slot.payload = if (refs == null) SoftReference(it) else refs.createRef(it)
                     cached = slot.payload != null
                     success = true
+                    statistics?.formBuilt(it.forward, reversed = false)
                 }
             } finally {
                 statistics?.finishBuild(start, success, cached)

@@ -99,6 +99,34 @@ class CallPlan(
 
     fun stagesAt(point: CallPoint): List<CallStage> = stagesFrom[point].orEmpty()
 
+    internal fun storage(counts: FormStorageCounts) {
+        counts.callPlans++
+        counts.include(touched)
+        counts.include(stages)
+        counts.include(sinks)
+        counts.include(passReads)
+        counts.callPointDirectoryEntries += stagesFrom.size.toLong()
+        if (stagesFrom is CallPointDirectory) stagesFrom.storage(counts)
+        else ownedDirectoryStorage(stagesFrom, counts)
+        for (stage in stages) when (stage) {
+            is CallStage.Edges -> {
+                counts.include(stage.summary)
+                (stage.guard as? Guard.SinkTriggered)?.let { counts.include(it.sink) }
+                stage.trigger?.let(counts::include)
+            }
+            is CallStage.Actions -> {
+                counts.include(stage.steps)
+                for (step in stage.steps) when (step) {
+                    is CleanStep.Clean -> Unit
+                    is CleanStep.Kill -> counts.include(step.keepEdges)
+                    is CleanStep.Field -> { counts.include(step.read); counts.include(step.write) }
+                }
+            }
+            is CallStage.Callees -> counts.include(stage.callees)
+        }
+        for (sink in sinks) counts.include(sink)
+    }
+
     fun reversed(): CallPlan {
         check(entry == CallPoint.BEFORE && exit == CallPoint.AFTER) { "The core reverses only a forward plan" }
         val exitTargets = stages.filter { it.to == exit }.filterIsInstance<CallStage.Edges>()
@@ -135,6 +163,12 @@ private class CallPointDirectory(groups: Map<CallPoint, List<CallStage>>) : Abst
 
     override fun get(key: CallPoint): List<CallStage>? = byOrdinal[key.ordinal]
     override fun containsKey(key: CallPoint): Boolean = byOrdinal[key.ordinal] != null
+
+    fun storage(counts: FormStorageCounts) {
+        counts.ownedContainerEntries += byOrdinal.size.toLong()
+        counts.index(pointOrder)
+        for (group in byOrdinal) if (group != null) counts.include(group)
+    }
 
     override val entries: Set<Map.Entry<CallPoint, List<CallStage>>>
         get() = entryView ?: object : AbstractSet<Map.Entry<CallPoint, List<CallStage>>>() {

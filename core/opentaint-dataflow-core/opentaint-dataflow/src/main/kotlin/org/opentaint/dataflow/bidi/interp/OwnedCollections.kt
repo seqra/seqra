@@ -10,7 +10,9 @@ private fun elementIndex(index: Int, size: Int) {
     if (index < 0 || index >= size) throw IndexOutOfBoundsException("index=$index, size=$size")
 }
 
-private abstract class OwnedVector<out E> : AbstractList<E>(), RandomAccess
+private abstract class OwnedVector<out E> : AbstractList<E>(), RandomAccess {
+    open fun storage(counts: FormStorageCounts) { counts.ownedContainerEntries += size.toLong() }
+}
 
 private object EmptyVector : OwnedVector<Any?>() {
     override val size: Int get() = 0
@@ -119,7 +121,9 @@ internal class OwnedListBuilder<E>(private val initialCapacity: Int = 0) {
     }
 }
 
-private abstract class OwnedSet<E> : AbstractSet<E>()
+private abstract class OwnedSet<E> : AbstractSet<E>() {
+    open fun storageIndex(): IntArray? = null
+}
 
 /** Ordinal plus one; zero denotes an empty bucket. Keys stay in their ordered array. */
 private fun keyLookup(keys: Array<Any?>, size: Int = keys.size): IntArray? {
@@ -180,6 +184,7 @@ private class SingletonOwnedSet<E>(private val element: E) : OwnedSet<E>() {
 
 private class ArrayOwnedSet<E>(private val elements: Array<Any?>,
                                private val index: IntArray? = keyLookup(elements)) : OwnedSet<E>() {
+    override fun storageIndex(): IntArray? = index
     override val size: Int get() = elements.size
     override fun contains(element: E): Boolean = keyIndex(elements, index, element) >= 0
     override fun iterator(): Iterator<E> = object : Iterator<E> {
@@ -238,6 +243,7 @@ private abstract class OwnedMap<K, V> : AbstractMap<K, V>() {
     abstract fun keyAt(index: Int): K
     abstract fun valueAt(index: Int): V
     abstract fun keyIndex(key: K): Int
+    open fun storageIndex(): IntArray? = null
 
     override fun containsKey(key: K): Boolean = keyIndex(key) >= 0
     override fun get(key: K): V? = keyIndex(key).let { if (it < 0) null else valueAt(it) }
@@ -277,6 +283,7 @@ private class SingletonOwnedMap<K, V>(private val key: K, private val value: V) 
 
 private class ArrayOwnedMap<K, V>(private val keyData: Array<Any?>, private val valueData: Array<Any?>,
                                  private val index: IntArray? = keyLookup(keyData)) : OwnedMap<K, V>() {
+    override fun storageIndex(): IntArray? = index
     override val size: Int get() = keyData.size
     @Suppress("UNCHECKED_CAST")
     override fun keyAt(index: Int): K = keyData[index] as K
@@ -330,6 +337,10 @@ internal fun <K, V> ownedMap(size: Int, keyAt: (Int) -> K, valueAt: (Int) -> V):
 
 private class OrdinalVector<E>(private val source: List<E>, private val ordinals: IntArray,
                                private val from: Int, override val size: Int) : OwnedVector<E>() {
+    override fun storage(counts: FormStorageCounts) {
+        counts.include(source)
+        counts.index(ordinals)
+    }
     override fun get(index: Int): E {
         elementIndex(index, size)
         return source[ordinals[from + index]]
@@ -383,4 +394,27 @@ internal fun <K, E> ownedOrdinalGroups(input: List<E>, keyOf: (E) -> K): Map<K, 
         val size = offsets[group + 1] - from
         if (size == 1) SingletonVector(values[ordinals[from]]) else OrdinalVector(values, ordinals, from, size)
     }
+}
+
+/** Read retained backing storage without creating entries/keys/values compatibility views. */
+internal fun ownedStorage(value: Any, counts: FormStorageCounts): Boolean = when (value) {
+    is OwnedVector<*> -> { value.storage(counts); true }
+    is OwnedSet<*> -> {
+        counts.ownedContainerEntries += value.size.toLong()
+        counts.index(value.storageIndex())
+        true
+    }
+    is OwnedMap<*, *> -> {
+        counts.ownedContainerEntries += 2L * value.size
+        counts.index(value.storageIndex())
+        true
+    }
+    else -> false
+}
+
+/** Only form directories have owned vector values; filter maps remain opaque payloads. */
+internal fun ownedDirectoryStorage(directory: Map<*, *>, counts: FormStorageCounts) {
+    counts.include(directory)
+    check(directory is OwnedMap<*, *>)
+    for (index in 0 until directory.size) counts.include(checkNotNull(directory.valueAt(index)))
 }

@@ -4611,7 +4611,11 @@ class FormsCache<F : Any>(
                 val start = if (statistics != null) statistics.startReversal() else 0L
                 var success = false
                 try {
-                    reverse(forward).also { backward = it; success = true }
+                    reverse(forward).also {
+                        backward = it
+                        success = true
+                        statistics?.formBuilt(it, reversed = true)
+                    }
                 } finally {
                     statistics?.finishReversal(start, success)
                     reversing = false
@@ -4640,6 +4644,7 @@ class FormsCache<F : Any>(
                     slot.payload = if (refs == null) SoftReference(it) else refs.createRef(it)
                     cached = slot.payload != null
                     success = true
+                    statistics?.formBuilt(it.forward, reversed = false)
                 }
             } finally {
                 statistics?.finishBuild(start, success, cached)
@@ -4716,7 +4721,13 @@ Optional `FormCacheStatistics` is analysis-wide. It is enabled only by
 active/peak callback pins and cumulative predicate node/leaf compilation totals, including constants and
 rebuilds. Separate runtime totals count observed proof records, node support shapes, same-shape fact growth and
 canonical root outcomes. These totals count actual supported outcomes across actors/runs, not live retained
-objects or potential branches. The final log also records registered form-reference wrappers, including cleared
+objects or potential branches. Successful known forward/reversed cache builds also sample structural form counts,
+owned container element/key/value reference cells and retained primitive index cells, including summary base
+directory and call-point directory cardinalities. The form sampler visits structural summaries/action/sink vectors
+without traversing AP/IR payloads or predicate topology and without creating compatibility views. Shared containers
+and index arrays count once per sample, and count again after reversal/rebuild; fixed point-directory spare slots
+are included. These cumulative shape samples measure neither new allocations, live retained sizes nor bytes.
+The final log also records registered form-reference wrappers, including cleared
 wrappers not yet pruned. The aggregate holds no slot, form or builder, allocates no per-slot counter and adds no
 per-event log.
 
