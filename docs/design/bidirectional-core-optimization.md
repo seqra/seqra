@@ -2,7 +2,7 @@
 
 Status: proposal. Date: 12 October 2026. This document proposes changes; it does not report an optimized analyzer.
 
-The first goal is to reduce the retained size of method forms. The second goal is to remove repeated graph, queue, alias and trie work. Keep the current analysis semantics and the selected project settings. Apply each change separately, so its result can be measured and its cause can be identified.
+The main changes are to keep source and sink conditions in NNF and to make method-form caches reclaimable through managed soft references. These changes remove eager condition products and let the memory manager discard compiled forms that can be rebuilt. Smaller containers and shared payloads follow. Keep the selected project settings and the analysis effects. Apply each change separately, so its result can be measured and its cause can be identified.
 
 This proposal covers the analyzer core, its JVM interpreter and graph adapters, and rule compilation and resolution. IR storage, IR tables, decoded IR objects and changes inside `core/opentaint-ir` are out of scope. Graph reuse below occurs in an analyzer-owned adapter. It does not change the IR provider.
 
@@ -21,39 +21,40 @@ All four main scans complete. All four bidi scans stop at the memory guard. The 
 
 GB means 10^9 bytes. Retained owner unions overlap. Do not add these columns or use them as an estimate of recoverable memory. A new cache can also retain memory, so measure its complete retained cost.
 
-The proposal covers each core optimization mentioned in the reports:
+The following order is the expected retained-memory impact after the preceding changes. It is a design estimate, not a measured savings table. The order within a band can change by project. CPU and allocation savings are shown separately because they do not establish a retained-memory saving.
 
-| ID | Optimization | Design below |
-| --- | --- | --- |
-| O1 | Reduce condition expansion and duplicate array products | Rule-kind policy, shared condition recipes and gated positive absorption |
-| O2 | Share paths, facts, patterns and repeated lowered forms | Owned immutable payloads with separate rule occurrences |
-| O3 | Reduce small summary and call-plan collections | Empty/singleton containers and compact indexes |
-| O4 | Reduce reverse conjunction branch objects | Blocks that refer to the original conjunction and literal slots |
-| O5 | Share resolved rule templates, validation and matching work | Configuration-scoped templates and complete binding keys |
-| O6 | Share cleaner tuples and normalize repeated generated actions | Payload reuse first; action removal only after an effect-equivalence check |
-| O7 | Reduce current fact-group containers | Reach bits, lazy kind maps and lazy layer storage |
-| O8 | Reuse graph construction and traversal data | Analyzer-owned method graph snapshots |
-| O9 | Remove queue comparator boxing | Primitive comparison and direct priority-key construction |
-| O10 | Remove alias-set copies | Stable views and direct iteration |
-| O11 | Reduce trie copies, views and callback objects | Owned-node builders, unchanged-result reuse and bounded local memoization |
+| Rank / ID | Optimization | Expected retained-memory impact | Evidence and limits |
+| --- | --- | --- | --- |
+| O1 | NNF predicates for both source and sink rules; no compiled cubes | Very high | Removes eager sink products in OWASP and source cube/action products in ThingsBoard and PDF. Active support combinations can still be large. |
+| O2 | Managed soft references for rebuildable method forms | Very high, depends on the live working set | Targets the 2.41–6.46 GB strong method-cache owners. Current application state and necessary supports remain strong. |
+| O3 | Compact summary and call-plan containers | High across projects | Five collection classes account for 1.36 GB in Conductor and 3.16 GB in ThingsBoard forms. Those totals are not fully recoverable. |
+| O4 | Shared immutable predicate, action and path payloads | High, less after O1 | Removes copies across source/sink rules, targets and call sites. Managed caches must also make payload pools reclaimable. |
+| O5 | Shared rule templates, validation and static matching | High in ThingsBoard; medium across projects | ThingsBoard's rule-configuration union retains 1.35 GB. Keep broad rule applicability and method binding. |
+| O6 | Lazy fact-group containers and reach bits | Medium, mainly PDF | About 167.52 MB of group maps and 41.88 MB of reach arrays, plus eager layer lists. |
+| O7 | Shared cleaner tuples and gated action reduction | Low to medium | Large repeated step counts in sampled plans, but source forms dominate those plans. |
+| O8 | Compact residual reverse transfers | Low after O1; conditional | NNF backward leaf traversal removes the main expanded-conjunction cost. Do this only for measured remaining legacy/custom transfers. |
+| O9 | Trie reuse, owned builders and direct traversal | Retained saving unmeasured; allocation benefit measured | PDF has 2.42 million active trie nodes. Subtraction has 9.92% / 13.70% sampled allocation shares in Conductor / PDF. |
+| O10 | Alias membership indexes and direct iteration | Retained saving unmeasured; mainly allocation | 7.52% of ThingsBoard allocation weight; an index can add retained memory. |
+| O11 | Analyzer-owned graph reuse | Mainly CPU/allocation; can add retained memory | Repeated graph construction is a measured hot path. Reuse one required view instead of adding graph copies. |
+| O12 | Primitive queue comparison | Negligible retained saving; allocation benefit | Boxing contributes 7.64% / 6.92% of allocation weight in Conductor / ThingsBoard. |
 
-Dense per-premise statement arrays are included in O7 as a conditional follow-up. Their measured size does not justify changing them first. Exit source-location mapping is a separate reporting defect and is outside this optimization proposal.
+O1, O2 and O4 overlap. Do not add their expected effects. In particular, the current reverse-branch saving is largely part of O1 once cubes are removed. Dense per-premise arrays are a conditional follow-up under O6; their measured size does not justify changing them first. Exit source-location mapping remains a separate reporting defect.
 
 ## Contracts for every change
 
-The [interpreter specification](../../spec/interpreter.md), [AP specification](../../spec/ap.md), [core specification](../../spec/analyzer-core.md) and [validation plan](../../spec/validation-plan.md) remain the contracts.
+Use the [interpreter specification](../../spec/interpreter.md), [AP specification](../../spec/ap.md), [core specification](../../spec/analyzer-core.md) and [validation plan](../../spec/validation-plan.md) for observable behavior. Two implementation contracts need explicit updates: numbered expanded alternatives become stable expression/proof handles, and strongly cached form-object identity becomes stable logical identity across cache rebuilds. Update the relevant sections of [AP implementation](../../spec/ap-impl.md) with those changes. This proposal does not yet edit the specifications.
 
 1. Run 1 has field limit 1. Later runs use increasing positive limits. There is no limit-0 run. Preserve the configured heap, timeout, run direction and barrier rules.
 2. Apply the specified exclusion table without change. Preserve NORMAL and DEMAND layers, FLOW and TAINT kinds, premise sets, type filters, mark policies and F74/F75/F76 behavior. Class accessors retain their specified field-limit treatment.
-3. Keep distinct logical joins. A conjunction occurrence and each of its literal slots have separate standing entries. Equal payloads do not permit two alternatives to share those entries.
-4. Keep sink rule ownership, alternative numbers, ordered literal slots and witness support. Seed and report keys must refer to the same logical occurrence in both directions and across runs.
-5. Preserve source admission and source hits by full `(MethodKey, statement, original forward PathEdge)` value. End-fact actions keep their own admission and trigger rules. A reversed end fact fires the owning alternative's seeds once per method key and statement, including for a CONFIRMED result.
+3. Keep distinct rule/action and proof scopes. NNF can share pure leaf checks and immutable support data, but must not combine incompatible OR branches or supports from different rule occurrences, statements or method contexts.
+4. Keep source and sink rule ownership, action ownership and witness support. Seed and report keys use stable logical rule/leaf/proof handles, independent of a compiled object's address or cache rebuild epoch. Preserve ordered support when existing confirmation or report code needs it.
+5. Preserve source admission and source hits by full `(MethodKey, statement, original forward PathEdge)` value. End-fact actions keep their own admission and trigger rules. A reversed end fact fires the owning sink/proof scope's seeds once per method key and statement, including for a CONFIRMED result.
 6. Keep public defensive ownership. A caller cannot change a cached form by changing an input array, list, set or map. Internal factories can reuse a value only after it is frozen and owned.
 7. Keep the required relevant-rule lookup and mark universe. In particular, retain `allRelevant=true` for rewriter rules. Do not introduce an alternative cap, a queue cap, a selected-mark shortcut or an arbitrary field-limit change.
 
 Representation changes must preserve effects exactly. An effect includes output facts, layer, exclusion, premise support, requests, source hits, end triggers, raw summaries and report state. Boolean equivalence alone does not establish this contract for a rule compiler.
 
-## O1. Compile conditions before allocating alternatives
+## O1. Evaluate source and sink conditions in NNF
 
 Change [JIRRuleForms](../../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/bidi/interp/JIRRuleForms.kt) to use explicit compiler stages:
 
@@ -62,10 +63,8 @@ raw rule
   -> whole-rule validation
   -> per-place rewrite of static non-mark conditions
   -> mark policy for this rule kind
-  -> frozen condition recipe
-  -> normalized expression, where effect equivalence is established
-  -> cube and array-choice iteration
-  -> owned literal payload + logical occurrence
+  -> owned NNF expression DAG and leaf index
+  -> source actions or sink/end-fact actions bound to its root
 ```
 
 Validate all raw actions and all mark literals, including negative literals, before simplification can remove them. Invalid positions or actions must still produce the current rule error. Validation and a condition that rewrites to false are different results.
@@ -78,54 +77,91 @@ Cleaners retain signed conditions and the cleaner normalization already taken fr
 
 Relevant-rule resolution has its own policy for negative method, class and arity conditions. Keep that policy and distinguish it from ordinary rule resolution in all cache keys.
 
-### Shared recipe and expansion
+### One predicate model for both rule kinds
 
-Store the rewritten condition as an immutable expression DAG. Reuse equal subexpressions. Flatten AND and OR nodes without changing their first-occurrence order. Give atoms stable symbolic keys that include position, path, mark and condition kind.
+NNF is sufficient for the compiled representation. Keep AND, OR, true/false and mark leaves; do not distribute AND over OR. Add a `RulePredicate` used by both source and sink rule occurrences:
 
-Use a cube iterator instead of building a complete list at each intermediate product. Deduplicate a candidate before creating `Pattern`, `PathFact` and sink wrapper objects. Keep cancellation checks in long products. This removes intermediate allocation; it does not make a genuinely exponential condition small.
+```text
+RulePredicate(root, frozen nodes, leaf descriptors, base/mark index)
+SourceRuleOccurrence(id, predicate, ordered target/action descriptors)
+SinkRuleOccurrence(id, predicate, report owner, end-fact descriptors)
+```
 
-A canonical set signature identifies equal positive literal sets. Keep a separate ordered slot vector and origin mapping. Current deduplication of ordered lists can retain equal sets with a different slot order. Removing those occurrences requires the semantic gate below; a set signature alone must not change the current occurrence inventory or repeated slots in a public form.
+`SinkRule` and `ConjunctiveEdge` describe the current lowering. They must not define the new shared predicate model. Source rules can have the same complex mark conditions as sinks. Evaluate a source predicate once for its bound rule and retain separate action handles when emitting its targets. Apply each target's filters and class/static rules separately.
 
-For a call sink, apply array expansion only to positive argument literals whose actual static argument can be an array. Add the original path choice and one element-prefix choice. Receiver, result, entry and exit positions keep their current policy. A resolved condition can already mention an element path; adding another element prefix is still required by the call policy. Do not remove it as a duplicate prefix. Deduplicate final shapes before copying payloads, while preserving each required logical occurrence and its origin.
+For a call sink's eligible argument leaf, represent root versus element as a small OR node. There is no Cartesian product of choices across leaves. Keep the current array policy: only positive argument literals at calls whose actual static type can be an array. Receiver, result, entry and exit positions are unchanged. A resolved element path can receive one more element prefix as specified; do not erase that prefix.
 
-### Positive absorption: a separate semantic gate
+Give nodes and leaf occurrences stable IDs in the frozen bound recipe. Sharing an equal leaf payload does not erase its logical occurrence. Index leaves by base and mark to avoid checking the whole expression for each incoming fact. FLOW has no mark: dispatch it to all required leaves on that base so their request policies still apply.
 
-The measured OWASP expression `(W OR B) AND W AND B` expands to 210 raw combinations. Its Boolean reduction `W AND B` has 14 choices. This makes absorption a strong candidate. Those numbers are a condition-size estimate, not evidence that 196 analyzer alternatives can safely be deleted.
+### Forward: incremental leaf evaluation with support
 
-Compute a positive normalized expression before Cartesian expansion. Use duplicate removal and absorption such as `A OR (A AND B) -> A`. Keep the original frozen recipe alongside it. Add an `AlternativeOrigin` mapping from a normalized shape to the original rule, placement, alternative number, ordered slots and action targets. Keep logical occurrence IDs separate from compact payload IDs. A normalized cube's ordinal cannot replace the original seed or witness key. Build the origin table once with the form and use that same table in forward and backward forms.
+Evaluate relevant mark leaves against the incoming fact using the existing AP rules. A stateless evaluation of the whole expression against that fact is insufficient: `A@arg0 AND B@arg1` must fire after the two facts arrive separately, in either order.
 
-Enable occurrence removal only for a rule kind and placement that passes full effect-equivalence tests. The important cases are:
+Keep actor-owned predicate state keyed by rule occurrence, method context and statement. A leaf contribution contains its premise, effective layer, checked fact/exclusion and proof handle. Store contributions until the run ends. Propagate only new contributions upward:
 
-- A source clause carries premise support and can produce a different layer when its literals come from NORMAL and DEMAND inputs. A removed clause must not remove a required support or change a summary header.
-- A sink alternative carries witness and seed support. Its end-fact trigger must still demand the correct original supports. Mapping only to a rule ID is insufficient.
-- An exit sink can read and drop static state before its conjunction completes. Under G2/D30, `A OR (A AND B)` can store and drop a zero-premise `B` even if no `A` arrives. Reducing the expression to `A` changes the raw summary.
+| Node | Incremental operation |
+| --- | --- |
+| Leaf | Store the admitted checked support; FLOW raises the specified request and is not a satisfied mark. |
+| OR | Forward each child proof separately, with its branch choice. Do not union unrelated branch supports. |
+| AND | Join support from every child; union premises without zero, and use DEMAND if any contributing support is DEMAND. Keep each child's checked support and branch choices. |
+| True | Use the existing zero/unconditional placement behavior. |
+| Root | Emit the source action results or a sink witness and its end-fact actions. |
 
-For exit sinks, keep the current alternatives in the first implementation. A later absorption implementation must first separate the original post-static positive read/drop footprint from the normalized firing predicate. That footprint must still evaluate the original literals and retain their standing support and triggers. Test delayed completion as well as a conjunction that never completes. Retaining the footprint is necessary; it does not by itself prove equivalence of all witnesses and seeds.
+Represent support as a shared proof DAG: leaf support, OR choice and AND child proofs. Do not flatten it into an inventory of all possible cubes. Expand an ordered witness support vector only where confirmation or existing summary code needs it. Keep a stable structural proof key for an observed combination. Memoize exact repeated proofs, not different premise/layer/exclusion combinations.
 
-If a removed alternative still has an observable effect, retain its logical occurrence using shared storage. Do not merge its join with another occurrence. This is the fallback design, not a reason to weaken the specification. A fully lazy alternative representation can be considered if expansion is still large after sharing; it must enumerate every required occurrence and use stable IDs in both directions. A cap or fact-dependent early omission is excluded.
+Within one proof, repeated equal literal requirements bind the same support variable. When AND joins child proofs that mention the same requirement, their bindings must agree. `A AND A` must not combine two different inputs for `A` into a new two-premise source result. Canonicalize exact duplicate root support shapes reached through different OR paths, while retaining the branch provenance needed by seeds. This is deduplication of observed support, not enumeration of potential cubes.
 
-## O2. Share immutable payloads and keep occurrence identity
+NNF sharing removes static form multiplication, but an actual AND join can still have many distinct premise combinations. Do not cap them or promise linear active-state memory. Materialize only combinations needed by real arrivals and existing downstream summary semantics, with cancellation checks.
 
-Introduce internal owned values for paths, literal vectors, targets and end-fact vectors. Freeze a value once at the compiler boundary. Empty and singleton vectors use compact representations. Their elements do not carry a reference back to the pool that created them.
+Preserve transfer policy as well as Boolean truth. A unary conditional source currently uses an ordinary statement micro edge, including path/suffix transfer, exclusion behavior and static POSITION requests. Apply that generic transfer to its supported input; do not replace it with unconditional target construction. A proof with two or more distinct positive literals uses conjunction MARK checks and the existing target construction. Annotate the expression's symbolic support classes and use the appropriate policy; a single generic leaf check cannot replace both. Derive those classes from distinct requirements, not the number of syntactic AND children. For a predicate that contains both classes, retain both applicable check modes.
 
-Use two levels of ownership:
+At normal exits, retain the original post-static positive read/drop footprint independently of root satisfaction. Under G2/D30, an exit sink can store and drop zero-premise static `B` in `A OR (A AND B)` before any `A` arrives. The NNF evaluator performs those leaf effects even if no complete proof exists. It retains caller-set state according to the current rule. This does not require cubes.
 
-| Level | Shared data | Data that remains separate |
-| --- | --- | --- |
-| Symbolic rule | Position/path descriptors, mark names, expression nodes, action recipes | Original rule identity, metadata, binding and placement |
-| Runtime form | Manager-owned path/fact/pattern payloads and ordered vectors | `SinkRule`, `ConjunctiveEdge`, alternative number, statement and trigger ownership |
+### Backward: walk the expression leaves
 
-Each `SinkRule` references a frozen literal vector and end-fact vector. Each `ConjunctiveEdge` references a frozen literal vector and target. Keep their wrappers stable: the conjunction store uses them to separate standing joins. Source cubes used by several actions can share the literal storage and target storage, but keep one logical join occurrence per original action/alternative. Sharing one execution join across those actions would need a separate specification change.
+Walk the applicable predicate/proof scope and emit its mentioned positive mark requirements with their full base, path and tail. OR does not require a backward join: visit its branches. AND emits its child requirements. Deduplicate equal requirement values for propagation while retaining their rule/proof provenance. The result is a leaf walk, not reverse construction of every DNF cube.
 
-Runtime value keys include base, complete path, tail, mark and exclusion. They belong to one AP manager and one analysis. Symbolic keys use symbolic positions and mark names, not manager-local numeric IDs. In particular, `PathEdge.compiled` is mutable and manager-bound. Do not put a compiled `PathEdge` in a global structural pool. Keep compiled transfer state in its current owner or an explicitly manager-owned descriptor.
+For a conditional source, start from the requirement on its action target and apply the existing target-to-premise reversal to the leaves. A unary proof uses ordinary reversal; a multi-literal proof forces every branch DEMAND. Thus `A OR (A AND B)` can require an ordinary `A` branch and DEMAND `A`/`B` branches. Mark names alone are not enough to encode this distinction. Preserve generic tail/exclusion rules and the backward no-must invariant.
 
-Start with compiler-local or method-local payload pools. Use an analysis-wide pool only for payload families with measured reuse across methods. Keep no actors, subscriptions or run stores in these pools. Track unique values, references, lookup cost and retained pool bytes. A bounded pool may stop retaining new values when its measured budget is reached; a miss produces a normal owned value and changes no semantics.
+For sinks, store a seed descriptor that references the condition/proof scope and emits its exact or may leaf requirements when visited. Keep the original proof scope for witness confirmation; emitting OR requirements does not allow a later forward AND to fire with incomplete support. For a reversed end fact, retain the owning sink/proof handle and fire the needed trigger requirements once, also for CONFIRMED results. End-fact handling remains separate from unconditional source-hit admission.
 
-Reuse already-owned paths when creating sink seeds and reversal descriptors. Public constructors still snapshot caller-owned data. Add a private trusted construction path; do not expose a public flag that lets a caller skip ownership checks.
+Use structural expression/proof handles instead of a prebuilt array of numbered alternatives. A proof's OR choices and leaf support order give its identity; no table of all combinations is needed. This requires coordinated updates to conjunction stores, witness shapes, seeds, triggers and the specification's current alternative-number contract. Keep a legacy cube evaluator only as a test oracle during migration.
 
-Complete rewritten form sharing uses a different key from leaf-value sharing. Include the original rule owner, rule kind, method binding, rewritten condition, action specialization, result base, relevant/ordinary mode, configuration generation and actual call array mask. Include context-dependent filters or alias bindings when the payload contains them. Normal and exceptional results remain distinct. Share the payload under this key; retain occurrence wrappers at each placement.
+### Optional simplification
 
-The existing `FormsCache` keeps stable forward and backward slots across runs. Preserve that contract. Dropping a direction's forms at a barrier and rebuilding wrappers later would change identity and provenance.
+The OWASP expression `(W OR B) AND W AND B` currently creates 210 raw DNF combinations. NNF stores that expression directly and shares `W` and `B`; saving its form multiplication does not depend on absorption. Positive absorption to `W AND B` is a later optimization.
+
+Keep the cleaner and pass policies above. Before removing any positive branch, prove that requests, source support, witness support, end triggers and exit read/drop effects remain equivalent. A smaller Boolean expression alone is not sufficient. NNF already removes the need to compile cubes even when such a branch must remain.
+
+## O2. Use managed soft references for method forms
+
+Register a dedicated category through the existing [RefManager](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/util/RefManager.kt): `refManager.softRefManager("bidi-method-forms")`. Use its [SoftReferenceManager](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/util/SoftReferenceManager.kt) for rebuildable cache payloads. This connects form reclamation to the memory manager's existing cleanup and re-enable cycle. An ordinary JVM soft reference alone is not sufficient for that explicit cleanup path.
+
+Keep `JIRMethodEntry` and `JIRMethodForms` as small strong owners of keys and rebuild recipes. Change statement, exit, entry and call-plan cache slots to managed references to a form payload containing the forward form and its lazy backward view. Do not place all method plans in one large strongly pinned bundle. A slot or small chunk lets unused forms be reclaimed independently.
+
+```text
+FormKey(method/context, statement or boundary kind, configuration/body version)
+  -> managed Reference<FormPayload>
+FormPayload
+  -> forward form
+  -> backward view, if built
+```
+
+On access, read the referent once into a strong local lease. On a miss, rebuild from the stable recipe and store a managed reference. `createRef()` returns null while the manager is disabled; return the rebuilt form for this access without a strong cache fallback. Pin the payload only for construction, application and any queued continuation that directly uses it. Release that lease when the work completes. A live actor does not need to pin every form it has ever visited.
+
+The cache change itself is small. The required identity fix is explicit: today standing joins key `SinkRule`/`ConjunctiveEdge` objects, trigger sets keep `SinkRule`, and sink guards compare object identity. Rebuilding those objects mid-run must not split a join or fire a trigger again. Replace these keys/comparisons with stable logical rule, action, node and proof handles from O1. The rebuild epoch is not part of a logical ID. Do not add a strong registry of all old wrappers to preserve identity; that would defeat reclamation.
+
+For legacy forms during migration, derive occurrence IDs deterministically from the form key and source rule/action/slot recipe. Keep forward/backward object references consistent within one leased payload. Persistent source seeds retain a complete immutable forward-edge value without compiled state; source admission already uses edge value equality. Persistent witnesses retain report owner, proof/support headers and end-fact values, not a whole compiled form.
+
+Field-action temporary identity also must survive rebuilds. Use a deterministic owner/action occurrence key for the temporary, distinct across separate actions and shared by both directions. Either give the temporary value equality by that key or retain a compact temporary token in the stable action recipe. Do not retain its read/write summaries just to keep the token alive. Compiled paths remain AP-manager-owned and can be rebuilt within that same manager.
+
+Keep builds on the existing slot owner. For a cache shared by concurrent contexts, serialize construction per slot or publish only a complete payload; a losing build must not change logical IDs. Cleanup can clear the cached reference during application, but the local lease keeps the active payload valid. Never read `reference.get()` twice to obtain two parts of one operation.
+
+Queued subscriptions keep call-site metadata and reacquire the payload when resumed. They keep a strong lease only while they directly use a compiled form. Preserve this rule at run barriers and cancellation. Make reference registration and the transition to disabled caching atomic, so a reference cannot be registered after the cleanup batch has already been drained. Prune cleared-reference bookkeeping; millions of empty reference wrappers must not become a new cache cost.
+
+Audit all strong paths: cache builders/closures, validation maps, payload pools, guards, trigger sets, joins, witnesses and seeds. Stable logical metadata and live support remain strong; unused compiled forms and indexes become reclaimable. O4 pools use managed references or payload-scoped ownership too. A strong global intern table of all paths would retain much of the discarded form data.
+
+The tradeoff is more compilation after eviction. Measure hits, misses, rebuild time, registered references and memory released after explicit cleanup. Frequent rebuilds can trade an OOM for a timeout, so keep the fixed time limits in the acceptance test. This change helps most when the compiled cache is larger than the current working set; its full owner size is not a guaranteed saving.
 
 ## O3. Use compact immutable form containers
 
@@ -141,28 +177,28 @@ Use a private builder that owns its new arrays and can pass them to a frozen for
 
 This change targets the 61% collection-class cost in Conductor and ThingsBoard. It also removes containers around empty end-fact lists. Do not predict that all of those bytes can be recovered: nonempty indexes and iteration views still have a cost.
 
-## O4. Store reverse conjunctions as blocks
+## O4. Share immutable source/sink and action payloads
 
-The current reversal creates a `MicroEdge`, two `PathEdge` objects and two endpoint facts per conjunction literal: 168 shallow bytes before indexes and compiled state. One measured Stirling-PDF source stage has 24,619 literal memberships and over 4.13 MB of these branch objects.
+Introduce internal owned values for paths, literal vectors, targets and end-fact vectors. Freeze a value once at the compiler boundary. Empty and singleton vectors use compact representations. Their elements do not carry a reference back to the pool that created them.
 
-Keep ordinary plain edges as `MicroEdge` values initially. For reversed conjunctions, add an internal block:
+Use two levels of ownership:
 
-```text
-ReverseConjunctionBlock
-  owner: original ConjunctiveEdge occurrence
-  literals: original frozen vector, or a span of literal ordinals
-  input: original target with the specified reversed tail
-  outputs: derived from the original literal slots
-  forceDemand: true
-```
+| Level | Shared data | Data that remains separate |
+| --- | --- | --- |
+| Symbolic rule | Position/path descriptors, mark names, expression nodes, action recipes | Original rule identity, metadata, binding and placement |
+| Runtime form | Manager-owned path/fact/pattern payloads, NNF nodes, action/target vectors and end-fact vectors | Source/sink rule handles, action handles, statement and proof/trigger ownership |
 
-Index a block by the forward target base. Iterate literal slots directly when applying it. Reuse the original target, literal path and mark payloads. Apply the current tail and mark reversal rules; a forward must target reverses to ordinary ANY. Backward forms contain no must tail.
+Both `SourceRuleOccurrence` and `SinkRuleOccurrence` reference shared predicates. Source actions share target descriptors where equal; sink actions share end-fact descriptors where equal. Share leaf checks and support computation within the same bound rule where their AP policy is equal. Keep action results, rule report ownership and proof scopes distinct. There are no source cubes or sink-alternative vectors in the target model.
 
-Add an internal transfer-descriptor entry point in [ApOps](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/ApOps.kt). It reads the block and slot without constructing synthetic forward/reverse `PathEdge` pairs. Its compiled side reuses manager-owned path data, with shared input-side compilation for a block. Preserve the same checkpoints, output flushing and application modes. A compatibility adapter can materialize an edge for a test or diagnostic; production application must not cache one full legacy edge graph per slot.
+Runtime value keys include base, complete path, tail, mark and exclusion. They belong to one AP manager and one analysis. Symbolic keys use symbolic positions and mark names, not manager-local numeric IDs. In particular, `PathEdge.compiled` is mutable and manager-bound. Do not put a compiled `PathEdge` in a global structural pool. Keep compiled transfer state in its current owner or an explicitly manager-owned descriptor.
 
-All reverse conjunction outputs are DEMAND, including exact-path outputs. They do not become unconditional sources or source hits. The descriptor retains forward classification data needed for `may`; ordinary reversed edges still retain their original forward edge for source admission and hit lookup. Keep forward ANY pass classification, A5 pass-over identities, touched/target bases and boundary behavior. Reversal drops forward filters and guards as specified.
+Start with compiler-local or method-local payload pools. Use an analysis-wide pool only for payload families with measured reuse across methods. Make its complete key/value table reclaimable through managed references, or use weak entries whose keys do not strongly retain large path graphs. Keep no actors, subscriptions or run stores in these pools. Track unique values, references, lookup cost and retained pool bytes. A miss produces a normal owned value and changes no semantics.
 
-Reversed end-fact transfers keep the owning `SinkRule` trigger. F76 native record views remain a separate path; do not implement this change by reusing interpreter reversal for record reads. The backward engine continues to have no ND conjunction join.
+Reuse already-owned paths when creating sink seeds and reversal descriptors. Public constructors still snapshot caller-owned data. Add a private trusted construction path; do not expose a public flag that lets a caller skip ownership checks.
+
+Complete rewritten form sharing uses a different key from leaf-value sharing. Include the original rule owner, rule kind, method binding, rewritten condition, action specialization, result base, relevant/ordinary mode, configuration generation and actual call array mask. Include context-dependent filters or alias bindings when the payload contains them. Normal and exceptional results remain distinct. Share the payload under this key; retain occurrence wrappers at each placement.
+
+Both cache directions refer to the same stable logical recipe. Their compiled payloads can be reclaimed and rebuilt under O2. Object identity is local to a leased payload; cross-run provenance uses logical handles.
 
 ## O5. Share rule recipes, validation and matching
 
@@ -196,19 +232,7 @@ AnyArgument specialization still enumerates all required assignments of independ
 
 Preserve null-fact queries, broad exit candidates, relevant-rule negative handling and the full mark universe. A recipe that does not match one method is not globally false. Share matching work with prescan only for identical static keys; prescan improvement alone does not solve post-prescan form memory.
 
-## O6. Share cleaner values before removing actions
-
-Use an owned immutable cleaner payload keyed by `(base, complete path, reach, mark-or-all-marks)`. Reference it from each ordered action occurrence. This targets the repeated tuples in [JIRCallPlanBuilder](../../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/bidi/interp/JIRCallPlanBuilder.kt). The named ThingsBoard plan has 1,026 steps but 104 distinct tuples; the named Stirling-PDF plan has 1,460 steps but 452 tuples. Cleaner cost is secondary to the source forms in both sampled plans.
-
-Share action recipes and immutable field read/write filter payloads. A field cleaner still receives a fresh temporary per cached action occurrence. Its reverse uses that same temporary. Do not share temporary identity across separate field actions. Kill steps retain their keep summaries.
-
-Do not remove arbitrary repeated cleaners. For example, cleaning EXACT, then BELOW, then EXACT can have a different result if the last EXACT is removed. A prior step can change tail, layer or exclusion, so equality of tuple values does not establish redundant execution.
-
-For a later generated-rewriter normalization, define a conservative block of mark-specific root cleaners with the same reach. Field steps, kill steps, all-mark steps and different reach values end the block. Within such a block, retain the first occurrence order and propose removal of repeated identical tuples only after tests prove full effect equivalence. Public action lists keep their supplied order and duplicates.
-
-The proof must include F75: a selected cleaner in run 1 requests its mark on the same base FLOW even if that mark is already excluded, using the incoming premise. Requests, joins and publication deltas must have the same final effects; deleting an action cannot silently delete a required request. Keep the current `allRelevant=true` lookup and complete relevant mark set. Payload reuse is enabled independently of this action-removal gate.
-
-## O7. Allocate fact-group storage on demand
+## O6. Allocate fact-group storage on demand
 
 Change [Groups](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/Groups.kt). Stirling-PDF contains 1,745,016 current conclusion groups. Their two maps use 167.52 MB shallow memory; their two-element reach arrays use 41.88 MB. These are concrete representation costs in live work.
 
@@ -220,7 +244,51 @@ Keep the existing group algorithms: match annotations, subsumption, exclusion re
 
 Keep dense per-premise statement arrays initially. They use only 14.65 MB in the measured PDF actor union. Add counters for occupied slots and length. A later sparse container is justified only if its total array/index/lookup cost is lower in a measured workload. Any replacement must keep direct statement identity, publication deltas and subscriptions unchanged.
 
-## O8. Reuse graphs at the analyzer boundary
+## O7. Share cleaner values before removing actions
+
+Use an owned immutable cleaner payload keyed by `(base, complete path, reach, mark-or-all-marks)`. Reference it from each ordered action occurrence. This targets the repeated tuples in [JIRCallPlanBuilder](../../core/opentaint-dataflow-core/opentaint-jvm-dataflow/src/main/kotlin/org/opentaint/dataflow/jvm/bidi/interp/JIRCallPlanBuilder.kt). The named ThingsBoard plan has 1,026 steps but 104 distinct tuples; the named Stirling-PDF plan has 1,460 steps but 452 tuples. Cleaner cost is secondary to the source forms in both sampled plans.
+
+Share action recipes and immutable field read/write filter payloads. A field cleaner still receives a fresh temporary per cached action occurrence. Its reverse uses that same temporary. Do not share temporary identity across separate field actions. Kill steps retain their keep summaries.
+
+Do not remove arbitrary repeated cleaners. For example, cleaning EXACT, then BELOW, then EXACT can have a different result if the last EXACT is removed. A prior step can change tail, layer or exclusion, so equality of tuple values does not establish redundant execution.
+
+For a later generated-rewriter normalization, define a conservative block of mark-specific root cleaners with the same reach. Field steps, kill steps, all-mark steps and different reach values end the block. Within such a block, retain the first occurrence order and propose removal of repeated identical tuples only after tests prove full effect equivalence. Public action lists keep their supplied order and duplicates.
+
+The proof must include F75: a selected cleaner in run 1 requests its mark on the same base FLOW even if that mark is already excluded, using the incoming premise. Requests, joins and publication deltas must have the same final effects; deleting an action cannot silently delete a required request. Keep the current `allRelevant=true` lookup and complete relevant mark set. Payload reuse is enabled independently of this action-removal gate.
+
+## O8. Compact remaining reverse transfers only if measured
+
+The current reversal creates a `MicroEdge`, two `PathEdge` objects and two endpoint facts per conjunction literal: 168 shallow bytes before indexes and compiled state. One measured PDF source stage has 24,619 literal memberships and over 4.13 MB of these branch objects. That is a current local example, not a measured whole-project saving.
+
+O1 removes the main cause by traversing source conditions directly in backward mode. Do not build a new reverse-block subsystem first and then replace it with the NNF evaluator. This optimization is ranked below the shared cache, form, rule and group changes for the expected remaining workload.
+
+After O1, profile any remaining legacy/custom conjunction forms and ordinary transfer reversal. If a significant cost remains, use a compact transfer descriptor that refers to owned forward endpoints and literal slots, indexed by target base. Apply it through [ApOps](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/ApOps.kt) without caching synthetic edge/fact objects per branch. Share manager-owned path compilation where valid.
+
+Preserve force-DEMAND for multi-literal reversal, generic reversal for unary edges, forward `may` and source classification, the no-must invariant, A5 identities and filter/guard removal. Keep end-fact trigger handles. F76 native record views remain separate; the backward engine still has no ND conjunction join. If NNF removes this cost, omit this follow-up entirely. Re-rank it against cleaner storage if a new heap shows large residual transfers.
+
+## O9. Reduce trie copies and short-lived views
+
+[TrieOps](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/TrieOps.kt) subtraction accounts for 9.92% of Conductor run-2 allocation weight and 13.70% in PDF run 2. Leaf views and callback objects add work.
+
+Add an internal owned-node builder. It can adopt a newly created array or share an existing immutable child array. Public/raw constructors keep defensive copies. A builder must never publish a scratch array that a later operation changes.
+
+Use identity fast paths for empty input, identical operands where the operation permits it, and an unchanged result. Keep explicit iterative postorder construction, including the existing safety for paths 32,768 levels deep. Return the existing node when every child and annotation remains unchanged. Use copy-on-first-change child builders, so a change detection pass does not evaluate a filter or mapping callback twice. Apply this to merge and subtraction without changing delta calculation. Replace temporary leaf-view collections with direct iteration where the consumer needs only one pass. Replace repeated capturing callbacks with a stable visitor or direct loop in the measured hot paths.
+
+Retain or extend memoization within one trie operation when shared subtrees cause repeated work. Subtraction keys keep node identity, stored-node identity and the inherited `above` value. Filter keys keep node and filter identity; limit keys keep node identity and remaining budget. A mode-dependent operation also includes annotations/exclusion policy, layer and any other input that affects the result. Memoize each callback result once. Release the memo at operation completion. Do not add a strong cross-run cache of fact trees. Keep the store's soft interner and the existing checkpoint behavior. Measure retained memo bytes as well as allocation savings.
+
+Distinguish a memoized null result from a missing entry, so an empty result does not cause repeated evaluation. Leaf enumeration remains once per path, even when several paths share one DAG node. The existing callback API gives the consumer an owned path array. Keep that ownership contract. A visitor that borrows a reusable path buffer needs a separate private API whose consumer cannot retain the buffer.
+
+## O10. Iterate aliases without copying complete sets
+
+Alias collection accounts for 7.52% of ThingsBoard run-1 allocation weight. Add a direct iteration API over the stable method alias result. Consumers can visit each alias path without first creating a set and then a list. Remove the repeated whole-DSU `allElements()` allocation and scan in `IntDisjointSets.forEachElementInSet` by using a published-state membership index. Streaming only the final converted list would leave this cost in place.
+
+For callers that need a collection, provide an owned immutable view over a published alias-analysis result. Key reuse by method body generation, alias-analysis configuration, statement, local identity, before/after state and DSU identity. Keep any membership index within `JIRLocalAliasAnalysis` and release it with that owner. Build it only for published result states; a live DSU that can union or remove members needs invalidation and cannot use that frozen index.
+
+Stream converted alias members directly. Cache a persisted before/after intersection view only for the same call and local, where the existing consumer requires that intersection. Do not return a live mutable collection or let a caller retain a scratch buffer used by the next lookup.
+
+Preserve all aliases, their full paths, local-write restrictions and required stable iteration order. Field cleaning retains the strong read/write sequence and its temporary. Copy only at a public ownership boundary or when a consumer must retain a distinct mutable result. This change does not narrow alias precision or filter aliases by selected marks.
+
+## O11. Reuse graphs at the analyzer boundary
 
 Repeated virtual graph construction takes 15.00% of ThingsBoard run-1 samples and 18.76% / 22.27% of PDF run-1 / run-2 samples. [JTryBoundaryExceptionsApplicationGraph](../../core/opentaint-jvm-sast-dataflow/src/main/kotlin/org/opentaint/jvm/sast/dataflow/JTryBoundaryExceptionsApplicationGraph.kt) currently requests `flowGraph()` during successor and predecessor lookup.
 
@@ -234,7 +302,7 @@ A replacement of an already-used body requires a fresh analysis session with new
 
 Preserve try/catch cuts, throws, class-initialization behavior, normal and exceptional exits, synthetic boundaries, exit seeding and instruction indexes. Release the adapter with the analysis session. It must not capture actors, run managers or per-context facts. All changes stay in graph consumers and adapters; no IR storage or IR graph-provider change is proposed.
 
-## O9. Compare queue priorities as primitives
+## O12. Compare queue priorities as primitives
 
 Keep the existing `PriorityQueue<Entry>` in [EventQueue](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/EventQueue.kt). Replace `compareBy` with sequential primitive comparisons:
 
@@ -248,42 +316,21 @@ Use `Integer.compare` and `Long.compare`, not subtraction that can overflow. Bui
 
 This targets 7.64% of Conductor run-1 allocation weight and 6.92% in ThingsBoard. These are sampled allocations, not a claim that queue entries retain that share of the heap.
 
-## O10. Iterate aliases without copying complete sets
-
-Alias collection accounts for 7.52% of ThingsBoard run-1 allocation weight. Add a direct iteration API over the stable method alias result. Consumers can visit each alias path without first creating a set and then a list. Remove the repeated whole-DSU `allElements()` allocation and scan in `IntDisjointSets.forEachElementInSet` by using a published-state membership index. Streaming only the final converted list would leave this cost in place.
-
-For callers that need a collection, provide an owned immutable view over a published alias-analysis result. Key reuse by method body generation, alias-analysis configuration, statement, local identity, before/after state and DSU identity. Keep any membership index within `JIRLocalAliasAnalysis` and release it with that owner. Build it only for published result states; a live DSU that can union or remove members needs invalidation and cannot use that frozen index.
-
-Stream converted alias members directly. Cache a persisted before/after intersection view only for the same call and local, where the existing consumer requires that intersection. Do not return a live mutable collection or let a caller retain a scratch buffer used by the next lookup.
-
-Preserve all aliases, their full paths, local-write restrictions and required stable iteration order. Field cleaning retains the strong read/write sequence and its temporary. Copy only at a public ownership boundary or when a consumer must retain a distinct mutable result. This change does not narrow alias precision or filter aliases by selected marks.
-
-## O11. Reduce trie copies and short-lived views
-
-[TrieOps](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/TrieOps.kt) subtraction accounts for 9.92% of Conductor run-2 allocation weight and 13.70% in PDF run 2. Leaf views and callback objects add work.
-
-Add an internal owned-node builder. It can adopt a newly created array or share an existing immutable child array. Public/raw constructors keep defensive copies. A builder must never publish a scratch array that a later operation changes.
-
-Use identity fast paths for empty input, identical operands where the operation permits it, and an unchanged result. Keep explicit iterative postorder construction, including the existing safety for paths 32,768 levels deep. Return the existing node when every child and annotation remains unchanged. Use copy-on-first-change child builders, so a change detection pass does not evaluate a filter or mapping callback twice. Apply this to merge and subtraction without changing delta calculation. Replace temporary leaf-view collections with direct iteration where the consumer needs only one pass. Replace repeated capturing callbacks with a stable visitor or direct loop in the measured hot paths.
-
-Retain or extend memoization within one trie operation when shared subtrees cause repeated work. Subtraction keys keep node identity, stored-node identity and the inherited `above` value. Filter keys keep node and filter identity; limit keys keep node identity and remaining budget. A mode-dependent operation also includes annotations/exclusion policy, layer and any other input that affects the result. Memoize each callback result once. Release the memo at operation completion. Do not add a strong cross-run cache of fact trees. Keep the store's soft interner and the existing checkpoint behavior. Measure retained memo bytes as well as allocation savings.
-
-Distinguish a memoized null result from a missing entry, so an empty result does not cause repeated evaluation. Leaf enumeration remains once per path, even when several paths share one DAG node. The existing callback API gives the consumer an owned path array. Keep that ownership contract. A visitor that borrows a reusable path buffer needs a separate private API whose consumer cannot retain the buffer.
-
 ## Implementation order
 
-Each row is a separate reviewable change or small series. Record the parent commit and exact patch for each measurement. Do not combine algorithm changes with representation changes.
+The document order ranks expected memory impact. Implementation also has dependencies: stable logical keys are needed before forms can be reclaimed safely. Add that foundation first, then start the two highest-impact changes. Each row is a separate reviewable change or small series. Record the parent commit and exact patch for each measurement.
 
 | Phase | Work | Required result before the next dependent phase |
 | --- | --- | --- |
-| 1 | Add size/count counters; O2 ownership factories; O3 empty/singleton fields | Same form occurrences and effects; lower retained payload/container cost |
-| 2 | O2 shared vectors and repeated rewritten payloads; O3 compact indexes; O7 lazy groups | Ownership, join, filter, merge and delta tests pass; no new finding difference |
-| 3 | O4 compact reverse blocks and AP descriptor application | Reverse effects, source hits, end triggers and F76 controls match the reference |
-| 4 | O5 templates, validation and static matching caches; O6 cleaner payload sharing | Complete keys and invalidation tests pass; broad and relevant rule behavior unchanged |
-| 5 | O1 normalization by rule kind/placement; gated O6 action removal | Full effect-equivalence gate passes for each enabled policy; unsupported cases retain original occurrences |
-| 6 | O10 alias iteration and O11 trie allocation work | Alias precision, ownership, deltas and publication closure match |
+| Foundation | Counters, stable rule/action/proof/temporary handles, and owned payload factories | Existing cube engine still matches its control after replacing reference-identity keys |
+| 1 | O1 shared NNF evaluator for source and sink rules; expression-based backward seeds | No compiled cubes or action/array products; complete forward/backward effects match the test oracle |
+| 2 | O2 managed soft form cache | Forced eviction during delayed joins, triggers and suspended calls preserves results; cache misses rebuild correctly |
+| 3 | O3 compact containers and O4 payload sharing | Smaller retained form owners; no strong pool defeats O2 |
+| 4 | O5 shared templates and validation; O6 lazy groups | Complete binding/invalidation and merge/delta checks pass |
+| 5 | O7 cleaner payloads and proven action reduction | Cleaner requests, temporary identity and exclusion effects match |
+| 6 | O8 residual transfers only if needed; O9/O10 trie and alias work | New profiles justify the remaining costs; ownership and complete closures match |
 
-O8 graph reuse and O9 queue comparison can be implemented as separate changes from phase 1. They need no rule-normalization change. Re-profile after the memory phases before choosing a larger trie or sparse-array rewrite. Do not infer savings from a reduced object count alone.
+O2 can start immediately after the foundation, before O1 is complete; its managed-reference plumbing is small. Its rank does not require delaying a useful cache change behind the full predicate rewrite. O11 graph reuse and O12 queue comparison can also be separate early changes because of their low implementation cost, despite their low retained-memory rank. Re-profile after the memory phases before choosing a larger trie or sparse-array rewrite.
 
 ## Validation and acceptance
 
@@ -293,22 +340,24 @@ Use the existing test suites and add cases for changed contracts. The tests must
 
 | Area | Required cases and existing suites |
 | --- | --- |
-| Ownership and form identity | Mutate caller inputs after construction; concurrent payload creation if supported; distinct equal-content joins; stable direction slots. Extend `FormsCacheTest`, `CallPlanTest`, `SummaryKindsTest`, `ManagerOwnershipTest` and JVM form tests. |
+| Ownership and form identity | Mutate caller inputs after construction; concurrent payload creation if supported; distinct equal-content rule occurrences; stable logical direction handles across rebuilds. Extend `FormsCacheTest`, `CallPlanTest`, `SummaryKindsTest`, `ManagerOwnershipTest` and JVM form tests. |
 | Conditions | Invalid raw discarded branches; source/sink `P AND NOT P`; signed cleaner assumptions; independent AnyArgument bindings; ordered/repeated slots; array root, element and nested-element choices. Extend `JIRRuleFormsTest`, `JIRCallPlanTest`, `JIRCleanerMappingTest` and `JIRLoweredCleanerEffectTest`. |
-| Absorption | Compare `A OR (A AND B)` with delayed/missing inputs in both layers and with distinct exclusions/supports. Test the exit `S.a/A OR (S.a/A AND S.b/B)` with only zero-premise `S.b/B`: its original read/drop effect must remain. Include later `A`, end triggers and source action multiplication. |
-| Joins and reverse blocks | Delayed inputs, equal-content distinct occurrences, NORMAL/DEMAND mixtures, admitted/excluded must facts, forward ANY pass, all reverse branches DEMAND, A5 identities and backward no-must invariant. Extend `ConjunctionStoreTest`, `LocalConjunctionTest`, `StatementSummaryReversalTest` and `CallPlanReversalTest`. |
-| Seeds and provenance | Original forward source edge value and statement/context; reversed end-fact seeds for CONFIRMED results; once-per-occurrence trigger; stable sink requirements. Extend `CallSourceHitTest`, `SourceHitStoreTest`, `SeedIndexTest` and `FrontierSeedIndexTest`. |
+| NNF source and sink evaluation | `A@arg0 AND B@arg1` arriving in both orders; `(A OR B) AND (C OR D)` without mixing proof scopes; `A AND A` and `(A OR B) AND A` with different inputs for `A`; duplicate OR paths; one predicate with multiple source targets; source filters; sink end facts. Assert compiled node counts follow expression size rather than its potential cube count. |
+| Support and transfer policy | Delayed/missing inputs in both layers with distinct exclusions/supports; unary source path/suffix and exclusion transfer; unary POSITION requests versus conjunctive MARK requests; ordinary unary reversal versus forced-DEMAND multi-literal reversal; `A OR (A AND B)` producing both classes. Extend `ConjunctionStoreTest`, `LocalConjunctionTest`, `StatementSummaryReversalTest` and `CallPlanReversalTest`. |
+| Exit read/drop footprint | `S.a/A OR (S.a/A AND S.b/B)` with only zero-premise `S.b/B`: its original read/drop effect remains even if the root never fires. Include delayed `A`, caller-set static state, seeds and optional absorption controls. |
+| Seeds and provenance | Complete forward source edge value and statement/context; expression leaf requirements with proof scope; reversed end-fact seeds for CONFIRMED results; once-per-logical-proof trigger; stable handles across eviction. Extend `CallSourceHitTest`, `SourceHitStoreTest`, `SeedIndexTest` and `FrontierSeedIndexTest`. |
+| Managed form caches | Explicit cleanup between conjunction inputs; sink guards and trigger-once across rebuild; forward/backward pair eviction; deterministic cleaner temporaries; suspended call resumption; disabled `createRef`; failed build; cleanup/build race; live lease survival and later reclamation; bounded reference bookkeeping. Use controlled cleanup and reachability checks instead of relying on a particular JVM soft-reference collection time. |
 | Cleaners and groups | Every exclusion-table case, F75 requests on an already excluded mark with the incoming premise, repeated EXACT/BELOW/EXACT, singleton promotion/removal, layer-specific merging and delta publication. Extend `CleanerTest`, `GroupMergeTest` and `TaintGroupKeysTest`. |
 | Graphs and queue | One snapshot per frozen body, fresh graph/form/alias owners in a new session after body replacement, virtual/lambda bodies, try/catch cuts and both exits; priority ties, large step values and mutable actor state after insertion. Extend graph/driver integration tests and `EventQueueTest`. |
 | Aliases and tries | Complete alias path sets, field read/write effects, unchanged node reuse with no mutation, annotated merge/subtract, one callback evaluation per operation state, shared nodes under different inherited/filter/budget states, cached null results, retained callback paths, 32,768-level paths, delta and publication behavior. Extend alias tests, `TrieTest`, `TrieMergeDeltaTest`, `PathTrieTest` and summary storage tests. |
 
-For each changed compiler policy, compare the legacy and proposed implementation on small complete engine workloads. Compare finite closures, requests, raw summaries, source hits, triggers, witness supports and report states under several delivery schedules. For representation changes, require exact logical equality. For alternative removal, document the origin mapping and prove that it preserves every required effect; differences cannot be waived as mere numbering changes.
+Compare the legacy cube evaluator and the NNF evaluator on small complete engine workloads for both source and sink rules. Compare finite closures, requests, raw summaries, source hits, triggers, witness supports and report states under several delivery schedules. Map a legacy alternative's selected leaves/OR choices to a structural proof handle only in the test oracle; do not retain that expanded mapping in production. Check each distinct support combination and its layer/exclusion. Re-run these cases with forced cache reclamation between inputs and at barriers. Document the intended internal key change while requiring equivalent analysis effects.
 
 Run the affected common/JVM suites and then the required broader analyzer/query suites. Record known failures from the control build. Do not add ignores or loosen assertions to pass an optimization. Keep F74/F75/F76 and driver/barrier controls in the gate.
 
 ### Measurements
 
-Add opt-in counters for raw products, candidate/final shapes, logical occurrences, literal memberships, distinct/shared payloads, summary field sizes, index sizes, reverse branches, compiled descriptors, cleaner occurrences/unique tuples, group promotions, graph builds, alias copies and trie node reuse. Record pool/memo hits, misses and retained entries. Avoid expensive per-event logging in normal operation.
+Add opt-in counters for expression nodes/leaves, rule/action occurrences, leaf checks, predicate-state entries, proof nodes and actual emitted support combinations. Count managed cache hits/misses, rebuild time, active leases and their bytes, registered/cleared references and retained logical metadata. Also count shared payloads, summary/index sizes, residual reverse transfers, cleaner tuples, group promotions, graph builds, alias copies and trie node reuse. Record pool/memo hits, misses and retained entries. Avoid expensive per-event logging in normal operation.
 
 Run OWASP, Conductor, ThingsBoard and Stirling-PDF with the exact configurations in the input inventory, through the direct Gradle `runProjectAnalyzer` task. Keep the 8/8/12/8 GiB heaps and 1000/1080/1080/1080 second IFDS limits. Keep the rules, source heads and model inputs fixed. Keep run 1 at limit 1.
 
@@ -322,6 +371,6 @@ If a change reduces a measured cost but a project still stops at the memory guar
 
 ## Main risks and limits
 
-The largest semantic risk is deleting alternatives based only on Boolean laws. The largest cache risk is sharing a value under a key that omits method binding, selection generation, result kind, alias context or manager ownership. The largest representation risk is reintroducing all branch objects through a compatibility getter or retaining scratch arrays after publication.
+NNF removes compiled cube growth; it does not remove the need for support, branch provenance or AP transfer policy. Managed soft references remove cache retention only where other strong owners and live leases permit it. The main risks are treating the predicate as a stateless Boolean, mixing OR supports, rebuilding identity-based joins, or retaining all payloads through a strong pool.
 
-The design handles those risks by sharing immutable storage before changing logical occurrences, keeping complete scoped keys, and testing effects in both directions. The remaining IR cost is outside this scope. These core changes can reduce the measured owners, but only the fixed project repeats can establish that they remove the memory failures.
+Use stable logical keys, scoped support, complete binding/cache keys and forced-reclamation tests to address those risks. Measure active-state growth and rebuild CPU after the change. The remaining IR cost is outside this scope. Only the fixed project repeats can establish that these core changes remove the memory failures.
