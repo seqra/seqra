@@ -30,6 +30,10 @@ class GoSampleBasedTest: GoSampleBasedTestBase("GO_SAMPLES_DIR") {
 
     @Test fun typedPatterns() = runSample("TypedPatterns")
 
+    @Test fun tupleSourceTypedLhs() = runSample("TupleSourceTypedLhs")
+
+    @Test fun tupleSourceMultipleNamedLhs() = runSample("TupleSourceMultipleNamedLhs")
+
     @Test fun constantNotTainted() = runSample("ConstantNotTainted")
 
     @Test fun nilCheck() = runSample("NilCheck")

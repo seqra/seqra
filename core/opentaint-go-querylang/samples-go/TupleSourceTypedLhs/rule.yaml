@@ -1,0 +1,13 @@
+rules:
+  - id: tuple-source-typed-lhs
+    languages: [go]
+    severity: WARNING
+    message: Tainted tuple slot reaches the sink
+    mode: taint
+    pattern-sources:
+      - label: "$SOURCE"
+        patterns:
+          - pattern: "($VALUE : string), $ERR := TupleSourceTypedLhs.SourceTuple()"
+          - focus-metavariable: $VALUE
+    pattern-sinks:
+      - pattern: "TupleSourceTypedLhs.Sink($SINK)"
