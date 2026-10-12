@@ -25,6 +25,7 @@ data class CommonAnalysisOptions(
     val symbolicExecutionTimeout: Duration = Duration.ZERO,
     val storeSummaries: Boolean = false,
     val experimentalAAInterProcCallDepth: Int = 1,
+    val ifdsBidirectional: Boolean = false,
 ) {
     val summariesApMode get() = ifdsApMode.takeIf { storeSummaries }
 

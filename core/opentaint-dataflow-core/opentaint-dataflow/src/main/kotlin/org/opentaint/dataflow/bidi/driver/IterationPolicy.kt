@@ -16,6 +16,13 @@ interface IterationPolicy {
     fun timeout(run: RunConfig, remaining: Duration): Duration = remaining
 }
 
+/** Uses run-1 at limit 1, then increases the limit within the analysis budget. */
+object IncreasingLimits : IterationPolicy {
+    override fun fieldLimit(runIndex: Int): Int = runIndex
+
+    override fun continueAfter(run: RunConfig, result: RunResult<RunMethodAnalyzer>, frontiers: List<Frontier>): Boolean = true
+}
+
 class FixedLimits(limits: List<Int>) : IterationPolicy {
     private val limits: List<Int> = Collections.unmodifiableList(ArrayList(limits))
 

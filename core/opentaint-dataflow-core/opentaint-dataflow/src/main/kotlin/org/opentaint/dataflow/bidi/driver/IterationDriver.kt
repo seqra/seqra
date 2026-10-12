@@ -38,8 +38,11 @@ class IterationDriver internal constructor(
         val start = TimeSource.Monotonic.markNow()
         val report = ReportBuilder()
         var index = 1
-        fun end(status: RunStatus, reason: EndReason): Report = report.build(AnalysisEnd(status, index,
-            if (index % 2 == 1) Direction.FORWARD else Direction.BACKWARD, reason))
+        fun end(status: RunStatus, reason: EndReason): Report {
+            logger.info { "BIDI_ANALYSIS_END run=$index status=$status reason=$reason elapsed=${start.elapsedNow()}" }
+            return report.build(AnalysisEnd(status, index,
+                if (index % 2 == 1) Direction.FORWARD else Direction.BACKWARD, reason))
+        }
         try {
             val firstLimit = policy.fieldLimit(1)
             require(firstLimit >= 1) { "ap.md S12 (d): run 1 needs a field limit of at least 1" }
@@ -63,12 +66,23 @@ class IterationDriver internal constructor(
 
     /** This frame releases its result before the next engine is created. */
     private fun runOnce(config: RunConfig, report: ReportBuilder, timeout: Duration): Next {
-        val result = invokeRun(config, shared, timeout)
+        val start = TimeSource.Monotonic.markNow()
+        logger.info { "BIDI_RUN_START run=${config.index} direction=${config.direction} limit=${config.fieldLimit} timeout=$timeout" }
+        val result = try {
+            invokeRun(config, shared, timeout)
+        } catch (error: Throwable) {
+            logger.info { "BIDI_RUN_END run=${config.index} status=FAILED engineTime=${start.elapsedNow()}" }
+            throw error
+        }
+        logger.info { "BIDI_RUN_END run=${config.index} status=${result.status} engineTime=${start.elapsedNow()}" }
         if (result.status != RunStatus.COMPLETE) return Next.End(result.status)
+        val barrierStart = TimeSource.Monotonic.markNow()
         val next = try {
             guardBarrier(shared) { barrier(config, result, report) }
         } catch (error: Cancellation.Cancelled) {
             Next.End(RunStatus.OOM)
+        } finally {
+            logger.info { "BIDI_BARRIER_END run=${config.index} barrierTime=${barrierStart.elapsedNow()} iterationTime=${start.elapsedNow()}" }
         }
         if (shared.cancellation.isActive()) return next
         logger.error { "Run ${config.index}: the barrier memory guard fired; the analysis ends with the report so far" }

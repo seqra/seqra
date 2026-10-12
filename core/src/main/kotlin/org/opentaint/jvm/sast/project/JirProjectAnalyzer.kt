@@ -10,6 +10,7 @@ import org.opentaint.config.JavaDefaultConfigLoader
 import org.opentaint.dataflow.ap.ifds.TaintAnalysisUnitRunnerManager
 import org.opentaint.dataflow.ap.ifds.taint.ExternalMethodTracker
 import org.opentaint.dataflow.ap.ifds.trace.VulnerabilityWithTrace
+import org.opentaint.dataflow.bidi.driver.IncreasingLimits
 import org.opentaint.dataflow.configuration.jvm.serialized.JavaConfigurationLoader
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedItem
 import org.opentaint.dataflow.configuration.jvm.serialized.SerializedTaintConfig
@@ -60,6 +61,7 @@ class JirProjectAnalyzer(
             options = options.taintAnalyzerOptions(),
             jirOptions = JIRTaintAnalyzer.JIRAnalysisOptions(jirOptions.disableDefaultGetModel),
             externalMethodTracker = externalMethodTracker,
+            bidiPolicy = if (options.ifdsBidirectional) IncreasingLimits else null,
         )
     }
 
