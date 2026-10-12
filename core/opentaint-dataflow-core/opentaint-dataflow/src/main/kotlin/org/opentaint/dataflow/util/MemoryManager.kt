@@ -6,6 +6,8 @@ import mu.KLogging
 import java.lang.management.ManagementFactory
 import java.lang.management.MemoryMXBean
 import java.lang.management.MemoryType
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import javax.management.Notification
@@ -118,6 +120,19 @@ class MemoryManager(
     }
 
     private fun handleOOM() {
+        // Opt-in diagnostics run before cancellation releases the owning stores.
+        System.getProperty("opentaint.memorySnapshotDir")?.let { directory ->
+            if (snapshotTaken.compareAndSet(false, true)) {
+                runCatching {
+                    val folder = Files.createDirectories(Path.of(directory))
+                    val path = folder.resolve("guard-live.hprof")
+                    logger.info { "MEMORY_SNAPSHOT_START path=$path heapUsed=${currentMemoryUsage()} threshold=${thresholdBytes.get()}" }
+                    val bean = ManagementFactory.getPlatformMXBean(HotSpotDiagnosticMXBean::class.java)
+                    bean.dumpHeap(path.toString(), true)
+                    logger.info { "MEMORY_SNAPSHOT_END path=$path bytes=${Files.size(path)}" }
+                }.onFailure { error -> logger.error(error) { "Memory snapshot failed" } }
+            }
+        }
         if (!DEBUG_DUMP_HEAP_ON_OOM) return
 
         dumpHeapAndExitProcess()
@@ -145,6 +160,7 @@ class MemoryManager(
         private val logger = object : KLogging() {}.logger
 
         private const val DEBUG_DUMP_HEAP_ON_OOM = false
+        private val snapshotTaken = java.util.concurrent.atomic.AtomicBoolean(false)
 
         fun currentMemoryUsage(): Long {
             val maxMemory = Runtime.getRuntime().maxMemory()
