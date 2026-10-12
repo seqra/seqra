@@ -1,0 +1,17 @@
+rules:
+  - id: example-ObjectTypedValueReceiverDoc
+    languages:
+      - java
+    severity: ERROR
+    message: match example/ObjectTypedValueReceiverDoc
+    patterns:
+      - pattern: |-
+          $A = src();
+          ...
+          sink($A);
+      - pattern-not: |-
+          $A = src();
+          ...
+          $A = $A.toString();
+          ...
+          sink($A);

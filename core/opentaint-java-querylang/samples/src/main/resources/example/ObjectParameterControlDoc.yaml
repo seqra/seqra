@@ -1,0 +1,17 @@
+rules:
+  - id: example-ObjectParameterControlDoc
+    languages:
+      - java
+    severity: ERROR
+    message: match example/ObjectParameterControlDoc
+    patterns:
+      - pattern: |-
+          $A = src();
+          ...
+          sink($A);
+      - pattern-not: |-
+          $A = src();
+          ...
+          clean($A);
+          ...
+          sink($A);

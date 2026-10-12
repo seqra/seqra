@@ -1,0 +1,13 @@
+rules:
+  - id: example-SanitizeEventSanityDoc
+    languages:
+      - java
+    severity: ERROR
+    message: match example/SanitizeEventSanityDoc
+    patterns:
+      - pattern: |
+          $RESULT = decode($INPUT);
+          ...
+          $RESULT = sanitize($RESULT);
+          ...
+          consume($RESULT);

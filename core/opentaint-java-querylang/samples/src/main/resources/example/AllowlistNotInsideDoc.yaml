@@ -1,0 +1,14 @@
+rules:
+  - id: example-AllowlistNotInsideDoc
+    languages:
+      - java
+    severity: ERROR
+    message: match example/AllowlistNotInsideDoc
+    patterns:
+      - pattern-inside: |
+          $CLIENT = Client.builder();
+          ...
+      - pattern: $CLIENT.connect($URL)
+      - pattern-not-inside: |
+          $CLIENT.allowHost("trusted.example");
+          ...

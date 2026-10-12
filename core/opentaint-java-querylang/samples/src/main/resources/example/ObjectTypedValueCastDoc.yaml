@@ -1,0 +1,17 @@
+rules:
+  - id: example-ObjectTypedValueCastDoc
+    languages:
+      - java
+    severity: ERROR
+    message: match example/ObjectTypedValueCastDoc
+    patterns:
+      - pattern: |-
+          $A = src();
+          ...
+          sink($A);
+      - pattern-not: |-
+          $A = src();
+          ...
+          clean($A);
+          ...
+          sink($A);

@@ -1,0 +1,14 @@
+rules:
+  - id: example-ArgNotInsideAnchoredDoc
+    languages:
+      - java
+    severity: ERROR
+    message: match example/ArgNotInsideAnchoredDoc
+    patterns:
+      - pattern-inside: |
+          $RESULT = decode($INPUT);
+          ...
+      - pattern: consume($RESULT)
+      - pattern-not-inside: |
+          check($RESULT);
+          ...

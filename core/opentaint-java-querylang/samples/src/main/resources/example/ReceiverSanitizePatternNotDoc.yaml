@@ -1,0 +1,17 @@
+rules:
+  - id: example-ReceiverSanitizePatternNotDoc
+    languages:
+      - java
+    severity: ERROR
+    message: match example/ReceiverSanitizePatternNotDoc
+    patterns:
+      - pattern: |
+          $RESULT = decode($INPUT);
+          ...
+          consume($RESULT);
+      - pattern-not: |
+          $RESULT = decode($INPUT);
+          ...
+          $RESULT = $RESULT.sanitized();
+          ...
+          consume($RESULT);

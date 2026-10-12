@@ -1,0 +1,16 @@
+rules:
+  - id: example-ArgObserverPatternNotDoc
+    languages:
+      - java
+    severity: ERROR
+    message: match example/ArgObserverPatternNotDoc
+    patterns:
+      - pattern: |
+          $RESULT = decode($INPUT);
+          ...
+          consume($RESULT);
+      - pattern-not: |
+          ...
+          check($RESULT);
+          ...
+          consume($RESULT);

@@ -1,0 +1,17 @@
+rules:
+  - id: example-TypedValueControlDoc
+    languages:
+      - java
+    severity: ERROR
+    message: match example/TypedValueControlDoc
+    patterns:
+      - pattern: |-
+          $A = src();
+          ...
+          sink($A);
+      - pattern-not: |-
+          $A = src();
+          ...
+          clean($A);
+          ...
+          sink($A);

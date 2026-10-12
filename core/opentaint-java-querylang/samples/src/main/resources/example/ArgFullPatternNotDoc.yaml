@@ -1,0 +1,17 @@
+rules:
+  - id: example-ArgFullPatternNotDoc
+    languages:
+      - java
+    severity: ERROR
+    message: match example/ArgFullPatternNotDoc
+    patterns:
+      - pattern: |
+          $RESULT = decode($INPUT);
+          ...
+          consume($RESULT);
+      - pattern-not: |
+          $RESULT = decode($INPUT);
+          ...
+          check($RESULT);
+          ...
+          consume($RESULT);

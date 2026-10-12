@@ -1,0 +1,14 @@
+rules:
+  - id: example-SanitizeNotInsideDoc
+    languages:
+      - java
+    severity: ERROR
+    message: match example/SanitizeNotInsideDoc
+    patterns:
+      - pattern-inside: |
+          $RESULT = decode($INPUT);
+          ...
+      - pattern: consume($RESULT)
+      - pattern-not-inside: |
+          $RESULT = sanitize($RESULT);
+          ...

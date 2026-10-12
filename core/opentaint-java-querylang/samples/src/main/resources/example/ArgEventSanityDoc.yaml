@@ -1,0 +1,13 @@
+rules:
+  - id: example-ArgEventSanityDoc
+    languages:
+      - java
+    severity: ERROR
+    message: match example/ArgEventSanityDoc
+    patterns:
+      - pattern: |
+          $RESULT = decode($INPUT);
+          ...
+          check($RESULT);
+          ...
+          consume($RESULT);
