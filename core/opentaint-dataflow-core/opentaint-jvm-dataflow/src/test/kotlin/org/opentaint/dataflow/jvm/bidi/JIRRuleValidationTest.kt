@@ -186,13 +186,17 @@ class JIRRuleValidationTest : BasicTestUtils() {
         val cl = cleaner(listOf(RemoveMark(t, arg1), RemoveAllMarks(bad)))
         val sk = sink(listOf(AssignMark(t, Result), AssignMark(u, bad)), contains(arg1))
         val conditionSink = sink(listOf(AssignMark(t, Result)), CommonCondition.Or(listOf(contains(arg1), contains(bad))))
+        val occurrence = org.opentaint.dataflow.bidi.interp.RuleOccurrenceId(
+            org.opentaint.dataflow.bidi.interp.FormKey(org.opentaint.dataflow.bidi.interp.FormOwner(), method, null,
+                (method as org.opentaint.ir.api.jvm.JIRMethod).instList.first()),
+            org.opentaint.dataflow.bidi.interp.RuleKind.CALL_SOURCE, 0)
         val builder = MicroEdgeBuilder()
-        if (forms.valid(src)) src.actionsAfter.forEach { forms.source(builder, src, emptyList(), it) }
+        if (forms.valid(src)) forms.source(builder, src, occurrence, RuleConditionRewriter.trueExpr)
         if (forms.valid(ps)) ps.actionsAfter.forEach { forms.pass(builder, ps, it) }
         var cleanerActions = 0
         if (forms.valid(cl)) cleanerActions = cl.actionsAfter.size
-        val sinks = if (forms.valid(sk)) forms.sinks(sk, RuleConditionRewriter.trueExpr) else emptyList()
-        val conditionSinks = if (forms.valid(conditionSink)) forms.sinks(conditionSink, RuleConditionRewriter.trueExpr) else emptyList()
+        val sinks = if (forms.valid(sk)) forms.sinks(sk, RuleConditionRewriter.trueExpr, occurrence.copy(kind = org.opentaint.dataflow.bidi.interp.RuleKind.CALL_SINK)) else emptyList()
+        val conditionSinks = if (forms.valid(conditionSink)) forms.sinks(conditionSink, RuleConditionRewriter.trueExpr, occurrence.copy(kind = org.opentaint.dataflow.bidi.interp.RuleKind.CALL_SINK)) else emptyList()
         assertTrue(builder.build().edges.isEmpty())
         assertTrue(builder.build().conjunctions.isEmpty())
         assertEquals(0, cleanerActions)
@@ -201,7 +205,7 @@ class JIRRuleValidationTest : BasicTestUtils() {
         val validSource = source(listOf(AssignMark(t, Result)))
         assertTrue(forms.valid(validSource))
         val accepted = MicroEdgeBuilder()
-        forms.source(accepted, validSource, emptyList(), validSource.actionsAfter.single())
+        forms.source(accepted, validSource, occurrence, RuleConditionRewriter.trueExpr)
         assertEquals(1, accepted.build().edges.size)
         assertEquals(Tail.EXACT, accepted.build().edges.single().edge.to.tail)
         assertEquals(MarkSlot.Concrete(f.manager.marks.mark("T")), accepted.build().edges.single().edge.to.mark)

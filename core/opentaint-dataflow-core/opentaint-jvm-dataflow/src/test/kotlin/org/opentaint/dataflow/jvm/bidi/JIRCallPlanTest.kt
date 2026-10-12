@@ -373,12 +373,60 @@ class JIRCallPlanTest : BasicTestUtils() {
         assertEquals(listOf(StageKind.BIND_IN, StageKind.END_FACTS, StageKind.SOURCES, StageKind.BIND_BACK), p.stages.filterIsInstance<CallStage.Edges>().map { it.kind })
     }
 
-    @Test fun `sink array alternatives use caller static argument types and retain trigger identity`(): Unit {
+    @Test fun `signed false user source preserves ordinary returned pass facts while a live source rewriter removes them`(): Unit {
+        val inst = v.call("staticExternal") as JIRAssignInst
+        val inputBase = assertNotNull(accessPathBase(v.expr(inst).args[0]))
+        val outputBase = assertNotNull(accessPathBase(inst.lhv))
+        val contradiction = CommonCondition.And(listOf(condition(), condition(negated = true)))
+        val live: Condition = CommonCondition.Atom(ContainsMark(Argument(1), RuleMark("U")))
+        val premise = setOf(Pattern(fact(inputBase), empty))
+        for ((condition, falseRule) in listOf(contradiction to true, live to false)) {
+            val rules = CallRules().apply {
+                sources = listOf(source(listOf(AssignMark(RuleMark("T"), Result)), condition, user("T")))
+                passes = listOf(pass(listOf(CopyAllMarks(Argument(0), Result))))
+            }
+            val plan = v.builder(inst, rules).build()
+            val requests = ArrayList<org.opentaint.dataflow.bidi.store.RequestKind>()
+            var hits = 0
+            val cleaned = ArrayList<Conclusion>()
+            val reference = FormsReference(v.ops, ReferenceAlgebra(ApMode(true, Direction.FORWARD, 1),
+                request = { _, request -> requests += request }, sourceHit = { _, _ -> hits++ }, manager = v.manager))
+            val hooks = PlanHooks(clean = { cleaner, input ->
+                cleaned += input.c
+                val result = cleanRes(cleaner, input.c)
+                assertNull(result.request)
+                result.facts.map { input.copy(c = it) }
+            })
+            val returned = PlanItem(premise, Conclusion(fact(ret), empty, false), identityCandidate = false)
+            val result = reference.run(plan, listOf(returned), Place(inst, false, true), hooks,
+                from = CallPoint.RETURNED).filter { it.first == CallPoint.AFTER }.map { it.second }
+            val expected = if (falseRule) listOf(returned.copy(c = Conclusion(fact(outputBase), empty, false))) else emptyList()
+            assertEquals(expected, result)
+            assertEquals(if (falseRule) emptyList() else listOf(returned.c), cleaned)
+            assertEquals(if (falseRule) 0 else 1, actions(plan, CallPoint.RETURNED, CallPoint.REWRITTEN).size)
+            assertEquals(if (falseRule) 0 else 1, stage(plan, StageKind.SOURCES).summary.sources.size)
+            assertEquals(listOf(ZERO_KEEP), stage(plan, StageKind.SOURCES).summary.edges.map { it.edge })
+
+            cleaned.clear()
+            val before = PlanItem(premise, Conclusion(fact(inputBase), empty, false), identityCandidate = false)
+            val whole = reference.run(plan, listOf(before), Place(inst, false, true), hooks)
+                .filter { it.first == CallPoint.AFTER }.map { it.second.c }.toSet()
+            val expectedWhole = if (falseRule) setOf(before.c, Conclusion(fact(outputBase), empty, false)) else setOf(before.c)
+            assertEquals(expectedWhole, whole)
+            assertTrue(requests.isEmpty())
+            assertEquals(0, hits)
+        }
+    }
+
+    @Test fun `sink array predicate uses caller static argument types and one rule identity`(): Unit {
         val rules = CallRules().apply { sinks = listOf(sink(emptyList(), condition())) }
         val p = v.builder(rules = rules).build()
         val element = v.manager.accessors.index(org.opentaint.dataflow.ap.ifds.ElementAccessor)
-        assertEquals(listOf(0, 1), p.sinks.map { it.alternative })
-        assertEquals(listOf(listOf(Pattern(fact(arg0), empty)), listOf(Pattern(fact(arg0).copy(path = listOf(element)), empty))), p.sinks.map { it.patterns })
+        val sink = p.sinks.single()
+        val predicate = assertNotNull(sink.predicate)
+        assertEquals(RulePredicate.Kind.OR, predicate.kind(predicate.root))
+        assertEquals(listOf(Pattern(fact(arg0), empty), Pattern(fact(arg0).copy(path = listOf(element)), empty)), sink.patterns)
+        assertTrue(predicate.leaves.indices.all { predicate.isUnary(it) && !predicate.isMulti(it) })
         assertTrue(edgeStages(p, StageKind.END_FACTS).isEmpty())
     }
 
@@ -441,7 +489,7 @@ class JIRCallPlanTest : BasicTestUtils() {
         assertEquals(32768, me.edge.to.path.size)
         assertTrue(me.edge.to.path.all { it == next })
         assertEquals(move(ret, aliasBase, List(32768) { next }), me.edge)
-        assertFailsWith<UnsupportedOperationException> { (me.edge.to.path as MutableList<Int>).clear() }
+        assertFails { (me.edge.to.path as MutableList<Int>).clear() }
         val back = p.reversed()
         assertTrue(aliasBase in back.touched)
         assertEquals(listOf(move(aliasBase, aliasBase)), stage(back, StageKind.PASS_OVER).summary.edges.map { it.edge })
@@ -479,16 +527,81 @@ class JIRCallPlanTest : BasicTestUtils() {
         }
     }
 
-    @Test fun `conditional source cubes give independent plain alternatives and a must conjunction`(): Unit {
+    @Test fun `conditional source preserves unary and joint scopes without materializing cubes`(): Unit {
         val expr: Condition = CommonCondition.Or(listOf(condition(), CommonCondition.And(listOf(condition(), condition(Argument(1))))))
         val rules = CallRules().apply { sources = listOf(source(listOf(AssignMark(RuleMark("U"), any(Result))), expr)) }
         val summary = stage(v.builder(rules = rules).build(), StageKind.SOURCES).summary
-        assertEquals(listOf(ZERO_KEEP, PathEdge(fact(arg0), fact(ret, Tail.ANY_TAINT, u), empty)), summary.edges.map { it.edge })
-        val conjunction = summary.conjunctions.single()
-        assertEquals(setOf(Pattern(fact(arg0), empty), Pattern(fact(arg1), empty)), conjunction.literals.toSet())
-        assertEquals(fact(ret, Tail.ANY_TAINT, u), conjunction.target)
+        assertEquals(listOf(ZERO_KEEP), summary.edges.map { it.edge })
+        assertTrue(summary.conjunctions.isEmpty())
+        val source = summary.sources.single()
+        val predicate = source.predicate
+        assertEquals(setOf(Pattern(fact(arg0), empty), Pattern(fact(arg1), empty)), predicate.leaves.toSet())
+        val first = predicate.leaves.indexOf(Pattern(fact(arg0), empty))
+        val second = predicate.leaves.indexOf(Pattern(fact(arg1), empty))
+        assertTrue(predicate.isUnary(first)); assertTrue(predicate.isMulti(first))
+        assertFalse(predicate.isUnary(second)); assertTrue(predicate.isMulti(second))
+        assertEquals(fact(ret, Tail.ANY_TAINT, u), source.actions.single().target)
         assertEquals(setOf(AccessPathBase.Zero, arg0, arg1, ret), summary.touched)
     }
+
+    @Test fun `rule occurrences keep prefilter ordinals and rebuild IDs within one owner`(): Unit {
+        val contradiction = CommonCondition.And(listOf(condition(), condition(negated = true)))
+        val bad = any(any(Argument(0)))
+        val rules = CallRules().apply {
+            sources = listOf(source(listOf(AssignMark(RuleMark("T"), Result)), contradiction),
+                source(listOf(AssignMark(RuleMark("T"), bad))),
+                source(listOf(AssignMark(RuleMark("U"), any(Result))), condition()))
+            sinks = listOf(sink(emptyList(), contradiction), sink(listOf(AssignMark(RuleMark("T"), bad))),
+                sink(emptyList(), condition()))
+        }
+        val owner = FormOwner()
+        val inst = v.call("staticCall")
+        fun build(formOwner: FormOwner): CallPlan = JIRCallPlanBuilder(v.manager, v.forms(rules), v.checker,
+            v.typeFilters, v.key(inst.location.method), inst, v.expr(inst),
+            { _, _, _ -> listOf(MethodResolutionResult.MethodResolutionFailed) }, v.epResolver, emptyMap(),
+            formOwner = formOwner).build()
+        val first = build(owner)
+        val rebuilt = build(owner)
+        val source = stage(first, StageKind.SOURCES).summary.sources.single()
+        assertEquals(2, source.id.ordinal)
+        assertEquals(RuleKind.CALL_SOURCE, source.id.kind)
+        assertEquals(source.id, stage(rebuilt, StageKind.SOURCES).summary.sources.single().id)
+        assertEquals(source.actions.single().id, stage(rebuilt, StageKind.SOURCES).summary.sources.single().actions.single().id)
+        val sink = first.sinks.single()
+        assertEquals(2, sink.occurrenceId!!.ordinal)
+        assertEquals(RuleKind.CALL_SINK, sink.occurrenceId!!.kind)
+        assertEquals(sink.occurrenceId, rebuilt.sinks.single().occurrenceId)
+        assertNotEquals(source.id, stage(build(FormOwner()), StageKind.SOURCES).summary.sources.single().id)
+        assertEquals(listOf(ZERO_KEEP), stage(first, StageKind.SOURCES).summary.edges.map { it.edge })
+    }
+
+    @Test fun `field cleaner temporaries keep action mark stage and owner keys across rebuilds`(): Unit {
+        val rules = CallRules().apply {
+            cleaners = listOf(cleaner(listOf(RemoveMark(RuleMark("T"), field(Argument(0))),
+                RemoveMark(RuleMark("T"), field(Argument(0))))))
+            allSources = listOf(source(listOf(AssignMark(RuleMark("U"), field(Argument(0)))),
+                mkTrue(), user("T", "U")))
+        }
+        val owner = FormOwner()
+        val inst = v.call("staticCall")
+        fun build(formOwner: FormOwner): CallPlan = JIRCallPlanBuilder(v.manager, v.forms(rules), v.checker,
+            v.typeFilters, v.key(inst.location.method), inst, v.expr(inst),
+            { _, _, _ -> listOf(MethodResolutionResult.MethodResolutionFailed) }, v.epResolver, emptyMap(),
+            formOwner = formOwner).build()
+        fun temporaries(plan: CallPlan): List<AccessPathBase.CleanerTemporary> =
+            (actions(plan, CallPoint.BOUND, CallPoint.ADDED) + actions(plan, CallPoint.RETURNED, CallPoint.REWRITTEN))
+                .map { (it as CleanStep.Field).temporary as AccessPathBase.CleanerTemporary }
+        val first = build(owner)
+        val temps = temporaries(first)
+        assertEquals(4, temps.size)
+        assertEquals(4, temps.toSet().size)
+        assertEquals(temps, temporaries(build(owner)))
+        assertTrue(temps.toSet().intersect(temporaries(build(FormOwner())).toSet()).isEmpty())
+        val original = actions(first, CallPoint.BOUND, CallPoint.ADDED).first() as CleanStep.Field
+        val reversed = actions(first.reversed(), CallPoint.ADDED, CallPoint.BOUND).last() as CleanStep.Field
+        assertSame(original.temporary, reversed.temporary)
+    }
+
 
     @Test fun `static class sources field sources and kills keep complete class field geometry`(): Unit {
         val classPosition = ClassStatic(owner)

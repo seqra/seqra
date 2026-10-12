@@ -29,7 +29,10 @@ class JIRMethodEntries(
     val aliasParams: JIRLocalAliasAnalysis.Params,
     val cancellation: Cancellation,
     prescanLambdas: PrescanLambdas,
+    internal val formStatistics: org.opentaint.dataflow.bidi.interp.FormCacheStatistics? =
+        org.opentaint.dataflow.bidi.interp.FormCacheStatistics.ifEnabled(),
 ) {
+    val formOwner = org.opentaint.dataflow.bidi.interp.FormOwner()
     init {
         val installed = graph.cp.features.orEmpty()
         check(installed.any { it is LambdaAnonymousClassFeature } &&

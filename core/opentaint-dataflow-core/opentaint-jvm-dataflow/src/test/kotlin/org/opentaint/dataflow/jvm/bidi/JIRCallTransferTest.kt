@@ -413,8 +413,9 @@ class JIRCallTransferTest : BasicTestUtils() {
         }
         val sourcePlan = v.builder(s, sourceRules).build()
         val passPlan = v.builder(s, passRules).build()
-        val sourceEdge = sourcePlan.stages.filterIsInstance<CallStage.Edges>()
-            .single { it.kind == StageKind.SOURCES }.summary.edges.single { it.edge.to.base == ret }
+        val sourceDescriptor = sourcePlan.stages.filterIsInstance<CallStage.Edges>()
+            .single { it.kind == StageKind.SOURCES }.summary.sources.single()
+        val sourceEdge = sourceDescriptor.transfer(sourceDescriptor.predicate.leaves.single(), sourceDescriptor.actions.single())
         val passEdge = passPlan.stages.filterIsInstance<CallStage.Edges>()
             .filter { it.kind == StageKind.UNRESOLVED }.flatMap { it.summary.edges }
             .single { it.edge.to.base == ret }
@@ -455,8 +456,9 @@ class JIRCallTransferTest : BasicTestUtils() {
         val forwardPass = v.builder(s, passRules).build()
         val sourcePlan = forwardSource.reversed()
         val passPlan = forwardPass.reversed()
-        val sourceEdge = sourcePlan.stages.filterIsInstance<CallStage.Edges>()
-            .single { it.kind == StageKind.SOURCES }.summary.edges.single { it.edge.from.base == ret }
+        val sourceDescriptor = sourcePlan.stages.filterIsInstance<CallStage.Edges>()
+            .single { it.kind == StageKind.SOURCES }.summary.sources.single()
+        val sourceEdge = sourceDescriptor.transfer(sourceDescriptor.predicate.leaves.single(), sourceDescriptor.actions.single())
         val passEdge = passPlan.stages.filterIsInstance<CallStage.Edges>()
             .filter { it.kind == StageKind.UNRESOLVED }.flatMap { it.summary.edges }
             .single { it.edge.from.base == ret }
@@ -464,8 +466,10 @@ class JIRCallTransferTest : BasicTestUtils() {
             PathFact(arg0, emptyList(), Tail.EXACT, mt), ExclusionSet.Empty)
         assertEquals(reversedEdge, sourceEdge.edge)
         assertEquals(reversedEdge, passEdge.edge)
-        assertSame(forwardSource.stages.filterIsInstance<CallStage.Edges>()
-            .single { it.kind == StageKind.SOURCES }.summary.edges.single { it.edge.to.base == ret }.edge,
+        val forwardDescriptor = forwardSource.stages.filterIsInstance<CallStage.Edges>()
+            .single { it.kind == StageKind.SOURCES }.summary.sources.single()
+        assertEquals(forwardDescriptor.id, sourceDescriptor.id)
+        assertEquals(forwardDescriptor.transfer(forwardDescriptor.predicate.leaves.single(), forwardDescriptor.actions.single()).edge,
             sourceEdge.forward)
         assertSame(forwardPass.stages.filterIsInstance<CallStage.Edges>()
             .filter { it.kind == StageKind.UNRESOLVED }.flatMap { it.summary.edges }
@@ -517,7 +521,12 @@ class JIRCallTransferTest : BasicTestUtils() {
         }
         val forward = v.builder(s, rules).build()
         val backward = forward.reversed()
-        assertEquals(2, forward.sinks.size, "An Object argument has root and element sink alternatives (SI1)")
+        val sink = forward.sinks.single()
+        val predicate = assertNotNull(sink.predicate)
+        assertEquals(RulePredicate.Kind.OR, predicate.kind(predicate.root))
+        assertEquals(setOf(Pattern(fact(arg0).fact, ExclusionSet.Empty),
+            Pattern(fact(arg0, p(element)).fact, ExclusionSet.Empty)), predicate.leaves.toSet(),
+            "An Object argument retains both root and element reads in one original sink (SI1)")
         val input = fact(resultBase(s), mark = mu, demand = true)
         val result = check(backward, s, listOf(item(input)), setOf(fact(inputBase(s), demand = false),
             fact(inputBase(s), p(element)), Conclusion(ZERO_FACT, ExclusionSet.Empty, true)),
@@ -552,6 +561,51 @@ class JIRCallTransferTest : BasicTestUtils() {
         fun at(point: CallPoint) = items(point).map { it.c }.toSet()
     }
 
+    /** A small positive-predicate interpreter over accepted raw/tree leaves, without production joins. */
+    private fun sinkLayers(sink: SinkRule, matching: (Pattern) -> Set<Layer>): List<Layer> {
+        val predicate = sink.predicate
+        if (predicate == null || predicate.isTrue) {
+            var normal = true
+            var possible = true
+            var demand = false
+            for (pattern in sink.patterns) {
+                val layers = matching(pattern)
+                normal = normal && Layer.NORMAL in layers
+                possible = possible && layers.isNotEmpty()
+                demand = demand || Layer.DEMAND in layers
+            }
+            return Layer.entries.filter { if (it == Layer.NORMAL) normal else possible && demand }
+        }
+        val normal = BooleanArray(predicate.nodeCount)
+        val demand = BooleanArray(predicate.nodeCount)
+        for (node in 0 until predicate.nodeCount) when (predicate.kind(node)) {
+            RulePredicate.Kind.FALSE -> Unit
+            RulePredicate.Kind.TRUE -> normal[node] = true
+            RulePredicate.Kind.LEAF -> {
+                val layers = matching(predicate.leaves[predicate.leafOrdinal(node)])
+                normal[node] = Layer.NORMAL in layers
+                demand[node] = Layer.DEMAND in layers
+            }
+            RulePredicate.Kind.OR -> predicate.childrenOf(node) { child ->
+                normal[node] = normal[node] || normal[child]
+                demand[node] = demand[node] || demand[child]
+            }
+            RulePredicate.Kind.AND -> {
+                var allNormal = true
+                var allPossible = true
+                var someDemand = false
+                predicate.childrenOf(node) { child ->
+                    allNormal = allNormal && normal[child]
+                    allPossible = allPossible && (normal[child] || demand[child])
+                    someDemand = someDemand || demand[child]
+                }
+                normal[node] = allNormal
+                demand[node] = allPossible && someDemand
+            }
+        }
+        return Layer.entries.filter { if (it == Layer.NORMAL) normal[predicate.root] else demand[predicate.root] }
+    }
+
     private fun check(
         plan: CallPlan, statement: JIRInst, inputs: List<PlanItem>, expected: Set<Conclusion>,
         methodResult: (MethodKey, PlanItem) -> List<PlanItem> = { _, _ -> emptyList() },
@@ -581,10 +635,10 @@ class JIRCallTransferTest : BasicTestUtils() {
         val raw = reference.run(plan, inputs, place, PlanHooks(guards = true,
             atBound = { items ->
                 events += "bound"; bound += items.map { it.c }
-                plan.sinks.flatMap { sink -> Layer.entries.filter { layer -> sink.patterns.all { pattern ->
-                    items.any { (if (it.c.demand) Layer.DEMAND else Layer.NORMAL) == layer &&
-                        satisfies(pattern, Pattern(it.c.fact, it.c.exclusion), mode.restricted) }
-                } }.map { sink to it } }
+                plan.sinks.flatMap { sink -> sinkLayers(sink) { pattern ->
+                    items.filter { satisfies(pattern, Pattern(it.c.fact, it.c.exclusion), mode.restricted) }
+                        .map { if (it.c.demand) Layer.DEMAND else Layer.NORMAL }.toSet()
+                }.map { sink to it } }
             }, callees = { stage, i -> stage.callees.flatMap { methodResult(it, i) } },
             clean = { cl, i ->
                 events += "clean"; cleanInputs += i.c
@@ -638,6 +692,14 @@ class JIRCallTransferTest : BasicTestUtils() {
             }
             override fun conjunction(cj: ConjunctiveEdge, premise: Set<Pattern>, c: Facts, node: CommonInst,
                                      out: (Set<Pattern>, Facts) -> Unit) = error("These call vectors have no conjunction")
+            override fun sourcePredicate(source: SourceRuleOccurrence, premise: Set<Pattern>, c: Facts, node: CommonInst,
+                                         statementEdge: Boolean, out: (Set<Pattern>, Facts) -> Unit) {
+                check(source.backward == (mode.direction == Direction.BACKWARD))
+                for ((ordinal, literal) in source.predicate.leaves.withIndex()) {
+                    check(source.predicate.isUnary(ordinal) && !source.predicate.isMulti(ordinal))
+                    for (action in source.actions) applyEdge(source.transfer(literal, action), c, premise, statementEdge, out)
+                }
+            }
             override fun allowsSource(node: CommonInst, me: MicroEdge) = true
             override fun sourceHit(node: CommonInst, me: MicroEdge) { hits++ }
         })
@@ -683,9 +745,8 @@ class JIRCallTransferTest : BasicTestUtils() {
             val (point, batch) = work.removeFirst()
             val items = batch.filter { seen.add(point to it) }
             if (items.isEmpty() || point == plan.exit) continue
-            val sinks = if (point == BOUND) plan.sinks.flatMap { sink -> Layer.entries.filter { layer ->
-                sink.patterns.all { pattern -> items.any { i -> i.facts.layer == layer &&
-                    ops.satisfying(i.facts, pattern, mode) != null } }
+            val sinks = if (point == BOUND) plan.sinks.flatMap { sink -> sinkLayers(sink) { pattern ->
+                items.filter { ops.satisfying(it.facts, pattern, mode) != null }.map { it.facts.layer }.toSet()
             }.map { sink to it } } else emptyList()
             for (stage in plan.stagesFrom[point].orEmpty()) {
                 val result = arrayListOf<TreeItem>()

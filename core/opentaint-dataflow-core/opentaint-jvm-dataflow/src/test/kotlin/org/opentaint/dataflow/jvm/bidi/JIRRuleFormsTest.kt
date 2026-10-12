@@ -56,9 +56,43 @@ class JIRRuleFormsTest : BasicTestUtils() {
         ContainsMarkLiteral(PositionAccess.Simple(base), TaintMarkAccessor(mark), negated)
     private fun condition(expr: TaintMarkAwareConditionExpr) = ExprOrConstant(expr)
     private fun edges(builder: MicroEdgeBuilder) = builder.build().edges.map { it.edge }
+    /** Small test oracle only: enumerate the already compiled DAG for expected Boolean support sets. */
+    private fun predicateChoices(rule: Any, condition: ExprOrConstant): List<List<PathFact>> =
+        choices(forms.predicate(rule, condition)).map { it.map { pattern -> pattern.fact } }
+
+    private fun choices(predicate: RulePredicate): List<Set<Pattern>> {
+        val values = ArrayList<List<Set<Pattern>>>()
+        for (node in 0 until predicate.nodeCount) {
+            val children = ArrayList<Int>().also { out -> predicate.childrenOf(node, out::add) }
+            values += when (predicate.kind(node)) {
+                RulePredicate.Kind.FALSE -> emptyList()
+                RulePredicate.Kind.TRUE -> listOf(emptySet())
+                RulePredicate.Kind.LEAF -> listOf(setOf(predicate.leaves[predicate.leafOrdinal(node)]))
+                RulePredicate.Kind.OR -> children.flatMap { values[it] }.distinct()
+                RulePredicate.Kind.AND -> children.fold(listOf(emptySet<Pattern>())) { acc, child ->
+                    acc.flatMap { a -> values[child].map { b -> a + b } }.distinct()
+                }
+            }
+        }
+        return values[predicate.root]
+    }
+
+    private fun sinks(rule: TaintConfigurationSink, condition: ExprOrConstant,
+                      mayBeArray: (Int) -> Boolean = { false }): List<SinkRule> {
+        val method = v.method("plain")
+        val id = RuleOccurrenceId(FormKey(FormOwner(), method, null, method.instList.first()), RuleKind.CALL_SINK, 0)
+        return forms.sinks(rule, condition, id, mayBeArray)
+    }
+
+    private fun occurrence(rule: TaintConfigurationSource, ordinal: Int = 0): RuleOccurrenceId {
+        val method = (rule as TaintMethodSource).method as org.opentaint.ir.api.jvm.JIRMethod
+        return RuleOccurrenceId(FormKey(FormOwner(), method, null, method.instList.first()), RuleKind.CALL_SOURCE, ordinal)
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun rejectListMutation(xs: List<*>) {
-        assertFailsWith<UnsupportedOperationException> { (xs as MutableList<Any?>).add(null) }
+        val failure = kotlin.test.assertFails { (xs as MutableList<Any?>).add(null) }
+        assertTrue(failure is UnsupportedOperationException || failure is ClassCastException)
     }
 
     @Test
@@ -129,7 +163,7 @@ class JIRRuleFormsTest : BasicTestUtils() {
             assertEquals(listOf(f), side.path)
             rejectListMutation(side.path)
         }
-        val cube = forms.cubes("cube", condition(ContainsMarkLiteral(
+        val cube = predicateChoices("cube", condition(ContainsMarkLiteral(
             PositionAccess.Complex(PositionAccess.Simple(arg0), FieldAccessor(owner, "f", "java.lang.Object")),
             TaintMarkAccessor("T"), false)))
         rejectListMutation(cube.single().single().path)
@@ -147,18 +181,18 @@ class JIRRuleFormsTest : BasicTestUtils() {
     }
 
     @Test
-    fun `cube constants and negated literals have source and sink true semantics`(): Unit {
-        assertEquals(emptyList(), forms.cubes("false", RuleConditionRewriter.falseExpr))
-        assertEquals(listOf(emptyList()), forms.cubes("true", RuleConditionRewriter.trueExpr))
-        assertEquals(listOf(emptyList()), forms.cubes("not", condition(literal(arg0, negated = true))))
+    fun `predicate constants and negated literals have source and sink true semantics`(): Unit {
+        assertEquals(emptyList(), predicateChoices("false", RuleConditionRewriter.falseExpr))
+        assertEquals(listOf(emptyList()), predicateChoices("true", RuleConditionRewriter.trueExpr))
+        assertEquals(listOf(emptyList()), predicateChoices("not", condition(literal(arg0, negated = true))))
         val positive = literal(arg0)
         val negative = literal(arg1, "U", true)
-        assertEquals(listOf(listOf(fact(arg0))), forms.cubes("and", condition(TaintMarkAwareConditionExpr.And(arrayOf(positive, negative)))))
-        assertEquals(listOf(emptyList()), forms.cubes("or", condition(TaintMarkAwareConditionExpr.Or(arrayOf(positive, negative)))))
+        assertEquals(listOf(listOf(fact(arg0))), predicateChoices("and", condition(TaintMarkAwareConditionExpr.And(arrayOf(positive, negative)))))
+        assertEquals(listOf(emptyList()), predicateChoices("or", condition(TaintMarkAwareConditionExpr.Or(arrayOf(positive, negative)))))
     }
 
     @Test
-    fun `DNF distributes alternatives and deduplicates literals and complete cubes`(): Unit {
+    fun `NNF keeps the truth table without materializing alternatives`(): Unit {
         val p = literal(arg0)
         val q = literal(arg1, "U")
         val r = literal(AccessPathBase.This, "T")
@@ -166,56 +200,80 @@ class JIRRuleFormsTest : BasicTestUtils() {
             TaintMarkAwareConditionExpr.And(arrayOf(p, p, TaintMarkAwareConditionExpr.Or(arrayOf(q, r)))),
             TaintMarkAwareConditionExpr.And(arrayOf(p, q)),
         ))
-        val actual = forms.cubes("dnf", condition(expr))
+        val actual = predicateChoices("dnf", condition(expr))
         assertEquals(setOf(setOf(fact(arg0), fact(arg1, mark = u)), setOf(fact(arg0), fact(AccessPathBase.This))),
             actual.map { it.toSet() }.toSet())
         assertEquals(2, actual.size)
         assertTrue(actual.all { it.size == 2 })
-        assertEquals(actual, forms.cubes("dnf", condition(expr)))
+        assertEquals(actual, predicateChoices("dnf", condition(expr)))
     }
 
     @Test
-    fun `rule edge cardinality gives zero plain or independent conjunction slots`(): Unit {
-        val target = fact(AccessPathBase.Return, listOf(g), Tail.ANY_TAINT, u)
-        val a = fact(arg0)
-        val b = fact(arg1, listOf(f), Tail.ANY)
-        val unconditional = MicroEdgeBuilder().also { forms.ruleEdge(it, emptyList(), target) }.build()
-        assertEquals(listOf(PathEdge(ZERO_FACT, target, empty)), unconditional.edges.map { it.edge })
-        assertTrue(unconditional.edges.single().isSource)
-        assertFalse(unconditional.edges.single().may)
-        val plain = MicroEdgeBuilder().also { forms.ruleEdge(it, listOf(a), target) }.build()
-        assertEquals(listOf(PathEdge(a, target, empty)), plain.edges.map { it.edge })
-        assertFalse(plain.edges.single().isSource)
-        assertFalse(plain.edges.single().may)
-        for (premises in listOf(listOf(a, b), listOf(a, a))) {
-            val s = MicroEdgeBuilder().also { forms.ruleEdge(it, premises, target) }.build()
-            assertTrue(s.edges.isEmpty())
-            val conjunction = s.conjunctions.single()
-            assertEquals(premises.map { Pattern(it, empty) }, conjunction.literals)
-            assertEquals(target, conjunction.target)
-            assertEquals(2, conjunction.literals.size)
-        }
+    fun `predicate keeps unary multi repeated bindings and satisfiable footprint without distributing`(): Unit {
+        val p = literal(arg0)
+        val q = literal(arg1, "U")
+        val expression = TaintMarkAwareConditionExpr.Or(arrayOf(p,
+            TaintMarkAwareConditionExpr.And(arrayOf(p, p, q))))
+        val predicate = forms.predicate("mixed", condition(expression))
+        assertEquals(setOf(Pattern(fact(arg0), empty), Pattern(fact(arg1, mark = u), empty)), predicate.leaves.toSet())
+        val pi = predicate.leaves.indexOf(Pattern(fact(arg0), empty))
+        val qi = predicate.leaves.indexOf(Pattern(fact(arg1, mark = u), empty))
+        assertTrue(predicate.isUnary(pi)); assertTrue(predicate.isMulti(pi))
+        assertFalse(predicate.isUnary(qi)); assertTrue(predicate.isMulti(qi))
+        val repeated = forms.predicate("repeated", condition(TaintMarkAwareConditionExpr.And(arrayOf(p, p))))
+        assertEquals(1, repeated.leaves.size)
+        assertTrue(repeated.isUnary(0)); assertFalse(repeated.isMulti(0))
+        assertEquals(setOf(setOf(Pattern(fact(arg0), empty)), predicate.leaves.toSet()), choices(predicate).toSet())
     }
 
     @Test
-    fun `rule edge products own mutable premise target paths and conjunction lists`(): Unit {
-        val fromPath = arrayListOf(f)
-        val toPath = arrayListOf(g)
-        val p = fact(arg0, fromPath)
-        val target = fact(AccessPathBase.Return, toPath)
-        val one = MicroEdgeBuilder().also { forms.ruleEdge(it, listOf(p), target) }.build().edges.single().edge
-        val inputs = arrayListOf(p, p)
-        val conjunction = MicroEdgeBuilder().also { forms.ruleEdge(it, inputs, target) }.build().conjunctions.single()
-        fromPath.clear(); toPath.clear(); inputs.clear()
-        assertEquals(listOf(f), one.from.path)
-        assertEquals(listOf(g), one.to.path)
-        assertEquals(listOf(Pattern(fact(arg0, listOf(f)), empty), Pattern(fact(arg0, listOf(f)), empty)), conjunction.literals)
-        assertEquals(fact(AccessPathBase.Return, listOf(g)), conjunction.target)
-        rejectListMutation(one.from.path)
-        rejectListMutation(one.to.path)
-        rejectListMutation(conjunction.literals)
-        rejectListMutation(conjunction.literals[0].fact.path)
-        rejectListMutation(conjunction.target.path)
+    fun `twenty binary source choices compile to a linear predicate with separate actions`(): Unit {
+        val expression = TaintMarkAwareConditionExpr.And(Array(20) { index ->
+            TaintMarkAwareConditionExpr.Or(arrayOf(literal(AccessPathBase.Argument(2 * index)),
+                literal(AccessPathBase.Argument(2 * index + 1))))
+        })
+        val rule = v.source(listOf(AssignMark(RuleMark("T"), Result), AssignMark(RuleMark("U"), any(Result))))
+        val summary = MicroEdgeBuilder().also { forms.source(it, rule, occurrence(rule), condition(expression)) }.buildStage()
+        val source = summary.sources.single()
+        assertEquals(40, source.predicate.leaves.size)
+        assertEquals(61, source.predicate.nodeCount)
+        assertEquals(60, source.predicate.childCount)
+        assertEquals(2, source.actions.size)
+        assertEquals(listOf(fact(AccessPathBase.Return), fact(AccessPathBase.Return, tail = Tail.ANY_TAINT, mark = u)),
+            source.actions.map { it.target })
+        assertTrue(summary.edges.isEmpty()); assertTrue(summary.conjunctions.isEmpty())
+        assertTrue(source.predicate.leaves.indices.all { source.predicate.isMulti(it) && !source.predicate.isUnary(it) })
+        rejectListMutation(source.predicate.leaves)
+        source.predicate.leaves.forEach { rejectListMutation(it.fact.path) }
+    }
+
+    @Test
+    fun `optional compilation counters sum actual compact graphs and constants`(): Unit {
+        val statistics = FormCacheStatistics()
+        val counted = org.opentaint.dataflow.jvm.bidi.interp.JIRRuleForms(forms.rules, v.manager,
+            org.opentaint.dataflow.jvm.bidi.interp.RuleErrors(), v.typeFilters, statistics = statistics)
+        counted.predicate("false", RuleConditionRewriter.falseExpr)
+        counted.predicate("true", RuleConditionRewriter.trueExpr)
+        counted.predicate("and", condition(TaintMarkAwareConditionExpr.And(arrayOf(literal(arg0), literal(arg1))))) { true }
+        val snapshot = statistics.snapshot()
+        assertEquals(3L, snapshot.compiledPredicates)
+        assertEquals(9L, snapshot.compiledNodes)
+        assertEquals(4L, snapshot.compiledLeaves)
+        assertEquals(0L, snapshot.accesses)
+        assertEquals(0L, snapshot.buildAttempts)
+    }
+
+    @Test
+    fun `empty source action list emits no descriptor but preserves its compiled exit read footprint`(): Unit {
+        val rule = v.source(emptyList())
+        val builder = MicroEdgeBuilder()
+        val predicate = forms.source(builder, rule, occurrence(rule), condition(literal(arg0)))
+        val summary = builder.buildStage()
+        assertEquals(listOf(Pattern(fact(arg0), empty)), predicate.leaves)
+        assertTrue(summary.edges.isEmpty())
+        assertTrue(summary.sources.isEmpty())
+        assertTrue(summary.conjunctions.isEmpty())
+        assertTrue(summary.touched.isEmpty())
     }
 
     @Test
@@ -227,14 +285,22 @@ class JIRRuleFormsTest : BasicTestUtils() {
             val expected = if (position == Result) fact(AccessPathBase.Return, mark = u)
                 else fact(AccessPathBase.Return, listOf(f), Tail.ANY_TAINT, u)
             assertEquals(expected, forms.markTarget(rule, a))
-            for (cube in listOf(emptyList(), listOf(fact(arg0)))) {
-                val s = MicroEdgeBuilder().also { forms.source(it, rule, cube, a) }.build()
-                assertEquals(listOf(PathEdge(cube.singleOrNull() ?: ZERO_FACT, expected, empty)), s.edges.map { it.edge })
-                assertEquals(cube.isEmpty(), s.edges.single().isSource)
-                assertFalse(s.edges.single().may)
-                val input = Conclusion(cube.singleOrNull() ?: ZERO_FACT, empty, false)
-                assertEquals(EdgeOutcome.Fact(Conclusion(expected, empty, false)), concat(input, s.edges.single().edge))
-            }
+            val unconditional = MicroEdgeBuilder().also {
+                forms.source(it, rule, occurrence(rule), RuleConditionRewriter.trueExpr)
+            }.build()
+            assertEquals(listOf(PathEdge(ZERO_FACT, expected, empty)), unconditional.edges.map { it.edge })
+            assertTrue(unconditional.edges.single().isSource)
+            assertFalse(unconditional.edges.single().may)
+            val summary = MicroEdgeBuilder().also {
+                forms.source(it, rule, occurrence(rule), condition(literal(arg0)))
+            }.build()
+            assertTrue(summary.edges.isEmpty())
+            val source = summary.sources.single()
+            assertEquals(listOf(Pattern(fact(arg0), empty)), source.predicate.leaves)
+            assertEquals(expected, source.actions.single().target)
+            assertEquals(PathEdge(fact(arg0), expected, empty), source.transfer(source.predicate.leaves.single(), source.actions.single()).edge)
+            assertEquals(EdgeOutcome.Fact(Conclusion(expected, empty, false)),
+                concat(Conclusion(fact(arg0), empty, false), source.transfer(source.predicate.leaves.single(), source.actions.single()).edge))
         }
     }
 
@@ -242,12 +308,16 @@ class JIRRuleFormsTest : BasicTestUtils() {
     fun `source conjunction has concrete exact or may inputs and must target with empty exclusions`(): Unit {
         val a = AssignMark(RuleMark("U"), any(Result))
         val rule = v.source(listOf(a))
-        val cube = listOf(fact(arg0), fact(arg1, listOf(f), Tail.ANY))
-        val s = MicroEdgeBuilder().also { forms.source(it, rule, cube, a) }.build()
-        assertTrue(s.edges.isEmpty())
-        val conjunction = s.conjunctions.single()
-        assertEquals(cube.map { Pattern(it, empty) }, conjunction.literals)
-        assertEquals(fact(AccessPathBase.Return, tail = Tail.ANY_TAINT, mark = u), conjunction.target)
+        val fieldLiteral = ContainsMarkOnAnyAccessorLiteral(PositionAccess.Complex(PositionAccess.Simple(arg1),
+            FieldAccessor(owner, "f", "java.lang.Object")), TaintMarkAccessor("T"), false)
+        val expression = TaintMarkAwareConditionExpr.And(arrayOf(literal(arg0), fieldLiteral))
+        val summary = MicroEdgeBuilder().also { forms.source(it, rule, occurrence(rule), condition(expression)) }.build()
+        assertTrue(summary.edges.isEmpty()); assertTrue(summary.conjunctions.isEmpty())
+        val source = summary.sources.single()
+        assertEquals(setOf(Pattern(fact(arg0), empty), Pattern(fact(arg1, listOf(f), Tail.ANY), empty)),
+            source.predicate.leaves.toSet())
+        assertTrue(source.predicate.leaves.indices.all { source.predicate.isMulti(it) && !source.predicate.isUnary(it) })
+        assertEquals(fact(AccessPathBase.Return, tail = Tail.ANY_TAINT, mark = u), source.actions.single().target)
     }
 
     @Test
@@ -303,35 +373,39 @@ class JIRRuleFormsTest : BasicTestUtils() {
     @Test
     fun `sink constants use zero unconditional pattern and false has no alternatives`(): Unit {
         val rule = v.sink(listOf(AssignMark(RuleMark("U"), any(Result))))
-        val sink = forms.sinks(rule, RuleConditionRewriter.trueExpr).single()
+        val sink = sinks(rule, RuleConditionRewriter.trueExpr).single()
         assertSame(rule, sink.rule)
         assertEquals(0, sink.alternative)
         assertEquals(listOf(ZERO_PATTERN), sink.patterns)
         assertTrue(sink.unconditional)
         assertTrue(sink.seedPatterns().isEmpty())
         assertEquals(listOf(PathEdge(ZERO_FACT, fact(AccessPathBase.Return, tail = Tail.ANY_TAINT, mark = u), empty)), sink.endFacts.map { it.edge })
-        assertTrue(forms.sinks(rule, RuleConditionRewriter.falseExpr).isEmpty())
-        assertEquals(listOf(ZERO_PATTERN), forms.sinks(rule, condition(literal(arg0, negated = true))).single().patterns)
+        assertTrue(sinks(rule, RuleConditionRewriter.falseExpr).isEmpty())
+        assertEquals(listOf(ZERO_PATTERN), sinks(rule, condition(literal(arg0, negated = true))).single().patterns)
     }
 
     @Test
-    fun `single argument sink has stable root then element alternatives with unchanged tail`(): Unit {
+    fun `single argument sink uses one local root or element predicate with unchanged tail`(): Unit {
         val rule = v.sink()
         val lit = ContainsMarkOnAnyAccessorLiteral(PositionAccess.Complex(PositionAccess.Simple(arg0),
             FieldAccessor(owner, "f", "java.lang.Object")), TaintMarkAccessor("T"), false)
         val expected = listOf(listOf(Pattern(fact(arg0, listOf(f), Tail.ANY), empty)),
             listOf(Pattern(fact(arg0, listOf(e, f), Tail.ANY), empty)))
         repeat(3) {
-            val sinks = forms.sinks(rule, condition(lit)) { it == 0 }
-            assertEquals(listOf(0, 1), sinks.map { it.alternative })
-            assertEquals(expected, sinks.map { it.patterns })
-            assertTrue(sinks.all { it.rule === rule && !it.unconditional && !it.conjunctive })
+            val sinks = sinks(rule, condition(lit)) { it == 0 }
+            val sink = sinks.single()
+            assertEquals(0, sink.alternative)
+            assertEquals(expected.flatten(), sink.patterns)
+            assertEquals(expected.map { it.toSet() }.toSet(), choices(assertNotNull(sink.predicate)).toSet())
+            assertSame(rule, sink.rule)
+            assertFalse(sink.unconditional)
+            assertTrue(sink.predicate!!.leaves.indices.all { sink.predicate!!.isUnary(it) && !sink.predicate!!.isMulti(it) })
         }
-        assertEquals(expected.take(1), forms.sinks(rule, condition(lit)).map { it.patterns })
+        assertEquals(expected.take(1), sinks(rule, condition(lit)).map { it.patterns })
     }
 
     @Test
-    fun `conjunctive sink expands independent array choices and deduplicates alternatives`(): Unit {
+    fun `conjunctive sink keeps array OR choices without a branch product`(): Unit {
         val rule = v.sink()
         val p = literal(arg0)
         val q = literal(arg1, "U")
@@ -339,24 +413,26 @@ class JIRRuleFormsTest : BasicTestUtils() {
             TaintMarkAwareConditionExpr.And(arrayOf(p, q, p)),
             TaintMarkAwareConditionExpr.And(arrayOf(p, q)),
         ))
-        val sinks = forms.sinks(rule, condition(expr)) { true }
+        val sinks = sinks(rule, condition(expr)) { true }
         val expected = setOf(
             setOf(Pattern(fact(arg0), empty), Pattern(fact(arg1, mark = u), empty)),
             setOf(Pattern(fact(arg0, listOf(e)), empty), Pattern(fact(arg1, mark = u), empty)),
             setOf(Pattern(fact(arg0), empty), Pattern(fact(arg1, listOf(e), mark = u), empty)),
             setOf(Pattern(fact(arg0, listOf(e)), empty), Pattern(fact(arg1, listOf(e), mark = u), empty)),
         )
-        assertEquals(expected, sinks.map { it.patterns.toSet() }.toSet())
-        assertEquals(listOf(0, 1, 2, 3), sinks.map { it.alternative })
-        assertTrue(sinks.all { it.conjunctive && it.patterns.size == 2 })
-        assertEquals(sinks.map { it.patterns }, forms.sinks(rule, condition(expr)) { true }.map { it.patterns })
+        val predicate = assertNotNull(sinks.single().predicate)
+        assertEquals(expected, choices(predicate).toSet())
+        assertEquals(4, predicate.leaves.size)
+        assertEquals(7, predicate.nodeCount)
+        assertTrue(predicate.leaves.indices.all { predicate.isMulti(it) && !predicate.isUnary(it) })
+        assertEquals(sinks.map { it.patterns }, sinks(rule, condition(expr)) { true }.map { it.patterns })
     }
 
     @Test
     fun `array expansion is not applied to this result or static sink positions`(): Unit {
         for (base in listOf(AccessPathBase.This, AccessPathBase.Return, STATIC)) {
             val queries = arrayListOf<Int>()
-            val sinks = forms.sinks(v.sink(), condition(literal(base))) { queries += it; true }
+            val sinks = sinks(v.sink(), condition(literal(base))) { queries += it; true }
             assertEquals(listOf(listOf(Pattern(fact(base), empty))), sinks.map { it.patterns })
             assertTrue(queries.isEmpty())
         }

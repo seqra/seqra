@@ -135,6 +135,26 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
                 assertEquals(ExclusionSet.Empty, it.exclusion)
             }
         }
+        for (source in s.sources) {
+            assertEquals(backward, source.backward)
+            assertFalse(source.predicate.isFalse || source.predicate.isTrue)
+            assertTrue(source.actions.isNotEmpty())
+            assertTrue(role != Role.GEN && role != Role.BINDING)
+            source.predicate.leaves.forEach {
+                path(it.fact); exclusion(it.exclusion)
+                assertIs<MarkSlot.Concrete>(it.fact.mark)
+                assertTrue(it.fact.tail == Tail.EXACT || it.fact.tail == Tail.ANY)
+                assertEquals(ExclusionSet.Empty, it.exclusion)
+                if (readsTouched) assertTrue(it.fact.base in s.touched)
+            }
+            source.actions.forEach {
+                path(it.target)
+                assertIs<MarkSlot.Concrete>(it.target.mark)
+                assertTrue(it.target.tail == Tail.EXACT || it.target.tail == Tail.ANY_TAINT)
+                assertTrue(it.target.base != zero)
+                if (backward) assertTrue(it.target.base in s.touched)
+            }
+        }
     }
     private fun reversedSummary(f: StatementSummary, b: StatementSummary, role: Role = Role.STATEMENT,
                                 sourceTargets: Boolean = false) {
@@ -143,6 +163,26 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
         for (c in f.conjunctions) for (lit in c.literals) {
             val edge = PathEdge(lit.fact, c.target, ExclusionSet.Empty)
             assertTrue(b.edges.any { it.conjunctive && it.may && it.forward == edge && it.edge == revEdge(edge) })
+        }
+        for (source in f.sources) {
+            val reversed = b.sources.single { it.id == source.id }
+            assertSame(source.predicate, reversed.predicate)
+            assertSame(source.actions, reversed.actions)
+            for ((ordinal, literal) in source.predicate.leaves.withIndex()) for (action in source.actions) {
+                val forward = PathEdge(literal.fact, action.target, ExclusionSet.Empty)
+                if (source.predicate.isUnary(ordinal)) {
+                    val edge = reversed.transfer(literal, action)
+                    assertEquals(forward, edge.forward)
+                    assertEquals(revEdge(forward), edge.edge)
+                    assertFalse(edge.conjunctive || edge.may)
+                }
+                if (source.predicate.isMulti(ordinal)) {
+                    val edge = reversed.transfer(literal, action, multi = true)
+                    assertEquals(forward, edge.forward)
+                    assertEquals(revEdge(forward), edge.edge)
+                    assertTrue(edge.conjunctive && edge.may)
+                }
+            }
         }
         for (base in f.targets - f.touched) assertTrue(b.edges.any { it.edge == keepEdge(base) })
     }
@@ -321,10 +361,10 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
         val b = forms.call(Direction.BACKWARD, s, call)
         plan(f, b, i)
         val source = f.stages.filterIsInstance<CallStage.Edges>().single { it.kind == StageKind.SOURCES }.summary
-        assertTrue(source.conjunctions.isNotEmpty())
+        assertTrue(source.sources.isNotEmpty())
         assertTrue(source.edges.any { it.isSource && it.edge.to.tail == Tail.EXACT })
-        assertTrue(source.conjunctions.any { it.target.tail == Tail.ANY_TAINT })
-        assertTrue(f.sinks.any { it.conjunctive && it.endFacts.isNotEmpty() })
+        assertTrue(source.sources.any { it.actions.any { action -> action.target.tail == Tail.ANY_TAINT } })
+        assertTrue(f.sinks.any { it.predicate!!.leaves.indices.any(it.predicate!!::isMulti) && it.endFacts.isNotEmpty() })
         val fields = f.stages.filterIsInstance<CallStage.Actions>().flatMap { it.steps }.filterIsInstance<CleanStep.Field>()
         assertTrue(fields.size >= 3)
         val identities = Collections.newSetFromMap(IdentityHashMap<AccessPathBase, Boolean>())
@@ -338,7 +378,7 @@ class JIRFormsContractTest : BidiJIRTestUtils() {
             val ef = boundary.exitRules(Direction.FORWARD, exit)
             val eb = boundary.exitRules(Direction.BACKWARD, exit)
             rule(ef.rules, eb.rules)
-            assertTrue(ef.rules.summary.conjunctions.isNotEmpty())
+            assertTrue(ef.rules.summary.sources.isNotEmpty())
             assertTrue(ef.rules.sinks.isNotEmpty())
         }
 

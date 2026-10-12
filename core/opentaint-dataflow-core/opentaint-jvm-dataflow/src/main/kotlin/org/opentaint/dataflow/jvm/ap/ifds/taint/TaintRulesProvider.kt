@@ -16,6 +16,11 @@ import org.opentaint.dataflow.configuration.jvm.TaintMethodSource
 import org.opentaint.dataflow.configuration.jvm.TaintPassThrough
 import org.opentaint.dataflow.configuration.jvm.TaintStaticFieldSource
 
+/**
+ * For unchanged query inputs in one selected rule/body generation, keep candidate, action and relevant-mark
+ * iteration order stable, including allRelevant queries. Equivalent rule copies are allowed. Rebuilt bidi
+ * forms use these original ordinals as logical identities; a new rule/body generation needs new form owners.
+ */
 interface TaintRulesProvider : CommonTaintRulesProvider {
     fun entryPointRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintEntryPointSource>
     fun sourceRulesForMethod(method: CommonMethod, statement: CommonInst, fact: FactAp?, allRelevant: Boolean = false): Iterable<TaintMethodSource>

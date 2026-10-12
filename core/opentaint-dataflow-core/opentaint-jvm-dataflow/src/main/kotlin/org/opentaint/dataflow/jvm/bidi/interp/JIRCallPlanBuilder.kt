@@ -8,6 +8,13 @@ import org.opentaint.dataflow.ap.ifds.analysis.MethodEntrypointResolver
 import org.opentaint.dataflow.bidi.ap.ApManager
 import org.opentaint.dataflow.bidi.ap.MethodKey
 import org.opentaint.dataflow.bidi.interp.CallCleaners
+import org.opentaint.dataflow.bidi.interp.ActionId
+import org.opentaint.dataflow.bidi.interp.ActionRole
+import org.opentaint.dataflow.bidi.interp.FormKey
+import org.opentaint.dataflow.bidi.interp.FormOwner
+import org.opentaint.dataflow.bidi.interp.RuleKind
+import org.opentaint.dataflow.bidi.interp.RuleOccurrenceId
+import org.opentaint.dataflow.bidi.interp.TemporaryKey
 import org.opentaint.dataflow.bidi.interp.CallPlan
 import org.opentaint.dataflow.bidi.interp.CallPoint.*
 import org.opentaint.dataflow.bidi.interp.CallStage.Actions
@@ -67,6 +74,7 @@ internal class JIRCallPlanBuilder(
     private val persistedAliases: (AccessPathBase.LocalVar, JIRInst) -> List<AliasApInfo> = { base, at ->
         aliasAnalysis?.aliasesPersistedThroughCall(base, at).orEmpty()
     },
+    private val formOwner: FormOwner = FormOwner(),
 ) {
     private val lambdas: Map<Int, Set<JIRMethod>> = Collections.unmodifiableMap(lambdas.mapValues { (_, methods) ->
         Collections.unmodifiableSet(LinkedHashSet(methods))
@@ -83,11 +91,16 @@ internal class JIRCallPlanBuilder(
     private val types = JIRMethodPositionBaseTypeResolver(callee)
     private fun filter(t: JIRType?) = typeFilters.of(t)
     private val passReads = LinkedHashSet<AccessPathBase>()
+    private val formKey = FormKey(formOwner, caller.method, caller, s)
+    private fun occurrence(kind: RuleKind, ordinal: Int) = RuleOccurrenceId(formKey, kind, ordinal)
 
     fun build(): CallPlan {
         val mayBeArray = { i: Int -> checker.callArgumentMayBeArray(call, AccessPathBase.Argument(i)) }
-        val sinks = forms.rules.sinkRulesForMethod(callee, s, fact = null).filter(forms::valid)
-            .flatMap { forms.sinks(it, rewriter.rewrite(it.condition), mayBeArray) }
+        val sinks = forms.rules.sinkRulesForMethod(callee, s, fact = null).withIndex()
+            .flatMap { (ordinal, rule) ->
+                if (!forms.valid(rule)) emptyList() else forms.sinks(rule,
+                    forms.rewriteSourceOrSink(rule, rewriter), occurrence(RuleKind.CALL_SINK, ordinal), mayBeArray)
+            }
         val (callees, unresolved) = resolve()
         val back = bindBack()
         val stages = buildList {
@@ -160,37 +173,52 @@ internal class JIRCallPlanBuilder(
 
     private fun sources(): StatementSummary = MicroEdgeBuilder().apply {
         keepZero()
-        for (rule in forms.rules.sourceRulesForMethod(callee, s, fact = null).filter(forms::valid)) {
-            val cubes = forms.cubes(rule, rewriter.rewrite(rule.condition))
-            for (a in rule.actionsAfter) for (cube in cubes) forms.source(this, rule, cube, a)
+        for ((ordinal, rule) in forms.rules.sourceRulesForMethod(callee, s, fact = null).withIndex()) {
+            if (!forms.valid(rule)) continue
+            forms.source(this, rule, occurrence(RuleKind.CALL_SOURCE, ordinal),
+                forms.rewriteSourceOrSink(rule, rewriter))
         }
     }.buildStage()
 
     private fun cleanSteps(): List<CleanStep> = buildList {
-        addAll(forms.rules.cleanerRulesForMethod(callee, s, fact = null).filter(forms::valid)
-            .flatMap { forms.cleanSteps(it, rewriter.rewrite(it.condition), types) })
-        for (cleaner in (callee as? CallCleaners)?.callCleaners.orEmpty())
-            add(forms.lowerCleaner(cleaner, types))
+        var ordinal = 0
+        for (rule in forms.rules.cleanerRulesForMethod(callee, s, fact = null)) {
+            val id = occurrence(RuleKind.CLEANER, ordinal++)
+            if (forms.valid(rule)) addAll(forms.cleanSteps(rule, rewriter.rewrite(rule.condition), types, id))
+        }
+        for (cleaner in (callee as? CallCleaners)?.callCleaners.orEmpty()) {
+            val id = ActionId(occurrence(RuleKind.CLEANER, ordinal++), ActionRole.GENERATED_CLEANER, 0)
+            add(forms.lowerCleaner(cleaner, types, TemporaryKey(id)))
+        }
     }
 
     private fun rewriterSteps(): List<CleanStep> {
         val out = ArrayList<CleanStep>()
-        fun add(rule: TaintConfigurationItem, positions: List<Position>, source: Boolean) {
+        fun add(rule: TaintConfigurationItem, id: RuleOccurrenceId,
+                positions: List<Pair<Int, Position>>, source: Boolean) {
             val info = rule.info as? UserDefinedRuleInfo ?: return
-            for (p in positions) for (m in info.relevantTaintMarks) {
+            for ((actionOrdinal, p) in positions) for ((markOrdinal, m) in info.relevantTaintMarks.withIndex()) {
                 val anyTarget = source && forms.pos(rule, p)?.any == true
                 val action = if (anyTarget)
                     RemoveMark(RuleMark(m), (p as PositionWithAccess).base, TaintCleanReach.ExactAndAnyField)
                 else RemoveMark(RuleMark(m), p, TaintCleanReach.Exact)
-                out += forms.unconditional(rule, action, types)
+                out += forms.unconditional(rule, action, types,
+                    ActionId(id, ActionRole.RETURN_REWRITER, actionOrdinal, markOrdinal))
             }
         }
-        for (rule in forms.rules.sourceRulesForMethod(callee, s, fact = null, allRelevant = true).filter(forms::valid))
-            if (!rewriter.rewrite(rule.condition).isFalse)
-                add(rule, rule.actionsAfter.map { it.position }, source = true)
-        for (rule in forms.rules.cleanerRulesForMethod(callee, s, fact = null, allRelevant = true).filter(forms::valid))
-            if (rewriter.rewrite(rule.condition).isTrue)
-                add(rule, rule.actionsAfter.filterIsInstance<RemoveMark>().map { it.position }, source = false)
+        var ordinal = 0
+        for (rule in forms.rules.sourceRulesForMethod(callee, s, fact = null, allRelevant = true)) {
+            val id = occurrence(RuleKind.REWRITER, ordinal++)
+            if (forms.valid(rule) && !forms.rewriteSourceOrSink(rule, rewriter, projectNegatives = false).isFalse)
+                add(rule, id, rule.actionsAfter.mapIndexed { i, action -> i to action.position }, source = true)
+        }
+        for (rule in forms.rules.cleanerRulesForMethod(callee, s, fact = null, allRelevant = true)) {
+            val id = occurrence(RuleKind.REWRITER, ordinal++)
+            if (forms.valid(rule) && rewriter.rewrite(rule.condition).isTrue)
+                add(rule, id, rule.actionsAfter.mapIndexedNotNull { i, action ->
+                    (action as? RemoveMark)?.let { i to it.position }
+                }, source = false)
+        }
         return out
     }
 

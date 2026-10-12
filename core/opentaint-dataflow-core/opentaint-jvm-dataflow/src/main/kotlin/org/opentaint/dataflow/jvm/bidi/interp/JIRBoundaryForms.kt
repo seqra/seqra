@@ -8,6 +8,9 @@ import org.opentaint.dataflow.bidi.ap.MarkSlot
 import org.opentaint.dataflow.bidi.ap.MethodKey
 import org.opentaint.dataflow.bidi.ap.TaintMark
 import org.opentaint.dataflow.bidi.interp.ExitRules
+import org.opentaint.dataflow.bidi.interp.FormKey
+import org.opentaint.dataflow.bidi.interp.RuleKind
+import org.opentaint.dataflow.bidi.interp.RuleOccurrenceId
 import org.opentaint.dataflow.bidi.interp.MicroEdgeBuilder
 import org.opentaint.dataflow.bidi.interp.RuleStatement
 import org.opentaint.dataflow.bidi.interp.SinkRule
@@ -39,20 +42,25 @@ internal object JIRBoundaryForms {
         val node = key.statement as JIRInst
         val rewriter = calleeRewriter(interp, entry, method, node)
         val builder = MicroEdgeBuilder().apply { keepZero() }
+        val form = FormKey(interp.entries.formOwner, method, key, node)
         val bases = listOf<AccessPathBase>(AccessPathBase.This) + method.parameters.indices.map { AccessPathBase.Argument(it) }
         for (base in bases) {
             val cls = key.context.locationClass(key, base) ?: continue
             builder.keep(base)
             builder.operandFilter(base, interp.typeFilters.of(cls.toType()))
         }
-        for (rule in interp.rules.entryPointRulesForMethod(method, node, fact = null).filter(interp.ruleForms::valid)) {
-            if (rewriter.rewrite(rule.condition).isTrue)
-                rule.actionsAfter.forEach { interp.ruleForms.source(builder, rule, emptyList(), it) }
+        for ((ordinal, rule) in interp.rules.entryPointRulesForMethod(method, node, fact = null).withIndex()) {
+            if (!interp.ruleForms.valid(rule)) continue
+            val condition = interp.ruleForms.rewriteSourceOrSink(rule, rewriter, projectNegatives = false)
+            if (condition.isTrue) interp.ruleForms.source(builder, rule,
+                RuleOccurrenceId(form, RuleKind.ENTRY_SOURCE, ordinal), condition)
         }
         val sinks = interp.rules.sinkRulesForMethodEntry(method, node, fact = null)
-            .filter(interp.ruleForms::valid).flatMap { rule ->
-                val condition = rewriter.rewrite(rule.condition)
-                if (condition.isTrue) interp.ruleForms.sinks(rule, condition) else emptyList()
+            .withIndex().flatMap { (ordinal, rule) ->
+                if (!interp.ruleForms.valid(rule)) return@flatMap emptyList()
+                val condition = interp.ruleForms.rewriteSourceOrSink(rule, rewriter, projectNegatives = false)
+                if (condition.isTrue) interp.ruleForms.sinks(rule, condition,
+                    RuleOccurrenceId(form, RuleKind.ENTRY_SINK, ordinal)) else emptyList()
             }
         return RuleStatement(builder.build(), genSummary(sinks), sinks)
     }
@@ -73,14 +81,18 @@ internal object JIRBoundaryForms {
         val method = key.method as JIRMethod
         val rewriter = calleeRewriter(interp, entry, method, exit)
         val builder = MicroEdgeBuilder().apply { keepZero() }
-        for (rule in interp.rules.exitSourceRulesForMethod(method, exit, fact = null).filter(forms::valid)) {
-            for (cube in forms.cubes(rule, rewriter.rewrite(rule.condition))) {
-                cube.forEach { builder.keep(it.base) }
-                rule.actionsAfter.forEach { forms.source(builder, rule, cube, it) }
-            }
+        val form = FormKey(interp.entries.formOwner, method, null, exit)
+        for ((ordinal, rule) in interp.rules.exitSourceRulesForMethod(method, exit, fact = null).withIndex()) {
+            if (!forms.valid(rule)) continue
+            val predicate = forms.source(builder, rule, RuleOccurrenceId(form, RuleKind.EXIT_SOURCE, ordinal),
+                forms.rewriteSourceOrSink(rule, rewriter))
+            predicate.leaves.forEach { builder.keep(it.fact.base) }
         }
         val sinks = interp.rules.sinkRulesForMethodExit(method, exit, fact = null, initialFacts = null)
-            .filter(forms::valid).flatMap { forms.sinks(it, rewriter.rewrite(it.condition)) }
+            .withIndex().flatMap { (ordinal, rule) ->
+                if (!forms.valid(rule)) emptyList() else forms.sinks(rule, forms.rewriteSourceOrSink(rule, rewriter),
+                    RuleOccurrenceId(form, RuleKind.EXIT_SINK, ordinal))
+            }
         return ExitRules(RuleStatement(builder.build(), genSummary(sinks), sinks),
             globalStateDrop = normal && sinks.isNotEmpty(),
             entryMarks = if (normal) entryMarks(entryRules) else emptySet())

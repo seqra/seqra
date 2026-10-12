@@ -10,7 +10,6 @@ import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.isF
 import org.opentaint.dataflow.bidi.ap.ApManager
 import org.opentaint.dataflow.bidi.ap.CleanReach
 import org.opentaint.dataflow.bidi.ap.Cleaner
-import org.opentaint.dataflow.bidi.ap.ConjunctiveEdge
 import org.opentaint.dataflow.bidi.ap.ExclusionSet
 import org.opentaint.dataflow.bidi.ap.MarkSlot
 import org.opentaint.dataflow.bidi.ap.PathEdge
@@ -20,6 +19,14 @@ import org.opentaint.dataflow.bidi.ap.Pattern
 import org.opentaint.dataflow.bidi.ap.Tail
 import org.opentaint.dataflow.bidi.ap.TaintMark
 import org.opentaint.dataflow.bidi.interp.CleanStep
+import org.opentaint.dataflow.bidi.interp.ActionId
+import org.opentaint.dataflow.bidi.interp.ActionRole
+import org.opentaint.dataflow.bidi.interp.FormCacheStatistics
+import org.opentaint.dataflow.bidi.interp.RuleOccurrenceId
+import org.opentaint.dataflow.bidi.interp.RulePredicate
+import org.opentaint.dataflow.bidi.interp.SourceAction
+import org.opentaint.dataflow.bidi.interp.SourceRuleOccurrence
+import org.opentaint.dataflow.bidi.interp.TemporaryKey
 import org.opentaint.dataflow.bidi.interp.MicroEdge
 import org.opentaint.dataflow.bidi.interp.MicroEdgeBuilder
 import org.opentaint.dataflow.bidi.interp.SinkRule
@@ -35,6 +42,7 @@ import org.opentaint.dataflow.configuration.jvm.Action
 import org.opentaint.dataflow.configuration.jvm.AssignMark
 import org.opentaint.dataflow.configuration.jvm.Condition
 import org.opentaint.dataflow.configuration.jvm.ContainsMark
+import org.opentaint.dataflow.configuration.jvm.JirCondition
 import org.opentaint.dataflow.configuration.jvm.CopyAllMarks
 import org.opentaint.dataflow.configuration.jvm.CopyMark
 import org.opentaint.dataflow.configuration.jvm.Position
@@ -54,18 +62,19 @@ import org.opentaint.dataflow.jvm.ap.ifds.taint.resolveAp
 import org.opentaint.dataflow.taint.PositionAccess
 import org.opentaint.dataflow.taint.PositionTypeResolver
 import org.opentaint.dataflow.taint.RuleConditionRewriter.ExprOrConstant
+import org.opentaint.dataflow.taint.RuleConditionRewriter
+import org.opentaint.dataflow.taint.SignedConditionNormalizer
 import org.opentaint.dataflow.taint.TaintMarkAwareConditionExpr
 import org.opentaint.dataflow.taint.TaintMarkAwareConditionExpr.ContainsMarkLiteral
 import org.opentaint.dataflow.taint.TaintMarkAwareConditionExpr.ContainsMarkOnAnyAccessorLiteral
 import org.opentaint.dataflow.taint.accessors
 import org.opentaint.dataflow.taint.base
-import org.opentaint.dataflow.taint.explodeToDNF
-import org.opentaint.dataflow.taint.removeTrueLiterals
-import org.opentaint.dataflow.util.cartesianProductMapTo
+import org.opentaint.dataflow.util.WeakIdentityCache
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
 import java.util.Collections
+import java.util.IdentityHashMap
 import java.util.concurrent.ConcurrentHashMap
 
 /** Rule forms use callee coordinates. A rejected rule contributes no partial form. */
@@ -75,6 +84,7 @@ internal class JIRRuleForms(
     val errors: RuleErrors,
     private val typeFilters: JIRTypeFilters,
     private val resultBase: AccessPathBase = AccessPathBase.Return,
+    private val statistics: FormCacheStatistics? = null,
 ) {
     /** A final AnyField selects a tail; it is never part of an indexed concrete path. */
     data class RulePos(val base: AccessPathBase, val path: List<AccessorIdx>, val any: Boolean) {
@@ -112,20 +122,145 @@ internal class JIRRuleForms(
         is ContainsMarkOnAnyAccessorLiteral -> pos(rule, l.position)?.copy(any = true)?.fact(mark(l.mark.mark))
     }
 
-    /** Negated mark literals count as true in source and sink conditions. */
-    fun cubes(rule: Any, cond: ExprOrConstant): List<List<PathFact>> {
-        if (cond.isFalse) return emptyList()
-        if (cond.isTrue) return listOf(emptyList())
-        val positive = cond.expr.removeTrueLiterals { it.negated } ?: return listOf(emptyList())
-        return positive.explodeToDNF().map { cube ->
-            cube.literals.map {
-                checkNotNull(literal(rule, it)) { "a rejected rule reaches the forms (§1.3): $rule" }
-            }.distinct()
-        }.distinct()
+    /** Validate before folding; entry eligibility can inspect signed output before negative approximation. */
+    fun rewriteSourceOrSink(rule: TaintConfigurationItem, rewriter: RuleConditionRewriter<JirCondition>,
+                            projectNegatives: Boolean = true): ExprOrConstant {
+        check(rule is TaintConfigurationSource || rule is TaintConfigurationSink)
+        if (!valid(rule)) return RuleConditionRewriter.falseExpr
+        val signed = SignedConditionNormalizer.normalize(rule.rawCondition, manager.cancellation)
+        val rewritten = rewriteStatic(signed, rewriter)
+        return normalizedSourceOrSink(rewritten, projectNegatives)
     }
 
-    fun valid(rule: TaintConfigurationItem): Boolean = validity.computeIfAbsent(rule, ::validate)
-    private val validity = ConcurrentHashMap<TaintConfigurationItem, Boolean>()
+    /** Fold signed mark complements before the source/sink approximation of remaining negatives. */
+    fun normalizedSourceOrSink(cond: ExprOrConstant, projectNegatives: Boolean = true): ExprOrConstant {
+        manager.cancellation.checkpoint()
+        if (cond.isFalse || cond.isTrue) return cond
+        val signed = signedMarkCondition(cond.expr)
+        return markExpression(SignedConditionNormalizer.normalize(signed, manager.cancellation,
+            negativeLiteralsAreTrue = projectNegatives))
+    }
+
+    private fun rewriteStatic(condition: Condition, rewriter: RuleConditionRewriter<JirCondition>): ExprOrConstant {
+        val done = IdentityHashMap<Condition, ExprOrConstant>()
+        val todo = ArrayDeque<Pair<Condition, Boolean>>().also { it.add(condition to false) }
+        while (todo.isNotEmpty()) {
+            manager.cancellation.checkpoint()
+            val (node, finish) = todo.removeLast()
+            if (done.containsKey(node)) continue
+            val children = when (node) {
+                is CommonCondition.And -> node.args
+                is CommonCondition.Or -> node.args
+                else -> emptyList()
+            }
+            if (!finish && children.isNotEmpty()) {
+                todo.add(node to true)
+                children.asReversed().forEach { todo.add(it to false) }
+                continue
+            }
+            done[node] = when (node) {
+                is CommonCondition.True -> RuleConditionRewriter.trueExpr
+                is CommonCondition.Atom -> rewriter.rewriteAtom(node.atom, negated = false)
+                is CommonCondition.Not -> {
+                    val atom = node.arg as? CommonCondition.Atom
+                    if (atom == null) {
+                        check(node.arg is CommonCondition.True) { "Signed NNF expected" }
+                        RuleConditionRewriter.falseExpr
+                    } else rewriter.rewriteAtom(atom.atom, negated = true)
+                }
+                is CommonCondition.And -> markJunction(children.map { checkNotNull(done[it]) }, and = true)
+                is CommonCondition.Or -> markJunction(children.map { checkNotNull(done[it]) }, and = false)
+            }
+        }
+        return checkNotNull(done[condition])
+    }
+
+    private fun markJunction(children: List<ExprOrConstant>, and: Boolean): ExprOrConstant {
+        if (children.any { if (and) it.isFalse else it.isTrue })
+            return if (and) RuleConditionRewriter.falseExpr else RuleConditionRewriter.trueExpr
+        val exprs = children.filterNot { if (and) it.isTrue else it.isFalse }.map { it.expr }
+        if (exprs.isEmpty()) return if (and) RuleConditionRewriter.trueExpr else RuleConditionRewriter.falseExpr
+        if (exprs.size == 1) return ExprOrConstant(exprs.single())
+        return ExprOrConstant(if (and) TaintMarkAwareConditionExpr.And(exprs.toTypedArray())
+            else TaintMarkAwareConditionExpr.Or(exprs.toTypedArray()))
+    }
+
+    private fun signedMarkCondition(expr: TaintMarkAwareConditionExpr): CommonCondition<TaintMarkAwareConditionExpr.Literal> {
+        val done = IdentityHashMap<TaintMarkAwareConditionExpr, CommonCondition<TaintMarkAwareConditionExpr.Literal>>()
+        val todo = ArrayDeque<Pair<TaintMarkAwareConditionExpr, Boolean>>().also { it.add(expr to false) }
+        while (todo.isNotEmpty()) {
+            manager.cancellation.checkpoint()
+            val (node, finish) = todo.removeLast()
+            if (done.containsKey(node)) continue
+            val children = when (node) {
+                is TaintMarkAwareConditionExpr.And -> node.args.toList()
+                is TaintMarkAwareConditionExpr.Or -> node.args.toList()
+                is TaintMarkAwareConditionExpr.Literal -> emptyList()
+            }
+            if (!finish && children.isNotEmpty()) {
+                todo.add(node to true)
+                children.asReversed().forEach { todo.add(it to false) }
+                continue
+            }
+            done[node] = when (node) {
+                is TaintMarkAwareConditionExpr.Literal -> {
+                    val positive = when (node) {
+                        is ContainsMarkLiteral -> node.copy(negated = false)
+                        is ContainsMarkOnAnyAccessorLiteral -> node.copy(negated = false)
+                    }
+                    val atom: CommonCondition<TaintMarkAwareConditionExpr.Literal> = CommonCondition.Atom(positive)
+                    if (node.negated) CommonCondition.Not(atom) else atom
+                }
+                is TaintMarkAwareConditionExpr.And -> CommonCondition.And(children.map { checkNotNull(done[it]) })
+                is TaintMarkAwareConditionExpr.Or -> CommonCondition.Or(children.map { checkNotNull(done[it]) })
+            }
+        }
+        return checkNotNull(done[expr])
+    }
+
+    private fun markExpression(condition: CommonCondition<TaintMarkAwareConditionExpr.Literal>): ExprOrConstant {
+        val done = IdentityHashMap<CommonCondition<TaintMarkAwareConditionExpr.Literal>, ExprOrConstant>()
+        val todo = ArrayDeque<Pair<CommonCondition<TaintMarkAwareConditionExpr.Literal>, Boolean>>()
+        todo.add(condition to false)
+        while (todo.isNotEmpty()) {
+            manager.cancellation.checkpoint()
+            val (node, finish) = todo.removeLast()
+            if (done.containsKey(node)) continue
+            val children = when (node) {
+                is CommonCondition.And -> node.args
+                is CommonCondition.Or -> node.args
+                else -> emptyList()
+            }
+            if (!finish && children.isNotEmpty()) {
+                todo.add(node to true)
+                children.asReversed().forEach { todo.add(it to false) }
+                continue
+            }
+            done[node] = when (node) {
+                is CommonCondition.True -> RuleConditionRewriter.trueExpr
+                is CommonCondition.Atom -> ExprOrConstant(node.atom)
+                is CommonCondition.Not -> {
+                    val atom = node.arg as? CommonCondition.Atom
+                    if (atom == null) {
+                        check(node.arg is CommonCondition.True)
+                        RuleConditionRewriter.falseExpr
+                    } else ExprOrConstant(atom.atom.negate())
+                }
+                is CommonCondition.And -> markJunction(children.map { checkNotNull(done[it]) }, and = true)
+                is CommonCondition.Or -> markJunction(children.map { checkNotNull(done[it]) }, and = false)
+            }
+        }
+        return checkNotNull(done[condition])
+    }
+
+    fun predicate(rule: Any, cond: ExprOrConstant, mayBeArray: (Int) -> Boolean = { false }): RulePredicate =
+        JIRRulePredicates(manager, statistics) { checkNotNull(literal(rule, it)) { "A rejected rule reaches predicate compilation" } }
+            .compile(normalizedSourceOrSink(cond), mayBeArray)
+
+    fun valid(rule: TaintConfigurationItem): Boolean =
+        validity.getOrPut(rule, ::validate)
+    // Spring providers make transient copies. Neither cache keys nor Boolean values own those rules.
+    private val validity = WeakIdentityCache<TaintConfigurationItem, Boolean>()
 
     private fun validate(rule: TaintConfigurationItem): Boolean {
         var ok = true
@@ -187,20 +322,21 @@ internal class JIRRuleForms(
     }
 
     private fun markLiterals(c: Condition): List<Pair<Position, Boolean>> = buildList {
-        fun walk(x: Condition) {
-            when (x) {
+        val todo = ArrayDeque<Condition>().also { it.add(c) }
+        while (todo.isNotEmpty()) {
+            manager.cancellation.checkpoint()
+            when (val x = todo.removeLast()) {
                 is CommonCondition.Atom -> when (val a = x.atom) {
                     is ContainsMark -> add(a.position to false)
                     is ContainsMarkOnAnyField -> add(a.position to true)
                     else -> Unit
                 }
-                is CommonCondition.Not -> walk(x.arg)
-                is CommonCondition.And -> x.args.forEach(::walk)
-                is CommonCondition.Or -> x.args.forEach(::walk)
+                is CommonCondition.Not -> todo.add(x.arg)
+                is CommonCondition.And -> todo.addAll(x.args.asReversed())
+                is CommonCondition.Or -> todo.addAll(x.args.asReversed())
                 else -> Unit
             }
         }
-        walk(c)
     }
 
     private val TaintConfigurationItem.rawCondition: Condition get() = when (this) {
@@ -210,21 +346,24 @@ internal class JIRRuleForms(
         is TaintCleaner -> condition
     }
 
-    /** This producer owns side paths and conjunction literal containers. */
-    fun ruleEdge(b: MicroEdgeBuilder, premises: List<PathFact>, target: PathFact) {
-        val to = ownFact(target)
-        when (premises.size) {
-            0 -> b.edge(PathEdge(ZERO_FACT, to, ExclusionSet.Empty))
-            1 -> b.edge(PathEdge(ownFact(premises[0]), to, ExclusionSet.Empty))
-            else -> b.conjunction(ConjunctiveEdge(owned(premises.map { Pattern(ownFact(it), ExclusionSet.Empty) }), to))
-        }
-    }
+    private fun edge(b: MicroEdgeBuilder, from: PathFact?, target: PathFact) =
+        b.edge(PathEdge(from?.let(::ownFact) ?: ZERO_FACT, ownFact(target), ExclusionSet.Empty))
 
     fun markTarget(rule: Any, a: AssignMark): PathFact =
         checkNotNull(pos(rule, a.position)) { "a rejected rule reaches the forms (§1.3): $rule" }.sourceFact(mark(a.mark))
 
-    fun source(b: MicroEdgeBuilder, rule: TaintConfigurationItem, cube: List<PathFact>, a: AssignMark) {
-        ruleEdge(b, cube, markTarget(rule, a))
+    /** Constant sources retain the original zero edge; conditions and actions are separate vectors. */
+    fun source(b: MicroEdgeBuilder, rule: TaintConfigurationSource, id: RuleOccurrenceId, cond: ExprOrConstant): RulePredicate {
+        val predicate = predicate(rule, cond)
+        if (predicate.isFalse || rule.actionsAfter.isEmpty()) return predicate
+        if (predicate.isTrue) {
+            rule.actionsAfter.forEach { edge(b, null, markTarget(rule, it)) }
+            return predicate
+        }
+        b.source(SourceRuleOccurrence(id, predicate, rule.actionsAfter.mapIndexed { ordinal, action ->
+            SourceAction(ActionId(id, ActionRole.SOURCE, ordinal), markTarget(rule, action))
+        }))
+        return predicate
     }
 
     /** The provider is reduced by prescan; rule selection never depends on a propagated fact. */
@@ -236,31 +375,20 @@ internal class JIRRuleForms(
         b.keepZero()
         for (rule in found) for (a in rule.actionsAfter) {
             val p = checkNotNull(pos(rule, a.position))
-            ruleEdge(b, emptyList(), p.copy(base = x).sourceFact(mark(a.mark)))
+            edge(b, null, p.copy(base = x).sourceFact(mark(a.mark)))
         }
     }
 
-    fun sinks(rule: TaintConfigurationSink, cond: ExprOrConstant,
+    fun sinks(rule: TaintConfigurationSink, cond: ExprOrConstant, id: RuleOccurrenceId,
               mayBeArray: (Int) -> Boolean = { false }): List<SinkRule> {
-        val ends = endFacts(rule)
-        val alternatives = cubes(rule, cond).flatMap { cube ->
-            if (cube.isEmpty()) return@flatMap listOf(listOf(ZERO_PATTERN))
-            cube.map { elementChoices(it, mayBeArray) }.cartesianProductMapTo { choice ->
-                choice.map { Pattern(it, ExclusionSet.Empty) }.distinct()
-            }
-        }.distinct()
-        return alternatives.mapIndexed { i, patterns -> SinkRule(rule, i, patterns, ends) }
+        val predicate = predicate(rule, cond, mayBeArray)
+        if (predicate.isFalse) return emptyList()
+        return listOf(SinkRule(rule, 0, if (predicate.isTrue) listOf(ZERO_PATTERN) else predicate.leaves,
+            endFacts(rule), id, predicate))
     }
-
-    private fun elementChoices(lit: PathFact, mayBeArray: (Int) -> Boolean): List<PathFact> {
-        val b = lit.base as? AccessPathBase.Argument ?: return listOf(lit)
-        if (!mayBeArray(b.idx)) return listOf(lit)
-        return listOf(lit, lit.copy(path = owned(listOf(elementIdx) + lit.path)))
-    }
-    private val elementIdx: AccessorIdx = manager.accessors.index(ElementAccessor)
 
     fun endFacts(rule: TaintConfigurationSink): List<MicroEdge> = MicroEdgeBuilder().apply {
-        for (a in rule.trackFactsReachAnalysisEnd) ruleEdge(this, emptyList(), markTarget(rule, a))
+        for (a in rule.trackFactsReachAnalysisEnd) edge(this, null, markTarget(rule, a))
     }.buildGen().edges
 
     fun pass(b: MicroEdgeBuilder, rule: TaintConfigurationItem, action: Action): Pair<AccessPathBase, AccessPathBase>? {
@@ -276,17 +404,21 @@ internal class JIRRuleForms(
         b.edge(keepEdge(from.base))
         when (action) {
             is CopyAllMarks -> b.edge(PathEdge(from.star(), to.star(), ExclusionSet.Empty))
-            is CopyMark -> mark(action.mark).let { t -> ruleEdge(b, listOf(from.fact(t)), to.fact(t)) }
+            is CopyMark -> mark(action.mark).let { t -> edge(b, from.fact(t), to.fact(t)) }
             else -> Unit
         }
         return from.base to to.base
     }
 
     /** Only a rewritten true condition permits a cleaner; no remaining mark literal can request or clean. */
-    fun cleanSteps(rule: TaintCleaner, cond: ExprOrConstant, types: PositionTypeResolver): List<CleanStep> =
-        if (cond.isTrue) rule.actionsAfter.flatMap { unconditional(rule, it, types) } else emptyList()
+    fun cleanSteps(rule: TaintCleaner, cond: ExprOrConstant, types: PositionTypeResolver,
+                   id: RuleOccurrenceId? = null): List<CleanStep> =
+        if (cond.isTrue) rule.actionsAfter.flatMapIndexed { ordinal, action ->
+            unconditional(rule, action, types, id?.let { ActionId(it, ActionRole.BOUND_CLEANER, ordinal) })
+        } else emptyList()
 
-    fun unconditional(rule: TaintConfigurationItem, a: Action, types: PositionTypeResolver): List<CleanStep> = when (a) {
+    fun unconditional(rule: TaintConfigurationItem, a: Action, types: PositionTypeResolver,
+                      actionId: ActionId? = null): List<CleanStep> = when (a) {
         is RemoveMark -> {
             val p = checkNotNull(pos(rule, a.position)) { "a rejected rule reaches the forms (§1.3): $rule" }
             val t = mark(a.mark)
@@ -297,7 +429,9 @@ internal class JIRRuleForms(
             }
             val bytes = stringBytes(p, types)
             listOfNotNull(Cleaner(p.base, node(p.path), reach, t),
-                bytes?.let { Cleaner(p.base, node(p.path + it), reach, t) }).map { lowerCleaner(it, types) }
+                bytes?.let { Cleaner(p.base, node(p.path + it), reach, t) }).mapIndexed { substep, cl ->
+                lowerCleaner(cl, types, actionId?.let { TemporaryKey(it, substep) })
+            }
         }
         is RemoveAllMarks -> {
             val p = checkNotNull(pos(rule, a.position)) { "a rejected rule reaches the forms (§1.3): $rule" }
@@ -308,20 +442,22 @@ internal class JIRRuleForms(
                     strongKeep(AccessPathBase.ClassStatic, p.path).forEach { edge(it) }
                 }.build()))
                 else -> listOf(lowerCleaner(Cleaner(p.base, node(p.path),
-                    if (p.any) CleanReach.BELOW else CleanReach.AT_AND_BELOW, mark = null), types))
+                    if (p.any) CleanReach.BELOW else CleanReach.AT_AND_BELOW, mark = null), types,
+                    actionId?.let { TemporaryKey(it) }))
             }
         }
         else -> emptyList()
     }
 
     /** Named nonstatic terminal fields use a typed field-value temporary. */
-    fun lowerCleaner(cl: Cleaner, types: PositionTypeResolver): CleanStep {
+    fun lowerCleaner(cl: Cleaner, types: PositionTypeResolver, temporaryKey: TemporaryKey? = null): CleanStep {
         val path = cl.path?.toList().orEmpty()
         if (cl.base == AccessPathBase.ClassStatic || path.isEmpty() || !path.last().isFieldAccessor())
             return CleanStep.Clean(cl)
         val baseType = types.resolve(PositionAccess.Simple(cl.base)) as? JIRType
         val (baseFilter, valueFilter) = typeFilters.forField(baseType, path)
-        return fieldCleanStep(cl.base, path, cl.reach, cl.mark, baseFilter = baseFilter, valueFilter = valueFilter)
+        return fieldCleanStep(cl.base, path, cl.reach, cl.mark, baseFilter = baseFilter, valueFilter = valueFilter,
+            temporaryKey = temporaryKey)
     }
 
     private fun stringBytes(p: RulePos, types: PositionTypeResolver): AccessorIdx? {
@@ -337,13 +473,19 @@ private fun ownFact(p: PathFact): PathFact = p.copy(path = owned(p.path))
 
 /** Reject a complete rule, or report the pass-rule mark-condition exception, once per reason. */
 class RuleErrors {
-    private val seen = ConcurrentHashMap.newKeySet<Pair<Any, String>>()
+    private val seen = WeakIdentityCache<Any, MutableSet<String>>()
+    private fun first(rule: Any, reason: String): Boolean =
+        seen.getOrPut(rule) { ConcurrentHashMap.newKeySet<String>() }.add(reason)
+    private fun description(rule: Any): String = if (rule is TaintConfigurationItem)
+        "${rule.javaClass.simpleName}[${rule.serializedId ?: (rule as? TaintConfigurationSink)?.id ?: "unidentified"}]"
+        else rule.toString()
     fun reject(rule: Any, reason: String): Boolean {
-        if (seen.add(rule to reason)) logger.warn { "Rule rejected ($reason): $rule" }
+        if (first(rule, reason)) logger.warn { "Rule rejected ($reason): ${description(rule)}" }
         return false
     }
     fun applied(rule: Any, reason: String) {
-        if (seen.add(rule to reason)) logger.warn { "Rule applied in part ($reason): $rule" }
+        if (first(rule, reason)) logger.warn { "Rule applied in part ($reason): ${description(rule)}" }
     }
+    fun pruneDiagnostics(): Int = seen.pruneAll()
     private companion object { val logger = KotlinLogging.logger {} }
 }

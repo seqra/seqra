@@ -10,8 +10,14 @@ import org.opentaint.dataflow.ap.ifds.MethodContext
 import org.opentaint.dataflow.ap.ifds.access.FactAp
 import org.opentaint.dataflow.ap.ifds.access.InitialFactAp
 import org.opentaint.dataflow.bidi.ap.*
+import org.opentaint.dataflow.bidi.driver.SeedIndex
+import org.opentaint.dataflow.bidi.engine.*
 import org.opentaint.dataflow.bidi.interp.*
-import org.opentaint.dataflow.bidi.store.RequestKind
+import org.opentaint.dataflow.bidi.store.*
+import org.opentaint.dataflow.graph.MethodInstGraph
+import org.opentaint.dataflow.ifds.UnitResolver
+import org.opentaint.dataflow.ifds.UnknownUnit
+import org.opentaint.dataflow.util.RefManager
 import org.opentaint.dataflow.configuration.CommonCondition
 import org.opentaint.dataflow.configuration.CommonTaintConfigurationSinkMeta
 import org.opentaint.dataflow.configuration.mkFalse
@@ -30,6 +36,7 @@ import org.opentaint.ir.api.common.CommonMethod
 import org.opentaint.ir.api.common.cfg.CommonInst
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.ir.api.jvm.ext.toType
+import java.lang.reflect.InvocationTargetException
 import kotlin.test.*
 
 /** Expected paths and edges are the boundary rows, independent of the boundary builder. */
@@ -212,7 +219,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
     }
 
     @Test
-    fun `exit DNF sources create independent conjunctions and map Result to the exceptional base`(): Unit {
+    fun `exit NNF source shares its predicate and maps Result to the exceptional base`(): Unit {
         val m = method("inheritedWrite")
         val cond: Condition = CommonCondition.Or(listOf(
             CommonCondition.And(listOf(contains(Argument(0)), containsAny(Argument(1), "U"))),
@@ -228,15 +235,18 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
             val s = end(i, m, node, entry).rules.summary
             val target = fact(resultBase, listOf(f), Tail.ANY_TAINT, outMark)
             assertEquals(setOf(AccessPathBase.Zero, arg0, arg1, self, resultBase), s.touched)
-            assertEquals(setOf(ZERO_KEEP, keepEdge(arg0), keepEdge(arg1), keepEdge(self), keepEdge(resultBase),
-                edge(fact(resultBase, mark = w), target)), s.edges.map { it.edge }.toSet())
-            assertEquals(2, s.conjunctions.size)
-            assertEquals(setOf(
-                setOf(Pattern(fact(arg0), empty), Pattern(fact(arg1, tail = Tail.ANY, mark = u), empty)),
-                setOf(Pattern(fact(arg0), empty), Pattern(fact(self, mark = v), empty)),
-            ), s.conjunctions.map { it.literals.toSet() }.toSet())
-            assertTrue(s.conjunctions.all { it.target == target && it.literals.size == 2 })
-            assertNotSame(s.conjunctions[0], s.conjunctions[1])
+            assertEquals(setOf(ZERO_KEEP, keepEdge(arg0), keepEdge(arg1), keepEdge(self), keepEdge(resultBase)),
+                s.edges.map { it.edge }.toSet())
+            assertTrue(s.conjunctions.isEmpty())
+            val source = s.sources.single()
+            assertEquals(target, source.actions.single().target)
+            assertEquals(setOf(Pattern(fact(arg0), empty), Pattern(fact(arg1, tail = Tail.ANY, mark = u), empty),
+                Pattern(fact(self, mark = v), empty), Pattern(fact(resultBase, mark = w), empty)), source.predicate.leaves.toSet())
+            assertEquals(RulePredicate.Kind.OR, source.predicate.kind(source.predicate.root))
+            for ((ordinal, literal) in source.predicate.leaves.withIndex()) {
+                assertEquals(literal.fact.base == resultBase, source.predicate.isUnary(ordinal))
+                assertEquals(literal.fact.base != resultBase, source.predicate.isMulti(ordinal))
+            }
             assertTrue(s.typeFilters.isEmpty() && s.resultFilters.isEmpty())
         }
     }
@@ -292,6 +302,14 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
                 }
                 override fun conjunction(cj: ConjunctiveEdge, premise: PremiseKey, c: Facts, node: CommonInst,
                                          out: (PremiseKey, Facts) -> Unit) = error("This exit source has one literal")
+                override fun sourcePredicate(source: SourceRuleOccurrence, premise: PremiseKey, c: Facts, node: CommonInst,
+                                             statementEdge: Boolean, out: (PremiseKey, Facts) -> Unit) {
+                    check(source.backward == (mode.direction == Direction.BACKWARD))
+                    for ((ordinal, literal) in source.predicate.leaves.withIndex()) {
+                        check(source.predicate.isUnary(ordinal) && !source.predicate.isMulti(ordinal))
+                        for (action in source.actions) applyEdge(source.transfer(literal, action), c, premise, statementEdge, out)
+                    }
+                }
                 override fun allowsSource(node: CommonInst, me: MicroEdge) = true
                 override fun sourceHit(node: CommonInst, me: MicroEdge) = Unit
             })
@@ -319,7 +337,11 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
             val from = fact(STATIC, listOf(cls, staticField))
             val target = fact(resultBase, mark = outMark)
             assertEquals(setOf(AccessPathBase.Zero, STATIC), forward.touched)
-            assertEquals(listOf(ZERO_KEEP, keepEdge(STATIC), edge(from, target)), forward.edges.map { it.edge })
+            assertEquals(listOf(ZERO_KEEP, keepEdge(STATIC)), forward.edges.map { it.edge })
+            val source = forward.sources.single()
+            assertEquals(Pattern(from, empty), source.predicate.leaves.single())
+            assertEquals(target, source.actions.single().target)
+            assertEquals(edge(from, target), source.transfer(source.predicate.leaves.single(), source.actions.single()).edge)
             assertTrue(forward.conjunctions.isEmpty())
             val reversed = forward.reversed()
             for (path in listOf(emptyList(), listOf(cls))) {
@@ -368,7 +390,7 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
     }
 
     @Test
-    fun `exit sinks retain each DNF alternative and never add call array alternatives`(): Unit {
+    fun `exit sinks retain one NNF rule and never add call array alternatives`(): Unit {
         val m = method("arrayWrite")
         val cond: Condition = CommonCondition.Or(listOf(contains(Argument(0)),
             CommonCondition.And(listOf(containsAny(field(Argument(1)), "U"), contains(Result, "V")))))
@@ -378,15 +400,195 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
         val entry = start(i, m)
         for ((node, resultBase) in listOf(normalExit(m) to ret, exceptionalExit(m) to exc)) {
             val sinks = end(i, m, node, entry).rules.sinks
-            assertEquals(2, sinks.size)
-            assertEquals(setOf(0, 1), sinks.map { it.alternative }.toSet())
-            assertTrue(sinks.all { it.rule === sink })
-            assertEquals(setOf(
-                setOf(Pattern(fact(arg0), empty)),
-                setOf(Pattern(fact(arg1, listOf(f), Tail.ANY, u), empty), Pattern(fact(resultBase, mark = v), empty)),
-            ), sinks.map { it.patterns.toSet() }.toSet())
-            assertTrue(sinks.flatMap { it.patterns }.none { it.fact.path.firstOrNull() == element })
-            assertEquals(sinks.map { it.patterns }, sinks.map { it.seedPatterns() })
+            val compiled = sinks.single()
+            assertSame(sink, compiled.rule)
+            val predicate = assertNotNull(compiled.predicate)
+            assertEquals(RulePredicate.Kind.OR, predicate.kind(predicate.root))
+            assertEquals(setOf(Pattern(fact(arg0), empty),
+                Pattern(fact(arg1, listOf(f), Tail.ANY, u), empty), Pattern(fact(resultBase, mark = v), empty)),
+                compiled.patterns.toSet())
+            assertEquals(predicate.leaves, compiled.patterns)
+            assertTrue(compiled.patterns.none { it.fact.path.firstOrNull() == element })
+            assertEquals(compiled.patterns, compiled.seedPatterns())
+        }
+    }
+
+    @Test
+    fun `signed contradiction has no source sink end target or drop effect at either actual boundary`(): Unit {
+        val m = method("phi")
+        val cls = manager.accessors.index(ClassStaticAccessor(owner))
+        val staticField = manager.accessors.index(FieldAccessor(owner, "sField", "java.lang.Object"))
+        val p = contains(PositionWithAccess(ClassStatic(owner),
+            PositionAccessor.FieldAccessor(owner, "sField", "java.lang.Object")))
+        val contradiction: Condition = CommonCondition.And(listOf(p, CommonCondition.Not(p)))
+        val provider = BoundaryRules().apply {
+            exitSources = listOf(exitSource(m, listOf(AssignMark(RuleMark("Out"), any(Result))), contradiction))
+            exitSinks = listOf(exitSink(m, listOf(AssignMark(RuleMark("W"), field(Result, "g"))), contradiction))
+        }
+        val i = interp(provider)
+        val caller = setOf(Pattern(fact(arg1), empty), Pattern(fact(AccessPathBase.Argument(2), mark = u), empty))
+        val static = conclusion(fact(STATIC, listOf(cls, staticField)))
+        val state = conclusion(fact(arg1, listOf(g)))
+        val input = listOf(setOf(ZERO_PATTERN) to conclusion(ZERO_FACT), setOf(ZERO_PATTERN) to static, caller to state)
+        for ((node, normal) in listOf(normalExit(m) to true, exceptionalExit(m) to false)) {
+            val rules = end(i, m, node)
+            assertEquals(setOf(AccessPathBase.Zero), rules.rules.summary.touched,
+                "A false rule must not retain its static read footprint")
+            assertTrue(rules.rules.summary.sources.isEmpty())
+            assertTrue(rules.rules.sinks.isEmpty())
+            assertTrue(rules.rules.endFacts.edges.isEmpty())
+            assertFalse(rules.globalStateDrop)
+            val observed = executeBoundary(i, m, node, input, normal)
+            assertEquals(input.map { it.second }.toSet(), observed.beforeDrop)
+            assertEquals(if (normal) input.toSet() else emptySet(), observed.summaries)
+            assertTrue(observed.witnesses.isEmpty())
+            assertTrue(observed.requests.isEmpty())
+            assertTrue(observed.beforeDrop.none { (it.fact.mark as? MarkSlot.Concrete)?.mark in setOf(outMark, w) })
+        }
+    }
+
+    @Test
+    fun `live OR keeps its redundant AND read for G2 but preserves full caller set state at both boundaries`(): Unit {
+        val m = method("phi")
+        val cls = manager.accessors.index(ClassStaticAccessor(owner))
+        val staticField = manager.accessors.index(FieldAccessor(owner, "sField", "java.lang.Object"))
+        val a: Condition = contains(Argument(1))
+        val b: Condition = contains(PositionWithAccess(ClassStatic(owner),
+            PositionAccessor.FieldAccessor(owner, "sField", "java.lang.Object")), "U")
+        val condition: Condition = CommonCondition.Or(listOf(a, CommonCondition.And(listOf(a, b))))
+        val provider = BoundaryRules().apply {
+            exitSinks = listOf(exitSink(m, listOf(AssignMark(RuleMark("W"), Result)), condition))
+        }
+        val i = interp(provider)
+        val caller = setOf(Pattern(fact(arg1), empty), Pattern(fact(AccessPathBase.Argument(2), mark = u), empty))
+        val static = conclusion(fact(STATIC, listOf(cls, staticField), mark = u))
+        val state = conclusion(fact(arg1))
+        for ((node, target, normal) in listOf(Triple(normalExit(m), ret, true), Triple(exceptionalExit(m), exc, false))) {
+            val rules = end(i, m, node)
+            val sink = rules.rules.sinks.single()
+            assertEquals(setOf(Pattern(state.fact, empty), Pattern(static.fact, empty)), sink.patterns.toSet())
+            val predicate = assertNotNull(sink.predicate)
+            assertEquals(RulePredicate.Kind.OR, predicate.kind(predicate.root))
+            assertEquals(normal, rules.globalStateDrop)
+            // B alone cannot satisfy the full condition. G2 still reads it and removes a zero static.
+            val zeroStatic = executeBoundary(i, m, node, listOf(setOf(ZERO_PATTERN) to static), normal)
+            assertEquals(setOf(static), zeroStatic.beforeDrop)
+            assertTrue(zeroStatic.summaries.isEmpty())
+            assertTrue(zeroStatic.witnesses.isEmpty())
+            assertTrue(zeroStatic.requests.isEmpty())
+            // The same static conclusion with a complete nonzero caller set survives G2.
+            val callerStatic = executeBoundary(i, m, node, listOf(caller to static), normal)
+            assertEquals(if (normal) setOf(caller to static) else emptySet(), callerStatic.summaries)
+            assertTrue(callerStatic.witnesses.isEmpty())
+            // Once A arrives, both supported proofs use their original literal premises. END uses zero.
+            for (staticPremise in listOf(setOf(ZERO_PATTERN), caller)) {
+                val observed = executeBoundary(i, m, node, listOf(staticPremise to static, caller to state), normal)
+                val end = conclusion(fact(target, mark = w))
+                val expected = buildSet {
+                    add(caller to state)
+                    add(setOf(ZERO_PATTERN) to end)
+                    if (staticPremise == caller) add(caller to static)
+                }
+                assertEquals(if (normal) expected else emptySet(), observed.summaries)
+                assertEquals(setOf(static, state, end), observed.beforeDrop)
+                assertEquals(2, observed.witnesses.size, "The A and A/AND/B proofs retain distinct support shapes")
+                val supports = observed.witnesses.map { witness ->
+                    assertEquals(key(m), witness.methodKey)
+                    assertEquals(1, witness.run)
+                    assertEquals(listOf(fact(target, mark = w)), witness.endFacts)
+                    witness.edges.map { edge ->
+                        assertEquals(Layer.NORMAL, edge.layer)
+                        edge.premise.members.map { it.toPattern() }.toSet() to
+                            FormsReference(ops).conclusions(edge.facts).single()
+                    }.toSet()
+                }.toSet()
+                assertEquals(setOf(setOf(caller to state), setOf(caller to state, staticPremise to static)), supports)
+                assertTrue(observed.requests.isEmpty())
+            }
+        }
+    }
+
+    private data class BoundarySnapshot(
+        val beforeDrop: Set<Conclusion>,
+        val summaries: Set<Pair<Set<Pattern>, Conclusion>>,
+        val witnesses: List<SinkWitness>,
+        val requests: List<Pair<InitialAp, RequestKind>>,
+    )
+
+    /** Execute the actual boundary worklist/G2 path, isolating it from unrelated method-body transfers. */
+    private fun executeBoundary(i: JIRInterpreter, m: JIRMethod, node: CommonInst,
+                                input: List<Pair<Set<Pattern>, Conclusion>>, normal: Boolean): BoundarySnapshot {
+        val method = key(m)
+        val records = PersistentRecordStore(manager)
+        val vulnerabilities = ConcurrentVulnerabilityStore(manager)
+        val contexts = MethodContextCache(i, object : MethodContextSource {
+            override fun forms(key: MethodKey): MethodForms = i.forms(key)
+            override fun graph(key: MethodKey, direction: Direction): MethodInstGraph = i.entries[key].graph(direction)
+        })
+        SharedObjects(manager, ops, i, languageManager, contexts, records, vulnerabilities,
+            UnitResolver<CommonMethod> { UnknownUnit }, RefManager(), manager.cancellation, threads = 1).use { shared ->
+            val config = RunConfig(1, 3, null, records, SeedIndex.EMPTY, listOf(method))
+            val beforeDrop = linkedSetOf<Conclusion>()
+            val requests = arrayListOf<Pair<InitialAp, RequestKind>>()
+            val published = arrayListOf<Publication>()
+            val decoder = FormsReference(ops)
+            lateinit var core: RunMethodAnalyzer
+            val port = object : RunnerPort<RunMethodAnalyzer> {
+                override val config = config
+                override val shared = shared
+                override val forms = contexts.directed(Direction.FORWARD)
+                override val ops = this@JIRBoundaryFormsTest.ops
+                override val steps = ProtocolSteps.Inline
+                override val onCut: (Cut, Facts) -> Unit = { cut, facts ->
+                    assertEquals(Cut.EXIT_RULES, cut)
+                    beforeDrop += decoder.conclusions(facts)
+                }
+                override fun enqueue(analyzer: RunMethodAnalyzer): Boolean {
+                    assertSame(core, analyzer)
+                    return true // This direct boundary helper drains the real actor below.
+                }
+                override fun analyzer(key: MethodKey): RunMethodAnalyzer {
+                    assertEquals(method, key)
+                    return core
+                }
+                override fun send(event: RunEvent): Boolean = error("A concrete boundary cannot send $event")
+                override fun post(event: RunEvent.Delivery): Boolean = error("No delivery in a direct boundary")
+                override fun summaryStorage(key: MethodKey): SummaryStorage = error("No external summary storage")
+                override fun subscribe(sub: Subscription): Unit = error("No boundary call subscription")
+                override fun link(callee: MethodKey, ref: CallerRef, linkLayer: Layer, added: Facts): Unit =
+                    error("No boundary call link")
+            }
+            core = RunMethodAnalyzer(method, port, PublicationSink { key, batch ->
+                assertEquals(method, key)
+                published += batch
+            }, MethodLocalServicesFactory { actor ->
+                val actual = RunMethodLocalServices(actor)
+                object : MethodLocalServices by actual {
+                    override fun addRequest(premise: InitialAp, kind: RequestKind) {
+                        requests += premise to kind
+                        actual.addRequest(premise, kind)
+                    }
+                }
+            }, MethodCallServicesFactory(::RunMethodCallServices))
+            // endAt is private to the common module; no public production API is added for this test.
+            val endAt = RunMethodAnalyzer::class.java.getDeclaredMethod("endAt", PremiseKey::class.java,
+                CommonInst::class.java, Facts::class.java, Boolean::class.javaPrimitiveType).apply { isAccessible = true }
+            for ((premise, c) in input) {
+                val key = manager.premiseOf(premise.map(manager::initial))
+                val facts = manager.factsOf(c.fact, c.exclusion, if (c.demand) Layer.DEMAND else Layer.NORMAL)
+                try { endAt.invoke(core, key, node, facts, normal) }
+                catch (e: InvocationTargetException) { throw (e.cause ?: e) }
+            }
+            assertTrue(core.work(1000), "All real boundary publications must drain")
+            val summaries = core.summaries.all().flatMap { (premise, facts) ->
+                decoder.conclusions(facts).asSequence().map { premise.members.map { it.toPattern() }.toSet() to it }
+            }.toSet()
+            assertEquals(summaries, published.flatMap { publication -> decoder.conclusions(publication.conclusion).map {
+                publication.premise.members.map { it.toPattern() }.toSet() to it
+            } }.toSet())
+            val result = BoundarySnapshot(beforeDrop, summaries, vulnerabilities.witnessesOf(1).map { it.second }.toList(), requests)
+            core.freeze()
+            return result
         }
     }
 
@@ -462,7 +664,10 @@ class JIRBoundaryFormsTest : BidiJIRTestUtils() {
             assertTrue(reversed.summary.edges.any { it.edge == ZERO_KEEP })
             assertTrue(reversed.summary.typeFilters.isEmpty() && reversed.summary.resultFilters.isEmpty())
             assertTrue(reversed.summary.conjunctions.isEmpty())
-            val branches = reversed.summary.edges.filter { it.conjunctive }
+            val source = reversed.summary.sources.single()
+            assertTrue(source.backward)
+            assertEquals(forward.summary.sources.single().id, source.id)
+            val branches = source.predicate.leaves.map { source.transfer(it, source.actions.single(), multi = true) }
             assertEquals(2, branches.size)
             assertTrue(branches.all { it.may && it.forward.to.tail == Tail.ANY_TAINT && it.edge.from.tail == Tail.ANY })
             assertEquals(setOf(arg0, arg1), branches.map { it.edge.to.base }.toSet())

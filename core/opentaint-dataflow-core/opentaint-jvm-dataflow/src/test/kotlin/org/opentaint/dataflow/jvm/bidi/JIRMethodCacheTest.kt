@@ -326,7 +326,7 @@ class JIRMethodCacheTest : BidiJIRTestUtils() {
         assertFails { interp.idx(TaintMarkAccessor("T")) }
     }
 
-    @Test fun `builder caching preserves original conjunction and sink objects across repeated reads`(): Unit {
+    @Test fun `builder caching preserves source predicate descriptors and reverses branches on demand`(): Unit {
         val caller = method("staticCall", callOwner)
         val inst = call(caller, "target")
         val target = method("target", callOwner)
@@ -339,14 +339,28 @@ class JIRMethodCacheTest : BidiJIRTestUtils() {
         val owner = interp(rules)
         val forms = owner.forms(key(caller))
         val plan = forms.call(Direction.FORWARD, inst, checkNotNull(inst.callExpr))
-        val conjunction = edgeStage(plan, StageKind.SOURCES).single().summary.conjunctions.single()
+        val source = edgeStage(plan, StageKind.SOURCES).single().summary.sources.single()
+        assertEquals(2, source.predicate.leaves.size)
+        assertTrue(source.predicate.leaves.indices.all { source.predicate.isMulti(it) && !source.predicate.isUnary(it) })
         val backward = forms.call(Direction.BACKWARD, inst, checkNotNull(inst.callExpr))
+        val reversed = edgeStage(backward, StageKind.SOURCES).single().summary.sources.single()
+        assertSame(source.predicate, reversed.predicate)
+        assertSame(source.actions, reversed.actions)
+        assertEquals(source.id, reversed.id)
+        assertTrue(reversed.backward)
         repeat(20) {
             assertSame(plan, forms.call(Direction.FORWARD, inst, checkNotNull(inst.callExpr)))
             assertSame(backward, forms.call(Direction.BACKWARD, inst, checkNotNull(inst.callExpr)))
-            assertSame(conjunction, edgeStage(plan, StageKind.SOURCES).single().summary.conjunctions.single())
+            assertSame(source, edgeStage(plan, StageKind.SOURCES).single().summary.sources.single())
         }
-        assertEquals(2, edgeStage(backward, StageKind.SOURCES).single().summary.edges.count { it.conjunctive })
+        assertTrue(edgeStage(backward, StageKind.SOURCES).single().summary.edges.none { it.conjunctive })
+        for (literal in source.predicate.leaves) {
+            val forward = PathEdge(literal.fact, source.actions.single().target, ExclusionSet.Empty)
+            val transfer = reversed.transfer(literal, reversed.actions.single(), multi = true)
+            assertEquals(forward, transfer.forward)
+            assertEquals(revEdge(forward), transfer.edge)
+            assertTrue(transfer.conjunctive && transfer.may)
+        }
     }
 
     @Test fun `unresolved tracking is triggered by arrivals and uses pass-read metadata`(): Unit {
