@@ -31,7 +31,7 @@ Part II defines its path prefixes at §20. The package maps name new files; the 
 | DD7 | Use an interned `TaintMark(id)`; reserve `ZERO`. | §3.1 |
 | DD8 | Add `AccessPathBase.Zero`; keep cleaner temporaries inside their action. | §2, §23.4 |
 | DD9 | Forward filters apply the path filter, then the mark policy at the root and each element level. | §5.5, §26.2 |
-| DD10 | Key vulnerabilities by rule, context-free method and statement. Keep alternatives, contexts, runs and support shapes separate. | §7.12 |
+| DD10 | Key vulnerabilities by rule, context-free method and statement. Keep occurrence/proof scopes, contexts, runs and support shapes separate; retain manual alternative indexes. | §7.12 |
 | DD11 | Cache calls/entry rules per method key and statements/exit rules per method. | §31.2 |
 | DD12 | REACH stores zero, FLOW abstract marks, TAINT concrete marks. Enforce canonical tail/layer packing. | §4.1, §5.9 |
 | DD13 | Store a singleton premise directly; use a sorted set for multiple members. Union drops zero unless all inputs are zero. | §3.4, §5.1 |
@@ -50,6 +50,12 @@ hand-off preserves its layer. Backward conjunction branches are independent DEMA
 Scope: the AP with all its stores (`ap.md` §2 to §9) and the test plan of `validation-plan.md` → AP tests → §13. The code is in the module
 `core/opentaint-dataflow-core/opentaint-dataflow`, in the new packages `org.opentaint.dataflow.bidi.ap` and
 `org.opentaint.dataflow.bidi.store` (DD1). The behaviour of the old core does not change (the prescan runs it).
+
+O1/O2/O3 alignment: the live predicate and cache contracts below supersede the historical expanded-rule and
+strong-form sketches. Expanded cubes are only a small corrected-policy test oracle or a legacy/manual adapter.
+These contracts preserve the existing AP tables and phase scope. Implementation/equivalence gates are requirements;
+they are not marked proved or passed by this proposal edit.
+
 
 ## 0. Conventions and additions to the AP interface
 
@@ -3694,48 +3700,75 @@ class SourceHitStore {
 ### 7.12 `VulnerabilityStore` (`ap.md` §8.10)
 
 ```kotlin
-typealias RuleId = CommonTaintConfigurationSink                        // REUSE: the same rule object in every run
+import org.opentaint.dataflow.bidi.ap.ApManager
+import org.opentaint.dataflow.bidi.ap.ApMode
+import org.opentaint.dataflow.bidi.ap.Direction
+import org.opentaint.dataflow.bidi.ap.Facts
+import org.opentaint.dataflow.bidi.ap.FlowTree
+import org.opentaint.dataflow.bidi.ap.GroupKey
+import org.opentaint.dataflow.bidi.ap.InitialAp
+import org.opentaint.dataflow.bidi.ap.Layer
+import org.opentaint.dataflow.bidi.ap.MarkSlot
+import org.opentaint.dataflow.bidi.ap.MethodKey
+import org.opentaint.dataflow.bidi.ap.PathFact
+import org.opentaint.dataflow.bidi.ap.PremiseKey
+import org.opentaint.dataflow.bidi.ap.Tail
+import org.opentaint.dataflow.bidi.ap.groupKey
+import org.opentaint.dataflow.bidi.ap.inside
+import org.opentaint.dataflow.bidi.ap.mergeAddDelta
+import org.opentaint.dataflow.configuration.CommonTaintConfigurationSink
+import org.opentaint.dataflow.bidi.interp.ProofKey
+import org.opentaint.ir.api.common.CommonMethod
+import org.opentaint.ir.api.common.cfg.CommonInst
+import java.util.Collections
+import java.util.concurrent.ConcurrentHashMap
 
-/** ap.md §8.10: the key; the same key in two runs is the same vulnerability. `method` is the METHOD of the method key,
- *  WITHOUT the context: one sink statement that the analysis reaches in several contexts is ONE vulnerability
- *  (ap-history.md F67). Each witness keeps its own method key. */
+/** The interpreter reuses the same sink rule object in every run. */
+typealias RuleId = CommonTaintConfigurationSink
+
+/** A sink statement has one vulnerability key across method contexts and runs. */
 data class VulnerabilityKey(val rule: RuleId, val method: CommonMethod, val statement: CommonInst)
 
-/** ap.md §4.9: a sink edge. `facts` is the part of the conclusion on which the sink holds (MarkCheck.Holds.facts): REACH
- *  for an unconditional sink, else TAINT. Not one leaf. A normal TAINT `facts` can have `[any-taint]/E` leaves: the sink
- *  edge is normal, so it can be confirmed (condition 1; AnyTaintExact.sink_den); `checkMark` triggered it only on an
- *  admitted location (AnyTaintEx.checkX; run 1: AnyTaintExExact.confirmed_real6X). */
+/** The exact REACH or TAINT part on which one sink literal holds. */
 class SinkEdge(val premise: PremiseKey, val layer: Layer, val facts: Facts) {
-    init { check(facts !is FlowTree) }                                 // MarkCheck: a FLOW fact gives only a request
+    init {
+        check(facts !is FlowTree) { "A sink edge cannot hold FLOW facts" }
+    }
 }
 
-/** One complete witness of a sink alternative in a method key and run. Keep its premise/layer support shape and end facts.
- *  Backward hand-off seeds demand alternatives; reversed end-fact triggers can seed confirmed alternatives too. */
-class SinkWitness(val alternative: Int, val methodKey: MethodKey, val edges: List<SinkEdge>, val run: Int,
-                  val endFacts: List<PathFact> = emptyList()) {
-    @Volatile var confirmed: Boolean = false                           // set only at the barrier of a complete forward run
+/** A complete sink alternative with owned support headers and end-fact paths. */
+class SinkWitness(
+    val alternative: Int,
+    val methodKey: MethodKey,
+    edges: List<SinkEdge>,
+    val run: Int,
+    endFacts: List<PathFact> = emptyList(),
+    val proof: ProofKey? = null,
+) {
+    val edges: List<SinkEdge> = Collections.unmodifiableList(ArrayList(edges))
+    val endFacts: List<PathFact> = Collections.unmodifiableList(endFacts.map {
+        it.copy(path = Collections.unmodifiableList(ArrayList(it.path)))
+    })
 
-    /** ap.md §4.9 condition 3: the premise set whose joint support confirms the witness. A conjunctive sink: the union of
-     *  the premise sets of its edges, without the zero fact (`{zero}` if every edge has `{zero}`). */
+    /** Only the driver at a complete forward-run barrier sets this flag. */
+    @Volatile var confirmed: Boolean = false
+
     fun supportPremise(m: ApManager): PremiseKey = edges.map { it.premise }.reduce(m::union)
 }
 
-/** Support membership shared by production Support and its per-path oracle (ap.md §4.9).
- *  Each nonzero supported member is concrete exact, or a must-premise in a forward restricted run.
- *  Joint support calls this predicate at the supplier, so confirmation needs no second final scan. */
+/** Admissible members of the jointly supported premise set (ap.md §4.9). */
 fun confirmableMember(j: InitialAp, mode: ApMode): Boolean =
     j.isZero || (j.mark is MarkSlot.Concrete && (j.tail == Tail.EXACT ||
         (j.tail == Tail.ANY_TAINT && mode.restricted && mode.direction == Direction.FORWARD)))
 
-/** Exact support supplier: normal added link, equal member or restricted same-mark must/E containment.
- *  The driver also requires one call site, a normal caller edge and jointly supported caller premises. */
+/** The driver separately checks same-call joint support and the caller edge's normal layer. */
 fun supplies(jm: InitialAp, link: Link, mode: ApMode): Boolean {
     if (link.linkLayer != Layer.NORMAL) return false
     val a = link.addedFact
     val j = jm.toPattern()
-    if (a == j) return true                                                       // jm = a (also an `[any-taint]` a = a ∩ D-c)
+    if (a == j) return true
     return mode.restricted && a.fact.tail == Tail.ANY_TAINT && j.fact.mark == a.fact.mark &&
-        (j.fact.tail == Tail.EXACT || j.fact.tail == Tail.ANY_TAINT) && inside(j, a)   // `inside` reads E and Ej (A2)
+        (j.fact.tail == Tail.EXACT || j.fact.tail == Tail.ANY_TAINT) && inside(j, a)
 }
 
 interface VulnerabilityStore {
@@ -3743,39 +3776,41 @@ interface VulnerabilityStore {
     fun witnessesOf(run: Int): Sequence<Pair<VulnerabilityKey, SinkWitness>>
 }
 
-/** PERSISTENT; any runner adds (O4). SEVERAL WITNESSES PER KEY (DD10): one entry per (key, alternative, method key, run,
- *  shape); its facts are the union of the parts of every witness of that entry on which the sink holds. */
+/** Persistent witnesses; concurrent writes merge atomically only within one complete support shape. */
 class ConcurrentVulnerabilityStore(private val m: ApManager) : VulnerabilityStore {
-    /** The SHAPE of a witness: its alternative, its method key, its run and, per literal, the premise set and the layer of
-     *  its sink edge and the group key of its facts. One alternative has one pattern per literal, so the base and the
-     *  kind of edge k are fixed; the group key adds the layer of the facts (a conjunction input can be demand on normal
-     *  facts, §7.10). So two entries with one shape never have two group keys at one literal. */
-    private data class Shape(val alternative: Int, val methodKey: MethodKey, val run: Int,
-                             val edges: List<Triple<PremiseKey, Layer, GroupKey>>)
+    private data class Shape(
+        val alternative: Int,
+        val proof: ProofKey?,
+        val methodKey: MethodKey,
+        val run: Int,
+        val edges: List<Triple<PremiseKey, Layer, GroupKey>>,
+    )
 
     private val byKey = ConcurrentHashMap<VulnerabilityKey, ConcurrentHashMap<Shape, SinkWitness>>()
 
     override fun add(key: VulnerabilityKey, witness: SinkWitness) {
-        check(witness.methodKey.method == key.method) { "the witness is in a method key of the method of its key" }
-        val shape = Shape(witness.alternative, witness.methodKey, witness.run,
+        check(witness.methodKey.method == key.method) { "The witness method must match its vulnerability key" }
+        val shape = Shape(witness.alternative, witness.proof, witness.methodKey, witness.run,
             witness.edges.map { Triple(it.premise, it.layer, it.facts.groupKey) })
-        byKey.computeIfAbsent(key) { ConcurrentHashMap() }.merge(shape, witness, ::union)     // atomic per (key, shape)
+        byKey.computeIfAbsent(key) { ConcurrentHashMap() }.merge(shape, witness, ::union)
     }
 
-    /** Edge k of the result: the same premise set and layer; the facts are the union (T1) of the two parts. Both parts have
-     *  the same group key: the base of literal k of the alternative, the kind (REACH or TAINT), the layer of the facts. */
+    /** Exact union preserves each literal's premise and layer; it never crosses group keys. */
     private fun union(a: SinkWitness, b: SinkWitness): SinkWitness {
-        check(a.alternative == b.alternative && a.methodKey == b.methodKey && a.edges.size == b.edges.size)
+        check(a.alternative == b.alternative && a.proof == b.proof && a.methodKey == b.methodKey && a.edges.size == b.edges.size)
         return SinkWitness(a.alternative, a.methodKey,
             a.edges.zip(b.edges) { x, y ->
-                check(x.facts.groupKey == y.facts.groupKey) { "T3: the union of one literal never crosses group keys" }
-                SinkEdge(x.premise, x.layer, m.mergeAddDelta(x.facts, y.facts).first)                // Part I §4.2
+                check(x.facts.groupKey == y.facts.groupKey) { "T3: A literal union cannot cross group keys" }
+                SinkEdge(x.premise, x.layer, m.mergeAddDelta(x.facts, y.facts).first)
             },
-            a.run, (a.endFacts + b.endFacts).distinct())
+            a.run, (a.endFacts + b.endFacts).distinct(), a.proof)
     }
 
-    override fun witnessesOf(run: Int) = byKey.entries.asSequence()
-        .flatMap { (k, byShape) -> byShape.values.asSequence().filter { it.run == run }.map { k to it } }
+    /** The driver reads completed runs after joining their runner tasks at the barrier. */
+    override fun witnessesOf(run: Int): Sequence<Pair<VulnerabilityKey, SinkWitness>> =
+        byKey.entries.asSequence().flatMap { (key, byShape) ->
+            byShape.values.asSequence().filter { it.run == run }.map { key to it }
+        }
 }
 ```
 
@@ -3903,7 +3938,7 @@ Copy algorithms into the new builders when fact-local evaluation differs from th
 | `JVM/JIRCallResolver`, `analysis/JIRMethodCallResolver` | Reuse resolution through a context interface; read lambdas from the prescan. |
 | `JVM/JIRFactTypeChecker` | Expose path filter construction; add a separate mark policy. |
 | `JVM/JIRLocalAliasAnalysis`, `JIRAliasUtil` | Reuse local aliases; port the before/after call persistence query from BWD. |
-| `JVM/JIRMarkAwareConditionRewriter`, `JIRBasicAtomEvaluator`, `DF/taint/RuleConditionRewriter` | Static non-mark evaluation and DNF construction. |
+| `JVM/JIRMarkAwareConditionRewriter`, `JIRBasicAtomEvaluator`, `DF/taint/RuleConditionRewriter` | Signed folding before/after static non-mark evaluation, then positive NNF compilation; no production DNF. |
 | `JVM/JIRCallPositionResolver`, `DF/taint/PositionAccess`, `JVM/taint/TaintEvaluator` | Resolve rule positions and string-byte positions; validate the entire rule first. |
 | `JVM/analysis/JIRMethodGetDefault`, `JIRMethodEntrypointResolver` | Reuse default getters and method keys. |
 | `BWD/JIRBackwardExitWiringGraph`, `DF/graph/BackwardGraphs` | Port exit wiring once; reuse graph reversal. |
@@ -3911,7 +3946,7 @@ Copy algorithms into the new builders when fact-local evaluation differs from th
 | `DF/ap/ifds/taint/ExternalMethodTracker` | Call through `UnresolvedCallObserver`; it does not control propagation. |
 | Spring dispatcher/rule provider in module `core` | Save/restore registry fields and attach a direct whole-static cleaner to the generated cleanup method (§31.3). |
 
-Keep form objects strongly cached: run joins use their stable identity. Keep trie node caches soft (§4.5).
+Use managed soft form payloads with stable logical rule/action keys and application callbacks (§23.7). Keep trie node caches soft (§4.5).
 The alias analysis and configured policy gaps remain those of `interpreter.md` §0.1.
 The new forms have no fact liveness gate or summary-side compatibility filter.
 
@@ -4017,64 +4052,82 @@ fun starEdge(from: AccessPathBase, fp: List<AccessorIdx>, to: AccessPathBase, tp
 ### 23.2 Statement summary and its reversal
 
 `typeFilters` are the OPERAND filters (on the input, `interpreter.md` §2.1 step 3). `resultFilters` are the LHS and
-binding-back filters (on the results, step 5). One map cannot hold both (§22.2): in `x = x.f`, and in `o.m(this)`, where
+binding-back filters (on the results, step 5). Binding edges retain ap.md S10 and interpreter I11 (b).
+One map cannot hold both (§22.2): in `x = x.f`, and in `o.m(this)`, where
 the callee base `this` and the caller base `this` differ.
 
 ```kotlin
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.bidi.ap.ConjunctiveEdge
+import org.opentaint.dataflow.bidi.ap.ExclusionSet
+import org.opentaint.dataflow.bidi.ap.PathEdge
+import org.opentaint.dataflow.bidi.ap.TypeFilter
+import org.opentaint.dataflow.bidi.ap.revEdge
+
+/** Cached form containers own their contents and retain the identities of supplied forms and filters. */
 class StatementSummary(
-    val touched: Set<AccessPathBase>,
-    val edges: List<MicroEdge>,
-    val conjunctions: List<ConjunctiveEdge>,                                 // the ND sources only (interpreter.md §5.3)
-    val typeFilters: Map<AccessPathBase, TypeFilter>,
-    val resultFilters: Map<AccessPathBase, TypeFilter> = emptyMap(),          // analyzer-core.md §4.9 (Part II §22.2, SI8)
+    touched: Set<AccessPathBase>,
+    edges: List<MicroEdge>,
+    conjunctions: List<ConjunctiveEdge>,
+    typeFilters: Map<AccessPathBase, TypeFilter>,
+    resultFilters: Map<AccessPathBase, TypeFilter> = emptyMap(),
+    sources: List<SourceRuleOccurrence> = emptyList(),
 ) {
-    private val byBase: Map<AccessPathBase, List<MicroEdge>> = edges.groupBy { it.edge.from.base }
+    val touched: Set<AccessPathBase> = ownedSet(touched)
+    val edges: List<MicroEdge> = ownedList(edges)
+    val conjunctions: List<ConjunctiveEdge> = ownedList(conjunctions)
+    val typeFilters: Map<AccessPathBase, TypeFilter> = ownedMap(typeFilters)
+    val resultFilters: Map<AccessPathBase, TypeFilter> = ownedMap(resultFilters)
+    val sources: List<SourceRuleOccurrence> = ownedList(sources)
+
+    private val byBase: Map<AccessPathBase, List<MicroEdge>> = ownedOrdinalGroups(this.edges) { it.edge.from.base }
+
     fun edgesOf(b: AccessPathBase): List<MicroEdge> = byBase[b].orEmpty()
 
-    /** The target bases of the forward edges: the micro edges and the conjunctive edges. */
-    val targets: Set<AccessPathBase>
-        get() = LinkedHashSet<AccessPathBase>().also { t ->
-            edges.mapTo(t) { it.edge.to.base }; conjunctions.mapTo(t) { it.target.base }
-        }
+    val targets: Set<AccessPathBase> = run {
+        val sourceTargets = this.sources.flatMap { source -> source.actions.map { it.target.base } }
+        ownedSet(ownedList(this.edges.size + this.conjunctions.size + sourceTargets.size) { index ->
+        if (index < this.edges.size) this.edges[index].edge.to.base
+        else if (index < this.edges.size + this.conjunctions.size) this.conjunctions[index - this.edges.size].target.base
+        else sourceTargets[index - this.edges.size - this.conjunctions.size]
+        })
+    }
 
-    /** Reverse edges, split conjunctions into independent DEMAND branches, remove filters and add A5 target pass-over identities. */
+    /** Conjunctive sources reverse into independent demand branches. Forward filters do not reverse. */
     fun reversed(): StatementSummary {
         val rev = ArrayList<MicroEdge>()
         for (e in edges) rev += MicroEdge(revOrFail(e.edge), e.forward)
-        for (c in conjunctions) for (lit in c.literals) {                                  // an OR of the requirements,
-            val fwd = PathEdge(lit.fact, c.target, ExclusionSet.Empty)                    // every result demand (F70);
-            rev += MicroEdge(revOrFail(fwd), fwd, conjunctive = true)                     // a literal is a Pattern (Part I §5.8)
+        for (c in conjunctions) for (lit in c.literals) {
+            val forward = PathEdge(lit.fact, c.target, ExclusionSet.Empty)
+            rev += MicroEdge(revOrFail(forward), forward, conjunctive = true)
         }
-        val back = StatementSummary(touched + targets, rev, emptyList(), emptyMap())      // no filter (§5.1 last rows)
-        return back.withIdentities(passOverBases(targets, touched))                     // A5
+        val back = StatementSummary(touched + targets, rev, emptyList(), emptyMap(), sources = sources.map { it.reversed() })
+        return back.withIdentities(passOverBases(targets, touched))
     }
 
-    /** The identity edges of `bases`, added to this summary (touched too). */
-    fun withIdentities(bases: Collection<AccessPathBase>): StatementSummary =
-        if (bases.isEmpty()) this
-        else StatementSummary(touched + bases, edges + bases.map(::identityEdge), conjunctions, typeFilters, resultFilters)
+    fun withIdentities(bases: Collection<AccessPathBase>): StatementSummary {
+        if (bases.isEmpty()) return this
+        val added = ownedList(bases)
+        val combined = ownedList(edges.size + added.size) { index ->
+            if (index < edges.size) edges[index] else identityEdge(added[index - edges.size])
+        }
+        return StatementSummary(touched + added, combined, conjunctions, typeFilters, resultFilters, sources)
+    }
 
     companion object {
         val EMPTY = StatementSummary(emptySet(), emptyList(), emptyList(), emptyMap())
-        /** A summary of identity edges only (STAGE mode: every base of an edge is touched). */
-        fun identities(bases: Collection<AccessPathBase>) = EMPTY.withIdentities(bases)
+        fun identities(bases: Collection<AccessPathBase>): StatementSummary = EMPTY.withIdentities(bases)
     }
 }
 
-/** I11 (b): every statement micro edge is mark-reversible; a binding has `*` marks (S10). A micro edge has no
- *  `[any-taint]` premise and no exclusion on an `[any-taint]` target (I14), so R3 never gives null here. */
-internal fun revOrFail(e: PathEdge): PathEdge = revEdge(e) ?: error("not mark-reversible (interpreter.md I11 (b)): $e")   // revEdge: Part I §6
+/** Every supplied statement edge must have an ordinary mark reversal (I11). */
+internal fun revOrFail(e: PathEdge): PathEdge =
+    revEdge(e) ?: error("not mark-reversible (interpreter.md I11 (b)): $e")
 
-/** THE IDENTITY OF A REVERSAL (interpreter.md A5, §4.9; ap.md §9.2; Lean `Reverse.idEdge`, `revNoId_breaks`). A forward
- *  target base that the forward form does not touch keeps its old value (a weak, gen-only target), so the reversed form
- *  keeps the requirement on it by `b.* -> b.*`. The one helper of the three reversals: `StatementSummary.reversed` (the
- *  alias targets of a write), `RuleStatement.reversed` (the end-fact targets), `CallPlan.reversed` (the alias bases of a
- *  call: the stage PASS_OVER). */
+/** A forward target that was not killed keeps its requirement in the reversed form (A5). */
 internal fun passOverBases(targets: Iterable<AccessPathBase>, touched: Set<AccessPathBase>): Set<AccessPathBase> =
     targets.filterTo(LinkedHashSet()) { it !in touched }
 
-/** `b.* -> b.*`: the identity edge of A5, of the default identity of an unresolved callee (interpreter.md §3.7) and of the
- *  constructor pass-over (§3.5). */
 fun identityEdge(b: AccessPathBase): MicroEdge = MicroEdge.of(keepEdge(b))
 ```
 
@@ -4101,69 +4154,86 @@ the premise set; `F`: the facts of one input). Users, each with its own algebra:
 So the engine and both oracles share the mode logic and differ only in the algebra.
 
 ```kotlin
-package org.opentaint.dataflow.bidi.interp          // FormApplier.kt
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.bidi.ap.ConjunctiveEdge
+import org.opentaint.dataflow.bidi.ap.TypeFilter
+import org.opentaint.ir.api.common.cfg.CommonInst
 
-/** Where a form applies. `statementEdge`: the static exception of ap.md §4.10 item 1 (run 1, a statement micro edge:
- *  StageKind.statementEdges, a CleanStep.Kill, a statement summary). `sources`: a source-seed place (§23.1). */
+/** The place controls statement-only requests and source-seed hooks. */
 data class Place(val node: CommonInst, val statementEdge: Boolean, val sources: Boolean)
 
-/** The operations that the three modes read. P: the premise set; F: the facts of one input. */
+/** One implementation of form application for tree and per-path fact algebras. */
 interface FactAlgebra<P, F> {
     fun base(c: F): AccessPathBase
-    fun filter(c: F, filter: TypeFilter): F?                                   // null: the filter rejects every fact
+    fun filter(c: F, filter: TypeFilter): F?
     fun applyEdge(me: MicroEdge, c: F, premise: P, statementEdge: Boolean, out: (P, F) -> Unit)
     fun conjunction(cj: ConjunctiveEdge, premise: P, c: F, node: CommonInst, out: (P, F) -> Unit)
-    fun allowsSource(node: CommonInst, me: MicroEdge): Boolean                 // the source-seed filter (analyzer-core.md §4.7)
-    fun sourceHit(node: CommonInst, me: MicroEdge)                             // backward: ap.md §8.11
+    fun sourcePredicate(source: SourceRuleOccurrence, premise: P, c: F, node: CommonInst,
+                        statementEdge: Boolean, out: (P, F) -> Unit) {
+        error("This fact algebra does not implement rule predicates")
+    }
+    fun allowsSource(node: CommonInst, me: MicroEdge): Boolean
+    fun sourceHit(node: CommonInst, me: MicroEdge)
 }
 
-/** The three application modes, once. */
 class FormApplier<P, F>(private val alg: FactAlgebra<P, F>) {
-    /** STATEMENT (interpreter.md §2.1 steps 2-5): an untouched base passes; a touched base gets the operand filters, the
-     *  edges of its base (the kill) and the result filters. A statement summary, RuleStatement.summary, CleanStep.Kill.
-     *  `untouched`: where an untouched input goes (the engine: the unchanged path with no `edges.add`, analyzer-core.md
-     *  §4.3; default: with the results). A conjunction literal READS its base and does not kill it, so the conjunctions
-     *  also see an untouched input (an untouched base has no operand filter); a touched input meets them in `stage`. */
+    /** An untouched input passes unchanged; conjunction literals can still read it. */
     fun statement(s: StatementSummary, premise: P, c: F, at: Place, sink: (P, F) -> Unit,
                   untouched: (P, F) -> Unit = sink) {
         if (alg.base(c) !in s.touched) {
-            for (cj in s.conjunctions) alg.conjunction(cj, premise, c, at.node, sink)
-            untouched(premise, c); return
+            for (cj in s.conjunctions) conjunction(s, cj, premise, c, at.node, sink)
+            for (source in s.sources) source(s, source, premise, c, at, sink)
+            untouched(premise, c)
+            return
         }
-        stage(s, premise, c, at) { pr, x, _ -> sink(pr, x) }
+        stage(s, premise, c, at) { pr, result, _ -> sink(pr, result) }
     }
 
-    /** STAGE: only the edges, with the operand filters on the input and the result filters on the results.
-     *  CallStage.Edges.summary; the plan relevance (CallPlan.touched) does the pass-over. Each result comes with the
-     *  micro edge that made it (null: a conjunction), so the plan runner reads its identity-candidate flag (§23.5). */
+    /** A stage emits generated results, with the edge that made each plain result. */
     fun stage(s: StatementSummary, premise: P, c: F, at: Place, emit: (P, F, MicroEdge?) -> Unit) {
-        val input = filterBy(s.typeFilters, c) ?: return                                       // operand filters
-        for (me in s.edgesOf(alg.base(input)))
-            micro(me, input, premise, at) { pr, x -> filterBy(s.resultFilters, x)?.let { emit(pr, it, me) } }   // result filters
-        for (cj in s.conjunctions) alg.conjunction(cj, premise, input, at.node) { pr, x -> emit(pr, x, null) }
+        val input = filterBy(s.typeFilters, c) ?: return
+        for (me in s.edgesOf(alg.base(input))) {
+            micro(me, input, premise, at) { pr, result ->
+                filterBy(s.resultFilters, result)?.let { emit(pr, it, me) }
+            }
+        }
+        for (cj in s.conjunctions) conjunction(s, cj, premise, input, at.node) { pr, result -> emit(pr, result, null) }
+        for (source in s.sources) source(s, source, premise, input, at) { pr, result -> emit(pr, result, null) }
     }
 
-    /** GEN: the edges add results; the input stays where it is; no filter; never a source-seed place (§23.1).
-     *  RuleStatement.endFacts, SinkRule.endFacts. */
+    /** GEN adds results. Its caller retains the input and handles end-fact triggers. */
     fun gen(edges: List<MicroEdge>, premise: P, c: F, sink: (P, F) -> Unit) {
-        for (me in edges) if (me.edge.from.base == alg.base(c)) alg.applyEdge(me, c, premise, statementEdge = false, sink)
+        for (me in edges) if (me.edge.from.base == alg.base(c))
+            alg.applyEdge(me, c, premise, statementEdge = false, sink)
+    }
+
+    private fun conjunction(s: StatementSummary, cj: ConjunctiveEdge, premise: P, c: F,
+                            node: CommonInst, sink: (P, F) -> Unit) {
+        alg.conjunction(cj, premise, c, node) { pr, result ->
+            filterBy(s.resultFilters, result)?.let { sink(pr, it) }
+        }
+    }
+
+    private fun source(s: StatementSummary, source: SourceRuleOccurrence, premise: P, c: F,
+                       at: Place, sink: (P, F) -> Unit) {
+        alg.sourcePredicate(source, premise, c, at.node, at.statementEdge) { pr, result ->
+            filterBy(s.resultFilters, result)?.let { sink(pr, it) }
+        }
     }
 
     private fun filterBy(filters: Map<AccessPathBase, TypeFilter>, c: F): F? {
-        val f = filters[alg.base(c)] ?: return c
-        return alg.filter(c, f)                                                // Part I §5.5: may, then the mark policy
+        val filter = filters[alg.base(c)] ?: return c
+        return alg.filter(c, filter)
     }
 
-    /** One micro edge. At a source-seed place, the source-seed filter acts before it (a forward restricted run), and the
-     *  source hit is recorded when the first result exists (a backward run), BEFORE that result goes to `sink` (where the
-     *  engine calls edges.add; analyzer-core.md §4.7). So the hit does not depend on what edges.add gives. */
+    /** A source hit precedes the first downstream callback, including result filtering. */
     private fun micro(me: MicroEdge, c: F, premise: P, at: Place, sink: (P, F) -> Unit) {
         val source = at.sources && me.isSource
         if (source && !alg.allowsSource(at.node, me)) return
         var hit = !source
-        alg.applyEdge(me, c, premise, at.statementEdge) { pr, x ->
-            if (!hit) { hit = true; alg.sourceHit(at.node, me) }                 // once, before the first result goes on
-            sink(pr, x)
+        alg.applyEdge(me, c, premise, at.statementEdge) { pr, result ->
+            if (!hit) { hit = true; alg.sourceHit(at.node, me) }
+            sink(pr, result)
         }
     }
 }
@@ -4184,84 +4254,120 @@ if every input has `{zero}` (`interpreter.md` §5.3, `ap.md` §4.6), so a premis
 edge, and an ND edge is always TAINT. Only an ND source makes a conjunctive edge: a pass rule makes none
 (`interpreter.md` §4.2, D24).
 
+This k-ary path is the manual literal adapter. Bound source predicates call `FactAlgebra.sourcePredicate`.
+`RunMethodLocalServices` and the direct reference algebra implement that hook with the unary/multi rules of §27.0;
+its default fails on a predicate rather than silently omitting the effect. Source results pass the same result
+filters as micro-edge/manual-conjunction results. Apply all live read/request effects before root completion.
+
+
 ### 23.4 Sinks, rule statements, exit rules, clean steps
 
 ```kotlin
-/** One stable sink alternative. Check each concrete literal; standing joins require all inputs.
- *  An unconditional sink has ZERO_PATTERN. Keep alternatives separate in witness storage. */
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.bidi.ap.Cleaner
+import org.opentaint.dataflow.bidi.ap.MarkSet
+import org.opentaint.dataflow.bidi.ap.MarkSlot
+import org.opentaint.dataflow.bidi.ap.Pattern
+import org.opentaint.dataflow.bidi.ap.Tail
+import org.opentaint.dataflow.bidi.ap.TaintMark
+import org.opentaint.dataflow.configuration.CommonTaintConfigurationSink
+
+/** One stable sink alternative. Repeated patterns retain separate literal slots. */
 class SinkRule(
     val rule: CommonTaintConfigurationSink,
     val alternative: Int,
-    val patterns: List<Pattern>,          // one per positive literal; [ZERO_PATTERN] for an unconditional sink
-    val endFacts: List<MicroEdge>,        // GEN: zero.$ (zeroMark) -> P.$ (T), or -> P.[any-taint] (T) for an AnyField position
-                                          // (interpreter.md I14), per `trackFactsReachAnalysisEnd` action
+    patterns: List<Pattern>,
+    endFacts: List<MicroEdge>,
+    val occurrenceId: RuleOccurrenceId? = null,
+    val predicate: RulePredicate? = null,
 ) {
-    init { check(patterns.none { it.fact.tail == Tail.ANY_TAINT }) }          // I11 (f): a pattern is `$` or `[any]`
+    /** Legacy/manual forms keep their fresh object scope; JVM predicate forms supply a value key. */
+    val joinKey: Any get() = occurrenceId ?: this
+    val patterns: List<Pattern> = snapshotPatterns(patterns)
+    /** Keep cached micro edges and their original forward identities. Their producers own their paths. */
+    val endFacts: List<MicroEdge> = ownedList(endFacts)
+
+    init {
+        require(predicate == null || occurrenceId != null) { "A compiled predicate needs a stable rule occurrence" }
+        check(this.patterns.isNotEmpty()) { "A sink has a positive literal or the zero pattern" }
+        check(this.patterns.all {
+            it.fact.mark is MarkSlot.Concrete && (it.fact.tail == Tail.EXACT || it.fact.tail == Tail.ANY)
+        }) { "A sink literal has a concrete mark and an exact or may tail" }
+    }
+
     val unconditional: Boolean get() = patterns.size == 1 && patterns[0].fact.base == AccessPathBase.Zero
-    val conjunctive: Boolean get() = patterns.size >= 2                         // ap.md §4.9, §8.9
-    /** One backward requirement per literal. Unconditional sinks need no explicit seed: zero enters every method.
-     *  Hand-off demand and reversed end-fact triggers share these seed patterns; ANY seeds are demand. */
+    val conjunctive: Boolean get() = patterns.size >= 2
+
+    /** Zero already enters every method; each other literal seeds its original exact or may requirement. */
     fun seedPatterns(): List<Pattern> = if (unconditional) emptyList() else patterns
 }
 
-/** analyzer-core.md §4.9. `summary` is STATEMENT mode; `endFacts` is GEN mode (the union of `sinks[*].endFacts`). */
-class RuleStatement(val summary: StatementSummary, val endFacts: StatementSummary, val sinks: List<SinkRule>) {
-    /** Reverse sources/end facts and drop filters. Retain sinks to identify each reversed end-fact trigger.
-     *  Add identities for forward GEN targets that were untouched. */
+private fun snapshotPatterns(patterns: List<Pattern>): List<Pattern> {
+    val iterator = patterns.iterator()
+    return ownedList(patterns.size) {
+        val p = iterator.next()
+        p.copy(fact = p.fact.copy(path = ownedList(p.fact.path)))
+    }
+}
+
+/** Statement-mode rule actions and GEN end facts share stable sink alternatives. */
+class RuleStatement(val summary: StatementSummary, val endFacts: StatementSummary, sinks: List<SinkRule>) {
+    val sinks: List<SinkRule> = ownedList(sinks)
+
+    /** Reverse the two action modes separately; untouched forward GEN targets need A5 pass-over identities. */
     fun reversed(): RuleStatement {
         val s = summary.reversed()
-        // Forward, an end-fact target is a GEN target: it passes the place. So the requirement on it passes (A5).
         val revEnd = StatementSummary(emptySet(), endFacts.edges.map { MicroEdge(revOrFail(it.edge), it.forward) },
             emptyList(), emptyMap())
         return RuleStatement(s.withIdentities(passOverBases(endFacts.targets, s.touched)), revEnd, sinks)
     }
+
     companion object { val EMPTY = RuleStatement(StatementSummary.EMPTY, StatementSummary.EMPTY, emptyList()) }
 }
 
-/** interpreter.md §4.7, at an exit (normal or exceptional). `globalStateDrop`: step 3 applies (the exit has an exit sink):
- *  the part of a zero-premise `S` item on which a mark literal of an exit sink holds is dropped; a caller-set `S` item is
- *  not (D30, Part II §29). `entryMarks`: step 4 (D35, `entryMarkRemoval`).
- *  Steps 3 to 5 apply only at the normal exit, so at the exceptional exit `globalStateDrop` is false and `entryMarks` is
- *  empty. */
-class ExitRules(val rules: RuleStatement, val globalStateDrop: Boolean, val entryMarks: Set<TaintMark>) {
-    /** interpreter.md §4.9: the reversal drops G2 (steps 3 and 4). */
+/** Forward normal-exit removals. Exceptional exits use no drop flag and an empty entry-mark set. */
+class ExitRules(val rules: RuleStatement, val globalStateDrop: Boolean, entryMarks: Set<TaintMark>) {
+    val entryMarks: Set<TaintMark> = ownedSet(entryMarks)
+    private val entryMarkSet = MarkSet(this.entryMarks.map { it.id }.toIntArray())
+
+    /** G2 removals belong only to the forward exit; the reversed value contains rule actions alone. */
     fun reversed(): RuleStatement = rules.reversed()
 
-    /** Marks removed from zero-premise this/argument facts at the normal exit. Remove them at every depth and with both tails. */
     fun entryMarkRemoval(base: AccessPathBase): MarkSet? =
         if (entryMarkSet.isEmpty || (base != AccessPathBase.This && base !is AccessPathBase.Argument)) null else entryMarkSet
-    private val entryMarkSet = MarkSet(entryMarks.map { it.id }.toIntArray().sortedDistinct())    // canonical (Part I §3.2)
 
     companion object { val EMPTY = ExitRules(RuleStatement.EMPTY, false, emptySet()) }
 }
 
-/** Immutable callee-coordinate cleaners supplied directly by a generated method (§31.3).
- *  The call builder lowers them into the cached Actions stage; configuration rule positions are unchanged. */
+/** Generated callees supply callee-coordinate cleaners for the cached ordered Actions stage. */
 interface CallCleaners {
     val callCleaners: List<Cleaner>
 }
 
-/** analyzer-core.md §4.9. `Kill.keepEdges` is STATEMENT mode with `touched = {S}`. F74: a field action keeps its
- *  read and strong write as ordinary statements. The temporary is fresh per cached action and does not escape. */
+/** Field actions use one action-scoped generated temporary (fresh for manual actions) around read/clean/write. */
 sealed interface CleanStep {
     fun reversed(): CleanStep
+
     class Clean(val cleaner: Cleaner) : CleanStep {
         override fun reversed() = this
     }
+
     class Kill(val keepEdges: StatementSummary) : CleanStep {
         override fun reversed() = Kill(keepEdges.reversed())
     }
+
     class Field(val temporary: AccessPathBase, val read: StatementSummary,
                 val cleaner: Cleaner, val write: StatementSummary) : CleanStep {
-        init { check(cleaner.base == temporary && cleaner.path == null) }
+        init { check(cleaner.base == temporary && cleaner.path == null) { "A field cleaner acts at its temporary root" } }
         override fun reversed() = Field(temporary, write.reversed(), cleaner, read.reversed())
     }
 }
 ```
 
-F74 adds `class CleanerTemporary : AccessPathBase` inside `AccessPathBase` in `DF/ap/ifds/Accessors.kt`.
-It uses object identity, with `toString()` equal to `"<cleaner-temporary>"`. A form builder creates one per field
-action; the cached reversal shares that object. It cannot equal a program local, argument, static base or zero.
+F74 adds `class CleanerTemporary : AccessPathBase // keyed(TemporaryKey) for generated actions; fresh for manual use` inside `AccessPathBase` in `DF/ap/ifds/Accessors.kt`.
+Generated temporaries compare their `TemporaryKey`; manual temporaries compare only their fresh identity.
+Their `toString()` is `"<cleaner-temporary>"`. A generated field action gets the same value key on rebuild and
+reversal. Different action roles/ordinals/substeps remain separate. It cannot equal a program local, argument, static base or zero.
 It is used only inside `CleanStep.Field`. The method-edge, summary, link and source-hit stores reject this base.
 Initial factories reject it as a premise; native records and demand hand-offs reject it at either stored endpoint.
 The serializer, language position resolvers and trace code reject it too. The old core does not create it.
@@ -4272,20 +4378,21 @@ The serializer, language position resolvers and trace code reject it too. The ol
 The alias guard reads the candidate flag and current layer.
 
 ```kotlin
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.bidi.ap.Layer
+import org.opentaint.dataflow.bidi.ap.MethodKey
+import java.util.AbstractMap.SimpleImmutableEntry
+
 enum class CallPoint { BEFORE, BOUND, ADDED, RETURNED, REWRITTEN, AFTER }
 
+/** Stage kind selects source places, statement edges and identity-candidate updates. */
 enum class StageKind {
-    BIND_IN, END_FACTS, SOURCES, UNRESOLVED, CONSTRUCTOR, BIND_BACK, ALIASES,
-    PASS_OVER;                                   // reversed plans only: the identity of the alias bases (A5, Part II §23.6)
-    /** ap.md §4.10 item 1: these are statement micro edges (with `CleanStep.Kill`). */
+    BIND_IN, END_FACTS, SOURCES, UNRESOLVED, CONSTRUCTOR, BIND_BACK, ALIASES, PASS_OVER;
+
     val statementEdges: Boolean get() = this == SOURCES || this == UNRESOLVED
 }
 
-/** interpreter.md §3.8 AC3, AC4: update the nullable identity-candidate flag for an Edges result.
- *  Null means no producing stage has classified it yet. Sources, end facts and nonidentity pass rules are effects;
- *  default identity and constructor pass-over are candidates. Bindings, aliases, cleaners and the rewriter keep
- *  the flag. The callees stage classifies its native summary or record separately.
- *  Users: the engine plan runner (analyzer-impl.md §4.5) and FormsReference.run (§23.8). */
+/** Null means no producing stage has classified this result. Other stages preserve that state. */
 fun StageKind.identityCandidateOf(me: MicroEdge?, prev: Boolean?): Boolean? = when (this) {
     StageKind.SOURCES, StageKind.END_FACTS -> false
     StageKind.UNRESOLVED -> me?.isIdentity == true
@@ -4293,19 +4400,10 @@ fun StageKind.identityCandidateOf(me: MicroEdge?, prev: Boolean?): Boolean? = wh
     else -> prev
 }
 
-/** A forward-only selection of the inputs of a stage (analyzer-core.md §4.9). The reversal drops it. The reversed
- *  `END_FACTS` stage keeps the `sink` of its `SinkTriggered` guard as `CallStage.Edges.trigger`: that is not a
- *  selection of the inputs (the reversed stage applies to every requirement), it names the sink alternative whose seeds
- *  fire (THE TRIGGER OF AN END FACT, §23.4 `SinkRule.seedPatterns`). */
+/** Forward stage selection. Reversed end facts retain the sink as a trigger, without selecting inputs. */
 sealed interface Guard {
-    /** interpreter.md §4.1 END FACTS. The sink TRIGGERS at BOUND: for a plain sink, `checkMark` gives `MarkCheck.Holds` on
-     *  a bound fact of the caller edge `(i, layer)` (the layer of that sink edge); for a conjunctive sink, the k-ary join
-     *  gives a new full combination (the layer of the combination; ap.md §4.9, §8.9). Then the core applies the stage to
-     *  the ZERO fact (the `Reach` conclusion), with that layer: `Zero -> (s, P.$ (T))`, or `Zero -> (s, P.[any-taint]
-     *  (T))` for an `AnyField` position (interpreter.md I14), a TAINT conclusion (the end fact has a concrete mark; ap.md
-     *  §7.2). Each result goes to REWRITTEN with `identityCandidate = false`. */
     class SinkTriggered(val sink: SinkRule) : Guard
-    /** interpreter.md §3.8 AC3, AC4. Today: `JIRMethodCallSummaryHandler.kt:59-63, 98-101`, `JIRMethodCallFlowFunction.kt:353-363`. */
+
     data object MemoryEffect : Guard {
         fun admits(identityCandidate: Boolean, layer: Layer): Boolean = layer == Layer.DEMAND || !identityCandidate
     }
@@ -4316,22 +4414,47 @@ sealed interface CallStage {
     val to: CallPoint
     fun reversed(): CallStage
 
-    /** `kind`: analyzer-core.md §4.9 (Part II §22.2). The summary is STAGE mode. `trigger` (F70; a reversed plan only):
-     *  the sink alternative of a reversed `END_FACTS` stage, the `sink` of the forward guard. When the stage gives a
-     *  result on a requirement, the core fires the sink seeds of `trigger` at `BOUND` (`SinkRule.seedPatterns`, §23.4;
-     *  ap.md §9.2 THE TRIGGER OF AN END FACT; analyzer-core.md §4.5). */
-    data class Edges(override val from: CallPoint, override val to: CallPoint, val kind: StageKind,
-                     val summary: StatementSummary, val guard: Guard? = null, val trigger: SinkRule? = null) : CallStage {
-        init { check(trigger == null || (kind == StageKind.END_FACTS && guard == null)) }
-        override fun reversed() = Edges(to, from, kind, summary.reversed(), guard = null,       // no guard, no filter;
-            trigger = (guard as? Guard.SinkTriggered)?.sink)                                  // the sink of the trigger
+    /** A summary is applied in STAGE mode. A backward trigger fires after an end-fact edge gives a result. */
+    data class Edges(
+        override val from: CallPoint,
+        override val to: CallPoint,
+        val kind: StageKind,
+        val summary: StatementSummary,
+        val guard: Guard? = null,
+        val trigger: SinkRule? = null,
+    ) : CallStage {
+        init {
+            check(trigger == null || (kind == StageKind.END_FACTS && guard == null)) {
+                "A backward sink trigger belongs to an unguarded END_FACTS stage"
+            }
+        }
+
+        override fun reversed(): Edges = Edges(to, from, kind, summary.reversed(), guard = null,
+            trigger = (guard as? Guard.SinkTriggered)?.sink)
     }
-    /** The cleaners and rewriter use the same action chain at their own endpoints. */
-    data class Actions(override val from: CallPoint, override val to: CallPoint, val steps: List<CleanStep>) : CallStage {
-        override fun reversed() = Actions(to, from, steps.asReversed().map { it.reversed() })
+
+    /** Cleaners and the rewriter keep one ordered, immutable action chain. */
+    class Actions(override val from: CallPoint, override val to: CallPoint, steps: List<CleanStep>) : CallStage {
+        val steps: List<CleanStep> = ownedList(steps)
+
+        override fun reversed(): Actions = Actions(to, from, steps.asReversed().map { it.reversed() })
+
+        override fun equals(other: Any?): Boolean = this === other ||
+            (other is Actions && from == other.from && to == other.to && steps == other.steps)
+
+        override fun hashCode(): Int = (from.hashCode() * 31 + to.hashCode()) * 31 + steps.hashCode()
     }
-    data class Callees(override val from: CallPoint, override val to: CallPoint, val callees: List<MethodKey>) : CallStage {
-        override fun reversed() = Callees(to, from, callees)                                  // backward summaries
+
+    /** Callee keys remain the same objects when the graph reverses. */
+    class Callees(override val from: CallPoint, override val to: CallPoint, callees: List<MethodKey>) : CallStage {
+        val callees: List<MethodKey> = ownedList(callees)
+
+        override fun reversed(): Callees = Callees(to, from, callees)
+
+        override fun equals(other: Any?): Boolean = this === other ||
+            (other is Callees && from == other.from && to == other.to && callees == other.callees)
+
+        override fun hashCode(): Int = (from.hashCode() * 31 + to.hashCode()) * 31 + callees.hashCode()
     }
 }
 ```
@@ -4346,26 +4469,76 @@ and temporary projection. These are local equivalences; alias application and th
 ### 23.6 The call plan and its reversal
 
 ```kotlin
-/** `passReads`: the callee positions that a pass rule of the rule set reads at an unresolved callee (not the default
- *  identity, not a default model such as the JVM default getter rules). Only the `UnresolvedCallObserver` reads it
- *  (Part II §28.5); it has no effect on facts. */
-class CallPlan(val touched: Set<AccessPathBase>, val stages: List<CallStage>, val sinks: List<SinkRule>,
-               val entry: CallPoint, val exit: CallPoint, val passReads: Set<AccessPathBase> = emptySet()) {
-    /** analyzer-core.md §4.5: the stages from one point read the same facts; their order does not matter. */
-    val stagesFrom: Map<CallPoint, List<CallStage>> = stages.groupBy { it.from }
+/** Cached call graph. passReads is observer metadata and does not affect propagation. */
+class CallPlan(
+    touched: Set<AccessPathBase>,
+    stages: List<CallStage>,
+    sinks: List<SinkRule>,
+    val entry: CallPoint,
+    val exit: CallPoint,
+    passReads: Set<AccessPathBase> = emptySet(),
+) {
+    val touched: Set<AccessPathBase> = ownedSet(touched)
+    val stages: List<CallStage> = ownedList(stages)
+    val sinks: List<SinkRule> = ownedList(sinks)
+    val passReads: Set<AccessPathBase> = ownedSet(passReads)
 
-    /** analyzer-core.md §4.5 THE REVERSAL; Lean `Reverse.Call.rev` (toCallee and fromCallee swap and reverse). */
+    /** Every stage from a point reads the same input facts. */
+    val stagesFrom: Map<CallPoint, List<CallStage>> = pointDirectory(this.stages)
+
+    fun stagesAt(point: CallPoint): List<CallStage> = stagesFrom[point].orEmpty()
+
     fun reversed(): CallPlan {
-        check(entry == CallPoint.BEFORE && exit == CallPoint.AFTER) { "the core reverses only a forward plan" }
-        val exitTargets = stages.filter { it.to == exit }.filterIsInstance<CallStage.Edges>().flatMap { it.summary.targets }
-        val aliasBases = passOverBases(exitTargets, touched)                            // the A5 helper (Part II §23.2)
-        val rev = stages.mapTo(ArrayList()) { it.reversed() }
-        // Forward, an alias base is untouched: its fact passes over the call. Backward, it is touched (for the reversed
-        // alias edges), so its requirement passes over by an explicit identity stage from the entry to the exit (A5).
-        if (aliasBases.isNotEmpty())
-            rev += CallStage.Edges(CallPoint.AFTER, CallPoint.BEFORE, StageKind.PASS_OVER, StatementSummary.identities(aliasBases))
-        return CallPlan(touched + aliasBases, rev, sinks, entry = exit, exit = entry, passReads = passReads)
+        check(entry == CallPoint.BEFORE && exit == CallPoint.AFTER) { "The core reverses only a forward plan" }
+        val exitTargets = stages.filter { it.to == exit }.filterIsInstance<CallStage.Edges>()
+            .flatMap { it.summary.targets }
+        val aliasBases = passOverBases(exitTargets, touched)
+        val reversed = stages.mapTo(ArrayList()) { it.reversed() }
+        if (aliasBases.isNotEmpty()) {
+            reversed += CallStage.Edges(CallPoint.AFTER, CallPoint.BEFORE, StageKind.PASS_OVER,
+                StatementSummary.identities(aliasBases))
+        }
+        return CallPlan(touched + aliasBases, reversed, sinks, entry = exit, exit = entry, passReads = passReads)
     }
+}
+
+private fun pointDirectory(stages: List<CallStage>): Map<CallPoint, List<CallStage>> {
+    val groups = ownedOrdinalGroups(stages) { it.from }
+    return if (groups.size <= 1) groups else CallPointDirectory(groups)
+}
+
+/** Fixed six-point lookup; compatibility iteration keeps the first stage's point order. */
+private class CallPointDirectory(groups: Map<CallPoint, List<CallStage>>) : AbstractMap<CallPoint, List<CallStage>>() {
+    override val size: Int = groups.size
+    private val pointOrder = IntArray(size)
+    private val byOrdinal = arrayOfNulls<List<CallStage>>(CallPoint.entries.size)
+    @Volatile private var entryView: Set<Map.Entry<CallPoint, List<CallStage>>>? = null
+
+    init {
+        var index = 0
+        for ((point, stages) in groups) {
+            pointOrder[index++] = point.ordinal
+            byOrdinal[point.ordinal] = stages
+        }
+    }
+
+    override fun get(key: CallPoint): List<CallStage>? = byOrdinal[key.ordinal]
+    override fun containsKey(key: CallPoint): Boolean = byOrdinal[key.ordinal] != null
+
+    override val entries: Set<Map.Entry<CallPoint, List<CallStage>>>
+        get() = entryView ?: object : AbstractSet<Map.Entry<CallPoint, List<CallStage>>>() {
+            override val size: Int get() = this@CallPointDirectory.size
+            override fun iterator(): Iterator<Map.Entry<CallPoint, List<CallStage>>> =
+                object : Iterator<Map.Entry<CallPoint, List<CallStage>>> {
+                    private var next = 0
+                    override fun hasNext(): Boolean = next < size
+                    override fun next(): Map.Entry<CallPoint, List<CallStage>> {
+                        if (!hasNext()) throw NoSuchElementException()
+                        val ordinal = pointOrder[next++]
+                        return SimpleImmutableEntry(CallPoint.entries[ordinal], checkNotNull(byOrdinal[ordinal]))
+                    }
+                }
+        }.also { entryView = it }
 }
 ```
 
@@ -4387,54 +4560,174 @@ The reversed plan of a JVM call against the backward call order (`interpreter.md
 | 8 reversed binding in | `BEFORE→BOUND BIND_IN` | `BOUND→BEFORE BIND_IN` |
 | 9 field limit | exit `AFTER` | exit `BEFORE` |
 
-### 23.7 Forms cache and the direction view
+### 23.7 Managed forms cache and the direction view
 
-Implements `analyzer-core.md` §4.8 (the forward forms and their reversals, made once) and the table "What the core uses in
-each direction" of `analyzer-core.md` §4.9. `MethodContextCache.directed()` makes the `DirectedForms` of a run, and
-`RunManager.forms` keeps it (`analyzer-impl.md` §3.2, §3.4).
+The actual common API is below. The sequential run barrier (analyzer-core.md B1) does not replace safe slot
+publication. A slot is allocated lazily by atomic publication. It has one reference to a
+forward/lazy-reverse payload, no stored forward builder and no strong fallback. Failed forward construction
+publishes nothing; failed reversal keeps forward. Recursive same-slot construction fails. A callback pins the
+payload through its operation with a reachability fence in `finally`. The two-argument constructor remains a
+compatibility adapter with an unregistered soft reference; production JVM wiring supplies the shared managed
+category. `MethodForms` defaults serve reference/manual implementations; the JVM overrides them with `withForm`.
 
 ```kotlin
-/** A forward form and its reversal per slot (a statement index), each made once. No race: one runner uses a method
- *  (analyzer-core.md O1), and the join of a run orders the runs (analyzer-core.md B1), so a plain array is enough. A second build would
- *  break the identity keys of the run state (a `ConjunctiveEdge` or a conjunctive `SinkRule` is the key of
- *  `ConjunctionStore.add`, `Guard.SinkTriggered` names its `SinkRule`, a reversed `END_FACTS` stage names it as `trigger`
- *  and the backward core keys the trigger seeds by it: Part II §31.2 MEMORY), so this cache must never rebuild a form. */
-class FormsCache<F : Any>(size: Int, private val reverse: (F) -> F) {
-    private val slots = arrayOfNulls<Any>(2 * size)
-    @Suppress("UNCHECKED_CAST")
-    fun get(slot: Int, direction: Direction, forward: () -> F): F {
-        val f = (slots[2 * slot] ?: forward().also { slots[2 * slot] = it }) as F
-        if (direction == Direction.FORWARD) return f
-        return (slots[2 * slot + 1] ?: reverse(f).also { slots[2 * slot + 1] = it }) as F
+import org.opentaint.dataflow.bidi.ap.Direction
+import org.opentaint.dataflow.bidi.ap.MethodKey
+import org.opentaint.ir.api.common.cfg.CommonCallExpr
+import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.dataflow.util.SoftReferenceManager
+import java.lang.ref.Reference
+import java.lang.ref.SoftReference
+import java.util.concurrent.atomic.AtomicReferenceArray
+
+/** Lazy slots retain one reclaimable forward/reverse payload, with one build at a time per slot. */
+class FormsCache<F : Any>(
+    private val size: Int,
+    private val refs: SoftReferenceManager? = null,
+    private val statistics: FormCacheStatistics? = null,
+    private val reverse: (F) -> F,
+) {
+    constructor(size: Int, reverse: (F) -> F) : this(size, null, null, reverse)
+
+    init { require(size >= 0) { "A form cache size must be nonnegative" } }
+    private val slots = AtomicReferenceArray<FormSlot<F>?>(size)
+
+    private class FormSlot<F : Any> {
+        @Volatile var payload: Reference<ForwardReversePayload<F>>? = null
+        var building = false
     }
+
+    private class ForwardReversePayload<F : Any>(val forward: F, private val statistics: FormCacheStatistics?) {
+        @Volatile private var backward: F? = null
+        private var reversing = false
+
+        fun selected(direction: Direction, reverse: (F) -> F): F {
+            if (direction == Direction.FORWARD) return forward
+            backward?.let { return it }
+            return synchronized(this) {
+                backward?.let { return it }
+                check(!reversing) { "Recursive reversal of a form slot" }
+                reversing = true
+                val start = if (statistics != null) statistics.startReversal() else 0L
+                var success = false
+                try {
+                    reverse(forward).also { backward = it; success = true }
+                } finally {
+                    statistics?.finishReversal(start, success)
+                    reversing = false
+                }
+            }
+        }
+    }
+
+    private fun formSlot(index: Int): FormSlot<F> {
+        slots.get(index)?.let { return it }
+        val created = FormSlot<F>()
+        return if (slots.compareAndSet(index, null, created)) created else checkNotNull(slots.get(index))
+    }
+
+    private fun payload(slot: FormSlot<F>, forward: () -> F): ForwardReversePayload<F> {
+        slot.payload?.get()?.let { statistics?.hit(); return it }
+        return synchronized(slot) {
+            slot.payload?.get()?.let { statistics?.hit(); return it }
+            check(!slot.building) { "Recursive construction of a form slot" }
+            slot.building = true
+            val start = if (statistics != null) statistics.startBuild() else 0L
+            var success = false
+            var cached = false
+            try {
+                ForwardReversePayload(forward(), statistics).also {
+                    slot.payload = if (refs == null) SoftReference(it) else refs.createRef(it)
+                    cached = slot.payload != null
+                    success = true
+                }
+            } finally {
+                statistics?.finishBuild(start, success, cached)
+                slot.building = false
+            }
+        }
+    }
+
+    fun <R> withForm(slot: Int, direction: Direction, forward: () -> F, use: (F) -> R): R {
+        require(slot in 0 until size) { "A form slot must be within the cache" }
+        statistics?.access()
+        val selectedPayload = payload(formSlot(slot), forward)
+        statistics?.pin()
+        try {
+            return use(selectedPayload.selected(direction, reverse))
+        } finally {
+            Reference.reachabilityFence(selectedPayload)
+            statistics?.unpin()
+        }
+    }
+
+    fun get(slot: Int, direction: Direction, forward: () -> F): F =
+        withForm(slot, direction, forward) { it }
 }
 
-/** The cached forms of one method key in both directions. The language part implements it (Part II §31.2). */
+/** Cached language forms retain method and context ownership. */
 interface MethodForms {
     fun statement(direction: Direction, s: CommonInst): StatementSummary
     fun call(direction: Direction, s: CommonInst, call: CommonCallExpr): CallPlan
-    fun entryRules(direction: Direction): RuleStatement                    // BACKWARD: `entryRules.reversed()`
-    fun exitRules(direction: Direction, exit: CommonInst): ExitRules       // BACKWARD: `ExitRules(exitRules.reversed(), false, {})`
+    fun entryRules(direction: Direction): RuleStatement
+    fun exitRules(direction: Direction, exit: CommonInst): ExitRules
+
+    fun <R> withStatement(direction: Direction, s: CommonInst, use: (StatementSummary) -> R): R =
+        use(statement(direction, s))
+    fun <R> withCall(direction: Direction, s: CommonInst, call: CommonCallExpr, use: (CallPlan) -> R): R =
+        use(call(direction, s, call))
+    fun <R> withEntryRules(direction: Direction, use: (RuleStatement) -> R): R = use(entryRules(direction))
+    fun <R> withExitRules(direction: Direction, exit: CommonInst, use: (ExitRules) -> R): R =
+        use(exitRules(direction, exit))
 }
 
-/** analyzer-core.md §4.9 table "What the core uses in each direction". */
+/** The run reads forward or reversed cached forms through this direction view. */
 class DirectedForms(val interp: Interpreter, val direction: Direction, private val forms: (MethodKey) -> MethodForms) {
-    private val fwd get() = direction == Direction.FORWARD
-    /** analyzer-core.md §4.4: forward the entry; backward every exit for the zero fact, the normal exits for another fact. */
+    private val forward get() = direction == Direction.FORWARD
     fun startNodes(m: MethodKey, zero: Boolean): List<CommonInst> =
-        if (fwd) listOf(interp.entryNode(m)) else interp.exitNodes(m).filter { zero || !it.exceptional }.map { it.node }
+        if (forward) listOf(interp.entryNode(m)) else interp.exitNodes(m).filter { zero || !it.exceptional }.map { it.node }
     fun startRules(m: MethodKey, node: CommonInst): RuleStatement =
-        if (fwd) forms(m).entryRules(Direction.FORWARD) else forms(m).exitRules(Direction.BACKWARD, node).rules
+        if (forward) forms(m).entryRules(Direction.FORWARD) else forms(m).exitRules(Direction.BACKWARD, node).rules
     fun statement(m: MethodKey, s: CommonInst) = forms(m).statement(direction, s)
     fun call(m: MethodKey, s: CommonInst, c: CommonCallExpr) = forms(m).call(direction, s, c)
     fun endNodes(m: MethodKey): List<CommonInst> =
-        if (fwd) interp.exitNodes(m).filter { !it.exceptional }.map { it.node } else listOf(interp.entryNode(m))
+        if (forward) interp.exitNodes(m).filter { !it.exceptional }.map { it.node } else listOf(interp.entryNode(m))
     fun endRules(m: MethodKey, node: CommonInst): ExitRules =
-        if (fwd) forms(m).exitRules(Direction.FORWARD, node)
+        if (forward) forms(m).exitRules(Direction.FORWARD, node)
         else ExitRules(forms(m).entryRules(Direction.BACKWARD), globalStateDrop = false, entryMarks = emptySet())
-    // No liveness member: no run drops a fact on a dead local (interpreter.md §2.1 step 1, D25; Part II §32).
+
+    fun <R> withStartRules(m: MethodKey, node: CommonInst, use: (RuleStatement) -> R): R =
+        if (forward) forms(m).withEntryRules(Direction.FORWARD, use)
+        else forms(m).withExitRules(Direction.BACKWARD, node) { use(it.rules) }
+    fun <R> withStatement(m: MethodKey, s: CommonInst, use: (StatementSummary) -> R): R =
+        forms(m).withStatement(direction, s, use)
+    fun <R> withCall(m: MethodKey, s: CommonInst, c: CommonCallExpr, use: (CallPlan) -> R): R =
+        forms(m).withCall(direction, s, c, use)
+    fun <R> withEndRules(m: MethodKey, node: CommonInst, use: (ExitRules) -> R): R =
+        if (forward) forms(m).withExitRules(Direction.FORWARD, node, use)
+        else forms(m).withEntryRules(Direction.BACKWARD) {
+            use(ExitRules(it, globalStateDrop = false, entryMarks = emptySet()))
+        }
 }
 ```
+
+Optional `FormCacheStatistics` is analysis-wide. It is enabled only by
+`org.opentaint.bidi.formStatistics=true`. One final aggregate includes access/build/reversal counts, timing,
+active/peak callback pins and cumulative predicate node/leaf compilation totals, including constants and
+rebuilds. It holds no slot, form or builder, allocates no per-slot counter and adds no per-event log.
+
+`SoftReferenceManager` serializes registration and enable/disable transitions. Cleanup swaps the identity registry
+under its short lock and clears the detached batch outside it, without an O(n) copied batch. A ReferenceQueue
+prunes cleared wrappers in bounded batches on create/enable and through an explicit full drain. Cleanup returns
+-1 while already disabled; createRef returns null while disabled. Keep MemoryManager policy unchanged. The manager
+never takes a form-slot lock. Common slot/proof tests are required before integrated reclamation is enabled.
+
+COMPACT FORM API. `StatementSummary` keeps owned `touched`, `edges`, `conjunctions`, operand/result filter maps
+and `sources`; `edgesOf(base)` is an ordinal view over its shared edge vector. `CallPlan.stagesFrom` is the compatibility directory, and
+`stagesAt(point)` uses the compact fixed-point index. Empty/singleton forms use shared specialized containers; larger
+forms own arrays and add a primitive key/ordinal index only when needed. Public construction makes one defensive
+copy; trusted factories adopt only newly owned arrays. Preserve source/action order, duplicate policy, composed
+filters and supplied edge identities within one payload. No public mutation can change any derived index.
 
 ### 23.8 The per-path algebra and the oracle of the forms
 
@@ -5023,6 +5316,62 @@ rewriter of today:
 (`JVM/JIRMarkAwareConditionRewriter.kt:18-25`). It evaluates the non-mark atoms per statement (`JIRBasicAtomEvaluator`)
 and gives the mark literals.
 
+### 27.0 Current signed compiler, bound predicates and logical keys
+
+The live JVM adapters are `JIRRuleForms.rewriteSourceOrSink(rule, rewriter, projectNegatives = true)`,
+`normalizedSourceOrSink(cond, projectNegatives = true)`, and `predicate(rule, cond, mayBeArray)`.
+The first validates every raw position/action, folds signed atoms before static rewriting and again afterward,
+then applies the eligible residual-negative projection. Entry rules require true before that projection.
+`JIRRulePredicates` builds an iterative owned `RulePredicate` with local array OR choices and no cube product.
+FALSE has no form effect, positive footprint, end action or seed. TRUE uses the existing unconditional placement.
+
+```text
+Constructor/API shapes; ordinary AP values and complete raw validation are unchanged.
+FormKey(owner: FormOwner, method: CommonMethod, context: MethodKey?, statement: CommonInst)
+RuleOccurrenceId(form: FormKey, kind: RuleKind, ordinal: Int)
+ActionId(occurrence: RuleOccurrenceId, role: ActionRole, ordinal: Int,
+         relevantMarkOrdinal: Int = 0, generatedStep: Int = 0)
+TemporaryKey(action: ActionId, substep: Int = 0)
+ProofKey(rule: RuleOccurrenceId, leaves: List<Int>, choices: List<Int> = emptyList())
+SourceRuleOccurrence(id: RuleOccurrenceId, predicate: RulePredicate,
+                     actions: List<SourceAction>, backward: Boolean = false)
+```
+
+Provider ordinals come from the frozen candidate order before filtering. `JIRMethodEntries.formOwner` identifies
+one analysis/configuration/body generation. Context-dependent call and entry forms use their full method key;
+physical statement/exit forms omit context. Action roles and generated field/string-byte/mark steps remain separate.
+Cache epochs, runs, directions and limits are not part of these keys. Raw manual temporaries remain fresh.
+
+`source(builder, rule, occurrenceId, cond)` adds one `SourceRuleOccurrence` for a nonconstant condition,
+existing zero-premise source edges for TRUE and nothing for FALSE. Targets are a separate owned action vector. `sinks(rule, cond, occurrenceId,
+mayBeArray)` creates one bound `SinkRule` with its predicate and stable occurrence, rather than a cube list.
+Legacy/manual SinkRule patterns remain supported. `joinKey` and end-trigger guards use the logical occurrence.
+
+Unary/multi flags follow canonical requirements on the folded DAG. Unary keys use OR union and AND intersection;
+multi keys use distinct-leaf AND co-occurrence. Unary uses apply the generic AP transfer to the original input
+immediately. Multi uses add premise/effective-layer contributions and use fixed conjunctive targets. A one-leaf
+completed source proof does not emit the target again. Source state does not retain unnecessary checked facts.
+Sink state retains the exact checked facts needed for witnesses and exit removal. Live positive reads occur before
+root completion; retain the zero-premise static footprint of `A OR (A AND B)`.
+
+`RulePredicateStore.add(rule, statement, predicate, leaf, input, emit)` owns shared immutable leaf/OR/AND records
+with scalar logical node IDs, cached hashes and iterative equality. Persistent maps share canonical leaf headers
+and input versions. Repeated headers must agree; shared OR uses can select different branches in separate AND
+operands. Actor state holds no predicate topology. Completed roots flatten/deduplicate scoped descriptors and
+emit matched-fact growth; no static proof inventory or support cap exists. Clear this state at actor freeze.
+
+Generated field actions use `cleanSteps(..., id)`, `unconditional(..., actionId)` and
+`lowerCleaner(..., temporaryKey)`; `fieldCleanStep(..., temporaryKey = ...)` preserves that key in read/reversed
+write/reversed read. Forward and backward use the same key, and no temporary can enter persistent stores.
+The existing cleaner normalization and broad-reach guard remain; a residual mark-dependent cleaner is not
+made unconditional. These are required gates, not a claim that the full NNF/cache integration is proved.
+
+
+LEGACY/TEST-ORACLE SKETCH. Expanded cubes in the following sketch are not the production compiler. A test
+oracle first applies the current raw validation and signed-fold/static-fold/projection policy of §27.0. It may
+then expand deliberately small test inputs. Live source/sink construction uses §27.0 and keeps one NNF predicate.
+Do not call `explodeToDNF` or form array/action Cartesian products in production.
+
 ### 27.1 Positions, marks, literals, cubes
 
 ```kotlin
@@ -5081,7 +5430,8 @@ internal class JIRRuleForms(
         is ContainsMarkOnAnyAccessorLiteral -> pos(rule, l.position)?.copy(any = true)?.fact(mark(l.mark.mark))
     }
 
-    /** §4.2 for a source and a sink: a negated literal counts as true; `Or` gives one cube per alternative. The caller
+    /** TEST ORACLE ONLY: cond has passed raw validation and both signed/static folds; eligible residual negatives
+     *  count as true. Or gives one small cube per alternative. The caller
      *  passes only a `valid` rule (below), so every literal has a position: a rule error rejects the whole rule, never one
      *  cube (§1.3, D29). A pass rule takes no cube: it has no mark literal (§4.2, D24; Part II §28.5). REUSE
      *  removeTrueLiterals (TaintMarkAwareConditionExpr.kt:48-50) and explodeToDNF (:110-123). */
@@ -5180,6 +5530,11 @@ internal class JIRRuleForms(
     }
 ```
 
+LEGACY/TEST-ORACLE SKETCH. Expanded cubes in the following sketch are not the production compiler. A test
+oracle first applies the current raw validation and signed-fold/static-fold/projection policy of §27.0. It may
+then expand deliberately small test inputs. Live source/sink construction uses §27.0 and keeps one NNF predicate.
+Do not call `explodeToDNF` or form array/action Cartesian products in production.
+
 ### 27.2 The rule-to-edge path and the sources (call, entry, exit, read)
 
 Every rule element that makes a mark is `premises -> target`: a source and an end fact (`AssignMark`, from the zero fact
@@ -5241,6 +5596,11 @@ premise `[any-taint]` (I14; `MicroEdge.init`).
         }                                                                          // target; AnyField: `x.[any-taint] (T)` (I14)
     }
 ```
+
+LEGACY/TEST-ORACLE SKETCH. Expanded cubes in the following sketch are not the production compiler. A test
+oracle first applies the current raw validation and signed-fold/static-fold/projection policy of §27.0. It may
+then expand deliberately small test inputs. Live source/sink construction uses §27.0 and keeps one NNF predicate.
+Do not call `explodeToDNF` or form array/action Cartesian products in production.
 
 ### 27.3 Sinks and end facts
 
@@ -5512,6 +5872,11 @@ ADAPT of `JIRMethodCallFactMapper.mapMethodCallToStartFlowFact` (:210-242) and `
     }.buildStage()
 ```
 
+LEGACY/TEST-ORACLE SKETCH. Expanded cubes in the following sketch are not the production compiler. A test
+oracle first applies the current raw validation and signed-fold/static-fold/projection policy of §27.0. It may
+then expand deliberately small test inputs. Live source/sink construction uses §27.0 and keeps one NNF predicate.
+Do not call `explodeToDNF` or form array/action Cartesian products in production.
+
 ### 28.3 Sources, cleaners, rewriter
 
 ```kotlin
@@ -5520,7 +5885,7 @@ ADAPT of `JIRMethodCallFactMapper.mapMethodCallToStartFlowFact` (:210-242) and `
     private fun sources(): StatementSummary = MicroEdgeBuilder().apply {
         keepZero()
         for (rule in interp.rules.sourceRulesForMethod(callee, s, fact = null).filter(forms::valid)) {
-            val cubes = forms.cubes(rule, rewriter.rewrite(rule.condition))
+            val cubes = forms.cubes(rule, forms.rewriteSourceOrSink(rule, rewriter))
             for (a in rule.actionsAfter) for (cube in cubes) forms.source(this, rule, cube, a)
         }
     }.buildStage()
@@ -5749,6 +6114,11 @@ the call (it is not in `touched`).
 
 ---
 
+LEGACY/TEST-ORACLE SKETCH. Expanded cubes in the following sketch are not the production compiler. A test
+oracle first applies the current raw validation and signed-fold/static-fold/projection policy of §27.0. It may
+then expand deliberately small test inputs. Live source/sink construction uses §27.0 and keeps one NNF predicate.
+Do not call `explodeToDNF` or form array/action Cartesian products in production.
+
 ## 29. Entry rules and exit rules
 
 Implements `interpreter.md` §4.3, §4.7, §4.4 item 3; `analyzer-core.md` §4.4.
@@ -5812,7 +6182,7 @@ internal object JIRBoundaryForms {
         val rw = calleeRewriter(interp, entry, method, exit)
         val b = MicroEdgeBuilder().apply { keepZero() }                              // I11 (d): both exits
         for (rule in interp.rules.exitSourceRulesForMethod(method, exit, fact = null).filter(forms::valid)) {   // §1.3
-            for (cube in forms.cubes(rule, rw.rewrite(rule.condition))) {             // the empty cube too: both exits (D26)
+            for (cube in forms.cubes(rule, forms.rewriteSourceOrSink(rule, rw))) {             // the empty cube too: both exits (D26)
                 cube.forEach { b.keep(it.base) }                                       // every read base: f stays in the worklist
                 rule.actionsAfter.forEach { forms.source(b, rule, cube, it) }          // two or more literals: a ConjunctiveEdge (D31)
             }
@@ -6022,32 +6392,82 @@ so the JIR test kit adds the two lambda features to its classpath; a test that n
 | `JStringConcatTransformer` (`core/opentaint-utils/opentaint-jvm-util/src/main/kotlin/org/opentaint/jvm/transformer/JStringConcatTransformer.kt:32`) | `makeConcatWithConstants` becomes calls of `String.concat`, so each operand flows by the rules of `String.concat` (§3.7) | the `invokedynamic` call is an unresolved call with the coarse pass rule of `StringConcatRuleProvider` (`core/opentaint-jvm-sast-dataflow/src/main/kotlin/org/opentaint/jvm/sast/dataflow/StringConcatRuleProvider.kt:20-30`) |
 
 ```kotlin
-/** One per analysis. JIRMethodContextCache (analyzer-impl.md §3.4) holds it. */
+/** Analysis-lifetime owners of method data and the forms of each method key. */
 class JIRMethodEntries(
-    val graph: JApplicationGraph,                    // the forward graph (JApplicationSingleExitGraph)
+    val graph: JApplicationGraph,
     val languageManager: JIRLanguageManager,
     val callResolver: JIRCallResolver,
-    val rules: TaintRulesProvider,                   // the alias model reads the pass rules (JIRLocalAliasAnalysis.kt:71-115)
+    val rules: TaintRulesProvider,
     val aliasParams: JIRLocalAliasAnalysis.Params,
     val cancellation: Cancellation,
-    val prescanLambdas: PrescanLambdas,
+    prescanLambdas: PrescanLambdas,
+    internal val formReferences: SoftReferenceManager? = null,
+    internal val formStatistics: org.opentaint.dataflow.bidi.interp.FormCacheStatistics? =
+        org.opentaint.dataflow.bidi.interp.FormCacheStatistics.ifEnabled(),
 ) {
-    init {                                                       // THE REQUIRED CLASSPATH FEATURES (above); interpreter.md §3.7
+    val formOwner = org.opentaint.dataflow.bidi.interp.FormOwner()
+    init {
         val installed = graph.cp.features.orEmpty()
         check(installed.any { it is LambdaAnonymousClassFeature } &&
             installed.any { it is LambdaExpressionToAnonymousClassTransformerFeature }) {
-            "the lambda features are not installed: a raw lambda would be an unresolved call (Part II §31.2)"
+            "The linked lambda features must be installed before method forms are built"
         }
     }
+
+    /** Own all three collection levels before any method lazily reads its call targets. */
+    val prescanLambdas: PrescanLambdas = Collections.unmodifiableMap(
+        LinkedHashMap<JIRMethod, Int2ObjectMap<Set<JIRMethod>>>().apply {
+            for ((caller, byIndex) in prescanLambdas) {
+                cancellation.checkpoint()
+                val copied = Int2ObjectOpenHashMap<Set<JIRMethod>>()
+                for (entry in byIndex.int2ObjectEntrySet()) {
+                    cancellation.checkpoint()
+                    val methods = LinkedHashSet<JIRMethod>()
+                    for (method in entry.value) {
+                        cancellation.checkpoint()
+                        methods += method
+                    }
+                    copied.put(entry.intKey, Collections.unmodifiableSet(methods))
+                }
+                put(caller, Int2ObjectMaps.unmodifiable(DetachedEntriesMap(copied)))
+            }
+        })
+
     private val byMethod = ConcurrentHashMap<JIRMethod, JIRMethodEntry>()
     private val byKey = ConcurrentHashMap<MethodKey, JIRMethodForms>()
 
     operator fun get(key: MethodKey): JIRMethodEntry = get(key.method as JIRMethod)
-    operator fun get(m: JIRMethod): JIRMethodEntry = byMethod.computeIfAbsent(m) { JIRMethodEntry(it, this) }
+    operator fun get(method: JIRMethod): JIRMethodEntry =
+        byMethod.computeIfAbsent(method) { JIRMethodEntry(it, this) }
 
-    /** The forms of one method key (both directions). */
+    /** Both directions keep the same key owner; the method runner owns its form slots. */
     fun forms(interp: JIRInterpreter, key: MethodKey): JIRMethodForms =
         byKey.computeIfAbsent(key) { JIRMethodForms(interp, get(it), it) }
+
+    /** Fastutil's wrapper protects its set but leaves hash-map entries mutable. */
+    private class DetachedEntriesMap<V>(private val owned: Int2ObjectMap<V>) : AbstractInt2ObjectMap<V>() {
+        override val size: Int get() = owned.size
+        override fun get(key: Int): V? = owned[key]
+        override fun containsKey(key: Int): Boolean = owned.containsKey(key)
+
+        private val detached = object : AbstractObjectSet<Int2ObjectMap.Entry<V>>() {
+            override val size: Int get() = owned.size
+
+            override fun iterator(): ObjectIterator<Int2ObjectMap.Entry<V>> {
+                val source = owned.int2ObjectEntrySet().iterator()
+                return object : ObjectIterator<Int2ObjectMap.Entry<V>> {
+                    override fun hasNext(): Boolean = source.hasNext()
+                    override fun remove(): Nothing = throw UnsupportedOperationException("Immutable lambda entries")
+                    override fun next(): Int2ObjectMap.Entry<V> {
+                        val entry = source.next()
+                        return AbstractInt2ObjectMap.BasicEntry(entry.intKey, entry.value)
+                    }
+                }
+            }
+        }
+
+        override fun int2ObjectEntrySet(): ObjectSet<Int2ObjectMap.Entry<V>> = detached
+    }
 }
 
 /** analyzer-core.md §4.8 "per method": the parts that do not read the context. Only an analysed method has an entry: a
@@ -6086,30 +6506,56 @@ class JIRMethodEntry internal constructor(val method: JIRMethod, internal val sh
     private val backwardGraph by lazy { MethodInstGraph.build(shared.languageManager, JIRExitWiredGraph(common).reversed, method) }
 
     /** The forms that do not read the context: one per method, for every key. */
-    internal val statements = FormsCache<StatementSummary>(size) { it.reversed() }
-    internal val exits = FormsCache<ExitRules>(size) { ExitRules(it.reversed(), globalStateDrop = false, entryMarks = emptySet()) }
+    internal val statements = FormsCache<StatementSummary>(size, shared.formReferences, shared.formStatistics) { it.reversed() }
+    internal val exits = FormsCache<ExitRules>(size, shared.formReferences, shared.formStatistics) { ExitRules(it.reversed(), globalStateDrop = false, entryMarks = emptySet()) }
 
     // fun exitNodes(key: MethodKey): List<ExitNode>: the code is in Part II §30
 }
 
-/** analyzer-core.md §4.8 "per METHOD KEY" (DD11, SI16): the forms that read the context, and the per-method forms of
- *  `e`. */
+/** Context-sensitive forms use managed payloads and stable logical rule/action keys. */
 class JIRMethodForms internal constructor(
     private val interp: JIRInterpreter,
-    private val e: JIRMethodEntry,
+    private val entry: JIRMethodEntry,
     private val key: MethodKey,
 ) : MethodForms {
-    private val plans = FormsCache<CallPlan>(e.size) { it.reversed() }
-    private val entry = FormsCache<RuleStatement>(1) { it.reversed() }
+    private val plans = FormsCache<CallPlan>(entry.size, entry.shared.formReferences, entry.shared.formStatistics) { it.reversed() }
+    private val initial = FormsCache<RuleStatement>(1, entry.shared.formReferences, entry.shared.formStatistics) { it.reversed() }
 
-    override fun statement(direction: Direction, s: CommonInst) =
-        e.statements.get(e.index(s), direction) { JIRStatementForms(interp, e).build(s as JIRInst) }
-    override fun call(direction: Direction, s: CommonInst, call: CommonCallExpr) =
-        plans.get(e.index(s), direction) { JIRCallPlanBuilder(interp, e, key, s as JIRInst, call as JIRCallExpr).build() }
-    override fun entryRules(direction: Direction) =
-        entry.get(0, direction) { JIRBoundaryForms.entryRules(interp, e, key) }
-    override fun exitRules(direction: Direction, exit: CommonInst) =
-        e.exits.get(e.index(exit), direction) { JIRBoundaryForms.exitRules(interp, e, key, exit, entryRules(Direction.FORWARD)) }
+    override fun statement(direction: Direction, s: CommonInst) = withStatement(direction, s) { it }
+
+    override fun <R> withStatement(direction: Direction, s: CommonInst, use: (StatementSummary) -> R): R =
+        entry.statements.withForm(entry.index(s), direction, {
+            JIRStatementForms(interp.manager, interp.typeFilters,
+                aliasPaths = { at, base -> buildList {
+                    entry.aliasAnalysis?.forEachAliasPathAtStatement(at, base) { alias, path ->
+                        add(alias to path.map(interp::idx))
+                    }
+                } },
+                readSources = interp.ruleForms::readSources).build(s as JIRInst)
+        }, use)
+
+    override fun call(direction: Direction, s: CommonInst, call: CommonCallExpr) = withCall(direction, s, call) { it }
+
+    override fun <R> withCall(direction: Direction, s: CommonInst, call: CommonCallExpr, use: (CallPlan) -> R): R =
+        plans.withForm(entry.index(s), direction, {
+            JIRCallPlanBuilder(interp.manager, interp.ruleForms, interp.checker, interp.typeFilters,
+                key, s as JIRInst, call as JIRCallExpr, interp.callResolver::resolve, interp.epResolver,
+                entry.lambdas, aliasAnalysis = entry.aliasAnalysis,
+                defaultGetModel = interp.defaultGetModel, formOwner = entry.shared.formOwner).build()
+        }, use)
+
+    override fun entryRules(direction: Direction) = withEntryRules(direction) { it }
+
+    override fun <R> withEntryRules(direction: Direction, use: (RuleStatement) -> R): R = initial.withForm(0, direction, {
+        JIRBoundaryForms.entryRules(interp, entry, key)
+    }, use)
+
+    override fun exitRules(direction: Direction, exit: CommonInst) = withExitRules(direction, exit) { it }
+
+    override fun <R> withExitRules(direction: Direction, exit: CommonInst, use: (ExitRules) -> R): R =
+        entry.exits.withForm(entry.index(exit), direction, {
+            JIRBoundaryForms.exitRules(interp, entry, key, exit, entryRules(Direction.FORWARD))
+        }, use)
 }
 ```
 
@@ -6123,17 +6569,18 @@ unmodifiable. Fastutil's unmodifiable hash-map wrapper does not protect
 Keep hash lookup for call-site indices. This preserves A4 without retaining
 the prescan's trackers or subscriptions.
 
-MEMORY. The caches keep their forms with strong references for the whole analysis: the forward forms of every reached
-method key, and the reversals after the first backward run. The forms are small against the run stores (one
-`StatementSummary` per statement, with a few `PathEdge`s; one `CallPlan` per call). A soft reference as today
-(`JVM/analysis/JIRMethodAnalysisContext.kt:53-85`) is not safe here. The core keys run state by the identity of form
-objects: a `ConjunctiveEdge` or a conjunctive `SinkRule` is the `rule` key of `ConjunctionStore.add` (Part I §7.10),
-`Guard.SinkTriggered` names its `SinkRule`, and so does the `trigger` of a reversed `END_FACTS` stage (the backward core
-fires the trigger seeds once per statement and `SinkRule`, §23.4). A rebuilt form is a new key, and the stored literal
-inputs are lost. The
-caches have the lifetime of the analysis (`JIRMethodEntries` lives as long as the `IterationDriver`). The vulnerability
-store does not read this identity: a witness names its sink alternative by `SinkRule.alternative` (§23.4), which a
-rebuilt form keeps.
+MEMORY. Method/key owners retain compact recipes, frozen provider generation and lazy form slots for the analysis.
+Used slots register one forward/reverse payload in `bidi-method-forms` on the same RefManager as the engine and
+MemoryManager. The JVM passes `shared.formReferences` into statement, exit, call and entry caches. Unused slots
+allocate no lock or payload. Unused payloads can be reclaimed and rebuilt with equal logical keys.
+
+Production application uses `withStatement`, `withCall`, `withEntryRules` and `withExitRules`; old getters are
+compatibility adapters. Pin the whole frame walk, boundary drain, rule application and call resume. A suspended
+subscription stores its call site/keys/support and reacquires the plan. Actor joins/triggers use occurrence/proof
+keys, not form addresses. Run state, seed descriptors and witnesses keep owned values with no compiled form-owner
+backreference. No strong fallback, reversed-end map or builder closure may retain the payload outside its scope.
+Failure and cancellation release the callback pin. Forced-rebuild controls are required before enabling this
+policy on production JVM forms; a small cache unit test alone does not establish integrated equivalence.
 
 The run part of today's context (`JIRTaintAnalysisContext`, the sink tracker) is not here. The core owns the stores of a
 run (`analyzer-core.md` §4.8).
@@ -6287,7 +6734,7 @@ in `core`. Implement each test before the corresponding builder. Keep test numbe
 | 4 | `CallPlanReversalTest` | Reversed stage graph, guard removal with trigger retention, alias pass-over, action order and resume points. |
 | 4a | `FormApplierTest` | STATEMENT/STAGE/GEN effects, operand/result filters, source-seed/hit order. |
 | 5 | `JIRStatementFormsTest` | Every `interpreter.md` §2.2/§2.4 row, including static reads and repeated target/source bases. |
-| 6 | `JIRRuleFormsTest` | Positions, complete rule rejection, DNF/array alternatives, static rules, sources/pass tails and cleaners. |
+| 6 | `JIRRuleFormsTest` | Positions, complete raw rule rejection, signed NNF/local array choices, static rules, source/pass tails and cleaners; small cube expansion is a test oracle only. |
 | 7 | `JIRCallPlanTest` | Binding, S/zero, resolved/unresolved/constructor paths, rewriter selection, late native must returns, aliases and prescan lambdas. |
 | 8 | `JIRBoundaryFormsTest` | Context entry filters, both exits, exceptional Result=exc, zero-premise static/entry-mark drops, conjunctive exit sources. |
 | 9 | `JIRFormsContractTest` | Scan every forward/backward form against construction invariants (§33.4). |
@@ -6360,7 +6807,7 @@ not an inferred flow theorem:
 | Any tails | Only source/end-fact targets are must with concrete marks and empty E. Pass targets are may. No pass AnyField premise. No backward must tail. |
 | Statics | IR accesses include class and field; bare-class source/literals satisfy exact/concrete guards; bindings preserve S. |
 | Reversal | No filters or guards; end-fact trigger retained; split conjunction results forced demand; A5 pass-over present. |
-| Field action | Fresh temporary, read identity, strong-write keep edges, reverse order and final projection. Temporary is not a summary/link/source-hit base. |
+| Field action | Generated temporary key (fresh manual token), read identity, strong-write keep edges, reverse order and final projection. Temporary is not a summary/link/source-hit base. |
 | Boundaries | Entry/exit rules touch zero and read/filter bases; exit wiring permits each reachable node to reach a virtual exit. |
 
 Use the forms' existing public members to enumerate these shapes. Keep the scan separate from the transfer

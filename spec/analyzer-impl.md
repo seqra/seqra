@@ -15,6 +15,12 @@ publications keep their original layer. There is no crossability test. Requests 
 
 The local Lean results and open obligations are listed in §10. They do not prove the full current iteration.
 
+O1/O2/O3 alignment: the live predicate and cache contracts below supersede the historical expanded-rule and
+strong-form sketches. Expanded cubes are only a small corrected-policy test oracle or a legacy/manual adapter.
+These contracts preserve the existing AP tables and phase scope. Implementation/equivalence gates are requirements;
+they are not marked proved or passed by this proposal edit.
+
+
 ## 0. Conventions and design decisions
 
 ### 0.1 Conventions
@@ -741,9 +747,11 @@ enum class Cut { STATEMENT, CALL, ENTRY_RULES, EXIT_RULES, SEED }
     }
 
     private fun runStatement(item: EdgeDelta) {
-        applier.statement(forms.statement(key, item.node), item.premise, item.facts, Place(item.node, config.run1, sources = true),
-            sink = { pr, x -> cut(Cut.STATEMENT, pr, x) { p2, t -> emitAfter(p2, item.node, t) } },
-            untouched = { _, _ -> emitUnchanged(item) })
+        forms.withStatement(key, item.node) { summary ->
+            applier.statement(summary, item.premise, item.facts, Place(item.node, config.run1, sources = true),
+                sink = { pr, x -> cut(Cut.STATEMENT, pr, x) { p2, t -> emitAfter(p2, item.node, t) } },
+                untouched = { _, _ -> emitUnchanged(item) })
+        }
     }
 
     private fun emitAfter(premise: PremiseKey, node: CommonInst, t: Facts) {
@@ -779,7 +787,9 @@ enum class Cut { STATEMENT, CALL, ENTRY_RULES, EXIT_RULES, SEED }
 
 Use one boundary worklist. Apply the rule statement, then sinks and triggered end facts; newly generated facts
 re-enter the worklist. Backward, a reversed end fact that applies also fires its alternative's trigger seeds.
-Deduplicate `(premise, Facts)` structurally, and fire trigger seeds once per statement and alternative.
+Deduplicate `(premise, Facts)` structurally, and fire trigger seeds once per statement and bound occurrence
+(manual alternative scope remains supported). RuleWorklist and its reversed-end vector are callback-local borrowed
+values. They cannot escape the whole boundary drain or be retained on the actor.
 
 Forward starts use entry rules. Backward zero starts use both normal and exceptional exits; nonzero starts use
 normal exits only. An exit sink seed enters before the reversed rules of that exit.
@@ -814,15 +824,23 @@ normal exits only. An exit sink seed enters before the reversed rules of that ex
     }
 
     private fun startAt(premise: PremiseKey, n: CommonInst, start: Facts) {
-        val w = RuleWorklist(forms.startRules(key, n), n, if (forward) Cut.ENTRY_RULES else Cut.EXIT_RULES)
-        w.input(premise, start)
-        if (!forward && premise.isZero) fireSinkSeeds(n) { seed -> w.input(ap.zero, seed) }
-        w.drain()
-        for ((pr, t) in w.items) edges.add(n, pr, t)?.let { push(EdgeDelta(pr, n, it)) }
+        forms.withStartRules(key, n) { rules ->
+            val w = RuleWorklist(rules, n, if (forward) Cut.ENTRY_RULES else Cut.EXIT_RULES)
+            w.input(premise, start)
+            if (!forward && premise.isZero) fireSinkSeeds(n) { seed -> w.input(ap.zero, seed) }
+            w.drain()
+            for ((pr, t) in w.items) edges.add(n, pr, t)?.let { push(EdgeDelta(pr, n, it)) }
+        }
     }
 ```
 
 ### 4.5 The call plan runner (`analyzer-core.md` §4.5)
+
+The walk below specifies stage order and fact effects. A live `RunMethodCallServices` operation reacquires the
+plan under `DirectedForms.withCall`; a suspended continuation stores only call keys/point/support metadata.
+A conceptual `ctx.plan` in this sketch is a borrowed callback value, not a stored compiled-plan owner.
+The current predicate and lifetime contracts are in §4.12.
+
 
 Walk the directed call-plan DAG in either direction. At BOUND, forward sinks supply the guards of end-fact
 stages. `Actions(from, to, steps)` applies its ordered cleaners and rewriters. A field action performs ordinary
@@ -869,7 +887,7 @@ observer does not select transfers. Release its delta cache with the service.
             facts.fold(Triggers.NONE) { acc, f -> acc + checkSinks(f.premise, ctx.node, f.facts, ctx.plan.sinks) }
         else Triggers.NONE
         if (config.run1 && point == CallPoint.ADDED) observeUnresolved(ctx, facts)
-        for (stage in ctx.plan.stagesFrom[point].orEmpty()) {
+        for (stage in ctx.plan.stagesAt(point)) {
             val out = applyStage(ctx, stage, facts, triggers)
             if (out.isNotEmpty()) flow(ctx, stage.to, out, pendingDemotion)
         }
@@ -930,7 +948,7 @@ observer does not select transfers. Release its delta cache with the service.
 
     private fun observeUnresolved(ctx: CallCtx, facts: List<PlanFact>) {
         val observer = r.shared.unresolvedObserver ?: return
-        if (ctx.plan.stagesFrom[CallPoint.ADDED].orEmpty().none { it is CallStage.Edges && it.kind == StageKind.UNRESOLVED }) return
+        if (ctx.plan.stagesAt(CallPoint.ADDED).none { it is CallStage.Edges && it.kind == StageKind.UNRESOLVED }) return
         for (f in facts) {
             if (f.facts !is TaintTree) continue
             val ref = CallerRef(key, f.premise, ctx.callerLayer, ctx.node)
@@ -1134,6 +1152,10 @@ Freeze drops the join and request store.
         }
 ```
 
+CURRENT NNF APPLICATION. The literal-list code below is the manual/reference adapter. Bound JVM occurrences use
+§4.12: one predicate, shared supported proofs and complete fact-group headers. Do not materialize cubes to call
+this adapter. Logical occurrence/proof keys replace compiled rule-object identity in joins, guards and triggers.
+
 ### 4.9 Sinks, witnesses, seeds, source hits (`analyzer-core.md` §4.7)
 
 Forward sinks use `checkMark`. Store every evaluated literal part, including an incomplete conjunctive sink's
@@ -1254,6 +1276,44 @@ and backward hits until source-seed construction. Drop all other run stores.
     }
 }
 ```
+
+### 4.12 Current predicate execution and callback lifetime
+
+Use `StatementSummary.sources` for bound conditional source occurrences and `SinkRule.predicate` with its
+`occurrenceId` for bound sink occurrences. FALSE never reaches this path; TRUE uses existing zero/unconditional
+forms. `RulePredicate.matchingLeaves` indexes mark/base reads; FLOW visits all applicable reads of its base.
+Read and request effects do not wait for a complete root. Exit removals read the live positive footprint, including
+B in `A OR (A AND B)`, under the existing zero-premise/static-state rule.
+
+For each source leaf marked unary, use its action transfer immediately with the original input through the AP.
+Preserve suffixes, exclusions, static POSITION requests, action target tails and result filters. For multi leaves,
+check the mark and effective layer, raise run-1 requests, and add a contribution without unused checked facts.
+`RulePredicateStore.add(id, statement, predicate, leaf, input, emit)` incrementally completes supported roots.
+A root with one distinct leaf is already handled by the unary path. Multi roots emit their ordered targets with
+current premise union/layer rules. Do not invent a leaf-by-action product in the compiled payload.
+
+Sink leaves use checkMark and retain matched facts in their complete group. Shared OR proofs can take different
+branches through different AND operands, but repeated canonical leaf bindings must agree. Shared immutable
+leaf/OR/AND records and persistent binding/version maps avoid ancestor list copying. Cache hashes and compare
+proofs iteratively. Flatten only completed root descriptors; deduplicate exact scoped outcomes while preserving
+new matched-fact versions. Scope every proof by RuleOccurrenceId, method context/place and ordered support shape.
+Actor freeze releases the predicate stores. Their records retain no RulePredicate node/index graph.
+
+Execute statement/call/boundary operations under the corresponding MethodForms/DirectedForms callback. The JVM
+callback delegates to FormsCache.withForm and fences the forward/reverse payload in finally. Rule worklists,
+reversed-end lookups and suspended callbacks retain lookup metadata, not a strong compiled form. Reacquire a call
+plan for resume. A manager cleanup cannot invalidate a currently pinned application; future accesses can rebuild.
+
+Backward source effects visit every active positive leaf; unary uses ordinary reversal and multi forces DEMAND.
+There is no backward AND join. Hand-off traverses all matching full positive sink predicates at each witnessed
+DEMAND method context and place; it includes unwitnessed OR leaves. Reversed end actions fire the full owning
+positive predicate once per place/occurrence, across its actions, also for CONFIRMED entries. A proof-specific
+trigger is not an adequate substitute. TRUE has no mark seed and FALSE has no seed/effect.
+
+The production JVM API uses JIRRuleForms.rewriteSourceOrSink/normalizedSourceOrSink/predicate and the managed
+form callbacks in ap-impl §23.7/§27.0. Existing KaryJoin remains for explicit manual conjunctions and E6. The
+new scope/collector/callback/cache gates are not proved by the old small cube or schedule tests.
+
 
 ## 5. The pipeline (`analyzer-core.md` §5)
 
@@ -1778,8 +1838,10 @@ conclusion/member pair for the next backward demand. Convert forward must tails 
 view, then normalize abstract mark exclusions to `*` on both sides; preserve concrete marks and other field
 exclusions. Builder insertion rejects duplicates and the implicit zero demand; count successful insertions only.
 
-Seed the report's DEMAND vulnerabilities using each witness's method key and every alternative of its rule at the
-sink statement. Confirmed keys need no hand-off seed; end-fact trigger seeds still come from the forms.
+Seed the report's DEMAND vulnerabilities at each witnessed full method key and statement. Each matching bound
+NNF condition gives one `Seed.PredicateSink` handle. It later reads every active positive leaf, including unwitnessed
+OR branches. Legacy/manual alternatives give owned literal seeds. Confirmed keys need no hand-off seed;
+end-fact trigger seeds still visit the owning full condition, also for CONFIRMED findings.
 
 ```kotlin
 class HandOff(val demand: DemandStore, val seeds: SeedIndex, val demandEdges: Map<MethodKey, Int>) {
@@ -1812,9 +1874,14 @@ class HandOff(val demand: DemandStore, val seeds: SeedIndex, val demandEdges: Ma
         val seeds = ArrayList<Seed>()
         for (entry in report.demandEntries())
             for (mk in entry.witnesses.mapTo(LinkedHashSet()) { it.methodKey })
-                for (sink in sinksAt(shared, mk, entry.key.statement)) if (sink.rule == entry.key.rule)
-                    for (lit in sink.seedPatterns())
-                        seeds += Seed.Sink(entry.key.rule, mk, entry.key.statement, lit)
+                forEachSinkAt(shared, mk, entry.key.statement) { sink ->
+                    if (sink.rule == entry.key.rule) {
+                        if (sink.predicate != null)
+                            seeds += Seed.PredicateSink(checkNotNull(sink.occurrenceId), mk, entry.key.statement)
+                        else for (lit in sink.seedPatterns())
+                            seeds += Seed.Sink(entry.key.rule, mk, entry.key.statement, lit)
+                    }
+                }
         return demand.build() to SeedIndex.of(seeds.distinct())
     }
 
@@ -1825,11 +1892,12 @@ class HandOff(val demand: DemandStore, val seeds: SeedIndex, val demandEdges: Ma
         if (p.fact.mark !is MarkSlot.Star || p.fact.mark.excluded.isEmpty) p
         else p.copy(fact = p.fact.copy(mark = MarkSlot.STAR))
 
-    private fun sinksAt(shared: SharedObjects, key: MethodKey, s: CommonInst): List<SinkRule> {
+    private fun forEachSinkAt(shared: SharedObjects, key: MethodKey, s: CommonInst, use: (SinkRule) -> Unit) {
         val forms = shared.contexts.forms(key)
-        shared.language.getCallExpr(s)?.let { return forms.call(Direction.FORWARD, s, it).sinks }
-        return if (shared.interpreter.exitNodes(key).any { it.node == s })
-            forms.exitRules(Direction.FORWARD, s).rules.sinks else emptyList()
+        val call = shared.language.getCallExpr(s)
+        if (call != null) forms.withCall(Direction.FORWARD, s, call) { plan -> plan.sinks.forEach(use) }
+        else if (shared.interpreter.exitNodes(key).any { it.node == s })
+            forms.withExitRules(Direction.FORWARD, s) { exit -> exit.rules.sinks.forEach(use) }
     }
 ```
 
@@ -1866,32 +1934,86 @@ The implicit `(zero, none)` publishes nothing in a restricted forward run.
 ### 7.4 `Seed`, `SeedIndex`
 
 Index seeds by method key and statement. Source lookup includes the forward edge to distinguish instructions.
-No method key or context is lost when deriving seeds. Sink literals give requirements; unconditional sinks have
-no positive literal and produce no seed.
+No method key or context is lost when deriving seeds. Manual sink literals give requirements; a bound condition keeps one logical occurrence handle with no compiled
+predicate or leaf inventory. Reacquire the matching form under a callback and visit its whole active leaf scope.
+Unconditional sinks have no positive literal and produce no seed.
 
 ```kotlin
+import org.opentaint.dataflow.ap.ifds.AccessPathBase
+import org.opentaint.dataflow.bidi.ap.MethodKey
+import org.opentaint.dataflow.bidi.ap.PathEdge
+import org.opentaint.dataflow.bidi.ap.Pattern
+import org.opentaint.dataflow.bidi.store.RuleId
+import org.opentaint.dataflow.bidi.interp.RuleOccurrenceId
+import org.opentaint.ir.api.common.cfg.CommonInst
+import java.util.Collections
+
+/** Persistent hand-off seeds retain their context and original statement. */
 sealed interface Seed {
     val method: MethodKey
     val statement: CommonInst
-    data class Sink(val rule: RuleId, override val method: MethodKey, override val statement: CommonInst,
-                    val requirement: Pattern) : Seed
-    data class Source(override val method: MethodKey, override val statement: CommonInst, val edge: PathEdge) : Seed
+
+    /** One full-condition handle; it holds no compiled predicate or leaf inventory. */
+    data class PredicateSink(
+        val occurrence: RuleOccurrenceId,
+        override val method: MethodKey,
+        override val statement: CommonInst,
+    ) : Seed
+
+    class Sink(
+        val rule: RuleId,
+        override val method: MethodKey,
+        override val statement: CommonInst,
+        requirement: Pattern,
+    ) : Seed {
+        init {
+            check(requirement.fact.base !is AccessPathBase.CleanerTemporary) {
+                "A field-action temporary cannot enter a sink seed"
+            }
+        }
+        val requirement: Pattern = requirement.copy(fact = requirement.fact.copy(
+            path = Collections.unmodifiableList(ArrayList(requirement.fact.path))))
+
+        override fun equals(other: Any?): Boolean = this === other ||
+            (other is Sink && rule == other.rule && method == other.method && statement == other.statement &&
+                requirement == other.requirement)
+
+        override fun hashCode(): Int =
+            ((rule.hashCode() * 31 + method.hashCode()) * 31 + statement.hashCode()) * 31 + requirement.hashCode()
+    }
+
+    /** The producer owns edge paths; preserve the supplied forward edge for later source selection. */
+    data class Source(override val method: MethodKey, override val statement: CommonInst, val edge: PathEdge) : Seed {
+        init {
+            check(edge.from.base !is AccessPathBase.CleanerTemporary && edge.to.base !is AccessPathBase.CleanerTemporary) {
+                "A field-action temporary cannot enter a source seed"
+            }
+        }
+    }
 }
 
-class SeedIndex(private val byPlace: Map<Pair<MethodKey, CommonInst>, List<Seed>>) {
+/** Seed entries keep order and multiplicity; source admission compares the complete forward edge. */
+class SeedIndex(byPlace: Map<Pair<MethodKey, CommonInst>, List<Seed>>) {
+    private val byPlace: Map<Pair<MethodKey, CommonInst>, List<Seed>> = Collections.unmodifiableMap(
+        LinkedHashMap<Pair<MethodKey, CommonInst>, List<Seed>>().apply {
+            for ((place, seeds) in byPlace) put(place, Collections.unmodifiableList(ArrayList(seeds)))
+        })
     private val sources: Set<Triple<MethodKey, CommonInst, PathEdge>> =
-        byPlace.values.flatten().filterIsInstance<Seed.Source>().mapTo(HashSet()) { Triple(it.method, it.statement, it.edge) }
+        this.byPlace.values.asSequence().flatten().filterIsInstance<Seed.Source>()
+            .mapTo(HashSet()) { Triple(it.method, it.statement, it.edge) }
 
     fun at(method: MethodKey, statement: CommonInst): List<Seed> = byPlace[method to statement].orEmpty()
     fun allowsSource(method: MethodKey, statement: CommonInst, forward: PathEdge): Boolean =
         Triple(method, statement, forward) in sources
     val size: Int get() = byPlace.values.sumOf { it.size }
 
-    fun sinkMethods(): Set<MethodKey> = byPlace.values.flatten().filterIsInstance<Seed.Sink>().mapTo(HashSet()) { it.method }
+    fun sinkMethods(): Set<MethodKey> = byPlace.values.asSequence().flatten()
+        .filter { it is Seed.Sink || it is Seed.PredicateSink }
+        .mapTo(HashSet()) { it.method }
 
     companion object {
         val EMPTY = SeedIndex(emptyMap())
-        fun of(seeds: List<Seed>) = SeedIndex(seeds.groupBy { it.method to it.statement })
+        fun of(seeds: List<Seed>): SeedIndex = SeedIndex(seeds.groupBy { it.method to it.statement })
     }
 }
 ```

@@ -36,6 +36,51 @@ behavioral simplification. Historical closure results do not prove the current
 iteration. Check local links, section references and public signatures after a
 proposal rewrite. The tests below remain the implementation acceptance plan.
 
+## O1/O2/O3 acceptance additions (existing case IDs retained)
+
+These additions preserve every case ID below. They define pending acceptance requirements, not completed gates.
+Use the corrected-policy small cube oracle only in tests: raw validation, signed fold, static rewrite, second
+signed fold, eligible residual-negative projection and constant/duplicate folding precede its bounded expansion.
+No production expression or support count has a cap. No historical theorem is a certificate for the new integration.
+
+1. Signed compiler: source/sink `P AND NOT P`, array `(P0 OR P1) AND NOT P0 AND NOT P1`, raw type complements
+   before polarity-sensitive evaluation, tautologies, and live OR branches. Distinguish positions/marks/root/any
+   predicates. Invalid raw actions in a dead branch still reject. FALSE has no request, footprint, action, witness,
+   seed or trigger. Entry eligibility and cleaner/pass policy remain separate; keep the broad-reach cleaner guard.
+2. Predicate layout: expression-sized NNF, local array ORs, stable postorder IDs, owned immutable leaves/arrays,
+   inverse parents, exact unary/multi flags against a normalized independent oracle, deep chains and cancellation.
+   No DNF, action/array Cartesian product or prebuilt proof inventory. Repeated compound operands fold first.
+3. Support/proof store: all arrival orders, repeated canonical leaf bindings with different premises, a shared OR
+   selecting different branches in separate AND operands, zero/nonzero and NORMAL/DEMAND combinations, exclusions,
+   whole group keys, and same-proof growing sink facts. Verify complete decoded outcomes and requests. Deep proof
+   hashing/equality/traversal is iterative; retained actor state has no compiled graph. No source fact retention
+   merely to share a sink type. A one-leaf source root must not emit the fixed target twice.
+4. Backward scope: every active positive source/sink leaf, including unwitnessed OR branches; unary ordinary and
+   multi forced-demand source reversal; no backward AND join; whole-predicate DEMAND hand-off at exact context/place;
+   full end-trigger scope once across actions, including CONFIRMED entries. Keep actual source-hit identities as
+   complete forward-edge values. Verify live zero-premise static footprint even without a completed root.
+5. Stable keys: equal independent rebuilds but separate configured occurrences, contexts, action roles and field/
+   string-byte/relevant-mark substeps. Generated F74 temporaries match across forward/reverse/rebuild, manual ones
+   remain fresh, and no temporary escapes. Witness scope and support headers remain separate across keys/runs.
+6. Managed lifecycle/cache: deterministic explicit enqueue/prune, cleanup idempotence/re-enable, latch-controlled
+   registration races, no late accepted reference, clearing outside the lock, and a new batch surviving old cleanup.
+   Lazy slot allocation, one managed forward/reverse payload, concurrent single-flight, failed-forward no publication,
+   failed-reverse forward retention, recursive build rejection, disabled transient access without fallback, callback
+   pin through cleanup/failure/cancellation and snapshot-safe accessors. Do not use sleeps or GC timing as correctness.
+7. Integrated eviction: force cleanup between literals, directions, end actions, field actions and suspended call
+   returns. Join/guard/trigger/seed/witness behavior and logical keys stay equal; only addresses/build counts change.
+   Audit RuleWorklist, reversed-end storage, joins, closures and subscriptions for strong compiled owners.
+8. Compact containers: public mutation cannot change derived indexes; retain order, duplicates and composed filters.
+   Empty/singleton/owned-array vectors, compact base/point ordinal views and primitive larger-map lookup. Reversal
+   shares owned immutable paths/sinks/filters without changing field cuts or native pending-return finalization.
+
+Use SoftReferenceManagerLifecycleTest, FormsCacheTest, RuleIdentityTest, RulePredicateCompilerTest,
+RulePredicateStoreTest, SignedConditionNormalizerTest, the JVM rule/forced-eviction tests and compact-form tests,
+then the full common/JVM/Go consumer and both application/query modes. Record authoritative logs and fresh XML.
+Repeat only the four fixed project workloads with their prescribed heap/timeout, strict findings/status comparison,
+profiles and separate live-heap diagnostics. Incomplete timing is not an improvement; overlapping retained-owner
+sizes are not an additive savings total. Do not mark resource or semantic gates complete from this document edit.
+
 ## AP tests
 
 Bare rule references in this part name `ap.md`. Test item numbers and §13 refer
@@ -742,7 +787,7 @@ Interpreter migration differences → §6.
    `below` also gives normal `(x, p.f, $, T)`; `exact` also gives demand `(x, p.f, [any], T)` with no exclusion.
    With `f ∈ E`, the read gives no temporary fact and the action keeps the original fact. The single-field
    vectors are `FieldCleanerX.exact_vector`, `below_vector`, `atAndBelow_vector`. Also test the read and write
-   filters, the ordinary statement cuts, a shared fresh temporary in the reversed action, and projection
+   filters, the ordinary statement cuts, the same generated temporary key in the reversed action, and projection
    away from that temporary before publication.
 7. Type filter placement: one test per row of §5.1; a `*`, an `[any]` and an `[any-taint]` fact always pass, with
    their tails and exclusions; the policy drops a mark on an `int` base.
@@ -780,8 +825,10 @@ Interpreter migration differences → §6.
 15. Exit rules at the exceptional exit (§4.7): an exit sink on `Result` triggers on the thrown tainted value; an exit
     source at the exceptional exit adds no summary edge; an unconditional exit source and an unconditional exit sink
     fire at both exits, and the unconditional exit sink reports at both exits (D26).
-16. Cleaners (§4.2, D20): `RemoveMark(T, P) if ContainsMark(P, T)` and a cleaner with a negated literal do not clean;
-    the same cleaner with no condition cleans.
+16. Cleaners (§4.2, D20): raw `RemoveMark(T, P, Exact) if ContainsMark(P, T)` normalizes to an unconditional
+    action and cleans. A remaining condition on another position, a residual negated mark condition, and a non-AnyField
+    `ExactAndAnyField` root-mark condition stay conditional and do not clean. The same actions with no condition clean.
+    Keep the low-level residual-condition controls separate from the shared JVM resolver normalization.
 17. Lambdas (§3.9, D19): a call through a functional interface of the project, with a lambda that the prescan knows,
     has no unresolved path; the same call with no known lambda takes the unresolved path; a call through a JDK
     functional interface (`java.util.function.Function.apply`) with a known lambda keeps the unresolved path of the

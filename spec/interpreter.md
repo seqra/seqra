@@ -100,6 +100,31 @@ holds relative to them. Under A1 an alias on the static base does not hold after
 
 ---
 
+### 0.2 Logical identity, managed forms and compact containers (O1/O2/O3)
+
+The interpreter is unchanged across runs in its logical keys and effects, not in Java object addresses. Frozen
+provider order supplies occurrence ordinals before validation or filtering. Configuration/body replacement creates
+a new `FormOwner`. `FormKey`, `RuleOccurrenceId`, `ActionId`, `ProofKey` and `TemporaryKey` preserve generated
+identity across independent rebuilds. Persistent source hits retain the complete forward-edge value, not a compiled
+form owner. Historical object-identity reasoning is not a cache-lifetime requirement.
+
+Method owners keep recipes and lazy slots. A used slot has one managed soft forward/reverse payload, registered in
+`bidi-method-forms` on the shared `RefManager`. Build forward once per surviving payload; reverse lazily from that
+same forward value. Publish no failed forward build. A failed reversal preserves forward. Reject recursive
+construction of one slot. Disabled registration uses a transient payload without a strong fallback.
+
+`MethodForms.withStatement/withCall/withEntryRules/withExitRules` and the corresponding `DirectedForms` scopes pin
+the payload for the whole application. A reachability fence in `finally` also covers failure and cancellation.
+Suspended calls retain keys/support metadata and reacquire a plan on resume. Manager cleanup never locks a form
+slot; registration and disable share a lifecycle lock, cleanup swaps the registry and clears outside the lock.
+ReferenceQueue maintenance is bounded on registration/enable; explicit cleanup/diagnostics can drain fully.
+
+Public form constructors own one copy in read-only empty/singleton/array containers. Trusted factories adopt only
+newly owned storage. Keep original order, duplicate policy and filter composition. Base/point indexes use compact
+ordinal views over a shared owned vector. These changes do not alter AP exclusion tables or call/field-cleaner cuts.
+The implementation and equivalence gates for O1/O2/O3 remain pending until their authoritative tests pass; no
+historical proof establishes the whole new predicate/cache integration.
+
 ## 1. Bases and positions
 
 ### 1.1 Bases
@@ -541,10 +566,18 @@ report holds is in the output, also one whose end facts never reach the end of t
 
 ### 4.2 Conditions
 
-* The interpreter rewrites each condition to the negation normal form, per call statement (per method for the entry
-  and exit rules).
-* Non-mark atoms (`IsConstant`, `IsNull`, `ConstantEq/Lt/Gt/Matches`, `TypeMatches`, `IsStaticField`, ...) are
-  evaluated statically per statement. The constant atoms use the alias information. A false condition removes the rule.
+* Validate the whole raw rule before folding, including positions and actions in a discarded branch.
+* For a source or sink, apply `SignedConditionNormalizer` before static evaluation and again afterward.
+  Fold constants, duplicate operands and direct complements. Use non-distributing unit propagation to prove
+  false/true scopes after array specialization. Do not guess assignments, distribute operators or use a SAT solver.
+  A proved FALSE has no action, read/drop footprint, request, witness, seed or trigger. If a scope is neither proved
+  false nor proved true, retain its live read structure. General absorption is outside O1.
+* Evaluate surviving non-mark atoms (`IsConstant`, `IsNull`, `ConstantEq/Lt/Gt/Matches`, `TypeMatches`,
+  `IsStaticField`, ...) statically per statement, with the existing alias information. Preserve signed atoms until
+  both folds are complete. A polarity-sensitive evaluator must not erase `P AND NOT P` first.
+* After these folds, project residual negative mark literals to true for eligible call/exit sources and sinks,
+  then fold constants again. Entry eligibility requires the signed/static condition to be true before projection.
+  Cleaner action normalization and the remaining cleaner/pass policies below are separate.
 * A mark atom is a LITERAL. For a sink, `ContainsMark(P, T)` is the pattern `(P, $, T)` and
   `ContainsMarkOnAnyField(P, T)` is the pattern `(P, [any], T)`. For a source, a literal is the premise
   of a micro edge: `ContainsMark(Q, T')` gives the premise `Q.$ (T')`, and `ContainsMarkOnAnyField(Q, T')` gives the
@@ -559,22 +592,24 @@ report holds is in the output, also one whose end facts never reach the end of t
   `arg(i)·ρ` whose argument may be an array is the disjunction of the patterns `(arg(i), ρ, t, T)` and
   `(arg(i), [e]·ρ, t, T)`. The argument may be an array if `typeMayBeArray` (§5.1) holds for the static type of the
   argument value at the call (today `JIRFactTypeChecker.callArgumentMayBeArray` and `arrayElementConditionReaders`,
-  `JIRMethodCallTaintUtil.kt:186-203`). `Or` gives one alternative per pattern, so a conjunctive sink gets one
-  alternative per choice. This holds only for the argument positions of a sink at a call: not for the receiver, not for
-  `Result`, not for the entry and exit sinks. The sink seeds of the backward run follow the alternatives (§4.9).
-* For a source or a sink, an over-approximation makes the rule fire MORE: a negated literal counts as true. `Or` gives
-  one alternative per literal. A conjunction of literals that different facts satisfy (a positive literal on another
-  position): a source, at a call or at an exit, makes an ND edge (§5.3, §4.7 step 1); a sink is a CONJUNCTIVE SINK
+  `JIRMethodCallTaintUtil.kt:186-203`). Compile this as a local OR of the root and element-prefixed leaves.
+  Do not form the Cartesian product across arguments or actions. This applies only to call-sink arguments, not to
+  receivers, `Result`, entry/exit sinks or source leaves. Backward seeds visit both active choices (§4.9).
+* For a source or sink, the residual negative-literal projection after signed folding is an over-approximation.
+  Keep one owned positive NNF DAG per bound occurrence; production does not expand it to DNF cubes.
+  A conjunction of literals that different facts satisfy (a positive literal on another position): a source, at a call or at an exit, makes an ND edge (§5.3, §4.7 step 1); a sink is a CONJUNCTIVE SINK
   (ap.md §4.9, §5.3). The interpreter sets no layer. The layer of a result belongs to the propagation edge, and only
   the AP operations change it (ap.md §2.2): a fact that only overlaps a literal gives a demand-layer result, but a
   normal `[any-taint]` fact keeps its layer (ap.md §4.1, §4.6; I2). An `[any-taint]` fact overlaps a literal only in
   the locations that its exclusion admits (ap.md §4.6). A negated literal that counts as true is the expected
   over-approximation of a path-insensitive engine, as the conjunction is (the reference semantics of rules, ap.md
   §3.5; ap.md §4.6, §11.1).
-* THE SINK ALTERNATIVES. The interpreter numbers the alternatives of one sink rule at one place (each one disjunct of
-  the condition with one choice of the array patterns) in a fixed order. The number is the SINK ALTERNATIVE of ap.md
-  §1. It is the same in every run and in every context (I5). The vulnerability store keeps the witnesses of two
-  alternatives apart, and the conjunction store keeps their literals apart (ap.md §8.9, §8.10).
+* CONDITION AND PROOF SCOPE. `RuleOccurrenceId` identifies a bound configured occurrence before filtering.
+  `ProofKey` identifies an observed canonical leaf/OR-choice support in that scope. Keys include the form owner,
+  physical method, applicable context, statement and provider ordinal; cache epoch, run index, direction and field
+  limit do not change them. Separate configured occurrences never share support merely because their displayed
+  rule IDs or tuples are equal. Legacy/manual forms can retain numbered alternatives; production NNF has no
+  prebuilt cube inventory. Witnesses keep proof scope, method context, run and complete ordered support headers.
 * A PASS RULE (`CopyAllMarks`, `CopyMark`) has no mark-dependent condition: after the static evaluation of the non-mark
   atoms, its condition has no mark literal. The copied mark of `CopyMark(T, P → Q)` is not a condition: it is the
   premise `P.$ (T)` of the pass edge (§4.1; an `AnyField` premise is a rule error, D33). A pass rule is a handcrafted
@@ -749,6 +784,15 @@ Go has no exit rules. The summary edge is the fact after each `return`, for a ba
 | pass rules | the union of the results |
 | cleaners | chained: the rules in list order, the actions in order. Each action applies to the survivors of the previous action. The requests are collected. Keep this order: partial cleaning can change AP precision. |
 | summary rewriter | chained, as the cleaners |
+
+CURRENT PREDICATE REVERSAL. The alternative notation below is the reference notation, not an instruction to
+build cubes. For a compiled occurrence, reverse each active positive leaf requirement. Unary leaves use ordinary
+source reversal; multi leaves force DEMAND, including exact results. A leaf in both classes permits both effects.
+The backward run performs no AND join. Demand hand-off seeds all active positive leaves of every matching bound
+sink at the witnessed full method key and statement, including unwitnessed OR branches. TRUE seeds no mark
+requirement; FALSE seeds nothing. When an end action reverses, trigger this same full positive scope once per
+(method key, statement, `RuleOccurrenceId`), across its end actions, also for a CONFIRMED entry. Do not restrict
+that trigger to the proof that happened to fire forward. Preserve unconditional source-hit admission separately.
 
 ### 4.9 Backward run
 
@@ -963,7 +1007,10 @@ clean(tmp, reach, mark)
 x.f = tmp
 ```
 
-`tmp` is a fresh temporary base. The read and the strong write use §2.2 or §2.3, with their identity and keep
+A generated `tmp` has `TemporaryKey(ActionId, substep)`. The action key includes its occurrence, application role,
+original action ordinal, relevant-mark ordinal and generated field/string-byte step. Rebuilding the same generated
+operation preserves this value key; distinct operations remain separate. Manual temporaries remain fresh.
+The forward and reversed field actions share the key. The read and strong write use §2.2 or §2.3, with their identity and keep
 edges, filters and field limits. The primitive cleaner has the empty path on `tmp`; it keeps the action's reach
 and mark. Keep the temporary facts until the write-back; then discard the temporary. The backward order is the
 reversed write, the same primitive cleaner, and the reversed read. This form applies at the cleaner placements
@@ -1057,16 +1104,27 @@ CALLER premise (§5.4). A cleaner on `Result` acts only through the rewriter (op
   and no exclusion: these two parts are argued, ap.md §11.2). The target of a conjunctive micro edge has a concrete
   mark and no `*` tail (ap.md S10, W7), and it is not on the zero base (I11 (d)). Its tail is `$`, or `[any-taint]` for
   an `AnyField` source target (I14); it is never `[any]`, because a pass rule makes no conjunction (§4.2).
-* A fact that overlaps a literal and passes its mark gate (ap.md §4.6) is an assumption for (conjunctive micro edge
-  or sink alternative, statement, literal index), as today. The key names one alternative of the condition (§4.2), so
-  the literals of two alternatives of one rule never combine. The interpreter stores the assumption in the conjunction
-  store (ap.md §8.9). The last fact that arrives sees all earlier ones, so the result does not depend on the order.
+* A fact that overlaps a literal and passes its mark gate is a contribution at its canonical leaf in a bound
+  occurrence and statement. `RulePredicateStore` forwards OR proofs and streams compatible AND combinations.
+  Repeated canonical leaves must bind the same premise/layer/checked-fact-group header; `A AND A` cannot combine
+  two different A premises. A shared OR used by separate AND operands can select different branches. Keep OR scope
+  and compatible leaf bindings; do not mix disjoint OR proofs as if they were one conjunction.
+* Compute unary and multi eligibility from the constant-folded predicate, not arrival order. Unary keys propagate
+  by OR union and AND intersection. Multi keys follow distinct-leaf co-occurrence through an AND ancestor.
+  A leaf can belong to both. Apply each unary source use immediately through the ordinary AP transfer with the
+  original facts, path suffixes, exclusions, static POSITION requests and result filters. Multi uses apply MARK
+  checks and conjunctive target construction. A one-leaf root proof does not emit a second fixed target.
+* Source contributions need only premise and effective layer. Sink contributions also keep the checked facts.
+  Use shared immutable proof records and persistent bindings, with separate growing-fact versions. Equal structural
+  proofs must still emit required fact growth. Root deduplication must preserve occurrence and proof/support scope.
+  Do not retain compiled predicate topology in actor state and do not impose a support cap.
 * The result has the union of the premise sets of the inputs without the zero fact, or `{zero}` if every input has
   `{zero}` (ap.md §4.6). The number of the members names the edge: `{zero}` a zero-to-fact edge, one member a
   fact-to-fact edge, two or more an ND edge. The field limit applies to the result.
 * A literal on a `*`-mark fact raises a request (run 1), not an assumption.
 * A sink whose condition has positive literals on several positions is a CONJUNCTIVE SINK. Each literal is a sink
-  pattern; the same conjunction store combines the sink edges of the literals (ap.md §4.9, §8.9). The interpreter
+  pattern. Bound predicates use RulePredicateStore with scoped proofs; the manual literal adapter uses the
+  conjunction store (ap.md §4.9, §8.9). The interpreter
   evaluates it at the same points as the other sinks (§4.5 step 3, §4.6, §4.7). Each literal raises its own request in
   run 1 (§5.4). At the normal exit, the part of an `S` item on which a literal holds is the stored input of that
   literal, and the global-state rule drops it from the summary edge if the premise of the item is the zero fact

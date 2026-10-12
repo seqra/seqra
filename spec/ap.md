@@ -39,7 +39,7 @@ them. Each proof uses only the conditions stated in [proof-status.md](proof-stat
 
 | # | Condition | Owner |
 |---|---|---|
-| S1 | Statement summaries list touched bases and all micro edges. Each micro edge describes exactly its flow in §3.5. The reference semantics treats negated mark literals as true. A pass rule has no mark literal; a pass rule with such a literal is the over-approximation of §11.1. Other rule errors reject the whole rule. | Interpreter |
+| S1 | Statement summaries list touched bases and all micro edges. Each micro edge describes exactly its flow in §3.5. The reference semantics first performs the signed folds of `interpreter.md` §4.2, then treats residual negative mark literals as true. A pass rule has no mark literal; a pass rule with such a literal is the over-approximation of §11.1. Other rule errors reject the whole rule. | Interpreter |
 | S2 | Alias gen edges describe aliases that can hold. Alias writes are weak: an alias base is not touched and keeps its content. The formal reference program is alias-free. | Alias analysis |
 | S3 | A method does not reassign formal parameters. | IR |
 | S4 | Each exit kind has one exit. Normal and exceptional exits form one virtual exit: end rules and backward starts act at both; only the normal exit produces summaries. | CFG |
@@ -54,7 +54,7 @@ them. Each proof uses only the conditions stated in [proof-status.md](proof-stat
 | S13 | Validity for exactness: filters accept all valid locations; validity of an edge's end implies validity of its start, for statement edges and both call bindings. For conjunctions this holds for each literal. | Type-filter placement |
 | S14 | Input records are exact on valid end locations. Must records are end-exact on admitted locations, have concrete conclusions, and satisfy W8 normal form. Reversed backward records require the extra conditions of §8.7; dropping backward filters can break exactness (§11.1). | Record store |
 | S15 | Only sources and triggered end-fact actions use a `[any-taint]` target, with concrete premise/target marks. Pass rules with an AnyField target use may `[any]`; AnyField pass premises are rejected. No micro edge has a `[any-taint]` premise. The backward run has no `[any-taint]`; reversing a may target puts every result in the demand layer. | Interpreter |
-| S16 | A field cleaner uses a fresh temporary: read the field, clean the temporary root, strongly write it back. Keep the read identity and strong-write keep edges. Reverse all three steps backward. The temporary does not escape or enter a summary (§4.7). | Interpreter |
+| S16 | A field cleaner uses an action-scoped temporary (a deterministic key for a generated action; a fresh token for manual construction): read the field, clean the temporary root, strongly write it back. Keep the read identity and strong-write keep edges. Reverse all three steps backward. The temporary does not escape or enter a summary (§4.7). | Interpreter |
 
 The current demand contract also requires normalized patterns and the explicit
 entry-tail guard in §6.1. This guard is proved for the alternating base model; its
@@ -62,6 +62,23 @@ full X-tail and pipeline construction is open. Claims about soundness of every
 current iteration remain proof obligations (§11.2).
 
 ---
+
+### 0.2 Bound NNF rule contracts and cache independence
+
+`interpreter.md` §4.2 defines signed folding before/after static evaluation and residual negative projection.
+Production source/sink conditions use one owned NNF DAG per stable bound occurrence, not a DNF/action/array
+product. FALSE has no AP effect or positive footprint. Keep non-false positive reads such as B in
+`A OR (A AND B)`; a later root firing is not a prerequisite for its leaf read/drop effect.
+
+Unary source uses execute the ordinary §4.1 transfer on the incoming facts. Multi uses execute §4.6 mark checks
+and target construction. One canonical leaf can belong to both classes; repeated bindings must agree. Proof scope
+and complete premise/layer/group headers keep observed alternatives separate. Growing matched facts emit their
+new versions under the same structural proof. These are required implementation equivalence conditions, not a new
+soundness or iteration theorem. The existing AP tables, exclusions, F74 cuts, F75 dispatch and F76/F77 rules remain.
+
+Managed form reclamation must change only allocation addresses and build counts. Stable rule/action/temporary
+keys and callback pins preserve effects. Actor support records and persistent witnesses retain owned descriptors,
+not compiled graphs or form caches. See `interpreter.md` §0.2 and `analyzer-core.md` §4.8 for the owner lifetimes.
 
 ## 1. Terms
 
@@ -101,7 +118,7 @@ current iteration remain proof obligations (§11.2).
 | satisfies; strong enough | A caller can apply a premise's summary by §4.3; specifically `applicable` for “strong enough”. A fact above a premise is not strong enough because correlation is lost. |
 | concrete flow; witness; real | A chain of §3.5 steps; a root-zero-to-sink chain through calls; present in that reference semantics. |
 | demanded/recorded witness | Each returning call has one pattern covering entry and exit with marks, or a permitted record/read view preserving the required pair. Each downward entry is demanded. F72 adds the mode conditions of §6.6. |
-| vulnerability; sink alternative; sink witness | A `(rule,method,statement)` key; one numbered disjunct of its sink condition; the reached sink edge/set for one alternative and method key in one run. A sink witness is distinct from a concrete witness. |
+| vulnerability; sink condition/proof; sink witness | A `(rule,method,statement)` key; a stable bound positive condition and one observed proof in that scope (legacy/manual forms can use a numbered alternative); the reached sink edge/set with its proof, method key and run. A sink witness is distinct from a concrete witness. |
 | support | One call supplies every member of a premise set through normal edges whose own premise sets are supported, down from root zero (§4.9). It is a property of the whole set. |
 | DEMAND entry | Reported by the latest complete forward run and never confirmed so far. Confirmation is final, even if a later run only has a demand witness. |
 | frontier | Method keys with nonzero initial facts and their outgoing demand edges. The driver logs these and record/seed/work counts. Full current narrowing is open (§6.6). |
@@ -535,8 +552,8 @@ the override of the summary rewriter (REFERENCE SEMANTICS OF RULES, below).
   location of a root flows to a location at `n` that `s` covers. The flow can go down into callees: from a location at a
   call node, through a binding edge into the callee, then a flow in the callee (Lean: `Reach`). Such a chain is a
   WITNESS of the vulnerability. A vulnerability is REAL if it has a witness.
-* REFERENCE SEMANTICS OF RULES. The interpreter rules are read in this semantics as follows (S1). A source or a sink
-  fires with every negated mark literal true. A pass rule has no mark literal (a pass rule with a mark literal is a
+* REFERENCE SEMANTICS OF RULES. The interpreter rules are read in this semantics as follows (S1). First fold signed source/sink conditions before and after static evaluation (`interpreter.md` §4.2).
+  An eligible residual negative literal then counts as true. A signed contradiction is false and has no effect. A pass rule has no mark literal (a pass rule with a mark literal is a
   rule error that is not rejected, `interpreter.md` §1.3: it fires without its mark literals, §11.1). A user-defined
   rule that the summary rewriter selects REPLACES the callee flow for its marks at its positions (§4.7). The override
   is not in `Flow`. The theorems read the program in which each call with selected rules is wrapped: the callee flow,
@@ -903,8 +920,8 @@ the limit to the RESULT, after it applies the micro edge to the propagated edge 
 results, and `Program.WF` puts no bound on a micro edge).
 
 A micro edge has NO LAYER. The layer belongs to the propagation edge, and only the AP operations of §2.2 change it. The
-interpreter sets no layer. A negated mark literal counts as true for a source and a sink (the reference semantics,
-§3.5). This is the expected over-approximation of a path-insensitive engine, as the conjunction is (§4.6). Positive
+interpreter sets no layer. An eligible residual negative mark literal counts as true for a source and a sink only after signed folding
+(the reference semantics, §3.5; `interpreter.md` §4.2). A folded false rule has no effect. This is the expected over-approximation of a path-insensitive engine, as the conjunction is (§4.6). Positive
 literals on different facts make a conjunction for a source (§4.6) and a conjunctive sink (§4.9). A pass rule has no
 mark literal (`interpreter.md` §4.2). Only an unconditional cleaner applies (§4.7, `interpreter.md` §4.2).
 
@@ -1266,7 +1283,8 @@ clean(tmp, T)
 x.f = tmp
 ```
 
-`tmp` is fresh. The read and the strong write use the ordinary micro edges of `interpreter.md` §2.2 and §2.3,
+A generated `tmp` keeps its deterministic `TemporaryKey` across rebuilds and reversal; distinct actions have
+separate keys. A manual `tmp` remains fresh. The read and strong write use the ordinary micro edges of `interpreter.md` §2.2 and §2.3,
 including the identity edges and the write's keep edge with the field exclusion `{f}`. The primitive cleaner acts
 on `tmp` with an empty path, the selected reach and the selected mark. The backward run reverses the write,
 then takes the same primitive cleaner, then reverses the read. A normal FLOW fact outside the written field keeps
@@ -1433,19 +1451,19 @@ confirmed (below): a common ADMITTED location of the sink fact and the sink patt
 (`AnyTaintExExact.sink_denX`; round 1 `AnyTaintExact.sink_den`). A sink on the static base `S`
 uses this check too: in run 1 the request on a static premise is answered by the added fact itself (§4.10 item 4).
 
-An UNCONDITIONAL SINK has no positive mark literal: it has no literal, or every literal is negated (a negated literal
-counts as true, §3.5). Its sink pattern is the zero fact `(zero, [], $, {}, zeroMark)`, so it triggers on the zero fact
+An UNCONDITIONAL SINK has a true condition after raw validation, both signed/static folds and eligible residual
+negative projection (§3.5). It has no active positive mark literal. A false condition gives no sink. Its sink pattern is the zero fact `(zero, [], $, {}, zeroMark)`, so it triggers on the zero fact
 at the sink statement. Its sink edge is the edge of the zero fact there: the premise set `{zero}`, the conclusion the
 zero fact, in the normal layer. The two confirmation checks below confirm it if the premise set `{zero}` is supported
 (condition 3): at a root, or through a chain of calls whose caller edges are the zero edges of the callers.
 
-A CONJUNCTIVE SINK has positive mark literals on several positions (`interpreter.md` §4.2). Each literal is a sink
-pattern. The conjunction store (§8.9) keeps, standing for the run, per (sink alternative, statement, literal index),
-each sink edge whose check of that literal triggers. The literal index is the place of the literal in its sink
-alternative (§1). Two alternatives of one rule never share an entry. A check that gives the request raises it (run 1).
-When every literal of one alternative has a stored edge, each combination (one edge per literal) is a SINK EDGE SET of
-the vulnerability, with the set of the sink facts. The vulnerability store keeps every sink edge set as a sink witness
-(§1) under the one key of the vulnerability (§8.10). A sink edge set is in the demand layer if one of its edges is.
+A CONJUNCTIVE SINK needs compatible contributions for distinct canonical positive requirements
+(`interpreter.md` §4.2, §5.3). A bound NNF occurrence uses the store described in §8.9 CURRENT NNF STORE:
+OR forwards observed branch proofs; AND combines new and standing supports. Each repeated canonical leaf has
+one complete binding header. Separate occurrences and incompatible proof/support scopes never share an entry.
+A check that gives a request raises it in run 1, without waiting for the full condition. A completed root gives a
+SINK EDGE SET and scoped proof to the vulnerability store (§8.10). Its effective layer is DEMAND if any input is
+DEMAND. The manual literal adapter keeps the numbered-alternative k-ary join below (§8.9).
 
 END FACTS. A sink rule can have end-fact actions (`interpreter.md` §4.1, END FACTS). An end-fact action gives the
 zero-to-fact edge `Zero → (sink statement, P.$ (T))` (`P.[any-taint] (T)` for an `AnyField` position, `interpreter.md` I14). It takes no input fact: when a sink edge triggers, or when a
@@ -2614,6 +2632,14 @@ Rules:
 * The same for a callee summary with several premises at a call statement: `(callee summary, premise index) → links`
   (the added fact with its caller edge; §4.6, event E6).
 
+CURRENT NNF STORE. The fixed-literal entries above remain the reference/manual form and the E6 callee-summary
+join is unchanged. Bound source/sink predicates use `RulePredicateStore` scoped by method key, statement and
+`RuleOccurrenceId`. A canonical leaf binds one complete premise/effective-layer/fact-group header. Source state
+need not hold checked facts; sink state does. Immutable leaf/OR/AND records share subproofs; persistent maps share
+bindings and fact versions. Shared OR nodes may choose different branches through separate AND operands; only
+repeated leaf bindings must agree. Flatten descriptors only for observed root outcomes, deduplicate exact repeated
+outcomes and preserve new matched-fact versions. Run release drops this state.
+
 ### 8.10 Vulnerability store and the report (PERSISTENT)
 
 A reported vulnerability (Kotlin: `Report.Entry`, `analyzer-core.md` §10; the store keeps the `SinkWitness`es) has
@@ -2629,9 +2655,9 @@ A sink witness (Kotlin: `SinkWitness`) has these fields:
 
 | Field | Content |
 |---|---|
-| alternative | The sink alternative of the rule at the statement that the witness triggered (§1). |
+| condition/proof scope | The bound `RuleOccurrenceId` and observed `ProofKey`; a legacy/manual witness can keep its numbered alternative (§1). |
 | method key | The method key of its sink edges, with the context. The confirmation reads the support of the premise sets in this method key (§4.9 condition 3). |
-| pattern | DERIVED, not stored: the sink patterns of `alternative` of the rule at the statement in the method key (`SinkRule.patterns`; the same in every run, `interpreter.md` I5): the sink pattern `s` (§4.9); for an unconditional sink, the zero fact (§4.9); for a conjunctive sink, the literal patterns. |
+| pattern | DERIVED: the canonical active leaf requirements of the bound predicate and its observed proof. The requirement values are stable across rebuilds (`interpreter.md` I5); an unconditional sink uses zero. |
 | sink edges | One sink edge (its premise key, its layer and its sink fact), or, for a conjunctive sink, one sink edge set (one edge per literal, §4.9) with the set of the sink facts. |
 | confirmed | Whether the witness is confirmed (§4.9). Only a complete forward run confirms a witness. |
 | end facts | The end facts of the witness, if the sink rule has end-fact actions (§4.9; `interpreter.md` §4.1, END FACTS). |
@@ -2639,8 +2665,9 @@ A sink witness (Kotlin: `SinkWitness`) has these fields:
 
 * The key has no context. One sink statement that is reached in several contexts is ONE vulnerability. The same key in
   two runs is the same vulnerability. One entry of the report holds the sink witnesses of its key (the table above).
-* Each sink witness keeps its own alternative and its own method key. Two sink witnesses with different alternatives
-  or different method keys are different sink witnesses: they never merge.
+* Each witness keeps its occurrence/proof scope, method key, run and ordered premise/layer/checked-fact-group
+  headers. Different scopes or headers never merge. Exact matched-fact union and new versions remain separate
+  from structural proof identity. A legacy numbered alternative is a compatibility representation of that scope.
 * A CONFIRMED vulnerability persists. It is real for the reference semantics (§3.5), modulo the expected
   false-positive sources of §11.1.
 * At every complete FORWARD run, every real vulnerability is reported by that run or was confirmed by an earlier
@@ -2802,6 +2829,14 @@ summary uses normal restriction and satisfaction. Persist eligible raw nonzero
 backward summaries; never persist a zero-premise backward seed path (§8.7).
 Forward records apply through their transient leaf read views (§8.7 R3).
 
+For current NNF forms, hand-off reads each matching bound sink under its form callback at the witnessed full
+method key and statement. It seeds every active positive leaf, including OR branches with no forward witness,
+not just the selected proof. A full-predicate descriptor can replace an eager requirement list but must emit the
+same requirements. TRUE needs only existing zero demand; FALSE emits none. Reversed end actions fire this full
+positive scope once per occurrence and place, across their actions, also for CONFIRMED entries. There is no
+backward AND join. This changes the representation of alternatives, not the layer or demand selection rules.
+
+
 Record a source hit when a concrete requirement reaches an unconditional source
 and its reversed source edge applies. A `*` requirement cannot pass that concrete
 mark gate. A caller's concrete mark passed through a FLOW summary can yield a hit.
@@ -2934,7 +2969,7 @@ analysis keeps their results in the normal layer and does not refine them.
   was `[any]`, W6). A `$` fact has the same false positive today (`interpreter.md` §0.1, G7, G8, §3.7).
 * The catch local. A catch statement does not kill its local, so an old fact on it stays (`interpreter.md` G9).
 * The path-insensitive reading. A conjunction can combine literals that hold on paths that exclude each other (§4.6),
-  and a negated mark literal counts as true (§3.5).
+  and an eligible residual negative mark literal counts as true after signed folding (§3.5).
 * A pass rule with a mark literal. It is a rule error that is not rejected (`interpreter.md` §1.3), and the
   interpreter applies it without its mark literals (`interpreter.md` §4.2, D24), so it also fires where a literal is
   false.
@@ -2980,7 +3015,7 @@ normal with `f` in its exclusion, §4.1.)
   cleaner at or one accessor below an `[any-taint]` object, or any cleaner two or more accessors below it. The whole
   object becomes `[any]` in the demand layer, in every run (`AnyTaintExCases.CL.exact_result`): no shape exists for
   "every location but one" (`AnyTaintExExact.CexExactCleaner.cex_exact_cleaner`). A named field action applies
-  this primitive to its fresh temporary (F74). Its strong-write keep edges retain normal facts outside the
+  this primitive to its action-scoped temporary (F74). Its strong-write keep edges retain normal facts outside the
   field. For a single field, EXACT also returns a demand fact on that field, while the outside-field fact
   stays normal (`FieldCleanerX.exact_vector`). This also applies to the summary rewriter.
 * A may target: a pass rule with an `AnyField` target is a may (§2.3): its results stay `[any]` in the demand layer

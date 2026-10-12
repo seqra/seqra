@@ -71,6 +71,32 @@ Out of scope:
 
 ---
 
+### 0.2 Current O1/O2/O3 execution contract
+
+Source/sink compilation follows signed folding before and after static evaluation, then eligible negative
+projection (`interpreter.md` §4.2). Production holds one bound NNF DAG, separate action vectors and local array
+OR choices. It does not build cubes, action products or a potential proof registry. FALSE has no footprint/effect;
+TRUE uses its existing placement. Unary source operations use original facts and generic AP transfers, while
+multi operations use compatible canonical leaf contributions. Both classes can occur in one condition.
+
+Actor-owned `RulePredicateStore` keeps logical node IDs and shared immutable proof/support records. Source
+contributions omit unused facts; sink contributions preserve the complete matched fact group. Repeated leaves
+bind one header; shared OR uses may choose different branches through separate AND operands. Preserve all
+required support outcomes, effective layers and fact growth without a cap. Report/confirmation uses scoped proof
+keys and ordered support headers; the E6 callee/premise/layer/call join is unchanged.
+
+Method forms can be reclaimed. A slot holds one managed forward/reverse payload; callbacks pin it through the
+application and release it on failure/cancellation. Actors, pending deliveries, witnesses and seeds must not
+retain compiled payloads. Keep method/context recipes and deterministic generation keys instead. Suspended calls
+reacquire their plan. Manager cleanup swaps registration tracking under its lock and clears outside that lock.
+Compact owned vectors/maps/indexes preserve order, mutation safety, rule footprints and cut placement.
+
+Backward hand-off and reversed end actions visit the whole active positive predicate at each matching witnessed
+context/place, including unobserved OR branches. Trigger once per full method key, statement and occurrence,
+also for CONFIRMED findings; do not limit it to one proof. TRUE needs no mark seed, FALSE none, and backward has no
+AND join. All existing AP exclusions, report rules and iteration limits still apply. O1/O2/O3 correctness and
+resource gates remain pending until authoritative tests; historical proofs do not prove this integration.
+
 ## 1. Terms
 
 `ap.md` §1 defines the AP terms (fact, edge, premise set, layer, link, added fact, run, demand pattern, record, request,
@@ -81,8 +107,8 @@ document adds:
 |---|---|
 | method key | `ap.md` §1: the `MethodEntryPoint` of the method (context and FORWARD entry statement). The backward run uses the same key. Its start nodes are the forward exits (§4.4). An empty method has no method key (§4.4). |
 | vulnerability key | `(rule, method, statement)`: the sink rule, the METHOD of the method key (without the context) and the sink statement (§4.7). One sink statement that the analysis reaches in several contexts is ONE vulnerability. |
-| sink alternative | One DNF cube of a sink rule at one place, with one array choice (`interpreter.md` §4.1, §4.2). Its index (`SinkRule.alternative`) is the same in every run and in every context (`interpreter.md` I5). |
-| sink witness | One sink edge, or one sink edge set of a conjunctive sink, of one sink alternative in one method key and one run (§4.7). |
+| sink condition/proof | One bound NNF occurrence at a place, with an observed canonical proof and support headers (`interpreter.md` §4.2). Logical keys survive rebuilds. Numbered alternatives remain only a legacy/manual representation. |
+| sink witness | One reached sink edge/set with bound condition/proof scope, ordered support headers, method key and run (§4.7). A manual literal form can retain its alternative index. |
 | unit | A group of methods that one runner owns (today a package; `UnitResolver`). |
 | runner | The single coroutine of one unit in one run. It runs one event at a time. |
 | actor | The owner of a set of objects. Each method analyzer is an actor. Its runner runs it. |
@@ -235,7 +261,8 @@ only the forms that the analyzer reads: the forward forms of the interpreter, or
 | `counters` | | Frontier and stop-rule counts (§7.1, §7.8): demand-layer edge and summary deltas, new demand links (§4.2), record applications at a call, nonzero initial-fact presence, and zero-premise edges. Demand links have a demand-layer added fact (AP §8.3). Optional counts record demand results per demotion (§4.3). |
 | `requests` | request store (`ap.md` §8.8) | run 1 only: the standing mark and position requests and their answers |
 | `sourceHits` | source hit store (`ap.md` §8.11) | backward run only: the unconditional sources of this method that a requirement reached |
-| `conjunctions` | conjunction store (`ap.md` §8.9) | the standing literal inputs per (conjunctive micro edge or sink alternative, statement, literal index), with the evaluated `S` parts of the exit sinks (§4.7); the combinations of the callee summaries with several premises (§5.4) |
+| `conjunctions` | conjunction store (`ap.md` §8.9) | manual fixed-literal inputs and the E6 combinations of callee summaries with several premises (§5.4) |
+| predicate state | `RulePredicateStore` (`ap.md` §8.9) | forward only: scoped observed source/sink proofs, canonical binding headers and matched sink-fact versions, including evaluated exit `S` parts; no compiled topology |
 | `worklist` | `DeltaWorklist` (§4.3, §10) | the edge deltas to process: the `unchanged` queue with its set, and the `normal` queue |
 | `pendingPublications` | | the publications that the analyzer has not yet given to its `SummaryStorage` (§4.6) |
 | `queued` | | true while the analyzer has a `Work` event in its runner (§6.2) |
@@ -585,26 +612,23 @@ Preserving the needed concrete branch is the mode obligation in AP §6.6.
 
 ### 4.7 Sinks, vulnerabilities, seeds and source hits
 
-* A triggered sink adds its WITNESS to the `VulnerabilityStore` under the VULNERABILITY KEY `(rule, method,
-  statement)` (`ap.md` §8.10). `method` is the method of the method key, WITHOUT the context. So one sink statement
-  that the analysis reaches in several contexts is ONE vulnerability (`ap-history.md` F67). A witness is one sink edge,
-  or the sink edge set of a conjunctive sink. Each witness names its sink ALTERNATIVE (`SinkRule.alternative`, §4.9),
-  its METHOD KEY and its RUN. The confirmation of a witness reads the support of its premise set in its own method key
-  (§7.5).
-* The store keeps several witnesses for one vulnerability key: one entry per (vulnerability key, alternative, method
-  key, run, shape). The SHAPE of a witness is the list of the premise set, the layer and the group key of the facts
-  (`ap.md` §8.1: the base, the kind and the layer) of each of its sink edges. Two witnesses of one entry merge their
-  sink facts. The confirmation reads only the method key, the premise sets and the layers, so this merge changes no
-  confirmation. Witnesses of different alternatives or of different method keys never merge, so a merge never joins
-  two group keys at one literal.
-* A conjunctive sink uses the conjunction store, per (sink alternative, statement, literal index). Each sink edge set
-  is one witness (`ap.md` §4.9).
+* A triggered sink adds its WITNESS under `(rule, method, statement)` in `VulnerabilityStore` (`ap.md` §8.10).
+  The method has no context, so several contexts of one sink statement have one vulnerability key. Each witness
+  retains its bound occurrence/proof scope, full method key, run and ordered sink-edge support headers.
+  Confirmation reads joint premise support in that method key (§7.5).
+* The store merges matched sink facts only within the same vulnerability key, occurrence/proof scope, method key,
+  run and ordered premise/effective-layer/complete-fact-group shape. Different scopes or headers never merge.
+  Structural proof equality does not suppress new matched-fact versions. Legacy/manual forms retain their
+  alternative index as part of the shape.
+* Bound NNF conditions use the actor-owned predicate store. Repeated canonical leaves require the same complete
+  binding header; shared OR nodes can choose different branches in separate AND operands. A completed compatible
+  root gives one scoped witness. The manual fixed-literal adapter uses ConjunctionStore (§4.9, `ap.md` §8.9).
 * THE GLOBAL-STATE RULE (exit sinks; `interpreter.md` §4.7 step 3, D30). At a normal exit, the analyzer drops the
   EVALUATED statics of a ZERO-PREMISE item: if a part of an item on the static base `S` whose premise is the zero fact
   (a state that the method or its callees set) satisfies a mark literal (`ContainsMark`, `ContainsMarkOnAnyField`) of
   an exit sink, plain or conjunctive, the analyzer drops that part from the summary edge. The rest of the item stays.
-  For a conjunctive exit sink, the analyzer also stores the evaluated part as the input of that literal in the
-  conjunction store. A stored input is an assumption for the later evaluations of the sink: a later item can complete
+  For a bound exit condition, the analyzer also stores the evaluated part as a canonical leaf contribution in the
+  predicate store; the manual literal adapter stores it in the conjunction store. A stored input is an assumption for the later evaluations of the sink: a later item can complete
   the combination with it. The analyzer drops the part also when the combination is not complete (`ap-history.md`
   F67).
 * A CALLER-SET `S` FACT (an item on `S` whose premise is not the zero fact) is evaluated: it can report
@@ -619,8 +643,8 @@ Preserving the needed concrete branch is the mode obligation in AP §6.6.
     forward run before (§1, §7.3; `ap.md` §9.2). A CONFIRMED vulnerability gives no seed of the hand-off: its state
     is final (§7.5). The backward run also fires, by itself, the sink seeds of a sink alternative whose reversed
     end-fact edge applies to a requirement, also of a CONFIRMED vulnerability (§4.5 THE TRIGGER OF AN END FACT).
-    A sink pattern gives one requirement. A conjunctive sink gives one requirement per positive
-    literal. An unconditional sink gives none. The requirement of an `[any]` sink pattern (`ContainsMarkOnAnyField`)
+    A bound predicate seed reacquires its matching form and visits every active positive leaf, including an
+    unwitnessed OR branch. A manual sink gives one requirement per literal. An unconditional sink gives none. The requirement of an `[any]` sink pattern (`ContainsMarkOnAnyField`)
     has the tail `[any]`: the backward run has no `[any-taint]` (`ap.md` W8, §9.2), so its seed is in the demand
     layer (`ap.md` W6), as before F69. The seeds of a witness are at its method key and its statement;
   * a forward restricted run: the SOURCE SEEDS, the unconditional sources that the backward run before reached
@@ -662,8 +686,18 @@ the flow-function caches and the taint rule context. The new core splits it:
 * the RUN part, made by the run: the rule context bound to the run (the `VulnerabilityStore`, the conjunction store,
   the run mode).
 
-Runs are sequential, so in each run the runner of the method is the only user of its cache entry. This removes the
-double construction of the context that `saloed/backward-main` has.
+Runs are sequential and each method actor owns its run state. Method/context owners can be shared across callers.
+Atomic slot publication and single-flight payload construction prevent duplicate builds; actor ownership alone
+is not a cache publication rule.
+
+MANAGED FORM LIFETIME. The physical-method/context-key split above remains. `FormsCache.withForm` publishes lazy
+slots atomically and builds one complete forward payload at a time; backward is lazy in that same payload.
+`MethodForms` supplies withStatement/withCall/withEntryRules/withExitRules, and `DirectedForms` supplies
+withStatement/withCall/withStartRules/withEndRules. Core application, boundary work and call resume stay inside
+these callbacks. Getter-only compatibility access is not an application pin. Failed forward build publishes
+nothing; failed reverse retains forward; recursive same-slot build fails. Disabled managed caching has no strong
+fallback. Logical rule/action/temporary/proof keys survive cache eviction and are independent of run/direction/limit
+(interpreter I5).
 
 ### 4.9 The interpreter interface and the reversal
 
@@ -709,7 +743,8 @@ class MicroEdge(val edge: PathEdge, val forward: PathEdge, val conjunctive: Bool
  *  (interpreter.md §2.1 step 5, §3.1). One base can have both (`x = x.f`), so they are two maps. */
 class StatementSummary(val touched: Set<AccessPathBase>, val edges: List<MicroEdge>,
                        val conjunctions: List<ConjunctiveEdge>, val typeFilters: Map<AccessPathBase, TypeFilter>,
-                       val resultFilters: Map<AccessPathBase, TypeFilter> = emptyMap()) {
+                       val resultFilters: Map<AccessPathBase, TypeFilter> = emptyMap(),
+                       val sources: List<SourceRuleOccurrence> = emptyList()) {
     /** ap.md §9.1, §9.2: each edge reversed; a conjunctive edge gives one independent edge per literal (requirements,
      *  each with `conjunctive = true`: every result of it is in the demand layer, §4.3); the identity edge
      *  `b.* → b.*` for each target base that the summary does not touch (A5); the touched bases with the targets;
@@ -721,8 +756,8 @@ class StatementSummary(val touched: Set<AccessPathBase>, val edges: List<MicroEd
 
 /** The rules of a method boundary (the entry rules, the exit rules): a statement summary with the sources (STATEMENT
  *  mode; its touched bases and keep edges: §4.4 THE BOUNDARY RULE STATEMENTS, interpreter.md §4.3, §4.7), the end-fact
- *  edges of its sinks (GEN mode) and the sinks. At an exit, `summary.conjunctions` holds the conjunctive exit sources,
- *  an ND edge at the exit (§4.4). The reversal reverses the summary, keeps the sinks as the place of the sink seeds and
+ *  edges of its sinks (GEN mode) and the sinks. At an exit, `summary.sources` holds bound conditional source predicates;
+ *  `summary.conjunctions` remains the manual ND-edge adapter (§4.4). The reversal reverses the summary, keeps the sinks as the place of the sink seeds and
  *  drops the context filter. */
 class RuleStatement(val summary: StatementSummary, val endFacts: StatementSummary, val sinks: List<SinkRule>) {
     fun reversed(): RuleStatement
@@ -738,15 +773,19 @@ class ExitRules(val rules: RuleStatement, val globalStateDrop: Boolean, val entr
     fun reversed(): RuleStatement
 }
 
-/** ap.md §4.9: one ALTERNATIVE of one sink rule at one place (one DNF cube with one array choice; interpreter.md
- *  §4.1, §4.2). `alternative`: its index among the alternatives of the rule at the place; the same in every run and
- *  every context (interpreter.md I5). `patterns`: one per positive literal; two or more make a conjunctive sink; the
- *  zero pattern makes an unconditional sink. A `ContainsMarkOnAnyField` literal is a pattern with the `[any]` tail,
- *  and its sink seed has the tail `[any]` (§4.7). A fact with the `[any-taint]` tail triggers a pattern as an `[any]`
- *  fact does, if the pattern meets a location that its exclusion admits (ap.md §4.9; Lean `AnyTaintEx.checkX`).
- *  `endFacts`: its end-fact edges `zero.$ → P.$ (T)`, or `zero.$ → P.[any-taint] (T)` for an `AnyField` position
- *  (interpreter.md I14) (GEN mode, §4.5). */
-class SinkRule(val rule: RuleId, val alternative: Int, val patterns: List<Pattern>, val endFacts: List<MicroEdge>)
+/** ap.md §4.9: one bound positive sink condition at one place. Production NNF forms carry occurrenceId and
+ *  predicate; patterns are the owned active positive leaves, with local array choices in the predicate. A witness
+ *  identifies an observed proof and its support headers. No eager alternative product is required.
+ *  Legacy/manual forms can omit the predicate and keep alternative as their literal-adapter index.
+ *  The zero pattern is unconditional. A ContainsMarkOnAnyField leaf has the may tail, including in its seed.
+ *  endFacts holds GEN edges: zero.$ -> P.$ (T), or zero.$ -> P.[any-taint] (T) for AnyField (I14). */
+class SinkRule(val rule: RuleId, val alternative: Int, patterns: List<Pattern>, endFacts: List<MicroEdge>,
+               val occurrenceId: RuleOccurrenceId? = null, val predicate: RulePredicate? = null) {
+    val joinKey: Any get() = occurrenceId ?: this
+    val patterns: List<Pattern>  // owned pattern paths
+    val endFacts: List<MicroEdge>  // owned vector; retain the supplied edge objects
+    fun seedPatterns(): List<Pattern>  // empty for the zero pattern; otherwise all active positive leaves
+}
 
 /** ap.md §4.6: a conjunctive micro edge `x1.ρ1.t1(T1) ∧ … ∧ xk.ρk.tk(Tk) → z.π.t(T)`, k >= 2: an ND source
  *  (interpreter.md §5.3): in the sources stage of a call (§4.5), or at an exit (§4.4). Each literal and the
@@ -770,7 +809,8 @@ fun interface MarkPolicy { fun keeps(mark: TaintMark, elements: Int): Boolean }
 class Cleaner(val base: AccessPathBase, val path: PathNode?, val reach: CleanReach, val mark: TaintMark?)
 enum class CleanReach { EXACT, BELOW, AT_AND_BELOW }
 
-/** One action of the cleaners stage. A field action holds its three ordinary operations and a fresh temporary.
+/** One action of the cleaners stage. A generated field action uses an action-scoped TemporaryKey.
+ *  Manual actions use a fresh temporary; neither form can escape into persistent stores.
  *  Each statement uses STATEMENT mode and its field-limit cut. Project away the temporary at the action's end,
  *  in both directions. Reverse the action order and each action's operations (F74). */
 sealed interface CleanStep {
