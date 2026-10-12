@@ -4714,7 +4714,11 @@ class DirectedForms(val interp: Interpreter, val direction: Direction, private v
 Optional `FormCacheStatistics` is analysis-wide. It is enabled only by
 `org.opentaint.bidi.formStatistics=true`. One final aggregate includes access/build/reversal counts, timing,
 active/peak callback pins and cumulative predicate node/leaf compilation totals, including constants and
-rebuilds. It holds no slot, form or builder, allocates no per-slot counter and adds no per-event log.
+rebuilds. Separate runtime totals count observed proof records, node support shapes, same-shape fact growth and
+canonical root outcomes. These totals count actual supported outcomes across actors/runs, not live retained
+objects or potential branches. The final log also records registered form-reference wrappers, including cleared
+wrappers not yet pruned. The aggregate holds no slot, form or builder, allocates no per-slot counter and adds no
+per-event log.
 
 `SoftReferenceManager` serializes registration and enable/disable transitions. Cleanup swaps the identity registry
 under its short lock and clears the detached batch outside it, without an O(n) copied batch. A ReferenceQueue
