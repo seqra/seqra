@@ -12,9 +12,13 @@ type BaseCommandBuilder struct {
 	debug bool
 }
 
-// appendVerbosityFlag passes the JAR's own --verbosity flag based on opentaint's
-// debug bool. The Java tool's CLI surface is independent of opentaint's; we just
-// translate. info ↔ false, debug ↔ true.
+// ForceDebugVerbosity sets the tool log level to debug.
+// The CLI can then read detailed output from the log file.
+func (b *BaseCommandBuilder) ForceDebugVerbosity() {
+	b.debug = true
+}
+
+// appendVerbosityFlag maps the CLI debug setting to the tool log level.
 func (b *BaseCommandBuilder) appendVerbosityFlag(flags []string) []string {
 	if b.debug {
 		return append(flags, "--verbosity=debug")

@@ -10,7 +10,16 @@ An app-internal method sits in the project's own sources under `<project-root>`.
 
 ### 2. Write the approximation source
 
-Create Java files under `.opentaint/dataflow/<batch>` — one `@Approximate` class per target class. `@Approximate(TargetClass.class)` binds a model to exactly that class, so target the EXACT class the analyzer dropped — the dropped FQN reflects how the call resolved: an interface-typed receiver (`Map m = ...; m.computeIfAbsent(...)`) drops `java.util.Map#computeIfAbsent`, a concrete one (`new HashMap<>()`) drops `java.util.HashMap#computeIfAbsent`. An interface is a valid target — write `@Approximate` on it exactly as on a concrete class, modelling whichever FQN the analyzer dropped. Reach the real object with `(TargetClass) (Object) this`, put functional-interface parameters behind `@ArgumentTypeContext`, and branch with `OpentaintNdUtil.nextBool()` so the analyzer walks both paths. Never leave a body empty.
+Scaffold the approximation project with the same `--dependency` pins as the batch's test project (`.opentaint/test-projects/<batch>/build.gradle.kts`):
+
+```bash
+opentaint approximation init .opentaint/dataflow/<batch> \
+  --dependency "io.projectreactor:reactor-core:3.8.5"
+```
+
+When a model needs a library the project doesn't pin yet, add it to the project's `build.gradle.kts`.
+
+Create Java files under `.opentaint/dataflow/<batch>/src/main/java` — one `@Approximate` class per target class. `@Approximate(TargetClass.class)` binds a model to exactly that class, so target the EXACT class the analyzer dropped — the dropped FQN reflects how the call resolved: an interface-typed receiver (`Map m = ...; m.computeIfAbsent(...)`) drops `java.util.Map#computeIfAbsent`, a concrete one (`new HashMap<>()`) drops `java.util.HashMap#computeIfAbsent`. An interface is a valid target — write `@Approximate` on it exactly as on a concrete class, modelling whichever FQN the analyzer dropped. Reach the real object with `(TargetClass) (Object) this`, put functional-interface parameters behind `@ArgumentTypeContext`, and branch with `OpentaintNdUtil.nextBool()` so the analyzer walks both paths. Never leave a body empty.
 
 ```java
 package com.example.approximations.batchpkg;   // per-batch package (e.g. ...approximations.cn_hutool_001) — see the globally-unique rule below
@@ -68,7 +77,7 @@ opentaint test approximation run .opentaint/test-compiled/<batch> \
   --dataflow-approximations .opentaint/dataflow/<batch>
 ```
 
-`test approximation run` applies its own bundled fixed source→sink rule automatically — you don't author or pass one. The CLI auto-compiles the `.java` sources against the analyzer JAR (for `@Approximate`, `OpentaintNdUtil`, `ArgumentTypeContext`) and the project's dependencies; if compilation fails it reports the errors and aborts before the tests. A positive sample is a `falseNegative` until the model propagates taint. Read the result with the bundled script — it prints the pass/fail counts and names each failing sample, so you don't parse the JSON by hand:
+`test approximation run` applies its own bundled fixed source→sink rule automatically — you don't author or pass one. The CLI builds the approximation project first. if compilation fails it reports the errors and aborts before the tests. A positive sample is a `falseNegative` until the model propagates taint. Read the result with the bundled script — it prints the pass/fail counts and names each failing sample, so you don't parse the JSON by hand:
 
 ```bash
 uv run <skill-dir>/scripts/check-test-result.py <batch>
@@ -83,7 +92,7 @@ Fix by the verdict it reports:
 
 | Pattern | Usage |
 |---|---|
-| `@Approximate(TargetClass.class)` | Link the approximation to its target class. Must be on the compile classpath (a project dependency or a JDK type) |
+| `@Approximate(TargetClass.class)` | Link the approximation to its target class. Must be on the compile classpath (a pinned dependency or a JDK type) |
 | `(TargetClass) (Object) this` | Cast to reach the real object's methods |
 | `@ArgumentTypeContext` | On lambda / functional-interface parameters |
 | `OpentaintNdUtil.nextBool()` | Non-deterministic branch — the analyzer considers both paths |

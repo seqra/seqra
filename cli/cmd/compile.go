@@ -143,12 +143,18 @@ func printCompileSummary(absOutputProjectModelPath string) {
 }
 
 func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath string, javaRunner java.JavaRunner) error {
-	var err error
 	tempLogsDir, err := os.MkdirTemp("", "opentaint-*")
 	if err != nil {
 		return fmt.Errorf("failed to create temporary directory: %w", err)
 	}
-	tempLogsFile := filepath.Join(tempLogsDir, "autobuild.log")
+	return compileProjectWithLogs(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath,
+		filepath.Join(tempLogsDir, "autobuild.log"), false, javaRunner)
+}
+
+// compileProjectWithLogs writes the autobuilder log to logsFile.
+// captureBuildOutput adds the output from the build tool to this log.
+func compileProjectWithLogs(absOutputProjectModelPath, absProjectRoot, autobuilderJarPath, tempLogsFile string, captureBuildOutput bool, javaRunner java.JavaRunner) error {
+	var err error
 
 	builder := NewAutobuilderBuilder().
 		SetProjectRootDir(absProjectRoot).
@@ -156,6 +162,10 @@ func compileProject(absOutputProjectModelPath, absProjectRoot, autobuilderJarPat
 		SetResultDir(absOutputProjectModelPath).
 		SetLogsFile(tempLogsFile).
 		SetJarPath(autobuilderJarPath)
+
+	if captureBuildOutput {
+		builder.ForceDebugVerbosity()
+	}
 
 	autobuilderCommand := builder.BuildNativeCommand()
 

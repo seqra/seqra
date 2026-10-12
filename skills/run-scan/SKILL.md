@@ -34,7 +34,7 @@ opentaint scan --project-model .opentaint/project \
 
 - `--rule-id <full-id>` — restrict to specific executable rules (repeatable, one per input rule ID); referenced library rules remain available without listing their IDs separately. Omit to run all loaded rules
 - `--passthrough-approximations .opentaint/pass-through` — add when that directory exists: passThrough configs override built-ins at the rule level, a provided rule overriding a built-in only when it matches one
-- `--dataflow-approximations .opentaint/dataflow` — add when that directory exists: code-based approximations (sources auto-compiled; pre-compiled `.class` dirs passed through as-is)
+- `--dataflow-approximations .opentaint/dataflow` — add when that directory exists: code-based approximations, one project per batch
 
 Both approximation-dir flags walk their trees recursively; pass each parent directory once, not every package or batch separately.
 
