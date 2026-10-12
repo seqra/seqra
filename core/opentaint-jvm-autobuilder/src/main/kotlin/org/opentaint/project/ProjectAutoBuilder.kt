@@ -47,6 +47,7 @@ class ProjectAutoBuilder : CliWithLogger() {
         }
 
         val javaProjects = resolvedProject?.let { Project.flattenJavaProject(it) }.orEmpty()
+            .dropDependenciesShadowingProjectClasses()
         val goProjects = GoProjectResolver.resolveProject(projectRoot, resolverWorkDir)
 
         if (javaProjects.isEmpty() && goProjects.isEmpty()) {
