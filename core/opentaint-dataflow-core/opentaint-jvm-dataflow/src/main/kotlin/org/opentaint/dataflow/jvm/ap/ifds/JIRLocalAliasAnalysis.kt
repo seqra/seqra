@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.jvm.ap.ifds
 
+import it.unimi.dsi.fastutil.ints.IntArrayList
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.ap.ifds.analysis.alias.AAHeapAccessor
 import org.opentaint.dataflow.ap.ifds.analysis.alias.AAInfo
@@ -65,8 +66,8 @@ class JIRLocalAliasAnalysis(
     override fun convert(
         info: AAInfo,
         depth: Int,
-        convertInstance: (Int) -> List<AliasInfo>
-    ): List<AliasInfo> = info.convertToAliasInfo(depth, null, convertInstance)
+        convertInstance: (Int) -> List<Pair<IntArrayList, AliasInfo>>,
+    ): List<Pair<IntArrayList, AliasInfo>> = info.convertToAliasInfo(depth, null, convertInstance)
 
     private inner class CallModelProvider : ExternalCallModelProvider {
         override fun provideModel(method: JIRMethod): List<ExternalAssign> {
@@ -110,7 +111,7 @@ class JIRLocalAliasAnalysis(
             is PositionAccessor.FieldAccessor -> FieldAlias(
                 AliasAccessor.Field(className, fieldName, fieldType),
                 isImmutable = false
-            )
+            ).takeIf { it.field.fieldName != "<rule-storage>" }
         }
     }
 

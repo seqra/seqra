@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.jvm.ap.ifds.alias
 
+import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
@@ -101,14 +102,23 @@ class JIRIntraProcAliasAnalysis(
     }
 
     object Convert {
+        private fun AliasInfo.willDepthExceedLimit(depth: Int) =
+            this !is AliasApInfo || accessors.size + depth >= HEAP_CHAIN_LIMIT
+
+        private fun IntArrayList.hasTwoOfInstance(instance: Int) =
+            count { it == instance } >= 2
+
+        private fun AliasInfo.isHeapAllowedBase() =
+            this is AliasApInfo && base !is AccessPathBase.Constant
+
         fun AAInfo.convertToAliasInfo(
             depth: Int,
             cancellation: AnalysisCancellation?,
-            resolveHeapInstance: (Int) -> List<AliasInfo>
-        ): List<AliasInfo> {
+            resolveHeapInstance: (Int) -> List<Pair<IntArrayList, AliasInfo>>,
+        ): List<Pair<IntArrayList, AliasInfo>> {
             if (this !is HeapAlias) {
-                val base = convertBaseAccessor(this)
-                return listOfNotNull(base)
+                val base = convertBaseAccessor(this) ?: return emptyList()
+                return listOf(IntArrayList(0) to base)
             }
 
             if (depth > HEAP_CHAIN_LIMIT) {
@@ -118,17 +128,21 @@ class JIRIntraProcAliasAnalysis(
             cancellation?.checkpoint()
 
             val instances = resolveHeapInstance(instance)
+                .filterNot { it.second.willDepthExceedLimit(depth) || it.first.hasTwoOfInstance(instance) }
+                .filter { it.second.isHeapAllowedBase() }
+
             val accessor = when (val a = this.heapAccessor) {
                 is ArrayAlias -> AliasAccessor.Array
                 is FieldAlias -> a.field
                 else -> error("Impossible")
             }
 
-            return instances.mapNotNull {
-                when (it) {
-                    is AliasAllocInfo -> return@mapNotNull null
-                    is AliasApInfo -> AliasApInfo(it.base, it.accessors + accessor)
-                }
+            return instances.map { (usedInstances, aliasInfo) ->
+                check(aliasInfo is AliasApInfo)
+                val newUsedInstances = usedInstances.clone()
+                newUsedInstances.add(instance)
+                val newAliasInfo = AliasApInfo(aliasInfo.base, aliasInfo.accessors + accessor)
+                newUsedInstances to newAliasInfo
             }
         }
 

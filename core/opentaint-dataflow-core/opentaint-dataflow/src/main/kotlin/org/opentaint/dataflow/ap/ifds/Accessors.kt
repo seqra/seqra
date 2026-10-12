@@ -30,6 +30,7 @@ sealed interface AccessPathBase {
     data class Constant(val typeName: String, val value: String) : AccessPathBase {
         override fun toString(): String = "const<$typeName>($value)"
     }
+
     data object ClassStatic : AccessPathBase {
         override fun toString(): String = "<static>"
     }

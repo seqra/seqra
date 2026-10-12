@@ -1,5 +1,6 @@
 package org.opentaint.dataflow.ap.ifds.analysis.alias
 
+import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.util.getOrCreate
@@ -15,7 +16,7 @@ abstract class LocalAliasAnalysis<AliasInfo, AliasAccessor> {
 
     val aliasInfo: AnalysisResult? by lazy { compute() }
 
-    val convertedAliases = Long2ObjectOpenHashMap<List<AliasInfo>>()
+    val convertedAliases = Long2ObjectOpenHashMap<Pair<Int, List<Pair<IntArrayList, AliasInfo>>>>()
 
     fun findAlias(base: AccessPathBase.LocalVar, statement: CommonInst): List<AliasInfo>? =
         withStateBeforeStatement(statement) { state, stateId -> state.findLocalAlias(stateId, base.idx) }
@@ -114,36 +115,45 @@ abstract class LocalAliasAnalysis<AliasInfo, AliasAccessor> {
     }
 
     private fun State.convertAllAliases(stateId: Int, infoIdx: Int): List<AliasInfo> {
-        val result = mutableListOf<AliasInfo>()
+        val result = mutableListOf<Pair<IntArrayList, AliasInfo>>()
         forEachAliasInSet(infoIdx) { aliasIdx ->
             if (aliasIdx != infoIdx) {
                 result += convert(stateId, aliasIdx, depth = 0)
             }
         }
-        return result
+        return result.map { it.second }
     }
 
     private fun State.convertAllAliasSets(stateId: Int): List<List<AliasInfo>> =
         allAliasSets().map { aliasSet ->
-            val result = mutableListOf<AliasInfo>()
+            val result = mutableListOf<Pair<IntArrayList, AliasInfo>>()
             aliasSet.forEach {
                 result += convert(stateId, it, depth = 0)
             }
-            result
+            result.map { it.second }
         }
 
-    abstract fun convert(info: AAInfo, depth: Int, convertInstance: (Int) -> List<AliasInfo>): List<AliasInfo>
+    abstract fun convert(
+        info: AAInfo, depth: Int,
+        convertInstance: (Int) -> List<Pair<IntArrayList, AliasInfo>>,
+    ): List<Pair<IntArrayList, AliasInfo>>
 
-    private fun State.convert(stateId: Int, infoIdx: Int, depth: Int): List<AliasInfo> =
+    private fun State.convert(stateId: Int, infoIdx: Int, depth: Int): List<Pair<IntArrayList, AliasInfo>> =
         synchronized(convertedAliases) {
-            convertedAliases.getOrCreate(pair(infoIdx, stateId)) {
-                convert(stateId, manager.getElementUncheck(infoIdx), depth)
+            val cacheId = pair(infoIdx, stateId)
+            var cacheResult = convertedAliases.getOrCreate(cacheId) {
+                depth to convert(stateId, manager.getElementUncheck(infoIdx), depth)
             }
-        }
+            if (depth < cacheResult.first) {
+                cacheResult = depth to convert(stateId, manager.getElementUncheck(infoIdx), depth)
+                convertedAliases.put(cacheId, cacheResult)
+            }
+            cacheResult
+        }.second
 
-    private fun State.convert(stateId: Int, info: AAInfo, depth: Int): List<AliasInfo> =
+    private fun State.convert(stateId: Int, info: AAInfo, depth: Int): List<Pair<IntArrayList, AliasInfo>> =
         convert(info, depth) { instance ->
-            val instances = mutableListOf<AliasInfo>()
+            val instances = mutableListOf<Pair<IntArrayList, AliasInfo>>()
             forEachAliasInSet(instance) {
                 instances += convert(stateId, it, depth + 1)
             }

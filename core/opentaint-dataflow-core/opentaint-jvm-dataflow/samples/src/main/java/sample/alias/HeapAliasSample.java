@@ -15,6 +15,12 @@ public class HeapAliasSample {
         Object data;
     }
 
+    static class NodeExtra {
+        NodeExtra next;
+        NodeExtra prev;
+        Object data;
+    }
+
     static void readArgField(Box box) {
         Object dst = box.value;
         sinkOneValue(dst);
@@ -85,6 +91,20 @@ public class HeapAliasSample {
         Node cur = node;
         while (cur.next != null) {
             cur = cur.next;
+        }
+        Object data = cur.data;
+        sinkOneValue(data);
+    }
+
+    static void twoFieldNodeTraversalData(NodeExtra node) {
+        NodeExtra cur = node;
+        while (cur.next != null && cur.prev != null) {
+            if (cur.data instanceof String) {
+                cur = cur.next;
+            }
+            else {
+                cur = cur.prev;
+            }
         }
         Object data = cur.data;
         sinkOneValue(data);

@@ -1,6 +1,7 @@
 package org.opentaint.dataflow.go.analysis.alias
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap
+import it.unimi.dsi.fastutil.ints.IntArrayList
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet
 import mu.KLogging
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
@@ -59,8 +60,8 @@ class GoLocalAliasAnalysis(
     override fun convert(
         info: AAInfo,
         depth: Int,
-        convertInstance: (Int) -> List<GoAliasInfoNoRef>
-    ): List<GoAliasInfoNoRef> = convertInfo(info, depth, convertInstance)
+        convertInstance: (Int) -> List<Pair<IntArrayList, GoAliasInfoNoRef>>,
+    ): List<Pair<IntArrayList, GoAliasInfoNoRef>> = convertInfo(info, depth, convertInstance)
 
     override fun convertAliasAccessor(aa: GoAliasAccessor.NoRef): List<AAHeapAccessor> = when (aa) {
         is GoAliasAccessor.Array -> listOf(GoArrayAlias)
@@ -158,14 +159,23 @@ class GoLocalAliasAnalysis(
         }
     }
 
+    private fun GoAliasInfoNoRef.willDepthExceedLimit(depth: Int) =
+        this !is AliasApInfoNoRef || accessors.size + depth >= HEAP_CHAIN_LIMIT
+
+    private fun IntArrayList.hasTwoOfInstance(instance: Int) =
+        count { it == instance } >= 2
+
+    private fun GoAliasInfoNoRef.isHeapAllowedBase() =
+        this is AliasApInfoNoRef && base !is AccessPathBase.Constant
+
     private fun convertInfo(
         info: AAInfo,
         depth: Int,
-        convertInstance: (Int) -> List<GoAliasInfoNoRef>
-    ): List<GoAliasInfoNoRef> {
+        convertInstance: (Int) -> List<Pair<IntArrayList, GoAliasInfoNoRef>>
+    ): List<Pair<IntArrayList, GoAliasInfoNoRef>> {
         if (info !is HeapAlias) {
-            val base = convertBase(info)
-            return listOfNotNull(base)
+            val base = convertBase(info) ?: return emptyList()
+            return listOf(IntArrayList(0) to base)
         }
 
         if (info.heapAccessor is GoRefAlias) {
@@ -177,6 +187,8 @@ class GoLocalAliasAnalysis(
         }
 
         val instances = convertInstance(info.instance)
+            .filterNot { it.second.willDepthExceedLimit(depth) || it.first.hasTwoOfInstance(info.instance) }
+            .filter { it.second.isHeapAllowedBase() }
 
         val accessor = when (val a = info.heapAccessor) {
             is GoArrayAlias -> GoAliasAccessor.Array
@@ -184,11 +196,12 @@ class GoLocalAliasAnalysis(
             else -> error("Impossible")
         }
 
-        return instances.mapNotNull {
-            when (it) {
-                is AliasAllocInfoNoRef -> return@mapNotNull null
-                is AliasApInfoNoRef -> AliasApInfoNoRef(it.base, it.accessors + accessor)
-            }
+        return instances.map { (usedInstances, aliasInfo) ->
+            check(aliasInfo is AliasApInfoNoRef)
+            val newUsedInstances = usedInstances.clone()
+            newUsedInstances.add(info.instance)
+            val newAliasInfo = AliasApInfoNoRef(aliasInfo.base, aliasInfo.accessors + accessor)
+            newUsedInstances to newAliasInfo
         }
     }
 
