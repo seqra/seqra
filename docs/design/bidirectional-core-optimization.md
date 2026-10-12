@@ -6,6 +6,8 @@ The main changes are to keep source and sink conditions in NNF and to make metho
 
 This proposal covers the analyzer core, its JVM interpreter and graph adapters, and rule compilation and resolution. IR storage, IR tables, decoded IR objects and changes inside `core/opentaint-ir` are out of scope. Graph reuse below occurs in an analyzer-owned adapter. It does not change the IR provider.
 
+O1, O2 and O3 are selected for implementation. Use the [detailed implementation proposal](bidirectional-o1-o3-implementation-proposal.md) and the [implementation plan](bidirectional-o1-o3-implementation-plan.md) for that work. O4–O12 remain outside the selected scope.
+
 ## Evidence and coverage
 
 The [memory report](../reports/bidirectional-project-memory.md) identifies the retained owners. The [project report](../reports/bidirectional-project-testing.md) gives CPU profiles, allocation profiles, project settings and completion results. The [input inventory](../reports/bidirectional-project-inputs.md) identifies the fixed inputs.
@@ -48,7 +50,7 @@ Use the [interpreter specification](../../spec/interpreter.md), [AP specificatio
 2. Apply the specified exclusion table without change. Preserve NORMAL and DEMAND layers, FLOW and TAINT kinds, premise sets, type filters, mark policies and F74/F75/F76 behavior. Class accessors retain their specified field-limit treatment.
 3. Keep distinct rule/action and proof scopes. NNF can share pure leaf checks and immutable support data, but must not combine incompatible OR branches or supports from different rule occurrences, statements or method contexts.
 4. Keep source and sink rule ownership, action ownership and witness support. Seed and report keys use stable logical rule/leaf/proof handles, independent of a compiled object's address or cache rebuild epoch. Preserve ordered support when existing confirmation or report code needs it.
-5. Preserve source admission and source hits by full `(MethodKey, statement, original forward PathEdge)` value. End-fact actions keep their own admission and trigger rules. A reversed end fact fires the owning sink/proof scope's seeds once per method key and statement, including for a CONFIRMED result.
+5. Preserve source admission and source hits by full `(MethodKey, statement, original forward PathEdge)` value. End-fact actions keep their own admission and trigger rules. A reversed end fact fires the owning predicate's full positive leaf scope once per method key, statement and rule occurrence, including for a CONFIRMED result. GEN end facts carry no OR-proof correlation.
 6. Keep public defensive ownership. A caller cannot change a cached form by changing an input array, list, set or map. Internal factories can reuse a value only after it is frozen and owned.
 7. Keep the required relevant-rule lookup and mark universe. In particular, retain `allRelevant=true` for rewriter rules. Do not introduce an alternative cap, a queue cap, a selected-mark shortcut or an arbitrary field-limit change.
 
@@ -61,7 +63,9 @@ Change [JIRRuleForms](../../core/opentaint-dataflow-core/opentaint-jvm-dataflow/
 ```text
 raw rule
   -> whole-rule validation
+  -> raw signed NNF and Boolean folding
   -> per-place rewrite of static non-mark conditions
+  -> signed Boolean folding again, including resolved array contradictions
   -> mark policy for this rule kind
   -> owned NNF expression DAG and leaf index
   -> source actions or sink/end-fact actions bound to its root
@@ -71,7 +75,9 @@ Validate all raw actions and all mark literals, including negative literals, bef
 
 ### Rule-kind policy
 
-Sources and sinks replace a negated mark literal with true before positive normalization. For example, `P AND NOT P` becomes `P` under the current policy. Applying ordinary contradiction elimination first would incorrectly produce false.
+Fold signed NNF before static rewriting and again before source/sink negative-mark approximation. `P AND NOT P -> false` is a correct optimization and is required. Fold constants, duplicate operands and complements; use non-distributing propagation to detect resolved array forms such as `(P0 OR P1) AND NOT P0 AND NOT P1`. Only afterward do remaining negative mark literals count as true for sources and sinks. Fold constants again after that projection. A known contradiction cannot become `P` by first removing its negative literal, and approximate static evaluation cannot erase its raw complement before checking.
+
+A condition that folds to false has no source, sink, request, seed, trigger or exit read/drop effect. Validate its complete raw rule first. For a condition that remains active, retain its positive read/drop footprint before any optional positive absorption.
 
 Cleaners retain signed conditions and the cleaner normalization already taken from `saloed/cleaner-action-normalisation`. Preserve its action-specific assumptions: exact named removal can assume its exact mark; terminal `AnyField` removal can assume its field mark; a non-`AnyField` `ExactAndAnyField` action cannot assume a root mark. A remaining mark-dependent cleaner condition contributes no cleaner and raises no request. Pass rules retain their current logged mark-condition exception. Do not apply the source/sink positive policy to these kinds.
 
@@ -123,7 +129,7 @@ Walk the applicable predicate/proof scope and emit its mentioned positive mark r
 
 For a conditional source, start from the requirement on its action target and apply the existing target-to-premise reversal to the leaves. A unary proof uses ordinary reversal; a multi-literal proof forces every branch DEMAND. Thus `A OR (A AND B)` can require an ordinary `A` branch and DEMAND `A`/`B` branches. Mark names alone are not enough to encode this distinction. Preserve generic tail/exclusion rules and the backward no-must invariant.
 
-For sinks, store a seed descriptor that references the condition/proof scope and emits its exact or may leaf requirements when visited. Keep the original proof scope for witness confirmation; emitting OR requirements does not allow a later forward AND to fire with incomplete support. For a reversed end fact, retain the owning sink/proof handle and fire the needed trigger requirements once, also for CONFIRMED results. End-fact handling remains separate from unconditional source-hit admission.
+For sinks, store a seed descriptor with logical condition lookup keys that emits its exact or may leaf requirements when visited. Handoff retains witnessed method contexts and seeds every active positive branch of each matching sink condition, including unwitnessed OR branches. Proof scope remains in witness confirmation; emitting OR requirements does not allow a later forward AND to fire with incomplete support. A reversed end fact also demands the owning predicate's full positive leaf scope, because GEN output carries no proof correlation. Fire that scope once, also for CONFIRMED results. End-fact handling remains separate from unconditional source-hit admission.
 
 Use structural expression/proof handles instead of a prebuilt array of numbered alternatives. A proof's OR choices and leaf support order give its identity; no table of all combinations is needed. This requires coordinated updates to conjunction stores, witness shapes, seeds, triggers and the specification's current alternative-number contract. Keep a legacy cube evaluator only as a test oracle during migration.
 
