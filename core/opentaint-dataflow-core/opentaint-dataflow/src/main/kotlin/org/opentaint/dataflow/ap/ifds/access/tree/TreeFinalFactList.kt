@@ -21,16 +21,19 @@ class TreeFinalFactList(
         override fun get(idx: Int): AccessTree.AccessNode = storage[idx]
         override fun removeLast(): AccessTree.AccessNode = storage.removeLast()
 
-        private val interner = AccessTreeSoftInterner(apManager)
+        private var interner: AccessTreeSoftInterner? = null
         private var operationsBeforeIntern = INTERN_RATE
         private var maxTreeSize = 0L
 
+        private fun interner(): AccessTreeSoftInterner =
+            interner ?: AccessTreeSoftInterner(apManager).also { interner = it }
+
         fun internIfRequired(node: AccessTree.AccessNode): AccessTree.AccessNode {
             if (node.size < SIZE_TO_FORCE_INTERN) return node
-            return interner.intern(node)
+            return interner().intern(node)
         }
 
-        fun intern(): Unit = interner.internImpl(
+        fun intern(): Unit = internImpl(
             apManager.cancellation,
             lastUpdated = storage.last(),
             size = storage.size,
@@ -38,6 +41,7 @@ class TreeFinalFactList(
             updateMaxNodeSize = { maxTreeSize = it },
             decOperations = { operationsBeforeIntern-- },
             resetOperation = { operationsBeforeIntern = INTERN_RATE },
+            getInterner = { interner() },
             getNode = { storage[it] },
             setNode = { i, n -> storage[i] = n }
         )

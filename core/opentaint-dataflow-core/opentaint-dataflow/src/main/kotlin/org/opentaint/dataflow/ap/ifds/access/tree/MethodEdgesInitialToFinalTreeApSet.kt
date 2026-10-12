@@ -10,7 +10,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 
 class MethodEdgesInitialToFinalTreeApSet(
     methodInitialStatement: CommonInst,
-    private val maxInstIdx: Int,
+    @Suppress("UNUSED_PARAMETER") maxInstIdx: Int,
     private val languageManager: LanguageManager,
     override val apManager: TreeApManager,
 ) : CommonF2FSet<AccessPath.AccessNode?, AccessTree.AccessNode>(methodInitialStatement),
@@ -22,7 +22,7 @@ class MethodEdgesInitialToFinalTreeApSet(
     override fun mostAbstractPattern(base: AccessPathBase): AccessPath.AccessNode? = null
 
     private inner class TaintedFactAccessEdgeStorage : ApStorage<AccessPath.AccessNode?, AccessTree.AccessNode> {
-        private val sameInitialAccessEdges = IF2FFStorage(maxInstIdx, languageManager, apManager)
+        private val sameInitialAccessEdges = IF2FFStorage(languageManager, apManager)
 
         override fun add(
             statement: CommonInst,
@@ -60,42 +60,49 @@ class MethodEdgesInitialToFinalTreeApSet(
     }
 
     private class IF2FFStorage(
-        val maxInstIdx: Int,
         private val languageManager: LanguageManager,
         manager: TreeApManager,
     ) : AccessBasedStorage<IF2FFStorage>(manager) {
-        val current = EdgeNonUniverseExclusionMergingStorage(maxInstIdx, languageManager, manager)
+        val current = EdgeNonUniverseExclusionMergingStorage(languageManager, manager)
 
         override fun createStorage(): IF2FFStorage =
-            IF2FFStorage(maxInstIdx, languageManager, manager)
+            IF2FFStorage(languageManager, manager)
 
         override fun printStorageNode(): String = current.toString()
     }
 
+    /**
+     * Two columns per instruction: the merged access tree and the merged exclusion set. They are
+     * written and cleared together - measured on a ThingsBoard dump, the two former arrays had
+     * byte-identical non-null distributions - so one sparse table carries both, and a reader that
+     * finds a row is guaranteed the pair belongs to the same instruction.
+     */
     private class EdgeNonUniverseExclusionMergingStorage(
-        maxInstIdx: Int,
         private val languageManager: LanguageManager,
         manager: TreeApManager,
-    ): TreeSetWithCompression(maxInstIdx, manager) {
-        private val exclusions = arrayOfNulls<ExclusionSet>(MethodAnalyzerEdges.instructionStorageSize(maxInstIdx))
+    ): TreeSetWithCompression(COLUMNS, manager) {
 
         fun add(
             statement: CommonInst,
             accessWithExclusion: AccessWithExclusion<AccessTree.AccessNode>
         ): AccessWithExclusion<AccessTree.AccessNode>? {
             val edgeSetIdx = MethodAnalyzerEdges.instructionStorageIdx(statement, languageManager)
-            val currentExclusion = exclusions[edgeSetIdx]
+            val row = rowsForWrite(edgeSetIdx)
+            val offset = offsetOf(row, edgeSetIdx)
+
+            val currentExclusion = row.values[offset + EXCLUSION] as ExclusionSet?
 
             if (currentExclusion == null) {
-                exclusions[edgeSetIdx] = accessWithExclusion.exclusion
-                edges[edgeSetIdx] = internIfRequired(accessWithExclusion.access)
+                // Access first: a reader takes a non-null exclusion as the sign that the row is populated.
+                row.values[offset + ACCESS] = internIfRequired(accessWithExclusion.access)
+                row.values[offset + EXCLUSION] = accessWithExclusion.exclusion
                 return accessWithExclusion
             }
 
             val mergedExclusion = currentExclusion.union(accessWithExclusion.exclusion)
-            exclusions[edgeSetIdx] = mergedExclusion
+            row.values[offset + EXCLUSION] = mergedExclusion
 
-            val currentAccess = edges[edgeSetIdx]!!
+            val currentAccess = row.values[offset + ACCESS] as AccessTree.AccessNode
             val mergedAccess = currentAccess.mergeAdd(accessWithExclusion.access)
             if (mergedAccess === currentAccess) {
                 if (mergedExclusion === currentExclusion) return null
@@ -103,17 +110,28 @@ class MethodEdgesInitialToFinalTreeApSet(
                 return AccessWithExclusion(mergedAccess, mergedExclusion)
             }
 
-            edges[edgeSetIdx] = internIfRequired(mergedAccess)
-            intern(edgeSetIdx)
+            val storedAccess = internIfRequired(mergedAccess)
+            row.values[offset + ACCESS] = storedAccess
+            intern(storedAccess)
 
             return AccessWithExclusion(mergedAccess, mergedExclusion)
         }
 
         fun allApAtStatement(dst: MutableList<AccessWithExclusion<AccessTree.AccessNode>>, statement: CommonInst) {
             val edgeSetIdx = MethodAnalyzerEdges.instructionStorageIdx(statement, languageManager)
-            val currentExclusion = exclusions[edgeSetIdx] ?: return
-            val access = edges[edgeSetIdx] ?: return
+            val row = rows() ?: return
+            val offset = offsetOf(row, edgeSetIdx)
+            if (offset < 0) return
+
+            val currentExclusion = row.values[offset + EXCLUSION] as ExclusionSet? ?: return
+            val access = row.values[offset + ACCESS] as AccessTree.AccessNode? ?: return
             dst += AccessWithExclusion(access, currentExclusion)
+        }
+
+        companion object {
+            private const val ACCESS = 0
+            private const val EXCLUSION = 1
+            private const val COLUMNS = 2
         }
     }
 }

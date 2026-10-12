@@ -8,24 +8,25 @@ import org.opentaint.dataflow.ap.ifds.access.tree.AccessTree.AccessNode as Acces
 
 class MethodEdgesFinalTreeApSet(
     methodInitialStatement: CommonInst,
-    private val maxInstIdx: Int,
+    @Suppress("UNUSED_PARAMETER") maxInstIdx: Int,
     private val languageManager: LanguageManager,
     override val apManager: TreeApManager,
 ) : CommonZ2FSet<AccessTreeNode>(methodInitialStatement), TreeFinalApAccess {
     override fun createApStorage(): ApStorage<AccessTreeNode> =
-        ZeroInitialFactEdges(maxInstIdx, languageManager, apManager)
+        ZeroInitialFactEdges(languageManager, apManager)
 
     private class ZeroInitialFactEdges(
-        maxInstIdx: Int,
         private val languageManager: LanguageManager,
         manager: TreeApManager,
-    ): TreeSetWithCompression(maxInstIdx, manager), ApStorage<AccessTreeNode> {
+    ): TreeSetWithCompression(COLUMNS, manager), ApStorage<AccessTreeNode> {
         override fun addEdge(statement: CommonInst, accessPath: AccessTreeNode): AccessTreeNode? {
             val factSetIdx = instructionStorageIdx(statement, languageManager)
-            val factSet = edges[factSetIdx]
+            val row = rowsForWrite(factSetIdx)
+            val offset = offsetOf(row, factSetIdx)
+            val factSet = row.values[offset] as AccessTreeNode?
 
             if (factSet == null) {
-                edges[factSetIdx] = internIfRequired(accessPath)
+                row.values[offset] = internIfRequired(accessPath)
                 return accessPath
             }
 
@@ -34,13 +35,21 @@ class MethodEdgesFinalTreeApSet(
                 return null
             }
 
-            edges[factSetIdx] = internIfRequired(mergedFacts)
-            intern(factSetIdx)
+            val storedFacts = internIfRequired(mergedFacts)
+            row.values[offset] = storedFacts
+            intern(storedFacts)
             return mergedFacts
         }
 
         override fun collectApAtStatement(statement: CommonInst, dst: MutableList<AccessTreeNode>) {
-            dst += edges[instructionStorageIdx(statement, languageManager)] ?: return
+            val row = rows() ?: return
+            val offset = offsetOf(row, instructionStorageIdx(statement, languageManager))
+            if (offset < 0) return
+            dst += row.values[offset] as AccessTreeNode? ?: return
+        }
+
+        private companion object {
+            private const val COLUMNS = 1
         }
     }
 }

@@ -18,7 +18,14 @@ abstract class DefaultNDF2FSubStorage<IAP, FAP : Any> :
         fun collect(dst: MutableList<FAP>, summaryInitialFact: IAP)
     }
 
-    abstract fun relevantStorageIndices(summaryInitialFact: IAP): BitSet
+    /**
+     * Feeds [body] every storage index whose stored fact may match [summaryInitialFact], ascending.
+     *
+     * This used to hand back a `BitSet`. The tree implementation's index is sparse - 87.75 % of its
+     * nodes hold a single item - so materialising one would have cost more than the set it
+     * describes, the backing `long[]` being sized by the largest index rather than by the count.
+     */
+    abstract fun forEachRelevantStorageIndex(summaryInitialFact: IAP, body: (Int) -> Unit)
 
     override fun add(
         callerInitial: Set<InitialFactAp>,
@@ -35,7 +42,7 @@ abstract class DefaultNDF2FSubStorage<IAP, FAP : Any> :
         summaryInitialFact: IAP,
         emptyDeltaRequired: Boolean,
     ) {
-        relevantStorageIndices(summaryInitialFact).forEach { storageIdx ->
+        forEachRelevantStorageIndex(summaryInitialFact) { storageIdx ->
             val callerInitialAp = initialApStorage[storageIdx]
             val callerExitAp = exitApStorage[storageIdx]
             collectToListWithPostProcess(

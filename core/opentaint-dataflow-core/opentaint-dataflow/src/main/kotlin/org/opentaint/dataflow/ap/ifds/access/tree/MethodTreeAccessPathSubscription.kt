@@ -9,7 +9,6 @@ import org.opentaint.dataflow.ap.ifds.access.common.CommonZeroEdgeSubBuilder
 import org.opentaint.dataflow.ap.ifds.access.common.ndf2f.DefaultNDF2FSubStorage
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorIdx
 import org.opentaint.dataflow.ap.ifds.access.util.AccessorInterner.Companion.FINAL_ACCESSOR_IDX
-import org.opentaint.dataflow.util.PersistentBitSet.Companion.emptyPersistentBitSet
 import org.opentaint.dataflow.util.SoftReferenceManager
 import org.opentaint.dataflow.util.forEach
 import org.opentaint.dataflow.util.getOrCreate
@@ -17,6 +16,7 @@ import org.opentaint.dataflow.util.getOrCreateIndex
 import org.opentaint.dataflow.util.object2IntMap
 import org.opentaint.ir.api.common.cfg.CommonInst
 import java.lang.ref.Reference
+import java.util.Arrays
 import java.util.BitSet
 
 class MethodTreeAccessPathSubscription(
@@ -102,13 +102,13 @@ private class SummaryEdgeNDFactSubStorage(
         return FactStorage(idx)
     }
 
-    override fun relevantStorageIndices(summaryInitialFact: AccessPath.AccessNode?): BitSet {
+    override fun forEachRelevantStorageIndex(summaryInitialFact: AccessPath.AccessNode?, body: (Int) -> Unit) {
         if (summaryInitialFact == null) {
-            return BitSet().also { it.set(0, maxIdx + 1) }
+            for (idx in 0..maxIdx) body(idx)
+            return
         }
 
-        return edgeIndex.findStartsWith(summaryInitialFact)
-            ?: emptyPersistentBitSet()
+        edgeIndex.forEachStartsWith(summaryInitialFact, body)
     }
 }
 
@@ -173,14 +173,14 @@ private class SummaryEdgeFactAbstractTreeSubscriptionStorage(
                 dst.add(storageFinalFacts[index], callerInitialAp)
             }
         } else {
-            val relevantIndices = edgeIndex.findStartsWith(summaryInitialFact)
-            relevantIndices?.forEach { storageIdx ->
+            edgeIndex.forEachStartsWith(summaryInitialFact) { storageIdx ->
                 val callerExitAp = storageFinalFacts[storageIdx]
 
                 val filteredExitAp = callerExitAp.filterStartsWith(summaryInitialFact)
-                    ?: return@forEach
 
-                dst.add(filteredExitAp, storageInitialFacts[storageIdx])
+                if (filteredExitAp != null) {
+                    dst.add(filteredExitAp, storageInitialFacts[storageIdx])
+                }
             }
         }
     }
@@ -207,12 +207,13 @@ private abstract class AccessTreeIndex(private val refManager: SoftReferenceMana
         indexReference?.get()?.add(rootTreeNode, idx)
     }
 
-    fun findStartsWith(path: AccessPath.AccessNode): BitSet? {
+    fun forEachStartsWith(path: AccessPath.AccessNode, body: (Int) -> Unit) {
         if (maxIdx < INDEX_LIMIT) {
-            return BitSet().also { it.set(0, maxIdx + 1) }
+            for (idx in 0..maxIdx) body(idx)
+            return
         }
 
-        return getOrCreateIndex().findStartsWith(path)
+        getOrCreateIndex().forEachStartsWith(path, body)
     }
 
     private fun getOrCreateIndex(): AccessTreeIndexImpl {
@@ -236,10 +237,33 @@ private abstract class AccessTreeIndex(private val refManager: SoftReferenceMana
     }
 }
 
+/**
+ * A prefix trie over stored access trees; each node carries the set of stored items that reach it.
+ *
+ * That set used to be a `java.util.BitSet` per node, whose backing `long[]` is sized by the
+ * *largest* item index the node holds, not by how many it holds. Measured on a ThingsBoard heap
+ * dump (`-Xmx12g`, `java/security/ssrf.yaml:ssrf`, 300 s, dumped at t=251 s), across all 260,670
+ * nodes:
+ *
+ *   long[] length : mean 775 words (6.2 KiB); 98.4 % exceed 32 words, max 2746
+ *   set bits      : mean 7.46; **87.75 % hold exactly one**, 95.4 % hold at most three
+ *
+ * The bitsets were 1545.7 MiB - 15.8 % of a 9.70 GiB live heap, and 97 % of every `long[]` byte in
+ * it. So a node keeps an ascending [IntArray] of item indices until it holds [SPARSE_LIMIT] of
+ * them, and only then pays for a BitSet. A sparse node with the mean 7.46 items is ~48 B against
+ * ~6.2 KiB.
+ *
+ * The crossover is far above [SPARSE_LIMIT]: at 512 items a sparse node is 2 KiB against a dense
+ * node's 6.2 KiB, because the dense cost tracks the maximum index rather than the count. The limit
+ * is set where it is to bound insertion, which copies, not because dense wins there.
+ */
 private class AccessTreeIndexImpl {
     private class Node {
         private var children: Int2ObjectOpenHashMap<Node>? = null
-        val index = BitSet()
+
+        /** Ascending and distinct while the node is sparse; `null` once [dense] has taken over. */
+        private var sparse: IntArray? = EMPTY_INDICES
+        private var dense: BitSet? = null
 
         private fun getChildren(): Int2ObjectOpenHashMap<Node> =
             children ?: Int2ObjectOpenHashMap<Node>().also { children = it }
@@ -248,6 +272,47 @@ private class AccessTreeIndexImpl {
             getChildren().getOrCreate(accessor, ::Node)
 
         fun findChild(accessor: AccessorIdx): Node? = children?.get(accessor)
+
+        fun addIndex(idx: Int) {
+            val sparse = this.sparse
+            if (sparse == null) {
+                dense!!.set(idx)
+                return
+            }
+
+            // Re-adding the item just added is the common case: an index is set on every node of
+            // every delta the item contributes.
+            if (sparse.isNotEmpty() && sparse[sparse.size - 1] == idx) return
+
+            val at = Arrays.binarySearch(sparse, idx)
+            if (at >= 0) return
+
+            if (sparse.size >= SPARSE_LIMIT) {
+                val promoted = BitSet()
+                for (element in sparse) promoted.set(element)
+                promoted.set(idx)
+                this.dense = promoted
+                this.sparse = null
+                return
+            }
+
+            val insertAt = -at - 1
+            val next = IntArray(sparse.size + 1)
+            System.arraycopy(sparse, 0, next, 0, insertAt)
+            next[insertAt] = idx
+            System.arraycopy(sparse, insertAt, next, insertAt + 1, sparse.size - insertAt)
+            this.sparse = next
+        }
+
+        fun forEachIndex(body: (Int) -> Unit) {
+            val sparse = this.sparse
+            if (sparse != null) {
+                for (idx in sparse) body(idx)
+                return
+            }
+
+            dense!!.forEach(body)
+        }
     }
 
     private val root = Node()
@@ -257,11 +322,11 @@ private class AccessTreeIndexImpl {
         while (unprocessed.isNotEmpty()) {
             val (indexNode, treeNode) = unprocessed.removeLast()
 
-            indexNode.index.set(idx)
+            indexNode.addIndex(idx)
 
             if (treeNode.isFinal) {
                 val indexChild = indexNode.getOrCreateChild(FINAL_ACCESSOR_IDX)
-                indexChild.index.set(idx)
+                indexChild.addIndex(idx)
             }
 
             treeNode.forEachAccessor { accessor, treeChild ->
@@ -271,14 +336,21 @@ private class AccessTreeIndexImpl {
         }
     }
 
-    fun findStartsWith(path: AccessPath.AccessNode): BitSet? {
+    fun forEachStartsWith(path: AccessPath.AccessNode, body: (Int) -> Unit) {
         var currentNode = root
         var currentPath = path
 
         while (true) {
-            currentNode = currentNode.findChild(currentPath.accessor) ?: return null
-            currentPath = currentPath.next ?: return currentNode.index
+            currentNode = currentNode.findChild(currentPath.accessor) ?: return
+            currentPath = currentPath.next ?: return currentNode.forEachIndex(body)
         }
+    }
+
+    private companion object {
+        private val EMPTY_INDICES = IntArray(0)
+
+        /** Bounds the O(n) insert, not the point where a BitSet would become cheaper. */
+        private const val SPARSE_LIMIT = 512
     }
 }
 

@@ -151,8 +151,8 @@ class MethodAutomataAccessPathSubscription : CommonAPSub<AccessGraph, AccessGrap
 
         override fun createStorage(idx: Int): Storage<AccessGraph, AccessGraph> = FactStorage(idx)
 
-        override fun relevantStorageIndices(summaryInitialFact: AccessGraph): BitSet =
-            graphIndex.localizeIndexedGraphContainsAllGraph(summaryInitialFact)
+        override fun forEachRelevantStorageIndex(summaryInitialFact: AccessGraph, body: (Int) -> Unit) =
+            graphIndex.localizeIndexedGraphContainsAllGraph(summaryInitialFact).forEach(body)
     }
 }
 

@@ -97,8 +97,9 @@ private class NDSubStorage(private val cactusManager: CactusApManager, callerEp:
             current?.filterStartsWith(summaryInitialFact)?.let { dst.add(it) }
         }
     }
-    override fun relevantStorageIndices(summaryInitialFact: AccessPathWithCycles.AccessNode?): BitSet =
-        BitSet().also { it.set(0, maxIdx + 1) }
+    override fun forEachRelevantStorageIndex(summaryInitialFact: AccessPathWithCycles.AccessNode?, body: (Int) -> Unit) {
+        for (idx in 0..maxIdx) body(idx)
+    }
 }
 
 private class ZeroEdgeSubBuilder(override val cactusManager: CactusApManager) : CommonZeroEdgeSubBuilder<AccessCactus.AccessNode>(), CactusFinalApAccess
