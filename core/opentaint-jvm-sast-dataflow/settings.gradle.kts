@@ -8,15 +8,14 @@ val modelModules = modelRoot.listFiles()
     ?.sortedBy { it.name }
     .orEmpty()
 
-if (modelModules.isEmpty() && modelRoot.resolve("build.gradle.kts").isFile) {
-    // The core stack layer still uses the single model project.
-    val projectName = "dataflow-approximations-core"
+// The analyzer jar carries whatever is included here, so an empty list is a jar shipped
+// with no built-in models at all. Refuse rather than build one.
+require(modelModules.isNotEmpty()) {
+    "No built-in dataflow model modules under $modelRoot: each one is a directory with a build.gradle.kts"
+}
+
+modelModules.forEach { moduleDir ->
+    val projectName = "dataflow-approximations-${moduleDir.name}"
     include(projectName)
-    project(":$projectName").projectDir = modelRoot
-} else {
-    modelModules.forEach { moduleDir ->
-        val projectName = "dataflow-approximations-${moduleDir.name}"
-        include(projectName)
-        project(":$projectName").projectDir = moduleDir
-    }
+    project(":$projectName").projectDir = moduleDir
 }
