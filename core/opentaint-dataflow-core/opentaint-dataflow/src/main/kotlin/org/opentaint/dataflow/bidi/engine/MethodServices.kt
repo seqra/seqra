@@ -2,6 +2,7 @@ package org.opentaint.dataflow.bidi.engine
 
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.interp.SinkRule
+import org.opentaint.dataflow.bidi.interp.SourceRuleOccurrence
 import org.opentaint.dataflow.bidi.store.CallerRef
 import org.opentaint.dataflow.bidi.store.ConjunctionStore
 import org.opentaint.dataflow.bidi.store.RequestKind
@@ -32,6 +33,10 @@ interface MethodLocalServices {
     fun onAddedLink(ref: CallerRef, linkLayer: Layer, delta: Facts)
     fun conjunction(edge: ConjunctiveEdge, premise: PremiseKey, facts: Facts, node: CommonInst,
                     sink: (PremiseKey, Facts) -> Unit)
+    fun sourcePredicate(source: SourceRuleOccurrence, premise: PremiseKey, facts: Facts, node: CommonInst,
+                        statementEdge: Boolean, sink: (PremiseKey, Facts) -> Unit) {
+        error("These local services do not implement rule predicates")
+    }
     fun checkSinks(premise: PremiseKey, node: CommonInst, facts: Facts, sinks: List<SinkRule>): Triggers
     fun fireSinkSeeds(node: CommonInst, emit: (Facts) -> Unit)
     fun fireTriggerSeeds(node: CommonInst, sink: SinkRule, emit: (Facts) -> Unit)

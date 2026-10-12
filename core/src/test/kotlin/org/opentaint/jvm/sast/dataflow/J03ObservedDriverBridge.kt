@@ -285,6 +285,11 @@ class J03ObservedDriverBridge {
         val byPlace = field(seeds, "byPlace") as Map<Pair<MethodKey, CommonInst>, List<Seed>>
         return ownSet(byPlace.values.flatten().map { seed -> when (seed) {
             is Seed.Sink -> Seed.Sink(seed.rule, seed.method, seed.statement, ownPattern(seed.requirement))
+            // This immutable value names a complete condition without retaining its compiled DAG.
+            // Keep one physical seed and its original site/context: expanding its leaves would
+            // make outgoingSeeds.size disagree with the actual Frontier.seeds counter. The bridge
+            // observes MethodKeys/CommonInsts directly, so the occurrence needs no rebasing.
+            is Seed.PredicateSink -> Seed.PredicateSink(seed.occurrence, seed.method, seed.statement)
             is Seed.Source -> Seed.Source(seed.method, seed.statement, seed.edge.copy(
                 from = seed.edge.from.copy(path = ownList(seed.edge.from.path)),
                 to = seed.edge.to.copy(path = ownList(seed.edge.to.path))))

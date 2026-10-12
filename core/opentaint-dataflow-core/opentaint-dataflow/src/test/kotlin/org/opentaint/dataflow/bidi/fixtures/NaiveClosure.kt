@@ -28,7 +28,8 @@ class NaiveClosure(private val program: FiniteProgramFixtures, private val confi
     private val joined = HashSet<Joined>()
     private val literalInputs = HashMap<LiteralKey, MutableList<LinkedHashSet<LiteralInput>>>()
     private val literalCombinations = HashSet<LiteralCombination>()
-    private val triggered = HashSet<Triple<MethodKey, CommonInst, SinkRule>>()
+    private val triggered = HashSet<Triple<MethodKey, CommonInst, Any>>()
+    private val predicateSupports = RawPredicateSupports(program.cancellation)
     private val algebras = HashMap<MethodKey, ReferenceAlgebra>()
     private val references = HashMap<MethodKey, FormsReference>()
     private var invoked = false
@@ -356,18 +357,36 @@ class NaiveClosure(private val program: FiniteProgramFixtures, private val confi
         if (!forward) return Checks(emptyList(), emptyList())
         val fired = ArrayList<Pair<SinkRule, Layer>>()
         val parts = ArrayList<Conclusion>()
-        for (sink in sinks) for ((index, pattern) in sink.patterns.withIndex()) {
-            val checked = checkLiteral(method, premise, conclusion, pattern) ?: continue
-            parts += checked
-            val input = LiteralInput(premise, checked)
-            val combinations = if (!sink.conjunctive) listOf(listOf(input)) else
-                literal(method, node, sink, sink.patterns.size, index, input)
-            for (combination in combinations) {
-                val effectiveLayer = if (combination.any { it.conclusion.demand }) Layer.DEMAND else Layer.NORMAL
-                witnesses += ObservedWitness(sink.rule, method, node, sink.alternative, config.index,
-                    combination.map { ObservedSinkEdge(it.premise, layer(it.conclusion), setOf(it.conclusion)) },
-                    sink.endFacts.mapTo(LinkedHashSet()) { it.edge.to })
-                fired += sink to effectiveLayer
+        for (sink in sinks) {
+            val predicate = sink.predicate
+            if (predicate != null && !predicate.isTrue) {
+                for ((index, pattern) in predicate.leaves.withIndex()) {
+                    val checked = checkLiteral(method, premise, conclusion, pattern) ?: continue
+                    parts += checked
+                    for (combination in predicateSupports.add(method, node, checkNotNull(sink.occurrenceId),
+                        predicate, index, premise, checked)) {
+                        witnesses += ObservedWitness(sink.rule, method, node, sink.alternative, config.index,
+                            combination.inputs.map { ObservedSinkEdge(it.premise, it.layer, it.facts, it.group) },
+                            sink.endFacts.mapTo(LinkedHashSet()) { it.edge.to }, proof = combination.proof)
+                        fired += sink to combination.layer
+                    }
+                }
+                continue
+            }
+            for ((index, pattern) in sink.patterns.withIndex()) {
+                val checked = checkLiteral(method, premise, conclusion, pattern) ?: continue
+                parts += checked
+                val input = LiteralInput(premise, checked)
+                val combinations = if (!sink.conjunctive) listOf(listOf(input)) else
+                    literal(method, node, sink, sink.patterns.size, index, input)
+                for (combination in combinations) {
+                    val effectiveLayer = if (combination.any { it.conclusion.demand }) Layer.DEMAND else Layer.NORMAL
+                    witnesses += ObservedWitness(sink.rule, method, node, sink.alternative, config.index,
+                        combination.map { ObservedSinkEdge(it.premise, layer(it.conclusion), setOf(it.conclusion)) },
+                        sink.endFacts.mapTo(LinkedHashSet()) { it.edge.to },
+                        proof = sink.occurrenceId?.let { ProofKey(it, emptyList()) })
+                    fired += sink to effectiveLayer
+                }
             }
         }
         return Checks(fired.distinct(), parts)
@@ -413,11 +432,11 @@ class NaiveClosure(private val program: FiniteProgramFixtures, private val confi
     }
 
     private fun seedFacts(method: MethodKey, node: CommonInst): List<Pair<Set<Pattern>, Conclusion>> =
-        inputs.seeds.filterIsInstance<Seed.Sink>().filter { it.method == method && it.statement == node }
-            .map { zero to limit(normalize(it.requirement.fact, ExclusionSet.Empty, false), config.fieldLimit) }
+        rawSinkSeedRequirements(program, inputs, method, node)
+            .map { zero to limit(normalize(it.fact, ExclusionSet.Empty, false), config.fieldLimit) }
 
     private fun triggerSeeds(method: MethodKey, node: CommonInst, sink: SinkRule): List<Pair<Set<Pattern>, Conclusion>> =
-        if (!triggered.add(Triple(method, node, sink))) emptyList() else sink.seedPatterns().map {
+        if (!triggered.add(Triple(method, node, sink.joinKey))) emptyList() else sink.seedPatterns().map {
             zero to limit(normalize(it.fact, ExclusionSet.Empty, false), config.fieldLimit)
         }
 

@@ -10,7 +10,7 @@ import org.opentaint.ir.api.common.cfg.CommonInst
 /** One per-path result with its premise set. */
 typealias ReferenceSink = (Set<Pattern>, Conclusion) -> Unit
 
-/** Reference transfer and type filtering for one run. */
+/** Reference transfer, filtering and standing source support for one method and run. */
 class ReferenceAlgebra(
     private val mode: ApMode,
     request: (Set<Pattern>, RequestKind) -> Unit = { _, _ -> },
@@ -23,6 +23,7 @@ class ReferenceAlgebra(
     private val seedAllows = allowsSource
     private val onHit = sourceHit
     private val join = conjunction
+    private val sourcePredicates = ReferenceSourcePredicates(manager)
 
     override fun base(c: Conclusion) = c.fact.base
 
@@ -40,6 +41,9 @@ class ReferenceAlgebra(
 
     override fun conjunction(cj: ConjunctiveEdge, premise: Set<Pattern>, c: Conclusion, node: CommonInst, out: ReferenceSink) =
         join(cj, premise, c, node, out)
+    override fun sourcePredicate(source: SourceRuleOccurrence, premise: Set<Pattern>, c: Conclusion, node: CommonInst,
+                                 statementEdge: Boolean, out: ReferenceSink) =
+        sourcePredicates.apply(source, premise, c, node, mode, statementEdge, ::applyEdge, onRequest, out)
     override fun allowsSource(node: CommonInst, me: MicroEdge) = seedAllows(node, me)
     override fun sourceHit(node: CommonInst, me: MicroEdge) = onHit(node, me)
 
@@ -163,7 +167,7 @@ class FormsReference(
                         val guard = if (hooks.guards) st.guard else null
                         when {
                             guard is Guard.SinkTriggered ->
-                                for ((sink, layer) in fired) if (sink === guard.sink) {
+                                for ((sink, layer) in fired) if (sink.joinKey == guard.sink.joinKey) {
                                     val zero = Conclusion(ZERO_FACT, ExclusionSet.Empty, demand = layer == Layer.DEMAND)
                                     applier.stage(st.summary, zeroPremise, zero, place) { pr, x, me ->
                                         out += PlanItem(pr, x, st.kind.identityCandidateOf(me, null)) }

@@ -59,6 +59,8 @@ class CurrentSequenceTest {
         val contextSource = object : MethodContextSource {
             private val changed = object : MethodForms by f.program.forms(method) {
                 private var cached: CallPlan? = null
+                override fun <R> withCall(direction: Direction, s: CommonInst, call: CommonCallExpr,
+                                          use: (CallPlan) -> R): R = use(call(direction, s, call))
                 override fun call(direction: Direction, s: CommonInst, call: CommonCallExpr): CallPlan {
                     val actual = f.program.forms(method).call(direction, s, call)
                     if (direction != Direction.BACKWARD) return actual

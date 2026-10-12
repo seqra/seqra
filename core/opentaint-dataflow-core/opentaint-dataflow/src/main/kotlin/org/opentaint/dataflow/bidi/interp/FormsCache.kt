@@ -17,6 +17,11 @@ class FormsCache<F : Any>(private val size: Int, private val reverse: (F) -> F) 
         if (direction == Direction.FORWARD) return f
         return (slots[2 * slot + 1] ?: reverse(f).also { slots[2 * slot + 1] = it }) as F
     }
+
+    /** Callback adapter; this staging revision retains the original strong slots. */
+    fun <R> withForm(slot: Int, direction: Direction, forward: () -> F, use: (F) -> R): R =
+        use(get(slot, direction, forward))
+
 }
 
 /** Cached language forms retain method and context ownership. */
@@ -25,6 +30,14 @@ interface MethodForms {
     fun call(direction: Direction, s: CommonInst, call: CommonCallExpr): CallPlan
     fun entryRules(direction: Direction): RuleStatement
     fun exitRules(direction: Direction, exit: CommonInst): ExitRules
+
+    fun <R> withStatement(direction: Direction, s: CommonInst, use: (StatementSummary) -> R): R =
+        use(statement(direction, s))
+    fun <R> withCall(direction: Direction, s: CommonInst, call: CommonCallExpr, use: (CallPlan) -> R): R =
+        use(call(direction, s, call))
+    fun <R> withEntryRules(direction: Direction, use: (RuleStatement) -> R): R = use(entryRules(direction))
+    fun <R> withExitRules(direction: Direction, exit: CommonInst, use: (ExitRules) -> R): R =
+        use(exitRules(direction, exit))
 }
 
 /** The run reads forward or reversed cached forms through this direction view. */
@@ -41,4 +54,17 @@ class DirectedForms(val interp: Interpreter, val direction: Direction, private v
     fun endRules(m: MethodKey, node: CommonInst): ExitRules =
         if (forward) forms(m).exitRules(Direction.FORWARD, node)
         else ExitRules(forms(m).entryRules(Direction.BACKWARD), globalStateDrop = false, entryMarks = emptySet())
+
+    fun <R> withStartRules(m: MethodKey, node: CommonInst, use: (RuleStatement) -> R): R =
+        if (forward) forms(m).withEntryRules(Direction.FORWARD, use)
+        else forms(m).withExitRules(Direction.BACKWARD, node) { use(it.rules) }
+    fun <R> withStatement(m: MethodKey, s: CommonInst, use: (StatementSummary) -> R): R =
+        forms(m).withStatement(direction, s, use)
+    fun <R> withCall(m: MethodKey, s: CommonInst, c: CommonCallExpr, use: (CallPlan) -> R): R =
+        forms(m).withCall(direction, s, c, use)
+    fun <R> withEndRules(m: MethodKey, node: CommonInst, use: (ExitRules) -> R): R =
+        if (forward) forms(m).withExitRules(Direction.FORWARD, node, use)
+        else forms(m).withEntryRules(Direction.BACKWARD) {
+            use(ExitRules(it, globalStateDrop = false, entryMarks = emptySet()))
+        }
 }

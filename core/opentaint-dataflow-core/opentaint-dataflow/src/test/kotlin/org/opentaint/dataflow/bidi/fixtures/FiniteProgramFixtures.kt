@@ -224,6 +224,7 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
         val ownedSeeds = ownedList(seeds.map { seed -> when (seed) {
             is Seed.Source -> seed.copy(edge = seed.edge.copy(from = ownPath(seed.edge.from), to = ownPath(seed.edge.to)))
             is Seed.Sink -> Seed.Sink(seed.rule, seed.method, seed.statement, ownPattern(seed.requirement))
+            is Seed.PredicateSink -> seed.copy()
         } })
         val builder = if (index == 1) null else DemandStore.Builder(ap).also { b -> rawDemand.forEach { b.add(it.first, it.second) } }
         val config = RunConfig(index, L, builder?.build(), recordStore, SeedIndex.of(ownedSeeds), roots)
@@ -325,6 +326,7 @@ class FiniteProgramFixtures(val cancellation: Cancellation = Cancellation(), thr
             for (seed in input.seeds) appendLine("  seed ${key(seed.method)}:${seed.statement.location.index} " + when (seed) {
                 is Seed.Source -> "Source forward=${pathEdge(seed.edge)}"
                 is Seed.Sink -> "Sink rule=${seed.rule.id} requirement=${pattern(seed.requirement)}"
+                is Seed.PredicateSink -> "Sink predicate=${seed.occurrence}"
             })
         }
         appendLine("accessors=${accessorIds.sorted().associateWith { ap.accessors.accessor(it) }}")

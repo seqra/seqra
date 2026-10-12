@@ -150,11 +150,13 @@ class RunMethodAnalyzer(
     }
 
     private fun runStatement(item: EdgeDelta) {
-        applier.statement(forms.statement(key, item.node), item.premise, item.facts,
-            Place(item.node, config.run1, sources = true),
-            sink = { premise, result ->
-                cut(Cut.STATEMENT, premise, result) { pr, facts -> emitAfter(pr, item.node, facts) }
-            }, untouched = { _, _ -> emitUnchanged(item) })
+        forms.withStatement(key, item.node) { summary ->
+            applier.statement(summary, item.premise, item.facts,
+                Place(item.node, config.run1, sources = true),
+                sink = { premise, result ->
+                    cut(Cut.STATEMENT, premise, result) { pr, facts -> emitAfter(pr, item.node, facts) }
+                }, untouched = { _, _ -> emitUnchanged(item) })
+        }
     }
 
     internal fun emitAfter(premise: PremiseKey, node: CommonInst, facts: Facts) {
@@ -241,32 +243,35 @@ class RunMethodAnalyzer(
     }
 
     private fun startAt(premise: PremiseKey, node: CommonInst, start: Facts) {
-        val work = RuleWorklist(forms.startRules(key, node), node,
-            if (forward) Cut.ENTRY_RULES else Cut.EXIT_RULES)
-        work.input(premise, start)
-        if (!forward && premise.isZero) localServices.fireSinkSeeds(node) { seed -> work.input(ap.zero, seed) }
-        work.drain()
-        for ((pr, facts) in work.items) {
-            ap.cancellation.checkpoint()
-            edges.add(node, pr, facts)?.let { push(EdgeDelta(pr, node, it)) }
+        forms.withStartRules(key, node) { rules ->
+            val work = RuleWorklist(rules, node,
+                if (forward) Cut.ENTRY_RULES else Cut.EXIT_RULES)
+            work.input(premise, start)
+            if (!forward && premise.isZero) localServices.fireSinkSeeds(node) { seed -> work.input(ap.zero, seed) }
+            work.drain()
+            for ((pr, facts) in work.items) {
+                ap.cancellation.checkpoint()
+                edges.add(node, pr, facts)?.let { push(EdgeDelta(pr, node, it)) }
+            }
         }
     }
 
     private fun endAt(premise: PremiseKey, node: CommonInst, facts: Facts, summary: Boolean) {
-        val exit = forms.endRules(key, node)
-        val work = RuleWorklist(exit.rules, node, if (forward) Cut.EXIT_RULES else Cut.ENTRY_RULES)
-        work.input(premise, facts)
-        work.drain { pr, value, triggers ->
-            if (!summary) return@drain
-            var result: Facts? = value
-            if (exit.globalStateDrop && pr.isZero && value.base == AccessPathBase.ClassStatic)
-                for (part in triggers.parts) {
-                    ap.cancellation.checkpoint()
-                    result = result?.let { ops.without(it, part) }
-                }
-            if (pr.isZero && value is TaintTree)
-                exit.entryMarkRemoval(value.base)?.let { marks -> result = result?.let { ops.withoutMarks(it, marks) } }
-            result?.let { summaryDelta(pr, it) }
+        forms.withEndRules(key, node) { exit ->
+            val work = RuleWorklist(exit.rules, node, if (forward) Cut.EXIT_RULES else Cut.ENTRY_RULES)
+            work.input(premise, facts)
+            work.drain { pr, value, triggers ->
+                if (!summary) return@drain
+                var result: Facts? = value
+                if (exit.globalStateDrop && pr.isZero && value.base == AccessPathBase.ClassStatic)
+                    for (part in triggers.parts) {
+                        ap.cancellation.checkpoint()
+                        result = result?.let { ops.without(it, part) }
+                    }
+                if (pr.isZero && value is TaintTree)
+                    exit.entryMarkRemoval(value.base)?.let { marks -> result = result?.let { ops.withoutMarks(it, marks) } }
+                result?.let { summaryDelta(pr, it) }
+            }
         }
     }
 

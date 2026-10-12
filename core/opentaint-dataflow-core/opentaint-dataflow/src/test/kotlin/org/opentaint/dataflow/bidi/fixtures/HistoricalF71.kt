@@ -7,6 +7,7 @@ import org.opentaint.dataflow.bidi.interp.CleanStep
 import org.opentaint.dataflow.bidi.interp.StatementSummary
 import org.opentaint.dataflow.bidi.interp.StageKind
 import org.opentaint.dataflow.bidi.interp.Guard
+import org.opentaint.dataflow.bidi.driver.Seed
 
 /** F71 concrete-design operations. Explicit opt-ins add argued END forms and refined F69 must flags;
  *  their tests cite those rules separately from the default fb789d0ab finite-program domain. */
@@ -16,6 +17,7 @@ internal object HistoricalF71 {
     fun validate(program: FiniteProgramFixtures, inputs: ProgramRunInputs,
                  allowEndFacts: Boolean = false, allowMustSources: Boolean = false) {
         fun summary(s: StatementSummary) {
+            check(s.sources.isEmpty()) { "$VERSION differential excludes compiled source predicates" }
             for (e in s.edges) if (e.isSource) check(e.forward.to.tail == Tail.EXACT ||
                 (allowMustSources && e.forward.to.tail == Tail.ANY_TAINT && e.forward.to.mark is MarkSlot.Concrete)) {
                 "$VERSION differential excludes must sources and F76 must-record views"
@@ -24,23 +26,30 @@ internal object HistoricalF71 {
                 (it.forward.to.tail == Tail.ANY_TAINT && !(allowMustSources && it.isSource)) })
             check(s.conjunctions.none { it.target.tail == Tail.ANY_TAINT })
         }
+        fun sink(s: org.opentaint.dataflow.bidi.interp.SinkRule) {
+            check(s.predicate == null) { "$VERSION differential excludes compiled sink predicates" }
+            summary(StatementSummary(emptySet(), s.endFacts, emptyList(), emptyMap()))
+        }
+        check(inputs.seeds.none { it is Seed.PredicateSink }) {
+            "$VERSION differential excludes compiled full-condition sink seeds"
+        }
         program.statementInputs.forEach { summary(it.summary) }
         for (e in program.entryInputs) {
             summary(e.rules.summary)
             summary(e.rules.endFacts)
-            e.rules.sinks.forEach { summary(StatementSummary(emptySet(), it.endFacts, emptyList(), emptyMap())) }
+            e.rules.sinks.forEach(::sink)
             check(e.rules.endFacts.conjunctions.isEmpty())
             if (!allowEndFacts) check(e.rules.endFacts.edges.isEmpty() && e.rules.sinks.all { it.endFacts.isEmpty() })
         }
         for (e in program.exitInputs) {
             summary(e.rules.rules.summary)
             summary(e.rules.rules.endFacts)
-            e.rules.rules.sinks.forEach { summary(StatementSummary(emptySet(), it.endFacts, emptyList(), emptyMap())) }
+            e.rules.rules.sinks.forEach(::sink)
             check(e.rules.rules.endFacts.conjunctions.isEmpty())
             if (!allowEndFacts) check(e.rules.rules.endFacts.edges.isEmpty() && e.rules.rules.sinks.all { it.endFacts.isEmpty() })
         }
         for (row in program.callInputs) {
-            row.plan.sinks.forEach { summary(StatementSummary(emptySet(), it.endFacts, emptyList(), emptyMap())) }
+            row.plan.sinks.forEach(::sink)
             if (!allowEndFacts) check(row.plan.sinks.all { it.endFacts.isEmpty() })
             for (stage in row.plan.stages) when (stage) {
                 is CallStage.Edges -> {

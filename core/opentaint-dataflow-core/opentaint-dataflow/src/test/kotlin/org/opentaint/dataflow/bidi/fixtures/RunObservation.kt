@@ -3,6 +3,7 @@ package org.opentaint.dataflow.bidi.fixtures
 import org.opentaint.dataflow.ap.ifds.AccessPathBase
 import org.opentaint.dataflow.bidi.ap.*
 import org.opentaint.dataflow.bidi.store.*
+import org.opentaint.dataflow.bidi.interp.ProofKey
 import org.opentaint.ir.api.common.cfg.CommonInst
 
 /** Raw observations retain full caller premises and annotations before bounded union comparison. */
@@ -17,7 +18,7 @@ data class ObservedSinkEdge(val premise: Set<Pattern>, val layer: Layer, val fac
                             val group: GroupKey? = null)
 data class ObservedWitness(val rule: RuleId, val methodKey: MethodKey, val statement: CommonInst,
                            val alternative: Int, val run: Int, val edges: List<ObservedSinkEdge>,
-                           val endFacts: Set<PathFact>, val confirmed: Boolean = false)
+                           val endFacts: Set<PathFact>, val confirmed: Boolean = false, val proof: ProofKey? = null)
 
 data class RunObservation(
     val processed: Set<ObservedEdge> = emptySet(),
@@ -60,7 +61,7 @@ data class SemanticLinkHeader(val callee: MethodKey, val caller: MethodKey, val 
 data class SemanticSinkHeader(val premise: Set<Pattern>, val layer: Layer, val group: GroupKey)
 data class SemanticWitnessHeader(val rule: RuleId, val methodKey: MethodKey, val statement: CommonInst,
                                  val alternative: Int, val run: Int, val edges: List<SemanticSinkHeader>,
-                                 val confirmed: Boolean)
+                                 val confirmed: Boolean, val proof: ProofKey? = null)
 data class SemanticWitness(val edges: List<Map<ObservationComponent, Set<ObservationCell>>>,
                            val endFacts: Set<PathFact>)
 data class SemanticRunObservation(
@@ -141,7 +142,7 @@ private fun normalizeWitnesses(values: Set<ObservedWitness>, universe: BoundedDe
         val headers = witness.edges.map { SemanticSinkHeader(it.premise, it.layer,
             sinkGroup(it).copy(exclusion = ExclusionSet.Empty, markExclusion = MarkSet.EMPTY)) }
         val header = SemanticWitnessHeader(witness.rule, witness.methodKey, witness.statement, witness.alternative,
-            witness.run, headers, witness.confirmed)
+            witness.run, headers, witness.confirmed, witness.proof)
         val edges = witness.edges.map { edge ->
             val byKind = LinkedHashMap<ObservationComponent, MutableSet<ObservationCell>>()
             for (c in edge.facts) byKind.getOrPut(c.component(), ::LinkedHashSet).addAll(cells(edge.premise, c, universe))
@@ -167,4 +168,4 @@ fun observedWitness(ops: ApOps, key: VulnerabilityKey, witness: SinkWitness): Ob
     ObservedWitness(key.rule, witness.methodKey, key.statement, witness.alternative, witness.run,
         witness.edges.map { edge -> ObservedSinkEdge(observedPremise(edge.premise), edge.layer,
             ops.leaves(edge.facts).map { Conclusion(it.fact, it.exclusion, edge.facts.layer == Layer.DEMAND) }.toSet(),
-            edge.facts.groupKey) }, witness.endFacts.toSet(), witness.confirmed)
+            edge.facts.groupKey) }, witness.endFacts.toSet(), witness.confirmed, witness.proof)

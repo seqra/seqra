@@ -32,11 +32,13 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
     override fun process(item: EdgeDelta) {
         val core = active()
         val call = checkNotNull(core.context.callAt(item.node)) { "The delta is not at a call" }
-        val ctx = CallContext(item.node, call, core.forms.call(core.key, item.node, call), item.facts.layer)
-        when {
-            item.facts is Reach -> zeroAtCall(item, ctx)
-            item.facts.base !in ctx.plan.touched -> core.emitUnchanged(item)
-            else -> flow(ctx, ctx.plan.entry, listOf(PlanFact(item.premise, item.facts, null)))
+        core.forms.withCall(core.key, item.node, call) { plan ->
+            val ctx = CallContext(item.node, call, plan, item.facts.layer)
+            when {
+                item.facts is Reach -> zeroAtCall(item, ctx)
+                item.facts.base !in ctx.plan.touched -> core.emitUnchanged(item)
+                else -> flow(ctx, ctx.plan.entry, listOf(PlanFact(item.premise, item.facts, null)))
+            }
         }
     }
 
@@ -68,7 +70,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                 }
                 if (core.config.run1 && frame.point == CallPoint.ADDED) observeUnresolved(ctx, frame.facts)
             }
-            val stages = ctx.plan.stagesFrom[frame.point].orEmpty()
+            val stages = ctx.plan.stagesAt(frame.point)
             if (frame.next >= stages.size) { stack.removeLast(); continue }
             val stage = stages[frame.next++]
             val out = applyStage(ctx, stage, frame.facts, frame.triggers)
@@ -85,7 +87,7 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
                 if (guard is Guard.SinkTriggered) {
                     for ((sink, layer) in triggers.fired) {
                         core.ap.cancellation.checkpoint()
-                        if (sink !== guard.sink) continue
+                        if (sink.joinKey != guard.sink.joinKey) continue
                         core.applier.stage(stage.summary, core.ap.zero, Reach.of(layer),
                             Place(ctx.node, statementEdge = false, sources = false)) { premise, result, edge ->
                             core.ap.cancellation.checkpoint()
@@ -274,9 +276,11 @@ class RunMethodCallServices(core: RunMethodAnalyzer) : MethodCallServices {
         val core = active()
         if (results.isEmpty()) return
         val call = checkNotNull(core.context.callAt(ref.call)) { "The caller reference is not at a call" }
-        val ctx = CallContext(ref.call, call, core.forms.call(core.key, ref.call, call), ref.callerLayer)
-        val stage = checkNotNull(ctx.plan.callees) { "A resumed result needs a callee stage" }
-        flow(ctx, stage.to, results, pendingDemotion)
+        core.forms.withCall(core.key, ref.call, call) { plan ->
+            val ctx = CallContext(ref.call, call, plan, ref.callerLayer)
+            val stage = checkNotNull(ctx.plan.callees) { "A resumed result needs a callee stage" }
+            flow(ctx, stage.to, results, pendingDemotion)
+        }
     }
 
     private fun applyParts(part: Subscription, premise: InitialAp, conclusion: Facts, results: MutableList<PlanFact>) {

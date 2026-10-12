@@ -5,6 +5,7 @@ import org.opentaint.dataflow.bidi.ap.MethodKey
 import org.opentaint.dataflow.bidi.ap.PathEdge
 import org.opentaint.dataflow.bidi.ap.Pattern
 import org.opentaint.dataflow.bidi.store.RuleId
+import org.opentaint.dataflow.bidi.interp.RuleOccurrenceId
 import org.opentaint.ir.api.common.cfg.CommonInst
 import java.util.Collections
 
@@ -12,6 +13,13 @@ import java.util.Collections
 sealed interface Seed {
     val method: MethodKey
     val statement: CommonInst
+
+    /** One full-condition handle; it holds no compiled predicate or leaf inventory. */
+    data class PredicateSink(
+        val occurrence: RuleOccurrenceId,
+        override val method: MethodKey,
+        override val statement: CommonInst,
+    ) : Seed
 
     class Sink(
         val rule: RuleId,
@@ -60,7 +68,8 @@ class SeedIndex(byPlace: Map<Pair<MethodKey, CommonInst>, List<Seed>>) {
         Triple(method, statement, forward) in sources
     val size: Int get() = byPlace.values.sumOf { it.size }
 
-    fun sinkMethods(): Set<MethodKey> = byPlace.values.asSequence().flatten().filterIsInstance<Seed.Sink>()
+    fun sinkMethods(): Set<MethodKey> = byPlace.values.asSequence().flatten()
+        .filter { it is Seed.Sink || it is Seed.PredicateSink }
         .mapTo(HashSet()) { it.method }
 
     companion object {

@@ -61,12 +61,19 @@ class HandOff(val demand: DemandStore, val seeds: SeedIndex, demandEdges: Map<Me
                 }
                 for (method in methods) {
                     shared.cancellation.checkpoint()
-                    for (sink in sinksAt(shared, method, entry.key.statement)) {
-                        shared.cancellation.checkpoint()
-                        if (sink.rule != entry.key.rule) continue
-                        for (literal in sink.seedPatterns()) {
+                    withSinksAt(shared, method, entry.key.statement) { sinks ->
+                        for (sink in sinks) {
                             shared.cancellation.checkpoint()
-                            seeds += Seed.Sink(entry.key.rule, method, entry.key.statement, literal)
+                            if (sink.rule != entry.key.rule) continue
+                            if (sink.predicate != null) {
+                                if (!sink.unconditional)
+                                    seeds += Seed.PredicateSink(checkNotNull(sink.occurrenceId), method, entry.key.statement)
+                                continue
+                            }
+                            for (literal in sink.seedPatterns()) {
+                                shared.cancellation.checkpoint()
+                                seeds += Seed.Sink(entry.key.rule, method, entry.key.statement, literal)
+                            }
                         }
                     }
                 }
@@ -82,11 +89,15 @@ class HandOff(val demand: DemandStore, val seeds: SeedIndex, demandEdges: Map<Me
             if (pattern.fact.mark !is MarkSlot.Star || pattern.fact.mark.excluded.isEmpty) pattern
             else pattern.copy(fact = pattern.fact.copy(mark = MarkSlot.STAR))
 
-        private fun sinksAt(shared: SharedObjects, key: MethodKey, statement: CommonInst): List<SinkRule> {
+        private fun withSinksAt(shared: SharedObjects, key: MethodKey, statement: CommonInst,
+                                use: (List<SinkRule>) -> Unit) {
             val forms = shared.contexts.forms(key)
-            shared.language.getCallExpr(statement)?.let { return forms.call(Direction.FORWARD, statement, it).sinks }
-            return if (shared.interpreter.exitNodes(key).any { shared.cancellation.checkpoint(); it.node == statement })
-                forms.exitRules(Direction.FORWARD, statement).rules.sinks else emptyList()
+            val call = shared.language.getCallExpr(statement)
+            if (call != null) {
+                forms.withCall(Direction.FORWARD, statement, call) { use(it.sinks) }
+            } else if (shared.interpreter.exitNodes(key).any { shared.cancellation.checkpoint(); it.node == statement }) {
+                forms.withExitRules(Direction.FORWARD, statement) { use(it.rules.sinks) }
+            }
         }
 
         private fun toForward(result: RunResult<RunMethodAnalyzer>, shared: SharedObjects,

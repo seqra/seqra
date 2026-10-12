@@ -7,6 +7,7 @@ import kotlinx.coroutines.newFixedThreadPoolContext
 import org.opentaint.dataflow.ap.ifds.LanguageManager
 import org.opentaint.dataflow.bidi.ap.ApManager
 import org.opentaint.dataflow.bidi.ap.ApOps
+import org.opentaint.dataflow.bidi.interp.FormCacheStatistics
 import org.opentaint.dataflow.bidi.interp.Interpreter
 import org.opentaint.dataflow.bidi.interp.UnresolvedCallObserver
 import org.opentaint.dataflow.bidi.store.RecordStore
@@ -33,6 +34,7 @@ class SharedObjects(
     threads: Int = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1),
     val cancellationTimeout: Duration = 30.seconds,
     val diagnostics: Boolean = false,
+    val formStatistics: FormCacheStatistics? = null,
 ) : AutoCloseable {
     @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
     val dispatcher: ExecutorCoroutineDispatcher = newFixedThreadPoolContext(threads, "bidi-worker")

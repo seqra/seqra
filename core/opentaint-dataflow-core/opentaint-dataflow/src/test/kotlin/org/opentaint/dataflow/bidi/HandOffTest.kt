@@ -225,6 +225,37 @@ class HandOffTest {
         }
     }
 
+    @Test fun `predicate handoff keeps the full positive OR scope only within witnessed contexts`(): Unit {
+        HandOffFixtures().use { f ->
+            val witnessed = f.key("witnessed")
+            val unrelated = f.key("no witness")
+            val reportRule = rule("NNF demand")
+            val first = f.pattern(x)
+            val unwitnessed = f.pattern(y, tail = Tail.ANY)
+            val builder = RulePredicate.Builder(f.cancellation)
+            val predicate = builder.build(builder.or(listOf(builder.leaf(first), builder.leaf(unwitnessed))))
+            val id = RuleOccurrenceId(FormKey(FormOwner(), witnessed.method, null, f.inst(2)), RuleKind.EXIT_SINK, 0)
+            val sink = SinkRule(reportRule, 0, predicate.leaves, emptyList(), id, predicate)
+            f.finite.exitRules(2, ExitRules(rules(listOf(sink)), false, emptySet()))
+            val support = SinkWitness(0, witnessed,
+                listOf(SinkEdge(f.manager.zero, Layer.DEMAND, f.fact(x, layer = Layer.DEMAND))), f.index,
+                proof = ProofKey(id, listOf(predicate.leaves.indexOf(first))))
+            f.core(witnessed)
+            f.vulnerabilities.add(VulnerabilityKey(reportRule, witnessed.method, f.inst(2)), support)
+            val result = f.result()
+            f.report.add(f.config, result)
+            val handOff = HandOff.of(f.config, result, f.report, f.shared)
+            assertEquals(listOf(Seed.PredicateSink(id, witnessed, f.inst(2))), handOff.seeds.at(witnessed, f.inst(2)))
+            assertEquals(1, handOff.seeds.size)
+            val handle = handOff.seeds.at(witnessed, f.inst(2)).single() as Seed.PredicateSink
+            val resolved = f.shared.contexts.forms(handle.method).exitRules(Direction.FORWARD, handle.statement)
+                .rules.sinks.single { it.occurrenceId == handle.occurrence }
+            assertEquals(setOf(first, unwitnessed), resolved.seedPatterns().toSet())
+            assertEquals(setOf(witnessed), handOff.seeds.sinkMethods())
+            assertTrue(handOff.seeds.at(unrelated, f.inst(2)).isEmpty())
+        }
+    }
+
     @Test
     fun `a call witness reads cached call sinks rather than same rule alternatives at another boundary`(): Unit {
         HandOffFixtures().use { f ->

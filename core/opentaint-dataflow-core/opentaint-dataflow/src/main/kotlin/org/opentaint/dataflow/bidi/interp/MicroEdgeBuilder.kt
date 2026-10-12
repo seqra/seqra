@@ -15,12 +15,14 @@ class MicroEdgeBuilder {
     private val touched = LinkedHashSet<AccessPathBase>()
     private val edges = LinkedHashSet<PathEdge>()
     private val conjunctions = LinkedHashSet<ConjunctiveEdge>()
+    private val sources = ArrayList<SourceRuleOccurrence>()
     private val operand = LinkedHashMap<AccessPathBase, TypeFilter>()
     private val result = LinkedHashMap<AccessPathBase, TypeFilter>()
 
     fun touch(b: AccessPathBase) { touched += b }
     fun edge(e: PathEdge) { edges += e }
     fun conjunction(c: ConjunctiveEdge) { conjunctions += c }
+    fun source(source: SourceRuleOccurrence) { sources += source }
 
     fun keep(b: AccessPathBase) {
         touch(b)
@@ -78,7 +80,7 @@ class MicroEdgeBuilder {
 
     /** Statement forms retain touched bases, conjunctions, and both filter maps. */
     fun build(): StatementSummary = StatementSummary(touched, edges.map(MicroEdge::of),
-        conjunctions.toList(), operand, result)
+        conjunctions.toList(), operand, result, sources)
 
     /** Every plain or conjunctive endpoint belongs to the stage's touched set. */
     fun buildStage(): StatementSummary {
@@ -86,6 +88,10 @@ class MicroEdgeBuilder {
         conjunctions.forEach { c ->
             c.literals.forEach { touch(it.fact.base) }
             touch(c.target.base)
+        }
+        sources.forEach { source ->
+            source.predicate.leaves.forEach { touch(it.fact.base) }
+            source.actions.forEach { touch(it.target.base) }
         }
         return build()
     }
@@ -103,9 +109,10 @@ fun fieldCleanStep(
     baseFilter: TypeFilter? = null,
     valueFilter: TypeFilter? = null,
     aliasPaths: List<Pair<AccessPathBase, List<AccessorIdx>>> = emptyList(),
+    temporaryKey: TemporaryKey? = null,
 ): CleanStep.Field {
     check(base != AccessPathBase.ClassStatic && path.isNotEmpty() && path.last().isFieldAccessor())
-    val tmp = AccessPathBase.CleanerTemporary()
+    val tmp = temporaryKey?.let(AccessPathBase.CleanerTemporary::keyed) ?: AccessPathBase.CleanerTemporary()
     val read = MicroEdgeBuilder().apply {
         read(tmp, base, path)
         operandFilter(base, baseFilter)

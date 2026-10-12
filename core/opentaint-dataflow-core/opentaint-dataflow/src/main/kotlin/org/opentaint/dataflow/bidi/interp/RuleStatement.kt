@@ -15,12 +15,17 @@ class SinkRule(
     val alternative: Int,
     patterns: List<Pattern>,
     endFacts: List<MicroEdge>,
+    val occurrenceId: RuleOccurrenceId? = null,
+    val predicate: RulePredicate? = null,
 ) {
+    /** Legacy/manual forms keep their fresh object scope; JVM predicate forms supply a value key. */
+    val joinKey: Any get() = occurrenceId ?: this
     val patterns: List<Pattern> = snapshotPatterns(patterns)
     /** Keep cached micro edges and their original forward identities. Their producers own their paths. */
     val endFacts: List<MicroEdge> = ownedList(endFacts)
 
     init {
+        require(predicate == null || occurrenceId != null) { "A compiled predicate needs a stable rule occurrence" }
         check(this.patterns.isNotEmpty()) { "A sink has a positive literal or the zero pattern" }
         check(this.patterns.all {
             it.fact.mark is MarkSlot.Concrete && (it.fact.tail == Tail.EXACT || it.fact.tail == Tail.ANY)

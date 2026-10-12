@@ -14,6 +14,10 @@ interface FactAlgebra<P, F> {
     fun filter(c: F, filter: TypeFilter): F?
     fun applyEdge(me: MicroEdge, c: F, premise: P, statementEdge: Boolean, out: (P, F) -> Unit)
     fun conjunction(cj: ConjunctiveEdge, premise: P, c: F, node: CommonInst, out: (P, F) -> Unit)
+    fun sourcePredicate(source: SourceRuleOccurrence, premise: P, c: F, node: CommonInst,
+                        statementEdge: Boolean, out: (P, F) -> Unit) {
+        error("This fact algebra does not implement rule predicates")
+    }
     fun allowsSource(node: CommonInst, me: MicroEdge): Boolean
     fun sourceHit(node: CommonInst, me: MicroEdge)
 }
@@ -24,6 +28,7 @@ class FormApplier<P, F>(private val alg: FactAlgebra<P, F>) {
                   untouched: (P, F) -> Unit = sink) {
         if (alg.base(c) !in s.touched) {
             for (cj in s.conjunctions) conjunction(s, cj, premise, c, at.node, sink)
+            for (source in s.sources) source(s, source, premise, c, at, sink)
             untouched(premise, c)
             return
         }
@@ -39,6 +44,7 @@ class FormApplier<P, F>(private val alg: FactAlgebra<P, F>) {
             }
         }
         for (cj in s.conjunctions) conjunction(s, cj, premise, input, at.node) { pr, result -> emit(pr, result, null) }
+        for (source in s.sources) source(s, source, premise, input, at) { pr, result -> emit(pr, result, null) }
     }
 
     /** GEN adds results. Its caller retains the input and handles end-fact triggers. */
@@ -50,6 +56,13 @@ class FormApplier<P, F>(private val alg: FactAlgebra<P, F>) {
     private fun conjunction(s: StatementSummary, cj: ConjunctiveEdge, premise: P, c: F,
                             node: CommonInst, sink: (P, F) -> Unit) {
         alg.conjunction(cj, premise, c, node) { pr, result ->
+            filterBy(s.resultFilters, result)?.let { sink(pr, it) }
+        }
+    }
+
+    private fun source(s: StatementSummary, source: SourceRuleOccurrence, premise: P, c: F,
+                       at: Place, sink: (P, F) -> Unit) {
+        alg.sourcePredicate(source, premise, c, at.node, at.statementEdge) { pr, result ->
             filterBy(s.resultFilters, result)?.let { sink(pr, it) }
         }
     }
