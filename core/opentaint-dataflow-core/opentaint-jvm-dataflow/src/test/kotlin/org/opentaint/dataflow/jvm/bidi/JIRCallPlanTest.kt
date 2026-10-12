@@ -602,6 +602,45 @@ class JIRCallPlanTest : BasicTestUtils() {
         assertSame(original.temporary, reversed.temporary)
     }
 
+    @Test fun `managed cache cleanup rebuilds stable keys and binds guards to the new sink payload`(): Unit {
+        val rules = CallRules().apply {
+            sources = listOf(source(listOf(AssignMark(RuleMark("U"), Result)), condition()))
+            sinks = listOf(sink(listOf(AssignMark(RuleMark("U"), Result)), condition()))
+            cleaners = listOf(cleaner(listOf(RemoveMark(RuleMark("T"), field(Argument(0))))))
+        }
+        val owner = FormOwner()
+        val inst = v.call("staticCall")
+        var builds = 0
+        fun build(): CallPlan {
+            builds++
+            return JIRCallPlanBuilder(v.manager, v.forms(rules), v.checker, v.typeFilters,
+                v.key(inst.location.method), inst, v.expr(inst),
+                { _, _, _ -> listOf(MethodResolutionResult.MethodResolutionFailed) }, v.epResolver, emptyMap(),
+                formOwner = owner).build()
+        }
+        val refs = org.opentaint.dataflow.util.SoftReferenceManager(org.opentaint.dataflow.util.RefManager())
+        val cache = FormsCache<CallPlan>(1, refs) { it.reversed() }
+        val first = cache.get(0, Direction.FORWARD, ::build)
+        val oldReverse = cache.get(0, Direction.BACKWARD, ::build)
+        assertEquals(1, builds)
+        assertSame(first.sinks.single(), stage(oldReverse, StageKind.END_FACTS).trigger)
+        assertEquals(1, refs.cleanup())
+        refs.enable()
+        val rebuilt = cache.get(0, Direction.FORWARD, ::build)
+        val newReverse = cache.get(0, Direction.BACKWARD, ::build)
+        assertEquals(2, builds)
+        assertNotSame(first, rebuilt)
+        assertNotSame(first.sinks.single(), rebuilt.sinks.single())
+        assertEquals(first.sinks.single().joinKey, rebuilt.sinks.single().joinKey)
+        assertEquals(stage(first, StageKind.SOURCES).summary.sources.single().id,
+            stage(rebuilt, StageKind.SOURCES).summary.sources.single().id)
+        val oldField = actions(first, CallPoint.BOUND, CallPoint.ADDED).single() as CleanStep.Field
+        val newField = actions(rebuilt, CallPoint.BOUND, CallPoint.ADDED).single() as CleanStep.Field
+        assertEquals(oldField.temporary, newField.temporary)
+        assertSame(rebuilt.sinks.single(), (stage(rebuilt, StageKind.END_FACTS).guard as Guard.SinkTriggered).sink)
+        assertSame(rebuilt.sinks.single(), stage(newReverse, StageKind.END_FACTS).trigger)
+        assertEquals(oldReverse.sinks.single().joinKey, newReverse.sinks.single().joinKey)
+    }
 
     @Test fun `static class sources field sources and kills keep complete class field geometry`(): Unit {
         val classPosition = ClassStatic(owner)

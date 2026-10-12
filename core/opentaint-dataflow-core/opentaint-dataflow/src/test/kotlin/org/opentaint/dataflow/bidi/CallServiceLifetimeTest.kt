@@ -19,6 +19,56 @@ class CallServiceLifetimeTest {
                 StatementSummary.identities(listOf(AccessPathBase.Return)))),
         emptyList(), CallPoint.BEFORE, CallPoint.AFTER)
 
+    @Test fun `a suspended callee return rebuilds its cleared plan and preserves the caller result`(): Unit {
+        MethodAnalysisFixtures().use { f ->
+            f.callExpressions[1] = f.callExpression
+            val refs = f.refManager.softRefManager("bidi-method-forms")
+            val stats = FormCacheStatistics()
+            val cache = FormsCache<CallPlan>(1, refs, stats) { it.reversed() }
+            var builds = 0
+            val delegate = f.contexts.forms(f.key)
+            val cachedForms = object : MethodForms by delegate {
+                override fun <R> withCall(direction: Direction,
+                                          s: org.opentaint.ir.api.common.cfg.CommonInst,
+                                          call: org.opentaint.ir.api.common.cfg.CommonCallExpr,
+                                          use: (CallPlan) -> R): R =
+                    cache.withForm(0, direction, { builds++; plan(f) }, use)
+            }
+            val originalPort = f.core().runnerPort
+            lateinit var actor: RunMethodAnalyzer
+            val port = object : RunnerPort<RunMethodAnalyzer> by originalPort {
+                override val forms = DirectedForms(f.interpreter, Direction.FORWARD) { cachedForms }
+                override fun analyzer(key: MethodKey): RunMethodAnalyzer = actor.also { check(key == it.key) }
+            }
+            lateinit var calls: RunMethodCallServices
+            actor = RunMethodAnalyzer(f.key, port, PublicationSink { _, _ -> },
+                MethodLocalServicesFactory(::RunMethodLocalServices),
+                MethodCallServicesFactory { RunMethodCallServices(it).also { service -> calls = service } })
+            f.onSubscribe = {}
+            f.onLink = {}
+            val initial = f.manager.initial(f.pattern())
+            calls.process(EdgeDelta(initial, f.inst(1), f.fact()))
+            val suspended = f.subscriptions.single()
+            assertEquals(1, f.sentLinks.size)
+            assertTrue(f.cuts.isEmpty())
+            assertTrue(actor.edges.edgesAt(f.inst(2), initial).none())
+            assertEquals(0L, stats.snapshot().activePins)
+            assertEquals(1, refs.cleanup())
+            refs.enable()
+
+            actor.applySummary(suspended, Publication(f.manager.initial(f.pattern()),
+                f.fact(AccessPathBase.Return)), 0)
+
+            assertEquals(2, builds)
+            assertEquals(0L, stats.snapshot().activePins)
+            assertEquals(setOf(initial to Conclusion(f.pattern(AccessPathBase.Return).fact,
+                ExclusionSet.Empty, false)), methodEntries(f.ops, actor.edges.edgesAt(f.inst(2), initial)))
+            assertEquals(listOf(Cut.CALL), f.cuts.map { it.first })
+            assertEquals(1, f.subscriptions.size)
+            assertEquals(1, f.sentLinks.size)
+        }
+    }
+
     @Test fun `cancellation rejects a summary return before cuts storage or work and activation permits its first result`(): Unit {
         MethodAnalysisFixtures().use { f ->
             f.call(1, plan(f))

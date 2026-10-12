@@ -57,8 +57,8 @@ class JIRMethodEntry internal constructor(val method: JIRMethod, internal val sh
     fun graph(direction: Direction): MethodInstGraph =
         if (direction == Direction.FORWARD) forwardGraph else backwardGraph
 
-    internal val statements = FormsCache<StatementSummary>(size) { it.reversed() }
-    internal val exits = FormsCache<ExitRules>(size) {
+    internal val statements = FormsCache<StatementSummary>(size, shared.formReferences, shared.formStatistics) { it.reversed() }
+    internal val exits = FormsCache<ExitRules>(size, shared.formReferences, shared.formStatistics) {
         ExitRules(it.reversed(), globalStateDrop = false, entryMarks = emptySet())
     }
 

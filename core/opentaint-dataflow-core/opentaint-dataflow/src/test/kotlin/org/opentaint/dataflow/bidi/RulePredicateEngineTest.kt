@@ -108,6 +108,31 @@ class RulePredicateEngineTest {
         }
     }
 
+    @Test fun `form cleanup between source inputs changes build count without losing standing support`() {
+        MethodAnalysisFixtures().use { f ->
+            val (_, services) = core(f)
+            val refs = f.refManager.softRefManager("bidi-method-forms")
+            val cache = FormsCache<SourceRuleOccurrence>(1, refs) { it.reversed() }
+            var builds = 0
+            fun build(): SourceRuleOccurrence {
+                builds++
+                return source(f, predicate(f) { b, l -> b.and(listOf(l[0], l[1])) })
+            }
+            val result = ArrayList<Pair<PremiseKey, Facts>>()
+            cache.withForm(0, Direction.FORWARD, ::build) { source ->
+                services.sourcePredicate(source, f.manager.zero, f.fact(), f.inst(2), false) { pr, facts -> result += pr to facts }
+                assertEquals(1, refs.cleanup())
+            }
+            refs.enable()
+            cache.withForm(0, Direction.FORWARD, ::build) { source ->
+                services.sourcePredicate(source, f.manager.zero, f.fact(AccessPathBase.Argument(1)), f.inst(2), false) { pr, facts -> result += pr to facts }
+            }
+            assertEquals(2, builds)
+            assertEquals(1, result.size)
+            assertSame(f.manager.zero, result.single().first)
+            assertEquals(AccessPathBase.Return, result.single().second.base)
+        }
+    }
 
     @Test fun `full predicate sink handles decode all branches and rebuilt end triggers fire once`() {
         MethodAnalysisFixtures().use { f ->

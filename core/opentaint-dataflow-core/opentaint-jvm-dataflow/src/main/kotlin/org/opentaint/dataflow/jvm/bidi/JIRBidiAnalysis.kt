@@ -90,15 +90,23 @@ class JIRBidiAnalysis internal constructor(
         val ap = ApManager(cancellation, refManager)
         val language = JIRLanguageManager(cp)
         val callResolver = JIRCallResolver(cp, unitResolver)
+        val formReferences = refManager.softRefManager("bidi-method-forms")
         val entries = JIRMethodEntries(graph, language, callResolver, taintConfig, params.aliasAnalysisParams,
-            cancellation, copied.lambdas)
+            cancellation, copied.lambdas, formReferences)
         val interpreter = JIRInterpreter(ap, taintConfig, copied.checker, callResolver,
             JIRMethodEntrypointResolver(graph), entries, params.defaultGetModel, copied.externalMethodTracker)
         val contexts = MethodContextCache(interpreter, JIRMethodContextCache(interpreter, entries))
         @Suppress("UNCHECKED_CAST")
         SharedObjects(ap, ApOps(ap), interpreter, language, contexts, PersistentRecordStore(ap),
-            ConcurrentVulnerabilityStore(ap), unitResolver as UnitResolver<CommonMethod>, refManager, cancellation).use { shared ->
-            return driverFactory(policy, shared, budget - start.elapsedNow()).analyze(copied.roots)
+            ConcurrentVulnerabilityStore(ap), unitResolver as UnitResolver<CommonMethod>, refManager, cancellation,
+            formStatistics = entries.formStatistics).use { shared ->
+            try {
+                return driverFactory(policy, shared, budget - start.elapsedNow()).analyze(copied.roots)
+            } finally {
+                entries.formStatistics?.let {
+                    logger.info { "Bidi form statistics: ${it.snapshot()} trackedFormReferences=${formReferences.trackedReferenceCount}" }
+                }
+            }
         }
     }
 

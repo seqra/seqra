@@ -20,8 +20,8 @@ class JIRMethodForms internal constructor(
     private val entry: JIRMethodEntry,
     private val key: MethodKey,
 ) : MethodForms {
-    private val plans = FormsCache<CallPlan>(entry.size) { it.reversed() }
-    private val initial = FormsCache<RuleStatement>(1) { it.reversed() }
+    private val plans = FormsCache<CallPlan>(entry.size, entry.shared.formReferences, entry.shared.formStatistics) { it.reversed() }
+    private val initial = FormsCache<RuleStatement>(1, entry.shared.formReferences, entry.shared.formStatistics) { it.reversed() }
 
     override fun statement(direction: Direction, s: CommonInst) = withStatement(direction, s) { it }
 

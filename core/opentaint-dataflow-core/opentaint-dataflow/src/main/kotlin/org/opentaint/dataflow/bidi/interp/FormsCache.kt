@@ -4,24 +4,94 @@ import org.opentaint.dataflow.bidi.ap.Direction
 import org.opentaint.dataflow.bidi.ap.MethodKey
 import org.opentaint.ir.api.common.cfg.CommonCallExpr
 import org.opentaint.ir.api.common.cfg.CommonInst
+import org.opentaint.dataflow.util.SoftReferenceManager
+import java.lang.ref.Reference
+import java.lang.ref.SoftReference
+import java.util.concurrent.atomic.AtomicReferenceArray
 
-/** One owner uses a slot during each run; the barrier orders later runs. */
-class FormsCache<F : Any>(private val size: Int, private val reverse: (F) -> F) {
+/** Lazy slots retain one reclaimable forward/reverse payload, with one build at a time per slot. */
+class FormsCache<F : Any>(
+    private val size: Int,
+    private val refs: SoftReferenceManager? = null,
+    private val statistics: FormCacheStatistics? = null,
+    private val reverse: (F) -> F,
+) {
+    constructor(size: Int, reverse: (F) -> F) : this(size, null, null, reverse)
+
     init { require(size >= 0) { "A form cache size must be nonnegative" } }
-    private val slots = arrayOfNulls<Any>(Math.multiplyExact(2, size))
+    private val slots = AtomicReferenceArray<FormSlot<F>?>(size)
 
-    @Suppress("UNCHECKED_CAST")
-    fun get(slot: Int, direction: Direction, forward: () -> F): F {
-        require(slot in 0 until size) { "A form slot must be within the cache" }
-        val f = (slots[2 * slot] ?: forward().also { slots[2 * slot] = it }) as F
-        if (direction == Direction.FORWARD) return f
-        return (slots[2 * slot + 1] ?: reverse(f).also { slots[2 * slot + 1] = it }) as F
+    private class FormSlot<F : Any> {
+        @Volatile var payload: Reference<ForwardReversePayload<F>>? = null
+        var building = false
     }
 
-    /** Callback adapter; this staging revision retains the original strong slots. */
-    fun <R> withForm(slot: Int, direction: Direction, forward: () -> F, use: (F) -> R): R =
-        use(get(slot, direction, forward))
+    private class ForwardReversePayload<F : Any>(val forward: F, private val statistics: FormCacheStatistics?) {
+        @Volatile private var backward: F? = null
+        private var reversing = false
 
+        fun selected(direction: Direction, reverse: (F) -> F): F {
+            if (direction == Direction.FORWARD) return forward
+            backward?.let { return it }
+            return synchronized(this) {
+                backward?.let { return it }
+                check(!reversing) { "Recursive reversal of a form slot" }
+                reversing = true
+                val start = if (statistics != null) statistics.startReversal() else 0L
+                var success = false
+                try {
+                    reverse(forward).also { backward = it; success = true }
+                } finally {
+                    statistics?.finishReversal(start, success)
+                    reversing = false
+                }
+            }
+        }
+    }
+
+    private fun formSlot(index: Int): FormSlot<F> {
+        slots.get(index)?.let { return it }
+        val created = FormSlot<F>()
+        return if (slots.compareAndSet(index, null, created)) created else checkNotNull(slots.get(index))
+    }
+
+    private fun payload(slot: FormSlot<F>, forward: () -> F): ForwardReversePayload<F> {
+        slot.payload?.get()?.let { statistics?.hit(); return it }
+        return synchronized(slot) {
+            slot.payload?.get()?.let { statistics?.hit(); return it }
+            check(!slot.building) { "Recursive construction of a form slot" }
+            slot.building = true
+            val start = if (statistics != null) statistics.startBuild() else 0L
+            var success = false
+            var cached = false
+            try {
+                ForwardReversePayload(forward(), statistics).also {
+                    slot.payload = if (refs == null) SoftReference(it) else refs.createRef(it)
+                    cached = slot.payload != null
+                    success = true
+                }
+            } finally {
+                statistics?.finishBuild(start, success, cached)
+                slot.building = false
+            }
+        }
+    }
+
+    fun <R> withForm(slot: Int, direction: Direction, forward: () -> F, use: (F) -> R): R {
+        require(slot in 0 until size) { "A form slot must be within the cache" }
+        statistics?.access()
+        val selectedPayload = payload(formSlot(slot), forward)
+        statistics?.pin()
+        try {
+            return use(selectedPayload.selected(direction, reverse))
+        } finally {
+            Reference.reachabilityFence(selectedPayload)
+            statistics?.unpin()
+        }
+    }
+
+    fun get(slot: Int, direction: Direction, forward: () -> F): F =
+        withForm(slot, direction, forward) { it }
 }
 
 /** Cached language forms retain method and context ownership. */

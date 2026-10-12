@@ -15,6 +15,7 @@ import org.opentaint.dataflow.jvm.ap.ifds.LambdaAnonymousClassFeature
 import org.opentaint.dataflow.jvm.ap.ifds.LambdaExpressionToAnonymousClassTransformerFeature
 import org.opentaint.dataflow.jvm.ap.ifds.taint.TaintRulesProvider
 import org.opentaint.dataflow.util.Cancellation
+import org.opentaint.dataflow.util.SoftReferenceManager
 import org.opentaint.ir.api.jvm.JIRMethod
 import org.opentaint.jvm.graph.JApplicationGraph
 import java.util.Collections
@@ -29,6 +30,7 @@ class JIRMethodEntries(
     val aliasParams: JIRLocalAliasAnalysis.Params,
     val cancellation: Cancellation,
     prescanLambdas: PrescanLambdas,
+    internal val formReferences: SoftReferenceManager? = null,
     internal val formStatistics: org.opentaint.dataflow.bidi.interp.FormCacheStatistics? =
         org.opentaint.dataflow.bidi.interp.FormCacheStatistics.ifEnabled(),
 ) {
