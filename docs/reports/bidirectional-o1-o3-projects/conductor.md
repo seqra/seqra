@@ -1,5 +1,16 @@
 # Conductor: O1–O3 fixed-workload test
 
+Latest retest after rollback: runtime commit **38a400c0d**, manifest revision **bd6810823**.
+Latest reached: **run-2, backward, limit 2, OOM**. Complete engine and accepted forward report: **run-1**.
+All seven main identities remain; the incomplete report adds 293 identities. Run-1/2 engine times are
+37.554/92.396 seconds. The new run-2 guard heap is 11,693,412,724 bytes. The fixed 8 GiB/1,080-second
+configuration is unchanged. See the [latest retest record](../bidirectional-core-rollback-20261013.md).
+The measurements below remain the historical pre-rollback record.
+
+The new run-2 heap verifies a 1,538,287,888-byte active-subscription union, with 509,006,864 bytes in
+delta-part indexes and 259,069,008 in added-key indexes. All 257,075 form slots lack cached referents.
+See the latest retest record for query availability, complete counts and overlap limits.
+
 Historical measurement at pre-rollback code `b0a2448c0`. Latest reached: **run-2, backward, limit 2,
 OOM**. Last complete engine: **run-1**. Last accepted forward report: **run-1**.
 The primary guard heap captures **run-2** before cancellation. Main has no bidi iteration. See the

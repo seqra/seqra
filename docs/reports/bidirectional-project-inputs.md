@@ -1,5 +1,8 @@
 # Bidirectional project input inventory
 
+Latest reached iteration: not applicable to this input-only audit; it launches no analysis. Actual scan
+iterations are in the [latest rollback retest](bidirectional-core-rollback-20261013.md).
+
 Checked on 2026-10-12. This report records inputs and settings. It does not report completed project tests. The input audit changed no project model, source checkout, or extension file and ran no Gradle task.
 
 The selected configuration is `../opentaint-test/projects/repos.yaml` at test-system commit `bbdbcc5fd35d976d93348760ea60561e4670f68c`. Its SHA-256 is `5b7afb38179e412bc9465fcbe32faaf85114d28c8177bcdc2563d6b3f80b79de`. No other project configuration is selected. Main is commit `f945f92c5ae554ff4f5fc7696ee5a269210478bb`, checked out at `/tmp/opentaint-bidi-main-f945f92c`. The older `../opentaint-main` checkout is not this baseline. The current analyzer checkout is `/drive-testcomp/opentaint-go-rules/opentaint-w3`; each run manifest records its commit and patch digest.

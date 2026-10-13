@@ -1,5 +1,13 @@
 # Stirling-PDF: O1–O3 fixed-workload test
 
+Latest retest after rollback: runtime commit **38a400c0d**, manifest revision **bd6810823**.
+Latest reached: **run-4, backward, limit 4, TIMEOUT**. Complete engine and accepted forward report:
+**run-3**. The output retains 14 main identities, misses the same three and adds 42, with 128 occurrences.
+Run-1/2/3/4 engine times are 28.757/19.357/47.611/958.840 seconds. The fixed 8 GiB/1,080-second
+configuration is unchanged. No new guard heap is required. See the
+[latest retest record](../bidirectional-core-rollback-20261013.md). The measurements below remain
+the historical pre-rollback record.
+
 Historical measurement at pre-rollback code `b0a2448c0`. Latest reached: **run-4, backward, limit 4,
 TIMEOUT**. Last complete engine: **run-3**. Last accepted forward report: **run-3**.
 The primary run has no guard heap; older checkpoint guard heaps capture **run-3**, not run-4.

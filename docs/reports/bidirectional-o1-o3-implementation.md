@@ -1,5 +1,11 @@
 # O1–O3 implementation and test record
 
+Latest rollback retest: core **38a400c0d**, manifest **bd6810823**, 1,320 common/377 JVM tests pass.
+All four fresh project pairs are terminal: OWASP **run-3 COMPLETE**, Conductor **run-2 OOM**,
+ThingsBoard **run-1 OOM**, PDF **run-4 TIMEOUT**. Finding identities, occurrences and sink locations
+match the pre-rollback outputs. See the [latest retest record](bidirectional-core-rollback-20261013.md).
+The following implementation and heap measurements remain historical evidence.
+
 Status: historical pre-rollback measurements at runtime code `b0a2448c0`. All four fixed-project pairs
 finished; resource gates remain open. The manager rewrite and weak identity cache are now removed at
 the user's request. These results do not validate that revised code. See the

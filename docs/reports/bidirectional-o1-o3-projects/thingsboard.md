@@ -1,5 +1,16 @@
 # ThingsBoard: O1–O3 fixed-workload test
 
+Latest retest after rollback: runtime commit **38a400c0d**, manifest revision **bd6810823**.
+Latest reached: **run-1, forward, limit 1, OOM**. No engine iteration completes and no forward report is
+accepted. All 14 main identities remain absent from the valid empty output. Run-1 engine time is
+289.365 seconds. The new run-1 guard heap is 18,694,343,873 bytes. The fixed 12 GiB/1,080-second
+configuration is unchanged. See the [latest retest record](../bidirectional-core-rollback-20261013.md).
+The measurements below remain the historical pre-rollback record.
+
+The new run-1 heap verifies 3,095,473,728 bytes in standing requests and 1,214,843,344 in queue backing
+roots. It contains 24,981,269 seen request pairs and 15,764,679 queued events. All 940,423 form slots lack
+cached referents. See the latest retest record for query availability, complete counts and overlap limits.
+
 Historical measurement at pre-rollback code `b0a2448c0`. Latest reached: **run-1, forward, limit 1,
 OOM**. No engine iteration completed and no forward report was accepted.
 The primary guard heap captures **run-1** before cancellation. Main has no bidi iteration. See the

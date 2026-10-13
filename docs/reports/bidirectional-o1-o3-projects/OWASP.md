@@ -1,5 +1,12 @@
 # OWASP: O1–O3 fixed-workload test
 
+Latest retest after rollback: runtime commit **38a400c0d**, manifest revision **bd6810823**.
+Latest reached, complete engine and accepted forward report: **run-3, forward, limit 3, COMPLETE**.
+All 4,112 main sink identities remain; missing/added are 0/0. Exported occurrences remain 9,179.
+Run-1/2/3 engine times are 179.131/43.941/40.774 seconds. The fixed 8 GiB/1,000-second configuration
+is unchanged. See the [latest retest record](../bidirectional-core-rollback-20261013.md) for all gates,
+profiles and evidence. The measurements below remain the historical pre-rollback record.
+
 Historical measurement at pre-rollback code `b0a2448c0`. Latest reached: **run-3, forward, limit 3,
 COMPLETE**. Last complete engine: **run-3**. Last accepted forward report: **run-3**.
 The separate warm heap was captured in **run-1**. Main has no bidi iteration. See the

@@ -1,5 +1,11 @@
 # Bidirectional project findings
 
+Historical pre-O1–O3 results. Latest reached in these scans: OWASP **run-1 F/L1**, Conductor
+**run-2 B/L2**, ThingsBoard **run-1 F/L1**, PDF **run-3 F/L3**; all stop on OOM. The last complete
+engine and accepted forward report are run-1 for Conductor and run-2/run-1 respectively for PDF;
+neither exists for OWASP or ThingsBoard. Main has no bidi iteration. The
+[latest rollback retest](bidirectional-core-rollback-20261013.md) records later outputs and run labels.
+
 This report records the measured project results from 12 October 2026. The selected inputs and budgets are in [bidirectional-project-inputs.md](bidirectional-project-inputs.md). Runs use the Gradle `runProjectAnalyzer` task. They do not use the CLI.
 
 All eight runs are terminal. Main completes for all four projects. Every bidi analysis ends with OOM. No timeout, masked prescan error or input-model mismatch is observed in these bundles. The results do not establish completed-analysis recall or precision for bidi.

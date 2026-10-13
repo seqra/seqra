@@ -10,17 +10,22 @@ queue entries. Start with their storage. Keep NNF for both source and sink condi
 Managed method-form references already release compiled forms in the failing Conductor and ThingsBoard
 captures. Further form eviction alone does not address those remaining owners.
 
-The measured production code is `b0a2448c0af7906ed49d90f203dd5a2a1c881523`. These measurements precede
-the requested rollback of the `SoftReferenceManager` rewrite and `WeakIdentityCache`. They explain the
-measured workload, but do not validate the revised code. Retest the revised core before adopting a new change.
-The original manager and standard rule-validation code are the starting point for that retest. The two
+The latest measurements use runtime commit `38a400c0d` and manifest revision `bd6810823`, after the
+requested rollback of the manager rewrite and weak identity cache. The
+[fresh retest](../reports/bidirectional-core-rollback-20261013.md) passes 1,320 common/377 JVM tests and
+reproduces the four primary output sets and terminal iterations from `b0a2448c0`. Fresh Conductor run-2
+and ThingsBoard run-1 heap owners are verified and used below. OWASP warm, old singleton, provider and
+JFR allocation measurements retain their explicit older-revision attribution. Those older measurements
+supplement the fresh data; they do not establish an isolated rollback saving.
+The original manager and direct rule validation are now restored. The two
 removed designs are optional candidates N11 and N12 below; they are not prerequisites for the form cache.
 
 ## Latest reached iterations and evidence
 
 An iteration is reached when its `BIDI_RUN_START` is recorded. Engine completion and acceptance of a
-forward report are separate events. A failed later run does not replace the previous accepted forward
-report. `BIDI_BARRIER_END` alone is insufficient evidence: it is also written from a `finally` block.
+forward report are separate events. A failed later engine does not replace the previous accepted forward
+report. A barrier can fail after a report update, so use direct acceptance evidence.
+`BIDI_BARRIER_END` alone is insufficient evidence: it is also written from a `finally` block.
 
 | Project | Latest reached iteration | Last complete engine iteration | Last accepted forward report | Primary result |
 | --- | --- | --- | --- | --- |
@@ -29,7 +34,7 @@ report. `BIDI_BARRIER_END` alone is insufficient evidence: it is also written fr
 | [ThingsBoard](../reports/bidirectional-o1-o3-projects/thingsboard.md) | run-1, forward, limit 1 | None | None | OOM; empty accepted report, all 14 main identities absent |
 | [Stirling-PDF](../reports/bidirectional-o1-o3-projects/Stirling-PDF.md) | run-4, backward, limit 4 | run-3 | run-3 | Timeout; 14 main identities retained, 3 missing, 42 added |
 
-The OWASP live heap is a separate warm capture during **run-1**, followed by a replay that reaches run-3.
+The b0 OWASP live heap is a separate warm capture during **run-1**, followed by a replay that reaches run-3.
 The Conductor primary guard heap captures **run-2**; the ThingsBoard primary guard heap captures **run-1**.
 The final PDF run reaches **run-4** and has no guard heap. Its older O3/O1 checkpoint heaps capture
 **run-3** OOM and must not be presented as final run-4 memory measurements. The
@@ -53,17 +58,17 @@ Lower candidates need more evidence before implementation. CPU and allocation wo
 
 | Rank / ID | Proposed change | Expected retained-memory impact | Measured basis and limit |
 | --- | --- | --- | --- |
-| 1 / N1 | Compact standing request records and positional indexes | Very high in ThingsBoard | run-1 request-store union: 2,885,461,840 B; 22,317,268 distinct seen pairs |
-| 2 / N2 | Compact subscription indexes; remove an unused accumulator index | High in Conductor | run-2 subscription union: 1,487,146,248 B; index unions: 500,992,808 B and 256,274,344 B |
-| 3 / N3 | Pack pending queue entries and reduce excess queue capacity | High in ThingsBoard | run-1 backing-array-root union: 1,210,199,096 B; 16,082,582 queued entries |
-| 4 / N4 | Compact and share immutable AP delta graphs | Medium to high, overlaps N2 | Conductor run-2 accepted parts: 566,535,456 B; nodes/accessors/child arrays within them: 419,634,720 B |
-| 5 / N5 | Specialize small NNF descriptors and share immutable topology | Potentially high in warm forms; conditional | OWASP run-1 compiled descriptor union: 1,715,130,896 B; current singleton distribution must still be measured |
-| 6 / N6 | Share immutable bound-rule condition data | Medium, conditional | Conductor run-2 rule-provider union: 372,739,560 B; removable duplication is unknown |
-| 7 / N7 | Lazy remaining fact-group containers and compact reach storage | Low to medium; conditional | Conductor run-2 dense group arrays: only 14,593,136 B; older PDF group sizes require a fresh census |
+| 1 / N1 | Compact standing request records and positional indexes | Very high in ThingsBoard | Fresh run-1 request-store union: 3,095,473,728 B; 24,981,269 distinct seen pairs |
+| 2 / N2 | Compact subscription indexes; remove an unused accumulator index | High in Conductor | Fresh run-2 subscription union: 1,538,287,888 B; index unions: 509,006,864 B and 259,069,008 B |
+| 3 / N3 | Pack pending queue entries and reduce excess queue capacity | High in ThingsBoard | Fresh run-1 backing-array-root union: 1,214,843,344 B; 15,764,679 queued entries |
+| 4 / N4 | Compact and share immutable AP delta graphs | Medium to high, overlaps N2 | Fresh Conductor run-2 accepted parts: 607,697,168 B; nodes/accessors/child arrays within them: 452,468,200 B |
+| 5 / N5 | Specialize small NNF descriptors and share immutable topology | Potentially high in warm forms; conditional | b0 OWASP run-1 compiled descriptor union: 1,715,130,896 B; current singleton distribution must still be measured |
+| 6 / N6 | Share immutable bound-rule condition data | Medium, conditional | b0 Conductor run-2 rule-provider union: 372,739,560 B; removable duplication is unknown |
+| 7 / N7 | Lazy remaining fact-group containers and compact reach storage | Low to medium; conditional | b0 Conductor run-2 dense group arrays: only 14,593,136 B; current group layouts require a fresh census |
 | 8 / N8 | Share immutable cleaner/action payloads | Low to medium after N5/N6; conditional | Repeated action payloads are observed; exclusive remaining bytes have not been measured |
 | 9 / N9 | Compact remaining residual reverse conjunctions | Low; conditional | NNF already removes compiled source/sink cube inventories; measure any remaining custom/legacy owner first |
-| 10 / N10 | Reduce retained form recipes and empty slot owners | Conditional | ThingsBoard run-1 recipe/cache-shell union: 684,989,280 B, despite empty cached referents; necessary metadata and rule-provider ownership overlap |
-| 11 / N11 | Redesign managed-reference bookkeeping and transitions | Unknown; optional | Rebuildable wrapper growth and registration races require a separate design; guard captures show zero tracked wrappers after cleanup |
+| 10 / N10 | Reduce retained form recipes and empty slot owners | Conditional | Fresh ThingsBoard run-1 recipe/cache-shell union: 684,922,856 B, despite empty cached referents; necessary metadata and rule-provider ownership overlap |
+| 11 / N11 | Redesign managed-reference bookkeeping and transitions | Unknown; optional | Older b0 guards counted zero tracked wrappers; fresh original-manager wrapper cardinality is unrequested. Measure ordinary wrapper growth and registration races separately. |
 | 12 / N12 | Introduce a weak identity cache for validated rule occurrences | Unknown; optional | No isolated retained-byte or validation-time measurement justifies a new utility yet |
 
 N1/N2/N3 retain all logical work. Queue coalescing and logical subscription removal are separate algorithm
@@ -72,29 +77,37 @@ is established. A global strong interner would defeat reclamation and is not pro
 
 ## N1. Store standing requests once
 
-`RequestStore` keeps a seen set and a positional lookup index. In the ThingsBoard **run-1** retained set,
-pair bodies use 535,614,432 B, linked-map entries use 892,690,720 B, hash-map nodes use 714,893,952 B,
-and table arrays use 411,833,408 B. These are parts of the same union. The storage cost warrants a
+`RequestStore` keeps a seen set and a positional lookup index. In the fresh ThingsBoard **run-1** retained
+set, pair bodies use 599,550,456 B, linked-map entries use 999,250,760 B, hash-map nodes use 800,078,304 B,
+and hash-map table arrays use 392,402,320 B. These are parts of the same union. The storage cost warrants a
 representation change before changing the number of requests.
 
-Use one canonical record for each complete request key. Keep its initial AP/premise, mark and position.
-Use primitive record IDs in the secondary path index. Replace per-path `LinkedHashSet` and duplicate pair
-wrappers with compact empty/singleton/primitive-array membership. If mutable growth needs a larger set,
+Use one canonical record for each complete request key. Keep its initial AP/premise and complete request
+kind, including a mark or a static position path. The current seen set and path index share the same Pair;
+there are no duplicate Pair bodies between those two stores. Use primitive record IDs in the secondary
+path index. Replace per-record Pair wrappers and duplicate index entries, plus per-path `LinkedHashSet`,
+with compact empty/singleton/primitive-array membership. If mutable growth needs a larger set,
 introduce it only at that size and include its spare capacity in measurements.
 
 Preserve exact deduplication, encounter order where observable, and both standing-join arrival orders:
 a request must join facts already stored, and a later fact must join requests already stored. Do not weaken
 the full key to just a path or mark. Keep full AP matching after any coarse positional lookup.
+Mark requests are indexed by the premise base/path; position requests are indexed by
+`STATIC/requested position`. Requests remain standing after an answer. A new caller reference for an
+already stored added fact must still join those requests.
 
 Validation: compare raw requests, summaries, source hits and findings against the independent closure
-fixtures under different arrival orders and positive limits 1, 2 and 3. Measure owned storage per record,
+fixtures under different arrival orders and positive limits 1, 2 and 3, including a new caller reference
+for an existing added fact. Measure owned storage per record,
 then repeat ThingsBoard with its original configuration. Report the latest reached run even if it fails.
 
 ## N2. Separate exact accumulation from indexed subscription lookup
 
-Conductor **run-2** has 2,086,288 accepted delta parts alongside 703,732 cumulative exact groups.
-The delta-part index alone contains 7,264,648 linked-map entries and 6,778,966 boxed integers. Their
-399,049,376 shallow bytes explain much of the 500,992,808 B index union.
+Fresh Conductor **run-2** has 2,165,026 accepted-part list entries alongside 679,558 cumulative exact
+groups. These directory counts differ from distinct object counts. The delta-part index contains
+7,397,171 linked-map entries and 6,918,460 boxed integers. Their 406,582,200 shallow bytes explain much
+of the 509,006,864 B index union. The capture has 2,723,788 handled events and five pending reservations;
+different progress from b0 prevents an isolated rollback memory-savings claim.
 
 First split the exact added-fact accumulator from the indexed store. `CalleeSubscriptions` calls
 `AddedFactStore.add`, but does not query the positional index built by that store. This consumer can use
@@ -116,10 +129,13 @@ group, then repeat Conductor and check strict findings and the latest reached it
 
 ## N3. Pack pending queues without changing scheduling
 
-ThingsBoard **run-1** queues contain 16,082,582 entries but allocate 45,116,783 backing cells.
-Within the backing-root retained set, queue entry bodies use 643,303,080 B, request message bodies use
-385,779,480 B and object arrays use 180,500,088 B. Packing entries and controlling capacity can reduce
+Fresh ThingsBoard **run-1** queues contain 15,764,679 entries but allocate 51,339,702 backing cells.
+Within the backing-root retained set, queue entry bodies use 630,587,160 B, request message bodies use
+378,212,496 B and object arrays use 205,411,552 B. Packing entries and controlling capacity can reduce
 overhead even if every logical event remains necessary.
+
+The same capture has 197,740,423 handled events and 15,810,688 pending reservations. Its progress differs
+from b0, so byte differences do not isolate the rollback's effect.
 
 Prototype an owned packed entry layout. Keep captured priority, steps and FIFO sequence in primitive
 storage, with event payload references. Consider a FIFO lane for ordinary rank-1/step-0 events only if it
@@ -130,9 +146,10 @@ Preserve reservation/count before queue visibility, insertion rollback, exactly-
 cancellation and drain behavior. A queue resizing change must not introduce a work cap or drop an event.
 Check ordering under ties, mixed ordinary/work events, requeue and cancellation before project tests.
 
-A separate feasibility study can measure pending request coalescing. The current bounded sample has
+A separate feasibility study can measure pending request coalescing. The older b0 bounded sample has
 48 cells and 43 structural keys, with two repeated keys. It does not establish a global duplicate rate.
-Coalescing requires proof that full method/premise/mark keys and reservation accounting remain correct.
+Coalescing requires proof that full method/premise/request-kind keys and reservation accounting remain correct.
+The kind can be a mark request or a static position-path request.
 It is not part of the initial packing change.
 
 ## N4. Compact immutable AP graphs and reduce trie work
@@ -141,14 +158,19 @@ Start with single-child trie-node storage and unchanged-subtree reuse. Preserve 
 child and inherited exclusion/must semantics. Share only frozen nodes. Measure duplicate graph shapes
 before adding interning; a duplicate-shape rate is not yet available.
 
-The separate allocation track is especially relevant to PDF **run-4**. Its primary recording has about
+The separate allocation track is especially relevant to PDF **run-4**. The older b0 primary recording has about
 2.056 TB sampled allocation weight. Subtraction appears in 25.67%, staging in 11.68% and cleaner-chain
 application in 11.14% of that weight; these inclusive groups overlap. Near the limit, GC frames appear in
 67.56% of asynchronous CPU samples. Conductor **run-2** also shows subtraction and merge allocation.
+The fresh rollback captures verify PDF's normal **run-3** and near-limit **run-4** phases. The late
+run-4 capture has 77.02% GC, 8.00% trie-subtraction and 10.14% staging sample weights. Its 12,582
+samples are a separate CPU measurement; do not combine these shares with the older allocation weights.
 
 Use primitive scratch buffers, allocate child builders after the first changed child, and reuse unchanged
-subtrees. If an operation-local memo is needed, its key includes node, stored state and inherited cover;
-cache a null result explicitly. A node-only or global memo is incorrect. Keep deep traversal iterative and
+subtrees. A subtraction memo must include node, stored state and inherited cover; cache a null result
+explicitly. A node-only subtraction key is incorrect. Other operation-local memos use their complete
+semantic inputs: a fixed leaf transform can use node identity, merge uses a node pair, and a filter must
+include its filter identity. Do not add a global memo. Keep deep traversal iterative and
 keep cancellation checks. Verify T1–T4 and T2′, including whole merged deltas after exclusion/must changes,
 canonical empty-exclusion lookup after the last must is removed, and separate normal/demand groups.
 Do not combine this work with a FLOW/exclusion semantic change.
@@ -164,23 +186,30 @@ occurrence IDs, ordered actions, proof scopes and public ordinal behavior separa
 The complete singleton census is from the older O1 strong-cache ThingsBoard **run-1** checkpoint:
 2,329,585 singleton, 16 constant and 142,217 multi-node predicates. Its descriptor union is
 1,758,031,280 B and base-map union is 969,107,360 B, which overlap. Do not apply that older singleton
-fraction to current code without measuring current forms. The OWASP warm **run-1** capture supplies
-current descriptor bytes, not this distribution.
+fraction to current code without measuring current forms. The b0 OWASP warm **run-1** capture supplies
+descriptor bytes for that revision, not this distribution.
 
 **N6, rule templates.** Freeze condition templates and bind methods/positions with small descriptors.
-Conductor **run-2** retains 3,608,056 `ContainsMark` nodes and 3,639,113 condition atoms in the provider
+The b0 Conductor **run-2** heap retains 3,608,056 `ContainsMark` nodes and 3,639,113 condition atoms in the provider
 graph. These are raw/resolved rule objects, not surviving compiled NNF forms. Preserve whole raw-rule
 validation, original occurrence/serialized identity, relevant-rule policy and the complete
 `allRelevant=true` mark universe. Measure equal-template frequency and exclusive bytes before implementation.
+Static matching can also use an owner-local memo if profiling shows repeated work. Its complete key must
+include the template, method binding, resolution policy and normal/relevant lookup mode. Keep raw-rule
+validation separate from a condition that resolves to false. Validation caching remains optional N12;
+template sharing does not require that new utility.
 
 **N7, fact groups.** Use lazy empty/singleton containers and compact reach representation only where a
-current census supports it. Conductor's 14.6 MB dense arrays make an array-only rewrite a low priority.
+current census supports it. The b0 Conductor 14.6 MB dense arrays make an array-only rewrite a low priority.
 Preserve exact annotated group keys and all exclusion/must growth. Do not absorb normal exact groups
 under must metadata or suppress a full delta required after a metadata change.
 
 **N8, actions.** Share frozen cleaner/action/path payloads within bounded owners. Keep configured order,
 duplicate occurrence identity, per-action filters and the cleaner normalization from
 `saloed/cleaner-action-normalisation`. Do not deduplicate cleaner steps based only on equal syntax.
+Action reduction is a separate conditional follow-up: measure repeated executed steps, then prove equal
+facts, requests, read/drop footprint, filters and source-override behavior for the particular action kind.
+Keep the full ordered chain until those effects are established. No reduction is selected here.
 
 **N9, residual reverse blocks.** Inspect remaining custom/legacy reverse conjunction owners. Keep logical
 premises and action order if a compact block is worthwhile. Source/sink NNF must not be expanded into
@@ -202,8 +231,9 @@ identity registry and a `ReferenceQueue` to prune JVM-cleared wrappers. Clear re
 and avoid a copied O(n) cleanup batch. Never call a form builder or take a slot lock from manager cleanup.
 
 This would trade synchronization and bookkeeping for bounded wrapper retention and a stronger lifecycle
-contract. Its retained-byte impact is unknown. Guard snapshots with zero tracked references do not prove
-wrapper accumulation during ordinary execution. Preserve all existing managed-cache clients and the
+contract. Its retained-byte impact is unknown. Older b0 guard snapshots counted zero tracked wrappers;
+fresh original-manager queue cardinality is unrequested. Neither establishes wrapper growth during
+ordinary execution. Preserve all existing managed-cache clients and the
 memory manager's thresholds, GC requests and cancellation policy. Require deterministic registration/
 cleanup/re-enable races, queue-pruning tests and a separate design review before implementation.
 
@@ -224,7 +254,7 @@ action/literal before folding. No measured savings or performance benefit is cla
 
 ## Other allocation and CPU candidates
 
-1. **Primitive queue comparison.** ThingsBoard run-1 queue comparison accounts for about 243.58 GB,
+1. **Primitive queue comparison.** The b0 ThingsBoard run-1 recording attributes about 243.58 GB,
    or 35.81%, of sampled allocation weight. Remove boxing while preserving the comparator order.
    This has little direct retained-memory effect and can be separate from N3.
 2. **Trie builders and operation-local reuse.** Follow N4's semantic keys and controls. Measure bytes per
@@ -237,8 +267,9 @@ action/literal before folding. No measured savings or performance benefit is cla
 ## Adoption and verification
 
 Each selected change needs a separate detailed design, implementation plan and commit. No N candidate is
-selected by this document. First finish the requested rollback and retest. Then select changes by the new
-owner measurements. Do not implement a manager or weak-cache utility as an incidental prerequisite.
+selected by this document. The requested rollback, core/project retests and fresh heap-owner reviews are
+complete. Select future changes by these owner measurements. Do not implement a manager or weak-cache
+utility as an incidental prerequisite.
 
 Keep the exclusion specification table, D23 source override, ordered cleaner effects, source admission,
 full-condition backward mark scope, stable proof/occurrence IDs and NORMAL/DEMAND layers. Signed
