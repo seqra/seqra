@@ -88,7 +88,9 @@ keys and ordered support headers; the E6 callee/premise/layer/call join is uncha
 Method forms can be reclaimed. A slot holds one managed forward/reverse payload; callbacks pin it through the
 application and release it on failure/cancellation. Actors, pending deliveries, witnesses and seeds must not
 retain compiled payloads. Keep method/context recipes and deterministic generation keys instead. Suspended calls
-reacquire their plan. Manager cleanup swaps registration tracking under its lock and clears outside that lock.
+reacquire their plan. The cache uses the restored managed-reference API described in `ap-impl.md` §23.7;
+cleanup disables the manager and drains its concurrent queue. No serialized registration/cleanup transition
+is required by that API.
 Compact owned vectors/maps/indexes preserve order, mutation safety, rule footprints and cut placement.
 
 Backward hand-off and reversed end actions visit the whole active positive predicate at each matching witnessed

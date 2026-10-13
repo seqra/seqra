@@ -1,0 +1,493 @@
+# N1–N3: detailed implementation proposal
+
+Status: selected for detailed design; not implemented. Date: 13 October 2026.
+This proposal refines N1, N2 and N3 in the [current memory proposal](bidirectional-core-optimization-20261013.md).
+The [analysis](bidirectional-n1-n3-analysis.md) explains why storage packing alone is insufficient.
+The older O1/O2/O3 proposal is historical and does not set these priorities.
+
+Use three changes: factor the standing request relation and make its joins selective; replace subscription
+delta history with cumulative entries and stable E6 bindings; move pending requests into grouped mailboxes
+and give each runner a finite service cycle. Compact the state that remains after these changes.
+
+The changes preserve all logical requests, accepted subscription leaves and required analysis effects.
+They remove redundant history, wrappers and scans. They do not merge caller contexts or cap valid state.
+No implementation, project run or new memory capture is part of this document change.
+
+## 1. Evidence and scope
+
+The current runtime is `38a400c0d`; the scan manifest revision is `bd6810823`. Commit `23f25e8a8` changes
+documentation only. The [rollback report](../reports/bidirectional-core-rollback-20261013.md) gives the
+reviewed evidence and the fixed project settings.
+
+| Project | Latest reached iteration | Last complete engine | Last accepted forward report |
+| --- | --- | --- | --- |
+| OWASP | run-3, forward, limit 3, COMPLETE | run-3 | run-3 |
+| Conductor | run-2, backward, limit 2, OOM | run-1 | run-1 |
+| ThingsBoard | run-1, forward, limit 1, OOM | None | None |
+| Stirling-PDF | run-4, backward, limit 4, TIMEOUT | run-3 | run-3 |
+
+The fresh Conductor heap captures **run-2, backward, limit 2** before cancellation. The fresh ThingsBoard
+heap captures **run-1, forward, limit 1** before cancellation. PDF's older checkpoint heaps capture run-3;
+they do not measure its latest run-4. Run-1 starts at limit 1. There is no limit-0 case.
+
+| Priority | Measured owner | Design target | Limit of the estimate |
+| --- | --- | --- | --- |
+| N1 | ThingsBoard run-1: 24,981,269 distinct standing pairs; 3,095,473,728 retained-union bytes | Remove boxed membership/index objects; index headers once; avoid impossible mark joins | Mark/position split and row density are not yet measured |
+| N2 | Conductor run-2: 2,165,026 accepted-part entries; 679,558 cumulative groups; 1,538,287,888 active-subscription union bytes | Stop retaining growth history and its index; remove the unused accumulator index | Stable group storage and necessary AP graphs remain |
+| N3 | ThingsBoard run-1: 15,764,679 queue entries; 51,339,702 backing cells; 1,214,843,344 backing-root union bytes | Replace per-request events by mailbox wakes; compact pending keys; bound intake and class service intervals | The number of unique pending obligations can still be large |
+
+These unions overlap. They are owner sizes, not additive savings. Different progress between captures also
+prevents an isolated byte comparison. The older small duplicate sample does not give a global duplicate rate.
+
+Keep the AP exclusion table, D23, must/exact separation, full layers, support, proof scope and hand-offs.
+Keep NNF for **source and sink** rules, signed folding including `P AND NOT P -> false`, and ordered cleaner
+normalization from `saloed/cleaner-action-normalisation`. The IR and its storage/providers are out of scope.
+Keep the restored `SoftReferenceManager` and direct validation. N11/N12 remain optional future designs;
+none of these changes requires a manager rewrite, weak identity cache or global interner.
+
+## 2. Shared design rules
+
+Each method actor owns N1. Each caller runner owns N2. N3 mailbox admission is shared, but only the receiving
+runner applies its requests to an actor. Do not let producers read or mutate actor-owned request stores.
+Use run-owned or store-owned directories. Release them with their owners after the existing join/freeze.
+
+Use exact keys first. A coarse path index selects candidates; the current full AP matcher decides effects.
+An `InitialAp` ID is scoped to its AP manager. Do not use it as a process-wide identity or allocate an array
+up to the largest ID. Use a dense local handle directory with one strong initial reference per distinct
+header. Path keys use full canonical paths under the current AP ownership. Do not add another truncation.
+
+Use primitive mutable memberships with empty, singleton and sparse forms. Promote only when needed.
+Choose the dense form after the census. Mark IDs need not be positive or dense: a bitmap needs bounded
+local ordinals. Do not call immutable `MarkSet.plus` and intern a new set on every mutable insertion.
+Account for object headers, capacity, lookup tables and promotion copies when comparing layouts.
+
+Keep cancellation checkpoints in long scans, matching and combination expansion. Callbacks can cause local
+re-entry. Capture the candidate handles and the required immutable values before calling them; do not expose
+live mutable iterators or mailbox pages to callbacks. Never run AP transfer or actor callbacks under a
+mailbox lock.
+
+## 3. N1 — one grouped standing relation
+
+### 3.1 Current behavior that must remain
+
+[RequestStore](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/store/RequestStore.kt)
+shares each Pair between a seen hash set and its positional index. The large cost is the Pair, hash entries,
+linked entries and capacity. This is processed standing state, not a queue.
+[RunMethodLocalServices](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunMethodLocalServices.kt)
+joins a new request with old links and a new link with old requests.
+
+Preserve both arrival orders and the exact `add` result. Keep a request after an answer. Later deeper facts,
+static answers and new full caller references can give new effects. Preserve the current initial validation
+and the separate mark and position cases in
+[Demand](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/Demand.kt).
+
+### 3.2 Stored layout and internal API
+
+| Row | Exact membership | Positional index key |
+| --- | --- | --- |
+| Mark row, keyed by full origin `InitialAp` | Requested mark ID -> primitive member handle | Origin base and origin path |
+| Position row, keyed by full requested path | Full origin initial -> dense local member handle | `STATIC` and requested path |
+
+A membership is the canonical representation of `(origin, kind)`. It is the seen relation; do not retain a
+second Pair hash set. A position row must retain each origin, even though those origins share an index path.
+Assign stable row handles. Index a row once. Store the directory, primitive member data and exact membership
+lookup inside `RequestStore`. Keep mutable membership sets local; do not make them an analysis-wide cache.
+
+Keep the existing external `add` and raw `overlapping` views for compatibility and the direct oracle.
+They can create a Pair when a caller asks for the raw relation. The engine uses a new internal visitor,
+for example `visitActionCandidates(added, visit)`, that passes the initial and request kind separately.
+Avoid a complete intermediate list of request Pairs in this path.
+
+Preserve current positional traversal and per-bucket encounter order in the first version. Use primitive
+member handles in an encounter lane, with an insertion ordinal per member. For selective lookup, obtain
+matching handles from the row membership tables and merge/order them by these ordinals within the same
+positional bucket. Raw enumeration can walk the lane. Thus selective lookup need not scan the entire lane
+to find one concrete mark. Include this lane and ordinal cost in the layout measurement; grouping is not
+free. A later version that drops the lane is a separate scheduling change.
+
+Use a dedicated row-handle path index or a narrow primitive specialization. Do not rewrite every generic
+`PathTrie` consumer as part of N1. Its lookups should visit matching buckets without building a list of all
+logical request values. Before the first callback, capture matching bucket handles and one query-entry
+insertion horizon covering row and member ordinals. Every later bucket visit uses that same horizon.
+A request inserted during a link callback is joined through the existing new-request path; do not include
+it again through a later bucket snapshot in this first version.
+
+### 3.3 Selective standing join
+
+For a concrete added mark `T`, probe `T` in each geometrically eligible mark row. Other requested marks
+cannot produce a mark action. For an abstract added mark `*\X`, walk the encounter lane and skip marks in `X`.
+Do not gather and sort the whole selected relation for an abstract link. Use selective membership lookup
+and ordinal merge for concrete marks.
+Position rows have their own geometry and action rules; do not apply the mark test to them.
+
+Every candidate still passes full `overlap` and `actOnRequest`. Keep the same filter when a newly inserted
+mark request reads existing links. Link values keep full `CallerRef` and link layer. Do not suppress a link
+merely because another caller emitted an equal request: transport coalescing belongs to N3.
+
+The selective test is local to the request/link join. In particular, F75 can raise a selected cleaner mark
+despite disjoint geometry or an excluded mark. Do not apply this test to source/cleaner request production.
+Do not remove requests without a current link or infer coverage from a shorter path.
+
+### 3.4 Invariant and acceptance
+
+The decoded grouped relation must equal the old exact pair set after every insertion. The grouped index
+must select every pair the old index could select. Filtering may remove only pairs whose current request
+action is `None`. Compare the resulting Answer and Climb sets with the old join for both arrival orders.
+No state is retired before actor freeze.
+
+Use `RequestStoreTest`, `RequestJoinTest` and `RequestActionTest`, plus an independent pair-set reference.
+Cover mixed mark/position encounter order, callback insertion into a later unvisited bucket, deeper/static
+late answers, a new caller for an existing fact,
+independent caller/link layers, excluded abstract marks, F75, manager-ID collisions and cancellation/release.
+Measure row density before choosing a dense representation. Worst-case one-member rows still need a small
+fallback; they must not cost more than a full mutable map per request.
+
+## 4. N2 — cumulative subscriptions and stable matched bindings
+
+### 4.1 Separate exact accumulation from positional lookup
+
+Split [AddedFactStore](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/store/AddedFacts.kt)
+into an exact accumulator and its indexed link-store wrapper. The exact accumulator owns immutable cumulative
+values under `(full CallerRef, admitted GroupKey)` and computes the existing `mergeAddDelta` result.
+The wrapper maintains positional lookup and the raw full links needed by requests and Support.
+
+`CalleeSubscriptions` uses the exact accumulator without the wrapper's path index. Give its non-zero-only
+entry a stable primitive handle, full caller reference, original link layer, admitted group key and current
+immutable cumulative Facts. Return an internal update containing the handle, cumulative value and fresh
+delta. A no-growth insertion returns no update.
+
+Derive the key from the admitted input/cumulative group, **not from the returned delta**. An exact-only delta
+can have empty exclusion metadata even when it came from a must group with nonempty `E`. Keep full group
+kind, layer, base, exclusion and mark exclusion. Preserve existing validation that link layer equals the
+added fact layer; caller layer remains an independent part of the full reference.
+
+Keep `zeroOnly` in a separate directory keyed **only by full CallerRef**, as current code does. Validate the
+zero premise and Reach payload, then retain the first accepted payload/link layer. A repeated zero-only
+reference returns no update. Do not add group/layer variants to this branch in a storage optimization.
+
+### 4.2 Retain groups, replay deltas transiently
+
+Replace `parts` and its part-ID index with stable cumulative entries and one positional directory over
+their handles. Index a handle at every relevant position when its accepted value grows. Deduplicate a
+handle within each position and within each candidate query. Never rebuild a separate index for each delta.
+
+Preserve register-before-replay. Once an update is accepted, replay its **fresh immutable delta**, directly,
+as today. A delayed `ProtocolSteps.replay` callback must capture that delta, not fetch the entry's later
+cumulative value. The callback can release the delta after its effects complete. No permanent history list
+is needed for this replay.
+
+Later delivery visits the positional directory with the current mode's extension/prefix rules, captures
+each candidate's cumulative immutable value, then performs the existing full matching and transfer.
+Include the separate zero-only entries for zero publications. Capture candidates before applying callbacks:
+callbacks may add subscriptions and change the directory. P6 still observes the subscriptions present at
+the delivery read; it does not become a publisher-side subscriber snapshot.
+
+### 4.3 Equivalence gate for cumulative delivery
+
+State the representation invariant: each stable nonzero entry represents the exact cumulative union of
+all leaves accepted for its full key. The positional directory represents their union of indexed positions.
+The transient replay represents the newly accepted delta. Zero-only entries retain their existing policy.
+
+For each publication/member/mode, prove that selecting and transferring the cumulative entry gives the
+same closure effects as selecting and transferring all historical deltas. Check run-1 and restricted
+matching, zero/nonzero premises, normal/demand layers, must and exact leaves, inherited exclusions,
+mark exclusions, return mapping, aliases, ordered returned cleaners, CALL cuts and late must demotion.
+Duplicate effects may change; distinct effects, support and required seeds may not.
+
+This is a release gate, not an assumption that union is distributive through every AP operation. Use small
+exhaustive AP fixtures and the independent closure oracle. If a transfer needs more than cumulative Facts,
+retain its required semantic state or stop this stage; do not restore a hidden full delta log elsewhere.
+
+P1–P4 and P6 keep their ordering requirements. P5 needs an explicit logical-state refinement: accepted leaves
+never disappear, although historical delta objects do. Update the protocol model's subscription encoding
+and prove the representation simulation. Existing proofs for a permanent part list do not prove this layout.
+List any remaining AP proof obligations under the existing proof-status rules.
+
+### 4.4 Normalize forward E6 before changing delivery
+
+The current [NdSummaryJoin](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/store/ConjunctionStore.kt)
+retains complete `Subscription` inputs and full combinations. Feeding it successive cumulative snapshots
+would retain history again. Change only the E6 member value to a checked binding:
+
+```kotlin
+data class NdBinding(val ref: CallerRef, val linkLayer: Layer)
+```
+
+Create the binding **after** `matches`, the nonzero-premise guard and the TaintTree input guard. Keep the
+outer `NdKey(callee, full publication premise set, publication layer, call)`, ordered member slots and every
+distinct full reference/link-layer binding. A later root expansion that satisfies an already-present member
+does not add a new binding. A newly satisfied member or a different full reference/layer does.
+
+[Summary](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/ap/Summary.kt)
+uses the matched input layers, rather than their roots, for E6 combination transfer. Extract a checked
+internal helper for this transfer. Union every full caller premise. The AP result layer is
+`join(publication.layer, bindings.linkLayer)`; `CallerRef.callerLayer` stays in the binding and ordered
+resume context and is not added to that result-layer join. Resume through the same ordered reference.
+Do not fabricate placeholder
+Facts to use an old signature. Keep the generic `KaryJoin` and source/sink predicate joins unchanged.
+
+Keep all growing TAINT conclusions, including whole merged deltas required by T2/T4. New bindings meet
+stored conclusions; new conclusion deltas meet stored binding combinations. Normalize only the redundant
+matched input payload. It does not authorize dropping full combinations or equal-path caller references.
+
+Prove equal E6 outputs for two matched subscriptions with the same full reference/link layer and different
+roots, and unequal-key separation for different references/layers. Include the independent-layer control
+`callerLayer=DEMAND, linkLayer=NORMAL, publicationLayer=NORMAL`. Land this change before cumulative
+delivery so snapshot history cannot migrate to the conjunction store.
+
+### 4.5 Acceptance
+
+Extend `AddedFactStoreTest`, `SummaryStorageProtocolTest`, `NdJoinAdapterTest` and `RecordDemotionTest`.
+Cover replay-before/after-growth, registration/publication interleavings, delivery with later subscriptions,
+the delta-header trap, both matching modes, first-wins zero-only, different contexts/layers and growing E6
+conclusions. Compare summaries, stored edges, witnesses, records, seeds and hand-offs with the independent
+closure reference. A finding-count comparison alone is not an equivalence test.
+
+## 5. N3 — grouped request transport and finite service cycles
+
+### 5.1 Mailbox key and ownership
+
+Replace queued remote `RequestIn` payloads by a run-owned mailbox for each full destination `MethodKey`.
+The exact pending key is `(run owner, destination MethodKey, full origin InitialAp identity, RequestKind)`.
+The kind includes its mark ID or full normalized position path. The run and destination can be implicit in
+the mailbox owner; their identity must still be part of the key's meaning.
+
+Use the N1 grouping rules for pending payloads, with a separate ownership boundary. Producers can add under
+a mailbox lock. The receiving runner claims a finite batch and calls the existing actor `addRequest` outside
+that lock. Local `raise` remains synchronous even if the same remote key is pending. Same-unit remote Climb
+uses the mailbox too; it must not become a re-entrant actor callback.
+
+Keep keys while pending **and while in service**. Suppress exact repeats in either state. Retire the claimed
+batch's in-service keys at its finish transition, after their callbacks complete. A later repeat can be
+admitted again and the actor's N1 store
+deduplicates it. There is no second lifetime seen set and no producer read of N1. This limits deduplication
+to overlapping transport; do not claim it suppresses every repeated climb.
+
+Claim keys in FIFO order of first pending admission across the whole mailbox, with primitive ordinal/order
+storage. Coalesced duplicates keep their original position. A repeat admitted after completion goes to
+the tail. Do not restart each claim at the smallest row/mark ID: repeated low-ID admissions could starve
+an older key. Release consumed order pages and include their spare capacity in the measurements.
+
+### 5.2 One reservation for an active mailbox
+
+Use a wake event with one physical reservation for an active mailbox. Its reservation stays live while the
+token is in the channel, local queue, handler or continuation. New buffered keys use that live reservation;
+they do not call the current one-event `accept` path. Preserve existing one-event accounting for other events
+and the root phantom reservation.
+
+Add a narrow request-admission operation to `RunManager`, under its existing admission lock. Internally
+distinguish `NEW_WAKE`, `BUFFERED`, `DUPLICATE` and `REJECTED`. The first three mean logical acceptance;
+only `NEW_WAKE` increments in-flight. Existing Boolean send callers must receive true for a coalesced
+request, rather than interpret zero new reservations as rejection.
+
+Resolve the destination unit before taking admission, then recheck admitting, deadline, terminal status
+and runner closure under admission for every result, including `BUFFERED` and `DUPLICATE`. Do not return
+success for a closed runner merely because its old mailbox still has a wake. Use a distinct `RequestWake`
+event; it is not actor Work and must not use the queued-actor identity set.
+
+| State/operation | Transition | Count effect |
+| --- | --- | --- |
+| Idle + valid request | Insert key; reserve; publish wake; become Active | +1 before visibility |
+| Active + new key | Add to pending relation | None |
+| Active + pending/in-service key | Accept duplicate without another insertion | None |
+| Claim batch | Move selected pending keys to in-service atomically | None |
+| Finish batch, more keys remain | Retire completed claims; enqueue same wake with fresh queue sequence | None |
+| Finish batch, no pending/claimed keys | Clear wake; become Idle; release reservation | -1 exactly once |
+| Invalid route, terminal run or rejected first publication | Reject and roll back unpublished insertion/wake | Undo initial reservation if made |
+| Cancellation/failure | Select terminal status; close; join; discard remaining state | Do not pretend unhandled keys completed |
+
+The lock order is **admission, then mailbox**. Finish takes this order, retires completed claims and chooses
+More versus Empty atomically. On Empty it clears the wake and releases its count while admission remains
+held. A racing producer either joins the still-active mailbox or creates a new counted wake. It cannot
+insert accepted work between the empty check and selection of COMPLETE.
+
+Claiming may take only the mailbox lock. Move the complete key to in-service before clearing pending
+membership; otherwise a duplicate can slip into the gap. Detach owned batch data rather than handing a
+live mark bitmap to the consumer. Producer inserts during processing must survive the next claim.
+No mailbox lock is held during actor mutation, joins, sends, AP operations or callbacks.
+
+Child sends and actor Work reservations happen before the mailbox releases its last count. A partial wake
+is requeued with the same count and fresh immutable ordering metadata. If first publication fails, admission
+prevents other producers from joining an unpublished wake; roll back that new mailbox state and reservation.
+If handling or continuation insertion throws, fail the run. Do not drop a batch and select COMPLETE.
+
+Serialize the runner's closed transition with admission, including a direct `UnitRunner.close` call.
+Normal `stopAndJoin` first disables admission, as today. Close rejects new admission before cancellation.
+Discard remaining pending/claimed state and tear down the mailbox owner only after the receiving runner
+is joined, with the existing failed-join policy. During the run, reclaim consumed pages and empty headers
+under normal mailbox ownership as defined below. Document the changed interpretation of
+`inFlight.handled`: it counts completed physical reservations, not logical requests. Add separate logical
+request counters for comparisons with the baseline's event counts.
+
+### 5.3 Scheduler: finite intake and work service
+
+Current [UnitRunner](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/UnitRunner.kt)
+drains its channel without a bound before polling. Its strict rank order can delay nonzero Work behind
+ordinary events. The source proves these mechanisms; existing heaps do not establish their contribution
+to the observed backlog.
+
+Use the existing positive runner quantum `q` (default 1,000) for bounded intake and request batches.
+No new project configuration or field limit is needed. A proposed service cycle is:
+
+1. Receive when no local event is available, then admit at most `q` channel events into local lanes,
+   including that initial receive in the intake count.
+2. Serve one quantum from the captured zero-Work lane if it is nonempty.
+3. Serve at most `q` ordinary handlers, with an additional shared budget of `q` claimed requests. A wake
+   counts as one ordinary handler and consumes the remaining request budget. At zero request budget,
+   leave the next wake queued and end the ordinary phase. If a wake has more keys, requeue it and end
+   this phase. Do not make a zero-sized claim.
+4. Serve one quantum from the captured nonzero-Work lane if it is nonempty. Skip empty lanes and yield
+   between cycles.
+
+Preserve one queued Work token per exact actor, its existing work quantum, and priority keys captured once
+at enqueue/requeue. Within each Work lane use captured steps then sequence; ordinary events use FIFO.
+Requeue samples the actor again. A queued nonzero token that receives zero work keeps its captured lane
+until requeue. A zero token can requeue into the nonzero lane and run there later in the same cycle.
+Class service is bounded in cycles; individual actor service also depends on steps ordering and finite work.
+A partial mailbox wake goes to the ordinary lane's tail with a fresh
+sequence. Each claimed batch follows the mailbox's FIFO admission order.
+
+This keeps a zero-Work service phase and gives nonzero Work a finite class service interval. It intentionally
+changes strict global rank ordering, including absolute zero-Work precedence across phases. Amend the
+scheduler specification and its ordering tests only when implementing this design. Do not claim identical
+traces, time-bounded prefixes or incomplete reports.
+A finite cycle is a bound in handlers/quanta, not milliseconds: an AP handler can be expensive, and fairness
+also depends on the existing finite-handler and coroutine execution assumptions.
+
+Do not use a blocking bounded channel, request cap or overflow drop. Cyclic sends and self-sends must remain
+nonblocking. Mailbox grouping bounds physical request wake tokens by active destinations; it does not bound
+unique pending keys. Measure both quantities. Under a finite valid workload, service every accepted unique
+key and reach the same closure; a resource failure remains an incomplete run.
+
+### 5.4 Representation after transport reduction
+
+Use a chunked primitive membership store for mailboxes so a large pending relation does not require Pair,
+RequestIn and priority-entry objects per member. Track allocated capacity and return empty pages promptly.
+Use bounded reusable batch buffers; do not retain a second full copy of pending state. In-service data is
+bounded by the claim quantum per handler.
+
+Remove or recycle empty row/header entries when both their pending and claimed memberships are empty.
+Do not recycle a handle still referenced by a claimed batch. Otherwise the directory becomes another
+lifetime history. An idle mailbox shell can be retained until run release, but measure and disclose its
+cost per ever-activated destination separately from the active wake count.
+
+Use an ordinary FIFO lane and primitive Work priority storage only after the mailbox/scheduler contracts
+pass. The Work comparator has captured primitive steps/sequence and actor references. It must not read
+mutable actor state during comparison. Shrink/release queue capacity under explicit ownership; clearing
+references alone does not prove that oversized backing arrays are released.
+
+### 5.5 Protocol and acceptance
+
+Refine Q1/Q2: each nonempty/claimed mailbox has exactly one live wake reservation, counted before token
+visibility and released after all represented requests and child sends. Q3/Q4 and first-terminal-status
+selection remain. Refine reliable-event assumptions to separate exactly-once wake delivery from logical
+request coalescing. Prove a simulation from accepted logical requests to the actor's standing relation;
+duplicate handling has no additional closure effect because actor insertion is exact-idempotent.
+
+Use `InFlightTest`, `EventQueueTest` and engine lifecycle/protocol fixtures. Add deterministic race controls
+for reserve-before-publish, duplicate while pending, duplicate while claimed, concurrent insertion at final
+empty check, first publish rejection, handler failure, partial continuation, deadline, cancellation and join.
+Test self-sends, cross-unit cycles, same-unit remote Climb and synchronous local raise. Verify no early
+COMPLETE, no negative/double count and no accepted unique request loss. Include allocation failures in
+membership/directory growth, batch creation and continuation insertion: every Throwable selects FAILED;
+roll back an unpublished reservation exactly once when needed.
+
+Test sustained intake and ordinary-event floods with both captured Work classes, including lane changes
+on requeue and zero work added to an already queued nonzero actor. Test continual readmission of low-ID
+keys beside an older pending key. Assert bounded class service in
+cycles and eventual actor progress. Compare full closure under several schedules and both unit layouts.
+Do not weaken the semantic oracle to accommodate the new ordering.
+
+## 6. Bounds, measurements and remaining risks
+
+Let `R` be logical standing requests, `G` their grouped headers and `I` their path-index nodes/postings.
+Let `H` be historical accepted subscription parts, `C` cumulative exact subscription groups, `Z` zero-only
+full-reference entries and `J` subscription path-index nodes/postings. Let `U` be unique pending plus
+in-service request keys, `D` active destination mailboxes, `M` ever-activated destination shells, and `W`
+queued actor Work tokens. These are counts per relevant owner or their reported sum.
+
+| Area | Old growth driver | New retained state | Remaining worst case |
+| --- | --- | --- | --- |
+| N1 | Object membership/index entries per request | `O(G + I)` headers/index plus `O(R)` primitive membership/order data | `G = R`; distinct logical requests and path topology remain |
+| N2 | `O(H)` retained parts and part-position index, alongside cumulative groups | `O(C + Z + J)` headers/index, current graphs and transient replay deltas | Distinct groups, unique indexed positions and E6 binding combinations remain large |
+| N3 | Event/message/heap entry per queued request | `O(D)` wake tokens, compressed `O(U)` membership, `O(M)` idle shells and `O(W)` Work | `U` can still be large; delivery/link events are not coalesced here |
+
+No exact percentage saving is justified yet. In N2, immutable graphs can remain reachable through other
+legitimate owners; removing the history list does not free their full retained union. Stable entries also
+need a new index. N1 order lanes and N3 lock/contention costs must be included. No stronger context or path
+subsumption algorithm is selected.
+
+First add bounded aggregate counters, rather than per-entity diagnostic objects or retained event logs:
+
+| Area | Required measurements |
+| --- | --- |
+| N1 | Mark/position counts; distinct row headers; members/row distribution; ID density; capacities; coarse candidates, selected candidates, actions; new versus repeated insertion |
+| N2 | Accepted deltas; cumulative groups; group-position postings; queued replay deltas; current graph bytes; E6 member bindings/full combinations; avoided repeated bindings |
+| N3 | Offered logical requests; new/buffered/duplicate/rejected admissions; claimed/completed unique keys; pending/claimed high-water counts; active wakes; capacities; per-class service delay and intake size |
+
+Use small fixed histograms or scalar high-water values. Derive bytes from reviewed heaps and class/layout
+censuses. Do not add a lifetime key set solely to count repeats after completion. Trace samples, if needed,
+must be bounded and explicitly attributed; they cannot establish a global duplicate rate.
+
+Compare logical states/effects at equivalent completed iterations and at deterministic fixture prefixes.
+Physical `handled` counts change under batching, so they are not a common progress denominator. Compare
+resource-failed project captures with their actual progress disclosed. Keep retained memory, allocation,
+CPU samples and elapsed time separate. Record all query failures as unavailable rather than zero.
+
+Every report must include latest reached `run-N`, direction and positive limit, last complete engine and
+last accepted forward report. Give heap/profile capture iterations separately, including failed runs.
+
+## 7. Implementation sequence and release gates
+
+Memory priority remains N1, N2, N3. The integration order below follows their dependencies. Use separate
+reviewable commits; no stage silently changes AP semantics or imports N4–N12.
+
+The main source changes are in the existing bidi packages:
+
+| Area | Files and intended responsibility |
+| --- | --- |
+| N1 | `store/RequestStore.kt`: grouped exact relation, row index and visitors; `engine/RunMethodLocalServices.kt`: selective standing joins. Keep `ap/Demand.kt` as the action oracle. |
+| N2 | `store/AddedFacts.kt`: exact accumulator and indexed wrapper; `engine/CalleeSubscriptions.kt`: stable entries and directory; `engine/SubscriptionManager.kt`: transient replay and captured delivery candidates; `store/ConjunctionStore.kt`, `engine/RunMethodCallServices.kt` and `ap/Summary.kt`: checked E6 bindings and helper. |
+| N3 | `engine/RunEvent.kt`: distinct wake; a new internal `engine/RequestMailbox.kt`: grouped pending/claimed state; `engine/RunManager.kt`: typed counted admission and atomic retirement; `engine/RunnerPort.kt`: request-send contract; `engine/UnitRunner.kt` and `engine/EventQueue.kt`: claims, service cycle and lanes. |
+| Contracts | `spec/analyzer-core.md`, `spec/ap-impl.md` and the relevant protocol model/proof files: representation, accounting and scheduler refinements. Record proof scope explicitly. |
+
+Use a narrowly scoped primitive membership/order helper only if both N1 and N3 need it. Keep the actor-owned
+and shared mailbox facades separate. Do not introduce a general cache library or change unrelated trie users.
+
+| Stage | Deliverable | Gate before proceeding |
+| --- | --- | --- |
+| 1 | Add aggregate census and direct/reference fixtures; state representation and protocol refinements | Baseline output and current source contracts reproduced; no growing diagnostic owner |
+| 2 | Factor N1 rows, exact primitive membership and order lanes; add selective visitors | Exact decoded relation and both standing-join arrival orders agree with independent reference |
+| 3 | Split exact accumulator from indexed link wrapper; retain current subscription delivery initially | AddedFactStore/link/Support behavior unchanged; unused subscription accumulator index removed |
+| 4 | Normalize matched E6 member bindings and extract checked transfer helper | Full reference/layer/member/conclusion equivalence; no Facts-version member history |
+| 5 | Replace subscription part history by stable entries and one positional directory | Cumulative selection/transfer and replay/delivery simulations pass; P5 encoding/proof updated |
+| 6 | Add pending/in-service grouped mailboxes, typed admission and counted wakes | Adversarial accounting/lifecycle interleavings pass; all unique accepted keys reach N1 |
+| 7 | Bound intake and implement the finite scheduler cycle; then pack remaining lanes | Class service and complete-closure tests pass; scheduler specification reflects intended ordering |
+| 8 | Run required common/JVM checks and fixed project comparisons; review heaps/profiles | Output and resource evidence, including the latest failed run, is sufficient for a release decision |
+
+Run the independent closure/reference fixtures at positive limits 1, 2 and 3, in forward and backward
+directions, with both unit layouts and varied arrival orders. Include source/sink NNF, repeated/shared
+leaves, signed false conditions, cleaner requests/actions and exclusion/must changes. Compare facts,
+summaries, witnesses/proofs, records, seeds, hand-offs and report identities. Keep the oracle independent
+of the new data structures. Do not introduce implementation-mirroring tests in place of it.
+
+For the eventual project retest, use Gradle `runProjectAnalyzer` directly and the existing fixed inputs,
+rules/model, Temurin 17, batch 2,000 and disabled multi-release loading. Use OWASP 8 GiB/1,000 seconds,
+Conductor 8 GiB/1,080 seconds, ThingsBoard 12 GiB/1,080 seconds and PDF 8 GiB/1,080 seconds, with the same
+outer harness budgets. Keep the disclosed OWASP cached release-8 CI-analysis input. Do not try other
+configurations to make the gate pass.
+
+Compare against main with strict rule ID, sink fingerprint and full method signature identities, and check
+physical/logical occurrence spans separately.
+Also compare against the current rollback output to detect a new loss. Preserve existing unresolved main
+differences in the report; equal-to-rollback is not a no-FN claim. Evaluate additions under their complete or
+incomplete provenance. Do not change exclusion or report policy to force parity.
+
+Capture normal and near-limit profiles and fresh OOM heaps as specified in `task.md`. Review N1/N2/N3 owners,
+logical cardinalities, graph history and queue capacity at the actual capture iteration. A project reaching
+a later run is useful progress, but is not proof of lower bytes at the earlier frontier. Report the measured
+trade-off in memory, allocation and service time. If large unique relations still dominate, use that evidence
+for a separate algorithm proposal instead of adding an unreviewed cap or cache.
+
+This proposal is ready for implementation review. Its algorithmic equivalence and resource gates remain
+open until the stages above are implemented and checked.

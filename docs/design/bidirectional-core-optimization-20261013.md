@@ -1,12 +1,16 @@
 # Analyzer core: next memory optimizations
 
-Status: new proposal, not selected for implementation. Date: 13 October 2026.
+Status: N1, N2 and N3 selected for detailed design; not implemented. Other candidates remain unselected.
+Date: 13 October 2026.
 This proposal replaces the priorities in the [old proposal](bidirectional-core-optimization.md).
 It uses the latest reviewed project heaps and profiles. IR objects, IR storage, IR tables and IR providers
 remain outside the scope.
 
 The largest measured core owners after form cleanup are standing requests, subscription state and pending
-queue entries. Start with their storage. Keep NNF for both source and sink conditions; do not restore cubes.
+queue entries. The [N1–N3 analysis](bidirectional-n1-n3-analysis.md) distinguishes the standing relation,
+accepted delta history and pending transport. The [detailed proposal](bidirectional-n1-n3-implementation-proposal.md)
+first removes redundant history, event objects and scans, then compacts necessary state. It replaces this
+document's initial storage-first recommendation. Keep NNF for both source and sink conditions; do not restore cubes.
 Managed method-form references already release compiled forms in the failing Conductor and ThingsBoard
 captures. Further form eviction alone does not address those remaining owners.
 
@@ -53,14 +57,15 @@ Sampled allocation weights measure allocation traffic, not retained memory or ex
 ## Priority by expected retained-memory impact
 
 This order estimates impact after the preceding changes. It is not a promise of a byte saving. The first
-three changes target measured representation overhead without eliminating logical requests or subscriptions.
+three changes now include selective joins, cumulative subscription storage and grouped request transport.
+They preserve logical requests, accepted subscription leaves and required analysis effects.
 Lower candidates need more evidence before implementation. CPU and allocation work has a separate order.
 
 | Rank / ID | Proposed change | Expected retained-memory impact | Measured basis and limit |
 | --- | --- | --- | --- |
-| 1 / N1 | Compact standing request records and positional indexes | Very high in ThingsBoard | Fresh run-1 request-store union: 3,095,473,728 B; 24,981,269 distinct seen pairs |
-| 2 / N2 | Compact subscription indexes; remove an unused accumulator index | High in Conductor | Fresh run-2 subscription union: 1,538,287,888 B; index unions: 509,006,864 B and 259,069,008 B |
-| 3 / N3 | Pack pending queue entries and reduce excess queue capacity | High in ThingsBoard | Fresh run-1 backing-array-root union: 1,214,843,344 B; 15,764,679 queued entries |
+| 1 / N1 | Factor standing requests and use selective joins | Very high in ThingsBoard | Fresh run-1 request-store union: 3,095,473,728 B; 24,981,269 distinct seen pairs |
+| 2 / N2 | Replace retained subscription delta history with cumulative entries; normalize E6 bindings | High in Conductor | Fresh run-2 subscription union: 1,538,287,888 B; index unions: 509,006,864 B and 259,069,008 B |
+| 3 / N3 | Group pending requests into counted mailboxes and give work finite service intervals | High in ThingsBoard | Fresh run-1 backing-array-root union: 1,214,843,344 B; 15,764,679 queued entries |
 | 4 / N4 | Compact and share immutable AP delta graphs | Medium to high, overlaps N2 | Fresh Conductor run-2 accepted parts: 607,697,168 B; nodes/accessors/child arrays within them: 452,468,200 B |
 | 5 / N5 | Specialize small NNF descriptors and share immutable topology | Potentially high in warm forms; conditional | b0 OWASP run-1 compiled descriptor union: 1,715,130,896 B; current singleton distribution must still be measured |
 | 6 / N6 | Share immutable bound-rule condition data | Medium, conditional | b0 Conductor run-2 rule-provider union: 372,739,560 B; removable duplication is unknown |
@@ -71,37 +76,28 @@ Lower candidates need more evidence before implementation. CPU and allocation wo
 | 11 / N11 | Redesign managed-reference bookkeeping and transitions | Unknown; optional | Older b0 guards counted zero tracked wrappers; fresh original-manager wrapper cardinality is unrequested. Measure ordinary wrapper growth and registration races separately. |
 | 12 / N12 | Introduce a weak identity cache for validated rule occurrences | Unknown; optional | No isolated retained-byte or validation-time measurement justifies a new utility yet |
 
-N1/N2/N3 retain all logical work. Queue coalescing and logical subscription removal are separate algorithm
-changes and are not included in their estimated savings. N4/N5/N6/N8 share data only after immutable ownership
+N1/N2/N3 retain all required logical work. N2 removes historical objects through a cumulative-state refinement;
+N3 coalesces exact pending/in-service requests and changes scheduling. Neither reduces valid caller contexts
+or caps state. Their detailed equivalence and protocol gates remain open. N4/N5/N6/N8 share data only after immutable ownership
 is established. A global strong interner would defeat reclamation and is not proposed.
 
-## N1. Store standing requests once
+## N1. Factor standing requests and make joins selective
 
 `RequestStore` keeps a seen set and a positional lookup index. In the fresh ThingsBoard **run-1** retained
 set, pair bodies use 599,550,456 B, linked-map entries use 999,250,760 B, hash-map nodes use 800,078,304 B,
-and hash-map table arrays use 392,402,320 B. These are parts of the same union. The storage cost warrants a
-representation change before changing the number of requests.
+and hash-map table arrays use 392,402,320 B. These are parts of the same union. The set and index already
+share Pair bodies. These requests have been processed and remain active for later links.
 
-Use one canonical record for each complete request key. Keep its initial AP/premise and complete request
-kind, including a mark or a static position path. The current seen set and path index share the same Pair;
-there are no duplicate Pair bodies between those two stores. Use primitive record IDs in the secondary
-path index. Replace per-record Pair wrappers and duplicate index entries, plus per-path `LinkedHashSet`,
-with compact empty/singleton/primitive-array membership. If mutable growth needs a larger set,
-introduce it only at that size and include its spare capacity in measurements.
+Group mark memberships by full origin initial and position memberships by full requested path. Index row
+handles once and use primitive exact memberships. For a concrete added mark, probe only that requested mark;
+for an abstract mark, visit requested marks outside its exclusions. Keep full overlap/action checks and
+both standing-join arrival orders. Do not retire answered requests. Preserve encounter order with primitive
+order data in the first version. The detailed proposal defines identities, mutation safety and tests.
 
-Preserve exact deduplication, encounter order where observable, and both standing-join arrival orders:
-a request must join facts already stored, and a later fact must join requests already stored. Do not weaken
-the full key to just a path or mark. Keep full AP matching after any coarse positional lookup.
-Mark requests are indexed by the premise base/path; position requests are indexed by
-`STATIC/requested position`. Requests remain standing after an answer. A new caller reference for an
-already stored added fact must still join those requests.
+Measure mark/position split and group density before selecting a dense layout. No logical request reduction
+or percentage saving is established by the current heap.
 
-Validation: compare raw requests, summaries, source hits and findings against the independent closure
-fixtures under different arrival orders and positive limits 1, 2 and 3, including a new caller reference
-for an existing added fact. Measure owned storage per record,
-then repeat ThingsBoard with its original configuration. Report the latest reached run even if it fails.
-
-## N2. Separate exact accumulation from indexed subscription lookup
+## N2. Replace subscription delta history with cumulative entries
 
 Fresh Conductor **run-2** has 2,165,026 accepted-part list entries alongside 679,558 cumulative exact
 groups. These directory counts differ from distinct object counts. The delta-part index contains
@@ -113,21 +109,17 @@ First split the exact added-fact accumulator from the indexed store. `CalleeSubs
 `AddedFactStore.add`, but does not query the positional index built by that store. This consumer can use
 an exact accumulator. Other link consumers still need positional lookup; retain their indexes.
 
-Next assign stable primitive handles to subscription records and use one positional directory over those
-handles. The record must preserve the complete caller reference, exact group key and `zeroOnly` policy.
-Future matching reads an immutable cumulative snapshot; notifications still replay every newly accepted
-delta required by the protocol. Do not infer that old parts can be dropped merely from their count.
+Next use stable handles for cumulative ordinary subscription groups and one positional directory. Replay
+each accepted immutable delta transiently. Later delivery captures cumulative candidate snapshots before
+callbacks. Key groups from admitted inputs, not delta headers. Preserve the separate first-wins zero-only
+directory keyed by full caller reference.
 
-Preserve P1–P6: register before replay, insert before notification, linearizable snapshots and full matching.
-Preserve E6: full members, full caller references, independently joined caller/link layers, zero-premise
-behavior, exclusion/must changes and fact growth. Equal paths do not imply equal subscription records.
-Do not subsume or remove logical subscriptions in this storage change.
+Normalize a matched forward E6 member to its full caller reference and link layer before changing delivery.
+Otherwise E6 can retain every cumulative snapshot. Keep member slots, full distinct combinations and growing
+conclusions. The detailed proposal sets the cumulative-transfer equivalence gate and P5 representation
+refinement; current part-list proofs do not prove the new encoding. Keep P1–P4/P6 ordering and full AP matching.
 
-Validation: run both subscription arrival orders and concurrent register/publish fixtures, with zero and
-nonzero premises, exclusion changes and must growth. Measure index bytes per accepted part and per exact
-group, then repeat Conductor and check strict findings and the latest reached iteration.
-
-## N3. Pack pending queues without changing scheduling
+## N3. Group request transport and use finite service cycles
 
 Fresh ThingsBoard **run-1** queues contain 15,764,679 entries but allocate 51,339,702 backing cells.
 Within the backing-root retained set, queue entry bodies use 630,587,160 B, request message bodies use
@@ -137,20 +129,18 @@ overhead even if every logical event remains necessary.
 The same capture has 197,740,423 handled events and 15,810,688 pending reservations. Its progress differs
 from b0, so byte differences do not isolate the rollback's effect.
 
-Prototype an owned packed entry layout. Keep captured priority, steps and FIFO sequence in primitive
-storage, with event payload references. Consider a FIFO lane for ordinary rank-1/step-0 events only if it
-preserves the current global ordering against work events. Work requeue must capture fresh priority using
-the existing rules. A primitive comparator can be implemented independently as an allocation improvement.
+Use a grouped pending/in-service request mailbox per full destination method key, with one live counted wake.
+Suppress exact transport duplicates and process finite batches. Keep synchronous local raises and actor-owned
+standing requests. New mailbox admission and final-empty transitions must serialize with completion; the
+existing one-count-per-event `accept` cannot directly implement coalesced admission.
 
-Preserve reservation/count before queue visibility, insertion rollback, exactly-once handler completion,
-cancellation and drain behavior. A queue resizing change must not introduce a work cap or drop an event.
-Check ordering under ties, mixed ordinary/work events, requeue and cancellation before project tests.
+Bound channel intake and serve zero Work, ordinary events and nonzero Work in finite phases. This changes
+strict rank scheduling and needs a specification amendment and complete-closure tests. Then compact the
+remaining FIFO/Work lanes and capacity. No blocking producer channel, request cap or overflow drop is proposed.
 
-A separate feasibility study can measure pending request coalescing. The older b0 bounded sample has
-48 cells and 43 structural keys, with two repeated keys. It does not establish a global duplicate rate.
-Coalescing requires proof that full method/premise/request-kind keys and reservation accounting remain correct.
-The kind can be a mark request or a static position-path request.
-It is not part of the initial packing change.
+The older b0 sample of 48 cells and 43 structural keys does not establish duplicate frequency. Grouping
+removes per-event wrappers even if all pending keys differ. Logical pending state can still be large.
+The detailed proposal gives accounting, cancellation, race and scheduling gates.
 
 ## N4. Compact immutable AP graphs and reduce trie work
 
@@ -266,10 +256,11 @@ action/literal before folding. No measured savings or performance benefit is cla
 
 ## Adoption and verification
 
-Each selected change needs a separate detailed design, implementation plan and commit. No N candidate is
-selected by this document. The requested rollback, core/project retests and fresh heap-owner reviews are
-complete. Select future changes by these owner measurements. Do not implement a manager or weak-cache
-utility as an incidental prerequisite.
+N1, N2 and N3 now have a [detailed design and staged implementation sequence](bidirectional-n1-n3-implementation-proposal.md).
+Their representation, algorithm and protocol gates remain open; no runtime change is made by these documents.
+Other N candidates remain unselected. The requested rollback, core/project retests and fresh heap-owner
+reviews are complete. Select further changes by these owner measurements. Do not implement a manager or
+weak-cache utility as an incidental prerequisite.
 
 Keep the exclusion specification table, D23 source override, ordered cleaner effects, source admission,
 full-condition backward mark scope, stable proof/occurrence IDs and NORMAL/DEMAND layers. Signed
