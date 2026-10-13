@@ -311,6 +311,112 @@ class SummaryStorageProtocolTest {
         }
     }
 
+    @Test fun `deferred replay keeps each fresh delta while delivery uses one cumulative group`(): Unit {
+        val queued = QueuedProtocolSteps()
+        PipelineFixtures(protocol = queued).use { f ->
+            val a = f.store.field("a")
+            val b = f.store.field("b")
+            val first = f.subscription(f.store.fact(path = listOf(a)))
+            val second = first.copy(added = f.store.fact(path = listOf(b)))
+            val initial = f.ap.initial(f.store.pattern(tail = Tail.STAR, mark = MarkSlot.STAR))
+            val pub = Publication(initial, f.store.fact(AccessPathBase.Return, tail = Tail.STAR, mark = MarkSlot.STAR))
+            f.subscriptions.subscribe(first)
+            f.subscriptions.subscribe(second)
+            f.storage().publish(listOf(pub))
+            queued.replayAll()
+            assertEquals(listOf(first, second), f.summaries.map { it.part }, "Queued replay captures the accepted delta")
+            f.summaries.clear()
+            queued.runNotifications()
+            f.deliverAll()
+            assertEquals(1, f.summaries.size, "Delivery visits one full-key cumulative group")
+            assertEquals(setOf(first.added, second.added).flatMap { f.ops.leaves(it).toList() }.toSet(),
+                f.ops.leaves(f.summaries.single().part.added).toSet())
+            assertEquals(first.ref, f.summaries.single().part.ref)
+        }
+    }
+
+    @Test fun `delivery captures all candidate values before its first callback changes subscriptions`(): Unit {
+        val queued = QueuedProtocolSteps()
+        PipelineFixtures(protocol = queued).use { f ->
+            val a = f.subscription(f.store.fact(path = listOf(f.store.field("a"))), call = 1)
+            val b = f.subscription(f.store.fact(path = listOf(f.store.field("b"))), call = 2)
+            val c = b.copy(added = f.store.fact(path = listOf(f.store.field("c"))))
+            val late = f.subscription(f.store.fact(path = listOf(f.store.field("late"))), call = 3)
+            val initial = f.ap.initial(f.store.pattern(tail = Tail.STAR, mark = MarkSlot.STAR))
+            val pub = Publication(initial, f.store.fact(AccessPathBase.Return, tail = Tail.STAR, mark = MarkSlot.STAR))
+            f.subscriptions.subscribe(a)
+            f.subscriptions.subscribe(b)
+            queued.replayAll()
+            f.storage().publish(listOf(pub))
+            queued.runNotifications()
+            var changed = false
+            f.onSummary = {
+                if (!changed) {
+                    changed = true
+                    f.subscriptions.subscribe(c)
+                    f.subscriptions.subscribe(late)
+                }
+            }
+            f.deliverAll()
+            assertTrue(changed)
+            assertEquals(setOf(a, b), f.summaries.map { it.part }.toSet(), "The current delivery uses the pre-callback snapshot")
+            queued.replayAll()
+            assertEquals(setOf(a, b, c, late), f.summaries.map { it.part }.toSet(), "New deltas still replay")
+            f.summaries.clear()
+            f.subscriptions.onDelivery(f.callee, listOf(pub))
+            assertEquals(3, f.summaries.size)
+            val grown = f.summaries.single { it.part.ref == b.ref }.part
+            assertEquals(f.ops.leaves(b.added).toSet() + f.ops.leaves(c.added).toSet(), f.ops.leaves(grown.added).toSet())
+        }
+    }
+
+    @Test fun `zero-only directory keeps the first Reach layer for the full caller reference`(): Unit {
+        PipelineFixtures().use { f ->
+            val directory = CalleeSubscriptions(f.ops)
+            val normal = f.subscription(Reach.NORMAL, zeroOnly = true)
+            val demand = normal.copy(linkLayer = Layer.DEMAND, added = Reach.DEMAND)
+            assertSame(normal, directory.add(normal))
+            assertNull(directory.add(demand))
+            assertFails { directory.add(demand.copy(linkLayer = Layer.NORMAL)) }
+            assertFails { directory.add(normal.copy(added = f.store.fact())) }
+            assertFails { directory.add(normal.copy(ref = normal.ref.copy(premise = f.ap.initial(f.store.pattern())))) }
+            val pub = Publication(f.ap.zero, Reach.NORMAL)
+            assertEquals(listOf(normal), directory.candidates(pub, 0, f.config.mode).toList())
+            val otherCallerLayer = demand.copy(ref = normal.ref.copy(callerLayer = Layer.DEMAND))
+            assertSame(otherCallerLayer, directory.add(otherCallerLayer))
+            assertEquals(listOf(normal, otherCallerLayer), directory.candidates(pub, 0, f.config.mode).toList())
+        }
+    }
+
+    @Test fun `ordinary cumulative groups stay indexed at all old and new paths in both matching modes`(): Unit {
+        for (run in listOf(1, 2, 3)) PipelineFixtures(index = run).use { f ->
+            val statistics = N2Statistics()
+            val directory = CalleeSubscriptions(f.ops, statistics)
+            val first = f.subscription(f.store.fact(path = listOf(f.store.field("a"))))
+            val second = first.copy(added = f.store.fact(path = listOf(f.store.field("b"))))
+            assertEquals(first, directory.add(first))
+            assertEquals(second, directory.add(second))
+            assertNull(directory.add(second))
+            for (input in listOf(first, second)) {
+                val leaf = f.ops.leaves(input.added).single()
+                val initial = f.ap.initial(Pattern(leaf.fact, leaf.exclusion))
+                val pub = Publication(initial, f.store.fact(AccessPathBase.Return))
+                val candidates = directory.candidates(pub, 0, f.config.mode).toList()
+                assertEquals(1, candidates.size)
+                assertEquals(f.ops.leaves(first.added).toSet() + f.ops.leaves(second.added).toSet(),
+                    f.ops.leaves(candidates.single().added).toSet())
+            }
+            val snapshot = statistics.snapshot()
+            assertEquals(2L, snapshot.acceptedDeltas)
+            assertEquals(1L, snapshot.cumulativeGroups)
+            assertEquals(2L, snapshot.indexPostings)
+            directory.clear()
+            assertEquals(0L, statistics.snapshot().cumulativeGroups)
+            assertEquals(0L, statistics.snapshot().indexPostings)
+            assertEquals(2L, statistics.snapshot().acceptedDeltas, "The accepted count is cumulative")
+        }
+    }
+
     @Test fun `one manager registers once per callee and duplicate deliveries are harmless repeated applications`(): Unit {
         val queued = QueuedProtocolSteps()
         PipelineFixtures(protocol = queued).use { f ->

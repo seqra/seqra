@@ -23,10 +23,27 @@ class SubscriptionManager(port: SubscriptionPort) {
         val port = active()
         val storage = port.summaryStorage(sub.callee)
         val entry = byCallee.getOrPut(sub.callee) {
-            CalleeSubscriptions(port.ops).also { storage.addSubscriber(this) }
+            CalleeSubscriptions(port.ops, port.statistics).also { storage.addSubscriber(this) }
         }
         val part = entry.add(sub) ?: return
-        port.steps.replay { replay(storage, part) }
+        val statistics = port.statistics
+        if (statistics == null) {
+            port.steps.replay { replay(storage, part) }
+            return
+        }
+        statistics.replayQueued()
+        var entered = false
+        try {
+            port.steps.replay {
+                entered = true
+                try { replay(storage, part) }
+                finally { statistics.replayFinished() }
+            }
+        } catch (error: Throwable) {
+            // Inline failures release in the callback; admission failures release here.
+            if (!entered) statistics.replayFinished()
+            throw error
+        }
     }
 
     private fun replay(storage: SummaryStorage, part: Subscription) {
@@ -110,6 +127,7 @@ class SubscriptionManager(port: SubscriptionPort) {
 
     /** Joining ends all notifications before the owning runner calls this method. */
     fun freeze() {
+        byCallee.values.forEach(CalleeSubscriptions::clear)
         byCallee.clear()
         port = null
     }

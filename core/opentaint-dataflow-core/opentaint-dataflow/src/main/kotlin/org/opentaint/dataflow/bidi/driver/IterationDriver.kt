@@ -68,13 +68,16 @@ class IterationDriver internal constructor(
     private fun runOnce(config: RunConfig, report: ReportBuilder, timeout: Duration): Next {
         val start = TimeSource.Monotonic.markNow()
         logger.info { "BIDI_RUN_START run=${config.index} direction=${config.direction} limit=${config.fieldLimit} timeout=$timeout" }
+        logOptimizationStatistics(config, "START")
         val result = try {
             invokeRun(config, shared, timeout)
         } catch (error: Throwable) {
             logger.info { "BIDI_RUN_END run=${config.index} status=FAILED engineTime=${start.elapsedNow()}" }
+            logOptimizationStatistics(config, "END")
             throw error
         }
         logger.info { "BIDI_RUN_END run=${config.index} status=${result.status} engineTime=${start.elapsedNow()}" }
+        logOptimizationStatistics(config, "END")
         if (result.status != RunStatus.COMPLETE) return Next.End(result.status)
         val barrierStart = TimeSource.Monotonic.markNow()
         val next = try {
@@ -87,6 +90,15 @@ class IterationDriver internal constructor(
         if (shared.cancellation.isActive()) return next
         logger.error { "Run ${config.index}: the barrier memory guard fired; the analysis ends with the report so far" }
         return Next.End(RunStatus.OOM)
+    }
+
+    private fun logOptimizationStatistics(config: RunConfig, phase: String) {
+        shared.n1Statistics?.let { statistics ->
+            logger.info { "BIDI_N1_STATISTICS run=${config.index} direction=${config.direction} limit=${config.fieldLimit} phase=$phase totals=${statistics.snapshot()}" }
+        }
+        shared.n2Statistics?.let { statistics ->
+            logger.info { "BIDI_N2_STATISTICS run=${config.index} direction=${config.direction} limit=${config.fieldLimit} phase=$phase totals=${statistics.snapshot()}" }
+        }
     }
 
     private fun barrier(config: RunConfig, result: RunResult<RunMethodAnalyzer>, report: ReportBuilder): Next {

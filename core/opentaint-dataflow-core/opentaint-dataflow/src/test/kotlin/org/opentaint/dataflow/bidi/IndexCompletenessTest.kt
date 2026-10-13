@@ -18,6 +18,13 @@ class IndexCompletenessTest {
     private val modes = listOf(ApMode(true, Direction.FORWARD, 3),
         ApMode(false, Direction.FORWARD, 3), ApMode(false, Direction.BACKWARD, 3))
     private data class Match(val publication: Publication, val member: Int, val subscription: Subscription, val selected: Facts)
+    private data class SelectedLeaf(val publication: Publication, val member: Int, val callee: MethodKey,
+                                    val ref: CallerRef, val linkLayer: Layer, val zeroOnly: Boolean, val leaf: Conclusion)
+    private fun selectedLeaves(matches: Set<Match>): Set<SelectedLeaf> = matches.flatMap { match ->
+        val sub = match.subscription
+        decoded(match.selected).map { SelectedLeaf(match.publication, match.member, sub.callee,
+            sub.ref, sub.linkLayer, sub.zeroOnly, it) }
+    }.toSet()
     private fun initial(f: StoreFixtures, path: List<Int> = emptyList(), tail: Tail = Tail.ANY,
                         mark: MarkSlot = MarkSlot.Concrete(f.mark("T")), e: ExclusionSet = ExclusionSet.Empty,
                         base: AccessPathBase = x) = f.manager.initial(base, f.manager.path(path), tail, e, mark)
@@ -48,7 +55,7 @@ class IndexCompletenessTest {
         buildSet {
             for (pub in publications) for (member in 0 until pub.premise.size) {
                 val candidates = index.candidates(pub, member, mode).toList()
-                assertEquals(candidates.size, candidates.distinct().size, "Each accepted subscription part is returned once")
+                assertEquals(candidates.size, candidates.distinct().size, "Each cumulative full-key entry is returned once")
                 for (part in candidates) matches(part, pub, member, f.ops, mode)?.let {
                     add(Match(pub, member, part, it))
                 }
@@ -103,6 +110,35 @@ class IndexCompletenessTest {
             at.children.keys.toIntArray(), at.children.values.map(::build).toTypedArray())
         return f.manager.taintTree(leaves.first().fact.base, layer, build(root), e)
     }
+    /** Test-local raw rebuild: exact group unions, without the production accumulator or merge. */
+    private fun cumulative(f: StoreFixtures, admitted: List<Subscription>): List<Subscription> {
+        data class Key(val ref: CallerRef, val group: GroupKey)
+        val groups = LinkedHashMap<Key, Pair<Subscription, MutableSet<Conclusion>>>()
+        val zeros = LinkedHashMap<CallerRef, Subscription>()
+        for (sub in admitted) {
+            if (sub.zeroOnly) zeros.putIfAbsent(sub.ref, sub)
+            else groups.getOrPut(Key(sub.ref, sub.added.groupKey)) { sub to linkedSetOf() }.second += decoded(sub.added)
+        }
+        return groups.map { (key, value) ->
+            val (sub, leaves) = value
+            val facts = when (key.group.kind) {
+                FactsKind.REACH -> Reach.of(key.group.layer)
+                FactsKind.TAINT -> taint(f, leaves.toList(), key.group.exclusion, key.group.layer)
+                FactsKind.FLOW -> {
+                    val prefix = Prefix()
+                    for (leaf in leaves) {
+                        var at = prefix
+                        for (accessor in leaf.fact.path) at = at.children.getOrPut(accessor) { Prefix() }
+                        at.exact += 1
+                    }
+                    fun build(at: Prefix): FlowNode = FlowAlgebra.node(if (at.exact.isEmpty()) FlowLeaf.NONE else FlowLeaf.LEAF,
+                        at.children.keys.toIntArray(), at.children.values.map(::build).toTypedArray())
+                    f.manager.flowTree(key.group.base, key.group.layer, key.group.exclusion, key.group.markExclusion, build(prefix))
+                }
+            }
+            sub.copy(added = facts)
+        } + zeros.values
+    }
     private fun verifyBoth(f: StoreFixtures, pubs: List<Publication>, requests: List<Subscription>,
                            selectedModes: List<ApMode> = modes) {
         for (reverse in listOf(false, true)) {
@@ -117,7 +153,9 @@ class IndexCompletenessTest {
                 val expected = scan(f, pubs, parts, mode)
                 val label = "reverse=$reverse, run1=${mode.run1}, direction=${mode.direction}"
                 assertEquals(expected, replay(f, published, parts, mode), "replay: $label")
-                assertEquals(expected, delivery(f, subscriptions, pubs, mode), "delivery: $label")
+                val delivered = delivery(f, subscriptions, pubs, mode)
+                assertEquals(scan(f, pubs, cumulative(f, orderedRequests), mode), delivered, "cumulative delivery: $label")
+                assertEquals(selectedLeaves(expected), selectedLeaves(delivered), "historical selected leaves: $label")
                 assertTrue(expected.isNotEmpty(), label)
             }
         }
@@ -146,7 +184,7 @@ class IndexCompletenessTest {
     }
 
     @Test
-    fun `delivery transpose retains every matching accepted part in either arrival order`(): Unit {
+    fun `delivery transpose retains every matching cumulative group and historical selected leaf in either arrival order`(): Unit {
         val f = StoreFixtures()
         val a = f.field("a")
         val b = f.field("b")
@@ -160,8 +198,12 @@ class IndexCompletenessTest {
             val index = CalleeSubscriptions(f.ops)
             val accepted = order.mapNotNull(index::add)
             assertEquals(order, accepted)
-            for (mode in modes) assertEquals(scan(f, pubs, accepted, mode), delivery(f, index, pubs, mode),
-                "run1=${mode.run1}, direction=${mode.direction}")
+            for (mode in modes) {
+                val delivered = delivery(f, index, pubs, mode)
+                assertEquals(scan(f, pubs, cumulative(f, order), mode), delivered)
+                assertEquals(selectedLeaves(scan(f, pubs, accepted, mode)), selectedLeaves(delivered),
+                    "run1=${mode.run1}, direction=${mode.direction}")
+            }
         }
     }
 
@@ -358,7 +400,8 @@ class IndexCompletenessTest {
         val f = StoreFixtures()
         val a = f.field("a")
         val b = f.field("b")
-        val index = CalleeSubscriptions(f.ops)
+        val statistics = N2Statistics()
+        val index = CalleeSubscriptions(f.ops, statistics)
         val root = sub(f, f.fact(tail = Tail.STAR, mark = MarkSlot.STAR))
         val deeper = root.copy(added = f.fact(path = listOf(a), tail = Tail.STAR, mark = MarkSlot.STAR))
         assertEquals(root, index.add(root))
@@ -381,15 +424,24 @@ class IndexCompletenessTest {
         val pr = initial(f, listOf(a), Tail.STAR, MarkSlot.STAR)
         val pub = Publication(pr, f.fact(base = y, tail = Tail.STAR, mark = MarkSlot.STAR))
         val accepted = listOf(root, deeper) + variants
-        for (mode in modes) assertEquals(scan(f, listOf(pub), accepted, mode), delivery(f, index, listOf(pub), mode))
+        val expectedGroups = cumulative(f, accepted)
+        assertEquals(accepted.size - 1, expectedGroups.size, "Root and descendant share one exact group")
+        assertEquals(accepted.size.toLong(), statistics.snapshot().acceptedDeltas)
+        assertEquals(expectedGroups.size.toLong(), statistics.snapshot().cumulativeGroups)
+        for (mode in modes) {
+            val delivered = delivery(f, index, listOf(pub), mode)
+            assertEquals(scan(f, listOf(pub), expectedGroups, mode), delivered)
+            assertEquals(selectedLeaves(scan(f, listOf(pub), accepted, mode)), selectedLeaves(delivered))
+        }
         val run1 = delivery(f, index, listOf(pub), modes[0])
-        assertTrue(run1.any { it.subscription == deeper })
-        assertFalse(run1.any { it.subscription == root }, "The root FLOW subscription cannot replace the deeper run1 match")
+        val matchedGroup = run1.single { it.subscription.ref == root.ref && it.subscription.added.groupKey == root.added.groupKey }
+        assertEquals(decoded(deeper.added), decoded(matchedGroup.selected),
+            "The root leaf cannot replace the deeper run1 match, even when the header is cumulative")
         val before = index.candidates(pub, 0, modes[1]).toList()
         val late = root.copy(ref = root.ref.copy(caller = f.key("late")))
         assertEquals(late, index.add(late))
-        assertEquals(accepted.toSet(), before.toSet())
-        assertEquals((accepted + late).toSet(), index.candidates(pub, 0, modes[1]).toSet())
+        assertEquals(expectedGroups.toSet(), before.toSet())
+        assertEquals(cumulative(f, accepted + late).toSet(), index.candidates(pub, 0, modes[1]).toSet())
     }
 
     @Test

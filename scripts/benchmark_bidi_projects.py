@@ -130,12 +130,14 @@ def run(args, project, side, config):
                     if args.heap_snapshots else '')
     form_statistics = args.form_statistics and side == 'bidi'
     statistics_arg = ', "-Dorg.opentaint.bidi.formStatistics=true"' if form_statistics else ''
+    optimization_statistics = args.optimization_statistics and side == 'bidi'
+    optimization_statistics_arg = ', "-Dorg.opentaint.bidi.optimizationStatistics=true"' if optimization_statistics else ''
     # Configure only the selected JavaExec; Gradle/compiler heaps stay separate.
     init.write_text('gradle.projectsEvaluated {\n'
                     '  if (rootProject.name != "opentaint-jvm-sast") return\n'
                     '  rootProject.tasks.named("runProjectAnalyzer", JavaExec).configure {\n'
                     f'    jvmArgs = ["-Xmx{memory}", '
-                    f'"-XX:StartFlightRecording=filename={directory}/continuous.jfr,settings=profile,dumponexit=true,maxsize=256m"{snapshot_arg}{statistics_arg}]\n'
+                    f'"-XX:StartFlightRecording=filename={directory}/continuous.jfr,settings=profile,dumponexit=true,maxsize=256m"{snapshot_arg}{statistics_arg}{optimization_statistics_arg}]\n'
                     f'    args = {json.dumps(runner_args)}\n'
                     '  }\n}\n')
     # These four inputs are JVM projects. The Go server is never called.
@@ -147,6 +149,7 @@ def run(args, project, side, config):
                 'runner_args': runner_args, 'test_revision': git(args.test, 'rev-parse', 'HEAD'),
                 'guard_heap_snapshot': args.heap_snapshots,
                 'form_statistics': form_statistics,
+                'optimization_statistics': optimization_statistics,
                 'started_utc': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}
     (directory / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     print(f'START {project} {side}: {memory}, {timeout}s', flush=True)
@@ -274,6 +277,8 @@ def main():
                         help='Dump a live heap before the memory guard cancels analysis (diagnostic runs only)')
     parser.add_argument('--form-statistics', action='store_true',
                         help='Record aggregate bidi form/cache counters without per-event logging')
+    parser.add_argument('--optimization-statistics', action='store_true',
+                        help='Record bounded N1/N2 counters with run, direction and limit attribution')
     args = parser.parse_args()
     for name in ('main', 'current', 'test', 'output'):
         setattr(args, name, getattr(args, name).resolve())

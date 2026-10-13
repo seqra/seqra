@@ -24,6 +24,7 @@ class RunMethodHandlers(
             override val config get() = active().config
             override val ops get() = active().ops
             override val steps get() = active().steps
+            override val statistics get() = active().shared.n2Statistics
             override fun summaryStorage(key: MethodKey): SummaryStorage = active().summaryStorage(key)
             override fun applier(key: MethodKey): SummaryApplier = active().analyzer(key)
             override fun post(event: RunEvent.Delivery): Boolean = active().post(event)

@@ -8,6 +8,7 @@ interface SubscriptionPort {
     val config: RunConfig
     val ops: ApOps
     val steps: ProtocolSteps
+    val statistics: N2Statistics? get() = null
     fun summaryStorage(key: MethodKey): SummaryStorage
     fun applier(key: MethodKey): SummaryApplier
     fun post(event: RunEvent.Delivery): Boolean
