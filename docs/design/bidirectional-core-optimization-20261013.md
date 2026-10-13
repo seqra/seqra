@@ -1,6 +1,6 @@
 # Analyzer core: next memory optimizations
 
-Status: N1, N2 and N3 selected for detailed design; not implemented. Other candidates remain unselected.
+Status: N1 and N2 selected for the next iteration; not implemented. N3 deferred. Other candidates remain unselected.
 Date: 13 October 2026.
 This proposal replaces the priorities in the [old proposal](bidirectional-core-optimization.md).
 It uses the latest reviewed project heaps and profiles. IR objects, IR storage, IR tables and IR providers
@@ -8,13 +8,17 @@ remain outside the scope.
 
 The largest measured core owners after form cleanup are standing requests, subscription state and pending
 queue entries. The [N1–N3 analysis](bidirectional-n1-n3-analysis.md) distinguishes the standing relation,
-accepted delta history and pending transport. The [detailed proposal](bidirectional-n1-n3-implementation-proposal.md)
-first removes redundant history, event objects and scans, then compacts necessary state. It replaces this
+accepted delta history and pending transport. The [N1/N2 proposal](bidirectional-n1-n3-implementation-proposal.md)
+first removes redundant subscription history and unsuccessful join scans, then compacts necessary state. It replaces this
 document's initial storage-first recommendation. Keep NNF for both source and sink conditions; do not restore cubes.
 See the [short current-versus-new comparison](bidirectional-n1-n3-implementation-proposal.md#behavior-changes-at-a-glance)
 for each selected proposal's behavior change and expected benefit.
 Managed method-form references already release compiled forms in the failing Conductor and ThingsBoard
 captures. Further form eviction alone does not address those remaining owners.
+
+N3 is excluded from the next iteration. Its [deferred design](bidirectional-n3-deferred-proposal.md) can be
+reconsidered if fresh measurements after N1/N2 show the same substantial queue/backlog pattern. The current
+queue size does not establish a material benefit from changing transport or scheduling.
 
 The latest measurements use runtime commit `38a400c0d` and manifest revision `bd6810823`, after the
 requested rollback of the manager rewrite and weak identity cache. The
@@ -58,16 +62,17 @@ Sampled allocation weights measure allocation traffic, not retained memory or ex
 
 ## Priority by expected retained-memory impact
 
-This order estimates impact after the preceding changes. It is not a promise of a byte saving. The first
-three changes now include selective joins, cumulative subscription storage and grouped request transport.
-They preserve logical requests, accepted subscription leaves and required analysis effects.
+This order estimates impact after the preceding changes. It is not a promise of a byte saving. Only N1 and
+N2 are selected for the next iteration. They include selective joins and cumulative subscription storage,
+and preserve logical requests, accepted subscription leaves and required analysis effects. N3 is deferred;
+its historical owner size is not an estimate of savings or a reason to include it in this iteration.
 Lower candidates need more evidence before implementation. CPU and allocation work has a separate order.
 
 | Rank / ID | Proposed change | Expected retained-memory impact | Measured basis and limit |
 | --- | --- | --- | --- |
 | 1 / N1 | Factor standing requests and use selective joins | Very high in ThingsBoard | Fresh run-1 request-store union: 3,095,473,728 B; 24,981,269 distinct seen pairs |
 | 2 / N2 | Replace retained subscription delta history with cumulative entries; normalize E6 bindings | High in Conductor | Fresh run-2 subscription union: 1,538,287,888 B; index unions: 509,006,864 B and 259,069,008 B |
-| 3 / N3 | Group pending requests into counted mailboxes and give work finite service intervals | High in ThingsBoard | Fresh run-1 backing-array-root union: 1,214,843,344 B; 15,764,679 queued entries |
+| Deferred / N3 | Group pending requests into counted mailboxes and give work finite service intervals | Conditional; material benefit not established | Fresh ThingsBoard run-1 backing-array-root union: 1,214,843,344 B; 15,764,679 queued entries. Reassess only if the pattern persists after N1/N2. |
 | 4 / N4 | Compact and share immutable AP delta graphs | Medium to high, overlaps N2 | Fresh Conductor run-2 accepted parts: 607,697,168 B; nodes/accessors/child arrays within them: 452,468,200 B |
 | 5 / N5 | Specialize small NNF descriptors and share immutable topology | Potentially high in warm forms; conditional | b0 OWASP run-1 compiled descriptor union: 1,715,130,896 B; current singleton distribution must still be measured |
 | 6 / N6 | Share immutable bound-rule condition data | Medium, conditional | b0 Conductor run-2 rule-provider union: 372,739,560 B; removable duplication is unknown |
@@ -78,9 +83,10 @@ Lower candidates need more evidence before implementation. CPU and allocation wo
 | 11 / N11 | Redesign managed-reference bookkeeping and transitions | Unknown; optional | Older b0 guards counted zero tracked wrappers; fresh original-manager wrapper cardinality is unrequested. Measure ordinary wrapper growth and registration races separately. |
 | 12 / N12 | Introduce a weak identity cache for validated rule occurrences | Unknown; optional | No isolated retained-byte or validation-time measurement justifies a new utility yet |
 
-N1/N2/N3 retain all required logical work. N2 removes historical objects through a cumulative-state refinement;
-N3 coalesces exact pending/in-service requests and changes scheduling. Neither reduces valid caller contexts
-or caps state. Their detailed equivalence and protocol gates remain open. N4/N5/N6/N8 share data only after immutable ownership
+N1/N2 retain all required logical work. N2 removes historical objects through a cumulative-state refinement.
+Neither reduces valid caller contexts or caps state. Their detailed equivalence and protocol gates remain
+open. The next iteration preserves request transport, event accounting, queue layout and scheduling.
+N4/N5/N6/N8 share data only after immutable ownership
 is established. A global strong interner would defeat reclamation and is not proposed.
 
 ## N1. Factor standing requests and make joins selective
@@ -121,7 +127,10 @@ Otherwise E6 can retain every cumulative snapshot. Keep member slots, full disti
 conclusions. The detailed proposal sets the cumulative-transfer equivalence gate and P5 representation
 refinement; current part-list proofs do not prove the new encoding. Keep P1–P4/P6 ordering and full AP matching.
 
-## N3. Group request transport and use finite service cycles
+## N3. Deferred request transport and scheduling
+
+This candidate is excluded from the next iteration. Retain it for possible later selection only if the
+same queue pattern remains in fresh post-N1/N2 measurements. The following describes that future option.
 
 Fresh ThingsBoard **run-1** queues contain 15,764,679 entries but allocate 51,339,702 backing cells.
 Within the backing-root retained set, queue entry bodies use 630,587,160 B, request message bodies use
@@ -142,7 +151,9 @@ remaining FIFO/Work lanes and capacity. No blocking producer channel, request ca
 
 The older b0 sample of 48 cells and 43 structural keys does not establish duplicate frequency. Grouping
 removes per-event wrappers even if all pending keys differ. Logical pending state can still be large.
-The detailed proposal gives accounting, cancellation, race and scheduling gates.
+The [deferred N3 proposal](bidirectional-n3-deferred-proposal.md) retains accounting, cancellation, race
+and scheduling gates for that future option.
+No mailbox, counted-wake, scheduler or queue-layout stage remains in the active N1/N2 sequence.
 
 ## N4. Compact immutable AP graphs and reduce trie work
 
@@ -258,9 +269,10 @@ action/literal before folding. No measured savings or performance benefit is cla
 
 ## Adoption and verification
 
-N1, N2 and N3 now have a [detailed design and staged implementation sequence](bidirectional-n1-n3-implementation-proposal.md).
+N1 and N2 have a [detailed design and staged implementation sequence](bidirectional-n1-n3-implementation-proposal.md).
 Their representation, algorithm and protocol gates remain open; no runtime change is made by these documents.
-Other N candidates remain unselected. The requested rollback, core/project retests and fresh heap-owner
+N3 is deferred to its separate future proposal; other N candidates remain unselected.
+The requested rollback, core/project retests and fresh heap-owner
 reviews are complete. Select further changes by these owner measurements. Do not implement a manager or
 weak-cache utility as an incidental prerequisite.
 

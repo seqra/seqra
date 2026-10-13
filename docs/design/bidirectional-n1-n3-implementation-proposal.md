@@ -1,16 +1,18 @@
-# N1–N3: detailed implementation proposal
+# N1 and N2: next optimization iteration
 
-Status: selected for detailed design; not implemented. Date: 13 October 2026.
-This proposal refines N1, N2 and N3 in the [current memory proposal](bidirectional-core-optimization-20261013.md).
+Status: N1 and N2 selected for the next iteration; not implemented. N3 deferred. Date: 13 October 2026.
+This proposal refines N1 and N2 in the [current memory proposal](bidirectional-core-optimization-20261013.md).
+The [N3 design](bidirectional-n3-deferred-proposal.md) is retained for future reconsideration if the queue pattern persists.
 The [analysis](bidirectional-n1-n3-analysis.md) explains why storage packing alone is insufficient.
 The older O1/O2/O3 proposal is historical and does not set these priorities.
 
-Use three changes: factor the standing request relation and make its joins selective; replace subscription
-delta history with cumulative entries and stable E6 bindings; move pending requests into grouped mailboxes
-and give each runner a finite service cycle. Compact the state that remains after these changes.
+Use two changes: factor the standing request relation and make its joins selective; replace subscription
+delta history with cumulative entries and stable E6 bindings. Compact the state that remains after these changes.
+Keep request transport, reservation accounting, runner scheduling and queue layout unchanged in this iteration.
 
 The changes preserve all logical requests, accepted subscription leaves and required analysis effects.
-They remove redundant history, wrappers and scans. They do not merge caller contexts or cap valid state.
+They remove redundant subscription history, request storage objects and unsuccessful join scans.
+They do not merge caller contexts or cap valid state.
 No implementation, project run or new memory capture is part of this document change.
 
 ## Behavior changes at a glance
@@ -19,16 +21,14 @@ No implementation, project run or new memory capture is part of this document ch
 | --- | --- | --- | --- |
 | N1: grouped standing requests and selective joins | Store each origin/request-kind pair in a seen set and a path index. Check geometrically overlapping requests even when their mark cannot produce an action. | Store marks under one full-origin row and position origins under one full-path row. Index each row once. A concrete mark probes only that mark; abstract marks skip excluded requests. Keep requests active for later links. | Fewer object/hash/index entries and fewer unsuccessful join checks. The benefit depends on members per row; the logical request count stays the same. |
 | N2: cumulative subscriptions and stable E6 bindings | Retain each accepted growth delta and its index entries alongside cumulative groups. E6 retains matched Subscription values, including their Facts versions. | Keep one current cumulative entry per full caller reference and exact ordinary group, replay each fresh delta transiently, and use one positional directory. Remove the unused accumulator index. After full matching, E6 stores full caller-reference/link-layer bindings. Keep the separate zero-only policy. | Stop retaining subscription growth history and avoid moving it into E6. Storage follows exact groups, positions and distinct matched bindings rather than every growth step. |
-| N3: grouped request mailboxes and finite service cycles | Each remote send creates a request event. Duplicates reach the receiver before its seen check discards them. The runner drains all incoming events before polling; ordinary events precede nonzero Work. | Buffer unique pending/in-service requests by full destination key, with one counted wake per active mailbox. Claim FIFO batches, coalesce overlapping duplicates, bound intake, and serve both Work classes in finite phases. Then compact the remaining queue lanes. | Fewer message/queue objects and duplicate handlers. Work gets service during an ordinary-event stream. Distinct pending requests remain; scheduling can change progress and incomplete reports. |
 
 For example, 100 requested marks for one origin become one row with 100 memberships in N1. If one
 subscription group grows 100 times, N2 keeps its current value rather than 100 permanent delta records.
-In N3, 100 pending requests for one destination use one live wake, while all 100 distinct keys remain stored.
-These are shape examples, not measured savings.
+These are shape examples, not measured savings. N3 is excluded from this iteration.
 
-All three aim to preserve complete analysis results and required effects. N1 preserves encounter order in
-its first version. N3 changes processing order. The equivalence gates below must pass before implementation
-can be accepted; no measured saving or unchanged incomplete report is promised.
+Both selected changes aim to preserve complete analysis results and required effects. N1 preserves encounter
+order in its first version. No scheduler change is included. The equivalence gates below must pass before
+implementation can be accepted; no measured saving or unchanged incomplete report is promised.
 
 ## 1. Evidence and scope
 
@@ -51,7 +51,6 @@ they do not measure its latest run-4. Run-1 starts at limit 1. There is no limit
 | --- | --- | --- | --- |
 | N1 | ThingsBoard run-1: 24,981,269 distinct standing pairs; 3,095,473,728 retained-union bytes | Remove boxed membership/index objects; index headers once; avoid impossible mark joins | Mark/position split and row density are not yet measured |
 | N2 | Conductor run-2: 2,165,026 accepted-part entries; 679,558 cumulative groups; 1,538,287,888 active-subscription union bytes | Stop retaining growth history and its index; remove the unused accumulator index | Stable group storage and necessary AP graphs remain |
-| N3 | ThingsBoard run-1: 15,764,679 queue entries; 51,339,702 backing cells; 1,214,843,344 backing-root union bytes | Replace per-request events by mailbox wakes; compact pending keys; bound intake and class service intervals | The number of unique pending obligations can still be large |
 
 These unions overlap. They are owner sizes, not additive savings. Different progress between captures also
 prevents an isolated byte comparison. The older small duplicate sample does not give a global duplicate rate.
@@ -64,8 +63,8 @@ none of these changes requires a manager rewrite, weak identity cache or global 
 
 ## 2. Shared design rules
 
-Each method actor owns N1. Each caller runner owns N2. N3 mailbox admission is shared, but only the receiving
-runner applies its requests to an actor. Do not let producers read or mutate actor-owned request stores.
+Each method actor owns N1. Each caller runner owns N2. Keep those ownership boundaries.
+Do not let producers read or mutate actor-owned request stores.
 Use run-owned or store-owned directories. Release them with their owners after the existing join/freeze.
 
 Use exact keys first. A coarse path index selects candidates; the current full AP matcher decides effects.
@@ -80,8 +79,7 @@ Account for object headers, capacity, lookup tables and promotion copies when co
 
 Keep cancellation checkpoints in long scans, matching and combination expansion. Callbacks can cause local
 re-entry. Capture the candidate handles and the required immutable values before calling them; do not expose
-live mutable iterators or mailbox pages to callbacks. Never run AP transfer or actor callbacks under a
-mailbox lock.
+live mutable iterators to callbacks. This iteration introduces no shared request mailbox.
 
 ## 3. N1 — one grouped standing relation
 
@@ -139,7 +137,7 @@ Position rows have their own geometry and action rules; do not apply the mark te
 
 Every candidate still passes full `overlap` and `actOnRequest`. Keep the same filter when a newly inserted
 mark request reads existing links. Link values keep full `CallerRef` and link layer. Do not suppress a link
-merely because another caller emitted an equal request: transport coalescing belongs to N3.
+merely because another caller emitted an equal request. Transport coalescing is deferred with N3.
 
 The selective test is local to the request/link join. In particular, F75 can raise a selected cleaner mark
 despite disjoint geometry or an excluded mark. Do not apply this test to source/cleaner request production.
@@ -260,178 +258,21 @@ the delta-header trap, both matching modes, first-wins zero-only, different cont
 conclusions. Compare summaries, stored edges, witnesses, records, seeds and hand-offs with the independent
 closure reference. A finding-count comparison alone is not an equivalence test.
 
-## 5. N3 — grouped request transport and finite service cycles
-
-### 5.1 Mailbox key and ownership
-
-Replace queued remote `RequestIn` payloads by a run-owned mailbox for each full destination `MethodKey`.
-The exact pending key is `(run owner, destination MethodKey, full origin InitialAp identity, RequestKind)`.
-The kind includes its mark ID or full normalized position path. The run and destination can be implicit in
-the mailbox owner; their identity must still be part of the key's meaning.
-
-Use the N1 grouping rules for pending payloads, with a separate ownership boundary. Producers can add under
-a mailbox lock. The receiving runner claims a finite batch and calls the existing actor `addRequest` outside
-that lock. Local `raise` remains synchronous even if the same remote key is pending. Same-unit remote Climb
-uses the mailbox too; it must not become a re-entrant actor callback.
-
-Keep keys while pending **and while in service**. Suppress exact repeats in either state. Retire the claimed
-batch's in-service keys at its finish transition, after their callbacks complete. A later repeat can be
-admitted again and the actor's N1 store
-deduplicates it. There is no second lifetime seen set and no producer read of N1. This limits deduplication
-to overlapping transport; do not claim it suppresses every repeated climb.
-
-Claim keys in FIFO order of first pending admission across the whole mailbox, with primitive ordinal/order
-storage. Coalesced duplicates keep their original position. A repeat admitted after completion goes to
-the tail. Do not restart each claim at the smallest row/mark ID: repeated low-ID admissions could starve
-an older key. Release consumed order pages and include their spare capacity in the measurements.
-
-### 5.2 One reservation for an active mailbox
-
-Use a wake event with one physical reservation for an active mailbox. Its reservation stays live while the
-token is in the channel, local queue, handler or continuation. New buffered keys use that live reservation;
-they do not call the current one-event `accept` path. Preserve existing one-event accounting for other events
-and the root phantom reservation.
-
-Add a narrow request-admission operation to `RunManager`, under its existing admission lock. Internally
-distinguish `NEW_WAKE`, `BUFFERED`, `DUPLICATE` and `REJECTED`. The first three mean logical acceptance;
-only `NEW_WAKE` increments in-flight. Existing Boolean send callers must receive true for a coalesced
-request, rather than interpret zero new reservations as rejection.
-
-Resolve the destination unit before taking admission, then recheck admitting, deadline, terminal status
-and runner closure under admission for every result, including `BUFFERED` and `DUPLICATE`. Do not return
-success for a closed runner merely because its old mailbox still has a wake. Use a distinct `RequestWake`
-event; it is not actor Work and must not use the queued-actor identity set.
-
-| State/operation | Transition | Count effect |
-| --- | --- | --- |
-| Idle + valid request | Insert key; reserve; publish wake; become Active | +1 before visibility |
-| Active + new key | Add to pending relation | None |
-| Active + pending/in-service key | Accept duplicate without another insertion | None |
-| Claim batch | Move selected pending keys to in-service atomically | None |
-| Finish batch, more keys remain | Retire completed claims; enqueue same wake with fresh queue sequence | None |
-| Finish batch, no pending/claimed keys | Clear wake; become Idle; release reservation | -1 exactly once |
-| Invalid route, terminal run or rejected first publication | Reject and roll back unpublished insertion/wake | Undo initial reservation if made |
-| Cancellation/failure | Select terminal status; close; join; discard remaining state | Do not pretend unhandled keys completed |
-
-The lock order is **admission, then mailbox**. Finish takes this order, retires completed claims and chooses
-More versus Empty atomically. On Empty it clears the wake and releases its count while admission remains
-held. A racing producer either joins the still-active mailbox or creates a new counted wake. It cannot
-insert accepted work between the empty check and selection of COMPLETE.
-
-Claiming may take only the mailbox lock. Move the complete key to in-service before clearing pending
-membership; otherwise a duplicate can slip into the gap. Detach owned batch data rather than handing a
-live mark bitmap to the consumer. Producer inserts during processing must survive the next claim.
-No mailbox lock is held during actor mutation, joins, sends, AP operations or callbacks.
-
-Child sends and actor Work reservations happen before the mailbox releases its last count. A partial wake
-is requeued with the same count and fresh immutable ordering metadata. If first publication fails, admission
-prevents other producers from joining an unpublished wake; roll back that new mailbox state and reservation.
-If handling or continuation insertion throws, fail the run. Do not drop a batch and select COMPLETE.
-
-Serialize the runner's closed transition with admission, including a direct `UnitRunner.close` call.
-Normal `stopAndJoin` first disables admission, as today. Close rejects new admission before cancellation.
-Discard remaining pending/claimed state and tear down the mailbox owner only after the receiving runner
-is joined, with the existing failed-join policy. During the run, reclaim consumed pages and empty headers
-under normal mailbox ownership as defined below. Document the changed interpretation of
-`inFlight.handled`: it counts completed physical reservations, not logical requests. Add separate logical
-request counters for comparisons with the baseline's event counts.
-
-### 5.3 Scheduler: finite intake and work service
-
-Current [UnitRunner](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/UnitRunner.kt)
-drains its channel without a bound before polling. Its strict rank order can delay nonzero Work behind
-ordinary events. The source proves these mechanisms; existing heaps do not establish their contribution
-to the observed backlog.
-
-Use the existing positive runner quantum `q` (default 1,000) for bounded intake and request batches.
-No new project configuration or field limit is needed. A proposed service cycle is:
-
-1. Receive when no local event is available, then admit at most `q` channel events into local lanes,
-   including that initial receive in the intake count.
-2. Serve one quantum from the captured zero-Work lane if it is nonempty.
-3. Serve at most `q` ordinary handlers, with an additional shared budget of `q` claimed requests. A wake
-   counts as one ordinary handler and consumes the remaining request budget. At zero request budget,
-   leave the next wake queued and end the ordinary phase. If a wake has more keys, requeue it and end
-   this phase. Do not make a zero-sized claim.
-4. Serve one quantum from the captured nonzero-Work lane if it is nonempty. Skip empty lanes and yield
-   between cycles.
-
-Preserve one queued Work token per exact actor, its existing work quantum, and priority keys captured once
-at enqueue/requeue. Within each Work lane use captured steps then sequence; ordinary events use FIFO.
-Requeue samples the actor again. A queued nonzero token that receives zero work keeps its captured lane
-until requeue. A zero token can requeue into the nonzero lane and run there later in the same cycle.
-Class service is bounded in cycles; individual actor service also depends on steps ordering and finite work.
-A partial mailbox wake goes to the ordinary lane's tail with a fresh
-sequence. Each claimed batch follows the mailbox's FIFO admission order.
-
-This keeps a zero-Work service phase and gives nonzero Work a finite class service interval. It intentionally
-changes strict global rank ordering, including absolute zero-Work precedence across phases. Amend the
-scheduler specification and its ordering tests only when implementing this design. Do not claim identical
-traces, time-bounded prefixes or incomplete reports.
-A finite cycle is a bound in handlers/quanta, not milliseconds: an AP handler can be expensive, and fairness
-also depends on the existing finite-handler and coroutine execution assumptions.
-
-Do not use a blocking bounded channel, request cap or overflow drop. Cyclic sends and self-sends must remain
-nonblocking. Mailbox grouping bounds physical request wake tokens by active destinations; it does not bound
-unique pending keys. Measure both quantities. Under a finite valid workload, service every accepted unique
-key and reach the same closure; a resource failure remains an incomplete run.
-
-### 5.4 Representation after transport reduction
-
-Use a chunked primitive membership store for mailboxes so a large pending relation does not require Pair,
-RequestIn and priority-entry objects per member. Track allocated capacity and return empty pages promptly.
-Use bounded reusable batch buffers; do not retain a second full copy of pending state. In-service data is
-bounded by the claim quantum per handler.
-
-Remove or recycle empty row/header entries when both their pending and claimed memberships are empty.
-Do not recycle a handle still referenced by a claimed batch. Otherwise the directory becomes another
-lifetime history. An idle mailbox shell can be retained until run release, but measure and disclose its
-cost per ever-activated destination separately from the active wake count.
-
-Use an ordinary FIFO lane and primitive Work priority storage only after the mailbox/scheduler contracts
-pass. The Work comparator has captured primitive steps/sequence and actor references. It must not read
-mutable actor state during comparison. Shrink/release queue capacity under explicit ownership; clearing
-references alone does not prove that oversized backing arrays are released.
-
-### 5.5 Protocol and acceptance
-
-Refine Q1/Q2: each nonempty/claimed mailbox has exactly one live wake reservation, counted before token
-visibility and released after all represented requests and child sends. Q3/Q4 and first-terminal-status
-selection remain. Refine reliable-event assumptions to separate exactly-once wake delivery from logical
-request coalescing. Prove a simulation from accepted logical requests to the actor's standing relation;
-duplicate handling has no additional closure effect because actor insertion is exact-idempotent.
-
-Use `InFlightTest`, `EventQueueTest` and engine lifecycle/protocol fixtures. Add deterministic race controls
-for reserve-before-publish, duplicate while pending, duplicate while claimed, concurrent insertion at final
-empty check, first publish rejection, handler failure, partial continuation, deadline, cancellation and join.
-Test self-sends, cross-unit cycles, same-unit remote Climb and synchronous local raise. Verify no early
-COMPLETE, no negative/double count and no accepted unique request loss. Include allocation failures in
-membership/directory growth, batch creation and continuation insertion: every Throwable selects FAILED;
-roll back an unpublished reservation exactly once when needed.
-
-Test sustained intake and ordinary-event floods with both captured Work classes, including lane changes
-on requeue and zero work added to an already queued nonzero actor. Test continual readmission of low-ID
-keys beside an older pending key. Assert bounded class service in
-cycles and eventual actor progress. Compare full closure under several schedules and both unit layouts.
-Do not weaken the semantic oracle to accommodate the new ordering.
-
-## 6. Bounds, measurements and remaining risks
+## 5. Bounds, measurements and remaining risks
 
 Let `R` be logical standing requests, `G` their grouped headers and `I` their path-index nodes/postings.
 Let `H` be historical accepted subscription parts, `C` cumulative exact subscription groups, `Z` zero-only
-full-reference entries and `J` subscription path-index nodes/postings. Let `U` be unique pending plus
-in-service request keys, `D` active destination mailboxes, `M` ever-activated destination shells, and `W`
-queued actor Work tokens. These are counts per relevant owner or their reported sum.
+full-reference entries and `J` subscription path-index nodes/postings. These are counts per relevant owner
+or their reported sum.
 
 | Area | Old growth driver | New retained state | Remaining worst case |
 | --- | --- | --- | --- |
 | N1 | Object membership/index entries per request | `O(G + I)` headers/index plus `O(R)` primitive membership/order data | `G = R`; distinct logical requests and path topology remain |
 | N2 | `O(H)` retained parts and part-position index, alongside cumulative groups | `O(C + Z + J)` headers/index, current graphs and transient replay deltas | Distinct groups, unique indexed positions and E6 binding combinations remain large |
-| N3 | Event/message/heap entry per queued request | `O(D)` wake tokens, compressed `O(U)` membership, `O(M)` idle shells and `O(W)` Work | `U` can still be large; delivery/link events are not coalesced here |
 
 No exact percentage saving is justified yet. In N2, immutable graphs can remain reachable through other
 legitimate owners; removing the history list does not free their full retained union. Stable entries also
-need a new index. N1 order lanes and N3 lock/contention costs must be included. No stronger context or path
+need a new index. Include N1 order lanes and all directory/capacity costs. No stronger context or path
 subsumption algorithm is selected.
 
 First add bounded aggregate counters, rather than per-entity diagnostic objects or retained event logs:
@@ -440,24 +281,23 @@ First add bounded aggregate counters, rather than per-entity diagnostic objects 
 | --- | --- |
 | N1 | Mark/position counts; distinct row headers; members/row distribution; ID density; capacities; coarse candidates, selected candidates, actions; new versus repeated insertion |
 | N2 | Accepted deltas; cumulative groups; group-position postings; queued replay deltas; current graph bytes; E6 member bindings/full combinations; avoided repeated bindings |
-| N3 | Offered logical requests; new/buffered/duplicate/rejected admissions; claimed/completed unique keys; pending/claimed high-water counts; active wakes; capacities; per-class service delay and intake size |
 
 Use small fixed histograms or scalar high-water values. Derive bytes from reviewed heaps and class/layout
 censuses. Do not add a lifetime key set solely to count repeats after completion. Trace samples, if needed,
 must be bounded and explicitly attributed; they cannot establish a global duplicate rate.
 
 Compare logical states/effects at equivalent completed iterations and at deterministic fixture prefixes.
-Physical `handled` counts change under batching, so they are not a common progress denominator. Compare
+Physical event accounting keeps its current meaning; no wake batching is introduced. Compare
 resource-failed project captures with their actual progress disclosed. Keep retained memory, allocation,
 CPU samples and elapsed time separate. Record all query failures as unavailable rather than zero.
 
 Every report must include latest reached `run-N`, direction and positive limit, last complete engine and
 last accepted forward report. Give heap/profile capture iterations separately, including failed runs.
 
-## 7. Implementation sequence and release gates
+## 6. Implementation sequence and release gates
 
-Memory priority remains N1, N2, N3. The integration order below follows their dependencies. Use separate
-reviewable commits; no stage silently changes AP semantics or imports N4–N12.
+The next iteration contains N1 and N2, in that memory-priority order. The integration order below follows
+their dependencies. Use separate reviewable commits; no stage changes scheduling or imports N3–N12.
 
 The main source changes are in the existing bidi packages:
 
@@ -465,11 +305,10 @@ The main source changes are in the existing bidi packages:
 | --- | --- |
 | N1 | `store/RequestStore.kt`: grouped exact relation, row index and visitors; `engine/RunMethodLocalServices.kt`: selective standing joins. Keep `ap/Demand.kt` as the action oracle. |
 | N2 | `store/AddedFacts.kt`: exact accumulator and indexed wrapper; `engine/CalleeSubscriptions.kt`: stable entries and directory; `engine/SubscriptionManager.kt`: transient replay and captured delivery candidates; `store/ConjunctionStore.kt`, `engine/RunMethodCallServices.kt` and `ap/Summary.kt`: checked E6 bindings and helper. |
-| N3 | `engine/RunEvent.kt`: distinct wake; a new internal `engine/RequestMailbox.kt`: grouped pending/claimed state; `engine/RunManager.kt`: typed counted admission and atomic retirement; `engine/RunnerPort.kt`: request-send contract; `engine/UnitRunner.kt` and `engine/EventQueue.kt`: claims, service cycle and lanes. |
-| Contracts | `spec/analyzer-core.md`, `spec/ap-impl.md` and the relevant protocol model/proof files: representation, accounting and scheduler refinements. Record proof scope explicitly. |
+| Contracts | `spec/analyzer-core.md`, `spec/ap-impl.md` and the relevant protocol model/proof files: representation, subscription protocol and E6 refinements. Keep event accounting and scheduler contracts unchanged. Record proof scope explicitly. |
 
-Use a narrowly scoped primitive membership/order helper only if both N1 and N3 need it. Keep the actor-owned
-and shared mailbox facades separate. Do not introduce a general cache library or change unrelated trie users.
+Use narrowly scoped actor-owned primitive membership/order storage for N1. Do not build shared mailbox
+infrastructure for the deferred N3 design. Do not introduce a general cache library or change unrelated trie users.
 
 | Stage | Deliverable | Gate before proceeding |
 | --- | --- | --- |
@@ -478,9 +317,7 @@ and shared mailbox facades separate. Do not introduce a general cache library or
 | 3 | Split exact accumulator from indexed link wrapper; retain current subscription delivery initially | AddedFactStore/link/Support behavior unchanged; unused subscription accumulator index removed |
 | 4 | Normalize matched E6 member bindings and extract checked transfer helper | Full reference/layer/member/conclusion equivalence; no Facts-version member history |
 | 5 | Replace subscription part history by stable entries and one positional directory | Cumulative selection/transfer and replay/delivery simulations pass; P5 encoding/proof updated |
-| 6 | Add pending/in-service grouped mailboxes, typed admission and counted wakes | Adversarial accounting/lifecycle interleavings pass; all unique accepted keys reach N1 |
-| 7 | Bound intake and implement the finite scheduler cycle; then pack remaining lanes | Class service and complete-closure tests pass; scheduler specification reflects intended ordering |
-| 8 | Run required common/JVM checks and fixed project comparisons; review heaps/profiles | Output and resource evidence, including the latest failed run, is sufficient for a release decision |
+| 6 | Run required common/JVM checks and fixed project comparisons; review heaps/profiles | Output and resource evidence, including the latest failed run, is sufficient for a release decision |
 
 Run the independent closure/reference fixtures at positive limits 1, 2 and 3, in forward and backward
 directions, with both unit layouts and varied arrival orders. Include source/sink NNF, repeated/shared
@@ -500,9 +337,10 @@ Also compare against the current rollback output to detect a new loss. Preserve 
 differences in the report; equal-to-rollback is not a no-FN claim. Evaluate additions under their complete or
 incomplete provenance. Do not change exclusion or report policy to force parity.
 
-Capture normal and near-limit profiles and fresh OOM heaps as specified in `task.md`. Review N1/N2/N3 owners,
-logical cardinalities, graph history and queue capacity at the actual capture iteration. A project reaching
-a later run is useful progress, but is not proof of lower bytes at the earlier frontier. Report the measured
+Capture normal and near-limit profiles and fresh OOM heaps as specified in `task.md`. Review N1/N2 owners,
+logical cardinalities and graph history at the actual capture iteration. Also inspect existing queue owners
+and capacity to see whether the N3 pattern persists; this observation does not authorize N3 implementation.
+A project reaching a later run is useful progress, but is not proof of lower bytes at the earlier frontier. Report the measured
 trade-off in memory, allocation and service time. If large unique relations still dominate, use that evidence
 for a separate algorithm proposal instead of adding an unreviewed cap or cache.
 

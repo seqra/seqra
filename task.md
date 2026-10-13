@@ -12,6 +12,12 @@ The old optimization priorities are stale. Use the [latest measurement-based pro
 for future selection. Restore the original `SoftReferenceManager` and remove `WeakIdentityCache` from the
 current implementation. Their redesigns are possible future optimizations that need separate selection.
 
+The next optimization iteration includes N1 and N2 only, as described in the
+[detailed proposal](docs/design/bidirectional-n1-n3-implementation-proposal.md).
+N3 is [deferred](docs/design/bidirectional-n3-deferred-proposal.md). Reconsider it only if fresh measurements
+after N1/N2 show the same substantial queue/backlog pattern. Keep request transport and scheduling unchanged
+in this iteration.
+
 # Test
 Take the latest commit. Ignore reports for the previous commits as staled.
 1) Run on OWASP like we do it in .github/workflows/ci-analyzer-owasp.yaml

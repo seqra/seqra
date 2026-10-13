@@ -1,14 +1,16 @@
 # N1–N3: stored relations, retained history and pending work
 
-Status: analysis for detailed design, not an implementation result. Date: 13 October 2026.
+Status: N1/N2 analysis for the next iteration; N3 deferred. Not an implementation result. Date: 13 October 2026.
 Scope: N1, N2 and N3 from the [memory proposal](bidirectional-core-optimization-20261013.md).
+Selection: N1 and N2 only. Preserve N3's evidence for possible future reconsideration if its pattern persists.
 Use the [detailed implementation proposal](bidirectional-n1-n3-implementation-proposal.md) for the changes.
 It starts with a [short current-versus-new comparison](bidirectional-n1-n3-implementation-proposal.md#behavior-changes-at-a-glance).
 IR objects, storage and providers remain outside the scope. No analyzer code changes in this analysis.
 
-We need both algorithm changes and smaller storage. Start by removing redundant history and event objects,
-and by making joins more selective. Then compact the state that the specified analysis still needs.
+We need both algorithm changes and smaller storage. In the next iteration, remove redundant subscription
+history and make request joins more selective. Then compact the state that the specified analysis still needs.
 Packing the current collections alone keeps much of their cardinality and repeated work.
+Request transport and scheduling remain unchanged. N3 is not a dependency of N1/N2.
 
 The phrase "huge unprocessed collections" describes N3. It does not describe all three owners.
 N1 is processed request history that remains active. N2 includes processed delta history and cumulative state.
@@ -114,7 +116,12 @@ This is an algorithmic reduction of retained history, followed by representation
 distinct caller contexts or valid subscription groups. In forward E6, genuinely different full bindings can
 still have many combinations; no combination cap is proposed.
 
-## N3: coalesce transport and service work fairly
+## N3: deferred transport and scheduling candidate
+
+The user has excluded N3 from the next iteration. Its [detailed design](bidirectional-n3-deferred-proposal.md)
+is retained for possible later use. Reconsider it only if fresh post-N1/N2 heaps/profiles show the same
+substantial pending-request or queue-capacity pattern. Current owner size does not prove a material benefit.
+The following analysis describes the future option, not the selected work.
 
 [UnitRunner](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/UnitRunner.kt)
 drains an unlimited channel into the local queue before polling. `EventQueue` ranks zero Work first,
@@ -152,11 +159,11 @@ even without duplicates. Source grouping, scheduling and queue capacity are sepa
 | --- | --- | --- | --- |
 | N1 | Factor the relation; make mark joins selective | Primitive memberships and group indexes | All standing logical requests until freeze |
 | N2 | Replace retained delta history with cumulative entries; normalize E6 bindings | Stable handles and one positional index | Exact groups, full callers, matched member bindings and conclusions |
-| N3 | Group/coalesce pending requests; ensure finite intake/work service intervals | Primitive mailbox pages and a smaller queue layout | Unique pending obligations and counted work |
+| N3, deferred | No change in the next iteration; reconsider if the pattern persists after N1/N2 | Future option: grouped mailboxes and finite service cycles | Existing pending events, accounting and scheduling remain |
 
-Do not start by designing a packed heap for fifteen million unchanged request-event objects. Remove that
-transport shape first. A FIFO ordinary-event lane and primitive Work comparator are then small representation
-changes over the remaining scheduler entries. They do not establish that the analysis has fewer logical states.
+Queue transport/layout and service changes are deferred. If the same backlog remains after N1/N2, the future
+N3 design can be assessed with fresh owner sizes, duplicate frequency and class service delay. It is not
+part of the next iteration's implementation or release gates.
 
 A stronger algorithm that removes genuine request or context fan-out needs separate evidence and a new
 semantic design. The current measurements do not justify SCC-local retirement, dropping marks, path-based
