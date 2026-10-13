@@ -61,8 +61,8 @@ internal partition behind each duplicate remains unproved. Do not infer one resu
 
 The driver stops with `COMPLETE / STOP_RULE`. This proves completion within the fixed IFDS budget. It does not
 show a speed improvement over main. RSS includes native memory and is not the live Java heap. Neither memory
-guard nor JVM OOME fired, so no guard heap dump was needed in this pair. Separate live-heap owner measurement
-and checkpoint attribution are still required by the plan.
+guard nor JVM OOME fired, so no guard heap dump was needed in this pair. The separate live-heap measurement
+below supplements this pair. Checkpoint attribution remains open.
 
 The final optional counters record 884,662 successful forward builds, 308,762 reverse builds and 71,103,285
 hits from 71,987,947 accesses. Aggregate build time is 199.603 seconds across builds; it is not an exclusive wall
@@ -104,6 +104,41 @@ and the host runs other jobs. There is no same-bidi counters-off control to quan
 overhead. Treat these times as observations from one instrumented pair, rather than a controlled throughput
 estimate.
 
+## Separate live-heap replay
+
+A separate run uses the same fixed model, rules, 8 GiB heap and 1,000-second IFDS budget. It captures a live
+heap during forward run 1 at limit 1, about 60 seconds after the observed run start. The capture takes
+13.137 seconds and produces an 8,548,944,103-byte HPROF file. This forced-GC/dump work is excluded from the
+primary timing comparison above. The replay completes all three iterations and preserves all 4,112 strict
+sink identities, all 9,179 per-identity occurrence counts and all exported location sets from the primary
+bidi output. It adds no new unique identities relative to main.
+
+MAT parses the timed heap with a 20 GiB parser heap and no object-discard options. It indexes 169,554,952
+reachable objects with 5,304,628,496 shallow bytes. The file's serialized size is not live heap size.
+All 287,882 form slots have a cached nonnull payload. The complete payload count and the enabled form
+reference manager's registered-wrapper count are also 287,882. The inverse empty-slot histogram fails
+on an empty selection; it remains unavailable. The full-count equality independently establishes that
+no slot lacks a cached payload.
+
+The live compiled inventory has 801,752 predicates, 647,974 sink descriptors, 112,138 call plans and
+1,494,416 statement summaries. The predicate table has 7,469,778 stored nodes and 11,625,607 child references.
+These are live counts at one capture, rather than cumulative rebuild counters. Source and sink predicates
+share this compiled representation; the predicate count is not a count of sink conditions alone.
+
+| Selected roots | Bytes in retained union |
+| --- | ---: |
+| Compiled predicate/source/sink descriptors | 1,715,130,896 |
+| Actor predicate state | 101,680,976 |
+| Compact containers and their retained graphs | 3,285,685,536 |
+| Method recipes and cache shells | 339,437,544 |
+| IR storage and interners | 594,788,104 |
+
+Each row sums shallow bytes in one requested retained set. These sets overlap and cannot be added.
+The compact-container row includes referenced graphs; it is not exclusive container overhead or an O3
+saving. Strong and all-reference paths are prepared separately to distinguish managed cache reachability
+from active callback pins. This warm heap does not yet prove how much cache memory is exclusively reclaimable,
+or establish a peak-heap or main-versus-bidi memory saving. IR changes remain outside scope.
+
 ## Evidence
 
 The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
@@ -114,6 +149,10 @@ The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
 - `input-audit/pre-run-committed`: complete model/class/dependency/rule/resource manifests.
 - `fixed-projects/OWASP/{review,performance-review}`: completed independent finding and performance reviews,
   including phase measurements, final counters, resource context and read-only reproducers.
+- `live-heap-replay`: separate actual run/capture manifests, native process evidence and unchanged strict
+  findings. Capture times and CPU windows do not replace the primary pair.
+- `heap-analysis/OWASP-live`: bound snapshot, actual MAT commands, archived results and saved-output
+  review; `warm-owners1.xml` is the prepared strong-owner follow-up.
 
-The remaining work is real-heap owner analysis and the O3/O1 checkpoint runs. IR storage and O4–O12 remain
+The remaining work is warm-cache strong-owner analysis and the O3/O1 checkpoint runs. IR storage and O4–O12 remain
 outside the selected implementation.
