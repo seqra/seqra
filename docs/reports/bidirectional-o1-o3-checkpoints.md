@@ -102,6 +102,21 @@ nine open runners. This snapshot identifies compiled cached forms as the dominan
 fresh child/strong-path queries must still identify the largest methods and condition expansions.
 It is not a before/after heap saving because the O1 and final runs reach different progress points.
 
+The later bounded queries identify the largest cached context as
+`org.owasp.benchmark.testcode.BenchmarkTest00777.doPost(HttpServletRequest, HttpServletResponse)`.
+Its strong call cache retains 10,202,584 bytes through a 292-cell array. Paths lead through
+`FormsCache.slots`, the method's plans, the context recipe map and the main thread. That context
+map retains 6,186,588,872 bytes across methods; the largest cache alone does not explain the total.
+
+One selected 879,776-byte call plan has exactly 2,960 materialized sink objects from 25 physical bound
+rule objects and 24 raw condition roots. Five XSS rules each produce 396 alternatives. The selected
+alternative-root set retains 862,344 bytes, with 8,601 path facts and 8,601 patterns; the raw-condition
+root set retains 20,968 bytes. These are distinct requested sets, not an isolated whole-project saving.
+The query's array count matches the returned object count. This provides concrete condition-level
+evidence of positive cube expansion inside a strongly cached form. All nine final condition queries
+succeed. An earlier optional array-field query failed; the failure remains recorded, and later valid
+scalar, child and source-specific queries supply the required owner evidence.
+
 The O3 Conductor overview accounts for all 28 queries: 26 nonempty CSV outputs and two valid empty
 standing-request outputs. The complete histogram independently has no `RequestStore` instances.
 Its reachable heap has 228,806,565 objects and 7,670,902,464 shallow bytes. All 17,525 actors belong
@@ -159,6 +174,11 @@ whole-iteration, guard and pre-guard windows. CPU/allocation/GC exports remain p
 
 Raw logs, terminal summaries, strict comparisons and capture provenance are under
 `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012/attribution-runs` and `attribution-review`.
+The fresh post-checkpoint input endpoint check is
+`input-audit/post-run-check/result-20261013T042255.731787Z/equality-manifest.json`: all 77 checks pass
+across the 41 captured content datasets. The original six uncaptured dangling toolchain targets remain
+unavailable for historical comparison. Diagnostic harness bytes and analyzer revisions are separate
+provenance. This check is endpoint equality, not continuous mutation monitoring.
 The external `attribution-review/index.json`, eight order JSON files and source differential preserve
 the exact counts, nanosecond timings and their limits. Heap plans and later query results are under
 `heap-analysis/checkpoints-preparation`. The saved-stack reader, guard intersections and JFR export
