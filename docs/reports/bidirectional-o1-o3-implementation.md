@@ -94,8 +94,9 @@ a deeper mark-request answer keeps a root STAR, which starts as ANY/DEMAND at ev
 canonical summary union removes redundant demand terms before handoff. The tests retain the complete independent
 comparisons and separately check the original source's limit-1 cut versus unchanged paths at limits 2 and 3.
 
-The refreshed storage evidence uses the common classes before the added diagnostic shape readers, which add
-methods without adding storage fields to form containers. It has 128 retained-size rows and 48 copy/lookup
+The refreshed storage evidence uses the final common classes at `b0a2448c0`. The diagnostic shape readers add
+methods without adding storage fields to form containers. All 128 retained-size rows and their object counts
+match the preceding layouts. The evidence has 48 copy/lookup
 rows, with matching shared input hashes and all paired checksums equal. Lookup timing is a diagnostic only.
 The tooling suite passed 25 tests, including cross-midnight profile windows. The benchmark runner now checks
 the unique run marker before stopping an analyzer outside the Gradle wrapper's process group.
@@ -111,4 +112,6 @@ project resource gates.
 Run OWASP, Conductor, ThingsBoard and Stirling-PDF through `runProjectAnalyzer`. Keep the selected configuration,
 heaps and time limits. For each project, record strict finding-location comparison, each iteration time,
 OOM/timeout status, CPU profiles and any OOM memory snapshot. Explain each missing baseline finding and each
-remaining large memory owner. No fresh project scan has completed for this implementation yet.
+remaining large memory owner. The fresh [OWASP pair](bidirectional-o1-o3-projects/OWASP.md) completed within
+the fixed budget and retained all 4,112 main sink identities. Conductor is running; ThingsBoard, Stirling-PDF,
+per-optimization attribution and separate heap-owner diagnostics remain pending.

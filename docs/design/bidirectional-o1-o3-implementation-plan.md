@@ -1,6 +1,6 @@
 # Implementation plan: O1, O2 and O3
 
-Status: ready for implementation; no implementation step is marked complete. Date: 12 October 2026. Follow the [detailed proposal](bidirectional-o1-o3-implementation-proposal.md). The selected work is O1 NNF source/sink predicates, O2 managed soft method-form caches and O3 compact form containers.
+Status: core implementation and test gates passed; fixed-project and resource verification is in progress. Updated: 13 October 2026. Follow the [detailed proposal](bidirectional-o1-o3-implementation-proposal.md) and [implementation record](../reports/bidirectional-o1-o3-implementation.md). The selected work is O1 NNF source/sink predicates, O2 managed soft method-form caches and O3 compact form containers. The series is not complete until the remaining workload gates pass.
 
 Deliver small commits with a parent revision, focused tests and a stated acceptance result. Keep the IR, other optimization families and project settings outside these commits. The expected memory-impact order is O1, O2, O3; the first steps establish the ownership and identity that they need.
 
