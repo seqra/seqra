@@ -124,7 +124,9 @@ gates have not passed. The fresh [Stirling-PDF pair](bidirectional-o1-o3-project
 in backward run 4. Its retained report has 56 unique sink identities: 14 main identities remain, three are
 absent and 42 are added. Two strict differences have source-backed exit-location mappings. An offline probe
 reproduces command-mark loss at a later `List.add` return rewriter under the specified source override policy;
-the first loss point in the full run remains unproved. Fresh CPU/JFR reviews for all four projects are saved.
+the earliest loss on a complete normal caller chain remains unproved. A separate fixed-configuration
+runtime captures actual DEMAND/zero-premise root removal at that returned stage and complete F1/F3
+report replacement. Fresh CPU/JFR reviews for all four projects are saved.
 All eight [O3/O1 checkpoint scans](bidirectional-o1-o3-checkpoints.md) have finished. O1 completes OWASP
 with all baseline identities and the same 9,179 occurrences as the final run. The other seven checkpoint
 scans stop on memory. Both PDF checkpoints retain F1 output after F3 fails, while the final run accepts F3;
@@ -135,7 +137,12 @@ These are overlapping unions at different progress points, not isolated memory s
 ThingsBoard follow-up verifies 2,329,585 single-leaf predicates with a 1,758,031,280-byte descriptor
 union and an overlapping 969,107,360-byte base-index union. The selected PDF F1 witness and scalar
 queries are complete. All eight checkpoint JFR exports and the review of their 151 overlapping windows
-are complete. The command's full-run proof history remains open. A bounded observer compiled and passed
-48 call/report/driver controls in an isolated checkout; its fixed-configuration full run has completed
-F1, B2 and F3 and is active in B4. The original model, heap and timeout are kept. Its diagnostic timings
-do not replace the primary pair. The four-project resource gate has not passed.
+are complete. A bounded observer compiled and passed 48 call/report/driver controls in an isolated
+checkout. Its original-configuration full run completes F1, B2 and F3, then times out in B4, with exact
+primary finding/occurrence/location parity. Its complete report lane proves the two command entries
+are unconfirmed F1 DEMAND and absent after the accepted F3 report update. Captured F1 batches prove
+root-mark generation, returned root removal and descendant preservation under D23. Ordinary event caps
+prevent a whole-run earliest-loss or complete normal caller-chain proof; contribution to the strict
+loss remains an inference. The original model, heap and timeout are kept. Diagnostic timings do not
+replace the primary pair. The four-project resource gate has not passed. Further deferred core or
+source-policy work requires a scope decision under step 10 of the implementation plan.

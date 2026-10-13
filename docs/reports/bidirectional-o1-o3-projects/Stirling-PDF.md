@@ -8,8 +8,9 @@ loses three and adds 42. Fixed-budget completion and complete finding preservati
 Two strict losses have same-rule, same-method XSS findings at different return instructions. The current
 boundary/Simple reporting path explains the change to the last physical return; it does not prove equal
 flows or support. The third loss is the `ProcessBuilder` command-injection sink, with no corresponding
-current finding in that method. An offline probe reproduces command-mark loss at a later `List.add` return
-rewriter. It does not establish the first loss point in the full run.
+current finding in that method. An offline probe and a separate full-configuration diagnostic observe
+exact-root command-mark removal at a later `List.add` return rewriter. The captured runtime batch is
+DEMAND; it does not establish the earliest loss on a normal source-to-sink chain.
 
 ## Inputs and execution
 
@@ -92,8 +93,9 @@ matched into the 14 retained identities.
 The two Java paths above are under `app/core/src/main/java/stirling/software/SPDF/controller/api/`, in
 `converters/` and `pipeline/` respectively. The ProcessExecutor row has no same-rule/full-method candidate
 in the current output. It is a third strict loss, separate from the two return-location changes. The
-timeout alone does not establish why this site is absent. The local propagation difference below can
-explain the loss, but the full-run rule selection and fact history are unavailable.
+timeout alone does not establish why this site is absent. The local propagation difference and actual
+forward-report replacement below supply evidence for a loss mechanism. The capped trace does not prove
+the complete normal caller chain.
 
 ### Command-mark loss at the source return rewriter
 
@@ -132,13 +134,48 @@ and one. Native owner, full descriptor, instruction 8 and line 183 match the bas
 The current manager is at forward run 3, limit 3, while the report builder still holds these F1 entries.
 
 Thus the O3 output preserves coarse F1 demands after an incomplete F3. The final run completes F3
-and can replace that unconfirmed demand set. This proves the earlier entries' state; it does not prove
-the command's state in final F1 or the first full-run mark-loss point. The O1 heap has the same two
+and can replace that unconfirmed demand set. This proves the earlier entries' state; the separate
+runtime diagnostic below establishes the current code's F1/F3 report states. The O1 heap has the same two
 run-1 `DEMAND` entries, with selected witness counts four and two. That count difference alone does
-not establish different semantics. Selected witness headers remain under review. Keep the strict loss
+not establish different semantics. Selected witness headers and scalar pointer joins are reviewed. Keep the strict loss
 visible and do not assign it to O2 solely from these
 different forward barriers. The [checkpoint report](../bidirectional-o1-o3-checkpoints.md) records
 all eight results and their limits.
+
+### Fixed-configuration runtime observation
+
+A separate diagnostic runs the actual Gradle `runProjectAnalyzer` task on code `b0a2448c0`, with the
+same model, built-in rules, Temurin 17, 8 GiB heap and 1,080-second IFDS budget. A bounded observer is
+applied only in an isolated checkout. Its `:classes` build and 48 selected call/report/driver tests pass.
+It completes F1, B2 and F3, then times out in B4. Its final output has exactly the primary run's 56
+strict identities, 128 occurrences and locations, with no identity or occurrence changes. These
+diagnostic times do not replace the primary performance measurements.
+
+The reserved report lane has 40 rows, no drops, no truncated payloads and no writer error. At the F1
+barrier, `sink:1` and `sink:3` are both DEMAND/run1, with four and two unconfirmed witnesses. After
+the completed F3 barrier, the actual report contains no command entry. Thus, this run removes earlier
+unconfirmed command demands at F3; its B4 timeout retains that accepted F3 report.
+
+Three fully captured F1/limit-1 batches use the same controller method, empty context, zero premise,
+DEMAND layer and empty field exclusion:
+
+| Operation | Captured result |
+| --- | --- |
+| `command.add(URL)`, index 55 | The real conditional source reads Arg0 ANY `$UNTRUSTED`, emits `This` EXACT `$ARGS`, binds it to caller local 37 and preserves it through the CALL cut. |
+| `command.add("--pdf-forms")`, index 56 | That exact-root `$ARGS` fact binds to `This` and survives the unresolved identity return. The returned action chain includes its matching exact-root cleaner and changes the batch from one fact to zero. The captured source sibling has zero output. |
+| Filename append, index 58 | A descendant `This.[Iterable.Element].ANY` untrusted fact survives the exact-root cleaner unchanged and maps back to local 37. |
+
+This proves an actual local returned-rewriter removal, with a descendant-preservation control. It does
+not prove that all list taint is removed. The matching behavior follows the existing D23 source-override
+policy and is shared by the older O3/O1 call-plan code. Its contribution to the strict baseline loss is
+an inference from this captured flow, the offline NORMAL control and the completed F3 report change;
+these records do not prove an introduced O1/O2 defect or a complete normal caller-chain rejection.
+
+Each ordinary F1/F3 event lane reaches its 25,000-row cap, with 263,813 and 591,192 omitted rows.
+All twelve selected operations have captured rows, but this does not establish complete flow coverage
+or a whole-run earliest-loss theorem. No payload is truncated; the independently reserved report lane
+remains complete. The exact raw batches and three reproducible checks are in
+`runtime-observer-runs/PDF-20261013T054001Z/Stirling-PDF/bidi/flow-review`.
 
 ### Fresh XSS exit-location evidence
 
@@ -264,7 +301,7 @@ and 5.879 seconds of clipped pauses in 25.219 seconds; O1 F3 records 116.681 GB 
 in 30 seconds. Subtraction accounts for 9.76% and 12.17% of inclusive allocation weight. Shorter
 windows and different progress prevent an isolated memory or speed claim. These OOM heaps explain
 the checkpoint failures; they do not establish final B4 retained ownership. The separate full-run
-command observer is still active with the original model, heap and timeout. See the [checkpoint report](../bidirectional-o1-o3-checkpoints.md) for revisions,
+command observer is terminal with the same B4 timeout and selected output. See the [checkpoint report](../bidirectional-o1-o3-checkpoints.md) for revisions,
 timings, archives, report-state joins and query limits.
 
 ## Evidence and remaining gates
@@ -279,9 +316,14 @@ The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
 - `fixed-projects/Stirling-PDF/performance-review`: separate current-run performance review.
 - `fixed-projects/Stirling-PDF/command-loss-review`: bound source/sink predicates, real call-plan controls,
   baseline coordinate comparison and full probe limitations in `BOUND-RESULT.md`.
+- `runtime-observer-runs/PDF-20261013T054001Z`: original-configuration diagnostic manifests and summary,
+  strict primary/main comparisons, complete report ledger and capped flow records. The `flow-review`
+  folder keeps the source-generation, root-removal and descendant-preservation batches and validators.
 
 Main SARIF SHA-256 is `68bcaf341b15c8f485fc9afb8f8333271b3d5ad35760036ddd628afc4e9835af`; bidi is
 `4a3d454300aec50d36c4414d6ff8a50be4e620b4801933fa1af63bb568f33e8a`.
-Fixed-budget completion, all baseline sink identities, full-run ProcessExecutor loss attribution, complete
-added-site validation and per-optimization checkpoint attribution remain open. IR and O4–O12 are outside the selected
-implementation.
+Fixed-budget completion and preservation of all baseline identities fail. Checkpoint heap/profile and
+selected witness reviews are complete. The actual local source-override removal and F3 report replacement
+are verified; contribution to the full normal baseline path remains an inference under the event caps.
+Incomplete DEMAND additions are not final false-positive counts. Further source-policy or deferred core
+changes require a separate scope decision. IR and O4–O12 remain outside the selected implementation.

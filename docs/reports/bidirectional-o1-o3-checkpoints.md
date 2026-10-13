@@ -78,19 +78,35 @@ and then lacks this identity. SARIF has no per-row CONFIRMED/DEMAND property, so
 the command row's F1 state. The later O3 heap query does establish it: both native entries, for
 `os-command-injection:sink:1` and `os-command-injection:sink:3`, are retained run-1 `DEMAND` entries.
 Their witness counts are two and one. The active manager is at F3/limit 3. This proves coarse F1
-demand retention through the failed F3; final F1 state and the first actual mark loss remain unproved.
+demand retention through the failed F3. The separate current-code runtime below now establishes
+F1/F3 report state; the checkpoint heap alone does not establish a first normal-path loss.
 The O1 heap has the same two native run-1 `DEMAND` entries. Its selected witness counts are four and
 two, compared with O3's two and one. Different proof representations and support shapes prevent a
 semantic conclusion from these counts alone. Both checkpoints retain F1 through an incomplete F3.
 
 The source differential and local probe do not prove an O1 or O2 defect. The positive source condition
 and exact returned cleaner have the same relevant behavior at O3 and O1. The local NORMAL `$ARGS`
-mark loss follows the shared source-override policy. The first actual full-run loss and its proof
-history still need per-site evidence. Keep this strict difference open; do not change the cleaner
+mark loss follows the shared source-override policy. Keep this strict difference open; do not change the cleaner
 policy or model solely to restore the baseline row. The two other missing PDF identities have the
 source-backed exit-location mappings recorded in the [PDF report](bidirectional-o1-o3-projects/Stirling-PDF.md).
 
-## Evidence still under review
+A separate bounded observer now runs the actual current-code Gradle task with the original PDF model,
+8 GiB heap and 1,080-second budget. F1, B2 and F3 complete; B4 times out. Its final 56 identities and
+128 occurrences match the primary output exactly, including locations. The independent report lane
+has 40 rows with no drops, no truncations and no write error. It records both command entries as
+unconfirmed F1 DEMAND, with four and two witnesses, and zero command entries after the completed F3
+update. This verifies report replacement rather than an O1/O2 regression from checkpoint output counts.
+
+The captured F1 URL-add source emits an exact-root `$ARGS` fact. At the later constant append, that
+DEMAND/zero-premise fact survives the unresolved identity return, then the returned action chain with
+its matching exact-root cleaner changes the batch from one fact to zero. A separate descendant fact
+survives a later exact-root cleaner. This is an actual local loss mechanism under D23; contribution to
+the missing normal baseline path remains an inference. Each ordinary lane reaches its 25,000-row cap,
+with 263,813 and 591,192 dropped rows. It supplies no exhaustive first-loss or full normal-chain proof.
+The exact batches, report ledger and reproducible checks are in
+`runtime-observer-runs/PDF-20261013T054001Z/Stirling-PDF/bidi/flow-review`.
+
+## Reviewed heap and profile evidence
 
 All seven memory failures have guard captures. Their serialized file sizes are not retained heap
 sizes. Source-specific MAT queries must distinguish strong cached forms, current protocol stores,
