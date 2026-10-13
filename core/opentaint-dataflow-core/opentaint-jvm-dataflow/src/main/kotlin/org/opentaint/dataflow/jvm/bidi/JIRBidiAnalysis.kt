@@ -104,7 +104,7 @@ class JIRBidiAnalysis internal constructor(
                 return driverFactory(policy, shared, budget - start.elapsedNow()).analyze(copied.roots)
             } finally {
                 entries.formStatistics?.let {
-                    logger.info { "Bidi form statistics: ${it.snapshot()} trackedFormReferences=${formReferences.trackedReferenceCount}" }
+                    logger.info { "Bidi form statistics: ${it.snapshot()}" }
                 }
             }
         }

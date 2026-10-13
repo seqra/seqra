@@ -13,7 +13,6 @@ import org.opentaint.dataflow.jvm.bidi.fixtures.JIRRuleTestFixtures
 import org.opentaint.dataflow.taint.PositionAccess
 import org.opentaint.dataflow.taint.RuleConditionRewriter
 import org.opentaint.dataflow.taint.TaintMarkAwareConditionExpr
-import org.opentaint.dataflow.util.WeakIdentityCache
 import org.opentaint.ir.api.jvm.cfg.JIRLocalVar
 import org.opentaint.ir.api.jvm.ext.toType
 import kotlin.test.Test
@@ -141,40 +140,43 @@ class JIRSignedConditionTest : BasicTestUtils() {
         assertTrue(forms.rewriteSourceOrSink(rule, rewriter).isFalse)
     }
 
-    @Suppress("UNCHECKED_CAST")
-    @Test fun `validation and diagnostic caches release explicitly cleared transient rule keys`(): Unit {
+    @Test fun `transient rule copies validate independently and diagnostics retain detached identifiers`(): Unit {
         val local = fixture.forms()
-        val rule = fixture.sink(condition = atom(Argument(0)))
-        assertTrue(local.valid(rule))
-        assertTrue(local.valid(rule))
-        val validity = local.javaClass.getDeclaredField("validity").apply { isAccessible = true }.get(local)
-            as WeakIdentityCache<Any, Boolean>
-        fun references(cache: WeakIdentityCache<*, *>): List<java.lang.ref.WeakReference<*>> {
-            val values = cache.javaClass.getDeclaredField("values").apply { isAccessible = true }.get(cache) as Map<*, *>
-            return values.keys.map { it as java.lang.ref.WeakReference<*> }
+        val rule = fixture.sink(condition = atom(Argument(0))).copy(serializedId = "transient-rule")
+        val bad = rule.copy(condition = atom(PositionWithAccess(PositionWithAccess(Argument(0),
+            PositionAccessor.AnyFieldAccessor), PositionAccessor.AnyFieldAccessor)))
+        repeat(3) {
+            assertTrue(local.valid(rule.copy()))
+            assertFalse(local.valid(bad.copy()))
+            assertTrue(local.rewriteSourceOrSink(bad.copy(), rewriter).isFalse)
         }
-        assertEquals(1, validity.size)
-        val cached = references(validity).single()
-        assertTrue(cached.get() === rule)
-        cached.clear(); assertTrue(cached.enqueue())
-        assertEquals(1, validity.pruneAll())
-        assertEquals(0, validity.size)
-        assertTrue(local.valid(rule))
-        assertEquals(1, validity.size)
 
         val errors = org.opentaint.dataflow.jvm.bidi.interp.RuleErrors()
         assertFalse(errors.reject(rule, "probe reason"))
         assertFalse(errors.reject(rule, "probe reason"))
-        errors.applied(rule, "second reason")
-        val diagnostics = errors.javaClass.getDeclaredField("seen").apply { isAccessible = true }.get(errors)
-            as WeakIdentityCache<Any, MutableSet<String>>
+        assertFalse(errors.reject(rule.copy(), "probe reason"))
+        val diagnostics = errors.javaClass.getDeclaredField("seen").apply { isAccessible = true }.get(errors) as Set<*>
         assertEquals(1, diagnostics.size)
-        assertEquals(setOf("probe reason", "second reason"), diagnostics.getOrPut(rule) { error("lost reasons") })
-        val diagnostic = references(diagnostics).single()
-        diagnostic.clear(); assertTrue(diagnostic.enqueue())
-        assertEquals(1, errors.pruneDiagnostics())
-        assertEquals(0, diagnostics.size)
-        assertFalse(errors.reject(rule, "probe reason"))
-        assertEquals(setOf("probe reason"), diagnostics.getOrPut(rule) { error("lost new reason") })
+        errors.applied(rule, "probe reason")
+        assertFalse(errors.reject(rule, "another reason"))
+        assertFalse(errors.reject(rule.copy(serializedId = "another-rule"), "probe reason"))
+        assertEquals(4, diagnostics.size, "Distinct IDs, reasons and applied/rejected diagnostics must remain separate")
+        for (diagnostic in diagnostics) {
+            val fields = checkNotNull(diagnostic).javaClass.declaredFields.filterNot {
+                java.lang.reflect.Modifier.isStatic(it.modifiers)
+            }
+            assertTrue(fields.isNotEmpty())
+            for (field in fields) {
+                field.isAccessible = true
+                assertTrue(field.get(diagnostic) is String, "Diagnostics must not retain bound rules, conditions or methods")
+            }
+        }
+
+        val unidentified = object {
+            override fun hashCode(): Int = error("Diagnostics must not hash arbitrary bound owners")
+            override fun toString(): String = error("Diagnostics must not render arbitrary bound owners")
+        }
+        repeat(2) { assertFalse(errors.reject(unidentified, "unidentified reason")) }
+        assertEquals(4, diagnostics.size, "Anonymous rules must not enter the detached-ID deduplication set")
     }
 }

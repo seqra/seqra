@@ -4727,15 +4727,14 @@ directory and call-point directory cardinalities. The form sampler visits struct
 without traversing AP/IR payloads or predicate topology and without creating compatibility views. Shared containers
 and index arrays count once per sample, and count again after reversal/rebuild; fixed point-directory spare slots
 are included. These cumulative shape samples measure neither new allocations, live retained sizes nor bytes.
-The final log also records registered form-reference wrappers, including cleared
-wrappers not yet pruned. The aggregate holds no slot, form or builder, allocates no per-slot counter and adds no
+The original managed-reference API exposes no tracked-wrapper count. The aggregate holds no slot, form or builder, allocates no per-slot counter and adds no
 per-event log.
 
-`SoftReferenceManager` serializes registration and enable/disable transitions. Cleanup swaps the identity registry
-under its short lock and clears the detached batch outside it, without an O(n) copied batch. A ReferenceQueue
-prunes cleared wrappers in bounded batches on create/enable and through an explicit full drain. Cleanup returns
--1 while already disabled; createRef returns null while disabled. Keep MemoryManager policy unchanged. The manager
-never takes a form-slot lock. Common slot/proof tests are required before integrated reclamation is enabled.
+`SoftReferenceManager` retains its original concurrent queue and atomic enabled flag. Cleanup disables the
+manager and drains/clears the queue; it returns -1 while already disabled. `createRef` checks the flag and
+returns null while disabled; `enable` sets the flag. This does not promise a serialized registration/cleanup
+transition or reference-queue pruning. The requested rollback removes those added guarantees and APIs.
+Keep MemoryManager policy unchanged. Common slot/proof tests verify form rebuilds through this original API.
 
 COMPACT FORM API. `StatementSummary` keeps owned `touched`, `edges`, `conjunctions`, operand/result filter maps
 and `sources`; `edgesOf(base)` is an ordinal view over its shared edge vector. `CallPlan.stagesFrom` is the compatibility directory, and
@@ -5465,8 +5464,7 @@ internal class JIRRuleForms(
 
     /** Validate all raw action/condition positions before static evaluation, including negated literals and every alternative.
      *  Reject the whole rule once on invalid position/static shape. The pass mark-condition exception is handled separately. */
-    fun valid(rule: TaintConfigurationItem): Boolean = validity.computeIfAbsent(rule, ::validate)
-    private val validity = ConcurrentHashMap<TaintConfigurationItem, Boolean>()
+    fun valid(rule: TaintConfigurationItem): Boolean = validate(rule)
 
     private fun validate(rule: TaintConfigurationItem): Boolean {
         var ok = true
@@ -5760,17 +5758,27 @@ a rule error (`valid`, §27.1; `interpreter.md` §1.3, D33), so `pass` never mee
     }
 }
 
-/** §1.3, D29: a RULE ERROR rejects the WHOLE rule (`JIRRuleForms.valid`) and is logged once per (rule, reason). The one
+/** §1.3, D29: a RULE ERROR rejects the WHOLE rule (`JIRRuleForms.valid`). Identified rules log once per
+ *  (rule type, declared ID, diagnostic kind, reason), without retaining bound objects. Anonymous warnings can repeat. The one
  *  rule error that does not reject (D24: a pass rule with a mark literal applies without its mark literals) is logged
  *  once by `applied`. So "rule error" has one meaning: `reject`. */
 class RuleErrors {
-    private val seen = ConcurrentHashMap.newKeySet<Pair<Any, String>>()
+    private data class Diagnostic(val ruleType: String, val ruleId: String, val kind: String, val reason: String)
+    private val seen = ConcurrentHashMap.newKeySet<Diagnostic>()
+    private fun ruleId(rule: Any): String? =
+        (rule as? TaintConfigurationItem)?.serializedId ?: (rule as? TaintConfigurationSink)?.id
+    private fun first(rule: Any, kind: String, reason: String): Boolean {
+        val id = ruleId(rule) ?: return true
+        return seen.add(Diagnostic(rule.javaClass.name, id, kind, reason))
+    }
+    private fun description(rule: Any): String =
+        "${rule.javaClass.simpleName}[${ruleId(rule) ?: "unidentified"}]"
     fun reject(rule: Any, reason: String): Boolean {
-        if (seen.add(rule to reason)) logger.warn { "Rule rejected ($reason): $rule" }
+        if (first(rule, "rejected", reason)) logger.warn { "Rule rejected ($reason): ${description(rule)}" }
         return false
     }
     fun applied(rule: Any, reason: String) {
-        if (seen.add(rule to reason)) logger.warn { "Rule applied in part ($reason): $rule" }
+        if (first(rule, "applied", reason)) logger.warn { "Rule applied in part ($reason): ${description(rule)}" }
     }
     private companion object { val logger = KotlinLogging.logger {} }
 }

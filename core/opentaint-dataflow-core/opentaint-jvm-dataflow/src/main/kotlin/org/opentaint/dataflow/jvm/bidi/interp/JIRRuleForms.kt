@@ -69,7 +69,6 @@ import org.opentaint.dataflow.taint.TaintMarkAwareConditionExpr.ContainsMarkLite
 import org.opentaint.dataflow.taint.TaintMarkAwareConditionExpr.ContainsMarkOnAnyAccessorLiteral
 import org.opentaint.dataflow.taint.accessors
 import org.opentaint.dataflow.taint.base
-import org.opentaint.dataflow.util.WeakIdentityCache
 import org.opentaint.ir.api.jvm.JIRType
 import org.opentaint.ir.api.jvm.cfg.JIRAssignInst
 import org.opentaint.ir.api.jvm.cfg.JIRFieldRef
@@ -257,10 +256,8 @@ internal class JIRRuleForms(
         JIRRulePredicates(manager, statistics) { checkNotNull(literal(rule, it)) { "A rejected rule reaches predicate compilation" } }
             .compile(normalizedSourceOrSink(cond), mayBeArray)
 
-    fun valid(rule: TaintConfigurationItem): Boolean =
-        validity.getOrPut(rule, ::validate)
-    // Spring providers make transient copies. Neither cache keys nor Boolean values own those rules.
-    private val validity = WeakIdentityCache<TaintConfigurationItem, Boolean>()
+    // Providers can return transient bound copies. Validate each input without retaining those rules.
+    fun valid(rule: TaintConfigurationItem): Boolean = validate(rule)
 
     private fun validate(rule: TaintConfigurationItem): Boolean {
         var ok = true
@@ -471,21 +468,25 @@ internal class JIRRuleForms(
 private fun <T> owned(xs: List<T>): List<T> = Collections.unmodifiableList(ArrayList(xs))
 private fun ownFact(p: PathFact): PathFact = p.copy(path = owned(p.path))
 
-/** Reject a complete rule, or report the pass-rule mark-condition exception, once per reason. */
+/** Identified rules share diagnostics across bound copies without retaining the rule or condition. */
 class RuleErrors {
-    private val seen = WeakIdentityCache<Any, MutableSet<String>>()
-    private fun first(rule: Any, reason: String): Boolean =
-        seen.getOrPut(rule) { ConcurrentHashMap.newKeySet<String>() }.add(reason)
-    private fun description(rule: Any): String = if (rule is TaintConfigurationItem)
-        "${rule.javaClass.simpleName}[${rule.serializedId ?: (rule as? TaintConfigurationSink)?.id ?: "unidentified"}]"
-        else rule.toString()
+    private data class Diagnostic(val ruleType: String, val ruleId: String, val kind: String, val reason: String)
+    private val seen = ConcurrentHashMap.newKeySet<Diagnostic>()
+    private fun ruleId(rule: Any): String? =
+        (rule as? TaintConfigurationItem)?.serializedId ?: (rule as? TaintConfigurationSink)?.id
+    private fun first(rule: Any, kind: String, reason: String): Boolean {
+        // Without a declared ID, keep the warning rather than conflate distinct anonymous rules.
+        val id = ruleId(rule) ?: return true
+        return seen.add(Diagnostic(rule.javaClass.name, id, kind, reason))
+    }
+    private fun description(rule: Any): String =
+        "${rule.javaClass.simpleName}[${ruleId(rule) ?: "unidentified"}]"
     fun reject(rule: Any, reason: String): Boolean {
-        if (first(rule, reason)) logger.warn { "Rule rejected ($reason): ${description(rule)}" }
+        if (first(rule, "rejected", reason)) logger.warn { "Rule rejected ($reason): ${description(rule)}" }
         return false
     }
     fun applied(rule: Any, reason: String) {
-        if (first(rule, reason)) logger.warn { "Rule applied in part ($reason): ${description(rule)}" }
+        if (first(rule, "applied", reason)) logger.warn { "Rule applied in part ($reason): ${description(rule)}" }
     }
-    fun pruneDiagnostics(): Int = seen.pruneAll()
     private companion object { val logger = KotlinLogging.logger {} }
 }

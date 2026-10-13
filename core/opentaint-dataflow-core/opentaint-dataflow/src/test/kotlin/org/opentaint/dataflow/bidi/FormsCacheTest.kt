@@ -28,7 +28,6 @@ class FormsCacheTest {
         val build = { builds++; Form(17) }
         val forward = cache.get(0, Direction.FORWARD, build)
         val backward = cache.get(0, Direction.BACKWARD, build)
-        assertEquals(1, refs.trackedReferenceCount)
         assertSame(forward, cache.get(0, Direction.FORWARD, build))
         assertSame(backward, cache.get(0, Direction.BACKWARD, build))
         assertEquals(1, refs.cleanup())
@@ -57,7 +56,6 @@ class FormsCacheTest {
         assertEquals(first, second)
         assertEquals(Form(23, Direction.BACKWARD), backward)
         assertEquals(3, builds)
-        assertEquals(0, refs.trackedReferenceCount)
         assertNull(payloadReference(cache, 0))
         refs.enable()
         val retained = cache.get(0, Direction.FORWARD, build)
@@ -72,7 +70,6 @@ class FormsCacheTest {
         assertFailsWith<IllegalStateException> {
             cache.withForm(0, Direction.BACKWARD, { error("forward failed") }) { error("Used failed form") }
         }
-        assertEquals(0, refs.trackedReferenceCount)
         assertNull(payloadReference(cache, 0))
         val forward = cache.get(0, Direction.FORWARD) { Form(7) }
         assertEquals(Form(7), forward)
@@ -186,7 +183,7 @@ class FormsCacheTest {
                 cache.get(0, Direction.BACKWARD) { error("Recursive builder ran") }
             }
         }
-        assertEquals(0, refs.trackedReferenceCount)
+        assertNull(payloadReference(cache, 0))
         assertEquals(Form(3), cache.get(0, Direction.FORWARD) {
             assertEquals(Form(4), cache.get(1, Direction.FORWARD) { Form(4) })
             Form(3)

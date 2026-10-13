@@ -62,8 +62,7 @@ No production expression or support count has a cap. No historical theorem is a 
 5. Stable keys: equal independent rebuilds but separate configured occurrences, contexts, action roles and field/
    string-byte/relevant-mark substeps. Generated F74 temporaries match across forward/reverse/rebuild, manual ones
    remain fresh, and no temporary escapes. Witness scope and support headers remain separate across keys/runs.
-6. Managed lifecycle/cache: deterministic explicit enqueue/prune, cleanup idempotence/re-enable, latch-controlled
-   registration races, no late accepted reference, clearing outside the lock, and a new batch surviving old cleanup.
+6. Managed lifecycle/cache: original manager API, sequential cleanup idempotence/re-enable and distinct registrations.
    Lazy slot allocation, one managed forward/reverse payload, concurrent single-flight, failed-forward no publication,
    failed-reverse forward retention, recursive build rejection, disabled transient access without fallback, callback
    pin through cleanup/failure/cancellation and snapshot-safe accessors. Do not use sleeps or GC timing as correctness.
@@ -74,7 +73,7 @@ No production expression or support count has a cap. No historical theorem is a 
    Empty/singleton/owned-array vectors, compact base/point ordinal views and primitive larger-map lookup. Reversal
    shares owned immutable paths/sinks/filters without changing field cuts or native pending-return finalization.
 
-Use SoftReferenceManagerLifecycleTest, FormsCacheTest, RuleIdentityTest, RulePredicateCompilerTest,
+Use SoftReferenceManagerLifecycleTest (original public API only), FormsCacheTest, RuleIdentityTest, RulePredicateCompilerTest,
 RulePredicateStoreTest, SignedConditionNormalizerTest, the JVM rule/forced-eviction tests and compact-form tests,
 then the full common/JVM/Go consumer and both application/query modes. Record authoritative logs and fresh XML.
 Repeat only the four fixed project workloads with their prescribed heap/timeout, strict findings/status comparison,
