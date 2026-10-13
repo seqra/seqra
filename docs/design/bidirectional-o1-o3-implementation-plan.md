@@ -1,6 +1,10 @@
 # Implementation plan: O1, O2 and O3
 
-Status: core implementation and test gates passed; fixed-project and resource verification is in progress. Updated: 13 October 2026. Follow the [detailed proposal](bidirectional-o1-o3-implementation-proposal.md) and [implementation record](../reports/bidirectional-o1-o3-implementation.md). The selected work is O1 NNF source/sink predicates, O2 managed soft method-form caches and O3 compact form containers. The series is not complete until the remaining workload gates pass.
+Status: historical implementation plan, corrected for the requested rollback. Updated: 13 October 2026.
+The selected O1–O3 work remains, but the manager rewrite and weak identity cache are removed. Existing
+test/project measurements precede that rollback; revised-code validation is recorded separately in the
+[implementation record](../reports/bidirectional-o1-o3-implementation.md). Use the
+[new optimization proposal](bidirectional-core-optimization-20261013.md) for future priorities.
 
 Deliver small commits with a parent revision, focused tests and a stated acceptance result. Keep the IR, other optimization families and project settings outside these commits. The expected memory-impact order is O1, O2, O3; the first steps establish the ownership and identity that they need.
 
@@ -14,16 +18,16 @@ flowchart TD
     C3 --> C4[4: Incremental source and sink supports]
     C4 --> C5[5: Proofs, backward seeds and triggers]
     C5 --> C6[6: JVM forms use NNF]
-    C2 --> C7[7: Managed-reference lifecycle]
     C6 --> C8[8: Reclaimable form caches]
-    C7 --> C8
     C2 --> C9[9: Compact summary and plan storage]
     C6 --> C9
     C8 --> C10[10: Integrated tests and fixed workloads]
     C9 --> C10
 ```
 
-Step 7 can be developed after step 2 while NNF work continues. The managed cache can be enabled on the legacy evaluator earlier only if every reference-identity key has already been replaced and forced-rebuild controls pass. Step 9 can be split into early empty/singleton changes and final indexes. Do not combine cache policy, condition semantics and all collection changes in one patch.
+Step 7's manager rewrite is rolled back. Step 8 uses the original managed-reference API. The managed cache
+requires stable logical identities and passing forced-rebuild controls. Step 9 can be split into early
+empty/singleton changes and final indexes. Keep cache policy, condition semantics and collection changes separate.
 
 ## 0. Record the control and acceptance fixtures
 
@@ -122,17 +126,18 @@ Extend `JIRRuleFormsTest`, `JIRRuleValidationTest`, `JIRCallPlanTest`, `JIRBound
 
 **Exit gate:** no production bidi source/sink construction invokes `explodeToDNF`, cube enumeration or array/action products. JVM source and sink closures, raw exit summaries and reports match the corrected-policy reference.
 
-## 7. Make managed-reference lifecycle safe for form use
+## 7. Manager redesign: removed from this implementation
 
-Keep the `SoftReferenceManager.createRef`, `cleanup` and `enable` interfaces. Add a lifecycle lock, a queue for JVM-cleared references and an identity registry of live registrations. Registration and transition to disabled caching use the same short lock.
+Restore `SoftReferenceManager` exactly from before commit `0d0052936`. Remove `WeakIdentityCache`
+and its consumers. Keep raw rule validation before folding and retain diagnostics without owning rule objects.
+Adapt tests and statistics to the original manager API. Do not reintroduce either design through a helper.
 
-Cleanup disables registration and swaps out the tracked registry under that lock; clear the detached batch outside it. Do not copy an O(n) batch while memory is tight. Drain queued references in bounded maintenance batches on registration/enable, with an explicit drain path for diagnostics/tests. Explicit cleanup also removes registry entries and drains queued wrappers. Never take a form-slot lock or call a builder from manager cleanup.
+The manager redesign and weak identity cache are optional N11/N12 candidates in the new proposal.
+They need separate selection and detailed design before implementation.
 
-Keep `cleanup` returning -1 when already disabled and `createRef` returning null while disabled. Keep `MemoryManager` thresholds, state transitions, GC requests and cancellation policy unchanged. Check the effects on existing managed soft caches.
-
-Add proposed `SoftReferenceManagerLifecycleTest`: deterministic enqueue/prune, cleanup idempotence, re-enable, registration-before/after-cleanup and latch-controlled races. Do not depend on sleeps, memory exhaustion or a specific GC collection time.
-
-**Exit gate:** every accepted registration is either in the current batch or cleared by cleanup; no late registration survives the disabled transition; reference tracking is pruned; existing managed caches retain their contract.
+**Exit gate:** the manager matches its original source, the new weak cache is absent, form eviction/rebuild
+controls pass through the original API, and affected consumers compile. Repeat the fixed workloads on the
+revised code; earlier reports remain historical evidence.
 
 ## 8. Switch method-form slots to managed soft payloads
 

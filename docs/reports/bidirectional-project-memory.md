@@ -1,5 +1,11 @@
 # Bidirectional project memory report
 
+Historical pre-O1–O3 measurements. Latest reached in these guard runs: OWASP **run-1 F/L1**,
+Conductor **run-2 B/L2**, ThingsBoard **run-1 F/L1**, PDF **run-3 F/L3**; all stop on OOM.
+These are also the heap capture iterations. Main has no bidi iteration. Later primary results and
+priorities are in the [new proposal](../design/bidirectional-core-optimization-20261013.md), and
+revised-code validation is in the [rollback retest record](bidirectional-core-rollback-20261013.md).
+
 Measured on 12 October 2026. GB means 10^9 bytes; GiB means 2^30 bytes. Four live heaps were saved when the memory guard fired. The same project models, rules, heap limits and time limits were used as in the [project tests](bidirectional-project-testing.md). The scan command was the direct `runProjectAnalyzer` Gradle task.
 
 The main shared cost is the strong method-form cache. It retains 2.41–6.46 GB in these snapshots. Conductor also has 3.63 GB in the IR owner union. Stirling-PDF has 1.08 GB in active actor stores. The snapshots do not show old run managers or old actors with retained work fields.

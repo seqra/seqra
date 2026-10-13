@@ -1,5 +1,10 @@
 # OWASP: O1–O3 fixed-workload test
 
+Historical measurement at pre-rollback code `b0a2448c0`. Latest reached: **run-3, forward, limit 3,
+COMPLETE**. Last complete engine: **run-3**. Last accepted forward report: **run-3**.
+The separate warm heap was captured in **run-1**. Main has no bidi iteration. See the
+[rollback retest record](../bidirectional-core-rollback-20261013.md) for revised-code validation.
+
 The fresh optimized run completed under the original 8 GiB heap and 1,000-second IFDS timeout. All 4,112
 main sink identities are present. There are no added or missing unique sinks. The optimized run is slower and
 exports more occurrences at those same sinks. This is the OWASP result; the other project gates remain open.

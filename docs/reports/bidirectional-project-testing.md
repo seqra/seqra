@@ -1,5 +1,11 @@
 # Bidirectional project test report
 
+Historical pre-O1–O3 measurements. Latest reached: OWASP **run-1 F/L1**, Conductor **run-2 B/L2**,
+ThingsBoard **run-1 F/L1**, PDF **run-3 F/L3**; all stop on OOM. The last complete engine and accepted
+forward report are run-1 for Conductor and run-2/run-1 respectively for PDF; neither exists for OWASP
+or ThingsBoard. Main has no bidi iteration. See the [latest proposal](../design/bidirectional-core-optimization-20261013.md)
+and [rollback retest record](bidirectional-core-rollback-20261013.md) for later evidence.
+
 Measured on 12 October 2026. All eight selected runs finished. All four main runs completed. All four bidi runs stopped on the memory guard. No run reached its time limit. The required finding and performance gates do not pass.
 
 The baseline is remote main `f945f92c5ae554ff4f5fc7696ee5a269210478bb`. The tested branch is `517fef60e` with the runner and timing patch saved in each run manifest. Use the [input inventory](bidirectional-project-inputs.md) for fixed source heads, input hashes, rules, and commands. Use the [findings report](bidirectional-project-findings.md) for each missing location and its cause. The [live-heap report](bidirectional-project-memory.md) identifies the retained memory owners in all four bidi scans.

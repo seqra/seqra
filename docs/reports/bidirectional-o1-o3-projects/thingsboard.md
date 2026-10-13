@@ -1,5 +1,10 @@
 # ThingsBoard: O1–O3 fixed-workload test
 
+Historical measurement at pre-rollback code `b0a2448c0`. Latest reached: **run-1, forward, limit 1,
+OOM**. No engine iteration completed and no forward report was accepted.
+The primary guard heap captures **run-1** before cancellation. Main has no bidi iteration. See the
+[rollback retest record](../bidirectional-core-rollback-20261013.md) for revised-code validation.
+
 The fresh optimized run stops with a memory-guard OOM in forward run 1 at limit 1. Main completes and exports
 14 distinct sink identities. The optimized run exports a valid, empty SARIF file: **all 14 baseline identities
 are absent**, with no added identities. The finding and fixed-resource gates are not met. This is an incomplete

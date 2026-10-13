@@ -1,5 +1,10 @@
 # Conductor: O1–O3 fixed-workload test
 
+Historical measurement at pre-rollback code `b0a2448c0`. Latest reached: **run-2, backward, limit 2,
+OOM**. Last complete engine: **run-1**. Last accepted forward report: **run-1**.
+The primary guard heap captures **run-2** before cancellation. Main has no bidi iteration. See the
+[rollback retest record](../bidirectional-core-rollback-20261013.md) for revised-code validation.
+
 The fresh optimized run stops with a memory-guard OOM in backward run 2. Its available SARIF contains all seven
 main sink identities and 293 additional locations. The comparison is incomplete: the retained report has three
 CONFIRMED entries and 298 DEMAND entries. These additions are not a set of final false positives. The fixed

@@ -8,6 +8,10 @@ Our current goal: implement optimization and repeat major testing on real projec
 Implement optimization wrt the [bidirectional-o1-o3-implementation-plan.md](docs/design/bidirectional-o1-o3-implementation-plan.md)
 Commit after implementation.  
 
+The old optimization priorities are stale. Use the [latest measurement-based proposal](docs/design/bidirectional-core-optimization-20261013.md)
+for future selection. Restore the original `SoftReferenceManager` and remove `WeakIdentityCache` from the
+current implementation. Their redesigns are possible future optimizations that need separate selection.
+
 # Test
 Take the latest commit. Ignore reports for the previous commits as staled.
 1) Run on OWASP like we do it in .github/workflows/ci-analyzer-owasp.yaml
@@ -20,6 +24,11 @@ Measure:
 2) Overall performance: OOM/timeout events, the time of each run iteration.
 3) Capture profile under the workload, we should understand our hot spots (possible performance optimization points). It is a good idea to measure for 30 sec after 1 minute of analysis (normal behavior), and close to the time limit
 4) Capture memory snapshots whenever MemoryManager reports OOM. Investigate the root cause of memory consumption
+
+Every report must include the latest reached iteration as `run-N`, its direction and positive field limit,
+including a failed or unfinished last run. Distinguish the last complete engine iteration and the last
+accepted forward report. State the capture iteration separately for heaps and profiles. Use unavailable
+when there is no evidence; main has no bidi iteration. Run-1 starts at limit 1; limit 0 is impossible.
 
 Our goal: for each selected project we should understand:
 1) Do we have FN, comparing to the main? If we have -- identify the root cause.

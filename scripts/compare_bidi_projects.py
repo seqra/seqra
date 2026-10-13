@@ -21,9 +21,12 @@ PROJECTS = ("OWASP", "conductor", "thingsboard", "Stirling-PDF")
 SIGNATURE = re.compile(r"^(.+?\)):(-?\d+):\((.*)\)$", re.DOTALL)
 CLOCK = re.compile(r"(?<!\d)(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?")
 RUN_END = re.compile(r"BIDI_RUN_END run=(\d+) status=(\w+) engineTime=(.*)")
-RUN_START = re.compile(r"BIDI_RUN_START run=(\d+) direction=(\w+) limit=(\d+) timeout=(.*)")
+RUN_START = re.compile(r"\bBIDI_RUN_START\s+run=(\d+)\s+direction=(\w+)\s+limit=(-?\d+)(?:\s+timeout=(.*))?")
 BARRIER = re.compile(r"BIDI_BARRIER_END run=(\d+) barrierTime=(.*?) iterationTime=(.*)")
 ANALYSIS_END = re.compile(r"BIDI_ANALYSIS_END run=(\d+) status=(\w+) reason=(\w+) elapsed=(.*)")
+FRONTIER = re.compile(r"\bRun (\d+) \((FORWARD|BACKWARD)\) frontier:")
+ITERATION_FIELDS = ("latest_bidi_iteration", "latest_complete_bidi_iteration",
+                    "latest_accepted_forward_report", "bidi_iteration_progress")
 
 
 def read_json(path: Path) -> tuple[object | None, str, str | None]:
@@ -50,7 +53,7 @@ def clock_seconds(line: str) -> float | None:
     return int(hour) * 3600 + int(minute) * 60 + int(second) + float("0." + (fraction or "0"))
 
 
-def log_evidence(log: str, summary: dict) -> dict:
+def log_evidence(log: str, summary: dict, side: str | None = None, log_available: bool = True) -> dict:
     iterations: dict[int, dict] = {}
     analysis_ends: list[dict] = []
     report_states: list[dict] = []
@@ -62,6 +65,11 @@ def log_evidence(log: str, summary: dict) -> dict:
     starts: dict[str, tuple[float | None, str]] = {}
     inside_prescan = False
     first_run_seen = False
+    latest_started = None
+    latest_complete = None
+    latest_forward_report = None
+    invalid_start_lines = []
+    latest_start_invalid = False
     phase_markers = {
         "prescan": ("Start prescan phase", "Finish prescan phase"),
         "ifds": ("Start IFDS analysis", "Finish IFDS analysis"),
@@ -103,21 +111,40 @@ def log_evidence(log: str, summary: dict) -> dict:
         if match:
             index, direction, limit, timeout_value = match.groups()
             first_run_seen = True
-            iterations.setdefault(int(index), {}).update(
-                run=int(index), direction=direction, limit=int(limit), timeout=timeout_value,
-                timeout_seconds=duration_seconds(timeout_value), start_line=line)
+            if int(index) > 0 and int(limit) > 0 and direction in ("FORWARD", "BACKWARD"):
+                iterations[int(index)] = dict(
+                    run=int(index), direction=direction, limit=int(limit), timeout=timeout_value,
+                    timeout_seconds=duration_seconds(timeout_value) if timeout_value else None, start_line=line)
+                latest_started = int(index)
+                latest_start_invalid = False
+            else:
+                invalid_start_lines.append(line)
+                latest_started = None
+                latest_start_invalid = True
+        elif "BIDI_RUN_START" in line:
+            invalid_start_lines.append(line)
+            latest_started = None
+            latest_start_invalid = True
         match = RUN_END.search(line)
         if match:
             index, status, elapsed = match.groups()
             iterations.setdefault(int(index), {}).update(
                 run=int(index), status=status, engine_time=elapsed,
                 engine_seconds=duration_seconds(elapsed), end_line=line)
+            if int(index) > 0 and status == "COMPLETE":
+                latest_complete = dict(iterations[int(index)])
         match = BARRIER.search(line)
         if match:
             index, elapsed, total = match.groups()
             iterations.setdefault(int(index), {}).update(
                 run=int(index), barrier_time=elapsed, barrier_seconds=duration_seconds(elapsed),
                 iteration_time=total, iteration_seconds=duration_seconds(total), barrier_line=line)
+        match = FRONTIER.search(line)
+        if match and int(match[1]) > 0 and match[2] == "FORWARD":
+            # Frontier.log runs after Support.confirm/report.add. BARRIER_END is
+            # emitted in finally and is also present when the barrier fails.
+            latest_forward_report = {**iterations.get(int(match[1]), {}), "run": int(match[1]),
+                                     "direction": "FORWARD", "forward_frontier_line": line}
         match = ANALYSIS_END.search(line)
         if match:
             index, status, reason, elapsed = match.groups()
@@ -125,7 +152,31 @@ def log_evidence(log: str, summary: dict) -> dict:
                                   "elapsed": elapsed, "seconds": duration_seconds(elapsed), "line": line})
     status = summary.get("status", "IN_PROGRESS_OR_UNKNOWN")
     unfinished = [dict(phase=phase, start=line) for phase, (_, line) in starts.items()]
+    def progress_value(value, source, missing):
+        if side == "main":
+            return {"state": "NOT_APPLICABLE", "label": None, "reason": "Main uses the legacy analysis, not bidi iterations."}
+        if not log_available or value is None:
+            return {"state": "UNAVAILABLE", "label": None,
+                    "reason": "Analyzer log is missing." if not log_available else missing}
+        return {"state": "AVAILABLE", "label": "run-" + str(value["run"]), "source": source,
+                "engine_end_seen": "end_line" in value, "engine_status": value.get("status"),
+                **value}
+    reached = progress_value(iterations.get(latest_started), "BIDI_RUN_START",
+                             "Latest BIDI_RUN_START is invalid or incomplete; require positive run/limit and direction."
+                             if latest_start_invalid else "No valid BIDI_RUN_START is present; do not assume run-1.")
+    completed = progress_value(latest_complete, "BIDI_RUN_END status=COMPLETE",
+                               "No positive COMPLETE engine marker is present.")
+    accepted = progress_value(latest_forward_report, "Run N (FORWARD) frontier after report.add",
+                              "No compact forward frontier proves an accepted report; BIDI_BARRIER_END alone does not prove it.")
+    progress = {"state": reached["state"], "latest_reached": reached,
+                "latest_complete_engine": completed, "latest_accepted_forward_report": accepted,
+                "invalid_run_start_lines": invalid_start_lines,
+                "limits": "Latest reached follows actual start-marker order, including failed or unfinished engines. "
+                          "Report updates are proven by compact forward frontiers; a report may update before a later barrier failure, "
+                          "so missing forward-frontier evidence is unavailable, not proof of an empty report."}
     return {"terminal_status": status, "analysis_ends": analysis_ends,
+            "latest_bidi_iteration": reached["label"], "latest_complete_bidi_iteration": completed["label"],
+            "latest_accepted_forward_report": accepted["label"], "bidi_iteration_progress": progress,
             "iterations": [iterations[k] for k in sorted(iterations)],
             "reported_states": report_states, "trace_generation_stats": trace_stats,
             "invalid_vulnerability_locations": invalid_locations,
@@ -207,7 +258,7 @@ def extract_findings(sarif: dict) -> tuple[list[dict], int, list[str]]:
     return findings, result_count, sorted(warnings)
 
 
-def load_bundle(directory: Path) -> dict:
+def load_bundle(directory: Path, side: str | None = None) -> dict:
     summary, summary_state, summary_error = read_json(directory / "summary.json")
     manifest, manifest_state, manifest_error = read_json(directory / "manifest.json")
     sarif_path = directory / "reports/report-ifds.sarif"
@@ -232,7 +283,8 @@ def load_bundle(directory: Path) -> dict:
         sarif_state, sarif_error = "invalid", "A SARIF run or its results have an invalid shape."
     log_path = directory / "analyzer.log"
     log = log_path.read_text(errors="replace") if log_path.exists() else ""
-    evidence = log_evidence(log, summary)
+    side = side or manifest.get("side") or (directory.name if directory.name in ("main", "bidi") else None)
+    evidence = log_evidence(log, summary, side=side, log_available=log_path.is_file())
     findings, result_count, identity_warnings = extract_findings(sarif) if sarif_state == "present" else ([], 0, [])
     attempted = sum(row.get("total", 0) for row in evidence["trace_generation_stats"]) if evidence["trace_generation_stats"] else None
     export_gap = max(0, attempted - result_count) if attempted is not None and sarif_state == "present" else None
@@ -302,7 +354,7 @@ def input_differences(main: dict, bidi: dict) -> list[dict]:
 
 
 def compare_project(project: str, main_dir: Path, bidi_dir: Path) -> dict:
-    main, bidi = load_bundle(main_dir), load_bundle(bidi_dir)
+    main, bidi = load_bundle(main_dir, side="main"), load_bundle(bidi_dir, side="bidi")
     a, b = groups(main["findings"]), groups(bidi["findings"])
     available = main["sarif_state"] == bidi["sarif_state"] == "present"
     both, removed_keys, added_keys = a.keys() & b.keys(), a.keys() - b.keys(), b.keys() - a.keys()
@@ -367,6 +419,7 @@ def compare_project(project: str, main_dir: Path, bidi_dir: Path) -> dict:
         del bundle["findings"]
     return {
         "project": project, "main": main, "bidi": bidi, "input_differences": inputs,
+        **{key: bidi["status"][key] for key in ITERATION_FIELDS},
         "outputs_available": available, "both_complete_without_prescan_error": complete,
         "assessment": assessment,
         "counts": {"main_unique": len(a) if main["sarif_state"] == "present" else None,
@@ -408,6 +461,8 @@ def main() -> int:
             (output / (project + "-" + field + ".json")).write_text(
                 json.dumps(result[field], indent=2, ensure_ascii=False) + "\n")
         rows.append({"project": project, "assessment": result["assessment"], "counts": result["counts"],
+                     **{key: result[key] for key in ITERATION_FIELDS},
+                     "main_bidi_iteration_progress": result["main"]["status"]["bidi_iteration_progress"],
                      "main_status": result["main"]["status"]["terminal_status"],
                      "bidi_status": result["bidi"]["status"]["terminal_status"],
                      "main_sarif": result["main"]["sarif_state"], "bidi_sarif": result["bidi"]["sarif_state"],

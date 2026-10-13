@@ -1,6 +1,9 @@
 # Bidirectional analyzer core: memory and allocation design
 
-Status: proposal. Date: 12 October 2026. This document proposes changes; it does not report an optimized analyzer.
+Status: superseded. Original date: 12 October 2026. Use the
+[new proposal based on the latest measurements](bidirectional-core-optimization-20261013.md).
+The priorities and memory estimates below describe the older, pre-O1–O3 analyzer. They are stale for
+current optimization selection. They remain here as historical design evidence.
 
 The main changes are to keep source and sink conditions in NNF and to make method-form caches reclaimable through managed soft references. These changes remove eager condition products and let the memory manager discard compiled forms that can be rebuilt. Smaller containers and shared payloads follow. Keep the selected project settings and the analysis effects. Apply each change separately, so its result can be measured and its cause can be identified.
 

@@ -1,6 +1,11 @@
 # Implementation proposal: O1, O2 and O3
 
-Status: detailed proposal. Date: 12 October 2026. Scope selected by the user: O1 NNF source/sink predicates, O2 managed soft method-form caches, and O3 compact form containers. The [implementation plan](bidirectional-o1-o3-implementation-plan.md) gives the delivery steps.
+Status: historical implementation design. Original date: 12 October 2026. O1 NNF source/sink predicates,
+O2 managed soft method-form caches and O3 compact form containers were implemented. The old memory
+priorities are superseded by the [latest proposal](bidirectional-core-optimization-20261013.md).
+The user-requested rollback removes the manager lifecycle rewrite and the new weak identity cache;
+both are optional future candidates, not part of the current implementation. The form cache uses the
+original manager API. The [implementation plan](bidirectional-o1-o3-implementation-plan.md) records this scope correction.
 
 Replace compiled condition cubes with a shared NNF evaluator. Retain logical support in the run, rather than in millions of compiled alternatives. Put rebuildable forward/backward forms behind managed soft references. Store small form fields and lookup indexes without a map and wrapper for each field.
 
@@ -37,7 +42,7 @@ Paths below refer to the existing source. New type names are proposed interfaces
 | [RunMethodLocalServices](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/engine/RunMethodLocalServices.kt), `ConjunctionStore` | Add predicate support state. Use stable keys for joins, triggers and proof scopes. Keep the separate E6 ND-summary joins. |
 | `VulnerabilityStore`, `HandOff`, `Seeds`, `SourceHitStore`, call guards | Replace alternative/reference keys where needed; preserve support shapes, full matching sink-condition demand and complete source-edge values. |
 | [FormsCache](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/interp/FormsCache.kt), JVM method owners | Introduce managed payload slots and application-scoped access. |
-| [SoftReferenceManager](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/util/SoftReferenceManager.kt) | Make registration/cleanup safe and remove cleared-reference bookkeeping without changing the memory guard policy. |
+| [SoftReferenceManager](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/util/SoftReferenceManager.kt) | Reuse the original manager and its existing API. A lifecycle redesign requires separate selection and design. |
 | [StatementSummary](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/interp/StatementSummary.kt), [CallPlan](../../core/opentaint-dataflow-core/opentaint-dataflow/src/main/kotlin/org/opentaint/dataflow/bidi/interp/CallPlan.kt), builders | Replace collection storage and indexes; include conditional rule leaves/targets in summary metadata. |
 
 ## O1: condition compiler
@@ -241,13 +246,14 @@ In `RunMethodCallServices`, hold the lease through the active frame-stack walk. 
 
 ### Managed-reference lifecycle
 
-The existing manager checks `enabled` before registering, while cleanup drains a queue. A registration after the drain can miss cleanup. Fix this as part of O2.
+Reuse the original manager's `createRef`, `cleanup` and `enable` API. The requested rollback removes
+the lifecycle lock, identity registry, reference queue and tracking diagnostic APIs. O2 still registers
+rebuildable form payloads through the original API and pins a payload locally while it is applied.
+Keep the memory guard threshold and GC/cancellation sequence unchanged.
 
-Use a short lifecycle lock to serialize registration with enable/disable transitions. Cleanup disables new registration and swaps out the identity registry atomically, without copying a batch proportional to its size, then clears that batch outside the lock. `createRef` returns null while disabled. A reference registered before the transition belongs to the detached batch; one attempted after it is rejected. Re-enable permits a new batch. Retain the existing `cleanup` result convention for callers. Lock order is slot then reference manager; manager cleanup never locks a slot.
-
-Use a `ReferenceQueue` with short maintenance drains on registration/enable so references cleared by the JVM do not accumulate forever in the registry. Provide a full drain for explicit cleanup and tests. Explicit cleanup drains queued wrappers as well as clearing the detached batch and removing its tracking entries; clearing referents alone does not empty the queue. Keep tracking data inside the managed category; there is no strong reference to a form. Reference bookkeeping work must have cancellation-independent lifecycle safety and must not call a form builder under the manager lock. Use one optional statistics object per analysis, not counters/closures per slot.
-
-Keep the memory guard threshold and GC/cancellation sequence unchanged. This makes compiled forms participate in the existing reclamation step. It does not turn required active support into a soft cache. On teardown, release slots and registered references through the current owner lifecycle.
+A registration/cleanup race and retained cleared wrappers are questions for a separate design. The
+[new proposal's N11](bidirectional-core-optimization-20261013.md#n11-optional-managed-reference-manager-redesign)
+lists a possible manager redesign and its measurement and validation gates. It is not selected here.
 
 ### Strong-owner audit
 

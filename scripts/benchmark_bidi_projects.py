@@ -14,6 +14,11 @@ import signal
 import subprocess
 import time
 
+try:
+    from .compare_bidi_projects import ITERATION_FIELDS, log_evidence
+except ImportError:
+    from compare_bidi_projects import ITERATION_FIELDS, log_evidence
+
 ASPROF = Path('/home/sobol/.local/opt/async-profiler-4.5-linux-x64/bin/asprof')
 
 
@@ -65,6 +70,36 @@ def host_memory():
                 'load_average_1m': os.getloadavg()[0]}
     except (OSError, KeyError, ValueError):
         return {}
+
+
+def bidi_iteration_summary(log_path, side, status):
+    """Read bounded control lines after exit; never retain giant frontier dumps."""
+    available = log_path.is_file()
+    controls = []
+    if available and side != 'main':
+        tail, discarded = '', False
+        with log_path.open(errors='replace') as stream:
+            while True:
+                chunk = stream.read(65536)
+                if not chunk:
+                    if tail and not discarded:
+                        controls.append(tail)
+                    break
+                pieces = chunk.split('\n')
+                for piece in pieces[:-1]:
+                    line = tail + piece
+                    if not discarded and len(line) <= 4096 and (
+                            'BIDI_RUN_START' in line or 'BIDI_RUN_END' in line or
+                            'BIDI_BARRIER_END' in line or ') frontier:' in line):
+                        controls.append(line)
+                    tail, discarded = '', False
+                last = pieces[-1]
+                if not discarded:
+                    tail += last
+                    if len(tail) > 4096:
+                        tail, discarded = '', True
+    evidence = log_evidence('\n'.join(controls), {'status': status}, side=side, log_available=available)
+    return {key: evidence[key] for key in ITERATION_FIELDS}
 
 
 def run(args, project, side, config):
@@ -222,6 +257,7 @@ def run(args, project, side, config):
                'full_started_elapsed': full_start - start if full_start else None,
                'profiles': profiles, 'continuous_jfr': (directory / 'continuous.jfr').exists(),
                'sarif': (directory / 'reports/report-ifds.sarif').exists()}
+    summary.update(bidi_iteration_summary(directory / 'analyzer.log', side, status))
     (directory / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     (directory / 'summary.json').write_text(json.dumps(summary, indent=2) + '\n')
     print(f'END {project} {side}: {status}, {summary["wall_seconds"]:.1f}s, SARIF={summary["sarif"]}', flush=True)

@@ -1,5 +1,10 @@
 # O3 and O1 checkpoint workload results
 
+These are historical checkpoint measurements. Their latest reached iterations are explicit below.
+The final pre-rollback primary measurements reach OWASP run-3, Conductor run-2, ThingsBoard run-1 and
+PDF run-4. The [rollback retest record](bidirectional-core-rollback-20261013.md) tracks the revised code.
+Earlier checkpoints cannot validate that rollback.
+
 All eight checkpoint scans have finished. O1 completes OWASP and keeps all main sink identities.
 The other seven scans stop on the memory guard. These runs explain the effect of the earlier
 implementation steps; the [four final project reports](bidirectional-o1-o3-implementation.md)
@@ -29,16 +34,16 @@ Sink identity is rule ID, sink fingerprint and full method signature. A failed s
 resource failure even when it retains every main identity. Added DEMAND findings from an incomplete
 refinement are not certified false positives.
 
-| Checkpoint | Project | Status | Main unique | Checkpoint unique | Retained | Missing | Added | Exported rows |
-| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
-| O3 | OWASP | OOM | 4,112 | 0 | 0 | 4,112 | 0 | 0 |
-| O3 | Conductor | OOM | 7 | 300 | 7 | 0 | 293 | 300 |
-| O3 | ThingsBoard | OOM | 14 | 0 | 0 | 14 | 0 | 0 |
-| O3 | Stirling-PDF | OOM | 17 | 61 | 15 | 2 | 46 | 150 |
-| O1 | OWASP | OK | 4,112 | 4,112 | 4,112 | 0 | 0 | 9,179 |
-| O1 | Conductor | OOM | 7 | 300 | 7 | 0 | 293 | 300 |
-| O1 | ThingsBoard | OOM | 14 | 0 | 0 | 14 | 0 | 0 |
-| O1 | Stirling-PDF | OOM | 17 | 61 | 15 | 2 | 46 | 150 |
+| Checkpoint | Project | Latest reached | Status | Main unique | Checkpoint unique | Retained | Missing | Added | Exported rows |
+| --- | --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| O3 | OWASP | run-1 F/L1 | OOM | 4,112 | 0 | 0 | 4,112 | 0 | 0 |
+| O3 | Conductor | run-2 B/L2 | OOM | 7 | 300 | 7 | 0 | 293 | 300 |
+| O3 | ThingsBoard | run-1 F/L1 | OOM | 14 | 0 | 0 | 14 | 0 | 0 |
+| O3 | Stirling-PDF | run-3 F/L3 | OOM | 17 | 61 | 15 | 2 | 46 | 150 |
+| O1 | OWASP | run-3 F/L3 | OK | 4,112 | 4,112 | 4,112 | 0 | 0 | 9,179 |
+| O1 | Conductor | run-2 B/L2 | OOM | 7 | 300 | 7 | 0 | 293 | 300 |
+| O1 | ThingsBoard | run-1 F/L1 | OOM | 14 | 0 | 0 | 14 | 0 | 0 |
+| O1 | Stirling-PDF | run-3 F/L3 | OOM | 17 | 61 | 15 | 2 | 46 | 150 |
 
 OWASP and ThingsBoard accept no forward report when F1 fails. Their valid empty outputs therefore
 lose all main identities. Conductor retains the completed F1 report: 3 CONFIRMED and 298 DEMAND

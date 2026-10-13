@@ -1,6 +1,21 @@
 # O1–O3 implementation and test record
 
-Status: core implementation verified. All four fresh fixed-project pairs have finished; resource gates remain open.
+Status: historical pre-rollback measurements at runtime code `b0a2448c0`. All four fixed-project pairs
+finished; resource gates remain open. The manager rewrite and weak identity cache are now removed at
+the user's request. These results do not validate that revised code. See the
+[rollback retest record](bidirectional-core-rollback-20261013.md) and
+[new optimization proposal](../design/bidirectional-core-optimization-20261013.md).
+
+| Project | Latest reached iteration in this measurement | Last complete engine iteration | Last accepted forward report |
+| --- | --- | --- | --- |
+| OWASP | run-3, forward, limit 3, COMPLETE | run-3 | run-3 |
+| Conductor | run-2, backward, limit 2, OOM | run-1 | run-1 |
+| ThingsBoard | run-1, forward, limit 1, OOM | None | None |
+| Stirling-PDF | run-4, backward, limit 4, TIMEOUT | run-3 | run-3 |
+
+Main has no bidi iteration. The OWASP warm heap is a separate run-1 capture; the PDF checkpoint heaps
+are older run-3 captures. Do not assign those capture phases to the primary terminal iteration.
+
 The selected scope is the [implementation plan](../design/bidirectional-o1-o3-implementation-plan.md).
 IR storage and O4–O12 are outside this work.
 

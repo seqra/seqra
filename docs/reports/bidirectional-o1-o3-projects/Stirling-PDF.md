@@ -1,5 +1,11 @@
 # Stirling-PDF: O1–O3 fixed-workload test
 
+Historical measurement at pre-rollback code `b0a2448c0`. Latest reached: **run-4, backward, limit 4,
+TIMEOUT**. Last complete engine: **run-3**. Last accepted forward report: **run-3**.
+The primary run has no guard heap; older checkpoint guard heaps capture **run-3**, not run-4.
+Main has no bidi iteration. See the [rollback retest record](../bidirectional-core-rollback-20261013.md)
+for revised-code validation.
+
 Main completes with 17 distinct sink identities. The fresh optimized analysis completes F1/L1, B2/L2 and
 F3/L3, then times out in B4/L4. It exports the retained report: **40 CONFIRMED and 88 DEMAND entries**, or
 128 SARIF rows with 56 distinct sink identities. The strict comparison retains 14 baseline identities,

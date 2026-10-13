@@ -2,8 +2,12 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
+import contextlib
+import io
 
-from compare_bidi_projects import compare_project, log_evidence, normalize_uri
+from benchmark_bidi_projects import bidi_iteration_summary
+from compare_bidi_projects import compare_project, log_evidence, main, normalize_uri
 
 
 def finding(fingerprint="hash", signature="pkg.Service#f(java.lang.String)", index=12,
@@ -201,6 +205,140 @@ class CompareProjectsTest(unittest.TestCase):
         self.assertEqual(1, len(result["method_exit_location_candidates"]))
         self.assertEqual("return null", result["method_exit_location_candidates"][0]["bidi_candidates"][0]["instruction"])
         self.assertEqual([], result["possible_same_logical_sink"])
+
+    def test_comparison_and_cli_summary_keep_latest_failed_iteration(self):
+        log = ("BIDI_RUN_START run=1 direction=FORWARD limit=1 timeout=20s\n"
+               "BIDI_RUN_END run=1 status=COMPLETE engineTime=2s\n"
+               "Run 1 (FORWARD) frontier: analysed 1, DEMAND 1\n"
+               "BIDI_BARRIER_END run=1 barrierTime=10ms iterationTime=2.01s\n"
+               "BIDI_RUN_START run=2 direction=BACKWARD limit=2 timeout=17s\n"
+               "BIDI_RUN_END run=2 status=OOM engineTime=1s\n")
+        self.bundle("main", [])
+        self.bundle("bidi", [], status="OOM", log=log)
+        result = self.compare()
+        self.assertEqual("run-2", result["latest_bidi_iteration"])
+        self.assertEqual("run-1", result["latest_complete_bidi_iteration"])
+        self.assertEqual("run-1", result["latest_accepted_forward_report"])
+        self.assertEqual("NOT_APPLICABLE", result["main"]["status"]["bidi_iteration_progress"]["state"])
+        output = self.root / "comparison"
+        with patch("sys.argv", ["compare", "--root", str(self.root.parent), "--projects", self.root.name,
+                                "--output-dir", str(output)]), contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(0, main())
+        row = json.loads((output / "summary.json").read_text())[0]
+        self.assertEqual("run-2", row["latest_bidi_iteration"])
+        self.assertEqual("run-1", row["latest_accepted_forward_report"])
+        self.assertEqual("NOT_APPLICABLE", row["main_bidi_iteration_progress"]["state"])
+
+    def test_missing_log_does_not_recover_guessed_iteration_from_summary(self):
+        self.bundle("main", [])
+        directory = self.bundle("bidi", [], status="TIMEOUT")
+        (directory / "summary.json").write_text(json.dumps({"status": "TIMEOUT", "latest_bidi_iteration": "run-9"}))
+        (directory / "analyzer.log").unlink()
+        result = self.compare()
+        self.assertIsNone(result["latest_bidi_iteration"])
+        self.assertEqual("UNAVAILABLE", result["bidi_iteration_progress"]["state"])
+        self.assertIn("missing", result["bidi_iteration_progress"]["latest_reached"]["reason"])
+
+
+class IterationProgressTest(unittest.TestCase):
+    def complete_forward(self):
+        return ("BIDI_RUN_START run=1 direction=FORWARD limit=1 timeout=20s\n"
+                "BIDI_RUN_END run=1 status=COMPLETE engineTime=2s\n"
+                "Run 1 (FORWARD) frontier: analysed 1, DEMAND 1\n"
+                "BIDI_BARRIER_END run=1 barrierTime=10ms iterationTime=2.01s\n")
+
+    def test_failed_final_run_is_reached_even_though_not_complete(self):
+        log = self.complete_forward() + ("BIDI_RUN_START run=2 direction=BACKWARD limit=2 timeout=17s\n"
+              "BIDI_RUN_END run=2 status=OOM engineTime=1s\n")
+        result = log_evidence(log, {"status": "OOM"}, side="bidi")
+        self.assertEqual("run-2", result["latest_bidi_iteration"])
+        self.assertEqual("run-1", result["latest_complete_bidi_iteration"])
+        self.assertEqual("run-1", result["latest_accepted_forward_report"])
+        self.assertEqual("OOM", result["bidi_iteration_progress"]["latest_reached"]["engine_status"])
+
+    def test_unfinished_start_is_preserved_separately_from_completed_backward(self):
+        log = self.complete_forward() + ("BIDI_RUN_START run=2 direction=BACKWARD limit=2 timeout=17s\n"
+              "BIDI_RUN_END run=2 status=COMPLETE engineTime=1s\n"
+              "Run 2 (BACKWARD) frontier: analysed 1, DEMAND 0\n"
+              "BIDI_BARRIER_END run=2 barrierTime=10ms iterationTime=1.01s\n"
+              "BIDI_RUN_START run=3 direction=FORWARD limit=3")
+        result = log_evidence(log, {"status": "HARD_TIMEOUT"}, side="bidi")
+        self.assertEqual("run-3", result["latest_bidi_iteration"])
+        self.assertEqual("run-2", result["latest_complete_bidi_iteration"])
+        self.assertEqual("run-1", result["latest_accepted_forward_report"])
+        reached = result["bidi_iteration_progress"]["latest_reached"]
+        self.assertEqual(3, reached["limit"])
+        self.assertFalse(reached["engine_end_seen"])
+        self.assertIsNone(reached["engine_status"])
+        # A repeated start must not inherit an earlier end for the same index.
+        repeated = log_evidence(self.complete_forward() + "BIDI_RUN_START run=1 direction=FORWARD limit=1",
+                                {"status": "HARD_TIMEOUT"}, side="bidi")
+        self.assertFalse(repeated["bidi_iteration_progress"]["latest_reached"]["engine_end_seen"])
+        self.assertIsNone(repeated["bidi_iteration_progress"]["latest_reached"]["engine_status"])
+
+    def test_complete_engine_and_finally_barrier_do_not_prove_report_update(self):
+        log = ("BIDI_RUN_START run=1 direction=FORWARD limit=1 timeout=20s\n"
+               "BIDI_RUN_END run=1 status=COMPLETE engineTime=2s\n"
+               "BIDI_BARRIER_END run=1 barrierTime=1s iterationTime=3s\n"
+               "BIDI_ANALYSIS_END run=1 status=OOM reason=ABNORMAL elapsed=3s\n")
+        result = log_evidence(log, {"status": "OOM"}, side="bidi")
+        self.assertEqual("run-1", result["latest_complete_bidi_iteration"])
+        self.assertIsNone(result["latest_accepted_forward_report"])
+        self.assertEqual("UNAVAILABLE", result["bidi_iteration_progress"]["latest_accepted_forward_report"]["state"])
+
+    def test_forward_frontier_proves_updated_report_despite_later_barrier_failure(self):
+        result = log_evidence(self.complete_forward() + "BIDI_ANALYSIS_END run=1 status=OOM reason=ABNORMAL elapsed=3s",
+                              {"status": "OOM"}, side="bidi")
+        self.assertEqual("run-1", result["latest_accepted_forward_report"])
+        self.assertEqual("OOM", result["terminal_status"])
+
+    def test_end_only_or_higher_orphan_end_does_not_invent_reached_iteration(self):
+        result = log_evidence("BIDI_RUN_END run=9 status=COMPLETE engineTime=2s", {"status": "OOM"}, side="bidi")
+        self.assertIsNone(result["latest_bidi_iteration"])
+        self.assertEqual("run-9", result["latest_complete_bidi_iteration"])
+        result = log_evidence(self.complete_forward() + "BIDI_RUN_END run=9 status=OOM engineTime=2s", {"status": "OOM"}, side="bidi")
+        self.assertEqual("run-1", result["latest_bidi_iteration"])
+
+    def test_main_is_not_applicable_but_bidi_without_markers_is_unavailable(self):
+        main_result = log_evidence("Start full scan phase\nFinish full scan phase", {"status": "OK"}, side="main")
+        bidi_result = log_evidence("All runners are empty", {"status": "OOM"}, side="bidi")
+        self.assertEqual("NOT_APPLICABLE", main_result["bidi_iteration_progress"]["state"])
+        self.assertEqual("UNAVAILABLE", bidi_result["bidi_iteration_progress"]["state"])
+        self.assertIsNone(main_result["latest_bidi_iteration"])
+        self.assertIsNone(bidi_result["latest_bidi_iteration"])
+
+    def test_invalid_latest_run_or_limit_is_unavailable_not_zero_or_prior_run(self):
+        for invalid in ("run=0 direction=FORWARD limit=1", "run=2 direction=BACKWARD limit=0",
+                        "run=2 direction=BACKWARD limit=-1", "run=2 direction=BACKWARD"):
+            with self.subTest(invalid=invalid):
+                result = log_evidence(self.complete_forward() + "BIDI_RUN_START " + invalid, {"status": "OOM"}, side="bidi")
+                self.assertIsNone(result["latest_bidi_iteration"])
+                self.assertEqual("UNAVAILABLE", result["bidi_iteration_progress"]["state"])
+                self.assertTrue(result["bidi_iteration_progress"]["invalid_run_start_lines"])
+
+    def test_benchmark_summary_reads_split_controls_and_drops_giant_frontier_lines(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "analyzer.log"
+            # The first real marker crosses a read boundary; a phantom marker
+            # buried inside a huge debug frontier must never become a run.
+            path.write_text("x" * 65520 + "\n" + self.complete_forward() + "x" * 150000
+                            + " BIDI_RUN_START run=99 direction=FORWARD limit=99\n"
+                            + "BIDI_RUN_START run=2 direction=BACKWARD limit=2 timeout=17s\n"
+                            + "BIDI_RUN_END run=2 status=OOM engineTime=1s")
+            result = bidi_iteration_summary(path, "bidi", "OOM")
+            self.assertEqual("run-2", result["latest_bidi_iteration"])
+            self.assertEqual("run-1", result["latest_complete_bidi_iteration"])
+            self.assertEqual("run-1", result["latest_accepted_forward_report"])
+            self.assertNotIn("run-99", json.dumps(result))
+
+    def test_benchmark_missing_log_is_unavailable_and_main_explicitly_not_applicable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "missing.log"
+            missing = bidi_iteration_summary(path, "bidi", "BUILD_OR_RUN_ERROR")
+            legacy = bidi_iteration_summary(path, "main", "OK")
+            self.assertEqual("UNAVAILABLE", missing["bidi_iteration_progress"]["state"])
+            self.assertEqual("NOT_APPLICABLE", legacy["bidi_iteration_progress"]["state"])
+            self.assertIsNone(missing["latest_bidi_iteration"])
 
 
 if __name__ == "__main__":
