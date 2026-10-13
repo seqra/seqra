@@ -146,8 +146,8 @@ All 7,267 actors are current F3/limit-3 actors in 90 open runners. Strong cache 
 3,149,636,544 bytes and method-edge stores retain 1,731,576,456 bytes; these sets overlap. No request
 store or standing-request join is present, consistent with restricted forward run 3. Forward
 conjunction state remains. IR storage retains 1,091,063,632 bytes and remains outside scope. The
-separate report/witness queries must establish the retained command finding's F1 state before this
-checkpoint can explain the final finding difference.
+separate report query establishes retained F1 command demands. Selected witness-header decoding
+remains open; the entries' state alone does not prove the final run's first mark-loss point.
 
 The O1 Conductor overview accounts for all 34 requests, with 29 nonempty CSV outputs and five valid
 empty outputs. The complete histogram independently has no live request store, standing join or
