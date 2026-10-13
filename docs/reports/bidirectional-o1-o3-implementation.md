@@ -128,5 +128,9 @@ the first loss point in the full run remains unproved. Fresh CPU/JFR reviews for
 All eight [O3/O1 checkpoint scans](bidirectional-o1-o3-checkpoints.md) have finished. O1 completes OWASP
 with all baseline identities and the same 9,179 occurrences as the final run. The other seven checkpoint
 scans stop on memory. Both PDF checkpoints retain F1 output after F3 fails, while the final run accepts F3;
-that output difference does not prove an O1/O2 regression. Checkpoint heap/profile attribution and the
-command's full-run proof history remain open. The four-project resource gate has not passed.
+that output difference does not prove an O1/O2 regression. All seven checkpoint OOM heap overviews are
+reviewed. They identify compiled form storage in O3 OWASP, active subscription state in Conductor,
+compiled NNF descriptors plus pending requests in O1 ThingsBoard, and active edge stores in O1 PDF.
+These are overlapping unions at different progress points, not isolated memory savings. The bounded
+ThingsBoard singleton-storage follow-up, checkpoint JFR export and the command's full-run proof history
+remain open. The four-project resource gate has not passed.

@@ -223,6 +223,29 @@ by design. The cumulative final
 counters record 578,702 forward builds, 348,850 reversals and 18,966 uncached builds; these are rebuild totals,
 not live objects. Earlier Conductor heaps and reports are not proof for this run.
 
+## Checkpoint memory evidence
+
+Both cumulative checkpoints stop in backward run 2 at limit 2. O3 and O3+O1 each retain all seven main
+sink identities, with 300 unique exported identities and 301 internal entries. Each internal report has
+three CONFIRMED and 298 DEMAND entries. These are incomplete refinement results.
+
+| Retained union | O3 | O3+O1 |
+| --- | ---: | ---: |
+| Strong form cache arrays | 955,109,440 B | 1,080,360,544 B |
+| Active method-edge stores | 583,962,520 B | 571,327,624 B |
+| Callee subscription state | 954,585,968 B | 841,005,232 B |
+| Compiled NNF source/sink descriptors | Not present | 147,350,352 B |
+
+Both heaps contain 17,525 active backward actors and 219 runners. They have different event progress;
+the unions overlap and do not measure isolated savings. O1 has no live forward predicate stores in this
+backward snapshot. Its observed-proof counter zeros are unavailable measurements: this source checkpoint
+does not pass the optional statistics owner to the engine. The final implementation supplies that owner.
+
+These results support the final heap diagnosis: the fixed-budget failure remains after compiled forms
+are cleared, with substantial active subscription and AP state. All checkpoint overview queries are
+reviewed. Checkpoint JFR export remains pending. See the [checkpoint report](../bidirectional-o1-o3-checkpoints.md)
+for revisions, timings, archives, progress counts and query limits.
+
 ## Evidence and remaining gates
 
 The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
@@ -237,10 +260,11 @@ The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
   with tables, source-backed limits and a reproducible reader.
 - `heap-analysis/conductor-bidi`: frozen query XML, actual MAT commands, archived reports and completed
   overview/strong-owner/lifecycle reviews in `overview-review`.
-- `input-audit/post-run-check/combined-endpoint-equality.json`: all 41 captured content datasets pass
-  at the recorded endpoints; copied-JDK dangling targets remain separately unavailable.
+- `input-audit/post-run-check/result-20261013T042255.731787Z/equality-manifest.json`: the full post-checkpoint
+  recheck passes all 77 strict checks across 41 captured content datasets. Six copied-JDK dangling link
+  targets remain outside the original regular-file content scope; their historical targets are unavailable.
 
 Raw main SARIF SHA-256 is `88ee4fa415256dfb6c5c114c04c5a27a012c0f6b2e3252d28c256e0d75e8d829`;
 raw bidi SARIF SHA-256 is `2bfb701433085c3c87e64144ed2f263ffa1c59058d716f081e62c5ebef743ced`.
-Final fixed-budget completion and O3/O1 checkpoint attribution remain open. IR storage
+Final fixed-budget completion and checkpoint profile attribution remain open. IR storage
 and O4–O12 remain outside this selected implementation.

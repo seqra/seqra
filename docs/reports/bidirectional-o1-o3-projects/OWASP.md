@@ -188,6 +188,11 @@ The O1 checkpoint completes OWASP with a strong form cache and the same 4,112 un
 shallow bytes. Strong cache arrays retain an overlapping 6,222,787,016-byte set, and materialized
 source/sink cube roots retain 5,279,227,672 bytes. The census contains 18,460,694 sink descriptors and
 55,543,007 path facts. This identifies compiled cached forms as the dominant O3 memory owner.
-These two captures have different progress points, so they do not measure a paired heap saving.
-The final OWASP resource pass cannot be assigned to O2 alone. Checkpoint owner details and profile
-attribution remain open. IR storage and O4–O12 remain outside the selected implementation.
+These runs reach different progress points, and O1 has no guard heap, so they do not measure a paired heap saving.
+The final OWASP resource pass cannot be assigned to O2 alone. All checkpoint overview and selected
+cube-owner queries are reviewed. One selected 879,776-byte plan contains 2,960 sink alternatives from
+25 physical bound rule objects and 24 raw condition roots. Its alternative-root union is 862,344 bytes;
+the selected raw-condition union is 20,968 bytes. These are different sets and do not measure whole-project
+savings. They show concrete expansion within a cached plan. Checkpoint JFR export remains pending. See
+the [checkpoint report](../bidirectional-o1-o3-checkpoints.md) for the selected rule counts, source checks
+and archive references. IR storage and O4–O12 remain outside the selected implementation.

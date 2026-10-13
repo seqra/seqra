@@ -185,6 +185,35 @@ bidi run 1. Boundary-spanning collections limit exact pause placement. The whole
 20 `System.gc` full collections and one dump-initiated collection. The final 30-second run-1 window overlaps
 the heap dump and has only ten Java CPU samples; it is not a normal-workload comparison.
 
+## Checkpoint memory evidence
+
+Both cumulative checkpoints stop in forward run 1 at limit 1 and have no accepted forward report.
+Each exports an empty SARIF file and lacks all 14 main sink identities. The checkpoint heaps have
+different progress and do not establish a completed propagation regression.
+
+| Measure | O3 | O3+O1 |
+| --- | ---: | ---: |
+| Strong form cache arrays, retained union | 2,746,708,144 B | 4,393,215,672 B |
+| Standing request stores, retained union | 1,359,497,600 B | 659,742,920 B |
+| Event queues, retained union | 647,244,752 B | 172,498,960 B |
+| Compiled NNF source/sink descriptors, retained union | Not present | 2,301,710,424 B |
+| Observed NNF stores, retained union | Not present | 5,317,256 B |
+| Handled events | 67,316,251 | 25,532,581 |
+| Queue entries | 10,491,392 | 2,328,141 |
+
+The unions overlap. The lower request and queue counts in O1 occur at an earlier event count and are
+not isolated savings. O1 retains 2,471,818 compiled predicates, but only 14 live predicate states and
+24 interned proofs. Thus, its large compiled NNF owner is not an observed join-state explosion. The
+inherited source/sink-root query includes NNF-backed sink descriptors; its label does not prove eager
+cube expansion. A bounded singleton-descriptor query is in progress to measure the array and base-index
+cost. The observed-proof counter zeros are unavailable because this checkpoint does not pass the optional
+statistics owner to the engine. The final implementation supplies that owner.
+
+The final run clears the form cache and reaches substantially more events before its OOM. Its remaining
+large core owners are standing requests and queued work. All checkpoint overview queries are reviewed;
+checkpoint JFR export remains pending. See the [checkpoint report](../bidirectional-o1-o3-checkpoints.md)
+for source revisions, timings, archives and query limits.
+
 ## Evidence and remaining gates
 
 The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
@@ -198,11 +227,12 @@ The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
   with allocation/GC rankings, timing checks and a reproducible reader.
 - `heap-analysis/thingsboard-bidi`: fresh MAT command, archived reports and complete census review in
   `overview-review`; strong owner and candidate-key follow-up is separate from the primary scan.
-- `input-audit/post-run-check/combined-endpoint-equality.json`: 41 captured content datasets pass the
-  post-run comparison. Two copied toolchains use a later partial recheck; six dangling link targets are
-  outside the original regular-file scope and remain separately unavailable.
+- `input-audit/post-run-check/result-20261013T042255.731787Z/equality-manifest.json`: the full post-checkpoint
+  recheck passes all 77 strict checks across 41 captured content datasets. Six copied-JDK dangling link
+  targets are outside the original regular-file content scope; their historical targets remain unavailable.
 
 Main SARIF SHA-256 is `06f69df24968b4268f0d99f49a0b1ae4cf9e70ecccd6cc2799e40be1e717ae1e`;
 bidi SARIF SHA-256 is `98057251a76bc213a713dbbab63840472b7e5418e06bc90144cae5995531c501`.
-Fixed-budget completion, complete finding preservation, fresh heap-owner diagnosis and O3/O1 checkpoint
-attribution remain open. IR and O4–O12 remain outside the selected implementation.
+Fixed-budget completion, complete finding preservation, the singleton-descriptor follow-up and checkpoint
+profile attribution remain open. Fresh final and checkpoint heap-owner reviews are complete. IR and O4–O12
+remain outside the selected implementation.

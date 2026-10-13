@@ -231,6 +231,34 @@ Optional form counters are cumulative over rebuilds: 788,915 successful builds, 
 after teardown. These counts do not state what was live during B4, establish retained bytes or assign the
 timeout to the form cache.
 
+## Checkpoint memory evidence
+
+Both cumulative checkpoints stop with OOM in forward run 3 at limit 3. Their accepted F1 reports each
+contain 61 unique identities and 150 internal entries: nine CONFIRMED and 141 DEMAND. Each retains 15
+of the 17 main identities; the two strict XSS exit-location differences remain visible. These checkpoint
+reports differ from the final run, which completes F3 and then times out in B4.
+
+| Retained union | O3 | O3+O1 |
+| --- | ---: | ---: |
+| Strong form cache arrays | 3,149,636,544 B | 1,391,567,056 B |
+| Active method-edge stores | 1,731,576,456 B | 3,091,706,680 B |
+| Callee subscription state | 254,289,016 B | 464,880,072 B |
+| Compiled NNF source/sink descriptors | Not present | 642,532,488 B |
+| Observed NNF stores | Not present | 3,170,256 B |
+
+O3 contains 7,267 active F3 actors; O1 contains 7,270. Both have 90 runners. O1 contains 673 live
+predicate states and 3,710 interned proofs. Its compiled predicate storage is much larger than its
+observed predicate-store union. The snapshots have different event progress. All unions overlap;
+the cache decrease and edge-store increase do not measure isolated optimization savings. Restricted
+request-store and standing-join queries are empty in both heaps; forward conjunction stores remain.
+O1 observed-proof counter zeros are unavailable because the statistics owner is not passed to this
+checkpoint engine. The final implementation supplies that owner.
+
+All checkpoint overview queries are reviewed. The separate command-demand witness review and checkpoint
+JFR export remain open. These OOM heaps explain the checkpoint failures; they do not establish final B4
+retained ownership. See the [checkpoint report](../bidirectional-o1-o3-checkpoints.md) for revisions,
+timings, archives, report-state joins and query limits.
+
 ## Evidence and remaining gates
 
 The evidence root is `/drive-testcomp/opentaint-go-rules/bidi-o1-o3-20261012`:
