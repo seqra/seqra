@@ -99,7 +99,7 @@ entries alone retain 6,400,972,072 bytes. The complete census has 18,460,694 sin
 55,543,007 path facts and 52,406,657 patterns. In comparison, active method-edge stores retain
 11,477,600 bytes and event queues retain 682,312 bytes. All 6,345 actors are active F1 actors in
 nine open runners. This snapshot identifies compiled cached forms as the dominant owner at O3;
-fresh child/strong-path queries must still identify the largest methods and condition expansions.
+the bounded owner queries below identify a largest method cache and a concrete condition expansion.
 It is not a before/after heap saving because the O1 and final runs reach different progress points.
 
 The later bounded queries identify the largest cached context as
@@ -136,6 +136,15 @@ capture, compared with 189,716,227 in the final primary heap. These are differen
 neither the smaller request set nor the larger cache measures a paired saving. Both snapshots show
 substantial request traffic. The final run clears its form cache and still exhausts the fixed heap,
 with the owners recorded in the [ThingsBoard report](bidirectional-o1-o3-projects/thingsboard.md).
+
+The O3 PDF overview accounts for all 28 queries: 26 nonempty CSV outputs and two verified empty
+standing-request outputs. Its reachable heap has 243,922,028 objects and 7,684,057,280 shallow bytes.
+All 7,267 actors are current F3/limit-3 actors in 90 open runners. Strong cache arrays retain
+3,149,636,544 bytes and method-edge stores retain 1,731,576,456 bytes; these sets overlap. No request
+store or standing-request join is present, consistent with restricted forward run 3. Forward
+conjunction state remains. IR storage retains 1,091,063,632 bytes and remains outside scope. The
+separate report/witness queries must establish the retained command finding's F1 state before this
+checkpoint can explain the final finding difference.
 
 Continuous JFR files exist for all eight runs. Seven normal profiler captures have saved collapsed
 stacks and successful capture logs. O3 OWASP cannot attach, returns 1 and has no collapsed output;
